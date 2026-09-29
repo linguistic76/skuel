@@ -125,8 +125,9 @@ facade.ai = TasksAIService(
 
 ### Where the SDK clients live (ADR-063)
 
-`core/` holds no vendor SDK client. `LLMService(config, caller)` takes a multi-provider caller;
-`EmbeddingsService(backend, embedding_client)` takes an embedding client. The `openai` /
+`core/` holds no vendor SDK client. `LLMService(config=None, caller=None)` takes a
+multi-provider caller; `EmbeddingsService(backend, embedding_client, prometheus_metrics=None)`
+takes an embedding client. The `openai` /
 `anthropic` clients are constructed in `adapters/external/llm/` and
 `adapters/external/embeddings/`, and the composition root injects them.
 `tests/unit/test_llm_sdk_boundary.py` fails on a vendor import in `core/`.

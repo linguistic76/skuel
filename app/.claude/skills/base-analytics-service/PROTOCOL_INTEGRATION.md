@@ -97,9 +97,12 @@ without a relationship service the inline check does.
 | `relationship_patterns` | `dict[str, int]` — relationship type to count |
 | `total_nodes`, `total_relationships`, `max_depth_reached` | `int` |
 | `domains_involved` | `list[Domain]` |
+| `query_timestamp` | `datetime` |
+| `neo4j_query_time_ms`, `processing_time_ms` | `float \| None` |
 
-Methods include `get_nodes_by_domain(domain)`, `get_relationships_by_type(rel_type)`,
-`get_published_knowledge_nodes()` and `get_summary()`.
+Methods: `get_nodes_by_domain(domain)`, `get_published_knowledge_nodes()`,
+`get_relationships_by_type(rel_type)`, `get_strongest_relationships(limit=10)`,
+`get_connected_domains()`, `has_cross_domain_connections()` and `get_summary()`.
 
 `get_published_knowledge_nodes()` decides kind by the stored `entity_type` and withholds a node
 whose `publication_state` is `draft`. Because the traversal is not owner-scoped, that filter is

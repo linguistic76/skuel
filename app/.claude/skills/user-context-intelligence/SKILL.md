@@ -69,7 +69,7 @@ by `ku_uid`. It shares its name with the curriculum entity
 | Method | Production caller |
 |--------|-------------------|
 | 5 | `GET /api/context/next-action` → `UserContextService.get_next_action` → `UserService.get_daily_work_plan` → `factory.create(context).get_ready_to_work_on_today()` |
-| 1–4, 6–8 | `AskesisService` wraps each one (the `AskesisOperations` protocol, `core/ports/askesis_protocols.py`). No route calls those wrappers — the Askesis API serves `POST /api/askesis/ask` only. |
+| 1–4, 6–8 | `AskesisService` wraps each one (the `AskesisOperations` protocol, `core/ports/askesis_protocols.py`). No route calls those wrappers — the Askesis API registers one route, `/api/askesis/ask`. |
 | 9 | None. Registered in `PLANNED_METHODS` (`scripts/detect_bloat.py`) as built and waiting on a perception-insights panel. |
 
 So the daily plan is the one method a request reaches today. Treat the others as a tested
@@ -148,8 +148,10 @@ The ZPD capstone runs last: when the builder has a `zpd_service` (FULL tier),
 `context.zpd_assessment` is set from `assess_zone(user_uid, context=context)`. It stays `None`
 at CORE tier and when the assessment read fails.
 
-No Cypher lives in `core/` (SKUEL021): the builder takes a `UserContextQueryOperations`
-executor, built at the composition root.
+No Cypher lives in `core/` (SKUEL021): `UserContextBuilder(query_executor, user_service=None)`
+takes a `UserContextQueryOperations` executor built at the composition root. `build()` and
+`build_rich()` resolve the user through `user_service` and fail without it;
+`zpd_service` and `ps_engagement_service` are attributes set after construction.
 
 ---
 

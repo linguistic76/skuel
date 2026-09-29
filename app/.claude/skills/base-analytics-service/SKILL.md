@@ -57,7 +57,13 @@ the Activity services name their `*Operations` protocol; KU and PS use
 | Service | What it is |
 |---------|------------|
 | `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) | One shared instance, `BaseAnalyticsService[BackendOperations[Entity], Entity]`, wired into all six Activity facades as `knowledge_intelligence`. Satisfies `KnowledgeIntelligenceOperations`. |
-| `KnowledgeHealthService` (`core/services/analytics/knowledge_health_service.py`) | Corpus-level gauge over the knowledge subgraph (ADR-080). Takes no `user_uid`, and only a backend. Exposed through the `AnalyticsService` facade as `analyze_knowledge_subgraph_health()`. |
+| `KnowledgeHealthService` (`core/services/analytics/knowledge_health_service.py`) | Corpus-level gauge over the knowledge subgraph (ADR-080). Its one method takes no `user_uid`. The constructor takes the structural `backend` (required) and `coverage`, an optional `EmbeddingCoverageOperations` probe; it passes no `graph_intel` or relationship service to the base. Exposed through the `AnalyticsService` facade as `analyze_knowledge_subgraph_health()`. |
+
+`analyze_knowledge_subgraph_health()` reads the structural measurement and, when `coverage` is
+wired, the embedding-coverage counts. A failure of either read fails the report. Without
+`coverage` the report has no `embedding_coverage` block and no retrievability flag —
+`AnalyticsService` wires both, so construct the service with both. The probe counts nodes whose
+`embedding` is null; it is a graph read, not an embedding client.
 
 Two rules `KnowledgeHealthService` illustrates: a corpus gauge **excludes user-generated data**
 (learner-state edges; PERSONAL, ASSIGNED and ASSESSMENT exercises), and it **matches knowledge

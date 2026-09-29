@@ -303,8 +303,8 @@ class ContextualExercise:
     est_time_minutes: int = 60
 ```
 
-Properties: `is_urgent` (due within 3 days), `is_blocked` (any `blocking_kus`), `is_ready`
-(`readiness_score >= 0.7`).
+Properties: `entity_type` (`"exercise"`), `is_urgent` (due within 3 days), `is_blocked` (any
+`blocking_kus`), `is_ready` (`readiness_score >= 0.7`).
 
 ---
 
