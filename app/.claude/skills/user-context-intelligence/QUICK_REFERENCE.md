@@ -1,69 +1,61 @@
 # UserContextIntelligence Quick Reference
 
-## File Locations
-
-### Package Structure
+## Files
 
 ```
 core/services/user/intelligence/
-├── __init__.py                    # Package exports
-├── core.py                        # UserContextIntelligence class
-├── factory.py                     # UserContextIntelligenceFactory
-├── daily_planning.py              # DailyPlanningMixin
-├── learning_intelligence.py       # LearningIntelligenceMixin
-├── life_path_intelligence.py      # LifePathIntelligenceMixin
-├── synergy_intelligence.py        # SynergyIntelligenceMixin
-├── schedule_intelligence.py       # ScheduleIntelligenceMixin
-└── temporal_momentum.py           # TemporalMomentumMixin
+├── __init__.py                 # package exports
+├── _base.py                    # IntelligenceMixinBase — shared attribute annotations
+├── core.py                     # UserContextIntelligence
+├── factory.py                  # UserContextIntelligenceFactory
+├── daily_planning.py           # DailyPlanningMixin (method 5)
+├── learning_intelligence.py    # LearningIntelligenceMixin (methods 1-4)
+├── life_path_intelligence.py   # LifePathIntelligenceMixin (method 7)
+├── synergy_intelligence.py     # SynergyIntelligenceMixin (method 6)
+├── schedule_intelligence.py    # ScheduleIntelligenceMixin (method 8)
+├── perception_intelligence.py  # PerceptionIntelligenceMixin (method 9)
+└── temporal_momentum.py        # TemporalMomentumMixin
 
-core/models/context_types.py       # Return types (PathStep, DailyWorkPlan, etc.)
+core/models/context_types.py                 # return types + Contextual* items
+core/services/user/unified_user_context.py   # UserContext, RichUserContext, is_rich
+core/services/user/user_context_builder.py   # build() / build_rich()
+core/services/user/rich_context.py           # entities_rich lookup helpers
+adapters/persistence/neo4j/user_context_queries.py  # RICH_CONTEXT_STATEMENTS + the executor
+services_bootstrap/_intelligence_hub.py      # factory wiring
 ```
 
-### Documentation
-
-| File | Purpose |
-|------|---------|
-| `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md` | Full documentation |
-| `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | Master index |
-| `/docs/decisions/ADR-021-user-context-intelligence-modularization.md` | Architecture ADR |
-| `/docs/decisions/ADR-029-graphnative-service-removal.md` | GraphNative removal |
-
----
-
 ## Imports
-
-### Primary Imports
 
 ```python
 from core.services.user.intelligence import (
     UserContextIntelligence,
     UserContextIntelligenceFactory,
 )
-```
 
-### Return Types
-
-```python
-# Via package (re-exported from core.models.context_types)
-from core.services.user.intelligence import (
-    LifePathAlignment,
-    CrossDomainSynergy,
-    PathStep,
-    DailyWorkPlan,
-    ScheduleAwareRecommendation,
-)
-
-# Or import directly from their canonical location
+# Return types — re-exported by the package, defined in core.models.context_types
 from core.models.context_types import (
-    LifePathAlignment,
     CrossDomainSynergy,
-    PathStep,
     DailyWorkPlan,
+    LifePathAlignment,
+    PathStep,
     ScheduleAwareRecommendation,
 )
+
+# Enriched items inside a DailyWorkPlan
+from core.models.context_types import (
+    ContextualExercise,
+    ContextualGoal,
+    ContextualHabit,
+    ContextualKnowledge,
+    ContextualTask,
+    EngagedPsGroup,
+)
+
+from core.services.user.unified_user_context import RichUserContext, UserContext, is_rich
 ```
 
-### Mixins (for testing/extension)
+The package exports six of the seven mixins. `PerceptionIntelligenceMixin` is imported from its
+module:
 
 ```python
 from core.services.user.intelligence import (
@@ -74,68 +66,36 @@ from core.services.user.intelligence import (
     SynergyIntelligenceMixin,
     TemporalMomentumMixin,
 )
-```
-
-### Supporting Types
-
-```python
-from core.services.user.unified_user_context import UserContext
-from core.models.context_types import (
-    ContextualTask,
-    ContextualHabit,
-    ContextualGoal,
-    ContextualKnowledge,
-)
+from core.services.user.intelligence.perception_intelligence import PerceptionIntelligenceMixin
 ```
 
 ---
 
-## The 11 Required Services
+## Required Services
 
-| # | Domain | Service Type | Attribute |
-|---|--------|--------------|-----------|
-| **Activity (6)** |
-| 1 | Tasks | `TasksService` (facade) | `self.tasks` |
-| 2 | Goals | `GoalsService` (facade) | `self.goals` |
-| 3 | Habits | `HabitsService` (facade) | `self.habits` |
-| 4 | Events | `EventsService` (facade) | `self.events` |
-| 5 | Choices | `ChoicesService` (facade) | `self.choices` |
-| 6 | Principles | `PrinciplesService` (facade) | `self.principles` |
-| **Curriculum (3)** |
-| 7 | PS | `PsService` (facade) | `self.ps` |
-| 8 | LP | `UnifiedRelationshipService` | `self.lp` |
-| 9 | Exercises | `ExerciseService` (facade) | `self.exercises` |
-| **Processing (1)** |
-| 10 | Report | `ReportRelationshipService` | `self.report` |
-| **Temporal (1)** |
-| 11 | Calendar | `CalendarService` | `self.calendar` |
+| # | Parameter | Wired value | Read by a mixin |
+|---|-----------|-------------|-----------------|
+| 1 | `tasks` | `TasksService` | yes |
+| 2 | `goals` | `GoalsService` | yes |
+| 3 | `habits` | `HabitsService` | yes |
+| 4 | `events` | `EventsService` | yes |
+| 5 | `choices` | `ChoicesService` | yes |
+| 6 | `principles` | `PrinciplesService` | yes |
+| 7 | `ps` | `PsService` | yes |
+| 8 | `lp` | `LpService.relationships` | no |
+| 9 | `exercises` | `ExerciseService` | yes |
+| 10 | `report` | `ReportRelationshipService` | no |
+| 11 | `calendar` | `CalendarService` | no |
 
-### Optional: FilteredContextProvider Dict
-
-`self.filtered_providers: dict[str, FilteredContextProvider]` — maps domain names to facades for on-demand per-domain queries. 10 domains: tasks, goals, habits, events, choices, principles, ku, path_steps, learning_paths, exercises.
-
-```python
-# On-demand domain query (vs. UserContext broad snapshot)
-result = await self.filtered_providers["tasks"].get_filtered_context(user_uid, status_filter="active")
-# Returns Result[ListContext] with entities, stats (pre-filter aggregates), metadata
-```
-
-**Consumed by:** `DailyPlanningMixin._generate_domain_health_warnings()` — queries all 6 Activity domain stats to surface warnings:
-- **Single-domain:** >30 active tasks, no active goals, no habits tracked, 5+ events today, 5+ pending choices, no core principles
-- **Cross-domain:** many goals but no habits (missing consistency anchors), many tasks but no goals (lacks strategic direction)
-
-All stats dicts include guaranteed `total` + `active` keys (`BaseStats` contract in `core/ports/query_types.py`).
-
-**See:** `core/ports/filtered_context_protocols.py`, `core/services/filtered_context.py`
+Optional: `vector_search_service`, `zpd_service`, `filtered_providers` — see
+[FACTORY_PATTERN.md](FACTORY_PATTERN.md).
 
 ---
 
-## The 8 Core Methods
-
-### Method Signatures
+## Method Signatures
 
 ```python
-# Method 1: Learning - What to learn next
+# 1
 async def get_optimal_next_path_steps(
     self,
     max_steps: int = 5,
@@ -143,302 +103,338 @@ async def get_optimal_next_path_steps(
     consider_capacity: bool = True,
 ) -> Result[list[PathStep]]: ...
 
-# Method 2: Learning - Critical path to life path
+# 2
 async def get_learning_path_critical_path(self) -> Result[list[str]]: ...
 
-# Method 3: Learning - Application opportunities
+# 3
 async def get_knowledge_application_opportunities(
     self, ku_uid: str
 ) -> Result[dict[str, list[str]]]: ...
 
-# Method 4: Learning - Unblocking priority
-async def get_unblocking_priority_order(
-    self
-) -> Result[list[tuple[str, int]]]: ...
+# 4
+async def get_unblocking_priority_order(self) -> Result[list[tuple[str, int]]]: ...
 
-# Method 5: Daily - THE FLAGSHIP
+# 5 — the flagship
 async def get_ready_to_work_on_today(
     self,
     prioritize_life_path: bool = True,
     respect_capacity: bool = True,
 ) -> Result[DailyWorkPlan]: ...
 
-# Method 6: Synergy - Cross-domain synergies
+# 6
 async def get_cross_domain_synergies(
-    self
+    self,
+    min_synergy_score: float = 0.3,
+    include_types: list[str] | None = None,
 ) -> Result[list[CrossDomainSynergy]]: ...
 
-# Method 7: Life Path - Alignment scoring
-async def calculate_life_path_alignment(
-    self
-) -> Result[LifePathAlignment]: ...
+# 7
+async def calculate_life_path_alignment(self) -> Result[LifePathAlignment]: ...
 
-# Method 8: Schedule - Schedule-aware recommendations
+# 8 — returns a bare list
 async def get_schedule_aware_recommendations(
-    self, time_slot: str = "now"
-) -> Result[list[ScheduleAwareRecommendation]]: ...
+    self,
+    max_recommendations: int = 5,
+    time_horizon_hours: int = 8,
+    respect_energy: bool = True,
+) -> list[ScheduleAwareRecommendation]: ...
+
+# 9
+async def get_cross_domain_perception_analysis(
+    self,
+) -> Result[dict[str, Any]]: ...  # boundary: heterogeneous rollup map
+
+# TemporalMomentumMixin — synchronous
+def compute_momentum_signals(self) -> dict[str, Any]: ...  # boundary: heterogeneous signal map
 ```
+
+`prioritize_life_path` changes one clause of the plan's `rationale`; it does not change which
+items are selected.
 
 ---
 
-## The 5 Return Types
+## Return Types
 
-### PathStep
-
-```python
-@dataclass
-class PathStep:
-    ku_uid: str
-    title: str
-    rationale: str
-    prerequisites_met: bool
-    aligns_with_goals: list[str]
-    unlocks_count: int
-    estimated_time_minutes: int
-    priority_score: float  # 0.0-1.0
-    application_opportunities: dict[str, list[str]]
-```
+All are `@dataclass(frozen=True)`; build a changed copy with `dataclasses.replace`. Sequence
+fields are tuples; `PathStep.application_opportunities` is the one mapping field.
 
 ### DailyWorkPlan
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class DailyWorkPlan:
-    # UIDs by domain
-    learning: list[str]
-    tasks: list[str]
-    habits: list[str]
-    events: list[str]
-    goals: list[str]
-    choices: list[str]
-    principles: list[str]
+    # UIDs per domain
+    learning: tuple[str, ...] = ()
+    tasks: tuple[str, ...] = ()
+    habits: tuple[str, ...] = ()
+    events: tuple[str, ...] = ()
+    goals: tuple[str, ...] = ()
+    choices: tuple[str, ...] = ()
+    principles: tuple[str, ...] = ()
+    exercises: tuple[str, ...] = ()
 
-    # Contextual items
-    contextual_tasks: list[ContextualTask]
-    contextual_habits: list[ContextualHabit]
-    contextual_goals: list[ContextualGoal]
-    contextual_knowledge: list[ContextualKnowledge]
+    # Enriched items
+    contextual_tasks: tuple[ContextualTask, ...] = ()
+    contextual_habits: tuple[ContextualHabit, ...] = ()
+    contextual_goals: tuple[ContextualGoal, ...] = ()
+    contextual_knowledge: tuple[ContextualKnowledge, ...] = ()
+    contextual_exercises: tuple[ContextualExercise, ...] = ()
 
-    # Metadata
+    # PS-engagement buckets (ADR-059)
+    engaged_ps_groups: tuple[EngagedPsGroup, ...] = ()
+    available_to_start: tuple[str, ...] = ()
+
+    # Capacity
     estimated_time_minutes: int = 0
     fits_capacity: bool = True
     workload_utilization: float = 0.0
+
+    # Metadata
     rationale: str = ""
-    priorities: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
+    priorities: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+```
+
+`habits` holds both the at-risk habits (slot 1) and the daily habits (slot 4);
+`contextual_habits` holds only the at-risk ones. `exercises` holds revisions and assignments —
+tell them apart by `ContextualExercise.subtype` (`"revision"` / `"assignment"`).
+
+### PathStep
+
+```python
+@dataclass(frozen=True)
+class PathStep:
+    ku_uid: str
+    title: str
+    rationale: str = ""
+    prerequisites_met: bool = False
+    aligns_with_goals: tuple[str, ...] = ()
+    unlocks_count: int = 0
+    estimated_time_minutes: int = 60
+    priority_score: float = 0.0
+    application_opportunities: dict[str, tuple[str, ...]] = field(default_factory=dict)
 ```
 
 ### LifePathAlignment
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class LifePathAlignment:
-    overall_score: float           # 0.0-1.0
-    alignment_level: str           # drifting|exploring|aligned|flourishing
+    overall_score: float
+    alignment_level: str  # undefined | drifting | exploring | aligned | flourishing
 
-    # Dimension scores
     knowledge_score: float
     activity_score: float
     goal_score: float
     principle_score: float
     momentum_score: float
 
-    # Insights
-    strengths: list[str]
-    gaps: list[str]
-    recommendations: list[str]
+    strengths: tuple[str, ...] = ()
+    gaps: tuple[str, ...] = ()
+    recommendations: tuple[str, ...] = ()
 
-    # Supporting data
-    life_path_uid: str | None
-    life_path_milestones_completed: int
-    life_path_milestones_total: int
-    aligned_goals: list[str]
-    supporting_habits: list[str]
-    knowledge_gaps: list[str]
+    life_path_uid: str | None = None
+    life_path_milestones_completed: int = 0
+    life_path_milestones_total: int = 0
+    aligned_goals: tuple[str, ...] = ()
+    supporting_habits: tuple[str, ...] = ()
+    knowledge_gaps: tuple[str, ...] = ()
 ```
 
 ### CrossDomainSynergy
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class CrossDomainSynergy:
     source_uid: str
-    source_domain: str
-    target_uids: list[str]
-    target_domain: str
-    synergy_type: str     # supports|enables|builds|informs
-    synergy_score: float  # 0.0-1.0
-    rationale: str
-    recommendations: list[str]
+    source_domain: str  # habit | knowledge | principle | pathstep
+    target_uids: tuple[str, ...] = ()
+    target_domain: str = ""  # goal | task | multi
+    synergy_type: str = ""  # supports | builds | enables | informs | spawns
+    synergy_score: float = 0.0
+    rationale: str = ""
+    recommendations: tuple[str, ...] = ()
 ```
 
 ### ScheduleAwareRecommendation
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class ScheduleAwareRecommendation:
     uid: str
-    entity_type: str       # task|habit|goal|knowledge|event
-    recommendation_type: str  # learn|task|habit|goal|rest|reschedule
+    entity_type: str
+    recommendation_type: str  # learn | task | habit | goal | rest | reschedule
     title: str
     rationale: str
 
-    # Schedule context
-    suggested_time_slot: str  # morning|afternoon|evening|now|later
+    suggested_time_slot: str = ""
     estimated_duration_minutes: int = 30
     fits_available_time: bool = True
-    conflicts_with: list[str] = field(default_factory=list)
+    conflicts_with: tuple[str, ...] = ()
 
-    # Scoring
     schedule_fit_score: float = 0.0
     energy_match_score: float = 0.0
     priority_score: float = 0.0
     overall_score: float = 0.0
 
-    # Context
     deadline: str | None = None
     streak_at_risk: bool = False
     blocks_other_work: bool = False
     life_path_aligned: bool = False
 
-    # Guidance
-    preparation_needed: list[str] = field(default_factory=list)
-    alternatives: list[str] = field(default_factory=list)
+    preparation_needed: tuple[str, ...] = ()
+    alternatives: tuple[str, ...] = ()
 ```
+
+The `rest` recommendation has `uid="rest"` and `entity_type="meta"`.
+
+### ContextualExercise
+
+```python
+@dataclass(frozen=True)
+class ContextualExercise:
+    uid: str
+    title: str
+    due_date: date | None = None
+    is_overdue: bool = False
+    days_until_due: int | None = None
+    subtype: str = "assignment"  # assignment | revision
+    blocking_kus: tuple[str, ...] = ()
+    readiness_score: float = 1.0
+    est_time_minutes: int = 60
+```
+
+Properties: `entity_type` (`"exercise"`), `is_urgent` (due within 3 days), `is_blocked` (any
+`blocking_kus`), `is_ready` (`readiness_score >= 0.7`).
 
 ---
 
-## Factory Pattern
+## Building a Context
 
-### Factory Signature
+| Call | Returns |
+|------|---------|
+| `await user_service.get_rich_unified_context(user_uid, min_confidence=0.7)` | `Result[RichUserContext]` — cache, else build |
+| `user_service.peek_cached_context(user_uid)` | `RichUserContext \| None` — never builds |
+| `await context_builder.build_rich(user_uid, min_confidence=0.7, window="30d")` | `Result[RichUserContext]` |
+| `await context_builder.build(user_uid)` | `Result[UserContext]` — standard |
+| `await user_service.get_user_context(user_uid)` | `Result[UserContext]` — standard |
 
-```python
-class UserContextIntelligenceFactory:
-    def __init__(
-        self,
-        # Activity (6) — concrete facade services (NOT .relationships)
-        tasks: TasksService,
-        goals: GoalsService,
-        habits: HabitsService,
-        events: EventsService,
-        choices: ChoicesService,
-        principles: PrinciplesService,
-        # Curriculum (3)
-        ku: KuGraphService,
-        ls: UnifiedRelationshipService,
-        lp: UnifiedRelationshipService,
-        # Processing (1)
-        report: ReportRelationshipService,
-        # Temporal Domain (1)
-        calendar: CalendarService,
-        # Optional: semantic search enhancements
-        vector_search_service: Any = None,
-        # Optional: ZPD-aware path step ranking (FULL tier only)
-        zpd_service: ZPDOperations | None = None,
-    ) -> None: ...
+`min_confidence` outside `0.0–1.0` and an unknown `window` token are validation failures.
 
-    def create(
-        self, context: UserContext
-    ) -> UserContextIntelligence: ...
-```
-
-### Usage Pattern
+In a test, construct one directly:
 
 ```python
-# At bootstrap — pass facade services directly (not .relationships)
-factory = UserContextIntelligenceFactory(
-    tasks=tasks_service,
-    # ... 11 more services
+context = RichUserContext(
+    user_uid="user_alice",
+    available_minutes_daily=120,
+    active_task_uids=["task_abc"],
+    entities_rich={
+        "tasks": [{"entity": {"uid": "task_abc", "title": "Fix bug"}, "graph_context": {}}]
+    },
 )
-services.context_intelligence = factory
-
-# At runtime
-context = await user_service.get_user_context(user_uid)
-intelligence = factory.create(context)
-plan = await intelligence.get_ready_to_work_on_today()
 ```
+
+`UserContext` is a mutable `@dataclass`, treated as read-only by convention: a change that must
+outlive the context goes through the domain service.
 
 ---
 
-## Key UserContext Fields
+## UserContext Fields the Mixins Read
 
-| Field | Type | Purpose |
+Every `UserContext` field a mixin reads, taken from the mixin sources. A stub context for a
+test needs the fields listed against the mixin it exercises.
+
+| Field | Type | Read by |
 |-------|------|---------|
-| `user_uid` | `str` | User identifier |
-| `user_role` | `UserRole` | User role (REGISTERED/MEMBER/TEACHER/ADMIN) — use `user_role.can_manage_users()` etc. |
-| `display_name` | `str` | Display name (populated from User during build) |
-| `available_minutes_daily` | `int` | Daily capacity |
-| `current_energy_level` | `float` | Energy 0.0-1.0 |
-| `current_workload_score` | `float` | Workload 0.0-1.0 |
-| `life_path_uid` | `str \| None` | Life path alignment |
-| `primary_goal_focus` | `str \| None` | Current goal focus |
-| `daily_habits` | `list[str]` | Daily habit UIDs |
-| `active_habit_uids` | `list[str]` | All active habits |
-| `upcoming_event_uids` | `list[str]` | Upcoming events |
-| `learning_goals` | `list[str]` | Learning goal UIDs |
-| `prerequisites_completed` | `set[str]` | Completed prereqs |
-| `prerequisites_needed` | `dict[str, list[str]]` | Prereq mapping |
-| `mastered_knowledge_uids` | `set[str]` | Mastered KUs |
-| `estimated_time_to_mastery` | `dict[str, int]` | Time estimates |
-| `knowledge_mastery` | `dict[str, float]` | Mastery levels |
-| `next_recommended_knowledge` | `list[str]` | Recommendations |
-| `habits_by_goal` | `dict[str, list[str]]` | Goal→Habits |
-| `events_by_habit` | `dict[str, list[str]]` | Habit→Events |
-| `latest_activity_report_uid` | `str \| None` | Most recent ActivityReport UID (rich only) |
-| `latest_activity_report_period` | `str \| None` | Report window e.g. `"7d"` (rich only) |
-| `total_submission_count` | `int` | Cumulative student submissions |
-| `submissions_in_window` | `int` | Submissions within activity window |
-| `last_submission_date` | `datetime \| None` | Most recent submission timestamp |
-| `feedback_received_count` | `int` | Total feedback responses received |
-| `feedback_in_window` | `int` | Feedback within activity window |
-| `pending_feedback_count` | `int` | Submissions awaiting feedback |
-| `assigned_exercise_count` | `int` | Exercises assigned via Group |
-| `completed_exercise_count` | `int` | Assigned exercises completed |
-| `unsubmitted_exercises` | `list[dict]` | Up to 5 pending exercises ({uid, title, due_date}) |
-| `pending_revised_exercises` | `list[dict]` | Up to 5 pending revisions ({uid, title, instructions, revision_number, ...}) |
-| `zpd_assessment` | `ZPDAssessment \| None` | ZPD capstone — zone evidence, recommended actions, life path alignment (FULL tier, rich context only) |
+| `active_goal_uids` | `list[str]` | life path, synergy |
+| `active_habit_uids` | `list[str]` | learning, life path, synergy |
+| `active_path_steps_rich` | `list[RichPathStepItem]` | daily plan |
+| `active_ps_engagements` | `dict[str, Engagement]` or `None` | daily plan, synergy |
+| `active_task_uids` | `list[str]` | life path, synergy |
+| `available_minutes_daily` | `int` | daily plan, learning, schedule |
+| `completed_goal_uids` | `set[str]` | synergy |
+| `completed_task_uids` | `set[str]` | synergy |
+| `core_principle_uids` | `list[str]` | life path, synergy |
+| `current_energy_level` | `EnergyLevel` or `None` | schedule |
+| `current_learning_focus` | `str` or `None` | learning |
+| `current_workload_score` | `float` | life path, schedule |
+| `daily_habits` | `list[str]` | daily plan, schedule |
+| `decisions_against_principles` | `int` | life path |
+| `decisions_aligned_with_principles` | `int` | life path |
+| `dual_track_checkins` | `dict[str, list[dict[str, Any]]]` | perception |
+| `entities_rich` | `dict[str, list[RichEntityItem]]` | momentum |
+| `estimated_time_to_mastery` | `dict[str, int]` | daily plan, learning |
+| `events_by_habit` | `dict[str, list[str]]` | learning |
+| `goal_progress` | `dict[str, float]` | life path, schedule |
+| `habit_streaks` | `dict[str, int]` | life path, synergy, schedule |
+| `knowledge_checkins` | `dict[str, list[dict[str, Any]]]` | perception |
+| `knowledge_mastery` | `dict[str, float]` | learning, life path, synergy |
+| `latest_activity_report_period` | `str` or `None` | daily plan |
+| `latest_activity_report_uid` | `str` or `None` | daily plan |
+| `learning_goals` | `list[str]` | daily plan, learning, life path, synergy, schedule |
+| `life_path_alignment_score` | `float` | life path |
+| `life_path_milestones` | `list[str]` | life path, schedule |
+| `life_path_uid` | `str` or `None` | daily plan, learning, life path |
+| `mastered_knowledge_uids` | `set[str]` | learning, life path, synergy |
+| `next_recommended_knowledge` | `list[str]` | learning |
+| `overdue_task_uids` | `list[str]` | schedule |
+| `pending_choice_uids` | `list[str]` | synergy |
+| `pending_revised_exercises` | `list[PendingRevisedExerciseItem]` | daily plan |
+| `preferred_time` | `TimeOfDay` | schedule |
+| `prerequisites_completed` | `set[str]` | learning |
+| `prerequisites_needed` | `dict[str, list[str]]` | learning, life path, synergy |
+| `primary_goal_focus` | `str` or `None` | daily plan, schedule |
+| `principle_alignment_by_domain` | `dict[Domain, float]` | life path |
+| `principle_priorities` | `dict[str, float]` | synergy |
+| `recently_mastered_uids` | `set[str]` | life path |
+| `resolved_choice_uids` | `set[str]` | synergy |
+| `spawned_uid_to_ps_uid` | `dict[str, str]` | life path |
+| `task_priorities` | `dict[str, float]` | schedule |
+| `today_event_uids` | `list[str]` | schedule |
+| `today_task_uids` | `list[str]` | schedule |
+| `upcoming_event_uids` | `list[str]` | learning |
+| `user_uid` | `UserUID` | daily plan, learning, perception |
+| `zpd_assessment` | `ZPDAssessment` or `None` | daily plan |
 
----
+Read through a service, for the daily plan: `unsubmitted_exercises` and
+`pending_revised_exercises` (`ExerciseService`). The daily plan also reads the length of
+`pending_revised_exercises` directly.
 
-## Common Usage Patterns
+`entities_rich` keys: the six Activity domains, `learning_paths`, `path_steps`, and `ku`. Every
+item is `{"entity": {...}, "graph_context": {...}}` (`RichEntityItem`,
+`core/ports/query_types.py`).
 
-### Pattern 1: Daily Planning Route
+### Rich-only fields and their accessors
 
-```python
-@rt("/api/daily-plan")
-@boundary_handler()
-async def get_daily_plan(request):
-    user_uid = require_authenticated_user(request)
-    context = await services.user.get_user_context(user_uid)
-    intelligence = services.context_intelligence.create(context)
-    return await intelligence.get_ready_to_work_on_today()
-```
+| Field | Strict accessor | Graceful accessor |
+|-------|-----------------|-------------------|
+| `tasks_by_goal` | `get_tasks_by_goal()` | `tasks_by_goal_or_empty()` |
+| `habits_by_goal` | `get_habits_by_goal()` | `habits_by_goal_or_empty()` |
+| `at_risk_habits` | `get_habits_needing_reinforcement()` | `at_risk_habits_or_empty()` |
+| `blocked_task_uids` | `get_blocked_tasks()` | `blocked_task_uids_or_empty()` |
+| `principle_guided_choice_counts` | `get_principle_guided_choice_counts()` | `principle_guided_choice_counts_or_empty()` |
+| `recent_principle_aligned_choices` | `get_recent_principle_aligned_choices()` | `recent_principle_aligned_choices_or_empty()` |
+| `principle_integration_score` | `get_principle_integration_score()` | — |
 
-### Pattern 2: Learning Recommendations
+`get_tasks_for_goal(goal_uid)` and `get_habits_for_goal(goal_uid)` are per-goal lookups over the
+first two.
 
-```python
-async def get_learning_recommendations(user_uid: UserUID) -> list[PathStep]:
-    context = await user_service.get_user_context(user_uid)
-    intelligence = factory.create(context)
+### Context methods the mixins call
 
-    result = await intelligence.get_optimal_next_path_steps(max_steps=5)
-    return result.value if result.is_ok else []
-```
+| Method | Called by | Strict |
+|--------|-----------|--------|
+| `get_blocked_tasks()` | schedule | yes |
+| `get_habits_by_goal()` | synergy | yes |
+| `get_habits_for_goal()` | learning, life path | yes |
+| `get_habits_needing_reinforcement()` | life path, synergy, schedule | yes |
+| `get_life_path_gaps()` | life path | no |
+| `get_principle_integration_score()` | life path | yes |
+| `get_ready_to_learn()` | learning, schedule | no |
+| `get_tasks_for_goal()` | life path, synergy | yes |
 
-### Pattern 3: Life Path Dashboard
+A strict method raises `RichContextRequiredError` on a standard context.
 
-```python
-async def get_life_path_dashboard(user_uid: UserUID) -> dict:
-    context = await user_service.get_user_context(user_uid)
-    intelligence = factory.create(context)
-
-    alignment = await intelligence.calculate_life_path_alignment()
-    synergies = await intelligence.get_cross_domain_synergies()
-    critical_path = await intelligence.get_learning_path_critical_path()
-
-    return {
-        "alignment": alignment.value if alignment.is_ok else None,
-        "synergies": synergies.value if synergies.is_ok else [],
-        "critical_path": critical_path.value if critical_path.is_ok else [],
-    }
-```
+| Method | Returns |
+|--------|---------|
+| `get_ready_to_learn()` | the UIDs in `next_recommended_knowledge` whose prerequisites are all in `prerequisites_completed` |
+| `get_life_path_gaps()` | every UID in `knowledge_mastery` below 0.5, or `[]` without a life path. It does not filter to the life path's own knowledge. |

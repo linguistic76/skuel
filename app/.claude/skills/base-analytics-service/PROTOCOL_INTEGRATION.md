@@ -1,24 +1,19 @@
-# Intelligence Protocols & Cross-Domain Context (Mechanism B)
+# Intelligence Protocols and the Route Factory
 
-## Overview
+Two protocols touch the intelligence services, and they sit on opposite sides of the hexagonal
+boundary.
 
-All 9 domain intelligence services retrieve unified context via **mechanism B** — the inherited `get_with_context()` on `_CoreIntelligenceMixin[T]`, which routes through `self.relationships.get_with_context` (registry-sourced edges) — and implement protocols enabling automatic route generation via `IntelligenceRouteFactory`. There is nothing to wire: `BaseAnalyticsService.__init__` stores the injected relationship service on `self.relationships`. (The former `GraphContextLoader` + `self._init_context_loader(...)` were deleted in the intent-traversal ↔ registry convergence, #241.)
+| Protocol | Location | Satisfied by |
+|----------|----------|--------------|
+| `KnowledgeIntelligenceOperations` | `core/ports/intelligence_protocols.py` | `ActivityKnowledgeIntelligenceService` — one shared instance |
+| `IntelligenceOperations[T]` | `adapters/inbound/route_factories/intelligence_route_factory.py` | The nine per-domain services — none names it as a base |
+
+The per-domain services share no `core/ports` protocol. Their common contract is the route
+factory's.
 
 ---
 
-## Intelligence Protocols
-
-### Location
-
-```python
-from core.ports.intelligence_protocols import (
-    KnowledgeIntelligenceOperations,   # 4 methods — shared across all activity domains
-)
-```
-
-### KnowledgeIntelligenceOperations (shared)
-
-Implemented by `ActivityKnowledgeIntelligenceService` — a single instance wired into all 6 activity domain facades via `self.knowledge_intelligence`. The 4 delegation methods are provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`).
+## `KnowledgeIntelligenceOperations`
 
 ```python
 @runtime_checkable
@@ -40,371 +35,218 @@ class KnowledgeIntelligenceOperations(Protocol):
     ) -> Result[LearningOpportunitiesResult]: ...
 ```
 
-Per-domain intelligence services share no core protocol — their contract is the route factory's, below.
+`ActivityKnowledgeIntelligenceService` is built once in `compose_services` and passed to each
+Activity facade, which holds it as `self.knowledge_intelligence`. The four facade methods come
+from `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`), inherited by all six
+facades.
+
+Its backend is `UniversalNeo4jBackend[Entity]` on the `:Entity` label, so it reads across entity
+types. `find_by(user_uid=...)` matches the `user_uid` property; shared curriculum carries none
+and drops out of a user-scoped read.
 
 ---
 
-## Route Factory Protocol (3 Standardized Methods)
+## `IntelligenceOperations[T]`
 
-Separate from `KnowledgeIntelligenceOperations`, all 9 domain intelligence services satisfy this local protocol from `intelligence_route_factory.py` for automatic route generation:
+```python
+class IntelligenceOperations(Protocol[T]):
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[T, GraphContext]]: ...
 
-### 1. `get_with_context(uid, depth=2)`
+    async def get_performance_analytics(
+        self, user_uid: UserUID, period_days: int = 30
+    ) -> Result[dict[str, Any]]: ...  # boundary: per-domain analytics payload
 
-Returns entity with full graph neighborhood. **Inherited, not implemented per-service.** Services inherit `_CoreIntelligenceMixin[T]` (generic in the domain model) which owns the delegation:
+    async def get_domain_insights(
+        self, uid: str, min_confidence: float = 0.7
+    ) -> Result[dict[str, Any]]: ...  # boundary: per-domain insights payload
+```
+
+### `get_with_context` — inherited
 
 ```python
 # core/services/intelligence/_core_intelligence_mixin.py
 class _CoreIntelligenceMixin[T]:
     @requires_graph_intelligence("get_with_context")
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[T, GraphContext]]:
-        # Mechanism B: route through the relationship service, whose edge
-        # vocabulary comes from DomainRelationshipConfig.cross_domain_relationship_types.
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[T, GraphContext]]:
         if self.relationships is None:
-            return Result.fail(Errors.system(
-                message="relationship_service required for get_with_context",
-                operation="get_with_context",
-            ))
+            return Result.fail(
+                Errors.system(
+                    message="relationship_service required for get_with_context",
+                    operation="get_with_context",
+                )
+            )
         return await self.relationships.get_with_context(uid, depth)
 ```
 
-Subclasses parameterize with their model (`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[Goal]`, etc.) to get a typed return. Tasks/Goals/Habits/PS/LP/KU inherit it directly; Events/Choices/Principles wrap it in a per-package `_CoreIntelligenceMixin` that adds real domain methods (the domain-named aliases were deleted in the tasks bloat campaign).
+Two dependencies, two failures: without `graph_intel` the decorator returns `Result.fail`;
+without a relationship service the inline check does.
 
-**Returns:**
-```python
-Result[tuple[Task, GraphContext]]
-# Where GraphContext contains:
-# - related_goals: list[Goal]
-# - related_habits: list[Habit]
-# - related_knowledge: list[Ku]
-# - relationship_summary: dict
-```
+### `GraphContext`
 
-### 2. `get_performance_analytics(user_uid, period_days=30)`
+`core/models/graph_context.py`. The context is nodes and relationships, not typed entity lists:
 
-Returns user-specific analytics.
+| Field | Type |
+|-------|------|
+| `origin_uid`, `origin_domain`, `query_intent` | `str`, `Domain`, `str` |
+| `all_nodes` | `list[GraphNode]` |
+| `all_relationships` | `list[GraphRelationship]` |
+| `domain_contexts` | `dict[Domain, DomainContext]` |
+| `cross_domain_insights` | `list[dict[str, Any]]` |
+| `relationship_patterns` | `dict[str, int]` — relationship type to count |
+| `total_nodes`, `total_relationships`, `max_depth_reached` | `int` |
+| `domains_involved` | `list[Domain]` |
+| `query_timestamp` | `datetime` |
+| `neo4j_query_time_ms`, `processing_time_ms` | `float \| None` |
 
-```python
-async def get_performance_analytics(
-    self, user_uid: UserUID, period_days: int = 30
-) -> Result[dict[str, Any]]:
-    """Get user-specific analytics."""
-    entities = await self.backend.get_user_entities(user_uid)
-    if entities.is_error:
-        return entities
+Methods: `get_nodes_by_domain(domain)`, `get_published_knowledge_nodes()`,
+`get_relationships_by_type(rel_type)`, `get_strongest_relationships(limit=10)`,
+`get_connected_domains()`, `has_cross_domain_connections()` and `get_summary()`.
 
-    return Result.ok({
-        "total": len(entities.value),
-        "completion_rate": self._calc_rate(entities.value),
-        "trend": self._calc_trend(entities.value, period_days),
-        "recommendations": self._generate_recs(entities.value),
-    })
-```
+`get_published_knowledge_nodes()` decides kind by the stored `entity_type` and withholds a node
+whose `publication_state` is `draft`. Because the traversal is not owner-scoped, that filter is
+also what keeps another user's entities out of a knowledge read — use it, rather than filtering
+`all_nodes` by hand, when showing curriculum to a learner.
 
-### 3. `get_domain_insights(uid, min_confidence=0.7)`
-
-Returns domain-specific intelligence.
-
-```python
-async def get_domain_insights(
-    self, uid: str, min_confidence: float = 0.7
-) -> Result[dict[str, Any]]:
-    """Get domain-specific insights."""
-    if not self.graph_intel:
-        return Result.fail(Errors.unavailable(feature="graph_intel", operation="get_domain_insights"))
-
-    entity = await self.backend.get(uid)
-    if entity.is_error:
-        return entity
-
-    context = await self.graph_intel.get_context(uid)
-
-    return Result.ok({
-        "entity": entity.value,
-        "insights": self._analyze(entity.value, context),
-        "confidence": self._calc_confidence(context),
-        "recommendations": self._recommendations(entity.value, context),
-    })
-```
+For typed, per-domain entity lists use `_analyze_entity_with_typed_context` (see
+[SKILL.md](SKILL.md)), not `GraphContext`.
 
 ---
 
-## Cross-domain context (mechanism B)
-
-> **Deleted (#241):** `GraphContextLoader`, `_init_context_loader`, and `self.context_loader`
-> no longer exist. The model-suggested "mechanism A" loader was removed in the
-> intent-traversal ↔ registry convergence. See
-> `/docs/roadmap/intent-traversal-registry-convergence.md`.
-
-### How it works now
-
-Unified context retrieval is **mechanism B** (registry-sourced):
-
-1. `BaseAnalyticsService.__init__` stores the injected relationship service on
-   `self.relationships` — nothing to wire per service.
-2. `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` and routes
-   through `self.relationships.get_with_context`.
-3. The edge vocabulary it traverses comes from the domain's
-   `DomainRelationshipConfig.cross_domain_relationship_types` — the registry, the single source
-   of truth (not a model-suggested query intent).
+## `IntelligenceRouteFactory`
 
 ```python
-class TasksIntelligenceService(
-    _CoreIntelligenceMixin[Task],  # inherits get_with_context() — typed in the model
-    BaseAnalyticsService[TasksOperations, Task],
+from adapters.inbound.route_factories import IntelligenceRouteFactory
+```
+
+```python
+IntelligenceRouteFactory(
+    intelligence_service=...,          # satisfies IntelligenceOperations
+    domain_name="tasks",
+    base_path=None,                    # default: /api/{domain_name}
+    enable_analytics=True,
+    enable_context=True,
+    enable_insights=True,
+    scope=ContentScope.USER_OWNED,     # or ContentScope.SHARED
+    ownership_service=...,             # required when scope is USER_OWNED
+).register_routes(app, rt)
+```
+
+- `scope=ContentScope.USER_OWNED` without an `ownership_service` raises `ValueError` at
+  construction. A misconfigured factory does not start.
+- `ownership_service` is anything with `verify_ownership(uid, user_uid) -> Result[...]` — in
+  practice the domain facade.
+- There is no `verify_ownership=` keyword; `scope` decides.
+
+### Routes
+
+All three are registered with `methods=["GET"]`.
+
+| Route | Calls | Query parameters |
+|-------|-------|------------------|
+| `GET {base_path}/analytics` | `get_performance_analytics(user_uid, period_days)` | `period_days=30` |
+| `GET {base_path}/context` | `get_with_context(uid, depth)` | `uid` (required), `depth=2` |
+| `GET {base_path}/insights` | `get_domain_insights(uid, min_confidence)` | `uid` (required), `min_confidence=0.7` |
+
+`user_uid` always comes from the session. A `user_uid` query parameter is ignored.
+
+The context route answers `{"entity": <entity as dict>, "context": <GraphContext.get_summary()>}`.
+The analytics and insights routes return the service's payload unchanged.
+
+### Measured behavior
+
+Reproduced with a `TestClient` against the factory:
+
+| Request | Status |
+|---------|--------|
+| Any of the three, no session — either scope | 401 |
+| `POST`, `PUT` or `DELETE` to any of the three | 405 |
+| `context` / `insights` with no `uid` | 400 |
+| `depth=abc` (a value the annotation cannot coerce) | 404 |
+| `USER_OWNED`: a uid the user does not own | 404 |
+| `USER_OWNED`: a uid that does not exist | 404 |
+| `SHARED`: any existing uid | 200 — no ownership check |
+
+A foreign uid and a missing uid answer identically, so the route is not an existence oracle.
+`SHARED` still requires a signed-in user.
+
+### How a domain gets the routes
+
+Through its `DomainRouteConfig`, not by constructing the factory in a route file:
+
+```python
+# Activity domains — create_activity_domain_route_config() sets this default
+intelligence=IntelligenceRouteConfig()
+
+# Shared curriculum
+intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED)
+```
+
+`register_domain_routes` then builds the factory with the facade's `.intelligence` as the
+service and the facade itself as `ownership_service`.
+
+| Domain | `domain_name` | Routes |
+|--------|---------------|--------|
+| Tasks, Goals, Habits, Events, Choices, Principles | `tasks`, `goals`, … | yes — `USER_OWNED` |
+| PathStep | `path-steps` | yes — `SHARED` |
+| LearningPath | `pathways` | yes — `SHARED` |
+| KU | — | **no** — `KU_CONFIG` sets no `IntelligenceRouteConfig` |
+
+`KuIntelligenceService` is still reached over HTTP for mastery check-ins:
+`POST /explore/ku/{uid}/mastery-checkin` calls `assess_mastery_dual_track`.
+
+See the [domain-route-config](../domain-route-config/SKILL.md) skill.
+
+---
+
+## Adding a Domain
+
+1. Write the service: `_CoreIntelligenceMixin[Model]` first, then
+   `BaseAnalyticsService[BackendProtocol, Model]`. Give it `get_performance_analytics` and
+   `get_domain_insights`.
+2. Build it where the facade is built and store it on the facade's `intelligence` slot.
+3. Pass both `graph_intel` and the domain's relationship service (`relationship_service`).
+   `get_with_context` returns a failed `Result` without either, so the generated context route
+   cannot answer.
+4. Set `intelligence=IntelligenceRouteConfig(...)` on the domain's route config. Choose the
+   scope by who owns the entity: `USER_OWNED` needs `verify_ownership` on the facade.
+5. Add the per-domain guide under `docs/intelligence/`.
+
+In the walkthrough below, `Widget` and `WidgetOperations` are placeholders for the new domain's
+model and backend protocol:
+
+```python
+class WidgetIntelligenceService(
+    _CoreIntelligenceMixin[Widget],
+    BaseAnalyticsService[WidgetOperations, Widget],
 ):
-    def __init__(self, backend, graph_intel=None, relationship_service=None, ...):
-        super().__init__(backend, graph_intel, relationship_service=relationship_service, ...)
-    # get_with_context() inherited — no override, no loader wiring.
-```
-
-For cross-domain **analysis** (metrics + recommendations), call the template
-`BaseAnalyticsService._analyze_entity_with_typed_context(uid, metrics_fn, recommendations_fn)`,
-which sources the canonical typed, path-aware context from
-`UnifiedRelationshipService.get_cross_domain_context_typed` (built per-domain via
-`{Domain}CrossContext.from_categorized`).
-
-### GraphContext Structure
-
-```python
-@dataclass
-class GraphContext:
-    """Graph neighborhood context for an entity."""
-
-    # Related entities by type
-    goals: list[Goal] = field(default_factory=list)
-    habits: list[Habit] = field(default_factory=list)
-    tasks: list[Task] = field(default_factory=list)
-    events: list[Event] = field(default_factory=list)
-    knowledge: list[Ku] = field(default_factory=list)
-    principles: list[Principle] = field(default_factory=list)
-
-    # Relationship summary
-    relationships: dict[str, list[str]] = field(default_factory=dict)
-    relationship_counts: dict[str, int] = field(default_factory=dict)
-
-    # Traversal metadata
-    depth: int = 2
-    total_nodes: int = 0
-```
-
----
-
-## IntelligenceRouteFactory
-
-### Purpose
-
-Automatically generates HTTP routes for intelligence services implementing the protocol.
-
-### Location
-
-```python
-from core.adapters.inbound.factories import IntelligenceRouteFactory
-```
-
-### Generated Routes
-
-| Method | Route | Parameters |
-|--------|-------|------------|
-| `get_with_context` | `GET /api/{domain}/context` | `?uid=...&depth=2` |
-| `get_performance_analytics` | `GET /api/{domain}/analytics` | `?user_uid=...&period_days=30` |
-| `get_domain_insights` | `GET /api/{domain}/insights` | `?uid=...&min_confidence=0.7` |
-
-### Usage
-
-```python
-# In routes module
-from core.adapters.inbound.factories import IntelligenceRouteFactory
-
-def create_tasks_intelligence_routes(app, rt, tasks_service):
-    """Create intelligence routes for tasks."""
-    IntelligenceRouteFactory.create_routes(
-        app=app,
-        rt=rt,
-        service=tasks_service.intelligence,
-        domain="tasks",
-    )
-```
-
-### Implementation Example
-
-```python
-class IntelligenceRouteFactory:
-    @staticmethod
-    def create_routes(app, rt, service, domain: str):
-        """Generate intelligence routes for a domain."""
-
-        @rt(f"/api/{domain}/context")
-        @boundary_handler()
-        async def get_context(request, uid: str, depth: int = 2):
-            return await service.get_with_context(uid, depth)
-
-        @rt(f"/api/{domain}/analytics")
-        @boundary_handler()
-        async def get_analytics(request, user_uid: UserUID, period_days: int = 30):
-            return await service.get_performance_analytics(user_uid, period_days)
-
-        @rt(f"/api/{domain}/insights")
-        @boundary_handler()
-        async def get_insights(request, uid: str, min_confidence: float = 0.7):
-            return await service.get_domain_insights(uid, min_confidence)
-```
-
----
-
-## Complete Integration Example
-
-Full example showing protocol, orchestrator, and routes:
-
-```python
-# core/services/tasks/tasks_intelligence_service.py
-from core.services.base_analytics_service import BaseAnalyticsService
-from core.ports import TasksOperations
-from core.models.task import Task, TaskDTO
-from core.models.enums import Domain
-
-
-class TasksIntelligenceService(
-    _CoreIntelligenceMixin[Task],  # inherits typed get_with_context()
-    BaseAnalyticsService[TasksOperations, Task],
-):  # satisfies the route factory's IntelligenceOperations structurally — no explicit base
-    _service_name = "tasks.analytics"
-
-    def __init__(
-        self,
-        backend: TasksOperations,
-        graph_intel=None,
-        relationships=None,
-        event_bus=None,
-        insight_store=None,
-    ):
-        super().__init__(
-            backend=backend,
-            graph_intel=graph_intel,
-            relationships=relationships,
-            event_bus=event_bus,
-            insight_store=insight_store,
-        )
-        # get_with_context() is inherited from _CoreIntelligenceMixin[Task] (mechanism B);
-        # the relationship service is stored on self.relationships — no loader to wire.
-
-    # =========================================================================
-    # THREE STANDARDIZED METHODS
-    # get_with_context() is inherited from _CoreIntelligenceMixin[Task].
-    # =========================================================================
+    _service_name = "widgets.intelligence"
+    _require_relationships = True
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Get task performance analytics."""
-        tasks = await self.backend.get_user_tasks(user_uid)
-        if tasks.is_error:
-            return tasks
+    ) -> Result[dict[str, Any]]:  # boundary: per-domain analytics payload
+        widgets_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        if widgets_result.is_error:
+            return Result.fail(widgets_result)
 
-        completed = [t for t in tasks.value if t.status == "completed"]
-        completion_rate = len(completed) / len(tasks.value) if tasks.value else 0.0
-
-        return Result.ok({
-            "total_tasks": len(tasks.value),
-            "completed": len(completed),
-            "completion_rate": completion_rate,
-            "avg_completion_days": self._avg_completion_time(completed),
-            "by_priority": self._group_by_priority(tasks.value),
-        })
-
-    async def get_domain_insights(
-        self, uid: str, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
-        """Get task-specific insights."""
-        if not self.graph_intel:
-        return Result.fail(Errors.unavailable(feature="graph_intel", operation="get_domain_insights"))
-
-        task_result = await self.backend.get(uid)
-        if task_result.is_error:
-            return task_result
-
-        task = task_result.value
-        context = await self.graph_intel.get_context(uid)
-
-        return Result.ok({
-            "task": task,
-            "blocking_count": len(context.relationships.get("BLOCKED_BY", [])),
-            "knowledge_required": len(context.knowledge),
-            "recommendations": self._task_recommendations(task, context),
-        })
-
-    # =========================================================================
-    # TASK-SPECIFIC PROTOCOL METHODS
-    # =========================================================================
-    # NOTE: Knowledge methods (get_knowledge_suggestions, generate_knowledge_from_entities,
-    # get_knowledge_prerequisites, get_learning_opportunities) extracted to
-    # ActivityKnowledgeIntelligenceService (core/services/knowledge/) — March 2026
-
-    async def get_behavioral_insights(
-        self, user_uid: UserUID, period_days: int = 90
-    ) -> Result[dict[str, Any]]:
-        """Analyze task completion behavior."""
-        # Implementation
-        ...
-
-    async def get_performance_analytics(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Completion rates, trends, duration calibration."""
-        # Implementation
-        ...
-
-    # ... other task-specific methods
+        widgets = widgets_result.value or []
+        return Result.ok({"user_uid": user_uid, "period_days": period_days, "total": len(widgets)})
 ```
 
 ---
 
-## Rollout Status
+## Testing
 
-All 9 domain intelligence services implement the protocol and inherit
-`get_with_context()` from `_CoreIntelligenceMixin[T]` (mechanism B):
+| What | Where |
+|------|-------|
+| The factory | `tests/unit/infrastructure/test_intelligence_route_factory.py` |
+| The services, on a real graph | `tests/integration/intelligence/` |
 
-| Service | Protocol | get_with_context (inherited) | Routes |
-|---------|----------|------------------------------|--------|
-| TasksIntelligenceService | ✅ | ✅ | ✅ |
-| GoalsIntelligenceService | ✅ | ✅ | ✅ |
-| HabitsIntelligenceService | ✅ | ✅ | ✅ |
-| EventsIntelligenceService | ✅ | ✅ | ✅ |
-| ChoicesIntelligenceService | ✅ | ✅ | ✅ |
-| PrinciplesIntelligenceService | ✅ | ✅ | ✅ |
-| KuIntelligenceService | ✅ | ✅ | ✅ |
-| PsIntelligenceService | ✅ | ✅ | ✅ |
-| LpIntelligenceService | ✅ | ✅ | ✅ |
+The factory tests patch `require_authenticated_user` in the factory's module and pass a stub
+service and a stub ownership verifier. A stub `GraphContext` needs only `get_summary()`.
 
----
-
-## Testing Protocol Implementation
-
-```python
-import pytest
-
-
-async def test_get_with_context():
-    """Test standardized context method."""
-    service = create_test_service()
-
-    result = await service.get_with_context("task-123", depth=2)
-
-    assert result.is_ok
-    task, context = result.value
-    assert isinstance(task, Task)
-    assert hasattr(context, "relationships")
-
-
-async def test_route_integration():
-    """Test generated routes work correctly."""
-    app = create_test_app()
-
-    response = await app.get("/api/tasks/context?uid=task-123&depth=2")
-
-    assert response.status_code == 200
-    data = response.json()
-    assert "entity" in data
-    assert "context" in data
-```
+To test `get_with_context` on a service, give it a relationship service whose
+`get_with_context` returns `Result.ok((entity, graph_context))` and a non-`None` `graph_intel`;
+assert on the `Result`, then unpack the tuple.

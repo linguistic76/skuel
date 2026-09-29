@@ -1,615 +1,293 @@
 # BaseAnalyticsService Implementation Patterns
 
-## Pattern 1: Complete Service Implementation
-
-A full analytics service with all common patterns. For large services (1000+ LOC), use mixin decomposition — see `ChoicesIntelligenceService`, `HabitsIntelligenceService`, and `PrinciplesIntelligenceService` for the established local pattern (`_core_intelligence_mixin.py`, `_alignment_intelligence_mixin.py`, `_influence_mixin.py` in the same package directory).
-
-**Shared `get_with_context()` base (mechanism B):** `core/services/intelligence/_CoreIntelligenceMixin[T]` is generic in the domain model and owns the `get_with_context()` delegation, routing through `self.relationships.get_with_context` (whose edge vocabulary comes from the domain's `DomainRelationshipConfig.cross_domain_relationship_types` — the registry, the single source of truth) and returning `Result[tuple[T, GraphContext]]`. Tasks, Goals, Habits, PS, LP, and KU intelligence services inherit it directly (no domain mixin file), parameterized by their model; Events, Choices, and Principles keep a per-package `_core_intelligence_mixin.py` wrapper only because they add real domain methods. The former domain-named aliases (`get_goal_with_context`, etc.) were deleted in the tasks bloat campaign. The 6 activity domains no longer override `get_with_context` — they inherit it.
-
-> **Deleted (intent-traversal ↔ registry convergence, #241):** `GraphContextLoader`,
-> `self._init_context_loader(...)`, and `self.context_loader` no longer exist. There is
-> no loader to wire — `BaseAnalyticsService.__init__` stores the injected
-> `relationship_service` on `self.relationships`, and `get_with_context` is inherited.
-
-```python
-"""
-Habits Intelligence Service
-===========================
-
-Intelligence for habit streak patterns and knowledge reinforcement.
-"""
-
-from typing import Any, ClassVar
-
-from core.events.habit_events import HabitCompleted, HabitStreakBroken
-from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
-from core.models.enums import Domain
-from core.services.base_analytics_service import BaseAnalyticsService
-from core.ports import HabitsOperations
-from core.utils.result_simplified import Result
-from core.utils.errors_simplified import Errors
-
-
-class HabitsIntelligenceService(
-    _CoreIntelligenceMixin,  # inherits get_with_context() (mechanism B) — typed via the habits wrapper
-    BaseAnalyticsService[HabitsOperations, Habit],
-):
-    """Analytics service for habit analysis and recommendations."""
-
-    # Class attributes
-    _service_name: ClassVar[str] = "habits.analytics"
-    _require_relationships: ClassVar[bool] = False
-    _event_handlers: ClassVar[dict[type, str]] = {
-        HabitCompleted: "handle_habit_completed",
-        HabitStreakBroken: "handle_streak_broken",
-    }
-
-    def __init__(
-        self,
-        backend: HabitsOperations,
-        graph_intel=None,
-        relationship_service=None,
-        event_bus=None,
-        insight_store=None,
-    ) -> None:
-        # ALWAYS call super first
-        super().__init__(
-            backend=backend,
-            graph_intel=graph_intel,
-            relationship_service=relationship_service,
-            event_bus=event_bus,
-            insight_store=insight_store,
-        )
-        # get_with_context() is inherited from _CoreIntelligenceMixin (mechanism B) —
-        # no loader to wire; the relationship service is stored on self.relationships.
-
-        # Domain-specific initialization
-        self._streak_thresholds = {
-            "at_risk": 7,    # Days without completion
-            "broken": 14,   # Days to consider streak broken
-            "strong": 21,   # Days for strong streak
-        }
-
-    # =========================================================================
-    # PROTOCOL METHODS
-    # =========================================================================
-    # get_with_context() is inherited from the shared _CoreIntelligenceMixin
-    # (mechanism B); no override is needed.
-
-    async def get_performance_analytics(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Analyze habit performance over period."""
-        habits = await self.backend.get_user_habits(user_uid)
-        if habits.is_error:
-            return habits
-
-        return Result.ok({
-            "total_habits": len(habits.value),
-            "active_habits": sum(1 for h in habits.value if h.is_active),
-            "average_streak": self._avg_streak(habits.value),
-            "at_risk_count": sum(1 for h in habits.value if h.streak_at_risk),
-            "completion_rate": self._completion_rate(habits.value, period_days),
-        })
-
-    async def get_domain_insights(
-        self, uid: str, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
-        """Get habit-specific insights."""
-        self._require_graph_intelligence("get_domain_insights")
-
-        habit_result = await self.backend.get(uid)
-        if habit_result.is_error:
-            return habit_result
-
-        habit = habit_result.value
-        if not habit:
-            return Result.fail(Errors.not_found("Habit", uid))
-
-        return Result.ok({
-            "streak_analysis": self._analyze_streak(habit),
-            "recommendations": self._generate_recommendations(habit),
-            "knowledge_reinforcement": await self._get_knowledge_reinforcement(uid),
-        })
-
-    # =========================================================================
-    # EVENT HANDLERS
-    # =========================================================================
-
-    async def handle_habit_completed(self, event: HabitCompleted) -> None:
-        """Handle habit completion - update knowledge substance."""
-        self.logger.info(f"Habit completed: {event.habit_uid}")
-        if self.relationships:
-            await self._update_knowledge_substance(event.habit_uid)
-
-    async def handle_streak_broken(self, event: HabitStreakBroken) -> None:
-        """Handle streak break - analyze and log."""
-        self.logger.warning(f"Streak broken for {event.habit_uid}: {event.streak_length} days")
-
-    # =========================================================================
-    # DOMAIN-SPECIFIC METHODS
-    # =========================================================================
-
-    async def analyze_streak_patterns(
-        self, user_uid: UserUID, period_days: int = 90
-    ) -> Result[dict[str, Any]]:
-        """Analyze user's streak patterns across all habits."""
-        habits = await self.backend.get_user_habits(user_uid)
-        if habits.is_error:
-            return habits
-
-        patterns = {
-            "strong_streaks": [],
-            "at_risk": [],
-            "broken": [],
-            "recommendations": [],
-        }
-
-        for habit in habits.value:
-            if habit.current_streak >= self._streak_thresholds["strong"]:
-                patterns["strong_streaks"].append(habit.uid)
-            elif habit.streak_at_risk:
-                patterns["at_risk"].append(habit.uid)
-            elif habit.streak_broken:
-                patterns["broken"].append(habit.uid)
-
-        # Generate recommendations
-        if patterns["at_risk"]:
-            patterns["recommendations"].append(
-                f"Focus on {len(patterns['at_risk'])} habits at risk of streak break"
-            )
-
-        return Result.ok(patterns)
-
-    async def get_knowledge_reinforcement_score(
-        self, uid: str
-    ) -> Result[float]:
-        """Calculate how well this habit reinforces knowledge (0-10 scale)."""
-        self._require_relationship_service("get_knowledge_reinforcement_score")
-
-        ku_result = await self.relationships.get_related_uids(
-            uid, "REINFORCES_KNOWLEDGE", direction="outgoing"
-        )
-        if ku_result.is_error:
-            return Result.ok(0.0)
-
-        ku_count = len(ku_result.value)
-        # Score: 0-3 KUs = low, 4-7 = medium, 8+ = high
-        score = min(10.0, ku_count * 1.25)
-        return Result.ok(score)
-
-    # =========================================================================
-    # PRIVATE HELPERS
-    # =========================================================================
-
-    def _avg_streak(self, habits: list[Habit]) -> float:
-        if not habits:
-            return 0.0
-        return sum(h.current_streak for h in habits) / len(habits)
-
-    def _completion_rate(self, habits: list[Habit], period_days: int) -> float:
-        # Implementation
-        pass
-
-    def _analyze_streak(self, habit: Habit) -> dict:
-        return {
-            "current": habit.current_streak,
-            "longest": habit.longest_streak,
-            "status": self._streak_status(habit),
-        }
-
-    def _streak_status(self, habit: Habit) -> str:
-        if habit.current_streak >= self._streak_thresholds["strong"]:
-            return "strong"
-        if habit.streak_at_risk:
-            return "at_risk"
-        return "healthy"
-
-    def _generate_recommendations(self, habit: Habit) -> list[str]:
-        recs = []
-        if habit.streak_at_risk:
-            recs.append("Complete this habit today to maintain your streak")
-        if habit.current_streak >= self._streak_thresholds["strong"]:
-            recs.append("Strong streak! Consider increasing difficulty")
-        return recs
-
-    async def _get_knowledge_reinforcement(self, uid: str) -> dict:
-        if not self.relationships:
-            return {"ku_count": 0, "ku_uids": []}
-
-        result = await self.relationships.get_related_uids(
-            uid, "REINFORCES_KNOWLEDGE", direction="outgoing"
-        )
-        return {
-            "ku_count": len(result.value) if result.is_ok else 0,
-            "ku_uids": result.value if result.is_ok else [],
-        }
-
-    async def _update_knowledge_substance(self, habit_uid: str) -> None:
-        # Update substance for related knowledge units
-        pass
-```
+Each pattern below is taken from a live service. Read the named file for the whole method.
 
 ---
 
-## Pattern 2: Template Method Usage
+## Pattern 1: A User-Scoped Analytics Method
 
-Using `_analyze_entity_with_typed_context()` for consistent analysis. The metrics and
-recommendations functions live in `core/services/intelligence/metrics_calculators.py` and
-take the **path-aware** cross-domain context (`core/models/graph/path_aware_types.py`):
+`HabitsIntelligenceService.get_performance_analytics`
+(`core/services/habits/habits_intelligence_service.py`): one backend read, then arithmetic.
 
 ```python
-from core.services.intelligence import (
-    calculate_goal_progress_metrics,
-    goal_recommendations,
-)
+async def get_performance_analytics(
+    self, user_uid: UserUID, _period_days: int = 30
+) -> Result[dict[str, Any]]:  # boundary: per-domain analytics payload
+    habits_result = await self.backend.find_by(user_uid=user_uid)
+    if habits_result.is_error:
+        return Result.fail(habits_result)
 
+    habits = habits_result.value or []
+    total_habits = len(habits)
+    active_habits = [h for h in habits if h.is_active]
 
-class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
-    _service_name = "goals.analytics"
+    avg_consistency = sum(h.success_rate for h in habits) / total_habits if total_habits else 0.0
+    habits_with_streak = [h for h in habits if h.current_streak > 0]
+    at_risk_habits = [h for h in active_habits if h.success_rate < 0.5]
 
-    async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
-        """Get comprehensive goal progress analysis."""
-        return await self._analyze_entity_with_typed_context(
-            uid=uid,
-            metrics_fn=calculate_goal_progress_metrics,
-            recommendations_fn=goal_recommendations,
-            min_confidence=0.7,  # forwarded to get_cross_domain_context_typed
-        )
+    return Result.ok(
+        {
+            "user_uid": user_uid,
+            "period_days": _period_days,
+            "total_habits": total_habits,
+            "active_habits": len(active_habits),
+            "habits_with_streak": len(habits_with_streak),
+            "at_risk_habits": len(at_risk_habits),
+            "avg_consistency": round(avg_consistency, 2),
+        }
+    )
+```
 
+What to take from it:
 
-# The metrics function (in metrics_calculators.py) reads PATH-AWARE entity lists,
-# not UID lists — each entry carries distance/strength metadata:
+- The read is `self.backend.find_by(user_uid=...)` — a method the backend protocol declares.
+  Do not invent a backend method in the service; add it to the protocol and the backend.
+- `find_by` defaults to `limit=100`, and this call passes none: `total_habits` is at most 100.
+  Pass the limit a new method needs — `limit=QueryLimit.MAXIMUM` (`core/constants.py`) where the
+  metric is a count over everything the user has.
+- A failed read is propagated, not turned into zeros.
+- Guard every division: an empty list is a normal input.
+- `_period_days` is accepted and not applied. The payload echoes it, which does not mean the
+  numbers are windowed. A new method that takes a period applies it.
+
+---
+
+## Pattern 2: The Typed-Context Template
+
+`get_goal_progress_dashboard` (`core/services/goals/_analytics_mixin.py`) runs the base template,
+then shapes the envelope for its caller.
+
+```python
+async def get_goal_progress_dashboard(
+    self, uid: str, min_confidence: float = 0.7
+) -> Result[dict[str, Any]]:  # boundary: dashboard payload
+    analysis_result = await self._analyze_entity_with_typed_context(
+        uid,
+        metrics_fn=calculate_goal_progress_metrics,
+        recommendations_fn=goal_recommendations,
+        min_confidence=min_confidence,
+    )
+    if analysis_result.is_error:
+        return analysis_result
+
+    analysis = analysis_result.value
+    goal = self._to_domain_model(analysis["entity"], GoalDTO, Goal)
+    context: GoalCrossContext = analysis["context"]
+    metrics = analysis["metrics"]
+
+    supporting_tasks = [{"uid": t.uid} for t in context.tasks]
+    supporting_habits = [{"uid": h.uid} for h in context.habits]
+    ...
+```
+
+The metrics function reads the path-aware context — typed entity lists, each entry carrying
+`distance` and `path_strength`:
+
+```python
 def calculate_goal_progress_metrics(
-    goal: Any, context: PathAwareGoalCrossContext
-) -> dict[str, Any]:
-    """Calculate goal-support metrics from the path-aware context."""
-    return {
-        "task_support_count": len(context.tasks),
-        "habit_support_count": len(context.habits),
-        "knowledge_requirement_count": len(context.knowledge),
-        # ... plus cascade_impact / path_aware_context (distance/strength rollups)
-    }
+    goal: Any,  # boundary: generic across the six metrics functions
+    context: PathAwareGoalCrossContext,
+) -> dict[str, Any]: ...  # boundary: metrics map
+
+
+def goal_recommendations(
+    goal: Any,  # boundary: generic across the six recommendation functions
+    context: PathAwareGoalCrossContext,
+    metrics: dict[str, Any],  # boundary: metrics map
+) -> list[str]: ...
 ```
+
+Both are in `core/services/intelligence/metrics_calculators.py`:
+
+| Domain | `metrics_fn` | `recommendations_fn` |
+|--------|--------------|----------------------|
+| Tasks | `calculate_task_cross_domain_metrics` | `task_recommendations` |
+| Goals | `calculate_goal_progress_metrics` | `goal_recommendations`, `goal_learning_recommendations` |
+| Habits | `calculate_habit_integration_metrics` | `habit_recommendations` |
+| Events | `calculate_event_performance_metrics` | — |
+| Principles | `calculate_principle_alignment_metrics` | `principle_recommendations` |
+| Choices | `calculate_decision_metrics` | `decision_improvement_opportunities` |
+
+The Choices pair is in the same module but is not re-exported by the package — import it from
+`core.services.intelligence.metrics_calculators`. Events passes no `recommendations_fn`: its
+analysis surfaces no recommendations list.
+
+A metrics function is pure: no I/O, no `await`. Put a new lens there, not inline in the
+service.
 
 ---
 
-## Pattern 3: Cross-Domain Intelligence
+## Pattern 3: Recommendations with `RecommendationEngine`
 
-Querying relationships across domains:
-
-```python
-class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
-    _service_name = "tasks.analytics"
-
-    async def get_knowledge_application_opportunities(
-        self, user_uid: UserUID, ku_uid: str
-    ) -> Result[dict[str, Any]]:
-        """Find tasks where this knowledge can be applied."""
-        self._require_relationship_service("get_knowledge_application_opportunities")
-
-        # Find tasks that could use this knowledge
-        tasks_result = await self.relationships.get_related_uids(
-            ku_uid,
-            "APPLIES_KNOWLEDGE",
-            direction="incoming"
-        )
-
-        # Find tasks requiring this as prerequisite
-        prereq_result = await self.relationships.get_related_uids(
-            ku_uid,
-            "REQUIRES_KNOWLEDGE",
-            direction="incoming"
-        )
-
-        # Filter to user's tasks
-        user_tasks = await self.backend.get_user_tasks(user_uid)
-        user_task_uids = {t.uid for t in user_tasks.value} if user_tasks.is_ok else set()
-
-        applicable = [
-            uid for uid in tasks_result.value
-            if uid in user_task_uids
-        ] if tasks_result.is_ok else []
-
-        prerequisite_for = [
-            uid for uid in prereq_result.value
-            if uid in user_task_uids
-        ] if prereq_result.is_ok else []
-
-        return Result.ok({
-            "knowledge_uid": ku_uid,
-            "applicable_tasks": applicable,
-            "prerequisite_for_tasks": prerequisite_for,
-            "recommendation": self._recommend_application(
-                applicable, prerequisite_for
-            ),
-        })
-
-    def _recommend_application(
-        self, applicable: list[str], prerequisite_for: list[str]
-    ) -> str:
-        if prerequisite_for:
-            return f"Master this knowledge to unblock {len(prerequisite_for)} tasks"
-        if applicable:
-            return f"Apply this knowledge to {len(applicable)} current tasks"
-        return "Consider creating tasks to practice this knowledge"
-```
-
----
-
-## Pattern 4: Dual-Track Assessment
-
-Using `_dual_track_assessment()` to compare user perception with system measurement:
+From `core/services/events/_analytics_mixin.py`:
 
 ```python
-class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, Principle]):
-    _service_name = "principles.analytics"
-
-    async def assess_alignment_dual_track(
-        self,
-        principle_uid: str,
-        user_uid: UserUID,
-        user_level: AlignmentLevel,
-        evidence: str,
-        reflection: str | None = None,
-    ) -> Result[DualTrackResult[AlignmentLevel]]:
-        """Compare user's self-assessed alignment with system measurement."""
-        return await self._dual_track_assessment(
-            uid=principle_uid,
-            user_uid=user_uid,
-            user_level=user_level,
-            user_evidence=evidence,
-            user_reflection=reflection,
-            system_calculator=self._calculate_system_alignment,
-            level_scorer=self._alignment_level_to_score,
-            entity_type=EntityType.PRINCIPLE.value,
-            insight_generator=self._generate_alignment_insights,
-            recommendation_generator=self._generate_alignment_recommendations,
-        )
-
-    async def _calculate_system_alignment(
-        self, principle: Principle, user_uid: UserUID
-    ) -> tuple[AlignmentLevel, float, list[str]]:
-        """Calculate alignment from user's actual behavior."""
-        evidence = []
-
-        # Check goals aligned with this principle
-        goals_result = await self.relationships.get_related_uids(
-            principle.uid, "ALIGNED_WITH_PRINCIPLE", direction="incoming"
-        )
-        goal_count = len(goals_result.value) if goals_result.is_ok else 0
-        if goal_count > 0:
-            evidence.append(f"{goal_count} goals aligned")
-
-        # Check habits expressing this principle
-        habits_result = await self.relationships.get_related_uids(
-            principle.uid, "EXPRESSES_PRINCIPLE", direction="incoming"
-        )
-        habit_count = len(habits_result.value) if habits_result.is_ok else 0
-        if habit_count > 0:
-            evidence.append(f"{habit_count} habits express this value")
-
-        # Calculate score
-        score = min(1.0, (goal_count * 0.2) + (habit_count * 0.3))
-
-        # Determine level from score using canonical enum method
-        level = AlignmentLevel.from_score(score)
-
-        return level, score, evidence
-
-    @staticmethod
-    def _alignment_level_to_score(level: AlignmentLevel) -> float:
-        """Convert alignment level enum to 0.0-1.0 score.
-
-        Delegates to AlignmentLevel.to_score() — the single source of truth.
-        """
-        return level.to_score()
-```
-
----
-
-## Pattern 5: Using Shared Utilities
-
-Leveraging shared intelligence utilities:
-
-```python
-from core.services.intelligence import (
-    RecommendationEngine,
-    MetricsCalculator,
-    PatternAnalyzer,
-    analyze_completion_trend,
+return (
+    RecommendationEngine()
+    .with_metrics(
+        {
+            "total_events": total_events,
+            "low_impact_ratio": low_impact_ratio,
+            "high_impact_ratio": high_impact_ratio,
+        }
+    )
+    .add_conditional(
+        low_impact_ratio > 0.3,
+        f"Consider linking {low_impact_count} low-impact events to goals or habits",
+    )
+    .add_threshold_check(
+        "total_events",
+        threshold=5,
+        message="Schedule more events to maintain consistent progress",
+        comparison="lt",
+    )
+    .build()
 )
-
-
-class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
-    _service_name = "events.analytics"
-
-    async def analyze_event_patterns(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Analyze event completion patterns."""
-        events = await self.backend.get_completed_events(user_uid, period_days)
-        if events.is_error:
-            return events
-
-        # Use shared utilities
-        trend = analyze_completion_trend(
-            [e.completed_at for e in events.value if e.completed_at]
-        )
-
-        metrics = MetricsCalculator.calculate_event_metrics(events.value)
-
-        patterns = PatternAnalyzer.find_patterns(
-            [e.title for e in events.value]
-        )
-
-        # Build recommendations with fluent builder
-        recommendations = (
-            RecommendationEngine()
-            .add_if(trend == "declining", "Schedule more regular events")
-            .add_if(metrics["completion_rate"] < 0.7, "Consider fewer commitments")
-            .add_if(len(patterns) > 5, f"Focus on {patterns[0]} events")
-            .build()
-        )
-
-        return Result.ok({
-            "trend": trend,
-            "metrics": metrics,
-            "patterns": patterns,
-            "recommendations": recommendations,
-        })
 ```
+
+| Method | Adds the message when |
+|--------|-----------------------|
+| `with_metrics(metrics)` | — sets the numeric values `add_threshold_check` reads |
+| `add_threshold_check(metric_name, threshold, message, comparison="lt")` | the metric compares true; `comparison` is `lt`, `gt`, `le` or `ge` |
+| `add_conditional(condition, message)` | `condition` is true |
+| `add_message(message)` | always |
+| `build()` | — returns `list[str]` |
+
+A metric name missing from `with_metrics` reads as `0.0`, so an `lt` check on a misspelled name
+always fires.
 
 ---
 
-## Pattern 6: Curriculum Intelligence (Shared Content)
-
-Intelligence for shared curriculum content (no user ownership):
+## Pattern 4: Trend Classification
 
 ```python
-class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", PathStep]):
-    """Analytics for Path Steps - shared content."""
+from core.services.intelligence import Trend, analyze_completion_trend
 
-    _service_name = "ps.analytics"
-
-    async def is_ready(
-        self, ps_uid: str, completed_step_uids: set[str]
-    ) -> Result[bool]:
-        """Check if path step prerequisites are met."""
-        self._require_relationship_service("is_ready")
-
-        # Get prerequisite steps
-        prereqs = await self.relationships.get_related_uids(
-            ps_uid, "REQUIRES_STEP", direction="outgoing"
-        )
-
-        if prereqs.is_error:
-            return Result.ok(True)  # No prerequisites = ready
-
-        # All prerequisites must be completed
-        ready = all(uid in completed_step_uids for uid in prereqs.value)
-        return Result.ok(ready)
-
-    async def calculate_guidance_strength(self, ps_uid: str) -> Result[float]:
-        """Calculate how well this step provides guidance (0.0-1.0).
-
-        Note: Guidance relationships (GUIDED_BY_PRINCIPLE, INFORMS_CHOICE)
-        live directly on PathSteps — PS queries read them with a single-hop
-        traversal from the PS node, not a two-hop.
-        """
-        # Implementation uses Cypher:
-        # MATCH (ps:PathStep {uid: $ps_uid})-[:GUIDED_BY_PRINCIPLE]->(p)
-        # MATCH (ps)-[:INFORMS_CHOICE]->(c)
-        ...
-
-    async def get_practice_summary(self, ps_uid: str) -> Result[dict[str, Any]]:
-        """Get practice opportunities summary.
-
-        Note: Practice relationships (BUILDS_HABIT, ASSIGNS_TASK, etc.)
-        live directly on PathSteps. A single-hop traversal from the PS node
-        counts all 6 activity domains: habits, tasks, events, goals, principles, choices.
-        """
-        # Implementation uses single-hop Cypher:
-        # MATCH (ps:PathStep {uid: $ps_uid})-[:BUILDS_HABIT]->(h)
-        # MATCH (ps)-[:ASSIGNS_TASK]->(t)
-        # ... etc for all 6 activity domains
-        ...
-
-    def _practice_completeness_score(self, *domain_counts: int) -> float:
-        """Each of 6 activity domains contributes 1/6 to completeness."""
-        score = 0.0
-        if habits > 0:
-            score += 0.333
-        if tasks > 0:
-            score += 0.333
-        if events > 0:
-            score += 0.334
-        return score
+trend = analyze_completion_trend(completed_count=80, total_count=100)
+# {"trend": "excellent", "completion_rate": 80.0, "analyzed_count": 100}
 ```
+
+`analyze_completion_trend(completed_count, total_count, thresholds=None)` takes **counts** and
+returns a dict. With `total_count == 0` the trend is `Trend.INSUFFICIENT_DATA`. The default
+thresholds are 80 / 60 / 40 percent.
+
+`Trend` members: `IMPROVING`, `STABLE`, `DECLINING`, `EXCELLENT`, `NEEDS_ATTENTION`,
+`INSUFFICIENT_DATA`.
 
 ---
 
-## Pattern 7: Error Handling
+## Pattern 5: A Dual-Track System Calculator
 
-Proper Result[T] error handling in analytics methods:
+The template calls `system_calculator(entity, user_uid)` and expects
+`(level, score, evidence)`. From `core/services/principles/_alignment_intelligence_mixin.py`:
 
 ```python
-async def analyze_with_fallbacks(
-    self, uid: str
-) -> Result[dict[str, Any]]:
-    """Analyze with graceful degradation."""
+async def _calculate_system_alignment_for_dual_track(
+    self, principle: Principle, _user_uid: UserUID
+) -> tuple[AlignmentLevel, float, list[str]]:
+    evidence: list[str] = []
+    total_score = 0.0
+    ...
+    return AlignmentLevel.from_score(score), score, evidence
 
-    # Primary analysis requires graph intelligence
-    if self.graph_intel:
-        context_result = await self.graph_intel.get_context(uid)
-        if context_result.is_ok:
-            return Result.ok({
-                "analysis": self._full_analysis(context_result.value),
-                "mode": "full",
-            })
 
-    # Fallback to backend-only analysis
-    entity_result = await self.backend.get(uid)
-    if entity_result.is_error:
-        return entity_result
-
-    if not entity_result.value:
-        return Result.fail(Errors.not_found("Entity", uid))
-
-    return Result.ok({
-        "analysis": self._basic_analysis(entity_result.value),
-        "mode": "basic",
-        "note": "Limited analysis - graph intelligence unavailable",
-    })
+@staticmethod
+def _alignment_level_to_score(level: AlignmentLevel) -> float:
+    return level.to_score()
 ```
+
+- Convert between level and score with the enum's own `to_score()` / `from_score()`.
+- For a user-level dimension (`require_entity=False`), `entity` is `None` — the calculator
+  works from `user_uid`.
+- `evidence` strings reach the user in the gap card; write them as findings ("3 goals guided by
+  this principle").
+- An exception raised by the calculator becomes `Result.fail(Errors.system(...))` in the
+  template. Return a low score for "no evidence"; raise only for a real failure.
 
 ---
 
-## Anti-Pattern Examples
+## Pattern 6: A Decomposed Service
 
-### Wrong: Accessing optional services without guards
+When a service passes roughly 350 lines, its methods move into mixin files in the same package
+and the service file keeps `__init__` and the protocol methods.
+
+```python
+class TasksIntelligenceService(
+    _CoreIntelligenceMixin,
+    _AnalyticsMixin,
+    _ProductivityMixin,
+    _DualTrackMixin,
+    BaseAnalyticsService["TasksOperations", Task],
+):
+    _service_name = "tasks.intelligence"
+```
+
+A mixin in this shape:
+
+- declares the attributes it reads as annotations (`backend: TasksOperations`,
+  `relationships: UnifiedRelationshipService[Any, Any, Any] | None  # boundary: domain-generic
+  params`) so mypy can check its body;
+- defines no `__init__`;
+- is listed before `BaseAnalyticsService` in the bases.
+
+Line counts are advisory; coherence decides. See
+[SERVICE_DECOMPOSITION_RULE.md](/docs/patterns/SERVICE_DECOMPOSITION_RULE.md).
+
+---
+
+## Anti-Patterns
+
+### Inventing a backend method
+
+```python
+# WRONG - no protocol declares get_user_habits; mypy rejects it against HabitsOperations
+habits = await self.backend.get_user_habits(user_uid)
+
+# CORRECT
+habits_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+```
+
+### Passing a relationship type to `get_related_uids`
+
+```python
+# WRONG - the first argument is a config method key, and there is no direction parameter
+await self.relationships.get_related_uids(uid, "REINFORCES_KNOWLEDGE", direction="outgoing")
+
+# CORRECT
+await self.relationships.get_related_uids("knowledge", habit_uid)
+```
+
+The keys are declared in `core/models/relationship_registry.py`; read the domain's entry before choosing one.
+
+### Swallowing a failed read
+
+```python
+# WRONG - a failed read is reported as "ready"
+prereqs = await self.relationships.get_related_uids("prerequisite_habits", habit.uid)
+if prereqs.is_error:
+    return Result.ok(True)
+
+# CORRECT
+if prereqs.is_error:
+    return Result.fail(prereqs)
+```
+
+### Cypher in the service
+
+A query string in `core/` fails SKUEL021, and one in a docstring fails SKUEL033. State what the
+method means; the query is a backend method.
+
+### An unannotated broad `except`
 
 ```python
 # WRONG
-async def get_insights(self, uid: str):
-    return await self.graph_intel.get_context(uid)  # Crashes if None!
+except Exception as e:
+    return Result.fail(Errors.system(message=str(e)))
 
-# CORRECT
-async def get_insights(self, uid: str) -> Result[dict]:
-    self._require_graph_intelligence("get_insights")
-    return await self.graph_intel.get_context(uid)
+# CORRECT - a narrow type from core/utils/exception_types.py
+except DATA_CONVERSION_EXCEPTIONS as e:
+    return Result.fail(Errors.system(message="Malformed analytics row", exception=e))
 ```
 
-### Wrong: Raising exceptions instead of returning Result
-
-```python
-# WRONG
-async def analyze(self, uid: str):
-    if not uid:
-        raise ValueError("UID required")
-
-# CORRECT
-async def analyze(self, uid: str) -> Result[dict]:
-    if not uid:
-        return Result.fail(Errors.validation("UID required", field="uid"))
-```
-
-### Wrong: Mixing sync/async inappropriately
-
-```python
-# WRONG - blocking call in async method
-async def get_data(self):
-    return self.expensive_sync_operation()  # Blocks event loop
-
-# CORRECT - run in executor if needed
-async def get_data(self):
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, self.expensive_sync_operation)
-```
-
----
-
-## Note on AI Features
-
-For AI-powered insights (LLM, embeddings), see the **[base-ai-service](../base-ai-service/SKILL.md)** skill. Analytics services intentionally have NO AI dependencies - the app runs at full capacity without LLM.
+The template's two broad catches wrap caller-supplied callables and carry a `# safety-net:`
+annotation (SKUEL017).

@@ -6,203 +6,224 @@ allowed-tools: Read, Grep, Glob
 
 # BaseAnalyticsService: Domain Analytics Pattern
 
-> "Graph analytics without AI dependencies - the app runs at full capacity without LLM"
+> "Graph analytics without AI dependencies"
 
-SKUEL's intelligence layer uses `BaseAnalyticsService[B, T]` as the foundation for all 9 domain intelligence services. This skill covers creating, modifying, and extending analytics services.
+`BaseAnalyticsService[B, T]` (`core/services/base_analytics_service.py`) is the base of the
+eleven analytics services listed below — the nine per-domain `*IntelligenceService` classes and
+two shared ones. "Intelligence" names what the user gets; the implementation is graph reads plus
+Python, with no LLM and no embeddings.
 
-## Key Architecture (ADR-024)
+A class named `*IntelligenceService` is not necessarily a subclass: `GraphIntelligenceService`
+and `LifePathIntelligenceService` are plain classes with their own constructors. Check the
+bases before applying this skill's conventions to a service.
 
-SKUEL separates analytics from AI with two base classes:
+## Two Base Classes (ADR-024)
 
-| Base Class | Purpose | AI Dependencies |
+| Base class | Purpose | AI dependencies |
 |------------|---------|-----------------|
-| **`BaseAnalyticsService`** | Graph analytics, pure Python | **NONE** |
-| `BaseAIService` | LLM/embeddings features | Yes (optional) |
+| **`BaseAnalyticsService`** | Graph analytics, pure Python | None — enforced |
+| `BaseAIService` | LLM / embedding features | LLM and embeddings; built at FULL tier only |
 
-**All 9 domain `*_intelligence_service.py` files extend `BaseAnalyticsService`** - they are pure graph analytics with ZERO AI dependencies. The app functions completely without LLM.
+The separation is executable: `BaseAnalyticsService.__setattr__` raises `AttributeError` on an
+attempt to set `llm`, `embeddings`, `llm_service` or `embeddings_service`.
 
-## Quick Start
+For the AI side see [base-ai-service](../base-ai-service/SKILL.md).
 
-### What is BaseAnalyticsService?
+---
 
-`BaseAnalyticsService[B, T]` is the base class for all 9 domain intelligence services, providing:
-- Standardized initialization for common attributes
-- Fail-fast validation for required dependencies
-- Hierarchical logging with domain names
-- Event handler auto-registration
-- Template methods for context-based analysis
-- Dual-track assessment (user vision vs system measurement)
+## The Subclasses
 
-### The 9 Domain Intelligence Services
+Eleven classes extend the base.
 
-Services >~350 lines are decomposed into mixin files in the same package directory (April 2026). See `SERVICE_DECOMPOSITION_RULE.md`.
+### Nine per-domain services
 
-| Domain | Service | Inherits | Key Focus |
-|--------|---------|----------|-----------|
-| **Activity (6)** |
-| Tasks | `TasksIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _ProductivityMixin, _DualTrackMixin, BaseAnalyticsService["TasksOperations", Task]` | Knowledge, behavioral, performance, dual-track productivity ADR-030 (shell + 4 mixins) |
-| Goals | `GoalsIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _PredictiveMixin, _DualTrackMixin, BaseAnalyticsService[GoalsOperations, Goal]` | Progress forecasting (shell + 4 mixins) |
-| Habits | `HabitsIntelligenceService` | `BaseAnalyticsService[HabitsOperations, Habit]` | Streak patterns |
-| Events | `EventsIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _BehavioralSignalsMixin, BaseAnalyticsService["EventsOperations", Event]` | Cross-domain impact (shell + 3 mixins) |
-| Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService["ChoicesOperations", Choice]` | Decision support |
-| Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Principle]` | Alignment analysis |
-| **Curriculum (3)** |
-| KU | `KuIntelligenceService` | `_CoreIntelligenceMixin[Ku], BaseAnalyticsService["BackendOperations[Ku]", Ku]` | Knowledge graph analytics + dual-track mastery ADR-030 (`assess_mastery_dual_track`, per-(user, Ku)) |
-| PS | `PsIntelligenceService` | `_CoreIntelligenceMixin[PathStep], BaseAnalyticsService["BackendOperations[PathStep]", PathStep]` | Readiness checks |
-| LP | `LpIntelligenceService` | `_CoreIntelligenceMixin[LearningPath], BaseAnalyticsService[LpOperations, LearningPath]` | Learning state analysis |
+| Domain | Service | Bases before `BaseAnalyticsService[...]` |
+|--------|---------|------------------------------------------|
+| Tasks | `TasksIntelligenceService` | `_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_ProductivityMixin`, `_DualTrackMixin` |
+| Goals | `GoalsIntelligenceService` | `_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_PredictiveMixin`, `_DualTrackMixin` |
+| Habits | `HabitsIntelligenceService` | `_CoreIntelligenceMixin`, `_BehavioralSignalsMixin`, `_DualTrackMixin` |
+| Events | `EventsIntelligenceService` | `_CoreIntelligenceMixin` (events wrapper), `_AnalyticsMixin`, `_BehavioralSignalsMixin` |
+| Choices | `ChoicesIntelligenceService` | `_CoreIntelligenceMixin` (choices wrapper), `_AnalyticsMixin`, `_BehavioralSignalsMixin` |
+| Principles | `PrinciplesIntelligenceService` | `_CoreIntelligenceMixin` (principles wrapper), `_AlignmentIntelligenceMixin`, `_InfluenceMixin` |
+| KU | `KuIntelligenceService` | `_CoreIntelligenceMixin[Ku]` |
+| PS | `PsIntelligenceService` | `_CoreIntelligenceMixin[PathStep]` |
+| LP | `LpIntelligenceService` | `_CoreIntelligenceMixin[LearningPath]`, `_PathAnalysisMixin` |
 
-**Key pattern:** The second type parameter is the domain's own model — `Task` for tasks, `Habit` for habits, `Ku` for knowledge units, `PathStep` for path steps, `LearningPath` for learning paths. PS, LP, and KU inherit `_CoreIntelligenceMixin[T]` directly (no per-domain mixin wrapper) and get a typed `get_with_context() -> Result[tuple[T, GraphContext]]` for free.
+The mixin files sit beside the service in its package (`core/services/{domain}/`). Mixin names
+repeat across packages — `tasks._AnalyticsMixin` and `goals._AnalyticsMixin` are different
+classes. When to extract one: [SERVICE_DECOMPOSITION_RULE.md](/docs/patterns/SERVICE_DECOMPOSITION_RULE.md).
 
-### Beyond the 9 domains: corpus-level analytics
+The second type parameter is the domain's own model. The first is the backend protocol:
+the Activity services name their `*Operations` protocol; KU and PS use
+`BackendOperations[Ku]` / `BackendOperations[PathStep]`; LP uses `LpOperations`.
 
-`BaseAnalyticsService` is not only for per-entity domain services. **`KnowledgeHealthService`**
-(`core/services/analytics/knowledge_health_service.py`, ADR-080 Horizon 1) is a *corpus-level*
-subclass — same base (no AI, CORE-tier safe), but it reports on the **whole knowledge subgraph**
-(Ku / PathStep / LearningPath / Exercise) instead of one entity type, and takes **no `user_uid`**.
-It's wired into the `AnalyticsService` facade (not a domain facade) as
-`analyze_knowledge_subgraph_health()`, and it takes only a backend — no `graph_intel` /
-`relationships` (it needs neither the per-entity context loader nor the relationship service):
+### Two that are not per-domain
 
-```python
-class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]):
-    # backend measures raw structural facts; the service derives coverage ratios,
-    # a composite GDS-readiness score, and authoring-guidance flags. Sync helpers
-    # (_ratio, score composition) are pure-Python computation — analytics aggregate,
-    # they don't create.
-```
+| Service | What it is |
+|---------|------------|
+| `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) | One shared instance, `BaseAnalyticsService[BackendOperations[Entity], Entity]`, wired into all six Activity facades as `knowledge_intelligence`. Satisfies `KnowledgeIntelligenceOperations`. |
+| `KnowledgeHealthService` (`core/services/analytics/knowledge_health_service.py`) | Corpus-level gauge over the knowledge subgraph (ADR-080). Its one method takes no `user_uid`. The constructor takes the structural `backend` (required) and `coverage`, an optional `EmbeddingCoverageOperations` probe; it passes no `graph_intel` or relationship service to the base. Exposed through the `AnalyticsService` facade as `analyze_knowledge_subgraph_health()`. |
 
-Two durable rules this example illustrates (hard-won on #770): **a corpus/authoring gauge excludes
-user-generated data** (learner-state telemetry edges, PERSONAL/ASSIGNED/ASSESSMENT exercises), and
-it **matches knowledge nodes by `entity_type`, not domain label** — API create paths persist
-`:Entity {entity_type:'path_step'}` without the `:PathStep` label, so label-only queries silently
-drop them.
+`analyze_knowledge_subgraph_health()` reads the structural measurement and, when `coverage` is
+wired, the embedding-coverage counts. A failure of either read fails the report. Without
+`coverage` the report has no `embedding_coverage` block and no retrievability flag —
+`AnalyticsService` wires both, so construct the service with both. The probe counts nodes whose
+`embedding` is null; it is a graph read, not an embedding client.
+
+Two rules `KnowledgeHealthService` illustrates: a corpus gauge **excludes user-generated data**
+(learner-state edges; PERSONAL, ASSIGNED and ASSESSMENT exercises), and it **matches knowledge
+nodes by `entity_type`, not by domain label** — an API-created path step is
+`:Entity {entity_type: 'path_step'}`, so a label-only match drops it.
+
+### Not subclasses
+
+`UserContextIntelligence` (mixin composition — see
+[user-context-intelligence](../user-context-intelligence/SKILL.md)), `GraphIntelligenceService`
+(the graph-query infrastructure the subclasses receive as `graph_intel`), `ZPDService`,
+`CrossDomainAnalyticsService`, `LifePathIntelligenceService` and the Askesis facade do not
+extend this base.
 
 ---
 
 ## Class Attributes
 
-Every analytics service must define these class attributes:
-
 ```python
-class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
-    # REQUIRED: Logger name (hierarchical)
-    _service_name: ClassVar[str] = "tasks.analytics"
+class BaseAnalyticsService(Generic[B, T]):
+    __slots__ = ("backend", "event_bus", "graph_intel", "insight_store", "logger", "relationships")
 
-    # OPTIONAL: Fail if relationships not provided (default: False)
+    _service_name: ClassVar[str | None] = None
     _require_relationships: ClassVar[bool] = False
-
-    # OPTIONAL: Fail if graph_intel not provided (default: False)
     _require_graph_intel: ClassVar[bool] = False
-
-    # OPTIONAL: Auto-register event handlers
-    _event_handlers: ClassVar[dict[type, str]] = {
-        TaskCompleted: "handle_task_completed",
-        TaskCreated: "handle_task_created",
-    }
+    _event_handlers: ClassVar[dict[type, str]] = {}
 ```
 
-### Attribute Reference
+| Attribute | Purpose | In use |
+|-----------|---------|--------|
+| `_service_name` | Logger name: `skuel.analytics.{_service_name}`; falls back to the class name | All eleven. The nine per-domain values are `"{domain}.intelligence"` (`"tasks.intelligence"`, `"ku.intelligence"`); the shared two are `"knowledge.activity_intelligence"` and `"knowledge_health"`. |
+| `_require_relationships` | `True` makes `__init__` raise `ValueError` without a relationship service | Goals, Habits, Choices |
+| `_require_graph_intel` | `True` makes `__init__` raise `ValueError` without `graph_intel` | No service sets it |
+| `_event_handlers` | `{EventClass: "handler_method_name"}`, subscribed on `__init__` when an `event_bus` is passed | No service declares any |
 
-| Attribute | Type | Required | Purpose |
-|-----------|------|----------|---------|
-| `_service_name` | `str` | Yes | Logger name: `skuel.analytics.{_service_name}` |
-| `_require_relationships` | `bool` | No | If True, raise if `relationship_service` is None |
-| `_require_graph_intel` | `bool` | No | If True, raise if `graph_intel` is None |
-| `_event_handlers` | `dict[type, str]` | No | Auto-subscribe handlers on init |
+A subclass that declares no `__slots__` has a `__dict__`, so it may set its own attributes
+(`self.cross_domain_query`, `self._knowledge_analyzer`). The `__setattr__` guard still applies
+to the four AI names.
 
 ---
 
-## Initialization Pattern
+## Initialization
 
-### Constructor Signature
+### The base constructor
 
 ```python
 def __init__(
     self,
-    backend: B,                                    # REQUIRED - domain operations
+    backend: B,
     graph_intel: GraphIntelligenceService | None = None,
-    relationship_service: Any | None = None,       # UnifiedRelationshipService
-    event_bus: Any | None = None,                  # EventBus
-    insight_store: Any | None = None,              # InsightStore
-) -> None:
+    relationship_service: Any | None = None,  # boundary: UnifiedRelationshipService, params vary per domain
+    event_bus: Any | None = None,  # boundary: EventBusOperations
+    insight_store: Any | None = None,  # boundary: InsightStore
+) -> None: ...
 ```
 
-**NOTE:** No `embeddings_service` or `llm_service` parameters - this is intentional. Analytics services work without AI. For AI features, see the `base-ai-service` skill.
+- `backend` is required; a falsy backend raises `ValueError`.
+- The keyword is `relationship_service`; the attribute it is stored on is `self.relationships`.
+- There is no `embeddings_service` or `llm_service` parameter.
 
-### Standard Initialization
+### A subclass constructor
+
+Subclass signatures differ — each takes what its methods need. Tasks mirrors the base; Habits
+requires the relationship service and a `CrossDomainQueryService` and takes no event bus:
 
 ```python
-from core.services.base_analytics_service import BaseAnalyticsService
-
-class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
-    _service_name = "habits.analytics"
+class HabitsIntelligenceService(
+    _CoreIntelligenceMixin,
+    _BehavioralSignalsMixin,
+    _DualTrackMixin,
+    BaseAnalyticsService[HabitsOperations, Habit],
+):
+    _service_name = "habits.intelligence"
+    _require_relationships = True
 
     def __init__(
         self,
         backend: HabitsOperations,
+        relationship_service: UnifiedRelationshipService[Any, Any, Any],  # boundary: domain-generic params
+        cross_domain_query: CrossDomainQueryService,
         graph_intel: GraphIntelligenceService | None = None,
-        relationship_service: UnifiedRelationshipService | None = None,
-        event_bus: EventBus | None = None,
         insight_store: InsightStore | None = None,
     ) -> None:
-        # ALWAYS call super().__init__() first
         super().__init__(
             backend=backend,
             graph_intel=graph_intel,
             relationship_service=relationship_service,
-            event_bus=event_bus,
             insight_store=insight_store,
         )
-
-        # Domain-specific initialization AFTER super().__init__()
-        self._streak_cache: dict[str, int] = {}
+        self.cross_domain_query = cross_domain_query
 ```
 
-### Provided Attributes After Init
+Call `super().__init__()` first: it validates the backend, stores the services, creates the
+logger and registers event handlers.
 
-After `super().__init__()`, these attributes are available:
+`CrossDomainQueryService` takes a `CrossDomainBackendOperations` backend. No Cypher is written
+in `core/` (SKUEL021).
 
-| Attribute | Type | Purpose |
-|-----------|------|---------|
-| `self.backend` | `B` | Domain operations protocol (REQUIRED) |
-| `self.graph_intel` | `GraphIntelligenceService \| None` | Graph queries |
-| `self.relationships` | `UnifiedRelationshipService \| None` | Relationship queries |
-| `self.event_bus` | `EventBus \| None` | Event publishing |
-| `self.insight_store` | `InsightStore \| None` | Event-driven insight persistence |
-| `self.logger` | `Logger` | Hierarchical logger |
+### Attributes after init
+
+| Attribute | Type | May be `None` |
+|-----------|------|---------------|
+| `self.backend` | `B` | no |
+| `self.graph_intel` | `GraphIntelligenceService` | yes |
+| `self.relationships` | `UnifiedRelationshipService` | yes, unless `_require_relationships` |
+| `self.event_bus` | event bus | yes |
+| `self.insight_store` | `InsightStore` | yes |
+| `self.logger` | logger | no |
+
+### Who constructs it
+
+| Domain | Built by |
+|--------|----------|
+| Tasks, Goals, Habits, Events, Choices | The facade's own `__init__` (`self.intelligence = TasksIntelligenceService(...)`) — each needs an argument the common factory does not have. |
+| Principles | `create_common_sub_services()` — the one Activity domain whose `ActivityDomainConfig.intelligence_class` is set. |
+| KU, PS, LP | The curriculum sub-service factories in `core/services/curriculum_domain_config.py`. |
+
+`intelligence` is not a key of the factory's `skip` parameter: whether it is built is a property
+of the domain's config.
 
 ---
 
-## Fail-Fast Guards
+## Dependency Guards
 
-Use these guard methods to validate dependencies before operations:
+There are no `_require_*()` guard methods. Three mechanisms exist:
 
-### `_require_graph_intelligence(operation)`
-
-```python
-async def get_entity_context(self, uid: str) -> Result[dict]:
-    self._require_graph_intelligence("get_entity_context")
-    # Safe: graph_intel is guaranteed available
-    return await self.graph_intel.get_context(uid)
-```
-
-### `_require_relationship_service(operation)`
+**1. Class attribute — refuse to construct.**
 
 ```python
-async def get_fulfilling_tasks(self, uid: str) -> Result[list[str]]:
-    self._require_relationship_service("get_fulfilling_tasks")
-    # get_related_uids takes a config METHOD-KEY (str) + uid — direction/rel-type and any
-    # edge filter come from the registry spec. NOT (uid, RelationshipName, direction=...).
-    return await self.relationships.get_related_uids("fulfilling_tasks", uid)
+_require_relationships = True
 ```
 
-### Guard Behavior
+**2. Decorator — return `Result.fail` when `graph_intel` is missing.**
 
-All guards raise `ValueError` if the dependency is unavailable:
+```python
+from core.utils.decorators import requires_graph_intelligence
 
+@requires_graph_intelligence("get_with_context")
+async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[T, GraphContext]]: ...
 ```
-ValueError: TasksIntelligenceService.get_entity_context() requires graph_intel
+
+**3. Inline check — return `Result.fail`.**
+
+```python
+if self.relationships is None:
+    return Result.fail(
+        Errors.system(
+            message="relationship_service required for get_with_context",
+            operation="get_with_context",
+        )
+    )
 ```
+
+A service with `_require_relationships = True` narrows the Optional for mypy with
+`assert self.relationships is not None` — the constructor has already guaranteed it.
 
 ---
 
@@ -210,482 +231,286 @@ ValueError: TasksIntelligenceService.get_entity_context() requires graph_intel
 
 ### `_to_domain_model(dto_or_dict, dto_class, model_class)`
 
-Convert data to domain model (handles DTO, dict, or already-converted):
-
-```python
-async def process_tasks(self, raw_data: list[dict]) -> list[Task]:
-    return [
-        self._to_domain_model(item, TaskDTO, Task)
-        for item in raw_data
-    ]
-```
+Returns the domain model from a model (passed through), a DTO (`model_class.from_dto`), or a
+dict (`dto_class(**d)` then `from_dto`).
 
 ### `_publish_event(event)`
 
-Publish events to event bus (safe if bus unavailable):
+`await publish_event(self.event_bus, event, self.logger)`. An analytics service publishes
+findings; it does not perform the domain write — completing a task is the Tasks core service's
+job.
+
+### `_fetch_entity_or_fail(uid)`
+
+`backend.get(uid)` plus the not-found guard: `Result.ok(entity)` or a failed `Result`.
+
+---
+
+## The Three Route-Facing Methods
+
+Each of the nine per-domain services has these; the two shared services do not. The contract
+is the `IntelligenceOperations` protocol in
+`adapters/inbound/route_factories/intelligence_route_factory.py`. No service names it as a
+base, and the factory calls the three methods positionally. `core/ports` declares no protocol
+for the per-domain services.
+
+| Method | Provided by |
+|--------|-------------|
+| `get_with_context(uid, depth=2)` | Inherited from `_CoreIntelligenceMixin` — never written per service |
+| `get_performance_analytics(user_uid, period_days=30)` | Each service |
+| `get_domain_insights(uid, min_confidence=0.7)` | Each service |
+
+What each service does with the two optional parameters:
+
+| Service | `period_days` | `min_confidence` |
+|---------|---------------|------------------|
+| Tasks | applied in Python — keeps the tasks created inside the window | forwarded to the cross-domain read |
+| Goals | applied — a date-range read | forwarded to `get_goal_progress_dashboard` |
+| Events | applied — a date window | **accepted, not used** |
+| Habits | **not applied** — declared `_period_days` | forwarded; defaults to `ConfidenceLevel.MEDIUM` |
+| Choices | **not applied** — declared `_period_days` | forwarded; defaults to `ConfidenceLevel.MEDIUM` |
+| Principles | **not applied** — declared `_period_days` | forwarded |
+| KU, PS, LP | **not applied** — echoed in the payload | **not applied** — echoed in the payload |
+
+- The underscore prefix marks a parameter that is accepted and not applied. KU, PS, LP and
+  Events' `min_confidence` are in that state without the prefix. The register is
+  `docs/reference/PLACEHOLDER_INDEX.md`.
+- A payload that echoes `period_days` or `min_confidence` has not necessarily applied it.
+- Tasks' `get_domain_insights` takes an extra optional `user_context`.
+- KU, PS and LP read shared content: their `get_performance_analytics` takes `user_uid` and
+  reads with no user filter.
+
+**Read caps.** `find_by(limit=100, **filters)` defaults its limit. Eight of the nine
+`get_performance_analytics` methods call it without one — Tasks, Habits, Events, Choices and
+Principles with `user_uid=`; KU, PS and LP with no filter — so each computes over at most 100
+entities. Goals reads with `limit=QueryLimit.MAXIMUM`. A count in one of the eight payloads is a
+count of what was read, not of what exists. A new method passes its limit explicitly.
+
+Routes: eight domains have them (the six Activity domains, PS and LP). KU implements the
+methods and has no generated routes. See [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md).
+
+---
+
+## Cross-Domain Context (Mechanism B)
+
+`get_with_context()` lives on the shared `_CoreIntelligenceMixin[T]`
+(`core/services/intelligence/_core_intelligence_mixin.py`). It routes through
+`self.relationships.get_with_context(uid, depth)`, whose edge vocabulary is the domain's
+`DomainRelationshipConfig.cross_domain_relationship_types` — the registry. There is no loader
+object and no wiring step beyond the constructor, which must be given both dependencies the
+method needs: `graph_intel` (the decorator fails the call without it) and `relationship_service`
+(the inline check fails the call without it).
+
+| Services | How they inherit |
+|----------|------------------|
+| KU, PS, LP | `_CoreIntelligenceMixin[Model]` — typed return `Result[tuple[Model, GraphContext]]` |
+| Tasks, Goals, Habits | The shared mixin, unparameterized |
+| Events, Choices, Principles | A per-package `_CoreIntelligenceMixin` that subclasses the shared one and adds domain methods |
+
+There are no domain-named variants (`get_goal_with_context`): `get_with_context` is the one
+path.
+
+The traversal is undirected — it follows relationships both into and out of the origin entity
+— and is not owner-scoped, so an inbound edge can bring a node into the `GraphContext`. The
+method checks nothing about the caller. On a `USER_OWNED` route the factory verifies ownership of the
+origin before calling it; a `SHARED` route verifies nothing, and neither does a caller that
+reaches the method directly.
+
+## Cross-Domain Analysis: `_analyze_entity_with_typed_context()`
+
+The template for "fetch the entity, read its typed cross-domain context, compute metrics,
+produce recommendations". All six Activity services use it.
 
 ```python
-async def complete_task(self, uid: str) -> Result[Task]:
-    result = await self.backend.complete(uid)
-    if result.is_ok:
-        await self._publish_event(TaskCompleted(task_uid=uid))
-    return result
-```
-
-### `_analyze_entity_with_typed_context()` (Template Method)
-
-THE canonical template: fetch entity -> get path-aware typed cross-domain context ->
-calculate metrics -> generate recommendations. Sources its context from the single
-canonical reader `UnifiedRelationshipService.get_cross_domain_context_typed` (the
-factory-built **path-aware** context, `core/models/graph/path_aware_types.py`). There is
-no `context_type` param — the typed reader resolves the domain context type via the
-per-domain `*CrossContext.from_categorized` factory seam. All 6 activity domains run on it:
-
-```python
-async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
+async def get_goal_progress_dashboard(self, uid: str) -> Result[dict[str, Any]]:  # boundary: analysis envelope
     return await self._analyze_entity_with_typed_context(
         uid=uid,
         metrics_fn=calculate_goal_progress_metrics,
         recommendations_fn=goal_recommendations,
-        min_confidence=0.7,  # forwarded to get_cross_domain_context_typed
+        min_confidence=0.7,
     )
-
-# Metrics/recommendations functions live in
-# core/services/intelligence/metrics_calculators.py and take the PATH-AWARE context
-# (path_aware_types.GoalCrossContext: typed entity lists with distance/strength), e.g.
-def calculate_goal_progress_metrics(goal: Any, context: PathAwareGoalCrossContext) -> dict:
-    return {
-        "task_support_count": len(context.tasks),
-        "habit_support_count": len(context.habits),
-        # ... cascade_impact / path_aware_context rollups
-    }
 ```
 
-> **Failure policy:** a real context-fetch error PROPAGATES as `Result.fail` rather than
-> silently degrading to an empty context (an edge-less entity still yields an `ok` empty
-> context, not a failure).
->
-> **Context kwargs forward to `get_cross_domain_context_typed`.** Extra kwargs
-> (`min_confidence`, `depth`) pass straight through. Since PR #212, `depth` is a real
-> transitive knob (default `2`): related entities up to `depth` hops are bucketed by
-> the edge **incident to each one**, so the path-aware context (and the metrics built from
-> it) count correctly-attributed transitive context, each entry tagged with its `distance`.
-> Pass `depth=1` if a dashboard should count **direct** cross-domain relationships only.
-> Since PR #216 the categorization also honors a mapping's `filter_property`/`filter_value`
-> (matched against each node's incident-edge properties), so edge-property-discriminated
-> tiers — e.g. GOALS' `essential`/`critical`/`optional` habits on SUPPORTS_GOAL — land in
-> their own buckets instead of all collapsing into the no-filter catch-all.
->
-> ⚠️ **Buckets are NOT de-duped by uid.** The producer does `collect(DISTINCT {uid,
-> distance, …})` — DISTINCT over the whole path map — so at `depth ≥ 2` a node reachable
-> by multiple paths recurs once per path. The path-aware `*CrossContext` family
-> (built via `from_categorized`) de-dups by uid keeping the **strongest** path (lowest
-> `distance`, then highest `path_strength`) — first-seen is not the closest path (no
-> `ORDER BY`), and skipping de-dup inflates counts. See `_union_buckets`/`_path_rank` in
-> `choices/_core_intelligence_mixin.py` and the gotcha box in
-> `docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`.
+- The context comes from `UnifiedRelationshipService.get_cross_domain_context_typed(entity_uid,
+  depth=2, min_confidence=0.7)` — the path-aware types in
+  `core/models/graph/path_aware_types.py`, built per domain by
+  `{Domain}CrossContext.from_categorized`.
+- `metrics_fn(entity, context) -> dict` and `recommendations_fn(entity, context, metrics) ->
+  list[str]` live in `core/services/intelligence/metrics_calculators.py`.
+- Extra keyword arguments (`depth`, `min_confidence`) are forwarded to the reader.
+- The envelope is `{"entity", "metrics", "recommendations", "context"}`.
 
-### `_dual_track_assessment()` (Template Method)
+**Failure policy.** A missing entity, a missing relationship service, or a failed context read
+returns `Result.fail`. An entity with no edges yields an `ok` result with an empty context.
 
-Compare user self-assessment (vision) with system measurement (action):
+**`depth` is transitive.** Entities up to `depth` hops away are bucketed by the edge incident to
+each, and each entry carries its `distance`. Pass `depth=1` to count direct relationships only.
+
+**Buckets are de-duplicated by the typed context, not by the producer.** A node reachable by
+several paths appears once per path in the raw buckets. `from_categorized` keeps one entry per
+uid — the strongest path (lowest `distance`, then highest `path_strength`; `_path_rank` and
+`_union_path_buckets` in `path_aware_types.py`). Code that reads raw buckets and skips this
+inflates every count. See
+[UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md).
+
+## Relationship Reads
+
+```python
+knowledge_result = await self.relationships.get_related_uids("knowledge", habit.uid)
+goals_result = await self.relationships.get_related_uids("supported_goals", habit.uid)
+```
+
+`get_related_uids(relationship_key, entity_uid)` takes a **config method key** and a uid. The
+relationship type, direction and any edge filter come from the registry spec for that key. It
+does not take a `RelationshipName` or a `direction=` argument. The keys are per domain — the two
+above are Habits keys; read the domain's relationship config for the rest.
+
+---
+
+## Dual-Track Assessment (ADR-030-dual-track-assessment-pattern.md)
+
+`_dual_track_assessment()` compares the user's self-rating (vision) with a system measurement
+(action) and returns a `DualTrackResult[L]` carrying both, the perception gap and its
+direction.
 
 ```python
 async def assess_alignment_dual_track(
-    self, principle_uid: str, user_uid: UserUID, user_level: AlignmentLevel, ...
+    self,
+    principle_uid: str,
+    user_uid: UserUID,
+    user_alignment_level: AlignmentLevel,
+    user_evidence: str,
+    user_reflection: str | None = None,
 ) -> Result[DualTrackResult[AlignmentLevel]]:
     return await self._dual_track_assessment(
         uid=principle_uid,
         user_uid=user_uid,
-        user_level=user_level,
-        user_evidence=evidence,
-        user_reflection=reflection,
-        system_calculator=self._calculate_system_alignment,
-        level_scorer=self._alignment_level_to_score,  # delegates to AlignmentLevel.to_score()
+        user_level=user_alignment_level,
+        user_evidence=user_evidence,
+        user_reflection=user_reflection,
+        system_calculator=self._calculate_system_alignment_for_dual_track,
+        level_scorer=self._alignment_level_to_score,
         entity_type=EntityType.PRINCIPLE.value,
-        store_callback=self._store_dual_track_checkin,  # per-entity persistence (ADR-030)
+        insight_generator=principle_gap_insights,
+        recommendation_generator=principle_gap_recommendations,
+        store_callback=self._store_dual_track_checkin,
     )
 ```
 
-**Persistence + the per-entity / user-level split (ADR-030).** A `store_callback(uid, result)`
-runs *after* the result is built (so it sees the computed system level/score + gap, not just the
-self-rating) and is **safe-by-design** — it logs and returns on any failure so a persistence hiccup
-never fails the assessment. Three flavors, by who the assessment is about:
+- `system_calculator(entity, user_uid)` returns `(level, score, evidence)`. An exception it
+  raises is caught and returned as `Result.fail(Errors.system(...))`.
+- The gap is `user_score - system_score`. Under 0.15 in magnitude the direction is `aligned`;
+  otherwise `user_higher` or `system_higher`.
+- `recommendations` is capped at four.
 
-- **Per-entity** (Goals/Habits/Principles, `require_entity=True`): callback is the canonical
-  `BaseAnalyticsService._store_dual_track_checkin`, which appends the snapshot to the *entity's*
-  `dual_track_checkins` field via `self.backend` (capped at `DualTrackCheckin.HISTORY_LIMIT`).
-- **User-level** (Tasks/Events/Choices, `require_entity=False`, `uid == user_uid`): there is no
-  `:Entity` row and the intelligence service's `self.backend` is the activity backend, not the User
-  node. So the callback is `UserService.append_dual_track_checkin(user_uid, result, *, dimension)`,
-  bound via `functools.partial(..., dimension=…)` at the route and passed in as `store_callback`.
-  It appends to `User.dual_track_checkins` (a `dict[str, list[dict]]` keyed by `DualTrackDimension`
-  value). The three user-level assess methods take an optional `store_callback` param and forward
-  it.
-- **Knowledge / per-(user, Ku)** (`KuIntelligenceService.assess_mastery_dual_track`,
-  `require_entity=True` — a Ku *is* an `:Entity`): the system side wraps `calculate_user_substance`
-  (mastery `MasteryLevel` vs substance score), but a Ku is SHARED/public, so the check-in can't live
-  on the `:Ku` node — it would collide across users. The callback is
-  `UserService.append_knowledge_checkin(ku_uid, result, *, user_uid)` (the template passes `ku_uid`
-  as the positional `uid`; the Ku-detail route binds `user_uid` via a small store closure). It
-  appends to a **separate** `User.knowledge_checkins` field — `dict[ku_uid, list[dict]]`, kept
-  distinct from `dual_track_checkins` so per-Ku keys never collide with the fixed dimensions. The
-  assess method takes the **rich** `UserContext` (substance needs the rich-only activity→Ku maps).
+### Seven dimensions, three subjects
 
-The cross-domain aggregator (`UserContextIntelligence.get_cross_domain_perception_analysis`) reads
-per-entity logs via `find_by(user_uid=…)`, user-level logs off `context.dual_track_checkins`, and the
-per-Ku Knowledge logs off `context.knowledge_checkins` (aggregated into one "Knowledge" bucket).
+| Subject | Dimensions | `require_entity` | Persisted to |
+|---------|------------|------------------|--------------|
+| Per-entity | Goals, Habits, Principles | `True` | The entity's `dual_track_checkins`, via `self._store_dual_track_checkin` |
+| User-level | Tasks (productivity), Events (engagement), Choices (decision quality) | `False`, `uid == user_uid` | `User.dual_track_checkins`, keyed by `DualTrackDimension`, via `UserService.append_dual_track_checkin` |
+| Per-(user, Ku) | Knowledge — `KuIntelligenceService.assess_mastery_dual_track` | `True` | `User.knowledge_checkins`, keyed by Ku uid, via `UserService.append_knowledge_checkin` |
 
-**Atomic append (all paths).** The append is a read-modify-write of a single JSON-string property,
-so it runs **under a Neo4j node write-lock** to keep concurrent same-subject appends from losing a
-snapshot. All callbacks route through one shared mechanism —
-`adapters/persistence/neo4j/_dual_track_checkin_store.py::atomic_append_checkin` (parameterized with
-`property_name` for the Knowledge `knowledge_checkins` log), surfaced as
-`UniversalNeo4jBackend.atomic_append_dual_track_checkin` (per-entity, flat list),
-`UserBackend.atomic_append_dual_track_checkin` (user-level, dimension-keyed), and
-`UserBackend.atomic_append_knowledge_checkin` (Knowledge, `ku_uid`-keyed). Don't reintroduce a
-plain `get()`+`update()` read-modify-write for check-ins — it reopens the lost-update race.
+A Ku is shared, so its check-ins live on the user, never on the `:Ku` node.
 
----
+### `store_callback`
 
-## Method Categories
+`store_callback(uid, result)` runs after the result is built, so it sees the system level,
+score and gap. A failure inside it is logged and swallowed: **the assessment returns
+`Result.ok` whether or not the check-in was stored.** A caller that must know the snapshot
+persisted cannot learn it from the result.
 
-Analytics methods fall into these categories:
+Every callback ends in one appender —
+`adapters/persistence/neo4j/_dual_track_checkin_store.py::atomic_append_checkin` — which does
+the read-modify-write of the JSON log under the node's write lock, capped at
+`DualTrackCheckin.HISTORY_LIMIT` (20). Do not write a check-in with a plain `get()` then
+`update()`: two concurrent check-ins would lose one.
 
-### 1. Single-Entity Intelligence
+### HTTP surfaces
 
-Analyze one entity with its graph context:
+| Surface | Route | Dimensions |
+|---------|-------|------------|
+| Self Check-In page | `POST /self-checkin/results` | user-level |
+| Activity detail pages | `POST /{domain}/dual-track/results` | per-entity |
+| Ku detail page | `POST /explore/ku/{uid}/mastery-checkin` | Knowledge |
 
-```python
-async def get_task_context(self, uid: str) -> Result[dict]:
-    """Get task with full graph neighborhood."""
-    self._require_graph_intelligence("get_task_context")
-    return await self.graph_intel.get_with_context(uid, depth=2)
-```
-
-### 2. User-Scoped Analytics
-
-Analyze patterns across a user's entities:
-
-```python
-async def get_behavioral_insights(
-    self, user_uid: UserUID, period_days: int = 90
-) -> Result[dict]:
-    """Analyze user's task completion patterns."""
-    tasks = await self.backend.get_user_tasks(user_uid, period_days)
-    if tasks.is_error:
-        return tasks
-
-    return Result.ok({
-        "completion_rate": self._calc_completion_rate(tasks.value),
-        "peak_hours": self._find_peak_hours(tasks.value),
-        "recommendations": self._generate_recommendations(tasks.value),
-    })
-```
-
-### 3. Cross-Domain Intelligence
-
-Connect insights across multiple domains:
-
-```python
-async def get_knowledge_application_opportunities(
-    self, user_uid: UserUID, ku_uid: str
-) -> Result[dict]:
-    """Find tasks and habits that could apply this knowledge."""
-    self._require_relationship_service("get_knowledge_application_opportunities")
-
-    # Find related entities across domains. get_related_uids takes a config METHOD-KEY
-    # (str) + uid; the rel-type, direction, and any edge filter come from the spec.
-    tasks = await self.relationships.get_related_uids("applied_in_tasks", ku_uid)
-    habits = await self.relationships.get_related_uids("reinforced_by_habits", ku_uid)
-
-    return Result.ok({
-        "applicable_tasks": tasks.value if tasks.is_ok else [],
-        "reinforcing_habits": habits.value if habits.is_ok else [],
-    })
-```
-
-### 4. Performance Analytics
-
-Compute metrics and trends using pure Python:
-
-```python
-async def get_performance_analytics(
-    self, user_uid: UserUID, period_days: int = 30
-) -> Result[dict]:
-    """Calculate performance metrics."""
-    tasks = await self.backend.get_completed_tasks(user_uid, period_days)
-    if tasks.is_error:
-        return tasks
-
-    return Result.ok({
-        "total_completed": len(tasks.value),
-        "avg_completion_time_hours": self._avg_completion_time(tasks.value),
-        "trend": self._calculate_trend(tasks.value),
-    })
-```
+Each is `@csrf_protected`.
 
 ---
 
-## Event Handling
-
-### Declaring Event Handlers
-
-Use the `_event_handlers` class attribute:
+## Shared Utilities
 
 ```python
-from core.events.task_events import TaskCompleted, TaskCreated
-
-class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
-    _service_name = "tasks.analytics"
-    _event_handlers = {
-        TaskCompleted: "handle_task_completed",
-        TaskCreated: "handle_task_created",
-    }
-
-    async def handle_task_completed(self, event: TaskCompleted) -> None:
-        """Handle task completion - update knowledge substance."""
-        self.logger.info(f"Task completed: {event.task_uid}")
-        # Update related knowledge units
-        await self._update_knowledge_substance(event.task_uid)
-
-    async def handle_task_created(self, event: TaskCreated) -> None:
-        """Handle task creation - analyze knowledge requirements."""
-        self.logger.info(f"Task created: {event.task_uid}")
+from core.services.intelligence import (
+    MetricsCalculator,
+    PatternAnalyzer,
+    RecommendationEngine,
+    Trend,
+    analyze_completion_trend,
+    compare_progress_to_expected,
+)
 ```
 
-### Auto-Registration
-
-When `event_bus` is provided to `__init__()`, handlers are automatically registered:
-
-```python
-# In base class __init__():
-for event_type, handler_name in self._event_handlers.items():
-    handler = getattr(self, handler_name, None)
-    if handler:
-        self.event_bus.subscribe(event_type, handler)
-```
+`RecommendationEngine` is a fluent builder: `with_metrics(...)`, `add_threshold_check(...)`,
+`add_conditional(...)`, `add_message(...)`, `build()`. Worked examples are in
+[PATTERNS.md](PATTERNS.md).
 
 ---
 
-## Intelligence Protocols
+## Adding a Method
 
-The intelligence protocol layer has two levels:
-
-### Core Protocols (`core/ports/intelligence_protocols.py`)
-
-| Protocol | Methods | Implementor |
-|----------|---------|-------------|
-| `KnowledgeIntelligenceOperations` | 4 — `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_knowledge_prerequisites`, `get_learning_opportunities` | `ActivityKnowledgeIntelligenceService` (shared singleton) |
-
-Per-domain intelligence services share no core protocol.
-
-### Route Factory Protocol (3 methods for auto route generation)
-
-All 9 domain intelligence services (6 Activity + KU/PS/LP) satisfy this separate protocol from `intelligence_route_factory.py`. `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` — never implemented per-service:
-
-```python
-# Inherited — do not reimplement:
-#   _CoreIntelligenceMixin[T].get_with_context(uid, depth=2)
-#     -> Result[tuple[T, GraphContext]]
-
-async def get_performance_analytics(
-    self, user_uid: UserUID, period_days: int = 30
-) -> Result[dict[str, Any]]:
-    """Get user-specific analytics."""
-    ...
-
-async def get_domain_insights(
-    self, uid: str, min_confidence: float = 0.7
-) -> Result[dict[str, Any]]:
-    """Get domain-specific intelligence."""
-    ...
-```
-
----
-
-## Cross-domain context (mechanism B)
-
-> **Deleted (intent-traversal ↔ registry convergence, #241):** `GraphContextLoader`,
-> `self._init_context_loader(...)`, and the `self.context_loader` attribute no longer
-> exist. Context retrieval is now **mechanism B** (registry-sourced) — no per-service
-> wiring. See `/docs/roadmap/intent-traversal-registry-convergence.md`.
-
-`get_with_context()` is provided by the shared `_CoreIntelligenceMixin[T]`
-(`core/services/intelligence/_core_intelligence_mixin.py`), which routes through
-`self.relationships.get_with_context` — whose edge vocabulary comes from the domain's
-`DomainRelationshipConfig.cross_domain_relationship_types` (the registry, the single source of
-truth). `BaseAnalyticsService.__init__` stores the injected relationship service on
-`self.relationships`; there is nothing to wire.
-
-```python
-class TasksIntelligenceService(
-    _CoreIntelligenceMixin[Task],  # inherits get_with_context() — typed in the domain model
-    BaseAnalyticsService["TasksOperations", Task],
-):
-    def __init__(self, backend, graph_intel=None, ...):
-        super().__init__(backend, graph_intel, ...)
-    # get_with_context() is inherited — no override, no loader wiring needed.
-```
-
-`_CoreIntelligenceMixin[T]` is generic: Tasks, Goals, Habits, PS, LP, and KU
-inherit it directly (e.g. `_CoreIntelligenceMixin[PathStep]`) and get a typed
-`Result[tuple[T, GraphContext]]` return. Events, Choices, and Principles keep a
-per-package `_CoreIntelligenceMixin` wrapper (extending the shared base) only
-because they add real domain methods (performance / decision / alignment lenses).
-The domain-named aliases (`get_goal_with_context`, etc.) were deleted in the
-tasks bloat campaign — generic `get_with_context` is the one path.
-
-For cross-domain **analysis** (metrics + recommendations), use the template method
-`BaseAnalyticsService._analyze_entity_with_typed_context(uid, metrics_fn, recommendations_fn)`,
-which sources the canonical typed, path-aware context from
-`UnifiedRelationshipService.get_cross_domain_context_typed` and is built per-domain via
-`{Domain}CrossContext.from_categorized` (`core/models/graph/path_aware_types.py`). All
-6 activity domains run on it.
-
----
+1. Find the service. If it is decomposed, put the method in the mixin whose subject it shares;
+   otherwise in the service file.
+2. Return `Result[T]`. Propagate a failed read with `Result.fail(result)`.
+3. Guard an optional dependency with one of the three mechanisms above.
+4. A method with no `await` is `def` (SKUEL029).
+5. Add the facade delegation if callers reach it through the facade.
+6. No Cypher in the service — a new read is a backend method (SKUEL021).
 
 ## Anti-Patterns
 
-### Don't Skip super().__init__()
+### Skipping `super().__init__()`
 
 ```python
-# WRONG - skips base class initialization
-def __init__(self, backend, ...):
-    self.backend = backend  # Misses validation, logging, event registration
+# WRONG - no backend validation, no logger, no handler registration
+def __init__(self, backend: HabitsOperations) -> None:
+    self.backend = backend
+```
+
+### Reaching for an AI service
+
+```python
+# WRONG - raises AttributeError at construction
+self.llm = llm_service
+```
+
+Put the feature on the domain's `*AIService`.
+
+### Turning a failed read into an empty answer
+
+```python
+# WRONG - "no linked knowledge" and "the read failed" become the same answer
+knowledge = await self.relationships.get_related_uids("knowledge", habit_uid)
+return Result.ok({"knowledge_uids": knowledge.value if knowledge.is_ok else []})
 
 # CORRECT
-def __init__(self, backend, ...):
-    super().__init__(backend, ...)  # ALWAYS call first
+knowledge = await self.relationships.get_related_uids("knowledge", habit_uid)
+if knowledge.is_error:
+    return Result.fail(knowledge)
+return Result.ok({"knowledge_uids": knowledge.value})
 ```
 
-### Don't Access Dependencies Without Guards
+### Raising instead of returning
 
 ```python
-# WRONG - crashes if graph_intel is None
-async def get_context(self, uid: str):
-    return await self.graph_intel.get_context(uid)
+# WRONG
+raise ValueError("uid required")
 
-# CORRECT - fail-fast with clear error
-async def get_context(self, uid: str):
-    self._require_graph_intelligence("get_context")
-    return await self.graph_intel.get_context(uid)
+# CORRECT
+return Result.fail(Errors.validation(message="uid required", field="uid"))
 ```
 
-### Don't Create Custom Error Classes
-
-```python
-# WRONG - use Errors factory
-class IntelligenceError(Exception):
-    pass
-
-# CORRECT - use Result[T] pattern
-from core.utils.errors_simplified import Errors
-return Result.fail(Errors.business(rule="intelligence", message="..."))
-```
-
-### Don't Return Raw Exceptions
-
-```python
-# WRONG - inconsistent error handling
-async def analyze(self, uid: str):
-    try:
-        ...
-    except Exception as e:
-        raise IntelligenceError(str(e))
-
-# CORRECT - return Result[T]
-async def analyze(self, uid: str) -> Result[dict]:
-    try:
-        ...
-        return Result.ok(data)
-    except Exception as e:
-        return Result.fail(Errors.system(str(e), exception=e))
-```
-
----
-
-## Creating a New Analytics Service
-
-### Step 1: Define the Service
-
-```python
-# core/services/new_domain/new_domain_intelligence_service.py
-from core.services.base_analytics_service import BaseAnalyticsService
-from core.ports import NewDomainOperations
-from core.models.new_domain import NewDomainModel, NewDomainDTO
-
-class NewDomainIntelligenceService(
-    _CoreIntelligenceMixin[NewDomainModel],
-    BaseAnalyticsService[NewDomainOperations, NewDomainModel],
-):
-    _service_name = "new_domain.analytics"
-    _require_relationships = False  # Set True if needed
-
-    def __init__(
-        self,
-        backend: NewDomainOperations,
-        graph_intel=None,
-        relationship_service=None,
-        event_bus=None,
-        insight_store=None,
-    ):
-        super().__init__(
-            backend=backend,
-            graph_intel=graph_intel,
-            relationship_service=relationship_service,
-            event_bus=event_bus,
-            insight_store=insight_store,
-        )
-        # get_with_context() is inherited from _CoreIntelligenceMixin[NewDomainModel]
-        # via mechanism B (self.relationships.get_with_context) — no wiring needed.
-```
-
-### Step 2: Implement Protocol Methods
-
-```python
-    # get_with_context() inherited from _CoreIntelligenceMixin[NewDomainModel]
-
-    async def get_performance_analytics(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        entities = await self.backend.get_user_entities(user_uid, period_days)
-        if entities.is_error:
-            return entities
-
-        return Result.ok({
-            "total": len(entities.value),
-            "completion_rate": self._calc_completion_rate(entities.value),
-        })
-
-    async def get_domain_insights(
-        self, uid: str, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
-        self._require_graph_intelligence("get_domain_insights")
-        context = await self.graph_intel.get_context(uid)
-        return Result.ok({
-            "insights": self._analyze_context(context),
-            "recommendations": self._generate_recommendations(context),
-        })
-```
-
-### Step 3: Wire in Facade
-
-```python
-# core/services/new_domain/new_domain_service.py
-class NewDomainService:
-    def __init__(self, backend, graph_intel=None, ...):
-        self.core = NewDomainCoreService(backend)
-        self.search = NewDomainSearchService(backend)
-        self.intelligence = NewDomainIntelligenceService(
-            backend=backend,
-            graph_intel=graph_intel,
-            ...
-        )
-```
-
-### Step 4: Document
-
-Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format.
+`Errors` and `Result` both come from `core.utils.result_simplified`.
 
 ---
 
@@ -693,39 +518,36 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 
 | File | Purpose |
 |------|---------|
-| `/core/services/base_analytics_service.py` | Base class definition |
-| `/core/services/base_ai_service.py` | AI features (separate - see base-ai-service skill) |
-| `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations |
-| `/core/services/intelligence/_core_intelligence_mixin.py` | `_CoreIntelligenceMixin[T]` — shared `get_with_context()` (mechanism B) |
-| `/core/services/{domain}/{domain}_intelligence_service.py` | Domain implementations |
-| `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | Master documentation |
+| `core/services/base_analytics_service.py` | The base class |
+| `core/services/intelligence/_core_intelligence_mixin.py` | Shared `get_with_context()` |
+| `core/services/intelligence/metrics_calculators.py` | `metrics_fn` / `recommendations_fn` per domain |
+| `core/services/intelligence/` | `RecommendationEngine`, `MetricsCalculator`, `PatternAnalyzer`, trend functions |
+| `core/models/graph/path_aware_types.py` | Path-aware cross-domain context types |
+| `core/models/graph_context.py` | `GraphContext` |
+| `core/ports/intelligence_protocols.py` | `KnowledgeIntelligenceOperations` |
+| `adapters/inbound/route_factories/intelligence_route_factory.py` | `IntelligenceOperations`, `IntelligenceRouteFactory` |
+| `core/services/activity_domain_config.py` | `create_common_sub_services()`, `intelligence_class` |
+| `core/services/{domain}/{domain}_intelligence_service.py` | The nine services |
 
 ## Related Skills
 
-- **[base-ai-service](../base-ai-service/SKILL.md)** - AI-powered features (LLM, embeddings)
-- **[result-pattern](../result-pattern/SKILL.md)** - Result[T] error handling
-- **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** - Graph query patterns
-- **[python](../python/SKILL.md)** - Python patterns and protocols
+- **[base-ai-service](../base-ai-service/SKILL.md)** — the AI tier
+- **[user-context-intelligence](../user-context-intelligence/SKILL.md)** — the cross-domain hub
+- **[activity-domains](../activity-domains/SKILL.md)** — the facades that hold `.intelligence`
+- **[result-pattern](../result-pattern/SKILL.md)** — `Result[T]`
+- **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** — where queries are written
 
 ## Deep Dive Resources
 
-**Architecture:**
-- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) - Complete intelligence services guide
-- [ADR-024](/docs/decisions/ADR-024-base-intelligence-service-migration.md) - Analytics vs AI separation decision
-- [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) - BaseService mixin architecture
-
-**Patterns:**
-- [SERVICE_DECOMPOSITION_RULE.md](/docs/patterns/SERVICE_DECOMPOSITION_RULE.md) - When to extract mixins (intelligence >350 lines, facade >700 lines)
-- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service patterns and facade delegation
-- [protocol_architecture.md](/docs/patterns/protocol_architecture.md) - Protocol-based interfaces
-
-**Guides:**
-- [BASESERVICE_QUICK_START.md](/docs/guides/BASESERVICE_QUICK_START.md) - New developer onboarding
-
----
+- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) — the inventory
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) — facades and sub-services
+- [SERVICE_DECOMPOSITION_RULE.md](/docs/patterns/SERVICE_DECOMPOSITION_RULE.md) — when to extract a mixin
+- [ADR-024](/docs/decisions/ADR-024-base-intelligence-service-migration.md) — the analytics / AI separation
+- [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) — mixin decomposition
+- [ADR-080](/docs/decisions/ADR-080-auradb-three-horizon-strategy.md) — the knowledge-health gauge
 
 ## See Also
 
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - File locations, imports, signatures
-- [PATTERNS.md](PATTERNS.md) - Implementation patterns with code examples
-- [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md) - KnowledgeIntelligenceOperations, the route factory's IntelligenceOperations + cross-domain context (mechanism B)
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — locations, imports, signatures
+- [PATTERNS.md](PATTERNS.md) — worked examples from the live services
+- [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md) — the protocols and the route factory
