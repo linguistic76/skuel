@@ -21,8 +21,10 @@ populate_submission_stats (4 tests):
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
+
+from neo4j.time import DateTime as Neo4jDateTime
 
 from core.services.user.unified_user_context import UserContext
 from core.services.user.user_context_populator import UserContextPopulator
@@ -360,11 +362,12 @@ def test_populate_submission_stats_populated() -> None:
     populator = UserContextPopulator()
     ctx = UserContext(user_uid="user_test")
 
-    last_date = datetime(2026, 3, 5, 14, 30, 0)
+    # max(datetime(sub.created_at)): the driver's native, read as an aware instant.
+    last_date = datetime(2026, 3, 5, 14, 30, 0, tzinfo=UTC)
     stats = {
         "total_submission_count": 12,
         "submissions_in_window": 4,
-        "last_submission_date": last_date,
+        "last_submission_date": Neo4jDateTime.from_native(last_date),
         "feedback_received_count": 8,
         "feedback_in_window": 2,
         "pending_feedback_count": 4,

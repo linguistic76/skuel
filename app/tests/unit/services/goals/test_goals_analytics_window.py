@@ -6,9 +6,10 @@ Unit guards for the Goals period-analytics window filter.
 
     await self.backend.find_by(user_uid=..., updated_at__gte=cutoff.isoformat())
 
-Unlike the Choices defect in #859, that key is *not* dropped: ``updated_at`` is a real
-``Goal`` field, so ``build_search_query`` accepts it and emits ``n.updated_at >= $bound``
-with a **string** bound. ``updated_at`` is stored in two shapes — an ISO string from the
+Unlike the Choices defect in #859, that key was *not* dropped: ``updated_at`` is a real
+``Goal`` field, so ``build_search_query`` accepted it and emitted ``n.updated_at >= $bound``
+with a **string** bound (a range on an instant field now compares instants on both sides —
+neo4j-cypher-patterns Pattern 10b). ``updated_at`` is stored in two shapes — an ISO string from the
 CRUD write path and a native temporal from the vault re-ingest path (``ON MATCH``) — and
 Neo4j evaluates ``<temporal> >= <string>`` as null, so the re-ingested rows were silently
 dropped. The endpoint returned a plausible number that was simply too low.
@@ -102,11 +103,11 @@ class TestPerformanceAnalyticsWindow:
     """The window fetch must use the coercing helper, on the field it claims."""
 
     async def test_window_uses_the_coercing_helper_not_a_bare_comparison(self) -> None:
-        """RED before the fix: the one call was ``find_by`` with ``updated_at__gte``.
+        """The window is whole days in the user's zone: ``find_by_date_range`` takes them.
 
-        ``find_by`` reaches ``build_search_query``, which emits a bare ``>=`` against the
-        bound as given. Only ``find_by_date_range`` coerces the *stored* value first, so
-        naming the helper is the whole fix.
+        It compares the stored instant, whatever its shape, with the days' bounds in the
+        current zone — the documented call shape (docs/reference/PLACEHOLDER_INDEX.md
+        § Group A).
         """
         backend = RecordingBackend()
         result = await make_service(backend).get_performance_analytics(USER, period_days=30)
@@ -115,8 +116,8 @@ class TestPerformanceAnalyticsWindow:
         assert len(backend.calls) == 1, f"expected one fetch, got {backend.calls}"
         name, _kwargs = backend.calls[0]
         assert name == "find_by_date_range", (
-            "the window went through find_by, which compares a string bound against a "
-            "mixed-representation field and drops the temporally-stored rows"
+            "the window must go through find_by_date_range, which takes the period's days "
+            "in the user's zone"
         )
 
     async def test_window_field_is_updated_at(self) -> None:

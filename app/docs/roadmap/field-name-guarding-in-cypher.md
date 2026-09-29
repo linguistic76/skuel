@@ -1,6 +1,6 @@
 ---
 title: "Field-Name Guarding in Cypher — Which Guarantee, and Where"
-updated: 2026-09-24
+updated: 2026-09-29
 status: "ruled 2026-09-22 — one syntactic guard in the persistence layer; no HTTP route publishes a sort key; the named allowlist retired in favour of an enum-typed sort key; the five backend sites stay unguarded, deliberately"
 registered: 2026-09-22
 ruled: 2026-09-22
@@ -165,7 +165,7 @@ guarantees. Each is deliberate, and the `trigger:` above is what would reopen it
 
 Out of scope entirely: `exercise_backends.py:107`'s `order_by`. `_exercise_status_tail` is a
 module-private query-fragment template with exactly three callers, all in the same file, all
-passing Cypher *expression* literals (`"exercise.title"`, `"exercise.due_date ASC, exercise.created_at DESC"`).
+passing Cypher *expression* literals (`"exercise.title"`, `"exercise.due_date ASC, datetime(exercise.created_at) DESC"`).
 It is not a parameter surface, and no identifier check applies to an expression.
 
 **Explicitly not built:** a lint rule for unguarded interpolation. CYP003 deliberately excludes

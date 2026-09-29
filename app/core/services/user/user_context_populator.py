@@ -537,7 +537,7 @@ class UserContextPopulator:
             return
         context.total_submission_count = int(stats.get("total_submission_count", 0))
         context.submissions_in_window = int(stats.get("submissions_in_window", 0))
-        context.last_submission_date = stats.get("last_submission_date")
+        context.last_submission_date = instant_of(stats.get("last_submission_date"), current_zone())
         context.feedback_received_count = int(stats.get("feedback_received_count", 0))
         context.feedback_in_window = int(stats.get("feedback_in_window", 0))
         context.pending_feedback_count = int(stats.get("pending_feedback_count", 0))

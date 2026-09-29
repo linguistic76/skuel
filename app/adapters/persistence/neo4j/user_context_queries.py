@@ -824,7 +824,7 @@ OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
 WHERE coalesce(ar.processor_type, '') <> $human_report_source
 WITH user, life_path_uid, life_path_designated_at, life_path_alignment_score,
      ar
-ORDER BY ar.period_end DESC
+ORDER BY datetime(ar.period_end) DESC
 WITH user, life_path_uid, life_path_designated_at, life_path_alignment_score,
      collect(ar)[0] AS latest_ar
 
@@ -903,7 +903,7 @@ WHERE sub.entity_type = 'user_entry'
 WITH user,
      count(CASE WHEN sub.pipeline IS NOT NULL AND sub.pipeline <> 'transcribe_and_structure' THEN 1 END) AS total_submission_count,
      count(CASE WHEN datetime(sub.created_at) >= datetime($window_start) THEN 1 END) AS submissions_in_window,
-     max(sub.created_at) AS last_submission_date,
+     max(datetime(sub.created_at)) AS last_submission_date,
      collect(sub.uid) AS all_submission_uids
 
 // Feedback received for user's submissions
@@ -1138,7 +1138,7 @@ WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      upcoming_event_uids, today_event_uids,
      core_principle_uids, pending_choice_uids,
      ar
-ORDER BY ar.period_end DESC
+ORDER BY datetime(ar.period_end) DESC
 WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,

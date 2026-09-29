@@ -23,7 +23,9 @@ from adapters.persistence.neo4j._backend_helpers import _validate_rel_name
 from adapters.persistence.neo4j.query.cypher import (
     build_knowledge_read_clause,
     build_publication_clause,
+    comparable_property,
 )
+from core.models.entity import Entity
 from core.models.enums.activity_enums import ActivitySortKey
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -337,12 +339,15 @@ class _KnowledgeContextMixin:
                 params.update(filter_params)
 
         where_clause = " AND ".join(conditions)
+        # Every activity model inherits Entity's stamps, and the other sort keys
+        # are calendar values or numbers — so Entity answers the type rule.
+        order_key = comparable_property("n", order_by.value, Entity)
 
         query = f"""
         {match_clause}
         WHERE {where_clause}
         RETURN n.uid as entity_uid
-        ORDER BY n.{order_by.value} DESC
+        ORDER BY {order_key} DESC
         LIMIT $limit
         """
         return await self.execute_query(query, params)
@@ -379,7 +384,7 @@ class _KnowledgeContextMixin:
         WHERE {published_ps} AND {published_lp}
         WITH DISTINCT lp
         RETURN lp.uid as path_uid
-        ORDER BY lp.created_at DESC
+        ORDER BY datetime(lp.created_at) DESC
         LIMIT $limit
         """
         return await self.execute_query(

@@ -314,13 +314,13 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                  max(CASE WHEN direct THEN 1 ELSE 0 END) = 1 AS via_direct,
                  collect(DISTINCT CASE WHEN group IS NULL THEN null
                                        ELSE {{uid: group.uid, name: group.name}} END) AS via_groups_raw,
-                 max(at) AS shared_at
+                 max(datetime(at)) AS shared_instant
             WHERE entity.entity_type IN $entity_types
               AND NOT (viewer)-[:{owns}]->(entity)
               AND {audience}
               AND ($entity_type IS NULL OR entity.entity_type = $entity_type)
               AND ($sharer_uid IS NULL OR entity.user_uid = $sharer_uid)
-            WITH entity, via_direct, shared_at,
+            WITH entity, via_direct, shared_instant,
                  [x IN via_groups_raw WHERE x IS NOT NULL] AS via_groups
             WHERE $via IS NULL
                OR ($via = $direct_token AND via_direct)
@@ -328,14 +328,14 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {review_standing}
             OPTIONAL MATCH (owner:User {{uid: entity.user_uid}})
             RETURN entity,
-                   toString(shared_at) AS shared_at,
+                   toString(shared_instant) AS shared_at,
                    coalesce(owner.display_name, owner.title, entity.user_uid) AS shared_by,
                    entity.user_uid AS sharer_uid,
                    via_direct,
                    via_groups,
                    reviewed_by,
                    revised_after_feedback
-            ORDER BY shared_at DESC
+            ORDER BY shared_instant DESC
             LIMIT $limit
             """,
             {
@@ -387,11 +387,13 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                     {{uid: g.uid, name: g.name, shared_at: toString(r.shared_at)}}] AS groups
             WHERE size(users) > 0 OR size(groups) > 0
             WITH entity, users, groups,
-                 reduce(latest = null, s IN [x IN users | x.shared_at] + [x IN groups | x.shared_at] |
-                        CASE WHEN latest IS NULL OR s > latest THEN s ELSE latest END) AS last_shared_at
+                 reduce(latest = null,
+                        s IN [x IN users | datetime(x.shared_at)] + [x IN groups | datetime(x.shared_at)] |
+                        CASE WHEN latest IS NULL OR s > latest THEN s ELSE latest END) AS last_shared
             {review_standing}
-            RETURN entity, users, groups, last_shared_at, reviewed_by, revised_after_feedback
-            ORDER BY last_shared_at DESC
+            RETURN entity, users, groups, toString(last_shared) AS last_shared_at,
+                   reviewed_by, revised_after_feedback
+            ORDER BY last_shared DESC
             LIMIT $limit
             """,
             {

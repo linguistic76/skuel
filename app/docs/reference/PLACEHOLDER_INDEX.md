@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-09-29
 ---
 
 # Placeholder Parameter Index
@@ -113,10 +113,10 @@ result = await self.backend.find_by_date_range(
 
 Live as written in `goals_intelligence_service.py:176–182`.
 
-⚠ **Not `find_by(<field>__gte=...)`, for either key.** Both timestamp fields are
-**mixed-representation**, so a bare `>=` against a string bound evaluates to null on the
-temporally-stored rows and silently drops them — the protocol docstring says so explicitly
-(`base_protocols.py:591–596`):
+⚠ **Not `find_by(<field>__gte=...)`, for either key.** The window is days in the user's zone,
+and `find_by_date_range` takes days. A `find_by` range on these instant fields compares instants
+on both sides (neo4j-cypher-patterns Pattern 10b), but it takes a moment, not a day. Both
+timestamp fields are **mixed-representation**:
 
 | Field | ISO string written by | Native `datetime()` written by |
 |---|---|---|

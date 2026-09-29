@@ -52,7 +52,7 @@ def build_review_standing_subquery(entity_alias: str = "entity") -> str:
              {a}.user_uid AS self_owner_uid,
              {a}.turn_in_exercise_uid AS self_exchange_uid,
              {a}.created_at AS self_created_at
-        ORDER BY latest_report.created_at DESC
+        ORDER BY datetime(latest_report.created_at) DESC
         LIMIT 1
         RETURN latest_report.processor_type AS reviewed_by,
                EXISTS {{
@@ -110,10 +110,10 @@ SUPERSEDED_COPY = f"""EXISTS {{
                    > copy_revision
                  OR (coalesce(head([(newer)-[nr:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) | nr.revision]), 0)
                        = copy_revision
-                     AND newer.created_at > copy_created_at)))
+                     AND datetime(newer.created_at) > datetime(copy_created_at))))
            OR (copy_note IS NOT NULL
                AND newer.submitted_from_uid = copy_note
-               AND newer.created_at > copy_created_at))
+               AND datetime(newer.created_at) > datetime(copy_created_at)))
 }}"""
 
 

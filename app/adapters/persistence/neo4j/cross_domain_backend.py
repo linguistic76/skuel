@@ -1377,7 +1377,7 @@ class CrossDomainBackend:
                    ex.uid AS exercise_uid,
                    ex.title AS exercise_title,
                    count(report) AS report_count
-            ORDER BY sub.created_at DESC
+            ORDER BY datetime(submitted_at) DESC
             """,
             {"user_uid": user_uid},
         )
@@ -1532,9 +1532,8 @@ class CrossDomainBackend:
         long-completed entity re-dated its completion and bounced it to the
         top here. An absent row is honest; a wrong date is not.
 
-        toString() normalises the mix of string-stored dates and
-        datetime()-stored mastered_at so the cross-leg ORDER BY compares
-        one type.
+        The legs order by one instant: a completion day is its first
+        instant in the user's zone, beside the instant ``mastered_at``.
         """
         return await self.executor.execute_query(
             """
@@ -1549,8 +1548,9 @@ class CrossDomainBackend:
                     entity_uid: t.uid,
                     entity_title: t.title,
                     timestamp: ts
-                } AS activity
-                ORDER BY ts DESC
+                } AS activity,
+                datetime({date: date(left(ts, 10)), timezone: $zone}) AS at
+                ORDER BY at DESC
                 LIMIT 5
               UNION ALL
                 MATCH (u)-[m:MASTERED]->(ku:Entity)
@@ -1561,8 +1561,9 @@ class CrossDomainBackend:
                     entity_uid: ku.uid,
                     entity_title: ku.title,
                     timestamp: toString(m.mastered_at)
-                } AS activity
-                ORDER BY m.mastered_at DESC
+                } AS activity,
+                datetime(m.mastered_at) AS at
+                ORDER BY at DESC
                 LIMIT 5
               UNION ALL
                 MATCH (u)-[:OWNS]->(g:Goal {status: $completed_status})
@@ -1574,15 +1575,20 @@ class CrossDomainBackend:
                     entity_uid: g.uid,
                     entity_title: g.title,
                     timestamp: ts
-                } AS activity
-                ORDER BY ts DESC
+                } AS activity,
+                datetime({date: date(left(ts, 10)), timezone: $zone}) AS at
+                ORDER BY at DESC
                 LIMIT 5
             }
             RETURN activity
-            ORDER BY activity.timestamp DESC
+            ORDER BY at DESC
             LIMIT 20
             """,
-            {"user_uid": user_uid, "completed_status": EntityStatus.COMPLETED.value},
+            {
+                "user_uid": user_uid,
+                "completed_status": EntityStatus.COMPLETED.value,
+                "zone": current_zone().key,
+            },
         )
 
     async def get_journal_entries_in_range(
@@ -1610,7 +1616,7 @@ class CrossDomainBackend:
                    coalesce(j.processed_content, j.content) as processed_content,
                    {title: j.title, summary: j.summary, themes: j.key_topics} as metadata,
                    j.created_at as created_at
-            ORDER BY j.created_at DESC
+            ORDER BY datetime(j.created_at) DESC
             """,
             params={
                 "user_uid": user_uid,

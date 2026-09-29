@@ -108,7 +108,7 @@ class IngestionBackend:
             OPTIONAL MATCH (ih)-[:HAD_ERROR]->(e:IngestionError)
             WITH ih, COLLECT(e) AS errors
             RETURN ih, errors
-            ORDER BY ih.started_at DESC
+            ORDER BY datetime(ih.started_at) DESC
             SKIP $offset
             LIMIT $limit
             """,

@@ -23,8 +23,14 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, Neo4jValue, UserUID
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import is_instant_field
 
-from ._helpers import convert_value_for_neo4j, validate_identifier, validate_label
+from ._helpers import (
+    comparable_property,
+    convert_value_for_neo4j,
+    validate_identifier,
+    validate_label,
+)
 from ._types import T
 
 logger = get_logger(__name__)
@@ -133,21 +139,31 @@ def build_search_query(
         param_name = filter_key.replace("__", "_")
         neo4j_value = convert_value_for_neo4j(filter_value)
 
+        # An instant field's range compares instants on both sides: the stored
+        # value through datetime() (it may be a string or a native), the bound —
+        # an ISO string by now — likewise. Any other field compares as stored.
+        stored = comparable_property("n", field_name, entity_class)
+        bound = (
+            f"datetime(${param_name})"
+            if is_instant_field(entity_class, field_name)
+            else f"${param_name}"
+        )
+
         # Build WHERE clause based on operator
         if operator == "eq":
             where_clauses.append(f"n.{field_name} = ${param_name}")
             params[param_name] = neo4j_value
         elif operator == "gt":
-            where_clauses.append(f"n.{field_name} > ${param_name}")
+            where_clauses.append(f"{stored} > {bound}")
             params[param_name] = neo4j_value
         elif operator == "lt":
-            where_clauses.append(f"n.{field_name} < ${param_name}")
+            where_clauses.append(f"{stored} < {bound}")
             params[param_name] = neo4j_value
         elif operator == "gte":
-            where_clauses.append(f"n.{field_name} >= ${param_name}")
+            where_clauses.append(f"{stored} >= {bound}")
             params[param_name] = neo4j_value
         elif operator == "lte":
-            where_clauses.append(f"n.{field_name} <= ${param_name}")
+            where_clauses.append(f"{stored} <= {bound}")
             params[param_name] = neo4j_value
         elif operator == "contains":
             # For list/array fields, use IN operator (reversed: value IN array)
@@ -579,7 +595,7 @@ def build_text_search_query(
     direction = "DESC" if order_desc else "ASC"
     order_clause = ""
     if order_by and order_by in valid_fields:
-        order_clause = f"ORDER BY n.{order_by} {direction}"
+        order_clause = f"ORDER BY {comparable_property('n', order_by, entity_class)} {direction}"
     elif order_by:
         logger.warning(f"Order field '{order_by}' not in {entity_class.__name__}, ignoring")
 
@@ -807,7 +823,9 @@ def build_graph_aware_search_query(
     direction_str = "DESC" if order_desc else "ASC"
     order_clause = ""
     if order_by and order_by in valid_fields:
-        order_clause = f"ORDER BY target.{order_by} {direction_str}"
+        order_clause = (
+            f"ORDER BY {comparable_property('target', order_by, entity_class)} {direction_str}"
+        )
     elif order_by:
         logger.warning(f"Order field '{order_by}' not in {entity_class.__name__}, ignoring")
 
@@ -884,7 +902,7 @@ def build_array_contains_query(
     order_clause = ""
     if order_by and order_by in valid_fields:
         direction = "DESC" if order_desc else "ASC"
-        order_clause = f"ORDER BY n.{order_by} {direction}"
+        order_clause = f"ORDER BY {comparable_property('n', order_by, entity_class)} {direction}"
     elif order_by:
         logger.warning(f"Order field '{order_by}' not in {entity_class.__name__}, ignoring")
 
@@ -983,7 +1001,7 @@ def build_array_any_match_query(
     order_clause = ""
     if order_by and order_by in valid_fields:
         direction = "DESC" if order_desc else "ASC"
-        order_clause = f"ORDER BY n.{order_by} {direction}"
+        order_clause = f"ORDER BY {comparable_property('n', order_by, entity_class)} {direction}"
     elif order_by:
         logger.warning(f"Order field '{order_by}' not in {entity_class.__name__}, ignoring")
 
@@ -1120,7 +1138,7 @@ def build_list_query(
     order_clause = ""
     if order_by:
         direction = "DESC" if order_desc else "ASC"
-        order_clause = f"ORDER BY n.{order_by} {direction}"
+        order_clause = f"ORDER BY {comparable_property('n', order_by, entity_class)} {direction}"
 
     query = f"""
     MATCH (n:{label})

@@ -352,7 +352,7 @@ class ConversationBackend(Neo4jSessionRunner):
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL})
         {_SESSION_RETURN}
-        ORDER BY s.last_activity DESC
+        ORDER BY datetime(s.last_activity) DESC
         LIMIT $limit
         """
         try:

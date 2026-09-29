@@ -503,13 +503,13 @@ class SessionBackend(Neo4jSessionRunner):
         MATCH (u:User {uid: $user_uid})-[:HAS_SESSION]->(s:Session)
         WHERE s.is_valid = true
         RETURN s
-        ORDER BY s.created_at DESC
+        ORDER BY datetime(s.created_at) DESC
     """
 
     _QUERY_USER_SESSIONS_ALL = """
         MATCH (u:User {uid: $user_uid})-[:HAS_SESSION]->(s:Session)
         RETURN s
-        ORDER BY s.created_at DESC
+        ORDER BY datetime(s.created_at) DESC
     """
 
     @safe_backend_operation("get_user_sessions")

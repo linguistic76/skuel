@@ -407,8 +407,8 @@ class ProgressiveLearningQueries:
         WITH user,
              count(DISTINCT ku) as concepts_mastered,
              sum(avg_prerequisite_difficulty) as total_difficulty_conquered,
-             min(m.achieved_at) as first_mastery,
-             max(m.achieved_at) as last_mastery
+             min(datetime(m.achieved_at)) as first_mastery,
+             max(datetime(m.achieved_at)) as last_mastery
 
         // Calculate velocity
         WITH user, concepts_mastered, total_difficulty_conquered,

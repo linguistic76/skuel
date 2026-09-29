@@ -42,7 +42,7 @@ class TestUnifiedQueryPattern:
         assert "date(left(toString(n.due_date), 10)) <= date($end_date)" in query
         assert "NOT n.status IN $exclude_statuses" in query
         assert "RETURN n" in query
-        assert "ORDER BY n.created_at DESC" in query
+        assert "ORDER BY datetime(n.created_at) DESC" in query
         assert "LIMIT $limit" in query
 
         # Verify parameters

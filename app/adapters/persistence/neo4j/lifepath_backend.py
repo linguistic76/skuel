@@ -468,7 +468,7 @@ class LifePathBackend:
             MATCH (u)-[r:ALIGNMENT_SNAPSHOT]->(lp)
             WHERE r.recorded_at >= datetime() - duration({days: $days})
             RETURN r.score AS score, toString(r.date) AS date_str
-            ORDER BY r.recorded_at DESC
+            ORDER BY datetime(r.recorded_at) DESC
             """,
             {"user_uid": user_uid, "days": days},
         )

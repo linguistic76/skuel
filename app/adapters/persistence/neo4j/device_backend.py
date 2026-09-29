@@ -150,7 +150,7 @@ class DeviceBackend(Neo4jSessionRunner):
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{_HAS_DEVICE}]->(d:Device)
         {_DEVICE_RETURN}
-        ORDER BY d.enrolled_at DESC
+        ORDER BY datetime(d.enrolled_at) DESC
         """
         try:
             records = await self._run_records(query, {"user_uid": user_uid})

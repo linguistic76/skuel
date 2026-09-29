@@ -47,6 +47,7 @@ from adapters.persistence.neo4j.query.cypher import (
     build_count_query,
     build_list_query,
     build_search_query,
+    comparable_property,
 )
 from adapters.persistence.neo4j.query.graph_traversal import build_graph_context_query
 from core.models.query_types import QueryIntent
@@ -145,7 +146,8 @@ class ModelQueryBuilder[T]:
             # Add ordering if specified
             if self._order_by_field:
                 direction = "DESC" if self._order_desc else "ASC"
-                return_clause += f" ORDER BY n.{self._order_by_field} {direction}"
+                order_key = comparable_property("n", self._order_by_field, self.model)
+                return_clause += f" ORDER BY {order_key} {direction}"
 
             # Add pagination (SKIP must come before LIMIT)
             if self._offset_val > 0:

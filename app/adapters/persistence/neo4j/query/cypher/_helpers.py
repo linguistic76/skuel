@@ -12,6 +12,7 @@ from typing import Any
 
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
+from core.utils.timestamp_helpers import is_instant_field
 
 # =============================================================================
 # Shared Edge Alternations
@@ -83,6 +84,27 @@ def convert_value_for_neo4j(value: Any) -> Any:
         return value.isoformat()
     else:
         return value
+
+
+def comparable_property(alias: str, field: str, model: type | None) -> str:
+    """``alias.field`` as a query orders and compares it — a stored instant read through ``datetime()``.
+
+    An instant field (a ``datetime`` on the model — :func:`is_instant_field`,
+    ADR-089's type rule) is stored as a string by some writers and a native by
+    others. Neo4j orders values of different types by type before value — every
+    string after every temporal — and compares a string with a temporal as null,
+    so the raw property sorts and filters by shape, not by time. ``datetime()``
+    reads every stored shape as the instant it names. Any other field — a
+    calendar day, a title, a number — is returned as stored.
+
+    Example:
+        f"ORDER BY {comparable_property('n', order_by, entity_class)} DESC"
+        # created_at → datetime(n.created_at); due_date → n.due_date
+    """
+    expression = f"{alias}.{field}"
+    if model is not None and is_instant_field(model, field):
+        return f"datetime({expression})"
+    return expression
 
 
 def get_filterable_fields[T](entity_class: type[T]) -> list[str]:

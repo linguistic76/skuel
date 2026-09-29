@@ -53,7 +53,7 @@ class UserProgressBackend:
                 r.last_practiced as last_practiced,
                 r.confidence_level as confidence_level,
                 r.retention_score as retention_score
-            ORDER BY r.last_practiced DESC
+            ORDER BY datetime(r.last_practiced) DESC
             """,
             {"user_uid": user_uid},
         )
@@ -71,7 +71,7 @@ class UserProgressBackend:
                 r.time_invested_minutes as time_invested_minutes,
                 r.difficulty_rating as difficulty_rating,
                 r.last_accessed as last_accessed
-            ORDER BY r.last_accessed DESC
+            ORDER BY datetime(r.last_accessed) DESC
             """,
             {"user_uid": user_uid},
         )

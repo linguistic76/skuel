@@ -77,7 +77,7 @@ class EntryGroundingBackend:
                    coalesce(e.embedding_text_hash, '') AS embedding_text_hash,
                    applied AS applied_ku_uids,
                    coalesce(e.grounding_rejected_ku_uids, []) AS rejected_ku_uids
-            ORDER BY e.created_at
+            ORDER BY datetime(e.created_at)
             """,
             {"user_uid": user_uid, "force": force},
         )

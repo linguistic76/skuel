@@ -185,7 +185,7 @@ class TestArrayBuilderFieldGuards:
         cypher, _ = build_array_contains_query(
             Task, label=NeoLabel.TASK, field="tags", value="x", order_by="created_at"
         )
-        assert "ORDER BY n.created_at DESC" in cypher
+        assert "ORDER BY datetime(n.created_at) DESC" in cypher
 
 
 # ----------------------------------------------------------------------------

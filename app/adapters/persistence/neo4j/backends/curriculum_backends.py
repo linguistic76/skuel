@@ -1032,7 +1032,7 @@ class PsBackend(
         WHERE NOT (ps)<-[:HAS_STEP]-(:Entity {{entity_type: 'learning_path'}})
           AND {published}
         RETURN ps
-        ORDER BY ps.updated_at DESC
+        ORDER BY datetime(ps.updated_at) DESC
         LIMIT $limit
         """
         return self._records_to_steps(
@@ -1085,7 +1085,7 @@ class PsBackend(
                 WHEN 'low' THEN 2
                 ELSE 3
             END,
-            ps.updated_at DESC
+            datetime(ps.updated_at) DESC
         LIMIT $limit
         """
         return self._records_to_steps(

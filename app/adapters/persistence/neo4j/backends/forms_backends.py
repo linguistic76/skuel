@@ -274,7 +274,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             {scope}
             OPTIONAL MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs)
             RETURN fs, u.uid AS user_uid, u.display_name AS user_name
-            ORDER BY fs.created_at DESC
+            ORDER BY datetime(fs.created_at) DESC
             """,
             params,
         )
@@ -584,7 +584,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             """
             MATCH (fs:Entity {entity_type: 'form_submission', user_uid: $user_uid})
             RETURN fs
-            ORDER BY fs.created_at DESC
+            ORDER BY datetime(fs.created_at) DESC
             LIMIT $limit
             """,
             {"user_uid": user_uid, "limit": limit},

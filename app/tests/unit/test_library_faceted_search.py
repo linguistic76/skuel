@@ -101,7 +101,7 @@ class TestFacetedSearchRawClauses:
     async def test_default_order_by_config_field_desc(self) -> None:
         store: CapturedQuery = {}
         await run_faceted(store)
-        assert "ORDER BY entity.updated_at DESC" in store["query"]
+        assert "ORDER BY datetime(entity.updated_at) DESC" in store["query"]
         assert "SKIP" not in store["query"]
 
     @pytest.mark.asyncio
