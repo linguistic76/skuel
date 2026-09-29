@@ -13,13 +13,15 @@ from __future__ import annotations
 from datetime import (
     time,
 )
+from typing import Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from core.models.enums import EntityStatus, EventType
 from core.models.request_base import UpdateRequestBase
 from core.models.templates._template_request_base import TemplateCreateRequest
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
+from core.models.validation_rules import validate_url_when_online
 
 
 class EventTemplateCreateRequest(TemplateCreateRequest):
@@ -54,6 +56,12 @@ class EventTemplateCreateRequest(TemplateCreateRequest):
     knowledge_retention_check: bool = False
     recurrence_maintains_habit: bool = False
     skip_breaks_habit_streak: bool = False
+
+    @model_validator(mode="after")
+    def _require_url_when_online(self) -> Self:
+        """An online template needs a meeting URL: spawning copies both fields onto
+        every learner's Event, so a URL-less online template multiplies the gap."""
+        return validate_url_when_online("meeting_url", "is_online")(self)
 
 
 class EventTemplateUpdateRequest(UpdateRequestBase):

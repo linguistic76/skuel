@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-09-23
+updated: 2026-09-29
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -595,7 +595,7 @@ reinforces_habit_template_uid: ht.mindfulness.daily-2min-breath
 | `event_type` | `meeting`/`conference`/`workshop`/`deadline`/`reminder`/`personal`/`work`/`social`/`learning`/`health` | Kind of event — enum-checked at ingest even though the model types it as a string |
 | `location` | string | Where |
 | `is_online` | bool | Online or in person |
-| `meeting_url` | string | Join link |
+| `meeting_url` | string | Join link — needed when `is_online` is true: the template API refuses an online template without one, but ingestion does not check the pair, so an authored online template with no URL spawns a URL-less online event for every learner |
 | `recurrence_pattern` | same values as TaskTemplate | How often — enum-checked at ingest even though the model types it as a string |
 | `recurrence_end_offset` | offset map | When recurrence ends |
 | `reminder_minutes` | int | Lead time |

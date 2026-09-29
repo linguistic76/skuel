@@ -8,8 +8,9 @@ Uses shared validation rules from core.models.validation_rules for DRY complianc
 """
 
 from datetime import date, time
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from core.models.enums import EntityStatus, EventType, Priority, RecurrencePattern
 from core.models.event.event_update_intent import EventUpdateIntent
@@ -87,10 +88,15 @@ class EventCreateRequest(BaseModel):
 
     # Shared validators (DRY pattern)
     _validate_end_time = validate_time_after("end_time", "start_time")
-    _validate_meeting_url = validate_url_when_online("meeting_url", "is_online")
     _validate_recurrence_end = validate_recurrence_end_after_start(
         "recurrence_end_date", "event_date"
     )
+
+    @model_validator(mode="after")
+    def _require_url_when_online(self) -> Self:
+        """An online event needs a meeting URL — judged on the whole request, so an
+        omitted ``meeting_url`` is refused like an empty one."""
+        return validate_url_when_online("meeting_url", "is_online")(self)
 
     model_config = ConfigDict(
         # Pydantic V2 serializes enums, dates, times, and datetimes automatically

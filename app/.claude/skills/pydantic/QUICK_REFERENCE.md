@@ -99,7 +99,7 @@ def to_intent(self) -> TaskUpdateIntent:
 | Piece | Location | Purpose |
 |-------|----------|---------|
 | Base classes | `core/models/request_base.py` | `RequestBase`, `CreateRequestBase`, `UpdateRequestBase`, `FilterRequestBase`, `AnalyticsRequestBase`, `ResponseBase` (`from_attributes=True`), `ListResponseBase` |
-| Shared validator factories | `core/models/validation_rules.py` | `validate_future_date`, `validate_required_string`, `validate_percentage`, `validate_recurrence_end_after_start`, `validate_list_no_duplicates`, ~20 more |
+| Shared validator factories | `core/models/validation_rules.py` | `validate_future_date`, `validate_required_string`, `validate_percentage`, `validate_recurrence_end_after_start`, `validate_list_no_duplicates`; the full list is in [validation-patterns.md](validation-patterns.md#available-validators) |
 | Update sentinels | `core/models/sentinels.py` | `UNSET` / `Unset` for partial-patch intents |
 | Intent contracts | `core/models/update_contracts.py` | `SupportsToIntent`, `SupportsToChanges`, `RawChanges` |
 | Body parsing → Result | `adapters/inbound/form_helpers.py` | `parse_body(request, Model)` — JSON or form by Content-Type, the door both API clients and HTMX forms reach (CRUD create/update, admin account actions); `parse_json_body` / `parse_form_body` for one caller kind — all catch `ValidationError`, return `Result.fail(Errors.validation(..., field="body"))` |

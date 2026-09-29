@@ -39,6 +39,8 @@ from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.principle_template_dto import PrincipleTemplateDTO
 from core.models.templates.task_template import TaskTemplate
 from core.models.templates.task_template_dto import TaskTemplateDTO
+from core.models.update_contracts import RawChanges
+from core.models.validation_rules import ONLINE_URL_REQUIRED, patch_leaves_online_without_url
 from core.ports import BackendOperations
 from core.ports.template_protocols import TemplateAttachmentOperations
 from core.services.base_service import BaseService
@@ -192,6 +194,19 @@ class EventTemplateService(_BaseTemplateService[EventTemplate]):
         search_order_by="created_at",
         user_ownership_relationship=None,
     )
+
+    def _validate_update(self, current: EventTemplate, updates: RawChanges) -> Result[None]:
+        """An online template needs a meeting URL, judged on the merged state.
+
+        Spawning copies ``is_online`` and ``meeting_url`` onto every engaging learner's
+        Event, so the rule ``EventTemplateCreateRequest`` holds at creation holds here
+        too. A patch naming neither field passes (see ``patch_leaves_online_without_url``).
+        """
+        if patch_leaves_online_without_url(
+            updates.to_changes(), is_online=current.is_online, meeting_url=current.meeting_url
+        ):
+            return Result.fail(Errors.validation(message=ONLINE_URL_REQUIRED, field="meeting_url"))
+        return Result.ok(None)
 
 
 class ChoiceTemplateService(_BaseTemplateService[ChoiceTemplate]):

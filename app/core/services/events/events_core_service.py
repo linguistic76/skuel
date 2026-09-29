@@ -38,6 +38,7 @@ from core.models.event.event_request import EventCreateRequest
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.models.validation_rules import ONLINE_URL_REQUIRED, patch_leaves_online_without_url
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
 from core.services.completion_stamp import (
@@ -167,10 +168,14 @@ class EventsCoreService(
         Business Rules:
         1. Past event immutability: Can't modify past events (except notes/tags)
         2. Duration sanity check: If updating duration, must be 5-720 minutes
+        3. Online needs a URL: a patch that sets ``is_online`` or ``meeting_url`` must
+           leave the event with a URL if it is online, judged on the merged state. A
+           patch naming neither passes, so an event stored online without a URL can
+           still be completed or rescheduled.
 
         Args:
             current: Current event state
-            updates: Dictionary of proposed changes
+            updates: Typed ``EventUpdateIntent`` of proposed changes
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
@@ -213,6 +218,12 @@ class EventsCoreService(
                         value=duration,
                     )
                 )
+
+        # Business Rule 3: an online event needs a meeting URL
+        if patch_leaves_online_without_url(
+            changes, is_online=current.is_online, meeting_url=current.meeting_url
+        ):
+            return Result.fail(Errors.validation(message=ONLINE_URL_REQUIRED, field="meeting_url"))
 
         return Result.ok(None)  # All validations passed
 
