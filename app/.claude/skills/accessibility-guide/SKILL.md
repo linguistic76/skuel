@@ -209,6 +209,8 @@ Button(
     cls=ButtonT.destructive,
     type="button",
     hx_post=f"/api/tasks/delete?uid={task.uid}",
+    hx_target=f"#task-{safe_id(task.uid)}",   # the door answers JSON, so remove the card
+    hx_swap="delete",
 )
 ```
 

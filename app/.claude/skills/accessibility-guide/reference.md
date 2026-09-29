@@ -11,6 +11,7 @@
 **Implementation:**
 
 ```python
+from ui.activities._shared import safe_id
 from ui.components import Button, ButtonT
 from ui.primitives import ButtonLink
 
@@ -21,6 +22,8 @@ Button(
     type="button",                               # not a form submit
     hx_post=f"/api/tasks/delete?uid={task.uid}",
     hx_confirm="Delete this task?",
+    hx_target=f"#task-{safe_id(task.uid)}",      # the TaskCard's id
+    hx_swap="delete",                            # the door answers JSON; remove the card instead
     aria_label=f"Delete task: {task.title}",     # include context
 )
 
@@ -194,7 +197,7 @@ inserted; don't hand-roll another.
 - **role="alert":** Assertive live region (implicit aria-live="assertive")
 - A live region must already be in the DOM when its text changes; one inserted together with its text is often not announced. That is why SKUEL keeps a single persistent region.
 
-### Pattern 6: Accessible Dropdown Menu
+### Pattern 6: Accessible Dropdown (Disclosure)
 
 **Purpose:** Keyboard-operable disclosure with the right ARIA state
 
@@ -204,7 +207,6 @@ Div(
         "Options",
         Icon("chevron-down", size=16),
         x_ref="trig",
-        aria_haspopup="true",
         aria_controls="options-menu",
         cls=ButtonT.ghost,
         **{":aria-expanded": "open", "@click": "open = !open"},
@@ -227,10 +229,12 @@ inside the menu returns focus to the trigger. `dropdown_menu()` in `ui/primitive
 styled shell; it carries no ARIA, so the attributes above are still the caller's.
 
 **Key Features:**
-- **aria-haspopup / aria-controls:** the trigger names what it opens
+- **aria-controls:** the trigger names what it opens. No `aria-haspopup`: that announces a
+  menu, and this is a disclosure of plain links
 - **:aria-expanded:** tracks open/closed state
 - **Escape:** closes the menu and returns focus to the trigger
-- Links inside stay plain links; a `role="menu"` widget additionally needs arrow-key roving focus
+- Links inside stay plain links. A `role="menu"` widget (which *does* take `aria-haspopup`)
+  additionally needs menu roles and arrow-key roving focus
 
 ### Pattern 7: Progress Indicators
 
