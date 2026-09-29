@@ -21,7 +21,7 @@ What it does not see: a raw instant carried under an alias (``WITH n.created_at
 AS at … ORDER BY at``), and comparisons (``<``, ``>=``). A comparison of a
 property every writer stores as a native stays raw by design (the session,
 token, retention and rate-limit windows; the SearchEvent window is indexed).
-Both were censused by hand for PR 6b.
+Both are left to a census by hand.
 
 See: /docs/roadmap/utc-instants-arc.md § PR 6
 """

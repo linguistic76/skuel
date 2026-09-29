@@ -8,7 +8,7 @@ Unit guards for the Goals period-analytics window filter.
 
 Unlike the Choices defect in #859, that key was *not* dropped: ``updated_at`` is a real
 ``Goal`` field, so ``build_search_query`` accepted it and emitted ``n.updated_at >= $bound``
-with a **string** bound (a range on an instant field now compares instants on both sides —
+with a **string** bound (a range on an instant field compares instants on both sides —
 neo4j-cypher-patterns Pattern 10b). ``updated_at`` is stored in two shapes — an ISO string from the
 CRUD write path and a native temporal from the vault re-ingest path (``ON MATCH``) — and
 Neo4j evaluates ``<temporal> >= <string>`` as null, so the re-ingested rows were silently
