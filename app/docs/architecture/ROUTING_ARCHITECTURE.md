@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-09-27
+updated: 2026-09-29
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -436,9 +436,7 @@ TASKS_CONFIG = create_activity_domain_route_config(
     prometheus_metrics_attr="prometheus_metrics",
 )
 
-def create_tasks_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> None:
+def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
