@@ -123,7 +123,8 @@ skills:
     library_package: null  # Vendored static file
     library_version: null
     primary_docs:
-      - /docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md
+      - /docs/architecture/ALPINE_JS_ARCHITECTURE.md
+      - /docs/patterns/INSIGHT_ACTION_TRACKING.md
     related_adrs: []
     patterns: []
     keywords: [chartjs, visualization, graphs, charts, analytics]

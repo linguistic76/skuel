@@ -1,20 +1,14 @@
-"""Per-domain page context types for route→UI contracts.
+"""Page context types for route→UI contracts.
 
-Presentation-layer TypedDicts that define the contract between routes and
-UI view components. These are UI concerns, NOT service-layer contracts.
-
-Each Activity Domain gets a standalone TypedDict with properly typed entities.
-Required fields use ``total=True`` (default); optional fields use ``NotRequired``.
+Presentation-layer TypedDicts that define the contract between a route (or a UI
+orchestrator) and the view that renders it. These are UI concerns, NOT
+service-layer contracts. Required fields use ``total=True`` (default); optional
+fields use ``NotRequired``.
 
 Usage::
 
-    from ui.page_contexts import TasksPageContext
-
-    ctx: TasksPageContext = {
-        "entities": tasks,
-        "filters": filters,
-    }
-    view_content = TasksViewComponents.render_list_view(ctx)
+    ctx_result = await orchestrator.build_context(user_uid, view_date)
+    content = TodayPage(ctx_result.value)  # ctx_result: Result[TodayPageContext]
 """
 
 from __future__ import annotations

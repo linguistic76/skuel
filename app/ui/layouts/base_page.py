@@ -71,8 +71,9 @@ def build_head(
     Args:
         title: Page title (appended with " - SKUEL")
         extra_css: Additional CSS file paths to include
-        extra_scripts: Additional JS file paths to include (injected before
-            skuel.js so page-specific libraries are available to Alpine components)
+        extra_scripts: Additional JS file paths to include. They render after
+            skuel.js; Alpine loads with ``defer``, so a page library is defined
+            before any Alpine component initialises.
 
     Returns:
         Head element with all required includes
@@ -169,7 +170,7 @@ def BasePage(
         request: Starlette request (preferred - auto-detects auth/admin)
         active_page: Current page key for navbar highlighting
         extra_css: Additional CSS file paths to include
-        extra_scripts: Additional JS file paths to include (injected before skuel.js)
+        extra_scripts: Additional JS file paths to include (forwarded to build_head)
         user_display_name: Fallback user name if no request
         is_authenticated: Fallback auth state if no request
         is_admin: Fallback admin state if no request

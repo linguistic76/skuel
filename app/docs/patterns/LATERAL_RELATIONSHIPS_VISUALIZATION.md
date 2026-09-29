@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-09-18'
+updated: '2026-09-29'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -34,7 +34,7 @@ The visualizations are now backed by **authoring**, not read-only. Two things la
 
 2. **`EntityRelationshipsSection(..., authoring=True)`** prepends a "Manage Relationships" panel: an **Add-relationship modal** (`ui/patterns/relationships/add_modal.py`) whose four sub-forms POST directly to the existing `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` routes, and a flat, deletable edge list (`GET .../lateral/manage` → `render_lateral_manage_fragment`) whose "×" buttons drive the existing `DELETE .../lateral/{type}/{target_uid}` route. Authoring is gated to the entity types the `EntityPicker` supports (`PICKER_TYPES` — the six Activity types: task/goal/habit/event/choice/principle) and is enabled on all six Activity detail pages. Curriculum KU/PS/LP stay read-only (not in `PICKER_TYPES`; `authoring=True` is a guarded no-op there).
 
-**One refresh event.** Every lateral write (create/delete) additively returns `HX-Trigger: relationships-changed` (via the boundary `_headers` path). The chain/alternatives/manage containers listen with `hx_trigger="load, relationships-changed from:body"`; the Vis.js graph listens with `x-on:relationships-changed.window="loadGraph(depth)"`. No full reload; every surface re-syncs off one event.
+**One refresh event.** Every write the lateral route factory registers — the four create POSTs and the `DELETE` — additively returns `HX-Trigger: relationships-changed` (via the boundary `_headers` path). The domain-specific writers in `lateral_routes.py` (habit `stacks`, the `conflicts` POSTs, KU `enables`) return no trigger; nothing in this section posts to them. The chain and manage containers listen with `hx_trigger="load, relationships-changed from:body"`, the alternatives container with `"load delay:300ms, relationships-changed from:body"`; the Vis.js graph listens with `x-on:relationships-changed.window="loadGraph(depth)"`. No full reload; every surface re-syncs off one event.
 
 **Ownership + cycles** are enforced by the shared `LateralRelationshipService` (both-endpoint `verify_ownership` → 404, and `spec.check_cycles` for BLOCKS/PREREQUISITE_FOR). Note the shared constraints inherited by authoring: BLOCKS requires a shared parent, ALTERNATIVE_TO requires equal depth.
 
@@ -127,8 +127,8 @@ EntityRelationshipsSection(
 ```
 
 **Responsibilities:**
-- Orchestrate 3 sub-components
-- MonsterUI Accordion for collapsible state (multiple=True, graph open by default)
+- Orchestrate 3 sub-components (4 with `authoring=True`)
+- `ui.components` Accordion (Alpine.js-driven, ADR-071) for collapsible state (`multiple=True`; the graph, and the Manage panel when authoring, open by default)
 - Provide consistent layout across domains
 - Handle empty states gracefully
 
@@ -140,13 +140,13 @@ def EntityRelationshipsSection(
     show_blocking_chain: bool = True,
     show_alternatives: bool = True,
     show_graph: bool = True,
+    authoring: bool = False,
 ) -> Div:
-    """
-    Creates unified relationships section with 3 collapsible subsections.
+    """Unified relationships section for entity detail pages.
 
-    Uses MonsterUI Accordion (multiple=True) — each subsection is an
-    AccordionItem with built-in chevron icons and collapse transitions.
-    Relationship Network starts open=True by default.
+    Each subsection is an AccordionItem inside one Accordion(multiple=True).
+    authoring=True prepends a "Manage Relationships" panel — only for the
+    six Activity types the EntityPicker supports; ignored otherwise.
     """
 ```
 
@@ -487,9 +487,10 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
 
 ## Performance Optimization
 
-### HTMX Lazy Loading
+### HTMX Loading
 
-**Why:** Detail pages load instantly without expensive graph queries
+**Why:** the detail page's HTML renders without waiting on relationship queries; each
+reader fills in after it.
 
 **Pattern:**
 ```python
@@ -504,14 +505,15 @@ Accordion(
 )
 ```
 
-HTMX lazy loading still works inside AccordionItems — child components use
-`hx-get` with `hx-trigger="intersect once"` so data loads only when expanded.
+Each reader fetches on its own request once the page has rendered, whether its section
+is open or not: the chain and manage containers on `load`, the alternatives grid on
+`load delay:300ms`, and the graph when its Alpine component initialises. The Accordion
+shows and hides; it gates no request.
 
-**Benefits:**
-- Zero upfront cost (no graph queries on page load)
-- Data fetched only when user expands section
-- `intersect once` = loads when scrolled into view
-- Prevents duplicate requests
+**Trade-offs:**
+- The page paints before any relationship query returns
+- Every mounted reader costs its query on every view — a collapsed section included
+- `relationships-changed` re-runs them all after a write (§ One refresh event)
 
 ---
 
@@ -696,7 +698,7 @@ The lateral relationship graph infrastructure was extended to power the **Explor
 
 | | EntityRelationshipsSection | ExploreGraphView |
 |---|---|---|
-| **Location** | Domain detail pages (Tasks, Goals, etc.) | Explore sidebar (`/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`) |
+| **Location** | Domain detail pages (Tasks, Goals, etc.) | The Explore library sidebar (`/explore/library`) and the full-page hub (`/explore/graph`) |
 | **Component** | `ui/patterns/relationships/` | `ui/explore/graph.py` |
 | **Alpine** | `relationshipGraph` | `exploreGraph` |
 | **Modes** | Entity-centered only | Hub (learning universe) + Entity-centered |

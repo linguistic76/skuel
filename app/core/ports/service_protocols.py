@@ -8,7 +8,7 @@ captures only the methods called from routes.
 
 Protocols:
 - CalendarServiceOperations — Calendar aggregation
-- VisualizationOperations — Chart.js/Vis.js/Gantt aggregation + formatting
+- VisualizationOperations — Chart.js + Gantt aggregation + formatting
 - SystemServiceOperations — Health checks and monitoring
 - CrossDomainAnalyticsOperations — Event-driven analytics
 - LifePathOperations — Vision-to-action bridge

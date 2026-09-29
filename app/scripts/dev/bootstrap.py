@@ -494,7 +494,7 @@ def _create_web_app(
         live=True,
         pico=False,  # Disable pico CSS
         hdrs=(
-            # SKUEL headers (output.css + Lucide + HTMX + Alpine + main.css + skuel.js)
+            # SKUEL headers (output.css + HTMX + Alpine + main.css + skuel.js)
             *skuel_headers(),
             # Chart.js for data visualization
             *chartjs_headers(),

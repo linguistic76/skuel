@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-09-29
 ---
 
 # UX Improvements Integration Guide
@@ -168,7 +168,7 @@ from ui.patterns.skeleton import SkeletonStats
 
 # In chart component:
 Div(
-    **{"x-data": "chartVis('/api/analytics/chart')"},
+    **{"x-data": "chartVis('/api/lifepath/alignment/chart', 'radar')"},
     # Loading skeleton
     Div(
         **{"x-show": "loading"},

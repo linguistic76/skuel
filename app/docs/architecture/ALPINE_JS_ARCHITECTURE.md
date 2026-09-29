@@ -1,7 +1,8 @@
 ---
 related_skills:
+- chartjs
 - ui-browser
-updated: 2026-09-21
+updated: 2026-09-29
 ---
 # Alpine.js Architecture
 ## Related Skills
@@ -219,8 +220,11 @@ rather than leaving the template to guess.
 
 **Methods:**
 - `init()` - Kicks off `loadChart(dataUrl, chartType || 'line')`
-- `loadChart(url, type)` - Fetch, destroy any prior chart, render
-- `destroy()` - Tear down the Chart.js instance (call on unmount)
+- `loadChart(url, type)` - Fetch, destroy any prior chart, render into `x-ref="canvas"`. The
+  fetched JSON is the whole Chart.js config, so its own `type` picks the chart kind; the
+  `type` argument is not read
+- `refresh(newUrl)` - Re-run `loadChart` against `newUrl`, or the original `dataUrl`
+- `destroy()` - Tear down the Chart.js instance; Alpine calls it when the element is removed
 
 ### collapsibleSidebar(storageKey, defaultCollapsed)
 

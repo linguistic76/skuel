@@ -216,7 +216,7 @@ class Services:
         None  # AdminStatsService - cross-domain admin dashboard statistics
     )
     visualization: VisualizationOperations | None = (
-        None  # VisualizationService - Chart.js/Vis.js/Gantt adapters
+        None  # VisualizationAggregationService - Chart.js + Frappe Gantt chart data
     )
 
     # User management (fundamental)

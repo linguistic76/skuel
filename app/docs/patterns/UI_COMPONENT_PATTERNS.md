@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-27'
+updated: '2026-09-29'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -44,7 +44,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 - `/ui/layouts/page_types.py` - Page type definitions (STANDARD vs CUSTOM)
 - `/ui/layouts/navbar.py`, `/ui/layouts/nav_config.py` - The global chrome (navbar + bottom nav) and its one spec
 - `/ui/tokens.py` - Spacing, container, and styling tokens
-- `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
+- `/core/utils/palette.py` - Centralized hex color constants (`SemanticColor`, `RelationshipColor`, `FrequencyColor`, `StrengthColor`, `CalendarFallback`) — core and UI both import them from here
 - `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers; `ButtonLink` in `ui/primitives.py` (also pure Tailwind)
 - `/ui/forms/` — pure Tailwind wrappers; the former `buttons.py` + `cards.py` wrappers were deleted in PR E — `Button`/`ButtonT`/`Card*` now live in `ui.components`
 - `/ui/data.py` — pure Tailwind wrappers
@@ -302,37 +302,36 @@ from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, Tabl
 # Standard FastHTML elements — always from fasthtml.common
 from fasthtml.common import Div, Option, Span, Tbody, Td, Th, Thead, Tr
 
-# Theme for app initialization
-from ui.theme import skuel_headers, Theme
+# App-level headers (FastHTML fast_app hdrs=)
+from ui.theme import chartjs_headers, skuel_headers
 ```
 
 ---
 
 ## Theme Headers
 
-All SKUEL pages use `skuel_headers()` for consistent styling:
+`skuel_headers()` is the app-level header set — bootstrap passes it to `fast_app`, with
+`chartjs_headers()`:
 
 ```python
 from fasthtml.common import fast_app
-from ui.theme import skuel_headers, Theme
+from ui.theme import chartjs_headers, skuel_headers
 
-# Default (light theme)
-app, rt = fast_app(hdrs=skuel_headers())
-
-# With custom theme
-app, rt = fast_app(hdrs=skuel_headers(theme=Theme.dark))
-
-# With PWA support
-from ui.theme import pwa_headers
-app, rt = fast_app(hdrs=(*skuel_headers(), *pwa_headers()))
+app, rt = fast_app(hdrs=(*skuel_headers(), *chartjs_headers()))
 ```
 
-**What `skuel_headers()` includes:**
-- Meta viewport tags
+Its only parameters are the vendored versions, `htmx_version` and `alpine_version`
+(defaulting to `HTMX_VERSION` / `ALPINE_VERSION`). There is no theme parameter: dark mode is
+the `dark` class on `<html>`, which `dark_mode_script()` (loaded by `build_head()`) restores
+from `localStorage` or the system preference.
+
+**What `skuel_headers()` includes, in order:**
 - Compiled Tailwind CSS — `static/css/output.css` (committed minified — rebuild with `./dev css-prod`; `./dev css-build` is the unminified dev build)
-- HTMX 1.9.10
-- Alpine.js 3.14.8 (self-hosted)
-- SKUEL custom CSS/JS
+- HTMX 1.9.10 (self-hosted)
+- Alpine.js 3.14.8 (self-hosted, `defer`)
+- `static/css/main.css` and `static/js/skuel.js` (the shared Alpine components)
+
+The viewport and charset meta tags are not in it — `build_head()` emits them.
 
 Icons are server-rendered inline SVG via `Icon()` (`ui/components/icon.py`) — no lucide
 runtime is loaded; there is no `data-lucide` / `createIcons()` client scan.
@@ -341,7 +340,7 @@ runtime is loaded; there is no `data-lucide` / `createIcons()` client scan.
 
 Pages that return complete `Html()` documents (rather than partial HTMX fragments) use `build_head()` from `base_page.py`. This is the **single source of truth** for all `<head>` content — `BasePage` and `AuthPage` both delegate to it. Never construct a `Head(...)` manually. Never hand-assemble `<link>` tags in raw HTML strings.
 
-`build_head()` loads the compiled Tailwind stylesheet (`static/css/output.css`) plus self-hosted HTMX, Alpine.js, and Lucide — no CDN dependency, no browser JIT.
+`build_head()` emits the charset and viewport meta tags and the dark-mode restore script, then `skuel_headers()` (compiled Tailwind, self-hosted HTMX and Alpine.js, `main.css`, `skuel.js`), the vendored Vis.js Network, `hierarchy.css`, any `extra_css` / `extra_scripts`, and `pwa_headers()` — no CDN dependency, no browser JIT.
 
 ```python
 # Pass extra_css / extra_scripts to BasePage — they are forwarded to build_head()
@@ -353,8 +352,11 @@ return BasePage(
     extra_css=["/static/css/calendar.css"],
     extra_scripts=["/static/vendor/chart.js/chart.umd.js"],
 )
-# extra_scripts are injected before skuel.js so Alpine components can reference page-specific libs
 ```
+
+`extra_scripts` render **after** `skuel.js`. A page library is still defined before any
+Alpine component initialises, because Alpine loads with `defer`: every blocking script in
+the `<head>`, the page's own included, runs before Alpine starts.
 
 ### `AuthPage()` — Unauthenticated Pages
 
@@ -381,8 +383,10 @@ SKUEL uses Python enums for type-safe component variants:
 ### Buttons
 
 `ButtonT` is a `StrEnum` of Tailwind class strings. Style via **`cls=`** (not `variant=`);
-geometry via the **`size=`** string kwarg. The enum is slim — `default`, `primary`,
-`secondary`, `ghost`, `destructive`, `link` (no `error`/`success`/`warning`/`accent`/`outline`).
+geometry via the **`size=`** string kwarg. Its style members are `default`, `primary`,
+`secondary`, `ghost`, `destructive`, `link` (no `error`/`success`/`warning`/`accent`/`outline`);
+it also carries the size constants `xs`/`sm`/`lg`/`xl`, but prefer `size=` to composing them
+into `cls`.
 
 ```python
 # Primary action — cls=, not variant=
@@ -616,7 +620,7 @@ Container(
 
 ## Modal Pattern — AlpineModal
 
-Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop overlay, click-outside-to-close, transitions, and accessibility (`x-cloak`).
+Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes the backdrop overlay, click-outside-to-close, transitions and `x-cloak`. It adds no dialog semantics: no `role="dialog"` / `aria-modal`, no Escape handler, no focus move, restore or trap — a caller that needs them adds them.
 
 ```python
 from ui.patterns.modal import AlpineModal
@@ -782,10 +786,10 @@ EmptyState(title="No habits for today!", icon="🎉")
 
 **Location:** `ui/learning_loop/` — shared exercise status helpers + PathStep submission/feedback renderers.
 
-The `/learning-loop/ps/{ps_uid}/*` fragment routes remain wired in `learning_loop_routes.py` (`create_learning_loop_fragment_routes`) but are not surfaced on the PS detail page since the 2026-06-24 reading-first redesign. Renderers in `ui/learning_loop/`:
+The PS detail page (`ui/explore/ps_detail.py`, `_learning_loop_section`) HTMX-loads two of the `/learning-loop/ps/{ps_uid}/*` fragment routes for a signed-in user: `/exercises` and `/submissions-and-feedback` (`create_learning_loop_fragment_routes` in `learning_loop_routes.py`). Renderers in `ui/learning_loop/`:
 
 - `exercise_status.py` — `render_exercise_list()`, status pills (`_STATUS_PILL`), action links with `from_ps` context. Shared with Library exercises tab (`/library/exercises`).
-- `submissions_section.py` — `render_ps_submissions()` — submission rows with status badges.
+- `submissions_section.py` — `render_ps_submissions_and_feedback()` (what the fragment returns) composes `render_ps_submissions()` — submission rows with status badges — and `render_ps_feedback()`.
 - `feedback_section.py` — `render_ps_feedback()` — feedback rows with outcome badges, filters to submissions with reports.
 
 ---
@@ -910,7 +914,7 @@ StatsGrid([
 
 ### Don't Hand-Roll Modals
 
-All Alpine.js-controlled modals must use `AlpineModal()` from `ui/patterns/modal.py` — not raw `Div()` with manual backdrop, `fixed inset-0`, and onclick handlers. `AlpineModal` standardizes backdrop overlay, click-outside-to-close, `x-cloak`, and transitions.
+All Alpine.js-controlled modals must use `AlpineModal()` from `ui/patterns/modal.py` — not raw `Div()` with manual backdrop, `fixed inset-0`, and onclick handlers. `AlpineModal` standardizes backdrop overlay, click-outside-to-close, `x-cloak`, and transitions (no dialog role, Escape or focus handling — see § Modal).
 
 ```python
 # BAD: Hand-rolled modal with manual DOM removal
@@ -1019,128 +1023,24 @@ Use `SidebarPage` from `ui/patterns/sidebar.py` for all sidebar pages. Desktop: 
 
 *Added: 2026-01-24*
 
-**Core Principle:** "Typed params, Result[T] propagation, visible error banners"
+**Core Principle:** "Result[T] propagation, visible error banners"
 
-All Activity domain UI routes (Tasks, Goals, Habits, Events, Choices, Principles) follow a consistent error-handling pattern that makes failures visible to users instead of silently returning empty lists.
-
-### Pattern Components
-
-#### 1. Typed Query Parameters
-
-```python
-from dataclasses import dataclass
-
-@dataclass
-class Filters:
-    """Typed filters for list queries."""
-    status: str
-    sort_by: str
-```
-
-#### 2. Parsing Helpers
-
-```python
-def parse_filters(request) -> Filters:
-    """Extract filter parameters from request query params."""
-    return Filters(
-        status=request.query_params.get("filter_status", "active"),
-        sort_by=request.query_params.get("sort_by", "default"),
-    )
-```
-
-#### 3. Error Banner Component
-
-```python
-def render_error_banner(message: str) -> Div:
-    """Render error banner for UI failures."""
-    return Div(
-        Div(
-            P("⚠️ Error", cls="font-bold text-error"),
-            P(message, cls="text-sm"),
-            variant=AlertT.error,
-        ),
-        cls="mb-4",
-    )
-```
-
-#### 4. Data Helpers Return Result[T]
-
-**Factory-centralized** (`adapters/inbound/activity_ui_factory.py`): `create_activity_ui_routes()` owns the fetch path — Result propagation, `or []` defaulting, structured logging, and the error branch all live in the factory's `_fetch_filtered()`, so per-domain routes carry no fetch boilerplate. (The former `ui_helpers.fetch_user_entities()` shared helper was deleted 2026-08 with zero consumers.)
-
-**Filtering** uses the service facade directly:
-```python
-filtered_result = await tasks_service.get_filtered_context(
-    user_uid, status_filter=filters.status_filter, sort_by=filters.sort_by,
-)
-```
-
-#### 5. Route Handlers Check Errors
-
-**Main Dashboard:**
-```python
-@rt("/tasks")
-async def tasks_dashboard(request) -> Any:
-    user_uid = require_authenticated_user(request)
-    view = request.query_params.get("view", "list")
-
-    # Parse using helpers
-    filters = parse_filters(request)
-
-    # Get data with Result[T]
-    filtered_result = await get_filtered_tasks(user_uid, filters.status, filters.sort_by)
-
-    # CHECK FOR ERRORS - show banner instead of empty list
-    if filtered_result.is_error:
-        error_content = Div(
-            TasksViewComponents.render_view_tabs(active_view=view),
-            render_error_banner(f"Failed to load tasks: {filtered_result.error}"),
-            cls=f"{Spacing.PAGE} {Container.WIDE}",
-        )
-        return create_tasks_page(error_content, request=request)
-
-    # Extract values only after error check
-    tasks, stats = filtered_result.value
-    # ... render views ...
-```
-
-**HTMX Fragments:**
-```python
-@rt("/tasks/list-fragment")
-async def tasks_list_fragment(request) -> Any:
-    """HTMX fragment: the filtered list only."""
-    user_uid = require_authenticated_user(request)
-    filters = parse_filters(request)
-
-    filtered_result = await get_filtered_tasks(user_uid, filters.status, filters.sort_by)
-
-    # Handle errors (return banner directly for HTMX swap)
-    if filtered_result.is_error:
-        return render_error_banner(f"Failed to load tasks: {filtered_result.error}")
-
-    tasks, stats = filtered_result.value
-    return TasksViewComponents.render_list_view(ctx=page_ctx)
-```
+All Activity domain UI routes (Tasks, Goals, Habits, Events, Choices, Principles) are
+generated by `create_activity_ui_routes()` (`adapters/inbound/activity_ui_factory.py`), so
+a failed fetch renders a banner in the fragment's slot instead of an empty list — one
+implementation for all six. The live code and its excerpt are in
+[ERROR_HANDLING.md § Layer 4](ERROR_HANDLING.md#layer-4-ui-routes-activity-domains).
 
 ### Benefits
 
 1. **User-visible errors** - Clear error messages instead of empty lists
-2. **Debuggability** - Full error context in logs (user_uid, error type, message)
-3. **Consistency** - All Activity domains follow same pattern
-4. **Type safety** - Dataclasses prevent param extraction errors
-5. **Maintainability** - Single pattern to understand across all domains
+2. **Safe to show** - the banner renders the error's user-facing `display_message`; the factory
+   passes no `technical_details`, so no internal detail reaches the page
+3. **Consistency** - one factory renders every Activity domain's error state
 
 ### Implementation Status
 
-**Activity Domains** (full pattern: typed params + Result[T] helpers + error banners):
-
-| Domain | Status | Notes |
-|--------|--------|-------|
-| Tasks | ✅ Complete | Reference implementation |
-| Goals | ✅ Complete | Calendar-enabled |
-| Habits | ✅ Complete | Calendar-enabled |
-| Events | ✅ Complete | Calendar-first design |
-| Choices | ✅ Complete | Analytics instead of calendar |
-| Principles | ✅ Complete | Analytics + bug fixes applied |
+**Activity Domains:** all six, through the one factory above.
 
 **Non-Activity Domains** (render_error_banner standardized, 2026-03-18):
 
@@ -1151,16 +1051,14 @@ async def tasks_list_fragment(request) -> Any:
 | KU | ✅ Complete | Error banner vs empty state distinction |
 | Admin | ✅ Complete | Per-section warning banners via `tuple[data, bool]` helpers |
 | Insights | ✅ Complete | Error state with load-more pagination |
-| Finance | ✅ Complete | Typed context methods with `Result[TypedDict]` |
 | Analytics | ✅ Complete | 8 error sites → `render_inline_error()`, PageHeader adopted |
 | LifePath | ✅ Complete | `_error_page`/`_service_unavailable_page` → `render_error_banner`, PageHeader adopted |
 | Calendar | ✅ Complete | Custom `Html(Head, Body)` wrapper → `BasePage`, PageHeader adopted |
 
-**Shared error/fetch handling lives in the factory** (`/adapters/inbound/activity_ui_factory.py`): not-found and fetch-error states render `render_error_banner()` inside the generated fragments; calendar query params parse via `parse_date_query_param()` (`route_factories`). The former `ui_helpers.py` module under `adapters/inbound/` was deleted 2026-08 (zero consumers).
+**Shared error/fetch handling lives in the factory** (`/adapters/inbound/activity_ui_factory.py`): not-found and fetch-error states render `render_error_banner()` inside the generated fragments.
 
 **Reference Files:**
-- `/adapters/inbound/tasks_ui.py` - Reference pattern (Activity)
-- `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
+- `/adapters/inbound/activity_ui_factory.py` - the Activity pattern (each `{domain}_ui.py` is its config)
 - `/adapters/inbound/teaching_ui.py` - Section pattern: `/teaching/students` landing → child pages with the teaching sidebar (`ui/teaching/nav.py`) + nested student hub at `/teaching/students/{uid}` (BasePage, HTMX preview blocks) → student submissions with Alpine section sidebar. All HTML construction delegated to `ui/teaching/` — routes only do auth + service call + delegation.
 - `/adapters/inbound/user_entry_ui.py` - HTMX fragments with error banners
 - `/adapters/inbound/admin_dashboard_ui.py` - Per-section partial failure banners via `tuple[data, bool]` helpers
@@ -1509,7 +1407,7 @@ All live in `/ui/patterns/` or `/ui/feedback.py`.
 
 ## Page Contexts
 
-Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts with typed entities (`list[Task]`, etc.) and `total=True` for required fields. `render_list_view(ctx)` is the only signature — no dual-path. **NOT in `core/ports/`** — page contexts are UI concerns.
+TypedDicts in `/ui/page_contexts.py` define route → UI contracts with typed entities — e.g. `TodayPageContext`, which `TodayOrchestrator.build_context()` produces and `TodayPage(ctx)` consumes (`list[Task]`, `list[Event]`, …). **NOT in `core/ports/`** — page contexts are UI concerns.
 
 ---
 
@@ -1559,8 +1457,8 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 **Shared:**
 - `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings. `SelectableOptionRow` consolidates the icon+title+subtitle+checkmark pattern (active: `bg-blue-50`, hover: `hover:bg-slate-100` live here only). `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states.
 - `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout)
-- `/core/utils/palette.py` (centralized hex colors; `ui/palette.py` re-exports)
-- `/core/services/visualization_service.py` (pure Chart.js/Vis.js/Gantt formatter — no domain deps; import it directly from `core`)
+- `/core/utils/palette.py` (centralized hex colors, imported directly by core and UI)
+- `/core/services/visualization_service.py` (pure Chart.js + Frappe Gantt formatter — no domain deps; import it directly from `core`). Vis.js payloads come from `LateralRelationshipService`, not from here.
 - `/core/services/analytics/visualization_aggregation_service.py` (data fetching + aggregation for visualization endpoints — delegates formatting to `VisualizationService`)
 - `/adapters/inbound/activity_ui_factory.py` — `ActivityUIConfig` + shared 5-route factory for all 6 Activity Domains (each `{domain}_ui.py` is ~50 lines delegating here); the generated shells light the domain's own Tasks+ row (`domain_name` is the slug — Events included)
 

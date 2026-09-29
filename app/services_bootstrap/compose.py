@@ -1807,7 +1807,7 @@ async def compose_services(
             calendar=calendar_service,
             system=system_service,
             admin_stats=admin_stats_service,
-            visualization=visualization_service,  # Chart.js/Vis.js/Gantt adapters
+            visualization=visualization_service,  # Chart.js + Frappe Gantt chart data
             transcription=core_services["transcription"],
             # User management
             user=core_services["user"],
