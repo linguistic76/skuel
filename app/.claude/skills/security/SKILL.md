@@ -189,7 +189,7 @@ Primary defense is `SameSite=Strict` on the session cookie — the browser refus
 
 State-changing routes wear `@csrf_protected`. The decorator reads header first then form field, constant-time compares against the cookie, returns 403 on mismatch. Verification is unconditional in every environment — there is no enforcement toggle. Route tests satisfy it by minting a real cookie+header pair via `tests/fixtures/csrf.py` (`attach_csrf`).
 
-⚠ **Declare `methods=["POST"]` on every mutation.** `@csrf_protected` passes GET/HEAD/OPTIONS through unchecked, and `@rt(path)` without `methods=` answers GET, HEAD *and* POST — so a mutation registered without it is reachable by a GET that the double-submit check never sees (`SameSite=Strict` is then the only line).
+⚠ **Declare the mutation's unsafe method explicitly** — `methods=["POST"]`, or `["DELETE"]` / `["PATCH"]` where that is the route's contract (`transcription_api.py`, `hierarchy_route_factory.py`). `@csrf_protected` verifies every method except GET/HEAD/OPTIONS, and `@rt(path)` without `methods=` answers GET, HEAD *and* POST — so a mutation registered without it is reachable by a GET that the double-submit check never sees (`SameSite=Strict` is then the only line).
 
 ```python
 from adapters.inbound.csrf import csrf_protected
@@ -231,7 +231,7 @@ When adding a new route, verify:
 2. **Authorization** — `@require_admin(get_user_service)` if admin-only; `@require_teacher(get_user_service)` if teacher-only. The handler's first parameter is `request` and the injected user is spelled exactly `current_user: Any = None` — the decorator refuses any other spelling at decoration, and hides the parameter from FastHTML so a caller cannot bind it
 3. **Ownership** — For USER_OWNED entities, `verify_entity_ownership` (API) / `require_owned_entity` or `verify_ownership` + `refuse` (UI) — 404 if not the caller's. Never an inline `entity.user_uid == user_uid` compare (ADR-085 §4)
 4. **Error boundary** — `@boundary_handler()` wrapping the route handler
-5. **CSRF** — `methods=["POST"]` plus `@csrf_protected` on every state change
+5. **CSRF** — an explicit unsafe method (`methods=["POST"]` / `["DELETE"]` / `["PATCH"]`) plus `@csrf_protected` on every state change
 6. **No PII in logs** — Never log user passwords, tokens, or session IDs. Secret-bearing model fields are `SecretStr` / `field(repr=False)` so a whole-object log line cannot disclose one (see Secret-Bearing Fields Are Unprintable) — but a `ValidationError` still carries the raw input.
 7. **Input validation** — Pydantic models for POST bodies (`parse_body` / `parse_json_body` / `parse_form_body`), helper functions for query params
 8. **Decorator order** — `@rt > @csrf_protected > @require_admin > @boundary_handler > async def` (`admin_api.py`)

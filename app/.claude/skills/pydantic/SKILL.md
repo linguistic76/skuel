@@ -429,8 +429,8 @@ A Pydantic response model is for a payload that is not an entity — the search 
 # core/models/search_request.py (abridged) — built by SearchRouter
 class SearchResponse(BaseModel):
     results: list[dict[str, Any]] = Field(default_factory=list)
-    # Rows in THIS page — search is top-N (one page-only query, no match-set
-    # count; #555 ruled DROP 2026-08-28). Never read `total` as "how many matched".
+    # Rows in THIS page — search is top-N: one page-only query, no match-set
+    # count. Never read `total` as "how many matched".
     total: int = Field(..., ge=0)
     limit: int = Field(..., ge=1)
     offset: int = Field(..., ge=0)
