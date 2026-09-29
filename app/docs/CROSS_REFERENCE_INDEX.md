@@ -202,6 +202,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-051](decisions/ADR-051-user-interaction-contract.md)
 - [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
 - [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md)
+- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md)
 - [ADR-088](decisions/ADR-088-submit-and-share.md)
 
 ### @neo4j-cypher-patterns
@@ -599,7 +600,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md) → @learning-loop, @prompt-templates, @zpd
 - [ADR-071](decisions/ADR-071-skuel-tailwind-component-layer.md) → @fasthtml, @skuel-ui, @ui-browser, @ui-css
 - [ADR-072](decisions/ADR-072-server-rendered-inline-svg-icons.md) → @skuel-ui
-- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md) → @journals, @prompt-templates
+- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md) → @journals, @learning-loop, @prompt-templates
 - [ADR-074](decisions/ADR-074-post-persist-embedding-events.md) → @base-ai-service
 - [ADR-075](decisions/ADR-075-local-agent-vault-transport.md) → @security
 - [ADR-076](decisions/ADR-076-canon-quotation-and-citation-policy.md) → @journals

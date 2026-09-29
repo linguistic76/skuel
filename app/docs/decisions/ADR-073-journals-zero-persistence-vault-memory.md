@@ -1,6 +1,6 @@
 ---
-updated: 2026-09-26
-related_skills: [journals, prompt-templates]
+updated: 2026-09-29
+related_skills: [journals, prompt-templates, learning-loop]
 ---
 
 # ADR-073: Journals Are a Zero-Persistence Private Workshop; the Vault Is the Only Memory Channel

@@ -28,13 +28,19 @@ allowed-tools: Read, Grep, Glob
 > `TRANSCRIBE_AND_STRUCTURE`, `LLM_SUMMARY`, `EXTRACT_ACTIVITIES`, `TEACHER_REVIEW`,
 > `REFERENCE`, `KNOWLEDGE`). The revision count lives on the edge:
 > `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Reports record who produced them
-> in `processor_type: ReportSource` (`HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC`). The journal track
-> is a *pipeline*, not a domain: an audio upload creates a source `UserEntry` with
-> `pipeline=TRANSCRIBE_AND_STRUCTURE`, which is transformed into a structured second `UserEntry`
-> via `(structured)-[:TRANSFORMS]->(source)`. `Pipeline.EXTRACT_ACTIVITIES` (ADR-069) is an
-> explicit processing branch over UserEntry content with `EXTRACTED_FROM` provenance. Services
-> live in `core/services/user_entry/`; there is no `submissions/` or `journal/` package. Where
-> this skill says "submission", it means a turn-in `UserEntry`.
+> in `processor_type: ReportSource` (`HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC`).
+> `Pipeline.EXTRACT_ACTIVITIES` (ADR-069) is an explicit processing branch over UserEntry
+> content with `EXTRACTED_FROM` provenance. The UserEntry services live in
+> `core/services/user_entry/`; there is no `submissions/` package. Where this skill says
+> "submission", it means a turn-in `UserEntry`.
+>
+> **Journals are outside the loop's entities.** The journal doors run on `JournalService`
+> (`core/services/journal/`, the [journals skill](../journals/SKILL.md)): typed text opens a
+> discussion (`POST /journals/start`), and files/audio (`POST /journals/upload`) run the DNWF
+> path, which writes to `je_out/` and creates **no** `UserEntry` (ADR-073). Don't reintroduce
+> graph persistence for private journal uploads. `Pipeline.TRANSCRIBE_AND_STRUCTURE` (a source
+> entry transformed into a structured one via `(structured)-[:TRANSFORMS]->(source)`) is legacy,
+> preserved for existing `UserEntry` nodes.
 
 The Learning Loop is the **gravitational center of SKUEL**. Every feature either feeds
 this loop, supports its infrastructure, or should be questioned. Understanding the loop
@@ -84,10 +90,9 @@ The cycle repeats until the teacher approves or the student reaches mastery.
 ║                    ↓ (over time window)                                   ║
 ║             [ActivityReport] ←── AI or Admin                            ║
 ║                                                                          ║
-║  JOURNAL TRACK (self-directed pipeline on UserEntry)                     ║
+║  JOURNALS (outside the loop — JournalService, zero-persistence)          ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [UserEntry(source, pipeline=TRANSCRIBE_AND_STRUCTURE)] → Deepgram       ║
-║    → LLM → [UserEntry(structured)] -[:TRANSFORMS]-> source               ║
+║  /journals/upload → Deepgram → DNWF stages → je_out/ (no UserEntry)      ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 ```
@@ -320,7 +325,7 @@ that never closes the loop.
 | `core/models/report/entry_report.py` | 3 | EntryReport model |
 | `core/models/report/activity_report.py` | parallel | ActivityReport model |
 | `core/services/user_entry/user_entry_service.py` | 2 | UserEntry facade (BaseService) — shared `create_entry` write path, exercise linking |
-| `core/services/user_entry/user_entry_processing_service.py` | 2 | Pipeline processing — transcription, LLM summary/structure, activity extraction (the journal track is a `Pipeline`) |
+| `core/services/user_entry/user_entry_processing_service.py` | 2 | Pipeline processing — transcription, LLM summary/structure, activity extraction |
 | `core/services/report/entry_report_service.py` | 3 | AI report generation (via UnifiedLLMCaller) |
 | `core/services/llm_caller.py` | 3 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
 | `core/services/output/instruction_resolver.py` | 2 | Instruction resolution (custom > exercise > mode > default) |

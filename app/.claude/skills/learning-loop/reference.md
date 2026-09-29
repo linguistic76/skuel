@@ -205,9 +205,10 @@ processed and then evaluated. ADR-054 collapsed the former `Submission` / `Exerc
 **Neo4j labels:** `:Entity:UserEntry`
 **UID prefix:** `ue_` (e.g. `ue_a1b2c3d4`)
 
-> **Note (ADR-054):** Journals are not a standalone domain — they are a `UserEntry`
-> processing pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`); there is no `core/models/journal/`
-> or `core/services/journal/` package.
+> **Note:** journals are not UserEntries. The journal doors run on `JournalService`
+> (`core/services/journal/`, the journals skill); `/journals/upload` writes to `je_out/` and
+> creates no `UserEntry` (ADR-073). `Pipeline.TRANSCRIBE_AND_STRUCTURE` is legacy, preserved
+> for existing nodes.
 
 **Key fields (added on top of `UserOwnedEntity`):**
 ```python
@@ -260,7 +261,7 @@ They are orthogonal — a form submission can still be part of a pipeline.
 |-----------|---------------|-----------|
 | `NONE` | Plain text/file entry | None |
 | `TRANSCRIBE` | Audio upload | Audio → text (Deepgram) |
-| `TRANSCRIBE_AND_STRUCTURE` | Journal flow | Audio → transcribed entry → LLM-structured second entry |
+| `TRANSCRIBE_AND_STRUCTURE` | Legacy (existing nodes only) | Audio → transcribed entry → LLM-structured second entry |
 | `LLM_SUMMARY` | Text/file to summarize | LLM summary |
 | `EXTRACT_ACTIVITIES` | Journal entry with DSL lines | Activity extraction with `EXTRACTED_FROM` provenance (ADR-069) |
 | `TEACHER_REVIEW` | Exercise turn-in | None — routed to a teacher review queue via `SUBMITTED_TO_GROUP` (the feedback request, ADR-088 §2 — the only pipeline that writes one) |
@@ -776,7 +777,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **UserEntry** | `UserEntryService` (concrete facade — routes inject the class, no route-facing protocol) | backend port `UserEntryOperations` | `UserEntryBackend` | `create_entry`, `get_entry`, `list_for_user`, `update_processed_content`, `delete_entry` (sharing via `UnifiedSharingService`, not the backend) |
 | **UserEntry processing** | `UserEntryProcessingService` | `UserEntryProcessingOperations` | — (dispatches; updates via `UserEntryService`) | `process(entry)` — pipeline dispatch by the stored `Pipeline` (TRANSCRIBE / LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE / EXTRACT_ACTIVITIES; the rest are stored as-is) |
 | **Submission report** | `EntryReportService` (AI) + `TeacherReviewService` (HUMAN writes) | `EntryReportOperations` (service, AI + reads) + `EntryReportBackendOperations` (backend); `TeacherReviewOperations` (teacher writes) — three protocols, NOT a single-class union | `EntryReportBackend` (typed reads + report-node creation via `create_report_node` — student `OWNS` is the visibility anchor, written atomically with the report node) + `UserEntryBackend` (authority check) | `EntryReportService`: `generate_report` (via `UnifiedLLMCaller`), `get_for_user` (the owner read behind `/entry-reports/detail`, ADR-088 §3), `list_for_submission` → typed `list[EntryReport]` (both sources). `TeacherReviewService`: `submit_report` (HUMAN feedback, `REPORT_FOR`-anchored). Writes land as `:Entity:EntryReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
-| **Journal processing** | *(no standalone service — ADR-054)* | — | — | Journals are a `UserEntry` pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`) handled by `UserEntryProcessingService` |
+| **Journals (outside the loop)** | `JournalService` (`core/services/journal/`) | — | — (zero-persistence file/audio door, ADR-073) | Discussion (`/journals/start`) and DNWF file/audio processing (`/journals/upload` → `je_out/`); see the journals skill |
 | **Learning Loop Intelligence (write)** | `LearningLoopEventHandlerService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.USER_ENTRY.value`. New learning-loop reads land here, not on a separate search service |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `UserEntryBackend` + `EntryReportBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision_with_exercise` / `request_revision` (instructions + feedback points; the route reads the exercise from the gated detail), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (students owning a `teacher_review` UserEntry `SUBMITTED_TO_GROUP` an active group the teacher owns — no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing:** `EntryReportService.list_for_submission()` is the typed report read — there is no `get_report_history` |
@@ -857,8 +858,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
    → UserEntryService.create_entry()              → core/services/user_entry/user_entry_service.py
    Creates :Entity:UserEntry (entity_type='user_entry', pipeline=TEACHER_REVIEW), status SUBMITTED
    (Non-TEACHER_REVIEW pipelines are created ACTIVE and move to COMPLETED/FAILED via
-    UserEntryProcessingService — no PROCESSING state is persisted; journals use the
-    TRANSCRIBE_AND_STRUCTURE pipeline)
+    UserEntryProcessingService — no PROCESSING state is persisted; journal uploads
+    create no UserEntry at all)
        ↓
 4. FULFILLS_EXERCISE relationship created (always → root Exercise)
    FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
