@@ -4,7 +4,7 @@
 
 ## BaseService Inheritance
 
-All core and search services extend `BaseService[Backend, Model, UpdateIntent]` using `DomainConfig` — THE single source of truth for configuration (ONE PATH FORWARD since January 2026). The third type parameter is the domain's frozen `*UpdateIntent` (ADR-066); it defaults to `RawChanges`, so only the six Activity Domains pin it:
+Core services extend `BaseService[Backend, Model, UpdateIntent]` and declare a `DomainConfig` — THE single source of truth for configuration. The third type parameter is the domain's frozen `*UpdateIntent` (ADR-066); it defaults to `RawChanges`. The six Activity facades and core services pin it; sub-services such as `TasksSearchService` use the two-argument form:
 
 ```python
 from core.services.domain_config import create_activity_domain_config
@@ -16,6 +16,11 @@ class TasksCoreService(BaseService[TasksOperations, Task, TaskUpdateIntent]):
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
+        status_filters={
+            "active": {"status__not_in": ["completed"]},
+            "completed": {"status": "completed"},
+        },
+        entity_label="Entity",
     )
 ```
 
@@ -25,35 +30,43 @@ class TasksCoreService(BaseService[TasksOperations, Task, TaskUpdateIntent]):
 | `dto_class` | DTO for serialization | Required |
 | `model_class` | Domain model class | Required |
 | `domain_name` | Domain identifier | Required |
-| `date_field` | Date field for time queries | Required |
-| `completed_statuses` | Terminal statuses | Required |
-| `category_field` | Field for categorization | `"domain"` |
+| `date_field` | Date field for time queries | `"created_at"` |
+| `completed_statuses` | Terminal statuses | `()` |
+| `status_filters` | `get_for_user_filtered` vocabulary (filter name → extra `find_by` kwargs) | `{}` |
+| `category_field` | Field for categorization | `"category"` |
 | `search_fields` | Fields for text search | `("title", "description")` |
+| `search_order_by` | Default sort field | `"created_at"` |
+| `entity_label` | Neo4j base label | `"Entity"` |
+| `config_lookup_label` | `LABEL_CONFIGS` key (must exist, else `ValueError`) | `model_class.__name__` |
+| `temporal_secondary_sort` | Secondary sort for `get_upcoming` / `get_overdue` (Events: `"start_time"`) | `None` |
 
-All Activity Domains set `_user_ownership_relationship = "OWNS"` automatically via `create_activity_domain_config`. Do NOT use bare class attributes (`_dto_class`, `_model_class`) — that's the old pattern, fully migrated away.
+The factory also sets `user_ownership_relationship=RelationshipName.OWNS` and `supports_user_progress=True`, and derives `graph_enrichment_patterns` and `prerequisite_relationships` from the relationship registry.
 
 ## Event Publishing
 
-All domains publish events for cross-service communication:
+Domain events are published after the write that caused them, through `publish_event()`:
 
 ```python
-from core.events.task_events import TaskCompleted
+from core.events import TaskUpdated, publish_event
 
-async def complete_task(self, uid: str) -> Result[Task]:
-    result = await self.core.mark_complete(uid)
-    if result.is_ok and self.event_bus:
-        event = TaskCompleted(
-            task_uid=uid,
-            user_uid=result.value.user_uid,
-            completion_date=today_in(current_zone()),
-        )
-        await self.event_bus.publish_async(event)
-    return result
+event = TaskUpdated(task_uid=task.uid, user_uid=task.user_uid, updated_fields=updated_fields)
+await publish_event(self.event_bus, event, self.logger)
 ```
+
+**Completion events are transition-gated.** `TasksCoreService.update_task` publishes
+`TaskCompleted` only when `is_completion_transition(outcome.prior_status, changes)` holds — the
+prior status comes back from `backend.update_with_status_guard(...)`, so a re-post of
+`completed` publishes no `TaskCompleted` and leaves the completion stamp alone. The write
+itself still lands (`status`, `updated_at`), and `TaskUpdated` still fires. `GoalAchieved` (Goals) and
+`CalendarEventCompleted` (Events) are gated the same way, and `TaskReopened` mirrors
+`TaskCompleted` on the way out. `HabitCompleted` is not a status transition — it records one
+completion of a recurring habit. `TaskCompleted` carries `task_uid`,
+`user_uid`, `completion_time_seconds` and `was_overdue`; a completion that happened away from
+the app carries its date as `occurred_at`.
 
 **Event naming**: `{Domain}{Action}` - e.g., `TaskCompleted`, `GoalAchieved`, `HabitStreakBroken`
 
-**Event files**: `/core/events/{domain}_events.py`
+**Event files**: `/core/events/{domain}_events.py` (Events: `calendar_event_events.py`)
 
 ## How to update an entity (the ONE path — ADR-066)
 
@@ -88,14 +101,12 @@ How it flows:
 - `*UpdateRequest.to_intent()` builds the intent from `model_fields_set` (enums lowered to
   `.value`). The generic `CRUDRouteFactory` calls it automatically for any `SupportsToIntent`
   schema, so config-driven routes need no per-domain update code.
-- **Internal sub-service transitions may pass `RawChanges`, not an intent.** A domain
-  sub-service that is its own `BaseService[Op, T]` instantiation (e.g. `TasksProgressService`)
-  inherits `U = RawChanges`, so a system transition it owns calls
-  `self.update(uid, RawChanges({"status": ...}))` — still the *validated, event-firing* service
-  contract (same `_validate_update` / `_post_update`), just with a `RawChanges` value rather
-  than the domain intent. These are legitimate; don't rewrite or flag them. The typed
-  `*UpdateIntent` is the contract for the **public** facade/route update, not every call in the
-  domain.
+- **`RawChanges` is still a legitimate `U`.** A service that is its own `BaseService[Op, T]`
+  instantiation inherits `U = RawChanges` and may call `self.update(uid, RawChanges({...}))`
+  for a non-status patch — the same validated, event-firing contract. `PsService` does (tags,
+  field patches); no Activity sub-service does, because their writes carry `status` and go
+  through the guard below. The typed `*UpdateIntent` is the contract for the **public**
+  facade/route update, not every call in the domain.
 - **`backend.update(uid, dict)` directly** is the persistence seam (always a dict) and is
   allowed only for full-DTO replaces and timestamp/system bumps that carry **no `status`** —
   each marked `# raw-write:`. A partial field update that bypasses *both* the intent and the
@@ -139,7 +150,8 @@ How it flows:
   facades route the generic CRUD to the per-domain method, so the inherited hook is the
   only thing that was running the domain rules — a backend-direct write must call
   `self._validate_update(current, intent)` itself, or every rule dies silently while the
-  tests still pass. Each Activity domain has a test pinning that its rules still refuse.
+  tests still pass. Pin each rule with a test that it still refuses through the door the
+  facade actually uses.
 
 Per-domain deviations: **Habits** keeps `update_habit(uid, intent, *, force_archive=False)`
 (the transient `force_archive` directive can't ride the intent — it would persist as a junk
@@ -160,10 +172,11 @@ the siblings (below `lg`, as the scrolling section nav).
 ```
 /today                     # Tasks+ landing — the cross-domain glance
 /domain                    # Main page — stats, filters, list (with the Tasks+ sidebar, its row lit)
+/domain/content            # HTMX fragment: filter bar + list + stats bar
 /domain/list-fragment      # HTMX fragment for filter updates
 /domain/detail?uid=...     # Detail page with EntityRelationshipsSection (with Activity sidebar)
-/domain/create             # FormGenerator-rendered create form (GET render, POST submit)
-/domain/edit?uid=...       # FormGenerator-rendered edit form prefilled from existing entity
+/domain/create             # create form (render_activity_form over FormGenerator; GET render, POST submit)
+/domain/edit?uid=...       # edit form prefilled from the existing entity
 
 /api/{domain}/{uid}/status   # HTMX status toggle (POST)
 /api/{domain}/{uid}/priority # HTMX inline priority change (POST)
@@ -184,10 +197,11 @@ omitted from forms — assign those via the detail-page relationship picker.
 **Shared UI utilities** (`ui/activities/_shared.py`):
 - `MetadataField(label, *value)` — label + value pair for detail page metadata grids. Variadic `*value` supports simple (`Span`), paragraph (`P`), list (`Ul`), and multi-element (stars + score) content. Used ~60 times across all 6 detail views.
 - `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
+- `PRIORITY_ORDER` lives in `core/utils/entity_filters.py` (a business rule), not here
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
 - `ConnectionBadges(connections)` — renders icon+title badge links for outgoing connections (used by Tasks, Habits, Events, Choices). Reads `connected_uid`/`connected_type` keys.
 - `ConnectionSummary(connections)` — renders compact icon+count badges for incoming connections (used by gravity-well domains: Goals, Principles). Reads `connected_type` keys.
-- `PriorityBadgeDropdown(uid, priority, domain, singular)` — interactive priority badge on all 6 cards: Alpine dropdown of the 4 `Priority` levels, picks POST `/api/{domain}/{uid}/priority` via HTMX and swap the re-rendered card. Both `/status` and `/priority` endpoints come from `activity_field_api_factory` (`create_activity_field_api_routes` + one `FieldUpdateSpec` per field; priority carries the `PRIORITY_VALUES` whitelist).
+- `PriorityBadgeDropdown(uid, priority, domain, singular)` — interactive priority badge on all 6 cards: Alpine dropdown of the 3 `Priority` levels (`low`, `medium`, `high`), picks POST `/api/{domain}/{uid}/priority` via HTMX and swap the re-rendered card. Both `/status` and `/priority` endpoints come from `activity_field_api_factory` (`create_activity_field_api_routes` + one `FieldUpdateSpec` per field; priority carries the `PRIORITY_VALUES` whitelist).
 
 Calendar cross-cutting system still works (reads service protocols, not UI routes).
 
@@ -222,40 +236,36 @@ async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Tas
 async def remove_subtask_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
     return await self.core.remove_subtask_relationship(parent_uid, child_uid)
 
-# 4. API routes (tasks_api.py) — ownership check, user-scoped filtering, delegate to facade
-@rt("/api/tasks/children", methods=["GET"])
-@boundary_handler()
-async def task_children(request: Request) -> Result[list[Task]]:
-    user_uid = require_authenticated_user(request)
-    uid = request.query_params.get("uid", "")
-    ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
-    if ownership_error:
-        return ownership_error
-    result = await tasks_service.get_subtasks(uid)
-    if result.is_error:
-        return Result.fail(result)
-    return Result.ok([t for t in result.value if t.user_uid == user_uid])  # P1: scope to caller
-
-@rt("/api/tasks/remove-child", methods=["POST"])
-@csrf_protected
-@boundary_handler()
-async def task_remove_child(request: Request) -> Result[dict[str, Any]]:
-    user_uid = require_authenticated_user(request)
-    parsed = await parse_json_body(request, RemoveHierarchyChildRequest)  # {parent_uid, child_uid}
-    ...
-    ownership_error = await verify_entity_ownership(tasks_service, req.parent_uid, user_uid, "task")
-    if ownership_error: return ownership_error
-    child_ownership_error = await verify_entity_ownership(tasks_service, req.child_uid, user_uid, "task")
-    if child_ownership_error: return child_ownership_error  # P2: verify both endpoints
-    result = await tasks_service.remove_subtask_relationship(req.parent_uid, req.child_uid)
-    return Result.ok({"removed": result.value})
+# 4. API routes (tasks_api.py) — one config call; the shared factory owns the handlers
+create_activity_hierarchy_api_routes(
+    rt,
+    ActivityHierarchyApiConfig(
+        domain_name="tasks",
+        singular="task",
+        service=tasks_service,                    # verify_ownership comes from BaseService
+        get_children=tasks_service.get_subtasks,
+        get_parent=tasks_service.get_parent_task,
+        get_hierarchy=tasks_service.get_task_hierarchy,
+        add_child_relationship=add_subtask_relationship,  # named adapter: passes progress_weight
+        remove_child_relationship=tasks_service.remove_subtask_relationship,
+    ),
+)
 ```
 
-**Live API routes per domain** (`GET` ownership-verified on the queried uid; `POST` verifies both parent_uid **and** child_uid):
-- `GET  /api/{domain}s/children?uid=<uid>` → direct children
-- `GET  /api/{domain}s/parent?uid=<uid>` → immediate parent (or null)
-- `GET  /api/{domain}s/hierarchy?uid=<uid>` → `{ancestors, current, siblings, children, depth}`
-- `POST /api/{domain}s/remove-child` → body `{parent_uid, child_uid}` — removes edge, not nodes
+`create_activity_hierarchy_api_routes` (`adapters/inbound/route_factories/hierarchy_api_factory.py`)
+registers the same block for every Activity Domain. Both `children` variants render from one
+ownership-checked fetch (`_fetch_owned_children`: `verify_entity_ownership` on the parent, then
+the children filtered to `child.user_uid == user_uid`).
+
+**Live API routes per domain** (`{domain}` is the plural path segment, e.g. `tasks`; reads are
+ownership-verified on the queried uid, and the two writes verify both `parent_uid` **and**
+`child_uid`):
+- `GET  /api/{domain}/children?uid=<uid>` → direct children (JSON)
+- `GET  /api/{domain}/{uid}/children` → the same children as a `TreeNodeList` fragment (HTMX lazy load)
+- `GET  /api/{domain}/parent?uid=<uid>` → immediate parent (or null)
+- `GET  /api/{domain}/hierarchy?uid=<uid>` → `{ancestors, current, siblings, children, depth}`
+- `POST /api/{domain}/add-child` → body `{parent_uid, child_uid, progress_weight?}` — creates the edge (Tasks, Goals, Habits use `progress_weight`)
+- `POST /api/{domain}/remove-child` → body `{parent_uid, child_uid}` — removes the edge, not the nodes
 
 **HierarchyMixin backend methods** (return raw dicts — core services convert to domain models):
 - `get_children_raw(parent_uid, depth)` → list of child node dicts
@@ -267,21 +277,23 @@ async def task_remove_child(request: Request) -> Result[dict[str, Any]]:
 
 ## Search Service Pattern
 
-All search services implement `DomainSearchOperations[T]`:
+Each search service satisfies its domain's `*SearchOperations` protocol, which extends
+`DomainSearchOperations[T]` (`core/ports/search_protocols.py`):
 
 ```python
-class TasksSearchService(BaseService[TasksOperations, Task]):
-    # Inherited methods (from BaseService):
+class TasksSearchService(BaseService["TasksOperations", Task]):
+    # Inherited from BaseService (SearchOperationsMixin, TimeQueryMixin):
     # - search(query, limit=50, user_uid=None)
     # - get_by_status(status, limit=100, user_uid=None)
     # - get_by_category(category, user_uid=None, limit=100)
-    # - get_by_relationship(related_uid, rel_type, direction)
+    # - get_by_relationship(related_uid, relationship_type, direction="outgoing", user_uid=None)
     # - graph_aware_faceted_search(request, user_uid)
     # - list_user_categories(user_uid)
+    # - get_upcoming(...), get_overdue(user_uid=None, limit=100), get_active(...)
 
-    # Domain-specific methods:
-    async def get_blocking_tasks(self, uid, user_uid): ...
-    async def get_overdue(self, user_uid, limit=100): ...
+    # Domain-specific methods, e.g.:
+    async def get_tasks_for_goal(self, goal_uid): ...
+    async def get_blocked_by_prerequisites(self, user_uid): ...
     async def get_prioritized(self, user_context, limit=10): ...
 ```
 
@@ -290,12 +302,18 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
 Activity Domains enforce multi-tenant security:
 
 ```python
-# In routes - verify ownership before operations
-result = await service.verify_ownership(uid, user_uid)
-if result.is_error:
-    return result  # Returns 404 (not 403, for security)
+# API routes — returns an error Result (404, not 403) or None
+ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
+if ownership_error:
+    return ownership_error
 
-# BaseService provides these methods:
+# UI routes — returns (entity, None) or (None, refusal Response)
+task, refusal = await require_owned_entity(tasks_service, uid, user_uid, "Task")
+if refusal:
+    return refusal
+
+# Both come from adapters.inbound.route_factories. BaseService provides:
+await service.verify_ownership(uid, user_uid)  # Result[T]; NotFound for another user's uid
 await service.get_for_user(uid, user_uid)      # Get with ownership check
 await service.update_for_user(uid, intent, user_uid)   # intent = a *UpdateIntent (ADR-066)
 await service.delete_for_user(uid, user_uid)
@@ -303,20 +321,23 @@ await service.delete_for_user(uid, user_uid)
 
 ## Intelligence Service Pattern
 
-All domains have intelligence services extending `BaseAnalyticsService`:
+All domains have intelligence services extending `BaseAnalyticsService` (graph + Python, no AI),
+composed from mixins:
 
 ```python
-class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
+class TasksIntelligenceService(
+    _CoreIntelligenceMixin,   # shared get_with_context(uid, depth=2) -> Result[tuple[T, GraphContext]]
+    _AnalyticsMixin,          # get_behavioral_insights(user_uid, period_days=90), ...
+    _ProductivityMixin,
+    _DualTrackMixin,          # assess_productivity_dual_track (ADR-030)
+    BaseAnalyticsService["TasksOperations", Task],
+):
     _service_name = "tasks.intelligence"
-
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple]:
-        """Get task with full graph neighborhood."""
-        ...
-
-    async def get_behavioral_insights(self, user_uid: UserUID) -> Result[dict]:
-        """Task completion patterns analysis."""
-        ...
 ```
+
+Every domain's intelligence service provides `get_with_context`, `get_performance_analytics` and
+`get_domain_insights` — the three `IntelligenceRouteFactory` serves at `/api/{domain}/context`,
+`/analytics` and `/insights`.
 
 **Shared knowledge intelligence** (suggestions, prerequisites, learning opportunities) lives in
 `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — wired into all 6 activity
@@ -334,20 +355,20 @@ The property is kept aligned to the canonical `(User)-[:OWNS]->` owner by the li
 
 ### YAML Ingestion (Structural)
 
-Knowledge relationships declared in YAML `connections.*` fields are created at ingestion time:
+Knowledge relationships declared in `connections.*` frontmatter are created at ingestion time. Targets are authored UIDs (dot form; the colon spelling is retired) of any knowledge entity — a Ku or a PathStep:
 
 ```yaml
 # Task applies knowledge (substance weight: 0.05)
 connections:
-  applies_knowledge: [l:mindfulness:breath-awareness-basics]
+  applies_knowledge: [ps.mindfulness.breath-awareness-basics]
 
 # Choice informed by knowledge (substance weight: 0.07)
 connections:
-  informed_by_knowledge: [l:mindfulness:breath-awareness-basics]
+  informed_by_knowledge: [ps.mindfulness.breath-awareness-basics]
 
 # Principle grounded in knowledge (substance weight: 0.07)
 connections:
-  grounded_in_knowledge: [l:mindfulness:mind-wandering-happens]
+  grounded_in_knowledge: [ku.mindfulness.mind-wandering]
 ```
 
 See `/docs/guides/YAML_AUTHORING_GUIDE.md` for the field reference per entity type. See `/docs/architecture/knowledge_substance_philosophy.md` for the substance scoring model.
@@ -355,8 +376,8 @@ See `/docs/guides/YAML_AUTHORING_GUIDE.md` for the field reference per entity ty
 ### Knowledge application is graph-native (no node field)
 
 `applies_knowledge` is stored **only** as the edge `(Task)-[:APPLIES_KNOWLEDGE]->(Ku)` —
-there is no `applies_knowledge_uids` property on the frozen models (removed in the
-ADR-035/ADR-065 graph-native migration; do not reintroduce it). The string list survives
+there is no `applies_knowledge_uids` property on the frozen models (ADR-035/ADR-065; do not
+reintroduce it). The string list survives
 *only* at the API boundary (`TaskCreateRequest`/`TaskUpdateRequest`/`TaskResponse`); the
 service layer translates it to/from edges.
 
@@ -391,7 +412,7 @@ async def link_choice_to_goal(self, choice_uid, goal_uid, contribution_score=0.5
 # direction from the registry spec, and writes via the proven batch path.
 
 # Get related entities (key + uid — no direction arg; the registry spec supplies it):
-related_uids = await service.relationships.get_related_uids("knowledge", entity_uid)
+related = await service.relationships.get_related_uids("knowledge", entity_uid)  # Result[list[str]]
 ```
 
 > Do **not** reintroduce candidate-list `link_to_goal`/`link_to_knowledge`/`link_to_principle`
@@ -415,7 +436,7 @@ same rule that applies to `applies_knowledge_uids`/`reinforces_habit_uid` edge s
 **Reads (cross-domain)** — Queries spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`):
 
 ```python
-# Single Cypher query — no N+1, no fan-out-and-loop
+# One backend query per call — no N+1, no fan-out-and-loop
 result = await cross_domain_query.get_principle_alignment_evidence(principle_uid, user_uid)
 evidence = result.value  # PrincipleAlignmentEvidence (frozen dataclass)
 
@@ -423,24 +444,31 @@ result = await cross_domain_query.count_active_tasks_for_goal(goal_uid)
 count = result.value  # ActiveTaskCount (frozen dataclass)
 ```
 
-Takes only a `QueryExecutor` (no per-domain backends). 9 methods, each runs exactly one Cypher query and returns a frozen typed dataclass from `cross_domain_types.py`. Replaces the old pattern of domain services calling `self.backend.find_by()` across types and joining in Python.
+Holds one `CrossDomainBackendOperations` backend (no per-domain backends; the Cypher lives in `adapters/persistence/neo4j/cross_domain_backend.py`). 9 methods, each one query, each returning a frozen typed dataclass from `cross_domain_types.py`. Don't fetch across types with `self.backend.find_by()` and join in Python.
 
 ## Result[T] Error Handling
 
 All service methods return `Result[T]`:
 
 ```python
-result = await service.create_task(request, user_uid)
+result = await tasks_service.create_task(request, user_uid)
 if result.is_error:
-    return result  # Propagate error
+    return Result.fail(result)  # Propagate error across a type boundary
 
 task = result.value  # Access success value
 ```
 
-**At route boundaries**, use `@boundary_handler`:
+**At route boundaries**, `@boundary_handler()` converts the returned `Result` to HTTP (the CRUD
+factory's routes are built the same way; a hand-written domain route looks like this):
 ```python
-@rt("/api/tasks/create", methods=["POST"])
+@rt("/api/goals/stalled", methods=["GET"])
 @boundary_handler()
-async def create_task(request):
-    return await service.create_task(...)  # Auto-converts Result to HTTP
+async def goals_stalled(request: Request) -> Result[list[ContextualGoal]]:
+    user_uid = require_authenticated_user(request)
+    max_progress = parse_float_query_param(request.query_params, "max_progress", 0.1)
+    limit = parse_int_query_param(request.query_params, "limit", 10)
+    ctx_result = await fetch_context(user_uid)
+    if ctx_result.is_error:
+        return Result.fail(ctx_result)
+    return await goals_service.get_stalled_goals_for_user(ctx_result.value, max_progress, limit)
 ```

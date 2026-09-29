@@ -2,7 +2,7 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
-> All 6 Activity Domains have **read-focused UI** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`; the calendar month/week views at `/cal` are the temporal lenses), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All are pages of the Tasks+ section — one sidebar (`SidebarPage` via `render_activity_sidebar_page`) with the Tasks+ door (→ `/today`) lit in the chrome; the calendar month/week views and `/today` carry the same list, each calendar view rendering its declared membership (`VIEW_SPECS`: the month shows events only, the week adds habits, goal milestones and high-priority tasks behind the kind legend). Goals and Principles use gravity-well pattern (incoming connections). Activity data enters via `/submissions/sync` (Obsidian sync) or admin ingestion. Service facades and backends are fully active.
+> All 6 Activity Domains have **list/detail pages and create/edit forms** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`; the calendar month/week views at `/cal` are the temporal lenses), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All are pages of the Tasks+ section — one sidebar (`SidebarPage` via `render_activity_sidebar_page`) with the Tasks+ door (→ `/today`) lit in the chrome; the calendar month/week views and `/today` carry the same list, each calendar view rendering its declared membership (`VIEW_SPECS`: the month shows events only, the week adds habits, goal milestones and high-priority tasks behind the kind legend). Goals and Principles use gravity-well pattern (incoming connections). Activity data enters through the per-domain create/edit forms (`/{domain}/create`, `/{domain}/edit?uid=`), the JSON API, `/submissions/sync` (Obsidian vault sync) and content-vault ingestion.
 
 ## When to Use This Skill
 
@@ -13,17 +13,17 @@
 
 ## Design Principle: Harmony Without Over-Generalization
 
-The 6 Activity Domains share one shape — seven common sub-services produced by `create_common_sub_services()`: `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`. Every domain answers to all seven. None opts out.
+The 6 Activity Domains share one shape — seven common sub-services: `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`. Every domain answers to all seven. None opts out. `create_common_sub_services()` builds most of them, but not every slot for every domain: `intelligence` comes from the factory only for Principles (the other five facades construct their own, each with a domain-specific dependency), Tasks also builds its own `core` (`skip={"core"}`) and `event_handler`, and `knowledge_intelligence` is the shared singleton the factory passes through.
 
 **The shared shape is a contract for interconnectivity, not a cage.** What flows across domains — unified search, user context aggregation, cross-domain relationship queries, the knowledge substance pipeline, the ZPD assessment that ties curriculum to lived activity — works *because* every domain exposes the same surface in the same place. When the system asks "what is this user working on today," the answer doesn't care whether it comes from Tasks, Habits, or Events; each is addressable the same way.
 
-**Inside that shape, each domain keeps its voice.** Habits has `completions` and `patterns` because streaks and ritual cadence aren't universal concerns. Events has `habit_integration` because materializing a recurring habit as discrete calendar events is an Events problem. Principles has `alignment` because gravity-well scoring is unique to values. Tasks has `progress`, `scheduling`, and `planning` because dependency graphs and due-date juggling are specific to work items. Facade mixins organize domain-specific delegation methods the same way: Goals's `_OrchestrationMixin` is about goal mechanics, Principles's `_GravityMixin` about incoming-connection scoring — they do not belong on any other domain.
+**Inside that shape, each domain keeps its voice.** Habits has `completions` and `patterns` because streaks and ritual cadence aren't universal concerns. Events has `habits` (`EventsHabitIntegrationService`) because materializing a recurring habit as discrete calendar events is an Events problem. Principles has `alignment` because assessing goals and habits against a value is unique to values. Several domains carry a `progress`, `scheduling` or `planning` slot, but each is the domain's own class (`TasksSchedulingService` is context-aware task creation; `GoalsSchedulingService` checks goal capacity and timelines): the name is shared, the service is not. Facade mixins organize domain-specific delegation methods the same way: Goals's `_OrchestrationMixin` is about goal mechanics, Principles's `_GravityMixin` about the links a principle attracts — they do not belong on any other domain.
 
 **The harmony enables the uniqueness.** Without the shared shape, every cross-domain operation would fragment into a case statement. Without the domain-specific sub-services, the model would collapse into a generic "thing with a status" — exactly the over-generalization the principle is named against. The pattern: one shape for what a domain owes the rest of the system, total freedom for what it owes itself.
 
 **When adding a capability, ask in this order:**
 1. Does it fit in the existing shared shape? (new method on `core` / `search` / `intelligence` / etc.)
-2. Is it cross-domain infrastructure all 6 will benefit from? (extend `create_common_sub_services()` — raises the floor for every domain at once, as the April 2026 Tasks learning extraction did)
+2. Is it cross-domain infrastructure all 6 will benefit from? (extend `create_common_sub_services()` — raises the floor for every domain at once, the way the shared `learning` slot does)
 3. Is it genuinely domain-specific? (new domain-specific sub-service or facade mixin — keep it out of the shared layer)
 
 **Never** promote a capability only one domain uses into a common sub-service. **Never** push a genuinely domain-specific concern into a shared sub-service to save a file. The seven common services earn their universality by actually being universal; the domain-specific services earn their specialness by actually being specific.
@@ -35,7 +35,7 @@ Each service surfaces **two** label attributes via `DomainConfig`, with distinct
 1. **`entity_label`** — Neo4j base-label for multi-label Cypher matching. All 6 Activity Domains set this to `"Entity"` (matches `:Entity:Task`, `:Entity:Habit`, … via the unified `:Entity` base label). Curriculum domains similarly use `"Entity"` (PathStep, LearningPath, Exercise, RevisedExercise) or `"Ku"`.
 2. **`config_lookup_label`** — key for `LABEL_CONFIGS` registry lookup. Defaults to `model_class.__name__` (`"Task"`, `"Goal"`, `"Habit"`, …) and is used by `context_operations_mixin.get_with_context()` to fetch the domain-specific `DomainRelationshipConfig`. Also used by factory functions (`create_activity_domain_config`, `create_curriculum_domain_config`) to generate `graph_enrichment_patterns` and `prerequisite_relationships`.
 
-The split replaced an earlier overload where both jobs rode on `entity_label`, with a `LABEL_CONFIGS["Entity"] → PS_CONFIG` backward-compat alias papering over the ambiguity. That alias was removed: Activity Domains now get their own registry config (not PathStep's curriculum patterns), and the factories raise `ValueError` if a `config_lookup_label` is missing from `LABEL_CONFIGS`. Full decision record: [ADR-056 Service-Layer Label Split](../../../docs/decisions/ADR-056-service-layer-label-split.md).
+Each Activity Domain has its own `LABEL_CONFIGS` entry, and both factories (`create_activity_domain_config`, `create_curriculum_domain_config`) raise `ValueError` if the `config_lookup_label` is missing from `LABEL_CONFIGS`. Decision record: [ADR-056 Service-Layer Label Split](../../../docs/decisions/ADR-056-service-layer-label-split.md).
 
 **When building a new domain:**
 - Set `entity_label="Entity"` (or `"Ku"`) — the Neo4j base label.
@@ -44,7 +44,7 @@ The split replaced an earlier overload where both jobs rode on `entity_label`, w
 
 ## The 6 Activity Domains
 
-All 6 follow **identical architecture** - learn one, know all:
+All 6 share the facade shape above; the table lists what each adds:
 
 | Domain | Purpose | UID Prefix | Special Features |
 |--------|---------|------------|------------------|
@@ -55,7 +55,7 @@ All 6 follow **identical architecture** - learn one, know all:
 | **Choices** | Decisions | `choice_{slug}_{random}` | Options at creation, outcome tracking |
 | **Principles** | Core values | `principle_{slug}_{random}` | Reflections, alignment tracking |
 
-Events additionally has integration sub-services (`EventsHabitIntegrationService`, `EventsLearningService`) that bridge it with other Activity types. The **Calendar** cross-cutting system aggregates Events alongside Tasks, Habits, and Goals — Calendar is the scheduling system, Events are the things being scheduled.
+Events additionally has `habits` (`EventsHabitIntegrationService`), which materializes a recurring habit as calendar events; its `learning` slot is `EventsLearningService`. The **Calendar** cross-cutting system aggregates Events alongside Tasks, Habits, and Goals — Calendar is the scheduling system, Events are the things being scheduled.
 
 ## Knowledge Substance Connections
 
@@ -69,7 +69,7 @@ Each Activity Domain connects to knowledge via YAML `connections.*` fields, feed
 | Choice | `connections.informed_by_knowledge` | INFORMED_BY_KNOWLEDGE | 0.07 (max 0.15) |
 | Principle | `connections.grounded_in_knowledge` | GROUNDED_IN_KNOWLEDGE | 0.07 (max 0.15) |
 
-These edges are created at ingestion time from YAML templates. At runtime, domain events (`KnowledgeAppliedInTask`, `KnowledgeBuiltIntoHabit`, etc.) increment substance counters on knowledge nodes. See `/docs/architecture/knowledge_substance_philosophy.md`.
+The weights and caps are `USER_SUBSTANCE_CHANNELS` (`core/services/knowledge/user_substance.py`), which has a sixth, non-Activity channel: UserEntry, 0.07 (max 0.20). The edges come from the `connections.*` frontmatter at ingestion and from the create/update doors. The knowledge events (`KnowledgeAppliedInTask`, `KnowledgePracticedInEvent`, `KnowledgeBuiltIntoHabit`, `KnowledgeInformedChoice`, `KnowledgeReflectedInEntry`, in `core/events/knowledge_substance_events.py`) increment the per-node counters that `Curriculum.substance_score()` reads. Principles have no per-node counter; they count only in the per-user channels. See `/docs/architecture/knowledge_substance_philosophy.md`.
 
 ## Cross-Domain UID Fields
 
@@ -79,7 +79,7 @@ Every cross-domain UID field on an Activity Domain model is either a **structura
 
 | Domain | Field | Relationship |
 |--------|-------|-------------|
-| Task | `fulfills_goal_uid` | Task → Goal hierarchy membership |
+| Task | `fulfills_goal_uid` | Task → Goal hierarchy membership (dual-written with the `FULFILLS_GOAL` edge) |
 | Task | `source_path_step_uid` | Spawn-time PS origin (all 6 domains share this) |
 | Task | `scheduled_event_uid` | Scheduling appointment to an Event |
 | Goal | `fulfills_goal_uid` | Sub-goal → parent goal hierarchy |
@@ -101,21 +101,18 @@ Every cross-domain UID field on an Activity Domain model is either a **structura
 ## Architecture Overview
 
 ```
-Obsidian vault sync (/submissions/sync) → UnifiedIngestionService → Neo4j
-Admin YAML/Markdown → UnifiedIngestionService → Service Facade → Backend → Neo4j
-ActivityReport UI ← Service Facade (read path)
+Create/edit forms + JSON API → {Domain}Service facade → sub-service → domain backend → Neo4j
+Vault sync (/submissions/sync) + content-vault ingestion → UnifiedIngestionService → Neo4j
+List/detail pages (activity_ui_factory) ← facade reads (read path)
 ```
 
 **Each domain has:**
 - **Facade Service** - Single entry point (`{domain}_service.py`)
-- **7-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.).
-  `create_common_sub_services()` auto-wires **all 7 common sub-services uniformly for every domain**:
-  core, search, relationships, intelligence (skippable via `skip={}`), plus event_handler, learning,
-  and knowledge_intelligence. No domain opts out — the shared shape is the contract.
-- **0-3 Facade Mixins** - Group related delegation methods by concern. Tasks (1: `_OrchestrationMixin`), Goals (1: `_OrchestrationMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (2: `_OptionManagementMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). Events has no facade mixins. `_RelationshipMixin` was inlined back into Goals/Tasks/Choices (June 2026) — graph link methods live directly on the facade per the floor rule in `SERVICE_DECOMPOSITION_RULE.md`.
+- **8-13 Sub-services** (counting the FULL-tier `.ai`) - the seven common ones plus the domain's own. `create_common_sub_services()` accepts `skip` names `core`, `search` and `relationships` only (anything else raises `ValueError`). It builds `intelligence` only for a domain whose `ActivityDomainConfig.intelligence_class` is set, which today is only Principles; it always builds `event_handler` and `learning`. The facade's `__init__` is the authority on which slot came from where.
+- **1-3 Facade Mixins** - Group related delegation methods by concern. Tasks (1: `_OrchestrationMixin`), Goals (1: `_OrchestrationMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Events (2: `_OrchestrationMixin`, `_SchedulingMixin`), Choices (1: `_OptionManagementMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). Graph link methods sit directly on the facade (the floor rule in `SERVICE_DECOMPOSITION_RULE.md`).
 - **Domain Events** - Cross-service communication
 - **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.). The Learning Loop has a parallel handler (`LearningLoopEventHandlerService`) tracking submission iterations, feedback turnaround, and mastery velocity.
-- **Read-Focused UI** — All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection`, sharing the Tasks+ sidebar (`ui/activities/nav.py`) — the calendar views too (fluid width, same sidebar). The section's landing is `/today`; it has no hub page. Activity data also viewable via ActivityReport in the GradeBook's Activity reports group (`/gradebook`; detail at `/activity-reports/detail`).
+- **UI** — All 6 domains have dedicated list + detail views and create/edit forms with cross-domain connections and `EntityRelationshipsSection`, sharing the Tasks+ sidebar (`ui/activities/nav.py`) — the calendar views too (fluid width, same sidebar). The section's landing is `/today`; it has no hub page. Activity data also viewable via ActivityReport in the GradeBook's Activity reports group (`/gradebook`; detail at `/activity-reports/detail`).
 
 ## Key Files Per Domain
 
@@ -124,6 +121,7 @@ core/models/{domain}/
 ├── {domain}.py              # Frozen dataclass model
 ├── {domain}_dto.py          # Mutable DTO
 ├── {domain}_request.py      # Pydantic request models
+├── {domain}_update_intent.py  # Frozen *UpdateIntent (ADR-066)
 
 core/services/{domain}/
 ├── {domain}_core_service.py
@@ -135,9 +133,10 @@ core/services/{domain}/
 core/services/{domain}_service.py  # Facade
 core/events/{domain}_events.py     # Domain events
 
-# Read-focused UI (all 6 domains + hub):
+# UI (all 6 domains):
 adapters/inbound/{domain}_routes.py      # Route wiring (DomainRouteConfig + register_domain_routes)
-adapters/inbound/{domain}_ui.py          # ~50-line config: creates ActivityUIConfig, delegates to shared factory
+adapters/inbound/{domain}_ui.py          # ActivityUIConfig + create_activity_ui_routes(), then the create/edit form
+                                         #   routes (Tasks adds subtask/dependency fragments, Habits insight/choice fragments)
 adapters/inbound/activity_ui_factory.py  # THE shared factory — ActivityUIConfig dataclass + create_activity_ui_routes()
                                          #   Generates 5 routes per domain:
                                          #     /{domain}                — Page shell (HTMX loading placeholder)
@@ -145,10 +144,13 @@ adapters/inbound/activity_ui_factory.py  # THE shared factory — ActivityUIConf
                                          #     /{domain}/list-fragment  — HTMX fragment: filtered list only
                                          #     /{domain}/detail         — Detail page shell (HTMX loading placeholder)
                                          #     /{domain}/detail/content — HTMX fragment: entity detail + connections
-adapters/inbound/{domain}_api.py         # API Routes (status toggle)
+                                         #   plus POST /{domain}/dual-track/results for Goals, Habits, Principles
+adapters/inbound/{domain}_api.py         # create_activity_field_api_routes (status + priority), hierarchy and
+                                         #   link API factories, plus the domain's own routes
 ui/activities/nav.py                     # Activity sidebar config + render_activity_sidebar_page()
 ui/activities/badges.py, domain_stats_config.py  # Sidebar badge renderers + per-row extractors (/api/sidebar/badges)
-ui/activities/{domain}_views.py          # Pure view components (StatsBar, List, Card, DetailView, filter config)
+ui/activities/{domain}_views.py          # Pure view components (StatsBar, List, Card, DetailView)
+ui/activities/{domain}_form.py           # Create/edit forms (render_activity_form)
 ui/activities/filter_bar.py              # Shared config-driven filter bar (plain <select>, not <uk-select>)
 ui/activities/_shared.py                 # Shared helpers (MetadataField, ConnectionBadges, safe_id)
 core/utils/connection_configs.py         # Pure-data ConnectionConfig + 6 per-domain constants (fetch Cypher is in ConnectionFetchBackend below the boundary, ADR-044)
@@ -159,7 +161,7 @@ core/utils/entity_filters.py            # filter_tasks/goals/habits/events/choic
 
 ### Get an entity with context
 ```python
-result = await service.intelligence.get_{domain}_with_context(uid)
+result = await service.intelligence.get_with_context(uid)  # Result[tuple[T, GraphContext]]
 ```
 
 ### Search with filters
@@ -169,16 +171,18 @@ result = await service.search.get_by_status(status, limit=100, user_uid=user_uid
 ```
 
 ### Link to another domain
+The facades name each edge explicitly, and not every domain has every link:
 ```python
-await service.link_{domain}_to_goal(entity_uid, goal_uid)
-await service.link_{domain}_to_principle(entity_uid, principle_uid)
+await tasks_service.link_task_to_goal(task_uid, goal_uid)                 # also Choices, Events
+await goals_service.link_goal_to_principle(goal_uid, principle_uid)       # also Choices, Habits
 ```
 
 ### Update an entity (ADR-066 — typed intent, never a dict)
 ```python
+from core.models.enums import EntityStatus
 from core.models.task import TaskUpdateIntent
 
-await service.update_{domain}(uid, TaskUpdateIntent(status="in_progress"))
+await tasks_service.update_task(uid, TaskUpdateIntent(status=EntityStatus.ACTIVE.value))
 # from an HTTP body: service.update_for_user(uid, request.to_intent(), user_uid)
 ```
 See [COMMON_PATTERNS.md § How to update an entity](COMMON_PATTERNS.md#how-to-update-an-entity-the-one-path--adr-066) for the full write-path contract.

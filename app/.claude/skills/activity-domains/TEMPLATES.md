@@ -117,8 +117,8 @@ class TemplateBundle:
 
 **Helper methods on `TemplateBundle`:**
 
-- `all_uids()` — flat list of every template UID across all six domains
-- `type_by_uid(uid)` — returns the `EntityType` for a given template UID
+- `all_uids()` — the set of every template UID across all six domains
+- `type_by_uid()` — reverse index, template UID → `TemplateTypeName` (`"TaskTemplate"`, …)
 
 A PathStep with no templates attached returns a bundle with all six tuples
 empty — the spawn produces no instances.
@@ -143,7 +143,12 @@ class DomainSpawnSpec(Generic[InstanceT]):
     offset_rewrites: tuple[tuple[str, str, OffsetKind], ...] = ()
     field_rewrites:  dict[str, str]                           = field(default_factory=dict)
     cross_edges:     tuple[tuple[str, RelationshipName], ...] = ()
+    creation_rule:   Callable[[InstanceT], InstanceT] | None  = None
 ```
+
+`creation_rule` runs on the built instance. `TASK_SPEC` sets it to
+`Task.with_creation_due_date`, so a template with neither a due nor a scheduled offset
+spawns a task due on the engagement day — the same rule the service create path applies.
 
 ### 4a. 4-Layer Dependency Order
 
@@ -234,7 +239,7 @@ fail-fast pattern).
 ## 5. Spawn Orchestration — Three Phases
 
 The full spawn path (`_SpawnOrchestrator.spawn(student_uid, ps_uid, bundle,
-engagement_anchor)`):
+engagement_uid, engagement_anchor)`):
 
 **Phase 1 — Pre-allocate UIDs** (all domains, before any DB write):
 
@@ -254,14 +259,16 @@ For each spec (sorted by `layer`), for each template in the bundle:
 
 1. `_build(spec, template, student_uid, ps_uid, anchor, template_to_instance)`
    — pure function, no I/O. Copies authoring fields, applies all three
-   transform categories, injects managed fields:
+   transform categories, injects managed fields, then runs `creation_rule`:
    ```
    uid                    = template_to_instance[template.uid]
    user_uid               = student_uid
    engagement_state       = EngagementState.ENGAGED
    source_path_step_uid   = ps_uid
-   entity_type            = spec.instance_cls.entity_type  (class-level constant)
+   created_at, updated_at = the engagement anchor (not the template's authoring stamps)
    ```
+   `entity_type` and `visibility` are never copied: the instance keeps its own class
+   defaults (`TASK`, not `TASK_TEMPLATE`; PRIVATE, not the template's PUBLIC — ADR-088 §4).
 2. `_compute_cross_edges(template, spec.cross_edges, template_to_instance)`
    — resolves edge targets using the pre-allocated UID map.
 3. `backend.create_with_spawned_from(instance, template_uid, engagement_uid)` —
@@ -286,10 +293,13 @@ After spawn, instances carry `engagement_state: EngagementState | None` on every
 ```
 None                      — standalone instance; not from template spawn
 EngagementState.ENGAGED   — freshly spawned; student is working through the curriculum content
-EngagementState.OWNED     — student has personalised the instance; template relationship is broken
+EngagementState.OWNED     — kept at the engagement's completion (T3 keep/discard review, or auto-completion,
+                            which keeps all); the instance outlives the engagement
 ```
 
-The `engaged → owned` transition is the learning loop closure signal (ADR-059).
+`OWNED` is terminal (`EngagementState.is_terminal()`). The `SPAWNED_FROM {engagement_uid}` edge
+stays, but a later engagement of the same step cannot reach the instance: complete and
+abandon reach only the instances stamped with their own engagement's `uid`.
 `source_path_step_uid` is always the spawn-time PS UID regardless of engagement
 state. The `SPAWNED_FROM` edge is the graph-native back-reference (use it to
 traverse to the template; don't use it as an existence check — the field is
@@ -309,8 +319,9 @@ The registry is the single change point. Steps:
    Set `layer` based on what the new domain references:
    - References nothing → Layer 1.
    - References Layer-N entities → Layer N+1.
-4. Add `x: tuple[XTemplate, ...]` to `TemplateBundle` and `ActivityBackends`.
-5. Wire `HAS_X_TEMPLATE` edge in `_TemplateLoader.rel_to_backend_and_class`.
+4. Add `x: tuple[XTemplate, ...]` to `TemplateBundle` and `x: CrudOperations[X]` to
+   `ActivityBackends` (the attribute name is the spec's `collection_attr`).
+5. Add the `HAS_X_TEMPLATE` row to the `rel_to_backend_and_class` list in `_TemplateLoader.load`.
 6. Add a backend, service facade, and routes following the Activity Domain
    patterns in `FACADE_PATTERN.md` and `PATTERNS.md`.
 

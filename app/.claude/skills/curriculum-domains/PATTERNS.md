@@ -11,44 +11,47 @@ All core/search services use `_config = create_curriculum_domain_config(...)` (n
 ```python
 from core.services.domain_config import create_curriculum_domain_config
 
-class PsCoreService(BaseService[PsOperations, PathStep]):
+class PsCoreService(BaseService["PsOperations", PathStep]):
     _config = create_curriculum_domain_config(
         dto_class=PathStepDTO,
         model_class=PathStep,
-        domain_name="path_step",
-        search_fields=("title", "description", "content"),
+        entity_label="Entity",
+        domain_name="ps",
+        search_fields=("title", "intent", "description"),
+        search_order_by="updated_at",
         category_field="nous",  # NOUS topic membership (array — `has` semantics)
+        content_field="description",
     )
 ```
 
-**Key difference from Activity Domains:** No `user_ownership_relationship` — curriculum content is shared (`_user_ownership_relationship = None` is set automatically by `create_curriculum_domain_config`).
+**Key difference from Activity Domains:** `create_curriculum_domain_config` leaves `user_ownership_relationship` at `None` — curriculum content is shared. Ku passes `entity_label="Ku"` and `supports_user_progress=False`.
 
 ---
 
 ## Pattern: PathStep Organization (Non-Linear Navigation)
 
-Any PathStep can organize other PathSteps via `ORGANIZES` relationships. There is no `MocService` — this is `PsOrganizationService` (a sub-service of `PsService`):
+Any PathStep can organize other PathSteps via `ORGANIZES` relationships. There is no `MocService` — this is `PsOrganizationService` (a sub-service of `PsService`; the facade delegates every method). Its reads and `organize` take a PathStep subject and return shared-curriculum entities only; other edges (PathStep → Ku, a personal `moc: true` map) are authored in the vault:
 
 ```python
-# Create non-linear structure
+# Create non-linear structure — both uids must be PathSteps
 await ps_service.organization.organize(
-    parent_uid="ps:core:yoga-fundamentals",
-    child_uid="ps:core:meditation-basics",
+    parent_uid="ps.mindfulness.foundations",
+    child_uid="ps.mindfulness.breath-awareness-basics",
     order=1,
-    importance="core",
 )
 
 # Navigate the structure
-children = await ps_service.organization.get_organized_children("ps:core:yoga-fundamentals", depth=2)
-parents = await ps_service.organization.find_organizers("ps:core:meditation-basics")
+children = await ps_service.organization.get_organized_children("ps.mindfulness.foundations")
+view = await ps_service.organization.get_organization_view("ps.mindfulness.foundations", max_depth=3)
+parents = await ps_service.organization.find_organizers("ps.mindfulness.breath-awareness-basics")
 root_organizers = await ps_service.organization.list_root_organizers()
 
 # Check if a PathStep acts as an organizer
-is_org = await ps_service.organization.is_organizer("ps:core:yoga-fundamentals")
+is_org = await ps_service.organization.is_organizer("ps.mindfulness.foundations")
 
 # Prev/next sibling navigation in MOC ORGANIZES order.
 # Returns a StepNavigation dataclass — propagates DB errors, returns empty nav for legitimate empty states.
-result = await ps_service.organization.get_navigation("ps:core:meditation-basics")
+result = await ps_service.organization.get_navigation("ps.mindfulness.breath-awareness-basics")
 nav = result.value  # StepNavigation(prev_uid, prev_title, next_uid, next_title)
 ```
 
@@ -58,23 +61,26 @@ nav = result.value  # StepNavigation(prev_uid, prev_title, next_uid, next_title)
 
 ---
 
-## Pattern: PS Knowledge Relationship CRUD (Backend-Delegated)
+## Pattern: PS Knowledge Composition (Authored, Registry-Driven)
 
-Knowledge relationships (`USES_KU` / `TRAINS_KU`) are managed via `PsBackend` — services delegate, no inline Cypher:
+A PathStep's knowledge edges are authored in its vault frontmatter and written by ingestion
+from the `PS_CONFIG` registry entries — there is no service method that adds or removes them:
+
+| Frontmatter field | Edge | Registry `method_key` |
+|-------------------|------|------------------------|
+| `uses_kus:` | `(PathStep)-[:USES_KU]->(Ku)` | `uses_ku` |
+| `trains_ku_uids:` | `(PathStep)-[:TRAINS_KU]->(Ku)` | `trains_ku` |
+| `knowledge_uids:` | `(PathStep)-[:CONTAINS_KNOWLEDGE]->(Entity)` | `knowledge` |
+
+Read them through the relationship service or the core summary:
 
 ```python
-# Backend (PsBackend) — owns the Cypher
-await backend.add_uses_ku(ps_uid, ku_uid, role="primary")
-await backend.remove_uses_ku(ps_uid, ku_uid)
-ku_refs = await backend.list_ku_refs(ps_uid, role="primary")
-summary = await backend.get_knowledge_summary(ps_uid)  # {primary_count, supporting_count, ...}
-
-# Service (PsCoreService) — validates + delegates
-async def add_ku_reference(self, ps_uid, ku_uid, role="primary"):
-    if role not in ("primary", "supporting"):
-        return Result.fail(Errors.validation(...))
-    return await self.backend.add_uses_ku(ps_uid, ku_uid, role)
+ku_uids = await ps_service.relationships.get_related_uids("uses_ku", ps_uid)  # Result[list[str]]
+summary = await ps_service.core.get_knowledge_summary(ps_uid)  # CONTAINS_KNOWLEDGE {count, uids}
 ```
+
+`LpBackend.persist_path_with_steps` is the one programmatic `USES_KU` writer: it draws the edges
+from each new step's `knowledge_uids` when an LP is created with its steps.
 
 ---
 
@@ -83,26 +89,28 @@ async def add_ku_reference(self, ps_uid, ku_uid, role="primary"):
 Step relationships (HAS_STEP) are managed via `LpBackend` — services delegate:
 
 ```python
-# Backend (LpBackend) — owns the Cypher
-steps = await backend.get_steps_raw(path_uid, depth=1)      # raw dicts
-parent = await backend.get_parent_path_raw(step_uid)         # raw dict or None
+# Backend (LpBackend, _LpStepMixin) — owns the Cypher and maps nodes to models
+steps = await backend.get_steps_raw(path_uid, depth=1)      # Result[list[PathStep]]
+parent = await backend.get_parent_path_raw(step_uid)         # Result[LearningPath | None]
 await backend.add_step_to_path(path_uid, step_uid, sequence=0)
 await backend.remove_step_from_path(path_uid, step_uid)      # auto-reorders remaining
-await backend.reorder_steps(path_uid, ["ps:step2", "ps:step1"])
+await backend.reorder_steps(path_uid, ["ps.python.control-flow", "ps.python.first-program"])
 
-# Service (LpCoreService) — validates + converts to domain models
-async def get_steps(self, path_uid, depth=1):
+# Service (LpCoreService) — delegates; despite the `_raw` suffix, the values are typed models
+async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:
     result = await self.backend.get_steps_raw(path_uid, depth)
-    return Result.ok([from_neo4j_node(data, PathStep) for data in result.value])
+    if result.is_error:
+        return Result.fail(result)
+    return Result.ok(result.value)
 ```
 
 ---
 
 ## Pattern: LP Intelligence Delegation (Backend-Delegated)
 
-Intelligence Cypher queries live on `LpBackend` via `_LpIntelligenceMixin` (8 methods). `LpIntelligenceService` delegates, then transforms raw records into typed results. Search queries live on `_LpProgressMixin` (4 methods including `get_paths_aligned_with_goal`, `get_paths_by_knowledge`, `get_user_paths_prioritized`, `get_paths_containing_step`). `LpSearchService` is typed as `BaseService["LpOperations", LearningPath]` to access these.
+Intelligence Cypher lives on `LpBackend` via `_LpIntelligenceMixin`. `LpIntelligenceService` (and its `_path_analysis_mixin.py`) delegates, then transforms raw records into typed results. Search queries live on `_LpProgressMixin` (`get_paths_aligned_with_goal`, `get_paths_by_knowledge`, `get_user_paths_prioritized`, `get_paths_containing_step`, …). `LpSearchService` is typed as `BaseService["LpOperations", LearningPath]` to access these.
 
-**Critical:** `execute_query` returns `Result[list[dict]]` — a list of Neo4j records. Always extract records from the list before accessing keys:
+**Critical:** these intelligence backend methods return `Result[list[dict[str, Any]]]` — a list of Neo4j records. Always extract records from the list before accessing keys:
 
 ```python
 # Single-record queries (blocker_analysis, recommendations, path_context):
@@ -129,8 +137,15 @@ LP requires PsService injected at construction — the only cross-domain service
 
 ```python
 # In services_bootstrap/_learning_services.py (order matters!)
-ps_service = PsService(driver, graph_intel, event_bus)
-lp_service = LpService(driver, ps_service, graph_intel, event_bus)  # <- ps_service required
+ps_service = PsService(backend=knowledge_backend, executor=query_executor,
+                       graph_intel=graph_intelligence, event_bus=event_bus, ...)
+learning_paths = LpService(
+    backend=lp_backend,
+    ps_service=ps_service,  # <- required
+    graph_intel=graph_intelligence,
+    event_bus=event_bus,
+    ...
+)
 ```
 
 When adding a new LP feature that needs PS data, access it via `self.ps_service` (available on `LpCoreService`), not via direct Neo4j queries.

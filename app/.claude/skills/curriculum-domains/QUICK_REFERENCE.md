@@ -26,7 +26,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 ### Domain Backends
 | Domain | Backend | Key Methods |
 |--------|---------|-------------|
-| KU | `KuBackend` (protocol: `KuOperations`) | ORGANIZES graph, usage summary, namespace/alias search, substance, prereqs, learning state |
+| KU | `KuBackend` (protocol: `KuOperations`) | ORGANIZES graph, usage summary, alias search, substance, learning state (studying / understood), mastery |
 | PS | `PsBackend` (5 mixins, protocol: `PsOperations`) | ORGANIZES, learning state (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED), semantic, knowledge context, adaptive |
 | LP | `LpBackend` (3 mixins, protocol: `LpOperations`) | Path CRUD, HAS_STEP management, intelligence queries, graph context, mastery progress, search queries |
 | Exercise | `ExerciseBackend` | Curriculum links, OWNS, student queries (group sharing via UnifiedSharingService, ADR-053) |
@@ -112,13 +112,18 @@ Dots join authored curriculum segments; a colon never appears in an authored cur
 ### PS (PathStep) Relationships
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
-| `USES_KU` | outgoing | KU | PathStep composes atomic Kus |
-| `REQUIRES_KNOWLEDGE` | outgoing | KU | Knowledge prerequisites |
+| `USES_KU` | outgoing | KU | PathStep composes atomic Kus (`uses_kus:`) |
+| `TRAINS_KU` | outgoing | KU | Learning objectives (`trains_ku_uids:`) |
+| `CONTAINS_KNOWLEDGE` | outgoing | Entity | Additional knowledge (`knowledge_uids:`) |
+| `REQUIRES_KNOWLEDGE` | outgoing | Entity | Knowledge prerequisites (`prerequisite_knowledge_uids:`) |
 | `ENABLES_KNOWLEDGE` | outgoing | Entity (PS or KU) | What this step unlocks — `PS_CONFIG` registers it against `Entity`; `connections.enables` in a vault file draws PS → PS as readily as PS → KU |
 | `HAS_NARROWER` | outgoing | PS | Subconcepts |
 | `RELATED_TO` | both | PS | Related topics |
 | `ORGANIZES` | outgoing | PS / KU | Non-linear organization (MOC pattern) |
-| `REQUIRES_STEP` | outgoing | PS | Step prerequisites |
+| `REQUIRES_STEP` | outgoing | PS | Step prerequisites (`prerequisite_step_uids:`) |
+| `HAS_EXERCISE` | outgoing | Exercise | Anchored exercises (`exercise_uids:`) |
+| `HAS_TASK_TEMPLATE` … `HAS_PRINCIPLE_TEMPLATE` | outgoing | Activity template | Spawn blueprints (`{domain}_template_uids:`) |
+| `CITES_RESOURCE` | outgoing | Resource | Cited resources (`resource_uids:`) |
 | `IN_PROGRESS` / `MASTERED` / `BOOKMARKED` / `VIEWED` / `MARKED_AS_READ` | incoming | User | Learning state (user-owned edges) |
 
 ### KU Relationships
@@ -126,7 +131,8 @@ Dots join authored curriculum segments; a colon never appears in an authored cur
 |--------------|-----------|--------|---------|
 | `USES_KU` | incoming | PS | Composed into PathSteps |
 | `TRAINS_KU` | incoming | PS | Trained by Path Steps |
-| `ORGANIZES` | both | KU / PS | Hierarchical grouping |
+| `ORGANIZES` | both | KU / PS | Hierarchical grouping (a Ku authors it through `moc: true` body links) |
+| `IN_PROGRESS` / `MASTERED` / `PINNED` | incoming | User | Studying / understood / bookmarked |
 
 ### PS Activity Relationships
 Activity-domain integration lives directly on PathSteps (no intermediate Lesson node):
@@ -144,9 +150,14 @@ Activity-domain integration lives directly on PathSteps (no intermediate Lesson 
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
 | `HAS_STEP` | outgoing | PS | Path structure (ordered) |
+| `REQUIRES_KNOWLEDGE` | outgoing | Entity | Knowledge prerequisites |
 | `ALIGNED_WITH_GOAL` | outgoing | Goal | Goal alignment |
+| `EMBODIES_PRINCIPLE` | outgoing | Principle | Principle alignment |
 | `HAS_MILESTONE_EVENT` | outgoing | Event | Milestone tracking |
-| `SERVES_LIFE_PATH` | incoming | User | Life path designation |
+| `OPENS_LEARNING_PATH` | incoming | Entity | What opens this path |
+| `ENROLLED_IN` | incoming | User | Explicit enrollment |
+| `ULTIMATE_PATH` | incoming | User | Life path designation |
+| `SERVES_LIFE_PATH` | incoming | Goal, Principle, other activities | Activities serving the designated life path |
 
 ## Common Imports
 
@@ -215,7 +226,7 @@ ps_service.search.search(query)                      # BaseService search
 ps_service.intelligence.is_ready(ps_uid, completed_step_uids)
 ps_service.adaptive.get_sel_journey(user_uid)
 ps_service.organization.get_organized_children(parent_uid)  # Non-linear nav (MOC)
-ps_service.mastery.mark_mastered(user_uid, ps_uid, mastery_score)
+ps_service.mastery.mark_mastered(user_uid, ku_uid, mastery_score, method="report_approval")  # report approval → the linked Kus
 # ps_service.progress is event-driven (handle_knowledge_mastered) — nothing to call
 
 # KU — 4 sub-services
@@ -223,7 +234,7 @@ ku_service.core.create_ku(...)
 ku_service.search.search(...)
 ku_service.intelligence.get_usage_summary(ku_uid)
 
-# LP — 5 sub-services (specialized Cypher on LpBackend)
+# LP — 5 sub-services + optional ai (specialized Cypher on LpBackend)
 lp_service.intelligence.validate_path_prerequisites(lp_uid)
 lp_service.intelligence.get_next_adaptive_step(step_uid, user_uid)
 

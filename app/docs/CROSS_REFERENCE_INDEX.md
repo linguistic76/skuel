@@ -106,6 +106,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [OWNERSHIP_VERIFICATION.md](patterns/OWNERSHIP_VERIFICATION.md)
 
 **ADRs:**
+- [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md)
 - [ADR-023](decisions/ADR-023-curriculum-baseservice-migration.md)
 
 ### @docker
@@ -201,6 +202,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-051](decisions/ADR-051-user-interaction-contract.md)
 - [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
 - [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md)
+- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md)
 - [ADR-088](decisions/ADR-088-submit-and-share.md)
 
 ### @neo4j-cypher-patterns
@@ -569,7 +571,7 @@ For each documentation category, this section shows which skills are relevant.
 ### ADRs (Architecture Decision Records)
 
 - [ADR-003](decisions/ADR-003-journals-service-query.md) → @journals
-- [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md) → @neo4j-cypher-patterns
+- [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md) → @curriculum-domains, @neo4j-cypher-patterns
 - [ADR-020](decisions/ADR-020-fasthtml-route-registration-pattern.md) → @domain-route-config, @fasthtml
 - [ADR-021](decisions/ADR-021-user-context-intelligence-modularization.md) → @user-context-intelligence
 - [ADR-022](decisions/ADR-022-graph-native-authentication.md) → @result-pattern, @security
@@ -598,7 +600,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md) → @learning-loop, @prompt-templates, @zpd
 - [ADR-071](decisions/ADR-071-skuel-tailwind-component-layer.md) → @fasthtml, @skuel-ui, @ui-browser, @ui-css
 - [ADR-072](decisions/ADR-072-server-rendered-inline-svg-icons.md) → @skuel-ui
-- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md) → @journals, @prompt-templates
+- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md) → @journals, @learning-loop, @prompt-templates
 - [ADR-074](decisions/ADR-074-post-persist-embedding-events.md) → @base-ai-service
 - [ADR-075](decisions/ADR-075-local-agent-vault-transport.md) → @security
 - [ADR-076](decisions/ADR-076-canon-quotation-and-citation-policy.md) → @journals
