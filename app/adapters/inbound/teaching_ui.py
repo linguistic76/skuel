@@ -646,7 +646,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def student_submissions_preview(
         request: Request, uid: str, current_user: Any = None
-    ) -> Any:
+    ) -> FT:
         """HTMX OOB fragment: all 3 submission bucket previews in one DB round-trip.
 
         Replaces the former /pending/preview, /revision/preview, /completed/preview

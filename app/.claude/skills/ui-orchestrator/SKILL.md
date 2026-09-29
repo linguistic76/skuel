@@ -246,11 +246,11 @@ After: one `GET /api/teaching/students/{uid}/submissions/preview` endpoint calls
 # Combined endpoint — one orchestrator fetch, three panel updates
 @rt("/api/teaching/students/{uid}/submissions/preview")
 @require_role(UserRole.TEACHER, get_user_service)
-async def student_submissions_preview(request: Request, uid: str, current_user: Any = None):
+async def student_submissions_preview(request: Request, uid: str, current_user: Any = None) -> FT:
     user_uid = UserUID(current_user.uid)  # the decorator authenticated and fetched the caller
     pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
 
-    def _make_fragment(slug, rows, empty_label):
+    def _make_fragment(slug: str, rows: list[SubmissionRow], empty_label: str) -> Div:
         content = HubPreviewGrid([...]) if rows else HubPreviewEmpty(empty_label)
         return Div(content, id=f"hub-panel-{slug}", hx_swap_oob="true")
 
