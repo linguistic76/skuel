@@ -161,22 +161,33 @@ only inside `adapters/persistence/neo4j/` — a service never holds the driver (
 ```python
 from collections.abc import AsyncIterator
 
-async def iter_tasks(self, page_size: int = 100) -> AsyncIterator[Task]:
-    """Walk every task page by page without loading all into memory"""
+async def iter_tasks(self, page_size: int = 100) -> AsyncIterator[Result[Task]]:
+    """Walk every task page by page without loading all into memory.
+
+    A failed page is yielded as a failure and ends the walk, so a caller can tell
+    a truncated stream from a complete one.
+    """
     offset = 0
     while True:
         result = await self.backend.list(limit=page_size, offset=offset)  # Result[(page, total)]
         if result.is_error:
+            yield Result.fail(result)
             return
         page, total = result.value
         for task in page:
-            yield task
+            yield Result.ok(task)
         offset += page_size
         if offset >= total:
             return
 
 # Usage
-titles = [task.title async for task in service.iter_tasks()]
+async def task_titles(self) -> Result[list[str]]:
+    titles: list[str] = []
+    async for item in self.iter_tasks():
+        if item.is_error:
+            return Result.fail(item)
+        titles.append(item.value.title)
+    return Result.ok(titles)
 ```
 
 ## Common Anti-Patterns
@@ -208,7 +219,10 @@ async def slow_operation() -> None:
 
 # For blocking work (file I/O, CPU-heavy parsing), hand it to a worker thread
 async def load_history(path: Path) -> Result[str]:
-    text = await asyncio.to_thread(path.read_text)  # as in schema_change_detector.py
+    try:
+        text = await asyncio.to_thread(path.read_text)  # as in schema_change_detector.py
+    except FILE_IO_EXCEPTIONS as e:  # core/utils/exception_types.py
+        return Result.fail(Errors.system(f"Could not read {path.name}", exception=e))
     return Result.ok(text)
 ```
 

@@ -65,6 +65,8 @@ def default_completion_date_when_completed(self) -> TaskCreateRequest:
     if self.status == EntityStatus.COMPLETED:
         if self.completion_date is None:
             self.completion_date = today_in(current_zone())
+        else:
+            _refuse_future_completion_date(self.completion_date)
     elif self.completion_date is not None:
         raise ValueError("completion_date requires status=completed")
     return self
