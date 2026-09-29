@@ -617,32 +617,15 @@ async def test_task_lifecycle(services, test_user):
 ### @safe_backend_operation
 
 ```python
-from core.utils.safe_operations import safe_backend_operation
+# core/utils/error_boundary.py — applied on backend methods, e.g. _crud_mixin.py
+from core.utils.error_boundary import safe_backend_operation
 
-class UniversalNeo4jBackend(Generic[T]):
-
-    @safe_backend_operation("create")
-    async def create(self, entity: T) -> Result[T]:
-        """Exceptions automatically wrapped in Result.fail()"""
-        query = "CREATE (n:$label $props) RETURN n"
-        records = await self.execute_query(query, props=entity.to_dict())
-
-        if not records:
-            return Result.fail(
-                Errors.database("create", "No record returned from CREATE")
-            )
-
-        return Result.ok(self._from_record(records[0]))
-
-    @safe_backend_operation("get")
-    async def get(self, uid: str) -> Result[T | None]:
-        query = "MATCH (n:$label {uid: $uid}) RETURN n"
-        records = await self.execute_query(query, uid=uid)
-
-        if not records:
-            return Result.ok(None)
-
-        return Result.ok(self._from_record(records[0]))
+@safe_backend_operation("get")
+async def get(self, uid: str) -> Result[T | None]:
+    ...
 ```
 
-The decorator catches any exceptions and converts them to `Result.fail(Errors.database(...))`.
+The decorator guarantees the method returns a `Result`: a `NEO4J_EXCEPTIONS` error becomes
+`Result.fail(Errors.database(operation=<name>, ...))`, any other exception
+`Result.fail(Errors.system(...))` (its `# safety-net:` arm), and a non-`Result` return value
+is wrapped in `Result.ok(...)`.

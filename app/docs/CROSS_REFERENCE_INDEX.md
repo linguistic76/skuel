@@ -318,6 +318,7 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-035](decisions/ADR-035-tier-selection-guidelines.md)
 - [ADR-066](decisions/ADR-066-typed-update-intents.md)
+- [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md)
 
 ### @result-pattern
 
@@ -606,7 +607,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-084](decisions/ADR-084-compact-font-size-tokens.md) → @ui-css
 - [ADR-085](decisions/ADR-085-ownership-read-enforcement-contract.md) → @security, @skuel-search-architecture
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md) → @activity-domains, @neo4j-cypher-patterns, @security
-- [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns, @pytest
+- [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns, @pytest, @python
 - [ADR-088](decisions/ADR-088-submit-and-share.md) → @journals, @learning-loop, @security, @skuel-search-architecture
 - [ADR-089](decisions/ADR-089-instants-utc-days-in-a-zone.md) → @neo4j-cypher-patterns
 

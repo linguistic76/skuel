@@ -10,7 +10,7 @@ Architecture:
     - UI Routes:  goals_ui.py  (list, detail, cross-domain views)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.goals_api import create_goals_api_routes
@@ -42,9 +42,7 @@ GOALS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_goals_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_goals_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire goals API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, GOALS_CONFIG)
 

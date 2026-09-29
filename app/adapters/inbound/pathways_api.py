@@ -16,7 +16,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from core.models.pathways.path_step import PathStep
@@ -32,8 +32,8 @@ logger = get_logger("skuel.routes.pathways.api")
 
 
 def create_pathways_api_routes(
-    app: Any,
-    rt: Any,
+    app: FastHTMLApp,
+    rt: RouteDecorator,
     learning_service: LpService,
     user_service: Any = None,
     user_progress: Any = None,

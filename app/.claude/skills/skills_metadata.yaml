@@ -58,7 +58,7 @@ skills:
 
   - name: python
     description: Python development patterns in SKUEL
-    last_reviewed: "2026-07-10"
+    last_reviewed: "2026-09-29"
     foundation: []
     dependencies: []
     library_package: null  # Language, not a package
@@ -70,6 +70,7 @@ skills:
     related_adrs:
       - ADR-035  # Tier selection guidelines
       - ADR-066  # Typed Update Intents
+      - ADR-087  # Status-guarded conditional writes
     patterns:
       - /docs/patterns/DOCSTRING_STANDARDS.md
       - /docs/patterns/DOMAIN_PATTERNS_CATALOG.md
@@ -84,11 +85,11 @@ skills:
 
   - name: pydantic
     description: Pydantic V2 validation models
-    last_reviewed: "2026-07-10"
+    last_reviewed: "2026-09-29"
     foundation: []
     dependencies: []
     library_package: pydantic
-    library_version: "2.12.5"
+    library_version: "2.13.4"
     primary_docs:
       - /docs/patterns/three_tier_type_system.md
       - /docs/patterns/API_VALIDATION_PATTERNS.md
@@ -149,11 +150,11 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
-    last_reviewed: "2026-07-10"
+    last_reviewed: "2026-09-29"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
-    library_version: "0.12.39"
+    library_version: "0.14.12"
     primary_docs:
       - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
       - /docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md
@@ -170,7 +171,7 @@ skills:
 
   - name: domain-route-config
     description: Configuration-driven route registration for *_routes.py files using DomainRouteConfig
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-09-29"
     foundation: [fasthtml, python]
     dependencies: [fasthtml, python]
     library_package: null  # SKUEL pattern, not external library
@@ -370,7 +371,7 @@ skills:
 
   - name: security
     description: Security posture, route checklist, and code review security checks
-    last_reviewed: "2026-03-10"
+    last_reviewed: "2026-09-29"
     foundation: []
     dependencies: [python]
     library_package: null  # Cross-cutting concern, not a single library

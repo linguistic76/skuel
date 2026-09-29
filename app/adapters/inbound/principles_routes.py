@@ -10,7 +10,7 @@ Architecture:
     - UI Routes:  principles_ui.py  (list, detail, cross-domain views)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.principles_api import create_principles_api_routes
@@ -49,7 +49,7 @@ PRINCIPLES_CONFIG = create_activity_domain_route_config(
 
 
 def create_principles_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None
 ) -> None:
     """Wire principles API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, PRINCIPLES_CONFIG)

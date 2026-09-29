@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-09-28
+updated: 2026-09-29
 category: patterns
 related_skills:
 - fasthtml
@@ -242,7 +242,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 )
 
 
-def create_{domain}_routes(app, rt, services, _sync_service=None):
+def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
@@ -289,14 +289,13 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
     supports_habit_filter=False,  # True if domain relates to habits
     api_related_services={
         # Format: {kwarg_name: container_attr}
-        "user_service": "user_service",  # Always include for Query factory
-        # Add other domain-specific services as needed
+        # Add domain-specific services as needed, e.g. "goals_service": "goals"
     },
     prometheus_metrics_attr="prometheus_metrics",  # Optional
 )
 
 
-def create_{domain}_routes(app, rt, services, _sync_service=None):
+def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
@@ -532,7 +531,7 @@ TASKS_CONFIG = DomainRouteConfig(
 
 **After (DomainRouteConfig pattern):**
 ```python
-def create_tasks_routes(app, rt, services, _sync_service=None) -> None:
+def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```

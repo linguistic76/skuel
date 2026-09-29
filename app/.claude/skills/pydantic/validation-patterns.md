@@ -50,33 +50,44 @@ class DateRangeRequest(BaseModel):
 
 ## ValidationInfo for Cross-Field Access
 
-Access other fields during validation:
+Access fields declared earlier in the model during validation:
 
 ```python
-from pydantic import field_validator, ValidationInfo
-
-class TaskRequest(BaseModel):
-    status: EntityStatus
-    completion_date: date | None = None
-    cancelled_reason: str | None = None
-
-    @field_validator("completion_date")
-    @classmethod
-    def auto_set_completion(cls, v: date | None, info: ValidationInfo) -> date | None:
-        """Auto-set completion date when status is COMPLETED"""
-        status = info.data.get("status")
-        if status == EntityStatus.COMPLETED and v is None:
-            return today_in(current_zone())
+# core/models/validation_rules.py — used by TaskCreateRequest and EventCreateRequest
+def validate_recurrence_end_after_start(recurrence_end_field: str, start_field: str) -> Callable:
+    @field_validator(recurrence_end_field)
+    def _validate_recurrence_end(cls, v: date | None, info: ValidationInfo) -> date | None:
+        if v is None:
+            return v
+        start_value = info.data.get(start_field)
+        if start_value and v <= start_value:
+            raise ValueError(f"Recurrence end must be after {start_field.replace('_', ' ')}")
         return v
+    return _validate_recurrence_end
+```
 
-    @field_validator("cancelled_reason")
-    @classmethod
-    def require_reason_if_cancelled(cls, v: str | None, info: ValidationInfo) -> str | None:
-        """Require reason when status is CANCELLED"""
-        status = info.data.get("status")
-        if status == EntityStatus.CANCELLED and not v:
-            raise ValueError("Cancellation reason required")
-        return v
+⚠ **A field validator does not run on a field the client omitted.** Pydantic validates a
+default only when the field says `Field(validate_default=True)`. A rule of the shape
+"*this* field is required — or gets a default — when *that* field has a value" written as
+a `field_validator` therefore fires only when the client sends the field, which is exactly
+when the rule is not needed. `validate_required_when` and `validate_url_when_online` in
+`validation_rules.py` have this shape: `EventCreateRequest(is_online=True)` with no
+`meeting_url` is accepted, while an explicit `meeting_url=""` is refused. Write a
+conditional default or requirement as a model validator, which always runs:
+
+```python
+# core/models/task/task_request.py — TaskCreateRequest
+@model_validator(mode="after")
+def default_completion_date_when_completed(self) -> TaskCreateRequest:
+    """A task born COMPLETED carries a completion date — today unless supplied."""
+    if self.status == EntityStatus.COMPLETED:
+        if self.completion_date is None:
+            self.completion_date = today_in(current_zone())
+        else:
+            _refuse_future_completion_date(self.completion_date)
+    elif self.completion_date is not None:
+        raise ValueError("completion_date requires status=completed")
+    return self
 ```
 
 ### ValidationInfo Fields
@@ -87,7 +98,8 @@ class TaskRequest(BaseModel):
 | `info.field_name` | `str` | Current field being validated |
 | `info.mode` | `str` | Validation mode ("python" or "json") |
 
-**Important:** `info.data` contains fields in definition order. Fields defined after the current one may not be present yet.
+**Important:** `info.data` holds only the fields validated so far — those declared *before*
+the current one, and only the ones that passed. A field declared after it is absent.
 
 ## Model Validators (Cross-Field)
 
@@ -96,25 +108,17 @@ For validation that needs all fields:
 ```python
 from pydantic import model_validator
 
-class GoalRequest(BaseModel):
-    start_date: date
-    target_date: date
-    timeframe: GoalTimeframe
+# core/models/goal/goal_request.py — GoalCreateRequest (abridged)
+@model_validator(mode="after")
+def validate_target_value(self) -> GoalCreateRequest:
+    """Validate target value based on measurement type."""
+    if self.measurement_type == MeasurementType.PERCENTAGE:
+        if self.target_value and (self.target_value < 0 or self.target_value > 100):
+            raise ValueError("Percentage target must be between 0 and 100")
+    elif self.measurement_type == MeasurementType.NUMERIC and not self.target_value:
+        raise ValueError("Numeric measurement requires a target value")
 
-    @model_validator(mode="after")
-    def validate_date_alignment(self):
-        """Validate dates align with timeframe"""
-        if self.target_date <= self.start_date:
-            raise ValueError("Target must be after start")
-
-        # Check timeframe alignment
-        days = (self.target_date - self.start_date).days
-        if self.timeframe == GoalTimeframe.WEEKLY and days > 14:
-            raise ValueError("Weekly goals should be < 2 weeks")
-        elif self.timeframe == GoalTimeframe.MONTHLY and days > 45:
-            raise ValueError("Monthly goals should be < 45 days")
-
-        return self  # Must return self
+    return self  # Must return self
 ```
 
 ### mode="before" vs mode="after"
@@ -138,8 +142,8 @@ def normalize_input(cls, data: dict) -> dict:
 @model_validator(mode="after")
 def validate_business_rules(self):
     """Validate after all fields are typed and validated"""
-    if self.priority == Priority.URGENT and not self.due_date:
-        raise ValueError("Urgent tasks require due_date")
+    if self.priority == Priority.HIGH and not self.due_date:
+        raise ValueError("High-priority tasks require due_date")
     return self
 ```
 
@@ -149,9 +153,33 @@ SKUEL's `/core/models/validation_rules.py` provides reusable validator factories
 
 ### Available Validators
 
-#### Date/Time Validators
+Field-validator factories (apply as class attributes):
+
+| Factory | Checks |
+|---------|--------|
+| `validate_future_date(*fields)` | date/datetime not in the past (skipped under context `{"allow_past_dates": True}`) |
+| `validate_past_date(*fields)` | date/datetime not in the future |
+| `validate_required_string(*fields, min_length=1)` | not empty after strip; returns the stripped value |
+| `validate_identity_format(*fields)` | identity-string format |
+| `validate_email(*fields)` | email format |
+| `validate_list_max_length(*fields, max_length)` | list length ≤ `max_length` |
+| `validate_list_no_duplicates(*fields)` | no repeated items |
+| `validate_time_after(later, earlier)` | time ordering |
+| `validate_recurrence_end_after_start(end, start)` | recurrence end after the start date |
+| `validate_required_when(field, condition_field, condition_value, default_value)` | default a field when a condition holds — ⚠ only when the field is sent (see above) |
+| `validate_url_when_online(url_field, online_field)` | URL required for online events — ⚠ only when the URL is sent |
+| `validate_percentage(*fields)` | 0–100 |
+| `validate_score_0_to_1(*fields)` | 0–1 |
+| `validate_habit_duration_by_difficulty(...)`, `validate_habit_target_days_by_pattern(...)` | habit-specific rules |
+| `validate_weights_sum_to_one(field, required_keys=None, tolerance=0.05)` | each weight in 0–1, sum within tolerance of 1.0 |
+
+Model-validator helpers (call inside a `@model_validator(mode="after")`):
+`validate_date_after(later, earlier, allow_equal=False)`, `validate_timeframe_date_alignment()`.
+
+#### A Factory's Shape
 
 ```python
+# core/models/validation_rules.py
 def validate_future_date(*field_names: str) -> Callable:
     """Validate date/datetime is not in the past.
 
@@ -161,7 +189,7 @@ def validate_future_date(*field_names: str) -> Callable:
     Constructor / FastHTML auto-validation pass no context → guard stands.
     """
     @field_validator(*field_names)
-    def _validate(
+    def _validate_future_date(
         cls, v: date | datetime | None, info: ValidationInfo
     ) -> date | datetime | None:
         if v is None:
@@ -175,113 +203,23 @@ def validate_future_date(*field_names: str) -> Callable:
         elif isinstance(v, date) and v < today_in(current_zone()):
             raise ValueError("Date cannot be in the past")
         return v
-    return _validate
+    return _validate_future_date
 
 
-def validate_date_not_future(*field_names: str) -> Callable:
-    """Validate date is not in the future (for historical dates)"""
+def validate_list_no_duplicates(*field_names: str) -> Callable:
     @field_validator(*field_names)
-    def _validate(cls, v: date | None) -> date | None:
-        if v is not None and v > today_in(current_zone()):
-            raise ValueError("Date cannot be in the future")
-        return v
-    return _validate
-
-
-def validate_recurrence_end_after_start(
-    end_field: str,
-    start_field: str
-) -> Callable:
-    """Validate end date is after start date"""
-    @field_validator(end_field)
-    def _validate(cls, v: date | None, info: ValidationInfo) -> date | None:
-        start = info.data.get(start_field)
-        if v and start and v <= start:
-            raise ValueError(f"{end_field} must be after {start_field}")
-        return v
-    return _validate
-```
-
-#### String Validators
-
-```python
-def validate_required_string(*field_names: str) -> Callable:
-    """Validate string is not empty after stripping whitespace"""
-    @field_validator(*field_names)
-    def _validate(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Cannot be empty or whitespace only")
-        return v.strip()
-    return _validate
-
-
-def validate_slug(*field_names: str) -> Callable:
-    """Validate string is URL-safe slug format"""
-    @field_validator(*field_names)
-    def _validate(cls, v: str) -> str:
-        import re
-        if not re.match(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", v):
-            raise ValueError("Must be lowercase alphanumeric with hyphens")
-        return v
-    return _validate
-```
-
-#### Numeric Validators
-
-```python
-def validate_percentage(*field_names: str) -> Callable:
-    """Validate value is between 0 and 100"""
-    @field_validator(*field_names)
-    def _validate(cls, v: float | None) -> float | None:
-        if v is not None and not (0 <= v <= 100):
-            raise ValueError("Must be between 0 and 100")
-        return v
-    return _validate
-
-
-def validate_positive(*field_names: str) -> Callable:
-    """Validate number is positive"""
-    @field_validator(*field_names)
-    def _validate(cls, v: int | float | None) -> int | float | None:
-        if v is not None and v <= 0:
-            raise ValueError("Must be positive")
-        return v
-    return _validate
-
-
-def validate_weights_sum_to_one(weights_field: str) -> Callable:
-    """Validate dict values sum to 1.0"""
-    @field_validator(weights_field)
-    def _validate(cls, v: dict[str, float] | None) -> dict[str, float] | None:
+    def _validate_no_duplicates(cls, v: list | None) -> list | None:
         if v is not None:
-            total = sum(v.values())
-            if not (0.99 <= total <= 1.01):  # Allow float tolerance
-                raise ValueError(f"Weights must sum to 1.0, got {total}")
+            seen = set()
+            duplicates = set()
+            for item in v:
+                if item in seen:
+                    duplicates.add(item)
+                seen.add(item)
+            if duplicates:
+                raise ValueError(f"Duplicate items not allowed: {duplicates}")
         return v
-    return _validate
-```
-
-#### List Validators
-
-```python
-def validate_list_max_length(field_name: str, max_length: int) -> Callable:
-    """Validate list does not exceed max length"""
-    @field_validator(field_name)
-    def _validate(cls, v: list | None) -> list | None:
-        if v is not None and len(v) > max_length:
-            raise ValueError(f"Cannot exceed {max_length} items")
-        return v
-    return _validate
-
-
-def validate_unique_list(*field_names: str) -> Callable:
-    """Validate list contains no duplicates"""
-    @field_validator(*field_names)
-    def _validate(cls, v: list | None) -> list | None:
-        if v is not None and len(v) != len(set(v)):
-            raise ValueError("List contains duplicates")
-        return v
-    return _validate
+    return _validate_no_duplicates
 ```
 
 ### Usage Pattern
@@ -289,87 +227,67 @@ def validate_unique_list(*field_names: str) -> Callable:
 Apply shared validators as class attributes:
 
 ```python
-class GoalCreateRequest(BaseModel):
-    title: str
-    description: str | None = None
-    start_date: date | None = None
-    target_date: date | None = None
-    progress: float | None = None
-    weights: dict[str, float] | None = None
-    tags: list[str] = Field(default_factory=list)
+# core/models/task/task_request.py — TaskCreateRequest
+_validate_dates = validate_future_date("due_date", "scheduled_date")
+_validate_recurrence_end = validate_recurrence_end_after_start(
+    "recurrence_end_date", "due_date"
+)
 
-    # Apply shared validators
-    _validate_title = validate_required_string("title")
-    _validate_description = validate_required_string("description")
-    _validate_dates = validate_future_date("start_date", "target_date")
-    _validate_date_order = validate_recurrence_end_after_start("target_date", "start_date")
-    _validate_progress = validate_percentage("progress")
-    _validate_weights = validate_weights_sum_to_one("weights")
-    _validate_tags = validate_unique_list("tags")
+# core/models/event/event_request.py — EventCreateRequest
+_validate_end_time = validate_time_after("end_time", "start_time")
+_validate_recurrence_end = validate_recurrence_end_after_start(
+    "recurrence_end_date", "event_date"
+)
 ```
 
 ## Model Validator Factories
 
-For reusable cross-field validation:
+For reusable cross-field validation — the factory returns a plain function you call from
+your own `@model_validator(mode="after")`:
 
 ```python
+# core/models/validation_rules.py
 def validate_date_after(
     later_field: str,
     earlier_field: str,
-    allow_equal: bool = False
+    allow_equal: bool = False,
 ) -> Callable:
-    """Factory for model validator ensuring date ordering"""
-    def validator(self):
-        later = getattr(self, later_field)
-        earlier = getattr(self, earlier_field)
-        if later and earlier:
+    def validator_impl[M: BaseModel](instance: M) -> M:
+        later_value = getattr(instance, later_field, None)
+        earlier_value = getattr(instance, earlier_field, None)
+
+        if later_value is not None and earlier_value is not None:
             if allow_equal:
-                if later < earlier:
-                    raise ValueError(f"{later_field} must be >= {earlier_field}")
+                if later_value < earlier_value:
+                    raise ValueError(f"{later_field} must be on or after {earlier_field}")
             else:
-                if later <= earlier:
-                    raise ValueError(f"{later_field} must be > {earlier_field}")
-        return self
-    return validator
+                if later_value <= earlier_value:
+                    raise ValueError(f"{later_field} must be after {earlier_field}")
 
+        return instance
 
-def validate_timeframe_date_alignment() -> Callable:
-    """Factory for timeframe/date validation"""
-    def validator(self):
-        if not hasattr(self, "timeframe") or not hasattr(self, "target_date"):
-            return self
-
-        if self.target_date and self.start_date:
-            days = (self.target_date - self.start_date).days
-            max_days = {
-                GoalTimeframe.DAILY: 1,
-                GoalTimeframe.WEEKLY: 14,
-                GoalTimeframe.MONTHLY: 45,
-                GoalTimeframe.QUARTERLY: 120,
-                GoalTimeframe.YEARLY: 400,
-            }
-            limit = max_days.get(self.timeframe)
-            if limit and days > limit:
-                raise ValueError(f"{self.timeframe} goal exceeds {limit} days")
-        return self
-    return validator
+    return validator_impl
 ```
+
+`validate_timeframe_date_alignment()` has the same shape: it caps the span from
+`start_date` (today when unset) to `target_date` per `GoalTimeframe` — DAILY 1 day,
+WEEKLY 7, MONTHLY 31, QUARTERLY 92, YEARLY 365.
 
 **Usage:**
 
 ```python
-class GoalCreateRequest(BaseModel):
-    start_date: date
-    target_date: date
-    timeframe: GoalTimeframe
+# core/models/goal/goal_request.py — GoalCreateRequest (abridged)
+@model_validator(mode="after")
+def validate_target_date(self, info: ValidationInfo) -> GoalCreateRequest:
+    allow_past = bool(info.context and info.context.get("allow_past_dates"))
+    if not allow_past and self.target_date and self.target_date < today_in(current_zone()):
+        raise ValueError("Target date must be in the future")
+    # allow_equal=True: same-day goals are valid (e.g., daily goals)
+    return validate_date_after("target_date", "start_date", allow_equal=True)(self)
 
-    @model_validator(mode="after")
-    def validate_dates(self):
-        return validate_date_after("target_date", "start_date")(self)
-
-    @model_validator(mode="after")
-    def validate_alignment(self):
-        return validate_timeframe_date_alignment()(self)
+@model_validator(mode="after")
+def validate_timeframe_alignment(self) -> GoalCreateRequest:
+    return validate_timeframe_date_alignment()(self)
 ```
 
 ## Error Messages
@@ -397,19 +315,22 @@ from pydantic import ValidationError
 try:
     request = TaskCreateRequest(title="", priority="invalid")
 except ValidationError as e:
-    print(e.errors())
+    errors = e.errors()
     # [
-    #   {'type': 'string_too_short', 'loc': ('title',), 'msg': 'String should have at least 1 character'},
-    #   {'type': 'enum', 'loc': ('priority',), 'msg': "Input should be 'low', 'medium', 'high' or 'urgent'"}
+    #   {'type': 'string_too_short', 'loc': ('title',), 'msg': 'String should have at least 1 character', ...},
+    #   {'type': 'enum', 'loc': ('priority',), 'msg': "Input should be 'low', 'medium' or 'high'", ...}
     # ]
 ```
 
 ### Route-Level Parsing (Result[T] Integration)
 
-In API routes, use `parse_json_body()` or `parse_form_body()` to convert Pydantic `ValidationError` into `Result.fail()` automatically — no manual try/except needed:
+In routes, use the `adapters/inbound/form_helpers.py` readers to convert Pydantic `ValidationError` into `Result.fail(Errors.validation(...))` automatically — no manual try/except needed. `parse_body()` reads JSON or form by Content-Type and is the reader at a door both API clients and HTMX forms reach (the CRUD factory's create/update, the admin account actions); `parse_json_body()` / `parse_form_body()` serve a route with one caller kind. A failure is a **400** through `@boundary_handler`.
 
 ```python
-from adapters.inbound.form_helpers import parse_json_body, parse_form_body
+from adapters.inbound.form_helpers import parse_body, parse_form_body, parse_json_body
+
+# JSON or form, by Content-Type → Result[T]
+result = await parse_body(request, TaskUpdateRequest)
 
 # JSON body → Pydantic model → Result[T]
 result = await parse_json_body(request, TaskCreateRequest)
@@ -455,15 +376,14 @@ def test_task_date_not_past():
 
 
 def test_goal_date_ordering():
-    """Target date must be after start date"""
-    with pytest.raises(ValidationError) as exc:
+    """Target date must be on or after start date"""
+    today = today_in(current_zone())
+    with pytest.raises(ValidationError, match="must be on or after start_date"):
         GoalCreateRequest(
             title="Test",
-            start_date=date(2025, 6, 1),
-            target_date=date(2025, 5, 1),  # Before start!
-        )
-
-    assert "after" in str(exc.value).lower()
+            start_date=today + timedelta(days=30),
+            target_date=today + timedelta(days=10),  # Before start (both future,
+        )                                            # so the past-date rule stays quiet)
 ```
 
 ## Performance Tips

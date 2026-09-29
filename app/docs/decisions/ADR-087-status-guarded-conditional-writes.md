@@ -1,11 +1,11 @@
 ---
 title: "ADR-087: Status-Guarded Conditional Writes"
-updated: 2026-09-23
+updated: 2026-09-29
 status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
 related: [ADR-030, ADR-066, ADR-044]
-related_skills: [activity-domains, neo4j-cypher-patterns, pytest]
+related_skills: [activity-domains, neo4j-cypher-patterns, pytest, python]
 ---
 
 # ADR-087: Status-Guarded Conditional Writes

@@ -10,7 +10,7 @@ Architecture:
     - UI Routes:  choices_ui.py  (list, detail, cross-domain views)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.choices_api import create_choices_api_routes
 from adapters.inbound.choices_ui import create_choices_ui_routes
@@ -45,9 +45,7 @@ CHOICES_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_choices_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_choices_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire choices API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, CHOICES_CONFIG)
 

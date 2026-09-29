@@ -164,13 +164,19 @@ Audio(src="/audio.mp3", controls=True)
 ```python
 from ui.data import TableFromDicts, TableT
 
+
+def render_cell(key: str, value: str) -> FT:
+    """Bold the name column (a named function — no lambdas, SKUEL012)."""
+    return Td(value, cls="font-bold" if key == "Name" else "")
+
+
 TableFromDicts(
     header_data=["Name", "Age", "City"],
     body_data=[
         {"Name": "Alice", "Age": "30", "City": "NYC"},
         {"Name": "Bob", "Age": "25", "City": "LA"},
     ],
-    body_cell_render=lambda k, v: Td(v, cls="font-bold" if k == "Name" else ""),
+    body_cell_render=render_cell,
     cls=(TableT.striped, TableT.sm),
 )
 ```
