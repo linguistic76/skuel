@@ -172,8 +172,10 @@ The caller owns the two backend reads, because the pool differs by domain:
 
 | Domain family | Candidate pool |
 |---------------|----------------|
-| Activities | `backend.find_by(user_uid=source.user_uid)` — the owner's own entities |
-| Curriculum | `backend.list(...)` — shared content |
+| Activities | `backend.find_by(user_uid=source.user_uid)` — the owner's own entities, at most 100 (`find_by`'s default `limit`) |
+| Curriculum | `backend.list(limit=...)` — shared content; PathStep passes 200, LearningPath 100 |
+
+Entities past the cap are never ranked.
 
 Do not hand-roll `f"{title} {description}"`: it drifts from the text the stored embeddings were
 built from.

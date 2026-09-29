@@ -42,6 +42,9 @@ What to take from it:
 
 - The read is `self.backend.find_by(user_uid=...)` — a method the backend protocol declares.
   Do not invent a backend method in the service; add it to the protocol and the backend.
+- `find_by` defaults to `limit=100`, and this call passes none: `total_habits` is at most 100.
+  Pass the limit a new method needs — `limit=QueryLimit.MAXIMUM` (`core/constants.py`) where the
+  metric is a count over everything the user has.
 - A failed read is propagated, not turned into zeros.
 - Guard every division: an empty list is a normal input.
 - `_period_days` is accepted and not applied. The payload echoes it, which does not mean the
@@ -241,7 +244,7 @@ Line counts are advisory; coherence decides. See
 habits = await self.backend.get_user_habits(user_uid)
 
 # CORRECT
-habits_result = await self.backend.find_by(user_uid=user_uid)
+habits_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
 ```
 
 ### Passing a relationship type to `get_related_uids`

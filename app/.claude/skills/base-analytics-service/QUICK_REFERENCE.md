@@ -57,6 +57,7 @@ from core.services.intelligence import (
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
 
+from core.constants import QueryLimit
 from core.utils.result_simplified import Errors, Result
 ```
 

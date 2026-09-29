@@ -35,10 +35,13 @@ async def find_similar_tasks(
     )
 ```
 
-- The candidate pool is the **source entity's owner's** entities. The method does not take a
-  `user_uid`; the route has already verified the caller owns `task_uid`.
+- The candidate pool is drawn from the **source entity's owner's** entities. The method does not
+  take a `user_uid`; the route has already verified the caller owns `task_uid`.
 - `_rank_similar_entities` builds the embedding text. The method passes models, not strings.
-- The pool is every one of the user's tasks, each embedded per call. Bound it before it grows.
+- **The pool is at most 100 entities.** `find_by(limit=100, **filters)` defaults its limit and
+  the call passes none, so for an owner with more than 100 tasks the rest are never candidates.
+  The five other Activity `find_similar_*` methods make the same call and carry the same cap.
+- Each candidate in the pool is embedded on every call.
 
 ## Pattern 2: `find_similar_*` for Shared Curriculum
 
@@ -71,7 +74,8 @@ async def find_similar_steps(
 ```
 
 - `backend.list()` returns `(items, count)`; `find_by()` returns the items. Unpack accordingly.
-- The pool is capped at 200. Steps past the cap are never candidates.
+- The pool is capped at 200, stated in the call. Steps past the cap are never candidates.
+  `LpAIService.find_similar_paths` passes `limit=100`.
 - `backend.list()` is not publication-filtered. A feature that shows results to a learner
   filters drafts before display.
 

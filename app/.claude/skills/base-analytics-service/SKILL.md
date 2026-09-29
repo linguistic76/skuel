@@ -263,10 +263,16 @@ for the per-domain services.
 Signatures vary within the contract:
 
 - Habits, Choices and Principles declare `_period_days` — the underscore marks a parameter
-  that is accepted and not applied; their analytics cover all of the user's entities. The
-  register is `docs/reference/PLACEHOLDER_INDEX.md`.
+  that is accepted and not applied; their analytics are not windowed by date. The register is
+  `docs/reference/PLACEHOLDER_INDEX.md`.
 - Tasks' `get_domain_insights` takes an extra optional `user_context`.
 - Habits and Choices default `min_confidence` to `ConfidenceLevel.MEDIUM`.
+
+**Read caps.** `find_by(limit=100, **filters)` defaults its limit. Eight of the nine
+`get_performance_analytics` methods call it without one — Tasks, Habits, Events, Choices and
+Principles with `user_uid=`; KU, PS and LP with no filter — so each computes over at most 100
+entities. Goals reads with `limit=QueryLimit.MAXIMUM`. A count in one of the eight payloads is a
+count of what was read, not of what exists. A new method passes its limit explicitly.
 
 Routes: eight domains have them (the six Activity domains, PS and LP). KU implements the
 methods and has no generated routes. See [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md).
