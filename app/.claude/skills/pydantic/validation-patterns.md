@@ -69,11 +69,11 @@ def validate_recurrence_end_after_start(recurrence_end_field: str, start_field: 
 ⚠ **A field validator does not run on a field the client omitted.** Pydantic validates a
 default only when the field says `Field(validate_default=True)`. A rule of the shape
 "*this* field is required — or gets a default — when *that* field has a value" written as
-a `field_validator` therefore fires only when the client sends the field, which is exactly
-when the rule is not needed. `validate_required_when` and `validate_url_when_online` in
-`validation_rules.py` have this shape: `EventCreateRequest(is_online=True)` with no
-`meeting_url` is accepted, while an explicit `meeting_url=""` is refused. Write a
-conditional default or requirement as a model validator, which always runs:
+a `field_validator` on *this* field therefore fires only when the client sends it, which
+is exactly when the rule is not needed: a field validator on `meeting_url` would refuse
+`meeting_url=""` and accept `is_online=True` with the key left out. Write a conditional
+default or requirement as a model validator, which always runs — after validation every
+field holds a value, sent or defaulted:
 
 ```python
 # core/models/task/task_request.py — TaskCreateRequest
@@ -89,6 +89,22 @@ def default_completion_date_when_completed(self) -> TaskCreateRequest:
         raise ValueError("completion_date requires status=completed")
     return self
 ```
+
+A requirement shared by several models is a model-validator helper (see
+[Model Validator Factories](#model-validator-factories)):
+
+```python
+# core/models/event/event_request.py — EventCreateRequest (EventTemplateCreateRequest too)
+@model_validator(mode="after")
+def _require_url_when_online(self) -> Self:
+    return validate_url_when_online("meeting_url", "is_online")(self)
+```
+
+An *update* request cannot judge such a rule alone: a partial patch carries only the
+fields it changes, and the rest is in the graph. The service's `_validate_update` hook
+judges the merged state — `patch_leaves_online_without_url(changes, is_online=...,
+meeting_url=...)` for the online-URL pair, which passes a patch naming neither field so
+a status change never trips over an entity already stored without a URL.
 
 ### ValidationInfo Fields
 
@@ -166,15 +182,15 @@ Field-validator factories (apply as class attributes):
 | `validate_list_no_duplicates(*fields)` | no repeated items |
 | `validate_time_after(later, earlier)` | time ordering |
 | `validate_recurrence_end_after_start(end, start)` | recurrence end after the start date |
-| `validate_required_when(field, condition_field, condition_value, default_value)` | default a field when a condition holds — ⚠ only when the field is sent (see above) |
-| `validate_url_when_online(url_field, online_field)` | URL required for online events — ⚠ only when the URL is sent |
 | `validate_percentage(*fields)` | 0–100 |
 | `validate_score_0_to_1(*fields)` | 0–1 |
 | `validate_habit_duration_by_difficulty(...)`, `validate_habit_target_days_by_pattern(...)` | habit-specific rules |
 | `validate_weights_sum_to_one(field, required_keys=None, tolerance=0.05)` | each weight in 0–1, sum within tolerance of 1.0 |
 
 Model-validator helpers (call inside a `@model_validator(mode="after")`):
-`validate_date_after(later, earlier, allow_equal=False)`, `validate_timeframe_date_alignment()`.
+`validate_date_after(later, earlier, allow_equal=False)`, `validate_timeframe_date_alignment()`,
+`validate_url_when_online(url_field="meeting_url", online_field="is_online")` (a URL is
+required when the flag is set; `None` and `""` both count as missing).
 
 #### A Factory's Shape
 
@@ -239,6 +255,10 @@ _validate_recurrence_end = validate_recurrence_end_after_start(
     "recurrence_end_date", "event_date"
 )
 ```
+
+Both are safe as field validators: `end_time` is required, and an omitted
+`recurrence_end_date` has nothing to check. The event's online-URL rule is not — it is
+a model validator (above).
 
 ## Model Validator Factories
 

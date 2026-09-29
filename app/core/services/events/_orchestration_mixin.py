@@ -258,6 +258,7 @@ class _OrchestrationMixin:
             event_type=event_data.event_type,
             location=event_data.location,
             is_online=event_data.is_online,
+            meeting_url=event_data.meeting_url,
             tags=event_data.tags,
         )
 

@@ -31,9 +31,8 @@ Usage:
         _validate_tags = validate_list_max_length("tags", max_length=20)
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date, datetime, time
-from typing import Any
 
 from pydantic import BaseModel, ValidationInfo, field_validator
 
@@ -437,82 +436,77 @@ def validate_recurrence_end_after_start(
 # =============================================================================
 
 
-def validate_required_when(
-    field_name: str,
-    condition_field: str,
-    condition_value: Any,
-    default_value: Any = None,
-) -> Callable:
-    """
-    Create a validator that sets a default when a condition is met.
-
-    Args:
-        field_name: Name of field to validate
-        condition_field: Name of field to check for condition
-        condition_value: Value that triggers the requirement
-        default_value: Default value to set if field is None
-
-    Returns:
-        Pydantic field validator
-
-    Example:
-        class TaskStatusRequest(BaseModel):
-            status: EntityStatus
-            completion_date: date | None = None
-
-            # Auto-set completion_date when status is COMPLETED
-            _validate_completion = validate_required_when(
-                "completion_date",
-                condition_field="status",
-                condition_value=EntityStatus.COMPLETED,
-                default_value=today_in_current_zone
-            )
-    """
-
-    @field_validator(field_name)
-    def _validate_required_when(cls, v: Any, info: ValidationInfo) -> Any:
-        condition_met = info.data.get(condition_field) == condition_value
-
-        if condition_met and v is None:
-            if callable(default_value):
-                return default_value()
-            return default_value
-
-        return v
-
-    return _validate_required_when
+ONLINE_URL_REQUIRED = "URL is required for online events"
 
 
 def validate_url_when_online(
-    url_field: str,
+    url_field: str = "meeting_url",
     online_field: str = "is_online",
 ) -> Callable:
     """
-    Create a validator that requires URL when online flag is True.
+    Create a model validator helper that requires a URL when the online flag is set.
+
+    Must be called from a ``model_validator(mode="after")``, not attached as a
+    field validator: Pydantic does not validate an omitted field's default, so a
+    field validator on the URL never runs for a request that leaves the key out —
+    exactly the request this rule exists to refuse. After validation every field
+    holds a value, sent or defaulted, so the check sees the whole request.
+
+    An empty string counts as missing.
 
     Args:
         url_field: Name of URL field
         online_field: Name of boolean online flag field
 
     Returns:
-        Pydantic field validator
+        A callable taking the validated model instance and returning it unchanged,
+        raising ``ValueError`` when the instance is online without a URL.
 
     Example:
         class EventCreateRequest(BaseModel):
             is_online: bool = False
             meeting_url: str | None = None
 
-            _validate_url = validate_url_when_online("meeting_url")
+            @model_validator(mode="after")
+            def _require_url_when_online(self) -> Self:
+                return validate_url_when_online("meeting_url", "is_online")(self)
     """
 
-    @field_validator(url_field)
-    def _validate_url_when_online(cls, v: str | None, info: ValidationInfo) -> str | None:
-        is_online = info.data.get(online_field, False)
-        if is_online and not v:
-            raise ValueError("URL is required for online events")
-        return v
+    def validator_impl[M: BaseModel](instance: M) -> M:
+        if getattr(instance, online_field, False) and not getattr(instance, url_field, None):
+            raise ValueError(ONLINE_URL_REQUIRED)
+        return instance
 
-    return _validate_url_when_online
+    return validator_impl
+
+
+def patch_leaves_online_without_url(
+    changes: Mapping[str, object], *, is_online: bool, meeting_url: str | None
+) -> bool:
+    """
+    Whether a partial update would leave an entity online without a meeting URL.
+
+    The update-side half of ``validate_url_when_online``: a patch carries only the
+    fields it changes, so the rule is judged on the merged state — each field from
+    the patch when the patch names it, else the stored value (``is_online`` /
+    ``meeting_url``). A patch that names neither field returns ``False`` whatever
+    the stored state, so a status change or a reschedule never trips over an
+    entity already stored online without a URL.
+
+    Args:
+        changes: The materialized patch (``to_changes()``)
+        is_online: The stored online flag
+        meeting_url: The stored meeting URL
+
+    Returns:
+        True when the patch touches either field and the merged state is online
+        with no URL (``None`` or ``""``).
+    """
+    if "is_online" not in changes and "meeting_url" not in changes:
+        return False
+    merged_online = changes.get("is_online", is_online)
+    merged_url = changes.get("meeting_url", meeting_url)
+    return bool(merged_online) and not merged_url
 
 
 # =============================================================================

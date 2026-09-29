@@ -161,6 +161,7 @@ class _SchedulingMixin:
                 event_type=event.event_type,
                 location=event.location,
                 is_online=event.is_online,
+                meeting_url=event.meeting_url,
                 tags=event.tags,
             )
             dto.recurrence_parent_uid = request.event_uid  # Link to template
