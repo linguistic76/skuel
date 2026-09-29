@@ -14,14 +14,13 @@ validates by, so render and guard cannot drift (act-from arc C7).
 from __future__ import annotations
 
 import asyncio
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from core.utils.neo4j_temporal import convert_neo4j_datetime
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.timestamp_helpers import LATEST_INSTANT, day_of, instant_of, today_in
 from core.utils.zone_context import current_zone
 from ui.page_contexts import TodayPageContext
 from ui.today.membership import (
@@ -84,9 +83,10 @@ def _heading_label(view_date: date, today: date) -> str:
 
 
 def moment_is_on_day(value: object, day: date) -> bool:
-    """Whether a stored datetime (native or Neo4j temporal) falls on ``day`` in the current zone."""
-    moment = convert_neo4j_datetime(value)
-    return moment is not None and day_of(moment, current_zone()) == day
+    """Whether a stored instant, in whatever shape it arrives, falls on ``day`` in the current zone."""
+    zone = current_zone()
+    moment = instant_of(value, zone)
+    return moment is not None and day_of(moment, zone) == day
 
 
 def choice_is_on_day(choice: Choice, day: date) -> bool:
@@ -113,9 +113,10 @@ def _goal_order(goal: Goal) -> str:
     return goal.title or ""
 
 
-def _choice_order(choice: Choice) -> tuple[str, str]:
-    moment = convert_neo4j_datetime(choice.decision_deadline)
-    return (moment.isoformat() if moment else "9999", choice.title or "")
+def _choice_order(choice: Choice) -> tuple[datetime, str]:
+    """By the deadline's instant — whatever its offset or shape — then title; undated last."""
+    moment = instant_of(choice.decision_deadline, current_zone())
+    return (moment or LATEST_INSTANT, choice.title or "")
 
 
 def _or_empty[T](result: Result[list[T]], section: str) -> list[T]:

@@ -4,13 +4,14 @@ Form data extraction helpers for type-safe FastHTML form handling.
 FastHTML form data can return str | UploadFile | None for any field.
 These helpers provide type-safe extraction with proper type guards.
 
-Also provides shared parsing primitives for enum, date, time, and datetime
-values used across activity domain UI files.
+Also provides shared parsing primitives for enum, date and time-of-day values.
+A client's datetime is an instant: a request model types it ``ClientDateTime``
+(``core/models/request_base.py``), never a helper here.
 """
 
 import types
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, time
 from enum import Enum
 from typing import Any, Union, get_args, get_origin
 
@@ -120,16 +121,6 @@ def parse_time_safe(value: str | None) -> time | None:
         return None
     try:
         return time.fromisoformat(value)
-    except ValueError:
-        return None
-
-
-def parse_datetime_safe(value: str | None) -> datetime | None:
-    """Parse ISO datetime string, return None on failure."""
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value)
     except ValueError:
         return None
 

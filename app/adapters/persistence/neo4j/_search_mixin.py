@@ -36,7 +36,7 @@ Requires on concrete class:
 from __future__ import annotations
 
 import time
-from datetime import date, datetime
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
@@ -45,7 +45,7 @@ from core.models.type_hints import EntityUID, FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import is_instant_field, stored_day_bounds
+from core.utils.timestamp_helpers import day_named, is_instant_field, stored_day_bounds
 from core.utils.validation_helpers import validate_field_name
 from core.utils.zone_context import current_zone
 
@@ -62,12 +62,16 @@ if TYPE_CHECKING:
 
 
 def _range_day(value: date | str) -> date:
-    """A range end as the calendar day it names — a ``date``, or an ISO date string."""
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-    return date.fromisoformat(value[:10])
+    """A range end as the calendar day it names — a ``date``, or an ISO string.
+
+    A day (a ``date``, a date-only string) is itself. A moment (a ``datetime``,
+    an ISO datetime string) names the day it falls on in the current zone, never
+    its digits' day. An unreadable string raises ``ValueError``.
+    """
+    day = day_named(value, current_zone())
+    if day is None:
+        raise ValueError(f"Not a date or an ISO datetime: {value!r}")
+    return day
 
 
 class _SearchMixin[T: DomainModelProtocol]:

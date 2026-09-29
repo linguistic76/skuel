@@ -108,6 +108,43 @@ def test_both_edgeless_keeps_the_oldest_and_proposes_the_later_remint():
     assert out.strays == []
 
 
+def test_the_oldest_is_read_by_instant_not_by_digits():
+    """A vault-door ``…Z`` stamp and an app-door fractional one in the same second:
+    their digits sort the later first ('.' before 'Z'); their instants do not."""
+    older = _task("task_vault_door", "Water plants", created="2026-07-04T05:28:43Z")
+    later = _task("task_app_door", "Water plants", created="2026-07-04T05:28:43.500000")
+
+    out = classify([later, older], [_line("Water plants")], owned_vault_ids=set())
+
+    s = out.duplicate_sets[0]
+    assert s.keep is older
+    assert [t.uid for t in s.proposed] == ["task_app_door"]
+
+
+def test_an_unreadable_created_at_sends_the_group_to_review():
+    """Without the line's 🆔 the keeper is the oldest — which no task can be
+    proved to be while one's ``created_at`` is absent or unreadable."""
+    unstamped = _task("task_unstamped", "Water plants", created="")
+    stamped = _task("task_stamped", "Water plants", created="2026-07-04T05:28:43Z")
+
+    out = classify([stamped, unstamped], [_line("Water plants")], owned_vault_ids=set())
+
+    assert out.duplicate_sets == [] and out.proposed_uids == []
+    assert [g.reason for g in out.review] == [
+        "no readable created_at on task_unstamped — the oldest cannot be told"
+    ]
+
+
+def test_the_lines_owner_keeps_the_group_whatever_the_stamps():
+    owner = _task("task_owner", "Water plants", created="", vault_ids=("sk_water1",))
+    remint = _task("task_remint", "Water plants", created="2026-07-04T05:28:43Z")
+
+    out = classify([remint, owner], [_line("Water plants", vault_id="sk_water1")], {"sk_water1"})
+
+    assert out.duplicate_sets[0].keep is owner
+    assert out.proposed_uids == ["task_remint"]
+
+
 def test_title_match_uses_the_guard_normaliser():
     """Case and whitespace differences are the R3 key's business, not a new task."""
     a = _task("task_a", "Move  Furniture", created="2026-07-04T05:28:43")

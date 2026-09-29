@@ -23,6 +23,8 @@ from datetime import datetime
 from pathlib import Path
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+from core.utils.timestamp_helpers import day_named, today_in
+from core.utils.zone_context import default_zone
 
 
 @dataclass
@@ -117,24 +119,20 @@ def calculate_review_status(
 
     # Calculate days since last review
     if last_reviewed:
-        try:
-            # Handle both string and datetime.date objects
-            if isinstance(last_reviewed, str):
-                last_review_date = datetime.fromisoformat(last_reviewed)
-            else:
-                # Already a date object from YAML parsing
-                last_review_date = datetime.combine(last_reviewed, datetime.min.time())
-
-            days_since = (datetime.now() - last_review_date).days
+        # The review's day (a YAML date, or an ISO string) against today, both in
+        # the app default zone — a count of calendar days, never of 24-hour spans
+        zone = default_zone()
+        reviewed_day = day_named(last_reviewed, zone)
+        if reviewed_day is None:
+            # Invalid date format - treat as never reviewed
+            days_since = 999
+            last_reviewed = None
+        else:
+            days_since = (today_in(zone) - reviewed_day).days
 
             # Convert back to string for storage
             if not isinstance(last_reviewed, str):
                 last_reviewed = last_reviewed.isoformat()
-
-        except ValueError, TypeError, AttributeError:
-            # Invalid date format - treat as never reviewed
-            days_since = 999
-            last_reviewed = None
     else:
         # Never reviewed
         days_since = 999

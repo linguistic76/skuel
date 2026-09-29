@@ -22,7 +22,6 @@ Routes:
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
-from datetime import datetime
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
@@ -52,6 +51,7 @@ from core.utils.report_periods import (
     resolve_report_period,
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result
+from core.utils.timestamp_helpers import now_utc
 from core.utils.zone_context import current_zone
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.gradebook.summary import GRADEBOOK_TITLE
@@ -167,8 +167,9 @@ def create_activity_reports_ui_routes(
     def _period_prompt_page(request: Request, token: str, *, note: str) -> Response | FT:
         """The period's "not generated" state — the refusal and the offer to try
         again — or 400 for a token no vocabulary names."""
+        now = now_utc()
         try:
-            period = resolve_report_period(token, datetime.now(), current_zone())
+            period = resolve_report_period(token, now, current_zone())
         except UnknownReportPeriodError:
             return Response("Unknown report period", status_code=400)
         return render_activity_sidebar_page(
@@ -180,8 +181,8 @@ def create_activity_reports_ui_routes(
                 render_period_report_prompt(
                     token=token,
                     label=period.label,
-                    is_closed=period.is_closed(datetime.now()),
-                    has_started=period.has_started(datetime.now()),
+                    is_closed=period.is_closed(now),
+                    has_started=period.has_started(now),
                     note=note,
                 ),
             ),
@@ -207,7 +208,7 @@ def create_activity_reports_ui_routes(
         form = await request.form()
         token = str(form.get("time_period", "")).strip()
         try:
-            resolve_report_period(token, datetime.now(), current_zone())
+            resolve_report_period(token, now_utc(), current_zone())
         except UnknownReportPeriodError:
             return Response("Unknown report period", status_code=400)
         result = await progress_generator.generate(user_uid=user_uid, time_period=token)

@@ -131,7 +131,7 @@ All 6 activity domain UI files extract form parsing into module-level pure funct
 **Individual field helpers** (for UI routes with simple forms):
 - `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` — type-safe extraction from `str | UploadFile | None`
 - `parse_enum_safe(enum_class, value, default)` — replaces try/except ValueError pattern
-- `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` — ISO string → typed value or None
+- `parse_date_safe()`, `parse_time_safe()` — ISO string → typed value or None (a client datetime is an instant: a request model's `ClientDateTime` field, never a form helper)
 - `ActivityFilters` + `parse_activity_filters()` — shared 2-field filter dataclass for Goals, Habits, Events, Choices
 
 **Structured body helpers** (for API routes with Pydantic models):

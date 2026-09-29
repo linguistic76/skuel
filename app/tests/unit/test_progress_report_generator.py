@@ -23,7 +23,7 @@ from core.services.report.progress_report_generator import ProgressReportGenerat
 from core.utils.period_keys import monthly_period_key
 from core.utils.report_periods import resolve_report_period
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import day_of
+from core.utils.timestamp_helpers import day_of, today_in
 from tests.helpers.laptop_clock import laptop_wall
 
 # Calendar periods are the report user's days — here the laptop's case, a user on
@@ -1014,7 +1014,7 @@ class TestCalendarPeriods:
 
     @pytest.mark.asyncio
     async def test_open_period_is_counted_through_now_and_marked_partial(self, generator):
-        token = monthly_period_key(date.today())  # the current month: started, still open
+        token = monthly_period_key(today_in(ZONE))  # the current month: started, still open
         result = await generator.generate(user_uid="user_alice", time_period=token)
 
         assert result.is_ok, result.error
@@ -1040,7 +1040,7 @@ class TestCalendarPeriods:
         generator.chat_port.complete = AsyncMock(
             return_value=Result.ok(MagicMock(text="An LLM report"))
         )
-        token = monthly_period_key(date.today())  # the current month: open
+        token = monthly_period_key(today_in(ZONE))  # the current month: open
 
         result = await generator.generate(user_uid="user_alice", time_period=token)
 
@@ -1123,7 +1123,7 @@ class TestCalendarPeriods:
         context.life_path_alignment_score = 0.7
         insight = MagicMock(uid="insight_1", title="Now", impact="high")
         mock_insight_store.get_active_insights.return_value = Result.ok([insight])
-        token = monthly_period_key(date.today())  # the current month: open
+        token = monthly_period_key(today_in(ZONE))  # the current month: open
 
         result = await generator.generate(user_uid="user_alice", time_period=token)
 
