@@ -54,6 +54,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-024](decisions/ADR-024-base-intelligence-service-migration.md)
+- [ADR-043](decisions/ADR-043-intelligence-tier-toggle.md)
 - [ADR-063](decisions/ADR-063-llm-embeddings-sdk-ports.md)
 - [ADR-074](decisions/ADR-074-post-persist-embedding-events.md)
 
@@ -472,6 +473,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-030](decisions/ADR-030-usercontext-file-consolidation.md)
 - [ADR-021](decisions/ADR-021-user-context-intelligence-modularization.md)
 - [ADR-030](decisions/ADR-030-dual-track-assessment-pattern.md)
+- [ADR-059](decisions/ADR-059-askesis-engagement-alignment.md)
 
 ### @vis-network
 
@@ -585,7 +587,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-037](decisions/ADR-037-lateral-relationships-visualization-phase5.md) → @neo4j-cypher-patterns, @vis-network
 - [ADR-038](decisions/ADR-038-content-sharing-model.md) → @learning-loop
 - [ADR-040](decisions/ADR-040-teacher-exercise-workflow.md) → @learning-loop
-- [ADR-043](decisions/ADR-043-intelligence-tier-toggle.md) → @learning-loop
+- [ADR-043](decisions/ADR-043-intelligence-tier-toggle.md) → @base-ai-service, @learning-loop
 - [ADR-044](decisions/ADR-044-neo4j-committed-architectural-choice.md) → @activity-domains, @skuel-ui
 - [ADR-046](decisions/ADR-046-activity-domains-not-ku-subtypes.md) → @zpd
 - [ADR-050](decisions/ADR-050-pwa-mobile-strategy.md) → @pwa
@@ -593,6 +595,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-052](decisions/ADR-052-firefly-iii-finance-integration.md) → @docker
 - [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md) → @journals, @learning-loop, @neo4j-cypher-patterns, @prometheus-grafana, @ui-error-handling
 - [ADR-056](decisions/ADR-056-service-layer-label-split.md) → @activity-domains
+- [ADR-059](decisions/ADR-059-askesis-engagement-alignment.md) → @user-context-intelligence
 - [ADR-063](decisions/ADR-063-llm-embeddings-sdk-ports.md) → @base-ai-service, @prometheus-grafana, @prompt-templates
 - [ADR-064](decisions/ADR-064-neo4j-per-query-timeout.md) → @neo4j-cypher-patterns
 - [ADR-066](decisions/ADR-066-typed-update-intents.md) → @activity-domains, @domain-route-config, @pydantic, @pytest, @python
@@ -624,7 +627,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Architecture docs:** 9 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 42 docs linked to skills
-- **ADRs:** 45 ADRs linked to skills
+- **ADRs:** 46 ADRs linked to skills
 
 ---
 

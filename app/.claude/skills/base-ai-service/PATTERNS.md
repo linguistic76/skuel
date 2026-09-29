@@ -1,601 +1,271 @@
 # BaseAIService Patterns
 
-> Implementation patterns for AI-powered domain services.
+Each pattern is taken from a live service. Read [SKILL.md](SKILL.md) § Known Mismatch first: the
+two shared helpers do not yet match the services they are wired to, so the patterns below show
+how the code is shaped, not a guarantee that a given method answers.
 
-## Pattern 1: Semantic Search Service
+---
 
-Find entities by semantic similarity (meaning, not keywords).
+## Pattern 1: `find_similar_*` for a User-Owned Domain
+
+`TasksAIService.find_similar_tasks` (`core/services/tasks/tasks_ai_service.py`):
 
 ```python
-from typing import ClassVar
+async def find_similar_tasks(
+    self, task_uid: str, limit: int = 5
+) -> Result[list[tuple[EntityUID, float]]]:
+    task_result = await self.backend.get(task_uid)
+    if task_result.is_error:
+        return Result.fail(task_result)
 
-from core.models.task import Task
-from core.services.base_ai_service import BaseAIService
-from core.ports import TasksOperations
-from core.utils.result_simplified import Result
+    task = task_result.value
+    if not task:
+        return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
+    all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
+    if all_tasks_result.is_error:
+        return Result.fail(all_tasks_result)
 
-class TasksAIService(BaseAIService[TasksOperations, Task]):
-    """AI-powered semantic search for tasks."""
+    return await self._rank_similar_entities(
+        task,
+        EntityType.TASK,
+        all_tasks_result.value or [],
+        exclude_uid=task_uid,
+        limit=limit,
+    )
+```
 
-    _service_name: ClassVar[str] = "tasks.ai"
-    _require_llm: ClassVar[bool] = False  # Only need embeddings
-    _require_embeddings: ClassVar[bool] = True
+- The candidate pool is the **source entity's owner's** entities. The method does not take a
+  `user_uid`; the route has already verified the caller owns `task_uid`.
+- `_rank_similar_entities` builds the embedding text. The method passes models, not strings.
+- The pool is every one of the user's tasks, each embedded per call. Bound it before it grows.
 
-    async def find_similar_tasks(
-        self,
-        task_uid: str,
-        user_uid: UserUID,
-        top_k: int = 5,
-    ) -> Result[list[tuple[Task, float]]]:
-        """
-        Find semantically similar tasks.
+## Pattern 2: `find_similar_*` for Shared Curriculum
 
-        Returns list of (task, similarity_score) tuples.
-        """
-        # Get reference task
-        ref_result = await self.backend.get(task_uid)
-        if ref_result.is_error:
-            return ref_result
+`PsAIService.find_similar_steps` (`core/services/ps/ps_ai_service.py`):
 
-        reference = ref_result.value
+```python
+async def find_similar_steps(
+    self, ps_uid: str, limit: int = 5
+) -> Result[list[tuple[EntityUID, float]]]:
+    ps_result = await self.backend.get(ps_uid)
+    if ps_result.is_error:
+        return Result.fail(ps_result)
 
-        # Get user's tasks
-        tasks_result = await self.backend.find_by(created_by=user_uid)
-        if tasks_result.is_error:
-            return tasks_result
+    ps = ps_result.value
+    if not ps:
+        return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
-        # Prepare candidates (exclude self)
-        candidates = [
-            (t.uid, f"{t.title} {t.description or ''}")
-            for t in tasks_result.value
-            if t.uid != task_uid
-        ]
+    all_steps_result = await self.backend.list(limit=200)
+    if all_steps_result.is_error:
+        return Result.fail(all_steps_result)
 
-        if not candidates:
-            return Result.ok([])
+    all_steps_data, _count = all_steps_result.value
+    return await self._rank_similar_entities(
+        ps,
+        EntityType.PATH_STEP,
+        all_steps_data or [],
+        exclude_uid=ps_uid,
+        limit=limit,
+    )
+```
 
-        # Semantic search
-        search_result = await self._semantic_search(
-            query=f"{reference.title} {reference.description or ''}",
-            candidates=candidates,
-            top_k=top_k,
+- `backend.list()` returns `(items, count)`; `find_by()` returns the items. Unpack accordingly.
+- The pool is capped at 200. Steps past the cap are never candidates.
+- `backend.list()` is not publication-filtered. A feature that shows results to a learner
+  filters drafts before display.
+
+## Pattern 3: An LLM Method
+
+`TasksAIService.generate_task_insight`:
+
+```python
+async def generate_task_insight(self, task_uid: str) -> Result[str]:
+    task_result = await self.backend.get(task_uid)
+    if task_result.is_error:
+        return Result.fail(task_result)
+
+    task = task_result.value
+    if not task:
+        return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
+
+    context = {
+        "title": task.title,
+        "description": task.description or "No description",
+        "status": task.status.value if task.status else "Unknown",
+        "due_date": str(task.due_date) if task.due_date else "No deadline",
+    }
+    prompt = "Provide a brief, actionable insight about this task. Keep it under 100 words."
+
+    return await self._generate_insight(prompt, context=context, max_tokens=200)
+```
+
+The shape to keep: fetch, guard not-found, build a bounded context, one helper call, return its
+`Result`. What the `Result` holds today is in [SKILL.md](SKILL.md) § Known Mismatch.
+
+Entity fields reach the model as written by the user. Treat the output as untrusted text: it is
+data for display, never an instruction to act on.
+
+## Pattern 4: A Facade Method with an Analytics Fallback
+
+`PsService.search_by_semantic_query` (`core/services/ps_service.py`):
+
+```python
+if self.ai is None:
+    return await self.search.search(query=query_text, limit=limit)
+return await self.ai.search_by_semantic_query(query_text, limit, min_score)
+```
+
+Where no analytics answer can stand in, fail with the reason:
+
+```python
+if self.ai is None:
+    return Result.fail(
+        Errors.system(
+            message="AI service required for step application suggestions",
+            operation="suggest_step_applications",
         )
-        if search_result.is_error:
-            return search_result
-
-        # Fetch full task objects
-        results: list[tuple[Task, float]] = []
-        for uid, score in search_result.value:
-            task_result = await self.backend.get(uid)
-            if task_result.is_ok:
-                results.append((task_result.value, score))
-
-        return Result.ok(results)
+    )
+return await self.ai.suggest_step_applications(ps_uid)
 ```
 
-**Key Points:**
-- Set `_require_llm = False` for embeddings-only services
-- Use `_semantic_search()` for similarity matching
-- Return similarity scores for transparency
+Choose one per method and say which in its docstring. A caller must be able to tell a keyword
+result from a semantic one when it matters.
+
+## Pattern 5: A Route
+
+One line in `AI_ROUTE_SPECS` (`adapters/inbound/ai_routes.py`):
+
+```python
+AIRouteSpec(
+    "goals", "Goals", "goals", "milestones",
+    "generate_milestones", "uid", "goals_ai_milestones",
+)
+```
+
+- `signature="uid"` passes only `(uid,)`. `generate_milestones(goal_uid, max_milestones=5)` is
+  called with its default — a parameter the signature does not carry cannot be set over HTTP.
+- With a `wrap_key` the body is `{wrap_key: value}`. With none, the method's value is returned
+  from the handler as it is: a dict is answered as JSON; **a list is rendered by FastHTML as an
+  HTML page** (200, `text/html`). A method that returns a list or a string needs a `wrap_key`.
+  `generate_milestones` returns a list and this spec has none.
+- `func_name` must be unique across the list.
+
+Guard against a spec that names nothing:
+
+```python
+from adapters.inbound.ai_routes import AI_ROUTE_SPECS
+
+
+def test_every_ai_route_names_a_method(ai_service_classes: dict[str, type]) -> None:
+    unresolved = [
+        (spec.url_domain, spec.action, spec.method_name)
+        for spec in AI_ROUTE_SPECS
+        if getattr(ai_service_classes[spec.domain_attr], spec.method_name, None) is None
+    ]
+    assert unresolved == []
+```
+
+`ai_service_classes` maps each `domain_attr` (`"tasks"`, …, `"ps"`, `"lp"`) to its class. Run
+today, the list holds six entries.
 
 ---
 
-## Pattern 2: LLM Insight Generation
+## Testing
 
-Generate natural language insights using LLM.
+### Against real-shaped services
 
 ```python
-from typing import Any, ClassVar
+from unittest.mock import AsyncMock, MagicMock
 
-from core.models.goal import Goal
-from core.services.base_ai_service import BaseAIService
-from core.ports import GoalsOperations
+import pytest
+
+from core.services.embeddings_service import EmbeddingsService
+from core.services.llm_service import LLMService
+from core.services.tasks.tasks_ai_service import TasksAIService
 from core.utils.result_simplified import Result
 
 
-class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
-    """AI-powered insights for goals."""
+@pytest.fixture
+def tasks_ai() -> TasksAIService:
+    task = MagicMock(uid="task_a", title="Write report", description="", user_uid="user_a")
+    backend = MagicMock()
+    backend.get = AsyncMock(return_value=Result.ok(task))
+    backend.find_by = AsyncMock(return_value=Result.ok([task]))
 
-    _service_name: ClassVar[str] = "goals.ai"
-    _require_llm: ClassVar[bool] = True
-    _require_embeddings: ClassVar[bool] = False  # Only need LLM
-
-    async def generate_goal_strategy(
-        self,
-        goal_uid: str,
-    ) -> Result[str]:
-        """Generate strategic recommendations for achieving a goal."""
-        # Get goal
-        goal_result = await self.backend.get(goal_uid)
-        if goal_result.is_error:
-            return goal_result
-
-        goal = goal_result.value
-
-        # Build context
-        context = {
-            "title": goal.title,
-            "description": goal.description or "No description",
-            "timeframe": goal.timeframe.value if goal.timeframe else "unspecified",
-            "progress": f"{goal.progress_percentage}%" if hasattr(goal, 'progress_percentage') else "unknown",
-        }
-
-        # Generate insight
-        return await self._generate_insight(
-            prompt=(
-                "Analyze this goal and provide 3 specific, actionable strategies "
-                "to accelerate progress. Be concise and practical."
-            ),
-            context=context,
-            max_tokens=400,
-        )
-
-    async def suggest_milestones(
-        self,
-        goal_uid: str,
-        count: int = 3,
-    ) -> Result[list[dict[str, Any]]]:
-        """Suggest milestones for breaking down a goal."""
-        goal_result = await self.backend.get(goal_uid)
-        if goal_result.is_error:
-            return goal_result
-
-        goal = goal_result.value
-
-        insight = await self._generate_insight(
-            prompt=(
-                f"Suggest {count} concrete milestones to break down this goal. "
-                "Format each as: [Milestone Name]: [Brief description]. "
-                "Make them specific and measurable."
-            ),
-            context={"goal": goal.title, "description": goal.description or ""},
-            max_tokens=300,
-        )
-
-        if insight.is_error:
-            return insight
-
-        # Parse insight into structured format
-        return Result.ok([{
-            "raw_suggestions": insight.value,
-            "goal_uid": goal_uid,
-            "suggested_count": count,
-        }])
+    embeddings = MagicMock(
+        spec=[name for name in dir(EmbeddingsService) if not name.startswith("__")]
+    )
+    return TasksAIService(
+        backend=backend,
+        llm_service=LLMService(),
+        embeddings_service=embeddings,
+    )
 ```
 
-**Key Points:**
-- Set `_require_embeddings = False` for LLM-only services
-- Use structured `context` dict for relevant information
-- Set appropriate `max_tokens` to control response length
-
----
-
-## Pattern 3: Hybrid AI + Graph Analytics
-
-Combine AI insights with graph analytics.
-
-```python
-from typing import Any, ClassVar
-
-from core.models.ku.ku import Ku
-from core.services.base_ai_service import BaseAIService
-from core.ports import KuOperations
-from core.utils.result_simplified import Result
-
-
-class KuAIService(BaseAIService[KuOperations, Ku]):
-    """AI-powered features for Knowledge Units."""
-
-    _service_name: ClassVar[str] = "ku.ai"
-
-    async def get_enriched_knowledge(
-        self,
-        ku_uid: str,
-    ) -> Result[dict[str, Any]]:
-        """
-        Get knowledge unit with AI-enriched context.
-
-        Combines:
-        - Graph relationships (from graph_intel)
-        - Semantic similar units (from embeddings)
-        - AI-generated summary (from LLM)
-        """
-        # Get base KU
-        ku_result = await self.backend.get(ku_uid)
-        if ku_result.is_error:
-            return ku_result
-
-        ku = ku_result.value
-        result: dict[str, Any] = {"ku": ku}
-
-        # Graph context (if available)
-        if self.graph_intel:
-            context = await self.graph_intel.get_entity_context(ku_uid, depth=2)
-            if context.is_ok:
-                result["graph_context"] = context.value
-
-        # Semantic similar (if embeddings available)
-        if self.embeddings:
-            all_kus = await self.backend.find_by()
-            if all_kus.is_ok:
-                candidates = [
-                    (k.uid, k.title)
-                    for k in all_kus.value
-                    if k.uid != ku_uid
-                ]
-                similar = await self._semantic_search(ku.title, candidates, top_k=3)
-                if similar.is_ok:
-                    result["similar_topics"] = similar.value
-
-        # AI summary (if LLM available)
-        if self.llm:
-            summary = await self._generate_insight(
-                prompt="Summarize this knowledge in 2-3 sentences for quick review.",
-                context={"title": ku.title, "content": ku.content[:500]},
-                max_tokens=150,
-            )
-            if summary.is_ok:
-                result["ai_summary"] = summary.value
-
-        return Result.ok(result)
-```
-
-**Key Points:**
-- Check service availability before use (`if self.embeddings:`)
-- Combine graph + semantic + LLM for rich results
-- Gracefully handle missing services
-
----
-
-## Pattern 4: Batch Embedding Generation
-
-Efficiently process multiple items.
-
-> **Don't build a persistence path this way (ADR-074).** Entity embeddings are
-> written by exactly two triggers: the event pipeline (`*EmbeddingRequested`
-> via `core/events/embedding_publisher.py` → `EmbeddingBackgroundWorker`) and
-> the backfill script (`scripts/generate_embeddings_batch.py`, `--stale` for
-> re-embeds). Both store through
-> `EmbeddingsService.store_embedding_with_metadata()` so nodes carry version
-> metadata. Ingestion never embeds inline. The pattern below is for
-> *transient* vectors a service computes and consumes itself (similarity
-> scoring, clustering) — if you find yourself writing `n.embedding`, use the
-> chokepoint instead.
-
-```python
-from typing import ClassVar
-
-from core.models.ku.ku import Ku
-from core.services.base_ai_service import BaseAIService
-from core.ports import KuOperations
-from core.utils.result_simplified import Errors, Result
-
-
-class KuEmbeddingService(BaseAIService[KuOperations, Ku]):
-    """Batch embedding management for KUs."""
-
-    _service_name: ClassVar[str] = "ku.embeddings"
-    _require_llm: ClassVar[bool] = False
-
-    async def generate_embeddings_batch(
-        self,
-        ku_uids: list[str],
-    ) -> Result[dict[str, list[float]]]:
-        """
-        Generate embeddings for multiple KUs.
-
-        Returns:
-            Dict mapping uid -> embedding vector
-        """
-        results: dict[str, list[float]] = {}
-        errors: list[str] = []
-
-        for uid in ku_uids:
-            # Get KU
-            ku_result = await self.backend.get(uid)
-            if ku_result.is_error:
-                errors.append(f"{uid}: not found")
-                continue
-
-            ku = ku_result.value
-
-            # Generate embedding (call embeddings service directly)
-            text = f"{ku.title} {ku.content[:1000]}"
-            embedding_result = await self.embeddings.create_embedding(text)
-
-            if embedding_result.is_ok:
-                results[uid] = embedding_result.value
-            else:
-                errors.append(f"{uid}: embedding failed")
-
-        if errors and not results:
-            return Result.fail(
-                Errors.integration(
-                    message=f"All embeddings failed: {errors}",
-                    service="embeddings",
-                )
-            )
-
-        self.logger.info(f"Generated {len(results)} embeddings, {len(errors)} errors")
-        return Result.ok(results)
-```
-
-**Key Points:**
-- Process items individually, collect errors
-- Log progress for monitoring
-- Return partial results when possible
-
----
-
-## Pattern 5: Conditional AI Enhancement
-
-Add AI features without breaking non-AI usage.
-
-```python
-from typing import Any, ClassVar
-
-from core.models.task import Task
-from core.services.base_ai_service import BaseAIService
-from core.ports import TasksOperations
-from core.utils.result_simplified import Result
-
-
-class TasksAIService(BaseAIService[TasksOperations, Task]):
-    """Optional AI enhancements for tasks."""
-
-    _service_name: ClassVar[str] = "tasks.ai"
-    # Allow partial initialization
-    _require_llm: ClassVar[bool] = False
-    _require_embeddings: ClassVar[bool] = False
-
-    async def enhance_task_view(
-        self,
-        task_uid: str,
-    ) -> Result[dict[str, Any]]:
-        """
-        Get task with optional AI enhancements.
-
-        Works with or without AI services.
-        """
-        # Base task (always works)
-        task_result = await self.backend.get(task_uid)
-        if task_result.is_error:
-            return task_result
-
-        task = task_result.value
-        result: dict[str, Any] = {
-            "task": task,
-            "ai_enabled": bool(self.llm or self.embeddings),
-        }
-
-        # Optional: AI suggestions
-        if self.llm:
-            suggestions = await self._generate_insight(
-                prompt="Suggest one way to complete this task efficiently.",
-                context={"title": task.title},
-                max_tokens=100,
-            )
-            if suggestions.is_ok:
-                result["ai_suggestion"] = suggestions.value
-
-        # Optional: Similar tasks
-        if self.embeddings:
-            all_tasks = await self.backend.find_by()
-            if all_tasks.is_ok:
-                candidates = [(t.uid, t.title) for t in all_tasks.value if t.uid != task_uid]
-                if candidates:
-                    similar = await self._semantic_search(task.title, candidates, top_k=2)
-                    if similar.is_ok:
-                        result["similar_task_uids"] = [uid for uid, _ in similar.value]
-
-        return Result.ok(result)
-```
-
-**Key Points:**
-- Set both `_require_*` to `False` for full flexibility
-- Check service availability before each AI operation
-- Include `ai_enabled` flag for UI awareness
-
----
-
-## Pattern 6: Error Handling with Fallbacks
-
-Graceful degradation when AI fails.
-
-```python
-from typing import Any, ClassVar
-
-from core.models.task import Task
-from core.services.base_ai_service import BaseAIService
-from core.ports import TasksOperations
-from core.utils.result_simplified import Result
-
-
-class TasksAIService(BaseAIService[TasksOperations, Task]):
-    """AI service with robust error handling."""
-
-    _service_name: ClassVar[str] = "tasks.ai"
-
-    async def get_task_recommendations(
-        self,
-        user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
-        """
-        Get task recommendations with fallback.
-
-        Returns AI recommendations if available,
-        falls back to simple heuristics if AI fails.
-        """
-        # Get user's tasks
-        tasks_result = await self.backend.find_by(created_by=user_uid, status="active")
-        if tasks_result.is_error:
-            return tasks_result
-
-        tasks = tasks_result.value
-        if not tasks:
-            return Result.ok({"recommendations": [], "source": "empty"})
-
-        # Try AI recommendations
-        if self.llm:
-            try:
-                task_summary = "\n".join(f"- {t.title}" for t in tasks[:10])
-                ai_result = await self._generate_insight(
-                    prompt="Prioritize these tasks and explain why.",
-                    context={"tasks": task_summary},
-                    max_tokens=300,
-                )
-
-                if ai_result.is_ok:
-                    return Result.ok({
-                        "recommendations": ai_result.value,
-                        "source": "ai",
-                    })
-                else:
-                    self.logger.warning(f"AI recommendation failed: {ai_result.error}")
-            except Exception as e:
-                self.logger.error(f"AI recommendation error: {e}")
-
-        # Fallback: Simple heuristics
-        # Sort by due date (soonest first) and priority
-        sorted_tasks = sorted(
-            tasks,
-            key=lambda t: (
-                t.due_date or "9999-99-99",
-                -(t.priority.value if t.priority else 0),
-            ),
-        )
-
-        return Result.ok({
-            "recommendations": [t.title for t in sorted_tasks[:5]],
-            "source": "heuristic",
-        })
-```
-
-**Key Points:**
-- Try AI first, fall back to heuristics
-- Log warnings/errors for monitoring
-- Include `source` field to indicate method used
+- `LLMService()` with no arguments is the MOCK provider: canned text, no network, the real
+  return type.
+- The embeddings mock is limited to the names the real class has, so a call to a method that
+  does not exist raises, as it would in production. Pass the name list — `spec=EmbeddingsService`
+  evaluates the class's annotations and fails on a `TYPE_CHECKING`-only name.
+
+### With the helper replaced
+
+`tests/unit/services/tasks/test_tasks_ai_priority_suggestion.py` replaces `_generate_insight`
+with an `AsyncMock` returning `Result.ok("<text>")`. That tests the method's parsing of text. It
+does not test what the helper returns.
+
+### The routes
+
+Patch `require_authenticated_user` and `llm_quota_allowed` in `adapters.inbound.ai_routes`, build
+a container whose facades carry `.ai` and `verify_ownership`, call `create_ai_routes(app, rt,
+services)`, and drive it with a `TestClient`. Count the calls to the quota function: a request
+stopped by an earlier gate records none.
 
 ---
 
 ## Anti-Patterns
 
-### Don't: Skip Backend Validation
+### Hand-built embedding text
 
 ```python
-# BAD - Assumes backend result is always valid
-async def bad_search(self, uid: str):
-    task = (await self.backend.get(uid)).value  # May raise if error!
-    # ...
-```
+# WRONG - differs from the text the stored vectors were built from
+candidates = [(t.uid, f"{t.title} {t.description}") for t in tasks]
 
-```python
-# GOOD - Check result before using
-async def good_search(self, uid: str):
-    result = await self.backend.get(uid)
-    if result.is_error:
-        return result
-    task = result.value
-    # ...
-```
-
-### Don't: Ignore AI Service Availability
-
-```python
-# BAD - Assumes embeddings always available
-async def bad_similar(self, uid: str):
-    embedding = await self.embeddings.embed_text(...)  # May be None!
-```
-
-```python
-# GOOD - Check availability or set _require_embeddings = True
-async def good_similar(self, uid: str):
-    self._require_embeddings_service("find_similar")  # Guard
-    # Or check: if not self.embeddings: return error
-```
-
-### Don't: Unbounded Token Usage
-
-```python
-# BAD - No token limit on long content
-await self._generate_insight(
-    prompt="Analyze everything",
-    context={"full_content": very_long_content},  # May exceed limits
+# CORRECT
+return await self._rank_similar_entities(
+    task, EntityType.TASK, tasks, exclude_uid=task.uid, limit=limit
 )
 ```
 
+### Unbounded input
+
 ```python
-# GOOD - Limit content and tokens
-await self._generate_insight(
-    prompt="Analyze this summary",
-    context={"content": content[:1000]},  # Truncate input
-    max_tokens=300,  # Limit output
+# WRONG - the whole body, no cap
+prompt = f"Summarize: {step.content}"
+
+# CORRECT
+excerpt = step.description[:2000] if step.description else ""
+result = await self._generate_insight(
+    "Summarize this path step.", context={"description": excerpt}, max_tokens=200
 )
 ```
 
----
-
-## Testing Patterns
-
-### Mock AI Services
+### A failed call reported as an empty answer
 
 ```python
-import pytest
-from unittest.mock import AsyncMock, MagicMock
+# WRONG
+similar = await self.ai.find_similar_tasks(uid)
+return Result.ok({"similar": similar.value if similar.is_ok else []})
 
-
-@pytest.fixture
-def mock_llm():
-    """Mock LLM service."""
-    llm = MagicMock()
-    llm.generate = AsyncMock(return_value="AI generated response")
-    return llm
-
-
-@pytest.fixture
-def mock_embeddings():
-    """Mock embeddings service."""
-    embeddings = MagicMock()
-    embeddings.embed_text = AsyncMock(return_value=[0.1] * 1536)
-    return embeddings
-
-
-@pytest.fixture
-def ai_service(mock_backend, mock_llm, mock_embeddings):
-    """AI service with mocked dependencies."""
-    return TasksAIService(
-        backend=mock_backend,
-        llm_service=mock_llm,
-        embeddings_service=mock_embeddings,
-    )
-
-
-async def test_generate_insight(ai_service, mock_llm):
-    """Test LLM insight generation."""
-    result = await ai_service.generate_task_insights("task_001")
-
-    assert result.is_ok
-    mock_llm.generate.assert_called_once()
-    assert "AI generated response" in result.value
+# CORRECT
+similar = await self.ai.find_similar_tasks(uid)
+if similar.is_error:
+    return Result.fail(similar)
+return Result.ok({"similar": similar.value})
 ```
 
-### Test Without AI
+### Writing an embedding from an AI service
 
-```python
-async def test_works_without_ai(mock_backend):
-    """Test service works when AI is disabled."""
-    # Create with AI disabled
-    service = TasksAIService(
-        backend=mock_backend,
-        llm_service=None,
-        embeddings_service=None,
-    )
-    service._require_llm = False
-    service._require_embeddings = False
-
-    # Should still work for basic operations
-    result = await service.enhance_task_view("task_001")
-    assert result.is_ok
-    assert result.value["ai_enabled"] is False
-```
+Stored vectors are written by the embedding worker from `*EmbeddingRequested` events (ADR-074).
+An AI service that stores one bypasses the content-hash check and the version stamp.

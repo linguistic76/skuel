@@ -1,6 +1,6 @@
 ---
-updated: 2026-09-15
-related_skills: [learning-loop]
+updated: 2026-09-29
+related_skills: [learning-loop, base-ai-service]
 ---
 
 # ADR-043: Intelligence Tier Toggle

@@ -1,482 +1,11 @@
 # Mixin Architecture
 
-## Overview
-
-`UserContextIntelligence` uses a **mixin composition pattern** (ADR-021) instead of inheriting from `BaseIntelligenceService`. This allows organizing the 8 core methods into focused, cohesive units.
-
-```python
-class UserContextIntelligence(
-    LearningIntelligenceMixin,      # Methods 1-4
-    LifePathIntelligenceMixin,      # Method 7
-    SynergyIntelligenceMixin,       # Method 6
-    ScheduleIntelligenceMixin,      # Method 8
-    TemporalMomentumMixin,          # Momentum signals (entities_rich analysis)
-    DailyPlanningMixin,             # Method 5 (THE FLAGSHIP)
-):
-    """Composed from 6 specialized mixins."""
-```
-
----
-
-## Why Mixins Instead of BaseIntelligenceService?
-
-| Aspect | BaseIntelligenceService | Mixin Composition |
-|--------|------------------------|-------------------|
-| **Focus** | Single domain entities | Cross-domain synthesis |
-| **Backend** | Single domain backend | 11 domain services |
-| **Context** | Entity-focused | User state (~250 fields) |
-| **Methods** | CRUD + intelligence | 8 specialized methods |
-| **Testing** | Mock single backend | Mock context + services |
-
-`UserContextIntelligence` doesn't manage entities - it synthesizes across ALL domains. Mixins allow organizing methods by their conceptual purpose rather than forcing a single-domain pattern.
-
----
-
-## The 6 Mixins
-
-### 1. LearningIntelligenceMixin
-
-**File:** `learning_intelligence.py` (~470 lines)
-
-**Methods:**
-1. `get_optimal_next_path_steps()` - What should I learn next?
-2. `get_learning_path_critical_path()` - Fastest route to life path?
-3. `get_knowledge_application_opportunities()` - Where can I apply this?
-4. `get_unblocking_priority_order()` - What unlocks the most?
-
-**Required Attributes:**
-```python
-class LearningIntelligenceMixin:
-    context: UserContext      # User state
-    tasks: Any                # TasksService facade (Any avoids import fan in mixin base)
-    ku: Any                   # KuGraphService
-    vector_search: Any        # Neo4jVectorSearchService (optional, may be None)
-    zpd_service: Any          # ZPDOperations (optional, may be None — FULL tier only)
-```
-
-**Key Logic:**
-- ZPD path (when `zpd_service` set): uses `recommended_actions` when pre-computed on `UserContext.zpd_assessment`, otherwise ranks by proximal zone readiness. Uses `confirmed_zone_uids()` to boost KUs with compound evidence.
-- Priority formula: `readiness × 0.5 + life_path_alignment × 0.3 + behavioral_readiness × 0.2`
-- Fallback path: ranks by goal alignment, unblocking potential, life path alignment, capacity
-- Filters by user capacity (available time)
-- Finds application opportunities across tasks, habits, goals, events
+`UserContextIntelligence` is composed from seven mixins (ADR-021) rather than inheriting
+`BaseAnalyticsService`. A `BaseAnalyticsService` owns one domain's backend and analyses that
+domain's entities; this class owns no backend and synthesises across domains from one user's
+context.
 
 ```python
-async def get_optimal_next_path_steps(
-    self,
-    max_steps: int = 5,
-    consider_goals: bool = True,
-    consider_capacity: bool = True,
-) -> Result[list[PathStep]]:
-    """
-    Priority Path (when zpd_service is set — FULL tier):
-    - Uses ZPDAssessment.recommended_actions when available on UserContext
-    - ZPD priority: readiness × 0.5 + life_path_alignment × 0.3 + behavioral_readiness × 0.2
-    - Compound evidence: confirmed_zone_uids() boost KUs whose prereqs have 2+ signal types
-    - Graceful degradation: falls through to activity-based if ZPD assessment is empty
-
-    Fallback Ranking Factors (activity-based — always available):
-    - Prerequisites met (ready to learn)
-    - Goal alignment (30% weight)
-    - Unblocking potential (25% weight)
-    - Life path alignment (25% weight)
-    - Capacity fit (20% weight)
-    """
-```
-
----
-
-### 2. LifePathIntelligenceMixin
-
-**File:** `life_path_intelligence.py` (~150 lines)
-
-**Methods:**
-7. `calculate_life_path_alignment()` - Life path alignment scoring
-
-**Required Attributes:**
-```python
-class LifePathIntelligenceMixin:
-    context: UserContext
-    goals: Any      # GoalsService facade
-    habits: Any     # HabitsService facade
-    ku: Any         # KuGraphService
-```
-
-**Key Logic:**
-- Calculates 5-dimension alignment score:
-  - Knowledge (25%): Mastery of life path knowledge
-  - Activity (25%): Tasks/habits supporting life path
-  - Goal (20%): Goals contributing to life path
-  - Principle (15%): Values supporting life path
-  - Momentum (15%): Recent activity trend
-
-```python
-async def calculate_life_path_alignment(self) -> Result[LifePathAlignment]:
-    """
-    Alignment Levels:
-    - 0.9+: Flourishing (fully integrated)
-    - 0.7-0.9: Aligned (actively living the path)
-    - 0.4-0.7: Exploring (some alignment)
-    - <0.4: Drifting (significant misalignment)
-    """
-```
-
----
-
-### 3. SynergyIntelligenceMixin
-
-**File:** `synergy_intelligence.py` (~200 lines)
-
-**Methods:**
-6. `get_cross_domain_synergies()` - Cross-domain synergy detection
-
-**Required Attributes:**
-```python
-class SynergyIntelligenceMixin:
-    context: UserContext
-    habits: Any     # HabitsService facade
-    goals: Any      # GoalsService facade
-    tasks: Any      # TasksService facade
-    ku: Any         # KuGraphService
-```
-
-**Key Logic:**
-- Detects synergies between entities across domains
-- Calculates synergy strength (0.0-1.0)
-- Identifies hub entities with high leverage
-
-```python
-async def get_cross_domain_synergies(self) -> Result[list[CrossDomainSynergy]]:
-    """
-    Synergy Types:
-    - Habit->Goal: "Morning meditation" supports multiple goals
-    - Task->Habit: "Write entry" builds "Daily journaling"
-    - Knowledge->Task: "Python async" enables multiple tasks
-    - Principle->Choice: "Growth mindset" informs decisions
-
-    Synergy Score:
-    - 0.0-0.3: Weak (single connection)
-    - 0.4-0.6: Moderate (multiple connections)
-    - 0.7-1.0: Strong (hub entity)
-    """
-```
-
----
-
-### 4. ScheduleIntelligenceMixin
-
-**File:** `schedule_intelligence.py` (~180 lines)
-
-**Methods:**
-8. `get_schedule_aware_recommendations()` - Schedule-aware recommendations
-
-**Required Attributes:**
-```python
-class ScheduleIntelligenceMixin:
-    context: UserContext
-    calendar: Any   # CalendarService
-    events: Any     # UnifiedRelationshipService
-    tasks: Any      # UnifiedRelationshipService
-    habits: Any     # UnifiedRelationshipService
-```
-
-**Key Logic:**
-- Considers current events and scheduled activities
-- Matches recommendations to energy levels
-- Identifies conflicts and suggests alternatives
-
-```python
-async def get_schedule_aware_recommendations(
-    self, time_slot: str = "now"
-) -> Result[list[ScheduleAwareRecommendation]]:
-    """
-    Recommendation Types:
-    - "learn": Knowledge unit to study
-    - "task": Task to complete
-    - "habit": Habit to maintain
-    - "goal": Goal to advance
-    - "rest": Rest (capacity exceeded)
-    - "reschedule": Reschedule (conflicts)
-
-    Time Slots: morning, afternoon, evening, now, later
-    """
-```
-
----
-
-### 5. TemporalMomentumMixin
-
-**File:** `temporal_momentum.py`
-
-**Methods:**
-- `compute_momentum_signals()` — Analyzes `context.entities_rich` (all 9 keys)
-- `_momentum_warnings()` — Formats neglected-domain + habit-consistency warnings
-- `_momentum_rationale()` — Returns phase-based rationale clause
-
-**Required Attributes:**
-```python
-class TemporalMomentumMixin:
-    context: UserContext  # needs context.entities_rich populated (rich context only)
-```
-
-**Key Logic:**
-- Computes completion velocity per activity domain (0.0–1.0)
-- Detects neglected domains (zero window activity)
-- Computes habit consistency from `completion_rate` field
-- Derives phase: `"accelerating"` (≥0.6), `"steady"` (≥0.3), `"decelerating"` (<0.3)
-- Pure Python — no I/O, no await. Returns empty signals when `entities_rich` is empty (standard context)
-
-```python
-def compute_momentum_signals(self) -> dict[str, Any]:
-    """
-    Returns:
-        velocities: {domain: 0.0-1.0}
-        neglected: [domain, ...]
-        habit_consistency: float
-        phase: "accelerating" | "steady" | "decelerating" | "unknown"
-    """
-```
-
----
-
-### 6. DailyPlanningMixin
-
-**File:** `daily_planning.py` (~256 lines)
-
-**Methods:**
-5. **`get_ready_to_work_on_today()`** - THE FLAGSHIP METHOD
-
-**Required Attributes:**
-```python
-class DailyPlanningMixin:
-    context: UserContext
-    tasks: Any          # UnifiedRelationshipService
-    habits: Any         # UnifiedRelationshipService
-    goals: Any          # UnifiedRelationshipService
-    events: Any         # UnifiedRelationshipService
-    choices: Any        # UnifiedRelationshipService
-    principles: Any     # UnifiedRelationshipService
-    ku: Any             # KuGraphService
-    report: Any         # ReportRelationshipService (exercises now via context.unsubmitted_exercises)
-    filtered_providers: dict[str, FilteredContextProvider]  # Domain stats for health warnings
-```
-
-**Note:** The 6 domain-specific planning methods this mixin calls (`get_at_risk_habits_for_user`, `get_upcoming_events_for_user`, `get_actionable_tasks_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` via the `UnifiedRelationshipService` MRO — they are not on the `UnifiedRelationshipService` shell itself.
-
-Each of these 6 methods:
-- Takes `context: UserContext` (the single source of truth — no awareness-slice protocols)
-- Returns `Result.fail()` immediately if `context.is_rich_context` is `False` (standard `build()` context)
-- Reads `context.entities_rich.get(domain, [])` directly for entity extraction (not a SKUEL018 rich-only field — direct reads are the canonical path)
-
-**Key Logic:**
-- Synthesizes 10 entity domains into one daily plan
-- Respects user capacity and energy
-- P5 (Learning) delegates to ZPD recommended actions when `context.zpd_assessment` is available
-- Falls back to vector search → KU service chain when ZPD unavailable (CORE tier or empty curriculum)
-- Generates warnings for overload or missed learning
-- Generates **domain health warnings** via `filtered_providers` stats — queries all 6 Activity domains:
-  - **Single-domain:** task backlog (>30 active), no active goals, no habits tracked, events overload (5+ today), decision fatigue (5+ pending choices), no core principles
-  - **Cross-domain:** many goals + no habits (missing consistency anchors), many tasks + no goals (lacks strategic direction)
-- `_query_domain_stats(domain)` — queries any domain's aggregate stats via `FilteredContextProvider`
-- `_generate_domain_health_warnings()` — produces actionable warnings from all 6 Activity domain stats (uses guaranteed `total` + `active` keys per BaseStats contract)
-
-```python
-async def get_ready_to_work_on_today(
-    self,
-    prioritize_life_path: bool = True,
-    respect_capacity: bool = True,
-) -> Result[DailyWorkPlan]:
-    """
-    Priority Order:
-    1. At-risk habits (maintain streaks)
-    2. Today's events (can't reschedule)
-    2.3. Pending revised exercises (from context.pending_revised_exercises — teacher feedback to address)
-    2.5. Unsubmitted exercises (from context.unsubmitted_exercises — no extra query)
-    3. Overdue and actionable tasks
-    4. Daily habits (consistency)
-    5. Learning — ZPD-driven (context.zpd_assessment.top_recommended_actions) or fallback
-    6. Advancing goals
-    7. Pending decisions (high priority)
-    8. Aligned principles (for focus)
-    """
-```
-
----
-
-## Mixin Composition Flow
-
-```
-UserContextIntelligence.__init__()
-         │
-         ├── Store context and 11 services
-         │
-         ▼
-     Mixins provide methods
-         │
-         ├── LearningIntelligenceMixin: 4 methods
-         ├── LifePathIntelligenceMixin: 1 method
-         ├── SynergyIntelligenceMixin: 1 method
-         ├── ScheduleIntelligenceMixin: 1 method
-         ├── TemporalMomentumMixin: momentum signals (entities_rich analysis)
-         └── DailyPlanningMixin: 1 method (calls TemporalMomentumMixin)
-         │
-         ▼
-     Methods access self.context, self.tasks, self.ku, etc.
-```
-
----
-
-## Mixin Dependencies
-
-### Service Dependencies by Mixin
-
-| Mixin | Required Attributes |
-|-------|---------------------|
-| `LearningIntelligenceMixin` | context, tasks, ku |
-| `LifePathIntelligenceMixin` | context, goals, habits, ku |
-| `SynergyIntelligenceMixin` | context, habits, goals, tasks, ku |
-| `ScheduleIntelligenceMixin` | context, calendar, events, tasks, habits |
-| `TemporalMomentumMixin` | context (needs `entities_rich` — rich context only; returns empty signals otherwise) |
-| `DailyPlanningMixin` | context, tasks, habits, goals, events, choices, principles, ku, report |
-
-### All Services Required
-
-The main class requires ALL 11 services because `DailyPlanningMixin` synthesizes all domains:
-
-```python
-class UserContextIntelligence(...):
-    def __init__(
-        self,
-        context: UserContext,
-        # Activity (6)
-        tasks: UnifiedRelationshipService,
-        goals: UnifiedRelationshipService,
-        habits: UnifiedRelationshipService,
-        events: UnifiedRelationshipService,
-        choices: UnifiedRelationshipService,
-        principles: UnifiedRelationshipService,
-        # Curriculum (3)
-        ku: KuGraphService,
-        ls: UnifiedRelationshipService,
-        lp: UnifiedRelationshipService,
-        # Processing (1)
-        report: ReportRelationshipService,
-        # Temporal Domain (1)
-        calendar: CalendarService,
-        # Optional
-        vector_search: Any = None,
-    ):
-        # Validate all 11 required services present
-        required = {
-            "context": context,
-            "tasks": tasks,
-            # ... all 11
-        }
-        missing = [name for name, svc in required.items() if svc is None]
-        if missing:
-            raise ValueError(f"Missing: {', '.join(missing)}")
-```
-
----
-
-## Testing Mixins
-
-### Testing Individual Mixins
-
-```python
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-
-from core.services.user.intelligence import LearningIntelligenceMixin
-
-
-class MockLearningService(LearningIntelligenceMixin):
-    """Test harness for mixin."""
-
-    def __init__(self, context, tasks, ku):
-        self.context = context
-        self.tasks = tasks
-        self.ku = ku
-
-
-@pytest.fixture
-def learning_service():
-    context = MagicMock()
-    context.learning_goals = ["goal-1"]
-    context.prerequisites_completed = {"ku-1"}
-    context.prerequisites_needed = {"goal-1": ["ku-2"]}
-
-    tasks = AsyncMock()
-    ku = AsyncMock()
-
-    return MockLearningService(context, tasks, ku)
-
-
-async def test_get_optimal_next_path_steps(learning_service):
-    learning_service.ku.get_ready_to_learn_for_user.return_value = Result.ok([
-        MagicMock(uid="ku-2", title="Next KU", prerequisites_met=True, priority_score=0.8)
-    ])
-
-    result = await learning_service.get_optimal_next_path_steps(max_steps=3)
-
-    assert result.is_ok
-    assert len(result.value) >= 1
-```
-
-### Testing Full Integration
-
-```python
-async def test_full_daily_planning():
-    # Create mock context with all required fields
-    context = create_mock_context()
-
-    # Create mock services
-    services = create_mock_services()
-
-    # Create factory and intelligence
-    factory = UserContextIntelligenceFactory(**services)
-    intelligence = factory.create(context)
-
-    # Test flagship method
-    result = await intelligence.get_ready_to_work_on_today()
-
-    assert result.is_ok
-    plan = result.value
-    assert isinstance(plan, DailyWorkPlan)
-    assert plan.fits_capacity
-```
-
----
-
-## Extending with New Mixins
-
-### Step 1: Create New Mixin
-
-```python
-# New module: focus_intelligence.py (beside daily_planning.py in the intelligence package)
-class FocusIntelligenceMixin:
-    """Mixin for focus and deep work recommendations."""
-
-    context: UserContext
-    tasks: Any
-    calendar: Any
-
-    async def get_deep_work_blocks(self) -> Result[list[dict]]:
-        """Find optimal blocks for deep work."""
-        # Implementation
-        pass
-
-    async def get_focus_recommendations(self) -> Result[dict]:
-        """Get focus recommendations based on current state."""
-        pass
-```
-
-### Step 2: Add to Main Class
-
-```python
-# core/services/user/intelligence/core.py
-from core.services.user.intelligence.focus_intelligence import FocusIntelligenceMixin
-
 class UserContextIntelligence(
     LearningIntelligenceMixin,
     LifePathIntelligenceMixin,
@@ -484,69 +13,281 @@ class UserContextIntelligence(
     ScheduleIntelligenceMixin,
     TemporalMomentumMixin,
     DailyPlanningMixin,
-    FocusIntelligenceMixin,  # New mixin
+    PerceptionIntelligenceMixin,
 ):
-    pass
+    ...
 ```
 
-### Step 3: Update Package Exports
+All files are in `core/services/user/intelligence/`.
+
+---
+
+## The Shared Base
+
+Every mixin inherits `IntelligenceMixinBase` (`_base.py`). It carries annotations only — the
+values are assigned in `UserContextIntelligence.__init__`.
 
 ```python
-# core/services/user/intelligence/__init__.py
-from core.services.user.intelligence.focus_intelligence import FocusIntelligenceMixin
+class IntelligenceMixinBase:
+    context: RichUserContext
 
-__all__ = [
-    # ... existing exports
-    "FocusIntelligenceMixin",
-]
+    tasks: Any  # boundary: TasksService, typed at __init__
+    goals: Any  # boundary: GoalsService, typed at __init__
+    habits: Any  # boundary: HabitsService, typed at __init__
+    events: Any  # boundary: EventsService, typed at __init__
+    choices: Any  # boundary: ChoicesService, typed at __init__
+    principles: Any  # boundary: PrinciplesService, typed at __init__
+
+    ps: Any  # boundary: PsService, typed at __init__
+    lp: Any  # boundary: UnifiedRelationshipService, typed at __init__
+    exercises: Any  # boundary: ExerciseService, duck-typed
+
+    report: ReportRelationshipService
+    calendar: CalendarService
+
+    vector_search: Any  # boundary: optional Neo4jVectorSearchService
+    zpd_service: Any  # boundary: optional ZPDOperations
+    filtered_providers: dict[str, FilteredContextProvider]
 ```
+
+The base uses `Any` for the facades to keep six facade imports out of a module every mixin
+imports.
+
+mypy checks the concrete facade types at the constructor (`tasks: TasksService`, …); inside a
+mixin body, a call on `self.tasks` is unchecked. Verify a method name against the facade when
+you add a call.
+
+A mixin declares no attributes of its own and defines no `__init__`. State lives on the
+context.
+
+---
+
+## What Each Mixin Computes
+
+### LearningIntelligenceMixin — methods 1–4
+
+**Method 1, `get_optimal_next_path_steps`** tries four sources in order and returns from the
+first that yields steps:
+
+1. **ZPD** — when `zpd_service` is set and `assess_zone(user_uid)` returns a non-empty
+   assessment. Uses the assessment's `recommended_actions` of type `learn` when present;
+   otherwise ranks `top_proximal_ku_uids()` by
+   `readiness × 0.5 + life_path_alignment × 0.3 + behavioral_readiness × 0.2`, plus small boosts
+   for confirmed zone evidence. An assessment with an empty proximal zone falls to step 2.
+2. **Vector search** — `vector_search.learning_aware_search(...)`, when wired and non-empty.
+3. **`ps.get_ready_to_learn_for_user(context, limit=max_steps * 2)`**.
+4. **Context** — `context.get_ready_to_learn()`, scored by `_calculate_learning_priority`
+   (base 0.5; goal alignment up to 0.3; unblocking up to 0.25; life path 0.25; capacity fit up
+   to 0.2; capped at 1.0).
+
+`consider_capacity=True` keeps the steps whose cumulative `estimated_time_minutes` fits
+`context.available_minutes_daily`.
+
+Steps from sources 1–3 are enriched by `_get_application_opportunities_for_ku`, which reads
+`tasks.get_learning_tasks_for_user`, `ps.find_habits_reinforcing_knowledge` and
+`ps.find_events_applying_knowledge`. A failed habits or events read there raises `RuntimeError`
+rather than returning `Result.fail` — the one place in the package that raises on a service
+failure. A caller of method 1 that must not raise guards the call.
+
+How the assessment itself is computed belongs to the [zpd](../zpd/SKILL.md) skill.
+
+**Method 2, `get_learning_path_critical_path`** returns `[]` when the context has no
+`life_path_uid`. Otherwise it orders the unmastered UIDs in `context.knowledge_mastery` so that
+each one's prerequisites (`context.prerequisites_needed`) come first, choosing at each step the
+ready unit that unlocks the most. Context only — it calls no service.
+
+**Method 3, `get_knowledge_application_opportunities(ku_uid)`** returns a dict with six keys
+(`tasks`, `habits`, `goals`, `events`, `choices`, `principles`). It fills four: tasks from
+`tasks.get_learning_tasks_for_user`, goals from the context's learning goals, habits and events
+by following those goals through the context. `choices` and `principles` are always `[]`.
+
+**Method 4, `get_unblocking_priority_order`** counts, for each unmet prerequisite in
+`context.prerequisites_needed`, how many entries list it, and returns `(uid, count)` pairs
+sorted by count. Context only.
+
+### LifePathIntelligenceMixin — method 7
+
+`calculate_life_path_alignment()` reads the context and calls no service.
+
+- No `context.life_path_uid` → `Result.ok` with every score 0.0 and
+  `alignment_level="undefined"`.
+- Otherwise a weighted sum: knowledge 25%, activity 25%, goal 20%, principle 15%, momentum 15%.
+- The activity and goal scores are multiplied by an engagement bonus in `[1.0, 1.2]` — the share
+  of active tasks, habits and goals spawned from PS engagements
+  (`context.spawned_uid_to_ps_uid`) — and capped at 1.0.
+
+| `overall_score` | `alignment_level` |
+|-----------------|-------------------|
+| `>= 0.9` | `flourishing` |
+| `>= 0.7` | `aligned` |
+| `>= 0.4` | `exploring` |
+| below | `drifting` |
+
+The knowledge and activity dimensions measure against `context.learning_goals`, used as the
+proxy for the life path's goals.
+
+This is not the alignment the analytics pages show: `analytics_summary_api.py` and
+`analytics_ui.py` call `AnalyticsService.calculate_life_path_alignment(user_uid)`, a different
+implementation returning a dict.
+
+### SynergyIntelligenceMixin — method 6
+
+`get_cross_domain_synergies(min_synergy_score=0.3, include_types=None)` runs six detectors over
+the context, drops results under the minimum score, and sorts by score.
+
+| `include_types` key | `source_domain` → `target_domain` | `synergy_type` |
+|---------------------|----------------------------------|----------------|
+| `habit_goal` | `habit` → `goal` | `supports` |
+| `task_habit` | `habit` → `task` | `builds` |
+| `knowledge_task` | `knowledge` → `task` | `enables` |
+| `principle_goal` | `principle` → `goal` | `informs` |
+| `goal_learning` | `knowledge` → `goal` | `enables` |
+| `engagement_completion` | `pathstep` → `multi` | `spawns` |
+
+`include_types=None` runs all six.
+
+The engagement detector scores each non-abandoned PS engagement by the completion ratio of its
+spawned tasks, goals and choices; a completed engagement scores 1.0.
+
+### ScheduleIntelligenceMixin — method 8
+
+`get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8,
+respect_energy=True)` returns a **bare list**.
+
+- Available minutes = the horizon, minus 60 per event in `context.today_event_uids`, minus the
+  share already committed (`context.current_workload_score`), capped at
+  `context.available_minutes_daily`.
+- The time slot is `context.preferred_time` when set, otherwise the hour in the user's zone
+  (`morning` / `afternoon` / `evening` / `night`).
+- `context.current_workload_score >= 0.9` adds a `rest` recommendation.
+- Candidates come from the context's task, habit, learning and goal fields. Each is scored
+  `priority × 0.4 + schedule_fit × 0.35 + energy_match × 0.25`.
+
+It calls no service — `self.calendar` is not read.
+
+### TemporalMomentumMixin
+
+Synchronous; no I/O.
+
+```python
+def compute_momentum_signals(self) -> dict[str, Any]:  # boundary: heterogeneous signal map
+    ...
+```
+
+Returns `velocities` (per Activity domain, the completed share of its `entities_rich` items),
+`neglected` (domains with no items), `habit_consistency` (mean `completion_rate` across habit
+items) and `phase` — `accelerating` at an average velocity of 0.6 or more, `steady` at 0.3 or
+more, otherwise `decelerating`. With an empty `entities_rich` every value is empty and the phase
+is `unknown`.
+
+`DailyPlanningMixin` turns the signals into warnings and a rationale clause.
+
+### DailyPlanningMixin — method 5
+
+Covered in [SKILL.md](SKILL.md) § The Flagship. It is the only mixin that reads
+`filtered_providers`, and it reaches `TemporalMomentumMixin`'s methods through the composed
+class (declared for mypy under `TYPE_CHECKING`).
+
+The two bucketing helpers, `_build_engaged_groups` and `_compute_available_to_start`, are
+module-level functions in `daily_planning.py` — pure transformations of the assembled plan.
+
+### PerceptionIntelligenceMixin — method 9
+
+`get_cross_domain_perception_analysis()` merges three sources of dual-track check-ins
+(ADR-030-dual-track-assessment-pattern) into one rollup:
+
+| Source | Read from |
+|--------|-----------|
+| Per-entity — Goals, Habits, Principles | each facade's `backend.find_by(user_uid=...)`, taking `dual_track_checkins[-1]` per entity |
+| User-level — productivity, engagement, decision quality | `context.dual_track_checkins` |
+| Knowledge — per-Ku mastery | `context.knowledge_checkins` |
+
+A failed per-entity read is logged and counted as empty; the others still contribute. The result
+dict carries `per_domain`, `over_rated_domains`, `under_rated_domains`, `accurate_domains`,
+`total_assessed_entities`, `insights` and `has_data`.
+
+No LLM. No production caller yet — see [SKILL.md](SKILL.md) § Who calls them.
+
+---
+
+## Adding a Mixin
+
+1. Create the module beside `daily_planning.py`. Inherit `IntelligenceMixinBase`; declare
+   nothing the base already declares.
+
+   ```python
+   class FocusIntelligenceMixin(IntelligenceMixinBase):
+       """Deep-work recommendations from the context's schedule fields."""
+
+       def get_deep_work_minutes(self) -> int:
+           event_minutes = 60 * len(self.context.today_event_uids)
+           return max(0, self.context.available_minutes_daily - event_minutes)
+   ```
+
+2. Add it to the bases of `UserContextIntelligence` in `core.py`.
+3. Export it from `core/services/user/intelligence/__init__.py`.
+4. If it needs a service the class does not hold, add the annotation to `IntelligenceMixinBase`,
+   the parameter to `UserContextIntelligence.__init__`, the entry to the factory's
+   `_required_services`, and the argument in `services_bootstrap/_intelligence_hub.py`.
+5. A method with no `await` is `def`, not `async def` (SKUEL029). Methods 2, 4, 6, 7 and 8 are
+   `async` without awaiting because a protocol or a facade delegation awaits them; each carries
+   the lint suppression naming that reason.
+
+---
+
+## Testing a Mixin
+
+Compose the mixins under test into a small class and give it a stub context — a dataclass with
+the fields the method reads. `tests/unit/test_daily_planning_domain_stats.py` is the model:
+
+```python
+class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
+    def __init__(
+        self,
+        context: object,
+        filtered_providers: dict[str, object] | None = None,
+    ) -> None:
+        self.context = cast("Any", context)  # boundary: stub stands in for RichUserContext
+        no_op = make_no_op_service()
+        self.tasks = self.habits = self.goals = no_op
+        self.events = self.choices = self.principles = no_op
+        self.ps = self.exercises = no_op
+        self.vector_search = None
+        self.filtered_providers = cast("Any", filtered_providers or {})  # boundary: mock providers
+```
+
+Guard each mocked method name against the real facade so a rename fails the test:
+
+```python
+_ = HabitsService.get_at_risk_habits_for_user
+service = AsyncMock()
+service.get_at_risk_habits_for_user = AsyncMock(return_value=Result.ok([]))
+```
+
+A provider mock returns a `ListContext`-shaped dict; the stats it carries are whatever the test
+supplies, so a passing warning test says nothing about what the live facade's stats contain.
 
 ---
 
 ## Anti-Patterns
 
-### Don't Override Mixin Methods in Main Class
+### Overriding a mixin method on the composed class
+
+Put the change in the mixin that owns the method, or in a new mixin placed earlier in the bases.
+
+### State on a mixin
 
 ```python
-# WRONG - overriding defeats mixin purpose
-class UserContextIntelligence(...):
-    async def get_optimal_next_path_steps(self, ...):
-        # Custom implementation breaks composition
-        pass
-
-# CORRECT - extend in a new mixin
-class EnhancedLearningMixin(LearningIntelligenceMixin):
-    async def get_optimal_next_path_steps(self, ...):
-        base_result = await super().get_optimal_next_path_steps(...)
-        # Enhance result
-        return enhanced_result
+# WRONG
+class CachingMixin(IntelligenceMixinBase):
+    def __init__(self) -> None:
+        self._cache: dict[str, int] = {}
 ```
 
-### Don't Add Instance State to Mixins
+`UserContextIntelligence.__init__` does not call `super().__init__()`, so a mixin's `__init__`
+never runs.
 
-```python
-# WRONG - mixins shouldn't own state
-class BadMixin:
-    def __init__(self):
-        self._cache = {}  # State in mixin!
+### Re-declaring the shared attributes
 
-# CORRECT - use context for state
-class GoodMixin:
-    context: UserContext  # State in context
-
-    async def method(self):
-        # Use self.context for state
-        pass
-```
-
-### Don't Hardcode Service Dependencies
-
-```python
-# WRONG - concrete service types in mixin
-class BadMixin:
-    tasks: UnifiedRelationshipService  # Concrete type
-
-# CORRECT - use Any with documented expectations
-class GoodMixin:
-    tasks: Any  # UnifiedRelationshipService (documented)
-```
+Declaring `tasks` or `context` on a mixin creates a second declaration that can drift from
+`IntelligenceMixinBase`. Inherit the base.

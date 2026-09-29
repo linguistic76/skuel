@@ -2,51 +2,44 @@
 
 ## File Locations
 
-### Core Files
-
 | File | Purpose |
 |------|---------|
-| `/core/services/base_ai_service.py` | Base class (~337 lines) |
-| `/core/services/base_analytics_service.py` | Analytics base (separate skill) |
+| `core/services/base_ai_service.py` | The base class |
+| `core/services/base_analytics_service.py` | The analytics base (separate skill) |
+| `services_bootstrap/_ai_wiring.py` | `_wire_ai_services()` |
+| `adapters/inbound/ai_routes.py` | `AIRouteSpec`, `AI_ROUTE_SPECS`, `_ai_route`, `create_ai_routes` |
+| `core/services/llm_service.py` | `LLMService`, `LLMResponse`, `LLMConfig` |
+| `core/services/embeddings_service.py` | `EmbeddingsService` |
 
-### Domain AI Services
+### The services
 
-| Domain | File | Status |
-|--------|------|--------|
-| Tasks | `/core/services/tasks/tasks_ai_service.py` | Implemented |
-| Goals | `/core/services/goals/goals_ai_service.py` | Implemented |
-| Habits | `/core/services/habits/habits_ai_service.py` | Implemented |
-| Events | `/core/services/events/events_ai_service.py` | Implemented |
-| Choices | `/core/services/choices/choices_ai_service.py` | Implemented |
-| Principles | `/core/services/principles/principles_ai_service.py` | Implemented |
-| PathStep (PS) | `/core/services/ps/ps_ai_service.py` | Implemented |
-| LearningPath (LP) | `/core/services/lp/lp_ai_service.py` | Implemented |
-| KU | — (no AI sub-service; `KuService` has no `.ai` slot) | Planned |
-
-**Note:** All 6 Activity Domain AI services + the PS/LP Curriculum AI services are implemented and wired via `services_bootstrap/_ai_wiring.py`. `KuAIService` remains planned (no `ku_ai_service.py` yet).
+| Domain | File | `_service_name` |
+|--------|------|-----------------|
+| Tasks | `core/services/tasks/tasks_ai_service.py` | `tasks.ai` |
+| Goals | `core/services/goals/goals_ai_service.py` | `goals.ai` |
+| Habits | `core/services/habits/habits_ai_service.py` | `habits.ai` |
+| Events | `core/services/events/events_ai_service.py` | `events.ai` |
+| Choices | `core/services/choices/choices_ai_service.py` | `choices.ai` |
+| Principles | `core/services/principles/principles_ai_service.py` | `principles.ai` |
+| PathStep | `core/services/ps/ps_ai_service.py` | `ps.ai` |
+| LearningPath | `core/services/lp/lp_ai_service.py` | `lp.ai` |
 
 ---
 
 ## Imports
 
-### Base Class
-
 ```python
 from core.services.base_ai_service import BaseAIService
+
+from core.models.enums.entity_enums import EntityType
+from core.models.type_hints import EntityUID
+from core.utils.exception_types import LLM_EXCEPTIONS
+from core.utils.result_simplified import Errors, Result
+from core.utils.vector_math import cosine_similarity, dot, l2_normalize
 ```
 
-### Result Pattern
-
-```python
-from core.utils.result_simplified import Result
-from core.utils.errors_simplified import Errors
-```
-
-### Protocols
-
-```python
-from core.ports import TasksOperations, GoalsOperations  # etc.
-```
+Models and backend protocols are imported from their own modules — for Tasks,
+`core.models.task.task` and `core.ports.domain_protocols`.
 
 ---
 
@@ -54,183 +47,169 @@ from core.ports import TasksOperations, GoalsOperations  # etc.
 
 ```python
 class BaseAIService(Generic[B, T]):
-    """Base class for domain AI services (LLM/embeddings-powered features)."""
-
-    # Class attributes
     _service_name: ClassVar[str | None] = None
-    _require_llm: ClassVar[bool] = True
-    _require_embeddings: ClassVar[bool] = True
     _event_handlers: ClassVar[dict[type, str]] = {}
 
     def __init__(
         self,
-        backend: B,                                    # REQUIRED
-        llm_service: Any | None = None,               # Required by default
-        embeddings_service: Any | None = None,        # Required by default
+        backend: B,
+        llm_service: Any | None = None,  # boundary: LLMService, typed on each subclass
+        embeddings_service: Any | None = None,  # boundary: EmbeddingsService, typed on each subclass
         graph_intel: GraphIntelligenceService | None = None,
-        relationship_service: Any | None = None,
-        event_bus: Any | None = None,
+        relationship_service: Any | None = None,  # boundary: UnifiedRelationshipService
+        event_bus: Any | None = None,  # boundary: EventBusOperations
     ) -> None: ...
 ```
 
----
-
-## Method Signatures
-
-### Fail-Fast Guards
+## Helper Signatures
 
 ```python
-def _require_llm_service(self, operation: str) -> None:
-    """Raises ValueError if LLM not available."""
-
-def _require_embeddings_service(self, operation: str) -> None:
-    """Raises ValueError if embeddings not available."""
-```
-
-### AI Helpers
-
-```python
-async def _get_embedding(self, text: str) -> Result[list[float]]:
-    """Get embedding vector for text."""
-
 async def _generate_insight(
     self,
     prompt: str,
-    context: dict[str, Any] | None = None,
+    context: dict[str, Any] | None = None,  # boundary: free-form prompt context
     max_tokens: int = 500,
-) -> Result[str]:
-    """Generate AI insight using LLM."""
+) -> Result[str]: ...
 
 async def _semantic_search(
     self,
     query: str,
-    candidates: list[tuple[str, str]],  # [(uid, text), ...]
+    candidates: list[tuple[EntityUID, str]],
     top_k: int = 5,
-) -> Result[list[tuple[str, float]]]:  # [(uid, score), ...]
-    """Perform semantic search using embeddings."""
+) -> Result[list[tuple[EntityUID, float]]]: ...
 
-# Vector similarity lives in core/utils/vector_math.py (shared kernel):
-from core.utils.vector_math import cosine_similarity  # -> float, 0.0 on bad input
+async def _rank_similar_entities(
+    self,
+    source: DomainModelProtocol,
+    entity_type: EntityType,
+    candidate_pool: Sequence[DomainModelProtocol],
+    *,
+    exclude_uid: str,
+    limit: int = 5,
+) -> Result[list[tuple[EntityUID, float]]]: ...
+
+async def _publish_event(self, event: Any) -> None: ...  # boundary: any BaseEvent subclass
 ```
 
-### Event Handling
+What the first two return against the wired services today: [SKILL.md](SKILL.md) § Known
+Mismatch.
+
+## The Services the Helpers Call
 
 ```python
-def _register_event_handlers(self) -> None:
-    """Auto-register handlers from _event_handlers."""
+# core/services/llm_service.py
+async def generate(
+    self,
+    prompt: str,
+    context: str | None = None,
+    system_prompt: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
+    model: str | None = None,
+) -> LLMResponse: ...
 
-async def _publish_event(self, event: Any) -> None:
-    """Publish event to bus if available."""
+
+@dataclass
+class LLMResponse:
+    content: str
+    provider: LLMProvider
+    model: str
+    usage: dict[str, int] | None = None
+    error: str | None = None
 ```
+
+```python
+# core/services/embeddings_service.py
+async def create_embedding(
+    self,
+    text: str,
+    metadata: dict[str, Any] | None = None,  # boundary: accepted, unused
+) -> Result[list[float]]: ...
+
+async def create_batch_embeddings(
+    self,
+    texts: list[str],
+    metadata_list: list[dict[str, Any]] | None = None,  # boundary: accepted, unused
+) -> Result[list[list[float]]]: ...
+```
+
+`generate` does not raise on a provider failure: it returns an `LLMResponse` with empty
+`content` and `error` set.
 
 ---
 
-## Instance Attributes After Init
+## Routes
 
-| Attribute | Type | Nullable | Purpose |
-|-----------|------|----------|---------|
-| `backend` | `B` | No | Domain operations |
-| `llm` | `LLMService` | Yes* | LLM for insights |
-| `embeddings` | `EmbeddingsService` | Yes* | Semantic search |
-| `graph_intel` | `GraphIntelligenceService` | Yes | Graph queries |
-| `relationships` | `UnifiedRelationshipService` | Yes | Relationships |
-| `event_bus` | `EventBus` | Yes | Event publishing |
-| `logger` | `Logger` | No | Hierarchical logger |
+Path: `/api/{url_domain}/ai/{action}`. Registered without `methods=`, so `GET`, `HEAD` and
+`POST` are all handled.
 
-*Required by default unless `_require_llm = False` or `_require_embeddings = False`.
+| `signature` | Handler parameters | Arguments passed to the method |
+|-------------|--------------------|--------------------------------|
+| `uid` | `uid: str` | `(uid,)` |
+| `uid_limit` | `uid: str`, `limit: int = default_limit` | `(uid, limit)` |
+| `query_limit` | `query: str`, `limit: int = default_limit` | `(query, limit)` |
+| `uid_level` | `uid: str`, `level: str = "intermediate"` | `(uid, level)` |
 
----
+| `url_domain` | Actions | Scope |
+|--------------|---------|-------|
+| `tasks` | `similar`, `insight`, `knowledge-generation`, `breakdown`, `priority-suggestion` | `USER_OWNED` |
+| `goals` | `similar`, `insight`, `milestones`, `smart-refinement`, `strategy` | `USER_OWNED` |
+| `habits` | `similar`, `streak-insight`, `habit-stack`, `optimize-loop`, `identity` | `USER_OWNED` |
+| `events` | `similar`, `insight`, `preparation`, `reflection` | `USER_OWNED` |
+| `choices` | `similar`, `insight`, `framework`, `alternatives` | `USER_OWNED` |
+| `principles` | `similar`, `insight`, `deepen`, `practices` | `USER_OWNED` |
+| `knowledge` | `related`, `search`, `summary`, `explain`, `applications` | `SHARED` |
+| `path-steps` | `similar`, `insight`, `explain`, `practice` | `SHARED` |
+| `learning-paths` | `similar`, `insight`, `overview`, `strategy` | `SHARED` |
 
-## Class Attribute Configuration
+`knowledge` and `path-steps` both resolve to the PathStep facade (`domain_attr="ps"`).
 
-| Attribute | Default | Description |
-|-----------|---------|-------------|
-| `_service_name` | `None` | Logger name (e.g., "tasks.ai") |
-| `_require_llm` | `True` | Fail if LLM not provided |
-| `_require_embeddings` | `True` | Fail if embeddings not provided |
-| `_event_handlers` | `{}` | Event type → method name mapping |
+Six specs name a method the service does not define and answer 500:
+`tasks/ai/knowledge-generation` and all five `knowledge/ai/*`.
 
-**Example - LLM only (no embeddings):**
-```python
-class InsightOnlyService(BaseAIService[Backend, Model]):
-    _require_embeddings = False  # Don't fail without embeddings
-```
+`AI_ROUTE_SPECS` is the authority — read it rather than this table when the two differ.
 
----
+### Status codes
 
-## Key Difference: Analytics vs AI
-
-| Aspect | BaseAnalyticsService | BaseAIService |
-|--------|---------------------|---------------|
-| **Dependencies** | graph_intel, relationships | llm, embeddings |
-| **AI Required?** | No | Yes (configurable) |
-| **Purpose** | Graph analytics | AI enhancements |
-| **App Runs Without?** | Yes (full capacity) | Yes (limited features) |
-| **Logger Prefix** | `skuel.analytics.*` | `skuel.ai.*` |
-
-For graph analytics features, see the **[base-analytics-service](../base-analytics-service/SKILL.md)** skill.
+| Status | Meaning |
+|--------|---------|
+| 401 | Not signed in |
+| 503 | `.ai` is `None` for the domain, or the user's tier could not be read |
+| 403 | The user's tier does not include AI, **or** the daily quota is spent — read the message |
+| 404 | `USER_OWNED`: the entity is not the user's, or does not exist |
+| 400 | The AI method returned a failed `Result` |
+| 405 | `PUT` / `DELETE` |
 
 ---
 
-## Common Patterns
-
-### Minimal AI Service
+## Error Construction
 
 ```python
-class TasksAIService(BaseAIService[TasksOperations, Task]):
-    _service_name = "tasks.ai"
+# A feature whose service is not configured
+Errors.unavailable(
+    feature="semantic_search",
+    reason="Embeddings service not configured",
+    operation="find_similar_tasks",
+)
 
-    async def find_similar(self, uid: str) -> Result[list[Task]]:
-        # Get reference
-        ref = await self.backend.get(uid)
-        if ref.is_error:
-            return ref
+# A provider call that failed
+Errors.integration(service="llm", message="LLM generation failed")
 
-        # Get candidates
-        all_tasks = await self.backend.find_by()
-        candidates = [(t.uid, t.title) for t in all_tasks.value if t.uid != uid]
-
-        # Semantic search
-        results = await self._semantic_search(ref.value.title, candidates)
-        # ... fetch and return tasks
+# A missing entity — a resource name, never a sentence
+Errors.not_found(resource="Task", identifier=task_uid)
 ```
 
-### Embeddings-Only Service
-
-```python
-class SemanticSearchService(BaseAIService[Backend, Model]):
-    _service_name = "search.semantic"
-    _require_llm = False  # Don't need LLM
-```
-
-### LLM-Only Service
-
-```python
-class InsightService(BaseAIService[Backend, Model]):
-    _service_name = "insights"
-    _require_embeddings = False  # Don't need embeddings
-```
+`Errors.unavailable` takes `feature` and `reason`; both are required.
 
 ---
 
-## Error Types
+## Analytics vs AI
 
-| Error | Use Case |
-|-------|----------|
-| `Errors.system(...)` | Service not available |
-| `Errors.integration(...)` | External service failure |
-| `Errors.not_found(...)` | Entity not found |
-
-```python
-# Service unavailable
-return Result.fail(Errors.system(
-    message="Embeddings service not available",
-    operation="semantic_search",
-))
-
-# External failure
-return Result.fail(Errors.integration(
-    message=f"LLM generation failed: {e}",
-    service="llm",
-))
-```
+| Aspect | `BaseAnalyticsService` | `BaseAIService` |
+|--------|------------------------|-----------------|
+| Dependencies | `graph_intel`, `relationships` | `llm`, `embeddings` |
+| AI attributes | Refused by `__setattr__` | Optional on the base; required by each subclass constructor |
+| Facade slot | `.intelligence` | `.ai` — `None` at CORE tier |
+| Dependency guards | Class attribute, decorator, or inline check | Inline check inside each helper |
+| Logger prefix | `skuel.analytics.*` | `skuel.ai.*` |

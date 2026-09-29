@@ -1,10 +1,11 @@
 ---
 title: "ADR-059: Engagement-Aware Daily Plan in Askesis"
-updated: 2026-09-23
+updated: 2026-09-29
 status: current
 category: decisions
 tags: [adr, decisions, askesis, engagement, daily-plan]
 related: [ADR-043, ADR-048, ADR-055]
+related_skills: [user-context-intelligence]
 ---
 
 # ADR-059: Engagement-Aware Daily Plan in Askesis

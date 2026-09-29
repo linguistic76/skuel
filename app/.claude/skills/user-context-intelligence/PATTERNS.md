@@ -1,10 +1,17 @@
 # User Context Intelligence - Patterns
 
-Common usage patterns are documented inline in [SKILL.md](SKILL.md) under **Usage Examples** and **Anti-Patterns**.
+The patterns are documented where they apply:
 
-Factory-specific patterns live in [FACTORY_PATTERN.md](FACTORY_PATTERN.md) under **Runtime Usage** and **Anti-Patterns**.
+- [SKILL.md](SKILL.md) § Rich Context Is Required, § Anti-Patterns
+- [FACTORY_PATTERN.md](FACTORY_PATTERN.md) § Runtime Usage, § Anti-Patterns
+- [MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md) § Adding a Mixin, § Testing a Mixin
 
-This file is intentionally minimal — patterns for this service are straightforward:
-1. Get context, create intelligence, call method, check Result.
-2. Never cache intelligence instances (context goes stale).
-3. Never bypass the factory.
+The rules in one place:
+
+1. Read a **rich** context (`UserService.get_rich_unified_context`), check the `Result`, then
+   `factory.create(context)`.
+2. Take the factory from the container (`services.context_intelligence`) or by injection. Do not
+   construct `UserContextIntelligence` directly, and do not build a second factory.
+3. Create an instance per request. The context cache is the reuse mechanism.
+4. Check each method's `Result` and propagate a failure with `Result.fail(result)`.
+   `get_schedule_aware_recommendations` is the exception — it returns a list.
