@@ -175,7 +175,8 @@ The caller owns the two backend reads, because the pool differs by domain:
 | Activities | `backend.find_by(user_uid=source.user_uid)` — the owner's own entities, at most 100 (`find_by`'s default `limit`) |
 | Curriculum | `backend.list(limit=...)` — shared content; PathStep passes 200, LearningPath 100 |
 
-Entities past the cap are never ranked.
+Entities past the cap are never ranked. The curriculum pool is not publication-filtered: a
+draft can be returned as a similar item ([PATTERNS.md](PATTERNS.md) § Pattern 2).
 
 Do not hand-roll `f"{title} {description}"`: it drifts from the text the stored embeddings were
 built from.
@@ -229,7 +230,8 @@ AIRouteSpec(
 ```
 
 `scope` defaults to `ContentScope.USER_OWNED`; the PathStep and LearningPath specs set
-`ContentScope.SHARED`. A new spec is owner-gated unless it says otherwise.
+`ContentScope.SHARED`. A new spec is owner-gated unless it says otherwise. `SHARED` removes the
+ownership gate and adds nothing in its place — the route applies no publication check.
 
 ### The gates, in order
 

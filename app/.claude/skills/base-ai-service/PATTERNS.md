@@ -36,7 +36,8 @@ async def find_similar_tasks(
 ```
 
 - The candidate pool is drawn from the **source entity's owner's** entities. The method does not
-  take a `user_uid`; the route has already verified the caller owns `task_uid`.
+  take a `user_uid` and checks nothing about the caller: reached through its route, `_ai_route`
+  has verified the caller owns `task_uid`; a direct caller verifies ownership itself first.
 - `_rank_similar_entities` builds the embedding text. The method passes models, not strings.
 - **The pool is at most 100 entities.** `find_by(limit=100, **filters)` defaults its limit and
   the call passes none, so for an owner with more than 100 tasks the rest are never candidates.
@@ -76,8 +77,13 @@ async def find_similar_steps(
 - `backend.list()` returns `(items, count)`; `find_by()` returns the items. Unpack accordingly.
 - The pool is capped at 200, stated in the call. Steps past the cap are never candidates.
   `LpAIService.find_similar_paths` passes `limit=100`.
-- `backend.list()` is not publication-filtered. A feature that shows results to a learner
-  filters drafts before display.
+- **The live method applies no publication gate, and neither does its route.** The pool is
+  `backend.list()` as returned, so a draft path step can come back as a similar item from
+  `/api/path-steps/ai/similar`; `find_similar_paths` and `/api/learning-paths/ai/similar` are the
+  same. SKUEL's gate belongs to discovery — search and listings — and a similarity result is a
+  listing. A new method that lists curriculum to a learner drops every candidate whose
+  `publication_state` is `draft` before ranking. Opening one entity by its uid is a different
+  case: a by-uid read is deliberately ungated, so a draft is unlisted rather than forbidden.
 
 ## Pattern 3: An LLM Method
 

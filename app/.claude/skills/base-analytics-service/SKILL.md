@@ -308,8 +308,10 @@ wire per service, and no loader object.
 There are no domain-named variants (`get_goal_with_context`): `get_with_context` is the one
 path.
 
-The traversal follows edges out from the origin entity and is not owner-scoped. Ownership of
-the origin is verified by the route before the call.
+The traversal follows edges out from the origin entity and is not owner-scoped. The method
+checks nothing about the caller. On a `USER_OWNED` route the factory verifies ownership of the
+origin before calling it; a `SHARED` route verifies nothing, and neither does a caller that
+reaches the method directly.
 
 ## Cross-Domain Analysis: `_analyze_entity_with_typed_context()`
 
