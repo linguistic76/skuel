@@ -312,8 +312,8 @@ HTTP door onto an AI method goes through `_ai_route`.
 ## Prompts
 
 The eight domain AI services hold their prompts inline, as string literals in the method.
-`PROMPT_REGISTRY` (`core/prompts/`) is the registry Askesis and the report generators render
-from. A new prompt goes in the registry — see the
+`PROMPT_REGISTRY` (`core/prompts/`) is the registry other LLM callers render from — Askesis
+and the report generators among them. A new prompt goes in the registry — see the
 [prompt-templates](../prompt-templates/SKILL.md) skill.
 
 Bound what reaches the model: truncate long fields, cap list lengths, and pass `max_tokens`.

@@ -6,7 +6,7 @@ boundary.
 | Protocol | Location | Satisfied by |
 |----------|----------|--------------|
 | `KnowledgeIntelligenceOperations` | `core/ports/intelligence_protocols.py` | `ActivityKnowledgeIntelligenceService` — one shared instance |
-| `IntelligenceOperations[T]` | `adapters/inbound/route_factories/intelligence_route_factory.py` | The nine per-domain services, structurally |
+| `IntelligenceOperations[T]` | `adapters/inbound/route_factories/intelligence_route_factory.py` | The nine per-domain services — none names it as a base |
 
 The per-domain services share no `core/ports` protocol. Their common contract is the route
 factory's.

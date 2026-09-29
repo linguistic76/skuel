@@ -155,7 +155,8 @@ items are selected.
 
 ## Return Types
 
-All are `@dataclass(frozen=True)`; build a changed copy with `dataclasses.replace`.
+All are `@dataclass(frozen=True)`; build a changed copy with `dataclasses.replace`. Sequence
+fields are tuples; `PathStep.application_opportunities` is the one mapping field.
 
 ### DailyWorkPlan
 

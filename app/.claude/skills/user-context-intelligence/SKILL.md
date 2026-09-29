@@ -68,12 +68,15 @@ by `ku_uid`. It shares its name with the curriculum entity
 
 | Method | Production caller |
 |--------|-------------------|
-| 5 | `GET /api/context/next-action` → `UserContextService.get_next_action` → `UserService.get_daily_work_plan` → `factory.create(context).get_ready_to_work_on_today()` |
-| 1–4, 6–8 | `AskesisService` wraps each one (the `AskesisOperations` protocol, `core/ports/askesis_protocols.py`). No route calls those wrappers — the Askesis API registers one route, `/api/askesis/ask`. |
-| 9 | None. Registered in `PLANNED_METHODS` (`scripts/detect_bloat.py`) as built and waiting on a perception-insights panel. |
+| 5 | `/api/context/next-action` → `UserContextService.get_next_action` → `UserService.get_daily_work_plan` → `factory.create(context).get_ready_to_work_on_today()` |
+| 1–8 | `AskesisService` wraps each one — the `AskesisOperations` protocol (`core/ports/askesis_protocols.py`). Method 5's wrapper is `get_daily_work_plan`; the other seven carry the hub method's own name. No route calls any of the eight wrappers — the Askesis API registers one route, `/api/askesis/ask`. |
+| 9 | None, and no Askesis wrapper. Registered in `PLANNED_METHODS` (`scripts/detect_bloat.py`) as built and waiting on a perception-insights panel. |
 
-So the daily plan is the one method a request reaches today. Treat the others as a tested
-library surface: read the method before building on a claim about what it returns.
+So method 5 has two call paths into the hub — `UserService.get_daily_work_plan` and
+`AskesisService.get_daily_work_plan` — and the first is the one a request reaches today. A
+change to a hub method's signature updates its Askesis wrapper and the protocol with it. Treat
+methods 1–4 and 6–9 as a library surface: read the method before building on a claim about what
+it returns.
 
 ---
 
@@ -295,7 +298,10 @@ produce each item's `priority_score`.
 ## Return Types
 
 All five are `@dataclass(frozen=True)` in `core/models/context_types.py`, re-exported from
-`core.services.user.intelligence`. Collections are tuples.
+`core.services.user.intelligence`. Their sequence fields are tuples. One field is a mapping:
+`PathStep.application_opportunities` is a `dict[str, tuple[str, ...]]`, so a `PathStep` is
+frozen but not deeply immutable, and not hashable — do not put one in a set or use it as a
+dict key.
 
 | Type | Key fields |
 |------|------------|
@@ -316,11 +322,12 @@ same mastery split that drives readiness; it is `None` when the entity requires 
 
 ## Analytics Tier, Not AI
 
-Every mixin is graph reads plus Python. None calls an LLM. The two FULL-tier inputs are
-optional and each has a fallback:
+No mixin calls an LLM. At CORE tier every method is graph reads plus Python. At FULL tier two
+optional inputs join, and each has a fallback:
 
 - `zpd_service` — ranking for method 1; `context.zpd_assessment` for slot 5.
-- `vector_search` — the semantic step in methods 1 and 5 (embeddings).
+- `vector_search` — the semantic step in methods 1 and 5, which embeds the query text through
+  the embeddings service.
 
 LLM features live in the per-domain `*AIService` classes (`BaseAIService`), set on each facade's
 `.ai` slot at FULL tier. See [base-ai-service](../base-ai-service/SKILL.md).

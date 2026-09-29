@@ -8,9 +8,14 @@ allowed-tools: Read, Grep, Glob
 
 > "Graph analytics without AI dependencies"
 
-`BaseAnalyticsService[B, T]` (`core/services/base_analytics_service.py`) is the base of every
-`*IntelligenceService` in SKUEL. "Intelligence" names what the user gets; the implementation is
-graph reads plus Python, with no LLM and no embeddings.
+`BaseAnalyticsService[B, T]` (`core/services/base_analytics_service.py`) is the base of the
+eleven analytics services listed below — the nine per-domain `*IntelligenceService` classes and
+two shared ones. "Intelligence" names what the user gets; the implementation is graph reads plus
+Python, with no LLM and no embeddings.
+
+A class named `*IntelligenceService` is not necessarily a subclass: `GraphIntelligenceService`
+and `LifePathIntelligenceService` are plain classes with their own constructors. Check the
+bases before applying this skill's conventions to a service.
 
 ## Two Base Classes (ADR-024)
 
@@ -73,7 +78,8 @@ nodes by `entity_type`, not by domain label** — an API-created path step is
 ### Not subclasses
 
 `UserContextIntelligence` (mixin composition — see
-[user-context-intelligence](../user-context-intelligence/SKILL.md)), `ZPDService`,
+[user-context-intelligence](../user-context-intelligence/SKILL.md)), `GraphIntelligenceService`
+(the graph-query infrastructure the subclasses receive as `graph_intel`), `ZPDService`,
 `CrossDomainAnalyticsService`, `LifePathIntelligenceService` and the Askesis facade do not
 extend this base.
 
@@ -93,7 +99,7 @@ class BaseAnalyticsService(Generic[B, T]):
 
 | Attribute | Purpose | In use |
 |-----------|---------|--------|
-| `_service_name` | Logger name: `skuel.analytics.{_service_name}`; falls back to the class name | Every service. The live values end in `.intelligence` — `"tasks.intelligence"`, `"ku.intelligence"`. |
+| `_service_name` | Logger name: `skuel.analytics.{_service_name}`; falls back to the class name | All eleven. The nine per-domain values are `"{domain}.intelligence"` (`"tasks.intelligence"`, `"ku.intelligence"`); the shared two are `"knowledge.activity_intelligence"` and `"knowledge_health"`. |
 | `_require_relationships` | `True` makes `__init__` raise `ValueError` without a relationship service | Goals, Habits, Choices |
 | `_require_graph_intel` | `True` makes `__init__` raise `ValueError` without `graph_intel` | No service sets it |
 | `_event_handlers` | `{EventClass: "handler_method_name"}`, subscribed on `__init__` when an `event_bus` is passed | No service declares any |
@@ -242,10 +248,11 @@ job.
 
 ## The Three Route-Facing Methods
 
-Every one of the nine per-domain services has these. The contract is the
-`IntelligenceOperations` protocol in
-`adapters/inbound/route_factories/intelligence_route_factory.py`; the services satisfy it
-structurally. There is no per-domain core protocol.
+Each of the nine per-domain services has these; the two shared services do not. The contract
+is the `IntelligenceOperations` protocol in
+`adapters/inbound/route_factories/intelligence_route_factory.py`. No service names it as a
+base, and the factory calls the three methods positionally. `core/ports` declares no protocol
+for the per-domain services.
 
 | Method | Provided by |
 |--------|-------------|
