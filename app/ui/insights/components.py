@@ -225,7 +225,7 @@ def render_insight_card_with_checkbox(insight: Any) -> Any:
     )
 
 
-def render_charts_section(insight_count: int) -> Any | None:
+def render_charts_section(insight_count: int) -> Div | None:
     """Render the visual analytics charts section. Returns None if insufficient data."""
     if insight_count < 3:
         return None
@@ -243,7 +243,7 @@ def render_charts_section(insight_count: int) -> Any | None:
     )
 
 
-def _chart_card(data_url: str, chart_type: str) -> Any:
+def _chart_card(data_url: str, chart_type: str) -> Div:
     """Chart card — canvas + loading/error states for the chartVis component."""
     return Div(
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),

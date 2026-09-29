@@ -1,432 +1,207 @@
 # Chart.js + FastHTML Integration Patterns
 
-This guide shows how to integrate Chart.js with FastHTML in SKUEL.
+How the live chart pages are put together. Every pattern here names the file it
+comes from. There is no shared chart component module: each page owns its card.
 
 ## Core Principle
 
-> All charting uses `create_chart_view()` and the `chartVis()` Alpine component.
+> Python renders the card, `chartVis` fetches and draws, and a JSON route returns the whole
+> Chart.js config as a `Result[ChartJsConfig]`.
 
-Python generates the HTML structure, Alpine handles loading/rendering, and the VisualizationService API returns Chart.js configurations.
+## Pattern 1: The Card
 
-## Basic Integration
-
-### Pattern 1: Using Built-in Components
-
-The simplest approach - use existing components from `visualization_components.py`:
+From `ui/insights/components.py`:
 
 ```python
-from ui.goals.visualization import create_chart_view
+from fasthtml.common import Canvas, Div, Span
 
-def analytics_page():
+
+def _chart_card(data_url: str, chart_type: str) -> Div:
+    """Chart card — canvas + loading/error states for the chartVis component."""
     return Div(
-        H2("Analytics Dashboard"),
-        create_chart_view(
-            data_url="/api/visualizations/completion",
-            chart_type="line",
-            title="Task Completion Rate",
+        Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
+        Div(
+            "Loading chart...",
+            cls="text-center text-muted-foreground py-8",
+            **{"x-show": "loading"},
         ),
+        Div(
+            Span("Error: ", cls="font-bold"),
+            Span(**{"x-text": "error"}),
+            cls="text-error text-center py-8",
+            **{"x-show": "error"},
+        ),
+        **{
+            "x-data": f"chartVis('{data_url}', '{chart_type}')",
+            "class": "bg-background p-4 rounded-lg shadow-sm",
+        },
     )
 ```
 
-**What `create_chart_view()` generates:**
+What each part does:
 
-```html
-<div class="chart-container">
-    <script src="/static/vendor/chart.js/chart.umd.js"></script>
-    <h3 class="text-lg font-semibold mb-2">Task Completion Rate</h3>
-    <div class="relative h-64" x-data="chartVis('/api/visualizations/completion', 'line')">
-        <!-- Loading state -->
-        <div x-show="loading" class="flex flex-col items-center justify-center h-full">
-            <span class="loading loading-spinner"></span>
-            <p class="text-sm text-base-content/70 mt-2">Loading chart...</p>
-        </div>
-        <!-- Error state -->
-        <div x-show="error" class="flex items-center justify-center h-full">
-            <p class="text-error text-sm">Failed to load chart: <span x-text="error"></span></p>
-        </div>
-        <!-- Canvas -->
-        <canvas x-ref="canvas" class="w-full h-64" x-show="!loading && !error"></canvas>
-    </div>
-</div>
-```
+- `x-data="chartVis(url, type)"`: the component fetches `url` at init. The payload's
+  `"type"` picks the chart; the second argument is never read.
+- `Canvas(x-ref="canvas")`: the component draws into `this.$refs.canvas` and fails
+  with `Canvas element not found` without it.
+- The `x-show="loading"` and `x-show="error"` siblings: the component's two other
+  states. `error` holds the server's client-safe message.
+- `"class"` goes in the attribute dict because the `x-data` key already forces the dict form.
 
-### Pattern 2: Multiple Charts (Scripts Once)
+`ui/lifepath/alignment.py::_alignment_radar()` is the same shape with a fixed URL, a
+360×360 canvas and `cls="mb-6"` instead of the card styling.
 
-When rendering multiple charts, include scripts only once:
+## Pattern 2: A Chart Section Gated on Data
+
+From `ui/insights/components.py`. The page decides whether there is enough data to
+chart, so the cards never render just to show an error:
 
 ```python
-from ui.goals.visualization import create_chart_view
+def render_charts_section(insight_count: int) -> Div | None:
+    """Render the visual analytics charts section. Returns None if insufficient data."""
+    if insight_count < 3:
+        return None
 
-def multi_chart_page():
     return Div(
-        H2("Multi-Chart Dashboard"),
-
-        # First chart - includes scripts
-        create_chart_view(
-            data_url="/api/visualizations/completion",
-            chart_type="line",
-            title="Completion Rate",
-            include_scripts=True,  # Default
+        H3("Visual Analytics", cls="text-xl font-bold mb-4"),
+        Div(
+            _chart_card("/api/insights/charts/impact-distribution", "doughnut"),
+            _chart_card("/api/insights/charts/domain-distribution", "bar"),
+            _chart_card("/api/insights/charts/type-distribution", "doughnut"),
+            _chart_card("/api/insights/charts/action-rate", "doughnut"),
+            cls="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6",
         ),
-
-        # Subsequent charts - scripts already loaded
-        create_chart_view(
-            data_url="/api/visualizations/priority-distribution",
-            chart_type="doughnut",
-            title="Priority Distribution",
-            include_scripts=False,  # Don't duplicate scripts
-        ),
-
-        create_chart_view(
-            data_url="/api/visualizations/streaks",
-            chart_type="bar",
-            title="Habit Streaks",
-            include_scripts=False,
-        ),
+        cls="mb-8",
     )
 ```
 
-### Pattern 3: Chart Grid Layout
-
-Using Tailwind grid for responsive chart layouts:
-
-```python
-from ui.goals.visualization import create_chart_view
-
-def chart_grid():
-    return Div(
-        Div(
-            create_chart_view(
-                "/api/visualizations/completion",
-                "line",
-                "Completion",
-                include_scripts=True,
-            ),
-            cls="card bg-base-100 shadow-sm p-4",
-        ),
-        Div(
-            create_chart_view(
-                "/api/visualizations/priority-distribution",
-                "doughnut",
-                "Priorities",
-                include_scripts=False,
-            ),
-            cls="card bg-base-100 shadow-sm p-4",
-        ),
-        Div(
-            create_chart_view(
-                "/api/visualizations/streaks",
-                "bar",
-                "Streaks",
-                include_scripts=False,
-            ),
-            cls="card bg-base-100 shadow-sm p-4 md:col-span-2",  # Wide on desktop
-        ),
-        cls="grid grid-cols-1 md:grid-cols-2 gap-4",
-    )
-```
-
-## Component Customization
-
-### Custom Height and Width
+The grid is one column on a phone and two from `md:` up. The route
+(`adapters/inbound/insights_ui.py`) places the section in its content and loads
+Chart.js on the page:
 
 ```python
-create_chart_view(
-    data_url="/api/visualizations/completion",
-    chart_type="line",
-    title="Tall Chart",
-    height="h-96",   # Tailwind height class
-    width="w-full",  # Tailwind width class
+charts_section = render_charts_section(len(insights))
+content = Div(
+    # ... header, filters ...
+    charts_section if charts_section else Div(),
+    # ... insight cards ...
+)
+return BasePage(
+    content,
+    title="Insights | SKUEL",
+    page_type=PageType.STANDARD,
+    request=request,
+    active_page="insights",
+    extra_scripts=["/static/vendor/chart.js/chart.umd.js"],
 )
 ```
 
-### Without Title
+## Pattern 3: A Chart Inside a Shell-First Fragment
+
+From `adapters/inbound/lifepath_ui.py`. The page route returns a shell with a lazy
+placeholder, and the chart arrives in the HTMX fragment that replaces it:
 
 ```python
-create_chart_view(
-    data_url="/api/visualizations/completion",
-    chart_type="line",
-    title=None,  # No title rendered
-)
-```
-
-## Manual Chart Construction
-
-When you need more control, build the structure manually:
-
-```python
-from fasthtml.common import Div, Canvas, H3, P, Span, Script
-
-def custom_chart(data_url: str, chart_type: str = "line") -> Div:
-    """Custom chart with manual structure."""
-    return Div(
-        # Scripts
-        Script(src="/static/vendor/chart.js/chart.umd.js"),
-
-        # Title
-        H3("Custom Chart Title", cls="text-lg font-semibold mb-2"),
-
-        # Chart container with Alpine binding
-        Div(
-            # Loading state
-            Div(
-                Loading(size=Size.md),
-                P("Loading...", cls="text-sm mt-2"),
-                cls="flex flex-col items-center justify-center h-full",
-                **{"x-show": "loading"},
-            ),
-
-            # Error state
-            Div(
-                P("Error: ", Span(**{"x-text": "error"}), cls="text-error"),
-                cls="flex items-center justify-center h-full",
-                **{"x-show": "error"},
-            ),
-
-            # Canvas
-            Canvas(
-                cls="w-full h-64",
-                **{"x-ref": "canvas", "x-show": "!loading && !error"},
-            ),
-
-            cls="relative h-64",
-            **{"x-data": f"chartVis('{data_url}', '{chart_type}')"},
-        ),
+@rt("/lifepath/alignment")
+def alignment_dashboard(request: Request) -> FT:
+    """Alignment dashboard — shell only, content loads via HTMX."""
+    require_authenticated_user(request)
+    if not lifepath_service:
+        return _service_unavailable_page()
+    content = content_loading_placeholder(
+        "/lifepath/alignment/content", "lifepath-alignment-content"
+    )
+    return lifepath_sidebar_page(
+        "alignment",
+        content,
+        request,
+        extra_scripts=["/static/vendor/chart.js/chart.umd.js"],
     )
 ```
 
-## Dynamic Charts with HTMX
+Two rules follow from this shape:
 
-### Refresh Chart on Filter Change
+1. **Chart.js loads on the shell.** The fragment
+   (`/lifepath/alignment/content` → `render_alignment_dashboard` → `_alignment_radar()`)
+   is swapped in with no `<head>`, so it cannot bring a script tag that the shell
+   didn't. `lifepath_sidebar_page` forwards `extra_scripts` to `SidebarPage`.
+2. **The swap needs no init code.** Alpine initializes the `chartVis` tree in the
+   swapped-in fragment, and calls `destroy()` if a later swap removes it. This was
+   measured against the vendored Alpine 3.14.8 and htmx 1.9.10.
 
-```python
-def filterable_chart():
-    from ui.components import Select  # styled Tailwind <select> (DaisyUI classes are gone)
+## Pattern 4: The Chart-Data Route
 
-    return Div(
-        # Filter controls
-        Div(
-            Select(
-                Option("Week", value="week"),
-                Option("Month", value="month"),
-                Option("Quarter", value="quarter"),
-                name="period",
-                hx_get="/partials/completion-chart",
-                hx_trigger="change",
-                hx_target="#chart-container",
-            ),
-            cls="mb-4",
-        ),
-
-        # Chart container (replaced by HTMX)
-        Div(
-            create_chart_view(
-                "/api/visualizations/completion?period=week",
-                "line",
-                "Completion Rate",
-            ),
-            id="chart-container",
-        ),
-    )
-
-
-# Partial route for HTMX
-@rt("/partials/completion-chart")
-async def completion_chart_partial(request):
-    period = request.query_params.get("period", "week")
-    return create_chart_view(
-        f"/api/visualizations/completion?period={period}",
-        "line",
-        "Completion Rate",
-        include_scripts=False,  # Already loaded
-    )
-```
-
-### Chart in Modal
+From `adapters/inbound/insights_api.py`:
 
 ```python
-def chart_modal_trigger():
-    return Div(
-        Button(
-            "View Analytics",
-            variant=ButtonT.primary,
-            hx_get="/partials/analytics-modal",
-            hx_target="#modal-content",
-            **{"@click": "open = true"},
-        ),
-
-        # Modal (using Alpine for open/close)
-        Div(
-            Div(
-                H2("Analytics", cls="text-xl font-bold mb-4"),
-                Div(id="modal-content"),
-                Button("Close", cls="btn mt-4", **{"@click": "open = false"}),
-                cls="bg-white rounded-lg p-6 max-w-2xl w-full",
-                **{"@click.stop": ""},
-            ),
-            cls="fixed inset-0 bg-black/50 flex items-center justify-center",
-            **{"x-show": "open", "x-transition": "", "@click": "open = false"},
-        ),
-
-        **{"x-data": "{ open: false }"},
-    )
-```
-
-## User-Specific Charts
-
-### Passing User UID
-
-```python
-from adapters.inbound.auth import require_authenticated_user
-
-@rt("/dashboard")
-async def dashboard(request):
+@rt("/api/insights/charts/impact-distribution")
+@boundary_handler(success_status=200)
+async def impact_distribution_chart(request: Request) -> Result[ChartJsConfig]:
+    """Chart.js doughnut chart config for impact distribution."""
     user_uid = require_authenticated_user(request)
+    return await insight_store.get_impact_distribution_chart(user_uid)
+```
 
+- The return type is `Result[ChartJsConfig]`: never `Any`, never a bare `dict`.
+- `boundary_handler` turns `Result.ok(config)` into a JSON body that is the config
+  itself, which is what `new Chart(ctx, config)` needs. `Result.fail(...)` becomes the
+  client-safe error payload with its HTTP status. `chartVis` rejects on non-2xx and
+  shows the payload's `message`.
+- The user comes from `require_authenticated_user`. A chart URL never carries
+  `user_uid`; `adapters/inbound/visualization_api.py` notes the IDOR it closed by
+  dropping that parameter.
+- `request: Request` is imported from `adapters.inbound.fasthtml_types` (SKUEL035).
+
+## Pattern 5: Re-pointing a Chart (`refresh`)
+
+`chartVis` exposes `refresh(newUrl)`, which re-runs `loadChart` against a new URL
+(or the original one when called with no argument). **No live page calls it yet.**
+A control inside the card's `x-data` scope can drive it:
+
+```python
+from fasthtml.common import Canvas, Div, Option
+
+from ui.components import Select  # the Tailwind-styled native <select>
+
+
+def completion_chart_card() -> Div:
+    base = "/api/visualizations/completion?period="
     return Div(
-        H1("Your Dashboard"),
-        create_chart_view(
-            f"/api/visualizations/completion?user_uid={user_uid}",
-            "line",
-            "Your Completion Rate",
+        Select(
+            Option("Week", value="week"),
+            Option("Month", value="month"),
+            Option("Quarter", value="quarter"),
+            aria_label="Completion period",
+            full_width=False,
+            **{"x-on:change": f"refresh('{base}' + $event.target.value)"},
         ),
-        create_chart_view(
-            f"/api/visualizations/streaks?user_uid={user_uid}",
-            "bar",
-            "Your Habit Streaks",
-            include_scripts=False,
-        ),
+        Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
+        # ... loading / error slots as in Pattern 1 ...
+        **{"x-data": f"chartVis('{base}week', 'line')"},
     )
 ```
 
-### Using Built-in User Components
+`period` accepts `week`, `month` or `quarter`; anything else is a 400
+(`Errors.validation`), which lands in the card's error slot. (This was measured with
+the real `skuel.js` and Alpine in jsdom: the change handler fetched the new URL, and a
+400 body's `message` filled the error slot. A failed refresh leaves the previous
+chart drawn beside the error, because only a successful load destroys it.) The other approach is to
+re-render the whole card through an HTMX swap with a new URL. Alpine destroys the old
+instance and initializes the new one.
 
-```python
-from ui.goals.visualization import (
-    create_completion_chart,
-    create_streak_chart,
-)
+## What Not to Build
 
-@rt("/habits/analytics")
-async def habits_analytics(request):
-    user_uid = require_authenticated_user(request)
-
-    return Div(
-        H1("Habit Analytics"),
-        create_streak_chart(user_uid, "Your Streaks"),
-        create_completion_chart(user_uid, "week", "Weekly Progress"),
-    )
-```
-
-## Dashboard Pattern
-
-Full dashboard with multiple visualization types:
-
-```python
-from ui.goals.visualization import create_visualization_dashboard
-
-@rt("/analytics")
-async def full_analytics(request):
-    user_uid = require_authenticated_user(request)
-
-    return Div(
-        H1("Analytics Dashboard", cls="text-2xl font-bold mb-6"),
-
-        # Pre-built dashboard component
-        create_visualization_dashboard(
-            user_uid=user_uid,
-            include_charts=True,
-            include_timeline=True,
-            include_gantt=False,
-        ),
-    )
-```
-
-## Error Handling
-
-The `chartVis()` component handles errors automatically:
-
-```python
-# Error appears when API fails
-create_chart_view(
-    "/api/visualizations/invalid",  # Returns 404/500
-    "line",
-)
-# Alpine shows: "Failed to load chart: Failed to load chart data: 404"
-```
-
-### Custom Error Handling
-
-```python
-def chart_with_fallback(data_url: str):
-    return Div(
-        Div(
-            # Normal chart content
-            Canvas(**{"x-ref": "canvas", "x-show": "!loading && !error"}),
-
-            # Custom error with retry button
-            Div(
-                P("Chart failed to load", cls="text-error mb-2"),
-                Button(
-                    "Retry",
-                    variant=ButtonT.neutral, size=Size.sm,
-                    **{"@click": f"refresh()"},
-                ),
-                cls="flex flex-col items-center justify-center h-full",
-                **{"x-show": "error"},
-            ),
-
-            **{"x-data": f"chartVis('{data_url}', 'line')"},
-        ),
-    )
-```
-
-## Performance Tips
-
-### 1. Lazy Load Charts
-
-Only load charts when visible:
-
-```python
-def lazy_chart():
-    return Div(
-        id="chart-section",
-        hx_get="/partials/chart",
-        hx_trigger="revealed",  # Load when scrolled into view
-        hx_swap="innerHTML",
-    )
-```
-
-### 2. Cache Chart Data
-
-Use appropriate cache headers in API routes:
-
-```python
-@rt("/api/visualizations/completion")
-async def get_completion(request):
-    # ... generate data ...
-    response = JSONResponse(chart_config)
-    response.headers["Cache-Control"] = "private, max-age=60"  # 1 minute
-    return response
-```
-
-### 3. Destroy Charts on Removal
-
-If dynamically removing charts, destroy them first:
-
-```python
-Div(
-    Canvas(**{"x-ref": "canvas"}),
-    **{
-        "x-data": "chartVis('/api/...')",
-        "x-on:htmx:before-swap": "destroy()",  # Clean up before HTMX replaces
-    },
-)
-```
+- **A second chart wrapper that loads its own `Script(src=chart.umd.js)`.** Load the
+  library once, on the shell, with `extra_scripts`.
+- **`x-on:htmx:before-swap="destroy()"`.** It's redundant, because Alpine calls
+  `destroy()` when the element is removed.
+- **Cache headers on chart routes.** No live chart route sets one, and a chart reads
+  user-owned data. Measure first if a chart ever needs caching.
 
 ## Related Files
 
-- [SKILL.md](SKILL.md) - Main Chart.js guide
-- [chart-types-reference.md](chart-types-reference.md) - Chart type catalog
-- [activity-domain-charts.md](activity-domain-charts.md) - Domain-specific patterns
-- `/ui/insights/components.py` - `_chart_card()`, the live FastHTML wrapper for the `chartVis` component (each page inlines its own; there is no shared wrapper module)
+- [SKILL.md](SKILL.md): the live surface, wire contract and add-a-chart recipe
+- [chart-types-reference.md](chart-types-reference.md): the configs SKUEL emits, per type
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md): snippets and pitfalls
+- `/ui/insights/components.py`: `_chart_card()` and `render_charts_section()`
+- `/ui/lifepath/alignment.py`: `_alignment_radar()`

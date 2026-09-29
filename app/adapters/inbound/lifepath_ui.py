@@ -15,7 +15,7 @@ UI Routes:
 
 from typing import Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -44,7 +44,7 @@ logger = get_logger("skuel.routes.lifepath.ui")
 # ============================================================================
 
 
-def _service_unavailable_page() -> Any:
+def _service_unavailable_page() -> Div:
     """Return page when LifePath service is not available."""
     return Div(
         render_error_banner(
@@ -168,7 +168,7 @@ def create_lifepath_ui_routes(
         return RedirectResponse(url="/lifepath/alignment", status_code=303)
 
     @rt("/lifepath/alignment")
-    def alignment_dashboard(request: Request) -> Any:
+    def alignment_dashboard(request: Request) -> FT:
         """Alignment dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         if not lifepath_service:

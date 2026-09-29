@@ -1,389 +1,292 @@
 ---
 name: chartjs
-description: Expert guide for Chart.js data visualization in SKUEL. Use when building analytics dashboards, activity domain charts (Tasks, Goals, Habits progress), completion rates, distribution charts, or when the user mentions Chart.js, graphs, charts, visualization, metrics, or analytics.
+description: Expert guide for Chart.js data visualization in SKUEL. Use when adding or changing a chart — the /insights analytics cards, the life-path alignment radar, the /api/visualizations endpoints — or when the user mentions Chart.js, charts, graphs, visualization, chartVis, ChartJsConfig, or analytics charts.
 allowed-tools: Read, Grep, Glob
 ---
 
 # Chart.js: Data Visualization for SKUEL
 
-> ⚠ **STALE CODE EXAMPLES (flagged 2026-08-04, not yet rewritten).** Every snippet
-> in this skill that imports `ui.goals.visualization` — `create_chart_view`,
-> `create_visualization_dashboard`, and the `include_charts` / `include_timeline` /
-> `include_gantt` kwargs — refers to a module deleted in `ed8cbeadf` (2026-03-30).
-> None of those symbols exists anywhere in the tree. **Do not copy those snippets.**
-> The live patterns are `_chart_card` (`ui/insights/components.py:247-265`) and the
-> radar at `ui/lifepath/alignment.py:94-116`. The "Loading Chart.js" note below and
-> the component table near the end ARE accurate.
+A SKUEL chart is three pieces: a service that builds a Chart.js config as a typed
+`ChartJsConfig` literal, a JSON route that serves it, and a card whose `chartVis`
+Alpine component fetches it and calls `new Chart(canvas, config)`. The server
+decides everything the chart shows. The browser adds no chart logic of its own.
 
-## Core Philosophy
+## The Live Surface
 
-> "Data becomes insight through visualization. Charts tell the story that numbers cannot."
+Every Chart.js chart SKUEL draws today:
 
-In SKUEL, Chart.js visualizes the 6 activity domains (Tasks, Goals, Habits, Events, Choices, Principles) through a clean five-layer architecture:
+| Page | Card | Endpoint | Config built by |
+|------|------|----------|-----------------|
+| `/insights` (charts section) | `_chart_card(url, type)` — `ui/insights/components.py` | `/api/insights/charts/{impact-distribution,domain-distribution,type-distribution,action-rate}` — `adapters/inbound/insights_api.py` | `InsightStore.get_*_chart` — hand-built `ChartJsConfig` literals |
+| `/lifepath/alignment` | `_alignment_radar()` — `ui/lifepath/alignment.py` | `/api/lifepath/alignment/chart` — `adapters/inbound/lifepath_ui.py` | inline in the route (a `JSONResponse`, typed `-> Any`) |
+| none | — | `/api/visualizations/{completion,priority-distribution,streaks,status-distribution}` — `adapters/inbound/visualization_api.py` | `VisualizationAggregationService` → `VisualizationService` formatters |
 
-| Layer | Responsibility | Component |
-|-------|----------------|-----------|
-| **Data** | Fetch domain metrics | Domain services (TasksService, etc.) |
-| **Aggregate** | Query + compute per-period counts | `VisualizationAggregationService` |
-| **Format** | Transform aggregates to Chart.js JSON | `VisualizationService` (pure, no domain deps) |
-| **Render** | Alpine component loads chart | `chartVis()` in skuel.js |
-| **Container** | FastHTML generates HTML | a page-local card helper, e.g. `_chart_card()` in `ui/insights/components.py` |
+- The insights section renders only when the page's insight list holds at least 3
+  insights (`render_charts_section`).
+- The `/api/visualizations/*` Chart.js endpoints have **no UI consumer**; the
+  module docstring says so. They are working, tested endpoints that no page uses yet.
+- The admin dashboard draws **no** Chart.js. Its role distribution is a column of
+  `Progress` bars (`AdminAnalyticsComponents.render_user_distribution`, `ui/admin/views.py`).
+- Frappe Gantt (`/api/visualizations/gantt/*`) is a STAGED surface with no UI —
+  see `docs/roadmap/gantt-visualization-surface.md`. This skill has no Gantt patterns.
 
-**The Rule:** All chart rendering goes through Alpine.js components. No inline JavaScript.
+## How a Chart Renders
 
-**Loading Chart.js:** `BasePage` builds its own `<head>` (`build_head`), so fast_app-level
-`chartjs_headers()` never reach real pages. Chart pages must pass
-`extra_scripts=["/static/vendor/chart.js/chart.umd.js"]` to `BasePage` / `SidebarPage`
-(live examples: `/insights`, `/lifepath/alignment`). Without it, `chartVis` fails with
-"Chart is not defined" — silently, into its error state.
+```
+page route ── BasePage/SidebarPage(extra_scripts=[chart.umd.js])
+   └─ card: Div(x-data="chartVis(url, type)") ⊃ Canvas(x-ref="canvas") + loading + error
+         └─ chartVis.init → SKUEL.getJson(url) → destroy old chart → new Chart(ctx, config)
+                                   │
+route ── @boundary_handler → Result[ChartJsConfig] → JSON body (the config itself, unwrapped)
+```
 
-## Quick Start
+**`chartVis(dataUrl, chartType)`** is registered in `static/js/skuel.js` (inside the
+`alpine:init` listener). State: `chart`, `loading`, `error`. Methods: `loadChart(url,
+type)`, `refresh(newUrl)`, `destroy()`.
 
-### Example 1: Task Completion Rate (Line Chart)
+- **The payload's `"type"` decides the chart.** `loadChart(url, type)` never reads
+  `type`, so the second argument only documents intent. The live cards pass it anyway.
+- **Errors surface in the card.** `SKUEL.getJson` rejects on any non-2xx status. The
+  message comes from the error payload's `message` (the boundary's client-safe
+  `user_message`), or `Request failed (<status>)`. A page that forgot to load
+  Chart.js shows `Chart is not defined` in the same slot. No error is thrown to the page.
+- **HTMX swaps need no wiring.** Alpine initializes a `chartVis` card that arrives in
+  a swapped fragment. When the card's element leaves the DOM, Alpine calls the
+  component's `destroy()`, which tears down the Chart.js instance. This was measured
+  against the vendored Alpine 3.14.8 and htmx 1.9.10 in jsdom. The alignment radar
+  relies on it: `/lifepath/alignment` is a shell, and the radar arrives in the
+  HTMX-loaded `/lifepath/alignment/content` fragment.
+
+### Loading Chart.js
+
+The shell page must load the library itself:
 
 ```python
-from ui.goals.visualization import create_chart_view
-
-def task_analytics_page():
-    return Div(
-        H2("Task Analytics"),
-        create_chart_view(
-            data_url="/api/visualizations/completion?period=week",
-            chart_type="line",
-            title="Weekly Completion Rate",
-        ),
-    )
-```
-
-### Example 2: Priority Distribution (Doughnut)
-
-```python
-from ui.goals.visualization import create_chart_view
-
-def priority_breakdown():
-    return create_chart_view(
-        data_url="/api/visualizations/priority-distribution",
-        chart_type="doughnut",
-        title="Task Priority Distribution",
-    )
-```
-
-### Example 3: Habit Streaks (Horizontal Bar)
-
-```python
-from ui.goals.visualization import create_chart_view
-
-def habit_dashboard():
-    return create_chart_view(
-        data_url="/api/visualizations/streaks",
-        chart_type="bar",
-        title="Habit Streaks",
-    )
-```
-
-## SKUEL Architecture
-
-### Key Files
-
-| File | Purpose |
-|------|---------|
-| `/static/js/skuel.js` | `chartVis()` Alpine component (lines 514-571) |
-| `/core/services/analytics/visualization_aggregation_service.py` | Data fetching + aggregation (owns domain service deps); delegates formatting |
-| `/core/services/visualization_service.py` | Pure Chart.js/Vis.js/Gantt formatter (no domain deps; import directly from `core`) |
-| `/ui/insights/components.py` | `_chart_card()` — the FastHTML canvas + loading/error wrapper for `chartVis` (no shared module; `/ui/lifepath/alignment.py` inlines its own radar twin, `_alignment_radar()`) |
-| `/adapters/inbound/visualization_routes.py` | API endpoints returning Chart.js configs |
-| `/static/vendor/chart.js/` | Chart.js library (local vendor) |
-
-### The chartVis() Alpine Component
-
-Defined in `skuel.js`, this component:
-1. Fetches chart config from API
-2. Creates Chart.js instance
-3. Handles loading/error states
-4. Supports refresh and destroy
-
-```javascript
-Alpine.data('chartVis', function(dataUrl, chartType) {
-    return {
-        chart: null,
-        loading: true,
-        error: null,
-
-        init: function() {
-            this.loadChart(dataUrl, chartType || 'line');
-        },
-
-        loadChart: function(url, type) { /* ... */ },
-        refresh: function(newUrl) { /* ... */ },
-        destroy: function() { /* ... */ }
-    };
-});
-```
-
-**Usage in HTML:**
-```html
-<div x-data="chartVis('/api/visualizations/completion', 'line')">
-    <canvas x-ref="canvas"></canvas>
-</div>
-```
-
-### Service Methods
-
-**VisualizationAggregationService** — route-facing, owns domain service deps:
-
-| Method | Returns | Data Source |
-|--------|---------|-------------|
-| `get_completion_chart_data(user_uid, period)` | Chart.js config | TasksService |
-| `get_priority_distribution_chart_data(user_uid)` | Chart.js config | TasksService |
-| `get_streak_chart_data(user_uid)` | Chart.js config | HabitsService |
-| `get_status_distribution_chart_data(user_uid)` | Chart.js config | TasksService |
-
-**VisualizationService** — pure formatter, no domain deps (call directly with pre-fetched data):
-
-| Method | Returns | Use Case |
-|--------|---------|----------|
-| `format_completion_chart(completed, total, labels)` | Line/bar config | Completion rates over time |
-| `format_distribution_chart(data, title, chart_type)` | Pie/doughnut/bar config | Category distributions |
-| `format_streak_chart(streaks)` | Horizontal bar config | Habit streaks |
-
-### API Endpoints
-
-| Endpoint | Chart Type | Data |
-|----------|------------|------|
-| `/api/visualizations/completion` | Line | Task completion rate |
-| `/api/visualizations/priority-distribution` | Doughnut | Priority breakdown |
-| `/api/visualizations/status-distribution` | Pie | Status breakdown |
-| `/api/visualizations/streaks` | Horizontal bar | Habit streaks |
-
-## Chart Type Selection
-
-### For Activity Domains
-
-| Domain | Recommended Charts | Why |
-|--------|-------------------|-----|
-| **Tasks** | Line (trends), Doughnut (status), Bar (priority) | Show progress over time, current state |
-| **Goals** | Line (progress), Bar (milestones), Gauge (current) | Track advancement toward targets |
-| **Habits** | Horizontal bar (streaks), Heatmap (consistency) | Compare habits, show patterns |
-| **Events** | Bar (hours/week), Pie (type distribution) | Time allocation insights |
-| **Choices** | Pie (pending vs decided), Bar (by domain) | Decision status overview |
-| **Principles** | Radar (alignment), Doughnut (strength) | Multi-dimensional comparison |
-
-### By Data Type
-
-| Data Type | Chart Type | Example |
-|-----------|------------|---------|
-| Time series | Line | Completion rate over weeks |
-| Categories | Doughnut/Pie | Priority distribution |
-| Comparison | Bar | Streak current vs best |
-| Multi-dimensional | Radar | Principle alignment |
-| Progress | Gauge (via plugins) | Goal progress % |
-
-## Color Schemes
-
-SKUEL centralizes all visualization colors in `core/utils/palette.py` (importable as either `from core.utils.palette import SemanticColor` or `from ui.palette import SemanticColor`):
-
-```python
-from core.utils.palette import SemanticColor
-
-# Semantic chart colors (for color cycling, datasets)
-SemanticColor.PRIMARY   # "#3B82F6" (Blue)
-SemanticColor.SUCCESS   # "#10B981" (Green)
-SemanticColor.WARNING   # "#F59E0B" (Amber)
-SemanticColor.DANGER    # "#EF4444" (Red)
-SemanticColor.INFO      # "#6366F1" (Indigo)
-SemanticColor.NEUTRAL   # "#6B7280" (Gray)
-SemanticColor.ALL       # List of all 6 for color cycling
-```
-
-For Priority and Status colors, use the enum methods directly:
-
-```python
-from core.models.enums import Priority, EntityStatus
-
-Priority.HIGH.get_color()          # "#F59E0B"
-EntityStatus.COMPLETED.get_color() # "#10B981"
-```
-
-## FastHTML Integration Pattern
-
-### Basic Chart Container
-
-```python
-from ui.goals.visualization import create_chart_view
-
-# Simple usage
-chart = create_chart_view(
-    data_url="/api/visualizations/completion",
-    chart_type="line",
-    title="Completion Rate",
-    height="h-64",
-    width="w-full",
-    include_scripts=True,  # Include Chart.js script tag
+return BasePage(
+    content,
+    title="Insights | SKUEL",
+    request=request,
+    active_page="insights",
+    extra_scripts=["/static/vendor/chart.js/chart.umd.js"],
 )
 ```
 
-### Custom Chart with Options
+`BasePage` and `SidebarPage` build their own `<head>` (`build_head`), so the
+`chartjs_headers()` that `scripts/dev/bootstrap.py` passes to `fast_app(hdrs=...)`
+never reach them. Those headers reach only a full-page response that FastHTML wraps
+itself. An HTMX fragment carries no `<head>` at all, so a fragment cannot bring
+Chart.js with it: load it on the shell. (Measured with a TestClient: `BasePage`
+without `extra_scripts` serves zero `chart.umd.js` tags.)
+
+The date-fns adapter (`chartjs-adapter-date-fns.3.min.js`) loads only through
+`chartjs_headers()`. No live chart uses a time scale; a page that adds one must list
+the adapter in `extra_scripts` too.
+
+## The Wire Contract: `ChartJsConfig`
+
+`core/ports/query_types.py` declares the payload as TypedDicts (`total=False`):
 
 ```python
-from fasthtml.common import Div, Canvas, H3, Script
+class ChartJsDataset(TypedDict, total=False):
+    label: str
+    data: list[int] | list[float]
+    backgroundColor: str | list[str]
+    borderColor: str | list[str]
+    borderWidth: int
+    fill: bool
+    tension: float
 
-def custom_chart(data_url: str, options: dict):
-    """Custom chart with specific options."""
+
+class ChartJsData(TypedDict, total=False):
+    labels: list[str]
+    datasets: list[ChartJsDataset]
+
+
+class ChartJsConfig(TypedDict, total=False):
+    type: str
+    data: ChartJsData
+    options: dict[str, Any]  # boundary: consumed by the Chart.js library
+```
+
+- **Construct the literal, never `cast()` a dict into it.** `chartVis` hands the
+  payload to `new Chart` unmodified, so a renamed key breaks the chart and no Python
+  test notices. A literal returned as `Result[ChartJsConfig]` is checked: mypy reports
+  `typeddict-unknown-key` for a misspelled dataset key, measured through
+  `Result.ok({...})`.
+- **Dataset keys outside the declared set are mypy errors.** A radar's
+  `pointBackgroundColor` is one. Declare the key on `ChartJsDataset` before you emit
+  it. (The lifepath radar emits it today only because its route is untyped.)
+- **`options` is free-form** (`dict[str, Any]`), so nothing checks option names.
+  Check them against the Chart.js v4 docs.
+- **JSON only.** The config crosses the wire as JSON, so function-valued options
+  (tick `callback`s, tooltip formatters) cannot be expressed. Use static options
+  (`ticks.stepSize`, `scales.y.max`) or leave the Chart.js default.
+- `tests/unit/services/test_visualization_wire_shape.py` pins the formatter output
+  keys; `_chart_config_to_dict` returns the literal for the same reason.
+
+## Adding a Chart
+
+### 1. Build the config in a service
+
+If the shape is one `VisualizationService` already formats, reuse it (pure, sync,
+no domain dependencies):
+
+| Formatter | Chart | Input |
+|-----------|-------|-------|
+| `format_completion_chart(completed, total, labels, chart_type="line")` | line or bar, % per period | parallel count lists |
+| `format_distribution_chart(data, title, chart_type="doughnut")` | pie, doughnut or bar | `{label: count}` |
+| `format_streak_chart(streaks)` | horizontal bar, current vs best | `[{"name", "current", "best"}]` |
+
+Each returns `Result[ChartJsConfig]` and fails with `Errors.validation` on empty or
+length-mismatched input.
+
+Otherwise build the literal, as `InsightStore` does:
+
+```python
+from operator import itemgetter
+
+from core.models.type_hints import UserUID
+from core.ports.query_types import ChartJsConfig
+from core.utils.palette import SemanticColor
+from core.utils.result_simplified import Result
+
+
+async def get_domain_distribution_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
+    result = await self.get_active_insights(user_uid=user_uid, limit=200)
+    if result.is_error:
+        return Result.fail(result)
+
+    counts: dict[str, int] = {}
+    for insight in result.value:
+        counts[insight.domain] = counts.get(insight.domain, 0) + 1
+    ranked = sorted(counts.items(), key=itemgetter(1), reverse=True)
+
+    return Result.ok(
+        {
+            "type": "bar",
+            "data": {
+                "labels": [domain.title() for domain, _ in ranked],
+                "datasets": [
+                    {
+                        "label": "Active Insights",
+                        "data": [count for _, count in ranked],
+                        "backgroundColor": SemanticColor.PRIMARY,
+                    }
+                ],
+            },
+            "options": {
+                "responsive": True,
+                "plugins": {"legend": {"display": False}},
+                "scales": {"y": {"beginAtZero": True, "ticks": {"stepSize": 1}}},
+            },
+        }
+    )
+```
+
+### 2. Serve it
+
+```python
+@rt("/api/insights/charts/domain-distribution")
+@boundary_handler()
+async def domain_distribution_chart(request: Request) -> Result[ChartJsConfig]:
+    user_uid = require_authenticated_user(request)
+    return await insight_store.get_domain_distribution_chart(user_uid)
+```
+
+`boundary_handler` serializes the config itself as the JSON body, and an error as the
+client-safe error payload with its HTTP status. The user comes from the session,
+**never a `user_uid` query parameter**. Every chart route reads the authenticated
+user, so a `?user_uid=` in a chart URL is ignored at best and an IDOR at worst.
+
+### 3. Render the card
+
+```python
+def _chart_card(data_url: str, chart_type: str) -> Div:
+    """Chart card — canvas + loading/error states for the chartVis component."""
     return Div(
-        H3("Custom Chart", cls="text-lg font-semibold mb-2"),
+        Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
         Div(
-            Canvas(**{"x-ref": "canvas"}, cls="w-full h-64"),
-            **{"x-data": f"chartVis('{data_url}', 'bar')"},
+            "Loading chart...",
+            cls="text-center text-muted-foreground py-8",
+            **{"x-show": "loading"},
         ),
-        Script(src="/static/vendor/chart.js/chart.umd.js"),
+        Div(
+            Span("Error: ", cls="font-bold"),
+            Span(**{"x-text": "error"}),
+            cls="text-error text-center py-8",
+            **{"x-show": "error"},
+        ),
+        **{
+            "x-data": f"chartVis('{data_url}', '{chart_type}')",
+            "class": "bg-background p-4 rounded-lg shadow-sm",
+        },
     )
 ```
 
-### Dashboard with Multiple Charts
+There is **no shared chart component**. `_chart_card` is page-local to insights, and
+`_alignment_radar` is its twin with a fixed URL. Copy the shape into the page's
+`ui/` module, or promote it to `ui/components/` if a second page needs the same card.
+Then add `extra_scripts=["/static/vendor/chart.js/chart.umd.js"]` to the shell page.
+
+### 4. Decide what "no data" looks like
+
+An empty result reaches the card as its error state unless the page decides first.
+Insights hides the whole section below 3 insights. The aggregation service returns
+`Errors.not_found` for "no active tasks/habits", which the card shows as an error
+message. Pick one of the two deliberately.
+
+## Colors
+
+`core/utils/palette.py` holds the chart palette:
 
 ```python
-from ui.goals.visualization import (
-    create_chart_view,
-    create_visualization_dashboard,
-)
-
-def analytics_dashboard(user_uid: UserUID):
-    """Complete analytics dashboard."""
-    return create_visualization_dashboard(
-        user_uid=user_uid,
-        include_charts=True,
-        include_timeline=True,
-        include_gantt=False,
-    )
-```
-
-## Best Practices
-
-### 1. Use Existing Components
-
-```python
-# GOOD: Use existing components
-from ui.goals.visualization import create_chart_view
-chart = create_chart_view(data_url, chart_type, title)
-
-# AVOID: Rebuilding from scratch
-Div(Canvas(), Script("new Chart(...)"))
-```
-
-### 2. Load Scripts Once
-
-```python
-# GOOD: Include scripts only on first chart
-create_chart_view(url1, "line", include_scripts=True)
-create_chart_view(url2, "bar", include_scripts=False)  # Already loaded
-
-# AVOID: Including scripts multiple times
-```
-
-### 3. Use Alpine Component for State
-
-```python
-# GOOD: Alpine handles loading/error
-Div(
-    Span("Loading...", **{"x-show": "loading"}),
-    Canvas(**{"x-show": "!loading && !error"}),
-    **{"x-data": "chartVis('/api/...')"},
-)
-
-# AVOID: Manual state management
-```
-
-### 4. Responsive Sizing
-
-```python
-# GOOD: Use Tailwind responsive classes
-Canvas(cls="w-full h-64 md:h-96")
-
-# GOOD: Use maintainAspectRatio option
-options = {"responsive": True, "maintainAspectRatio": False}
-```
-
-### 5. Consistent Colors
-
-```python
-# GOOD: Use centralized palette colors
 from core.utils.palette import SemanticColor
-colors = SemanticColor.ALL
 
-# AVOID: Hardcoding colors
-backgroundColor = "#ff0000"  # Use SemanticColor.DANGER instead
+SemanticColor.PRIMARY   # "#3B82F6"
+SemanticColor.SUCCESS   # "#10B981"
+SemanticColor.WARNING   # "#F59E0B"
+SemanticColor.DANGER    # "#EF4444"
+SemanticColor.INFO      # "#6366F1"
+SemanticColor.NEUTRAL   # "#6B7280"
+SemanticColor.ALL       # the six, for cycling (format_distribution_chart uses it)
 ```
+
+For slices keyed by a domain enum, use the enum's own color: `Priority.get_color()`,
+`EntityStatus.get_color()`. The `VisualizationService` formatters use `SemanticColor`;
+the four `InsightStore` configs and the lifepath radar still hard-code `rgba(...)`
+strings. New configs take the palette.
 
 ## Anti-Patterns
 
-### 1. Don't Create Charts Inline
+| Don't | Do |
+|-------|----|
+| `Script("new Chart(...)")` inline | a `chartVis` card fed by a JSON route |
+| `fetch()` in an `x-init` | let `chartVis` fetch — it owns loading and error state |
+| `?user_uid=` in a chart URL | read the user in the route with `require_authenticated_user` |
+| `cast(ChartJsConfig, {...})` | return the literal so mypy checks its keys |
+| a `callback` in `options` | a static option — the config is JSON |
+| Chart.js loaded in a fragment | `extra_scripts` on the shell page |
+| `x-on:htmx:before-swap="destroy()"` | nothing — Alpine calls `destroy()` on removal |
 
-```html
-<!-- WRONG: Inline JavaScript -->
-<script>
-    new Chart(ctx, { type: 'line', data: {...} });
-</script>
+## Reference Files
 
-<!-- RIGHT: Use Alpine component -->
-<div x-data="chartVis('/api/visualizations/completion', 'line')">
-    <canvas x-ref="canvas"></canvas>
-</div>
-```
-
-### 2. Don't Fetch Data in Alpine
-
-```python
-# WRONG: Fetching in Alpine x-init
-Div(**{"x-data": "{}", "x-init": "fetch('/api/data').then(...)"})
-
-# RIGHT: Let chartVis() handle fetching
-Div(**{"x-data": "chartVis('/api/visualizations/completion')"})
-```
-
-### 3. Don't Skip Loading States
-
-```python
-# WRONG: No loading state
-Canvas(**{"x-ref": "canvas"})
-
-# RIGHT: Include loading/error states
-Div(
-    Span("Loading...", **{"x-show": "loading"}),
-    Span(**{"x-show": "error", "x-text": "error"}),
-    Canvas(**{"x-show": "!loading && !error"}),
-)
-```
-
-## Related Visualization Components
-
-SKUEL also includes:
-
-| Component | Purpose | Alpine Component |
-|-----------|---------|-----------------|
-| Frappe Gantt | Project planning | none — `/api/visualizations/gantt/*` has no UI consumer |
-
-**See:** `docs/roadmap/gantt-visualization-surface.md` — the Gantt surface is
-STAGED (founder ruling 2026-08-04), and that doc holds its verified map, its ten
-correctness defects, and the ordered path to wiring it. There are no Gantt
-patterns in this skill's reference files.
-
-## Additional Resources
-
-- [chart-types-reference.md](chart-types-reference.md) - Complete chart type catalog
-- [fasthtml-patterns.md](fasthtml-patterns.md) - Python/FastHTML integration
-- [activity-domain-charts.md](activity-domain-charts.md) - Domain-specific patterns
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — snippets, infrastructure table, pitfalls
+- [chart-types-reference.md](chart-types-reference.md) — the configs SKUEL emits, per chart type
+- [fasthtml-patterns.md](fasthtml-patterns.md) — card, page, and route patterns from the live code
 
 ## Related Skills
 
-- **[ui-browser](../ui-browser/SKILL.md)** - `chartVis()` Alpine component for chart state management
-- **[ui-css](../ui-css/SKILL.md)** - Card containers, loading spinners, error states
+- **[ui-browser](../ui-browser/SKILL.md)** — the Alpine component registry `chartVis` belongs to
+- **[ui-css](../ui-css/SKILL.md)** — card containers and semantic color tokens
+- **[result-pattern](../result-pattern/SKILL.md)** — `Result[ChartJsConfig]` and `boundary_handler`
 
 ## Foundation
 
-- **[ui-browser](../ui-browser/SKILL.md)** - Understanding Alpine.data() components
+- **[ui-browser](../ui-browser/SKILL.md)** — `Alpine.data()` components
 
 ## See Also
 
-- `/core/services/analytics/visualization_aggregation_service.py` - VisualizationAggregationService (data fetching + aggregation)
-- `/core/services/visualization_service.py` - VisualizationService (pure formatter)
-- Chart.js Docs: https://www.chartjs.org/docs/
+- `/core/services/visualization_service.py` — `VisualizationService` (Chart.js + Frappe Gantt formatters)
+- `/core/services/analytics/visualization_aggregation_service.py` — fetch + aggregate for `/api/visualizations/*`
+- `/core/services/insight/insight_store.py` — the four insight chart configs
+- Chart.js v4 docs: https://www.chartjs.org/docs/latest/ (vendored build: v4.5.1)
