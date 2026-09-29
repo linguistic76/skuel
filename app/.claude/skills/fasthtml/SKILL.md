@@ -162,20 +162,19 @@ holds at every layer — `register_domain_routes()`, the factory classes' `regis
 a single-route helper — and bootstrap logs one route count from `app.routes`.
 
 ```python
-# adapters/inbound/tasks_api.py
-def create_tasks_api_routes(
+# adapters/inbound/pathways_api.py (abridged — its optional related services omitted)
+def create_pathways_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    tasks_service: TasksService,
-    goals_service: GoalsService,
-    **_kwargs: Any,
+    learning_service: LpService,
 ) -> None:
-    """Register Tasks API routes."""
+    """Create pathways API routes using factory pattern."""
 
-    @rt("/api/tasks/knowledge-priorities", methods=["GET"])
+    @rt("/api/pathways/steps")
     @boundary_handler()
-    async def task_knowledge_priorities(request: Request) -> Result[dict[str, Any]]:
-        ...
+    async def get_path_steps_route(request: Request, path_uid: str) -> Result[list[PathStep]]:
+        """Get all steps for a learning path."""
+        return await learning_service.get_path_steps(path_uid)
 ```
 
 Standard routes come from factories rather than hand-written handlers: `CRUDRouteFactory`

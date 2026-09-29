@@ -252,7 +252,7 @@ def validate_date_after(
     earlier_field: str,
     allow_equal: bool = False,
 ) -> Callable:
-    def validator_impl(instance: Any) -> Any:
+    def validator_impl[M: BaseModel](instance: M) -> M:
         later_value = getattr(instance, later_field, None)
         earlier_value = getattr(instance, earlier_field, None)
 

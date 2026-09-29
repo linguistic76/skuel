@@ -10,7 +10,7 @@ Architecture:
     - UI Routes:  habits_ui.py  (list, detail, cross-domain views)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.habits_api import create_habits_api_routes
@@ -48,9 +48,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_habits_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_habits_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire habits API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, HABITS_CONFIG)
 

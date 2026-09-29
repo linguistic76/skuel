@@ -10,7 +10,7 @@ Architecture:
     - UI Routes:  events_ui.py  (list, detail, cross-domain views)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.events_api import create_events_api_routes
 from adapters.inbound.events_ui import create_events_ui_routes
@@ -50,9 +50,7 @@ EVENTS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_events_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_events_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire events API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, EVENTS_CONFIG)
 

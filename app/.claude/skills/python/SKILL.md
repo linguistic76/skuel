@@ -249,14 +249,24 @@ updated = replace(task, status=EntityStatus.ACTIVE)
 ```python
 from dataclasses import dataclass, field
 
+# core/models/entity.py
 @dataclass(frozen=True, kw_only=True)
 class Entity:
     uid: EntityUID
     title: str
-    entity_type: EntityType = EntityType.KU
-    tags: tuple[str, ...] = ()                               # immutable default
-    metadata: dict[str, Any] = field(default_factory=dict)   # a fresh dict per instance
+    tags: tuple[str, ...] = ()  # immutable default
+
+
+# core/models/ku/ku.py
+@dataclass(frozen=True, kw_only=True)
+class Ku(Entity):
+    aliases: tuple[str, ...] = field(default_factory=tuple)  # alternative names
 ```
+
+`kw_only=True` lets a subclass declare required fields after the base's defaulted ones. A
+default is shared by every instance, so it must be immutable — a tuple, not a list; a
+mutable value (a dict, a list) takes `field(default_factory=...)` so each instance gets its
+own.
 
 ### Defaults That Depend on Another Field
 

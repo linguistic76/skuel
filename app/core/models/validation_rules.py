@@ -35,7 +35,7 @@ from collections.abc import Callable
 from datetime import date, datetime, time
 from typing import Any
 
-from pydantic import ValidationInfo, field_validator
+from pydantic import BaseModel, ValidationInfo, field_validator
 
 from core.utils.timestamp_helpers import as_utc, now_utc, today_in
 from core.utils.zone_context import current_zone
@@ -328,7 +328,7 @@ def validate_date_after(
     """
 
     # Return a helper that can be called inside a model_validator
-    def validator_impl(instance: Any) -> Any:
+    def validator_impl[M: BaseModel](instance: M) -> M:
         later_value = getattr(instance, later_field, None)
         earlier_value = getattr(instance, earlier_field, None)
 
@@ -671,7 +671,7 @@ def validate_timeframe_date_alignment() -> Callable:
                 return _validate_timeframe_alignment_impl(self)
     """
 
-    def validator_impl(instance: Any) -> Any:
+    def validator_impl[M: BaseModel](instance: M) -> M:
         # Import here to avoid circular imports
         from core.models.enums.goal_enums import GoalTimeframe
 

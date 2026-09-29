@@ -109,9 +109,15 @@ Copy-paste starting point for a new Standard (API + UI) route file:
 Wires {Domain} API and UI routes using DomainRouteConfig pattern.
 """
 
+from typing import TYPE_CHECKING
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="{domain}",
@@ -125,13 +131,17 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 )
 
 
-def create_{domain}_routes(app, rt, services, _sync_service=None):
+def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire {domain} API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
 ```
+
+Some older route modules still declare a trailing `_sync_service=None`. It is vestigial —
+nothing reads it (bootstrap passes a positional `None` to those few) — so a new file omits
+it, as above.
 
 **Placeholders:** `{domain}` → lowercase, `{Domain}` → capitalized, `{DOMAIN}` → uppercase.
 
@@ -146,7 +156,7 @@ __all__ = ["create_{domain}_routes"]
 **Exemplar:** `adapters/inbound/tasks_routes.py`
 
 ```python
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import (
@@ -185,9 +195,7 @@ TASKS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_tasks_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, TASKS_CONFIG)
 
@@ -300,7 +308,7 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_insights_routes(app, rt, services, _sync_service=None) -> None:
+def create_insights_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     # Standard routes via config
     register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
 

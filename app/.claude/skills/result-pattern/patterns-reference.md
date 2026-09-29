@@ -617,18 +617,11 @@ async def test_task_lifecycle(services, test_user):
 ### @safe_backend_operation
 
 ```python
-# core/utils/error_boundary.py — applied on backend methods, e.g. _context_query_mixin.py
+# core/utils/error_boundary.py — applied on backend methods, e.g. _crud_mixin.py
 from core.utils.error_boundary import safe_backend_operation
 
-@safe_backend_operation("context_query_raw")
-async def context_query_raw(
-    self,
-    uid: str,
-    *,
-    include_relationships: builtins.list[str] | None = None,
-    exclude_relationships: builtins.list[str] | None = None,
-    default_confidence: float = 0.7,
-) -> Result[builtins.list[dict[str, Any]]]:
+@safe_backend_operation("get")
+async def get(self, uid: str) -> Result[T | None]:
     ...
 ```
 

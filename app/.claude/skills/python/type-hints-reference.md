@@ -196,8 +196,8 @@ if isinstance(obj, Serializable):
 SKUEL writes aliases with the `type` statement (PEP 695):
 
 ```python
-# Simple alias
-type Metadata = dict[str, Any]
+# Simple alias (core/models/type_hints.py)
+type UIDList = list[EntityUID]
 
 # Complex alias
 type EntityMap = dict[str, list[Task | Goal | Habit]]

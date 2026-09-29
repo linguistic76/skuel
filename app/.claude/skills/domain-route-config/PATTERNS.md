@@ -69,9 +69,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_habits_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
-) -> None:
+def create_habits_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     register_domain_routes(app, rt, services, HABITS_CONFIG)
 ```
 
@@ -174,7 +172,7 @@ INSIGHTS_CONFIG = DomainRouteConfig(
     api_related_services={},
 )
 
-def create_insights_routes(app, rt, services, _sync_service=None) -> None:
+def create_insights_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     # Config handles the standard 80%
     register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
 
