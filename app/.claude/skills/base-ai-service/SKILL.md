@@ -239,7 +239,7 @@ AIRouteSpec(
 |---|------|----------------------------------|
 | 1 | Signed in | 401 |
 | 2 | `facade.ai` is set | 503 `AI service unavailable` |
-| 3 | The user's effective tier allows AI (`REGISTERED` is capped at CORE) | 403 `AI features require a paid subscription` |
+| 3 | The user's effective tier allows AI (`REGISTERED` is capped at CORE). Runs when `services.intelligence_tier` is set, which `compose_services` always does; a container built without it skips this gate. | 403 `AI features require a paid subscription`; 503 when the user cannot be read |
 | 4 | `USER_OWNED` with a uid: the user owns the entity | 404 |
 | 5 | Daily LLM quota (`llm_quota_allowed`) — checked **and recorded** here | 403 `Daily AI quota exceeded` |
 | 6 | The AI method's `Result` | 400 on any failure, with the error text |
@@ -318,7 +318,8 @@ The eight domain AI services hold their prompts inline, as string literals in th
 and the report generators among them. A new prompt goes in the registry — see the
 [prompt-templates](../prompt-templates/SKILL.md) skill.
 
-Bound what reaches the model: truncate long fields, cap list lengths, and pass `max_tokens`.
+Bound what reaches the model: truncate long fields and cap list lengths. `max_tokens` caps the
+reply only. The live methods pass entity fields whole.
 
 ---
 

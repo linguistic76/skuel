@@ -151,6 +151,10 @@ Path: `/api/{url_domain}/ai/{action}`. Registered without `methods=`, so `GET`, 
 | `query_limit` | `query: str`, `limit: int = default_limit` | `(query, limit)` |
 | `uid_level` | `uid: str`, `level: str = "intermediate"` | `(uid, level)` |
 
+A handler always passes every argument in its row, so over HTTP the method's own defaults for
+those parameters are not reached: `explain_step(target_level="standard")` is called with
+`"intermediate"` when the request names no level.
+
 | `url_domain` | Actions | Scope |
 |--------------|---------|-------|
 | `tasks` | `similar`, `insight`, `knowledge-generation`, `breakdown`, `priority-suggestion` | `USER_OWNED` |

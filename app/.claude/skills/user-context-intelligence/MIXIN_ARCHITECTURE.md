@@ -167,8 +167,13 @@ respect_energy=True)` returns a **bare list**.
 - Available minutes = the horizon, minus 60 per event in `context.today_event_uids`, minus the
   share already committed (`context.current_workload_score`), capped at
   `context.available_minutes_daily`.
-- The time slot is `context.preferred_time` when set, otherwise the hour in the user's zone
-  (`morning` / `afternoon` / `evening` / `night`).
+- The time slot is `context.preferred_time.value`. The field is a `TimeOfDay` that defaults to
+  `TimeOfDay.ANYTIME`, and every member is truthy, so for a user with no preference the slot is
+  `"anytime"`. The method's clock fallback (the hour in the user's zone) sits behind
+  `if self.context.preferred_time:` and is not reached by a context built the normal way.
+- Schedule fit is raised for a task in the `morning` or `afternoon` slot and for learning in
+  the `morning` slot. With the slot at `"anytime"` neither applies and both score the 0.7
+  default.
 - `context.current_workload_score >= 0.9` adds a `rest` recommendation.
 - Candidates come from the context's task, habit, learning and goal fields. Each is scored
   `priority × 0.4 + schedule_fit × 0.35 + energy_match × 0.25`.

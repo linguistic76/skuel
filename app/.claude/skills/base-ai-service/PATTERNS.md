@@ -104,8 +104,13 @@ async def generate_task_insight(self, task_uid: str) -> Result[str]:
     return await self._generate_insight(prompt, context=context, max_tokens=200)
 ```
 
-The shape to keep: fetch, guard not-found, build a bounded context, one helper call, return its
+The shape to keep: fetch, guard not-found, build the context, one helper call, return its
 `Result`. What the `Result` holds today is in [SKILL.md](SKILL.md) § Known Mismatch.
+
+**The live method does not bound its input.** `task.description` is passed whole, and
+`TaskCreateRequest.description` has no maximum length; `max_tokens` caps the reply, not the
+prompt. A new method truncates each free-text field before it goes into the context — see
+§ Anti-Patterns, Unbounded input.
 
 Entity fields reach the model as written by the user. Treat the output as untrusted text: it is
 data for display, never an instruction to act on.
