@@ -110,10 +110,12 @@ class TestSameEntryDuplicates:
         assert g.winner_uid == "habit_older"
         assert g.loser_uids == ["habit_later"]
 
-    def test_an_unreadable_winner_stamp_blocks_the_group(self):
-        rows = [_row("h1", created="early July"), _row("h2", created="mid July")]
+    def test_an_unreadable_stamp_blocks_the_group(self):
+        """An unreadable stamp sorts last, yet may be the oldest: no member is
+        provably the winner while one cannot be read."""
+        rows = [_row("h1", created="2026-07-02T12:00:00Z"), _row("h2", created="early July")]
         g = group_same_entry_duplicates(rows)[0]
-        assert any("no readable created_at" in b for b in g.blockers)
+        assert "no readable created_at on h2 — the oldest cannot be told" in g.blockers
 
     def test_title_normalization_groups_rewordings(self):
         rows = [_row("h1", title="Meditate "), _row("h2", title="  meditate")]
@@ -248,6 +250,14 @@ class TestCrossEntryDedup:
         g = plan_cross_entry_dedup(rows, set(), set())[0]
         assert g.winner_uid == "h_older"
         assert g.loser_uids == ["h_later"]
+
+    def test_an_unreadable_stamp_blocks_the_cross_entry_group(self):
+        rows = [
+            _row("h1", entry="ue:daily:user_a:2026-06-30", created="2026-07-01T11:00:00Z"),
+            _row("h2", entry="ue:daily:user_a:2026-07-15", created=""),
+        ]
+        g = plan_cross_entry_dedup(rows, set(), set())[0]
+        assert "no readable created_at on h2 — the oldest cannot be told" in g.blockers
 
     def test_single_entry_groups_are_not_cross_entry(self):
         rows = [_row("h1"), _row("h2")]

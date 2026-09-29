@@ -35,6 +35,7 @@ port, never against this class (SKUEL023 / ADR-044). The port is an ISP slice:
 """
 
 import asyncio
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -61,7 +62,7 @@ logger = get_logger(__name__)
 # =============================================================================
 
 
-def _sort_by_last_viewed_at(item: dict[str, Any]) -> datetime:
+def _sort_by_last_viewed_at(item: Mapping[str, object]) -> datetime:
     """A view's ``last_viewed_at`` as its instant — any stored shape; absent or unreadable first."""
     return instant_of(item["last_viewed_at"], current_zone()) or EARLIEST_INSTANT
 

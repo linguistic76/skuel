@@ -1072,8 +1072,8 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
   - The context's recently viewed KUs sort by instant.
   - `_range_day` takes a moment's day in the zone.
   - The two graph scripts' "oldest wins" (`cleanup_duplicate_vault_tasks`,
-    `audit_graph_hygiene`) read `created_at` as an instant, and an unreadable winner blocks
-    the group.
+    `audit_graph_hygiene`) read `created_at` as an instant. A group with an absent or
+    unreadable stamp has no provable oldest: it goes to review, never to deletion.
   - `docs_freshness` and `docs_review_scheduler` hold mtimes aware and count days since a
     review as calendar days in `SKUEL_TIMEZONE`.
 - **Deleted, no caller:**
@@ -1091,6 +1091,9 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
   - `_range_day` took a moment's digits' day. It has no datetime caller, so this was latent.
   - A whole-second `…Z` stamp sorted after a fractional one from the same second in both
     scripts.
+  - An absent `created_at` sorted first in `cleanup_duplicate_vault_tasks` and made its
+    task the keeper, so a readable twin could be proposed for deletion. In
+    `audit_graph_hygiene` an unreadable stamp sorted last, yet its task may be the oldest.
   - An offset-bearing `last_reviewed` raised in `docs_freshness` and read as never reviewed
     in the scheduler.
 - **Left, as assigned:**

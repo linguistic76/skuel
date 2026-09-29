@@ -73,7 +73,7 @@ import asyncio
 import os
 import sys
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -211,6 +211,16 @@ def _created_order(row: Mapping[str, object]) -> datetime:
     return instant_key(instant_of(row.get("created_at"), default_zone()), LATEST_INSTANT)
 
 
+#: A group whose ``created_at`` ordering cannot be proved is REPORT, never fixed.
+_UNREADABLE_BLOCKER = "no readable created_at on {} — the oldest cannot be told"
+
+
+def _unreadable_stamps(members: Sequence[Mapping[str, object]]) -> list[str]:
+    """The uids whose ``created_at`` is absent or unreadable — with any, no member is provably oldest."""
+    zone = default_zone()
+    return [str(m["uid"]) for m in members if instant_of(m.get("created_at"), zone) is None]
+
+
 def group_same_entry_duplicates(rows: list[dict[str, Any]]) -> list[DupGroup]:
     """F2 categorizer: same-entry R3-key groups with >1 node, oldest wins.
 
@@ -234,8 +244,9 @@ def group_same_entry_duplicates(rows: list[dict[str, Any]]) -> list[DupGroup]:
                 for m in members
             ],
         )
-        if instant_of(winner.get("created_at"), default_zone()) is None:
-            group.blockers.append("winner has no readable created_at — ordering unverifiable")
+        unreadable = _unreadable_stamps(members)
+        if unreadable:
+            group.blockers.append(_UNREADABLE_BLOCKER.format(", ".join(unreadable)))
         owners = {m.get("owner") for m in members}
         if len(owners) > 1:
             group.blockers.append(f"owner mismatch within group: {sorted(str(o) for o in owners)}")
@@ -405,8 +416,9 @@ def plan_cross_entry_dedup(
         )
         if any(m.get("owner") in test_owner_uids for m in members):
             group.blockers.append("touches a test user — Arc F owns test-user cleanup")
-        if instant_of(members[0].get("created_at"), default_zone()) is None:
-            group.blockers.append("winner has no readable created_at — ordering unverifiable")
+        unreadable = _unreadable_stamps(members)
+        if unreadable:
+            group.blockers.append(_UNREADABLE_BLOCKER.format(", ".join(unreadable)))
         for m in members[1:]:
             unexpected = set(m.get("edge_sigs") or []) - EXPECTED_LOSER_EDGES
             if unexpected:

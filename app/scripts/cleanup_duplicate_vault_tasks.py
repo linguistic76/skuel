@@ -258,7 +258,8 @@ def _created_order(task: TaskRow) -> datetime:
 
     A Task's ``created_at`` is an offset-less string, a ``…Z`` string or a native
     (read back through ``toString``); their digits do not sort as their instants
-    do inside one second. An absent or unreadable stamp sorts first.
+    do inside one second. An absent or unreadable stamp sorts first; ``_keeper``
+    refuses to call any task the oldest while one is unreadable.
     """
     return instant_key(instant_of(task.created_at, default_zone()))
 
@@ -395,7 +396,8 @@ def _keeper(
     The line's 🆔 decides when it is owned: by exactly one task INSIDE the group
     → that task; by more than one task, or by a task outside the group → the
     group is not this line's re-mints. No owner anywhere (phantom id) or no
-    id → the oldest (the caller passes the group oldest-first).
+    id → the oldest (the caller passes the group oldest-first) — unless a task's
+    ``created_at`` cannot be read, when no task can be proved the oldest.
     """
     if line.vault_id:
         owners = owners_by_id.get(line.vault_id, [])
@@ -409,6 +411,11 @@ def _keeper(
                 f"🆔 {line.vault_id} at {line.where} is owned by {owner.uid} "
                 f"({owner.title!r}) — a task outside this title group; the line is its"
             )
+    unreadable = [t.uid for t in group if instant_of(t.created_at, default_zone()) is None]
+    if unreadable:
+        return None, (
+            f"no readable created_at on {', '.join(unreadable)} — the oldest cannot be told"
+        )
     return group[0], ""
 
 
