@@ -694,7 +694,7 @@ class BaseService(
         # Not-found and not-visible converge on the same NotFound (backend
         # returns Result.ok(None) for both) — mirrors get()'s conversion.
         if result.is_ok and result.value is None:
-            return Result.fail(Errors.not_found(f"Entity {uid} not found"))
+            return Result.fail(Errors.not_found(self.config_lookup_label, uid))
 
         return cast("Result[T]", result)
 

@@ -137,7 +137,9 @@ class VisualizationAggregationService:
                 distribution[key] = distribution.get(key, 0) + 1
 
         if not distribution:
-            return Result.fail(Errors.not_found("No active tasks found for priority distribution"))
+            return Result.fail(
+                Errors.not_found("Chart data", "task-priority", reason="no active tasks")
+            )
 
         return self.vis.format_distribution_chart(
             distribution, "Task Priority Distribution", "doughnut"
@@ -166,7 +168,9 @@ class VisualizationAggregationService:
         ]
 
         if not streaks:
-            return Result.fail(Errors.not_found("No active habits found for streak chart"))
+            return Result.fail(
+                Errors.not_found("Chart data", "habit-streaks", reason="no active habits")
+            )
 
         return self.vis.format_streak_chart(streaks)
 
@@ -196,7 +200,7 @@ class VisualizationAggregationService:
                 distribution[key] = distribution.get(key, 0) + 1
 
         if not distribution:
-            return Result.fail(Errors.not_found("No tasks found for status distribution"))
+            return Result.fail(Errors.not_found("Chart data", "task-status", reason="no tasks"))
 
         return self.vis.format_distribution_chart(distribution, "Task Status Distribution", "pie")
 

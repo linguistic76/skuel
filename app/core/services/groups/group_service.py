@@ -283,7 +283,7 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
 
         records = result.value or []
         if not records:
-            return Result.fail(Errors.not_found(f"User {user_uid} or Group {group_uid} not found"))
+            return Result.fail(Errors.not_found("User or Group", f"{user_uid} / {group_uid}"))
 
         if self.event_bus:
             from core.events.group_events import GroupMemberAdded
@@ -327,9 +327,7 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
         records = result.value or []
         deleted_count = records[0]["deleted_count"] if records else 0
         if deleted_count == 0:
-            return Result.fail(
-                Errors.not_found(f"User {user_uid} is not a member of group {group_uid}")
-            )
+            return Result.fail(Errors.not_found("Group membership", f"{user_uid} in {group_uid}"))
 
         if self.event_bus:
             from core.events.group_events import GroupMemberRemoved

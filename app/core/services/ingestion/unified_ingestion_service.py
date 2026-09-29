@@ -964,7 +964,7 @@ class UnifiedIngestionService:
             Result with ingestion details including uid, title, entity_type
         """
         if not file_path.exists():
-            return Result.fail(Errors.not_found(f"File not found: {file_path}"))
+            return Result.fail(Errors.not_found("File", file_path))
 
         # ingest_file is reachable without a collect_files scan (the vault
         # UserEntry door, scripts, tests), so the vault exclusions are enforced

@@ -75,7 +75,7 @@ def create_pathways_api_routes(
 
         return require_found(
             await learning_service.get_current_step(path_uid),
-            "Ls",
+            "PathStep",
             f"incomplete step in path {path_uid}",
         )
 

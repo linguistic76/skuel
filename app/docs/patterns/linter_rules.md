@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-09-22
+updated: 2026-09-29
 category: patterns
 related_skills:
 - python
@@ -91,6 +91,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL034** | A string-literal membership test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the Neo4j label, `sel_category`, or the edge (AST rule, ADR-013 never-sniff; collections, `startswith`, and `split` are out of scope) |
 | **SKUEL035** | `Request` imported into `adapters/inbound/` from anywhere but `adapters.inbound.fasthtml_types` (`fasthtml.common`, `fasthtml.core`, `starlette.requests`) | `from adapters.inbound.fasthtml_types import Request` — the one boundary re-export (AST rule; the re-export module itself is exempt) |
 | **SKUEL036** | `require_authenticated_user(...)` called inside a handler that carries `@require_admin` / `@require_teacher` / `@require_role` | Read the caller the decorator injected — `UserUID(current_user.uid)` — or delete the call (AST rule, AUTH_PATTERNS § Pattern 3 "do not mix"; ungated handlers are Pattern 2 and untouched) |
+| **SKUEL037** | `Errors.not_found` whose `resource` is an f-string, a call, a built string or a literal containing "found", or whose `identifier` text contains "not found" | Pass the resource NAME and the lookup key — `Errors.not_found("Task", uid)`; the diagnosis goes in `reason=`, which reaches `details` only (AST rule; `core/`, `adapters/`, `ui/`) |
 
 ## Inline Suppression
 
@@ -104,7 +105,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL016, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL031, SKUEL032, SKUEL033, SKUEL034, SKUEL035, SKUEL036 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. Two pins, two subjects: `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites, and `tests/unit/docs/test_suppressible_rules_docs.py` pins every "Supported rules:" list in the docs to the set — a member added to one and not the other fails the build (SKUEL033 was once missing here for a month with the set-side pin green). Write the list explicitly, in ascending order; range notation is refused. A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL016, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL031, SKUEL032, SKUEL033, SKUEL034, SKUEL035, SKUEL036, SKUEL037 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. Two pins, two subjects: `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites, and `tests/unit/docs/test_suppressible_rules_docs.py` pins every "Supported rules:" list in the docs to the set — a member added to one and not the other fails the build (SKUEL033 was once missing here for a month with the set-side pin green). Write the list explicitly, in ascending order; range notation is refused. A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -872,6 +873,22 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 - `# skuel-lint: disable=SKUEL036 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL036 -- <reason>` (file)
 
+## Rule: SKUEL037 - Errors.not_found Takes a Resource Name, Not a Sentence
+
+**Pattern:** an `Errors.not_found(...)` call whose `resource` (positional 0 or `resource=`) is an f-string, a call (`str(e)`, `"...".format(...)`), a `+` / `%` expression, or a string literal containing "found"; or whose `identifier` (positional 1 or `identifier=`) has literal text containing "not found". Reported at the call line.
+
+**Why it exists:** the factory interpolates `resource` into the client-facing `user_message` ("The requested Task could not be found" — the JSON body's `message`), into the developer `message` (which the boundary also sends as the `X-Toast-Message` header) and into the `code`. About sixty calls passed a whole sentence as `resource`. Users read "The requested Path step ps_x not found could not be found", codes carried spaces and UIDs, and internal reasons reached API clients ("… does not have review access to submission …"). Where two refusal branches of one read put different sentences in, a caller could tell "exists but not yours" from "missing". `reason=` is the escape hatch for the diagnosis: it lands in `details["reason"]`, which `to_client_dict()` never sends. See [ERROR_HANDLING.md](ERROR_HANDLING.md) § `Errors.not_found`.
+
+**Scope:** `core/`, `adapters/`, `ui/` — every first-party tree that builds an error a client can read. Tests are out of scope. `Errors` is resolved through the file's `from … import … as …` bindings, and a `not_found` method on any other receiver is untouched. A name, an attribute (`self.config_lookup_label`, `self.label.value`) or a plain literal (`"Group membership"`) passes. Multi-word names are legitimate: the factory normalises the code to `NOT_FOUND_GROUP_MEMBERSHIP`.
+
+**Fix:** `Errors.not_found("Submission", uid, reason=f"teacher {teacher_uid} has no review access")`. Every refusal branch of an ownership-gated read passes the same resource and identifier, so the client answer is identical.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL037` — f-string (with and without "found"), sentence literal, call, built string, sentence in `identifier`, the passing name shapes (including `reason=`), an aliased `Errors`, another receiver's `not_found`, the scope edges (backends and `ui/` in; tests and scripts out), and line suppression.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL037 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL037 -- <reason>` (file)
+
 ## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
 
 **Pattern:** A UI/FT helper that hardcodes a `cls=` keyword **and** splats `**kwargs` into the same call, without declaring an explicit `cls` parameter, is a latent crash. When any caller passes `cls=`, that value lands in `**kwargs` and collides with the hardcoded keyword: `TypeError: <fn>() got multiple values for keyword argument 'cls'`.
@@ -1319,4 +1336,4 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 ---
 
 **Last Updated:** 2026-08-07
-**Status:** Active - 35 rules (SKUEL001–SKUEL036; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule — and a sweep shards its per-file work across worker processes, merged in file order (`--jobs`; serial below 32 files). Unit tests cover both linters.
+**Status:** Active - 36 rules (SKUEL001–SKUEL037; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule — and a sweep shards its per-file work across worker processes, merged in file order (`--jobs`; serial below 32 files). Unit tests cover both linters.

@@ -133,7 +133,7 @@ class UserRelationshipBackend:
         if result.is_error:
             return result
         if not result.value:
-            return Result.fail(Errors.not_found("Entity not found"))
+            return Result.fail(Errors.not_found("Entity", entity_uid))
         return Result.ok(True)
 
     async def unpin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
@@ -162,7 +162,7 @@ class UserRelationshipBackend:
         if result.is_error:
             return result
         if not result.value:
-            return Result.fail(Errors.not_found("Pin not found"))
+            return Result.fail(Errors.not_found("Pin", entity_uid))
         return Result.ok(True)
 
     async def reorder_pins(self, user_uid: UserUID, ordered_entity_uids: list[str]) -> Result[int]:

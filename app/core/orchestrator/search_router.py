@@ -683,10 +683,7 @@ class SearchRouter:
         service = self.get_service(entity_type)
         if service is None:
             return Result.fail(
-                Errors.not_found(
-                    resource=f"{entity_type.value}_search_service",
-                    identifier=entity_type.value,
-                )
+                Errors.not_found(resource="Search service", identifier=entity_type.value)
             )
 
         try:

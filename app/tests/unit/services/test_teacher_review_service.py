@@ -111,7 +111,7 @@ class TestVerifyTeacherHasGroupAccess:
         result = await service._verify_teacher_has_group_access(SUBMISSION_UID, TEACHER_UID)
 
         assert result.is_error
-        assert "does not have review access" in str(result.error)
+        assert "has no review access" in result.error.details["reason"]
 
     @pytest.mark.asyncio
     async def test_access_check_propagates_db_error(self):
@@ -161,7 +161,7 @@ class TestGroupMembershipRejection:
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
 
         assert result.is_error
-        assert "does not have review access" in str(result.error)
+        assert "has no review access" in result.error.details["reason"]
 
     @pytest.mark.asyncio
     async def test_request_revision_rejects_teacher_without_shared_group(self):
@@ -172,7 +172,7 @@ class TestGroupMembershipRejection:
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
 
         assert result.is_error
-        assert "does not have review access" in str(result.error)
+        assert "has no review access" in result.error.details["reason"]
 
     @pytest.mark.asyncio
     async def test_approve_report_rejects_teacher_without_shared_group(self):
@@ -183,7 +183,7 @@ class TestGroupMembershipRejection:
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
 
         assert result.is_error
-        assert "does not have review access" in str(result.error)
+        assert "has no review access" in result.error.details["reason"]
 
 
 class TestSupersededCopyTakesNoAction:
@@ -279,7 +279,7 @@ class TestSubmitReport:
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
 
         assert result.is_error
-        assert "does not have review access" in str(result.error)
+        assert "has no review access" in result.error.details["reason"]
 
     @pytest.mark.asyncio
     async def test_main_query_db_error(self):
@@ -403,7 +403,7 @@ class TestRequestRevision:
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
 
         assert result.is_error
-        assert "does not have review access" in str(result.error)
+        assert "has no review access" in result.error.details["reason"]
 
     @pytest.mark.asyncio
     async def test_main_query_db_error(self):
@@ -612,7 +612,7 @@ class TestApproveReport:
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
 
         assert result.is_error
-        assert "does not have review access" in str(result.error)
+        assert "has no review access" in result.error.details["reason"]
 
     @pytest.mark.asyncio
     async def test_main_query_db_error(self):
@@ -841,7 +841,7 @@ class TestGetSubmissionDetail:
         result = await service.get_submission_detail(SUBMISSION_UID, TEACHER_UID)
 
         assert result.is_error
-        assert "not found or not submitted to this teacher" in str(result.error)
+        assert "not submitted to this teacher" in result.error.details["reason"]
 
     @pytest.mark.asyncio
     async def test_db_error_propagated(self):
@@ -881,7 +881,7 @@ class TestGetSubmissionDetail:
         result = await service.get_submission_detail(SUBMISSION_UID, "user_other_teacher")
 
         assert result.is_error
-        assert "not found or not submitted to this teacher" in str(result.error)
+        assert "not submitted to this teacher" in result.error.details["reason"]
 
 
 # ========================================================================

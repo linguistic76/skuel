@@ -153,7 +153,7 @@ class PsSemanticService:
         # Verify source unit exists
         source_result = await self.repo.get(uid)
         if not source_result.is_ok or not source_result.value:
-            return Result.fail(Errors.not_found(f"Path step {uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", uid))
 
         # None means "include all semantic relationship types"
         resolved_types = (
@@ -251,11 +251,11 @@ class PsSemanticService:
         # Verify both units exist
         subject_result = await self.repo.get(subject_uid)
         if not subject_result.is_ok or not subject_result.value:
-            return Result.fail(Errors.not_found(f"Subject path step {subject_uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", subject_uid, reason="subject step"))
 
         object_result = await self.repo.get(object_uid)
         if not object_result.is_ok or not object_result.value:
-            return Result.fail(Errors.not_found(f"Object path step {object_uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", object_uid, reason="object step"))
 
         # Create semantic triple
         metadata = RelationshipMetadata(confidence=confidence, strength=strength, notes=notes)
@@ -312,7 +312,7 @@ class PsSemanticService:
         else:
             return Result.fail(
                 Errors.not_found(
-                    f"Relationship not found: {subject_uid} --[{predicate.value}]--> {object_uid}"
+                    "Relationship", f"{subject_uid} --[{predicate.value}]--> {object_uid}"
                 )
             )
 
@@ -334,7 +334,7 @@ class PsSemanticService:
         # Verify unit exists
         source_result = await self.repo.get(uid)
         if not source_result.is_ok or not source_result.value:
-            return Result.fail(Errors.not_found(f"Path step {uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", uid))
 
         rel_name = predicate.to_neo4j_name()
 
@@ -394,7 +394,7 @@ class PsSemanticService:
         # Verify source unit exists
         source_result = await self.repo.get(uid)
         if not source_result.is_ok or not source_result.value:
-            return Result.fail(Errors.not_found(f"Path step {uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", uid))
 
         results = await self.repo.discover_semantic_bridges(uid, target_domain, max_results)
 
@@ -441,7 +441,7 @@ class PsSemanticService:
         # Verify unit exists
         source_result = await self.repo.get(uid)
         if not source_result.is_ok or not source_result.value:
-            return Result.fail(Errors.not_found(f"Path step {uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", uid))
 
         results = await self.repo.infer_transitive_relationships(uid, max_inferences)
 

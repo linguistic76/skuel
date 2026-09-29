@@ -232,7 +232,7 @@ class LateralRelationshipService:
         if deleted_count == 0:
             return Result.fail(
                 Errors.not_found(
-                    f"Relationship {relationship_type.value} not found between {source_uid} and {target_uid}"
+                    "Relationship", f"{source_uid} -[{relationship_type.value}]-> {target_uid}"
                 )
             )
 
@@ -445,10 +445,6 @@ class LateralRelationshipService:
 
         ownership_result = await domain_service.verify_ownership(entity_uid, user_uid)
         if ownership_result.is_error:
-            # (resource, identifier) — the four inlined copies this replaced passed
-            # the whole sentence as `resource`, yielding a garbled code and
-            # "The requested Entity <uid> not found or access denied could not be
-            # found". The category, and so the 404, is unchanged.
             return Result.fail(Errors.not_found("Entity", entity_uid))
 
         return Result.ok(True)
@@ -511,13 +507,13 @@ class LateralRelationshipService:
 
         records = result.value
         if not records:
-            return Result.fail(Errors.not_found("One or both entities not found"))
+            return Result.fail(Errors.not_found("Entity", f"{source_uid} / {target_uid}"))
 
         record = records[0]
         if record["source_count"] == 0:
-            return Result.fail(Errors.not_found(f"Source entity {source_uid} not found"))
+            return Result.fail(Errors.not_found("Entity", source_uid, reason="source"))
         if record["target_count"] == 0:
-            return Result.fail(Errors.not_found(f"Target entity {target_uid} not found"))
+            return Result.fail(Errors.not_found("Entity", target_uid, reason="target"))
 
         return Result.ok(True)
 

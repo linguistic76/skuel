@@ -82,7 +82,7 @@ class PsGraphService:
         # Verify source unit exists
         source_result = await self.repo.get(uid)
         if not source_result.is_ok or not source_result.value:
-            return Result.fail(Errors.not_found(f"Path step {uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", uid))
 
         self.logger.debug(
             f"Finding prerequisites for {uid}: depth={depth}, min_confidence={min_confidence}"
@@ -127,7 +127,7 @@ class PsGraphService:
         # Verify source unit exists
         source_result = await self.repo.get(uid)
         if not source_result.is_ok or not source_result.value:
-            return Result.fail(Errors.not_found(f"Path step {uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", uid))
 
         results = await self.repo.find_next_steps(uid, limit)
 
@@ -168,11 +168,13 @@ class PsGraphService:
         # Verify both units exist
         unit_result = await self.repo.get(unit_uid)
         if not unit_result.is_ok or not unit_result.value:
-            return Result.fail(Errors.not_found(f"Path step {unit_uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", unit_uid))
 
         prereq_result = await self.repo.get(prerequisite_uid)
         if not prereq_result.is_ok or not prereq_result.value:
-            return Result.fail(Errors.not_found(f"Prerequisite step {prerequisite_uid} not found"))
+            return Result.fail(
+                Errors.not_found("PathStep", prerequisite_uid, reason="prerequisite step")
+            )
 
         await self.repo.link_prerequisite(unit_uid, prerequisite_uid, is_mandatory)
 
@@ -197,11 +199,11 @@ class PsGraphService:
         # Verify both units exist
         parent_result = await self.repo.get(parent_uid)
         if not parent_result.is_ok or not parent_result.value:
-            return Result.fail(Errors.not_found(f"Parent step {parent_uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", parent_uid, reason="parent step"))
 
         child_result = await self.repo.get(child_uid)
         if not child_result.is_ok or not child_result.value:
-            return Result.fail(Errors.not_found(f"Child step {child_uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", child_uid, reason="child step"))
 
         await self.repo.link_parent_child(parent_uid, child_uid)
 

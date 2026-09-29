@@ -238,7 +238,7 @@ class GuardedRowStore[T]:
         self.calls.append((uid, dict(updates), guard))
         stored = self.rows.get(uid)
         if stored is None:
-            return Result.fail(Errors.not_found("resource", f"Entity {uid} not found"))
+            return Result.fail(Errors.not_found("Entity", uid))
         prior = prior_status_of(stored)
         applied = not guard_refuses(prior, guard)
         if applied:
@@ -255,7 +255,7 @@ def guarded_rows_backend[T](rows: Mapping[str, T | None]) -> tuple[Mock, Guarded
     async def _get(uid: str) -> Result[T]:
         stored = store.rows.get(uid)
         if stored is None:
-            return Result.fail(Errors.not_found("resource", f"Entity {uid} not found"))
+            return Result.fail(Errors.not_found("Entity", uid))
         return Result.ok(stored)
 
     backend = Mock()

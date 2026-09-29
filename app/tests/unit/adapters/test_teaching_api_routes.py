@@ -352,7 +352,7 @@ class TestRequestRevision:
     def test_a_denied_detail_touches_neither_writer(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
         harness.review.get_submission_detail = AsyncMock(
-            return_value=Result.fail(Errors.not_found("Submission entry_1 not found"))
+            return_value=Result.fail(Errors.not_found("Submission", "entry_1"))
         )
 
         response = harness.client.post(

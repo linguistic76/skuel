@@ -245,7 +245,7 @@ class TestRecordPrincipleReflection:
         self, principles_service: PrinciplesService
     ) -> None:
         principles_service.core.verify_ownership = AsyncMock(
-            return_value=Result.fail(Errors.not_found("Principle principle_9 not found"))
+            return_value=Result.fail(Errors.not_found("Principle", "principle_9"))
         )
         update_principle = AsyncMock(return_value=Result.ok(Mock()))
         principles_service.core.update_principle = update_principle

@@ -202,6 +202,8 @@ class TestGroupRosterIsScoped:
         )
 
         assert foreign.status_code == missing.status_code == 404
+        # The toast header carries the developer message — client-visible too.
+        assert foreign.headers["X-Toast-Message"] == missing.headers["X-Toast-Message"]
 
         foreign_body = _body(foreign)
         missing_body = _body(missing)

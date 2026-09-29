@@ -30,6 +30,8 @@ ERROR (blocks CI):
             the one boundary spelling, not fasthtml.common / starlette.requests
   SKUEL036: A role-gated handler never calls require_authenticated_user — the
             decorator authenticated and fetched the caller; read current_user.uid
+  SKUEL037: Errors.not_found takes a resource NAME — not an f-string, a call, a
+            concatenation or a sentence; the diagnosis goes in reason=
 
 WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
   SKUEL005: Result[T] return types on service methods
@@ -1377,6 +1379,38 @@ async def teaching_students_content_fragment(request: Request, current_user: Any
     user_uid = require_authenticated_user(request)  # the decorator already did this
     result = await orchestrator.get_students_summary(teacher_uid=user_uid)""",
     },
+    "SKUEL037": {
+        "title": "Errors.not_found Takes a Resource Name, Not a Sentence",
+        "severity": "ERROR",
+        "description": """`Errors.not_found(resource, identifier=None, *, reason=None)` interpolates
+`resource` into three places: the developer `message` ("Task not found: t1", also sent as
+the `X-Toast-Message` header), the client-facing `user_message` ("The requested Task could
+not be found", the JSON body's `message`) and the `code` (`NOT_FOUND_TASK`). A sentence
+passed as `resource` reaches users doubled ("The requested Path step ps_x not found could
+not be found"), puts a UID and spaces into the code, and — where one refusal branch says
+"not found" and another names a different reason — lets a caller tell "exists but not
+yours" from "missing". `reason=` exists for the diagnosis: it lands in `details["reason"]`
+only, never in anything a client reads.
+
+Flags, in `core/`, `adapters/` and `ui/` (tests excluded):
+- a `resource` (positional 0 or `resource=`) that is an f-string, a call (`str(e)`,
+  `"...".format(...)`), a `+` / `%` expression, or a string literal containing "found";
+- an `identifier` (positional 1 or `identifier=`) whose literal text contains "not found"
+  — the same sentence moved one slot over.
+A name, an attribute (`self.config_lookup_label`, `self.label.value`) or a plain literal
+("Task", "Group membership") passes.
+
+Fix: `Errors.not_found("Task", uid)`; the diagnosis goes in `reason=`.
+
+Suppress: # skuel-lint: disable=SKUEL037 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL037 -- <reason>""",
+        "good": """return Result.fail(
+    Errors.not_found("Submission", report_uid, reason=f"teacher {teacher_uid} has no review access")
+)""",
+        "bad": """return Result.fail(
+    Errors.not_found(f"Teacher {teacher_uid} does not have review access to submission {report_uid}")
+)""",
+    },
 }
 
 
@@ -1590,6 +1624,7 @@ class SkuelLinter:
             "SKUEL034",
             "SKUEL035",
             "SKUEL036",
+            "SKUEL037",
         }
     )
 
@@ -1660,6 +1695,7 @@ class SkuelLinter:
             "SKUEL034",
             "SKUEL035",
             "SKUEL036",
+            "SKUEL037",
         }
     )
 
@@ -1684,6 +1720,8 @@ class SkuelLinter:
     INBOUND_LAYER_PREFIXES: ClassVar[tuple[str, ...]] = ("adapters/inbound/", "ui/")
     # SKUEL035 / SKUEL036: the route layer proper — handlers and their imports.
     ROUTE_LAYER_PREFIX: ClassVar[str] = "adapters/inbound/"
+    # SKUEL037: every first-party tree that builds an error a client can read.
+    NOT_FOUND_SHAPE_TREES: ClassVar[tuple[str, ...]] = ("core/", "adapters/", "ui/")
 
     # SKUEL019: Credential keys that must route through get_credential().
     #
@@ -2341,6 +2379,7 @@ class SkuelLinter:
         # The route layer alone: adapters/inbound/, where handlers are defined and
         # bound. ui/ is presentation and has neither handlers nor a Request import.
         runs_route_layer = rel_path.as_posix().startswith(self.ROUTE_LAYER_PREFIX) and not is_test
+        runs_skuel037 = not is_test and rel_path.as_posix().startswith(self.NOT_FOUND_SHAPE_TREES)
 
         # The dispatch table — (rule id, gate, checker, args) in run order. Each
         # row runs in its own ``try`` below, so one crashing rule costs exactly
@@ -2399,6 +2438,8 @@ class SkuelLinter:
             # Route-layer hygiene — adapters/inbound/ only (handlers live there).
             ("SKUEL035", runs_route_layer, self._check_request_import_source, ast_args),
             ("SKUEL036", runs_route_layer, self._check_role_gated_reauth, ast_args),
+            # Error-shape rule — every tree that builds a client-readable error.
+            ("SKUEL037", runs_skuel037, self._check_not_found_resource_shape, ast_args),
             (
                 "SKUEL008",
                 is_persistence,
@@ -4620,6 +4661,99 @@ class SkuelLinter:
                         line_content=line.strip(),
                     )
                 )
+
+    @staticmethod
+    def _call_argument(node: ast.Call, position: int, keyword: str) -> ast.expr | None:
+        """The argument bound to ``keyword`` — positional ``position`` or ``keyword=``."""
+        if len(node.args) > position:
+            return node.args[position]
+        return next((kw.value for kw in node.keywords if kw.arg == keyword), None)
+
+    @staticmethod
+    def _literal_text(expr: ast.expr) -> str | None:
+        """A string literal's text, or an f-string's literal parts joined; else None."""
+        if isinstance(expr, ast.Constant) and isinstance(expr.value, str):
+            return expr.value
+        if isinstance(expr, ast.JoinedStr):
+            return "".join(
+                part.value
+                for part in expr.values
+                if isinstance(part, ast.Constant) and isinstance(part.value, str)
+            )
+        return None
+
+    def _not_found_resource_defect(self, resource: ast.expr) -> str | None:
+        """Why ``resource`` is not a resource NAME, or None when it is one."""
+        if isinstance(resource, ast.JoinedStr):
+            return "an f-string"
+        if isinstance(resource, ast.Call):
+            return "a call"
+        if isinstance(resource, ast.BinOp):
+            return "a built string"
+        text = self._literal_text(resource)
+        if text is not None and "found" in text.lower():
+            return "a sentence"
+        return None
+
+    def _check_not_found_resource_shape(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL037 [ERROR]: ``Errors.not_found`` takes a resource NAME, not a sentence.
+
+        Flags a ``resource`` that is an f-string, a call, a built string or a
+        literal containing "found", and an ``identifier`` whose literal text
+        contains "not found". ``Errors`` is resolved through the module's
+        from-import bindings, so an alias is still the factory.
+        """
+        if tree is None:
+            return
+        if self._is_file_suppressed(content, "SKUEL037"):
+            return
+        bound = self._from_import_bindings(tree)
+        for node in self._nodes(tree, ast.Call):
+            func = node.func
+            if not (
+                isinstance(func, ast.Attribute)
+                and func.attr == "not_found"
+                and isinstance(func.value, ast.Name)
+                and bound.get(func.value.id, func.value.id) == "Errors"
+            ):
+                continue
+            resource = self._call_argument(node, 0, "resource")
+            identifier = self._call_argument(node, 1, "identifier")
+            defect = self._not_found_resource_defect(resource) if resource is not None else None
+            if defect is not None:
+                message = f"Errors.not_found resource is {defect} — pass the resource NAME"
+            else:
+                id_text = self._literal_text(identifier) if identifier is not None else None
+                if id_text is None or "not found" not in id_text.lower():
+                    continue
+                message = "Errors.not_found identifier is a sentence — pass the lookup key"
+            line_num = node.lineno
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL037"):
+                continue
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL037",
+                    message=message,
+                    suggestion=(
+                        'Errors.not_found("Task", uid) — put the diagnosis in reason=, '
+                        "which never reaches the client"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
 
     # SKUEL020: decorator attributes that register a route on `app`/`rt`.
     # `ws`/`websocket` are deliberately absent: FastHTML websocket handlers receive

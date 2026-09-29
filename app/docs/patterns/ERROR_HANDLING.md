@@ -297,7 +297,7 @@ return require_found(await service.get(uid), "Entity", uid)  # error check + Non
 Errors.validation(message, field=None, value=None, user_message=None)
 
 # Resource not found - 404
-Errors.not_found(resource, identifier=None)
+Errors.not_found(resource, identifier=None, *, reason=None)
 
 # Database errors - 503
 Errors.database(operation, message, query=None, **details)
@@ -311,6 +311,44 @@ Errors.business(rule, message, **details)
 # System/unexpected errors - 500
 Errors.system(message, exception=None, **details)
 ```
+
+#### `Errors.not_found`: a name, a key, and a private reason
+
+`resource` is the **name** of what was looked up (`"Task"`, `"PathStep"`,
+`"Group membership"`), never a sentence. The factory interpolates it into three
+client-visible places: `user_message` ("The requested Task could not be found",
+the JSON body's `message`), `message` ("Task not found: t1", which the boundary
+also sends as the `X-Toast-Message` header) and `code`. The code is normalised
+to `NOT_FOUND_` + the name with each run of non-word characters as `_`
+(`"Group membership"` → `NOT_FOUND_GROUP_MEMBERSHIP`). `identifier` is the
+lookup key.
+
+`reason` is the internal diagnosis ("not owned by caller", "not submitted to
+this teacher's groups"). It lands in `details["reason"]` **only**. `details`
+never reaches a client (`to_client_dict()` drops it), so logs and tests can see
+which branch fired while the client can't.
+
+That split is how an ownership-gated read keeps **404 parity**. Every refusal
+branch passes the same `resource` and `identifier`, and only `reason` differs.
+A foreign entity then answers byte-for-byte like a missing one, so a UID can't
+be probed for existence:
+
+```python
+# Missing (get) and foreign (verify_ownership) — identical to the client
+Errors.not_found(self.config_lookup_label, uid)
+Errors.not_found(self.config_lookup_label, uid, reason="not owned by caller")
+
+# ❌ A sentence as resource: "The requested Teacher t1 does not have review
+#    access to submission s1 could not be found", code with spaces and UIDs
+Errors.not_found(f"Teacher {teacher_uid} does not have review access to submission {uid}")
+# ✅
+Errors.not_found("Submission", uid, reason=f"teacher {teacher_uid} has no review access")
+```
+
+SKUEL037 enforces the shape in `core/`, `adapters/` and `ui/`. It rejects an
+f-string, a call, a built string or a literal containing "found" as `resource`,
+and an `identifier` whose text contains "not found". See
+[linter_rules.md](linter_rules.md).
 
 ### 4. Event Handler Decorator (`@safe_event_handler`)
 

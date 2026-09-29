@@ -591,9 +591,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         if not record:
             return Result.fail(
-                Errors.not_found(
-                    f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
-                )
+                Errors.not_found("Relationship", f"{from_uid} --[{relationship_type}]-> {to_uid}")
             )
 
         self.logger.debug(f"Updated edge metadata for {from_uid} -> {to_uid}")
@@ -637,9 +635,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         if not record:
             return Result.fail(
-                Errors.not_found(
-                    f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
-                )
+                Errors.not_found("Relationship", f"{from_uid} --[{relationship_type}]-> {to_uid}")
             )
 
         new_count = record["count"]

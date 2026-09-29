@@ -52,7 +52,7 @@ class PsApplicationDiscoveryService:
         """Verify path step exists, returning NotFound error if not."""
         ku_result = await self.repo.get(ku_uid)
         if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Path step {ku_uid} not found"))
+            return Result.fail(Errors.not_found("PathStep", ku_uid))
         return Result.ok(None)
 
     # ========================================================================

@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-09-25'
+updated: '2026-09-29'
 category: patterns
 related_skills:
 - activity-domains
@@ -311,6 +311,13 @@ async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Transcri
     return Result.ok(result.value)
 ```
 
+Both refusals pass the same `resource` and `identifier`, which is what makes them
+indistinguishable to a client. When logs or tests need to know which branch fired,
+add `reason=` (for example `reason="not owned by caller"`). It lands in
+`details["reason"]` only and is never sent. A sentence passed as `resource` breaks this
+parity; SKUEL037 refuses one. See
+[ERROR_HANDLING.md](ERROR_HANDLING.md) § `Errors.not_found`.
+
 See: `/docs/patterns/STANDALONE_SERVICE_PATTERN.md`
 
 ### OwnershipVerifier Protocol (Cross-Service Callbacks)
@@ -526,6 +533,9 @@ async def test_ownership_prevents_cross_user_access():
 The pinned version of this contract is `tests/unit/test_base_service.py`
 (`test_verify_ownership_unauthorized_returns_not_found`, the `owner_uid` fallback cases and
 `test_verify_ownership_ownerless_entity_is_not_found` beside it).
+`test_foreign_and_missing_are_indistinguishable` pins the stronger property: holding the
+UID fixed, a foreign entity and a missing one produce the same status, JSON body and
+`X-Toast-Message` header.
 
 ## See Also
 

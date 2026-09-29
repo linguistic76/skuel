@@ -630,7 +630,7 @@ async def validate_directory(
     start_time = datetime.now()
 
     if not directory.exists():
-        return Result.fail(Errors.not_found(f"Directory not found: {directory}"))
+        return Result.fail(Errors.not_found("Directory", directory))
 
     # Collect files using shared logic from batch module
     all_files = collect_files(directory, pattern)

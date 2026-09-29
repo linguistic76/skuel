@@ -342,7 +342,9 @@ class TestItemReschedule:
         oracle) — the route surfaces it as 404."""
         registry, service = routes_and_service
         service.reschedule_item = AsyncMock(
-            return_value=Result.fail(Errors.not_found("Item not found: task-task_x"))
+            return_value=Result.fail(
+                Errors.not_found("Task", "task_x", reason="not owned by caller")
+            )
         )
         handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
         response = await handler(

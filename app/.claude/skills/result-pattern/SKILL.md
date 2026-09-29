@@ -89,10 +89,14 @@ Errors.validation(
     user_message="Please enter a valid email address"
 )
 
-# Not Found - resource lookup failed
+# Not Found - resource lookup failed. `resource` is a NAME (it becomes
+# "The requested Task could not be found" and NOT_FOUND_TASK), never a sentence;
+# `reason` is the internal diagnosis — details["reason"] only, never sent to a
+# client, so a foreign entity answers exactly like a missing one (SKUEL037).
 Errors.not_found(
     resource="Task",
-    identifier="task-123"
+    identifier="task-123",
+    reason="not owned by caller",  # optional, keyword-only
 )
 
 # Database - storage operations
@@ -343,7 +347,7 @@ result = await parse_form_body(request, RequestRevisionRequest)
 
 ### Error Response Format
 
-Client responses use `ErrorContext.to_client_dict()` — internal fields (`details`, `source_location`, `stack_trace`) are stripped. The `message` field shows `user_message` (not the developer message):
+Client responses use `ErrorContext.to_client_dict()` — internal fields (`details`, `source_location`, `stack_trace`) are stripped. The `message` field shows `user_message`; the developer `message` still reaches the client as the `X-Toast-Message` header, so neither may carry an internal diagnosis — that is what `Errors.not_found(..., reason=...)` is for:
 
 ```json
 {
@@ -512,7 +516,7 @@ keep the `Result.fail(...)` guard in the calling method.
 ```python
 # WRONG - processor returns Result -> execute() wraps it -> Result[Result[bool]]
 def _process_unpin(records: list) -> Result[bool]:
-    return Result.ok(True) if records else Result.fail(Errors.not_found("Pin not found"))
+    return Result.ok(True) if records else Result.fail(Errors.not_found("Pin", entity_uid))
 
 return await executor.execute(query=..., processor=_process_unpin)  # double-wrapped
 
@@ -521,7 +525,7 @@ result = await executor.execute(query=..., processor=check_exists)  # -> Result[
 if result.is_error:
     return result
 if not result.value:
-    return Result.fail(Errors.not_found("Pin not found"))
+    return Result.fail(Errors.not_found("Pin", entity_uid))
 return Result.ok(True)
 ```
 

@@ -18,6 +18,7 @@ Key Improvements:
 """
 
 import logging
+import re
 import traceback
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -676,15 +677,33 @@ class Errors:
         )
 
     @staticmethod
-    def not_found(resource: str, identifier: Any = None) -> ErrorContext:
-        """Create a not found error."""
+    def not_found(
+        resource: str, identifier: object = None, *, reason: str | None = None
+    ) -> ErrorContext:
+        """Create a not found error.
+
+        ``resource`` is the NAME of what was looked up ("Task", "PathStep",
+        "Group membership") — never a sentence: it is interpolated into the
+        client-facing ``user_message`` ("The requested Task could not be
+        found") and the ``code`` (``NOT_FOUND_TASK``). Name the lookup key in
+        ``identifier``.
+
+        ``reason`` is the internal diagnosis ("not owned by caller", "not
+        submitted to this teacher"). It lands in ``details["reason"]`` only —
+        never in ``message``, ``user_message`` or ``code`` — so every refusal
+        branch of an ownership-gated read answers the client identically
+        (404 parity: "exists but not yours" must read as "missing") while logs
+        and tests still see which branch fired. SKUEL037 guards the shape.
+        """
         details = {"resource": resource}
         if identifier:
             details["identifier"] = str(identifier)
+        if reason:
+            details["reason"] = reason
 
         return ErrorContext(
             category=ErrorCategory.NOT_FOUND,
-            code=f"NOT_FOUND_{resource.upper()}",
+            code="NOT_FOUND_" + re.sub(r"\W+", "_", resource).strip("_").upper(),
             message=f"{resource} not found" + (f": {identifier}" if identifier else ""),
             severity=ErrorSeverity.LOW,
             details=details,
