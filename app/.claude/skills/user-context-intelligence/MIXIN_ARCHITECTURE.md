@@ -62,79 +62,55 @@ context.
 
 ---
 
-## What Each Mixin Computes
+## What Each Mixin Provides
+
+This section gives each method's contract — what it reads, what it returns, and the behaviour
+a caller can rely on or must not assume. It does not restate the scoring. Weights, thresholds
+and branch order live in the method and change there; read the method before depending on a
+number.
 
 ### LearningIntelligenceMixin — methods 1–4
 
-**Method 1, `get_optimal_next_path_steps`** tries four sources in order and returns from the
-first that yields steps:
+| Method | Reads | Returns |
+|--------|-------|---------|
+| 1 `get_optimal_next_path_steps` | `zpd_service`, `vector_search`, `ps`, `tasks`, context | `Result[list[PathStep]]`, at most `max_steps` |
+| 2 `get_learning_path_critical_path` | context | `Result[list[str]]` — `[]` without a `life_path_uid` |
+| 3 `get_knowledge_application_opportunities` | `tasks`, context | `Result[dict[str, list[str]]]` |
+| 4 `get_unblocking_priority_order` | context | `Result[list[tuple[str, int]]]`, highest count first |
 
-1. **ZPD** — when `zpd_service` is set and `assess_zone(user_uid)` returns a non-empty
-   assessment. Uses the assessment's `recommended_actions` of type `learn` when present;
-   otherwise ranks `top_proximal_ku_uids()` by
-   `readiness × 0.5 + life_path_alignment × 0.3 + behavioral_readiness × 0.2`, plus small boosts
-   for confirmed zone evidence. An assessment with an empty proximal zone falls to step 2.
-2. **Vector search** — `vector_search.learning_aware_search(...)`, when wired and non-empty.
-3. **`ps.get_ready_to_learn_for_user(context, limit=max_steps * 2)`**.
-4. **Context** — `context.get_ready_to_learn()`, scored by `_calculate_learning_priority`
-   (base 0.5; goal alignment up to 0.3; unblocking up to 0.25; life path 0.25; capacity fit up
-   to 0.2; capped at 1.0). Reached when source 3 fails or returns nothing.
+**Method 1 has four candidate sources, tried in this order:** the ZPD assessment, vector
+search, `ps.get_ready_to_learn_for_user`, and the context's own `get_ready_to_learn()`. Which
+one answers depends on what is wired and what each returns.
 
-The two flags do different things depending on the source that answers:
+What a caller must not assume:
 
-| Source | `consider_capacity=True` | `consider_goals=True` |
-|--------|--------------------------|-----------------------|
-| 1 ZPD | filters: keeps the steps whose cumulative `estimated_time_minutes` fits `context.available_minutes_daily` | not read |
-| 2 Vector search | filters, as above | accepted, not read |
-| 3 `ps` | filters, as above | not read |
-| 4 Context | **scores only** — adds up to 0.2 to a step that fits; nothing is filtered, so the returned steps can exceed the available minutes | adds up to 0.3 for goal alignment |
+- **`consider_capacity` is not a guarantee that the steps fit the day.** The ZPD, vector and
+  `ps` sources filter by it. The context source only adds to a step's score, so its steps can
+  exceed `context.available_minutes_daily`.
+- **`consider_goals` is not honoured on every path.** Only the context source reads it. The
+  vector source accepts and ignores it. When a ZPD assessment is non-empty but yields no
+  candidates, the fall-through to the other sources passes `True` regardless of what the caller
+  sent.
+- **It can raise.** Steps from the first three sources are enriched by
+  `_get_application_opportunities_for_ku`, which raises `RuntimeError` when its habits or
+  events read fails — the one place in the package that raises on a service failure rather than
+  returning `Result.fail`.
+- A step's `title` is the entity's title only on the vector and `ps` sources. The ZPD and
+  context sources build it from the uid.
 
-So neither flag is a guarantee about the result. A caller that needs the steps to fit the day
-checks the total itself. Every source computes `aligns_with_goals` for each step whatever
-`consider_goals` says.
+How the assessment is computed belongs to the [zpd](../zpd/SKILL.md) skill.
 
-Steps from sources 1–3 are enriched by `_get_application_opportunities_for_ku`, which reads
-`tasks.get_learning_tasks_for_user`, `ps.find_habits_reinforcing_knowledge` and
-`ps.find_events_applying_knowledge`. A failed habits or events read there raises `RuntimeError`
-rather than returning `Result.fail` — the one place in the package that raises on a service
-failure. A caller of method 1 that must not raise guards the call.
-
-How the assessment itself is computed belongs to the [zpd](../zpd/SKILL.md) skill.
-
-**Method 2, `get_learning_path_critical_path`** returns `[]` when the context has no
-`life_path_uid`. Otherwise it orders the unmastered UIDs in `context.knowledge_mastery` so that
-each one's prerequisites (`context.prerequisites_needed`) come first, choosing at each step the
-ready unit that unlocks the most. Context only — it calls no service.
-
-**Method 3, `get_knowledge_application_opportunities(ku_uid)`** returns a dict with six keys
-(`tasks`, `habits`, `goals`, `events`, `choices`, `principles`). It fills four: tasks from
-`tasks.get_learning_tasks_for_user`, goals from the context's learning goals, habits and events
-by following those goals through the context. `choices` and `principles` are always `[]`.
-
-**Method 4, `get_unblocking_priority_order`** counts, for each unmet prerequisite in
-`context.prerequisites_needed`, how many entries list it, and returns `(uid, count)` pairs
-sorted by count. Context only.
+**Method 3** returns six keys — `tasks`, `habits`, `goals`, `events`, `choices`, `principles` —
+and fills the first four. `choices` and `principles` are always `[]`.
 
 ### LifePathIntelligenceMixin — method 7
 
 `calculate_life_path_alignment()` reads the context and calls no service.
 
-- No `context.life_path_uid` → `Result.ok` with every score 0.0 and
+- Without `context.life_path_uid` it returns `Result.ok` with every score `0.0` and
   `alignment_level="undefined"`.
-- Otherwise a weighted sum: knowledge 25%, activity 25%, goal 20%, principle 15%, momentum 15%.
-- The activity and goal scores are multiplied by an engagement bonus in `[1.0, 1.2]` — the share
-  of active tasks, habits and goals spawned from PS engagements
-  (`context.spawned_uid_to_ps_uid`) — and capped at 1.0.
-
-| `overall_score` | `alignment_level` |
-|-----------------|-------------------|
-| `>= 0.9` | `flourishing` |
-| `>= 0.7` | `aligned` |
-| `>= 0.4` | `exploring` |
-| below | `drifting` |
-
-The knowledge and activity dimensions measure against `context.learning_goals`, used as the
-proxy for the life path's goals.
+- With one, `alignment_level` is `flourishing`, `aligned`, `exploring` or `drifting`.
+- With one, it always reaches a strict accessor, so it needs a rich context.
 
 This is not the alignment the analytics pages show: `analytics_summary_api.py` and
 `analytics_ui.py` call `AnalyticsService.calculate_life_path_alignment(user_uid)`, a different
@@ -142,8 +118,9 @@ implementation returning a dict.
 
 ### SynergyIntelligenceMixin — method 6
 
-`get_cross_domain_synergies(min_synergy_score=0.3, include_types=None)` runs six detectors over
-the context, drops results under the minimum score, and sorts by score.
+`get_cross_domain_synergies(min_synergy_score=0.3, include_types=None)` runs one detector per
+key in `include_types`, drops results under the minimum score, and sorts by score.
+`include_types=None` runs all six.
 
 | `include_types` key | `source_domain` → `target_domain` | `synergy_type` |
 |---------------------|----------------------------------|----------------|
@@ -154,31 +131,23 @@ the context, drops results under the minimum score, and sorts by score.
 | `goal_learning` | `knowledge` → `goal` | `enables` |
 | `engagement_completion` | `pathstep` → `multi` | `spawns` |
 
-`include_types=None` runs all six.
-
-The engagement detector scores each non-abandoned PS engagement by the completion ratio of its
-spawned tasks, goals and choices; a completed engagement scores 1.0.
+It reads the context and calls no service. Each detector has its own scoring and its own
+skip conditions — `_detect_engagement_synergies`, for one, emits nothing for an abandoned
+engagement or one that spawned nothing, and scores the rest by branch. Read the detector.
 
 ### ScheduleIntelligenceMixin — method 8
 
 `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8,
-respect_energy=True)` returns a **bare list**.
+respect_energy=True)` returns a **bare list**, at most `max_recommendations` long, highest
+`overall_score` first.
 
-- Available minutes = the horizon, minus 60 per event in `context.today_event_uids`, minus the
-  share already committed (`context.current_workload_score`), capped at
-  `context.available_minutes_daily`.
+- It reads the context and calls no service — `self.calendar` is not read.
+- It always reaches a strict accessor, so it needs a rich context.
 - The time slot is `context.preferred_time.value`. The field is a `TimeOfDay` that defaults to
   `TimeOfDay.ANYTIME`, and every member is truthy, so for a user with no preference the slot is
-  `"anytime"`. The method's clock fallback (the hour in the user's zone) sits behind
-  `if self.context.preferred_time:` and is not reached by a context built the normal way.
-- Schedule fit is raised for a task in the `morning` or `afternoon` slot and for learning in
-  the `morning` slot. With the slot at `"anytime"` neither applies and both score the 0.7
-  default.
-- `context.current_workload_score >= 0.9` adds a `rest` recommendation.
-- Candidates come from the context's task, habit, learning and goal fields. Each is scored
-  `priority × 0.4 + schedule_fit × 0.35 + energy_match × 0.25`.
-
-It calls no service — `self.calendar` is not read.
+  `"anytime"`. The method's clock fallback sits behind `if self.context.preferred_time:` and is
+  not reached by a context built the normal way.
+- A `rest` recommendation (`uid="rest"`, `entity_type="meta"`) may be in the list.
 
 ### TemporalMomentumMixin
 
@@ -189,13 +158,10 @@ def compute_momentum_signals(self) -> dict[str, Any]:  # boundary: heterogeneous
     ...
 ```
 
-Returns `velocities` (per Activity domain, the completed share of its `entities_rich` items),
-`neglected` (domains with no items), `habit_consistency` (mean `completion_rate` across habit
-items) and `phase` — `accelerating` at an average velocity of 0.6 or more, `steady` at 0.3 or
-more, otherwise `decelerating`. With an empty `entities_rich` every value is empty and the phase
-is `unknown`.
-
-`DailyPlanningMixin` turns the signals into warnings and a rationale clause.
+The keys are `velocities`, `neglected`, `habit_consistency` and `phase`. `phase` is one of
+`accelerating`, `steady`, `decelerating`, `unknown`; it is `unknown` only when
+`context.entities_rich` is empty. `DailyPlanningMixin` turns the signals into warnings and a
+rationale clause.
 
 ### DailyPlanningMixin — method 5
 
@@ -204,7 +170,7 @@ Covered in [SKILL.md](SKILL.md) § The Flagship. It is the only mixin that reads
 class (declared for mypy under `TYPE_CHECKING`).
 
 The two bucketing helpers, `_build_engaged_groups` and `_compute_available_to_start`, are
-module-level functions in `daily_planning.py` — pure transformations of the assembled plan.
+module-level functions in `daily_planning.py`.
 
 ### PerceptionIntelligenceMixin — method 9
 
@@ -221,7 +187,7 @@ A failed per-entity read is logged and counted as empty; the others still contri
 dict carries `per_domain`, `over_rated_domains`, `under_rated_domains`, `accurate_domains`,
 `total_assessed_entities`, `insights` and `has_data`.
 
-No LLM. No production caller yet — see [SKILL.md](SKILL.md) § Who calls them.
+No LLM. No production caller — see [SKILL.md](SKILL.md) § Who calls them.
 
 ---
 

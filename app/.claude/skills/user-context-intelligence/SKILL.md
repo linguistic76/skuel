@@ -128,7 +128,7 @@ Measured on a standard `UserContext` with a few fields set:
 | Method 5 | Returns a plan — it calls no strict accessor. The plan is built from the standard fields (`daily_habits`, `available_minutes_daily`) and whatever the services return for a context with no `entities_rich`. |
 | Method 6, default `include_types` | Raises at `get_habits_by_goal()` |
 | Method 6, `include_types` limited to `knowledge_task`, `principle_goal`, `goal_learning` or `engagement_completion` | Returns `Result.ok([])` |
-| Method 7, with a life path, active tasks and learning goals | Raises at `get_tasks_for_goal()` |
+| Method 7, with a life path | Raises — it always reaches a strict accessor; which one comes first depends on the data |
 | Method 8 | Raises at `get_blocked_tasks()` |
 | Methods 2 and 4 | Return a `Result` |
 
