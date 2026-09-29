@@ -174,7 +174,7 @@ sel_category: SELCategory | None     # CASEL competency
 publication_state: PublicationState  # a draft is withheld from learner-facing reads
 ```
 
-**Access:** `ContentScope.SHARED` — all users read. No CRUD API: Kus come from content-vault
+**Access:** `ContentScope.SHARED` — all users read a published Ku (a `draft` is withheld from learner-facing reads). No CRUD API: Kus come from content-vault
 ingestion or `KuService.create_ku` (EXTRACT_ACTIVITIES).
 
 **Services:**

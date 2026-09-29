@@ -62,7 +62,7 @@ DomainConfig(user_ownership_relationship=None, ...)
 ```
 
 This means:
-- Ku, PathStep and LearningPath are readable by every user; there is no per-user ownership check on them
+- Ku, PathStep and LearningPath carry no per-user ownership check: a published one is readable by every user. A `draft` `publication_state` (on `Ku` and every `Curriculum` subtype) is withheld from learner-facing reads (`build_publication_clause`)
 - They have no CRUD API. They enter through content-vault ingestion (the admin "Sync content vault" door), and `KuService.create_ku` mints generated Kus for the EXTRACT_ACTIVITIES pipeline. The PathStep write routes (`/api/path-steps/organize`, `/content`, `/tags`, …) are `@require_admin`
 - Exercise is the exception: its CRUD routes use `ContentScope.USER_OWNED` with `require_role=UserRole.TEACHER`, and CURRICULUM-scope exercises come from the vault only
 - User progress is tracked via separate user → content edges (VIEWED, IN_PROGRESS, MASTERED, …)
