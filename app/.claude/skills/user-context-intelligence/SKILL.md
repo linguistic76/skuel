@@ -115,10 +115,25 @@ Two mechanisms guard the rich-only fields, and they stack:
    go through `UserContext._as_rich(operation)`, which raises `RichContextRequiredError` on a
    standard context. SKUEL018 forbids a direct `.habits_by_goal` read outside the accessor files.
 
-The backstop raises — an exception, not a `Result.fail` — and only where a strict accessor is
-read. Method 6 on a standard context raises `RichContextRequiredError`; method 5 reads no
-rich-only field, so on a standard context it returns a plan built from empty data. The type is
-the guard.
+**There is no universal runtime guard.** `factory.create()` does not check the depth, and no
+method checks it on entry. A standard context handed over by an unchecked caller gets as far as
+the first strict accessor the call happens to reach, and that depends on the method, its
+arguments and the data. Where an accessor is reached it raises `RichContextRequiredError` — an
+exception, not a `Result.fail`.
+
+Measured on a standard `UserContext` with a few fields set:
+
+| Call | Outcome |
+|------|---------|
+| Method 5 | Returns a plan — it calls no strict accessor. The plan is built from the standard fields (`daily_habits`, `available_minutes_daily`) and whatever the services return for a context with no `entities_rich`. |
+| Method 6, default `include_types` | Raises at `get_habits_by_goal()` |
+| Method 6, `include_types` limited to `knowledge_task`, `principle_goal`, `goal_learning` or `engagement_completion` | Returns `Result.ok([])` |
+| Method 7, with a life path, active tasks and learning goals | Raises at `get_tasks_for_goal()` |
+| Method 8 | Raises at `get_blocked_tasks()` |
+| Methods 2 and 4 | Return a `Result` |
+
+So a wrong-depth context can produce a plausible answer instead of an error. The type is the
+guard.
 
 `entities_rich` is not one of the seven: read it directly (`context.entities_rich.get("tasks", [])`).
 At standard depth it is an empty dict.
@@ -252,7 +267,7 @@ Appended to `plan.warnings` in this order:
 2. Exercises: overdue count; blocked count.
 3. Tasks: overdue count.
 4. `workload_utilization > 0.9`; no learning scheduled while `context.learning_goals` is set.
-5. Domain health — only when `filtered_providers` is non-empty (next section).
+5. Domain health — only when `filtered_providers` is non-empty (§ Domain-health warnings).
 6. Momentum — `TemporalMomentumMixin`: domains with nothing in `entities_rich`, and habit
    consistency under 0.4. Consistency is 0.0 when there are no habit items to average, so the
    low-consistency warning also reaches a user who tracks no habits.

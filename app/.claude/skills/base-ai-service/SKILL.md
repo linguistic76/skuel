@@ -261,12 +261,12 @@ Reproduced with a `TestClient`:
 | A spec with no `wrap_key` whose method returns a dict | 200, JSON |
 | A spec with no `wrap_key` whose method returns a list | 200, `text/html` — FastHTML renders the list as a page |
 
-The last row is live for six specs: `tasks/ai/knowledge-generation`
+The missing-method row is live for six specs: `tasks/ai/knowledge-generation`
 (`identify_knowledge_generation`) and the five `knowledge/ai/*` routes (`find_related_steps`,
 `semantic_search`, `generate_summary`, `explain_at_level`, `suggest_applications`), none of which
 exists on `TasksAIService` / `PsAIService`.
 
-The list row is live for six specs: `goals/ai/milestones`, `events/ai/preparation`,
+The list-return row is live for six other specs: `goals/ai/milestones`, `events/ai/preparation`,
 `events/ai/reflection`, `choices/ai/alternatives`, `principles/ai/practices` and
 `path-steps/ai/practice`.
 

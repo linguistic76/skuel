@@ -341,37 +341,64 @@ outlive the context goes through the domain service.
 
 ## UserContext Fields the Mixins Read
 
+Every `UserContext` field a mixin reads, taken from the mixin sources. A stub context for a
+test needs the fields listed against the mixin it exercises.
+
 | Field | Type | Read by |
 |-------|------|---------|
-| `user_uid` | `UserUID` | all |
-| `available_minutes_daily` | `int` | daily plan, learning, schedule |
-| `current_workload_score` | `float` | schedule |
-| `current_energy_level` | `EnergyLevel \| None` | schedule |
-| `preferred_time` | `TimeOfDay` | schedule |
-| `today_event_uids` | `list[str]` | schedule |
-| `daily_habits` | `list[str]` | daily plan |
-| `active_task_uids` / `active_habit_uids` / `active_goal_uids` | `list[str]` | life path, synergy |
-| `habit_streaks` | `dict[str, int]` | synergy |
-| `learning_goals` | `list[str]` | daily plan, learning, life path |
-| `primary_goal_focus` | `str \| None` | daily plan rationale |
-| `life_path_uid` | `str \| None` | learning, life path |
-| `life_path_milestones` | `list[str]` | life path |
-| `knowledge_mastery` | `dict[str, float]` | learning, life path |
-| `mastered_knowledge_uids` | `set[str]` | learning, life path |
-| `prerequisites_needed` | `dict[str, list[str]]` | learning, life path |
-| `prerequisites_completed` | `set[str]` | learning |
-| `estimated_time_to_mastery` | `dict[str, int]` | daily plan, learning |
-| `next_recommended_knowledge` | `list[str]` | learning |
-| `events_by_habit` | `dict[str, list[str]]` | learning |
-| `zpd_assessment` | `ZPDAssessment \| None` | daily plan |
-| `unsubmitted_exercises` | `list[UnsubmittedExerciseItem]` | `ExerciseService`, for the daily plan |
-| `pending_revised_exercises` | `list[PendingRevisedExerciseItem]` | `ExerciseService`, daily plan |
-| `active_ps_engagements` | `dict[str, Engagement] \| None` | daily plan, synergy |
-| `spawned_uid_to_ps_uid` | `dict[str, str]` | life path |
+| `active_goal_uids` | `list[str]` | life path, synergy |
+| `active_habit_uids` | `list[str]` | learning, life path, synergy |
 | `active_path_steps_rich` | `list[RichPathStepItem]` | daily plan |
+| `active_ps_engagements` | `dict[str, Engagement]` or `None` | daily plan, synergy |
+| `active_task_uids` | `list[str]` | life path, synergy |
+| `available_minutes_daily` | `int` | daily plan, learning, schedule |
+| `completed_goal_uids` | `set[str]` | synergy |
+| `completed_task_uids` | `set[str]` | synergy |
+| `core_principle_uids` | `list[str]` | life path, synergy |
+| `current_energy_level` | `EnergyLevel` or `None` | schedule |
+| `current_learning_focus` | `str` or `None` | learning |
+| `current_workload_score` | `float` | life path, schedule |
+| `daily_habits` | `list[str]` | daily plan, schedule |
+| `decisions_against_principles` | `int` | life path |
+| `decisions_aligned_with_principles` | `int` | life path |
+| `dual_track_checkins` | `dict[str, list[dict[str, Any]]]` | perception |
 | `entities_rich` | `dict[str, list[RichEntityItem]]` | momentum |
-| `latest_activity_report_uid` / `_period` | `str \| None` | daily plan rationale |
-| `dual_track_checkins` / `knowledge_checkins` | `dict[str, list[dict[str, Any]]]` | perception |
+| `estimated_time_to_mastery` | `dict[str, int]` | daily plan, learning |
+| `events_by_habit` | `dict[str, list[str]]` | learning |
+| `goal_progress` | `dict[str, float]` | life path, schedule |
+| `habit_streaks` | `dict[str, int]` | life path, synergy, schedule |
+| `knowledge_checkins` | `dict[str, list[dict[str, Any]]]` | perception |
+| `knowledge_mastery` | `dict[str, float]` | learning, life path, synergy |
+| `latest_activity_report_period` | `str` or `None` | daily plan |
+| `latest_activity_report_uid` | `str` or `None` | daily plan |
+| `learning_goals` | `list[str]` | daily plan, learning, life path, synergy, schedule |
+| `life_path_alignment_score` | `float` | life path |
+| `life_path_milestones` | `list[str]` | life path, schedule |
+| `life_path_uid` | `str` or `None` | daily plan, learning, life path |
+| `mastered_knowledge_uids` | `set[str]` | learning, life path, synergy |
+| `next_recommended_knowledge` | `list[str]` | learning |
+| `overdue_task_uids` | `list[str]` | schedule |
+| `pending_choice_uids` | `list[str]` | synergy |
+| `pending_revised_exercises` | `list[PendingRevisedExerciseItem]` | daily plan |
+| `preferred_time` | `TimeOfDay` | schedule |
+| `prerequisites_completed` | `set[str]` | learning |
+| `prerequisites_needed` | `dict[str, list[str]]` | learning, life path, synergy |
+| `primary_goal_focus` | `str` or `None` | daily plan, schedule |
+| `principle_alignment_by_domain` | `dict[Domain, float]` | life path |
+| `principle_priorities` | `dict[str, float]` | synergy |
+| `recently_mastered_uids` | `set[str]` | life path |
+| `resolved_choice_uids` | `set[str]` | synergy |
+| `spawned_uid_to_ps_uid` | `dict[str, str]` | life path |
+| `task_priorities` | `dict[str, float]` | schedule |
+| `today_event_uids` | `list[str]` | schedule |
+| `today_task_uids` | `list[str]` | schedule |
+| `upcoming_event_uids` | `list[str]` | learning |
+| `user_uid` | `UserUID` | daily plan, learning, perception |
+| `zpd_assessment` | `ZPDAssessment` or `None` | daily plan |
+
+Read through a service, for the daily plan: `unsubmitted_exercises` and
+`pending_revised_exercises` (`ExerciseService`). The daily plan also reads the length of
+`pending_revised_exercises` directly.
 
 `entities_rich` keys: the six Activity domains, `learning_paths`, `path_steps`, and `ku`. Every
 item is `{"entity": {...}, "graph_context": {...}}` (`RichEntityItem`,
@@ -392,7 +419,20 @@ item is `{"entity": {...}, "graph_context": {...}}` (`RichEntityItem`,
 `get_tasks_for_goal(goal_uid)` and `get_habits_for_goal(goal_uid)` are per-goal lookups over the
 first two.
 
-### Other context methods the mixins call
+### Context methods the mixins call
+
+| Method | Called by | Strict |
+|--------|-----------|--------|
+| `get_blocked_tasks()` | schedule | yes |
+| `get_habits_by_goal()` | synergy | yes |
+| `get_habits_for_goal()` | learning, life path | yes |
+| `get_habits_needing_reinforcement()` | life path, synergy, schedule | yes |
+| `get_life_path_gaps()` | life path | no |
+| `get_principle_integration_score()` | life path | yes |
+| `get_ready_to_learn()` | learning, schedule | no |
+| `get_tasks_for_goal()` | life path, synergy | yes |
+
+A strict method raises `RichContextRequiredError` on a standard context.
 
 | Method | Returns |
 |--------|---------|
