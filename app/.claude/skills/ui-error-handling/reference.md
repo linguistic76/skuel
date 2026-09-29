@@ -144,24 +144,27 @@ See: `core/services/filtered_context.py`, `core/ports/query_types.py:ListContext
 
 **Use when:** A page outside the generated Activity routes fetches its own data
 
-Check the `Result` before touching `.value`, and render the failure inside the page's chrome so
-navigation still works:
+The shell renders at once inside the page chrome; its content fragment fetches, checks the
+`Result` before touching `.value`, and answers under the placeholder's `id` either way — so a
+failure lands where the content would have, and navigation still works:
 
 ```python
-@rt("/exercises")
-async def exercises_dashboard(request: Request) -> Any:
+# adapters/inbound/exercises_ui.py
+@app.get("/exercises/content")
+@ui_boundary_handler("Error loading exercises", fragment_id="exercises-content")
+async def exercises_content_fragment(request: Request) -> Any:
+    """HTMX fragment: the caller's own exercises — a failed read says so."""
     user_uid = require_authenticated_user(request)
-    result = await exercise_service.list_for_user(user_uid)   # illustrative call
+    result = await exercises_service.list_user_exercises(user_uid)
     if result.is_error:
-        content = Div(
-            PageHeader("Exercises"),
-            render_error_banner(result.expect_error().display_message),
-        )
-        return BasePage(content, title="Exercises", request=request)
-
-    exercises = result.value   # only after the error check
-    ...
+        return Div(render_error_banner("Error loading exercises"), id="exercises-content")
+    return Div(render_exercises_list(result.value), id="exercises-content")
 ```
+
+The shell (`GET /exercises`) is a `BasePage` holding
+`content_loading_placeholder("/exercises/content", "exercises-content")`.
+`@ui_boundary_handler` catches what escapes the handler and renders the same banner under the same
+id.
 
 ---
 

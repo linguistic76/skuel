@@ -156,8 +156,8 @@ def _skill(last_reviewed: str, *primary_docs: str) -> dict:
 
 
 class TestSkillStaleness:
-    """The check asked git for ``--format=%Y-%m-%d``, which is no git format: it
-    printed ``%Y->-``, which sorts below every date, so no skill was ever stale."""
+    """A skill is stale when a primary doc's last commit falls on a later UTC day than
+    its ``last_reviewed`` — the calendar the docs' ``updated:`` stamp uses."""
 
     def test_doc_changed_after_the_review_flags_the_skill(self, repo: Path) -> None:
         doc = _commit_doc(repo, "LATER.md", "2026-09-12T12:00:00+00:00")
