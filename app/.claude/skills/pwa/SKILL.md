@@ -113,11 +113,11 @@ The service worker must be served from root scope (`/service-worker.js`, not `/s
 # adapters/inbound/pwa_routes.py
 from starlette.responses import FileResponse
 
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 
 _static_dir = Path.cwd() / "static"
 
-def create_pwa_routes(rt: Any) -> None:
+def create_pwa_routes(rt: RouteDecorator) -> None:
     @rt("/manifest.json")
     def pwa_manifest(request: Request) -> FileResponse:
         return FileResponse(_static_dir / "manifest.json", media_type="application/manifest+json")

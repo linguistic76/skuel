@@ -491,6 +491,9 @@ async def get_filtered_tasks(...) -> Result[tuple[list, dict]]:
 ```python
 # ✅ DO THIS — the service fetches; pure functions filter, sort and count
 result = await tasks_service.get_user_tasks(user_uid)        # I/O, Result[list[Task]]
+if result.is_error:
+    return Div(render_error_banner(result.expect_error().display_message), id="tasks-content")
+all_tasks = result.value
 filtered = filter_tasks(all_tasks, status_filter, priority_filter, sort_by)   # pure
 stats = compute_task_stats(all_tasks)                                         # pure
 ```
