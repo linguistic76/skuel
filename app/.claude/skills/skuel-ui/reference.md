@@ -49,20 +49,23 @@ def TaskCard(
     show_actions: bool = True,
     show_description: bool = True,
     cls: str = "",
-) -> Any:
+) -> FT:
+    card_id = f"task-{safe_id(task.uid)}"
     return Card(
         CardBody(
             H4(task.title, cls="font-semibold"),
-            P(task.description, cls="text-sm text-base-content/70") if show_description else None,
-            CardFooter(   # CardActions is deleted — CardFooter is the action area
-                Button("Edit", cls=ButtonT.ghost, size="sm",
-                       **{"hx-get": f"/tasks/{task.uid}/edit", "hx-target": "#modal"}),
+            P(task.description, cls="text-sm text-muted-foreground") if show_description else None,
+            CardFooter(   # CardFooter is the action area
+                ButtonLink("Edit", href=f"/tasks/edit?uid={task.uid}", cls=ButtonT.ghost, size="sm"),
+                # POST /api/tasks/{uid}/status answers the updated card, so the card swaps itself
                 Button("Complete", cls=ButtonT.primary, size="sm",
-                       **{"hx-post": f"/api/tasks/{task.uid}/complete"}),
+                       hx_post=f"/api/tasks/{task.uid}/status", hx_vals='{"status": "completed"}',
+                       hx_target=f"#{card_id}", hx_swap="outerHTML"),
                 cls="justify-end gap-2",
             ) if show_actions else None,
         ),
-        cls=f"{Card.INTERACTIVE} {cls}".strip(),
+        cls=("hover:shadow-md transition-shadow", cls),
+        id=card_id,
     )
 
 # ❌ BAD: Many required primitive params, no defaults
@@ -89,7 +92,7 @@ EmptyState(
     title="No tasks found",
     description="Create one to get started!",
     action_text="Create task",
-    action_href="/activities/tasks?view=create",
+    action_href="/tasks/create",
 )
 
 # Empty state — secondary section (no CTA)
@@ -99,10 +102,11 @@ EmptyState(title="No feedback yet")
 EmptyState(title="No habits for today!", icon="🎉")
 
 # Stats grid — uses StatItem frozen dataclass (not dicts)
+# `change` is the text shown ("+5"); `trend` colors it: "up" | "down" | "neutral"
 StatsGrid([
-    StatItem(label="Total", value="42", trend="+5"),
+    StatItem(label="Total", value="42", change="+5", trend="up"),
     StatItem(label="Completed", value="18"),
-    StatItem(label="Overdue", value="3", trend="-2"),
+    StatItem(label="Overdue", value="3", change="-2", trend="down"),
 ])
 
 # CardGenerator — THE single card component for all SKUEL UI contexts
@@ -187,86 +191,58 @@ Progress(value=88, variant=ProgressT.success)  # success/warning/error/primary/.
 
 ### Typed Page Contexts
 
-Route→UI contracts use per-domain TypedDicts from `ui/page_contexts.py`:
-
-```python
-from ui.page_contexts import TasksPageContext, GoalsPageContext  # etc.
-
-# Build in route, pass to view
-page_ctx: TasksPageContext = {
-    "entities": tasks,
-    "filters": filters.to_dict(),
-    "projects": projects,
-    "assignees": assignees,
-}
-view_content = TasksViewComponents.render_list_view(ctx=page_ctx)
-```
-
-Each domain has a standalone TypedDict with typed entities (`list[Task]`, `list[Goal]`, etc.) and `total=True` for required fields (`entities`, `filters`, `stats`). Optional fields use `NotRequired` (`projects`, `assignees`, `categories`, `view`). `ctx` is the only parameter to `render_list_view`.
+`ui/page_contexts.py` holds route→UI TypedDicts. The live one is `TodayPageContext`: the
+Today route builds it, and `TodayPage(ctx)` (`ui/today/page.py`) renders it. The six
+Activity `*PageContext` types in the same file have no consumer. The Activity lists are
+rendered by `activity_ui_factory.py` through `ActivityUIConfig.list_component`, so don't
+build new code on those six.
 
 ### Composition Strategies
 
 ```python
 # Strategy 1: Function composition (preferred)
-def GoalCard(goal: Goal, show_actions: bool = True) -> Any:
+def GoalCard(goal: Goal, show_actions: bool = True) -> FT:
     return Card(CardBody(
         H4(goal.title),
-        Badge(goal.status.value, variant=BadgeT.success),
-        CardFooter(Button("Update", ...), cls="justify-end") if show_actions else None,
+        StatusBadge(goal.status.value),
+        CardFooter(ButtonLink("Open", href=f"/goals/detail?uid={goal.uid}", cls=ButtonT.ghost, size="sm"),
+                   cls="justify-end") if show_actions else None,
     ))
 
-# Strategy 2: Static class for grouped domain components
-class TasksViewComponents:
-    @staticmethod
-    def render_list(tasks: list[Task]) -> Any:
-        return Grid(*[TaskCard(t) for t in tasks], cls="grid-cols-1 gap-4")
-
-# Strategy 3: Configuration-driven (use when N domains share one layout)
-# Real example: DomainRouteConfig in adapters/inbound — six Activity Domain routes share config.
-# Mirrors DomainConfig at the service layer.
-
-@dataclass(frozen=True)
-class ActivityDomainViewConfig:
-    domain: str
-    title: str
-    icon: str
-    section_title: str
-    href_prefix: str
-    view_all_text: str
-    empty_message: str
-    intelligence_card_title: str
-    show_filter_controls: bool
-    item_limit: int
-    stats_fn: Callable[[UserContext], StatsResult]        # domain-specific extraction
-    items_fn: Callable[[UserContext], list[dict[str, Any]]]
-    recommendations_fn: Callable[[UserContext], list[Recommendation]]
-
-# Single layout implementation — config drives all decisions
-def ActivityDomainView(config: ActivityDomainViewConfig, context: UserContext) -> Div: ...
-
-# Six thin public wrappers with unchanged signatures
-def TasksView(context: UserContext, focus_uid: str | None = None) -> Div:
-    return ActivityDomainView(TASKS_CONFIG, context, focus_uid)
+# Strategy 2: Configuration-driven (use when N domains share one layout)
+# Live example: ActivityUIConfig (adapters/inbound/activity_ui_factory.py). Each of the six
+# Activity *_ui.py files builds one config, and create_activity_ui_routes() generates the
+# page shell, content fragment, list fragment, detail shell and detail content from it.
+config = ActivityUIConfig(
+    domain_name="tasks",
+    ...,                                  # service callables, filter config, labels
+    list_component=TaskList,              # (entities, connections_map) -> FT
+    detail_component=TaskDetailView,      # (entity, connections) -> FT
+    get_owned=tasks_service.verify_ownership,
+)
+create_activity_ui_routes(app, rt, config)
 ```
 
-**When to use Strategy 3:** When three or more domain components share the same layout but differ only in data extraction. Use a frozen dataclass (not a dict) so the config is type-safe and immutable.
+**When to use Strategy 2:** When three or more domain surfaces share the same layout but differ in data and components. Use a frozen dataclass (not a dict) so the config is type-safe and immutable. Grouping renderers as `@staticmethod`s on a class is the retired shape: the analytics and Askesis `*UI` classes were dissolved into module functions.
 
-### Domain Page Layout
+### Section Page Wrappers
+
+A page in a sidebar section goes through that section's helper, which supplies the items,
+title, storage key and the chrome's section key:
 
 ```python
-# Domain-specific page layout wrapper
-def create_tasks_page(content: Any, request: Request | None = None) -> Any:
-    return BasePage(
-        Div(
-            PageHeader("Tasks", actions=Button("New Task", cls=ButtonT.primary)),
-            content,
-            cls=f"{Spacing.PAGE} {Container.STANDARD}",
-        ),
-        title="Tasks",
-        request=request,
-        active_page="tasks",
-    )
+from ui.activities.nav import render_activity_sidebar_page
+
+return render_activity_sidebar_page(
+    Div(PageHeader("New Task"), TaskCreateForm(), cls="space-y-6"),
+    active="tasks",       # the Tasks+ row to light
+    request=request,
+)
 ```
+
+The other section helpers: `render_submissions_sidebar_page` (`ui/workbench/nav.py`),
+`render_library_sidebar_page` (`ui/library/nav.py`), `lifepath_sidebar_page`
+(`ui/lifepath/nav.py`), `render_explore_sidebar_page` (`ui/explore/nav.py`).
 
 ### ActivityFilterBar (Config-Driven Filter Bar)
 
@@ -286,7 +262,7 @@ ActivityFilterBar(FILTER_CONFIGS["tasks"], {"status": status_filter, "priority":
 
 **Live category options:** `with_user_categories(config, categories)` (same file) rebuilds the Category dropdown from `service.search.list_user_categories(user_uid)` — Goals/Habits/Principles wire it via `ActivityUIConfig.list_categories`; the dropdown is dropped at 0-1 categories and falls back to the static config on fetch failure.
 
-**Activity Domain routes pattern:** `GET /{domain}` (page), `GET /{domain}/list-fragment` (HTMX filtered list), `GET /{domain}/detail` (detail view). Routes are manual `@rt()` handlers in each `_ui.py` file.
+**Activity Domain routes pattern:** `create_activity_ui_routes()` generates five routes per domain: `/{domain}` (shell), `/{domain}/content` (filter bar + list + stats), `/{domain}/list-fragment` (the filtered list, with `HX-Push-Url`), `/{domain}/detail` (detail shell) and `/{domain}/detail/content`. Each `{domain}_ui.py` adds its own create/edit routes beside them.
 
 See: `/docs/patterns/ROUTE_FACTORIES.md`
 
@@ -339,7 +315,7 @@ Every navbar item is a direct link — the navbar carries no dropdown and no ham
 Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. The sidebar groups:
 
 - **Tasks+** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — `ACTIVITY_SIDEBAR_ITEMS` (Today, Weekly, Monthly, Tasks, Goals, Habits, Events, Principles, Choices, Journal, GradeBook) on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`, the calendar month/week pages, `/today`, the periodic notes (`/journals/{uid}`; `content_max_width="max-w-none"` on the calendar and the notes) and the GradeBook surfaces (`/gradebook`, `/gradebook/{uid}`, the report/revision detail pages, `/submit-activity-report` — `active="gradebook"`; `title` names the tab) — one list, and every one of those pages lights the Tasks+ door in the chrome (`active_page="activity"`, passed by the helper — callers never set it). This is the ONE sidebar that opts into the badge loader (`SidebarPage(badges=True)`): `GET /api/sidebar/badges` fires once the desktop sidebar is on screen (`hx-trigger="intersect once"` — never below `lg`, where the sidebar is `display:none`) and OOB-swaps exactly `ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG` (the six domain rows); every other sidebar renders no slots and makes no request. Each calendar view shows its declared membership (`VIEW_SPECS`: month = events; week = events, habits, goal milestones and high-priority tasks, with the kind legend as filter).
-- **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — graph-centered sidebar (wider `w-96`/384px via `sidebar_width` param, no nav items, uses `extra_sidebar_sections`). **Signature:** `render_explore_sidebar_page(content, sidebar_data: dict[str, Any] | None, request, ...)` — route handlers call `orchestrator.get_sidebar_data(user_uid)` first, then pass the pre-fetched dict. Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph. Hub mode (`/explore`): user's learning universe with "You" center node + studying Kus + in-progress PSes; fetched from `GET /api/explore/graph`. Entity mode (`/explore/ku/{uid}`, `/explore/ps/{uid}`): centers on current entity with lateral relationships. Filter tabs (All/Learning/Saved) control both graph node highlighting and list section visibility. Three supporting sections below graph: Learning, Saved, Completed. Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`. Graph expands to full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`. Node colors: violet for Ku, teal for PS, blue for "You". Detail pages pass `current_entity_type` for graph centering. Unauthenticated: shows graph + "Sign in to track your learning". **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) served by `/learning-loop/ps/{ps_uid}/*` fragment endpoints; unauthenticated users see simple exercise links. **Supporting module:** `ui/explore/cards.py` (card rendering + search panel); catalog filtering and sorting are server-side via `SearchRouter.faceted_search` (`adapters/inbound/explore_ui.py`).
+- **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — graph-centered sidebar (`w-96`/384px via `sidebar_width`, no nav items, uses `extra_sidebar_sections`). **Its one caller is `/explore/library`** (the catalog). `/explore` itself is the reading column (`ui/explore/reading_plan.py`), and the Ku/PS reading pages (`/explore/ku/{uid}`, `/explore/ps/{uid}`) are `BasePage(CUSTOM)` with no sidebar. **Signature:** `render_explore_sidebar_page(content, sidebar_data, request, page_title="Explore", current_uid="", current_entity_type="")` (`sidebar_data` is `None` for an anonymous visitor) — the route calls `orchestrator.get_sidebar_data(user_uid)` first, then passes the pre-fetched dict. Hero: `ExploreGraphView` (`ui/explore/graph.py`), a Vis.js force-directed graph in hub mode (the "You" node + studying Kus + in-progress PSes, from `GET /api/explore/graph`). Entity mode exists (`current_uid` + `current_entity_type`) but the one caller never passes them. Below the graph: Learning, Saved and Completed lists. Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`. Unauthenticated: graph + "Sign in to track your learning". The graph also has its own full page, `/explore/graph`. **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor**: for a signed-in user it HTMX-loads two sections, Exercises (`/learning-loop/ps/{ps_uid}/exercises`, with status pills) and Submissions & Feedback (`/learning-loop/ps/{ps_uid}/submissions-and-feedback`). **Supporting module:** `ui/explore/cards.py` (card rendering + search panel); catalog filtering and sorting are server-side via `SearchRouter.faceted_search` (`adapters/inbound/explore_ui.py`).
 - **Submissions** — `render_submissions_sidebar_page()` from `ui/workbench/nav.py` — 5 items: Sync (`/submissions/sync`), Submit (`/submissions/submit`), Journal (`/submissions/journal`), History (`/submissions/history`), Knowledge (`/submissions/knowledge` — knowledge notes with removable grounded-Ku chips). Root `/submissions` is a sidebar-free MOC page with 5 cards.
 - **GradeBook** — no sidebar of its own. `/gradebook` is THE received-feedback page (3→1 collapse, arc 2 C1): per-exercise exchange lines with status/source filter chips (`ui/gradebook/summary.py`, HTMX fragment `/gradebook/lines`) + conditional Activity-reports and Other-feedback groups; it and its detail pages (`/entry-reports/detail`, `/activity-reports/detail`, `/revised-exercises/detail`, `/gradebook/{uid}`) render under the Activity sidebar via `render_activity_sidebar_page(..., active="gradebook", title=GRADEBOOK_TITLE)` (error-only pages via `render_activity_sidebar_error`). The header's "Request activity report" action opens `/submit-activity-report`.
 - **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. Root `/library` is a sidebar-free MOC page with 4 cards; `title_href="/library"`.
@@ -354,7 +330,7 @@ SidebarItem(
     label="Submit",              # Display text
     href="/submissions/submit",  # Navigation URL
     slug="submit",               # For active state matching
-    icon="📤",                   # Optional emoji
+    icon="send",                 # Lucide name from ui/components/_icon_data.py (an emoji renders help-circle)
     description="",              # Optional subtitle (renders two-line item)
     badge_text="",               # Optional badge text (rendered via feedback.Badge, neutral)
     hx_attrs={},                 # Optional HTMX attributes
@@ -371,11 +347,11 @@ return render_activity_sidebar_page(
     content=my_content, active="gradebook", request=request, title="GradeBook"
 )
 
-# Submissions sidebar (Sync, Exercise, Journal, History, Knowledge):
+# Submissions sidebar (Sync, Submit, Journal, History, Knowledge):
 from ui.workbench.nav import render_submissions_sidebar_page
 
 return render_submissions_sidebar_page(
-    content=my_content, active="upload", request=request
+    content=my_content, active="submit", request=request
 )
 
 # Or use SidebarPage directly for custom sidebars:
@@ -496,15 +472,20 @@ Key: `alpine_state` places `x-data` on the parent wrapper so both sidebar and co
 Both sidebar and content area must use the same `Alpine.store()` — without it, collapse state goes out of sync:
 
 ```javascript
-// Correct: collapsibleSidebar() reads from Alpine.store(storageKey)
-// Both sidebar and content reference same store key → stay in sync
-Alpine.data('collapsibleSidebar', function(storageKey) {
+// static/js/skuel.js (abridged): collapsibleSidebar reads from Alpine.store(storageKey)
+// Both sidebar and content reference the same store key → they stay in sync
+Alpine.data('collapsibleSidebar', function(storageKey, defaultCollapsed) {
     return {
-        get collapsed() { return Alpine.store(storageKey)?.collapsed ?? false; },
-        toggle() {
+        get collapsed() { var store = Alpine.store(storageKey); return store ? store.collapsed : false; },
+        init: function() {
+            // First instance registers the store; localStorage is read only at >= 1024px
+            if (!Alpine.store(storageKey)) { /* ... */ Alpine.store(storageKey, { collapsed: initial }); }
+        },
+        toggle: function() {
             var store = Alpine.store(storageKey);
             store.collapsed = !store.collapsed;
             localStorage.setItem(storageKey + '-collapsed', store.collapsed.toString());
+            window.SKUEL.announce('Sidebar ' + (store.collapsed ? 'collapsed' : 'expanded'));
         }
     };
 });
@@ -554,22 +535,26 @@ exercise_fields = FormGenerator.from_model(
 
 **Full guide:** See `/docs/patterns/FORM_GENERATOR_GUIDE.md`
 
-### Three-Tier Validation
+### Two-Tier Validation
 
 | Tier | Technology | Error Type | When |
 |------|------------|-----------|------|
 | **Client hints** | HTML5 `required`, `maxlength`, `min`/`max` | Browser native | Always (FormGenerator adds these from Pydantic constraints) |
-| **Early validation** | Pure Python function | `Result[None]` with clear message | Before Pydantic, custom rules |
-| **Schema validation** | Pydantic request model via `parse_form_body` | `Result[T]` failure → banner (400 on an API route) | Type safety |
+| **Schema validation** | Pydantic request model via `parse_form_body` | `Result[T]` failure → banner (400 on an API route) | Every form; cross-field rules are `@model_validator`s on the model |
+
+There is no hand-written validator between the two: a `validate_*_form_data()` function
+duplicates the model's constraints, and the two drift.
 
 ### Manual Form Structure
 
 For forms that need full custom control beyond FormGenerator's capabilities:
 
 ```python
-from ui.components import Button, ButtonT, LabelInput, LabelTextArea, LabelSelect
+from fasthtml.common import FT, Form, Option
 
-def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
+from ui.components import Button, ButtonT, LabelInput, LabelSelect, LabelTextArea
+
+def create_task_form() -> FT:
     return Form(
         LabelInput("Title *", type="text", name="title",
                    placeholder="What needs to be done?",
@@ -577,7 +562,6 @@ def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
         LabelTextArea("Description", name="description", rows=4),
         LabelSelect(
             Option("Select...", value="", selected=True),
-            Option("Critical", value="critical"),
             Option("High", value="high"),
             Option("Medium", value="medium"),
             Option("Low", value="low"),
@@ -585,96 +569,77 @@ def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
             name="priority",
         ),
         Button("Create Task", cls=(ButtonT.primary, "w-full mt-4"), type="submit"),
-        hx_post=action_url,
-        hx_target="#task-list",
-        hx_swap="beforeend",
-        hx_on="htmx:afterRequest: this.reset()",
+        method="post",
+        action="/tasks/create",   # answers a 303 to the new task, or the page with a banner
         cls="space-y-4",
     )
 ```
 
-### Early Validation Pattern
+`Priority` has three levels (`high`, `medium`, `low`). A plain `method="post"` form gets its
+CSRF token from `skuel.js`, which adds the hidden `csrf_token` input on submit.
+
+### Handling the Submit (the live pattern)
+
+From `adapters/inbound/tasks_ui.py`: the model validates, and the route renders the model's
+message.
 
 ```python
-def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """Pure function: validate before service call. User-facing error messages."""
-    title = safe_form_string(form_data.get("title"))
-    if not title:
-        return Errors.validation("Task title is required")
-    if len(title) > 200:
-        return Errors.validation("Title must be 200 characters or less")
-
-    due_str = form_data.get("due_date", "")
-    if due_str:
-        try:
-            date.fromisoformat(due_str)
-        except ValueError:
-            return Errors.validation("Invalid date format")
-
-    return Result.ok(None)
-
-
-@rt("/tasks/quick-add", methods=["POST"])
-async def create_task(request):
+@rt("/tasks/create", methods=["POST"])
+@csrf_protected
+async def task_create_submit(request: Request) -> FT | RedirectResponse:
     user_uid = require_authenticated_user(request)
-    form_dict = dict(await request.form())
 
-    # Step 1: Early validation
-    validation = validate_task_form_data(form_dict)
-    if validation.is_error:
-        return render_error_banner(f"Validation error: {validation.error}")
+    parsed = await parse_form_body(request, TaskCreateRequest)
+    if parsed.is_error:
+        content = Div(
+            PageHeader("New Task"),
+            render_error_banner(parsed.expect_error().display_message),
+            TaskCreateForm(),
+            cls="space-y-6",
+        )
+        return render_activity_sidebar_page(content, active="tasks", request=request)
 
-    # Step 2: Service call
-    result = await tasks_service.create_task(form_dict, user_uid)
+    result = await tasks_service.core.create_task(parsed.value, user_uid)
     if result.is_error:
-        return render_error_banner(str(result.error))
-
-    return TaskCard(result.value)
+        ...  # same page, the service's message in the banner
+    return RedirectResponse(f"/tasks/detail?uid={result.value.uid}", status_code=303)
 ```
 
 ### Modal Forms — AlpineModal
 
 Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop, click-outside-to-close, transitions, and `x-cloak`.
 
+A modal the page already holds is driven by a flag in an enclosing `x-data`:
+
 ```python
-from ui.patterns.modal import AlpineModal
 from ui.components import Button, ButtonT
+from ui.patterns.modal import AlpineModal
 
-@rt("/tasks/create-modal")
-async def task_create_modal(request):
-    """Return modal HTML for HTMX swap into #modal."""
-    return AlpineModal(
-        H3("Create Task", cls="font-bold text-lg"),
-        create_task_form(action_url="/tasks/quick-add"),
-        Button("Cancel", cls=ButtonT.ghost,
-               **{"@click": "showModal = false"}),
-        show="showModal",
-        close="showModal = false",
+Div(
+    Button("Share", cls=ButtonT.primary, **{"@click": "showShare = true"}),
+    AlpineModal(
+        H3("Share", cls="font-bold text-lg"),
+        share_form,
+        Button("Cancel", cls=ButtonT.ghost, **{"@click": "showShare = false"}),
+        show="showShare",
+        close="showShare = false",
         max_width="max-w-lg",
-    )
-
-# Trigger button
-Button("New Task", cls=ButtonT.primary,
-       **{"@click": "showModal = true"})
+    ),
+    x_data="{ showShare: false }",
+)
 ```
 
-### Quick-Add Pattern (Minimal Fields)
+A modal the **server returns** (swapped into `#modal`) carries its own state and opens on
+arrival. Its flag lives in the fragment, because nothing outside it can hold one:
 
 ```python
-def render_quick_add_form() -> Any:
-    """Single-field rapid entry form."""
-    return Form(
-        Div(
-            Input(type="text", name="title", placeholder="Add a task...",
-                  required=True, cls="flex-1"),
-            Button("Add", cls=ButtonT.primary, type="submit"),
-            cls="flex gap-2",
-        ),
-        hx_post="/tasks/quick-add",
-        hx_target="#task-list",
-        hx_swap="beforeend",
-        hx_on="htmx:afterRequest: this.reset()",
-    )
+Div(
+    AlpineModal(*content, show="open",
+                close="open = false; $nextTick(() => document.getElementById('my-modal')?.remove())",
+                max_width="max-w-2xl", scrollable=True),
+    x_data="{ open: true }",
+    id="my-modal",
+)
 ```
 
 ### Conditional Fields (Alpine)
@@ -696,7 +661,8 @@ Form(
         **{"x-show": "taskType === 'recurring'", "x-transition": ""},
     ),
     Button("Create", cls=ButtonT.primary, type="submit"),
-    hx_post="/tasks/create",
+    method="post",
+    action=create_url,
     **{"x-data": "{ taskType: 'once' }"},
 )
 ```
@@ -733,12 +699,14 @@ Div(
 Use SKUEL semantic tokens, not the raw Tailwind palette:
 
 ```python
-# ✅ semantic tokens (respect active theme)
-"text-base-content"         # Primary text
-"text-base-content/70"      # Secondary text
-"bg-base-100"               # Page background
-"bg-base-200"               # Subtle surface (hover states, active items)
-"border-base-200"           # Subtle borders
+# ✅ theme-aware semantic tokens (switch under .dark)
+"text-foreground"           # Primary text
+"text-muted-foreground"     # Secondary text
+"bg-background"             # Page / card surface
+"bg-muted"                  # Subtle surface (hover states, active items)
+"border-border"             # Borders, dividers
+# text-error / bg-success / bg-base-200 / text-base-content also compile, as fixed hex that
+# stays the same in dark mode (ADR-071 compat); there is no bg-base-100 — see ui-css
 
 # ❌ Tailwind palette (breaks theming)
 "text-gray-900"  "bg-white"  "text-gray-600"
@@ -748,7 +716,7 @@ Use SKUEL semantic tokens, not the raw Tailwind palette:
 
 ```python
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
-from ui.primitives import ButtonLink, icon_tile, section_label, primary_btn, card_row
+from ui.primitives import ButtonLink, SelectableOptionRow, icon_tile, section_label, primary_btn, card_row
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading
 from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
@@ -843,13 +811,13 @@ Div(cls="lg:hidden")         # Mobile only
 ### HTMX in Forms
 
 ```python
-# Submit form, append result to list
+# Submit via HTMX, append the returned row, reset only on success
 Form(
     ...,
-    hx_post="/tasks/quick-add",
+    hx_post=add_url,              # a route that answers the new row's HTML
     hx_target="#task-list",
     hx_swap="beforeend",
-    hx_on="htmx:afterRequest: this.reset()",
+    **{"hx-on::after-request": "if (event.detail.successful) this.reset()"},
 )
 
 # Load content on page load
@@ -862,23 +830,28 @@ Input(name="q", **{
     "hx-target": "#results",
 })
 
-# Delete with confirmation
-Button("Delete", cls=ButtonT.destructive, size="sm", **{
-    "hx-delete": f"/api/tasks/{uid}",
-    "hx-confirm": "Delete this task?",
-    "hx-target": "closest .task-card",
-    "hx-swap": "outerHTML swap:300ms",
-})
+# Delete with confirmation — the CRUD delete door is POST /api/{domain}/delete?uid=
+# and answers JSON, so swap "delete" (remove the card) rather than swapping the body in
+Button("Delete", cls=ButtonT.destructive, size="sm",
+       hx_post=f"/api/exercises/delete?uid={exercise.uid}",
+       hx_confirm="Are you sure you want to delete this exercise?",
+       hx_target=f"#{exercise_card_id(exercise.uid)}",
+       hx_swap="delete")
 ```
 
 ### Alpine in SKUEL Forms
 
 ```python
-# Loading button state
-Button("Save", cls=ButtonT.primary,
-       **{"@click": "loading = true", ":disabled": "loading",
-          "x-data": "{ loading: false }"},
-       **{"@htmx:after-request": "loading = false"})
+# Loading state — on the FORM, because htmx fires htmx:afterRequest on the element that
+# issued the request (the form) and it bubbles UP, never down to the button. A button that
+# listens for it itself stays disabled forever (measured, htmx 1.9.10 + Alpine 3.14.8).
+Form(
+    ...,
+    Button("Save", cls=ButtonT.primary, type="submit", **{":disabled": "loading"}),
+    hx_post=save_url,
+    **{"x-data": "{ loading: false }", "@submit": "loading = true",
+       "@htmx:after-request": "loading = false"},
+)
 
 # Conditional field visibility
 Div(

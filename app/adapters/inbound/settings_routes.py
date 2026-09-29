@@ -8,7 +8,7 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -40,13 +40,13 @@ def create_settings_routes(
         raise RuntimeError("UserService is required for settings routes")
 
     @rt("/settings")
-    def settings_page(request: Request) -> Any:
+    def settings_page(request: Request) -> FT:
         """User settings page — shell renders immediately, content loads via HTMX."""
         require_authenticated_user(request)
         return render_settings_page(request)
 
     @rt("/settings/content")
-    async def settings_content_fragment(request: Request) -> Any:
+    async def settings_content_fragment(request: Request) -> FT:
         """HTMX fragment: user preferences editor."""
         user_uid = require_authenticated_user(request)
 

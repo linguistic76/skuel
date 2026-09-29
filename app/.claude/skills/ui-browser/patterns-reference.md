@@ -13,7 +13,7 @@
        hx-target="#results"
        hx-indicator=".htmx-indicator"
        placeholder="Search...">
-<span class="htmx-indicator loading loading-spinner loading-sm"></span>
+<span class="htmx-indicator">…</span>  <!-- FastHTML: Span(Loading(size=Size.sm), cls="htmx-indicator") -->
 <div id="results"></div>
 ```
 
@@ -37,7 +37,7 @@
 <div hx-get="/users/1/edit" hx-trigger="click" hx-swap="outerHTML">
   Click to edit: John Doe
 </div>
-<!-- Server returns edit form; form submits back with hx-put, returns view mode -->
+<!-- Server returns the edit form; it posts back (hx-post, the verb the route registers) and the route answers the view mode -->
 ```
 
 ### Form Submission (SKUEL Pattern)
@@ -45,11 +45,12 @@
 ```python
 Form(
     # ... form controls ...
-    Button("Create Task", type="submit", cls=ButtonT.primary),
-    hx_post="/tasks/quick-add",
+    Button("Add", type="submit", cls=ButtonT.primary),
+    hx_post=add_url,              # a route that answers the new row's HTML
     hx_target="#task-list",
     hx_swap="beforeend",
-    hx_on="htmx:afterRequest: this.reset()",  # Clear form on success
+    # Clear the form only when the request succeeded (the live spelling, ui/patterns/relationships/add_modal.py)
+    **{"hx-on::after-request": "if (event.detail.successful) this.reset()"},
 )
 ```
 
@@ -62,13 +63,11 @@ Form(
     Input(type="file", name="files", accept=".yaml,.yml", multiple=True),
     Button("Upload", type="submit", cls=ButtonT.primary),
     Span(Loading(), id="spinner", cls="htmx-indicator"),  # Loading from ui.components
-    **{
-        "hx-post": "/upload/files",
-        "hx-target": "#results",
-        "hx-swap": "innerHTML",
-        "hx-encoding": "multipart/form-data",
-        "hx-indicator": "#spinner",
-    },
+    hx_post=upload_url,
+    hx_target="#results",
+    hx_swap="innerHTML",
+    hx_encoding="multipart/form-data",   # FastHTML's Form already sets enctype; this makes it explicit
+    hx_indicator="#spinner",
 )
 ```
 
@@ -82,7 +81,7 @@ for f in raw_files:
         filename = f.filename
 ```
 
-**Example:** the `/journals/upload` handler in `adapters/inbound/journals_routes.py` — `form.getlist("file")` filtered to `UploadFile` instances.
+**Example:** the `POST /journals/upload` handler in `adapters/inbound/journals_routes.py` — `form.getlist("file")` filtered to `UploadFile` instances.
 
 ### Out-of-Band (OOB) Swaps — One Request, Multiple DOM Updates
 
@@ -104,17 +103,28 @@ OOB swaps let a single HTTP response update multiple, non-adjacent DOM elements 
 #### Basic pattern
 
 ```python
-# FastHTML: server returns multiple OOB elements
+# FastHTML: server returns multiple OOB elements (adapters/inbound/sidebar_badges_ui.py)
 @rt("/api/sidebar/badges")
-async def sidebar_badges(request):
-    stats = await service.get_stats(user_uid)
-    fragments = []
-    for slug, count in stats.items():
+async def sidebar_badges(request: Request) -> FT:
+    user_uid = require_authenticated_user(request)
+
+    context_result = await user_service.get_rich_unified_context(user_uid)   # one read for every badge
+    if context_result.is_error:
+        return Div()   # badges are an enhancement, never the page
+    context = context_result.value
+
+    fragments: list[FT] = []
+    for item in ACTIVITY_SIDEBAR_ITEMS:
+        config = DOMAIN_STATS_CONFIG.get(item.slug)
+        if config is None:
+            continue
         fragments.append(
             Span(
-                count,
-                id=f"sidebar-badge-{slug}",   # matches page element id
-                hx_swap_oob="true",            # this is the OOB marker
+                CountBadge(config.count_fn(context), config.active_fn(context)),
+                HealthIndicator(config.status_fn(*config.status_args_fn(context))),
+                id=f"sidebar-badge-{item.slug}",   # matches the page element's id
+                hx_swap_oob="true",                 # this is the OOB marker
+                cls="flex items-center gap-1",
             )
         )
     return Div(*fragments)
@@ -186,7 +196,7 @@ Network tab before/after on `/teaching/students/{uid}`:
 
 | Location | Endpoint | OOB count | What it updates |
 |----------|----------|-----------|-----------------|
-| `user_profile_ui.py` | `GET /api/sidebar/badges` | 6 | Tasks+ sidebar count+health badges (opt-in, `intersect once`) |
+| `sidebar_badges_ui.py` | `GET /api/sidebar/badges` | 6 | Tasks+ sidebar count+health badges (opt-in, `intersect once`) |
 | `teaching_ui.py` | `GET /api/teaching/students/{uid}/submissions/preview` | 3 | StudentHub submission buckets |
 
 #### Implementation checklist
@@ -225,22 +235,28 @@ The standard SKUEL pattern for eliminating blank-screen waits: the route returns
 ```python
 from ui.patterns.loading import content_loading_placeholder
 
-# Shell — returns immediately (zero DB calls)
+# Shell — returns immediately (zero DB calls). render_settings_page() (ui/settings/page.py)
+# renders the phone chrome rows and content_loading_placeholder("/settings/content", "settings-content")
 @rt("/settings")
-def settings_page(request: Request) -> Any:
+def settings_page(request: Request) -> FT:
     require_authenticated_user(request)
-    content = Div(
-        PageHeader("Settings", subtitle="Manage your preferences"),
-        content_loading_placeholder("/settings/content", "settings-content"),
-    )
-    return BasePage(content, title="Settings", request=request)
+    return render_settings_page(request)
 
-# Fragment — DB work here, replaces the placeholder
+# Fragment — DB work here, replaces the placeholder (adapters/inbound/settings_routes.py)
 @rt("/settings/content")
-async def settings_content_fragment(request: Request) -> Any:
+async def settings_content_fragment(request: Request) -> FT:
     user_uid = require_authenticated_user(request)
-    user = await user_service.get_user(user_uid)
-    return Div(render_preferences_editor(user), id="settings-content")
+    user_result = await user_service.get_user(user_uid)
+    if user_result.is_error:
+        return Div(render_error_banner("Failed to load user settings"), id="settings-content")
+    user = user_result.value
+    if user is None:
+        return Div(render_error_banner("User not found"), id="settings-content")
+    prefs_dict = ...  # the user's preference fields
+    return Div(
+        UserPreferencesComponents.render_preferences_editor(prefs_dict, default_timezone=default_zone().key),
+        id="settings-content",
+    )
 ```
 
 **Always set `id=` on every fragment return** — success and error alike. The placeholder div that HTMX replaces carries the target id; once swapped out, that id is gone. A bare `render_error_banner(...)` without an `id` leaves nothing for retries to target. Rule: every `return` in a `*/content` fragment must include `id="<target-id>"` on its root element.
@@ -271,12 +287,13 @@ Div(
 ```html
 <!-- Indicator (shows during request) -->
 <button hx-get="/slow-data" hx-indicator="#spinner">Load</button>
-<span id="spinner" class="htmx-indicator loading loading-spinner loading-sm"></span>
+<span id="spinner" class="htmx-indicator">…</span>  <!-- FastHTML: Span(Loading(size=Size.sm), id="spinner", cls="htmx-indicator") -->
 
 <!-- Disable element during request -->
 <button hx-post="/save" hx-disabled-elt="this">Save</button>
 
-<!-- Alpine + HTMX loading state -->
+<!-- Alpine + HTMX loading state: the listeners sit on an ANCESTOR of the requesting
+     element, because htmx fires its events on that element and they bubble up -->
 <div x-data="{ loading: false }"
      @htmx:before-request="loading = true"
      @htmx:after-request="loading = false">
@@ -290,10 +307,10 @@ Div(
 ### Accessibility with HTMX
 
 ```html
-<!-- Announce updates to screen readers -->
-<div aria-live="polite" id="results">
-  <!-- HTMX updates here get announced -->
-</div>
+<!-- SKUEL announces mutations and errors for you: skuel.js drives the #live-region that
+     BasePage renders (see HTMX_ACCESSIBILITY_PATTERNS.md). Override the words per element: -->
+<button hx-post="/api/tasks/ta_1/status" hx-vals='{"status": "completed"}'
+        data-announce="Task completed" data-announce-loading="Completing task">Done</button>
 
 <!-- Focus first input after swap -->
 <form hx-post="/step"
@@ -347,7 +364,8 @@ Adopted in: calendar components, sharing modal, insight card modal.
 There is no shared tabs component — a same-page tab bar is built per page (the WAI-ARIA widget in `ui/groups/hub.py` is the reference; links that change PAGE belong in the sidebar's section nav, a `<nav>` list with `aria-current`). For dynamic tab styling, use Alpine `:style` with SKUEL's semantic CSS custom properties (defined in `static/css/input.css`) — this bypasses all CSS class compilation concerns.
 
 ```python
-# ✅ SKUEL tab pattern — inline styles via Alpine :style (home_hub.py canonical example)
+# ✅ SKUEL tab styling — inline styles via Alpine :style (for the ARIA roles and keyboard
+#    handling of a real tab widget, follow ui/groups/hub.py)
 _ACTIVE_STYLE = (
     "background-color: hsl(var(--primary));"
     " color: hsl(var(--primary-foreground));"
@@ -382,21 +400,23 @@ Div(
 **Available SKUEL semantic CSS custom properties for tab styling:**
 | Property | Value | Visual |
 |----------|-------|--------|
-| `hsl(var(--primary))` | Dark charcoal (240°, 5.9%, 10%) | Near-black background |
-| `hsl(var(--primary-foreground))` | Off-white (0°, 0%, 98%) | Light text on dark |
+| `hsl(var(--primary))` | Blue (221.2° 83.2% 53.3%) | Brand-blue background |
+| `hsl(var(--primary-foreground))` | Near-white (210° 40% 98%) | Light text on primary |
 | `hsl(var(--muted))` | Light gray | Container background |
 | `hsl(var(--muted-foreground))` | Medium gray | Inactive tab text |
 | `hsl(var(--background))` | White | Page background |
 
 ### Dropdown with Click-Outside
 
+`dropdown_menu()` / `dropdown_separator()` in `ui/primitives.py` are the canonical Alpine
+dropdown shell; the markup underneath is:
+
 ```html
 <div x-data="{ open: false }" @click.outside="open = false" class="relative">
-  <button @click="open = !open" class="p-2 rounded-full hover:bg-base-200">👤</button>
+  <button @click="open = !open" class="p-2 rounded-full hover:bg-muted" aria-label="Options">⋯</button>
   <div x-show="open" x-transition.origin.top.right
-       class="absolute right-0 mt-2 w-48 bg-base-100 rounded-lg shadow-lg z-50">
-    <a href="/settings" class="block px-4 py-2 hover:bg-base-200">Account</a>
-    <a href="/logout" class="block px-4 py-2 hover:bg-base-200">Sign out</a>
+       class="absolute right-0 mt-2 w-48 bg-background border border-border rounded-lg shadow-lg z-50">
+    <a href="/settings" class="block px-4 py-2 hover:bg-muted">Settings</a>
   </div>
 </div>
 ```
@@ -405,14 +425,14 @@ Div(
 
 ```html
 <div x-data="{ taskType: 'once' }">
-  <select x-model="taskType" name="task_type" class="w-full px-3 py-2 border border-base-300 rounded-md bg-base-100">
+  <select x-model="taskType" name="task_type" class="w-full px-3 py-2 border border-input rounded-md bg-background">
     <option value="once">One-time</option>
     <option value="recurring">Recurring</option>
   </select>
 
   <!-- Only show for recurring -->
   <div x-show="taskType === 'recurring'" x-transition>
-    <select name="recurrence_pattern" class="w-full px-3 py-2 border border-base-300 rounded-md bg-base-100">
+    <select name="recurrence_pattern" class="w-full px-3 py-2 border border-input rounded-md bg-background">
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
     </select>

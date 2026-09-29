@@ -11,235 +11,142 @@ allowed-tools:
 version: 1.0.0
 library: vis-network
 library_version: 9.1.9
-last_updated: 2026-09-17
+last_updated: 2026-09-29
 ---
 
 # Vis.js Network - Interactive Graph Visualization
 
 > **Core Philosophy:** "Relationships are as fundamental as entities - visualization makes them tangible."
 >
-> SKUEL treats relationships as first-class citizens in the graph database. Vis.js Network brings these connections to life through interactive, physics-based visualizations that help users understand complex dependencies, alternatives, and organizational structures.
+> SKUEL treats relationships as first-class citizens in the graph database. Vis.js Network draws them as an interactive, physics-based graph, so a user can see dependencies, alternatives and neighbours around the entity they are on.
 
 ---
 
 ## Table of Contents
 
 **In this file:**
-1. [Overview](#overview)
-2. [Quick Start](#quick-start)
-3. [Decision Trees](#decision-trees)
-4. [Related Skills](#related-skills)
-5. [Deep Dive Resources](#deep-dive-resources)
-6. [Summary](#summary)
+1. [Where SKUEL Draws Graphs](#where-skuel-draws-graphs)
+2. [How a Graph Renders](#how-a-graph-renders)
+3. [Quick Start](#quick-start)
+4. [Decision Trees](#decision-trees)
+5. [Related Skills](#related-skills)
+6. [Deep Dive Resources](#deep-dive-resources)
 
 **On-demand reference files:**
-- [reference-architecture.md](reference-architecture.md) — Three-Layer Integration Architecture, Vis.js Data Format
-- [reference-patterns.md](reference-patterns.md) — Configuration Patterns, Interaction Patterns, Common Use Cases, Depth Control Pattern
-- [reference-operations.md](reference-operations.md) — Best Practices, Anti-Patterns, Integration Checklist, Troubleshooting, Performance Metrics
+- [reference-architecture.md](reference-architecture.md) — the layers from Cypher to canvas, the route set, the JSON shape, the Alpine component
+- [reference-patterns.md](reference-patterns.md) — SKUEL's Vis.js options, edge styling, click navigation, the Explore graph, depth
+- [reference-operations.md](reference-operations.md) — Best Practices, Anti-Patterns, Integration Checklist, Troubleshooting
 
 ---
 
-## Overview
+## Where SKUEL Draws Graphs
 
-**What is Vis.js Network?**
+| Surface | Component | Alpine | Data |
+|---------|-----------|--------|------|
+| The six Activity detail pages, the Ku reading page, the LP page | `EntityRelationshipsSection` → `RelationshipGraphView` (`ui/patterns/relationships/`) | `relationshipGraph(uid, type, depth)` | `GET /api/{domain}/{uid}/lateral/graph` |
+| `/explore/library` sidebar | `ExploreGraphView` (`ui/explore/graph.py`) via `render_explore_sidebar_page` | `exploreGraph(mode, uid, type)` | `GET /api/explore/graph` (hub mode) |
+| `/explore/graph` | `ExploreGraphView(mode="hub")`, full page | `exploreGraph` | `GET /api/explore/graph` |
 
-Vis.js Network is a JavaScript library for rendering interactive, physics-based network graphs. In SKUEL, it visualizes lateral relationships between entities within the same domain:
+Lateral routes exist for nine domains: the six Activity domains plus `ku`, `ps`, `lp`
+(`_LATERAL_DOMAINS` in `adapters/inbound/lateral_routes.py`). No PathStep page mounts the
+section. Vis.js v9.1.9 is self-hosted (`/static/vendor/vis-network/`) and `build_head()`
+loads it on every `BasePage`, so a page needs no script tag of its own.
 
-- **Blocking dependencies** (task chains)
-- **Knowledge prerequisites** (learning paths)
-- **Alternative choices** (mutually exclusive options)
-- **Complementary relationships** (synergistic pairs)
-- **Sibling relationships** (shared hierarchies)
+---
 
-**SKUEL's Integration Approach:**
+## How a Graph Renders
 
-SKUEL uses a **three-layer architecture** where Vis.js is the presentation layer in a clean separation of concerns:
+| Layer | Where | What it does |
+|-------|-------|--------------|
+| **Data** | `LateralRelationshipBackend.get_relationship_graph` (`adapters/persistence/neo4j/backends/collab_backends.py`) | One variable-length match, `(center {uid})-[r:TYPES*1..{depth}]-(related)`; pure Cypher, no APOC |
+| **Service** | `LateralRelationshipService.get_relationship_graph` (`core/services/lateral_relationships/`) | Verifies ownership of the **center** entity, builds `RelationshipGraphData` nodes + edges, colors edges with `RelationshipColor` |
+| **Route** | `LateralRouteFactory` (`adapters/inbound/route_factories/lateral_route_factory.py`) | `GET .../lateral/graph?depth=&types=`, adds each node's detail-page `url` |
+| **Presentation** | `relationshipGraph` + the `SKUEL.graph` helpers (`static/js/skuel.js`) | `SKUEL.getJson` → style edges → `new vis.Network` → click navigates to `node.url` |
 
-| Layer | Technology | Purpose | Location |
-|-------|-----------|---------|----------|
-| **Data** | Neo4j | Store lateral relationship graph | Graph database |
-| **API** | FastHTML | Query graph, format for Vis.js | `/api/{domain}/{uid}/lateral/graph` |
-| **Presentation** | Alpine.js + Vis.js | Render interactive visualization | `/static/js/skuel.js` |
-
-This architecture enables:
-- **Type-safe data flow** from Neo4j to browser
-- **Lazy loading** via HTMX (graphs load only when detail section visible)
-- **Consistent styling** across all 9 SKUEL domains
-- **Zero boilerplate** for new domain integrations
-
-**Current Production Status:**
-
-✅ **Deployed across 9 domains** (January 2026):
-- Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
-- Curriculum (3): KU, PS, LP
-
-✅ **Explore sidebar graph** (April 2026):
-- `ExploreGraphView` (`ui/explore/graph.py`) — graph hero in Explore sidebar
-- Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`
-- Hub mode: user's learning universe ("You" center + studying Kus + in-progress PSes)
-- Entity mode: lateral relationship graph centered on current Ku/PS
-- Filter tabs (All/Learning/Saved) dim/highlight nodes
-- Full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates second Vis.js network to escape sidebar `overflow:hidden` + `transform`
-- API: `GET /api/explore/graph` returns Vis.js JSON for hub mode
-
-✅ **40/40 automated tests passing**
-✅ **92 API routes verified**
-✅ **Zero breaking changes** in Phase 5 rollout
+The graph route answers JSON, not a fragment. The blocking chain, the alternatives
+comparison and the manage list answer **HTML fragments** that HTMX swaps in.
 
 ---
 
 ## Quick Start
 
-### Installation
-
-**Vis.js is already installed in SKUEL.** The library is self-hosted in `/static/vendor/vis-network/`:
-
-```
-/static/vendor/vis-network/
-├── vis-network.min.js      # 476KB, v9.1.9
-└── vis-network.min.css     # 220KB
-```
-
-Scripts are loaded via `/ui/layouts/base_page.py` in the `<head>` section:
-
-```python
-# Already included in all pages
-Script(src="/static/vendor/vis-network/vis-network.min.js"),
-Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
-```
-
-**No additional setup required.**
-
----
-
-### Example 1: Add Graph to Existing Detail Page (5 lines)
-
-**Use Case:** Add interactive relationship graph to any entity detail page.
-
-**Time:** ~2 minutes
+### Example 1: The Whole Section (the normal case)
 
 ```python
 from ui.patterns.relationships import EntityRelationshipsSection
 
-# In your detail page function (e.g., task_detail, goal_detail, ku_detail)
-def task_detail(request, uid: str, task: Task, ...):
-    return BasePage(
-        content=Container(
-            # ... existing content (title, description, etc.)
-
-            # Add this one line - that's it!
-            EntityRelationshipsSection(
-                entity_uid=task.uid,
-                entity_type="tasks",  # Domain name (lowercase plural)
-            ),
-        ),
-        request=request,
-    )
+EntityRelationshipsSection(
+    entity_uid=task.uid,
+    entity_type="tasks",   # the route domain: tasks, goals, …, ku, ps, lp
+    authoring=True,        # add/delete panel — takes effect for the six Activity types only
+)
 ```
 
-**What you get:**
-- Three visualization tabs (Blocking Chain, Alternatives, Interactive Graph)
-- Lazy-loaded via HTMX (only loads when visible)
-- Automatic depth control UI (1-3 levels)
-- Click-to-navigate functionality
-- Zero configuration needed
+**What it renders:** an `Accordion` (`ui.components`, `multiple=True`) under a
+`SectionHeader("Relationships")`:
+- **Manage Relationships** (only with `authoring=True` on an Activity type, open): the add
+  modal plus the deletable edge list (`GET .../lateral/manage`)
+- **Blocking Dependencies**: `GET .../lateral/chain` on `load`
+- **Alternative Approaches**: `GET .../lateral/alternatives/compare` on `load delay:300ms`
+- **Relationship Network** (open): the Vis.js graph
 
----
+The factory's lateral writes (the four creates the add modal posts to, and the delete)
+answer `HX-Trigger: relationships-changed`. The three fragments listen with
+`relationships-changed from:body`, and the graph with
+`x-on:relationships-changed.window="loadGraph(depth)"`, so every surface refreshes off one
+event. The domain-specific writers in `lateral_routes.py` (`stacks`, `conflicts`,
+`enables`) don't emit the event; the authoring UI doesn't call them. The fragments load when
+the page loads, whether or not their panel is open.
 
-### Example 2: Custom Graph Component (Standalone)
-
-**Use Case:** Want just the interactive graph, not the full section with tabs.
-
-**Time:** ~5 minutes
+### Example 2: Just the Graph
 
 ```python
 from ui.patterns.relationships import RelationshipGraphView
 
-# In your detail page
-def task_detail(request, uid: str, task: Task, ...):
-    return BasePage(
-        content=Container(
-            H2("Task Dependencies", cls="text-xl font-bold"),
-
-            # Standalone graph with custom depth
-            RelationshipGraphView(
-                entity_uid=task.uid,
-                entity_type="tasks",
-                default_depth=2,  # Start at depth 2 (default is 1)
-            ),
-        ),
-        request=request,
-    )
+RelationshipGraphView(entity_uid=task.uid, entity_type="tasks", depth=2)
 ```
 
-**What you get:**
-- Just the interactive graph visualization
-- Depth control select dropdown
-- Alpine.js `relationshipGraph()` component auto-initialized
-- HTMX lazy loading on viewport entry
+It renders a card with a depth select (1–3), the canvas
+(`Div(id=f"network-{uid}", cls="w-full h-96 …")`), and a color legend.
 
----
+⚠ **Two live defects, measured with the vendored Alpine in jsdom:** the component
+fetches the graph **twice** on load, because it sets `x-init="init()"` on a component
+Alpine already inits; and its depth select sits **outside** the `x-data` element, so Alpine
+never binds its `x-on:change` and changing the depth does nothing. Both are logged. The
+manual pattern below avoids both.
 
-### Example 3: Manual Alpine Integration (Full Control)
-
-**Use Case:** Need custom container styling, multiple graphs on one page, or non-standard layout.
-
-**Time:** ~10 minutes
+### Example 3: Manual Integration
 
 ```python
-from fasthtml.common import Div, Select, Option
+from fasthtml.common import Div, Option
 
-def custom_graph_page(request, uid: str):
-    return BasePage(
-        content=Container(
-            # Custom container with your own styling
-            Div(
-                # Depth control (optional)
-                Select(
-                    Option("1 level", value="1"),
-                    Option("2 levels", value="2", selected=True),
-                    Option("3 levels", value="3"),
-                    **{
-                        "x-model": "depth",
-                        "@change": "loadGraph()",
-                    },
-                    cls="text-sm",
-                ),
+from ui.forms import Select
 
-                # Graph container - MUST have ID matching x-ref
-                Div(
-                    **{"x-ref": "container"},
-                    style="width: 100%; height: 600px;",  # Explicit sizing required
-                    cls="border rounded-lg bg-base-100",
-                ),
-
-                # Alpine component initialization
-                **{
-                    "x-data": f"relationshipGraph('{uid}', 'tasks', 2)",
-                    "x-init": "loadGraph()",
-                },
-                cls="space-y-4",
-            ),
-        ),
-        request=request,
-    )
+Div(
+    Select(
+        Option("Depth 1", value="1"),
+        Option("Depth 2", value="2", selected=True),
+        Option("Depth 3", value="3"),
+        name="graph_depth",
+        full_width=False,
+        **{"x-on:change": "changeDepth($event.target.value)"},   # inside the x-data element
+    ),
+    # relationshipGraph finds its canvas by THIS id, not by x-ref
+    Div(id=f"network-{uid}", cls="w-full h-96 border border-border rounded-sm"),
+    **{
+        "x-data": f"relationshipGraph('{uid}', 'tasks', 2)",   # init() loads the graph itself
+        "x-on:relationships-changed.window": "loadGraph(depth)",
+    },
+)
 ```
 
-**Key requirements:**
-1. Container must have `x-ref="container"` for Alpine to find it
-2. Container must have explicit width/height (Vis.js requirement)
-3. `x-data` must call `relationshipGraph(uid, entityType, depth)`
-4. `x-init="loadGraph()"` triggers initial render
+**Key requirements** (from the component, not convention):
+1. The canvas has `id="network-{entity_uid}"`; `renderNetwork` does `document.getElementById`
+2. The canvas has a real height (`h-96`); Vis.js draws into the box it is given
+3. No `x-init`: Alpine calls the component's `init()`, which calls `loadGraph(this.depth)`
+4. Controls that call `changeDepth` / `loadGraph` live inside the `x-data` element
 
----
-
-## SKUEL Integration Reference
-
-The detailed integration material lives in three on-demand reference files:
-
-- **[reference-architecture.md](reference-architecture.md)** — the Three-Layer Integration Architecture (Neo4j → FastHTML API → Alpine.js + Vis.js) and the Vis.js Data Format (nodes/edges JSON, palette).
-- **[reference-patterns.md](reference-patterns.md)** — Configuration Patterns (physics, layout, styling), Interaction Patterns (events, hover, click), Common Use Cases (hub vs entity mode), and the Depth Control Pattern.
-- **[reference-operations.md](reference-operations.md)** — Best Practices and Anti-Patterns (plus the Integration Checklist, Troubleshooting, and Performance Metrics, also linked below).
+Measured: one fetch on load, and a depth change refetches with `?depth=3`.
 
 ---
 
@@ -251,102 +158,58 @@ The detailed integration material lives in three on-demand reference files:
 Does the data represent relationships between entities?
 ├─ YES → Are relationships the PRIMARY focus?
 │   ├─ YES → Vis.js Network ✅
-│   └─ NO  → Is it hierarchical (tree)?
-│       ├─ YES → Consider D3 tree or Vis.js hierarchical layout
+│   └─ NO  → Is it a strict ordered chain?
+│       ├─ YES → BlockingChainView (an HTML fragment, no canvas) ✅
 │       └─ NO  → Vis.js Network (force-directed) ✅
 └─ NO  → Is it time-series or quantitative data?
-    ├─ YES → Use Chart.js (line/bar charts) ❌
+    ├─ YES → Chart.js (see the chartjs skill)
     └─ NO  → Is it tabular data?
-        ├─ YES → Use HTML table ❌
-        └─ NO  → Use Vis.js Network (can represent any graph) ✅
+        ├─ YES → HTML table (TableFromDicts)
+        └─ NO  → Vis.js Network (can represent any graph)
 ```
-
-**Summary:**
-- **Vis.js Network:** Relationships, dependencies, networks
-- **Chart.js:** Time-series, metrics, statistics
-- **HTML Table:** Tabular data, comparisons
-- **D3:** Custom visualizations, complex interactions
-
----
 
 ### Which Physics Solver to Use
 
 ```
 What is your graph structure?
 ├─ Lateral relationships (cyclic, clustered)
-│   → forceAtlas2Based ✅ (SKUEL default)
+│   → forceAtlas2Based ✅ (every SKUEL profile)
 │
 ├─ Large graph (1000+ nodes, performance critical)
-│   → barnesHut ✅
+│   → barnesHut
 │
 ├─ Hierarchical tree (DAG, no cycles)
-│   → hierarchical ✅
+│   → layout.hierarchical
 │
 └─ Simple repulsion (no structure)
-    → repulsion ⚠️ (rarely needed)
+    → repulsion (rarely needed)
 ```
-
-**SKUEL uses forceAtlas2Based** because lateral relationships form clusters (not strict hierarchies).
-
----
 
 ### What Depth to Use
 
 ```
 What is the user's goal?
-├─ See immediate dependencies only
-│   → Depth 1 ✅
-│
-├─ Understand context and indirect relationships
-│   → Depth 2 ✅ (SKUEL default)
-│
-├─ Deep exploration, comprehensive view
-│   → Depth 3 ⚠️ (may be slow)
-│
-└─ Complete graph traversal
-    → Depth 4+ ❌ (not allowed - exponential)
+├─ See immediate relationships only → depth 1
+├─ Understand context → depth 2 (the default everywhere)
+└─ Deep exploration → depth 3 (the select's maximum)
 ```
 
-**Default to depth 2** - good balance of context and performance.
-
----
-
-## Integration Checklist
-
-The step-by-step checklist for adding Vis.js graphs to a new domain lives in **[reference-operations.md](reference-operations.md#integration-checklist)**.
+**Nothing enforces a maximum.** The UI offers 1–3, but the route accepts any `int` and the
+backend interpolates it into `*1..{depth}`, so `?depth=20` runs a 20-hop traversal. Don't
+build a surface that sends a larger depth, and don't describe the route as capped. The
+missing clamp is logged.
 
 ---
 
 ## Related Skills
 
-### Foundation Skills
-
-**Required for Vis.js integration:**
-
-| Skill | Why Required | Use For |
-|-------|-------------|---------|
-| **ui-browser** | Alpine.js + HTMX integration | `relationshipGraph()` component, reactive state, lazy loading (`hx-trigger="intersect once"`) |
-| **neo4j-cypher-patterns** | Graph queries | Cypher queries for lateral relationships |
-
-**Recommended:**
-
 | Skill | Relation | Use For |
 |-------|----------|---------|
-| **python** | Service layer | Service methods, API routes |
-| **fasthtml** | Web framework | Route definitions, FastHTML components |
-| **ui-css** | Styling | Container styling, responsive layout |
-
----
-
-### Related Pattern Skills
-
-**Domain-specific patterns:**
-
-| Skill | Relation | Use For |
-|-------|----------|---------|
-| **activity-domains** | Activity domains use lateral relationships | Tasks, Goals, Habits, Events, Choices, Principles |
-| **curriculum-domains** | Curriculum domains use lateral relationships | KU, PS, LP (prerequisites, alternatives) |
-| **skuel-ui** | Page layout + UI patterns | BasePage wrapper for detail pages, component hierarchy, reusable patterns |
+| **ui-browser** | Alpine.js + HTMX | the `relationshipGraph` / `exploreGraph` components, the `relationships-changed` event |
+| **neo4j-cypher-patterns** | Graph queries | the lateral Cypher in `LateralRelationshipBackend` |
+| **skuel-ui** | Page layout | detail pages, `Accordion`, `SectionHeader` |
+| **activity-domains** / **curriculum-domains** | Where the section mounts | Activity detail views, Ku / LP pages |
+| **chartjs** | The other visualization library | quantitative charts |
 
 ---
 
@@ -354,71 +217,37 @@ The step-by-step checklist for adding Vis.js graphs to a new domain lives in **[
 
 ### Primary Documentation
 
-**Must-read for Vis.js integration:**
-
-| Document | Purpose | Key Sections |
-|----------|---------|--------------|
-| `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md` | Complete pattern guide | Three-layer architecture, configuration, UI components |
-| `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` | Graph modeling | Lateral relationship types, service API, Cypher patterns |
-
----
+| Document | Purpose |
+|----------|---------|
+| `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md` | The pattern guide: authoring, components, routes |
+| `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` | Lateral types, `LateralRelationshipService` API, ownership coverage |
 
 ### Key Implementation Files
 
-**Read these files for implementation details:**
+| File | Purpose |
+|------|---------|
+| `/static/js/skuel.js` | `SKUEL.graph` helpers (`PROFILES`, `buildOptions`, `styleEdgesByConfidence`, `attachClickNav`); `Alpine.data('relationshipGraph', …)`; `Alpine.data('exploreGraph', …)` |
+| `/core/services/lateral_relationships/lateral_relationship_service.py` | `get_relationship_graph`, `get_blocking_chain`, `get_alternatives_with_comparison` |
+| `/adapters/persistence/neo4j/backends/collab_backends.py` | `LateralRelationshipBackend` — the Cypher |
+| `/adapters/inbound/route_factories/lateral_route_factory.py` | The per-domain route set |
+| `/adapters/inbound/lateral_routes.py` | `_LATERAL_DOMAINS` — the domain list |
+| `/ui/patterns/relationships/` | `EntityRelationshipsSection` (`relationship_section.py`), `RelationshipGraphView`, `BlockingChainView`, `AlternativesComparisonGrid`, `AddRelationshipModal`, the manage list |
+| `/ui/explore/graph.py` | `ExploreGraphView` |
+| `/core/utils/palette.py` | `RelationshipColor` — edge colors by type |
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| `/static/js/skuel.js` | 2313-2431 | Alpine `relationshipGraph()` component (complete source) |
-| `/core/services/lateral_relationships/lateral_relationship_service.py` | All | Core service methods, Cypher queries |
-| `/ui/patterns/relationships/relationship_graph.py` | All | FastHTML wrapper component |
-| `/ui/patterns/relationships/relationship_section.py` | All | Main orchestrator (tabs, depth control) |
-| `/adapters/inbound/lateral_routes.py` | All | Route registration examples |
-| `/adapters/inbound/route_factories/lateral_route_factory.py` | All | Route factory pattern |
-
----
-
-### Architecture Decision Records (ADRs)
+### Architecture Decision Records
 
 | ADR | Title | Key Decision |
 |-----|-------|--------------|
-| ADR-037 | Lateral Relationships Visualization Phase 5 | Three-layer architecture, Vis.js choice, depth limits |
-
----
+| ADR-037 (`ADR-037-lateral-relationships-visualization-phase5.md`) | Lateral Relationships Visualization Phase 5 | Three components, Vis.js as the graph library |
 
 ### External Resources
 
-**Official Vis.js documentation:**
-- [Vis.js Network Documentation](https://visjs.github.io/vis-network/docs/network/) - Official API reference
-- [Vis.js Examples](https://visjs.github.io/vis-network/examples/) - Interactive examples
-- [ForceAtlas2 Algorithm Paper](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0098679) - Physics solver research
+- [Vis.js Network Documentation](https://visjs.github.io/vis-network/docs/network/) — official API reference (v9)
+- [Vis.js Examples](https://visjs.github.io/vis-network/examples/)
 
 ---
 
-## Troubleshooting & Performance
-
-Common issues, fixes, and performance benchmarks live in **[reference-operations.md](reference-operations.md#troubleshooting)**.
-
----
-
-## Summary
-
-**Vis.js Network in SKUEL:**
-
-- **Purpose:** Visualize lateral relationships (blocking, prerequisites, alternatives, complements)
-- **Integration:** Three-layer architecture (Neo4j → API → Alpine/Vis.js)
-- **Deployment:** 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP)
-- **Performance:** <400ms API + <3s render for depth 2 (typical use case)
-- **User Experience:** Interactive, physics-based, click-to-navigate
-
-**Quick Start:** Add `EntityRelationshipsSection(entity_uid, entity_type)` to any detail page - done in 5 lines.
-
-**Deep Integration:** Use `RelationshipGraphView` or manual Alpine integration for custom layouts.
-
-**Best Practice:** Use forceAtlas2Based solver, depth 2 default, disable physics after stabilization.
-
----
-
-**Related Skills:** @ui-browser @neo4j-cypher-patterns @activity-domains @curriculum-domains
+**Related Skills:** @ui-browser @neo4j-cypher-patterns @skuel-ui
 
 **Deep Dive:** `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md`

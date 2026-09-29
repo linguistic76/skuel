@@ -8,7 +8,7 @@ Tasks+ sidebar asks and nothing is emitted that no row would swap in.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, Span
+from fasthtml.common import FT, Div, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -31,7 +31,7 @@ def setup_sidebar_badges_routes(rt: Any, services: Services) -> None:
     user_service = services.user
 
     @rt("/api/sidebar/badges")
-    async def sidebar_badges(request: Request) -> Any:
+    async def sidebar_badges(request: Request) -> FT:
         """HTMX OOB-swap endpoint: the Tasks+ sidebar's count + health badges.
 
         One fragment per Tasks+ row that has a stats config — exactly
@@ -47,7 +47,7 @@ def setup_sidebar_badges_routes(rt: Any, services: Services) -> None:
             return Div()
         context = context_result.value
 
-        fragments: list[Any] = []
+        fragments: list[FT] = []
         for item in ACTIVITY_SIDEBAR_ITEMS:
             config = DOMAIN_STATS_CONFIG.get(item.slug)
             if config is None:

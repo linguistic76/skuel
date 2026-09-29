@@ -32,7 +32,7 @@ allowed-tools: Read, Grep, Glob
 | Touch/swipe gestures | **Alpine** | Real-time input handling |
 | Dropdown menus | **Alpine** | Instant responsiveness |
 | Form field show/hide | **Alpine** | Immediate user feedback |
-| Loading indicator during request | **Both** | Alpine shows, HTMX triggers |
+| Loading indicator during request | **HTMX** (or both) | `hx-indicator` / `hx-disabled-elt`; inline Alpine state only when it drives more than a spinner |
 | Search with debounce | **HTMX** | Input triggers server query |
 | Infinite scroll | **HTMX** | Load more from server |
 | Tab panels (pre-loaded content) | **Alpine** | Toggle visibility only |
@@ -122,6 +122,14 @@ parent changes rather than waiting for the swap.
 <button hx-delete="/resource/1" hx-confirm="Delete?">DELETE — remove</button>
 ```
 
+**Send the verb the route registers.** Most SKUEL mutations are `POST` routes (the CRUD
+factory's `/api/{domain}/delete?uid=`, the field doors `/api/{domain}/{uid}/{field}`); a few
+register `DELETE` or `PATCH` instead (`/api/user/pins/{uid}`, the lateral-relationship and
+hierarchy doors). Read the route's `methods=` before you pick `hx-post` or `hx-delete`: a verb
+the route doesn't register answers 405. A route registered without `methods=` also answers
+`GET`, so never register a new mutation that way (the CRUD factory's own `/update` and
+`/delete` doors still are: an open issue, not a pattern).
+
 ### 4. Swap — Where to Put the Response
 
 ```html
@@ -137,8 +145,8 @@ parent changes rather than waiting for the swap.
 <!-- afterend — insert after element -->
 <div hx-get="/sibling" hx-swap="afterend">Sibling added after</div>
 
-<!-- delete — remove target element -->
-<button hx-delete="/item/1" hx-swap="delete">Removes target</button>
+<!-- delete — remove the target element, whatever the (2xx) response body -->
+<button hx-post="/api/exercises/delete?uid=ex_1" hx-target="#exercise-ex_1" hx-swap="delete">Removes the card</button>
 
 <!-- none — side effects only (analytics, etc.) -->
 <button hx-post="/track" hx-swap="none">Track only</button>
@@ -181,12 +189,13 @@ Copy-paste recipes live in **[patterns-reference.md](patterns-reference.md)**:
 
 ## Alpine.js: Client-Side Reactivity
 
-### Quick Start — CDN vs SKUEL
+### Loading Alpine
 
-```python
-# SKUEL: vendored, version-pinned
-Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
-```
+A page never emits the Alpine tag itself. `skuel_headers()` (`ui/theme.py`) is the one
+place that writes the vendored, version-pinned `alpine.{ALPINE_VERSION}.min.js` tag (with
+`defer`), and `build_head()` delivers it to every `BasePage` / `AuthPage`. An upgrade moves
+the `ALPINE_VERSION` constant, the vendored file, and the versioned filename in
+`static/service-worker.js`'s `PRECACHE_URLS` (plus a `CACHE_VERSION` bump) together.
 
 ### Directive Reference
 
@@ -235,7 +244,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ## SKUEL Component Architecture
 
-Named Alpine components live in a `/static/js/` bundle, never inline in a template. `skuel.js` holds the 22 **shared** ones:
+Named Alpine components live in a `/static/js/` bundle, never inline in a template. `skuel.js` holds the **shared** ones:
 
 <!-- alpine-registry:begin -->
 
@@ -245,7 +254,7 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 | `calendarLegend` | Calendar legend type filters (toggle hide/show + hover spotlight, localStorage) | `hidden`, `spotlight` |
 | `collapsible(initial)` | Expand/collapse | `expanded` |
 | `chartVis(url, type)` | Chart.js | `chart`, `loading`, `error` |
-| `collapsibleSidebar(key)` | Sidebar collapse + localStorage | reads `Alpine.store(key)` |
+| `collapsibleSidebar(key, defaultCollapsed)` | Sidebar collapse + localStorage | reads `Alpine.store(key)` |
 | `relationshipGraph(uid, type)` | Vis.js lateral relationships | `network`, `loading` |
 | `exploreGraph(mode, uid, type)` | Explore sidebar Vis.js graph | `network`, `filter`, `expanded` |
 | `offlineIndicator` | PWA offline status banner | `isOffline` |
@@ -265,9 +274,9 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 
 <!-- alpine-registry:end -->
 
-The table above is the complete **shared** registry — all 22 components in `skuel.js`. It is machine-checked: `tests/unit/docs/test_alpine_docs_registry.py` fails if this table names a component `skuel.js` no longer registers, or omits one it does.
+The table above is the complete **shared** registry: every component `skuel.js` registers. It is machine-checked: `tests/unit/docs/test_alpine_docs_registry.py` fails if this table names a component `skuel.js` no longer registers, or omits one it does. No count is written here on purpose; the table is the count.
 
-`skuel.js` is not the only registrar. Four page-local bundles register one component each, loaded only by their own routes — 26 in total. They are enumerated once, in [ALPINE_JS_ARCHITECTURE.md § Available Components](../../../docs/architecture/ALPINE_JS_ARCHITECTURE.md#available-components), which is machine-checked; this file deliberately does not repeat the list. Grep `Alpine.data('` across `/static/js/*.js` for the source of truth; grepping `skuel.js` alone under-reports.
+`skuel.js` is not the only registrar. Page-local bundles register their own components, loaded only by their own routes. They are enumerated once, in [ALPINE_JS_ARCHITECTURE.md § Available Components](../../../docs/architecture/ALPINE_JS_ARCHITECTURE.md#available-components), which is machine-checked; this file deliberately does not repeat the list. Grep `Alpine.data('` across `/static/js/*.js` for the source of truth; grepping `skuel.js` alone under-reports.
 
 **Usage in FastHTML:**
 ```python
@@ -314,7 +323,7 @@ FastHTML maps `_`→`-`: a **single** underscore → one hyphen (`hx_get`→`hx-
 
 The split is by **library**, not by punctuation: HTMX defines a colon-free double-dash alias for `hx-on`, so its event handlers are reducible; Alpine parses on the colon exclusively, so its `x-on:` / `x-bind:` / `@` / `.modifier` attrs are genuinely irreducible.
 
-**Why it matters for types:** a `**dict[str, str]` splat into a **SKUEL FT component** (`Button`, `Input`, `Select`, …) trips mypy `arg-type` — the dict's `str` values spill onto the component's typed keyword slots (`disabled: bool`, `size: Size | None`). The fix follows the table:
+**Why it matters for types:** a `**dict[str, str]` splat into a **SKUEL FT component** whose keyword slots are not all `str` trips mypy `arg-type`, because the dict's `str` values spill onto those slots: `Input`'s `full_width: bool`, `Badge`'s `variant: BadgeT | None` / `size: Size | None`. Measured: `Input(**{"x-on:input": ...})` and `Badge(..., **{"@click": ...})` fail; `Button(..., **{"@click": ...})` passes, because its `cls` and `size` slots both accept `str`. The fix follows the table:
 
 - **Reducible attrs (plain-hyphen + HTMX `hx-on::`) → use the underscore kwarg.** No splat, no suppression. (e.g. `Button("Back", hx_get="/tasks", hx_target="body")`, *not* `**{"hx-get": …}`; `Form(..., hx_on__after_request=expr)`, *not* `**{"hx-on::after-request": expr}`.)
 - **Irreducible Alpine attrs (colon / at / dot) → keep the splat + a surgical ignore:** `**{"x-on:click": expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat`.
@@ -332,7 +341,7 @@ The split is by **library**, not by punctuation: HTMX defines a colon-free doubl
 
 ⚠️ **A colon/`@` Alpine directive written as an underscore-kwarg renders DEAD, silently.** `x_on_click="open()"` → `x-on-click="open()"`, which Alpine never binds — no error, the click just does nothing. Always use the splat form for colon/`@`/dot attrs. Detect regressions: `grep -rn "x_on_\|x_bind_" ui/ adapters/inbound/`.
 
-⚠️ **Timing note (historical):** the `# type: ignore[arg-type]` is only valid where mypy `arg-type` is **enabled** for the module. `arg-type` is now enforced on all first-party trees (`core`/`services_bootstrap`/`adapters`/`ui`), so in `ui/` the ignore is always "used". During the rollout, adding it before a tree's per-module enable tripped `[unused-ignore]` (`warn_unused_ignores = true`), so each flip landed the ignores together with its `enable_error_code`. See `docs/patterns/ANY_USAGE_POLICY.md` § FastHTML boundary surfaces.
+⚠️ **Add the ignore only where mypy reports the error.** `arg-type` is enforced on all first-party trees and `warn_unused_ignores = true`, so an ignore on a splat that type-checks (a `Button` splat) is itself an `[unused-ignore]` error. See `docs/patterns/ANY_USAGE_POLICY.md` § FastHTML boundary surfaces.
 
 ---
 
@@ -382,9 +391,9 @@ HTMX enhances HTML — use semantic elements, not div soup:
 <!-- ✅ Single state container -->
 <nav x-data="{ open: false, dropdown: false }">
 
-<!-- ❌ Using GET for mutations -->
+<!-- ❌ Using GET for a mutation -->
 <form hx-get="/tasks/create">
-<!-- ✅ POST for all mutations -->
+<!-- ✅ The verb the route registers — POST for /tasks/create -->
 <form hx-post="/tasks/create">
 
 <!-- ❌ Alpine inline component (use skuel.js instead) -->
@@ -393,9 +402,9 @@ HTMX enhances HTML — use semantic elements, not div soup:
 
 <!-- ❌ Re-processing swapped content from an htmx:load listener: HTMX already
      processes hx-* attributes on swap, and Alpine 3's MutationObserver
-     initializes new x-data trees automatically. Calling htmx.process() (or
-     Alpine.initTree()) from htmx:load re-fires every hx-trigger="load"
-     request — every fragment fetched twice (PR #510) -->
+     initializes new x-data trees automatically. Calling htmx.process() from
+     htmx:load re-fires every hx-trigger="load" request — every fragment fetched
+     twice; calling Alpine.initTree() there is redundant -->
 <script>document.body.addEventListener('htmx:load', () => htmx.process(document.body))</script>
 <!-- ✅ No glue code: let HTMX and Alpine handle their own initialization -->
 
@@ -421,8 +430,8 @@ HTMX enhances HTML — use semantic elements, not div soup:
 
 | File | Purpose |
 |------|---------|
-| `/static/js/skuel.js` | The 22 **shared** Alpine.data() components |
-| `/static/js/{today,explore-reading,ku-reading,ps-detail}.js` | Page-local bundles, 1 component each (26 total) |
+| `/static/js/skuel.js` | The **shared** Alpine.data() components |
+| `/static/js/{explore-reading,ku-reading,ps-detail}.js` | Page-local bundles, one component each |
 | `/static/vendor/alpinejs/alpine.3.14.8.min.js` | Alpine.js (self-hosted) |
 | `/ui/layouts/base_page.py` | HTMX + Alpine included automatically |
 

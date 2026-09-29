@@ -2622,8 +2622,8 @@ class BlockingChainResult(TypedDict, total=False):
 class RelationshipGraphData(TypedDict, total=False):
     """Vis.js network format for get_relationship_graph()."""
 
-    nodes: list[dict[str, Any]]
-    edges: list[dict[str, Any]]
+    nodes: list[dict[str, Any]]  # boundary: consumed by the Vis.js Network library
+    edges: list[dict[str, Any]]  # boundary: consumed by the Vis.js Network library
 
 
 # ============================================================================
