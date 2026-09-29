@@ -103,7 +103,7 @@ def create_exercises_ui_routes(
 
     @app.get("/exercises/content")
     @ui_boundary_handler("Error loading exercises", fragment_id="exercises-content")
-    async def exercises_content_fragment(request: Request) -> Any:
+    async def exercises_content_fragment(request: Request) -> FT:
         """HTMX fragment: the caller's own exercises — a failed read says so."""
         user_uid = require_authenticated_user(request)
         result = await exercises_service.list_user_exercises(user_uid)

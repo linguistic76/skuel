@@ -29,7 +29,7 @@ Apply this pattern when a FastHTML route file (or its factory function) requires
 | `app/adapters/inbound/{name}_ui.py` | Refactored UI factory |
 
 Naming is a template, not a law — some hubs combine routes + UI in one file
-(`admin_dashboard_ui.py`, `user_profile_ui.py`, `today_routes.py`), and
+(`admin_dashboard_ui.py`, `today_routes.py`), and
 `TodayOrchestrator` lives in `ui/today/orchestrator.py` (its output is a view
 shape consumed only by the Today page, so it sits with its consumer rather
 than in `core/orchestrator/`).
@@ -85,9 +85,9 @@ class {Name}Orchestrator:
 
     def __init__(
         self,
-        foo_service: "FooService",          # required — no default
-        bar_service: "BarService",          # required — no default
-        optional_intelligence: "OptionalIntelligence | None",  # legitimate optional (tier)
+        foo_service: FooService,          # required — no default
+        bar_service: BarService,          # required — no default
+        optional_intelligence: OptionalIntelligence | None,  # legitimate optional (tier)
     ):
         self._foo = foo_service
         self._bar = bar_service
@@ -121,7 +121,7 @@ class {Name}Orchestrator:
 ```
 
 **Design Rules:**
-- Use `TYPE_CHECKING` imports for all service type hints — concrete types, not `Any`
+- Use `TYPE_CHECKING` imports for all service type hints — concrete types, not `Any`, and never quoted (UP037; PEP 649 defers the annotation)
 - All required services are positional parameters with **no default** — fail at bootstrap if missing
 - Only `INTELLIGENCE_TIER`-gated services are legitimately `| None`
 - Never guard required services with `if not self._service` — they are always present
@@ -140,7 +140,7 @@ Edit `app/services_bootstrap/_container.py`:
 from core.orchestrator.{name}_orchestrator import {Name}Orchestrator
 
 # Add to the Services dataclass (in the "Orchestrators" section):
-{name}_orchestrator: "{Name}Orchestrator | None" = None
+{name}_orchestrator: {Name}Orchestrator | None = None
 ```
 
 ### 3. Wire in Compose
@@ -186,7 +186,7 @@ create_{name}_ui_routes(app, rt, orchestrator=services.{name}_orchestrator)
 
 Two wiring variants exist in the codebase — both acceptable:
 - **Explicit param** (admin): bootstrap asserts and passes `orchestrator=` as above.
-- **Extract inside** (profile, today): bootstrap passes the full `services`
+- **Extract inside** (explore, teaching, today): bootstrap passes the full `services`
   container and the route file pulls `services.{name}_orchestrator` itself
   (with the same not-None assert). Prefer the explicit param for new hubs; use
   extract-inside only when the route file already takes `services` for other
@@ -196,15 +196,16 @@ Two wiring variants exist in the codebase — both acceptable:
 
 Edit `app/adapters/inbound/{name}_ui.py`:
 
-1. **Update the signature:** Replace all service params with `orchestrator: Any`
+1. **Update the signature:** Replace all service params with `orchestrator: {Name}Orchestrator`
 2. **Replace service calls:** `service_a.method()` → `orchestrator.method()`
 3. **Remove unused imports:** e.g., `EntityType` if the filtering moved into the orchestrator
 4. **Sidebar compatibility:** If a sidebar renderer still needs raw services, expose them via `@property` on the orchestrator:
 
 ```python
 @property
-def ku_service(self) -> Any:
-    return self._ku
+def user_service(self) -> UserService:
+    """Exposed for make_service_getter() / the @require_admin decorator."""
+    return self._user_service
 ```
 
 ### 6. Verify
@@ -242,12 +243,14 @@ Before: 3 preview blocks each fired their own endpoint → 3 identical `get_stud
 After: one `GET /api/teaching/students/{uid}/submissions/preview` endpoint calls `_get_bucketed_submissions()` once and returns 3 OOB fragments.
 
 ```python
-# Combined endpoint — one DB call, three panel updates
+# Combined endpoint — one orchestrator fetch, three panel updates
 @rt("/api/teaching/students/{uid}/submissions/preview")
-async def student_submissions_preview(request, uid, ...):
+@require_role(UserRole.TEACHER, get_user_service)
+async def student_submissions_preview(request: Request, uid: str, current_user: Any = None) -> FT:
+    user_uid = UserUID(current_user.uid)  # the decorator authenticated and fetched the caller
     pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
 
-    def _make_fragment(slug, rows, empty_label):
+    def _make_fragment(slug: str, rows: list[SubmissionRow], empty_label: str) -> Div:
         content = HubPreviewGrid([...]) if rows else HubPreviewEmpty(empty_label)
         return Div(content, id=f"hub-panel-{slug}", hx_swap_oob="true")
 

@@ -618,7 +618,7 @@ except LLM_EXCEPTIONS as e:         # → Errors.integration()
 except DATA_CONVERSION_EXCEPTIONS:  # → Errors.validation() or Errors.system()
 ```
 
-**Available tuples:** `NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `OPENAI_EXCEPTIONS`, `ANTHROPIC_EXCEPTIONS`, `FILE_IO_EXCEPTIONS`, `PARSING_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, `CONFIG_EXCEPTIONS`
+**Tuples:** `core/utils/exception_types.py` is the list — `NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS` (= `OPENAI_` + `ANTHROPIC_`), `DEEPGRAM_EXCEPTIONS`, `FILE_IO_EXCEPTIONS`, `PARSING_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS` and `CONFIG_EXCEPTIONS` among them. A vendor tuple is empty when its SDK is not installed.
 
 Bare `except Exception` requires `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` comment (SKUEL017). ✅ Zero violations — persistence uses `NEO4J_EXCEPTIONS`, boundaries use `# safety-net:`.
 

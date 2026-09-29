@@ -43,6 +43,7 @@ import argparse
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,7 @@ from adr_links import (  # type: ignore[import-not-found]
     AdrReferenceError,
     resolve_adr_filename,
 )
+from docs_updated_field import utc_date  # type: ignore[import-not-found]
 
 from core.utils.frontmatter import parse_frontmatter
 
@@ -60,7 +62,7 @@ class ValidationIssue:
     """Represents a validation issue."""
 
     severity: str  # "error" | "warning" | "info"
-    category: str  # "broken_link" | "missing_reverse" | "orphaned" | "suggestion" | "stale_skill"
+    category: str  # "broken_link" | "missing_reverse" | "orphaned" | "suggestion" | "stale_skill" | "malformed_date"
     source: str  # File or skill that has the issue
     message: str
     suggestion: str | None = None
@@ -201,25 +203,28 @@ def collect_doc_to_skills_mapping(
     return doc_to_skills, scanned_files
 
 
-def get_doc_last_modified(doc_path: str, base_path: Path) -> str | None:
-    """
-    Get the last git commit date for a doc file (YYYY-MM-DD).
+def get_doc_last_modified(doc_path: str, base_path: Path) -> date | None:
+    """The UTC day of the last commit that touched a doc.
+
+    Dated the way ``docs_updated_field`` dates a commit for the docs' ``updated:``
+    stamp — the committer's ``%cI`` timestamp, taken to its UTC day — so a skill's
+    ``last_reviewed`` and a doc's ``updated:`` speak the same calendar.
 
     Returns None if the file has no git history or git fails.
     """
     full_path = base_path / doc_path.lstrip("/")
     try:
         result = subprocess.run(
-            ["git", "log", "-1", "--format=%Y-%m-%d", "--", str(full_path)],
+            ["git", "log", "-1", "--format=%cI", "--", str(full_path)],
             capture_output=True,
             text=True,
             timeout=5,
             cwd=str(base_path),
         )
-        date = result.stdout.strip()
-        return date if date else None
-    except Exception:
+    except OSError, subprocess.SubprocessError:
         return None
+    committed = result.stdout.strip()
+    return utc_date(committed) if result.returncode == 0 and committed else None
 
 
 def check_skill_staleness(
@@ -237,7 +242,19 @@ def check_skill_staleness(
         return []
 
     last_reviewed_str = str(last_reviewed)
-    stale_docs: list[tuple[str, str]] = []
+    try:
+        reviewed_day = date.fromisoformat(last_reviewed_str)
+    except ValueError:
+        return [
+            ValidationIssue(
+                severity="error",
+                category="malformed_date",
+                source=f"@{skill['name']}",
+                message=f"last_reviewed {last_reviewed_str!r} is not a YYYY-MM-DD date",
+                suggestion="Set last_reviewed to the day the skill was last reviewed",
+            )
+        ]
+    stale_docs: list[tuple[str, date]] = []
 
     for doc_path in skill.get("primary_docs", []):
         doc_file = base_path / doc_path.lstrip("/")
@@ -245,7 +262,7 @@ def check_skill_staleness(
             continue  # Already caught as broken link
 
         last_modified = get_doc_last_modified(doc_path, base_path)
-        if last_modified and last_modified > last_reviewed_str:
+        if last_modified and last_modified > reviewed_day:
             stale_docs.append((doc_path, last_modified))
 
     if not stale_docs:
@@ -392,7 +409,7 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
     for skill in skills_data["skills"]:
         stale_issues = check_skill_staleness(skill, base_path)
         issues.extend(stale_issues)
-        stats.stale_skills += len(stale_issues)
+        stats.stale_skills += sum(1 for i in stale_issues if i.category == "stale_skill")
 
     return issues, stats
 

@@ -9,7 +9,7 @@ related_skills:
 
 # SKUEL UI Error Handling
 
-*Last updated: 2026-07-09*
+*Last updated: 2026-09-29*
 
 **When to use this skill:** When building UI routes, handling `Result[T]` at boundaries, implementing error banners, creating form validation, or understanding how SKUEL propagates errors from services to UI.
 
@@ -19,20 +19,19 @@ related_skills:
 
 SKUEL uses a consistent error-handling pattern across all UI routes that makes failures **visible to users** instead of silently returning empty lists or ad-hoc error elements.
 
-**Core Principle:** "Typed params, Result[T] propagation, visible error banners"
+**Core Principle:** "Declared params, Result[T] propagation, visible error banners"
 
 This pattern has three key components:
-1. **Typed query parameters** (dataclasses) for type safety
-2. **Result[T] propagation** from services through data helpers
-3. **Error banner rendering** via `render_error_banner()` for user-visible failures
+1. **Declared query parameters** — each Activity list names its filters as `(name, default)` pairs
+2. **Result[T] propagation** from the service to the route, which checks `.is_error` before `.value`
+3. **Error banner rendering** via `render_error_banner()` / `render_inline_error()` for user-visible failures
 
 **Benefits:**
 - User-visible errors (clear messages instead of empty lists)
 - Full debuggability (error context in logs)
-- Type safety (dataclasses prevent param extraction errors)
-- Consistency (all domains follow same pattern)
+- Consistency (the 6 Activity domains share one generated route set)
 
-**Applied to:** All 6 Activity domains + Teaching, KU, Admin, Insights, UserEntry, Exercises, Calendar, Form Submissions, LifePath, Analytics, Activity Review, Learning Loop (standardized 2026-03-19; the former Study domain was decomposed into entity-typed routes)
+**Applied to:** All 6 Activity domains + Teaching, KU, Admin, Insights, UserEntry, Exercises, Calendar, Form Submissions, LifePath, Analytics, Activity Review, Learning Loop
 
 ---
 
@@ -41,55 +40,57 @@ This pattern has three key components:
 ### 1. Result[T] Pattern for UI
 
 At the UI boundary, we:
-- Return `Result[T]` from all data helpers (not exceptions)
-- Check `.is_error` in route handlers
-- Render error banners for user-visible failures
-- Log errors with full context
+- Call a service method that returns `Result[T]` (never wrap it in a try/except of our own)
+- Check `.is_error` in route handlers, before touching `.value`
+- Render the error's `display_message` in a banner — the safe `user_message`, falling back to `message`
+- Keep the fragment's target `id` on the error response, so HTMX swaps it where the content would go
 
 **NOT this:**
 ```python
 # ❌ Silent failure - returns empty list on error
 async def get_tasks(user_uid):
     try:
-        return await tasks_service.list_for_user(user_uid)
+        return (await tasks_service.get_user_tasks(user_uid)).value
     except Exception:
         return []  # User sees nothing, no debugging info
 ```
 
-**DO this:**
+**DO this** (the shape `create_activity_ui_routes()` generates for every Activity list):
 ```python
-# ✅ Explicit Result[T] with error propagation
-async def get_tasks(user_uid) -> Result[list[Task]]:
-    try:
-        result = await tasks_service.list_for_user(user_uid)
-        if result.is_error:
-            logger.warning(f"Failed to fetch tasks: {result.error}")
-            return result  # Propagate the error
-        return Result.ok(result.value or [])
-    except Exception as e:
-        logger.error("Error fetching tasks", extra={...})
-        return Errors.system(f"Failed to fetch tasks: {e}")
+result = await tasks_service.get_user_tasks(user_uid)
+if result.is_error:
+    return Div(
+        render_error_banner(result.expect_error().display_message),
+        id="tasks-content",
+    )
+tasks = result.value
 ```
 
-### 2. Typed Query Parameters
+A bare `except Exception` has no place here: the service already turned its failures into a
+`Result`, and SKUEL017 rejects an unannotated broad catch (see `result-pattern` § Exception
+Narrowing). An optional capability is a typed `None` checked before the call (`if service.ai is
+None`), never an exception caught into a "basic mode".
 
-Use `@dataclass` for query parameter extraction:
+### 2. Declared Query Parameters
+
+An Activity list declares its filters on its `ActivityUIConfig` as `(name, default)` pairs; the
+factory reads each from the query string and passes them positionally to a pure `filter_fn`:
 
 ```python
-from dataclasses import dataclass
-
-@dataclass
-class Filters:
-    """Typed filters for list queries."""
-    status: str
-    sort_by: str
+# adapters/inbound/tasks_ui.py
+config = ActivityUIConfig(
+    domain_name="tasks",
+    filter_params=(("status", "active"), ("priority", "all"), ("sort_by", "priority")),
+    get_all=tasks_service.get_user_tasks,
+    filter_fn=filter_tasks,          # core/utils/entity_filters.py
+    ...
+)
 ```
 
-**Benefits:**
-- Type safety (autocomplete, MyPy checking)
-- Single source of truth for parameters
-- Easy to test (pass Filters instance, not mock request)
-- Clear parameter documentation
+Other routes parse query parameters with the shared helpers in
+`adapters/inbound/route_factories/route_helpers.py`
+(`parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`,
+`parse_pagination_params`) — see `/docs/patterns/API_VALIDATION_PATTERNS.md`.
 
 ### 3. Error Banner Component
 
@@ -114,68 +115,51 @@ render_error_banner(
 ### 4. Pure Computation Helpers
 
 Separate I/O from computation:
-- **I/O helpers**: Async functions that fetch data, return `Result[T]`
-- **Computation helpers**: Pure functions (stats, filtering, sorting)
-- **Form parsing helpers**: Pure functions that parse form data into typed requests
+- **I/O**: the service method, returning `Result[T]`
+- **Computation**: pure functions — filtering and sorting in `core/utils/entity_filters.py`
+  (`filter_tasks`, `filter_goals`, …), stats in `core/utils/activity_stats.py`
+  (`compute_task_stats`, …, read by the stats bars in `ui/activities/`)
+- **Form parsing**: `parse_form_body` into the domain's Pydantic request model (§5)
 
 **Benefits:**
 - Testable without async mocks
 - Clear separation of concerns
 - Single Responsibility Principle
-- Easy to modify individual pieces
 
-### 5. Pure Form Parsing Helpers
+### 5. Form Parsing
 
-All 6 activity domain UI files extract form parsing into module-level pure functions under a `# Form Parsing Helpers` section. These have no service calls and no request access. Shared primitives live in `adapters/inbound/form_helpers.py`:
+A form route parses the whole form into its Pydantic request model — Pydantic is the one
+validation layer. Shared body readers live in `adapters/inbound/form_helpers.py`:
 
-**Individual field helpers** (for UI routes with simple forms):
-- `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` — type-safe extraction from `str | UploadFile | None`
-- `parse_enum_safe(enum_class, value, default)` — replaces try/except ValueError pattern
-- `parse_date_safe()`, `parse_time_safe()` — ISO string → typed value or None (a client datetime is an instant: a request model's `ClientDateTime` field, never a form helper)
-- `ActivityFilters` + `parse_activity_filters()` — shared 2-field filter dataclass for Goals, Habits, Events, Choices
-
-**Structured body helpers** (for API routes with Pydantic models):
-- `parse_body(request, schema)` → `Result[T]` — reads the body by Content-Type (JSON, or a form encoding through `parse_form_body`) into a Pydantic model; the reader at a door both API clients and HTMX forms reach (the CRUD factory's create/update, the admin account actions).
-- `parse_json_body(request, schema)` → `Result[T]` — parses JSON body into a Pydantic model. Handles both JSON parse errors and ValidationError, converting to `Result.fail()`. An ownership-verified POST verifies the owner uid wherever it travels: a model field (`TrackHabitRequest.habit_uid` — parse, then `verify_entity_ownership`) or the query string (`POST /api/principles/link?uid=` — verify, then parse; that model's `uid` is the link *target*, verified separately). Read the route: a model's uid field is not always the owner.
-- `parse_form_body(request, schema)` → `Result[T]` — parses form data into a Pydantic model. Empty strings become `None` (handles HTML form quirk). Use when form data has enough fields to warrant a Pydantic model with validators.
+- `parse_form_body(request, schema)` → `Result[T]` — form data into a Pydantic model. Empty strings become `None` (an unselected `<select>` posts `""`). A validation failure is `Result.fail` (VALIDATION).
+- `parse_body(request, schema)` → `Result[T]` — reads the body by Content-Type (JSON, or a form encoding through `parse_form_body`); the reader at a door both API clients and HTMX forms reach (the CRUD factory's create/update, the admin account actions).
+- `parse_json_body(request, schema)` → `Result[T]` — JSON body into a Pydantic model; JSON parse errors and `ValidationError` both become `Result.fail()`. An ownership-verified POST verifies the owner uid wherever it travels: a model field (`TrackHabitRequest.habit_uid` — parse, then `verify_entity_ownership`) or the query string (`POST /api/principles/link?uid=` — verify, then parse; that model's `uid` is the link *target*, verified separately). Read the route: a model's uid field is not always the owner.
+- `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` — for the few routes that read a single raw field; each handles `str | UploadFile | None`.
 
 ```python
-# adapters/inbound/tasks_ui.py — module level, before route factory
-from adapters.inbound.form_helpers import parse_enum_safe, parse_date_safe, safe_form_string
+# adapters/inbound/tasks_ui.py — the create POST
+parsed = await parse_form_body(request, TaskCreateRequest)
+if parsed.is_error:
+    content = Div(
+        PageHeader("New Task"),
+        render_error_banner(parsed.expect_error().display_message),
+        TaskCreateForm(),
+        cls="space-y-6",
+    )
+    return render_activity_sidebar_page(content, active="tasks", request=request)
 
-def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
-    """Parse form data into a TaskCreateRequest. Pure function, no side effects."""
-    title = safe_form_string(form_data.get("title"))
-    description = safe_form_string(form_data.get("description")) or None
-    priority = parse_enum_safe(Priority, form_data.get("priority", "medium"), Priority.MEDIUM)
-    due_date = parse_date_safe(form_data.get("due_date", ""))
-    # ...
-    return TaskCreateRequest(title=title, description=description, priority=priority, ...)
-
-def parse_task_update_payload(form: Any) -> dict[str, Any]:
-    """Parse edit-modal form into an update dict. Pure function, no side effects."""
-    updates: dict[str, Any] = {}
-    title = safe_form_string(form.get("title"))
-    if title:
-        updates["title"] = title
-    # ... parse other fields
-    return updates
+result = await tasks_service.core.create_task(parsed.value, user_uid)
 ```
 
-Route handlers become thin — just auth + parse + service call:
+A crafted value outside an enum (`priority=evil`) fails the model's validation and renders as a
+banner — a 400-class failure, never a 500. A client's datetime is an instant: the request model
+types it `ClientDateTime` (`core/models/request_base.py`).
 
-```python
-async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
-    """Domain-specific task creation logic."""
-    create_request = parse_task_create_request(form_data)
-    return await tasks_service.create_task(create_request, user_uid)
-```
+### 6. Raw Fields Bound to an Enum
 
-**Note:** `validate_*_form_data()` functions were eliminated (March 2026) — Pydantic is the sole validation layer. Route handlers catch `PydanticValidationError` and render error banners automatically.
-
-### 6. Safe Enum Parsing for HTML Forms
-
-HTML `<select>` elements and optional dropdowns send empty strings (`""`) when no option is selected. `dict.get("field", "default")` does NOT catch this — the key exists with value `""`, so the default is ignored and the empty string reaches Pydantic enum validation, causing a crash.
+When a route does read a raw field into an enum-typed value, `dict.get("field", "default")` does
+NOT cover the empty string an unselected `<select>` posts — the key exists, so the default is
+ignored and `""` reaches the enum:
 
 ```python
 from adapters.inbound.form_helpers import safe_form_string
@@ -185,21 +169,9 @@ domain = form_data.get("domain", "personal")
 
 # ✅ CORRECT — safe_form_string strips whitespace, `or` provides fallback for empty
 domain = safe_form_string(form_data.get("domain")) or "personal"
-event_type = safe_form_string(form_data.get("event_type")) or "meeting"
 ```
 
-**Rule:** For any form field bound to a Pydantic enum, always use `safe_form_string(form_data.get("field")) or "default"`.
-
-**Additionally**, use `parse_enum_safe()` from `form_helpers` for enum constructor calls — a crafted form can submit any string value:
-
-```python
-from adapters.inbound.form_helpers import parse_enum_safe
-
-priority_str = safe_form_string(form_data.get("priority")) or "medium"
-priority = parse_enum_safe(Priority, priority_str, Priority.MEDIUM)
-```
-
-All 6 activity domain `*_ui.py` files use `parse_enum_safe()` for enum conversions. The only exceptions are conditional-set patterns in update payloads (e.g., `tasks_ui.py` update), which use `contextlib.suppress(ValueError)` because they only set the key on success.
+Prefer binding the whole form to a request model (§5), which makes both problems Pydantic's.
 
 ---
 
@@ -208,35 +180,30 @@ All 6 activity domain `*_ui.py` files use `parse_enum_safe()` for enum conversio
 ### Handling Result[T] in Routes
 
 ```
-Data helper returns Result[T]
-├─ Is this the main dashboard route?
-│  ├─ YES → Check .is_error, render error banner with tabs/nav
+Service returns Result[T]
+├─ Is this a full page?
+│  ├─ YES → Check .is_error, render error banner inside the page chrome (sidebar still works)
 │  └─ NO → HTMX fragment?
-│     ├─ YES → Return error banner directly (HTMX swap)
+│     ├─ YES → Return the banner (or render_inline_error) under the fragment's target id
 │     └─ NO → Check .is_error, render full page error
 │
 └─ After error check, extract .value for success case
 ```
 
-### Choosing Data Helper Pattern
+### Choosing How a Page Loads Its Data
 
 ```
 Need to fetch data for UI?
-├─ Simple fetch (no filtering/sorting)?
-│  └─ async def get_all_tasks() -> Result[list[Task]]
+├─ An Activity domain list or detail page?
+│  └─ Configure ActivityUIConfig — create_activity_ui_routes() generates the shell,
+│     the content/list fragments and the detail pages, error branches included
 │
-├─ Fetch + stats calculation?
-│  └─ Split into:
-│     - async def get_all_tasks() -> Result[list[Task]]  # I/O
-│     - def compute_stats(tasks) -> dict  # Pure
+├─ One service call?
+│  └─ Call the facade method; check .is_error; render
 │
-└─ Fetch + stats + filter + sort?
-   └─ Split into:
-      - async def get_all_tasks() -> Result[list[Task]]  # I/O
-      - def compute_stats(tasks) -> dict  # Pure
-      - def apply_filters(tasks, ...) -> list[Any]  # Pure
-      - def apply_sort(tasks, sort_by) -> list[Any]  # Pure
-      - async def get_filtered_tasks(...) -> Result[tuple[list, dict]]  # Orchestrator
+└─ Several independent calls on one dashboard?
+   └─ Collect each section's error separately and banner that section (reference.md
+      Pattern 9) — one failing section must not blank the page
 ```
 
 ---
@@ -245,9 +212,9 @@ Need to fetch data for UI?
 
 The code-heavy detail lives in **[reference.md](reference.md)**:
 
-- **Implementation Patterns** — filter dataclasses, optional-service injection, pure computation helpers, full-page vs HTMX-fragment error rendering, per-section conditional banners.
-- **Real-World Examples** — FilteredContextProvider facade, type-safe route accessors, calendar typed params.
-- **Common Mistakes & Anti-Patterns** — the paired ❌/✅ before-after recipes (silent failures, orchestration in routes, early validation, error banners, logging with context).
+- **Implementation Patterns** — declared filter params, the generated Activity routes, pure computation helpers, full-page vs HTMX-fragment error rendering, per-section conditional banners.
+- **Real-World Examples** — the FilteredContextProvider facade, type-safe route accessors, calendar typed params.
+- **Common Mistakes & Anti-Patterns** — the paired ❌/✅ before-after recipes (silent failures, orchestration in routes, error banners, logging with context).
 
 ---
 
@@ -257,15 +224,15 @@ The code-heavy detail lives in **[reference.md](reference.md)**:
 
 When implementing error handling for a new domain:
 
-- [ ] All data helpers return `Result[T]` (not exceptions)
+- [ ] Every service call the route makes returns `Result[T]`, and no route wraps one in a broad `try`
 - [ ] All route handlers check `.is_error` before `.value`
-- [ ] Error banners rendered for failures (not empty lists)
+- [ ] Error banners rendered for failures (not empty lists), with the error's `display_message`
 - [ ] Errors logged with context (user_uid, operation, error details)
-- [ ] Query parameters extracted with typed dataclasses
+- [ ] An Activity list's filters are declared `filter_params`, applied by a pure `filter_fn`
 - [ ] Pure computation helpers extracted (testable without mocks)
-- [ ] Early form validation with user-friendly messages
-- [ ] HTMX fragments return error banners (not full pages)
-- [ ] Main dashboard shows tabs even on error (navigation still works)
+- [ ] Forms bound to a Pydantic request model with `parse_form_body` — Pydantic is the one validator
+- [ ] HTMX fragments return error banners under their target id (not full pages)
+- [ ] A full page shows its chrome even on error (navigation still works)
 - [ ] Dashboard helpers return `tuple[data, bool]` when partial failure matters
 - [ ] Independent service calls use partial error collection (not fail-on-first)
 - [ ] All errors use `render_error_banner()` (full-page) or `render_inline_error()` (HTMX fragments)
@@ -273,53 +240,37 @@ When implementing error handling for a new domain:
 ### Unit Testing Pure Helpers
 
 ```python
-def test_compute_task_stats():
-    """Test stats calculation without mocks."""
-    tasks = [
-        Mock(status=EntityStatus.COMPLETED),
-        Mock(status=EntityStatus.ACTIVE, due_date=today_in(current_zone()) - timedelta(days=1)),
-    ]
+import pytest
+from pydantic import ValidationError
 
-    stats = compute_task_stats(tasks)
-
-    assert stats["total"] == 2
-    assert stats["completed"] == 1
-    assert stats["overdue"] == 1
+from core.models.task.task_request import TaskCreateRequest
+from core.utils.entity_filters import filter_tasks
 
 
-def test_apply_task_filters_active():
-    """Test active filter without mocks."""
-    tasks = [
-        Mock(status=EntityStatus.COMPLETED),
-        Mock(status=EntityStatus.ACTIVE),
-    ]
+def test_filter_tasks_active_drops_completed():
+    """Pure function: plain data in, plain data out."""
+    open_task = make_task(status=EntityStatus.ACTIVE)      # a test's own Task builder
+    done_task = make_task(status=EntityStatus.COMPLETED)
 
-    filtered = apply_task_filters(tasks, status_filter="active")
-
-    assert len(filtered) == 1
-    assert filtered[0].status == EntityStatus.ACTIVE
+    assert filter_tasks([open_task, done_task], status_filter="active") == [open_task]
 
 
-def test_validate_task_form_data_missing_title():
-    """Test form validation returns clear error."""
-    form_data = {"title": "", "description": "Test"}
-
-    result = validate_task_form_data(form_data)
-
-    assert result.is_error
-    assert "Task title is required" in result.error
+def test_create_request_rejects_an_unknown_priority():
+    """A crafted enum value is a validation failure, not a 500."""
+    with pytest.raises(ValidationError):
+        TaskCreateRequest.model_validate({"title": "x", "priority": "evil"})
 ```
 
-**Key:** Pure functions are trivially testable (no async, no mocks, just data)
+**Key:** Pure functions are trivially testable (no async, no mocks, just data). The form rule
+lives on the request model, so it is tested there — the route only renders the failure.
 
 ---
 
 ## Related Documentation
 
 ### Core Files
-- `/adapters/inbound/tasks_ui.py` - Reference implementation (all patterns)
+- `/adapters/inbound/tasks_ui.py` - Reference implementation (the `ActivityUIConfig` + the `parse_form_body` create/edit routes)
 - `/adapters/inbound/goals_ui.py` - `render_error_banner()` for full-page not-found on create/edit
-- `/adapters/inbound/choices_ui.py` - Form validation example
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
 - `/adapters/inbound/learning_loop_routes.py` - HTMX fragments with `render_inline_error()` preserving target IDs
 - `/adapters/inbound/user_entry_ui.py` - HTMX fragments: journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
@@ -358,7 +309,7 @@ def test_validate_task_form_data_missing_title():
 
 ### Implementation Status
 
-**Activity Domains** (full pattern with typed params + Result[T] helpers, 2026-01-24):
+**Activity Domains** (generated by `create_activity_ui_routes()`):
 - ✅ Tasks — reference implementation
 - ✅ Goals, Habits, Events, Choices, Principles
 
@@ -384,14 +335,14 @@ def test_validate_task_form_data_missing_title():
 
 ### Key Insights
 
-**Why typed parameters?**
-Type safety, autocomplete, clear documentation, testability
+**Why declared params?**
+One place names a list's filters and their defaults; the page shell re-forwards them to the fragment
 
 **Why pure helpers?**
-Testable without mocks, Single Responsibility, 67% complexity reduction
+Testable without mocks, Single Responsibility
 
-**Why early validation?**
-User-friendly errors, fast failure, clear validation rules
+**Why one validator?**
+The request model states the rule once; every door that binds it enforces the same rule
 
 **Why Result[T] propagation?**
 Explicit error handling, no silent failures, full error context

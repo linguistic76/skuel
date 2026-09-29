@@ -39,7 +39,7 @@ skills:
 
   - name: docs-skills-evolution
     description: How SKUEL's documentation and skills evolve in rhythm with the ecosystem
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-09-29"
     foundation: []
     dependencies: []
     library_package: null  # Meta-skill, not tied to specific library
@@ -116,7 +116,7 @@ skills:
 
   - name: chartjs
     description: Chart.js data visualization in SKUEL
-    last_reviewed: "2026-07-10"
+    last_reviewed: "2026-09-29"
     foundation: []
     dependencies: []
     library_package: null  # Vendored static file
@@ -244,7 +244,7 @@ skills:
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-09-29"
     foundation: [result-pattern, ui-css]
     dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -260,7 +260,7 @@ skills:
 
   - name: ui-orchestrator
     description: Creating and wiring a UI Orchestrator to resolve Dependency Gravity in Hub pages
-    last_reviewed: "2026-05-21"
+    last_reviewed: "2026-09-29"
     foundation: [skuel-ui, fasthtml]
     dependencies: [skuel-ui, fasthtml]
     library_package: null  # SKUEL pattern, not external library
@@ -313,7 +313,7 @@ skills:
 
   - name: prometheus-grafana
     description: Prometheus metrics and Grafana dashboards in SKUEL
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-09-29"
     foundation: []
     dependencies: []
     library_package: prometheus-client
@@ -334,7 +334,7 @@ skills:
 
   - name: docker
     description: SKUEL's Docker setup — two-directory compose split, the production droplet stack (app + Caddy → AuraDB), Dockerfile.production conventions, startup sequences, and ./dev deploy
-    last_reviewed: "2026-09-14"
+    last_reviewed: "2026-09-29"
     foundation: []
     dependencies: []
     library_package: null  # Docker tooling, not a PyPI package
@@ -352,7 +352,7 @@ skills:
 
   - name: pwa
     description: Progressive Web App — service worker, manifest, offline support, caching strategies
-    last_reviewed: "2026-03-16"
+    last_reviewed: "2026-09-29"
     foundation: [fasthtml]
     dependencies: []
     library_package: null  # Web standards, not a package
@@ -396,7 +396,7 @@ skills:
 
   - name: result-pattern
     description: Result[T] error handling pattern
-    last_reviewed: "2026-07-10"
+    last_reviewed: "2026-09-29"
     foundation: [python]
     dependencies: [python]
     library_package: null  # SKUEL pattern, not external library
@@ -575,7 +575,7 @@ skills:
 
   - name: zpd
     description: SKUEL's Zone of Proximal Development — readiness scoring, blocking gaps, compound evidence, recommended actions, ZPD snapshots (the pedagogical gravity well)
-    last_reviewed: "2026-05-21"
+    last_reviewed: "2026-09-29"
     foundation: [user-context-intelligence, curriculum-domains]
     dependencies: [user-context-intelligence, curriculum-domains]
     library_package: null  # SKUEL pattern, not external library
@@ -590,7 +590,7 @@ skills:
 
   - name: journals
     description: "Implementation guide for Journals domain — STANDARD/FOUNDER tiers, DNWF stages, JournalService, instruction_loader, EnrichmentMode distinction"
-    last_reviewed: "2026-06-27"
+    last_reviewed: "2026-09-29"
     foundation: [python, learning-loop]
     dependencies: [user-context-intelligence]
     library_package: null  # SKUEL domain, not external library

@@ -91,8 +91,8 @@ explicit `JOURNAL_GROUNDING_FIELDS` list, test-enforced):
 `context_builder` unwired or build failure → plain six-titles digest (the pre-ADR-081
 floor). Goals/Tasks/Habits services are optional — those sections degrade to empty if `None`.
 Vault notes come from `self._user_entry` (always present) via `get_vault_notes_for_context()`.
-Discriminator: `pipeline IN [journal, knowledge]` + `"vault_file_path"` in metadata (stamps set at ingestion). `knowledge` = developed files in the `knowledge/` doorway, shared to teach SKUEL.
-Injected into Stage 2 + Stage 3 system prompts and STANDARD prompts.
+Discriminator: `pipeline=knowledge` + `"vault_file_path"` in metadata (stamps set at ingestion). `knowledge` = developed files in the `knowledge/` doorway, shared to teach SKUEL; a consented `je_pro/` file carries the same pipeline.
+Injected into Stage 2 + Stage 3 system prompts and the discussion / follow-up prompts.
 Stage 1 deliberately receives no context.
 **Vault dial de-dup (canon P3):** when the semantic vault block (`retrieve_vault`,
 owner-scoped + private-excluded) actually lands, the digest is built with

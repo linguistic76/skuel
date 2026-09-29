@@ -1,16 +1,15 @@
 """PWA routes — serve manifest, service worker, and offline page from root scope."""
 
 from pathlib import Path
-from typing import Any
 
 from starlette.responses import FileResponse
 
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 
 _static_dir = Path.cwd() / "static"
 
 
-def create_pwa_routes(rt: Any) -> None:
+def create_pwa_routes(rt: RouteDecorator) -> None:
     """Register PWA asset routes at root scope for installability."""
 
     @rt("/manifest.json")

@@ -1164,7 +1164,8 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
 - **Found, not fixed (outside the arc):**
   - `scripts/validate_cross_references.py`'s `get_doc_last_modified` asks git for
     `--format=%Y-%m-%d`, which is no git format: it prints `%Y->-`, so the stale-skill check
-    never fires. It needs its own PR, because a working check may start warning.
+    never fires. It needs its own PR, because a working check may start warning. Fixed in
+    #1451: the check reads the UTC day of `%cI`; fixed, it flagged 29 of 30 skills.
   - The rest of `form_helpers`' parse family (`parse_date_safe`, `parse_time_safe`,
     `parse_enum_safe`, `parse_activity_filters`) has no production caller, and
     `ERROR_HANDLING.md` still says the six activity `*_ui.py` files use them.

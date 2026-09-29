@@ -362,7 +362,8 @@ def _blob(rev: str, path: str) -> str | None:
     return result.stdout if result.returncode == 0 else None
 
 
-def _utc_date(iso_with_offset: str) -> date:
+def utc_date(iso_with_offset: str) -> date:
+    """The UTC day of a git ``%cI`` timestamp — the one way this repo dates a commit."""
     return datetime.fromisoformat(iso_with_offset).astimezone(UTC).date()
 
 
@@ -520,7 +521,7 @@ def load_history(paths: set[str]) -> dict[str, FileHistory]:
             if current_sha:
                 commits.append((current_sha, current_date, current_files))  # type: ignore[arg-type]
             current_sha = header.group(1)
-            current_date = _utc_date(header.group(2))
+            current_date = utc_date(header.group(2))
             current_files = {}
             continue
         parts = line.split("\t")

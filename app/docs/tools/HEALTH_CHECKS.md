@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-28
+updated: 2026-09-29
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -432,7 +432,7 @@ Cross-Reference Validation Report
 | Broken doc link | ❌ Error | Doc in `skills_metadata.yaml` doesn't exist on disk, or a `related_adrs` entry resolves to no single ADR — a bare number that matches several files is refused, never guessed (`scripts/adr_links.py`) |
 | Missing reverse link | ⚠️ Warning | Unidirectional reference (A→B but not B→A) |
 | Orphaned doc | 🔵 Info | Doc declares no `related_skills` at all |
-| Stale skill | 🔵 Info | Primary docs have git commits after `last_reviewed` |
+| Stale skill | 🔵 Info | A primary doc's last commit falls on a later UTC day than `last_reviewed` (the calendar of the docs' `updated:` stamp) |
 
 The orphaned/skills-without-docs counts are printed in the statistics block because the listings below them are truncated — read the count, not the length of the list.
 
