@@ -56,6 +56,10 @@ factory's `_required_services` dict.
 | 8 | `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8, respect_energy=True)` | Schedule | `list[ScheduleAwareRecommendation]` — **a bare list, not a `Result`** | context only |
 | 9 | `get_cross_domain_perception_analysis()` | Perception | `Result[dict[str, Any]]` | `goals` / `habits` / `principles` backends, context |
 
+The flags on method 1 are not guarantees: which of its four sources answers decides whether
+`consider_capacity` filters or only scores, and whether `consider_goals` is read at all — see
+[MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md).
+
 Method 8 is the one method that does not return `Result[T]`: it is a fail-soft read that
 degrades to fewer recommendations, and `AskesisService.get_schedule_aware_recommendations` wraps
 the list into a `Result`.

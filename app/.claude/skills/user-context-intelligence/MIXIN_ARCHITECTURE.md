@@ -78,10 +78,20 @@ first that yields steps:
 3. **`ps.get_ready_to_learn_for_user(context, limit=max_steps * 2)`**.
 4. **Context** — `context.get_ready_to_learn()`, scored by `_calculate_learning_priority`
    (base 0.5; goal alignment up to 0.3; unblocking up to 0.25; life path 0.25; capacity fit up
-   to 0.2; capped at 1.0).
+   to 0.2; capped at 1.0). Reached when source 3 fails or returns nothing.
 
-`consider_capacity=True` keeps the steps whose cumulative `estimated_time_minutes` fits
-`context.available_minutes_daily`.
+The two flags do different things depending on the source that answers:
+
+| Source | `consider_capacity=True` | `consider_goals=True` |
+|--------|--------------------------|-----------------------|
+| 1 ZPD | filters: keeps the steps whose cumulative `estimated_time_minutes` fits `context.available_minutes_daily` | not read |
+| 2 Vector search | filters, as above | accepted, not read |
+| 3 `ps` | filters, as above | not read |
+| 4 Context | **scores only** — adds up to 0.2 to a step that fits; nothing is filtered, so the returned steps can exceed the available minutes | adds up to 0.3 for goal alignment |
+
+So neither flag is a guarantee about the result. A caller that needs the steps to fit the day
+checks the total itself. Every source computes `aligns_with_goals` for each step whatever
+`consider_goals` says.
 
 Steps from sources 1–3 are enriched by `_get_application_opportunities_for_ku`, which reads
 `tasks.get_learning_tasks_for_user`, `ps.find_habits_reinforcing_knowledge` and

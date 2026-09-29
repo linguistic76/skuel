@@ -260,13 +260,25 @@ for the per-domain services.
 | `get_performance_analytics(user_uid, period_days=30)` | Each service |
 | `get_domain_insights(uid, min_confidence=0.7)` | Each service |
 
-Signatures vary within the contract:
+What each service does with the two optional parameters:
 
-- Habits, Choices and Principles declare `_period_days` — the underscore marks a parameter
-  that is accepted and not applied; their analytics are not windowed by date. The register is
+| Service | `period_days` | `min_confidence` |
+|---------|---------------|------------------|
+| Tasks | applied in Python — keeps the tasks created inside the window | forwarded to the cross-domain read |
+| Goals | applied — a date-range read | forwarded to `get_goal_progress_dashboard` |
+| Events | applied — a date window | **accepted, not used** |
+| Habits | **not applied** — declared `_period_days` | forwarded; defaults to `ConfidenceLevel.MEDIUM` |
+| Choices | **not applied** — declared `_period_days` | forwarded; defaults to `ConfidenceLevel.MEDIUM` |
+| Principles | **not applied** — declared `_period_days` | forwarded |
+| KU, PS, LP | **not applied** — echoed in the payload | **not applied** — echoed in the payload |
+
+- The underscore prefix marks a parameter that is accepted and not applied. KU, PS, LP and
+  Events' `min_confidence` are in that state without the prefix. The register is
   `docs/reference/PLACEHOLDER_INDEX.md`.
+- A payload that echoes `period_days` or `min_confidence` has not necessarily applied it.
 - Tasks' `get_domain_insights` takes an extra optional `user_context`.
-- Habits and Choices default `min_confidence` to `ConfidenceLevel.MEDIUM`.
+- KU, PS and LP read shared content: their `get_performance_analytics` takes `user_uid` and
+  reads with no user filter.
 
 **Read caps.** `find_by(limit=100, **filters)` defaults its limit. Eight of the nine
 `get_performance_analytics` methods call it without one — Tasks, Habits, Events, Choices and
