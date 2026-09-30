@@ -201,7 +201,7 @@ Service Layer (Depends on Foundation):
 # Example: search() method flow
 async def search(query: str) -> Result[list[Task]]:
     # 1. SearchOperationsMixin.search()
-    result = await self.backend.search(query, limit)
+    result = await self.backend.text_search_raw(query, self.search_fields, limit=limit, ...)
 
     # 2. Uses ConversionHelpersMixin._to_domain_models()
     entities = self._to_domain_models(result.value, TaskDTO, Task)

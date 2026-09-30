@@ -22,10 +22,10 @@ PR #1074 claimed the paths it did not reach run *case-sensitive* `CONTAINS`. The
 Both production `CONTAINS` predicates lower-case both sides — `faceted_search_raw`
 (`toLower(entity.{field}) CONTAINS $query_text`, param pre-lowered) and
 `build_text_search_query` behind `text_search_raw`
-(`toLower(n.{field}) CONTAINS toLower($query)`). The single case-SENSITIVE predicate in the
-persistence layer is `_SearchMixin.search` (`_search_mixin.py`), which has no production
-caller (`PsAIService.search_by_semantic_query` ranks through the vector index with no
-keyword fallback) — it is on neither `/search` nor `/api/search/unified`. So the honest value of moving a
+(`toLower(n.{field}) CONTAINS toLower($query)`). The backend has no `search` method of its
+own; case-SENSITIVE `CONTAINS` remains only in the `find_by(field__contains=)` filter
+operator (`crud_queries.py`) and two uncalled builders in `intelligence_queries.py` — none on
+a search surface. So the honest value of moving a
 surface to fulltext is **relevance ranking and vector recall**, NOT case-insensitivity,
 which every surface already has. Two further measured facts bound the case:
 
@@ -48,15 +48,17 @@ The follow-on, in rough order of value:
   runs `faceted_search`, a separate path still on `CONTAINS`, so the highest-traffic search
   surface has not changed. Reaching it means either routing the faceted path through the
   same rung or giving `faceted_search` its own; decide which when a consumer asks.
-- **`_search_mixin.search` goes fulltext-first with CONTAINS fallback** — makes every caller
-  of domain search index-backed and the "Cypher-first search foundation" claim true. Requires
-  threading each domain's `SearchVisibility` into the fulltext Cypher (OWNER_ONLY domains need
-  `user_uid` scoping the current label-wide fulltext path does not have — the reason this half
-  was split off). The gating helpers (`NeoLabel.fulltext_index_name`, `escape_lucene_query`,
-  the publication-gated `query_fulltext_index`) already exist.
+- **`text_search_raw` goes fulltext-first with CONTAINS fallback** — the one backend text
+  primitive behind the service-layer `SearchOperationsMixin.search()` (the backend has no
+  `search` of its own), so every caller of domain search becomes index-backed and the
+  "Cypher-first search foundation" claim true. Requires threading each domain's
+  `SearchVisibility` into the fulltext Cypher (OWNER_ONLY domains need `user_uid` scoping the
+  current label-wide fulltext path does not have — the reason this half was split off). The
+  gating helpers (`NeoLabel.fulltext_index_name`, `escape_lucene_query`, the
+  publication-gated `query_fulltext_index`) already exist.
 - **CORE-tier text story** — fulltext needs no embeddings, so a fulltext-only rung (skip the
   vector half) would give CORE-tier relevance-ranked search too. Decide whether that lives in
-  the mixin (above) or as a CORE branch of the SearchRouter rung.
+  `text_search_raw` (above) or as a CORE branch of the SearchRouter rung.
 - **Exercise** — SCOPE_AWARE visibility (curriculum scope public, owned scopes via
   OWNS/SHARES_WITH/group membership) needs the same user_uid threading, plus Exercise has no
   vector index (add it alongside, or run fulltext-only).

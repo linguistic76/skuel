@@ -10,14 +10,14 @@ Backend Protocol Hierarchy
 BackendOperations[T] is THE full backend protocol, composed from 10 sub-protocols:
 
     BackendOperations[T]  ← UniversalNeo4jBackend implements this
-        ├── CrudOperations[T]                  (7 methods)
-        ├── EntitySearchOperations[T]          (3 methods)
-        ├── RelationshipCrudOperations         (6 methods)
+        ├── CrudOperations[T]                  (8 methods)
+        ├── EntitySearchOperations[T]          (20 methods)
+        ├── RelationshipCrudOperations         (13 methods)
         ├── RelationshipMetadataOperations     (3 methods)
         ├── RelationshipQueryOperations        (3 methods)
         ├── OrderedRelationshipOperations      (7 methods)
         ├── BatchRelationshipOperations        (3 methods)
-        ├── GraphTraversalOperations           (2 methods)
+        ├── GraphTraversalOperations           (6 methods)
         └── LowLevelOperations                 (2 methods + driver)
 
 Protocol Categories
@@ -318,13 +318,13 @@ __all__ = [
     "UserRelationshipOperations",
     # ========== BACKEND PROTOCOLS (ISP-compliant hierarchy) ==========
     # Sub-protocols (for focused dependencies)
-    "CrudOperations",  # Basic CRUD (6 methods)
+    "CrudOperations",  # Basic CRUD (8 methods)
     # ========== CURRICULUM OPERATION PROTOCOLS (5 - Dec 2025) ==========
     "CurriculumOperations",  # Base protocol for KU, PS, LP, MOC
     # ========== TYPE ALIASES (3) ==========
     "Direction",
     "DomainSearchOperations",
-    "EntitySearchOperations",  # Search/filter (3 methods)
+    "EntitySearchOperations",  # find_by, count + the *_raw query primitives (20 methods)
     "EventBusOperations",
     "EventsSearchOperations",
     "EventsOperations",
@@ -343,7 +343,7 @@ __all__ = [
     "GroupOperations",
     # Domain relationship queries
     "GraphRelationshipOperations",
-    "GraphTraversalOperations",  # Graph traversal (2 methods)
+    "GraphTraversalOperations",  # Graph traversal (6 methods)
     "GtConstraint",
     "HierarchicalBackendOperations",  # BackendOperations + HierarchyOperations
     "HabitsSearchOperations",
@@ -413,7 +413,7 @@ __all__ = [
     "FormSubmissionOperations",
     "BatchRelationshipOperations",  # Batch relationship queries (3 methods)
     "OrderedRelationshipOperations",  # Ordered/hierarchical traversal (7 methods)
-    "RelationshipCrudOperations",  # Edge CRUD (6 methods)
+    "RelationshipCrudOperations",  # Edge CRUD (13 methods)
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties (3 methods)
     "RelationshipQueryOperations",  # Relationship queries (3 methods)

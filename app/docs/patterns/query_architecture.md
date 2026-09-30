@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-09-27
+updated: 2026-09-30
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -763,7 +763,7 @@ Database-level concerns that operate below the domain layer. Most now use typed 
 
 ### Tier 3: Always Permitted — BaseService Mixins
 
-The BaseService mixins *implement* the backend abstraction. They call `execute_query` because they are the infrastructure that makes `self.backend.search()` work.
+The BaseService mixins *implement* the backend abstraction. They call `execute_query` because they are the infrastructure that makes `self.backend.text_search_raw()` and `find_by()` work.
 
 | Mixin | Methods |
 |-------|---------|

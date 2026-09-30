@@ -6,7 +6,6 @@ EntitySearchOperations[T] protocol implementation.
 
 Provides:
     find_by_date_range: Date-range entity filtering
-    search: Text substring search across title/name/description/content
     find_by: Dynamic field filtering with operator support (eq, gt, lt, contains, in)
     count: Count entities with filters
     health_check: Database connectivity check
@@ -76,7 +75,7 @@ def _range_day(value: date | str) -> date:
 
 class _SearchMixin[T: DomainModelProtocol]:
     """
-    EntitySearchOperations[T] — find_by_date_range, search, find_by, count,
+    EntitySearchOperations[T] — find_by_date_range, find_by, count,
     health_check, get_domain_context_raw, execute_query.
 
     Requires on concrete class:
@@ -227,50 +226,6 @@ class _SearchMixin[T: DomainModelProtocol]:
         """
 
         records = await self._run_records(query, params)
-
-        entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
-        return Result.ok(entities)
-
-    @safe_backend_operation("search")
-    async def search(self, query: str, limit: int = 10) -> Result[builtins.list[T]]:
-        """
-        Search any entity type by text.
-
-        Performs case-sensitive substring search across common text fields:
-        title, name, description, and content. Returns entities where query
-        appears anywhere in these fields.
-
-        Args:
-            query: Search string (case-sensitive substring match)
-            limit: Maximum number of results to return (default 10)
-
-        Returns:
-            Result[List[T]]: Success with matching entities (may be empty),
-                            or Failure if database error
-
-        Note:
-            - Case-sensitive substring match (no full-text index)
-            - For semantic search, use the vector path (Neo4jVectorSearchService,
-              FULL tier only) via SearchRouter's semantic boost
-            - For faceted search, use find_by() with filters
-        """
-        df_clause = self._default_filter_clause()
-        extra_and = f"\n               AND {df_clause}" if df_clause else ""
-
-        cypher = f"""
-            MATCH (n:{self.label})
-            WHERE (n.title CONTAINS $query
-               OR n.name CONTAINS $query
-               OR n.description CONTAINS $query
-               OR n.content CONTAINS $query){extra_and}
-            RETURN n
-            LIMIT $limit
-        """
-
-        params: dict[str, Any] = {"query": query, "limit": limit}
-        params.update(self._default_filter_params())
-
-        records = await self._run_records(cypher, params)
 
         entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
         return Result.ok(entities)
