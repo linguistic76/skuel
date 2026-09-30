@@ -23,7 +23,11 @@ ON CREATE SET inv.created_at = datetime()
 RETURN true as success
 
 // LateralRelationshipBackend.create_relationship — the edge type is validated, the
-// metadata map is merged on every call, created_at is kept from the first write
+// metadata map is merged on every call, created_at is kept from the first write.
+// Both endpoints are bound FIRST; a MERGE on unbound names would create two
+// anonymous nodes and link those. (The live writer binds them unlabeled — see below.)
+MATCH (source {uid: $source_uid})
+MATCH (target {uid: $target_uid})
 MERGE (source)-[r:RELATED_TO]->(target)
 ON CREATE SET r.created_at = $created_at
 SET r += $metadata
@@ -33,7 +37,7 @@ RETURN r, r.created_at AS created_at
 **Trade-offs**:
 - MERGE is idempotent — safe to call multiple times
 - `SET` overwrites on every call; `ON CREATE SET` writes only on first creation — the lateral writer uses both so a re-assert keeps the original `created_at`
-- ⚠ The lateral writer binds its endpoints with an unlabeled `MATCH (source {uid: $source_uid})` — the shape SKILL.md § 0 warns about (a Ku / PathStep endpoint also binds its `:Content` shadow). Copy the labeled hierarchy shape, not that one
+- ⚠ The lateral writer's two `MATCH`es are unlabeled — the shape SKILL.md § 0 warns about (a Ku / PathStep endpoint also binds its `:Content` shadow). In new code bind `(source:Entity {uid: …})`, as the hierarchy writer does
 
 **Real-world usage**: hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), LP/PS construction (`HAS_STEP`, `USES_KU`, `CONTAINS_KNOWLEDGE`). Cross-domain relationship creation (task→knowledge, goal→habit, etc.) is handled by `UnifiedRelationshipService`, not domain backends. **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
 

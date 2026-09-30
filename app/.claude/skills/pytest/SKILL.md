@@ -250,15 +250,24 @@ async def test_get_for_user_returns_not_found_for_other_user(tasks_service, clea
 ### Testing Event Publishing
 
 ```python
-async def test_complete_task_publishes_event(mock_backend):
-    event_bus = AsyncMock()
-    service = create_tasks_service_for_testing(backend=mock_backend, event_bus=event_bus)
+from dataclasses import replace
+from tests.helpers.status_guarded_backend import guarded_backend
 
-    result = await service.update_task(task_uid, TaskUpdateIntent(status=EntityStatus.COMPLETED.value))
+async def test_completing_a_task_publishes_task_completed():
+    # A status write goes through update_with_status_guard (ADR-087), which
+    # create_mock_backend does not provide — the guarded fake evaluates the guard
+    # the way the Cypher does and answers with the prior it was seeded with.
+    current = Task(uid="task_probe_000001", title="Probe", status=EntityStatus.ACTIVE, user_uid="user_test")
+    backend, recorder = guarded_backend(current, replace(current, status=EntityStatus.COMPLETED))
+    event_bus = AsyncMock()
+    service = create_tasks_service_for_testing(backend=backend, event_bus=event_bus)
+
+    result = await service.update_task(current.uid, TaskUpdateIntent(status=EntityStatus.COMPLETED.value))
 
     assert result.is_ok
-    published = [c.args[0] for c in event_bus.publish_async.await_args_list]
-    assert any(isinstance(e, TaskCompleted) for e in published)   # TaskUpdated is published too
+    published = [type(c.args[0]).__name__ for c in event_bus.publish_async.await_args_list]
+    assert published == ["TaskUpdated", "TaskCompleted"]    # measured — both, in this order
+    assert recorder.last_guard is not None                   # the guard the service built
 ```
 
 `InMemoryEventBus` has `publish(event)` (sync) and `publish_async(event)`; services publish through `publish_event(...)` → `publish_async`. A completed re-post still writes (`status`, `updated_at`) and publishes `TaskUpdated` — only `TaskCompleted` and the stamp are held back, so assert on the event *type*, never `assert_called_once`.

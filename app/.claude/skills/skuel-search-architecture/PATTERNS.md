@@ -168,7 +168,7 @@ request = SearchRequest(
 result = await search_router.advanced_search(request)
 ```
 
-The JSON door is **`POST /api/search/unified`** (CSRF-protected; `@csrf_protected` — a `TestClient` needs the cookie + `X-CSRF-Token` pair): form/query params `query`, `entity_types` (CSV), `connected_to`, `relationship`, `direction`, `tags` (CSV), `tags_match_all`, `limit`, `limit_per_domain`. The handler builds the `SearchRequest` with the authenticated uid.
+The JSON door is **`POST /api/search/unified`** (CSRF-protected; `@csrf_protected` — a `TestClient` needs the cookie + `X-CSRF-Token` pair): form/query params `query`, `entity_types` (CSV), `relationship`, `connected_to`, `direction`, `tags` (CSV), `tags_match_all`, `limit`. The handler builds the `SearchRequest` with the authenticated uid; `advanced_search` derives its per-domain budget from `request.limit` and the eligible domains (the handler's `limit_per_domain` parameter is accepted and never read — an inert knob, not a control).
 
 **Trade-offs**:
 - `connected_direction="both"` matches either direction — use when the relationship is symmetric
