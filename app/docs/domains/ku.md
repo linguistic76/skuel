@@ -1,7 +1,7 @@
 ---
 title: KU (Knowledge Unit) Domain
 created: 2025-12-04
-updated: 2026-09-22
+updated: 2026-09-30
 status: current
 category: domains
 tags:
@@ -165,9 +165,9 @@ and is read on its page. What is registered:
 - `/api/ku/{uid}/lateral/*` — the lateral family the nine hierarchical domains share (the 6 Activity domains + Ku, PathStep, LearningPath — `_LATERAL_DOMAINS` in `lateral_routes.py`): `prerequisites`, `enables`, `blocks`, `alternatives`, `complementary`, `chain`, `graph`, …
 
 ### AI — none for Ku
-`/api/knowledge/ai/*` carries the `knowledge` URL segment but is bound to `services.ps`
-(`AI_ROUTE_SPECS` in `adapters/inbound/ai_routes.py`, `PsAIService`) — a PathStep surface
-under a legacy prefix; a Ku uid is not found there. `KuService` has no `.ai` slot.
+No AI route carries a `knowledge` segment: the AI door (`AI_ROUTE_SPECS` in
+`adapters/inbound/ai_routes.py`) serves the Activity domains, `path-steps` and `learning-paths`
+only. `KuService` has no `.ai` slot.
 
 ### Search
 Ku is a searchable domain of `SearchRouter` (visibility `PUBLIC`) — `/search`, `POST /api/search/unified`. There is no Ku-scoped search route.

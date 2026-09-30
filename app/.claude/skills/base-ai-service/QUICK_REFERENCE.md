@@ -150,14 +150,15 @@ async def create_batch_embeddings(
 
 ## Routes
 
-Path: `/api/{url_domain}/ai/{action}`. Registered without `methods=`, so `GET`, `HEAD` and
-`POST` are all handled.
+Path: `POST /api/{url_domain}/ai/{action}`, registered `methods=["POST"]` under
+`@csrf_protected`; `GET` / `HEAD` answer 405 and a `POST` without a CSRF token 403, both before
+any gate and without a quota unit. `GET /api/ai/status` is the one read. No file under `ui/` or
+`static/` calls any of them (`/docs/roadmap/ai-tier-consumer.md`).
 
 | `signature` | Handler parameters | Arguments passed to the method |
 |-------------|--------------------|--------------------------------|
 | `uid` | `uid: str` | `(uid,)` |
 | `uid_limit` | `uid: str`, `limit: int = default_limit` | `(uid, limit)` |
-| `query_limit` | `query: str`, `limit: int = default_limit` | `(query, limit)` |
 | `uid_level` | `uid: str`, `level: str = "intermediate"` | `(uid, level)` |
 
 A handler always passes every argument in its row, so over HTTP the method's own defaults for
@@ -166,33 +167,30 @@ those parameters are not reached: `explain_step(target_level="standard")` is cal
 
 | `url_domain` | Actions | Scope |
 |--------------|---------|-------|
-| `tasks` | `similar`, `insight`, `knowledge-generation`, `breakdown`, `priority-suggestion` | `USER_OWNED` |
+| `tasks` | `similar`, `insight`, `breakdown`, `priority-suggestion` | `USER_OWNED` |
 | `goals` | `similar`, `insight`, `milestones`, `smart-refinement`, `strategy` | `USER_OWNED` |
 | `habits` | `similar`, `streak-insight`, `habit-stack`, `optimize-loop`, `identity` | `USER_OWNED` |
 | `events` | `similar`, `insight`, `preparation`, `reflection` | `USER_OWNED` |
 | `choices` | `similar`, `insight`, `framework`, `alternatives` | `USER_OWNED` |
 | `principles` | `similar`, `insight`, `deepen`, `practices` | `USER_OWNED` |
-| `knowledge` | `related`, `search`, `summary`, `explain`, `applications` | `SHARED` |
 | `path-steps` | `similar`, `insight`, `explain`, `practice` | `SHARED` |
 | `learning-paths` | `similar`, `insight`, `overview`, `strategy` | `SHARED` |
 
-`knowledge` and `path-steps` both resolve to the PathStep facade (`domain_attr="ps"`).
-
-Six specs name a method the service does not define and answer 500:
-`tasks/ai/knowledge-generation` and all five `knowledge/ai/*`.
-
+Every spec resolves on its AI class (`AI_SERVICE_CLASSES`) or `create_ai_routes` raises at boot.
 `AI_ROUTE_SPECS` is the authority — read it rather than this table when the two differ.
 
 ### Status codes
 
 | Status | Meaning |
 |--------|---------|
+| 405 | Any verb but `POST` (`/api/ai/status`: any but `GET`) |
+| 403 `CSRF_INVALID` | `POST` without a matching CSRF token |
 | 401 | Not signed in |
 | 503 | `.ai` is `None` for the domain, or the user's tier could not be read |
 | 403 | The user's tier does not include AI, **or** the daily quota is spent — read the message |
 | 404 | `USER_OWNED`: the entity is not the user's, or does not exist |
-| 400 | The AI method returned a failed `Result` |
-| 405 | `PUT` / `DELETE` |
+| 200 | JSON: the method's dict, or `{wrap_key: value}` for any other return type |
+| 400 / 404 / 502 / 503 / 500 | A failed `Result`, by category: `validation` / `not_found` / `integration` / `database` / `system` — body `to_client_dict()` |
 
 ---
 

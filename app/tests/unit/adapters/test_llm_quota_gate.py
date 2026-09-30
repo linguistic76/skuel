@@ -15,6 +15,7 @@ files (``test_journals_follow_up_gate.py``, ``test_askesis_api_routes.py``,
 mirroring ``test_ai_routes_ownership.py``.
 """
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -149,7 +150,9 @@ class TestAiRouteQuotaGate:
 
         resp = await _call_insight_route(services)
 
-        assert resp == {"insight": {"method": "generate_task_insight"}}
+        assert isinstance(resp, JSONResponse)
+        assert resp.status_code == 200
+        assert json.loads(resp.body) == {"insight": {"method": "generate_task_insight"}}
         # The route call recorded exactly one unit: one remains, then dry.
         assert llm_quota_allowed(_CALLER) is True
         assert llm_quota_allowed(_CALLER) is False

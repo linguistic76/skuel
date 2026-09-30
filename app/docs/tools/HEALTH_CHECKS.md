@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-29
+updated: 2026-09-30
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -734,7 +734,7 @@ looks like from the outside:
 | `matched` | registered — exact, or wildcard-segment | — |
 | `fiction` | unmatched, not negated, no history signal on the line | the sweep queue; the only class that could ever gate |
 | `history` | unmatched, and the line carries a `history_in_code` signal (its `classify` — one vocabulary, imported, never copied) — whatever shape the route has | printed; the line is `history_in_code --docs`'s to read |
-| `family-prefix` | unmatched, strict prefix of ≥1 registered route (`/api/context` naming the door to `/api/context/*`) | printed, **never a skip**: `POST /api/knowledge` is a prefix of `/api/knowledge/ai/*` and does not exist |
+| `family-prefix` | unmatched, strict prefix of ≥1 registered route (`/api/context` naming the door to `/api/context/*`) | printed, **never a skip**: `POST /api/tasks` is a prefix of `/api/tasks/create` and does not exist |
 | `relative-suffix` | unmatched single segment that ends ≥1 deeper route (`/create` cited relative to a base named earlier) | printed, **never a skip**: `/ku` lands here through `/library/ku` and has no handler |
 | `negated` | the **span** is the object of a present-tense negation: `` no `/x` ``, `` not `/x` ``, `` `/x` → 404 ``, `` `/x` is a 404 ``, `` `/x` returns 404 ``, `` `/x` does not exist `` | skipped, printed |
 | `marker-skipped:<name>` | `<!-- historical -->` inside `docs/decisions/`, `<!-- planned -->` inside live `docs/roadmap/` — § 2's `MarkerSpec` registry, not a second grammar | skipped, printed per marker, never summed |

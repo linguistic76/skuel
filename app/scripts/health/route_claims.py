@@ -53,8 +53,8 @@ silent skips — every claim lands in exactly one of:
                        whatever shape the route has
 - ``family-prefix``    unmatched, strict prefix of ≥1 registered route (``/api/context``
                        naming the door to ``/api/context/*``). A CLASS, never a skip:
-                       ``POST /api/knowledge`` is a prefix of ``/api/knowledge/ai/*``
-                       and does not exist
+                       ``POST /api/tasks`` is a prefix of ``/api/tasks/create`` and
+                       does not exist
 - ``relative-suffix``  unmatched single segment that ends ≥1 deeper route (``/create``
                        cited relative to a base named earlier). A CLASS, never a skip:
                        ``/ku`` lands here through ``/library/ku`` and has no handler

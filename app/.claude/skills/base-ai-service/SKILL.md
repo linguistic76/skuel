@@ -216,7 +216,9 @@ embedding or index failure is the method's failure.
 ## Routes
 
 `adapters/inbound/ai_routes.py` registers one route per `AIRouteSpec`, at
-`/api/{url_domain}/ai/{action}`, plus `/api/ai/status`.
+`POST /api/{url_domain}/ai/{action}`, plus `GET /api/ai/status`. Nothing in `ui/` or `static/`
+calls any of them — the tier is staged behind its first UI surface
+(`/docs/roadmap/ai-tier-consumer.md`).
 
 ```python
 AIRouteSpec(
@@ -225,8 +227,8 @@ AIRouteSpec(
     "tasks",                # url_domain
     "insight",              # action
     "generate_task_insight",  # method_name on the AI service
-    "uid",                  # signature: uid | uid_limit | query_limit | uid_level
-    "tasks_ai_insight",     # func_name — unique
+    "uid",                  # signature: uid | uid_limit | uid_level
+    "tasks_ai_insight",     # func_name — unique; FastHTML names the route after it
     "insight",              # wrap_key — the response is {"insight": value}
 )
 ```
@@ -237,6 +239,18 @@ ownership gate and adds nothing in its place — the route applies no publicatio
 similarity methods gate drafts at the read (§ The Helpers); the other curriculum methods read
 the uid they are given, and a by-uid read is deliberately ungated.
 
+Every route spends LLM or embeddings money, so each is registered `methods=["POST"]` and
+wrapped in `@csrf_protected`: `GET` and `HEAD` answer 405 before any gate runs, and a `POST`
+without a matching CSRF token answers 403 `CSRF_INVALID` the same way. `/api/ai/status` reads
+the `.ai` slots and spends nothing; it is `GET` only.
+
+### Registration
+
+`create_ai_routes` resolves every spec before registering any: `unresolved_ai_route_specs`
+names a spec whose `domain_attr` has no class in `AI_SERVICE_CLASSES`, whose `method_name` is
+not a method of that class, or whose `signature` has no factory. A non-empty list raises
+`ValueError` at boot, in both tiers — a spec that names nothing never becomes a route.
+
 ### The gates, in order
 
 `_ai_route` runs them before the AI call. A request stopped by one never reaches the next.
@@ -246,35 +260,34 @@ the uid they are given, and a by-uid read is deliberately ungated.
 | 1 | Signed in | 401 |
 | 2 | `facade.ai` is set | 503 `AI service unavailable` |
 | 3 | The user's effective tier allows AI (`REGISTERED` is capped at CORE). Runs when `services.intelligence_tier` is set, which `compose_services` always does; a container built without it skips this gate. | 403 `AI features require a paid subscription`; 503 when the user cannot be read |
-| 4 | `USER_OWNED` with a uid: the user owns the entity | 404 |
+| 4 | `USER_OWNED`: the user owns the entity | 404 |
 | 5 | Daily LLM quota (`llm_quota_allowed`) — checked **and recorded** here | 403 `Daily AI quota exceeded` |
-| 6 | The AI method's `Result` | 400 on any failure, with the error text |
+| 6 | The AI method's `Result`, through `result_to_response` | the status of the error's category and its `to_client_dict()` body — the failure-category table in § Measured behavior |
 
-The two 403s are told apart by their message, not their status.
+The two 403s are told apart by their message, not their status. The verb and CSRF checks sit
+in front of gate 1 and spend nothing.
 
 ### Measured behavior
 
-Reproduced with a `TestClient`:
+Reproduced with a `TestClient` (`tests/unit/adapters/test_ai_routes_http.py`):
 
 | Request | Status |
 |---------|--------|
 | No session | 401 |
-| `GET`, `HEAD` or `POST` | handled — the routes are registered without `methods=`, and each of the three runs the gates and spends a quota unit |
-| `PUT`, `DELETE` | 405 |
+| Any verb but `POST` (`GET`, `HEAD`, `PUT`, `PATCH`, `DELETE` measured) | 405, no quota unit |
+| `POST` without a CSRF token | 403 `CSRF_INVALID`, no quota unit |
 | A domain whose `.ai` is `None` | 503 |
-| The AI method returns a failed `Result` — of any category | 400 |
-| A spec whose `method_name` the service does not define | 500, after the quota unit is recorded |
-| A spec with no `wrap_key` whose method returns a dict | 200, JSON |
-| A spec with no `wrap_key` whose method returns a list | 200, `text/html` — FastHTML renders the list as a page |
+| The method returns a dict | 200, the dict as JSON |
+| The method returns a list or a string | 200, `{wrap_key: value}` as JSON — a value of any type is JSON; the `wrap_key` names it |
+| The method returns `Result.fail` | the category's status, body `{category, code, message, severity, timestamp}` — never the error text or its capture site |
 
-The missing-method row is live for six specs: `tasks/ai/knowledge-generation`
-(`identify_knowledge_generation`) and the five `knowledge/ai/*` routes (`find_related_steps`,
-`semantic_search`, `generate_summary`, `explain_at_level`, `suggest_applications`), none of which
-exists on `TasksAIService` / `PsAIService`.
-
-The list-return row is live for six other specs: `goals/ai/milestones`, `events/ai/preparation`,
-`events/ai/reflection`, `choices/ai/alternatives`, `principles/ai/practices` and
-`path-steps/ai/practice`.
+| Failure category | Status |
+|------------------|--------|
+| `validation` | 400 |
+| `not_found` | 404 |
+| `integration` (an LLM or embedding failure) | 502 |
+| `database` | 503 |
+| `system` (`Errors.unavailable` — a service not configured) | 500 |
 
 `GET /api/ai/status` answers `{"ai_available": {domain: bool}}` for a signed-in user.
 
@@ -283,10 +296,11 @@ The list-return row is live for six other specs: `goals/ai/milestones`, `events/
 1. Write the method on the domain's AI service; it returns `Result[T]`.
 2. Add an `AIRouteSpec` whose `method_name` is that method and whose `signature` matches its
    positional parameters — `uid` passes `(uid,)`, `uid_limit` passes `(uid, limit)`,
-   `query_limit` passes `(query, limit)`, `uid_level` passes `(uid, level)`.
-3. Give it a `wrap_key` unless the method returns a dict.
+   `uid_level` passes `(uid, level)`.
+3. Give it a `wrap_key` unless the method returns a dict (`test_every_non_dict_method_has_a_wrap_key`
+   reads the return annotation and fails otherwise).
 4. Leave `scope` at the default for a user-owned entity.
-5. Check the spec resolves: `getattr(TasksAIService, spec.method_name)`.
+5. Boot, or run `test_live_specs_all_resolve` — an unresolved spec fails both.
 
 ---
 

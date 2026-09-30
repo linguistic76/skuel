@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-27
+updated: 2026-09-30
 ---
 
 # Deferred Work
@@ -194,6 +194,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Development Machine Capacity
 
 [Development Machine Capacity — what is memory-gated today, and what changes on a bigger machine](development-machine-capacity.md) — Every bound the 15 GB development laptop put in the tree (8 unit workers, the serial composed session, the testcontainer JVM caps, no `./dev quality` beside a test session, bounded foreground waits) with its file:line and its measurement, and per row what a ≥ 32 GB / ≥ 16 GB-VRAM machine changes — after re-measuring, never by copying a number — and what stays a code-side ceiling regardless.
+
+## AI Tier Consumer
+
+[AI Tier Consumer — the routed AI features wait for their first UI surface](ai-tier-consumer.md) — The eight AI services and their 34 `POST /api/{domain}/ai/*` routes are repaired, gated and tested, and nothing in `ui/` or `static/` calls one; ruled staged 2026-09-29, waiting on the first UI surface that does.
 
 ## Naive-Local Timestamps Read as UTC
 

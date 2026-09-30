@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-09-23
+updated: 2026-09-30
 category: intelligence
 status: current
 related_skills:
@@ -36,7 +36,7 @@ Of these, **11 extend `BaseAnalyticsService`** (6 Activity + 3 Curriculum + shar
 
 **Scope of this count (to keep it stable):** it lists the services that *produce* domain / cross-domain / corpus analytics, intelligence, or recommendations. It deliberately **excludes** (a) pure infrastructure — `GraphIntelligenceService` (graph queries, in the Dependencies table below); (b) query plumbing — `CrossDomainQueryService`; and (c) the `AnalyticsService` **facade** (`core/services/analytics_service.py`), which aggregates/exposes the services above (e.g. `analyze_knowledge_subgraph_health()`) rather than being a distinct producer.
 
-**Wired AI tier (FULL tier only, ADR-043).** A parallel layer of **8 `BaseAIService` subclasses** is constructed in `services_bootstrap/_ai_wiring.py` when `INTELLIGENCE_TIER=full` — 6 Activity (`TasksAIService` … `PrinciplesAIService`) and 2 Curriculum (`PsAIService`, `LpAIService`), each set on its facade's `.ai` slot. These enhance the analytics services with LLM/embedding features and are `None` in CORE tier. They are **not** counted in the 16 above (which is the analytics/core-side inventory); see [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md) for the AI-tier reference.
+**Wired AI tier (FULL tier only, ADR-043).** A parallel layer of **8 `BaseAIService` subclasses** is constructed in `services_bootstrap/_ai_wiring.py` when `INTELLIGENCE_TIER=full` and the LLM, embeddings and vector search services are all built — 6 Activity (`TasksAIService` … `PrinciplesAIService`) and 2 Curriculum (`PsAIService`, `LpAIService`), each set on its facade's `.ai` slot; `None` in CORE tier. Their one HTTP door is `adapters/inbound/ai_routes.py` — 34 `POST /api/{domain}/ai/*` routes, CSRF-protected, behind the tier, ownership and LLM-quota gates — and **nothing in `ui/` or `static/` calls any of them**: the tier is staged behind its first UI surface, the case file is [ai-tier-consumer.md](../roadmap/ai-tier-consumer.md). They are **not** counted in the 16 above (which is the analytics/core-side inventory); see [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md) for the AI-tier reference.
 
 **MOC has no intelligence service.** MOC is emergent identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`). A Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
