@@ -13,11 +13,11 @@ The contract, pinned here over real HTTP against a real Neo4j
 - every curriculum read route answers a private anchor as a missing one — same
   status, same body — and nothing about the private entity or its neighbours
   reaches the response;
-- a curriculum anchor, a draft one included, still answers 200 with its edges
-  to a MEMBER; reads consult no role;
+- a curriculum anchor, a draft one included, answers 200 with its edges to a
+  MEMBER; reads consult no role;
 - a curriculum anchor that does not exist is 404 on every read route, the
   graph route included;
-- the Activity read routes keep their ownership gate and consult no role.
+- an Activity read route is decided by its ownership gate and consults no role.
 """
 
 from __future__ import annotations
@@ -206,7 +206,7 @@ class TestPrivateAnchorAnswersAsMissing:
 
 @pytest.mark.integration
 @pytest.mark.usefixtures("graph")
-class TestCurriculumAnchorStillReads:
+class TestCurriculumAnchorReads:
     @pytest.mark.parametrize("path", CURRICULUM_READS)
     async def test_a_member_reads_every_route_on_a_curriculum_anchor(
         self, neo4j_driver, path: str
@@ -230,7 +230,7 @@ class TestCurriculumAnchorStillReads:
         node_ids = {node["id"] for node in graph.json()["nodes"]}
         assert {ANCHORS[domain], KU_B} <= node_ids
 
-    async def test_a_draft_anchor_still_answers(self, neo4j_driver) -> None:
+    async def test_a_draft_anchor_answers(self, neo4j_driver) -> None:
         """A by-UID read is anchored: the caller named the draft, so it comes back."""
         async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
             await client.get(f"/sign-in/{MEMBER}")
@@ -258,8 +258,8 @@ class TestCurriculumAnchorStillReads:
 
 @pytest.mark.integration
 @pytest.mark.usefixtures("graph")
-class TestActivityReadsUnchanged:
-    """The ownership gate still decides; no role is consulted."""
+class TestActivityReadsOwnerGated:
+    """The ownership gate decides an Activity read; no role is consulted."""
 
     async def test_a_member_reads_their_own_task(self, neo4j_driver) -> None:
         users = RoleUserService(ROLES)
@@ -274,7 +274,7 @@ class TestActivityReadsUnchanged:
         assert users.calls == []
 
     @pytest.mark.parametrize("suffix", READS)
-    async def test_another_users_task_is_still_the_same_404_as_a_missing_one(
+    async def test_another_users_task_is_the_same_404_as_a_missing_one(
         self, neo4j_driver, suffix: str
     ) -> None:
         users = RoleUserService(ROLES)

@@ -13,7 +13,7 @@ The contract, pinned here over real HTTP against a real Neo4j
 - a curriculum write names only curriculum endpoints: a private entity is
   answered exactly as a nonexistent uid is — same status, same body — and no
   edge is written or removed;
-- the Activity routes keep their ownership gate and consult no role.
+- an Activity route is decided by its ownership gate and consults no role.
 
 """
 
@@ -322,8 +322,8 @@ class TestCurriculumEndpointsOnly:
 @pytest.mark.integration
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.usefixtures("graph")
-class TestActivityRoutesUnchanged:
-    """The ownership gate still decides; no role is consulted."""
+class TestActivityRoutesOwnerGated:
+    """The ownership gate decides an Activity write; no role is consulted."""
 
     async def test_a_member_links_their_own_tasks(self, neo4j_driver) -> None:
         users = _user_service()
