@@ -204,7 +204,7 @@ takes the vector search service the two curriculum AI services hold. The shared 
 There is no `backend.list()` pool in either service.
 `PsAIService.search_by_semantic_query` is the same chokepoint by text: `find_similar_by_text`,
 then `backend.get_many` reads the hits back as models in score order. It has no keyword
-fallback — `backend.search` has no publication gate and its hits are not semantic — so an
+fallback — a keyword hit is not semantic, and the backend has no `search` method — so an
 embedding or index failure is the method's failure.
 
 ### `_publish_event(event)`

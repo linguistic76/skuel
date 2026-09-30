@@ -51,7 +51,6 @@ def _ps_service(step: PathStep | None, vector_search: MagicMock) -> tuple[PsAISe
     backend = Mock()
     backend.get = AsyncMock(return_value=Result.ok(step))
     backend.list = AsyncMock(side_effect=AssertionError("the listing pool must not be read"))
-    backend.search = AsyncMock(side_effect=AssertionError("no keyword fallback"))
     service = PsAIService(
         backend=backend,
         llm_service=scripted_llm(""),
@@ -173,10 +172,9 @@ async def test_search_by_semantic_query_embedding_failure_has_no_keyword_fallbac
     vector_search = _vector_search(
         by_text=Result.fail(Errors.integration(message="quota", service="embeddings"))
     )
-    service, backend = _ps_service(None, vector_search)
+    service, _backend = _ps_service(None, vector_search)
 
     result = await service.search_by_semantic_query("how to plan")
 
     assert result.is_error
     assert result.expect_error().category == ErrorCategory.INTEGRATION
-    backend.search.assert_not_awaited()

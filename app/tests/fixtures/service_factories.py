@@ -310,7 +310,6 @@ def create_mock_backend_for_base_service(
 
     # Search operations
     backend.find_by = AsyncMock(return_value=Result.ok([]))
-    backend.search = AsyncMock(return_value=Result.ok([]))
     backend.count = AsyncMock(return_value=Result.ok(0))
 
     # Relationship operations

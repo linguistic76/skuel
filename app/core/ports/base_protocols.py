@@ -12,7 +12,7 @@ BackendOperations[T] is THE full backend protocol, composed from 9 sub-protocols
     BackendOperations[T]  ← UniversalNeo4jBackend implements this
         ├── CrudOperations[T]              (create, get, get_many, update,
         │                                   update_with_status_guard, delete, list)
-        ├── EntitySearchOperations[T]      (3 methods: search, find_by, count)
+        ├── EntitySearchOperations[T]      (2 methods: find_by, count)
         ├── RelationshipCrudOperations     (6 methods: add/delete relationships, batch ops)
         ├── RelationshipMetadataOperations (3 methods: get/update edge properties)
         ├── RelationshipQueryOperations    (3 methods: count_related, get_related_uids, batch)
@@ -464,7 +464,7 @@ class GraphRelationshipOperations(Protocol):
 # protocols follow the Interface Segregation Principle (ISP):
 #
 # 1. CrudOperations[T] - Basic CRUD (create, get, update, delete, list)
-# 2. EntitySearchOperations[T] - Entity search (search, find_by, count)
+# 2. EntitySearchOperations[T] - Entity search (find_by, count)
 # 3. RelationshipCrudOperations - Relationship CRUD (add, delete, batch)
 # 4. RelationshipMetadataOperations - Edge properties (get/update metadata)
 # 5. RelationshipQueryOperations - Relationship queries (count_related, get_related_uids)
@@ -567,10 +567,6 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
 
     Used by services that need to search/filter entities.
     """
-
-    async def search(self, query: str, limit: int = 10) -> ResultType[builtins.list[T]]:
-        """Search for entities by text query."""
-        ...
 
     async def find_by(
         self, limit: int = 100, **filters: Neo4jValue
@@ -1390,7 +1386,7 @@ class BackendOperations[T: "DomainModelProtocol"](
 
     Composed from 9 focused sub-protocols (ISP-compliant):
     - CrudOperations[T]: create, get, get_visible_to_user, get_many, update, delete, list
-    - EntitySearchOperations[T]: search, find_by, count
+    - EntitySearchOperations[T]: find_by, count
     - RelationshipCrudOperations: add/delete relationships, batch ops
     - RelationshipMetadataOperations: edge properties
     - RelationshipQueryOperations: count_related, get_related_uids

@@ -327,7 +327,7 @@ class PsService:
     # ============================================================================
     # SEARCH OPERATIONS - Delegated to PsSearchService (BaseService-backed)
     # ============================================================================
-    # PsSearchService inherits BaseService.search() for text search.
+    # PsSearchService inherits BaseService.search() (text_search_raw) for text search.
     # Specialized methods (facets, chunks, vector) will be expanded as needed.
 
     async def search_by_tags(

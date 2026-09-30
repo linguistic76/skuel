@@ -11,7 +11,7 @@ BackendOperations[T] is THE full backend protocol, composed from 10 sub-protocol
 
     BackendOperations[T]  ← UniversalNeo4jBackend implements this
         ├── CrudOperations[T]                  (7 methods)
-        ├── EntitySearchOperations[T]          (3 methods)
+        ├── EntitySearchOperations[T]          (2 methods)
         ├── RelationshipCrudOperations         (6 methods)
         ├── RelationshipMetadataOperations     (3 methods)
         ├── RelationshipQueryOperations        (3 methods)
@@ -324,7 +324,7 @@ __all__ = [
     # ========== TYPE ALIASES (3) ==========
     "Direction",
     "DomainSearchOperations",
-    "EntitySearchOperations",  # Search/filter (3 methods)
+    "EntitySearchOperations",  # Search/filter (2 methods)
     "EventBusOperations",
     "EventsSearchOperations",
     "EventsOperations",

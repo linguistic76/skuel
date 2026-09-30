@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-09-22
+updated: 2026-09-30
 category: patterns
 related_skills: []
 related_docs:
@@ -25,7 +25,7 @@ related_docs:
 ```
 BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
     ├── CrudOperations[T]                  (8 methods)
-    ├── EntitySearchOperations[T]          (3 methods)
+    ├── EntitySearchOperations[T]          (2 methods)
     ├── RelationshipCrudOperations         (6 methods)
     ├── RelationshipMetadataOperations     (3 methods)
     ├── RelationshipQueryOperations        (3 methods)
@@ -58,12 +58,12 @@ class CrudOperations[T: DomainModelProtocol](Protocol):
     async def list(self, limit: int = 100, offset: int = 0, filters: FilterParams | None = None, ...) -> Result[tuple[list[T], int]]: ...
 ```
 
-### EntitySearchOperations[T] (3 methods)
-Search and query operations for entities.
+### EntitySearchOperations[T] (2 methods)
+Filter and count operations for entities. Text search is not here: the service layer's
+`SearchOperationsMixin.search()` reaches `text_search_raw` (`RawSearchOperations`).
 
 ```python
 class EntitySearchOperations[T: DomainModelProtocol](Protocol):
-    async def search(self, query: str, limit: int = 10) -> Result[list[T]]: ...
     async def find_by(self, limit: int = 100, **filters: Neo4jValue) -> Result[list[T]]: ...
     async def count(self, **filters: Neo4jValue) -> Result[int]: ...
 ```
@@ -425,7 +425,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 | File | Protocol(s) | Key Methods |
 |------|-------------|-------------|
 | `_crud_mixin.py` | `CrudOperations[T]` | `create`, `get`, `get_many`, `update`, `delete`, `list` |
-| `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`*, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
+| `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`*, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
 | `_relationship_query_mixin.py` | `RelationshipMetadata*`, `RelationshipQuery*` | `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, `relate()`, batch queries |
 | `_relationship_ordered_mixin.py` | Ordered/hierarchical queries | `get_ordered_related_uids`, `get_related_with_metadata`, `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, lateral-getter wrappers (`get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`) |
 | `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, helpers |

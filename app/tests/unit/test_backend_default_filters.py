@@ -337,49 +337,6 @@ class TestDeleteWithDefaultFilters:
 
 
 # ============================================================================
-# SEARCH TESTS
-# ============================================================================
-
-
-class TestSearchWithDefaultFilters:
-    """search() should add default_filter conditions to WHERE clause."""
-
-    @pytest.mark.asyncio
-    async def test_search_includes_filter(self):
-        driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, {"entity_type": "task"})
-
-        mock_result = AsyncMock()
-        mock_result.data.return_value = []
-        session.run.return_value = mock_result
-
-        await backend.search("test query")
-
-        call_args = session.run.call_args
-        query = call_args[0][0]
-        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
-
-        assert "n.entity_type = $_df_entity_type" in query
-        assert "CONTAINS" in query
-        assert params["_df_entity_type"] == "task"
-
-    @pytest.mark.asyncio
-    async def test_search_no_filter_when_empty(self):
-        driver, session = _mock_driver()
-        backend = _backend_with_filters(driver, None)
-
-        mock_result = AsyncMock()
-        mock_result.data.return_value = []
-        session.run.return_value = mock_result
-
-        await backend.search("test query")
-
-        call_args = session.run.call_args
-        query = call_args[0][0]
-        assert "_df_" not in query
-
-
-# ============================================================================
 # BACKWARD COMPATIBILITY TESTS
 # ============================================================================
 

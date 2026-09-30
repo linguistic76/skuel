@@ -46,7 +46,7 @@ Protocol                      Methods                         Typical consumers
 CrudOperations[T]             create, get, get_many, update,  CrudOperationsMixin, simple services
                               delete, list
 
-EntitySearchOperations[T]     search, find_by, count,         SearchOperationsMixin
+EntitySearchOperations[T]     find_by, count,                 SearchOperationsMixin
                               get_user_entities
 
 RelationshipCrudOperations    add_relationship, has_          RelationshipOperationsMixin,

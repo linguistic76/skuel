@@ -372,7 +372,7 @@ skills:
 
   - name: security
     description: Security posture, route checklist, and code review security checks
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-09-30"
     foundation: []
     dependencies: [python]
     library_package: null  # Cross-cutting concern, not a single library
@@ -496,7 +496,7 @@ skills:
 
   - name: curriculum-domains
     description: Curriculum domain patterns (KU, PS, LP)
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-09-30"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library

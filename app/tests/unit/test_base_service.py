@@ -146,7 +146,6 @@ def create_mock_backend(behavior: dict[str, Any] | None = None) -> Mock:
 
     # Search operations
     backend.find_by = AsyncMock(return_value=Result.ok([]))
-    backend.search = AsyncMock(return_value=Result.ok([]))
     backend.count = AsyncMock(return_value=Result.ok(0))
 
     # Relationship operations

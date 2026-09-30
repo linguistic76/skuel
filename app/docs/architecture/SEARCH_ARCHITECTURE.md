@@ -821,12 +821,9 @@ overstated claim here). The rung buys **relevance ranking and vector recall**. I
 *not* buy case-insensitivity: Strategy 3's fallback is the service-layer
 `SearchOperationsMixin.search` → `text_search_raw` → `build_text_search_query`, whose
 predicate is `toLower(n.{field}) CONTAINS toLower($query)` — already case-insensitive, as
-is `faceted_search_raw`'s. The one case-SENSITIVE predicate is the *backend* method
-`_SearchMixin.search` (`_search_mixin.py`), which has no production caller —
-`PsAIService.search_by_semantic_query` ranks through the vector index with no keyword
-fallback — and is reached only by tests. The two `search`
-methods share a name across the service and backend layers — the CLAUDE.md
-"same root word at both layers" trap; check the layer before reasoning about the predicate.
+is `faceted_search_raw`'s. There is no case-sensitive `CONTAINS` in the persistence layer:
+the backend has no `search` method of its own (`EntitySearchOperations` is `find_by` +
+`count`); `search` is a service-layer name only.
 
 Measured limits of the fulltext half (Neo4j 2026.06.0):
 

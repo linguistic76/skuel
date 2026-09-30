@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-09-27
+updated: 2026-09-30
 category: patterns
 related_skills: []
 related_docs:
@@ -108,7 +108,7 @@ adapters/external/
 adapters/persistence/neo4j/
     universal_backend.py          # ~527 lines (shell: __init__, helpers)
     _crud_mixin.py                # CrudOperations[T]
-    _search_mixin.py              # EntitySearchOperations[T] — find_by_date_range, search, find_by, count, health_check, get_domain_context_raw, execute_query
+    _search_mixin.py              # EntitySearchOperations[T] — find_by_date_range, find_by, count, health_check, get_domain_context_raw, execute_query
     _search_raw_mixin.py          # _SearchRawMixin — text_search_raw, relationship_traversal_raw, graph_aware_search_raw, array ops, distinct_values_raw, faceted_search_raw
     _temporal_mixin.py            # _TemporalMixin — user_activity_range_raw, due_soon_raw, overdue_raw
     _prereq_progress_mixin.py     # _PrereqProgressMixin — prerequisite_traversal, hierarchy_query_raw
@@ -878,7 +878,7 @@ Time: 30 seconds
 `universal_backend.py` is a shell; methods live in 11 mixin files:
 
 - `_crud_mixin.py`
-- `_search_mixin.py` — `find_by_date_range`, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query`
+- `_search_mixin.py` — `find_by_date_range`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query`
 - `_search_raw_mixin.py` — `text_search_raw`, `relationship_traversal_raw`, `graph_aware_search_raw`, array ops, `distinct_values_raw`, `faceted_search_raw`
 - `_temporal_mixin.py` — `user_activity_range_raw`, `due_soon_raw`, `overdue_raw`
 - `_prereq_progress_mixin.py` — `prerequisite_traversal` (returns typed models), `hierarchy_query_raw`
