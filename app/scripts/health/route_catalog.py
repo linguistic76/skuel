@@ -204,7 +204,7 @@ class RouteCatalog:
 
         ``/api/context`` names the door to ``/api/context/*``; ``/profile`` names the
         family under ``/profile/inbox``. Reported as a class, never a skip: ``POST
-        /api/knowledge`` is a strict prefix of ``/api/knowledge/ai/*`` and does not exist.
+        /api/tasks`` is a strict prefix of ``/api/tasks/create`` and does not exist.
         """
         segs = norm.split("/")
         return any(

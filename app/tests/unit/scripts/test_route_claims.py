@@ -9,8 +9,8 @@ the corpus's. Two shapes in particular:
   it has nothing to do with. The nine lines are ``NEGATION_CORPUS`` verbatim, with the
   verdict per span, both directions.
 - **A near-miss relation treated as a match hides real fiction** — ``/ku`` is a
-  relative suffix of ``/library/ku`` and ``POST /api/knowledge`` is a family prefix of
-  ``/api/knowledge/ai/*``; neither route exists. They are printed CLASSES here, and the
+  relative suffix of ``/library/ku`` and ``POST /api/tasks`` is a family prefix of
+  ``/api/tasks/create``; neither route exists. They are printed CLASSES here, and the
   tests assert they are counted, never dropped.
 
 Every scan runs through the real ``scan_content`` with an injected ``RouteCatalog`` —
@@ -51,7 +51,6 @@ CATALOG = rc.RouteCatalog(
         "/api/tasks/{uid}/status": ["POST"],
         "/api/tasks/{uid}/lateral/blocks": ["GET", "HEAD", "POST"],
         "/api/context/rich": ["GET", "HEAD", "POST"],
-        "/api/knowledge/ai/summary": ["GET", "HEAD", "POST"],
         "/library/ku": ["GET", "HEAD", "POST"],
         "/profile/shared": ["GET", "HEAD", "POST"],
         "/explore/ku/{uid}": ["GET", "HEAD", "POST"],
@@ -313,11 +312,11 @@ def test_relative_suffix_is_a_class_because_it_hides_ku() -> None:
     assert found == [(3, "/ku", "relative-suffix")]
 
 
-def test_family_prefix_is_a_class_because_it_hides_api_knowledge() -> None:
-    """`POST /api/knowledge` is a strict prefix of `/api/knowledge/ai/*` and does not
-    exist — reported under its class, never dropped."""
-    found = _classes("# P\n\ncreate with `POST /api/knowledge`\n")
-    assert found == [(3, "POST /api/knowledge", "family-prefix")]
+def test_family_prefix_is_a_class_because_it_hides_api_tasks() -> None:
+    """`POST /api/tasks` is a strict prefix of `/api/tasks/create` and does not exist —
+    reported under its class, never dropped."""
+    found = _classes("# P\n\ncreate with `POST /api/tasks`\n")
+    assert found == [(3, "POST /api/tasks", "family-prefix")]
 
 
 def test_a_span_crossing_a_line_break_is_not_a_claim() -> None:

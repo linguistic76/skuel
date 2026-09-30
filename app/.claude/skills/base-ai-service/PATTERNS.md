@@ -146,35 +146,25 @@ One line in `AI_ROUTE_SPECS` (`adapters/inbound/ai_routes.py`):
 ```python
 AIRouteSpec(
     "goals", "Goals", "goals", "milestones",
-    "generate_milestones", "uid", "goals_ai_milestones",
+    "generate_milestones", "uid", "goals_ai_milestones", "milestones",
 )
 ```
 
 - `signature="uid"` passes only `(uid,)`. `generate_milestones(goal_uid, max_milestones=5)` is
   called with its default — a parameter the signature does not carry cannot be set over HTTP.
-- With a `wrap_key` the body is `{wrap_key: value}`. With none, the method's value is returned
-  from the handler as it is: a dict is answered as JSON; **a list is rendered by FastHTML as an
-  HTML page** (200, `text/html`). A method that returns a list or a string needs a `wrap_key`.
-  `generate_milestones` returns a list and this spec has none.
-- `func_name` must be unique across the list.
+- The answer is always JSON, through `result_to_response`. With a `wrap_key` the body is
+  `{wrap_key: value}`; with none it is the value itself. A method that returns a dict needs no
+  key; any other return type takes one so the body names what it carries —
+  `test_every_non_dict_method_has_a_wrap_key` reads the return annotation and fails otherwise.
+- `func_name` must be unique across the list: FastHTML names the route after it.
+- The route is `POST` only and CSRF-protected; the factories add both.
 
-Guard against a spec that names nothing:
-
-```python
-from adapters.inbound.ai_routes import AI_ROUTE_SPECS
-
-
-def test_every_ai_route_names_a_method(ai_service_classes: dict[str, type]) -> None:
-    unresolved = [
-        (spec.url_domain, spec.action, spec.method_name)
-        for spec in AI_ROUTE_SPECS
-        if getattr(ai_service_classes[spec.domain_attr], spec.method_name, None) is None
-    ]
-    assert unresolved == []
-```
-
-`ai_service_classes` maps each `domain_attr` (`"tasks"`, …, `"ps"`, `"lp"`) to its class. Run
-today, the list holds six entries.
+A spec that names nothing does not become a route: `create_ai_routes` runs
+`unresolved_ai_route_specs(AI_ROUTE_SPECS)` first and raises `ValueError` on a `domain_attr`
+without a class in `AI_SERVICE_CLASSES`, a `method_name` the class lacks, or a `signature`
+without a factory. `test_live_specs_all_resolve` pins the live list clean and
+`test_registration_refuses_a_spec_naming_no_method` pins the refusal
+(`tests/unit/adapters/test_ai_routes_http.py`).
 
 ---
 
@@ -226,8 +216,11 @@ does not test what the helper returns.
 
 Patch `require_authenticated_user` and `llm_quota_allowed` in `adapters.inbound.ai_routes`, build
 a container whose facades carry `.ai` and `verify_ownership`, call `create_ai_routes(app, rt,
-services)`, and drive it with a `TestClient`. Count the calls to the quota function: a request
-stopped by an earlier gate records none.
+services)`, and drive it with a `TestClient`. `POST`, with a `csrf_token` cookie and the same
+value in `X-CSRF-Token` (`mint_token()` from `adapters.inbound.csrf`) — without them the request
+stops at 405 or 403 before the gates. Count the calls to the quota function: a request stopped
+by an earlier gate records none. `tests/unit/adapters/test_ai_routes_http.py` is the worked
+example.
 
 ---
 

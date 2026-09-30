@@ -1,20 +1,23 @@
-"""Regression guard for the AI-route ownership gate (cross-user IDOR fix).
+"""Regression guard for the AI-route ownership gate (cross-user IDOR).
 
-The AI routes (`adapters/inbound/ai_routes.py`) previously authenticated the caller
-but never verified ownership of the entity uid they operated on. Because the routes
-are GET (CSRF-exempt), any authenticated user could `GET /api/tasks/ai/insight?uid=
-<victim_task_uid>` and receive AI-generated content derived from another user's
-PRIVATE entity (and spend LLM budget on it).
+The AI routes (`adapters/inbound/ai_routes.py`) authenticate the caller and then verify
+ownership of the entity uid they operate on: without that gate any authenticated user
+could ask `/api/tasks/ai/insight` about another user's PRIVATE task and receive
+AI-generated content derived from it (and spend LLM budget on it).
 
-The fix threads the authenticated ``user_uid``, the route's ``ContentScope``, and an
-explicit ``entity_uid`` into ``_ai_route``. USER_OWNED routes are gated through
+``_ai_route`` takes the authenticated ``user_uid``, the route's ``ContentScope`` and the
+``entity_uid`` every signature carries. USER_OWNED routes are gated through
 ``verify_entity_ownership`` (404, not 403, so the uid's existence is not confirmed);
 SHARED curriculum routes (ps/lp) stay ungated. Scope is an enum on each ``AIRouteSpec``
 and defaults to the fail-closed USER_OWNED — a new route is owner-gated until it
 explicitly opts into SHARED.
 
-These tests exercise ``_ai_route`` directly with fakes (no live Neo4j / FastHTML).
+These tests exercise ``_ai_route`` directly with fakes (no live Neo4j / FastHTML); the
+HTTP contract around it — POST only, CSRF, the response mapping — is pinned through a
+``TestClient`` in ``tests/unit/adapters/test_ai_routes_http.py``.
 """
+
+import json
 
 import pytest
 from starlette.responses import JSONResponse
@@ -129,7 +132,8 @@ async def test_user_owned_route_allows_owner() -> None:
 
     assert facade.verify_ownership_called is True
     assert ai.called is True
-    assert resp == {"insight": {"method": "generate_task_insight"}}
+    assert resp.status_code == 200
+    assert json.loads(resp.body) == {"insight": {"method": "generate_task_insight"}}
 
 
 async def test_shared_scope_skips_ownership() -> None:
@@ -143,40 +147,18 @@ async def test_shared_scope_skips_ownership() -> None:
         object(),
         services,
         "ps",
-        "Knowledge",
-        "generate_summary",
+        "Path Steps",
+        "generate_step_insight",
         ("ps_public",),
         scope=ContentScope.SHARED,
         entity_uid="ps_public",
-        wrap_key="summary",
+        wrap_key="insight",
     )
 
     assert facade.verify_ownership_called is False
     assert ai.called is True
-    assert resp == {"summary": {"method": "generate_summary"}}
-
-
-async def test_user_owned_query_route_skips_ownership() -> None:
-    """USER_OWNED but entity_uid=None (query routes) → no single entity to gate."""
-    ai = _FakeAI()
-    facade = _FakeFacade(owns=False, ai=ai)
-    services = _Services(tasks=facade)
-
-    resp = await _ai_route(
-        object(),
-        services,
-        "tasks",
-        "Tasks",
-        "semantic_search",
-        ("query text", 10),
-        scope=ContentScope.USER_OWNED,
-        entity_uid=None,
-        wrap_key="results",
-    )
-
-    assert facade.verify_ownership_called is False
-    assert ai.called is True
-    assert resp == {"results": {"method": "semantic_search"}}
+    assert resp.status_code == 200
+    assert json.loads(resp.body) == {"insight": {"method": "generate_step_insight"}}
 
 
 async def test_ai_unavailable_returns_503_before_ownership() -> None:
@@ -237,18 +219,3 @@ def test_spec_scopes_match_ownership_model() -> None:
             )
         else:  # pragma: no cover - guards an unmapped future domain
             pytest.fail(f"{spec.func_name}: unmapped AI domain {spec.domain_attr!r}")
-
-
-def test_every_user_owned_spec_carries_a_uid_signature() -> None:
-    """Invariant the ownership gate relies on: every USER_OWNED AI route keys on an
-    entity uid (uid / uid_limit / uid_level). A query-based USER_OWNED route would
-    bypass the uid gate and must instead scope by user_uid inside the service."""
-    uid_signatures = {"uid", "uid_limit", "uid_level"}
-    offenders = [
-        spec.func_name
-        for spec in AI_ROUTE_SPECS
-        if spec.scope is ContentScope.USER_OWNED and spec.signature not in uid_signatures
-    ]
-    assert offenders == [], (
-        f"USER_OWNED AI routes without a uid signature bypass the ownership gate: {offenders}"
-    )

@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-27
+updated: 2026-09-30
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -442,6 +442,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Form-Submission Recipient Read](roadmap/form-submission-recipient-read.md) | A FormSubmission shared with a person is listed on their Shared page and opens as not-found — `get_submission` is owner-only; deferred by the Submit & Share arc until its PR 5 audience read exists to reuse |
 | **[UTC Instants Arc — Rulings & Contract](roadmap/utc-instants-arc.md)** | **ACTIVE (ruled 2026-09-27): the multi-PR arc — run from a Claude Code cloud session, with the AuraDB steps on the laptop — that makes every instant UTC and every calendar concept ask the user's zone — founder rulings R1–R8, the verified census (four stored cohorts, the zone history, the live defects), the migration contract, and the PR ledger** |
 | [Naive-Local Timestamps Read as UTC](roadmap/naive-local-timestamps-read-as-utc.md) | Writers stamp naive local time that Neo4j reads as UTC — on a host west of UTC the activity-report generation cooldown never fires and share times read hours off; registered at the Submit & Share arc close, ruled 2026-09-27 and taken on as the UTC Instants arc |
+| [AI Tier Consumer](roadmap/ai-tier-consumer.md) | The eight `BaseAIService` subclasses and their 34 `POST /api/{domain}/ai/*` routes are repaired, gated and tested, and nothing in `ui/` or `static/` calls one — ruled staged 2026-09-29, waiting on the first UI surface that does; holds the residuals (`_SearchMixin.search` caller-less, a draft uid as an AI source, the `find_by` cap, unbounded prompt input) |
 | [Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval](roadmap/per-domain-chunking-knobs.md) | Chunking v2 and the eval instrument shipped; knob tuning, `chunk_type_weights` and the Askesis intent filter wait on a measured miss and a content-typing classifier |
 | [Dead-doc-links sweep queue](roadmap/done/dead-doc-links-sweep-queue.md) | The live-docs residue of the B1–B8 arc (871 → 280): per-directory split, the tail shape that decides the fix (most targets have no same-basename match, so the usual fix is the citing prose — but a rename looks the same, so investigate first), the four classes a finding can belong to and the different action each takes, the ride-along protocol — plus disproven claims about files that exist, which the scanner is blind to |
 | [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | The security hardening backlog — see its Priority Order table for current status (most items now shipped or closed) |

@@ -436,6 +436,14 @@ _PS_SEMANTIC_INFER = PlannedEntry(
     "edges); wire an explore/intelligence inference surface",
     since=date(2026, 6, 11),
 )
+_PS_AI_UNROUTED = PlannedEntry(
+    Readiness.DELAYED,
+    "PsAIService method with no AIRouteSpec and no caller (the PsService delegation "
+    "beside it is the same entry) — the AI tier is staged behind its first UI surface; "
+    "a spec in AI_ROUTE_SPECS routes it and retires this entry",
+    since=date(2026, 9, 29),
+    blocked_by="AI Tier Consumer",
+)
 _PS_GUIDANCE = PlannedEntry(
     Readiness.DELAYED,
     "guidance-strength lens staged (principles 40% + choices 60% weighted score; backend "
@@ -825,7 +833,7 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Goals: analytics/AI insight surface ---
     "core/services/goals/_orchestration_mixin.py::assess_goal_feasibility": _GOALS_INSIGHTS,
     "core/services/goals/_predictive_mixin.py::run_scenario_analysis": _GOALS_INSIGHTS,
-    # suggest_achievement_strategy wired: GET /api/goals/ai/strategy (Theme F)
+    # suggest_achievement_strategy wired: POST /api/goals/ai/strategy (Theme F)
     # --- Goals: bulk goal→task automation (LIVE GoalTaskGenerator) ---
     "core/services/goal_task_generator.py::get_task_templates": _GOAL_TASK_AUTOMATION,
     # --- Tasks: assignment surface ---
@@ -836,8 +844,8 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/tasks/_analytics_mixin.py::get_behavioral_insights": (
         _TASKS_BEHAVIORAL_INSIGHTS
     ),
-    # generate_task_breakdown wired: GET /api/tasks/ai/breakdown (Theme F)
-    # suggest_priority wired: GET /api/tasks/ai/priority-suggestion (Theme F)
+    # generate_task_breakdown wired: POST /api/tasks/ai/breakdown (Theme F)
+    # suggest_priority wired: POST /api/tasks/ai/priority-suggestion (Theme F)
     "core/services/tasks/_orchestration_mixin.py::analyze_task_knowledge_impact": (_TASKS_INSIGHTS),
     # --- Tasks: manual knowledge-generation trigger ---
     "core/services/tasks/_orchestration_mixin.py::trigger_manual_knowledge_generation": (
@@ -852,6 +860,13 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/ps/ps_semantic_service.py::infer_relationships": _PS_SEMANTIC_INFER,
     # --- PS: guidance-strength intelligence lens ---
     "core/services/ps/ps_intelligence_service.py::calculate_guidance_strength": _PS_GUIDANCE,
+    # --- PS: AI methods without a route (name-loaded through the facade, so registered by hand) ---
+    "core/services/ps/ps_ai_service.py::search_by_semantic_query": _PS_AI_UNROUTED,
+    "core/services/ps/ps_ai_service.py::suggest_step_applications": _PS_AI_UNROUTED,
+    "core/services/ps/ps_ai_service.py::suggest_learning_sequence": _PS_AI_UNROUTED,
+    "core/services/ps_service.py::search_by_semantic_query": _PS_AI_UNROUTED,
+    "core/services/ps_service.py::suggest_step_applications": _PS_AI_UNROUTED,
+    "core/services/ps_service.py::suggest_learning_sequence": _PS_AI_UNROUTED,
     # --- LP: reverse-lookup search lenses ---
     "core/services/lp/lp_search_service.py::get_aligned_with_goal": _LP_REVERSE_LOOKUP,
     "core/services/lp/lp_search_service.py::get_by_knowledge": _LP_REVERSE_LOOKUP,
