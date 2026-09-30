@@ -191,11 +191,11 @@ Progress(value=88, variant=ProgressT.success)  # success/warning/error/primary/.
 
 ### Typed Page Contexts
 
-`ui/page_contexts.py` holds route→UI TypedDicts. The live one is `TodayPageContext`: the
-Today route builds it, and `TodayPage(ctx)` (`ui/today/page.py`) renders it. The six
-Activity `*PageContext` types in the same file have no consumer. The Activity lists are
-rendered by `activity_ui_factory.py` through `ActivityUIConfig.list_component`, so don't
-build new code on those six.
+`ui/page_contexts.py` holds route→UI TypedDicts. The page shape is `TodayPageContext`: the
+Today route builds it, and `TodayPage(ctx)` (`ui/today/page.py`) renders it. The other two,
+`RelatedConceptChip` and `NextStepRelatedGroup`, are the rows of the Explore
+related-concepts fragments. The Activity lists have no page context — they are rendered by
+`activity_ui_factory.py` through `ActivityUIConfig.list_component`.
 
 ### Composition Strategies
 

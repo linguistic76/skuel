@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-09-29
+updated: 2026-09-30
 category: patterns
 related_skills:
 - result-pattern
@@ -830,21 +830,20 @@ event_type = safe_form_string(form_data.get("event_type")) or "meeting"
 
 ### Guarding Enum Constructor Calls
 
-Even after extracting a non-empty string with `safe_form_string()`, the value can still be invalid for the target enum (e.g., a crafted form submitting `priority=evil`). Use `parse_enum_safe()` from `form_helpers`:
+Even after extracting a non-empty string with `safe_form_string()`, the value can still be invalid for the target enum (e.g., a crafted form submitting `priority=evil`). The enum constructor raises `ValueError` — catch it and refuse visibly:
 
 ```python
-from adapters.inbound.form_helpers import parse_enum_safe
-
 # ❌ UNSAFE — crafted form value crashes with ValueError → 500
 priority_enum = PriorityEnum(priority_str)
 
-# ✅ SAFE — falls back to sensible default
-priority_enum = parse_enum_safe(PriorityEnum, priority_str, PriorityEnum.MEDIUM)
+# ✅ SAFE — the bad value is answered, not raised
+try:
+    priority_enum = PriorityEnum(priority_str)
+except ValueError:
+    return Div(render_error_banner("Please choose a priority."))
 ```
 
-**Consistent across all 6 activity domains:** `tasks_ui.py`, `goals_ui.py`, `habits_ui.py`, `events_ui.py`, `choices_ui.py`, `principles_ui.py` all use `parse_enum_safe()` for enum conversions. The only exception is conditional-set patterns in update payloads (e.g., `tasks_ui.py`), which use `contextlib.suppress(ValueError)` because they only set the key on success.
-
-**Additional shared primitives** in `form_helpers.py`: `parse_date_safe()` and `parse_time_safe()` replace `contextlib.suppress(ValueError)` wrappers around `date.fromisoformat()` and `time.fromisoformat()`. A client's datetime is an instant and has no form helper: a request model types it `ClientDateTime` (`core/models/request_base.py`), which reads an offset-less value on the current zone's clock. `ActivityFilters` hierarchy (`TaskFilters`, `PrincipleFilters` subclasses) + `parse_task_filters()`, `parse_principle_filters()`, `parse_activity_filters()` provide unified filter parsing for all 6 activity domains.
+An enum in a body read through `parse_body` / `parse_json_body` / `parse_form_body` needs no guard: the request model rejects a bad value as a failed validation `Result` — a 400 at an API route through `@boundary_handler`, an error banner where a UI form re-renders. A client's datetime is an instant and has no form helper: a request model types it `ClientDateTime` (`core/models/request_base.py`), which reads an offset-less value on the current zone's clock.
 
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 
