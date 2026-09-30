@@ -197,7 +197,7 @@ class TestPrivateAnchorAnswersAsMissing:
 
     @pytest.mark.parametrize("path", MISSING_READS)
     async def test_a_missing_anchor_is_404_on_every_read(self, neo4j_driver, path: str) -> None:
-        """The graph route included — it no longer answers a synthetic center."""
+        """The graph route included: a missing center is 404, not a center-only graph."""
         async with _client(neo4j_driver, role_user_service(ROLES)) as client:
             await client.get(f"/sign-in/{MEMBER}")
             response = await client.get(path)
