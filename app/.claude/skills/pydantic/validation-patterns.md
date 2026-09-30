@@ -105,6 +105,10 @@ fields it changes, and the rest is in the graph. The service's `_validate_update
 judges the merged state — `patch_leaves_online_without_url(changes, is_online=...,
 meeting_url=...)` for the online-URL pair, which passes a patch naming neither field so
 a status change never trips over an entity already stored without a URL.
+`patch_span_error(changes, start_time=..., end_time=...)` does the same for an event's
+span (5–720 minutes, `EventSpan`), gated on the patch naming either time; its create
+half, `event_span_error`, runs in `EventsCoreService._validate_create`, which the request
+model's end-after-start check leaves to bound the span.
 
 ### ValidationInfo Fields
 
