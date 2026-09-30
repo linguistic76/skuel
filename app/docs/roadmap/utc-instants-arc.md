@@ -1,6 +1,6 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-09-29
+updated: 2026-09-30
 status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a and 6b merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
@@ -1168,7 +1168,8 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
     #1451: the check reads the UTC day of `%cI`; fixed, it flagged 29 of 30 skills.
   - The rest of `form_helpers`' parse family (`parse_date_safe`, `parse_time_safe`,
     `parse_enum_safe`, `parse_activity_filters`) has no production caller, and
-    `ERROR_HANDLING.md` still says the six activity `*_ui.py` files use them.
+    `ERROR_HANDLING.md` still says the six activity `*_ui.py` files use them. Deleted in
+    the review follow-ups' F5, with the docs that named them.
 - **Test craft.**
   - A test of a period boundary freezes the clock with `time_machine.travel(<float>,
     tick=False)` inside `forced_zone("America/Vancouver")`. That puts the naive clock seven

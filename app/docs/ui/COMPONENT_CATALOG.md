@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-29
+updated: 2026-09-30
 ---
 
 # SKUEL UI Component Catalog
@@ -1349,7 +1349,7 @@ return render_activity_sidebar_page(
 `TodayPageContext` carries typed entities (`list[Task]`, `list[Event]`, `list[Goal]`, …), and
 every key is required (`total=True`, the TypedDict default).
 
-**Consumed contexts:** `TodayPageContext` (the day view), `RelatedConceptChip` and
+**The contexts:** `TodayPageContext` (the day view), `RelatedConceptChip` and
 `NextStepRelatedGroup` (the Explore related-concepts fragments, built in
 `learning_loop_routes.py`).
 

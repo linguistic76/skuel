@@ -4,15 +4,11 @@ Form data extraction helpers for type-safe FastHTML form handling.
 FastHTML form data can return str | UploadFile | None for any field.
 These helpers provide type-safe extraction with proper type guards.
 
-Also provides shared parsing primitives for enum, date and time-of-day values.
-A client's datetime is an instant: a request model types it ``ClientDateTime``
-(``core/models/request_base.py``), never a helper here.
+Also provides the request-body readers (``parse_body``, ``parse_json_body``,
+``parse_form_body``) that validate a body into a Pydantic model as a ``Result``.
 """
 
 import types
-from dataclasses import dataclass
-from datetime import date, time
-from enum import Enum
 from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
@@ -85,44 +81,6 @@ def safe_form_bool(value: str | UploadFile | None, default: bool = False) -> boo
     if isinstance(value, str):
         return value.strip().lower() in ("true", "1", "yes", "on")
     return default
-
-
-# ============================================================================
-# Shared Parsing Primitives
-# ============================================================================
-
-
-def parse_enum_safe[E: Enum](enum_class: type[E], value: str | None, default: E) -> E:
-    """Parse string to enum, return default on failure.
-
-    Replaces the try/except ValueError pattern duplicated across activity domain UI files.
-    """
-    if not value:
-        return default
-    try:
-        return enum_class(value)
-    except ValueError:
-        return default
-
-
-def parse_date_safe(value: str | None) -> date | None:
-    """Parse ISO date string, return None on failure."""
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(value)
-    except ValueError:
-        return None
-
-
-def parse_time_safe(value: str | None) -> time | None:
-    """Parse ISO time string, return None on failure."""
-    if not value:
-        return None
-    try:
-        return time.fromisoformat(value)
-    except ValueError:
-        return None
 
 
 # ============================================================================
@@ -294,90 +252,3 @@ async def parse_form_body[T: BaseModel](
             data[key] = value
 
     return _validate_body(schema, data)
-
-
-# ============================================================================
-# Shared Activity Filters
-# ============================================================================
-
-
-@dataclass
-class ActivityFilters:
-    """Base status/sort filters for the Activity Domains.
-
-    Tasks and Principles extend it with domain-specific fields.
-    """
-
-    status: str
-    sort_by: str
-
-    def to_dict(self) -> dict[str, str]:
-        """Convert to a flat dict of the filter values."""
-        return {"status": self.status, "sort_by": self.sort_by}
-
-
-@dataclass
-class TaskFilters(ActivityFilters):
-    """Tasks add project, assignee, and due date filtering."""
-
-    project: str = ""
-    assignee: str = ""
-    due_filter: str = ""
-
-    def to_dict(self) -> dict[str, str]:
-        """Convert to a flat dict of the filter values (``due_filter`` under ``due``)."""
-        return {
-            **super().to_dict(),
-            "project": self.project,
-            "assignee": self.assignee,
-            "due": self.due_filter,
-        }
-
-
-@dataclass
-class PrincipleFilters(ActivityFilters):
-    """Principles add category and strength filtering."""
-
-    category: str = "all"
-    strength: str = "all"
-
-    def to_dict(self) -> dict[str, str]:
-        """Convert to a flat dict of the filter values."""
-        return {
-            **super().to_dict(),
-            "category": self.category,
-            "strength": self.strength,
-        }
-
-
-def parse_activity_filters(
-    request: Request,
-    default_status: str = "active",
-    default_sort_by: str = "created_at",
-) -> ActivityFilters:
-    """Parse standard activity filter params from request query params."""
-    return ActivityFilters(
-        status=request.query_params.get("filter_status", default_status),
-        sort_by=request.query_params.get("sort_by", default_sort_by),
-    )
-
-
-def parse_task_filters(request: Request) -> TaskFilters:
-    """Parse task-specific filter params from request query params."""
-    return TaskFilters(
-        status=request.query_params.get("filter_status", "active"),
-        sort_by=request.query_params.get("sort_by", "due_date"),
-        project=request.query_params.get("filter_project", ""),
-        assignee=request.query_params.get("filter_assignee", ""),
-        due_filter=request.query_params.get("filter_due", ""),
-    )
-
-
-def parse_principle_filters(request: Request) -> PrincipleFilters:
-    """Parse principle-specific filter params from request query params."""
-    return PrincipleFilters(
-        status=request.query_params.get("filter_status", "all"),
-        sort_by=request.query_params.get("sort_by", "strength"),
-        category=request.query_params.get("filter_category", "all"),
-        strength=request.query_params.get("filter_strength", "all"),
-    )

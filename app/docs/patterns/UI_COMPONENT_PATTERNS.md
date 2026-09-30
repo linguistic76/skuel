@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-29'
+updated: '2026-09-30'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1223,24 +1223,21 @@ Domains outside the Activity pattern use the same principle — service methods 
 
 ### Route-Level Conventions
 
-*Updated: 2026-03-18*
+*Updated: 2026-09-30*
 
-Module-level helpers keep route handlers thin. The shared primitives in `form_helpers.py` are adopted by all UI files that handle form data — the 6 Activity domains, plus `auth_ui`, `settings_routes`, `lifepath_ui`, `askesis_ui`, and `activity_reports_ui`.
+Module-level helpers keep route handlers thin. The form readers in `form_helpers.py`:
 
-| Helper | Purpose |
-|--------|---------|
-| `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` | Type-safe extraction from `str \| UploadFile \| None` form values |
-| `ActivityFilters` hierarchy | Unified filter base from `form_helpers.py` — Goals/Habits/Events/Choices use base, Tasks use `TaskFilters`, Principles use `PrincipleFilters` |
-| `parse_task_filters()`, `parse_principle_filters()`, `parse_activity_filters()` | Domain-specific query param extraction with defaults |
-| `parse_enum_safe()`, `parse_date_safe()`, etc. | Shared parsing primitives from `form_helpers.py` |
-| `parse_{domain}_create_request(form_data) -> {Domain}CreateRequest` | Pure form→request parsing (no service calls, no side effects) |
-| `parse_{domain}_update_payload(form) -> dict[str, Any]` | Pure form→update dict parsing |
+| Helper | Purpose | UI callers |
+|--------|---------|---------|
+| `parse_form_body(request, Model)` | The whole form validated into its Pydantic request model, as a `Result` | the 6 Activity `*_ui.py` files, `activity_reports_ui` |
+| `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` | One raw field, typed `str \| UploadFile \| None`, read with a default | `auth_ui`, `settings_routes`, `lifepath_ui`, `askesis_ui` |
 
 ```python
-# Route handler stays thin:
-async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
-    create_request = parse_task_create_request(form_data)
-    return await tasks_service.create_task(create_request, user_uid)
+# Route handler stays thin (tasks_ui.py, abridged):
+parsed = await parse_form_body(request, TaskCreateRequest)
+if parsed.is_error:
+    return ...  # re-render the form with render_error_banner(parsed.expect_error().display_message)
+result = await tasks_service.core.create_task(parsed.value, user_uid)
 ```
 
 ### Form Validation Pattern
