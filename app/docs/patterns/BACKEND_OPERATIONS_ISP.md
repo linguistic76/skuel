@@ -35,9 +35,10 @@ BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
     └── LowLevelOperations                 (2 methods + driver)
 ```
 
-The counts are `len(inspect.getmembers(<Protocol>, inspect.isfunction))` at the time of
-writing; the sections below show each protocol's shape, not every member. The census is the
-authority when the two differ.
+The counts are the public members at the time of writing —
+`[n for n, _ in inspect.getmembers(<Protocol>, inspect.isfunction) if not n.startswith("_")]`
+(the filter drops the inherited `Protocol.__init__`); the sections below show each protocol's
+shape, not every member. The census is the authority when the two differ.
 
 ## Sub-Protocol Details
 
@@ -71,7 +72,7 @@ class EntitySearchOperations[T: DomainModelProtocol](Protocol):
     async def find_by(self, limit: int = 100, **filters: Neo4jValue) -> Result[list[T]]: ...
     async def count(self, **filters: Neo4jValue) -> Result[int]: ...
     async def find_by_date_range(...) -> Result[list[T]]: ...
-    async def get_user_entities(...) -> Result[list[T]]: ...
+    async def get_user_entities(...) -> Result[tuple[list[T], int]]: ...  # (page, total)
     # + the *_raw query primitives the search strategies compose:
     #   text_search_raw, faceted_search_raw, graph_aware_search_raw, context_query_raw,
     #   basic_context_query_raw, hierarchy_query_raw, relationship_traversal_raw,
@@ -80,8 +81,8 @@ class EntitySearchOperations[T: DomainModelProtocol](Protocol):
     #   prerequisite_traversal, prerequisite_chain_with_distance
 ```
 
-The census is `inspect.getmembers(EntitySearchOperations, inspect.isfunction)` — read it
-rather than this list when the two differ.
+The census is the expression under the protocol tree above — read it rather than this list
+when the two differ.
 
 ### RelationshipCrudOperations (13 methods)
 CRUD operations for graph relationships (edges).
