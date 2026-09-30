@@ -57,7 +57,9 @@ The same conversion runs on a body's keys, JSON or form: `n: int` with `{"n": "z
    (SKUEL035); `request: Any` is a FastHTML 400 (SKUEL020).
 2. **A mutation declares `methods=["POST"]` and `@csrf_protected`.** A `@rt(path)` with no
    `methods=` answers GET, HEAD and POST, so a method-less mutation is reachable by a link
-   or a prefetch.
+   or a prefetch. This is a convention the tree does not hold everywhere yet —
+   `/settings/save` is a bare `@rt` mutation (`fasthtml` skill, `routing-patterns.md`
+   § Function Name Conventions).
 3. **Read a body inside the handler** with `parse_body` / `parse_json_body` /
    `parse_form_body` — never a model in the signature. See
    [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) § Read the body inside the handler.
