@@ -63,8 +63,8 @@ a spec whose `method_name` does not resolve on its AI class is refused at regist
 
 - ~~`_SearchMixin.search`~~ — ruled 2026-09-30: deleted, with its `EntitySearchOperations`
   declaration (the mixin's case-sensitive `CONTAINS` had no production caller once
-  `search_by_semantic_query` lost its keyword fallback; the service layer's `search` is
-  `text_search_raw`).
+  `search_by_semantic_query` lost its keyword fallback; the service layer's `search` reads
+  `text_search_raw`, still declared on `EntitySearchOperations`).
 - **A draft uid as the *source* of a curriculum AI call.** The similarity listings gate
   drafts at the read; `insight` / `explain` / `practice` / `overview` / `strategy` and a
   similarity call *about* a draft uid read the uid they are given, under the standing by-uid

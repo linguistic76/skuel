@@ -25,15 +25,19 @@ related_docs:
 ```
 BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
     ├── CrudOperations[T]                  (8 methods)
-    ├── EntitySearchOperations[T]          (2 methods)
-    ├── RelationshipCrudOperations         (6 methods)
+    ├── EntitySearchOperations[T]          (20 methods)
+    ├── RelationshipCrudOperations         (13 methods)
     ├── RelationshipMetadataOperations     (3 methods)
     ├── RelationshipQueryOperations        (3 methods)
     ├── OrderedRelationshipOperations      (7 methods)
     ├── BatchRelationshipOperations        (3 methods)
-    ├── GraphTraversalOperations           (2 methods)
+    ├── GraphTraversalOperations           (6 methods)
     └── LowLevelOperations                 (2 methods + driver)
 ```
+
+The counts are `len(inspect.getmembers(<Protocol>, inspect.isfunction))` at the time of
+writing; the sections below show each protocol's shape, not every member. The census is the
+authority when the two differ.
 
 ## Sub-Protocol Details
 
@@ -58,17 +62,28 @@ class CrudOperations[T: DomainModelProtocol](Protocol):
     async def list(self, limit: int = 100, offset: int = 0, filters: FilterParams | None = None, ...) -> Result[tuple[list[T], int]]: ...
 ```
 
-### EntitySearchOperations[T] (2 methods)
-Filter and count operations for entities. Text search is not here: the service layer's
-`SearchOperationsMixin.search()` reaches `text_search_raw` (`RawSearchOperations`).
+### EntitySearchOperations[T] (20 methods)
+Filter, count and the raw search primitives. The backend has no `search` method: the
+service layer's `SearchOperationsMixin.search()` reaches `text_search_raw`, declared here.
 
 ```python
 class EntitySearchOperations[T: DomainModelProtocol](Protocol):
     async def find_by(self, limit: int = 100, **filters: Neo4jValue) -> Result[list[T]]: ...
     async def count(self, **filters: Neo4jValue) -> Result[int]: ...
+    async def find_by_date_range(...) -> Result[list[T]]: ...
+    async def get_user_entities(...) -> Result[list[T]]: ...
+    # + the *_raw query primitives the search strategies compose:
+    #   text_search_raw, faceted_search_raw, graph_aware_search_raw, context_query_raw,
+    #   basic_context_query_raw, hierarchy_query_raw, relationship_traversal_raw,
+    #   array_contains_raw, array_any_match_raw, distinct_values_raw, active_raw,
+    #   overdue_raw, upcoming_raw, user_activity_range_raw,
+    #   prerequisite_traversal, prerequisite_chain_with_distance
 ```
 
-### RelationshipCrudOperations (6 methods)
+The census is `inspect.getmembers(EntitySearchOperations, inspect.isfunction)` — read it
+rather than this list when the two differ.
+
+### RelationshipCrudOperations (13 methods)
 CRUD operations for graph relationships (edges).
 
 ```python
@@ -135,7 +150,7 @@ class BatchRelationshipOperations(Protocol):
     async def batch_get_related_uids(self, ...) -> Result[dict[str, list[str]]]: ...
 ```
 
-### GraphTraversalOperations (2 methods)
+### GraphTraversalOperations (6 methods)
 Graph traversal operations for path finding and context queries.
 
 ```python

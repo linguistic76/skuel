@@ -327,7 +327,7 @@ class EventsOperations(
 
     Inherits base CRUD operations from BackendOperations:
     - create, get, update, delete, list
-    - find_by, count, search
+    - find_by, count, text_search_raw
     - add_relationship, get_relationships, traverse
     - health_check
 
@@ -488,7 +488,7 @@ class HabitsOperations(
 
     Inherits base CRUD operations from BackendOperations:
     - create, get, update, delete, list
-    - find_by, count, search
+    - find_by, count, text_search_raw
     - add_relationship, get_relationships, traverse
     - health_check
 
@@ -639,7 +639,7 @@ class GoalsOperations(
 
     Inherits base CRUD operations from BackendOperations:
     - create, get, update, delete, list
-    - find_by, count, search
+    - find_by, count, text_search_raw
     - add_relationship, get_relationships, traverse
     - health_check
 
@@ -769,7 +769,7 @@ class ChoicesOperations(
 
     Inherits base CRUD operations from BackendOperations:
     - create, get, update, delete, list
-    - find_by, count, search
+    - find_by, count, text_search_raw
     - add_relationship, get_relationships, traverse
     - health_check
 
@@ -862,7 +862,7 @@ class PrinciplesOperations(
 
     Inherits base CRUD operations from BackendOperations:
     - create, get, update, delete, list
-    - find_by, count, search
+    - find_by, count, text_search_raw
     - add_relationship, get_relationships, traverse
     - health_check
 

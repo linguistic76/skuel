@@ -47,7 +47,7 @@ CrudOperations[T]             create, get, get_many, update,  CrudOperationsMixi
                               delete, list
 
 EntitySearchOperations[T]     find_by, count,                 SearchOperationsMixin
-                              get_user_entities
+                              get_user_entities, *_raw
 
 RelationshipCrudOperations    add_relationship, has_          RelationshipOperationsMixin,
                               relationship, get_relationships, UnifiedRelationshipService
