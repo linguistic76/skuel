@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from core.orchestrator.lateral_relationships_orchestrator import (
         LateralRelationshipsOrchestrator,
     )
+    from core.services.user_service import UserService
 
 logger = get_logger(__name__)
 
@@ -66,7 +67,7 @@ def create_lateral_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: LateralRelationshipsOrchestrator,
-    user_service: Any,
+    user_service: UserService,
 ) -> None:
     """Register lateral relationship routes for all 9 domains."""
     get_user_service = make_service_getter(user_service)

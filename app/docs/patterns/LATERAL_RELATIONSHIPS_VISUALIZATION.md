@@ -407,7 +407,7 @@ def create_lateral_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: LateralRelationshipsOrchestrator,
-    user_service: Any,
+    user_service: UserService,
 ) -> None:
     get_user_service = make_service_getter(user_service)
     for domain, entity_name, service_attr in _LATERAL_DOMAINS:

@@ -1,14 +1,11 @@
 """Curriculum lateral writes: a TEACHER gate and curriculum-only endpoints.
 
 The ku / ps / lp lateral routes have no owner to verify, so they pass
-``domain_service=None`` — and before this gate that meant no check at all:
+``domain_service=None``. Two things stand in for the ownership check, and a
+missing one would let any user write curriculum edges, or join a Ku to another
+user's private task and learn from the answer whether that uid exists.
 
-- any authenticated user could create or delete a lateral edge on curriculum;
-- any uid was accepted as an endpoint, so a curriculum route could join a Ku to
-  ANOTHER USER'S private task, and its answer (201 written, 400 "same parent",
-  404 missing) told the caller whether a uid it cannot read exists.
-
-The closed form, pinned here over real HTTP (a real ``fast_app`` with session
+The contract, pinned here over real HTTP (a real ``fast_app`` with session
 middleware, reached through ``httpx.ASGITransport``) against a real Neo4j:
 
 - every curriculum write route answers 403 to a MEMBER and lets a TEACHER (and
