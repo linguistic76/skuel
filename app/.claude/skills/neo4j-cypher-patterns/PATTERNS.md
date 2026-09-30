@@ -12,28 +12,30 @@
 
 **Solution**:
 ```cypher
-// _hierarchy_mixin.py — parent-child relationship
-MATCH (p:Entity {uid: $parent_uid})
-MATCH (c:Entity {uid: $child_uid})
-MERGE (p)-[r:HAS_SUBTASK]->(c)
-SET r.created_at = datetime()
-RETURN r
+// _HierarchyMixin.create_hierarchy_relationship — forward + inverse edge in one statement
+// (labels and edge names come from the domain's HierarchyConfig; HAS_SUBTASK / SUBTASK_OF shown)
+MATCH (parent:Task {uid: $parent_uid})
+MATCH (child:Task {uid: $child_uid})
+MERGE (parent)-[fwd:HAS_SUBTASK]->(child)
+ON CREATE SET fwd.created_at = datetime()
+MERGE (child)-[inv:SUBTASK_OF]->(parent)
+ON CREATE SET inv.created_at = datetime()
+RETURN true as success
 
-// LateralRelationshipBackend — cross-domain edges
-MATCH (a:Entity {uid: $source_uid})
-MATCH (b:Entity {uid: $target_uid})
-MERGE (a)-[r:RELATED_TO]->(b)
-SET r.confidence = $confidence,
-    r.created_at = datetime()
-RETURN r
+// LateralRelationshipBackend.create_relationship — the edge type is validated, the
+// metadata map is merged on every call, created_at is kept from the first write
+MERGE (source)-[r:RELATED_TO]->(target)
+ON CREATE SET r.created_at = $created_at
+SET r += $metadata
+RETURN r, r.created_at AS created_at
 ```
 
 **Trade-offs**:
 - MERGE is idempotent — safe to call multiple times
-- SET overwrites relationship properties on each call
-- Use `ON CREATE SET` if you only want to set props on first creation
+- `SET` overwrites on every call; `ON CREATE SET` writes only on first creation — the lateral writer uses both so a re-assert keeps the original `created_at`
+- ⚠ The lateral writer binds its endpoints with an unlabeled `MATCH (source {uid: $source_uid})` — the shape SKILL.md § 0 warns about (a Ku / PathStep endpoint also binds its `:Content` shadow). Copy the labeled hierarchy shape, not that one
 
-**Real-world usage**: Standardized across hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), badges (`EARNED_BADGE`), LP/PS construction (`HAS_STEP`, `USES_KU`, `CONTAINS_KNOWLEDGE`). Cross-domain relationship creation (task→knowledge, goal→habit, etc.) is handled by `UnifiedRelationshipService`, not domain backends. **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
+**Real-world usage**: hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), LP/PS construction (`HAS_STEP`, `USES_KU`, `CONTAINS_KNOWLEDGE`). Cross-domain relationship creation (task→knowledge, goal→habit, etc.) is handled by `UnifiedRelationshipService`, not domain backends. **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
 
 ---
 
@@ -79,6 +81,8 @@ if not records:
 - Empty results are ambiguous (not found vs guard rejected) — resolve by checking existence separately first (e.g., `_verify_teacher_has_group_access`)
 
 **Real-world usage**: `EntryReportBackend.create_report_node()` (submit_report, request_revision), `create_report_and_revised_exercise()` and `UserEntryBackend.approve_and_get_linked_kus()` (approve_report). The status guards (submitted/active → completed or revision_requested, revision_requested → completed) sit beside a second in-write guard: a copy superseded for the reviewing teacher (`SUPERSEDED_COPY`, composed over names bound in a WITH) is refused by the same statement.
+
+**The universal form (ADR-087):** every status-bearing write in `core/services/` goes through one primitive, `backend.update_with_status_guard(uid, updates, guard)` (`CrudOperations`, implemented on `_CrudMixin`): the statement takes the node's write-lock BEFORE reading the prior status, applies the guard's prior-conditional patches, and **returns the prior** — services derive every verdict (`is_completion_transition` / `is_reopen_transition`) from that returned prior, never from a read taken before the write. Build the guard with `status_transition_guard(EntityType.X, changes, zone=current_zone())` (`core/services/completion_stamp.py`), or a `StatusWriteGuard(refuse_if_prior_in=…)` for a raw writer outside its domain chokepoint. A blind `backend.update({"status": …})` is the bug this removes.
 
 ---
 
@@ -232,7 +236,7 @@ RETURN true AS success
 // LpBackend.get_paths_containing_ku() — a path reaches a Ku two ways: directly,
 // via its ingestible REQUIRES_KNOWLEDGE prerequisites, or (the normal case)
 // through the PathSteps that actually compose Kus. There is NO LearningPath→Ku
-// containment edge — this query used to match INCLUDES_KU, which nothing writes.
+// containment edge (INCLUDES_KU is not an edge anything writes).
 MATCH (lp:Entity {entity_type: 'learning_path'})-[:REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
 RETURN DISTINCT lp.uid AS lp_uid
 UNION
@@ -295,10 +299,13 @@ RETURN t,
        collect(DISTINCT g) AS goals,
        collect(DISTINCT dep) AS dependencies
 
-// _OrganizesMixin.is_organizer() — check existence without failing
-MATCH (ku:Entity {uid: $ku_uid})
-OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
-RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
+// _OrganizesMixin.is_organizer(entity_uid, child_types=...) — existence + a
+// count in one row; child_types scopes the children (PsOrganizationService
+// passes SHARED_CURRICULUM_TYPES so an edge to a hidden entity reads as no edge)
+MATCH (n:Entity {uid: $entity_uid})
+OPTIONAL MATCH (n)-[:ORGANIZES]->(child:Entity)
+WHERE child.entity_type IN $child_types
+RETURN n IS NOT NULL AS entity_exists, count(child) > 0 AS is_organizer
 ```
 
 **Trade-offs**:
@@ -317,7 +324,7 @@ RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
 
 **Problem**: Relationship properties contain important metadata (order, confidence, contribution_percentage).
 
-**Context**: ORGANIZES relationships have `order` for hierarchy position; REQUIRES_KNOWLEDGE has `confidence`.
+**Context**: ORGANIZES relationships carry `order` for hierarchy position (no writer sets `importance`, whatever older prose says); REQUIRES_KNOWLEDGE has `confidence`.
 
 **Solution**:
 ```cypher
@@ -325,11 +332,9 @@ RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
 MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
 RETURN child.uid AS uid,
        child.title AS title,
-       child.entity_type AS entity_type,
        r.order AS order,
-       r.importance AS importance
+       child.entity_type AS entity_type
 ORDER BY r.order ASC
-LIMIT $limit
 
 // ExerciseBackend.get_required_knowledge() — multiple node properties
 MATCH (exercise:Entity {uid: $exercise_uid, entity_type: 'exercise'})
@@ -486,12 +491,12 @@ WHERE datetime(s.next_due_at) <= datetime()
 
 // date field (due_date, event_date, ...): take the YYYY-MM-DD prefix. A bare
 // date(n.due_date) works for a clean date-only string but THROWS if a writer
-// mis-stored a datetime there — which blanks the whole range (#766). left(...,10)
+// mis-stored a datetime there — which blanks the whole range. left(...,10)
 // tolerates every shape (date-only string, datetime string, date/datetime type).
 WHERE date(left(toString(n.due_date), 10)) >= date($start_date)
 ```
 
-🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`) — and a throw inside a range `WHERE` or a mega-query `CASE` takes the **whole** query down, so the user silently loses every row, not just the malformed one (#766). The `left(toString(x), 10)` prefix above is the defensive default for any date field. A **datetime**-typed field (an instant) is never sliced to its digits' day: it is compared with the day's bounds in the user's zone, read on the stored clock (`stored_day_bounds(first_day, last_day, zone)` → half-open `[start, end)`), so it lands on the user's day in every era (ADR-089 §3; the UTC arc's PR 3b):
+🔑 **`date()` CANNOT parse a datetime string** (measured: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`) — and a throw inside a range `WHERE` or a mega-query `CASE` takes the **whole** query down, so the user silently loses every row, not just the malformed one. The `left(toString(x), 10)` prefix above is the defensive default for any date field. A **datetime**-typed field (an instant) is never sliced to its digits' day: it is compared with the day's bounds in the user's zone, read on the stored clock (`stored_day_bounds(first_day, last_day, zone)` → half-open `[start, end)`), so it lands on the user's day in every era (ADR-089 §3; the UTC arc's PR 3b):
 ```cypher
 // last_completed is an instant; we want "before today". $today_start is the first
 // instant of the user's today on the stored clock, built in Python:
@@ -511,7 +516,7 @@ CASE WHEN datetime(h.last_completed) < datetime($today_start) THEN 0 ELSE 1 END
 
 **Verify against real Neo4j** — `string >= datetime()` returning `null` cannot be caught by a mocked backend; a unit test with stubbed rows passes while production returns empty. Seed both a string and a native value, assert the row is matched, and prove the test fails before the coercion (`datetime(string) >= datetime($w) → true`, `string >= datetime($w) → null`).
 
-**Real-world:** PRs #199 (date fields), #202 (`created_at` mixed column), #203 (`next_due_at`/`last_generated_at`/`expires_at`/`completed_at`/`last_completed`). Guards: `tests/integration/test_date_range_string_coercion.py`, `test_created_at_window_coercion.py`, `test_timestamp_field_coercion_residual.py`.
+**Guards:** `tests/integration/test_date_range_string_coercion.py`, `test_created_at_window_coercion.py`, `test_timestamp_field_coercion_residual.py` (date fields, the mixed `created_at` column, and `next_due_at` / `last_generated_at` / `expires_at` / `completed_at` / `last_completed`).
 
 ### 10b: The same trap through `find_by` — where you never write Cypher at all
 
@@ -546,11 +551,10 @@ A Python `sorted(key=completed_at)` over both shapes raises `TypeError`: the map
 native zoned value as an **aware** `datetime` and an ISO string as a **naive** one. Let the
 database order by the normalised value, or sort by `instant_key` (`core/utils/timestamp_helpers.py`).
 
-**Real-world:** PR #1140; the three habit-completion reads moved onto `find_by_date_range`
-(goal-link arc PR 4). Guards: `tests/integration/test_habit_completion_temporal_split.py`,
-`tests/integration/test_habit_completion_range_reads.py`
-seeds two completions on the same instant differing only in storage type and asserts the
-bounded `find_by` returns both.
+**Real-world:** the three habit-completion reads run on `find_by_date_range`. Guards:
+`tests/integration/test_habit_completion_temporal_split.py` and
+`tests/integration/test_habit_completion_range_reads.py` — the latter seeds two completions on
+the same instant differing only in storage type and asserts the bounded `find_by` returns both.
 
 ---
 
@@ -562,17 +566,17 @@ bounded `find_by` returns both.
 4. **coalesce(prop, default)** for nullable relationship/node properties
 5. **UNWIND** for batch operations — one query for N entities
 6. **No APOC in domain services** (SKUEL001) — pure Cypher only
-7. **No inline Cypher in domain services** — domain-specific Cypher belongs in domain backends (`adapters/persistence/neo4j/backends/`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`. Two service-layer exceptions: `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads) — both use `QueryExecutor` directly for explicitly cross-domain Cypher spanning 2+ domain labels.
+7. **No Cypher in `core/`** (SKUEL021) — domain-specific Cypher belongs in domain backends (`adapters/persistence/neo4j/backends/`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`. Cross-domain Cypher is no exception: the MEGA-QUERY statements live in `adapters/persistence/neo4j/user_context_queries.py` (`RICH_CONTEXT_STATEMENTS`) and `CrossDomainQueryService` takes a `CrossDomainBackendOperations` backend.
 8. **No json.dumps() in services** — `backend.update()` and `backend.create()` auto-serialize complex types via `to_neo4j_node()`. For custom Cypher reads, use `parse_neo4j_json()` / `deserialize_json_fields()`.
 9. **Validate interpolated identifiers** — Neo4j Cypher cannot parameterize relationship types, labels or property names, so f-string interpolation is unavoidable for those. All 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`) — and `neo4j_schema_manager.py`'s DDL — import `validate_label()` and `validate_identifier()` from `_helpers.py`, one definition for both halves of the layer. A *property name* takes a stronger guarantee where the builder has a model: `crud_queries` checks it against `fields(entity_class)`, raising for a name in a WHERE-clause pattern and warning-and-dropping a sort key. Backend mixins additionally use `_validate_rel_name()` from `_backend_helpers.py`; where a backend lets its caller choose the sort property, the parameter is an enum (`ActivitySortKey`) rather than a string checked at runtime. **A guard is not automatic — assume one exists only where you can name it:** a handful of backend methods still interpolate a caller's property name unchecked, ruled and inventoried in `/docs/roadmap/field-name-guarding-in-cypher.md`, which also records why no HTTP route publishes a sort key. Never accept raw user strings for these positions.
 10. **Parameterize `entity_type` filters via the enum** — `entity_type` is a node *property*, so it CAN (and must) be a `$param`. Bind `EntityType.USER_ENTRY.value` (etc.) instead of inlining `'user_entry'`. Inline literals violate SKUEL014 and silently rot if an enum value ever changes. Pattern: `MATCH (u:Entity {entity_type: $entry_type})` + `params={"entry_type": EntityType.USER_ENTRY.value}`.
 11. **Bound traversal queries with `LIMIT $limit`** — any query that returns a per-user collection (submissions for a PathStep, reports for a submission, etc.) must accept a `limit` parameter and apply `LIMIT $limit`. Default to a `QueryLimit.*` constant. Unbounded `MATCH ... RETURN ... ORDER BY ...` is a latent DoS as user data grows.
 12. **Defensive `.get()` on record columns + `result.value or []`** — when projecting Neo4j records into TypedDicts/dicts, use `record.get("col")` for every column except the genuinely required ones, and guard the comprehension with `for r in result.value or []`. A `KeyError` mid-comprehension is much harder to debug than a `None` field downstream.
 13. **Clamp caller-supplied `limit` at the service boundary** — parameterizing via `$limit` protects the query plan, but it does not protect the driver from a caller passing `limit=10_000_000`. Clamp with `limit = max(1, min(limit, QueryLimit.MAXIMUM))` as the first statement in any public service method that accepts `limit`. The `$limit` binding in the Cypher is the floor, not the ceiling.
-14. **Whitelist `entity_type` at the service boundary** — a service named `SomethingSearchService` that accepts an `entity_type: EntityType | None` override is a cross-domain bleed waiting to happen. The backend label is `:Entity`, so passing `EntityType.TASK` to a submission query silently scopes to Tasks and returns them as "submissions." Resolve via a private method that validates against a `ClassVar[frozenset[EntityType]]` of allowed types and raises `ValueError` on mismatch — `@with_error_handling` surfaces it as a validation `Result`. Pattern: see `SubmissionsSearchService._resolve_submission_type()` + `_ALLOWED_SUBMISSION_TYPES`.
+14. **Whitelist `entity_type` at the service boundary** — a service that accepts an `entity_type: EntityType | None` override is a cross-domain bleed waiting to happen: the backend label is `:Entity`, so passing `EntityType.TASK` to a user-entry query silently scopes to Tasks and returns them as entries. Resolve against a `frozenset[EntityType]` of allowed types and refuse a mismatch (`SearchRouter._SEARCHABLE_DOMAINS` + `supports_search()` is the live shape of that check).
 15. **Reject `start_date > end_date` upfront** — an inverted date range produces an impossible `created_at__gte=X AND created_at__lt=Y` Cypher predicate that silently returns `[]`. Callers see "no results" and assume the database is empty. Return `Errors.validation(...)` before hitting the backend so the caller bug surfaces immediately.
 16. **Sanitize text-search inputs before CONTAINS** — `toLower(s.processed_content) CONTAINS toLower($query)` with `query=""` is caught by `if not query:`, but `"   "` and `"a"` sail through and scan every row. Strip and require `len(query.strip()) >= 2` before building the Cypher. Short-circuit to `Result.ok([])` when below threshold.
-17. **Match ISO-string date bounds to the storage invariant** — SKUEL stores `created_at` as naive-local via `datetime.now().isoformat()` with no tz suffix. Date-boundary queries must build bounds the same way: `datetime.combine(target_date, time.min).isoformat()`. Mixing a naive stored value with a tz-aware bound string (`"...+00:00"` or `"...Z"`) is silently broken at day boundaries — string comparison sorts `"2026-04-05T00:00:00"` differently from `"2026-04-05T00:00:00+00:00"`. Document the invariant at the top of any service that builds ISO-string bounds; if the storage format ever changes, every boundary construction must move in lockstep.
+17. **Match ISO-string date bounds to the storage invariant** — the mapper writes `created_at` (and every DTO datetime) as `datetime.now().isoformat()` with no offset. The process clock is pinned to UTC (ADR-089, `pin_process_clock_to_utc()`), so those digits are a UTC wall-clock instant, stored offset-less; making the writers zone-aware (default factories, the mapper's `+00:00`) is the UTC arc's open row 7 (`docs/roadmap/utc-instants-arc.md`), so a column today holds offset-less strings beside the `+00:00` and `…Z` strings hand-Cypher writers already produce. String-vs-string comparison sorts `"2026-04-05T00:00:00"` differently from `"2026-04-05T00:00:00+00:00"`, so a bound built as a string must match the shape of the field it is compared to — and the safe move is #18: coerce both sides with `datetime()` and compare instants.
 18. **Coerce string-stored temporals before comparing to `date()`/`datetime()`** — the flip side of #17: when a query compares a stored temporal against a Cypher temporal value (not another string), `string OP date()/datetime()` evaluates to `null` and the row is silently dropped. Wrap the stored field: `datetime(n.created_at) >= datetime($w)`. `datetime()` is universally safe (parses both string shapes, no-op on natives); `date()` ERRORS on a datetime string, so use `date(datetime(field))` for a datetime field compared to a date. The WRITER decides the type — DTO `.isoformat()` → string (coerce); Cypher `= datetime()` → native (leave). **See Pattern 10.**
 18b. **`find_by(field__gte=<datetime>)` is a Cypher range predicate, not a Python filter** — the bound is stringified by `convert_value_for_neo4j`. On an instant field the builder compares instants on both sides (`comparable_property`, the type rule); on a calendar field it compares as stored, so Key Rule #17 applies to a call with no Cypher in sight. For a window of whole days in the user's zone, use `find_by_date_range` (coerced both sides, totally ordered, pageable by `offset`). **See Pattern 10b.**
 
@@ -584,27 +588,28 @@ bounded `find_by` returns both.
 | Domain-specific relationships | Domain backend in `backends/` | `RevisedExerciseBackend.link_to_exercise()` |
 | Atomic multi-entity creation | Domain backend in `backends/` | `EntryReportBackend.create_report_and_revised_exercise()` — single Cypher creates EntryReport + RevisedExercise + all relationships |
 | PS-specific Cypher | 5 PsBackend mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
-| Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY, `CrossDomainQueryService` (9 targeted reads → frozen typed dataclasses) |
+| Cross-domain aggregation | `adapters/persistence/neo4j/user_context_queries.py` (`RICH_CONTEXT_STATEMENTS`, six plan-cached statements), `CrossDomainBackend` | The MEGA-QUERY; `CrossDomainQueryService`'s targeted reads |
 | Vector index calls | `VectorSearchBackend` in `vector_search_backend.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
 | Fulltext index creation | `neo4j_schema_manager.py` (bootstrap, always) | `sync_fulltext_indexes()` — 14 domains, names from `NeoLabel.fulltext_index_name()` |
 | Fulltext index calls | `VectorSearchBackend` in `vector_search_backend.py` (publication-gated, like its vector twin) | `db.index.fulltext.queryNodes()` |
-| Query generation | `query_optimizer.py`, `query_template_registry.py` | Builds Cypher by design |
+| Query generation | `query/cypher/` `build_*` functions, `UnifiedQueryBuilder` | Builds Cypher by design (the `query_builders/` optimizer / template registry were deleted) |
 | Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
 | JSON property utilities | `core/utils/neo4j_props.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
 
-**31 domain backends** live in `adapters/persistence/neo4j/backends/` (9 cluster files). Import directly from the cluster file:
+The domain backends live in `adapters/persistence/neo4j/backends/`, one cluster file per family. Import directly from the cluster file. This table is a transcription of `grep -o "^class [A-Za-z]*Backend" adapters/persistence/neo4j/backends/*.py` — re-run it rather than counting from here:
 
 | Cluster file | Backends |
 |---|---|
 | `backends/activity_backends.py` | HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend |
-| `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend |
+| `backends/curriculum_backends.py` | KuBackend, PsBackend (5 `_*_mixin` files: organizes, learning_state, semantic, knowledge_context, adaptive), LpBackend (3: lp_step, lp_progress, lp_intelligence), KnowledgeHealthBackend, EmbeddingCoverageBackend |
 | `backends/exercise_backends.py` | ExerciseBackend, RevisedExerciseBackend, EntryReportBackend |
-| `backends/user_entry_backend.py` | UserEntryBackend (shell over 5 `_user_entry_*_mixin` files) |
+| `backends/user_entry_backend.py` | UserEntryBackend (shell over the 5 `_user_entry_*_mixin` files) |
 | `backends/sharing_backend.py` | SharingBackend |
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |
 | `backends/templates_backends.py` | TaskTemplateBackend, GoalTemplateBackend, HabitTemplateBackend, EventTemplateBackend, ChoiceTemplateBackend, PrincipleTemplateBackend |
 | `backends/collab_backends.py` | GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend |
 | `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ActivityReportGeneratorBackend |
+| `backends/conversation_backend.py` | ConversationBackend |
 
 Always import directly from the cluster file, e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`.
 

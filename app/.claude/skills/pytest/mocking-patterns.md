@@ -36,13 +36,12 @@ backend = create_mock_backend({
     "delete": Result.ok(True),
 })
 
-# Mock provides standard CRUD methods
-backend.create   # AsyncMock
-backend.get      # AsyncMock
-backend.update   # AsyncMock
-backend.delete   # AsyncMock
-backend.list_by_user   # AsyncMock
-backend.find_by        # AsyncMock
+# The mock's pre-built AsyncMocks (read create_mock_backend for the exact set):
+backend.create / get / update / delete / list_by_user / list_by_domain / find_by / get_stats
+# A behavior key naming any OTHER method is added as a fresh AsyncMock. The base is a
+# plain Mock(): an unscripted method the service AWAITS raises TypeError (a Mock is not
+# awaitable), and one it merely reads returns a Mock, never a Result. Script every
+# method the path under test reaches.
 ```
 
 ⚠ **A status-bearing write does NOT go through `backend.update`** (ADR-087) — the Activity
@@ -95,10 +94,10 @@ async with driver.session() as session:
 Create services the same way production does, but with mock backends:
 
 ```python
-from tests.fixtures.service_factories import (
-    create_tasks_service_for_testing,
-    create_moc_service_for_testing,
-)
+from tests.fixtures.service_factories import create_tasks_service_for_testing
+# Siblings in the same module: create_finance_service_for_testing,
+# create_mock_backend_for_base_service, create_unified_user_context_for_testing,
+# create_askesis_user_context_for_testing.
 
 # Simple - all defaults
 service = create_tasks_service_for_testing()
@@ -111,7 +110,26 @@ service = create_tasks_service_for_testing(
 # Full control with custom backend
 my_backend = create_mock_backend({"create": Result.ok(task)})
 service = create_tasks_service_for_testing(backend=my_backend)
+# Keyword deps it accepts: backend, cross_domain_query, ku_inference_service,
+# ku_generation_service, graph_intel, event_bus, backend_behavior — a TasksService facade.
 ```
+
+## LLM and embeddings doubles — keep the real shape
+
+`tests/fixtures/llm_doubles.py`:
+
+```python
+from tests.fixtures.llm_doubles import scripted_llm, failing_llm, embeddings_double
+
+llm = scripted_llm("a canned insight")        # a REAL LLMService over a ScriptedChatCaller
+llm = failing_llm("rate limited")             # every call answers a provider failure
+emb = embeddings_double()                     # MagicMock(spec=[the public names]); create_embedding scripted
+emb = embeddings_double(create_embedding=AsyncMock(return_value=Result.ok([0.1] * 1024)))
+```
+
+Use these instead of replacing a helper on the service under test: a replaced helper hides a mismatch between the helper and the service it is wired to (that is exactly how the AI tier's `_generate_insight` returned a dataclass typed `Result[str]` for months). `LLMService()` with no arguments is the MOCK provider — a real return type, no network.
+
+⚠ `MagicMock(spec=<class>)` evaluates the class's annotations under Python 3.14 and fails on a `TYPE_CHECKING`-only name — pass `spec=[names]` (a list of the public names), as `embeddings_double` does.
 
 ## Result[T] Return Values
 
@@ -126,14 +144,14 @@ mock_backend.get.return_value = Result.ok(task)
 # Error case
 from core.utils.result_simplified import Errors
 mock_backend.get.return_value = Result.fail(
-    Errors.not_found("Task", "task:123")
+    Errors.not_found("Task", "task_missing_000123")   # (resource NAME, identifier) — never a sentence (SKUEL037)
 )
 
 # Multiple return values (sequential calls)
 mock_backend.get.side_effect = [
     Result.ok(task1),
     Result.ok(task2),
-    Result.fail(Errors.not_found("Task", "task:999")),
+    Result.fail(Errors.not_found("Task", "task_missing_000999")),
 ]
 ```
 
@@ -190,22 +208,22 @@ one test file written for it.
 ```python
 from unittest.mock import AsyncMock
 
-# Mock event bus
+# Mock event bus — services publish through publish_event(...) → bus.publish_async(event)
 event_bus = AsyncMock()
-event_bus.publish_async = AsyncMock()
 
-# Create service with mock event bus
-service = create_tasks_service_for_testing(event_bus=event_bus)
+service = create_tasks_service_for_testing(backend=guarded, event_bus=event_bus)
 
-# After test action
-await service.complete(task_uid)
+# Completion is the status chokepoint with a typed intent (there is no `complete()`)
+await service.update_task(task_uid, TaskUpdateIntent(status=EntityStatus.COMPLETED.value))
 
-# Verify event published
-event_bus.publish_async.assert_called_once()
-event = event_bus.publish_async.call_args[0][0]
-assert isinstance(event, TaskCompleted)
-assert event.task_uid == task_uid
+# A completion publishes TaskUpdated AND TaskCompleted — assert on the type, not on the count
+published = [c.args[0] for c in event_bus.publish_async.await_args_list]
+completed = [e for e in published if isinstance(e, TaskCompleted)]
+assert len(completed) == 1
+assert completed[0].task_uid == task_uid
 ```
+
+`guarded` above is a `guarded_backend(...)` fake (§ create_mock_backend) — a plain `create_mock_backend` has no `update_with_status_guard`, so the status write would hit an unscripted `Mock` and the completion verdict would never be derived.
 
 ## Mocking Neo4j Session
 
@@ -237,7 +255,7 @@ from core.models.task.task import Task
 @pytest.fixture
 def sample_task():
     return Task(
-        uid="task:test_1",
+        uid="task_test_000001",     # API-minted shape: task_{slug}_{random}; colons are never a uid spelling
         title="Test Task",
         priority=Priority.HIGH,
     )
@@ -272,24 +290,24 @@ async def test_get_task_not_found(tasks_service, mock_backend):
     # Arrange
     from core.utils.result_simplified import Errors
     mock_backend.get.return_value = Result.fail(
-        Errors.not_found("Task", "nonexistent")
+        Errors.not_found("Task", "task_nonexistent_000000")
     )
 
     # Act
-    result = await tasks_service.get("nonexistent")
+    result = await tasks_service.get("task_nonexistent_000000")
 
     # Assert
     assert result.is_error
-    assert "not found" in result.error.message.lower()
+    assert result.error.category == ErrorCategory.NOT_FOUND
 
 
 @pytest.mark.asyncio
-async def test_create_task_calps_backend(tasks_service, mock_backend, sample_task):
-    # Act
-    await tasks_service.create({"title": "New Task"})
+async def test_create_task_calls_backend(tasks_service, mock_backend, sample_task):
+    # Act — the facade's `create` takes the domain model; `create_task` takes a request + user_uid
+    await tasks_service.create(sample_task)
 
     # Assert
-    mock_backend.create.assert_called_once()
+    mock_backend.create.assert_awaited_once_with(sample_task)
 ```
 
 ## Assertion Helpers
@@ -324,8 +342,8 @@ mock_backend.delete.assert_not_called()
 from unittest.mock import call
 
 mock_backend.assert_has_calls([
-    call.get("task:1"),
-    call.update("task:1", {"title": "Revised title"}),
+    call.get("task_one_000001"),
+    call.update("task_one_000001", {"title": "Revised title"}),
 ])
 ```
 
@@ -349,8 +367,8 @@ mock_task = Mock()
 mock_task.is_overdue.return_value = True
 
 # GOOD - use real domain model
-task = Task(uid="task:1", due_date=yesterday, ...)
-assert task.is_overdue(datetime.now())
+task = Task(uid="task_one_000001", title="One", due_date=yesterday)
+assert task.is_overdue()   # reads today_in(current_zone()) itself — a day in the user's zone
 ```
 
 ### Forgetting AsyncMock
@@ -378,4 +396,6 @@ mock_backend.get.return_value = Result.ok(task)
 ## Key Files
 
 - `/tests/fixtures/service_factories.py` - Mock creation factories
+- `/tests/fixtures/llm_doubles.py` - `scripted_llm`, `failing_llm`, `embeddings_double`
+- `/tests/helpers/status_guarded_backend.py` - the ADR-087 fakes
 - `/core/utils/result_simplified.py` - Result[T] implementation + Errors factory (Errors.not_found, etc.)

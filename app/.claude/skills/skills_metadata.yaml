@@ -281,7 +281,7 @@ skills:
 
   - name: neo4j-cypher-patterns
     description: Neo4j Cypher queries and SKUEL's graph patterns
-    last_reviewed: "2026-07-09"
+    last_reviewed: "2026-09-30"
     foundation: []
     dependencies: []
     library_package: neo4j
@@ -516,7 +516,7 @@ skills:
 
   - name: skuel-search-architecture
     description: SKUEL's unified search architecture and SearchRouter
-    last_reviewed: "2026-07-09"
+    last_reviewed: "2026-09-30"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -621,17 +621,18 @@ skills:
 
   - name: pytest
     description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
-    last_reviewed: "2026-07-10"
+    last_reviewed: "2026-09-30"
     foundation: [python, result-pattern]
     dependencies: [python, result-pattern]
     library_package: pytest
-    library_version: "7.4.4"
+    library_version: "9.1.1"
     primary_docs:
       - /docs/patterns/TESTING_PATTERNS.md
       - /TESTING.md
     related_adrs:
       - ADR-066  # Typed Update Intents
       - ADR-087  # Status-Guarded Conditional Writes
+      - ADR-086  # Universal :OWNS edge — the write doors refuse an owner with no :User node (ensure_test_users)
     patterns:
       - /docs/patterns/GRAPH_ACCESS_PATTERNS.md
       - /docs/patterns/SHARING_PATTERNS.md

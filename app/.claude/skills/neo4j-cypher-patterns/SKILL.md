@@ -8,13 +8,13 @@ allowed-tools: Read, Grep, Glob
 
 ## Quick Start
 
-SKUEL uses Neo4j as its graph database with a Entity Type Architecture. All domains flow toward LifePath (the destination).
+SKUEL uses Neo4j as its graph database with the Entity Type Architecture. All domains flow toward LifePath (the destination).
 
 ### Entity Labels (Neo4j Node Labels)
 
-All domain entities use **multi-label architecture**: every entity gets `:Entity` (universal base) plus a domain-specific label. Match on the domain label for fast indexed queries, or `:Entity` for cross-domain queries.
+All domain entities use **multi-label architecture**: every entity gets `:Entity` (universal base) plus a domain-specific label. Match on the domain label for fast indexed queries, or `:Entity` for cross-domain queries. `NeoLabel` (`core/models/enums/neo_labels.py`) is the label vocabulary — SKUEL030 / CYP011 refuse a label or edge in persistence Cypher that is not a `NeoLabel` / `RelationshipName` member (Neo4j matches zero rows on an unknown name instead of erroring).
 
-| Domain | Label | UID Format | Example |
+| Domain | Label | UID Format (`ENTITY_TYPE_ARCHITECTURE.md` § the 25 types is the authority) | Example |
 |--------|-------|------------|---------|
 | **Activity (6) — user-owned** | | | |
 | Tasks | `Task` | `task_{slug}_{random}` | `task_fix-bug_abc123` |
@@ -27,19 +27,20 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Knowledge Units | `Ku` | `ku.{ns}.{slug}` (vault) or `ku_{slug}_{random}` (API) — both sanctioned, never sniff (ADR-013) | `ku.stoicism.dichotomy-of-control` |
 | Path Steps | `PathStep` | `ps.{namespace}.{slug}` (authored = stored, dot form) | `ps.python.intro` |
 | Learning Paths | `LearningPath` | `lp.{namespace}.{slug}` (authored = stored, dot form) | `lp.python.developer` |
-| Exercises | `Exercise` | varies | |
+| Exercises | `Exercise` | `ex.{ns}.{slug}` (vault) or `ex_{slug}_{random}` (API) | |
 | **Curated Content — shared content** | | | |
-| Resources | `Resource` | *(no fixed format)* | |
-| **User-authored content + Reports (3) — ADR-054** | | | |
+| Resources | `Resource` | `resource.{slug}` (authored) | |
+| **User-authored content + Reports — ADR-054** | | | |
 | User Entries | `UserEntry` | `ue_{slug}_{random}` | `ue_my-essay_abc123` |
 | Activity Reports | `ActivityReport` | `ar_{random}` | |
-| Entry Reports | `EntryReport` | `sr_{random}` | |
+| Entry Reports | `EntryReport` | `er_{random}` | |
 | **Destination** | | | |
-| Life Path | `LifePath` | `lp_{random}` | `lp_abc123` |
-| **Other** | | | |
+| Life Path | `LifePath` | `lifepath.{slug}` (authored; no API mint) — but a *designated* path is an ordinary `LearningPath` reached through `ULTIMATE_PATH` (below) | |
+| **Not EntityTypes** | | | |
 | Users | `User` | `user_{name}` | `user_mike` |
-| Finance | `Expense` | `expense_{random}` | `expense_abc123` |
-| Groups | `Group` | `group_{slug}_{random}` | |
+| Groups | `Group` | `NonKuDomain.GROUP`; ownership in `owner_uid`, not `user_uid` | |
+
+Finance is a Firefly III sidecar — there is no `:Expense` label.
 
 ### Core Relationships (Most Common)
 
@@ -88,9 +89,11 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 ### Pattern 1: Get User's Entities
 
 ```cypher
-// Get all active tasks for a user via universal OWNS relationship
+// Get a user's open tasks via the universal OWNS relationship.
+// $statuses is bound from the enum in Python (SKUEL014) — e.g. the
+// non-terminal EntityStatus values; 'pending' / 'in_progress' are NOT members.
 MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
-WHERE t.status IN ['pending', 'in_progress']
+WHERE t.status IN $statuses
 RETURN t
 ORDER BY t.priority DESC, t.due_date ASC
 ```
@@ -122,9 +125,12 @@ ORDER BY length(path)
 ### Pattern 4: Graph-Aware Search
 
 ```cypher
-// Search tasks with relationship filter
+// Search a user's tasks with a relationship filter. Text search in SKUEL is
+// case-INSENSITIVE CONTAINS (both sides lower-cased — build_text_search_query,
+// faceted_search_raw); the ownership predicate is the OWNER_ONLY clause.
 MATCH (t:Task)
-WHERE t.title CONTAINS $query OR t.description CONTAINS $query
+WHERE t.user_uid = $user_uid
+  AND (toLower(t.title) CONTAINS toLower($query) OR toLower(t.description) CONTAINS toLower($query))
 OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 WITH t, collect(ku) as knowledge
 WHERE size(knowledge) > 0  // Only tasks that apply knowledge
@@ -156,7 +162,7 @@ SKUEL has one query builder plus a package of Cypher functions (SKUEL001: no APO
 > every boot, zero production invocations since 2026-05-12. There is no template registry
 > and no runtime query optimizer/validator; don't reach for one.
 
-**SKUEL001 linter rule:** APOC is scoped to `apoc.meta.*` (schema introspection only). Domain services author neither APOC nor Cypher — they call a named backend method, and the backend composes pure Cypher from the `build_*` functions above.
+**APOC is not part of the product runtime.** SKUEL001 (CRITICAL, unsuppressable) rejects the whole `apoc.*` namespace — `apoc.meta.*` included — above the persistence boundary (`core/`, `adapters/inbound/`, `ui/`); SKUEL021 rejects raw Cypher there. The compose allowlist (`infrastructure/docker-compose.yml`) admits `apoc.meta.*` only, and **no product code calls even that** — the only live APOC callers are the two integration suites (`test_apoc_canary.py`, `test_apoc_allowlist_lockdown.py`) and the hand-run `scripts/migrations/*.cypher` archive. Domain services author neither APOC nor Cypher — they call a named backend method, and the backend composes pure Cypher from the `build_*` functions above. Query producers return `(cypher, params)` — relationship types and labels are validated against the enums before inlining (SKUEL030), every value stays a `$parameter` (CYP003). **See:** `/docs/patterns/CYPHER_VS_APOC_STRATEGY.md`.
 
 ### Three-Layer Architecture
 
@@ -166,17 +172,17 @@ Layer 1: UniversalNeo4jBackend (Generic CRUD)
 └── Powers ALL 25 entity types with CRUD, search, relationships
 
 Layer 2: Domain Backends (Domain-Specific Cypher)
-├── 31 typed subclasses in backends/ (9 cluster files — import directly from the cluster file)
-├── ~23 standalone backends in adapters/persistence/neo4j/ (CrossDomainBackend, UserBackend, VectorSearchBackend, ZPDBackend, EmbeddingsBackend, IngestionBackend, ...) — full inventory: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
+├── Typed subclasses in backends/ — clustered files, import directly from the cluster file
+│   (census: `grep -o "^class [A-Za-z]*Backend" adapters/persistence/neo4j/backends/*.py`; PATTERNS.md § Where Does Cypher Live lists them)
+├── Standalone backends in adapters/persistence/neo4j/ (CrossDomainBackend, UserBackend, VectorSearchBackend, ZPDBackend, EmbeddingsBackend, IngestionBackend, ...) — full inventory: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
+├── Cross-domain Cypher lives here too: the MEGA-QUERY statements (`user_context_queries.py`, `RICH_CONTEXT_STATEMENTS`) and `CrossDomainBackend`
 ├── Domain-specific relationship Cypher (ORGANIZES, SHARES_WITH, FULFILLS_EXERCISE, etc.)
 └── Rule: If a Cypher query uses domain-specific relationships, it belongs here
 
 Layer 3: Services (Business Logic + Cross-Domain Aggregation)
 ├── Domain services delegate to backend methods, NOT execute_query()
-├── Two service-layer Cypher exceptions (both use QueryExecutor directly):
-│   ├── user_context_queries.py — MEGA-QUERY (full user state snapshot)
-│   └── CrossDomainQueryService — 9 targeted cross-domain reads (returns frozen typed dataclasses)
-└── Orchestration, events, validation — no other inline Cypher
+├── `CrossDomainQueryService` takes a `CrossDomainBackendOperations` backend — its Cypher is the backend's
+└── No Cypher in core/ (SKUEL021), no adapters import in core/ (SKUEL022)
 ```
 
 ## Filter Operators
@@ -212,8 +218,10 @@ incident-edge-attributed producer (`build_domain_context_with_paths`); the old f
 | `HIERARCHICAL` | HAS_SUBTASK, HAS_SUBGOAL, HAS_SUBHABIT, HAS_SUBEVENT, HAS_SUBCHOICE, HAS_SUBPRINCIPLE, HAS_STEP, ORGANIZES |
 | `PREREQUISITE` | REQUIRES_KNOWLEDGE, PREREQUISITE_FOR, ENABLES |
 | `PRACTICE` | REINFORCES_KNOWLEDGE, APPLIES_KNOWLEDGE |
-| `GOAL_ACHIEVEMENT` | FULFILLS_GOAL, SUPPORTS_GOAL, SUBGOAL_OF, GUIDED_BY_PRINCIPLE, CONTRIBUTES_TO_GOAL |
+| `GOAL_ACHIEVEMENT` | FULFILLS_GOAL, SUPPORTS_GOAL, REQUIRES_KNOWLEDGE, SUBGOAL_OF, GUIDED_BY_PRINCIPLE, CONTRIBUTES_TO_GOAL |
 | else (`EXPLORATORY`/`SPECIFIC`/`AGGREGATION`/`RELATIONSHIP`) | generic traversal, no edge filter |
+
+(The rows are transcribed from `_INTENT_EDGE_SETS`; the dict is the authority — re-read it before relying on a row.)
 
 **See:** `docs/roadmap/intent-traversal-registry-convergence.md` (authoritative).
 
@@ -223,16 +231,17 @@ Neo4j indexes are created automatically at startup via `Neo4jSchemaManager` in `
 
 | Index Type | Method | When Created | Purpose |
 |-----------|--------|-------------|---------|
-| **Domain indexes** | `sync_domain_indexes()` | Always | UID, user_uid, status, date, composite — 48 indexes |
-| **Full-text indexes** | `sync_fulltext_indexes()` | Always | Lucene keyword search across 14 domains (6 Activity + 4 Curriculum + 2 Learning Loop + 2 Forms) — Cypher-first foundation |
+| **Domain indexes** | `sync_domain_indexes()` | Always | The `Entity.uid` uniqueness constraint, per-label uid / user_uid / status / date / composite indexes — the method's docstring itemises them |
+| **Full-text indexes** | `sync_fulltext_indexes()` | Always | Lucene keyword search, one index per label in `FULLTEXT_INDEX_DEFINITIONS` (the 6 Activity + 4 Curriculum + RevisedExercise + UserEntry + 2 Forms) — Cypher-first foundation |
 | **Auth indexes** | `sync_auth_indexes()` | Always | Rate limiting, session lookup, email uniqueness |
-| **Vector indexes** | `sync_vector_indexes()` | FULL tier only | 1024-dim cosine — bootstrap creates Entity, ContentChunk, ReferenceChunk, Ku, PathStep, LearningPath; Goal + Task per-label indexes via `scripts/create_vector_indexes.py` (8 total live) |
+| **Conversation indexes** | `sync_conversation_indexes()` | Always | `:ConversationSession` / turn lookups |
+| **Vector indexes** | `sync_vector_indexes(entity_labels=list(EmbeddingGeometry.INDEX_LABELS), …)` | FULL tier only | `EmbeddingGeometry.DIMENSION`-dim cosine, `{label.lower()}_embedding_idx` — **every** label in `EmbeddingGeometry.INDEX_LABELS` (`core/constants.py`) at boot; `scripts/create_vector_indexes.py` reads the same constant |
 
 > **Server side:** the Java Vector API (SIMD) must be enabled for these to run optimally —
 > `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` in `infrastructure/docker-compose.yml`.
 > See [NEO4J_SERVER_TUNING.md](../../../docs/patterns/NEO4J_SERVER_TUNING.md).
 
-Full-text indexes are the **Cypher-first search foundation** — created in both tiers, no embeddings needed. Their one production reader is the SearchRouter hybrid rung (Ku/PathStep/LearningPath, FULL tier, `advanced_search`/`/api/search/unified` only); every other text search — including the `/search` page — runs `CONTAINS`, and that `CONTAINS` is **case-INSENSITIVE** (both predicates lower-case each side: `faceted_search_raw` and `build_text_search_query`). Fulltext therefore buys relevance ranking and vector recall, not case-insensitivity. Two measured limits (Neo4j 2026.06.0): the shipped indexes use the default `standard-no-stop-words` analyzer, so they do **not stem** (`run` misses "Running") — and Lucene matches whole tokens, so `photosyn` misses "Photosynthesis" where `CONTAINS` finds it. Keep a `CONTAINS` fallback on any fulltext-first path. Derive index names from `NeoLabel.fulltext_index_name()`, never flat `label.lower()` (`PathStep` → `path_step_fulltext_idx`):
+Full-text indexes are the **Cypher-first search foundation** — created in both tiers, no embeddings needed. Their one production reader is the SearchRouter hybrid rung (Ku/PathStep/LearningPath, FULL tier, `advanced_search` / `POST /api/search/unified` only); every other text search — including the `/search` page — runs `CONTAINS`, and that `CONTAINS` is **case-INSENSITIVE** (both predicates lower-case each side: `faceted_search_raw` and `build_text_search_query`). Fulltext therefore buys relevance ranking and vector recall, not case-insensitivity. Two measured limits (SEARCH_ARCHITECTURE § Hybrid Fulltext + Vector Rung): the shipped indexes use the default `standard-no-stop-words` analyzer, so they do **not stem** (`run` misses "Running") — and Lucene matches whole tokens, so `photosyn` misses "Photosynthesis" where `CONTAINS` finds it. Keep a `CONTAINS` fallback on any fulltext-first path. Derive index names from `NeoLabel.fulltext_index_name()`, never flat `label.lower()` (`PathStep` → `path_step_fulltext_idx`):
 
 ```cypher
 // Full-text search (Lucene-based, relevance-ranked)
@@ -252,10 +261,14 @@ All DDL is idempotent (`IF NOT EXISTS`) — safe on every startup.
 
 ### 0. Never MATCH by uid without a label guard (G13 shadow rule)
 
-The chunk store's `:Content` node shares its entity's uid, so an unlabeled
+The chunk store's `:Content` node (`neo4j_content_adapter.py` — `MERGE (c:Content {uid: $uid})`,
+the Ku / PathStep whose body it holds) shares its entity's uid, so an unlabeled
 `MATCH (n {uid: $uid})` binds BOTH nodes — duplicated rows, doubled MERGE
-edges, misread labels (found live: doubled INTERACTION_DURING, systems
-review 2026-07-03; codebase-wide sweep in Arc E). Two sanctioned forms:
+edges, misread labels. The relationship mixins and `_TraversalMixin` carry the
+guard; a census (`grep -E 'MATCH \([a-z_]* \{\{?uid: \$' adapters/persistence`)
+still finds unguarded sites — the lateral writer in `collab_backends.py`, the
+`semantic_queries.py` builders, `ps_engagement_backend.py` among them — so treat
+the rule as a rule, not as a finished sweep. Two sanctioned forms:
 
 ```cypher
 // Entity-only paths — bind the universal base label
@@ -278,7 +291,7 @@ MATCH (t:Task {uid: '${uid}'})
 **Exception: labels, property names, and relationship types cannot be parameterized in Neo4j.** SKUEL validates all interpolated values at the infrastructure boundary:
 
 ```python
-# Shared guards in _helpers.py (used by all 5 query builder modules)
+# Shared guards in _helpers.py (imported by every module in query/cypher/ and by the schema manager)
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label, validate_identifier
 validate_label(label)             # raises ValueError if not a known NeoLabel value
 validate_identifier(field)        # raises ValueError if not a safe identifier (^[a-zA-Z_][a-zA-Z0-9_]*$)
@@ -292,7 +305,7 @@ from core.utils.validation_helpers import validate_field_name
 validate_field_name(name)    # regex check, max 64 chars
 ```
 
-**Coverage:** All 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`) validate labels, field names, relationship types, and property keys before f-string interpolation. `_build_direction_pattern()` is the single choke point for mixin-level relationship Cypher (`get_related_entities`, `get_related_uids`, `count_related`). `traverse()` and `find_path()` validate pipe-separated patterns.
+**Coverage:** every `query/cypher/` module (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`, `learning_loop_fragments.py`) validates labels, field names, relationship types, and property keys before f-string interpolation; `_search_mixin.py`, `_user_entity_mixin.py`, `crud_queries.py` and `unified_query_builder.py` call `validate_field_name`. `_build_direction_pattern()` is the single choke point for mixin-level relationship Cypher (`get_related_entities`, `get_related_uids`, `count_related`). `traverse()` and `find_path()` validate pipe-separated patterns.
 
 The same pattern applies to DDL (vector indexes, schema creation) — validate `label`, `field_name`, and `similarity` before building the query string. See `adapters/persistence/neo4j/neo4j_schema_manager.py` for the pattern.
 
@@ -399,27 +412,31 @@ await connect_with_retry(
 )
 ```
 
-The same `connect()` holds the two other checks on the seam: the driver is built only by
-`open_async_driver` (`graph_driver.py`), which refuses a process whose clock is not pinned to UTC,
-and after the probe answers, `require_utc_instants` refuses a graph that holds data unless the UTC
-instants migration's `:MigrationRecord` is `applied` (an empty graph is stamped). The migration
-script is the one opener that skips the second (`Neo4jConnection(utc_instants_guard=False)`).
+The same `connect()` holds the two other checks on the seam (ADR-089): the driver is built only by
+`open_async_driver` (`graph_driver.py`) — the one construction site, held by
+`tests/unit/test_graph_driver_construction_sites.py` — which refuses a process whose clock is not
+pinned to UTC (`pin_process_clock_to_utc()` from `core/utils/process_clock.py`, called by every
+entry point **before its first first-party import**: `main.py`, `tests/conftest.py`, each
+graph-opening script; `./dev` exports `TZ=UTC`); and after the probe answers, `require_utc_instants`
+refuses a graph that holds data unless the UTC instants migration's `:MigrationRecord` is `applied`
+(an empty graph is stamped; a clear-the-graph fixture keeps that node). The migration script is the
+one opener that skips the second (`Neo4jConnection(utc_instants_guard=False)`).
 
 `probe_connectivity()` runs `RETURN 1` — a stronger check than the driver's routing-only
 `verify_connectivity()`, because it confirms the database is actually **resumed and answering**,
 not merely routable (which is what matters for a paused instance waking up). After the bound it
 raises one actionable `RuntimeError`, never a bare `ServiceUnavailable` stacktrace.
 
-This is **startup-only**. Deep mid-request reconnect / circuit-breaker across the ~124
+This is **startup-only**. Deep mid-request reconnect / circuit-breaker across the
 `session.run` sites is deliberately deferred (ADR-080 "When to Revisit"); the natural home if it
-is ever built is this same driver/executor seam (a thin wrapper), **not** 124 call-site edits —
+is ever built is this same driver/executor seam (a thin wrapper), **not** per-call-site edits —
 the same "one chokepoint, not N edits" reasoning behind the `TimedDriver` above.
 
 ### 7. Schema-Change Monitoring (opt-in)
 
 `SchemaChangeDetector` (`core/services/schema_change_detector.py`) fingerprints the live Neo4j schema (labels, indexes, constraints, relationship types) and reports drift — classified changes, breaking-change flags, and migration history.
 
-Its former `AdaptiveOptimizationHandler` (auto-registered, cleared the adapter's `_index_aware_builder` / `_enhanced_templates` caches on drift) was deleted 2026-08-17 with the `query_builders/` stack whose caches were its only job. **The detector's value is now drift detection and logging**, not cache invalidation — there are no query-optimization caches left to invalidate.
+**The detector's whole job is drift detection and logging** — there is no cache-invalidating handler and no query-optimization cache to invalidate (the `query_builders/` stack that had them is gone).
 
 It is exposed as an **on-demand** capability on the adapter — `Neo4jAdapter.check_schema_changes()`, `initialize_schema_monitoring()`, `stop_schema_monitoring()` — and is wired into the composition root as an **opt-in background poll**:
 
@@ -502,10 +519,10 @@ spellings as a subquery.)
 
 ## Additional Resources
 
-- [reference.md](reference.md) - Curated relationship type catalog (enum has 169 members)
+- [reference.md](reference.md) - Curated relationship type catalog (the enum is the full list — `len(RelationshipName)`)
 - [examples.md](examples.md) - Full query examples for each domain
 - [docs/patterns/NEO4J_QUERY_TIMEOUT.md](/docs/patterns/NEO4J_QUERY_TIMEOUT.md) - Per-query server-side timeout (TimedDriver, override mechanism)
-- [ADR-064](/docs/decisions/ADR-064-neo4j-per-query-timeout.md) - Why the chokepoint is a driver wrapper, not 124 call-site edits
+- [ADR-064](/docs/decisions/ADR-064-neo4j-per-query-timeout.md) - Why the chokepoint is a driver wrapper, not call-site edits
 - [ADR-080](/docs/decisions/ADR-080-auradb-three-horizon-strategy.md) - AuraDB three-horizon strategy: telemetry retention (batched deletes, BP 10), startup connect-retry (BP 6), and the temporal-storage split (BP 8)
 
 ## Related Skills
@@ -524,7 +541,7 @@ spellings as a subquery.)
 - [query_architecture.md](/docs/patterns/query_architecture.md) - Query architecture patterns
 
 **Code:**
-- `/core/models/relationship_names.py` - RelationshipName enum (source of truth for all 169 relationship types)
+- `/core/models/relationship_names.py` - RelationshipName enum (source of truth for every relationship type)
 
 ---
 
@@ -535,5 +552,6 @@ This skill has no prerequisites. It is a foundational pattern.
 ## See Also
 
 - `/docs/patterns/query_architecture.md` - Query architecture documentation
-- `/docs/patterns/query_architecture.md` - Database architecture
+- `/docs/patterns/CYPHER_VS_APOC_STRATEGY.md` - Why APOC is not in the product runtime
+- `/docs/patterns/GRAPH_ACCESS_PATTERNS.md` - Registry-sourced cross-domain context (mechanism B)
 - `/core/models/relationship_names.py` - RelationshipName enum (source of truth)

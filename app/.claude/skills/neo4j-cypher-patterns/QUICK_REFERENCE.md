@@ -35,7 +35,7 @@ WHERE datetime(n.created_at) >= datetime($window_start)
 
 // date field (due_date, event_date, ...): SKUEL's standard guard takes the
 // YYYY-MM-DD prefix so a *mis-stored* datetime string ("2026-06-17T09:00")
-// doesn't make date() ERROR and blank the whole range (#766). "Today" is the
+// doesn't make date() ERROR and blank the whole range. "Today" is the
 // $today parameter — today in the user's zone, never the server's UTC date()
 WHERE date(left(toString(n.due_date), 10)) < date($today)
 
@@ -84,10 +84,10 @@ validate_identifier(field)   # safe identifier or ValueError
 
 | Index type | Count | Tier | Notes |
 |-----------|-------|------|-------|
-| Domain (uid/status/date/composite) | ~48 | Always | `sync_domain_indexes()` |
-| Full-text (Lucene) | 14 | Always | 6 Activity + 4 Curriculum + 2 Learning Loop + 2 Forms. Read by the hybrid rung (Ku/PS/LP, FULL tier, `advanced_search` only) — every other text search is `CONTAINS` |
-| Auth | — | Always | sessions, rate limiting, email uniqueness |
-| Vector (1024-dim cosine) | — | FULL only | `EmbeddingGeometry.INDEX_LABELS` is the list — one constant read by both the bootstrap sync and `scripts/create_vector_indexes.py`. It holds what exists, not a chosen set: the label-generic semantic/learning rung can ask for a domain outside it and degrades silently (see `deferred-work.md` § Label-Generic Vector Rung) |
+| Domain (uid constraint / user_uid / status / date / composite) | see the method's docstring | Always | `sync_domain_indexes()` |
+| Full-text (Lucene) | one per label in `FULLTEXT_INDEX_DEFINITIONS` | Always | Read by the hybrid rung (Ku/PS/LP, FULL tier, `advanced_search` / `POST /api/search/unified` only) — every other text search is case-insensitive `CONTAINS` |
+| Auth / conversation | — | Always | `sync_auth_indexes()` (sessions, rate limiting, email uniqueness), `sync_conversation_indexes()` |
+| Vector (`EmbeddingGeometry.DIMENSION` dims, cosine) | `len(EmbeddingGeometry.INDEX_LABELS)` | FULL only | `EmbeddingGeometry.INDEX_LABELS` (`core/constants.py`) is the list — one constant read by both the bootstrap sync (every label at boot) and `scripts/create_vector_indexes.py`; names are `{label.lower()}_embedding_idx`. It holds what exists, not a chosen set: the label-generic semantic/learning rung can ask for a domain outside it and degrades silently (see `deferred-work.md` § Label-Generic Vector Rung) |
 
 ```cypher
 CALL db.index.fulltext.queryNodes('task_fulltext_idx', 'urgent deadline') YIELD node, score
@@ -106,10 +106,12 @@ CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding) YIELD no
 | Per-domain ownership edges (`HAS_TASK`-style) | There is one ownership edge: `(u:User)-[:OWNS]->(e)` (ADR-086) |
 | `:Curriculum` label in MATCH | No such label — use `:Ku`/`:PathStep`/`:LearningPath`/`:Exercise` or `:Entity` + `entity_type` |
 | Status literals like `'pending'`/`'on_track'` | Not `EntityStatus` values — bind `$statuses` from the enum (SKUEL014) |
-| APOC call in `core/` | SKUEL001 — APOC is `apoc.meta.*` only, adapters-side |
+| APOC anywhere above the persistence boundary | SKUEL001 (unsuppressable) matches the whole `apoc.*` namespace in `core/`, `adapters/inbound/`, `ui/`; the server allowlist is `apoc.meta.*`, and no product code calls even that |
 | Inline Cypher in a service | SKUEL021 — Cypher lives in `adapters/persistence/neo4j/` backends |
 | A colon-spelled entity uid (`ps:x:y`) | Not a UID spelling — authored = stored in dot form (`ps.x.y`); ingestion rejects the colon form. Colons mark internal machine ids only (`ue:daily:…`) |
 | Cartesian product from stacked OPTIONAL MATCH | `collect(DISTINCT ...)` per branch before the next MATCH |
+| `backend.update({"status": ...})` | ADR-087 — a status-bearing write goes through `update_with_status_guard(uid, updates, guard)`; the verdict comes from the prior the statement returns |
+| A label or edge name Neo4j silently matches zero rows on | SKUEL030 / CYP011 — every label / edge in persistence Cypher is a `NeoLabel` / `RelationshipName` member |
 
 ---
 
@@ -117,9 +119,9 @@ CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding) YIELD no
 
 | Cypher | Location |
 |--------|----------|
-| Generic CRUD | `UniversalNeo4jBackend` (11 mixin files) |
-| Domain-specific | 31 backends in `adapters/persistence/neo4j/backends/` (9 cluster files) |
-| Cross-domain aggregation | `user_context_queries.py` (MEGA-QUERY), `CrossDomainQueryService` — the only two service-layer exceptions |
+| Generic CRUD | `UniversalNeo4jBackend` — the `_*Mixin` files its class bases name |
+| Domain-specific | the backends in `adapters/persistence/neo4j/backends/` (cluster files; PATTERNS.md § Where Does Cypher Live) |
+| Cross-domain aggregation | `adapters/persistence/neo4j/user_context_queries.py` (the MEGA-QUERY's `RICH_CONTEXT_STATEMENTS`), `CrossDomainBackend` — no Cypher in `core/` (SKUEL021) |
 | Vector search | `VectorSearchBackend` (FULL tier) |
 | DDL | `neo4j_schema_manager.py` (startup, idempotent `IF NOT EXISTS`) |
 
