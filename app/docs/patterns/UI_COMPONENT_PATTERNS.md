@@ -1227,9 +1227,9 @@ Domains outside the Activity pattern use the same principle — service methods 
 
 Module-level helpers keep route handlers thin. The form readers in `form_helpers.py`:
 
-| Helper | Purpose | UI callers |
+| Helper | Purpose | Callers |
 |--------|---------|---------|
-| `parse_form_body(request, Model)` | The whole form validated into its Pydantic request model, as a `Result` | the 6 Activity `*_ui.py` files, `activity_reports_ui` |
+| `parse_form_body(request, Model)` | The whole form validated into its Pydantic request model, as a `Result` | the 6 Activity `*_ui.py` files, `activity_reports_ui`; the API modules `exercises_api`, `teaching_api`, `user_pins_api` |
 | `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` | One raw field, typed `str \| UploadFile \| None`, read with a default | `auth_ui`, `settings_routes`, `lifepath_ui`, `askesis_ui` |
 
 ```python

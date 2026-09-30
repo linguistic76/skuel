@@ -843,7 +843,7 @@ except ValueError:
     return Div(render_error_banner("Please choose a priority."))
 ```
 
-An enum in a request body needs no guard: its Pydantic request model parses it (`parse_body` → 400). A client's datetime is an instant and has no form helper: a request model types it `ClientDateTime` (`core/models/request_base.py`), which reads an offset-less value on the current zone's clock.
+An enum in a body read through `parse_body` / `parse_json_body` / `parse_form_body` needs no guard: the request model rejects a bad value as a failed validation `Result` — a 400 at an API route through `@boundary_handler`, an error banner where a UI form re-renders. A client's datetime is an instant and has no form helper: a request model types it `ClientDateTime` (`core/models/request_base.py`), which reads an offset-less value on the current zone's clock.
 
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 
