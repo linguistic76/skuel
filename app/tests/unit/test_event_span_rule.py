@@ -55,8 +55,10 @@ class TestEventSpanError:
             (time(9, 0), time(9, 0), f"at least {EventSpan.MIN_MINUTES} minutes"),
             (time(10, 0), time(9, 0), f"at least {EventSpan.MIN_MINUTES} minutes"),
             (time(9, 0), time(21, 1), "at most 12 hours"),
+            (time(9, 0, 30), time(9, 5), f"at least {EventSpan.MIN_MINUTES} minutes"),
+            (time(9, 0), time(21, 0, 30), "at most 12 hours"),
         ],
-        ids=["4-min", "zero", "end-before-start", "721-min"],
+        ids=["4-min", "zero", "end-before-start", "721-min", "4.5-min", "12h-and-30s"],
     )
     def test_a_span_outside_the_bounds_is_named(
         self, start: time, end: time, fragment: str

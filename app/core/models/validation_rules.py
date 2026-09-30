@@ -32,7 +32,7 @@ Usage:
 """
 
 from collections.abc import Callable, Mapping
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from pydantic import BaseModel, ValidationInfo, field_validator
 
@@ -514,10 +514,10 @@ def event_span_error(start_time: time | None, end_time: time | None) -> str | No
     """
     Why an event's span is out of bounds, or ``None`` when it is within them.
 
-    The span is ``end_time - start_time`` on the event's day, and must lie within
-    ``EventSpan.MIN_MINUTES`` - ``EventSpan.MAX_MINUTES``. An end before the start is
-    a negative span, so it is refused as too short. With either time missing there
-    is no span to judge, and the result is ``None``.
+    The span is ``end_time - start_time`` on the event's day, to the microsecond, and
+    must lie within ``EventSpan.MIN_MINUTES`` - ``EventSpan.MAX_MINUTES``. An end before
+    the start is a negative span, so it is refused as too short. With either time
+    missing there is no span to judge, and the result is ``None``.
 
     Args:
         start_time: The event's start time
@@ -528,10 +528,11 @@ def event_span_error(start_time: time | None, end_time: time | None) -> str | No
     """
     if start_time is None or end_time is None:
         return None
-    span = (end_time.hour * 60 + end_time.minute) - (start_time.hour * 60 + start_time.minute)
-    if span < EventSpan.MIN_MINUTES:
+    day = date.min
+    span = datetime.combine(day, end_time) - datetime.combine(day, start_time)
+    if span < timedelta(minutes=EventSpan.MIN_MINUTES):
         return f"Event must last at least {EventSpan.MIN_MINUTES} minutes"
-    if span > EventSpan.MAX_MINUTES:
+    if span > timedelta(minutes=EventSpan.MAX_MINUTES):
         return (
             f"Event must last at most {EventSpan.MAX_MINUTES // 60} hours. "
             "Use a multi-day event or split it into sessions."
