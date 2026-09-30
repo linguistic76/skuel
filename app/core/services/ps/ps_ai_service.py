@@ -291,8 +291,8 @@ Each item should be concrete and actionable, not generic."""
         chokepoint (draft-marked steps withheld, so the list can be shorter
         than ``limit``); the hits are read back as models in score order. An
         embedding or index failure is the method's failure — there is no
-        keyword fallback, because the backend's substring search has no
-        publication gate and its hits are not semantic.
+        keyword fallback: a substring hit is not semantic, and the backend
+        has no publication-gated text search to fall back on.
 
         Args:
             query_text: Natural language query

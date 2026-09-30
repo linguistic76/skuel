@@ -65,7 +65,7 @@ _crud_mixin.py:
     (create composes the (User)-[:OWNS]-> owner edge into the same statement)
 
 _search_mixin.py:
-    search, find_by, find_by_date_range, count, health_check,
+    find_by, find_by_date_range, count, health_check,
     get_domain_context_raw, execute_query
 
 _search_raw_mixin.py:

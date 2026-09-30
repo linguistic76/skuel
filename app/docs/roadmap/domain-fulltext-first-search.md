@@ -48,15 +48,17 @@ The follow-on, in rough order of value:
   runs `faceted_search`, a separate path still on `CONTAINS`, so the highest-traffic search
   surface has not changed. Reaching it means either routing the faceted path through the
   same rung or giving `faceted_search` its own; decide which when a consumer asks.
-- **`_search_mixin.search` goes fulltext-first with CONTAINS fallback** — makes every caller
-  of domain search index-backed and the "Cypher-first search foundation" claim true. Requires
-  threading each domain's `SearchVisibility` into the fulltext Cypher (OWNER_ONLY domains need
-  `user_uid` scoping the current label-wide fulltext path does not have — the reason this half
-  was split off). The gating helpers (`NeoLabel.fulltext_index_name`, `escape_lucene_query`,
-  the publication-gated `query_fulltext_index`) already exist.
+- **`text_search_raw` goes fulltext-first with CONTAINS fallback** — the one backend text
+  primitive behind the service-layer `SearchOperationsMixin.search()` (the backend has no
+  `search` of its own), so every caller of domain search becomes index-backed and the
+  "Cypher-first search foundation" claim true. Requires threading each domain's
+  `SearchVisibility` into the fulltext Cypher (OWNER_ONLY domains need `user_uid` scoping the
+  current label-wide fulltext path does not have — the reason this half was split off). The
+  gating helpers (`NeoLabel.fulltext_index_name`, `escape_lucene_query`, the
+  publication-gated `query_fulltext_index`) already exist.
 - **CORE-tier text story** — fulltext needs no embeddings, so a fulltext-only rung (skip the
   vector half) would give CORE-tier relevance-ranked search too. Decide whether that lives in
-  the mixin (above) or as a CORE branch of the SearchRouter rung.
+  `text_search_raw` (above) or as a CORE branch of the SearchRouter rung.
 - **Exercise** — SCOPE_AWARE visibility (curriculum scope public, owned scopes via
   OWNS/SHARES_WITH/group membership) needs the same user_uid threading, plus Exercise has no
   vector index (add it alongside, or run fulltext-only).
