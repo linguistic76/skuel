@@ -458,20 +458,7 @@ class ContextualHabitCompletionRequest(BaseModel):
     @field_validator("quality")
     @classmethod
     def validate_quality(cls, value: str) -> str:
-        """Reject an unknown quality rating as a validation error, not a ``TypeError``.
-
-        This field is bound by FastHTML as ``body: ContextualHabitCompletionRequest``,
-        and FastHTML coerces each incoming value by **calling** the annotation. A
-        ``Literal`` annotation — which this used to be — raises
-        ``TypeError: Cannot instantiate typing.Literal``, which is not a
-        ``ValidationError``, so ``install_request_validation_guard`` never sees it and
-        the request 500s on ordinary bad input. ``str`` is callable, so the coercion
-        succeeds and the check lands here, where a ``ValueError`` becomes a Pydantic
-        ``ValidationError`` and the guard renders it as a 400.
-
-        An enum annotation would not fix it: FastHTML would call ``Enum("bad")``, which
-        raises ``ValueError`` outside the model and is equally unconverted.
-        """
+        """Reject a quality rating outside ``CONTEXTUAL_QUALITY_VALUES``."""
         if value not in CONTEXTUAL_QUALITY_VALUES:
             raise ValueError(f"quality must be one of: {', '.join(CONTEXTUAL_QUALITY_VALUES)}")
         return value

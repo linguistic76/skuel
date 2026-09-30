@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 # Service Architecture: File Organization & Topology
@@ -462,12 +462,13 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
    Body: {title: "Learn BaseService", priority: "high"}
    │
    ▼
-2. Route Handler
-   @rt("/api/tasks/create")
-   async def create_task_route(request, body: TaskCreateRequest):
+2. Route Handler (CRUDRouteFactory's /create door)
+   async def create(request: Request) -> Result[Task]:
+       parsed = await parse_body(request, TaskCreateRequest)   # 400 on a bad body
+       if parsed.is_error:
+           return Result.fail(parsed)
        user_uid = require_authenticated_user(request)
-       result = await services.tasks.create_task(body, user_uid)
-       return {"task_uid": result.value.uid}
+       return await request_create(parsed.value, user_uid)     # → TasksService.create_task
    │
    ▼
 3. Facade Delegation

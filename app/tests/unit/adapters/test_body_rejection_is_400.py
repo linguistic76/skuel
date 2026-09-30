@@ -4,9 +4,7 @@ Why this exists
 ---------------
 ``boundary_handler`` ends in a catch-all that logs and returns 500, so a
 ``ValidationError`` raised *inside* a decorated handler is indistinguishable
-from a crash: the client is told "server bug" about its own bad input. The
-app-level ``install_request_validation_guard`` does not help here — it only sees
-exceptions that escape the handler, and these are raised within it.
+from a crash: the client is told "server bug" about its own bad input.
 
 ``parse_json_body`` is the seam that keeps the two apart, so the routes that
 validate a body themselves go through it. These tests drive the real registered

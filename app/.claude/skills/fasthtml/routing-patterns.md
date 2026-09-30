@@ -122,8 +122,8 @@ async def journal_monthly_note(request: Request, year: int, month: int): ...
 
 A non-numeric `{year}` on an `int` parameter is a **404** from parameter extraction, before
 the handler runs (FastHTML treats an uncoercible required parameter as missing; measured with
-a `TestClient` on a bare `fast_app()`) — not the 400 that `install_request_validation_guard`
-gives a rejected Pydantic body.
+a `TestClient` on a bare `fast_app()`) — not the validation 400 a `parse_*` helper gives a
+rejected body.
 
 ## Query Parameters
 
@@ -257,14 +257,13 @@ async def library_exercises(request: Request):
 
 ## Exception Handlers
 
-SKUEL installs three exception handlers, all on the parameter-extraction seam (a body is
-parsed BEFORE the handler and before any route guard runs):
+SKUEL installs two exception handlers, both on the parameter-extraction seam (FastHTML
+parses a JSON or multipart body BEFORE the handler and before any route guard runs):
 
 ```python
 # adapters/inbound/boundary.py — called from bootstrap
 install_malformed_json_guard(app)          # JSONDecodeError → 400
 install_malformed_multipart_guard(app)     # MultipartParseError → 400
-install_request_validation_guard(app)      # pydantic.ValidationError → 400
 ```
 
 No `exception_handlers=` is passed to `fast_app()`. After that seam the two route kinds

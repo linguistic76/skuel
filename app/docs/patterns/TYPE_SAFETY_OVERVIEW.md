@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 # Type Safety Architecture Overview
@@ -45,23 +45,22 @@ Database
 | Transfer (Tier 2) | Mutable DTOs | Move data between layers with explicit field names |
 | Core (Tier 3) | Frozen `@dataclass(frozen=True)` | Immutable business entities; can't be accidentally mutated |
 
-**Frozen dataclasses use `__post_init__` for dynamic defaults** (the one known MyPy
-limitation in this codebase):
+**Frozen dataclasses take `field(default_factory=...)` defaults** — `Entity.created_at`,
+`updated_at` and `metadata` are declared that way. Only a default that depends on another
+field or on the subclass is set in `__post_init__`, behind a `None` default and a
+`# type: ignore[assignment]` MyPy cannot see past — `Entity.status` (from `entity_type`)
+and `Entity.visibility` (PUBLIC, PRIVATE on `UserOwnedEntity`):
 ```python
-@dataclass(frozen=True)
-class Task(UserOwnedEntity):
-    created_at: datetime = None  # type: ignore[assignment] — set in __post_init__
+@dataclass(frozen=True, kw_only=True)
+class Entity:
+    status: EntityStatus = None  # type: ignore[assignment]  # Set in __post_init__ (depends on entity_type)
 
     def __post_init__(self) -> None:
-        if self.created_at is None:
-            object.__setattr__(self, "created_at", datetime.now(UTC))
-        super().__post_init__()
+        if self.status is None:
+            object.__setattr__(self, "status", self.entity_type.default_status())
 ```
-The `# type: ignore[assignment]` here is the only justified suppression pattern for
-frozen dataclass defaults. It's not a design flaw — it's a MyPy limitation with
-frozen dataclasses. See `three_tier_type_system.md` for the full rationale.
 
-**See:** `docs/patterns/three_tier_type_system.md` (468 lines, complete reference)
+**See:** `docs/patterns/three_tier_type_system.md` § Frozen Dataclass Dynamic Defaults
 
 ---
 

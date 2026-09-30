@@ -58,7 +58,7 @@ skills:
 
   - name: python
     description: Python development patterns in SKUEL
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-09-30"
     foundation: []
     dependencies: []
     library_package: null  # Language, not a package
@@ -85,7 +85,7 @@ skills:
 
   - name: pydantic
     description: Pydantic V2 validation models
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-09-30"
     foundation: []
     dependencies: []
     library_package: pydantic
@@ -151,7 +151,7 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-09-30"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
@@ -172,7 +172,7 @@ skills:
 
   - name: domain-route-config
     description: Configuration-driven route registration for *_routes.py files using DomainRouteConfig
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-09-30"
     foundation: [fasthtml, python]
     dependencies: [fasthtml, python]
     library_package: null  # SKUEL pattern, not external library
@@ -535,7 +535,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-09-30"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library

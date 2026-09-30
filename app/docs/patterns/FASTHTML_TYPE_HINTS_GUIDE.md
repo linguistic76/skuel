@@ -1,6 +1,6 @@
 ---
 title: FastHTML Type Hints Pattern Guide
-updated: 2026-09-17
+updated: 2026-09-30
 category: patterns
 related_skills:
 - ui-browser
@@ -8,9 +8,7 @@ related_skills:
 related_docs: []
 ---
 # FastHTML Type Hints Pattern Guide
-**Date:** 2025-11-18
-**Status:** Active Reference
-**Version:** 1.0
+
 ## Related Skills
 
 For implementation guidance, see:
@@ -19,414 +17,131 @@ For implementation guidance, see:
 
 ## Core Principle
 
-**"Type hints do the work, not manual extraction"**
+**"A type hint extracts a parameter; it does not validate one"**
 
-FastHTML automatically extracts and validates parameters based on function type hints. This eliminates ~3-4 lines of boilerplate per route.
-
----
-
-## The Pattern
-
-### ❌ OLD WAY - Manual Extraction (Verbose)
-
-```python
-from fasthtml.common import Request
-from adapters.inbound.boundary import boundary_handler
-from core.utils.result_simplified import Result
-
-@rt("/api/tasks/{uid}/complete", methods=["POST"])
-@boundary_handler()
-async def complete_task_route(request: Request) -> Result[Task]:
-    # Line 1: Extract path parameter
-    uid = request.path_params["uid"]
-
-    # Line 2: Parse JSON body
-    body = await request.json()
-
-    # Line 3-4: Extract fields from body
-    actual_minutes = body.get("actual_minutes")
-
-    # Line 5: Call service
-    return await tasks_service.update_task(
-        uid,
-        TaskUpdateIntent(status="completed", actual_minutes=actual_minutes),
-    )
-```
-
-**Issues:**
-- 🔴 5 lines of boilerplate
-- 🔴 No type validation
-- 🔴 Manual error handling needed for invalid types
-- 🔴 Not self-documenting
-- 🔴 `methods=` parameter no longer needed
-
-### ✅ NEW WAY - Type Hints (Clean)
-
-```python
-from adapters.inbound.boundary import boundary_handler
-from core.utils.result_simplified import Result
-
-@rt("/tasks/complete")
-@boundary_handler()
-async def complete(
-    uid: str,                              # Auto-extracted from ?uid=...
-    actual_minutes: int | None = None,     # Auto-extracted & validated
-) -> Result[Task]:
-    return await tasks_service.update_task(
-        uid,
-        TaskUpdateIntent(status="completed", actual_minutes=actual_minutes),
-    )
-```
-
-**Benefits:**
-- ✅ **-4 lines** (60% reduction in boilerplate)
-- ✅ **Type validation built-in** (FastHTML validates types)
-- ✅ **Self-documenting** (signature shows all parameters)
-- ✅ **No request object** (cleaner function signature)
-- ✅ **No methods= needed** (FastHTML infers POST from body)
+FastHTML fills a handler's parameters from the request by name and type hint: `request`
+itself, path parameters, query parameters, and the top-level keys of a JSON or form body.
+It converts each value by calling the annotation's converter. What a bad value answers
+depends on the type, and it is never SKUEL's validation 400 — so a hint is the right tool
+for a value that cannot be malformed in a way that matters (a uid, an optional string
+filter, a bounded integer where a 404 is an acceptable answer), and a `route_helpers`
+parser or a request model is the tool for everything else.
 
 ---
 
-## Parameter Extraction Patterns
+## What FastHTML Does With a Hint
 
-### 1. Query Parameters (Simple)
+Measured on a bare `fast_app()` with `TestClient`:
 
-```python
-# OLD
-@rt("/api/tasks")
-async def list_tasks_route(request: Request):
-    params = dict(request.query_params)
-    limit = int(params.get("limit", 100))
-    offset = int(params.get("offset", 0))
-    include_completed = params.get("include_completed", "false").lower() == "true"
+| Type hint | Accepts | A bad value answers |
+|-----------|---------|---------------------|
+| `str` | anything | — |
+| `int`, `float` | `"42"`, `"3.14"` | **404** |
+| `date` | ISO `"2025-11-18"` | **404** |
+| `bool` | `"true"`/`"1"`/`"yes"` → `True`; `"false"`/`"0"`/`"off"` → `False` | **500** (`"maybe"`) |
+| `datetime` | nothing — a valid ISO string raises too | **500** |
+| `list[str]` | repeated keys, `?tags=a&tags=b` → `["a", "b"]` (a CSV `a,b,c` stays one item; absent → `[]`) | — |
+| a Pydantic model | — never declare one (see below) | **500** |
 
-# NEW
-@rt("/tasks/list")
-async def list_tasks(
-    limit: int = 100,              # Auto-converts to int
-    offset: int = 0,               # Auto-converts to int
-    include_completed: bool = False  # Auto-converts "true"/"false"
-):
-    # Parameters already extracted and validated!
-```
+A required parameter the request does not carry answers **400** (`Missing required field:
+uid`) — FastHTML's plain-text body, not the `Errors.validation` JSON envelope.
 
-### 2. Path Parameters → Query Parameters
-
-FastHTML prefers query parameters over path parameters for better type inference:
-
-```python
-# OLD (Path parameter - requires manual extraction)
-@rt("/api/tasks/{uid}")
-async def get_task_route(request: Request):
-    uid = request.path_params["uid"]  # Manual extraction
-
-# NEW (Query parameter - automatic extraction)
-@rt("/tasks/get")
-async def get(uid: str):  # Auto-extracted from ?uid=...
-    # uid is already a string!
-```
-
-**When to use path vs query:**
-- **Query parameters (preferred):** IDs, filters, pagination
-- **Path parameters (rare):** Truly hierarchical resources only
-
-### 3. Request Body (JSON)
-
-```python
-# OLD
-@rt("/api/goals/{uid}/progress", methods=["POST"])
-async def update_progress_route(request: Request):
-    uid = request.path_params["uid"]
-    body = await request.json()
-    progress_value = body.get("progress", 0)
-    notes = body.get("notes", "")
-    update_date = body.get("date")
-
-# NEW
-@rt("/goals/update-progress")
-async def update_progress(
-    uid: str,
-    progress: float = 0.0,
-    notes: str = "",
-    date: str | None = None
-):
-    # FastHTML extracts from JSON body or query params automatically
-```
-
-### 4. Optional Parameters
-
-```python
-# OLD
-@rt("/api/habits/{uid}/track", methods=["POST"])
-async def track_habit_route(request: Request):
-    uid = request.path_params["uid"]
-    body = await request.json()
-
-    # Manual None handling
-    completion_date = body.get("date")
-    notes = body.get("notes", "")
-    value = body.get("value", 1)
-
-# NEW
-@rt("/habits/track")
-async def track(
-    uid: str,
-    date: str | None = None,  # Optional parameter
-    notes: str = "",          # Default value
-    value: int = 1            # Default value
-):
-    # All parameters automatically extracted with defaults!
-```
-
-### 5. Complex Types (Dates, Lists)
-
-```python
-# OLD
-@rt("/api/tasks/user/{user_uid}")
-async def get_user_tasks_route(request: Request):
-    user_uid = request.path_params["user_uid"]
-    params = dict(request.query_params)
-
-    # Manual date parsing
-    start_date = params.get("start_date")
-    if start_date:
-        start_date = date.fromisoformat(start_date)
-
-    # Manual list parsing
-    tags = params.get("tags", "").split(",") if params.get("tags") else []
-
-# NEW
-from datetime import date
-
-@rt("/tasks/user")
-async def user_tasks(
-    user_uid: UserUID,
-    start_date: date | None = None,  # Auto-converts ISO date string
-    tags: list[str] | None = None    # Auto-converts comma-separated list
-):
-    # FastHTML handles conversion automatically!
-```
+The same conversion runs on a body's keys, JSON or form: `n: int` with `{"n": "z"}` is a 404.
 
 ---
 
-## Migration Checklist
+## SKUEL's Rules
 
-When converting a route from old to new pattern:
-
-1. ✅ **Remove `methods=` parameter** - FastHTML infers method
-2. ✅ **Change URL from `/api/{domain}/{uid}` to `/{domain}/action?uid=...`**
-3. ✅ **Remove `Request` parameter** - Use type hints instead
-4. ✅ **Add typed parameters** - One parameter per line with type hints
-5. ✅ **Remove manual extraction** - Delete path_params, json(), query_params
-6. ✅ **Add defaults** - For optional parameters
-7. ✅ **Test** - Verify type conversion works as expected
-
----
-
-## Type Conversion Reference
-
-FastHTML automatically converts query/body parameters to typed values:
-
-| Type Hint | Conversion | Example Input | Converted Value |
-|-----------|------------|---------------|-----------------|
-| `str` | No conversion | `"hello"` | `"hello"` |
-| `int` | String → int | `"42"` | `42` |
-| `float` | String → float | `"3.14"` | `3.14` |
-| `bool` | String → bool | `"true"`, `"false"` | `True`, `False` |
-| `date` | ISO string → date | `"2025-11-18"` | `date(2025, 11, 18)` |
-| `datetime` | ISO string → datetime | `"2025-11-18T10:30:00"` | `datetime(...)` |
-| `list[str]` | CSV → list | `"a,b,c"` | `["a", "b", "c"]` |
-| `T \| None` | Optional | Missing param | `None` |
+1. **An authenticated handler takes `request: Request`** — `require_authenticated_user(request)`
+   reads the session from it. Import `Request` from `adapters.inbound.fasthtml_types`
+   (SKUEL035); `request: Any` is a FastHTML 400 (SKUEL020).
+2. **A mutation declares `methods=["POST"]` and `@csrf_protected`.** A `@rt(path)` with no
+   `methods=` answers GET, HEAD and POST, so a method-less mutation is reachable by a link
+   or a prefetch. This is a convention the tree does not hold everywhere yet —
+   `/settings/save` is a bare `@rt` mutation (`fasthtml` skill, `routing-patterns.md`
+   § Function Name Conventions).
+3. **Read a body inside the handler** with `parse_body` / `parse_json_body` /
+   `parse_form_body` — never a model in the signature. See
+   [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) § Read the body inside the handler.
+4. **Parse a query value whose bad input must answer neither 404 nor 500 with a
+   `route_helpers` parser**, from `dict(request.query_params)` — a silent fallback
+   (`parse_bool_query_param`, `parse_pagination_params`) or a strict 400
+   (`parse_date_param_strict`). Never hint a query parameter `datetime`, and hint one
+   `bool` only where a 500 on a bad value is acceptable.
 
 ---
 
-## Common Patterns
+## Examples
 
-### Create Route
-
-```python
-@rt("/tasks/create")
-@boundary_handler(success_status=201)
-async def create(
-    title: str,
-    priority: str = "medium",
-    due_date: date | None = None,
-    tags: list[str] | None = None
-) -> Result[Task]:
-    return await tasks_service.create({
-        "title": title,
-        "priority": priority,
-        "due_date": due_date,
-        "tags": tags or []
-    })
-```
-
-### Get Route
+### A read with typed query parameters
 
 ```python
-@rt("/tasks/get")
-@boundary_handler()
-async def get(uid: str) -> Result[Task]:
-    return await tasks_service.get(uid)
-```
-
-### Update Route
-
-```python
-@rt("/tasks/update")
-@boundary_handler()
-async def update(
+# adapters/inbound/insights_api.py
+@rt("/api/insights/active")
+@boundary_handler(success_status=200)
+async def get_active_insights(
     request: Request,
-    uid: str,
-    title: str | None = None,
-    priority: str | None = None,
-    status: str | None = None
-) -> Result[Task]:
-    # Only the fields the client actually sent become "set"; to_intent() carries
-    # exactly those through as the typed intent (ADR-066), leaving the rest UNSET.
-    provided = {k: v for k, v in {
-        "title": title,
-        "priority": priority,
-        "status": status,
-    }.items() if v is not None}
-    intent = TaskUpdateRequest.model_validate(provided).to_intent()
-    return await tasks_service.update(uid, intent)
+    domain: str | None = None,
+    limit: int = 50,
+) -> Result[dict[str, Any]]:
+    user_uid = require_authenticated_user(request)
+    ...
 ```
 
-### Delete Route
+`?limit=abc` answers 404 here — acceptable for a page-size hint.
+
+### A mutation with a query uid and a body
 
 ```python
-@rt("/tasks/delete")
-@boundary_handler()
-async def delete(uid: str) -> Result[bool]:
-    return await tasks_service.delete(uid)
-```
-
-### List Route
-
-```python
-@rt("/tasks/list")
-@boundary_handler()
-async def list_tasks(
-    limit: int = 100,
-    offset: int = 0,
-    status: str | None = None,
-    priority: str | None = None
+# adapters/inbound/context_aware_api.py
+@rt("/api/context/goal/tasks", methods=["POST"])
+@csrf_protected
+@boundary_handler(success_status=201)
+async def create_tasks_from_goal_context_route(
+    request: Request, goal_uid: str
 ) -> Result[list[Task]]:
-    return await tasks_service.list(
-        limit=limit,
-        offset=offset,
-        status=status,
-        priority=priority
+    user_uid = require_authenticated_user(request)
+    parsed = await parse_body(request, ContextualGoalTaskGenerationRequest)
+    if parsed.is_error:
+        return Result.fail(parsed)
+    body = parsed.value
+    return await context_service.create_tasks_from_goal_context(
+        goal_uid=goal_uid,
+        user_uid=user_uid,
+        context_preferences=body.context_preferences,
+        auto_create=body.auto_create,
     )
 ```
 
-### Domain-Specific Action
+### A query value parsed by a helper
 
 ```python
-@rt("/tasks/complete")
+# adapters/inbound/context_aware_api.py
+@rt("/api/context/dashboard")
 @boundary_handler()
-async def complete(
-    uid: str,
-    actual_minutes: int | None = None,
-) -> Result[Task]:
-    return await tasks_service.update_task(
-        uid,
-        TaskUpdateIntent(status="completed", actual_minutes=actual_minutes),
-    )
+async def get_context_dashboard_route(request: Request) -> Result[ContextDashboard]:
+    user_uid = require_authenticated_user(request)
+    params = dict(request.query_params)
+    include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
+    ...
 ```
 
----
-
-## Benefits Summary
-
-| Metric | Old Pattern | New Pattern | Improvement |
-|--------|-------------|-------------|-------------|
-| **Lines per route** | ~8-12 | ~4-6 | **40-50% reduction** |
-| **Type validation** | Manual | Automatic | **Built-in** |
-| **Error handling** | Manual try/catch | FastHTML handles | **Simplified** |
-| **Self-documenting** | No | Yes (signature) | **Better DX** |
-| **Testability** | Requires Request mock | Direct function call | **Easier testing** |
+`?include_predictions=maybe` reads as `False` (an absent or blank value takes the default) instead of answering 500.
 
 ---
 
-## Testing Type Hints
+## Testing
 
-Type hints make testing easier - no need to mock Request objects:
-
-```python
-# OLD - Requires Request mock
-async def test_complete_task_old():
-    request = Mock()
-    request.path_params = {"uid": "task.123"}
-    request.json = AsyncMock(return_value={
-        "actual_minutes": 30,
-        "quality_score": 0.9
-    })
-
-    result = await complete_task_route(request)
-
-# NEW - Direct function call
-async def test_complete_task_new():
-    result = await complete(
-        uid="task.123",
-        actual_minutes=30,
-        quality_score=0.9
-    )
-
-    assert result.is_ok
-```
-
----
-
-## Migration Strategy
-
-### Phase 1: New Routes (Immediate)
-All **new routes** written from today forward MUST use type hints pattern.
-
-### Phase 2: High-Traffic Routes (Next Sprint)
-Migrate routes that get called most frequently:
-- CRUD operations (create, get, update, delete, list)
-- Authentication routes
-- Dashboard/profile routes
-
-### Phase 3: Domain-Specific Routes (Incremental)
-Migrate domain-specific routes by domain:
-- Tasks → Events → Habits → Goals → etc.
-
-### Phase 4: Legacy Routes (As Needed)
-Migrate remaining routes when touching them for other reasons.
-
----
-
-## Quick Reference Card
-
-```python
-# ✅ FastHTML Type Hints Pattern
-
-@rt("/{domain}/{action}")           # Simplified URL
-@boundary_handler()                 # Error handling
-async def action_name(              # Descriptive function name
-    uid: str,                       # Required parameter
-    param: int = 0,                 # Optional with default
-    optional: str | None = None     # Truly optional
-) -> Result[T]:                     # Typed return
-    return await service.method(...)
-```
-
-**Remember:**
-1. No `methods=` parameter
-2. No `Request` object
-3. No manual extraction
-4. Type hints do everything!
+A handler takes `request`, so a test drives the registered route through Starlette's
+`TestClient` on a bare `fast_app()` — which also exercises FastHTML's extraction, the part
+a direct call would skip. `tests/unit/adapters/test_context_aware_api_routes.py` is a
+compact harness: it registers the routes against a mocked service, patches
+`require_authenticated_user`, and mints a CSRF token for each POST.
 
 ---
 
 ## References
 
-- Route Factory: `/adapters/inbound/route_factories/crud_route_factory.py`
-
----
-
-**Last Updated:** 2025-11-18
-**Status:** Active - use this pattern for all new routes
+- Route factory: `/adapters/inbound/route_factories/crud_route_factory.py`
+- Query parsers: `/adapters/inbound/route_factories/route_helpers.py`
+- Body readers: `/adapters/inbound/form_helpers.py`

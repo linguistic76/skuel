@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-09-29
+updated: 2026-09-30
 category: patterns
 related_skills:
 - fasthtml
@@ -24,7 +24,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** 42 of 45 route files (93%). All 6 Activity Domains use `create_activity_domain_route_config()`. Non-adopters: metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator). ai_routes.py uses its own config-driven pattern (AIRouteSpec).
+**Adoption:** 37 of the 52 route modules in bootstrap Section 2 (71%); 40 modules bind a config in all (§ Current Users). All 6 Activity Domains use `create_activity_domain_route_config()`. Section 2's other 15 are orchestrator-driven (3) or manual `@rt()` (12) — § Route Wiring Patterns. `ai_routes.py` uses its own config-driven pattern (`AIRouteSpec`).
 
 ## The Pattern
 
@@ -409,7 +409,7 @@ Routes registered directly with `@rt()` decorators inside the factory function. 
 
 **Current adopters (Section 2):** `home_routes.py`, `today_routes.py`, `settings_routes.py`, `journals_routes.py`, `vault_routes.py`, `device_routes.py`, `templates_ui.py`, `ps_engagement_routes.py`, `groups_hub_routes.py`, `learning_paths_ui.py`, `picker_routes.py`, `self_checkin_routes.py`. Sections 3 and 4 (`admin_dashboard_ui.py`, `analytics_api.py`, `user_pins_api.py`, `user_profile_ui.py`, `pwa_routes.py`) are manual by construction and sit outside the adoption denominator.
 
-**Note:** "stable and unlikely to grow" has not held — this is the largest of the two non-default groups (12 files to Pattern B's 3) and absorbs new surfaces by default. `submissions_hub_routes.py`, listed here until 2026-08-04, was deleted when ADR-054 folded submissions into `user_entry_routes.py`.
+**Note:** "stable and unlikely to grow" has not held — this is the largest of the two non-default groups (12 files to Pattern B's 3) and absorbs new surfaces by default.
 
 **Do not use for new entity domains** — reach for DomainRouteConfig instead.
 

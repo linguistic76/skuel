@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-09-27
+updated: 2026-09-30
 category: patterns
 related_skills:
 - python
@@ -267,7 +267,7 @@ core/models/{domain}/              # Pydantic request models (Tier 1)
 # core/models/habit/habit_request.py
 class ContextualHabitCompletionRequest(BaseModel):
     """Request model for completing a habit with quality tracking."""
-    quality: str = Field(default="good")  # + field_validator; NEVER Literal (see below)
+    quality: str = Field(default="good")  # narrowed by a field_validator (see below)
     environmental_factors: dict[str, Any] = Field(default_factory=dict)
 
 # core/models/goal/goal_request.py
@@ -279,36 +279,22 @@ class ContextualGoalTaskGenerationRequest(BaseModel):
 
 ### Usage in Routes
 
+The handler reads its body through a reader — `parse_body` here, which takes JSON or a
+form encoding by `Content-Type` — and returns the validation failure as a 400 before the
+service runs:
+
 ```python
 @rt("/api/context/habit/complete", methods=["POST"])
 @csrf_protected
 @boundary_handler(success_status=200)
 async def complete_habit_with_context_route(
-    request: Request,
-    habit_uid: str,
-    body: ContextualHabitCompletionRequest,  # FastHTML auto-parses & validates
+    request: Request, habit_uid: str
 ) -> Result[Habit]:
-    """
-    Complete habit with context tracking.
-
-    Pydantic validates:
-    - JSON structure (dict vs string)
-    - Field types (str, int, etc.)
-    - Field constraints (ge/le, max_length, validated enums)
-
-    A body bound this way is validated during FastHTML's parameter
-    extraction, BEFORE the handler and its ``@boundary_handler`` wrapper run.
-    ``boundary.install_request_validation_guard`` (wired at bootstrap) maps the
-    resulting ``ValidationError`` to the same ``Errors.validation`` 400 that
-    ``parse_json_body`` returns; without it the client is told 500 for
-    ordinary bad input.
-
-    ⚠ Do NOT annotate an auto-bound body field as a ``Literal`` — FastHTML
-    coerces each value by calling the annotation, and ``Literal(...)`` raises
-    ``TypeError``, which no validation guard converts. Use an enum or a
-    validated ``str``, or bind via ``parse_json_body``.
-    """
     user_uid = require_authenticated_user(request)
+    parsed = await parse_body(request, ContextualHabitCompletionRequest)
+    if parsed.is_error:
+        return Result.fail(parsed)  # a rejected field → 400
+    body = parsed.value
     return await context_service.complete_habit_with_context(
         habit_uid=habit_uid,
         user_uid=user_uid,
@@ -319,13 +305,20 @@ async def complete_habit_with_context_route(
     )
 ```
 
+⚠ Never declare the model as a handler parameter (`body: ContextualHabitCompletionRequest`).
+FastHTML binds such a parameter during parameter extraction, before the handler and
+`@boundary_handler` run, and coerces each field by calling its annotation before Pydantic
+sees it: a `Literal` field raises on any value sent, an enum / `int` / `bool` / `date` /
+`dict` field raises on a bad one, and a Pydantic constraint failure escapes the same way.
+Every one of them answers 500, not 400.
+
 ### Benefits
 
 - ✅ **Automatic Validation**: Structure, types, and constraints checked automatically
 - ✅ **Type Safety**: MyPy validates field access at dev time
 - ✅ **Self-Documenting**: Models show expected structure and constraints
 - ✅ **Clear Errors**: 400 responses with field-level details
-- ✅ **No Boilerplate**: No manual JSON parsing or validation needed
+- ✅ **No Boilerplate**: One reader call parses and validates the body
 
 ### Validation Features
 
@@ -353,9 +346,8 @@ class ContextualHabitCompletionRequest(BaseModel):
     # Invalid values → 400 with that message
 ```
 
-⚠ A `Literal` annotation cannot be used on an auto-bound body field: FastHTML
-calls the annotation to coerce each incoming value, and `Literal(...)` raises
-`TypeError`, which no guard converts. Narrow a `str` with a validator instead.
+A `Literal` or an enum annotation works as well on a model read through a reader — the
+reader hands Pydantic the raw value, and a bad one is a `ValidationError`, so a 400.
 
 **Optional Fields with Defaults:**
 ```python
@@ -385,75 +377,49 @@ bookkeeping is a Firefly III sidecar (ADR-052).
 
 ## Frozen Dataclass Dynamic Defaults
 
-**Core Principle:** "Runtime-correct `__post_init__` pattern requires MyPy suppression"
+**Core Principle:** "A default that depends on another field is set in `__post_init__`; every other default is a plain default or a `default_factory`"
 
-Frozen dataclasses in SKUEL use `__post_init__` to set dynamic defaults for mutable fields (`datetime`, `list`, `dict`). This pattern is **architecturally correct** and works perfectly at runtime, but causes MyPy type errors due to the `None` default values.
+`field(default_factory=...)` works on a frozen dataclass: the generated `__init__` calls the
+factory for every instance. `Entity` declares `created_at`, `updated_at`
+and `metadata` that way, and `tags` as an immutable `()`.
 
-### The Pattern
+Two `Entity` fields cannot: their default depends on something the field declaration
+cannot see.
+
+- `status` — the default is `self.entity_type.default_status()`, so it depends on another field.
+- `visibility` — `Entity` defaults it to PUBLIC, and `UserOwnedEntity` to PRIVATE, so it
+  depends on the subclass.
+
+Each is declared `None` with a `# type: ignore[assignment]`, and `__post_init__` fills it
+through `object.__setattr__` (the one write a frozen instance allows, during initialization):
 
 ```python
-@dataclass(frozen=True)
+# core/models/entity.py
+@dataclass(frozen=True, kw_only=True)
 class Entity:
-    uid: str
-    title: str
-
-    # Fields with dynamic defaults
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
-    tags: list[str] = None  # type: ignore[assignment]
-    metadata: dict[str, Any] = None  # type: ignore[assignment]
+    entity_type: EntityType = EntityType.KU
+    status: EntityStatus = None  # type: ignore[assignment]  # Set in __post_init__ (depends on entity_type)
+    visibility: Visibility = None  # type: ignore[assignment]  # Set in __post_init__ (overridden by UserOwnedEntity)
 
     def __post_init__(self) -> None:
-        """Initialize mutable fields with proper defaults."""
-        if self.created_at is None:
-            object.__setattr__(self, 'created_at', datetime.now())
-        if self.updated_at is None:
-            object.__setattr__(self, 'updated_at', datetime.now())
-        if self.tags is None:
-            object.__setattr__(self, 'tags', [])
-        if self.metadata is None:
-            object.__setattr__(self, 'metadata', {})
+        if self.status is None:
+            object.__setattr__(self, "status", self.entity_type.default_status())
+        if self.visibility is None:
+            object.__setattr__(self, "visibility", Visibility.PUBLIC)
+
+# core/models/user_owned_entity.py
+@dataclass(frozen=True, kw_only=True)
+class UserOwnedEntity(Entity):
+    def __post_init__(self) -> None:
+        if self.visibility is None:
+            object.__setattr__(self, "visibility", Visibility.PRIVATE)
+        super().__post_init__()
 ```
 
-Subclasses (e.g., `Task(UserOwnedEntity)`) call `super().__post_init__()` to chain initialization through the hierarchy.
-
-### Why This Pattern
-
-1. **Frozen Constraint**: Can't use `field(default_factory=datetime.now)` in frozen dataclasses
-2. **Dynamic Defaults**: `created_at` must be set to `datetime.now()` at instantiation time (not class definition time)
-3. **Immutability Preserved**: `object.__setattr__()` bypasses frozen constraint during initialization only
-4. **Runtime Correctness**: Works perfectly - fields are NEVER None at runtime
-
-### Why MyPy Complains
-
-- Type annotation says `datetime` but default is `None` → incompatible types
-- MyPy can't see that `__post_init__` guarantees non-None values
-
-### The Solution
-
-Use `# type: ignore[assignment]` to suppress static analysis warnings:
-
-```python
-created_at: datetime = None  # type: ignore[assignment]
-```
-
-### No Automated Fixing
-
-There is no fixer script. A migration script was described here that has never
-existed in this repo (`git log --all` is empty for it) — apply the ignore comments by
-hand, one field at a time, so each one is a decision rather than a sweep.
-
-### Statistics
-
-As of February 2026:
-- 350+ fields across 70+ files use this pattern
-- All in `core/models/` (frozen domain models and DTOs)
-- Covers `datetime`, `date`, `list`, `dict`, `set` fields
-- Includes the full Entity/UserOwnedEntity/domain model hierarchy
-
-### Rationale
-
-This is NOT a design flaw - it's the correct way to handle dynamic defaults in frozen dataclasses. The `# type: ignore` comments acknowledge that MyPy's static analysis can't verify the runtime guarantee provided by `__post_init__`.
+The ignore is there because the annotation says `EntityStatus` and the default is `None`;
+MyPy cannot see that `__post_init__` replaces it before anyone reads it. Reach for this
+shape only when the default depends on another field or on the subclass — anything else is
+a plain default or a `default_factory`, with no ignore.
 
 ## DomainModelProtocol
 
@@ -493,17 +459,23 @@ class DomainModelProtocol(Protocol):
 
     Required Attributes:
         uid: str - Unique identifier
-        created_at: datetime | None - Creation timestamp
-        updated_at: datetime | None - Last update timestamp
+        created_at: datetime - Creation timestamp
+        updated_at: datetime - Last update timestamp
 
     Required Methods:
         from_dto: classmethod - Create domain model from DTO
         to_dto: instance method - Convert domain model to DTO
     """
 
-    uid: str
-    created_at: datetime | None  # Optional statically, non-None at runtime
-    updated_at: datetime | None  # Optional statically, non-None at runtime
+    # Read-only properties, so a frozen dataclass satisfies them structurally.
+    @property
+    def uid(self) -> str: ...
+
+    @property
+    def created_at(self) -> datetime: ...
+
+    @property
+    def updated_at(self) -> datetime: ...
 
     @classmethod
     def from_dto(cls, dto: Any) -> Self:
@@ -520,13 +492,8 @@ class DomainModelProtocol(Protocol):
 @dataclass(frozen=True)
 class Entity:
     uid: str
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.created_at is None:
-            object.__setattr__(self, 'created_at', datetime.now())
-        ...
+    created_at: datetime = field(default_factory=...)
+    updated_at: datetime = field(default_factory=...)
 
     @classmethod
     def from_dto(cls, dto: "EntityDTO") -> Self:
@@ -765,9 +732,8 @@ async def mark_step_complete(self, uid: str) -> Result[PathStep]:
 ```python
 from core.ports.query_types import ActivityFilterSpec
 
-def render_list_view(user_uid: UserUID) -> Any:
-    filters: ActivityFilterSpec = {"status": "active", "sort_by": "created_at"}
-    return ListViewComponent(filters=filters)
+# MyPy rejects a key the spec does not declare, and a value of the wrong type.
+filters: ActivityFilterSpec = {"status": "active", "sort_by": "created_at"}
 ```
 
 ### Why intents, not TypedDicts, for activity updates

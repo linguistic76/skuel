@@ -736,8 +736,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/patterns/three_tier_type_system.md": {
         # These two move whenever the prose above them changes length. Re-derive
         # the anchors from the scanner's report, never by adding a diff delta.
-        (953, "KuType"): Allow(_three_tier),
-        (954, "KuStatus"): Allow(_three_tier),
+        (919, "KuType"): Allow(_three_tier),
+        (920, "KuStatus"): Allow(_three_tier),
     },
     # The arc's record, granted in bulk because naming the retired identifier IS the
     # finding. Every anchor re-derived from the scanner's own report (scan_file over the

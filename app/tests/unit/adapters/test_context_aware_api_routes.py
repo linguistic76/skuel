@@ -1,10 +1,11 @@
 """Context-Aware API security/wiring pins (adapters/inbound/context_aware_api.py).
 
-Testing-gap roadmap item 6 (tranche 2, analytics/insight cluster): PIN tests
-over the UserContext routes — auth gate (401), CSRF on the mutating context
-integrations (403), the time_window whitelist guard (400 before the service),
-and exact service kwargs on dashboard and contextual task completion. Harness
-mirrors ``test_choices_api_routes.py``.
+PIN tests over the UserContext routes — auth gate (401), CSRF on the mutating
+context integrations (403), the integration bodies bound through ``parse_body``
+(400 before the service, JSON or form), the time_window whitelist guard (400
+before the service), and exact service kwargs. Harness mirrors
+``test_choices_api_routes.py``; it installs no app-level exception guard, so
+every 400 here is the route's own.
 """
 
 from __future__ import annotations
@@ -16,7 +17,6 @@ import pytest
 from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
-from adapters.inbound.boundary import install_request_validation_guard
 from adapters.inbound.context_aware_api import create_context_aware_api_routes
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from core.utils.result_simplified import Result
@@ -40,12 +40,10 @@ def _make_harness(
     authenticated: bool = True,
 ) -> _Harness:
     app, rt = fast_app(pico=False, default_hdrs=False)
-    # Bootstrap wires this on the real app; the harness must too, or a rejected
-    # body model escapes as a raw ValidationError instead of the 400 clients see.
-    install_request_validation_guard(app)
 
     service = MagicMock()
     service.get_context_dashboard = AsyncMock(return_value=Result.ok({"widgets": []}))
+    service.create_tasks_from_goal_context = AsyncMock(return_value=Result.ok([]))
     service.complete_habit_with_context = AsyncMock(return_value=Result.ok({"ok": True}))
     service.get_context_summary = AsyncMock(return_value=Result.ok({"insights": []}))
     service.get_next_action = AsyncMock(return_value=Result.ok({"action": "rest"}))
@@ -88,6 +86,108 @@ class TestCsrfEnforcement:
 
         assert response.status_code == 403
         harness.context.complete_habit_with_context.assert_not_awaited()
+
+
+def _post_form(client: TestClient, path: str, data: dict[str, str]):
+    token = mint_token()
+    client.cookies.set(CSRF_COOKIE_NAME, token)
+    return client.post(path, data=data, headers={CSRF_HEADER_NAME: token})
+
+
+_GOAL_TASKS = "/api/context/goal/tasks?goal_uid=goal_1"
+_HABIT_COMPLETE = "/api/context/habit/complete?habit_uid=habit_1"
+
+
+class TestContextIntegrationBodies:
+    """Both integration bodies bind through ``parse_body``: a rejected field is a 400
+    before the service, JSON or form-encoded, and an empty body takes the defaults."""
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"auto_create": "maybe"},
+            {"context_preferences": [1]},
+        ],
+    )
+    def test_goal_tasks_bad_json_field_is_400(
+        self, monkeypatch: pytest.MonkeyPatch, body: dict[str, object]
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(harness.client, _GOAL_TASKS, body)
+
+        assert response.status_code == 400
+        harness.context.create_tasks_from_goal_context.assert_not_awaited()
+
+    def test_goal_tasks_bad_form_field_is_400(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_form(harness.client, _GOAL_TASKS, {"auto_create": "maybe"})
+
+        assert response.status_code == 400
+        harness.context.create_tasks_from_goal_context.assert_not_awaited()
+
+    def test_goal_tasks_form_body_forwarded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_form(harness.client, _GOAL_TASKS, {"auto_create": "false"})
+
+        assert response.status_code == 201
+        harness.context.create_tasks_from_goal_context.assert_awaited_once_with(
+            goal_uid="goal_1", user_uid=_USER_UID, context_preferences={}, auto_create=False
+        )
+
+    def test_goal_tasks_empty_body_takes_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(harness.client, _GOAL_TASKS)
+
+        assert response.status_code == 201
+        harness.context.create_tasks_from_goal_context.assert_awaited_once_with(
+            goal_uid="goal_1", user_uid=_USER_UID, context_preferences={}, auto_create=True
+        )
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"quality": "meh"},
+            {"environmental_factors": [1]},
+        ],
+    )
+    def test_habit_complete_bad_json_field_is_400(
+        self, monkeypatch: pytest.MonkeyPatch, body: dict[str, object]
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(harness.client, _HABIT_COMPLETE, body)
+
+        assert response.status_code == 400
+        harness.context.complete_habit_with_context.assert_not_awaited()
+
+    def test_habit_complete_bad_form_field_is_400(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_form(harness.client, _HABIT_COMPLETE, {"quality": "meh"})
+
+        assert response.status_code == 400
+        harness.context.complete_habit_with_context.assert_not_awaited()
+
+    def test_habit_complete_json_body_forwarded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            _HABIT_COMPLETE,
+            {"quality": "poor", "environmental_factors": {"location": "home"}},
+        )
+
+        assert response.status_code == 200
+        harness.context.complete_habit_with_context.assert_awaited_once_with(
+            habit_uid="habit_1",
+            user_uid=_USER_UID,
+            completion_quality="poor",
+            environmental_factors={"location": "home"},
+        )
 
 
 class TestDashboard:

@@ -164,7 +164,7 @@ def test_every_table_row_is_driven_or_declared_undriven() -> None:
         "Query Params (GET)",
         "Required Params (GET)",
         "Bodies at a door both callers reach (POST)",
-        "JSON Bodies (POST/PUT)",
+        "JSON Bodies (POST)",
         "Form Data Bodies (POST)",
         "HTML Form Params (GET)",
         "Path Params",
@@ -185,7 +185,7 @@ async def test_json_body_row_returns_the_documented_status() -> None:
     """
     status = _status_of(await parse_json_body(_JsonRequest(), _Body))  # type: ignore[arg-type]
 
-    assert str(status) == _documented_rows()["JSON Bodies (POST/PUT)"]
+    assert str(status) == _documented_rows()["JSON Bodies (POST)"]
 
 
 @pytest.mark.asyncio

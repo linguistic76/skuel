@@ -29,7 +29,6 @@ from adapters.inbound.auth.context_middleware import AuthContextMiddleware
 from adapters.inbound.boundary import (
     install_malformed_json_guard,
     install_malformed_multipart_guard,
-    install_request_validation_guard,
 )
 from adapters.inbound.csrf import CSRFMiddleware
 from adapters.inbound.middleware import (
@@ -516,11 +515,6 @@ def _create_web_app(
     install_malformed_json_guard(app)
     install_malformed_multipart_guard(app)
 
-    # Same seam, next failure along: a well-formed body that a route's Pydantic
-    # body model rejects is also constructed during parameter extraction, so a
-    # field constraint would otherwise report ordinary bad input as a 500.
-    install_request_validation_guard(app)
-
     # Auth context — enforces the graph session per request (revoked sessions
     # force re-login) and mirrors session auth flags into a ContextVar so page
     # chrome (BasePage/navbar in ui/) reads auth state without importing
@@ -609,8 +603,9 @@ async def _wire_all_routes(
 
     Organized into 4 sections:
     1. INFRASTRUCTURE — system health, auth, admin, monitoring, metrics
-    2. ENTITY DOMAIN ROUTES — all use DomainRouteConfig / register_domain_routes
-       (NO guards needed: register_domain_routes returns [] if service is None)
+    2. ENTITY DOMAIN ROUTES — mostly DomainRouteConfig / register_domain_routes
+       (which registers nothing when the primary service is missing), plus the
+       orchestrator-driven and manual @rt() entity surfaces
     3. MANUAL ROUTES — custom wiring that doesn't fit DomainRouteConfig
     4. PWA ROUTES — root-scope static asset serving
 
@@ -654,8 +649,10 @@ async def _wire_all_routes(
 
     # ========================================================================
     # Section 2: ENTITY DOMAIN ROUTES
-    # All use DomainRouteConfig / register_domain_routes internally.
-    # NO guards needed — register_domain_routes returns [] if service is None.
+    # Most register through DomainRouteConfig / register_domain_routes, which
+    # logs a warning and registers nothing when the primary service is missing —
+    # those need no guard here. The orchestrator-driven and manual @rt() modules
+    # in this section do not (DOMAIN_ROUTE_CONFIG_PATTERN.md § Route Wiring Patterns).
     # ========================================================================
 
     # -- Explore (merged Ku + PathStep discovery) --

@@ -1,6 +1,6 @@
 ---
 title: "ADR-026: Unified Relationship Registry"
-updated: 2026-09-04
+updated: 2026-09-30
 status: accepted (evolved; ownership declaration superseded by ADR-086)
 category: decisions
 tags: [adr, decisions, relationships, consolidation, single-source-of-truth]
@@ -118,7 +118,7 @@ class PostProcessor:
 # Access by Domain enum (6 Activity + 2 Curriculum primaries)
 DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     Domain.TASKS: TASKS_CONFIG,
-    Domain.GOALS: GOAPS_CONFIG,
+    Domain.GOALS: GOALS_CONFIG,
     # ... 8 domains total
 }
 
@@ -151,8 +151,8 @@ def generate_relationship_config(domain: Domain) -> RelationshipConfig | None:
 4. **Post-Query Processors** for calculated fields (Phase 3):
 
 ```python
-# In relationship_registry.py - GOAPS_CONFIG example
-GOAPS_CONFIG = DomainRelationshipConfig(
+# In relationship_registry.py - GOALS_CONFIG example
+GOALS_CONFIG = DomainRelationshipConfig(
     # ... relationships ...
     post_processors=(
         PostProcessor(

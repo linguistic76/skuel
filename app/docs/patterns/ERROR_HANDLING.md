@@ -738,112 +738,88 @@ async def test_validation_error():
 ```
 
 ## Safe Form Parsing Pattern
-*Added: January 25, 2026*
 
-**Context:** HTML form submissions can send empty strings, missing values, or invalid text for numeric fields, causing `ValueError` or `TypeError` crashes.
+**Context:** a form read by hand (`form_data = await request.form()`) hands each field over
+as `str | UploadFile | None` — missing, empty, or text where a number belongs — and a bare
+`int(form_data.get(...))` answers that with a `ValueError` or `TypeError`, a 500.
 
-**Problem:**
-```python
-# ❌ UNSAFE - Crashes on invalid input
-preferences_update = {
-    "available_minutes_daily": int(form_data.get("available_minutes_daily", 60)),
-    "enable_reminders": bool(form_data.get("enable_reminders")),
-    "weekly_task_goal": int(form_data.get("weekly_task_goal", 10)),
-}
-# ValueError if user submits empty field or non-numeric text
-# TypeError if form_data.get() returns None
-```
+The helpers in `adapters/inbound/form_helpers.py` never raise:
 
-**Solution: Canonical Safe Parsing Helpers**
+- `safe_form_string(value, default="")` — a `str` comes back stripped (an empty one stays
+  `""`); anything else is `default`
+- `safe_form_int(value, default=0)` — a `str` that parses as an `int`; anything else is `default`
+- `safe_form_bool(value, default=False)` — `"true"`, `"1"`, `"yes"`, `"on"` (any case) are
+  `True`, any other `str` is `False`; a non-`str` is `default`
 
-SKUEL provides type-safe form extraction helpers in `adapters/inbound/form_helpers.py`:
+Each answers a bad value with its `default`, so on a write each is a silent default
+unless the caller checks first — see § Guarding Enum Constructor Calls: a write refuses
+a bad value. `/settings/save` (`adapters/inbound/settings_routes.py`) shows both shapes:
+it refuses a time zone zoneinfo does not list (400, nothing saved), and it stores the
+default for a number field that does not parse (`safe_form_int(..., 60)`).
 
-```python
-from adapters.inbound.form_helpers import safe_form_string, safe_form_int, safe_form_bool
-```
-
-- `safe_form_string(value, default="")` — handles `str | UploadFile | None`, strips whitespace
-- `safe_form_int(value, default=0)` — parses int, returns default on failure
-- `safe_form_bool(value, default=False)` — treats `"true"`, `"1"`, `"yes"`, `"on"` as `True`
-
-**Usage in Routes:**
-
-```python
-@rt("/settings/save")
-async def save_user_settings(request: Request) -> Any:
-    user_uid = require_authenticated_user(request)
-    form_data = await request.form()
-
-    # ✅ SAFE - Uses defaults on invalid input
-    preferences_update = {
-        "available_minutes_daily": safe_form_int(form_data.get("available_minutes_daily"), 60),
-        "enable_reminders": safe_form_bool(form_data.get("enable_reminders")),
-        "reminder_minutes_before": safe_form_int(form_data.get("reminder_minutes_before"), 15),
-        "weekly_task_goal": safe_form_int(form_data.get("weekly_task_goal"), 10),
-        "daily_habit_goal": safe_form_int(form_data.get("daily_habit_goal"), 3),
-        "monthly_learning_hours": safe_form_int(form_data.get("monthly_learning_hours"), 20),
-    }
-
-    # Service call with validated data
-    result = await user_service.update_preferences(user_uid, preferences_update)
-    if result.is_error:
-        # Log detailed error (don't leak to user)
-        logger.error(
-            "Failed to save user preferences",
-            extra={"user_uid": user_uid, "error": str(result.error)},
-        )
-        # Return user-safe error message
-        return Div(
-            P("Failed to save preferences. Please try again.", cls="text-error"),
-            P("If this problem persists, contact support.", cls="text-sm text-base-content/50 mt-2"),
-            cls="p-4",
-        )
-
-    return render_success_message()
-```
-
-**Benefits:**
-- ✅ No more 500 errors from invalid form submissions
-- ✅ Graceful fallback to sensible defaults
-- ✅ Clear separation: parsing vs business logic
-- ✅ Easy to test edge cases
-
-**Implementation:** `/adapters/inbound/form_helpers.py` — `safe_form_string()`, `safe_form_int()`, `safe_form_bool()`
+A body with a request model needs none of these: read it through `parse_form_body` /
+`parse_body` and a bad field is a validation failure.
 
 ### Safe Enum Parsing for HTML Forms
 
-**Context:** HTML `<select>` elements and optional dropdowns send empty strings (`""`) when no option is selected. `dict.get("field", "default")` only uses the default when the key is *missing* — an empty string is truthy as a key-present value and passes through to Pydantic, where it fails enum validation.
+**Context:** a form read by hand (`await request.form()`, not one of the body readers) hands
+over `str | UploadFile | None`, and an unselected `<select>` sends `""`.
+`form_data.get("field", "default")` uses the default only when the key is *missing* — the
+empty string passes through. `safe_form_string` strips it to `""`, which is falsy, so the
+caller can branch on it (`adapters/inbound/askesis_ui.py`):
 
 ```python
-from adapters.inbound.form_helpers import safe_form_string
-
-# ❌ UNSAFE - Empty string passes through, crashes Pydantic enum validation
-domain = form_data.get("domain", "personal")
-# form sends domain="" → Pydantic: "Input should be 'knowledge', 'learning', ..."
-
-# ✅ SAFE - safe_form_string strips whitespace, `or` provides fallback for empty
-domain = safe_form_string(form_data.get("domain")) or "personal"
-event_type = safe_form_string(form_data.get("event_type")) or "meeting"
+mode_str = safe_form_string(form_data.get("mode", ""))
+preferred_mode: GuidanceMode | None = (
+    GuidanceMode(mode_str) if mode_str in GuidanceMode._value2member_map_ else None
+)
 ```
 
-**Rule:** For any form field bound to a Pydantic enum, always use `safe_form_string(form_data.get("field")) or "default"` — never `form_data.get("field", "default")`.
+A body read through `parse_form_body` / `parse_body` needs none of this: the reader turns
+an empty string into `None` before the request model sees it.
 
 ### Guarding Enum Constructor Calls
 
-Even after extracting a non-empty string with `safe_form_string()`, the value can still be invalid for the target enum (e.g., a crafted form submitting `priority=evil`). The enum constructor raises `ValueError` — catch it and refuse visibly:
+Where the enum is parsed decides who answers a bad value:
 
-```python
-# ❌ UNSAFE — crafted form value crashes with ValueError → 500
-priority_enum = PriorityEnum(priority_str)
+- **An enum in a request body** is the request model's job. Read the body through
+  `parse_body` / `parse_json_body` / `parse_form_body`, and a bad value is a failed
+  validation `Result` — a 400 at an API route through `@boundary_handler`, an error banner
+  where a UI form re-renders. No guard in the handler.
+- **A handler that constructs the enum from a raw value** catches the `ValueError` the
+  constructor raises (a crafted form can post `level=evil`) and answers in one of two
+  ways, by what the value is for:
+  - *a write* refuses visibly — the dual-track assess route
+    (`adapters/inbound/activity_ui_factory.py`) stores a check-in, so an unknown level is
+    a banner, and nothing is written:
 
-# ✅ SAFE — the bad value is answered, not raised
-try:
-    priority_enum = PriorityEnum(priority_str)
-except ValueError:
-    return Div(render_error_banner("Please choose a priority."))
-```
+    ```python
+    try:
+        level = level_enum(level_raw)
+    except ValueError:
+        return Div(render_error_banner("Please choose a rating first."))
+    ```
 
-An enum in a body read through `parse_body` / `parse_json_body` / `parse_form_body` needs no guard: the request model rejects a bad value as a failed validation `Result` — a 400 at an API route through `@boundary_handler`, an error banner where a UI form re-renders. A client's datetime is an instant and has no form helper: a request model types it `ClientDateTime` (`core/models/request_base.py`), which reads an offset-less value on the current zone's clock.
+  - *a read facet* may treat an unknown value as no filter — the library panel's
+    learning-level facet (`_parse_learning_level` in `adapters/inbound/explore_ui.py`)
+    returns `None`, and the search runs unfiltered:
+
+    ```python
+    def _parse_learning_level(value: str) -> LearningLevel | None:
+        if not value:
+            return None
+        try:
+            return LearningLevel(value)
+        except ValueError:
+            return None
+    ```
+
+**Never silently default on a write.** Replacing a bad value with a default stores a
+choice the user did not make; a facet may widen a read, a write must refuse.
+
+A client's datetime is an instant and has no form helper: a request model types it
+`ClientDateTime` (`core/models/request_base.py`), which reads an offset-less value on the
+current zone's clock.
 
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 

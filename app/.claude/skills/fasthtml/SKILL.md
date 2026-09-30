@@ -342,12 +342,11 @@ def create_user(user: User):
 
 FastHTML passes each incoming string value through the field's annotation (for `int`,
 `date` and `bool`, its own `str2int` / `str2date` / `str2bool`) before the object is built.
-In SKUEL, a Pydantic model bound this way (`body: SomeRequest`) is validated during
-parameter extraction; `install_request_validation_guard` turns its `ValidationError` into a
-400 for an `application/json` request only. A `Literal` field raises `TypeError` from the
-coercion, an enum / `int` / `date` field a plain `ValueError` on an unconvertible string,
-and a form-encoded body that fails validation re-raises — all 500. SKUEL binds most bodies
-with `parse_body` / `parse_json_body` / `parse_form_body` instead (`@pydantic`).
+In SKUEL, never bind a Pydantic model this way (`body: SomeRequest`): it is built during
+parameter extraction, before the handler and `@boundary_handler` run, so a `Literal` field
+(`TypeError` from the coercion), an enum / `int` / `date` field (a plain `ValueError` on an
+unconvertible string) and a Pydantic rejection all answer 500. SKUEL reads a request-model
+body with `parse_body` / `parse_json_body` / `parse_form_body` inside the handler (`@pydantic`).
 
 ### fill_form Helper
 

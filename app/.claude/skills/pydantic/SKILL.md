@@ -118,31 +118,28 @@ class TaskUpdateRequest(UpdateRequestBase):
 
 ## Binding a Request Model in a Route
 
-The model reaches a handler one of four ways. A rejected body is a **400**
-(`ErrorCategory.VALIDATION`) — 422 is `BUSINESS`, a well-formed request that breaks a
-domain rule — through each `parse_*` helper always, and through auto-binding only within
-the limits the table and the warning below state.
+A handler binds a request model through one of three helpers, inside the handler. A rejected body
+is a **400** (`ErrorCategory.VALIDATION`) — 422 is `BUSINESS`, a well-formed request that
+breaks a domain rule.
 
 | Binding | Where | A rejected body becomes |
 |---------|-------|-------------------------|
-| `parse_body(request, Model)` | a door both API clients (JSON) and HTMX forms reach — the CRUD factory's `/create` and `/update?uid=`, the admin account actions | `Result.fail(Errors.validation(...))` → 400 |
+| `parse_body(request, Model)` | a door both API clients (JSON) and HTMX forms reach — the CRUD factory's `/create` and `/update?uid=`, the admin account actions, the context integrations | `Result.fail(Errors.validation(...))` → 400 |
 | `parse_json_body(request, Model)` | a JSON-only API route | same |
 | `parse_form_body(request, Model)` | a form-only UI route (empty strings → `None`, `list[T]` split) | same; a UI route usually re-renders the form with a banner (200) |
-| `body: Model` in the signature | FastHTML builds it during parameter extraction, *before* the handler and `@boundary_handler` run | 400 via the app-level `install_request_validation_guard` — **for an `application/json` request only**; the guard re-raises for any other content type, so a form-encoded body that fails validation answers 500 |
 
 The helpers live in `adapters/inbound/form_helpers.py`. `parse_body` picks its reader by
 Content-Type — htmx url-encodes every body (multipart for a `Form`), whatever an
 `hx-headers` Content-Type claims.
 
-⚠ **An auto-bound (`body: Model`) field is coerced by FastHTML before Pydantic sees it.**
-FastHTML passes every *string* value through the field's annotation — or, for `int`, `date`
-and `bool`, its own `str2int` / `str2date` / `str2bool`. A `Literal` annotation raises
-`TypeError` on any value; an enum, `int` or `date` raises a plain `ValueError` on a string
-it cannot convert (`Priority("bad")`, `int("abc")`). Neither is a `ValidationError`, so no
-guard converts it and the request 500s. Never annotate an auto-bound field as a `Literal`
-or an enum — use a `str` narrowed by a `@field_validator`
-(`ContextualHabitCompletionRequest.quality`) — and prefer a `parse_*` helper, where Pydantic
-does all the validation and every rejection is a 400.
+⚠ **Never declare the model as a handler parameter (`body: Model`).** FastHTML binds such a
+parameter during parameter extraction, *before* the handler and `@boundary_handler` run,
+and passes every *string* value through the field's annotation first — or, for `int`,
+`date` and `bool`, its own `str2int` / `str2date` / `str2bool`. A `Literal` raises
+`TypeError` on any value sent; an enum, `int`, `date` or `dict` raises on a value it cannot
+convert; and a Pydantic rejection escapes the same way. Each answers 500. Through a helper,
+Pydantic sees the raw value and every rejection is a 400 — so a `Literal` or an enum field
+is fine there.
 
 The helpers merge nothing into the body. When a route verifies ownership, it checks the
 owner uid wherever it travels: a model field (`TrackHabitRequest.habit_uid`) is verified
@@ -194,7 +191,7 @@ class ContextualHabitCompletionRequest(BaseModel):
     @field_validator("quality")
     @classmethod
     def validate_quality(cls, value: str) -> str:
-        """A narrowed str, not a Literal — this model is auto-bound (`body: ...`)."""
+        """Reject a quality rating outside ``CONTEXTUAL_QUALITY_VALUES``."""
         if value not in CONTEXTUAL_QUALITY_VALUES:
             raise ValueError(f"quality must be one of: {', '.join(CONTEXTUAL_QUALITY_VALUES)}")
         return value
@@ -415,7 +412,7 @@ class TranscriptionCreateRequest(BaseModel):
 
 Enums are the default for a fixed vocabulary — they carry behavior and are reused across
 models. A `Literal` suits a one-off constraint on a model built by a `parse_*` helper or
-`from_form_params()` — never an auto-bound body (see
+`from_form_params()` (see
 [Binding a Request Model in a Route](#binding-a-request-model-in-a-route)):
 
 ```python

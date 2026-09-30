@@ -3,7 +3,7 @@ title: Relationship Registry Rename - _UNIFIED to _CONFIG
 date: 2026-02-08
 category: migrations
 tags: [naming, refactor, one-path-forward]
-updated: 2026-03-30
+updated: 2026-09-30
 ---
 
 # Relationship Registry Rename: `_UNIFIED` → `_CONFIG`
@@ -36,7 +36,7 @@ PRINCIPLES_UNIFIED = DomainRelationshipConfig(...)
 
 # After
 TASKS_CONFIG = DomainRelationshipConfig(...)
-GOAPS_CONFIG = DomainRelationshipConfig(...)
+GOALS_CONFIG = DomainRelationshipConfig(...)
 HABITS_CONFIG = DomainRelationshipConfig(...)
 EVENTS_CONFIG = DomainRelationshipConfig(...)
 CHOICES_CONFIG = DomainRelationshipConfig(...)
@@ -113,7 +113,7 @@ from core.models.relationship_registry import (
 # After
 from core.models.relationship_registry import (
     TASKS_CONFIG,
-    GOAPS_CONFIG,
+    GOALS_CONFIG,
     KU_CONFIG,
     DOMAIN_CONFIGS,
     LABEL_CONFIGS,
