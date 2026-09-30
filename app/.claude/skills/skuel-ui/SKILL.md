@@ -455,7 +455,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS` (section doors, `page_keys` set), `MAIN_NAV_ITEMS` (role doors) |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `CardGenerator`, `StatCard`, `IconStat`, `StatsGrid`, `FormGenerator`, `SettingToggle` |
-| `/ui/page_contexts.py` | Route→UI TypedDicts. `TodayPageContext` has consumers (`today_routes.py`, `ui/today/page.py`); the six Activity `*PageContext` types have none — the Activity lists are rendered by `activity_ui_factory.py` |
+| `/ui/page_contexts.py` | Route→UI TypedDicts: `TodayPageContext` (`today_routes.py` → `ui/today/page.py`) and the Explore related-concepts rows `RelatedConceptChip` / `NextStepRelatedGroup`. The Activity lists have no page context — `activity_ui_factory.py` renders them |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `FrequencyColor`, `StrengthColor`, `CalendarFallback` — centralized hex color constants, imported directly by core and UI |
