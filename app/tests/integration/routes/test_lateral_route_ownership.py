@@ -32,6 +32,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
+from core.models.enums import UserRole
 from core.models.relationship_names import RelationshipName
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
@@ -138,11 +139,15 @@ def _register(lateral_service: Any, domain_service: Any, domain: str) -> dict[st
 
         return decorator
 
+    # A curriculum factory must gate its writes; these tests exercise reads,
+    # which the role never touches, so the getter is never called.
     factory = LateralRouteFactory(
         domain=domain,
         lateral_service=lateral_service,
         entity_name="Goal" if domain == "goals" else "Path Step",
         domain_service=domain_service,
+        require_role=None if domain_service else UserRole.TEACHER,
+        user_service_getter=MagicMock(),
     )
     factory.register_routes(MagicMock(), rt_collector)
     return registered

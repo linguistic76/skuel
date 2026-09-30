@@ -1,6 +1,6 @@
 ---
 title: Route Decorator Architecture
-updated: '2026-09-15'
+updated: '2026-09-30'
 category: patterns
 related_skills:
 - fasthtml
@@ -151,7 +151,7 @@ Beyond the generic lateral relationships (blocking, prerequisites, alternatives,
 | Principles | CONFLICTS_WITH (value tensions) | `/api/principles/{uid}/lateral/conflicts` |
 | KU | ENABLES (learning unlocks) | `/api/ku/{uid}/lateral/enables` |
 
-These live in `adapters/inbound/lateral_routes.py` and follow the same `@rt` + `@boundary_handler` pattern.
+These live in `adapters/inbound/lateral_routes.py` and follow the same `@rt` + `@boundary_handler` pattern. The KU `enables` writer adds `@require_role(UserRole.TEACHER, …)` — curriculum lateral writes are TEACHER-gated.
 
 ---
 

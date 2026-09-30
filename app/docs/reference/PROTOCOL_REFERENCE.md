@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-27
+updated: 2026-09-30
 status: current
 category: reference
 tags: [protocol, reference]
@@ -607,7 +607,7 @@ class Services:
 
     # Internal: concrete classes via TYPE_CHECKING (~53 fields)
     tasks_intelligence: "TasksIntelligenceService | None" = None
-    lateral: "LateralRelationshipOperations | None" = None  # Protocol-typed (Feb 2026)
+    lateral_orchestrator: "LateralRelationshipsOrchestrator | None" = None
     neo4j_driver: "AsyncDriver | None" = None
 ```
 

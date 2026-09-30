@@ -834,10 +834,11 @@ async def compose_services(
         from core.services.lateral_relationships import LateralRelationshipService
 
         # Create backend + service for lateral relationships (domain-agnostic)
-        # Ownership verification happens at route level via domain_service param
+        # Routes pass the ownership verifier (domain_service); curriculum routes
+        # pass none, are role-gated, and the service holds them to curriculum endpoints
         lateral_backend = LateralRelationshipBackend(executor=query_executor)
         lateral_service = LateralRelationshipService(backend=lateral_backend)
-        logger.info("✅ LateralRelationshipService created (9 domains, ownership at route level)")
+        logger.info("✅ LateralRelationshipService created (9 domains)")
 
         # Create Askesis core service (CRUD operations for AI assistant instances)
         from core.services.askesis.askesis_core_service import AskesisCoreService
@@ -1869,8 +1870,6 @@ async def compose_services(
             journal_batch=journal_batch_service,
             # Conversation store — owner-private discussion sessions (ADR-078)
             conversation=conversation_service,
-            # Lateral relationship services (January 2026 - Core graph architecture)
-            lateral=lateral_service,
             # Intelligence tier (ADR-043)
             intelligence_tier=tier,
         )

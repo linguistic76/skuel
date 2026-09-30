@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.relationship_backend_protocols import UserRelationshipOperations
-    from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.admin_stats_service import AdminStatsService
     from core.services.analytics_service import AnalyticsService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
@@ -341,11 +340,6 @@ class Services:
     # Activity report + review queue (March 2026 refactor: ActivityReviewService split)
     activity_report: ActivityReportService | None = None
     review_queue: ReviewQueueService | None = None
-
-    # ========================================================================
-    # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
-    # ========================================================================
-    lateral: LateralRelationshipOperations | None = None
 
     # Interaction audit (User Interaction Contract — EntityType.INTERACTION)
     interaction_service: InteractionService | None = None
