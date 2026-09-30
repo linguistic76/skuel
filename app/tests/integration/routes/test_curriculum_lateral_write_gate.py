@@ -19,18 +19,18 @@ The contract, pinned here over real HTTP against a real Neo4j
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import MagicMock
 
 import httpx
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver
 
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 from core.models.enums import UserRole
 from tests.helpers.lateral_routes_client import (
+    RoleUserService,
     lateral_client,
-    role_user_service,
     without_timestamp,
 )
 
@@ -134,11 +134,11 @@ async def graph(neo4j_driver):
 TASK_OWNERS = {MEMBER_TASK_A: MEMBER, MEMBER_TASK_B: MEMBER, PRIVATE_TASK: OTHER}
 
 
-def _user_service() -> Any:
-    return role_user_service(ROLES)
+def _user_service() -> RoleUserService:
+    return RoleUserService(ROLES)
 
 
-def _client(neo4j_driver, user_service: Any) -> httpx.AsyncClient:
+def _client(neo4j_driver: AsyncDriver, user_service: RoleUserService) -> httpx.AsyncClient:
     return lateral_client(neo4j_driver, user_service, TASK_OWNERS, secret_key="f4-lateral-gate")
 
 

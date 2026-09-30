@@ -13,14 +13,16 @@ Shared by the curriculum lateral write-gate and read-anchor tests.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any
 
 import httpx
+from neo4j import AsyncDriver
 from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.lateral_routes import create_lateral_routes
 from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -35,37 +37,50 @@ from core.services.lateral_relationships.lateral_relationship_service import (
 from core.utils.result_simplified import Errors, Result
 
 
-def role_user_service(roles: dict[str, UserRole]) -> Any:
+@dataclass
+class RoleUserService:
     """Real ``User`` records, so the role hierarchy check runs for real.
 
-    ``.calls`` records every uid looked up — an Activity route that consults
-    no role leaves it empty.
+    ``calls`` records every uid looked up — an Activity route that consults no
+    role leaves it empty.
     """
-    calls: list[str] = []
 
-    async def get_user(user_uid: str) -> Result[User]:
-        calls.append(user_uid)
-        role = roles.get(user_uid)
+    roles: dict[str, UserRole]
+    calls: list[str] = field(default_factory=list)
+
+    async def get_user(self, user_uid: str) -> Result[User]:
+        self.calls.append(user_uid)
+        role = self.roles.get(user_uid)
         if role is None:
             return Result.fail(Errors.not_found("User"))
         return Result.ok(User(uid=user_uid, title=user_uid, role=role))
 
-    return SimpleNamespace(get_user=get_user, calls=calls)
+
+@dataclass(frozen=True)
+class OwnedTask:
+    """What the verifier hands back for a task the caller owns."""
+
+    uid: str
+    user_uid: str
 
 
-def task_verifier(owners: dict[str, str]) -> Any:
+@dataclass
+class TaskVerifier:
     """The Tasks domain's ownership verifier: each task belongs to its ``user_uid``."""
 
-    async def verify_ownership(uid: str, user_uid: str) -> Result[Any]:
-        if owners.get(uid) == user_uid:
-            return Result.ok(SimpleNamespace(uid=uid, user_uid=user_uid))
-        return Result.fail(Errors.not_found("Task"))
+    owners: dict[str, str]
 
-    return SimpleNamespace(verify_ownership=verify_ownership)
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[OwnedTask]:
+        if self.owners.get(uid) == user_uid:
+            return Result.ok(OwnedTask(uid=uid, user_uid=user_uid))
+        return Result.fail(Errors.not_found("Task"))
 
 
 def lateral_client(
-    neo4j_driver: Any, user_service: Any, task_owners: dict[str, str], secret_key: str
+    neo4j_driver: AsyncDriver,
+    user_service: RoleUserService,
+    task_owners: dict[str, str],
+    secret_key: str,
 ) -> httpx.AsyncClient:
     """An HTTP client over the lateral routes, signed out.
 
@@ -78,7 +93,7 @@ def lateral_client(
     lateral = LateralRelationshipService(
         LateralRelationshipBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     )
-    tasks = task_verifier(task_owners)
+    tasks = TaskVerifier(task_owners)
     orchestrator = LateralRelationshipsOrchestrator(
         lateral,
         tasks,  # type: ignore[arg-type]
@@ -92,7 +107,7 @@ def lateral_client(
     create_lateral_routes(app, rt, services)
 
     @rt("/sign-in/{uid}")
-    def sign_in(request, uid: str):
+    def sign_in(request: Request, uid: str) -> PlainTextResponse:
         set_current_user(request, user_uid=uid)
         return PlainTextResponse("ok")
 
@@ -105,8 +120,8 @@ def lateral_client(
     )
 
 
-def without_timestamp(response: httpx.Response) -> Any:
+def without_timestamp(response: httpx.Response) -> dict[str, object]:
     """A JSON error body with its per-request timestamp removed, for parity checks."""
-    body = response.json()
+    body: dict[str, object] = response.json()
     body.pop("timestamp", None)
     return body

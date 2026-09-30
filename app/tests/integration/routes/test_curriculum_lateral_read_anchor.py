@@ -22,16 +22,15 @@ The contract, pinned here over real HTTP against a real Neo4j
 
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver
 
 from core.models.enums import UserRole
 from tests.helpers.lateral_routes_client import (
+    RoleUserService,
     lateral_client,
-    role_user_service,
     without_timestamp,
 )
 
@@ -168,7 +167,7 @@ async def graph(neo4j_driver):
         await session.run("MATCH (n:Entity) WHERE n.uid IN $uids DETACH DELETE n", uids=_ALL_UIDS)
 
 
-def _client(neo4j_driver, user_service: Any) -> httpx.AsyncClient:
+def _client(neo4j_driver: AsyncDriver, user_service: RoleUserService) -> httpx.AsyncClient:
     return lateral_client(neo4j_driver, user_service, TASK_OWNERS, secret_key="f4b-lateral-read")
 
 
@@ -186,7 +185,7 @@ class TestPrivateAnchorAnswersAsMissing:
     async def test_a_private_anchor_is_the_same_404_as_a_missing_one(
         self, neo4j_driver, private_path: str, missing_path: str
     ) -> None:
-        async with _client(neo4j_driver, role_user_service(ROLES)) as client:
+        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
             await client.get(f"/sign-in/{MEMBER}")
             private = await client.get(private_path)
             missing = await client.get(missing_path)
@@ -198,7 +197,7 @@ class TestPrivateAnchorAnswersAsMissing:
     @pytest.mark.parametrize("path", MISSING_READS)
     async def test_a_missing_anchor_is_404_on_every_read(self, neo4j_driver, path: str) -> None:
         """The graph route included: a missing center is 404, not a center-only graph."""
-        async with _client(neo4j_driver, role_user_service(ROLES)) as client:
+        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
             await client.get(f"/sign-in/{MEMBER}")
             response = await client.get(path)
 
@@ -212,7 +211,7 @@ class TestCurriculumAnchorStillReads:
     async def test_a_member_reads_every_route_on_a_curriculum_anchor(
         self, neo4j_driver, path: str
     ) -> None:
-        users = role_user_service(ROLES)
+        users = RoleUserService(ROLES)
         async with _client(neo4j_driver, users) as client:
             await client.get(f"/sign-in/{MEMBER}")
             response = await client.get(path)
@@ -222,7 +221,7 @@ class TestCurriculumAnchorStillReads:
 
     @pytest.mark.parametrize("domain", list(ANCHORS))
     async def test_the_edges_come_back(self, neo4j_driver, domain: str) -> None:
-        async with _client(neo4j_driver, role_user_service(ROLES)) as client:
+        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
             await client.get(f"/sign-in/{MEMBER}")
             blocking = await client.get(f"/api/{domain}/{ANCHORS[domain]}/lateral/blocking")
             graph = await client.get(f"/api/{domain}/{ANCHORS[domain]}/lateral/graph")
@@ -233,7 +232,7 @@ class TestCurriculumAnchorStillReads:
 
     async def test_a_draft_anchor_still_answers(self, neo4j_driver) -> None:
         """A by-UID read is anchored: the caller named the draft, so it comes back."""
-        async with _client(neo4j_driver, role_user_service(ROLES)) as client:
+        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
             await client.get(f"/sign-in/{MEMBER}")
             blocking = await client.get(f"/api/ku/{KU_DRAFT}/lateral/blocking")
             chain = await client.get(f"/api/ku/{KU_DRAFT}/lateral/chain")
@@ -249,7 +248,7 @@ class TestCurriculumAnchorStillReads:
         RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage); this pins the
         current reach so a change to it is a decision, not a side effect.
         """
-        async with _client(neo4j_driver, role_user_service(ROLES)) as client:
+        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
             await client.get(f"/sign-in/{MEMBER}")
             response = await client.get(f"/api/ku/{KU_B}/lateral/graph?depth=1")
 
@@ -263,7 +262,7 @@ class TestActivityReadsUnchanged:
     """The ownership gate still decides; no role is consulted."""
 
     async def test_a_member_reads_their_own_task(self, neo4j_driver) -> None:
-        users = role_user_service(ROLES)
+        users = RoleUserService(ROLES)
         async with _client(neo4j_driver, users) as client:
             await client.get(f"/sign-in/{MEMBER}")
             blocking = await client.get(f"/api/tasks/{MEMBER_TASK}/lateral/blocking")
@@ -278,7 +277,7 @@ class TestActivityReadsUnchanged:
     async def test_another_users_task_is_still_the_same_404_as_a_missing_one(
         self, neo4j_driver, suffix: str
     ) -> None:
-        users = role_user_service(ROLES)
+        users = RoleUserService(ROLES)
         async with _client(neo4j_driver, users) as client:
             await client.get(f"/sign-in/{MEMBER}")
             private = await client.get(f"/api/tasks/{PRIVATE_TASK}/lateral/{suffix}")
