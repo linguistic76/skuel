@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import SearchVisibility
+from core.models.enums import EntityType, SearchVisibility
 from core.models.enums.pipeline import Pipeline
 from core.models.group.group import Group, default_group_uid
 from core.models.relationship_names import RelationshipName
@@ -717,13 +718,20 @@ class LateralRelationshipBackend:
     # ========================================================================
 
     async def check_entities_exist(
-        self, source_uid: str, target_uid: str
+        self,
+        source_uid: str,
+        target_uid: str,
+        entity_types: Collection[EntityType] | None = None,
     ) -> Result[list[Neo4jProperties]]:
         """Count each endpoint on its own, so the caller can name which one is missing.
 
         OPTIONAL on both: two plain MATCHes yield no row when either endpoint is
         absent, zeroing BOTH counts — a missing target would read as a missing
         source.
+
+        ``entity_types`` narrows what counts as present: an endpoint whose
+        ``entity_type`` is outside the set counts 0, exactly like an absent one,
+        so the caller cannot tell the two apart. ``None`` counts any entity.
         """
         # :Entity throughout this validation block — a :Content shadow shares
         # its entity's uid, so unlabeled uid MATCHes double-count/misvalidate
@@ -731,10 +739,18 @@ class LateralRelationshipBackend:
         return await self.executor.execute_query(
             """
             OPTIONAL MATCH (source:Entity {uid: $source_uid})
+            WHERE $entity_types IS NULL OR source.entity_type IN $entity_types
             OPTIONAL MATCH (target:Entity {uid: $target_uid})
+            WHERE $entity_types IS NULL OR target.entity_type IN $entity_types
             RETURN count(source) as source_count, count(target) as target_count
             """,
-            {"source_uid": source_uid, "target_uid": target_uid},
+            {
+                "source_uid": source_uid,
+                "target_uid": target_uid,
+                "entity_types": (
+                    None if entity_types is None else sorted(t.value for t in entity_types)
+                ),
+            },
         )
 
     async def check_same_parent(

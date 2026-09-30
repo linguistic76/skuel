@@ -10,17 +10,26 @@ Each domain gets a full set of lateral relationship endpoints via LateralRouteFa
 Domain-specific routes (habit stacking, event conflicts, KU enables) delegate to
 LateralRelationshipsOrchestrator, which holds all required services.
 
+Activity writes are ownership-verified per endpoint. Curriculum writes have no
+owner to verify: they are gated at TEACHER (ADMIN passes through the role
+hierarchy), and the service refuses any endpoint that is not curriculum. Reads
+are unchanged by the role: an Activity anchor is ownership-verified, a curriculum
+anchor is open to any authenticated user.
+
 See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth.roles import make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
+from core.models.enums import UserRole
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -44,6 +53,9 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
     ("lp", "Learning Path", None),
 ]
 
+# Who may write a lateral edge between curriculum entities (ku / ps / lp).
+_CURRICULUM_WRITE_ROLE = UserRole.TEACHER
+
 
 # ============================================================================
 # API Factory
@@ -51,9 +63,13 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
 
 
 def create_lateral_api_routes(
-    app: FastHTMLApp, rt: RouteDecorator, orchestrator: LateralRelationshipsOrchestrator
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    orchestrator: LateralRelationshipsOrchestrator,
+    user_service: Any,
 ) -> None:
     """Register lateral relationship routes for all 9 domains."""
+    get_user_service = make_service_getter(user_service)
 
     # Register standard lateral routes for all 9 domains
     for domain, entity_name, service_attr in _LATERAL_DOMAINS:
@@ -63,6 +79,8 @@ def create_lateral_api_routes(
             lateral_service=orchestrator.lateral_service,
             entity_name=entity_name,
             domain_service=domain_service,
+            require_role=None if domain_service else _CURRICULUM_WRITE_ROLE,
+            user_service_getter=get_user_service,
         )
         factory.register_routes(app, rt)
 
@@ -257,6 +275,7 @@ def create_lateral_api_routes(
 
     @rt("/api/ku/{uid}/lateral/enables", methods=["POST"])
     @csrf_protected
+    @require_role(_CURRICULUM_WRITE_ROLE, get_user_service)
     @boundary_handler(success_status=201)
     async def create_entity_enables(
         request: Request,
@@ -264,11 +283,11 @@ def create_lateral_api_routes(
         target_uid: str,
         confidence: float = 0.8,
         topic_domain: str | None = None,
+        current_user: Any = None,
     ) -> Result[dict[str, Any]]:
         """Create LATERAL_ENABLES relationship (learning A unlocks B)."""
-        user_uid = require_authenticated_user(request)
         return await orchestrator.create_relationship(
-            user_uid=user_uid,
+            user_uid=UserUID(current_user.uid),
             uid=uid,
             target_uid=target_uid,
             relationship_type=RelationshipName.LATERAL_ENABLES,
@@ -316,10 +335,14 @@ def create_lateral_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
 ) -> None:
     """Wire lateral relationship routes via LateralRelationshipsOrchestrator."""
-    if not services or not services.lateral_orchestrator:
-        logger.warning("LateralRelationshipsOrchestrator not available — lateral routes skipped")
+    if not services or not services.lateral_orchestrator or not services.user:
+        logger.warning(
+            "LateralRelationshipsOrchestrator or UserService not available — lateral routes skipped"
+        )
         return
-    create_lateral_api_routes(app, rt, orchestrator=services.lateral_orchestrator)
+    create_lateral_api_routes(
+        app, rt, orchestrator=services.lateral_orchestrator, user_service=services.user
+    )
 
 
 __all__ = ["create_lateral_routes"]

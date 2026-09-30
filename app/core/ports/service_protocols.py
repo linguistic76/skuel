@@ -20,7 +20,7 @@ Protocols:
 - OwnershipVerifier — narrow protocol for ownership verification callbacks
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from core.models.auth.auth_event import AuthEvent
     from core.models.auth.password_reset_token import PasswordResetClaim, PasswordResetToken
     from core.models.auth.session import Session
-    from core.models.enums import UserRole
+    from core.models.enums import EntityType, UserRole
     from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarView
     from core.models.event.event_dto import EventDTO
     from core.models.habit.completion import HabitCompletion
@@ -750,7 +750,10 @@ class LateralRelationshipBackendOperations(Protocol):
     ) -> Result[list[RelationshipGraphRow]]: ...
 
     async def check_entities_exist(
-        self, source_uid: str, target_uid: str
+        self,
+        source_uid: str,
+        target_uid: str,
+        entity_types: Collection[EntityType] | None = None,
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {source_count, target_count}
 
     async def check_same_parent(

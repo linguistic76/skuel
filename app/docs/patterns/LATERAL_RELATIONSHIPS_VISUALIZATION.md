@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-09-29'
+updated: '2026-09-30'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -32,11 +32,13 @@ The visualizations are now backed by **authoring**, not read-only. Two things la
 
 1. **The chain + alternatives readers now render.** `BlockingChainView` and `AlternativesComparisonGrid` HTMX-load `/api/{domain}/{uid}/lateral/chain` and `.../alternatives/compare`, which now return **HTML fragments** (`render_chain_fragment` / `render_alternatives_fragment`) instead of JSON — fixing all domains that mount `EntityRelationshipsSection`. (The graph route stays JSON; Vis.js consumes it directly.)
 
-2. **`EntityRelationshipsSection(..., authoring=True)`** prepends a "Manage Relationships" panel: an **Add-relationship modal** (`ui/patterns/relationships/add_modal.py`) whose four sub-forms POST directly to the existing `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` routes, and a flat, deletable edge list (`GET .../lateral/manage` → `render_lateral_manage_fragment`) whose "×" buttons drive the existing `DELETE .../lateral/{type}/{target_uid}` route. Authoring is gated to the entity types the `EntityPicker` supports (`PICKER_TYPES` — the six Activity types: task/goal/habit/event/choice/principle) and is enabled on all six Activity detail pages. Curriculum KU/PS/LP stay read-only (not in `PICKER_TYPES`; `authoring=True` is a guarded no-op there).
+2. **`EntityRelationshipsSection(..., authoring=True)`** prepends a "Manage Relationships" panel: an **Add-relationship modal** (`ui/patterns/relationships/add_modal.py`) whose four sub-forms POST directly to the existing `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` routes, and a flat, deletable edge list (`GET .../lateral/manage` → `render_lateral_manage_fragment`) whose "×" buttons drive the existing `DELETE .../lateral/{type}/{target_uid}` route. Authoring is gated to the entity types the `EntityPicker` supports (`PICKER_TYPES` — the six Activity types: task/goal/habit/event/choice/principle) and is enabled on all six Activity detail pages. Curriculum KU/PS/LP have no authoring UI (not in `PICKER_TYPES`; `authoring=True` is a guarded no-op there); their write routes are TEACHER-gated API doors (below).
 
 **One refresh event.** Every write the lateral route factory registers — the four create POSTs and the `DELETE` — additively returns `HX-Trigger: relationships-changed` (via the boundary `_headers` path). The domain-specific writers in `lateral_routes.py` (habit `stacks`, the `conflicts` POSTs, KU `enables`) return no trigger; nothing in this section posts to them. The chain and manage containers listen with `hx_trigger="load, relationships-changed from:body"`, the alternatives container with `"load delay:300ms, relationships-changed from:body"`; the Vis.js graph listens with `x-on:relationships-changed.window="loadGraph(depth)"`. No full reload; every surface re-syncs off one event.
 
 **Ownership + cycles** are enforced by the shared `LateralRelationshipService` (both-endpoint `verify_ownership` → 404, and `spec.check_cycles` for BLOCKS/PREREQUISITE_FOR). Note the shared constraints inherited by authoring: BLOCKS requires a shared parent, ALTERNATIVE_TO requires equal depth.
+
+**Curriculum writes** (ku / ps / lp — no verifier) are gated at TEACHER on the route (ADMIN passes through the role hierarchy; a MEMBER gets 403), and the service holds both endpoints to Ku / PathStep / LearningPath by `entity_type` — another user's entity answers the same 404 as a uid that does not exist. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md#ownership-coverage).
 
 **DEPENDS_ON is separate.** The lightweight scheduling edge `(Task)-[:DEPENDS_ON]->(Task)` has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`) — kept deliberately distinct from the annotated lateral BLOCKS edge (see the task-relationships-authoring plan, decision R1).
 
@@ -377,11 +379,11 @@ class LateralRouteFactory:
         lateral_service: "LateralRelationshipOperations",
         entity_name: str,  # "Task", "Goal", …
         domain_service: "OwnershipVerifier | None" = None,  # None for shared/curriculum
+        require_role: "UserRole | None" = None,  # gates the write routes only
+        user_service_getter: "Callable[[], Any] | None" = None,
     ) -> None:
-        self.domain = domain
-        self.lateral_service = lateral_service
-        self.entity_name = entity_name
-        self.domain_service = domain_service
+        # A domain with no verifier must set require_role (ValueError otherwise).
+        ...
 
     def register_routes(self, _app, rt) -> None:
         self._create_blocking_routes(rt)
@@ -402,8 +404,12 @@ class LateralRouteFactory:
 
 ```python
 def create_lateral_api_routes(
-    app: FastHTMLApp, rt: RouteDecorator, orchestrator: LateralRelationshipsOrchestrator
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    orchestrator: LateralRelationshipsOrchestrator,
+    user_service: Any,
 ) -> None:
+    get_user_service = make_service_getter(user_service)
     for domain, entity_name, service_attr in _LATERAL_DOMAINS:
         domain_service = orchestrator.get_domain_service(service_attr) if service_attr else None
         factory = LateralRouteFactory(
@@ -411,6 +417,8 @@ def create_lateral_api_routes(
             lateral_service=orchestrator.lateral_service,
             entity_name=entity_name,
             domain_service=domain_service,  # None for ku/ps/lp
+            require_role=None if domain_service else _CURRICULUM_WRITE_ROLE,  # TEACHER
+            user_service_getter=get_user_service,
         )
         factory.register_routes(app, rt)
 ```
@@ -455,18 +463,18 @@ The 3 read methods live on the one domain-agnostic `LateralRelationshipService` 
 
 ```python
 # core/services/lateral_relationships/lateral_relationship_service.py
-await services.lateral.get_blocking_chain(
+await lateral_service.get_blocking_chain(
     uid, max_depth=10, user_uid=user_uid, domain_service=domain_service
 )
-await services.lateral.get_alternatives_with_comparison(
+await lateral_service.get_alternatives_with_comparison(
     uid, user_uid=user_uid, domain_service=domain_service
 )
-await services.lateral.get_relationship_graph(
+await lateral_service.get_relationship_graph(
     uid, depth=2, relationship_types=None, user_uid=user_uid, domain_service=domain_service
 )
 ```
 
-Ownership on all 15 lateral routes comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method. Pass **both** `user_uid` and `domain_service`: the check engages only when both are present, so omitting either silently reads without enforcement. `domain_service=None` is the deliberate shared-content path for curriculum KU/PS/LP. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
+Ownership on all 15 lateral routes comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method. Pass **both** `user_uid` and `domain_service`: on a read the check engages only when both are present, so omitting either silently reads without enforcement. `domain_service=None` is the deliberate shared-content path for curriculum KU/PS/LP — open for reads, and for writes held to curriculum endpoints behind the TEACHER gate. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 
@@ -477,11 +485,11 @@ Add one entry to `_LATERAL_DOMAINS` in `adapters/inbound/lateral_routes.py` — 
 ```python
 _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
     ...
-    ("new_domain", "NewDomainEntity", "new_domain"),  # None = shared/curriculum, no ownership check
+    ("new_domain", "NewDomainEntity", "new_domain"),  # None = curriculum: open reads, TEACHER writes
 ]
 ```
 
-**If the new domain is user-owned, this entry alone is not enough.** The third item is only a lookup key into `LateralRelationshipsOrchestrator._domain_services`, a fixed map built from explicit constructor parameters. An unregistered slug makes `get_domain_service()` return `None` **silently**, which the factory reads as "shared, no ownership check" — exposing the domain's entities to every authenticated user. Also add the service to the orchestrator's constructor and map, and wire it in the composition root. See [RELATIONSHIPS_ARCHITECTURE.md § Per-Domain Wiring](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
+**If the new domain is user-owned, this entry alone is not enough.** The third item is only a lookup key into `LateralRelationshipsOrchestrator._domain_services`, a fixed map built from explicit constructor parameters. An unregistered slug makes `get_domain_service()` return `None` **silently**, which the factory reads as "shared curriculum" — its reads skip the anchor check, and its writes are TEACHER-gated and refused for any non-curriculum endpoint, so the domain's own entities could not be linked at all. Also add the service to the orchestrator's constructor and map, and wire it in the composition root. See [RELATIONSHIPS_ARCHITECTURE.md § Per-Domain Wiring](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 
@@ -656,7 +664,7 @@ await lateral_service.get_relationship_graph(
 4. ✅ Import in UI file: `from ui.patterns.relationships import EntityRelationshipsSection`
 5. ✅ Test in browser (expand sections, test graph)
 
-No service to create and no unit tests for wrapper methods — the 3 read methods are shared on `services.lateral` and already covered.
+No service to create and no unit tests for wrapper methods — the 3 read methods are shared on `LateralRelationshipService` and already covered.
 
 ---
 

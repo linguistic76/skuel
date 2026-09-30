@@ -61,9 +61,9 @@ from core.services.lateral_relationships.lateral_relationship_service import (
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-PARENT_UID = "goal_stamp_parent"
-SOURCE_UID = "goal_stamp_source"
-TARGET_UID = "goal_stamp_target"
+PARENT_UID = "ku.stamp.parent"
+SOURCE_UID = "ku.stamp.source"
+TARGET_UID = "ku.stamp.target"
 _FIXTURE_UIDS = [PARENT_UID, SOURCE_UID, TARGET_UID]
 
 # The exact defect string. Named so a grep for it lands here.
@@ -80,23 +80,22 @@ def service(neo4j_driver) -> LateralRelationshipService:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_children(neo4j_driver):
-    """Two goals under one parent.
+    """Two Kus under one parent.
 
-    The shared parent is load-bearing: ``BLOCKS`` declares
-    ``requires_same_parent``, so without it validation refuses and every test
-    below would pass vacuously on an edge that was never written.
+    Kus because the service is called with no ownership verifier, and that
+    path joins curriculum endpoints only. The shared parent is load-bearing:
+    ``BLOCKS`` declares ``requires_same_parent``, so without it validation
+    refuses and every test below would pass vacuously on an edge that was
+    never written.
     """
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            CREATE (p:Entity:Goal {uid: $parent, title: 'Cross an ocean',
-                                   entity_type: 'goal', status: 'active'})
-            CREATE (s:Entity:Goal {uid: $source, title: 'Fix the hull',
-                                   entity_type: 'goal', status: 'active'})
-            CREATE (t:Entity:Goal {uid: $target, title: 'Provision the boat',
-                                   entity_type: 'goal', status: 'active'})
-            CREATE (p)-[:HAS_SUBGOAL]->(s)
-            CREATE (p)-[:HAS_SUBGOAL]->(t)
+            CREATE (p:Entity:Ku {uid: $parent, title: 'Seamanship', entity_type: 'ku'})
+            CREATE (s:Entity:Ku {uid: $source, title: 'Hull repair', entity_type: 'ku'})
+            CREATE (t:Entity:Ku {uid: $target, title: 'Provisioning', entity_type: 'ku'})
+            CREATE (p)-[:ORGANIZES]->(s)
+            CREATE (p)-[:ORGANIZES]->(t)
             """,
             parent=PARENT_UID,
             source=SOURCE_UID,

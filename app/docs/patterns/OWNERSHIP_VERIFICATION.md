@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-09-29'
+updated: '2026-09-30'
 category: patterns
 related_skills:
 - activity-domains
@@ -334,7 +334,7 @@ class OwnershipVerifier(Protocol):
 
 Every Activity Domain facade satisfies this automatically via `BaseServiceInterface[T]`. Use it when a service or orchestrator needs a typed handle to "something that can verify ownership" without coupling to a specific facade.
 
-**Canonical consumer:** `LateralRelationshipService.create_lateral_relationship/delete_lateral_relationship/get_lateral_relationships/get_siblings` accept `domain_service: OwnershipVerifier | None = None`. `LateralRelationshipsOrchestrator` stores the 6 Activity Domain services as `dict[str, OwnershipVerifier]` and returns `None` for curriculum domains (ku/ps/lp) which are shared content.
+**Canonical consumer:** `LateralRelationshipService.create_lateral_relationship/delete_lateral_relationship/get_lateral_relationships/get_siblings` accept `domain_service: OwnershipVerifier | None = None`. `LateralRelationshipsOrchestrator` stores the 6 Activity Domain services as `dict[str, OwnershipVerifier]` and returns `None` for curriculum domains (ku/ps/lp) which are shared content. With `None`, a lateral write is held to curriculum endpoints (Ku / PathStep / LearningPath by `entity_type`; anything else answers as missing) and its route is TEACHER-gated — see [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md#ownership-coverage).
 
 This is the *only* acceptable `Result[Any]` in a protocol: `Result[T]` is invariant, each facade returns a different concrete `T`, and callers only branch on `.is_error`. See `docs/patterns/ANY_USAGE_POLICY.md` Phase 4.
 

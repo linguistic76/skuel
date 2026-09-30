@@ -82,10 +82,15 @@ for domain, entity_name, service_attr in _LATERAL_DOMAINS:
         lateral_service=orchestrator.lateral_service,
         entity_name=entity_name,
         domain_service=domain_service,  # OwnershipVerifier; None for ku/ps/lp
+        require_role=None if domain_service else _CURRICULUM_WRITE_ROLE,  # TEACHER
+        user_service_getter=get_user_service,
     ).register_routes(app, rt)          # @rt registers — nothing is returned
 ```
 
-Each factory registers 15 routes, every one threading `domain_service`:
+Each factory registers 15 routes, every one threading `domain_service`. On `ku` / `ps` / `lp`
+the five writes (the POSTs and the DELETE) are also TEACHER-gated, and the service refuses any
+endpoint that is not a Ku, PathStep or LearningPath with the same 404 as a missing uid; the
+reads stay open:
 
 | Route | Method | Answers |
 |-------|--------|---------|

@@ -45,7 +45,8 @@ a type's color there, not in a JavaScript map, and every graph picks it up.
 
 A service call that reads a user-owned entity's graph passes `user_uid` **and**
 `domain_service`. The check runs only when both are present; omitting either reads without
-enforcement. `domain_service=None` is correct only for shared curriculum (ku/ps/lp).
+enforcement. `domain_service=None` is correct only for shared curriculum (ku/ps/lp) — and a
+write with it is held to curriculum endpoints, behind the routes' TEACHER gate.
 
 ---
 
@@ -87,8 +88,8 @@ validator (→ 400) before exposing a larger value.
 ### 6. Hand-Rolling a Per-Domain Lateral Service
 
 The per-domain wrappers (`TasksLateralService`, …) were deleted when lateral relationships
-were unified. There is one `LateralRelationshipService` (`services.lateral`); a new domain
-never gets its own.
+were unified. There is one `LateralRelationshipService` (reached through
+`services.lateral_orchestrator`); a new domain never gets its own.
 
 ---
 
@@ -180,3 +181,4 @@ load shows only in the console. Read the console first.
 
 - `tests/unit/test_lateral_graph_queries.py`: service graph and ownership gate (`TestOwnershipGate`)
 - `tests/integration/routes/test_lateral_route_ownership.py`: foreign entity → 404, owner → 200, curriculum → 200
+- `tests/integration/routes/test_curriculum_lateral_write_gate.py`: curriculum writes — MEMBER → 403, TEACHER → 201, a private endpoint answers as a missing one

@@ -16,6 +16,10 @@ Generic endpoints work for all 9 domains (Tasks, Goals, Habits, Events, Choices,
 - GET /api/{domain}/{uid}/lateral/complementary - Get complementary relationships
 - GET /api/{domain}/{uid}/lateral/siblings - Get sibling relationships (derived from hierarchy)
 - DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid} - Delete relationship
+- GET /api/{domain}/{uid}/lateral/chain - Blocking chain (HTML fragment)
+- GET /api/{domain}/{uid}/lateral/alternatives/compare - Alternatives grid (HTML fragment)
+- GET /api/{domain}/{uid}/lateral/graph - Relationship graph (Vis.js format)
+- GET /api/{domain}/{uid}/lateral/manage - Deletable edge list (HTML fragment)
 
 Domain-specific routes can be added separately for unique relationship types:
 - Habits: POST /api/habits/{uid}/lateral/stacks - Create habit stacking
@@ -31,9 +35,14 @@ Usage:
     )
     factory.register_routes(app, rt)
 
+A curriculum domain (ku / ps / lp) passes ``domain_service=None`` and must pass
+``require_role`` with a ``user_service_getter``: the role gates its five write
+routes (the four creates and the DELETE); its reads stay open to every user.
+
 See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 from fasthtml.common import FT
@@ -42,6 +51,8 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.route_factories.route_helpers import check_required_role
+from core.models.enums import UserRole
 from core.models.enums.activity_enums import Priority
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties
@@ -93,11 +104,30 @@ class LateralRouteFactory:
         lateral_service: LateralRelationshipOperations,
         entity_name: str,  # "Goal", "Task", "Habit", etc.
         domain_service: OwnershipVerifier | None = None,  # None = shared/curriculum
+        require_role: UserRole | None = None,  # gates the write routes only
+        user_service_getter: Callable[[], Any] | None = None,
     ) -> None:
+        # A write with no ownership verifier touches shared content, so it is
+        # gated by role instead — never by nothing.
+        if domain_service is None and require_role is None:
+            raise ValueError(
+                f"LateralRouteFactory({domain!r}): a domain with no domain_service "
+                "must set require_role for its write routes"
+            )
+        if require_role is not None and user_service_getter is None:
+            raise ValueError("user_service_getter is required when require_role is set")
         self.domain = domain
         self.lateral_service = lateral_service
         self.entity_name = entity_name
         self.domain_service = domain_service
+        self.require_role = require_role
+        self.user_service_getter = user_service_getter
+
+    async def _check_write_role(self, request: Request) -> Result[None]:
+        """The factory's role gate for a write route; ok when no role is set."""
+        return await check_required_role(
+            request, self.require_role, self.user_service_getter, self.domain
+        )
 
     def register_routes(self, _app, rt) -> None:
         """Register all lateral relationship routes for this domain."""
@@ -141,6 +171,9 @@ class LateralRouteFactory:
                 confidence: Certainty of this constraint (0.0-1.0; default 1.0 — hard constraints are explicit)
                 priority: Relative importance of this relationship (low/medium/high)
             """
+            role_check = await self._check_write_role(request)
+            if role_check.is_error:
+                return Result.fail(role_check)
             user_uid = require_authenticated_user(request)
             edge_priority = _lateral_priority(priority)
             if edge_priority.is_error:
@@ -251,6 +284,9 @@ class LateralRouteFactory:
                 confidence: Certainty of this prerequisite (0.0-1.0; default 1.0 — asserting a hard requirement)
                 priority: Relative importance of this relationship (low/medium/high)
             """
+            role_check = await self._check_write_role(request)
+            if role_check.is_error:
+                return Result.fail(role_check)
             user_uid = require_authenticated_user(request)
             edge_priority = _lateral_priority(priority)
             if edge_priority.is_error:
@@ -356,6 +392,9 @@ class LateralRouteFactory:
                 difficulty: How hard it is (e.g. "steep at first")
                 resources: What it costs to pursue (e.g. "one mentor plus a rowing machine")
             """
+            role_check = await self._check_write_role(request)
+            if role_check.is_error:
+                return Result.fail(role_check)
             user_uid = require_authenticated_user(request)
             edge_priority = _lateral_priority(priority)
             if edge_priority.is_error:
@@ -449,6 +488,9 @@ class LateralRouteFactory:
                 confidence: Certainty of this synergy (0.0-1.0; default 0.8 — softer assertion)
                 priority: Relative importance of this relationship (low/medium/high)
             """
+            role_check = await self._check_write_role(request)
+            if role_check.is_error:
+                return Result.fail(role_check)
             user_uid = require_authenticated_user(request)
             edge_priority = _lateral_priority(priority)
             if edge_priority.is_error:
@@ -557,6 +599,9 @@ class LateralRouteFactory:
                 relationship_type: Type (blocks, prerequisites, alternatives, complementary)
                 target_uid: Target entity UID
             """
+            role_check = await self._check_write_role(request)
+            if role_check.is_error:
+                return Result.fail(role_check)
             user_uid = require_authenticated_user(request)
 
             # Map route type to RelationshipName
