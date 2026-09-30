@@ -672,7 +672,7 @@ class TestEventsChokepoint:
     ) -> tuple[EventsCoreService, Mock, StatusGuardedWriteRecorder[Event]]:
         from core.services.events.events_core_service import EventsCoreService
 
-        # Today's event by default: past-event immutability must not gate the transition.
+        # Today's event by default; the past-event tests pass an earlier date.
         current = Event(
             uid="event_1",
             user_uid=USER,
@@ -735,17 +735,36 @@ class TestEventsChokepoint:
         backend.update_with_status_guard.assert_not_awaited()
 
     async def test_the_retrospective_exception_still_reaches_the_write(self):
-        """The rule's escape hatch: notes / tags / quality_score may still be added to a
-        past event. ``tags`` is the one of the three ``EventUpdateIntent`` can carry —
-        the other two, and the duration rule's ``duration_minutes``, are fields the intent
-        has no member for, so this door cannot reach them (the same intent-vs-validator
-        drift already registered for Principles; out of this PR's scope)."""
+        """The rule's escape hatch for a field: a past event may still take new tags."""
         service, _backend, recorder = self._service(
             EntityStatus.ACTIVE, event_date=today_in(current_zone()) - timedelta(days=3)
         )
         result = await service.update_event("event_1", EventUpdateIntent(tags=["afterthought"]))
         assert result.is_ok
         assert recorder.last_updates["tags"] == ["afterthought"]
+
+    async def test_a_past_event_can_still_be_completed(self):
+        """A status change is exempt from past-event immutability: completing
+        yesterday's event is the ordinary case, and the write stamps ``completed_at``."""
+        service, backend, recorder = self._service(
+            EntityStatus.ACTIVE, event_date=today_in(current_zone()) - timedelta(days=1)
+        )
+        result = await service.update_event("event_1", EventUpdateIntent(status="completed"))
+        assert result.is_ok, result
+        backend.update_with_status_guard.assert_awaited_once()
+        assert isinstance(recorder.merged_patch()["completed_at"], datetime)
+
+    async def test_a_status_change_does_not_carry_other_fields_past_the_rule(self):
+        """The exemption is per field: a title riding along with the status is refused."""
+        service, backend, _recorder = self._service(
+            EntityStatus.ACTIVE, event_date=today_in(current_zone()) - timedelta(days=1)
+        )
+        result = await service.update_event(
+            "event_1", EventUpdateIntent(status="completed", title="rewritten")
+        )
+        assert result.is_error
+        assert "Attempted to change: title" in result.expect_error().message
+        backend.update_with_status_guard.assert_not_awaited()
 
     async def test_a_non_status_update_still_reads_for_the_rule(self):
         """Unlike Tasks and Goals, Events cannot narrow its read: a title-only update

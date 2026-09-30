@@ -38,7 +38,12 @@ from core.models.event.event_request import EventCreateRequest
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
-from core.models.validation_rules import ONLINE_URL_REQUIRED, patch_leaves_online_without_url
+from core.models.validation_rules import (
+    ONLINE_URL_REQUIRED,
+    event_span_error,
+    patch_leaves_online_without_url,
+    patch_span_error,
+)
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
 from core.services.completion_stamp import (
@@ -59,6 +64,12 @@ from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
+
+
+#: The only fields a past event takes: its tags, and a status change with the
+#: ``completed_at`` stamp it carries (the stamp may also be set on its own, which the
+#: status guard refuses unless the stored status agrees).
+_PAST_EVENT_UPDATABLE_FIELDS = frozenset({"tags", "status", "completed_at"})
 
 
 class EventsCoreService(
@@ -128,46 +139,35 @@ class EventsCoreService(
         Validate event creation with business rules.
 
         Business Rules:
-        1. Event duration sanity check: 5 minutes to 12 hours (720 minutes)
+        1. Span: ``end_time - start_time`` lies within ``EventSpan`` (5 minutes to 12
+           hours) when both times are set. Both service doors reach this hook — the
+           request door (``create_event``) and the entity door (``create``) persist
+           through the inherited CRUD create. A creator that calls ``backend.create``
+           directly does not.
 
         Args:
-            event: Ku domain model being created
+            event: Event being created
 
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
+        span_error = event_span_error(event.start_time, event.end_time)
+        if span_error is not None:
+            return Result.fail(Errors.validation(message=span_error, field="end_time"))
 
-        # Business Rule: Event duration sanity check
-        # Catches data entry errors and suggests better patterns
-        duration = event.duration_minutes
-        if duration:
-            if duration < 5:
-                return Result.fail(
-                    Errors.validation(
-                        message="Event duration must be at least 5 minutes",
-                        field="duration_minutes",
-                        value=duration,
-                    )
-                )
-
-            if duration > 720:  # 12 hours
-                return Result.fail(
-                    Errors.validation(
-                        message="Event duration exceeds 12 hours. Use multi-day event or split into sessions.",
-                        field="duration_minutes",
-                        value=duration,
-                    )
-                )
-
-        return Result.ok(None)  # All validations passed
+        return Result.ok(None)
 
     def _validate_update(self, current: Event, updates: EventUpdateIntent) -> Result[None]:
         """
         Validate event updates with business rules.
 
         Business Rules:
-        1. Past event immutability: Can't modify past events (except notes/tags)
-        2. Duration sanity check: If updating duration, must be 5-720 minutes
+        1. Past event immutability: a past event takes only a tag change or a status
+           change (with its ``completed_at`` stamp) — so yesterday's event can still be
+           completed.
+        2. Span: a patch that sets ``start_time`` or ``end_time`` must leave the span
+           within ``EventSpan``, judged on the merged times. A patch naming neither
+           passes, so an event stored out of bounds can still be completed or moved.
         3. Online needs a URL: a patch that sets ``is_online`` or ``meeting_url`` must
            leave the event with a URL if it is online, judged on the merged state. A
            patch naming neither passes, so an event stored online without a URL can
@@ -182,42 +182,25 @@ class EventsCoreService(
         """
 
         changes = updates.to_changes()
-        # Business Rule 1: Past event immutability (with notes exception)
-        # Past events are historical records, but allow adding notes retrospectively
+        # Business Rule 1: past event immutability
         if current.event_date and current.event_date < today_in(current_zone()):
-            allowed_fields = {"notes", "tags", "quality_score"}  # Can update these
-            disallowed_updates = set(changes.keys()) - allowed_fields
-
+            disallowed_updates = set(changes.keys()) - _PAST_EVENT_UPDATABLE_FIELDS
             if disallowed_updates:
                 return Result.fail(
                     Errors.validation(
-                        message=f"Cannot modify past events (except notes/tags/quality_score). "
-                        f"Attempted to change: {', '.join(disallowed_updates)}",
+                        message="Cannot modify past events except their tags or status. "
+                        f"Attempted to change: {', '.join(sorted(disallowed_updates))}",
                         field="event_date",
                         value=current.event_date.isoformat(),
                     )
                 )
 
-        # Business Rule 2: Duration sanity check on update
-        if "duration_minutes" in changes:
-            duration = changes["duration_minutes"]
-            if duration < 5:
-                return Result.fail(
-                    Errors.validation(
-                        message="Event duration must be at least 5 minutes",
-                        field="duration_minutes",
-                        value=duration,
-                    )
-                )
-
-            if duration > 720:  # 12 hours
-                return Result.fail(
-                    Errors.validation(
-                        message="Event duration exceeds 12 hours. Use multi-day event or split into sessions.",
-                        field="duration_minutes",
-                        value=duration,
-                    )
-                )
+        # Business Rule 2: span within bounds
+        span_error = patch_span_error(
+            changes, start_time=current.start_time, end_time=current.end_time
+        )
+        if span_error is not None:
+            return Result.fail(Errors.validation(message=span_error, field="end_time"))
 
         # Business Rule 3: an online event needs a meeting URL
         if patch_leaves_online_without_url(
@@ -392,7 +375,7 @@ class EventsCoreService(
         Split out from ``create`` so ``_create_with_links`` can finish writing the
         event's graph edges before any domain event announces it exists — see
         ``_publish_created`` for why that ordering is load-bearing. Runs
-        ``_validate_create`` (duration sanity) via the inherited CRUD create. Mirrors
+        ``_validate_create`` (the span rule) via the inherited CRUD create. Mirrors
         ``ChoicesCoreService._create_validated``.
         """
         return await super().create(entity)
@@ -609,14 +592,14 @@ class EventsCoreService(
         calendar event. A patch that moves ``event_date`` also stamps ``rescheduled_at``
         (``now_utc()``) in the same write — the record ``count_recent_reschedules``
         reads. The domain rules (``_validate_update`` — past-event immutability,
-        duration bounds) run here, explicitly: the facade routes the generic CRUD to this
+        span bounds, online URL) run here, explicitly: the facade routes the generic CRUD to this
         method, so the inherited hook never fires for Events.
 
         Events is the one chokepoint whose advisory pre-read is UNCONDITIONAL. Past-event
-        immutability reads ``current.event_date`` and applies to every field of every
-        update, so there is no narrower gate to put it behind — unlike Tasks, which reads
-        only for a priority change. The same read supplies the old date the reschedule
-        event reports.
+        immutability reads ``current.event_date`` and judges every field but tags and
+        status, and the span and online-URL rules merge the patch with the stored times
+        and pair — unlike Tasks, which reads only for a priority change. The same read
+        supplies the old date the reschedule event reports.
 
         The facade (``EventsService.update_event``) splits the two edge fields off the
         intent before calling this, so ``intent.to_changes()`` here carries only node
@@ -643,9 +626,9 @@ class EventsCoreService(
         # reading changes.keys() after the write would leak that bump into the event.
         updated_fields: dict[str, Any] = dict(changes)
 
-        # Advisory pre-read — unconditional, because past-event immutability applies to
-        # every field of every update (see the docstring). It also carries the old date
-        # the reschedule event reports.
+        # Advisory pre-read — unconditional: the domain rules judge the patch against the
+        # stored date, times and online pair (see the docstring). It also carries the old
+        # date the reschedule event reports.
         current_result = await self.get(uid)
         if current_result.is_error:
             return Result.fail(current_result)

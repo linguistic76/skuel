@@ -36,6 +36,7 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, ValidationInfo, field_validator
 
+from core.constants import EventSpan
 from core.utils.timestamp_helpers import as_utc, now_utc, today_in
 from core.utils.zone_context import current_zone
 
@@ -507,6 +508,65 @@ def patch_leaves_online_without_url(
     merged_online = changes.get("is_online", is_online)
     merged_url = changes.get("meeting_url", meeting_url)
     return bool(merged_online) and not merged_url
+
+
+def event_span_error(start_time: time | None, end_time: time | None) -> str | None:
+    """
+    Why an event's span is out of bounds, or ``None`` when it is within them.
+
+    The span is ``end_time - start_time`` on the event's day, and must lie within
+    ``EventSpan.MIN_MINUTES`` - ``EventSpan.MAX_MINUTES``. An end before the start is
+    a negative span, so it is refused as too short. With either time missing there
+    is no span to judge, and the result is ``None``.
+
+    Args:
+        start_time: The event's start time
+        end_time: The event's end time
+
+    Returns:
+        The refusal message, or ``None``.
+    """
+    if start_time is None or end_time is None:
+        return None
+    span = (end_time.hour * 60 + end_time.minute) - (start_time.hour * 60 + start_time.minute)
+    if span < EventSpan.MIN_MINUTES:
+        return f"Event must last at least {EventSpan.MIN_MINUTES} minutes"
+    if span > EventSpan.MAX_MINUTES:
+        return (
+            f"Event must last at most {EventSpan.MAX_MINUTES // 60} hours. "
+            "Use a multi-day event or split it into sessions."
+        )
+    return None
+
+
+def patch_span_error(
+    changes: Mapping[str, object], *, start_time: time | None, end_time: time | None
+) -> str | None:
+    """
+    Why a partial update would leave an event's span out of bounds, or ``None``.
+
+    The update-side half of ``event_span_error``, judged on the merged state — each
+    time from the patch when the patch names it, else the stored one. A patch that
+    names neither ``start_time`` nor ``end_time`` returns ``None`` whatever the stored
+    span, so a status change or a date move never trips over an event already stored
+    out of bounds.
+
+    Args:
+        changes: The materialized patch (``to_changes()``)
+        start_time: The stored start time
+        end_time: The stored end time
+
+    Returns:
+        The refusal message, or ``None``.
+    """
+    if "start_time" not in changes and "end_time" not in changes:
+        return None
+    merged_start = changes.get("start_time", start_time)
+    merged_end = changes.get("end_time", end_time)
+    return event_span_error(
+        merged_start if isinstance(merged_start, time) else None,
+        merged_end if isinstance(merged_end, time) else None,
+    )
 
 
 # =============================================================================
