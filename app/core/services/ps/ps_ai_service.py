@@ -16,16 +16,19 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import EntityUID
 from core.ports import PsOperations
 from core.ports.query_types import StepApplicationsResult, StepLearningSequenceResult
 from core.services.base_ai_service import BaseAIService
+from core.services.curriculum_similarity import rank_similar_curriculum
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.embeddings_service import EmbeddingsService
     from core.services.llm_service import LLMService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
 
 class PsAIService(BaseAIService[PsOperations, PathStep]):
@@ -50,6 +53,7 @@ class PsAIService(BaseAIService[PsOperations, PathStep]):
         backend: PsOperations,
         llm_service: LLMService,
         embeddings_service: EmbeddingsService,
+        vector_search: Neo4jVectorSearchService,
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(
@@ -58,11 +62,19 @@ class PsAIService(BaseAIService[PsOperations, PathStep]):
             embeddings_service=embeddings_service,
             event_bus=event_bus,
         )
+        self.vector_search = vector_search
 
     async def find_similar_steps(
         self, ps_uid: str, limit: int = 5
     ) -> Result[list[tuple[EntityUID, float]]]:
-        """Find semantically similar path steps using embeddings."""
+        """Path steps nearest to ``ps_uid`` in the PathStep vector index.
+
+        The source is read by uid (an unknown uid is not-found); the neighbours
+        come from the vector-discovery chokepoint, which withholds draft-marked
+        curriculum, so the list can be shorter than ``limit``. Scores are the
+        index's ``[0, 1]`` cosine scale, thresholded at the node→node
+        ``ku_similar_min_score``. See ``rank_similar_curriculum``.
+        """
         ps_result = await self.backend.get(ps_uid)
         if ps_result.is_error:
             return Result.fail(ps_result)
@@ -71,17 +83,8 @@ class PsAIService(BaseAIService[PsOperations, PathStep]):
         if not ps:
             return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
-        all_steps_result = await self.backend.list(limit=200)
-        if all_steps_result.is_error:
-            return Result.fail(all_steps_result)
-
-        all_steps_data, _count = all_steps_result.value
-        return await self._rank_similar_entities(
-            ps,
-            EntityType.PATH_STEP,
-            all_steps_data or [],
-            exclude_uid=ps_uid,
-            limit=limit,
+        return await rank_similar_curriculum(
+            self.vector_search, NeoLabel.PATH_STEP, EntityType.PATH_STEP, ps, limit=limit
         )
 
     async def explain_step(self, ps_uid: str, target_level: str = "standard") -> Result[str]:
@@ -281,55 +284,38 @@ Each item should be concrete and actionable, not generic."""
     async def search_by_semantic_query(
         self, query_text: str, limit: int = 20, min_score: float = 0.5
     ) -> Result[list[PathStep]]:
-        """Search path steps by semantic meaning using embeddings.
+        """Path steps nearest to ``query_text`` in the PathStep vector index.
 
-        FULL tier only — this is the `.ai` sub-service, which is `None` in CORE, so
-        no CORE caller reaches here. The keyword fallback below is an
-        EMBEDDING-FAILURE fallback within FULL (the similarity call errored), not a
-        tier fallback; it is also the one production caller of the backend's
-        case-SENSITIVE `_SearchMixin.search`, which is on neither `/search` nor
-        `/api/search/unified`.
+        FULL tier only — this is the `.ai` sub-service, which is `None` in CORE.
+        The query is embedded once and ranked through the vector-discovery
+        chokepoint (draft-marked steps withheld, so the list can be shorter
+        than ``limit``); the hits are read back as models in score order. An
+        embedding or index failure is the method's failure — there is no
+        keyword fallback, because the backend's substring search has no
+        publication gate and its hits are not semantic.
 
         Args:
             query_text: Natural language query
             limit: Maximum results
-            min_score: Minimum similarity score (0.0-1.0)
+            min_score: Minimum similarity score on the index's ``[0, 1]`` scale
 
         Returns:
             Result with list of PathSteps ranked by semantic relevance
         """
-        all_steps_result = await self.backend.list(limit=500)
-        if all_steps_result.is_error:
-            return Result.fail(all_steps_result)
+        hits_result = await self.vector_search.find_similar_by_text(
+            label=NeoLabel.PATH_STEP, text=query_text, limit=limit, min_score=min_score
+        )
+        if hits_result.is_error:
+            return Result.fail(hits_result)
 
-        all_steps_data, _count = all_steps_result.value
-        all_steps: list[PathStep] = all_steps_data or []
-
-        if not all_steps:
+        uids = [str(hit["node"]["uid"]) for hit in hits_result.value]
+        if not uids:
             return Result.ok([])
 
-        candidates = [
-            (s.uid, f"{s.title} {s.intent or ''} {s.description or ''}") for s in all_steps
-        ]
-
-        similarity_result = await self._semantic_search(query_text, candidates, limit * 2)
-        if similarity_result.is_error:
-            # Embedding-failure fallback (NOT a tier fallback — see the docstring)
-            search_result = await self.backend.search(query_text, limit=limit)
-            if search_result.is_error:
-                return Result.fail(search_result)
-            keyword_steps = search_result.value
-            return Result.ok(keyword_steps or [])
-
-        uid_score_pairs = similarity_result.value or []
-        uid_by_score = {uid: score for uid, score in uid_score_pairs if score >= min_score}
-
-        def get_similarity_score(step: PathStep) -> float:
-            return uid_by_score.get(step.uid, 0.0)
-
-        ranked = [s for s in all_steps if s.uid in uid_by_score]
-        ranked.sort(key=get_similarity_score, reverse=True)
-        return Result.ok(ranked[:limit])
+        steps_result = await self.backend.get_many(uids)
+        if steps_result.is_error:
+            return Result.fail(steps_result)
+        return Result.ok([step for step in steps_result.value if step is not None])
 
     async def suggest_learning_sequence(
         self, ps_uid: str, max_suggestions: int = 5

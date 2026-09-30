@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-30
 ---
 
 # PsIntelligenceService - Practice Integration & Guidance Assessment
@@ -562,7 +562,7 @@ Suggests how to apply this path step across activity domains. Returns categorize
 Suggests prerequisite steps (what to learn first) and next steps (natural progressions). Each item includes a title and reason. Uses JSON prompts for reliable structured output.
 
 **`search_by_semantic_query(query_text, limit=20, min_score=0.5)`** → `Result[list[PathStep]]`
-Embedding similarity across all PathSteps. **FULL tier only** — this is a `.ai` sub-service method, and `.ai` is `None` in CORE, so no CORE caller reaches it. Its keyword fallback fires when the similarity call *errors*, not when the tier is CORE.
+The PathSteps nearest to the query in the PathStep vector index (`Neo4jVectorSearchService.find_similar_by_text`, whose index query withholds draft-marked steps), read back as models in score order. **FULL tier only** — this is a `.ai` sub-service method, and `.ai` is `None` in CORE, so no CORE caller reaches it (the `PsService` facade answers keyword search in CORE). An embedding or index failure is the method's failure; there is no keyword fallback.
 
 **`explain_step(ps_uid, target_level="standard")`** → `Result[str]`
 AI explanation at a specific level. `target_level` values: `beginner` (no assumed knowledge), `intermediate` (assumes familiarity), `advanced` (in-depth, connects to broader concepts), `standard` (default), `brief` (2-3 sentences), `detailed` (comprehensive with examples).
@@ -574,7 +574,7 @@ Suggests practice activities (name, type, description). Uses JSON prompts for st
 Brief encouraging insight about a path step (value + motivation tip).
 
 **`find_similar_steps(ps_uid, limit=5)`** → `Result[list[tuple[str, float]]]`
-Finds semantically similar path steps using embedding similarity.
+The steps nearest to `ps_uid` in the PathStep vector index — the source's stored vector (or its canonical embedding text when it has none) through `rank_similar_curriculum` (`core/services/curriculum_similarity.py`). Draft-marked steps are withheld by the index query as a post-filter, so the list can hold fewer than `limit`; scores are the index's `[0, 1]` cosine scale, thresholded at `ku_similar_min_score`. An unknown uid is not-found.
 
 ### TypedDicts
 
@@ -599,7 +599,7 @@ if ps_service.ai:
     seq = await ps_service.suggest_learning_sequence(ps_uid, max_suggestions=5)
     # {"prerequisites": [{"title": ..., "reason": ...}], "next_steps": [...]}
 
-    # Semantic search (falls back to keyword on CORE)
+    # Semantic search (the facade answers keyword search on CORE)
     results = await ps_service.search_by_semantic_query("introduction to functions", limit=10)
 
     # Explanation at a level

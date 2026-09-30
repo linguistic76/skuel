@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-09-28
+updated: 2026-09-30
 status: current
 category: architecture
 tags:
@@ -822,8 +822,9 @@ overstated claim here). The rung buys **relevance ranking and vector recall**. I
 `SearchOperationsMixin.search` → `text_search_raw` → `build_text_search_query`, whose
 predicate is `toLower(n.{field}) CONTAINS toLower($query)` — already case-insensitive, as
 is `faceted_search_raw`'s. The one case-SENSITIVE predicate is the *backend* method
-`_SearchMixin.search` (`_search_mixin.py:224-227`), reached in production only by
-`PsAiService.search_by_semantic_query`'s embedding-failure fallback. The two `search`
+`_SearchMixin.search` (`_search_mixin.py`), which has no production caller —
+`PsAIService.search_by_semantic_query` ranks through the vector index with no keyword
+fallback — and is reached only by tests. The two `search`
 methods share a name across the service and backend layers — the CLAUDE.md
 "same root word at both layers" trap; check the layer before reasoning about the predicate.
 

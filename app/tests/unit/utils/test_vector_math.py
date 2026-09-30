@@ -11,7 +11,13 @@ import math
 
 import pytest
 
-from core.utils.vector_math import cosine_similarity, dot, l2_norm, l2_normalize
+from core.utils.vector_math import (
+    cosine_similarity,
+    dot,
+    l2_norm,
+    l2_normalize,
+    normalized_cosine_similarity,
+)
 
 
 class TestCosineSimilarity:
@@ -61,3 +67,29 @@ class TestVectorPrimitives:
         prenormalized = dot(l2_normalize(a), l2_normalize(b))
         assert prenormalized == pytest.approx(cosine_similarity(a, b))
         assert not math.isnan(prenormalized)
+
+
+class TestNormalizedCosineSimilarity:
+    """The ``[0, 1]`` scale Neo4j's cosine vector indexes answer on: ``(1 + cos) / 2``.
+
+    Measured against ``vector.similarity.cosine`` and ``db.index.vector.queryNodes``
+    in the testcontainer (2026.x): ``[1,0,…]`` vs ``[1,1,0,…]`` → 0.8535534,
+    vs ``[0,1,0,…]`` → 0.5, vs ``[-1,0,…]`` → 0.0.
+    """
+
+    def test_identical_vectors_score_one(self) -> None:
+        assert normalized_cosine_similarity([1.0, 2.0], [1.0, 2.0]) == pytest.approx(1.0)
+
+    def test_matches_the_index_scale(self) -> None:
+        assert normalized_cosine_similarity([1.0, 0.0], [1.0, 1.0]) == pytest.approx(0.8535534)
+        assert normalized_cosine_similarity([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.5)
+        assert normalized_cosine_similarity([1.0, 0.0], [-1.0, 0.0]) == pytest.approx(0.0)
+
+    def test_degenerate_inputs_sort_last(self) -> None:
+        assert normalized_cosine_similarity([], [1.0]) == 0.0
+        assert normalized_cosine_similarity([1.0, 0.0], [1.0]) == 0.0
+        assert normalized_cosine_similarity([0.0, 0.0], [1.0, 0.0]) == 0.0
+
+    def test_accepts_the_stored_tuple_beside_a_list(self) -> None:
+        assert normalized_cosine_similarity((1.0, 2.0), [2.0, 4.0]) == pytest.approx(1.0)
+        assert cosine_similarity((1.0, 0.0), (0.0, 1.0)) == pytest.approx(0.0)

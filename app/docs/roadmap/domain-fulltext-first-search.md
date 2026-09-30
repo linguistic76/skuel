@@ -1,6 +1,6 @@
 ---
 title: "Domain-level fulltext-first text search (D1(b) follow-on)"
-updated: 2026-09-05
+updated: 2026-09-30
 status: "ruled deferred (twice)"
 registered: 2026-08-16
 ruled: 2026-08-25
@@ -23,9 +23,9 @@ Both production `CONTAINS` predicates lower-case both sides — `faceted_search_
 (`toLower(entity.{field}) CONTAINS $query_text`, param pre-lowered) and
 `build_text_search_query` behind `text_search_raw`
 (`toLower(n.{field}) CONTAINS toLower($query)`). The single case-SENSITIVE predicate in the
-persistence layer is `_SearchMixin.search` (`_search_mixin.py:224-227`), whose only
-production caller is `PsAiService.search_by_semantic_query`'s embedding-failure fallback —
-it is on neither `/search` nor `/api/search/unified`. So the honest value of moving a
+persistence layer is `_SearchMixin.search` (`_search_mixin.py`), which has no production
+caller (`PsAIService.search_by_semantic_query` ranks through the vector index with no
+keyword fallback) — it is on neither `/search` nor `/api/search/unified`. So the honest value of moving a
 surface to fulltext is **relevance ranking and vector recall**, NOT case-insensitivity,
 which every surface already has. Two further measured facts bound the case:
 

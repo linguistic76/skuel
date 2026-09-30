@@ -16,16 +16,19 @@ NOTE: LP is a Curriculum domain - content is SHARED (no user_uid ownership).
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import EntityUID
 from core.ports import LpOperations
 from core.ports.query_types import LpCompletionStrategy, LpPathOverview
 from core.services.base_ai_service import BaseAIService
+from core.services.curriculum_similarity import rank_similar_curriculum
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.embeddings_service import EmbeddingsService
     from core.services.llm_service import LLMService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
 
 class LpAIService(BaseAIService[LpOperations, LearningPath]):
@@ -49,6 +52,7 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
         backend: LpOperations,
         llm_service: LLMService,
         embeddings_service: EmbeddingsService,
+        vector_search: Neo4jVectorSearchService,
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(
@@ -57,11 +61,19 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
             embeddings_service=embeddings_service,
             event_bus=event_bus,
         )
+        self.vector_search = vector_search
 
     async def find_similar_paths(
         self, lp_uid: str, limit: int = 5
     ) -> Result[list[tuple[EntityUID, float]]]:
-        """Find semantically similar learning paths using embeddings."""
+        """Learning paths nearest to ``lp_uid`` in the LearningPath vector index.
+
+        The source is read by uid (an unknown uid is not-found); the neighbours
+        come from the vector-discovery chokepoint, which withholds draft-marked
+        curriculum, so the list can be shorter than ``limit``. Scores are the
+        index's ``[0, 1]`` cosine scale, thresholded at the node→node
+        ``ku_similar_min_score``. See ``rank_similar_curriculum``.
+        """
         lp_result = await self.backend.get(lp_uid)
         if lp_result.is_error:
             return Result.fail(lp_result)
@@ -70,17 +82,8 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
         if not lp:
             return Result.fail(Errors.not_found(resource="LearningPath", identifier=lp_uid))
 
-        all_paths_result = await self.backend.list(limit=100)
-        if all_paths_result.is_error:
-            return Result.fail(all_paths_result)
-
-        all_paths_data, _count = all_paths_result.value
-        return await self._rank_similar_entities(
-            lp,
-            EntityType.LEARNING_PATH,
-            all_paths_data or [],
-            exclude_uid=lp_uid,
-            limit=limit,
+        return await rank_similar_curriculum(
+            self.vector_search, NeoLabel.LEARNING_PATH, EntityType.LEARNING_PATH, lp, limit=limit
         )
 
     async def generate_path_overview(self, lp_uid: str) -> Result[LpPathOverview]:
