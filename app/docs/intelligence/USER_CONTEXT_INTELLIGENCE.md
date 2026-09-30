@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-09-19
+updated: 2026-09-30
 ---
 # UserContextIntelligence - Central Intelligence Hub
 ## Related Skills
@@ -934,7 +934,7 @@ factory = UserContextIntelligenceFactory(
     lp=lp_service.relationships,
     # Processing (3)
     assignments=assignments_service.relationships,
-    journals=journaps_service.relationships,
+    journals=journals_service.relationships,
     reports=reports_service.relationships,
     # Temporal Domain (1)
     calendar=calendar_service,

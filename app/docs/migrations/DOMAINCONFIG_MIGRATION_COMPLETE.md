@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-29
+updated: 2026-09-30
 ---
 
 # DomainConfig Migration - Complete
@@ -93,7 +93,7 @@ Migrated all remaining BaseService subclasses outside Activity domains to achiev
 
 **Content/Processing Domains (3):**
 - `core/services/content_enrichment_service.py` - Audio transcription processing
-- `core/services/journals/journaps_core_service.py` - Journal entry management
+- `core/services/journals/journals_core_service.py` - Journal entry management
 - `core/services/submissions/ + core/services/feedback/report_project_service.py` - Report project operations
 
 **Reports Domain (3):**
@@ -156,7 +156,7 @@ TASKS_CONFIG = create_activity_domain_config(
     completed_statuses=(KuStatus.COMPLETED.value,),
 )
 
-GOAPS_CONFIG = create_activity_domain_config(
+GOALS_CONFIG = create_activity_domain_config(
     dto_class=GoalDTO,
     model_class=Goal,
     domain_name="goals",
@@ -217,7 +217,7 @@ GOAPS_CONFIG = create_activity_domain_config(
 
 ### Content Services (Phase 4) - 3 files
 - `core/services/content_enrichment_service.py`
-- `core/services/journals/journaps_core_service.py`
+- `core/services/journals/journals_core_service.py`
 - `core/services/submissions/ + core/services/feedback/report_project_service.py`
 
 ### Reports Services (Phase 4) - 3 files

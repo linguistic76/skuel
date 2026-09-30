@@ -1,19 +1,11 @@
 """
-Context-Aware API Routes - Migrated to service-based architecture
-==================================================================
+Context-Aware API Routes
+========================
 
-Migrated from mock responses to actual service integration.
-
-Before: 476 lines with manual response helpers and mock data
-After: ~220 lines with boundary_handler and service integration
-
-Note: This API is 100% domain-specific (context analysis, predictions, recommendations),
-so CRUDRouteFactory is not applicable. Migration focuses on:
-1. Removing custom response helpers (use boundary_handler)
-2. Removing mock data responses
-3. Adding basic validation
-4. Preparing for service integration
-5. Adding proper HTTP status codes (201 for creates)
+JSON routes over ``UserContextOperations``: the context dashboard, analysis and
+next action, the two context integrations (goal → tasks, habit completion), and the
+context analytics reads. Every route is authenticated and scoped to the caller; the
+two integrations are CSRF-protected POSTs whose bodies bind through ``parse_body``.
 """
 
 __version__ = "2.0"
@@ -24,6 +16,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.form_helpers import parse_body
 from adapters.inbound.route_factories import parse_bool_query_param
 from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit import Habit
@@ -115,20 +108,24 @@ def create_context_aware_api_routes(
     @csrf_protected
     @boundary_handler(success_status=201)
     async def create_tasks_from_goal_context_route(
-        request: Request, goal_uid: str, body: ContextualGoalTaskGenerationRequest
+        request: Request, goal_uid: str
     ) -> Result[list[Task]]:
         """
         Create contextually relevant tasks from goal.
 
         Args:
-            request: FastHTML request object
+            request: FastHTML request object (body: ``ContextualGoalTaskGenerationRequest``,
+                JSON or form-encoded; a rejected field is a 400)
             goal_uid: Goal UID from query param
-            body: Validated request body (auto-parsed by FastHTML/Pydantic)
 
         Returns:
             Result containing list of created/template tasks
         """
         user_uid = require_authenticated_user(request)
+        parsed = await parse_body(request, ContextualGoalTaskGenerationRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        body = parsed.value
         return await context_service.create_tasks_from_goal_context(
             goal_uid=goal_uid,
             user_uid=user_uid,
@@ -138,30 +135,24 @@ def create_context_aware_api_routes(
 
     @rt("/api/context/habit/complete", methods=["POST"])
     @csrf_protected
-    @boundary_handler(success_status=200)  # Changed to 200 (completion, not creation)
-    async def complete_habit_with_context_route(
-        request: Request, habit_uid: str, body: ContextualHabitCompletionRequest
-    ) -> Result[Habit]:
+    @boundary_handler(success_status=200)
+    async def complete_habit_with_context_route(request: Request, habit_uid: str) -> Result[Habit]:
         """
         Complete habit with context tracking.
 
         Args:
-            request: FastHTML request object
+            request: FastHTML request object (body: ``ContextualHabitCompletionRequest``,
+                JSON or form-encoded; a rejected field is a 400)
             habit_uid: Habit UID from query param
-            body: Validated request body (auto-parsed by FastHTML/Pydantic)
 
         Returns:
             Result containing completed habit
-
-        Note:
-            Pydantic owns quality validation: the field is a ``str`` narrowed by
-            ``ContextualHabitCompletionRequest.validate_quality`` against
-            ``CONTEXTUAL_QUALITY_VALUES``. It rejects an invalid value during
-            body binding, and the auto-bound body's guard turns that rejection
-            into a 400. (A ``Literal`` annotation would not work here — FastHTML
-            calls the annotation to coerce, and ``Literal(...)`` raises.)
         """
         user_uid = require_authenticated_user(request)
+        parsed = await parse_body(request, ContextualHabitCompletionRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        body = parsed.value
         return await context_service.complete_habit_with_context(
             habit_uid=habit_uid,
             user_uid=user_uid,

@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-09-27
+updated: 2026-09-30
 category: patterns
 related_skills:
 - pydantic
@@ -36,7 +36,7 @@ For hands-on implementation:
 SKUEL validates all external input at API boundaries to prevent 500 errors from malformed data. Use appropriate validation strategies based on input type:
 
 - **Query Parameters (GET):** Helper functions with `Result[T]`
-- **JSON Bodies (POST/PUT):** Pydantic request models
+- **Request Bodies (POST):** Pydantic request models, read inside the handler by `parse_body` / `parse_json_body` / `parse_form_body`
 
 ## Two-Tier Validation Strategy
 
@@ -64,28 +64,27 @@ Both readers end in the same Pydantic validation, so the form's fields and the J
 client's reach one model and one 400.
 
 `parse_body` is the reader at every door both kinds reach — the CRUD factory's
-`/create` and `/update?uid=`, the admin account actions. A JSON-only API route may keep
+`/create` and `/update?uid=`, the admin account actions, the two context integrations
+(`/api/context/goal/tasks`, `/api/context/habit/complete`). A JSON-only API route may keep
 `parse_json_body`; a form-only UI route `parse_form_body`.
 
-### Two ways a JSON body reaches a route — and the guards behind them
+### Read the body inside the handler — never `body: Model` in the signature
 
-| Binding | How | Validation failure becomes |
-|---|---|---|
-| `parse_json_body(request, Model)` | explicit, inside the handler | `Errors.validation` → **400** (the helper catches it) |
-| `body: Model` in the signature | FastHTML constructs the model during parameter extraction, **before** the handler and its `@boundary_handler` wrapper run | `Errors.validation` → **400**, via `install_request_validation_guard` |
+A route that binds its body to a request model reads it through one of the three readers,
+inside the handler, where a rejected field is a `Result` the handler returns — **400**
+through `@boundary_handler`.
+Declaring the model as a handler parameter (`body: SomeRequest`) instead hands the body
+to FastHTML's parameter extraction, which runs **before** the handler and its
+`@boundary_handler` wrapper, and coerces each field by calling its annotation before
+Pydantic sees it. A `Literal` field raises on any value sent; an enum / `int` / `bool` /
+`date` / `dict` field raises on a bad one; a Pydantic constraint failure escapes the same
+way. None of those reaches a route-level guard, so each answers **500**.
 
-Both end at the same 400. The auto-bound form needs an app-level guard because
-the exception escapes past every route-level guard — the same seam
-`install_malformed_json_guard` closes for a malformed (unparseable) JSON body and
-`install_malformed_multipart_guard` for a multipart body the parser cannot read
-(FastHTML pre-parses both encodings during parameter extraction, so no
-route-level reader ever sees the failure). All three are wired once in bootstrap's
-`_create_web_app`; without them the client is told **500** for ordinary bad input.
-
-⚠ **Do not use a `Literal` annotation on an auto-bound body field.** FastHTML
-coerces each incoming value by calling the annotation, and `Literal(...)` raises
-`TypeError` — which is not a `ValidationError` and no guard converts it. Use an
-enum, a validated `str`, or `parse_json_body`.
+Two failures happen in parameter extraction whatever the route does, because FastHTML
+pre-parses a JSON or multipart body there: a malformed (unparseable) JSON body and a
+multipart body the parser cannot read. `install_malformed_json_guard` and
+`install_malformed_multipart_guard`, wired once in bootstrap's `_create_web_app`, turn
+each into a validation **400**.
 
 **Example:**
 ```python
@@ -128,7 +127,7 @@ async def get_dashboard(request: Request) -> Result[Any]:
 
 ### JSON Bodies: Pydantic Request Models
 
-**Use Case:** Complex structured data from POST/PUT request bodies
+**Use Case:** Complex structured data from POST request bodies
 
 **Pattern:** Pydantic `BaseModel` classes with field validation
 
@@ -143,7 +142,7 @@ from pydantic import Field
 from core.models.request_base import UpdateRequestBase
 
 class TaskUpdateRequest(UpdateRequestBase):
-    """Request model for updating a task — bound by the CRUD factory's PUT route."""
+    """Request model for updating a task — read by the CRUD factory's `/api/tasks/update?uid=` route."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
     duration_minutes: int | None = Field(default=None, ge=5, le=480)
@@ -409,10 +408,10 @@ from typing import Literal
 
 QualityLiteral = Literal["poor", "fair", "good", "excellent"]
 
-class HabitCompletionRequest(BaseModel):
+class QualityRatingRequest(BaseModel):
     quality: QualityLiteral = Field(
         default="good",
-        description="Quality rating of the habit completion"
+        description="Quality rating"
     )
 ```
 
@@ -421,16 +420,21 @@ class HabitCompletionRequest(BaseModel):
 - Clear error messages ("Input should be 'poor', 'fair', 'good' or 'excellent'")
 - No manual validation needed
 
-**⚠️ HTML Form Gotcha:** HTML `<select>` elements send empty strings (`""`) when no option is selected. `dict.get("field", "default")` does NOT catch this — the key exists, so the default is ignored. Always use `safe_form_string()` before passing to Pydantic:
+A `Literal` or an enum field works on a model read through a reader
+(`parse_body` / `parse_json_body` / `parse_form_body`) — the reader hands Pydantic the raw
+value, and a bad one is a 400. It is one more reason never to declare the model as a
+handler parameter (§ Read the body inside the handler).
+
+**⚠️ HTML Form Gotcha:** HTML `<select>` elements send empty strings (`""`) when no option
+is selected. The form readers turn an empty string into `None`. A form read by hand does
+not: `dict.get("field", "default")` uses the default only when the key is *missing*, so
+the empty string passes through. Strip it with `safe_form_string()` and branch on the
+empty result:
 
 ```python
 from adapters.inbound.form_helpers import safe_form_string
 
-# ❌ WRONG - empty string passes through, fails enum validation
-domain = form_data.get("domain", "personal")
-
-# ✅ CORRECT - safe_form_string handles str|UploadFile|None, then `or` provides fallback
-domain = safe_form_string(form_data.get("domain")) or "personal"
+mode_str = safe_form_string(form_data.get("mode", ""))  # "" when unselected
 ```
 
 See `/docs/patterns/ERROR_HANDLING.md` → "Safe Enum Parsing for HTML Forms" for the full pattern.
@@ -516,8 +520,8 @@ envelope, while a UI form route re-renders with a banner at 200.
 | **Query Params (GET)** | Silent helpers (`parse_*_query_param`) | 200 (default) | Booleans, dates, CSV lists, pagination |
 | **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
 | **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 200 (banner) | Many checkbox/enum/optional string params needing coercion |
-| **Bodies at a door both callers reach (POST)** | `parse_body(request, Model)` — JSON or form by Content-Type | 400 | CRUD factory create/update, admin account actions: API clients and HTMX forms |
-| **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 400 | JSON-only API routes |
+| **Bodies at a door both callers reach (POST)** | `parse_body(request, Model)` — JSON or form by Content-Type | 400 | CRUD factory create/update, admin account actions, the context integrations: API clients and HTMX forms |
+| **JSON Bodies (POST)** | `parse_json_body(request, Model)` | 400 | JSON-only API routes |
 | **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 API · 200 banner | Form-only UI routes |
 | **Path Params** | No shared helper — each route coerces or 404s | varies | Used on UI routes; query params preferred for new API routes |
 
@@ -566,10 +570,11 @@ class TaskUpdateRequest(UpdateRequestBase):
 
     def to_intent(self) -> TaskUpdateIntent: ...  # the typed patch the service takes
 
-# Route parses JSON → constructs model → hands the service a typed intent
-@rt("/api/tasks/{uid}", methods=["PUT"])
+# Route reads the body → constructs model → hands the service a typed intent
+# (the CRUD factory's /update door does this for every Activity domain)
+@rt("/api/tasks/update", methods=["POST"])
 async def update_task(request: Request, uid: str) -> Result[Task]:
-    result = await parse_json_body(request, TaskUpdateRequest)
+    result = await parse_body(request, TaskUpdateRequest)
     if result.is_error:
         return Result.fail(result)
     return await tasks_service.update_task(uid, result.value.to_intent())
@@ -833,7 +838,7 @@ class TaskStatusUpdateRequest(RequestBase):
 
 **Before (Manual):**
 ```python
-@rt("/api/tasks/{uid}", methods=["PUT"])
+@rt("/api/tasks/update", methods=["POST"])
 async def update_task(request: Request, uid: str) -> Result[Task]:
     body = await request.json()  # Manual parsing
 
@@ -845,13 +850,13 @@ async def update_task(request: Request, uid: str) -> Result[Task]:
     # Wrong types → silent data loss
 ```
 
-**After (parse_json_body helper):**
+**After (parse_body helper):**
 ```python
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_body
 
-@rt("/api/tasks/{uid}", methods=["PUT"])
+@rt("/api/tasks/update", methods=["POST"])
 async def update_task(request: Request, uid: str) -> Result[Task]:
-    result = await parse_json_body(request, TaskUpdateRequest)
+    result = await parse_body(request, TaskUpdateRequest)
     if result.is_error:
         return Result.fail(result)
     return await tasks_service.update_task(uid, result.value.to_intent())

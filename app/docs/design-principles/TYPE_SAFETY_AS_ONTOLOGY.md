@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Type Safety as Ontology"
-updated: 2026-08-11
+updated: 2026-09-30
 status: current
 category: design-principles
 tags: [design, principles, type-safety, enums, mypy]
@@ -47,7 +47,7 @@ For a system targeting 10,000 users, enum-driven pipelines enable:
 
 ## Enforcement
 
-- **MyPy:** 0 errors enforced in CI. `core.services.*` and `core.ports.*` require `disallow_untyped_defs`
+- **MyPy:** 0 errors enforced in CI. `core.ports.*` and `core.utils.{result_simplified,error_boundary}` require `disallow_untyped_defs` (`core.services.*` does not)
 - **SKUEL linter:** SKUEL013 (use `RelationshipName` enum), SKUEL014 (use `EntityType`/`NonKuDomain` enum)
 - **Any policy:** Category A (eliminate), B (use specific type), C (permanent boundary with `# boundary:` comment)
 - **Ruff:** Formatting enforced via `./dev format`

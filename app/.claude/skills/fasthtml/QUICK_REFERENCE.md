@@ -92,7 +92,7 @@ found = require_found(result, "Entity", uid)                      # adapters/inb
 
 ### Query-param validation — `route_factories/route_helpers.py`
 
-`parse_bool_query_param`, `parse_date_query_param`, `parse_pagination_params` — GET params fail with 400; JSON bodies use Pydantic request models and also fail with 400 (`ErrorCategory.VALIDATION`), whether bound via `parse_json_body` or auto-bound as `body: SomeRequest`. An auto-bound body is validated during FastHTML's parameter extraction, before the handler runs, so `install_request_validation_guard` (bootstrap) is what turns the escaping `ValidationError` into that 400 instead of a 500 — for an `application/json` request only. ⚠ A `Literal`- or enum-annotated auto-bound field still 500s — FastHTML passes each string value through the annotation before the model sees it: `Literal(...)` raises `TypeError`, `Priority("bad")` a plain `ValueError`, neither a `ValidationError`.
+`parse_bool_query_param`, `parse_date_query_param`, `parse_pagination_params` — silent fallbacks; the strict `parse_*_param_strict` parsers fail with 400. Bodies use Pydantic request models read inside the handler by `parse_body` / `parse_json_body` / `parse_form_body` and also fail with 400 (`ErrorCategory.VALIDATION`). ⚠ Never declare the model as a handler parameter (`body: SomeRequest`): FastHTML coerces each field by calling its annotation during parameter extraction, before the handler runs — `Literal(...)` raises `TypeError`, `Priority("bad")` a plain `ValueError`, a Pydantic rejection escapes the same way — each a 500.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-09-27
+updated: 2026-09-30
 category: patterns
 related_skills:
 - python
@@ -321,46 +321,27 @@ class TaskDTO:
 # core/models/task/task.py
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
 from core.models.enums.entity_enums import EntityStatus, Priority
+from core.models.user_owned_entity import UserOwnedEntity
 
-@dataclass(frozen=True)
-class Task:
+@dataclass(frozen=True, kw_only=True)
+class Task(UserOwnedEntity):
     """
-    Immutable domain model representing a task.
+    Immutable domain model representing a task (abridged).
 
-    Contains all business logic and rules for task management.
+    Identity, status, priority and the created_at / updated_at timestamps are
+    inherited from UserOwnedEntity / Entity.
     """
-
-    # Identity
-    uid: str
-    user_uid: UserUID
-    title: str
-    description: str | None = None
 
     # Scheduling
     due_date: date | None = None
     scheduled_date: date | None = None
     completion_date: date | None = None
-
-    # Status and priority
-    status: EntityStatus = EntityStatus.DRAFT
-    priority: Priority = Priority.MEDIUM
-
-    # Metadata
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        """Set defaults for datetime fields."""
-        if self.created_at is None:
-            object.__setattr__(self, "created_at", datetime.now())
-        if self.updated_at is None:
-            object.__setattr__(self, "updated_at", datetime.now())
 
     # ==========================================================================
     # BUSINESS LOGIC METHODS

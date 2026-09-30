@@ -193,28 +193,24 @@ class TranscriptionCreateRequest(BaseModel):
 ## Literal Types
 
 Enums are the default for a fixed vocabulary — they carry behavior (`get_color()`, sort
-order) and are reused across models. A `Literal` is for a one-off constraint on a model
-that is **not** auto-bound:
+order) and are reused across models. A `Literal` is for a one-off constraint:
 
 ```python
-# core/models/search_request.py — built by from_form_params(), never auto-bound
+# core/models/search_request.py — built by from_form_params()
 connected_direction: Literal["outgoing", "incoming", "both"] = Field(default="outgoing")
 ```
 
-⚠ **Never annotate an auto-bound body field (`body: Model` in a handler signature) as a
-`Literal` or an enum.** FastHTML passes each incoming string value through the annotation
-before Pydantic sees it: `Literal(...)` raises `TypeError: Cannot instantiate
-typing.Literal`, and `Priority("bad")` a plain `ValueError` — neither is a
-`ValidationError`, so no guard converts it and the request 500s. Use a `str` narrowed by a
-`@field_validator` (`ContextualHabitCompletionRequest.quality` in
-`core/models/habit/habit_request.py`), or bind through `parse_json_body` / `parse_body`.
+Either works on a model read through `parse_body` / `parse_json_body` / `parse_form_body`,
+the only way a route binds a request model: the helper hands Pydantic the raw value, and a bad one
+is a 400. Never declare the model as a handler parameter (`body: Model`) — FastHTML coerces
+each value by calling its annotation before Pydantic sees it, and `Literal(...)` /
+`Priority("bad")` raise outside the model, a 500.
 
 ### When to Use Literal vs Enum
 
 | Use Literal | Use Enum |
 |-------------|----------|
 | One-off constraint | Reused across models |
-| Model built by `parse_*` / `from_form_params` | A model built by `parse_*` (never an auto-bound body field) |
 | No behavior needed | Methods (`get_color`, sort order) |
 
 ## Methods on Request Models
@@ -312,9 +308,9 @@ data = request.model_dump(exclude={"description"})
 
 A form posts a browser encoding; `parse_form_body` turns empty strings into `None`, splits
 `list[T]` fields, validates, and returns a `Result`. Never construct the model from the raw
-form yourself: `TaskCreateRequest(**form)` *raises* on bad input, so the user gets a JSON
-400 from the app-level guard (or a 500 from `@boundary_handler`'s safety net) instead of
-the form back with a banner.
+form yourself: `TaskCreateRequest(**form)` *raises* on bad input, so the request ends in a
+boundary's safety net (a 500 from `@boundary_handler`) instead of the form back with a
+banner.
 
 ```python
 # adapters/inbound/tasks_ui.py

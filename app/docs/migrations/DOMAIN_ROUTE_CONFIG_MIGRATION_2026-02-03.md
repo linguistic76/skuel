@@ -1,6 +1,6 @@
 ---
 related_skills: [domain-route-config]
-updated: 2026-08-07
+updated: 2026-09-30
 ---
 # DomainRouteConfig Pattern Migration - Phase 3
 
@@ -132,7 +132,7 @@ AUTH_CONFIG = DomainRouteConfig(
 
 **Configuration:**
 ```python
-JOURNAPS_CONFIG = DomainRouteConfig(
+JOURNALS_CONFIG = DomainRouteConfig(
     domain_name="journals",
     primary_service_attr="transcript_processor",
     api_factory=create_journals_api_routes,
