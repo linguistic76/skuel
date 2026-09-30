@@ -1,24 +1,30 @@
 """AI service wiring — conditional on INTELLIGENCE_TIER=FULL."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.services.embeddings_service import EmbeddingsService
+    from core.services.llm_service import LLMService
 
 logger = get_logger("skuel.bootstrap")
 
 
 def _wire_ai_services(
-    llm_service: Any,
-    embeddings_service: Any,
+    llm_service: LLMService | None,
+    embeddings_service: EmbeddingsService | None,
     _activity_services: dict[str, Any],
     learning_services: dict[str, Any],
 ) -> None:
-    """Create and wire AI services into domain facades (ADR-030: Two-Tier Intelligence).
+    """Create and wire AI services into domain facades (ADR-024: Two-Tier Intelligence).
 
-    Every facade's ``.ai`` stays None if LLM/embeddings are unavailable.
+    Every facade's ``.ai`` stays None if LLM, embeddings or vector search is
+    unavailable — the curriculum pair rank through the vector index.
     """
-    if not (llm_service and embeddings_service):
-        logger.info("⚠️ AI services skipped (LLM or embeddings not available)")
+    vector_search_service = learning_services["vector_search_service"]
+    if not (llm_service and embeddings_service and vector_search_service):
+        logger.info("⚠️ AI services skipped (LLM, embeddings or vector search not available)")
         return
 
     from core.services.choices.choices_ai_service import ChoicesAIService
@@ -52,11 +58,13 @@ def _wire_ai_services(
         backend=learning_services["ps"].core.backend,
         llm_service=llm_service,
         embeddings_service=embeddings_service,
+        vector_search=vector_search_service,
     )
     lp_ai = LpAIService(
         backend=learning_services["learning_paths"].core.backend,
         llm_service=llm_service,
         embeddings_service=embeddings_service,
+        vector_search=vector_search_service,
     )
     # Wire AI services into Curriculum Domain facades (post-construction)
     learning_services["ps"].ai = ps_ai

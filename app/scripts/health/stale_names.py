@@ -483,7 +483,6 @@ _m_routecfg = (
 )
 _m_selroutes = "migration record -- sel_routes.py / create_drawer_layout name the modules being migrated/deleted"
 _m_selux = "migration record -- sel_routes verification/procedure commands from the migration"
-_skill_ll = "learning-loop historical-references index -- names retired identifiers to map them to successors"
 _sweep_q = "dead-doc-links sweep queue: dated #1224 record of the 'authored, never assigned' finding that led to the deletion"
 _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
@@ -492,10 +491,6 @@ _trouble = "verbatim ui.daisy_components ImportError strings users search for --
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
-    ".claude/skills/learning-loop/SKILL.md": {
-        (32, "ProcessorType"): Allow(_skill_ll),
-        (44, "ProcessorType"): Allow(_skill_ll),
-    },
     "docs/TROUBLESHOOTING.md": {
         (132, "daisy_components"): Allow(_trouble, hits=2),
         (134, "daisy_components"): Allow(_trouble),

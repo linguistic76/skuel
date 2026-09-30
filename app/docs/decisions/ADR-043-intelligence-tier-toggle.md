@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-29
+updated: 2026-09-30
 related_skills: [learning-loop, base-ai-service]
 ---
 
@@ -48,7 +48,7 @@ All in `services_bootstrap/` (one file at the time of this ADR):
 ### Downstream (No Changes Needed)
 
 These blocks naturally skip when their dependencies are `None`:
-- `if llm_service and embeddings_service:` — 12 AI services
+- `if not (llm_service and embeddings_service and vector_search_service): return` (`_wire_ai_services`) — the 8 AI services
 - `if embeddings_service:` — EmbeddingBackgroundWorker
 - `AskesisService` — degrades gracefully with `llm_service=None`
 - `LifePathService` — falls back to keyword extraction

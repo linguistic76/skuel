@@ -1,6 +1,6 @@
 ---
 name: base-ai-service
-description: Expert guide for SKUEL's AI tier — the BaseAIService base class, the eight domain *AIService subclasses, their FULL-tier wiring onto each facade's .ai slot, and the config-driven AI routes. Use when adding or changing an LLM or embeddings feature on a domain, working with BaseAIService, _generate_insight, _semantic_search, AIRouteSpec, or the /api/{domain}/ai/* routes.
+description: Expert guide for SKUEL's AI tier — the BaseAIService base class, the eight domain *AIService subclasses, their FULL-tier wiring onto each facade's .ai slot, and the config-driven AI routes. Use when adding or changing an LLM or embeddings feature on a domain, working with BaseAIService, _generate_insight, _rank_similar_entities, rank_similar_curriculum, AIRouteSpec, or the /api/{domain}/ai/* routes.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -51,8 +51,8 @@ class BaseAIService(Generic[B, T]):
     def __init__(
         self,
         backend: B,
-        llm_service: Any | None = None,  # boundary: LLMService, typed on each subclass
-        embeddings_service: Any | None = None,  # boundary: EmbeddingsService, typed on each subclass
+        llm_service: LLMService | None = None,
+        embeddings_service: EmbeddingsService | None = None,
         graph_intel: GraphIntelligenceService | None = None,
         relationship_service: Any | None = None,  # boundary: UnifiedRelationshipService
         event_bus: Any | None = None,  # boundary: EventBusOperations
@@ -60,8 +60,9 @@ class BaseAIService(Generic[B, T]):
 ```
 
 - `backend` is required; a falsy backend raises `ValueError`.
-- `llm_service` and `embeddings_service` are **optional at the base**. A missing one is logged
-  as a warning at construction, and the helper that needs it returns `Result.fail`.
+- `llm_service` and `embeddings_service` are **optional at the base**, typed against the real
+  classes (`TYPE_CHECKING` imports). A missing one is logged as a warning at construction, and
+  the helper that needs it returns `Result.fail`.
 - There are no `_require_llm` / `_require_embeddings` class attributes and no
   `_require_*_service()` guard methods.
 - The logger is `skuel.ai.{_service_name}`.
@@ -76,7 +77,9 @@ class BaseAIService(Generic[B, T]):
 
 ### The subclasses narrow the constructor
 
-Each of the eight declares both AI services as required, typed parameters:
+Each of the eight declares both AI services as required parameters. `PsAIService` and
+`LpAIService` additionally require `vector_search: Neo4jVectorSearchService`, held as
+`self.vector_search` — their similarity ranks through the vector index (§ The Helpers).
 
 ```python
 class TasksAIService(BaseAIService["TasksOperations", Task]):
@@ -104,7 +107,8 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
 `_wire_ai_services()` (`services_bootstrap/_ai_wiring.py`), called from `compose_services`:
 
 ```python
-if not (llm_service and embeddings_service):
+vector_search_service = learning_services["vector_search_service"]
+if not (llm_service and embeddings_service and vector_search_service):
     return  # every facade's .ai stays None
 
 facade.ai = TasksAIService(
@@ -112,10 +116,13 @@ facade.ai = TasksAIService(
     llm_service=llm_service,
     embeddings_service=embeddings_service,
 )
+ps_ai = PsAIService(..., vector_search=vector_search_service)
 ```
 
-- Both services present → all eight are built and set on their facade's `.ai`.
-- Either missing → none is built. It is all or nothing.
+- All three present → all eight are built and set on their facade's `.ai`.
+- Any missing → none is built. It is all or nothing. `compose_services` builds all three in
+  FULL or raises (`compose.py`, `_learning_services.py`) and none in CORE, so the guard
+  separates the tiers rather than a partial FULL.
 - The AI service shares the backend of the facade's core service.
 - No event bus is passed, so an `_event_handlers` declaration on an AI service would register
   nothing. No AI service declares any.
@@ -145,69 +152,64 @@ ingest path publishes after persisting. `./dev embed-backfill` fills nodes that 
 ### `_generate_insight(prompt, context=None, max_tokens=500) -> Result[str]`
 
 Prepends `context` as `key: value` lines, calls `self.llm.generate(full_prompt,
-max_tokens=max_tokens)`, and returns `Result.ok(<what generate returned>)`.
+max_tokens=max_tokens)`, and returns `Result.ok(response.content)`.
 
 - No LLM → `Result.fail(Errors.unavailable(feature="ai_insights", ...))`.
-- An exception from the call → `Result.fail(Errors.integration(service="llm", ...))`.
+- A response with `error` set → `Result.fail(Errors.integration(service="llm", ...))`.
+  `LLMService.generate` never raises: a provider failure is a response with empty `content`
+  and a set `error`, and this helper is where it becomes a failed `Result`. There is no
+  `except` — the chat adapters catch their SDK exceptions below the port.
 
-### `_semantic_search(query, candidates, top_k=5) -> Result[list[tuple[EntityUID, float]]]`
-
-Embeds the query and each `(uid, text)` candidate, ranks by cosine similarity
-(`core/utils/vector_math.py`), returns the top `top_k`.
-
-- No embeddings service → `Result.fail(Errors.unavailable(feature="semantic_search", ...))`.
-- Any exception → `Result.fail(Errors.integration(service="embeddings", ...))`.
-
-It embeds every candidate on every call — one request per candidate. It does not read the
-vectors stored on the nodes.
+A method that returns the helper's `Result` hands the caller text; a method that parses the
+text (`.split("\n")`, `json.loads`) parses a `str`.
 
 ### `_rank_similar_entities(source, entity_type, candidate_pool, *, exclude_uid, limit=5)`
 
-The shared tail of every `find_similar_*`. Builds the canonical embedding text for the source and
-each candidate with `build_embedding_text(entity_type, entity)`, drops `exclude_uid`, and
-delegates to `_semantic_search`. An empty pool returns `Result.ok([])` without embedding
-anything.
+The shared tail of the six Activity `find_similar_*` methods. Takes `Entity` models and ranks
+the pool by the `embedding` each carries — the vector the embedding worker stored on the node:
 
-The caller owns the two backend reads, because the pool differs by domain:
+- A candidate with `embedding is None`, and `exclude_uid`, are left out of the ranking.
+- The source's own stored vector is the query. When it has none, its canonical text
+  (`build_embedding_text(entity_type, source)`) is embedded **once** through
+  `self.embeddings.create_embedding`; that `Result`'s failure is the ranking's failure, and no
+  embeddings service is `Result.fail(Errors.unavailable(feature="semantic_search", ...))`.
+- Scores are `normalized_cosine_similarity` — `(1 + cos) / 2`, the `[0, 1]` scale the vector
+  indexes answer on — so an Activity ranking and a curriculum index query speak one scale.
+- No threshold: the top `limit` are returned however weak. An empty pool (after the two
+  exclusions) returns `Result.ok([])` without embedding anything.
 
-| Domain family | Candidate pool |
-|---------------|----------------|
-| Activities | `backend.find_by(user_uid=source.user_uid)` — the owner's own entities, at most 100 (`find_by`'s default `limit`) |
-| Curriculum | `backend.list(limit=...)` — shared content; PathStep passes 200, LearningPath 100 |
-
-Entities past the cap are never ranked. The curriculum pool is not publication-filtered: a
-draft can be returned as a similar item ([PATTERNS.md](PATTERNS.md) § Pattern 2).
+The caller owns the pool read — `backend.find_by(user_uid=source.user_uid)`, the owner's own
+entities, at most 100 (`find_by`'s default `limit`); entities past the cap are never ranked
+([PATTERNS.md](PATTERNS.md) § Pattern 1).
 
 Do not hand-roll `f"{title} {description}"`: it drifts from the text the stored embeddings were
 built from.
 
+### `rank_similar_curriculum(vector_search, label, entity_type, source, *, limit)`
+
+`core/services/curriculum_similarity.py` — a module function, not a base method, because it
+takes the vector search service the two curriculum AI services hold. The shared tail of
+`PsAIService.find_similar_steps` and `LpAIService.find_similar_paths`:
+
+- The source's stored vector goes to `find_similar_by_vector` on its own label's index;
+  a source without one is embedded once through `find_similar_by_text` from its canonical text.
+- The index is asked for `limit + 1` and the source dropped, so the list holds at most
+  `limit`. The index query is the vector-discovery chokepoint
+  (`VectorSearchBackend.query_vector_index`), which withholds draft-marked curriculum **as a
+  post-filter on the index's answer** — a draft among the nearest neighbours shortens the list
+  rather than being replaced.
+- `min_score` is `VectorSearchConfig.ku_similar_min_score` (0.72), the node→node threshold; the
+  per-label defaults (0.75) are calibrated for text→entity queries and starve node→node.
+
+There is no `backend.list()` pool in either service.
+`PsAIService.search_by_semantic_query` is the same chokepoint by text: `find_similar_by_text`,
+then `backend.get_many` reads the hits back as models in score order. It has no keyword
+fallback — `backend.search` has no publication gate and its hits are not semantic — so an
+embedding or index failure is the method's failure.
+
 ### `_publish_event(event)`
 
 `await publish_event(self.event_bus, event, self.logger)`.
-
----
-
-## Known Mismatch Between the Helpers and the Wired Services
-
-Measured against the classes `_wire_ai_services` passes in. The `Any`-typed constructor
-parameters on the base are why mypy does not see it.
-
-| Helper | Written against | The wired service | Result today |
-|--------|-----------------|-------------------|--------------|
-| `_generate_insight` | a `generate` that returns text | `LLMService.generate` returns an `LLMResponse` dataclass (`content`, `provider`, `model`, `usage`, `error`) and never raises — a provider failure comes back as `LLMResponse(content="", error=...)` | `Result.ok` holds an `LLMResponse`, not a `str`. A method that returns it directly hands the object on; a method that parses it (`.strip()`, `.split()`) raises `AttributeError`. An LLM failure is reported as success. |
-| `_semantic_search` | an `embed_text(text)` that returns a vector | `EmbeddingsService` has no `embed_text`; its method is `create_embedding(text) -> Result[list[float]]` | With one or more candidates, every call returns `Result.fail(Errors.integration(...))`. |
-
-The unit tests replace `_generate_insight` and `_semantic_search` themselves, so they do not
-exercise either call.
-
-The correction belongs in the two helpers — one chokepoint each — not in their call sites.
-Until it lands:
-
-- Do not copy `response = insight_result.value` followed by string parsing as working code.
-- Do not describe a `find_similar_*` method, or a method that parses LLM text, as working.
-- In a test, pass a real `LLMService()` — with no arguments it is the MOCK provider and makes no
-  network call — instead of replacing `_generate_insight`, so the test sees what the method
-  sees.
 
 ---
 
@@ -231,7 +233,9 @@ AIRouteSpec(
 
 `scope` defaults to `ContentScope.USER_OWNED`; the PathStep and LearningPath specs set
 `ContentScope.SHARED`. A new spec is owner-gated unless it says otherwise. `SHARED` removes the
-ownership gate and adds nothing in its place — the route applies no publication check.
+ownership gate and adds nothing in its place — the route applies no publication check. The two
+similarity methods gate drafts at the read (§ The Helpers); the other curriculum methods read
+the uid they are given, and a by-uid read is deliberately ungated.
 
 ### The gates, in order
 
@@ -356,10 +360,13 @@ if result.is_error:
     return Result.fail(result)
 ```
 
-### An unannotated broad `except`
+### An `except` around `self.llm.generate` or `create_embedding`
 
-Catch `LLM_EXCEPTIONS` (`core/utils/exception_types.py`). A catch-all around a provider call
-carries a `# safety-net:` annotation (SKUEL017).
+Neither raises on a provider failure: `generate` answers a response with `error` set and
+`create_embedding` answers `Result.fail` — the chat and embedding adapters catch their SDK
+exceptions below the port. A `try` at the service is dead code; read the response or the
+`Result`. Where an SDK is called directly (the adapters), catch `LLM_EXCEPTIONS`
+(`core/utils/exception_types.py`); a catch-all carries a `# safety-net:` annotation (SKUEL017).
 
 ### A second HTTP door
 
@@ -381,7 +388,9 @@ A hand-written route that calls an AI method skips the tier, ownership and quota
 | `core/services/llm_service.py` | `LLMService`, `LLMResponse` |
 | `core/services/embeddings_service.py` | `EmbeddingsService` |
 | `core/utils/embedding_text_builder.py` | `build_embedding_text` |
-| `core/utils/vector_math.py` | `cosine_similarity`, `dot`, `l2_normalize` |
+| `core/services/curriculum_similarity.py` | `rank_similar_curriculum` |
+| `core/services/neo4j_vector_search_service.py` | `Neo4jVectorSearchService` — `find_similar_by_vector`, `find_similar_by_text` |
+| `core/utils/vector_math.py` | `normalized_cosine_similarity`, `cosine_similarity`, `dot`, `l2_normalize` |
 
 ## Deep Dive Resources
 

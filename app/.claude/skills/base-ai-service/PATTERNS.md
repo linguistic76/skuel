@@ -1,8 +1,7 @@
 # BaseAIService Patterns
 
-Each pattern is taken from a live service. Read [SKILL.md](SKILL.md) § Known Mismatch first: the
-two shared helpers do not yet match the services they are wired to, so the patterns below show
-how the code is shaped, not a guarantee that a given method answers.
+Each pattern is taken from a live service. The routes (Pattern 5) still carry the defects
+listed in [SKILL.md](SKILL.md) § Measured behavior; the service methods answer as described.
 
 ---
 
@@ -38,11 +37,13 @@ async def find_similar_tasks(
 - The candidate pool is drawn from the **source entity's owner's** entities. The method does not
   take a `user_uid` and checks nothing about the caller: reached through its route, `_ai_route`
   has verified the caller owns `task_uid`; a direct caller verifies ownership itself first.
-- `_rank_similar_entities` builds the embedding text. The method passes models, not strings.
+- `_rank_similar_entities` ranks the pool by each model's stored `embedding` and leaves out a
+  candidate that has none. The method passes models, not strings.
 - **The pool is at most 100 entities.** `find_by(limit=100, **filters)` defaults its limit and
   the call passes none, so for an owner with more than 100 tasks the rest are never candidates.
   The five other Activity `find_similar_*` methods make the same call and carry the same cap.
-- Each candidate in the pool is embedded on every call.
+- Nothing is embedded per call unless the source itself has no stored vector — then its
+  canonical text is embedded once.
 
 ## Pattern 2: `find_similar_*` for Shared Curriculum
 
@@ -60,30 +61,21 @@ async def find_similar_steps(
     if not ps:
         return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
-    all_steps_result = await self.backend.list(limit=200)
-    if all_steps_result.is_error:
-        return Result.fail(all_steps_result)
-
-    all_steps_data, _count = all_steps_result.value
-    return await self._rank_similar_entities(
-        ps,
-        EntityType.PATH_STEP,
-        all_steps_data or [],
-        exclude_uid=ps_uid,
-        limit=limit,
+    return await rank_similar_curriculum(
+        self.vector_search, NeoLabel.PATH_STEP, EntityType.PATH_STEP, ps, limit=limit
     )
 ```
 
-- `backend.list()` returns `(items, count)`; `find_by()` returns the items. Unpack accordingly.
-- The pool is capped at 200, stated in the call. Steps past the cap are never candidates.
-  `LpAIService.find_similar_paths` passes `limit=100`.
-- **The live method applies no publication gate, and neither does its route.** The pool is
-  `backend.list()` as returned, so a draft path step can come back as a similar item from
-  `/api/path-steps/ai/similar`; `find_similar_paths` and `/api/learning-paths/ai/similar` are the
-  same. SKUEL's gate belongs to discovery — search and listings — and a similarity result is a
-  listing. A new method that lists curriculum to a learner drops every candidate whose
-  `publication_state` is `draft` before ranking. Opening one entity by its uid is a different
-  case: a by-uid read is deliberately ungated, so a draft is unlisted rather than forbidden.
+- The source is still read by uid, so an unknown uid is not-found before any index query.
+- The pool is the label's vector index, never `backend.list()`. `rank_similar_curriculum`
+  (`core/services/curriculum_similarity.py`) sends the stored vector — or, for a source with
+  none, the canonical text — through `Neo4jVectorSearchService`, whose index query withholds
+  draft-marked curriculum. A similarity result is a listing, and the gate belongs to listings;
+  opening one entity by its uid is a different case — a by-uid read is deliberately ungated, so
+  a draft is unlisted rather than forbidden.
+- The gate is a post-filter on the index's `limit + 1` nearest, so the answer can be shorter
+  than `limit`. `LpAIService.find_similar_paths` is the same call on `NeoLabel.LEARNING_PATH`.
+- Scores come back on the index's `[0, 1]` scale, thresholded at `ku_similar_min_score`.
 
 ## Pattern 3: An LLM Method
 
@@ -111,7 +103,7 @@ async def generate_task_insight(self, task_uid: str) -> Result[str]:
 ```
 
 The shape to keep: fetch, guard not-found, build the context, one helper call, return its
-`Result`. What the `Result` holds today is in [SKILL.md](SKILL.md) § Known Mismatch.
+`Result` — `Result.ok(str)`, or the provider's failure as `Errors.integration(service="llm")`.
 
 **The live method does not bound its input.** `task.description` is passed whole, and
 `TaskCreateRequest.description` has no maximum length; `max_tokens` caps the reply, not the

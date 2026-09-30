@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 # Sub-Service Responsibility Catalog
@@ -475,7 +475,7 @@ result = await service.get_submissions_for_path_step(user_uid, ps_uid)
 **PS-specific methods (PsAIService):**
 - `suggest_step_applications(ps_uid)` — LLM categorized by task/habit/goal/real-world. Returns `StepApplicationsResult`.
 - `suggest_learning_sequence(ps_uid, max_suggestions=5)` — prerequisite/next-step recommendations. Returns `StepLearningSequenceResult`.
-- `search_by_semantic_query(query_text, limit, min_score)` — two-tier semantic/keyword search.
+- `search_by_semantic_query(query_text, limit, min_score)` — PathSteps nearest to the query in the vector index (drafts withheld), read back in score order; no keyword fallback.
 - `explain_step(ps_uid, target_level)` — 6 target levels: beginner/intermediate/advanced/standard/brief/detailed.
 - `suggest_practice_activities(ps_uid)` — JSON-based practice suggestions.
 - TypedDicts: `StepApplicationsResult`, `StepLearningSequenceResult` (`core/ports/query_types.py`)

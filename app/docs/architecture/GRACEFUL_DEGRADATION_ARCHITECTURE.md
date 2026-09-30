@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-14
+updated: 2026-09-30
 ---
 
 # Graceful Degradation Architecture
@@ -150,9 +150,9 @@ When AI is disabled, no worker exists and ingestion publishes no EMBEDDING event
 #   The rung adds relevance ranking and vector recall, NOT case-insensitivity.
 #
 # One exception, off every search surface: the BACKEND _SearchMixin.search is
-# case-SENSITIVE. Its only production caller is PsAiService.search_by_semantic_query's
-# embedding-failure fallback (FULL tier only — .ai is None in CORE), so it is reached
-# by neither /search nor /api/search/unified.
+# case-SENSITIVE. It has no production caller (PsAIService.search_by_semantic_query
+# ranks through the vector index and has no keyword fallback), so it is reached
+# by neither /search nor /api/search/unified — only by tests.
 ```
 
 ## Five Gating Points

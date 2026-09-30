@@ -4,8 +4,7 @@ Base AI Service
 
 Base class for domain AI services (LLM/embeddings-powered features).
 
-Created: January 2026
-Purpose: Separate AI-powered features from graph-based analytics (ADR-030)
+Separates AI-powered features from graph-based analytics (ADR-024).
 
 AI services contain features that REQUIRE:
 - embeddings_service (semantic search, similarity matching)
@@ -31,18 +30,19 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
+from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
-from core.models.protocols.domain_model_protocol import DomainModelProtocol
 from core.models.type_hints import EntityUID
 from core.utils.embedding_text_builder import build_embedding_text
-from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
-from core.utils.vector_math import cosine_similarity
+from core.utils.vector_math import normalized_cosine_similarity
 
 if TYPE_CHECKING:
+    from core.services.embeddings_service import EmbeddingsService
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+    from core.services.llm_service import LLMService
 
 # Generic type vars
 B = TypeVar("B")  # Backend operations protocol
@@ -90,8 +90,8 @@ class BaseAIService(Generic[B, T]):
     def __init__(
         self,
         backend: B,
-        llm_service: Any | None = None,
-        embeddings_service: Any | None = None,
+        llm_service: LLMService | None = None,
+        embeddings_service: EmbeddingsService | None = None,
         graph_intel: GraphIntelligenceService | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
@@ -182,13 +182,19 @@ class BaseAIService(Generic[B, T]):
         """
         Generate AI insight using LLM service.
 
+        ``LLMService.generate`` always answers: a provider failure comes back
+        as a response with empty ``content`` and a set ``error``, never as an
+        exception. This helper is where that degraded response becomes a
+        failed ``Result``, so a caller that parses the text never sees an
+        empty answer as success.
+
         Args:
             prompt: The prompt for the LLM
             context: Optional context to include
             max_tokens: Maximum tokens in response
 
         Returns:
-            Result containing generated text or error
+            Result containing the generated text, or an integration error
         """
         if not self.llm:
             return Result.fail(
@@ -199,108 +205,80 @@ class BaseAIService(Generic[B, T]):
                 )
             )
 
-        try:
-            # Build full prompt with context if provided
-            full_prompt = prompt
-            if context:
-                context_str = "\n".join(f"{k}: {v}" for k, v in context.items())
-                full_prompt = f"Context:\n{context_str}\n\n{prompt}"
+        # Build full prompt with context if provided
+        full_prompt = prompt
+        if context:
+            context_str = "\n".join(f"{k}: {v}" for k, v in context.items())
+            full_prompt = f"Context:\n{context_str}\n\n{prompt}"
 
-            response = await self.llm.generate(full_prompt, max_tokens=max_tokens)
-            return Result.ok(response)
-        except LLM_EXCEPTIONS as e:
-            self.logger.error(f"LLM generation failed: {e}")
+        response = await self.llm.generate(full_prompt, max_tokens=max_tokens)
+        if response.error is not None:
+            self.logger.error(f"LLM generation failed ({response.provider}): {response.error}")
             return Result.fail(
                 Errors.integration(
-                    message=f"LLM generation failed: {e}",
+                    message=f"LLM generation failed: {response.error}",
                     service="llm",
                 )
             )
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"LLM generation failed unexpectedly ({type(e).__name__}): {e}")
-            return Result.fail(
-                Errors.integration(
-                    message=f"LLM generation failed: {e}",
-                    service="llm",
-                )
-            )
-
-    async def _semantic_search(
-        self,
-        query: str,
-        candidates: list[tuple[EntityUID, str]],
-        top_k: int = 5,
-    ) -> Result[list[tuple[EntityUID, float]]]:
-        """
-        Perform semantic search using embeddings.
-
-        Args:
-            query: Search query
-            candidates: List of (uid, text) tuples to search
-            top_k: Number of results to return
-
-        Returns:
-            Result containing list of (uid, similarity_score) tuples
-        """
-        if not self.embeddings:
-            return Result.fail(
-                Errors.unavailable(
-                    feature="semantic_search",
-                    reason="Embeddings service not configured",
-                    operation="semantic_search",
-                )
-            )
-
-        try:
-            # Get query embedding
-            query_embedding = await self.embeddings.embed_text(query)
-
-            # Get candidate embeddings and calculate similarity
-            results: list[tuple[EntityUID, float]] = []
-            for uid, text in candidates:
-                candidate_embedding = await self.embeddings.embed_text(text)
-                similarity = cosine_similarity(query_embedding, candidate_embedding)
-                results.append((uid, similarity))
-
-            # Sort by similarity and return top_k
-            results.sort(key=get_second_item, reverse=True)
-            return Result.ok(results[:top_k])
-        except Exception as e:  # safety-net: embeddings service raises varied exceptions
-            self.logger.error(f"Semantic search failed ({type(e).__name__}): {e}")
-            return Result.fail(
-                Errors.integration(
-                    message=f"Semantic search failed: {e}",
-                    service="embeddings",
-                )
-            )
+        return Result.ok(response.content)
 
     async def _rank_similar_entities(
         self,
-        source: DomainModelProtocol,
+        source: Entity,
         entity_type: EntityType,
-        candidate_pool: Sequence[DomainModelProtocol],
+        candidate_pool: Sequence[Entity],
         *,
         exclude_uid: str,
         limit: int = 5,
     ) -> Result[list[tuple[EntityUID, float]]]:
-        """Rank ``candidate_pool`` by semantic similarity to ``source``.
+        """Rank ``candidate_pool`` by cosine similarity of stored vectors to ``source``.
 
-        The shared tail of every domain ``find_similar_*`` method: builds canonical
-        embedding text for the source and each candidate via ``build_embedding_text``
-        (uniform across all domains — closes the prior divergence where only Tasks used
-        it while the others hand-rolled ``f"{title} {description}"``), excludes
-        ``exclude_uid``, then delegates ranking to ``_semantic_search``.
+        The shared tail of every Activity ``find_similar_*`` method. Each
+        candidate is scored by the ``embedding`` its model carries (the vector
+        the embedding worker stored on the node); a candidate without one, and
+        ``exclude_uid``, are left out of the ranking. The source's own stored
+        vector is used when it has one; otherwise its canonical embedding text
+        (``build_embedding_text``, the text the stored vectors were built from)
+        is embedded once through ``create_embedding``, and that failure is
+        propagated.
 
-        Callers own the (typed) backend I/O — fetching the source and the candidate
-        pool — because the candidate source differs per domain: user-scoped ``find_by``
-        for Activities, global ``list`` for curriculum.
+        Scores are ``normalized_cosine_similarity`` — the ``[0, 1]`` scale the
+        vector indexes answer on — so an Activity ranking and a curriculum
+        index query speak one scale. No threshold is applied: the top ``limit``
+        of the pool are returned however weak.
+
+        Callers own the backend read of the pool — the owner-scoped
+        ``find_by(user_uid=...)`` — because ownership is theirs to state.
         """
-        search_text = build_embedding_text(entity_type, source)
-        candidates: list[tuple[EntityUID, str]] = [
-            (EntityUID(entity.uid), build_embedding_text(entity_type, entity))
+        candidates: list[tuple[EntityUID, Sequence[float]]] = [
+            (EntityUID(entity.uid), entity.embedding)
             for entity in candidate_pool
-            if entity.uid != exclude_uid
+            if entity.uid != exclude_uid and entity.embedding is not None
         ]
         if not candidates:
             return Result.ok([])
-        return await self._semantic_search(search_text, candidates, limit)
+
+        source_vector: Sequence[float]
+        if source.embedding is not None:
+            source_vector = source.embedding
+        else:
+            if not self.embeddings:
+                return Result.fail(
+                    Errors.unavailable(
+                        feature="semantic_search",
+                        reason="Embeddings service not configured",
+                        operation="rank_similar_entities",
+                    )
+                )
+            embedding_result = await self.embeddings.create_embedding(
+                build_embedding_text(entity_type, source)
+            )
+            if embedding_result.is_error:
+                return Result.fail(embedding_result)
+            source_vector = embedding_result.value
+
+        ranked = [
+            (uid, normalized_cosine_similarity(source_vector, vector)) for uid, vector in candidates
+        ]
+        ranked.sort(key=get_second_item, reverse=True)
+        return Result.ok(ranked[:limit])

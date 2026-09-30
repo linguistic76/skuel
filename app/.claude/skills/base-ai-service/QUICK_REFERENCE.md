@@ -10,6 +10,8 @@
 | `adapters/inbound/ai_routes.py` | `AIRouteSpec`, `AI_ROUTE_SPECS`, `_ai_route`, `create_ai_routes` |
 | `core/services/llm_service.py` | `LLMService`, `LLMResponse`, `LLMConfig` |
 | `core/services/embeddings_service.py` | `EmbeddingsService` |
+| `core/services/curriculum_similarity.py` | `rank_similar_curriculum` — the curriculum `find_similar_*` tail |
+| `core/services/neo4j_vector_search_service.py` | `Neo4jVectorSearchService` — the index chokepoint the curriculum pair rank through |
 
 ### The services
 
@@ -31,11 +33,13 @@
 ```python
 from core.services.base_ai_service import BaseAIService
 
+from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID
-from core.utils.exception_types import LLM_EXCEPTIONS
+from core.services.curriculum_similarity import rank_similar_curriculum
 from core.utils.result_simplified import Errors, Result
-from core.utils.vector_math import cosine_similarity, dot, l2_normalize
+from core.utils.vector_math import normalized_cosine_similarity
 ```
 
 Models and backend protocols are imported from their own modules — for Tasks,
@@ -53,8 +57,8 @@ class BaseAIService(Generic[B, T]):
     def __init__(
         self,
         backend: B,
-        llm_service: Any | None = None,  # boundary: LLMService, typed on each subclass
-        embeddings_service: Any | None = None,  # boundary: EmbeddingsService, typed on each subclass
+        llm_service: LLMService | None = None,
+        embeddings_service: EmbeddingsService | None = None,
         graph_intel: GraphIntelligenceService | None = None,
         relationship_service: Any | None = None,  # boundary: UnifiedRelationshipService
         event_bus: Any | None = None,  # boundary: EventBusOperations
@@ -71,18 +75,11 @@ async def _generate_insight(
     max_tokens: int = 500,
 ) -> Result[str]: ...
 
-async def _semantic_search(
-    self,
-    query: str,
-    candidates: list[tuple[EntityUID, str]],
-    top_k: int = 5,
-) -> Result[list[tuple[EntityUID, float]]]: ...
-
 async def _rank_similar_entities(
     self,
-    source: DomainModelProtocol,
+    source: Entity,
     entity_type: EntityType,
-    candidate_pool: Sequence[DomainModelProtocol],
+    candidate_pool: Sequence[Entity],
     *,
     exclude_uid: str,
     limit: int = 5,
@@ -91,8 +88,20 @@ async def _rank_similar_entities(
 async def _publish_event(self, event: Any) -> None: ...  # boundary: any BaseEvent subclass
 ```
 
-What the first two return against the wired services today: [SKILL.md](SKILL.md) § Known
-Mismatch.
+```python
+# core/services/curriculum_similarity.py — held by PsAIService / LpAIService as self.vector_search
+async def rank_similar_curriculum(
+    vector_search: Neo4jVectorSearchService,
+    label: NeoLabel,
+    entity_type: EntityType,
+    source: Entity,
+    *,
+    limit: int,
+) -> Result[list[tuple[EntityUID, float]]]: ...
+```
+
+`_generate_insight` returns the response's `content`, or `Errors.integration(service="llm")`
+when the response's `error` is set. Both rankings score on the index's `[0, 1]` cosine scale.
 
 ## The Services the Helpers Call
 
