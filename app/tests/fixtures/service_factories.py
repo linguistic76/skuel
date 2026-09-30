@@ -62,11 +62,14 @@ def create_mock_backend(behavior: dict[str, Any] | None = None) -> Mock:
     backend.find_by = AsyncMock(return_value=Result.ok([]))
     backend.get_stats = AsyncMock(return_value=Result.ok(Mock()))
 
-    # Apply custom behavior if provided
+    # Apply custom behavior if provided. A name outside the pre-built set becomes
+    # its own AsyncMock: on a plain Mock every attribute resolves, so an
+    # existence check would set return_value on a Mock that cannot be awaited.
     if behavior:
         for method_name, return_value in behavior.items():
-            if hasattr(backend, method_name):
-                getattr(backend, method_name).return_value = return_value
+            scripted = getattr(backend, method_name)
+            if isinstance(scripted, AsyncMock):
+                scripted.return_value = return_value
             else:
                 setattr(backend, method_name, AsyncMock(return_value=return_value))
 
@@ -332,11 +335,14 @@ def create_mock_backend_for_base_service(
     backend.execute_query = AsyncMock(return_value=EagerResult(records=[], summary=None, keys=[]))
     backend.health_check = AsyncMock(return_value=Result.ok(True))
 
-    # Apply custom behavior if provided
+    # Apply custom behavior if provided. A name outside the pre-built set becomes
+    # its own AsyncMock: on a plain Mock every attribute resolves, so an
+    # existence check would set return_value on a Mock that cannot be awaited.
     if behavior:
         for method_name, return_value in behavior.items():
-            if hasattr(backend, method_name):
-                getattr(backend, method_name).return_value = return_value
+            scripted = getattr(backend, method_name)
+            if isinstance(scripted, AsyncMock):
+                scripted.return_value = return_value
             else:
                 setattr(backend, method_name, AsyncMock(return_value=return_value))
 
