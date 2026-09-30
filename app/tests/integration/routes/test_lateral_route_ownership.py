@@ -14,7 +14,8 @@ alternatives, or relationship graph by entity UID. These tests pin the closed
 form: the route must thread ``user_uid`` AND ``domain_service`` down to the
 service, a foreign entity must come back **404** (not 403 — a UID's existence
 must not leak), and the ``domain_service is None`` curriculum path must keep
-returning data to every user.
+returning data to every user for a curriculum anchor — and answer any other
+anchor as a missing one.
 
 The service is real (``LateralRelationshipService``) and only the Neo4j backend
 is mocked, so these exercise route → service → ownership gate end to end. A
@@ -111,6 +112,8 @@ def mock_backend() -> Any:
     backend.get_blocking_chain = AsyncMock(return_value=Result.ok([_CHAIN_ROW]))
     backend.get_alternatives_comparison = AsyncMock(return_value=Result.ok([_ALTERNATIVE_ROW]))
     backend.get_relationship_graph = AsyncMock(return_value=Result.ok([_GRAPH_ROW]))
+    # The curriculum path's anchor check; by default the anchor is curriculum.
+    backend.check_entity_exists = AsyncMock(return_value=Result.ok([{"entity_count": 1}]))
     return backend
 
 
@@ -411,6 +414,26 @@ class TestRouteThreadsTheVerifier:
 
 class TestCurriculumRemainsPublic:
     """KU/PS/LP are shared content: no verifier, no 404 for a non-owner."""
+
+    async def test_a_non_curriculum_anchor_is_404(
+        self, curriculum_handlers: dict[str, Any], mock_backend: Any
+    ) -> None:
+        """The uid in the URL must be curriculum; anything else reads as missing."""
+        mock_backend.check_entity_exists.return_value = Result.ok([{"entity_count": 0}])
+
+        responses = [
+            await handler(request=_make_request(INTRUDER), uid="task_theirs")
+            for handler in (
+                _chain(curriculum_handlers, "ps"),
+                _compare(curriculum_handlers, "ps"),
+                _graph(curriculum_handlers, "ps"),
+            )
+        ]
+
+        assert [r.status_code for r in responses] == [404, 404, 404]
+        mock_backend.get_blocking_chain.assert_not_awaited()
+        mock_backend.get_alternatives_comparison.assert_not_awaited()
+        mock_backend.get_relationship_graph.assert_not_awaited()
 
     async def test_chain_public_for_any_user(
         self, curriculum_handlers: dict[str, Any], mock_backend: Any

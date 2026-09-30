@@ -474,7 +474,7 @@ await lateral_service.get_relationship_graph(
 )
 ```
 
-Ownership on all 15 lateral routes comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method. Pass **both** `user_uid` and `domain_service`: on a read the check engages only when both are present, so omitting either silently reads without enforcement. `domain_service=None` is the deliberate shared-content path for curriculum KU/PS/LP — open for reads, and for writes held to curriculum endpoints behind the TEACHER gate. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
+Ownership on all 15 lateral routes comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method. Pass **both** `user_uid` and `domain_service`: with a verifier the ownership check needs the user, so omitting `user_uid` reads without enforcement. `domain_service=None` is the deliberate shared-content path for curriculum KU/PS/LP — reads open to every user on a curriculum anchor (any other anchor answers as missing), writes held to curriculum endpoints behind the TEACHER gate. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 
@@ -489,7 +489,7 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
 ]
 ```
 
-**If the new domain is user-owned, this entry alone is not enough.** The third item is only a lookup key into `LateralRelationshipsOrchestrator._domain_services`, a fixed map built from explicit constructor parameters. An unregistered slug makes `get_domain_service()` return `None` **silently**, which the factory reads as "shared curriculum" — its reads skip the anchor check, and its writes are TEACHER-gated and refused for any non-curriculum endpoint, so the domain's own entities could not be linked at all. Also add the service to the orchestrator's constructor and map, and wire it in the composition root. See [RELATIONSHIPS_ARCHITECTURE.md § Per-Domain Wiring](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
+**If the new domain is user-owned, this entry alone is not enough.** The third item is only a lookup key into `LateralRelationshipsOrchestrator._domain_services`, a fixed map built from explicit constructor parameters. An unregistered slug makes `get_domain_service()` return `None` **silently**, which the factory reads as "shared curriculum" — its reads refuse any non-curriculum anchor, and its writes are TEACHER-gated and refused for any non-curriculum endpoint, so the domain's own entities could not be read or linked at all. Also add the service to the orchestrator's constructor and map, and wire it in the composition root. See [RELATIONSHIPS_ARCHITECTURE.md § Per-Domain Wiring](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 

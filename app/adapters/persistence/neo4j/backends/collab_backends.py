@@ -513,7 +513,7 @@ class LateralRelationshipBackend:
             """
             MATCH (parent)-[anchor]->(entity {uid: $entity_uid})
             MATCH (parent)-[r]->(sibling)
-            WHERE sibling.uid != $entity_uid
+            WHERE sibling.uid <> $entity_uid
             AND type(anchor) IN ['HAS_SUBTASK', 'HAS_SUBGOAL', 'HAS_SUBHABIT',
                                  'HAS_SUBEVENT', 'HAS_SUBCHOICE',
                                  'HAS_SUBPRINCIPLE', 'HAS_STEP', 'ORGANIZES']
@@ -553,8 +553,8 @@ class LateralRelationshipBackend:
             """
             MATCH (grandparent)-[gp]->(parent1)-[p1]->(entity {uid: $entity_uid})
             MATCH (grandparent)-[gp2]->(parent2)-[p2]->(cousin)
-            WHERE parent1 != parent2
-            AND cousin.uid != $entity_uid
+            WHERE parent1 <> parent2
+            AND cousin.uid <> $entity_uid
             AND all(rel IN [gp, p1, gp2, p2] WHERE type(rel) IN
                 ['HAS_SUBTASK', 'HAS_SUBGOAL', 'HAS_SUBHABIT', 'HAS_SUBEVENT',
                  'HAS_SUBCHOICE', 'HAS_SUBPRINCIPLE', 'HAS_STEP', 'ORGANIZES'])
@@ -714,8 +714,37 @@ class LateralRelationshipBackend:
         return Result.ok(rows)
 
     # ========================================================================
-    # Validation Methods (4)
+    # Validation Methods (5)
     # ========================================================================
+
+    async def check_entity_exists(
+        self,
+        entity_uid: str,
+        entity_types: Collection[EntityType] | None = None,
+    ) -> Result[list[Neo4jProperties]]:
+        """Count one entity — the anchor of a read — as present or not.
+
+        ``entity_types`` narrows what counts as present exactly as it does for
+        ``check_entities_exist``: an entity whose ``entity_type`` is outside
+        the set counts 0, like an absent one, so the caller cannot tell the
+        two apart. ``None`` counts any entity. The aggregate always yields one
+        row, so a missing entity is a count of 0, not an empty result.
+        """
+        # :Entity for the same reason as below — a :Content shadow shares its
+        # entity's uid (G13).
+        return await self.executor.execute_query(
+            """
+            MATCH (entity:Entity {uid: $entity_uid})
+            WHERE $entity_types IS NULL OR entity.entity_type IN $entity_types
+            RETURN count(entity) as entity_count
+            """,
+            {
+                "entity_uid": entity_uid,
+                "entity_types": (
+                    None if entity_types is None else sorted(t.value for t in entity_types)
+                ),
+            },
+        )
 
     async def check_entities_exist(
         self,

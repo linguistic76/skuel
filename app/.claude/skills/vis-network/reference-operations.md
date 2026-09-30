@@ -44,9 +44,11 @@ a type's color there, not in a JavaScript map, and every graph picks it up.
 ### 6. Pass Both Ownership Arguments
 
 A service call that reads a user-owned entity's graph passes `user_uid` **and**
-`domain_service`. The check runs only when both are present; omitting either reads without
-enforcement. `domain_service=None` is correct only for shared curriculum (ku/ps/lp) — and a
-write with it is held to curriculum endpoints, behind the routes' TEACHER gate.
+`domain_service`. With a verifier the ownership check needs the user, so omitting `user_uid`
+reads without enforcement. `domain_service=None` is correct only for shared curriculum
+(ku/ps/lp) — the center must then be a Ku, PathStep or LearningPath (any other uid answers
+as missing), and a write with it is held to curriculum endpoints, behind the routes' TEACHER
+gate.
 
 ---
 

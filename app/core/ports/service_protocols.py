@@ -749,6 +749,12 @@ class LateralRelationshipBackendOperations(Protocol):
         depth: int,
     ) -> Result[list[RelationshipGraphRow]]: ...
 
+    async def check_entity_exists(
+        self,
+        entity_uid: str,
+        entity_types: Collection[EntityType] | None = None,
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {entity_count}
+
     async def check_entities_exist(
         self,
         source_uid: str,

@@ -19,6 +19,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.models.enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
@@ -115,3 +116,37 @@ class TestMissingEndpointIsNamed:
             ABSENT_UID, "<uid>"
         )
         assert private.details["reason"] == missing.details["reason"] == "target"
+
+
+@pytest.mark.integration
+@pytest.mark.usefixtures("one_ku")
+class TestAnchorIsCounted:
+    """``check_entity_exists`` — the anchor check of a read with no verifier."""
+
+    @pytest.fixture
+    def backend(self, neo4j_driver) -> LateralRelationshipBackend:
+        return LateralRelationshipBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+
+    async def test_a_curriculum_anchor_counts_one(
+        self, backend: LateralRelationshipBackend
+    ) -> None:
+        rows = (await backend.check_entity_exists(PRESENT_UID, {EntityType.KU})).value
+
+        assert [row["entity_count"] for row in rows] == [1]
+
+    async def test_a_missing_anchor_and_a_non_curriculum_one_both_count_zero(
+        self, backend: LateralRelationshipBackend
+    ) -> None:
+        """One row each, so the service reads a count — never an absent row."""
+        curriculum = {EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH}
+        missing = (await backend.check_entity_exists(ABSENT_UID, curriculum)).value
+        private = (await backend.check_entity_exists(PRIVATE_UID, curriculum)).value
+
+        assert missing == private == [{"entity_count": 0}]
+
+    async def test_no_kind_filter_counts_any_entity(
+        self, backend: LateralRelationshipBackend
+    ) -> None:
+        rows = (await backend.check_entity_exists(PRIVATE_UID)).value
+
+        assert [row["entity_count"] for row in rows] == [1]

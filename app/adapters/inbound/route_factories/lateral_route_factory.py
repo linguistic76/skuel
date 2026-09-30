@@ -37,7 +37,8 @@ Usage:
 
 A curriculum domain (ku / ps / lp) passes ``domain_service=None`` and must pass
 ``require_role`` with a ``user_service_getter``: the role gates its five write
-routes (the four creates and the DELETE); its reads stay open to every user.
+routes (the four creates and the DELETE); its reads stay open to every user, on
+an anchor the service holds to curriculum.
 
 See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """

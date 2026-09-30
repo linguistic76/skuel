@@ -73,8 +73,9 @@ class LateralRelationshipsOrchestrator:
     def get_domain_service(self, domain: str) -> OwnershipVerifier | None:
         """Return the Activity Domain service for a given domain slug.
 
-        Returns None for curriculum domains (ku, ps, lp), which have no ownership
-        verification and are shared across all users.
+        Returns None for curriculum domains (ku, ps, lp), which have no owner to
+        verify: the service holds their reads' anchor and their writes' endpoints
+        to curriculum instead.
         """
         return self._domain_services.get(domain)
 
@@ -145,8 +146,9 @@ class LateralRelationshipsOrchestrator:
         """
         # user_uid ALWAYS rides along: target audience scoping (ADR-085 G4)
         # needs the caller even on curriculum anchors, where domain_service is
-        # None (no anchor ownership check) but the caller's own linked
-        # activities must still be visible to them and nobody else's are.
+        # None (the anchor is held to curriculum, not to an owner) but the
+        # caller's own linked activities must still be visible to them and
+        # nobody else's are.
         get_kwargs: dict[str, Any] = {
             "entity_uid": uid,
             "relationship_types": [relationship_type],

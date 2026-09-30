@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.services.lateral_relationships.lateral_relationship_service import (
+    _SHARED_ENDPOINT_TYPES,
     LateralRelationshipService,
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result
@@ -25,6 +26,9 @@ def mock_backend():
     backend.get_blocking_chain = AsyncMock()
     backend.get_alternatives_comparison = AsyncMock()
     backend.get_relationship_graph = AsyncMock()
+    # The shared-path anchor check: every read below with no verifier asks it,
+    # and by default the anchor is curriculum.
+    backend.check_entity_exists = AsyncMock(return_value=Result.ok([{"entity_count": 1}]))
     return backend
 
 
@@ -460,11 +464,11 @@ class TestOwnershipGate:
         assert not result.is_error
         accepting_service.verify_ownership.assert_awaited_once_with("goal_mine", "user_owner")
 
-    # --- shared content: no verifier means no check (curriculum KU/PS/LP) ---
+    # --- shared content: no verifier means the anchor must be curriculum ---
 
     @pytest.mark.asyncio
-    async def test_curriculum_read_skips_the_check(self, lateral_service, mock_backend):
-        """``domain_service=None`` is the deliberate public path — not a refusal."""
+    async def test_curriculum_anchor_reads_on_the_shared_path(self, lateral_service, mock_backend):
+        """``domain_service=None`` is the public path for a curriculum anchor."""
         mock_backend.get_blocking_chain.return_value = Result.ok([])
 
         result = await lateral_service.get_blocking_chain(
@@ -472,7 +476,33 @@ class TestOwnershipGate:
         )
 
         assert not result.is_error
+        mock_backend.check_entity_exists.assert_awaited_once_with(
+            "ps.math.algebra", _SHARED_ENDPOINT_TYPES
+        )
         mock_backend.get_blocking_chain.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_non_curriculum_anchor_is_not_found_on_the_shared_path(
+        self, lateral_service, mock_backend
+    ):
+        """An anchor outside Ku / PathStep / LearningPath answers as missing, unread."""
+        mock_backend.check_entity_exists.return_value = Result.ok([{"entity_count": 0}])
+
+        chain = await lateral_service.get_blocking_chain(
+            "task_theirs", user_uid="user_anyone", domain_service=None
+        )
+        alternatives = await lateral_service.get_alternatives_with_comparison(
+            "task_theirs", user_uid="user_anyone", domain_service=None
+        )
+        graph = await lateral_service.get_relationship_graph(
+            "task_theirs", depth=2, user_uid="user_anyone", domain_service=None
+        )
+
+        for result in (chain, alternatives, graph):
+            assert result.expect_error().category == ErrorCategory.NOT_FOUND
+        mock_backend.get_blocking_chain.assert_not_awaited()
+        mock_backend.get_alternatives_comparison.assert_not_awaited()
+        mock_backend.get_relationship_graph.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_verifier_without_user_does_not_gate(
