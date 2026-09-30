@@ -15,12 +15,13 @@ All SKUEL services are async (database operations). Use `@pytest.mark.asyncio` f
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
-    "integration: integration tests (require Docker)",
-    "slow: slow tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
+    "asyncio: Async tests",
 ]
 ```
 
-With `asyncio_mode = "auto"`, pytest-asyncio handles event loop creation automatically.
+With `asyncio_mode = "auto"`, pytest-asyncio handles event loop creation automatically (the `asyncio` marker is declared so `--strict-markers` accepts the conventional decorator).
 
 ## Async Test Patterns
 
@@ -247,7 +248,7 @@ async def test_service_returns_result(tasks_service):
 
     # Value is accessed synchronously
     task = result.value
-    assert task.uid.startswith("task:")
+    assert task.uid == task_data.uid
 ```
 
 ### Testing Multiple Service Calls
@@ -266,8 +267,8 @@ async def test_cross_domain_flow(services, clean_neo4j):
     })
     assert task_result.is_ok
 
-    # Verify relationship
-    linked = await services.goals.get_tasks(goal_result.value.uid)
+    # Verify the edge from the tasks side (GoalsService has no get_tasks)
+    linked = await services.tasks.get_tasks_for_goal(goal_result.value.uid)
     assert linked.is_ok
     assert task_result.value.uid in [t.uid for t in linked.value]
 ```
@@ -297,6 +298,6 @@ filterwarnings = [
 1. **Always use `@pytest.mark.asyncio`** on async tests
 2. **Use `@pytest_asyncio.fixture`** for async fixtures (not `@pytest.fixture`)
 3. **Match fixture scopes** - session fixtures can only use session fixtures
-4. **Provide session event loop** for session-scoped async fixtures
+4. **Give a session-scoped async fixture `loop_scope="session"`** — never define an `event_loop` fixture
 5. **Handle cleanup in fixtures** using try/finally or yield pattern
 6. **Check Result[T] before accessing value** - prevents cryptic errors

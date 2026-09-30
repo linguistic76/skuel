@@ -3,7 +3,7 @@ name: skuel-search-architecture
 description: Explains SKUEL's unified search architecture, SearchRouter orchestration, graph-aware search, and BaseService pattern. Use when implementing search features, optimizing search queries, understanding SearchRouter, working with domain search services, or discussing unified search across all domains.
 ---
 
-# SKUEL Search Architecture (February 2026 - EntityType-Driven)
+# SKUEL Search Architecture
 
 ## Core Principle
 
@@ -11,58 +11,65 @@ description: Explains SKUEL's unified search architecture, SearchRouter orchestr
 
 **One Path Forward:** Never call domain search services directly from routes. Always use SearchRouter.
 
-**Unified Architecture (ADR-023, v3.0.0 Feb 2026):** SearchRouter dispatches by `EntityType`/`NonKuDomain` enum — type-safe, no stringly-typed domain checks. All search services extend `BaseService[Backend, Model]`.
+`SearchRouter` (`core/orchestrator/search_router.py`) dispatches by `EntityType` / `NonKuDomain` enum — type-safe, no stringly-typed domain checks. Every domain search service extends `BaseService[Backend, Model]` and is configured by its `DomainConfig` (ADR-023).
 
 ## Architecture Overview
 
 ```
-External Callers (One Path Forward):
-├── /search routes      → SearchRouter.faceted_search() / search() / search_domains()
-├── /api/search/unified → SearchRouter.advanced_search(SearchRequest)
-└── Cross-domain NL     → SearchRouter.intelligent_search()
+External callers (One Path Forward) — every one goes through the router:
+├── /search, /search/results, /search/subtopics   → faceted_search() / list_tags() / list_nous_subtopics() / nous_subtopic_map()
+├── /explore, /explore/library (explore_ui.py)     → faceted_search() / tag_frequencies() / nous_subtopic_map()
+├── POST /api/search/unified (CSRF-protected)      → advanced_search(SearchRequest)
+├── /api/search/intelligent                        → intelligent_search(q, user_uid=...)
+└── Askesis ContextRetriever (RAG)                 → retrieve_scoped_chunks(request, user_uid=...)
 
-SearchRouter (THE Orchestrator):
-├── EntityType/NonKuDomain → domain search service (type-safe dispatch)
-│   └── ALL 12 searchable domains
-└── Cross-domain           → self.search_domains() (aggregation)
+SearchRouter (THE orchestrator):
+├── EntityType/NonKuDomain → domain search service (`_SERVICE_REGISTRY`)
+│   └── the `_SEARCHABLE_DOMAINS` frozenset — 12 EntityTypes
+└── Cross-domain → search_domains() / _cross_domain_search() (aggregation)
 ```
+
+`git grep "search_router\."` under `adapters/inbound/` is the live caller list; the routes above are what it printed when this was reviewed.
 
 ## Key Files
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| **Orchestrator** | `/core/orchestrator/search_router.py` | THE single path |
-| **Models** | `/core/models/search_request.py` | SearchRequest/SearchResponse |
-| **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling |
-| **Domain Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain logic |
-| **Domain Backends** | `/adapters/persistence/neo4j/backends/` | Domain-specific relationship Cypher (9 cluster files) |
-| **Universal Backend** | `/adapters/persistence/neo4j/universal_backend.py` | Shell; methods in 11 mixin files |
-| **Backend Mixins** | `_crud_mixin.py`, `_search_mixin.py`, `_search_raw_mixin.py`, `_temporal_mixin.py`, `_prereq_progress_mixin.py`, `_context_query_mixin.py`, `_relationship_query_mixin.py`, `_relationship_ordered_mixin.py`, `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py` | One file per protocol group |
+| **Orchestrator** | `core/orchestrator/search_router.py` | THE single path (`SearchRouter`, `SearchResultItem`, `UnifiedSearchResult`) |
+| **Request/response models** | `core/models/search_request.py` | `SearchRequest` (+ `from_form_params`), `SearchResponse`, `BodyFoldReport`, `build_facet_counts` |
+| **Routes** | `adapters/inbound/search_routes.py` | `/search*` pages + the two JSON endpoints; `SEARCH_PAGE_ENTITY_TYPES` / `scope_to_search_page` |
+| **Domain search services** | `core/services/{domain}/{domain}_search_service.py` | Per-domain `DomainConfig` + domain-specific reads |
+| **Service search mixin** | `core/services/mixins/search_operations_mixin.py` | `SearchOperationsMixin` — the inherited `search()`, `search_by_tags()`, `graph_aware_faceted_search()`, `tag_frequencies()`, … |
+| **Universal backend** | `adapters/persistence/neo4j/universal_backend.py` | A shell composed of the `_*Mixin` files beside it — read the class bases for the list |
+| **Search Cypher** | `adapters/persistence/neo4j/_search_raw_mixin.py`, `query/cypher/crud_queries.py`, `query/cypher/relationship_filter_fragments.py` | `faceted_search_raw`, `text_search_raw`; `build_text_search_query`, `build_search_visibility_clause`; the EXISTS fragments |
+| **Vector / fulltext** | `core/services/neo4j_vector_search_service.py`, `adapters/persistence/neo4j/vector_search_backend.py` | FULL tier: `find_similar_by_text`, `hybrid_search_with_metrics`, `query_vector_index` / `query_fulltext_index` (both publication-gated) |
 
-**Backend structure (April 2026):** `universal_backend.py` is a shell; all persistence operations live in 11 focused mixin files. The March split of `_relationship_mixin.py` into `_relationship_query_mixin.py` + `_relationship_crud_mixin.py` was followed by the April split of the oversized `_search_mixin.py` (~1,233 lines) along section markers: core `EntitySearchOperations[T]` stayed in `_search_mixin.py` (find_by, count, health_check, execute_query), while raw search primitives moved to `_search_raw_mixin.py`, temporal queries to `_temporal_mixin.py`, prerequisite/progress queries to `_prereq_progress_mixin.py`, and registry-driven context queries to `_context_query_mixin.py`. A further April pass extracted the ordered/hierarchical section of `_relationship_query_mixin.py` (~1,174 lines) into `_relationship_ordered_mixin.py`, leaving the core mixin at ~666 lines. Public API unchanged.
+**The backend has no `search` method.** `EntitySearchOperations` (`core/ports/base_protocols.py`) declares `find_by`, `count`, `find_by_date_range`, `get_user_entities` and the `*_raw` primitives (`text_search_raw`, `faceted_search_raw`, `graph_aware_search_raw`, `array_any_match_raw`, …) — census it with `inspect.getmembers`, never quote a count. The one `search` is the service-layer `SearchOperationsMixin.search(query, limit=50, user_uid=None)` → `backend.text_search_raw` (case-insensitive `CONTAINS`).
 
-## Searchable Domains (12 — No MOC)
+## Searchable Domains (12 — no MOC)
 
-| Group | Entities | Search Mode | Pattern |
-|-------|----------|-------------|---------|
-| **Activity (6)** | Task, Goal, Habit, Event, Choice, Principle | Graph-Aware | BaseService |
-| **Curriculum (3)** | Ku, PathStep, LearningPath | Graph-Aware | BaseService |
-| **Learning Loop (3)** | Exercise, RevisedExercise, UserEntry | Graph-Aware | BaseService |
+| Group | Entities | `SearchVisibility` |
+|-------|----------|--------------------|
+| **Activity (6)** | Task, Goal, Habit, Event, Choice, Principle | `OWNER_ONLY` |
+| **Curriculum (3)** | Ku, PathStep, LearningPath | `PUBLIC` |
+| **Learning Loop (3)** | Exercise, RevisedExercise, UserEntry | Exercise `SCOPE_AWARE`; RevisedExercise, UserEntry `OWNER_ONLY` |
 
-**Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). Ku joined `_SEARCHABLE_DOMAINS` in July 2026 (content campaigns made Kus full lessons; `KuService` now exposes `.search` as the sub-service attribute, PS pattern). Learning Loop services implement `SupportsGraphAwareSearch` directly (no `.search` sub-service). SearchRouter detects this via `isinstance(domain_service, SupportsGraphAwareSearch)` fallback.
+- MOC is NOT a searchable domain — emergent identity (any Entity with `ORGANIZES` edges). Group and Finance are not in `_SEARCHABLE_DOMAINS`.
+- Ku, PS and LP expose the sub-service as `.search`; the Learning Loop services implement `SupportsGraphAwareSearch` / `SupportsTextSearch` directly (no `.search` attribute) — `SearchRouter._get_search_service` resolves both shapes.
+- Registry completeness (registry key → constructor parameter → `Services` field) is held by `tests/unit/models/test_search_router_registry.py`.
 
-**Owner-scope gate (generalized August 2026):** `SearchRouter.search()` REQUIRES `user_uid` for **every** `OWNER_ONLY` domain and refuses without it — `build_search_visibility_clause` emits no ownership predicate when there is no user, so an unscoped call would return every user's rows. Only `PUBLIC` and `SCOPE_AWARE` may be searched anonymously; an undeclared service is refused too (default-deny). This started as a UserEntry-only privacy line; the by-name `user_entry` guard in `faceted_search` remains as the loud refusal at the entry point.
+**Owner-scope gate:** `SearchRouter.search()` REQUIRES `user_uid` for **every** `OWNER_ONLY` domain and refuses without it (`_admits_anonymous_search`) — `build_search_visibility_clause` emits no ownership predicate when there is no user, so an unscoped call would return every user's rows. Only `PUBLIC` and `SCOPE_AWARE` may be searched anonymously; a service that declares nothing is refused too (default-deny). Every aggregate caller treats a refused domain as "contributes nothing".
 
-**UserEntry aggregation rules (July 2026):** UserEntry is excluded from the default "All Types" sweep + `advanced_search` aggregation; it participates only when explicitly requested AND user-scoped — an explicit `entity_types` filter routes through `graph_aware_faceted_search()`, and a multi-type filter sweeps it owner-scoped. Registry completeness and the owner-scope gate are guarded by `tests/unit/models/test_search_router_registry.py`.
+**UserEntry aggregation rules:** excluded from the default "All Types" sweep and from `advanced_search` aggregation; it participates only when explicitly requested AND user-scoped. `faceted_search` keeps a by-name `user_entry` refusal at the entry point.
 
-**A surface's result scope is NOT `_SEARCHABLE_DOMAINS` (August 2026):** the `/search` page searches the **6 Activity Domains + Ku** — `SEARCH_PAGE_ENTITY_TYPES` / `scope_to_search_page` in `adapters/inbound/search_routes.py`. PathStep, LearningPath, Exercise, RevisedExercise and UserEntry are off that page, and the Type dropdown now offers the 6 Activity Domains only — Ku is a live result type reached through the **Nous** facet, not a dropdown row. Scoping a surface means moving all three vocabulary sites together: the scope tuple, `_ENTITY_TYPE_OPTIONS` (`ui/search/components.py`) and `entityTypeFilters` (`static/js/skuel.js`). Declare a surface's scope at its own entry point and narrow the REQUEST; never edit the router's shared sweep default — `/explore` and `/explore/library` ride the same `faceted_search`. Body-chunk augmentation follows the request's entity types too, so an excluded domain cannot re-enter through the Digital layer. A surface may carry more than one scope facet: `/search` has Type **and** Nous, and they are mutually exclusive because `nous` is a property only curriculum nodes carry — the sweep applies it to every domain, so the combination returns zero by construction. Where two facets cannot intersect, DISABLE one rather than let the pair return an empty page: htmx omits disabled controls from a request, so the unused scope is absent rather than blank. **See:** `docs/architecture/SEARCH_ARCHITECTURE.md`.
+**A surface's result scope is NOT `_SEARCHABLE_DOMAINS`:** the `/search` page searches the **6 Activity Domains + Ku** — `SEARCH_PAGE_ENTITY_TYPES` / `scope_to_search_page` in `search_routes.py` narrow the REQUEST. PathStep, LearningPath, Exercise, RevisedExercise and UserEntry are off that page; the Type dropdown offers the 6 Activity Domains and Ku is reached through the **Nous** facet. Scoping a surface means moving all three vocabulary sites together — the scope tuple, `_ENTITY_TYPE_OPTIONS` (`ui/search/components.py`), `entityTypeFilters` (`static/js/skuel.js`); `tests/unit/test_search_page_scope.py` derives them from each other. Declare a surface's scope at its own entry point; never edit the router's shared sweep default — `/explore` and `/explore/library` ride the same `faceted_search` with their own `entity_types`. Type and Nous are mutually exclusive by construction (`nous` is a property only curriculum nodes carry), so the markup disables the unused control. **See:** `docs/architecture/SEARCH_ARCHITECTURE.md`.
 
-## Unified BaseService Pattern (ADR-023, January 2026 DomainConfig)
+## Unified BaseService Pattern (DomainConfig)
 
-All search services extend `BaseService[Backend, Model]` using **DomainConfig** — the single source of truth for configuration. Direct class-attribute style (`_dto_class`, `_model_class`, etc.) was migrated to DomainConfig in January 2026.
+Every search service extends `BaseService[Backend, Model]` with a `DomainConfig` — the single source of truth for `search_fields`, `search_order_by`, `category_field`, `date_field`, `search_visibility` / `read_visibility`, `ownership_property`, temporal exclusions.
 
 ```python
-# Curriculum domain example (shared content, admin creates, all users read)
+# Curriculum domain (shared content — PUBLIC, no ownership filter)
 class PsSearchService(BaseService["PsOperations", PathStep]):
     _config = create_curriculum_domain_config(
         dto_class=PathStepDTO,
@@ -71,10 +78,9 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         search_fields=("title", "intent", "description"),
         category_field="nous",  # NOUS topic membership (array — `has` semantics)
     )
-    # user_ownership_relationship=None by default for curriculum (DomainConfig field)
 
-# Activity domain example (user-owned content)
-class TasksSearchService(BaseService[TasksOperations, Task]):
+# Activity domain (user-owned — OWNER_ONLY)
+class TasksSearchService(BaseService["TasksOperations", Task]):
     _config = create_activity_domain_config(
         dto_class=TaskDTO,
         model_class=Task,
@@ -84,176 +90,138 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
     )
 ```
 
-**All methods inherited from BaseService:**
-- `search(query, limit)` - Text search on configured `search_fields`
-- `get_by_status()`, `get_by_category()`, `list_categories()`
-- `get_prerequisites()`, `get_enables()`
-- `verify_ownership()` — Activity domains only (OWNS relationship)
+**Inherited reads, with their default caps** (batch-5 lesson: a read described as complete may carry one):
+
+| Mixin | Method | Default |
+|-------|--------|---------|
+| `SearchOperationsMixin` | `search(query, limit=50, user_uid=None)`, `search_by_tags(tags, match_all=False, limit=50, user_uid=None)` | 50 |
+| | `graph_aware_faceted_search(request, user_uid)` | `request.limit` (SearchRequest default 20, max 200) |
+| | `get_by_status(status, limit=100, user_uid=None)`, `get_by_category(category, user_uid=None, limit=100)` | 100 |
+| | `get_for_user_filtered(user_uid, status_filter="all")` → `backend.find_by(**filters)` | 100 (`find_by`'s default — the daily plan's domain stats read through it; a silent cap, not a feature) |
+| | `list_user_categories(user_uid)`, `list_all_categories()`, `tag_frequencies(user_uid=None)`, `count(**filters)` | — |
+| `RelationshipOperationsMixin` | `get_prerequisites(uid, depth=3)`, `get_enables(uid, depth=3)` | depth 3 |
+| `TimeQueryMixin` | `get_upcoming(days_ahead=7, user_uid=None, limit=100)`, `get_overdue(user_uid=None, limit=100)`, `get_active(user_uid, limit=100)` | 100 |
+| `CrudOperationsMixin` | `verify_ownership(uid, user_uid)`, `get_for_user(uid, user_uid)` | — |
+
+Read the mixin for the full signature; there is no `list_categories()`.
 
 ## Common Implementation Patterns
 
-### Single Domain Search
+### Single-domain search
 
 ```python
-# Route by EntityType - type-safe dispatch
-result = await search_router.search(EntityType.TASK, "urgent deadline")
+# OWNER_ONLY domain — user_uid is REQUIRED (refused without it)
+result = await search_router.search(EntityType.TASK, "urgent deadline", user_uid=user_uid)
+
+# PUBLIC domain — may be searched anonymously
 result = await search_router.search(EntityType.KU, "python basics")
+# result: Result[list[<domain model>]]
 ```
 
-### Cross-Domain Search
+### Cross-domain search
 
 ```python
-# SearchRouter aggregates from multiple domains
+# Returns a bare UnifiedSearchResult (NOT a Result) — no .value
 results = await search_router.search_domains(
     [EntityType.TASK, EntityType.PATH_STEP, EntityType.LEARNING_PATH],
-    "machine learning"
+    "machine learning",
+    user_uid=user_uid,   # without it every OWNER_ONLY domain contributes nothing
 )
+for entity_type, items in results.results_by_domain.items():
+    ...  # items: list[SearchResultItem]
 ```
 
-### Intelligent Search (Cross-Domain, NL Query)
+### Intelligent search (cross-domain, NL query)
 
 ```python
-# Natural-language cross-domain search (semantic filter extraction)
 result = await search_router.intelligent_search("health fitness", user_uid=user_uid)
-# Returns UnifiedSearchResult with results_by_domain + top_results
+# Result[UnifiedSearchResult] — .value.results_by_domain + .value.top_results
 ```
 
-### Advanced Search with Graph Filters
+### Advanced search with graph filters
 
 ```python
-# Advanced search with graph and tag filters via SearchRequest.
-# user_uid scopes every strategy (text/tags/graph) per each domain's
-# SearchVisibility declaration; without it, user-owned domains are
-# skipped fail-closed and only shared content returns.
+# request.user_uid scopes every strategy (text/tags/graph) per each domain's
+# SearchVisibility; without it, user-owned domains are skipped fail-closed.
 request = SearchRequest(
     query_text="machine learning",
     entity_types=[EntityType.KU],
-    connected_to_uid="ku.python-basics",
+    connected_to_uid="ku.python.basics",
     connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
     tags_contain=["python"],
     user_uid=user_uid,
 )
-result = await search_router.advanced_search(request)
+result = await search_router.advanced_search(request)   # Result[UnifiedSearchResult]
 ```
 
-### Domain-Specific Methods
+## SearchRouter Method Reference
 
-```python
-# PS-specific (call on service directly, not via SearchRouter)
-await ps_service.search.get_standalone_steps()
+| Method | Returns | Use case |
+|--------|---------|----------|
+| `search(entity_type, query, limit=50, user_uid=None)` | `Result[list[model]]` | Single-domain text search (OWNER_ONLY requires `user_uid`) |
+| `search_domains(entity_types, query, limit_per_domain=20, user_uid=None)` | `UnifiedSearchResult` (bare) | Multi-domain aggregation |
+| `intelligent_search(query, user_uid=None, user_context=None, limit=50)` | `Result[UnifiedSearchResult]` | NL cross-domain with semantic filter extraction |
+| `advanced_search(request, user_context=None)` | `Result[UnifiedSearchResult]` | Text + graph traversal + tags; `request.user_uid` scopes all strategies |
+| `faceted_search(request, user_uid=None, *, log_event=True, entry_point="faceted")` | `Result[SearchResponse]` | THE entry point for UI-driven search |
+| `retrieve_scoped_chunks(request, *, chunk_types=None, min_score=None, user_uid=None)` | `Result[list[SemanticSearchChunkResult]]` | Facet- AND audience-scoped `:ContentChunk` retrieval (FULL tier): published curriculum + the user's own UserEntry notes; `user_uid=None` reads curriculum only (ADR-085 G8) |
+| `list_tags(scope, user_uid)`, `tag_frequencies(…)`, `list_nous_subtopics(scope)`, `nous_subtopic_map(scope)` | `Result[…]` | Facet vocabularies — see § Measuring a Facet Vocabulary |
 
-# LP-specific (staged, PLANNED — no live consumer yet)
-await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")
-```
-
-## SearchRouter Method Reference (v3.0.0)
-
-| Method | Use Case |
-|--------|----------|
-| `search(entity_type, query, user_uid=...)` | Single-domain text search (USER_ENTRY requires `user_uid`) |
-| `search_domains(entity_types, query, user_uid=...)` | Multi-domain aggregation |
-| `intelligent_search(query, user_uid)` | NL cross-domain with semantic filter extraction |
-| `advanced_search(SearchRequest)` | Filters, graph patterns, tags (`request.user_uid` scopes all strategies) |
-| `faceted_search(request, user_uid)` | THE entry point for UI-driven search (/search) |
-| `retrieve_scoped_chunks(request, user_uid=...)` | Facet- AND audience-scoped ContentChunk retrieval for RAG contexts (FULL tier): published curriculum + the user's own UserEntry notes; `user_uid=None` reads curriculum only (ADR-085 G8) |
-
-**Search-event logging (July 2026):** all three external entry points (faceted/intelligent/advanced) publish `search.executed` → `:SearchEvent` node — one event per external search (`intelligent_search`'s internal faceted fan-out passes `log_event=False`; empty queries never logged; fail-soft; tier-independent). See SEARCH_ARCHITECTURE.md § Search-Event Logging.
+**Search-event logging:** `faceted_search`, `intelligent_search` and `advanced_search` publish `search.executed` → `:SearchEvent` — one event per external search (`intelligent_search`'s internal faceted fan-out passes `log_event=False`; empty queries never logged; fail-soft; tier-independent). `search()`, `search_domains()` and `retrieve_scoped_chunks()` publish nothing. See SEARCH_ARCHITECTURE § Search-Event Logging.
 
 | Aspect | Value |
 |--------|-------|
-| **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Ku, PathStep, LearningPath, Exercise, RevisedExercise, UserEntry) |
-| **User Ownership** | `DomainConfig.search_visibility`: Activities/UserEntry/RevisedExercise `OWNER_ONLY`, PS/LP/KU `PUBLIC`, Exercise `SCOPE_AWARE` (curriculum visible to all; owned scopes via OWNS/SHARES_WITH/group membership). By-UID reads follow `read_visibility` (default: the search declaration; UserEntry `OWNER_OR_AUDIENCE` — opens for its share links' recipients, searches owner-only; ADR-088 §5) |
-| **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
-| **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
+| **Visibility** | `DomainConfig.search_visibility` (table above). By-UID reads follow `read_visibility` (default: the search declaration; UserEntry `OWNER_OR_AUDIENCE` — opens for its share links' recipients, searches owner-only; ADR-088 §5) |
+| **Result types** | `UnifiedSearchResult` with `results_by_domain` + `top_results` (top 10 by `combined_score` = relevance × 0.6 + priority × 0.4); `SearchResponse` for faceted |
+| **Dispatch** | `EntityType` / `NonKuDomain` enum (type-safe, no string checks) |
 
-## Priority Scoring — Unified Across 6 Activity Domains
+## Priority scoring exists; nothing on a route runs it
 
-All 6 Activity Domain search services (`{tasks,goals,habits,events,choices,principles}_search_service.py`) implement `get_prioritized(user_context)` by delegating to a single `score_<domain>(entity, context) -> PriorityScore` function in `core/models/search/scoring.py`. The same scorers also back `SearchRouter._score_results()` for cross-domain ranking.
+`core/models/search/scoring.py` holds `score_task` … `score_principle` (each a weighted sum of shared `ComponentScore` helpers → `PriorityScore`). They are reached two ways, and neither has a production caller:
 
-Each scorer composes shared `ComponentScore` helpers with domain-specific weights that sum to 1.0:
+- `SearchRouter._score_results(items, user_context)` runs inside `intelligent_search` / `advanced_search` **only when the caller passes `user_context`** — `/api/search/intelligent` and `/api/search/unified` pass none.
+- `get_prioritized(user_context, limit=10)` on the six Activity search services (PS/LP take `(user_uid, context, limit=20)`); `TasksService.get_prioritized` is the only facade delegation and has no caller. The Activity implementations read `backend.get_user_entities(user_uid)` with its default `limit=100`.
 
-| Helper | Produces (normalized 0–1) | Reused by |
-|--------|---------------------------|-----------|
-| `score_deadline_proximity(target_date)` | Urgency from days-until | Task, Goal, Event, Choice |
-| `score_priority_level(priority)` | HIGH/MEDIUM/LOW → 1.0/0.5/0.25 | Task, Goal, Choice |
-| `score_goal_alignment(goal_uid, active_goal_uids)` | 1.0 if linked to active goal | Task, Goal, Event, Habit |
-| `score_streak_protection(habit_uid, streaks, active_habits)` | Protects long streaks | Task, Habit, Event |
-| `score_progress_momentum(progress)` | Inverted-U — ~0.5 favored over stuck/done | Goal |
+Do not describe `/search` results as priority-ranked: `faceted_search` builds no `UserContext` and runs no ranking pass, and on the two routes that return `SearchResultItem`s the `priority_score` stays at its 0.0 default.
 
-`PriorityScore.total` is the weighted sum; `.components` + `.explain()` expose per-component breakdown for debugging. Service-level canonical pattern:
-
-```python
-scored = [(e, score_<domain>(e, user_context).total) for e in entities]
-scored.sort(key=get_result_score, reverse=True)
-```
-
-**Frequency Windows (Habits, separate concern):** `get_frequency_window_days()` in `timestamp_helpers.py` powers the Habits-specific `get_upcoming()`/`get_overdue()` overrides only — the *prioritization* scorer uses the unified pipeline above.
-
-**Config-Driven Temporal Queries:** `TimeQueryMixin.get_upcoming()` / `get_overdue()` / `get_active()` use `DomainConfig` fields:
-- `date_field` — column driving upcoming/overdue (e.g., `target_date`, `decision_deadline`)
-- `temporal_exclude_statuses` — defaults to the 4 `EntityStatus.is_terminal()` values
-- `temporal_secondary_sort` — optional secondary ORDER BY (Events use `"start_time"`)
-- `completed_statuses` — excluded from `get_active` (Goals extend to `("completed", "cancelled")`)
-
-Tasks, Goals, Events, and Choices use the base implementation. Only Habits and Principles override (fundamentally different semantics — frequency windows / 90-day review threshold).
-
-**See:** `/docs/architecture/SEARCH_ARCHITECTURE.md` → "Priority Scoring — Unified Across 6 Activity Domains" for full weights and breakdown.
+**Config-driven temporal queries** (live): `TimeQueryMixin.get_upcoming()` / `get_overdue()` / `get_active()` read `DomainConfig.date_field`, `temporal_exclude_statuses` (default: the `EntityStatus.is_terminal()` values), `temporal_secondary_sort`, `completed_statuses`. Habits and Principles override all three (frequency windows / review threshold); the other four Activity domains use the base.
 
 ## Search Index Foundation (Bootstrap)
 
-At startup, `Neo4jSchemaManager` creates all indexes needed for search:
+At startup `services_bootstrap/compose.py` calls `Neo4jSchemaManager`:
 
-| Index Type | Method | Tier | What It Powers |
+| Index type | Method | Tier | What it powers |
 |-----------|--------|------|---------------|
-| **Full-text indexes** | `sync_fulltext_indexes()` | Always (CORE + FULL) | Lucene keyword search — 14 domains |
-| **Vector indexes** | `sync_vector_indexes()` | FULL only | 1024-dim cosine — Entity, ContentChunk, ReferenceChunk, Ku, PathStep, LearningPath (bootstrap) + Goal, Task per-label (`scripts/create_vector_indexes.py`) |
+| **Full-text** | `sync_fulltext_indexes()` | Always | Lucene — one index per label in `FULLTEXT_INDEX_DEFINITIONS` (`neo4j_schema_manager.py`), named by `NeoLabel.fulltext_index_name()` |
+| **Vector** | `sync_vector_indexes(entity_labels=list(EmbeddingGeometry.INDEX_LABELS), …)` | FULL only | `{label.lower()}_embedding_idx`, `EmbeddingGeometry.DIMENSION` dims, cosine — **every** label in `INDEX_LABELS` (`core/constants.py`) is created at boot; `scripts/create_vector_indexes.py` reads the same constant |
 
-Full-text indexes are the **Cypher-first search foundation**, created in both tiers. Who actually reads them is narrower than "always available" suggests, so be precise:
+Who reads the fulltext indexes is narrower than "always created" suggests:
 
-- **SearchRouter's hybrid rung** (August 2026) is the one production reader — Ku/PathStep/LearningPath, FULL tier, via `hybrid_search_with_metrics` (Lucene RRF-merged with vector similarity). It sits in `_execute_advanced_search`, so it serves **`advanced_search()` / `/api/search/unified`** — the `/search` HTML page runs `faceted_search` and is still on `CONTAINS`. See SEARCH_ARCHITECTURE § Hybrid Fulltext + Vector Rung.
-- **Every other text search is `CONTAINS`**, including all of CORE tier and all OWNER_ONLY domains — and that `CONTAINS` is **case-INSENSITIVE** (`faceted_search_raw` and `build_text_search_query` both lower-case each side). Fulltext buys relevance ranking and vector recall, not case-insensitivity; it also does not stem (shipped analyzer is `standard-no-stop-words`) and, being token-based, loses the substring hits `CONTAINS` finds (`photosyn` misses "Photosynthesis"). **The two are complementary, not ranked** — so the rung only short-circuits `CONTAINS` on a FULL page and otherwise merges both (`_backfill_with_contains`). Copy that shape on any new fulltext path; a bare "fulltext returned something" early-return silently drops substring matches.
-- **One `search`, at the service layer.** `SearchOperationsMixin.search()` → `backend.text_search_raw`, case-insensitive. The backend has no `search` method of its own (`EntitySearchOperations` declares `find_by`, `count` and the `*_raw` primitives, `text_search_raw` among them); a backend text read is `text_search_raw` or a `SearchRouter` strategy. The `find_by(field__contains=)` filter operator is a case-SENSITIVE `CONTAINS` — a field filter, not a search surface.
-- Making domain-level search fulltext-first is the named **D1(b) follow-on** in `docs/roadmap/deferred-work.md`; until it lands, do not assume a fulltext index has a reader just because it exists.
+- **The hybrid rung** is the one production reader — Ku/PathStep/LearningPath, FULL tier, `hybrid_search_with_metrics` (Lucene RRF-merged with vector similarity). It sits in `_execute_advanced_search`, so it serves **`advanced_search()` / `POST /api/search/unified`** only; the `/search` page runs `faceted_search` and is on `CONTAINS`. See SEARCH_ARCHITECTURE § Hybrid Fulltext + Vector Rung.
+- **Every other text search is `CONTAINS`**, and it is **case-INSENSITIVE** (`faceted_search_raw` and `build_text_search_query` both `toLower` each side). Fulltext buys relevance ranking and vector recall, not case-insensitivity; it does not stem (`standard-no-stop-words`) and, being token-based, loses substring hits (`photosyn` misses "Photosynthesis"). The rung therefore short-circuits `CONTAINS` only on a full page and otherwise merges via `_backfill_with_contains`. Copy that shape on any new fulltext path.
+- Case-SENSITIVE `CONTAINS` survives in the `find_by(field__contains=)` filter operator (`crud_queries.py`) — a field filter, not a search surface.
+- Making domain-level search fulltext-first is the **D1(b)** follow-on in `docs/roadmap/deferred-work.md`.
 
-Index names come from `NeoLabel.fulltext_index_name()` — THE rule shared by creation and lookup (`PathStep` → `path_step_fulltext_idx`; never flat `label.lower()`).
+Derive index names from `NeoLabel.fulltext_index_name()` (`PathStep` → `path_step_fulltext_idx`), never flat `label.lower()`. Vector indexes exist only at `INTELLIGENCE_TIER=full`; the semantic layers fail soft to keyword results without them.
 
-Vector indexes are only created when `INTELLIGENCE_TIER=full` (embeddings enabled). When absent, search gracefully falls back to keyword-only results.
+## The AI tier and search (FULL tier)
 
-**Key file:** `adapters/persistence/neo4j/neo4j_schema_manager.py`
+Curriculum similarity is `rank_similar_curriculum` (`core/services/curriculum_similarity.py`) → `Neo4jVectorSearchService.find_similar_by_vector` / `find_similar_by_text` → `VectorSearchBackend.query_vector_index`, which composes `build_publication_clause` (drafts withheld). `PsAIService.search_by_semantic_query(query_text, limit=20, min_score=0.5)` = `find_similar_by_text` + `get_many`, with **no keyword fallback**. Index scores are `(1 + cos) / 2` on `[0, 1]` — the same scale `normalized_cosine_similarity` uses for stored vectors. The AI routes (`/api/*/ai/*`) are POST-only, CSRF-protected and resolved at boot; their residuals live in `docs/roadmap/ai-tier-consumer.md`.
 
 ## Common Gotchas
 
-1. **Always use SearchRouter** for external access — never call domain services directly from routes
-2. **Curriculum content is shared** — DomainConfig `user_ownership_relationship=None` derives `SearchVisibility.PUBLIC` (no ownership filter); the old `_user_ownership_relationship` ClassVar is gone (it bypassed DomainConfig and OWNS-scoped even shared domains)
-3. **MOC is not a searchable domain** — it's emergent identity via ORGANIZES relationships on Ku nodes
-4. **12 searchable domains** — 6 Activity + 3 Curriculum (Ku, PS, LP) + 3 Learning Loop; MOC is not an EntityType
-5. **UserEntry search requires `user_uid`** — refused unscoped; excluded from cross-domain sweeps (privacy line)
-6. **Every strategy is visibility-scoped** — `build_search_visibility_clause()` is THE single Cypher composition point (text/tags/graph/faceted); never add a per-strategy ownership filter. See SEARCH_ARCHITECTURE § Ownership Scoping
-6b. ⚠️ **A facet's VOCABULARY is scoped by the same declaration through a different builder** — `SearchRouter.tag_frequencies` returns distinct *strings*, not entity rows, so it reaches the graph via `build_distinct_values_query` and the router applies each domain's `SearchVisibility` itself: PUBLIC counted corpus-wide, OWNER_ONLY counted for the caller alone and **skipped entirely without a `user_uid`**, SCOPE_AWARE skipped (its scope lives in edges a property filter cannot express). That is not a second ownership mechanism — same declaration, closed failure direction — but do not assume rule 6 covers it. See SEARCH_ARCHITECTURE § Ownership Scoping → *Facet vocabularies*
-7. **Full-text indexes are always created** — regardless of INTELLIGENCE_TIER; vector indexes are FULL-only
+1. **Always use SearchRouter** for external access — never call domain services directly from routes.
+2. **Curriculum content is shared** — `create_curriculum_domain_config()` sets `user_ownership_relationship=None`, which derives `SearchVisibility.PUBLIC`.
+3. **MOC is not a searchable domain** — emergent identity via `ORGANIZES` edges.
+4. **Every OWNER_ONLY search requires `user_uid`** — refused unscoped; UserEntry is additionally excluded from cross-domain sweeps.
+5. **Every strategy is visibility-scoped** — `build_search_visibility_clause()` is THE single Cypher composition point; never add a per-strategy ownership filter. Every clause-composing builder passes `has_user=True` unconditionally (a null uid yields a null predicate matching nothing — fail-closed). See SEARCH_ARCHITECTURE § Ownership Scoping.
+6. **A facet's VOCABULARY is scoped by the same declaration through a different builder** — `tag_frequencies` returns distinct strings via `build_distinct_values_query`, and the router applies each domain's `SearchVisibility` itself: PUBLIC counted corpus-wide, OWNER_ONLY counted for the caller alone and **skipped without a `user_uid`**, SCOPE_AWARE skipped. Same declaration, closed failure direction, not a second mechanism.
+7. **`search_domains` returns a bare `UnifiedSearchResult`**; `search`, `intelligent_search`, `advanced_search`, `faceted_search` return `Result`.
 
 ## Measuring a Facet Vocabulary
 
-⚠️ **Measure a facet by DRIVING the method that builds it — never with hand-written Cypher.**
-A facet's options are not a raw node scan: `build_distinct_values_query` composes
-`build_publication_clause`, so a draft PathStep's tags were never offered. A raw query omits
-every predicate the production path composes, and the error is **silent** because the raw
-number looks perfectly plausible.
+⚠️ **Measure a facet by DRIVING the method that builds it — never with hand-written Cypher.** A facet's options are not a raw node scan: `build_distinct_values_query` composes `build_publication_clause`, so a draft PathStep's tags are never offered. A raw query omits every predicate the production path composes, and the error is **silent** because the raw number looks plausible — and agreement with a raw query on one row is not evidence for the next.
 
-Measured cost of learning this (`/search` facet redesign, #1158): a raw pass published
-**188 distinct / 16 PathStep-only** tags. Both numbers are true of the nodes and both are
-wrong for the facet — 10 of 25 PathSteps are `publication_state='draft'`, so the true
-figures are **181 / 9** and seven "dead options" had never been offered at all.
-
-⚠️ **The sharper half: agreement with a raw query is not evidence.** That same raw pass got
-the NOUS sub-topic rows RIGHT, because `_nous_subtopic_pairs_query` gates on publication too
-and no draft happened to carry a unique pair. It agreed on one row and disagreed on another
-**with nothing in the numbers to distinguish them**. Only driving the method is evidence.
-
-**How:** compose services in a scratch script and call the real method
-(`SearchRouter.list_tags(scope, user_uid)`, `nous_subtopic_map(scope)`), passing the same
-scope the surface passes. ⚠️ The local MCP Cypher tool points at the **stopped** Docker
-sandbox, not AuraDB — it cannot see the live graph at all.
+**How:** compose services in a scratch script and call the real method with the same scope the surface passes. ⚠️ The local MCP Cypher tool points at the **stopped** Docker sandbox, not AuraDB.
 
 ```python
 os.environ["INTELLIGENCE_TIER"] = "core"          # pure analytics, no API keys
@@ -262,42 +230,29 @@ composed = await compose_services(adapter, InMemoryEventBus())
 tags = await composed.value.search_router.list_tags(SEARCH_PAGE_ENTITY_TYPES, user_uid)
 ```
 
-⚠️ **A per-vocabulary count is not a per-facet count** — every sub-topic *word* may appear on
-some Ku while three *pairings* are PathStep-only. Count the thing the control actually
-offers. And treat any published figure as a dated snapshot: re-measure, never re-quote.
+A per-vocabulary count is not a per-facet count (a sub-topic *word* may appear on some Ku while a *pairing* is PathStep-only) — count the thing the control offers, and treat any published figure as a dated snapshot: re-measure, never re-quote.
 
 ## UserContext and Search
 
-SearchRouter and BaseService search services are independent of UserContext. They run their own domain queries and do not consume MEGA-QUERY or CONSOLIDATED_QUERY output. If you need to personalize or enrich search results with user state, the right approach is:
+SearchRouter and the BaseService search services are independent of `UserContext`: `faceted_search` builds none and consumes no MEGA-QUERY output. Search gets its per-user awareness inside the Cypher (`$user_uid` in the ownership predicate, the relationship-filter fragments, `_graph_context` enrichment). The one `UserContext` touch is `_peek_capacity_warnings` → `UserService.peek_cached_context` (cache-hit-only, never builds).
 
 ```python
-# Get user state (standard context is sufficient for most search personalization)
-context = await builder.build(user_uid)    # UIDs + ActivityReport — fast (~50-100ms)
-
-# If intelligence-based ranking is needed alongside search
-context = await builder.build_rich(user_uid)  # Full entity + graph — slower (~150-200ms)
-
-# Run search independently — SearchRouter does NOT accept UserContext
-results = await search_router.search(EntityType.TASK, query)
+context = await builder.build(user_uid)          # the user's current state (UserContextBuilder)
+results = await search_router.search(EntityType.TASK, query, user_uid=user_uid)  # independent
 ```
 
-**Key distinction:** the MEGA-QUERY (via `build_rich(window=...)`; `build()` runs `CONSOLIDATED_QUERY`) builds the user's *current state*. SearchRouter queries are *content searches* across entity properties. They solve different problems and compose independently.
-
-**See:** `@user-context-intelligence` skill for MEGA-QUERY vs CONSOLIDATED_QUERY details.
+**See:** `@user-context-intelligence` for the MEGA-QUERY.
 
 ## Related Skills
 
-- **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** - Cypher queries used in search services
-- **[python](../python/SKILL.md)** - BaseService pattern for search services
-- **[user-context-intelligence](../user-context-intelligence/SKILL.md)** - Build paths when enriching search with user state
-
-## Foundation
-
-- **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** - Understanding graph queries
+- **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** — Cypher the search backends compose
+- **[python](../python/SKILL.md)** — BaseService pattern
+- **[user-context-intelligence](../user-context-intelligence/SKILL.md)** — enriching results with user state
 
 ## See Also
 
-- `/docs/architecture/SEARCH_ARCHITECTURE.md` - Complete architecture reference
-- `/docs/decisions/ADR-023-curriculum-baseservice-migration.md` - Unified BaseService decision
-- `/docs/patterns/search_service_pattern.md` - Service pattern guide
-- `/docs/patterns/query_architecture.md` - Query builders and patterns
+- `/docs/architecture/SEARCH_ARCHITECTURE.md` — complete architecture reference (§ One Search, End to End)
+- `/docs/decisions/ADR-023-curriculum-baseservice-migration.md` — unified BaseService decision
+- `/docs/decisions/ADR-085-ownership-read-enforcement-contract.md`, `/docs/decisions/ADR-088-submit-and-share.md`
+- `/docs/patterns/search_service_pattern.md`, `/docs/reference/SEARCH_SERVICE_METHODS.md`
+- `/docs/patterns/query_architecture.md` — the query builders (NOT the search path)

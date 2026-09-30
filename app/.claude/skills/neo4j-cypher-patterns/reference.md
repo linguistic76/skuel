@@ -2,7 +2,7 @@
 
 Curated catalog of the relationship types you'll actually meet in SKUEL's graph, grouped by category.
 
-**Source of Truth:** `/core/models/relationship_names.py` — the `RelationshipName` enum (169 members). This file documents the load-bearing subset with endpoints and semantics; for the exhaustive list (family relations, notifications, devices, ...) read the enum, whose inline comments carry endpoint documentation.
+**Source of Truth:** `/core/models/relationship_names.py` — the `RelationshipName` enum (`len(RelationshipName)` is the count; never quote one from prose). This file documents the load-bearing subset with endpoints and semantics; for the exhaustive list (family relations, notifications, devices, ...) read the enum, whose inline comments carry endpoint documentation. The generated `/docs/reference/GRAPH_CONTRACT.yaml` is the drift-tested view.
 
 **Naming note:** rows show the **Cypher edge type string** (the enum *value*). One member has a divergent name: `RelationshipName.LATERAL_ENABLES` has value `"ENABLES"` (and `LATERAL_ENABLED_BY` → `"ENABLED_BY"`).
 
@@ -32,7 +32,7 @@ The universal ownership edge and the sharing model (ADR-038).
 | `TRAINS_KU` | PathStep | Ku | Path step trains atomic Ku |
 | `CONTAINS_KNOWLEDGE` | PathStep | Ku | Step covers knowledge (coexists with USES_KU) |
 | `HAS_EXERCISE` | PathStep | Exercise | Curriculum loop anchor (dual-written with `Exercise.path_step_uid`) |
-| `ORGANIZES` | Entity | Entity | MOC hierarchy (`order`, `importance` props) — MOC is emergent, not a label |
+| `ORGANIZES` | Entity | Entity | MOC hierarchy (`order` prop — the API `organize` and `moc: true` links write `order` only) — MOC is emergent, not a label |
 | `CITES_RESOURCE` | PathStep / Ku | Resource | Curriculum cites reference material (`context` prop) |
 
 ```cypher
@@ -166,8 +166,8 @@ Available on Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP. Writ
 
 The `ULTIMATE_PATH` edge IS the designation — match by traversing it. The node is NOT mutated:
 a designated path keeps its `:LearningPath` label and its `'learning_path'` entity_type, so
-`{entity_type: 'life_path'}` matches ZERO rows. (It used to be flipped in place; that divergence
-made every LP read of a designated path fail — see `docs/technical_debt/LIFEPATH_ALIGNMENT_DEBT.md`.)
+`{entity_type: 'life_path'}` matches ZERO rows (`docs/technical_debt/LIFEPATH_ALIGNMENT_DEBT.md` records why the
+node is not flipped in place).
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|

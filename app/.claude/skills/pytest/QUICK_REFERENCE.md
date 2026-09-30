@@ -98,23 +98,29 @@ The root conftest also runs `load_dotenv()` — every `.env` value the developer
 
 | Fixture | Provides |
 |---------|----------|
-| `neo4j_container` / `neo4j_uri` / `neo4j_driver` (session) | Testcontainers Neo4j via `bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`) — the tag read from `infrastructure/docker-compose.yml` (`tests/integration/_neo4j_pin.py`), the JVM capped for the test graphs, Ryuk's `ACK` read so a killed session is reaped — + async driver |
+| `neo4j_container` / `neo4j_uri` / `neo4j_driver` (session) | Testcontainers Neo4j via `bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`) — the tag read from `infrastructure/docker-compose.yml` (`tests/integration/_neo4j_pin.py`), the JVM capped for the test graphs, Ryuk's `ACK` read so a killed session is reaped — + the async driver (`open_async_driver`, then `require_utc_instants` stamps the empty graph). `scratch_neo4j_container` (module) for a test that empties or reads the whole graph; `connection_settings` for a test that opens a `Neo4jConnection` |
 | `skuel_app_container` / `skuel_app` (session) | The whole app bootstrapped via `scripts/dev/bootstrap.py` **against a testcontainer of its own** (same pinned image, no APOC): the fixture overrides `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` with that container before settings are built, and refuses to yield an app whose driver reports any other kernel (`.env` names the production AuraDB instance — `tests/integration/test_skuel_app_fixture.py` is the permanent guard). Private, not shared, because the app's boot syncs uniqueness constraints on `:User` that the shared graph's accumulated users violate. Seed app-fixture data through `skuel_app.state.services.neo4j_driver`, never `neo4j_driver`. Boots at any tier — CI runs the integration job at `INTELLIGENCE_TIER=core` with no API key; only FULL demands `OPENAI_API_KEY` (`EnvironmentValidator.REQUIRED_VARS`) |
-| `clean_neo4j` | Per-test wipe of all non-`:User` nodes + creates `entity_embedding_idx` vector index |
+| `clean_neo4j` | Per-test wipe of everything but `:User` and `:MigrationRecord` nodes (before and after) + creates the `entity_embedding_idx` vector index |
 | `ensure_test_users` (session) | MERGEs the shared test-user UIDs (`user_test_*`, `user_mike`, …) plus the resolved ingestion fallback owner. **Required by any test that creates or ingests an owned entity** — the `:OWNS` write doors refuse an owner with no `:User` node (ADR-086) |
-| `{tasks,goals,habits,events,choices,principles}_backend` / `_service` | Real `UniversalNeo4jBackend[T]` + core sub-service per domain |
-| `services` | Container with all domain facades wired to real backends |
-| `event_bus` | Real `InMemoryEventBus`; `create_relationship` / `count_relationships` — raw edge helpers |
+| `{tasks,goals,habits,events,choices,principles}_backend` / `_service` | Real `UniversalNeo4jBackend[T](neo4j_driver, NeoLabel.X, Model, base_label=NeoLabel.ENTITY)` + the CORE sub-service per domain |
+| `services` | `TestServices` — the domain facades (`tasks`, `goals`, `events`, `choices`, `principles`, `lp`, `ps`, `users` + aliases) over real backends; Activity backends wrapped so `create()` accepts a dict |
+| `event_bus` | Real `InMemoryEventBus`; `create_relationship` / `count_relationships` — raw edge helpers; `user_uid` — a plain string (there is no `test_user_uid`) |
+| `laptop_zone` (root conftest, opt-in) | A Vancouver user on a UTC-pinned process; `forced_zone(zone)` (`tests/helpers/forced_zone.py`) for one block of the unpinned behaviour |
 
-### Mock factories
+### Mock factories and doubles
 
 ```python
 from tests.fixtures.service_factories import create_mock_backend, create_mock_driver, create_tasks_service_for_testing
+from tests.fixtures.llm_doubles import scripted_llm, failing_llm, embeddings_double   # real shapes, no network
+from tests.helpers.status_guarded_backend import guarded_backend                      # ADR-087 status writes
+from tests.fixtures.csrf import attach_csrf                                          # cookie + header on a request stub
 from core.services.relationship_builder import relate  # mock backend.add_relationship, not a chain
 
-backend = create_mock_backend({"get": Result.ok(task)})   # AsyncMock CRUD with Result defaults
+backend = create_mock_backend({"get": Result.ok(task)})   # AsyncMock CRUD with Result defaults; unscripted methods return a Mock
 service = create_tasks_service_for_testing(backend=backend)
 ```
+
+`MagicMock(spec=[names])`, never `spec=<class>` (3.14 evaluates the class's annotations). A `TestClient` against a `@csrf_protected` route sets the cookie AND sends the `X-CSRF-Token` header — `tests/unit/adapters/test_ai_routes_http.py`.
 
 ### Config — `pyproject.toml [tool.pytest.ini_options]`
 
@@ -138,6 +144,9 @@ service = create_tasks_service_for_testing(backend=backend)
 | Test data leaks between integration tests | Depend on `clean_neo4j` (preserves `:User` nodes only) |
 | `Failed: Timeout (>120.0s) from pytest-timeout` | The test body hung (pytest-timeout) — find the wait that never returns; only a test that provably needs longer gets `@pytest.mark.timeout(N)` |
 | A unit test passes alone, fails under `./dev test-unit` | Parallel unsafety — a fixed path, port, or module state another worker also touches; fix the test (`tmp_path`, per-test state), never a serial marker |
+| A "today" test goes red in CI between 00:00 and 07:00Z | The host day ≠ the Vancouver day; probe with `time_machine.travel(ts, tick=…)` at 03:00Z (no `faketime` on the laptop) and build days with `today_in(current_zone())` |
+| Proving a new test fails on the old code | `git stash push -- <tree>`, run a scratch copy, `git stash pop` — never while a background suite runs; `git add` a staged deletion first |
+| `Task(uid="task:x")` in a fixture | Colons are never an entity-uid spelling — `task_{slug}_{random}` (API) / `ku.{ns}.{slug}` (vault) |
 
 ---
 

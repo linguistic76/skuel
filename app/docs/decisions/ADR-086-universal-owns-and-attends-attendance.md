@@ -1,11 +1,11 @@
 ---
 title: "ADR-086: Universal :OWNS Ratified; Attendance Is ATTENDS"
-updated: 2026-09-15
+updated: 2026-09-30
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, owns, attends, events, graph-schema, relationships]
 related: [ADR-026, ADR-038, ADR-040, ADR-085]
-related_skills: [security, neo4j-cypher-patterns, activity-domains]
+related_skills: [security, neo4j-cypher-patterns, activity-domains, pytest]
 ---
 
 # ADR-086: Universal `:OWNS` Ratified; Attendance Is `ATTENDS`

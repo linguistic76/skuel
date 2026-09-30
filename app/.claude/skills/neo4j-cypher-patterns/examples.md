@@ -23,7 +23,7 @@ ORDER BY t.priority DESC, t.due_date ASC
 MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
 WHERE t.status IN ['draft', 'scheduled', 'active', 'blocked']
   AND t.due_date IS NOT NULL
-  AND date(left(toString(t.due_date), 10)) < date($today)  -- prefix guard: tolerates a mis-stored datetime (#766); $today is the user's day
+  AND date(left(toString(t.due_date), 10)) < date($today)  -- prefix guard: tolerates a mis-stored datetime; $today is the user's day
 RETURN t
 ORDER BY t.due_date ASC
 ```
@@ -88,7 +88,7 @@ ORDER BY depth ASC
 MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Goal)
 WHERE g.status IN ['active', 'scheduled']
 RETURN g,
-       coalesce(g.progress, 0.0) as progress
+       coalesce(g.progress_percentage, 0.0) as progress_percentage
 ORDER BY g.priority DESC
 ```
 
@@ -244,7 +244,7 @@ MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Habit)
 WHERE h.status = 'active'
 RETURN h,
        coalesce(h.current_streak, 0) as streak,
-       coalesce(h.completion_rate, 0.0) as completion_rate
+       coalesce(h.best_streak, 0) as best_streak
 ORDER BY h.current_streak DESC
 ```
 
@@ -427,12 +427,13 @@ RETURN ku.uid as knowledge,
 
 ### Graph-Aware Search
 ```cypher
-// Search with relationship context
+// Search with relationship context. Text search is case-insensitive (both
+// sides lower-cased, as build_text_search_query / faceted_search_raw do); the
+// live search path scopes by the OWNER_ONLY property predicate
+// (t.user_uid = $user_uid), which the OWNS edge is held equal to (ADR-086).
 MATCH (t:Task)
-WHERE t.title CONTAINS $query OR t.description CONTAINS $query
-
-// Ownership check
-MATCH (u:User {uid: $user_uid})-[:OWNS]->(t)
+WHERE t.user_uid = $user_uid
+  AND (toLower(t.title) CONTAINS toLower($query) OR toLower(t.description) CONTAINS toLower($query))
 
 // Get graph context
 OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
