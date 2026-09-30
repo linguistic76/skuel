@@ -224,23 +224,17 @@ class EventsService(
         """Override the inherited CRUD create — the ENTITY door.
 
         Routes the entity through the one validated, event-firing create path
-        (``EventsCoreService.create``) — the path ``create_event`` below already uses.
-        The inherited base ``create`` resolved ``_validate_create`` to the
-        ``CrudOperationsMixin`` no-op: the Events creation rule (duration sanity, 5-720
-        minutes) lives on ``EventsCoreService``, which this facade holds as the delegated
-        attribute ``self.core`` and does NOT inherit — so that override was never in this
-        class's MRO. The generated route therefore persisted events unchecked, and
-        published neither CalendarEventCreated nor the ADR-074 embedding request.
+        (``EventsCoreService.create``) — the path ``create_event`` below uses too. The
+        Events creation rule (the span bound, ``_validate_create``) lives on
+        ``EventsCoreService``, which this facade holds as ``self.core`` and does not
+        inherit, so the inherited base ``create`` would resolve that hook to the
+        ``CrudOperationsMixin`` no-op, persist unchecked, and publish neither
+        CalendarEventCreated nor the ADR-074 embedding request.
 
-        Same reconciliation ``ChoicesService.create`` makes (#960). Since the create
-        primitive also writes the entity-carried REINFORCES_HABIT edge
-        (``EventsCoreService._write_link_edges``), this door no longer drops
-        ``reinforces_habit_uid`` — the route converter sets it on the entity.
-
-        The generated JSON route entered here until it was bound to
-        ``create_event`` (the request door — ``CRUDRouteConfig.request_create_method``),
-        so its request-only link fields could ride; this door remains for in-process
-        callers that hand the CRUD surface an entity they built themselves.
+        The create primitive writes the entity-carried REINFORCES_HABIT edge
+        (``EventsCoreService._write_link_edges``). This door serves in-process callers
+        that hand the CRUD surface an entity they built themselves; the generated JSON
+        route is bound to ``create_event`` (``CRUDRouteConfig.request_create_method``).
         """
         return await self.core.create(entity)
 

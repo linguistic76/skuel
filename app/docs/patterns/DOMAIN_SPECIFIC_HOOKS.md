@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-09-27
+updated: 2026-09-30
 category: patterns
 related_skills: []
 related_docs: []
@@ -230,10 +230,9 @@ def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[N
     return Result.ok(None)
 ```
 
-> The live reference for this shape is `EventsCoreService._validate_update(current, updates: EventUpdateIntent)`,
-> which the inherited CRUD invokes. Tasks reaches the same hook a different way: its facade
-> routes `update` / `update_for_user` to `update_task`, so `update_task` calls
-> `_validate_update` explicitly (the Habits precedent). See
+> The live reference for this shape is `EventsCoreService._validate_update(current, updates: EventUpdateIntent)`.
+> Its facade routes `update` / `update_for_user` to `update_event`, so `update_event` calls the
+> hook explicitly — as `update_task` does for Tasks (the Habits precedent). See
 > `docs/roadmap/done/update-intents.md` for which domains run the hook through the base.
 >
 > **A terminal-state rule used to sit above this one** — "cannot modify a
@@ -400,7 +399,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 | **ChoicesCoreService** | A supplied option set holds ≥ 2; BINARY carries exactly 2; STRATEGIC needs a 50+ char description. Options are OPTIONAL at creation — see `docs/domains/choices.md` | Decision immutability in ACTIVE/COMPLETED; option-count floor |
 | **GoalsCoreService** | `target_date` must not PRECEDE `start_date` (equal is legal — matches the request model's `allow_equal=True`) | Date ordering *(achievement-state immutability deleted 2026-08 by ruling — completed goals are editable like completed tasks; reopen clears `achieved_date` via the completion-stamp helper)* |
 | **HabitsCoreService** | DAILY habits cannot target > 7 days/week | Streak preservation on archive (bypassable via the transient `force_archive`); frequency consistency |
-| **EventsCoreService** | Duration sanity, 5–720 minutes | Past-event immutability (notes/tags/quality_score exempt); duration sanity |
+| **EventsCoreService** | Span (`end_time − start_time`) within 5–720 minutes when both times are set | Past-event immutability (tags and a status change with its `completed_at` stamp exempt); span on the merged times, gated on the patch naming `start_time` / `end_time`; online needs a URL, gated on `is_online` / `meeting_url` |
 | **TasksCoreService** | *(none — deleted; the rule contradicted the DSL and GoalTaskGenerator)* | Overdue-priority protection, invoked explicitly by `update_task` (the facade routes the generic CRUD there) *(terminal-state protection deleted 2026-08 by ruling — it had no caller, and refusing every change to a finished task would refuse the repair-path repeat complete and the reopen)* |
 | **PrinciplesCoreService** | *(none — deleted; the length floors were stricter than the request model)* | Declared, but `update_principle` is backend-direct and does not invoke it |
 

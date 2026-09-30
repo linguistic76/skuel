@@ -892,6 +892,22 @@ class HabitBlock:
 
 
 # ============================================================================
+# EVENT SPAN (core/models/validation_rules.py — event_span_error)
+# ============================================================================
+
+
+class EventSpan:
+    """The bounds on an event's span — ``end_time - start_time`` on its one day.
+
+    Under five minutes is a data-entry slip; over twelve hours belongs in a
+    multi-day event or several sessions.
+    """
+
+    MIN_MINUTES: Final = 5
+    MAX_MINUTES: Final = 720
+
+
+# ============================================================================
 # KNOWLEDGE INTENSITY WEIGHTS (core/ports/knowledge_pattern_protocol.py)
 # ============================================================================
 

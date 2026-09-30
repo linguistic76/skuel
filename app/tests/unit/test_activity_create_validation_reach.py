@@ -1,69 +1,53 @@
 """
-Activity Domain creation: the rules must be reachable from every door
-======================================================================
+Activity Domain creation: the rules are reachable from every door
+=================================================================
 
-Sibling of ``test_choice_create_path_parity.py`` (#960), which settled Choices.
-This suite covers the five Activity Domains that PR deferred.
+Sibling of ``test_choice_create_path_parity.py``, which covers Choices.
 
-THE STRUCTURAL DEFECT (all five)
---------------------------------
-``CrudOperationsMixin.create()`` is the ONLY caller of ``_validate_create``. The
-domains declare their creation rules on the CORE sub-service
-(``GoalsCoreService``, ``HabitsCoreService``, ...), but the generated CRUD route
-(``CRUDRouteFactory._register_create_route``) calls ``service.create(entity)`` on
-the FACADE, and a facade holds its core as the delegated ATTRIBUTE ``self.core``
-— it does not inherit from it. The override was therefore never in the facade's
-MRO, and ``create()`` resolved ``_validate_create`` to the mixin's no-op.
+HOW A CREATE RULE IS REACHED
+----------------------------
+``CrudOperationsMixin.create()`` is the only caller of ``_validate_create``. Each
+domain declares its creation rules on its CORE sub-service (``GoalsCoreService``,
+``HabitsCoreService``, ...), and the facade holds that core as the attribute
+``self.core`` — it does not inherit from it. So each facade overrides ``create`` to
+delegate to the core; without the override, ``create()`` resolves
+``_validate_create`` to the mixin's no-op, runs no domain rule, and publishes neither
+the domain's ``*Created`` event nor the ADR-074 embedding request. The request doors
+(``create_goal`` / ``create_habit`` / ``create_event``) persist through the same core
+``create``.
 
-Consequence, before this change: ``POST /api/{goals,habits,events}/create``
-persisted entities without running a single domain rule, and published neither
-the domain's ``*Created`` event nor the ADR-074 embedding request.
-
-The second door (``create_goal`` / ``create_habit``) missed the rules a different
-way — it bypassed ``create()`` altogether via ``_create_and_convert``, which goes
-straight to ``backend.create``.
-
-THE SETTLED SEMANTICS (per domain — the rules are NOT uniform)
---------------------------------------------------------------
+THE RULES (per domain — they are NOT uniform)
+---------------------------------------------
   Goals   — target_date must not PRECEDE start_date. Equal is legal: the request
             model validates the same pair with ``allow_equal=True`` and defaults
             ``start_date`` to today, so a same-day goal is a shape the API
-            deliberately accepts. The hook said ``<=`` and would have started
-            refusing it the moment it became reachable.
+            deliberately accepts.
   Habits  — DAILY habits cannot target > 7 days/week.
-  Events  — duration 5..720 minutes. ``EventCreateRequest`` carries no
-            ``duration_minutes`` field at all, so no door can set it at creation;
-            the rule is live on the UPDATE path and inert here. Pinned so that
-            adding the field to the request cannot quietly land unvalidated.
-  Tasks   — rule DELETED. "High/Critical priority must have a due date"
-            contradicted two live producers (the DSL, GoalTaskGenerator).
-  Principles — rules DELETED. statement >= 10 / description >= 20 were stricter
+  Events  — the span, ``end_time - start_time``, lies within 5..720 minutes when
+            both times are set. ``EventCreateRequest`` requires both times but
+            checks only that the end follows the start, so this hook is the span
+            rule for the request door too.
+  Tasks   — no hook. "High/Critical priority must have a due date" contradicts
+            two live producers (the DSL, GoalTaskGenerator).
+  Principles — no hook. statement >= 10 / description >= 20 would be stricter
             than ``PrincipleCreateRequest``'s deliberate ``min_length=1``.
 
-WHAT THE SURVIVING HOOKS ACTUALLY BACKSTOP
-------------------------------------------
-All three guard the ENTITY, and each sits behind a STRICTER request edge:
-``GoalCreateRequest`` rejects a past target date and enforces the same ordering,
-``HabitCreateRequest`` bounds its field at ``ge=1, le=7``, and
-``EventCreateRequest`` has no duration field to set. So none of them fires for an
-HTTP caller — Pydantic refuses those bodies with a 422 before the service is
-reached. What they backstop is every caller that hands ``create(entity)`` an
-entity it assembled itself — in-process callers today; the generated route did
-this too, after conversion, until it was bound to the request door
-(``request_create_method``).
+WHAT THE GOALS AND HABITS HOOKS BACKSTOP
+----------------------------------------
+Both sit behind a STRICTER request edge: ``GoalCreateRequest`` rejects a past
+target date and enforces the same ordering, and ``HabitCreateRequest`` bounds its
+field at ``ge=1, le=7``. So neither fires for an HTTP caller — the request model
+refuses those bodies with a 400 before the service is reached. What they backstop is
+every caller that hands ``create(entity)`` an entity it assembled itself.
 
-The tests below therefore drive the entity door. That is a statement about where
-the MRO hole cost something, NOT a claim that the API ever accepted bad JSON.
+The tests therefore drive the entity door, and for Events the request door as well.
+The missing hooks are pinned too (``TestDeletedRulesStayDeleted``): restoring either
+rule would start refusing input the app generates itself.
 
-The deletions are pinned too (``TestDeletedRulesStayDeleted``): a test that only
-covered the surviving rules would let someone "restore" the deleted ones without
-noticing they break the DSL.
-
-No Neo4j: the backend is stubbed, so what is under test is the service wiring —
-which is exactly where the defect lived.
+No Neo4j: the backend is stubbed, so what is under test is the service wiring.
 """
 
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from typing import Any
 
 import pytest
@@ -76,6 +60,7 @@ from core.events.habit_events import HabitCreated
 from core.models.enums import Domain, MeasurementType, Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus
 from core.models.event.event import Event
+from core.models.event.event_request import EventCreateRequest
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.habit.habit import Habit
@@ -556,47 +541,77 @@ def events_facade(events_backend: StubBackend, event_bus: InMemoryEventBus) -> E
 class TestEventsEntityDoorValidates:
     """DOOR A — ``create_event`` already routed through core; the route door did not."""
 
-    @pytest.mark.parametrize("duration", [1, 4, 721, 2000])
-    async def test_insane_duration_is_refused(
-        self, events_facade: EventsService, duration: int
+    @pytest.mark.parametrize(
+        ("start", "end"),
+        [
+            (time(9, 0), time(9, 0)),
+            (time(9, 0), time(9, 4)),
+            (time(9, 0), time(21, 1)),
+            (time(0, 0), time(23, 59)),
+        ],
+        ids=["zero", "4-min", "721-min", "whole-day"],
+    )
+    async def test_an_out_of_bounds_span_is_refused(
+        self, events_facade: EventsService, start: time, end: time
     ) -> None:
-        """RED before the fix: the facade resolved _validate_create to the no-op.
-
-        No door can currently SET duration_minutes at creation (EventCreateRequest
-        has no such field), so this pins the wiring rather than a live rejection —
-        adding the field to the request must not land unvalidated.
-        """
         result = await events_facade.create(
             Event(
                 uid="event:door-a",
                 user_uid=USER_UID,
                 title="Planning session",
                 event_date=TODAY,
-                duration_minutes=duration,
+                start_time=start,
+                end_time=end,
             )
         )
 
         assert result.is_error, (
-            f"the route door persisted a {duration}-minute event — "
-            "EventsCoreService._validate_create was not in the facade's MRO"
+            f"the entity door persisted a {start}-{end} event — "
+            "EventsCoreService._validate_create is not on the facade's create path"
         )
-        assert result.expect_error().details["field"] == "duration_minutes"
+        assert result.expect_error().details["field"] == "end_time"
 
-    @pytest.mark.parametrize("duration", [5, 60, 720, None])
-    async def test_sane_duration_is_accepted(
-        self, events_facade: EventsService, duration: int | None
+    @pytest.mark.parametrize(
+        ("start", "end"),
+        [
+            (time(9, 0), time(9, 5)),
+            (time(9, 0), time(10, 0)),
+            (time(9, 0), time(21, 0)),
+            (None, None),
+        ],
+        ids=["5-min", "1-hour", "720-min", "no-times"],
+    )
+    async def test_an_in_bounds_or_absent_span_is_accepted(
+        self, events_facade: EventsService, start: time | None, end: time | None
     ) -> None:
-        """Positive control, including the None the live doors actually produce."""
         result = await events_facade.create(
             Event(
                 uid="event:door-a",
                 user_uid=USER_UID,
                 title="Planning session",
                 event_date=TODAY,
-                duration_minutes=duration,
+                start_time=start,
+                end_time=end,
             )
         )
-        assert result.is_ok, f"route door refused a {duration}-minute event: {result.error}"
+        assert result.is_ok, f"the entity door refused a {start}-{end} event: {result.error}"
+
+    async def test_the_request_door_refuses_an_out_of_bounds_span(
+        self, events_facade: EventsService
+    ) -> None:
+        """``create_event`` persists through the same core ``create``, so the request
+        model's end-after-start check and this hook together bound the span."""
+        request = EventCreateRequest(
+            title="Planning session",
+            event_date=TODAY,
+            start_time=time(9, 0),
+            end_time=time(9, 2),
+        )
+
+        result = await events_facade.create_event(request, USER_UID)
+
+        assert result.is_error
+        assert result.expect_error().details["field"] == "end_time"
 
     async def test_entity_door_publishes_calendar_event_created(
         self, events_facade: EventsService, event_bus: InMemoryEventBus
