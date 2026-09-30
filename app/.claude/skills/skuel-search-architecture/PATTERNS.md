@@ -265,7 +265,7 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
 
 **Problem**: A natural-language query with implicit filters ("urgent tasks in progress").
 
-**Solution**: `SearchRouter.intelligent_search()` — the single cross-domain NL entry point. `SearchQueryParser` (`core/models/search/query_parser.py`) extracts priority/status/domain signals; each target domain then runs through `faceted_search` so ownership applies in the query.
+**Solution**: `SearchRouter.intelligent_search()` — the single cross-domain NL entry point. `SearchQueryParser` (`core/models/search/query_parser.py`) extracts priority/status/domain signals. Two branches per target domain: an Activity domain in `_ENTITY_TO_DOMAIN`, with an effective user uid, runs through `faceted_search(log_event=False)` so the parsed priority/status and the ownership predicate apply in the query; every other target — the curriculum domains, or an Activity domain with no uid (refused by the owner gate, contributes nothing) — runs the plain `search()` path and has the parsed filters applied afterwards (`_apply_semantic_filters`). Scoring runs only when the caller passes `user_context` (SKILL.md § Priority scoring).
 
 ```python
 result = await search_router.intelligent_search("urgent overdue tasks", user_uid=user_uid, limit=20)
