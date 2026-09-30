@@ -22,8 +22,10 @@ PR #1074 claimed the paths it did not reach run *case-sensitive* `CONTAINS`. The
 Both production `CONTAINS` predicates lower-case both sides — `faceted_search_raw`
 (`toLower(entity.{field}) CONTAINS $query_text`, param pre-lowered) and
 `build_text_search_query` behind `text_search_raw`
-(`toLower(n.{field}) CONTAINS toLower($query)`). The persistence layer has no
-case-sensitive `CONTAINS` predicate (the backend has no `search` method of its own). So the honest value of moving a
+(`toLower(n.{field}) CONTAINS toLower($query)`). The backend has no `search` method of its
+own; case-SENSITIVE `CONTAINS` remains only in the `find_by(field__contains=)` filter
+operator (`crud_queries.py`) and two uncalled builders in `intelligence_queries.py` — none on
+a search surface. So the honest value of moving a
 surface to fulltext is **relevance ranking and vector recall**, NOT case-insensitivity,
 which every surface already has. Two further measured facts bound the case:
 

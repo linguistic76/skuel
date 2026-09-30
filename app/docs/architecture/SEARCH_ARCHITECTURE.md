@@ -821,9 +821,15 @@ overstated claim here). The rung buys **relevance ranking and vector recall**. I
 *not* buy case-insensitivity: Strategy 3's fallback is the service-layer
 `SearchOperationsMixin.search` → `text_search_raw` → `build_text_search_query`, whose
 predicate is `toLower(n.{field}) CONTAINS toLower($query)` — already case-insensitive, as
-is `faceted_search_raw`'s. There is no case-sensitive `CONTAINS` in the persistence layer:
-the backend has no `search` method of its own (`EntitySearchOperations` is `find_by` +
-`count`); `search` is a service-layer name only.
+is `faceted_search_raw`'s. Every text-search surface is therefore case-insensitive already.
+The backend has no `search` method of its own (`EntitySearchOperations` is `find_by` +
+`count`; `search` is a service-layer name). Case-SENSITIVE `CONTAINS` remains in the
+persistence layer as the `find_by(field__contains=...)` filter operator
+(`query/cypher/crud_queries.py`) and inside two query builders in
+`query/cypher/intelligence_queries.py` (`build_hybrid_knowledge_search`,
+`build_registry_validated_query`) that no caller outside the package reaches — a field
+filter and two uncalled builders, on no search surface, and not what the fulltext rung would
+replace.
 
 Measured limits of the fulltext half (Neo4j 2026.06.0):
 
