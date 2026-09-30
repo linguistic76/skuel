@@ -5,8 +5,8 @@ The ku / ps / lp lateral routes have no owner to verify, so they pass
 missing one would let any user write curriculum edges, or join a Ku to another
 user's private task and learn from the answer whether that uid exists.
 
-The contract, pinned here over real HTTP (a real ``fast_app`` with session
-middleware, reached through ``httpx.ASGITransport``) against a real Neo4j:
+The contract, pinned here over real HTTP against a real Neo4j
+(``tests/helpers/lateral_routes_client.py``):
 
 - every curriculum write route answers 403 to a MEMBER and lets a TEACHER (and
   an ADMIN, through the role hierarchy) through;
@@ -15,39 +15,24 @@ middleware, reached through ``httpx.ASGITransport``) against a real Neo4j:
   edge is written or removed;
 - the Activity routes keep their ownership gate and consult no role.
 
-Routes are registered through ``create_lateral_routes`` — the bootstrap's own
-entry point — so the role, the verifier and the curriculum marker reach the
-factory exactly as they do in the app.
 """
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
 import httpx
 import pytest
 import pytest_asyncio
-from starlette.responses import PlainTextResponse
 
-from adapters.inbound.auth.session import set_current_user
-from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.lateral_routes import create_lateral_routes
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
-from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums import UserRole
-from core.models.user.user import User
-from core.orchestrator.lateral_relationships_orchestrator import (
-    LateralRelationshipsOrchestrator,
+from tests.helpers.lateral_routes_client import (
+    lateral_client,
+    role_user_service,
+    without_timestamp,
 )
-from core.services.lateral_relationships.lateral_relationship_service import (
-    LateralRelationshipService,
-)
-from core.utils.result_simplified import Errors, Result
-
-pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 MEMBER = "user_f4_member"
 TEACHER = "user_f4_teacher"
@@ -146,64 +131,15 @@ async def graph(neo4j_driver):
         await session.run("MATCH (n:Entity) WHERE n.uid IN $uids DETACH DELETE n", uids=_ALL_UIDS)
 
 
+TASK_OWNERS = {MEMBER_TASK_A: MEMBER, MEMBER_TASK_B: MEMBER, PRIVATE_TASK: OTHER}
+
+
 def _user_service() -> Any:
-    """Real ``User`` records, so the role hierarchy check runs for real."""
-    calls: list[str] = []
-
-    async def get_user(user_uid: str) -> Result[User]:
-        calls.append(user_uid)
-        role = ROLES.get(user_uid)
-        if role is None:
-            return Result.fail(Errors.not_found("User"))
-        return Result.ok(User(uid=user_uid, title=user_uid, role=role))
-
-    return SimpleNamespace(get_user=get_user, calls=calls)
-
-
-def _task_verifier() -> Any:
-    """The Tasks domain's ownership verifier: each task belongs to its ``user_uid``."""
-    owners = {MEMBER_TASK_A: MEMBER, MEMBER_TASK_B: MEMBER, PRIVATE_TASK: OTHER}
-
-    async def verify_ownership(uid: str, user_uid: str) -> Result[Any]:
-        if owners.get(uid) == user_uid:
-            return Result.ok(SimpleNamespace(uid=uid, user_uid=user_uid))
-        return Result.fail(Errors.not_found("Task"))
-
-    return SimpleNamespace(verify_ownership=verify_ownership)
+    return role_user_service(ROLES)
 
 
 def _client(neo4j_driver, user_service: Any) -> httpx.AsyncClient:
-    from fasthtml.common import fast_app
-
-    app, rt = fast_app(pico=False, default_hdrs=False, secret_key="f4-lateral-gate")
-    lateral = LateralRelationshipService(
-        LateralRelationshipBackend(executor=Neo4jQueryExecutor(neo4j_driver))
-    )
-    tasks = _task_verifier()
-    orchestrator = LateralRelationshipsOrchestrator(
-        lateral,
-        tasks,  # type: ignore[arg-type]
-        tasks,  # type: ignore[arg-type]
-        tasks,  # type: ignore[arg-type]
-        tasks,  # type: ignore[arg-type]
-        tasks,  # type: ignore[arg-type]
-        tasks,  # type: ignore[arg-type]
-    )
-    services = SimpleNamespace(lateral_orchestrator=orchestrator, user=user_service)
-    create_lateral_routes(app, rt, services)
-
-    @rt("/sign-in/{uid}")
-    def sign_in(request, uid: str):
-        set_current_user(request, user_uid=uid)
-        return PlainTextResponse("ok")
-
-    token = mint_token()
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://test",
-        cookies={CSRF_COOKIE_NAME: token},
-        headers={CSRF_HEADER_NAME: token},
-    )
+    return lateral_client(neo4j_driver, user_service, TASK_OWNERS, secret_key="f4-lateral-gate")
 
 
 async def _send(client: httpx.AsyncClient, method: str, path: str, form: dict[str, str]):
@@ -239,13 +175,8 @@ async def _lateral_edges_from(neo4j_driver, uid: str) -> list[str]:
     return sorted(record["types"])
 
 
-def _without_timestamp(response: httpx.Response) -> Any:
-    body = response.json()
-    body.pop("timestamp", None)
-    return body
-
-
 @pytest.mark.integration
+@pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.usefixtures("graph")
 class TestRoleGate:
     @pytest.mark.parametrize(("method", "path", "form"), WRITES, ids=WRITE_IDS)
@@ -284,6 +215,7 @@ class TestRoleGate:
 
 
 @pytest.mark.integration
+@pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.usefixtures("graph")
 class TestTeacherWritesCurriculum:
     @pytest.mark.parametrize("domain", list(ANCHORS))
@@ -335,6 +267,7 @@ class TestTeacherWritesCurriculum:
 
 
 @pytest.mark.integration
+@pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.usefixtures("graph")
 class TestCurriculumEndpointsOnly:
     """A private entity on a curriculum route reads exactly as a missing uid."""
@@ -351,7 +284,7 @@ class TestCurriculumEndpointsOnly:
             missing = await _send(client, method, missing_path, missing_form)
 
         assert private.status_code == missing.status_code == 404
-        assert _without_timestamp(private) == _without_timestamp(missing)
+        assert without_timestamp(private) == without_timestamp(missing)
         assert await _lateral_edges_from(neo4j_driver, PRIVATE_TASK) == []
 
     @pytest.mark.parametrize(("suffix", "extra", "_rel"), CREATES, ids=CREATE_IDS)
@@ -365,7 +298,7 @@ class TestCurriculumEndpointsOnly:
             missing = await client.post(f"/api/ps/{MISSING}/lateral/{suffix}", data=form)
 
         assert private.status_code == missing.status_code == 404
-        assert _without_timestamp(private) == _without_timestamp(missing)
+        assert without_timestamp(private) == without_timestamp(missing)
         assert await _lateral_edges_from(neo4j_driver, PRIVATE_TASK) == []
 
     async def test_an_existing_edge_to_a_private_entity_is_not_removed(self, neo4j_driver) -> None:
@@ -382,11 +315,12 @@ class TestCurriculumEndpointsOnly:
             missing = await client.delete(f"/api/ku/{KU_A}/lateral/blocks/{MISSING}")
 
         assert private.status_code == missing.status_code == 404
-        assert _without_timestamp(private) == _without_timestamp(missing)
+        assert without_timestamp(private) == without_timestamp(missing)
         assert await _edges(neo4j_driver, KU_A, PRIVATE_TASK) == ["BLOCKS"]
 
 
 @pytest.mark.integration
+@pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.usefixtures("graph")
 class TestActivityRoutesUnchanged:
     """The ownership gate still decides; no role is consulted."""

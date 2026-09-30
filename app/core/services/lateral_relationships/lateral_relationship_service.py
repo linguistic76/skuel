@@ -56,9 +56,10 @@ from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
-# What a write with no ownership verifier may join: the three curriculum
-# domains that carry lateral routes (ku / ps / lp), and nothing a user owns.
-# Not every ContentOrigin.CURRICULUM type — an Exercise can be user-owned.
+# What a call with no ownership verifier may reach — the anchor of a read, each
+# endpoint of a write: the three curriculum domains that carry lateral routes
+# (ku / ps / lp), and nothing a user owns. Not every ContentOrigin.CURRICULUM
+# type — an Exercise can be user-owned.
 _SHARED_ENDPOINT_TYPES = frozenset({EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH})
 
 
@@ -287,7 +288,8 @@ class LateralRelationshipService:
             include_metadata: Include relationship properties in results
             user_uid: Requesting user — gates the anchor (with domain_service)
                 and scopes the returned targets
-            domain_service: Domain service with verify_ownership() (None = shared content)
+            domain_service: Domain service with verify_ownership() (None = shared
+                content: the anchor must be curriculum)
 
         Returns:
             Result with list of relationships
@@ -343,7 +345,8 @@ class LateralRelationshipService:
             include_explicit_only: Only return explicit SIBLING relationships
                                    (False = derive from hierarchy)
             user_uid: User requesting siblings (for ownership verification)
-            domain_service: Domain service with verify_ownership() (None = shared content)
+            domain_service: Domain service with verify_ownership() (None = shared
+                content: the anchor must be curriculum)
 
         Returns:
             Result with list of siblings
@@ -442,20 +445,45 @@ class LateralRelationshipService:
 
         The anchor gate for every read on this service, and the per-endpoint
         gate for a write that carries a verifier (``_verify_write_endpoints``).
-        Verification runs only when the caller supplies BOTH a user and a
-        verifier: ``domain_service=None`` is the deliberate shared-content path
-        (curriculum KU/PS/LP, which every user may read), so callers on a
-        user-owned domain must pass both. An entity the caller does not own is
-        reported as not-found rather than forbidden, so a UID's existence never
-        leaks.
+
+        ``domain_service=None`` is the shared-content path: the entity must be
+        curriculum (Ku, PathStep, LearningPath), decided by ``entity_type``,
+        and any other kind is refused by the same branch, with the same error,
+        as a uid that does not exist — so a read anchored on a uid the caller
+        cannot open neither returns its neighbours nor says whether it is in
+        the graph. Publication is not consulted: the caller named the entity,
+        so a draft comes back (an anchored read, not a discovery listing).
+
+        With a verifier, ownership is checked when a user is supplied; a
+        verifier with no user runs no check. An entity the caller does not own
+        is reported as not-found rather than forbidden, so a UID's existence
+        never leaks.
 
         See: /docs/patterns/OWNERSHIP_VERIFICATION.md
         """
-        if not (user_uid and domain_service):
+        if domain_service is None:
+            return await self._check_shared_entity(entity_uid)
+
+        if not user_uid:
             return Result.ok(True)
 
         ownership_result = await domain_service.verify_ownership(entity_uid, user_uid)
         if ownership_result.is_error:
+            return Result.fail(Errors.not_found("Entity", entity_uid))
+
+        return Result.ok(True)
+
+    async def _check_shared_entity(self, entity_uid: str) -> Result[bool]:
+        """Refuse, as not-found, an entity that is not curriculum.
+
+        Backend: LateralRelationshipBackend.check_entity_exists
+        """
+        result = await self.backend.check_entity_exists(entity_uid, _SHARED_ENDPOINT_TYPES)
+        if result.is_error:
+            return Result.fail(result)
+
+        records = result.value
+        if not records or records[0]["entity_count"] == 0:
             return Result.fail(Errors.not_found("Entity", entity_uid))
 
         return Result.ok(True)
@@ -688,7 +716,8 @@ class LateralRelationshipService:
             entity_uid: Entity UID to get blockers for
             max_depth: Maximum depth to traverse (default 10)
             user_uid: User requesting the chain (for ownership verification)
-            domain_service: Domain service with verify_ownership() (None = shared content)
+            domain_service: Domain service with verify_ownership() (None = shared
+                content: the anchor must be curriculum)
 
         Returns:
             Result with blocking chain data including levels and critical_path.
@@ -779,7 +808,8 @@ class LateralRelationshipService:
         Args:
             entity_uid: Entity UID to get alternatives for
             user_uid: User requesting the alternatives (for ownership verification)
-            domain_service: Domain service with verify_ownership() (None = shared content)
+            domain_service: Domain service with verify_ownership() (None = shared
+                content: the anchor must be curriculum)
 
         Returns:
             Result with list of alternatives with comparison data
@@ -842,12 +872,13 @@ class LateralRelationshipService:
 
         Returns nodes and edges for interactive force-directed graph visualization.
 
-        Ownership is verified on the center entity only — the traversal itself is
-        not owner-filtered, so a neighbour reached from an owned center is
-        returned regardless of who owns it. NOTE: ``get_lateral_relationships``
-        now filters its returned targets by the caller's audience (ADR-085 G4);
-        this graph traversal keeps its wider reach — the census scoped G4 to the
-        relationship read, and the multi-hop audience question is not ruled here.
+        The center is gated by ``_verify_entity_access`` (owned, or curriculum
+        on the shared path); the traversal itself is not owner-filtered, so a
+        neighbour reached from a held center is returned regardless of who owns
+        it. ``get_lateral_relationships`` filters its returned targets by the
+        caller's audience (ADR-085 G4); this graph traversal keeps its wider
+        reach — the census scoped G4 to the relationship read, and the
+        multi-hop audience question is not ruled here.
 
         Args:
             entity_uid: Center entity UID
@@ -855,7 +886,8 @@ class LateralRelationshipService:
             relationship_types: Filter by specific relationship types
                                (None = all lateral relationships)
             user_uid: User requesting the graph (for ownership verification)
-            domain_service: Domain service with verify_ownership() (None = shared content)
+            domain_service: Domain service with verify_ownership() (None = shared
+                content: the anchor must be curriculum)
 
         Returns:
             Result with Vis.js Network format (nodes + edges)
@@ -884,7 +916,8 @@ class LateralRelationshipService:
             return Result.fail(result)
 
         if not result.value:
-            # Return just the center node
+            # The center passed the access gate, so it exists: this is a real
+            # entity with no edges of the requested types, drawn as one dot.
             center_only: RelationshipGraphData = {
                 "nodes": [
                     {

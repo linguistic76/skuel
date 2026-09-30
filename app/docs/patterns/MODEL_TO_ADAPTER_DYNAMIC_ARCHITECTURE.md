@@ -260,13 +260,13 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 
 14 inline Cypher queries migrated from `LateralRelationshipService` to a new `LateralRelationshipBackend`.
 
-**New backend:** `LateralRelationshipBackend` (14 methods):
+**New backend:** `LateralRelationshipBackend` (15 methods):
 
 | Category | Methods |
 |----------|---------|
 | **CRUD (4)** | `create_relationship`, `delete_relationship`, `create_inverse`, `delete_inverse` |
 | **Query (6)** | `get_relationships`, `get_siblings`, `get_cousins`, `get_blocking_chain`, `get_alternatives_comparison`, `get_relationship_graph` |
-| **Validation (4)** | `check_entities_exist`, `check_same_parent`, `check_same_depth`, `check_no_cycles` |
+| **Validation (5)** | `check_entity_exists`, `check_entities_exist`, `check_same_parent`, `check_same_depth`, `check_no_cycles` |
 
 **Architecture:** Standalone backend with `executor` (like `NotificationBackend`), not `UniversalNeo4jBackend[T]` — operates on relationships across entity types, not CRUD on a single type.
 

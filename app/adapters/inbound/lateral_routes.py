@@ -13,8 +13,9 @@ LateralRelationshipsOrchestrator, which holds all required services.
 Activity writes are ownership-verified per endpoint. Curriculum writes have no
 owner to verify: they are gated at TEACHER (ADMIN passes through the role
 hierarchy), and the service refuses any endpoint that is not curriculum. Reads
-are unchanged by the role: an Activity anchor is ownership-verified, a curriculum
-anchor is open to any authenticated user.
+consult no role: an Activity anchor is ownership-verified; a curriculum anchor
+is open to any authenticated user, and must itself be curriculum — any other uid
+answers as missing.
 
 See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """

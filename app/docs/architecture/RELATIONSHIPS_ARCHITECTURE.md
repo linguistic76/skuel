@@ -239,7 +239,7 @@ Ordered/hierarchical traversals and lateral-getter convenience wrappers:
 Lateral relationships capture semantics that hierarchies cannot: dependencies between siblings, alternatives, synergistic pairings, and semantic connections across branches. They are core architecture — graph databases excel at relationships precisely because a tree structure cannot express "A must complete before B", "A and B are alternatives", or "A and B complement each other".
 
 **Location:** `core/services/lateral_relationships/lateral_relationship_service.py`
-**Backend:** `adapters/persistence/neo4j/backends/collab_backends.py` → `LateralRelationshipBackend` (14 Cypher methods)
+**Backend:** `adapters/persistence/neo4j/backends/collab_backends.py` → `LateralRelationshipBackend` (15 Cypher methods)
 **Protocol:** `core/ports/service_protocols.py` → `LateralRelationshipBackendOperations`
 
 ### LateralRelationshipService API
@@ -263,11 +263,11 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 - Returns are `TypedDict`s from `core/ports/query_types.py` **except** `get_siblings` / `get_cousins`, which still return raw `dict`s
 
 > [!IMPORTANT]
-> **On a read, the ownership check is opt-in and fails open.** Both parameters default to `None`, and every ✅ read guards with `if user_uid and domain_service:` — so verification runs only when **both** are supplied, and a read that omits either runs with no anchor check. `None` is the deliberate shared-content path (curriculum KU/PS/LP). For a user-owned domain, always pass both.
+> **A call with `domain_service=None` is held to curriculum.** `None` is the shared-content path (curriculum KU/PS/LP): the anchor of a ✅ read, and both endpoints of a write, must be a Ku, PathStep or LearningPath by `entity_type`, and any other kind — another user's private entity included — is refused by the same branch, with the same not-found, as a uid that does not exist. So omitting the verifier never lets a read or a write reach a user-owned entity, and a curriculum route's answer never says whether a uid its caller cannot open is in the graph. Publication is not consulted: the caller named the anchor, so a draft comes back. Who may make a curriculum write is the route's decision — see [Ownership Coverage](#ownership-coverage).
 >
-> **A write with `domain_service=None` is held to curriculum.** `create_lateral_relationship` and `delete_lateral_relationship` go through `_verify_write_endpoints`: with a verifier, each endpoint is ownership-checked; without one, both endpoints must be a Ku, PathStep or LearningPath by `entity_type`, and any other kind is refused by the same branch, with the same not-found, as a uid that does not exist. So omitting the verifier never lets a write reach a user-owned entity. Who may make a curriculum write is the route's decision — see [Ownership Coverage](#ownership-coverage).
+> **With a verifier, the read's ownership check needs a user.** Verification runs when `user_uid` is supplied; a verifier with no user runs no check. For a user-owned domain, always pass both.
 >
-> Every read routes its check through one private helper, `_verify_entity_access(entity_uid, user_uid, domain_service)`, and a verified write calls it per endpoint. Add a read method and call it; do not re-inline the guard.
+> Every read routes its check through one private helper, `_verify_entity_access(entity_uid, user_uid, domain_service)`; a verified write calls it per endpoint, and an unverified write goes through `_verify_write_endpoints`. Add a read method and call it; do not re-inline the guard.
 >
 > `get_cousins` is the one remaining ❌: it accepts neither parameter, so it cannot enforce ownership even when a caller wants to. No route exposes it and it has no caller anywhere in the tree, so it is reachable only by a direct caller — wire the pair in if you ever give it one.
 
@@ -364,22 +364,22 @@ self._domain_services: dict[str, OwnershipVerifier] = {
 }
 ```
 
-`get_domain_service()` is a plain `.get(domain)`, so a slug absent from that map returns `None` **silently** — and `None` means "shared/curriculum, no ownership check". For a **user-owned** domain you must also add the service to the orchestrator's constructor and map, and wire it in the composition root. Registering the route entry alone would put the new domain's reads on the unverified anchor path, and its writes on the curriculum path (TEACHER-gated, curriculum endpoints only — its own entities could not be linked at all).
+`get_domain_service()` is a plain `.get(domain)`, so a slug absent from that map returns `None` **silently** — and `None` means "shared/curriculum, no ownership check". For a **user-owned** domain you must also add the service to the orchestrator's constructor and map, and wire it in the composition root. Registering the route entry alone would put the new domain's reads and writes on the curriculum path (reads refuse any non-curriculum anchor; writes are TEACHER-gated and refuse any non-curriculum endpoint) — its own entities could not be read or linked at all.
 
 ### Ownership Coverage
 
 `LateralRouteFactory` threads `domain_service` on **15 of its 15 routes** — all writes, the delete, every `get_lateral_relationships`-backed read (`blocking`, `blocked`, `prerequisites`, `alternatives`, `complementary`, `siblings`, `manage`), and the three enhanced-UX reads (`chain`, `alternatives/compare`, `graph`).
 
-The last three were the gap: each called `require_authenticated_user(request)` and **discarded the return value**, because the service methods behind them accepted no verifier, so any authenticated user could read another user's blocking chain, alternatives, or relationship graph by entity UID. Closed by adding the `user_uid` / `domain_service` pair to those three service methods and threading it from the factory. Regression cover: `tests/integration/routes/test_lateral_route_ownership.py` (foreign entity → 404, owner → 200, curriculum → 200) and `TestOwnershipGate` in `tests/unit/test_lateral_graph_queries.py`.
+The last three were the gap: each called `require_authenticated_user(request)` and **discarded the return value**, because the service methods behind them accepted no verifier, so any authenticated user could read another user's blocking chain, alternatives, or relationship graph by entity UID. Closed by adding the `user_uid` / `domain_service` pair to those three service methods and threading it from the factory. Regression cover: `tests/integration/routes/test_lateral_route_ownership.py` (foreign entity → 404, owner → 200, curriculum anchor → 200, non-curriculum anchor on a curriculum route → 404) and `TestOwnershipGate` in `tests/unit/test_lateral_graph_queries.py`.
 
 Two properties the fix preserves, both asserted:
 
-- **`domain_service is None` stays public for reads.** Curriculum KU/PS/LP are shared content (`_LATERAL_DOMAINS` passes `None`), so every user keeps reading them — including the graph route's second job, the knowledge-dependency view (`?types=REQUIRES_KNOWLEDGE,ENABLES_KNOWLEDGE`) behind the Explore sidebar graph.
+- **`domain_service is None` stays open for reads — on a curriculum anchor.** Curriculum KU/PS/LP are shared content (`_LATERAL_DOMAINS` passes `None`), so every user keeps reading them, a draft included — and the anchor named in the URL must itself be a Ku, PathStep or LearningPath: a ku / ps / lp route anchored on any other uid (a stranger's private task, say) answers the same 404 as a missing one, so it neither lists that entity's neighbours nor says whether it exists. The anchor gate is what keeps a private entity's blockers, alternatives and title out of a curriculum route's answer: the chain, comparison and graph queries carry no audience filter of their own. A missing curriculum anchor is 404 on every read, the graph route included. The graph route's second job, the knowledge-dependency view (`?types=REQUIRES_KNOWLEDGE,ENABLES_KNOWLEDGE`), is served the same way; no page sends it today. Regression cover: `tests/integration/routes/test_curriculum_lateral_read_anchor.py`.
 - **Not-found, never forbidden.** A foreign entity returns 404 with the same error code and message as one that does not exist, so a UID cannot be probed for existence.
 
 **Curriculum writes are TEACHER-gated.** A ku / ps / lp factory is built with `require_role=UserRole.TEACHER` (ADMIN passes through the role hierarchy), and the factory refuses to construct a domain with no verifier and no role. The gate covers its five writes — the four `POST` creates and the `DELETE` — through `check_required_role`, the same helper `CRUDRouteFactory` uses; `POST /api/ku/{uid}/lateral/enables` carries `@require_role(UserRole.TEACHER, …)`. A MEMBER gets 403 before the service is reached. Behind the gate, the service holds both endpoints to curriculum (above), so a teacher naming another user's private entity gets the same 404 as for a uid that does not exist, and no edge is written or removed. Activity writes consult no role — the ownership check decides. Regression cover: `tests/integration/routes/test_curriculum_lateral_write_gate.py`.
 
-Scope of the graph check: ownership is verified on the **center** entity only. The depth-limited traversal is not owner-filtered, so a neighbour reached from an owned center is returned whoever owns it — the same reach the `get_lateral_relationships`-backed reads already have. Narrowing that is a separate change to the traversal Cypher, not to this gate.
+Scope of the graph check: the **center** entity alone is gated (owned, or curriculum on the shared path). The depth-limited traversal is not owner-filtered, so a neighbour reached from a held center is returned whoever owns it — a Ku that blocks a stranger's task draws that task. The chain and comparison queries have the same reach. Narrowing that is a separate change to the traversal Cypher, not to this gate.
 
 ### Key Cypher Patterns
 

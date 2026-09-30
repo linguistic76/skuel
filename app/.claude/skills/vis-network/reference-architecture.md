@@ -58,15 +58,16 @@ async def get_relationship_graph(
 ) -> Result[RelationshipGraphData]:
 ```
 
-- **Ownership** runs through `_verify_entity_access` only when **both** `user_uid` and
-  `domain_service` are passed, and it checks the **center** entity only. The traversal
-  itself is not owner-filtered. On the six Activity domains a foreign or missing center is a
-  404, never a 403.
-- On `ku` / `ps` / `lp` there is no verifier (`domain_service=None`), so **nothing checks
-  that the center exists**. A missing uid answers 200 with a synthetic center-only graph
-  (`label` = the uid, `type` / `status` `"unknown"`), indistinguishable from a real entity
-  with no edges.
-- With no related rows it returns the center node alone, so the canvas shows one dot.
+- **The center is gated** by `_verify_entity_access`, and only the center: the traversal
+  itself is not owner-filtered. With a verifier (the six Activity domains) it checks
+  ownership, given a `user_uid`; a foreign or missing center is a 404, never a 403.
+- On `ku` / `ps` / `lp` there is no verifier (`domain_service=None`), so the center must be
+  a Ku, PathStep or LearningPath by `entity_type`. A missing uid, or another user's private
+  entity, is the same 404 — the route never draws a private entity's neighbourhood and
+  never says whether the uid exists. A draft curriculum center still answers.
+- With no related rows it returns the center node alone (`label` = the uid, `type` /
+  `status` `"unknown"`): a real entity with no edges of the requested types, so the canvas
+  shows one dot.
 - Edges are colored per type with `RelationshipColor.for_type` (`core/utils/palette.py`).
 
 ### Layer 3: Routes (`LateralRouteFactory`)
