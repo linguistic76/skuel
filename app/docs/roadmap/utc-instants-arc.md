@@ -1169,7 +1169,7 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
   - The rest of `form_helpers`' parse family (`parse_date_safe`, `parse_time_safe`,
     `parse_enum_safe`, `parse_activity_filters`) has no production caller, and
     `ERROR_HANDLING.md` still says the six activity `*_ui.py` files use them. Deleted in
-    the review follow-ups' F5, with the docs that named them.
+    #1467, with the docs that named them.
 - **Test craft.**
   - A test of a period boundary freezes the clock with `time_machine.travel(<float>,
     tick=False)` inside `forced_zone("America/Vancouver")`. That puts the naive clock seven
