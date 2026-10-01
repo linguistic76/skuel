@@ -139,9 +139,9 @@ class TasksIntelligenceService(
         )
 
     # ========================================================================
-    # INTELLIGENCEOPERATIONS PROTOCOL METHODS
-    # These methods implement the IntelligenceOperations protocol for use
-    # with IntelligenceRouteFactory.
+    # ROUTE FACTORY PROTOCOL METHODS
+    # These methods implement IntelligenceRouteFactory's protocols:
+    # IntelligenceOperations and PerformanceAnalyticsOperations.
     # get_with_context() is inherited from the shared _CoreIntelligenceMixin.
     # ========================================================================
 

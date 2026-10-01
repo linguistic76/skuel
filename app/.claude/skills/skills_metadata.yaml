@@ -172,7 +172,7 @@ skills:
 
   - name: domain-route-config
     description: Configuration-driven route registration for *_routes.py files using DomainRouteConfig
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [fasthtml, python]
     dependencies: [fasthtml, python]
     library_package: null  # SKUEL pattern, not external library

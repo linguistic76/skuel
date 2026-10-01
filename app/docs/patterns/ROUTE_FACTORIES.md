@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-09-25'
+updated: '2026-10-01'
 category: patterns
 related_skills:
 - domain-route-config
@@ -26,7 +26,7 @@ SKUEL uses **route factories** to eliminate boilerplate in API route definitions
 | **CRUDRouteFactory** | Standard CRUD operations | create, get, update, delete, list |
 | **CommonQueryRouteFactory** | Common query patterns | user, by-status, goal, habit |
 | **AnalyticsRouteFactory** | Analytics endpoints | domain-specific analytics |
-| **IntelligenceRouteFactory** | Intelligence endpoints | context, analytics, insights |
+| **IntelligenceRouteFactory** | Intelligence endpoints | context, insights; analytics for user-owned domains |
 | **create_activity_field_api_routes** | HTMX inline card field updates | POST /api/{domain}/{uid}/{field} (status, priority) |
 | **create_activity_hierarchy_api_routes** | Shared Activity Domain hierarchy block | GET children (JSON + HTMX fragment), parent, hierarchy; POST add-child, remove-child |
 | **create_activity_link_api_routes** | Cross-domain link endpoints | POST /api/{domain}/link-* → `{"linked": bool}` |
@@ -238,23 +238,28 @@ analytics_factory.register_routes(app, rt)
 
 ## IntelligenceRouteFactory
 
-Generates the three routes of the route factory's own `IntelligenceOperations` protocol
-(`adapters.inbound.route_factories.IntelligenceOperations` — three methods, distinct from
-the ISP protocols in `core.ports.intelligence_protocols`). Eight domains register it —
-the six Activity Domains through `create_activity_domain_route_config`, PathSteps and
-LearningPaths through `IntelligenceRouteConfig(scope=ContentScope.SHARED)` — 24 routes
-(re-count: `./dev health-claims` prints the catalog size; `grep -n IntelligenceRouteConfig
+Generates the routes of the route factory's own protocol pair
+(`adapters.inbound.route_factories.IntelligenceOperations` — `get_with_context` and
+`get_domain_insights` — and `PerformanceAnalyticsOperations` — `get_performance_analytics`;
+both distinct from the ISP protocols in `core.ports.intelligence_protocols`). Context and
+insights are per-entity reads and are registered at either scope. Analytics is the signed-in
+user's own aggregate, so it is registered at `ContentScope.USER_OWNED` alone: shared
+curriculum has no per-user set to aggregate, and a `SHARED` factory has no `/analytics`
+route. Eight domains register the factory — the six Activity Domains through
+`create_activity_domain_route_config` (three routes each), PathSteps and LearningPaths through
+`IntelligenceRouteConfig(scope=ContentScope.SHARED)` (two each) — 22 routes (re-count:
+`./dev health-claims` prints the catalog size; `grep -n IntelligenceRouteConfig
 adapters/inbound/*_routes.py` names the two curriculum registrations).
 
 ### Clear Boundaries: Intelligence vs Analytics
 
 | Factory | Purpose | Endpoints |
 |---------|---------|-----------|
-| **IntelligenceRouteFactory** | Standard 3 intelligence primitives | `GET /api/{domain}/context`, `GET /api/{domain}/analytics`, `GET /api/{domain}/insights` |
+| **IntelligenceRouteFactory** | Standard intelligence primitives | `GET /api/{domain}/context`, `GET /api/{domain}/insights`, and — user-owned domains — `GET /api/{domain}/analytics` |
 | **AnalyticsRouteFactory** | Custom domain-specific analytics | one path per config entry — the live consumer registers `GET /api/path-steps/analytics/summary` and `GET /api/path-steps/graph/structure` |
 
-**Use IntelligenceRouteFactory** for the canonical intelligence endpoints that every domain provides.
-**Use AnalyticsRouteFactory** for additional domain-specific analytics beyond the standard 3.
+**Use IntelligenceRouteFactory** for the canonical intelligence endpoints of a routed domain.
+**Use AnalyticsRouteFactory** for additional domain-specific analytics beyond those.
 
 ### Usage
 
@@ -271,7 +276,7 @@ intelligence_factory = IntelligenceRouteFactory(
 )
 intelligence_factory.register_routes(app, rt)
 
-# For Curriculum Domains (shared content)
+# For Curriculum Domains (shared content) — context + insights, no analytics route
 intelligence_factory = IntelligenceRouteFactory(
     intelligence_service=ps_service.intelligence,
     domain_name="path-steps",
@@ -285,17 +290,17 @@ intelligence_factory.register_routes(app, rt)
 | Method | Path | Operation |
 |--------|------|-----------|
 | GET | `/api/{domain}/context?uid=...&depth=2` | Entity with graph context |
-| GET | `/api/{domain}/analytics?period_days=30` | User performance analytics |
 | GET | `/api/{domain}/insights?uid=...&min_confidence=0.7` | Domain-specific insights |
+| GET | `/api/{domain}/analytics?period_days=30` | The user's performance analytics — `USER_OWNED` scope only |
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `intelligence_service` | IntelligenceOperations | required | Service implementing protocol |
+| `intelligence_service` | IntelligenceOperations | required | Service implementing the protocol; at `USER_OWNED` with analytics enabled it also implements `PerformanceAnalyticsOperations`, or the factory refuses to construct |
 | `domain_name` | str | required | Domain name for route paths |
 | `base_path` | str | `/api/{domain}` | Custom base path |
-| `enable_analytics` | bool | True | Enable analytics route |
+| `enable_analytics` | bool | True | Enable analytics route (read at `USER_OWNED`; a `SHARED` factory has none) |
 | `enable_context` | bool | True | Enable context route |
 | `enable_insights` | bool | True | Enable insights route |
 | `scope` | ContentScope | USER_OWNED | Content ownership model |

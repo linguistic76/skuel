@@ -13,7 +13,7 @@
 | `core/services/intelligence/pattern_analyzer.py` | `PatternAnalyzer` |
 | `core/services/intelligence/trend_analyzer.py` | `Trend` and the trend functions |
 | `core/ports/intelligence_protocols.py` | `KnowledgeIntelligenceOperations` |
-| `adapters/inbound/route_factories/intelligence_route_factory.py` | `IntelligenceOperations`, `IntelligenceRouteFactory` |
+| `adapters/inbound/route_factories/intelligence_route_factory.py` | `IntelligenceOperations`, `PerformanceAnalyticsOperations`, `IntelligenceRouteFactory` |
 
 ### The services
 
@@ -148,13 +148,14 @@ In the base itself the `Entity` and `Context` positions are written `Any`.
 async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[T, GraphContext]]: ...
 
 # written per service
-async def get_performance_analytics(
-    self, user_uid: UserUID, period_days: int = 30
-) -> Result[dict[str, Any]]: ...  # boundary: per-domain analytics payload
-
 async def get_domain_insights(
     self, uid: str, min_confidence: float = 0.7
 ) -> Result[dict[str, Any]]: ...  # boundary: per-domain insights payload
+
+# written per user-owned service (the six Activity domains)
+async def get_performance_analytics(
+    self, user_uid: UserUID, period_days: int = 30
+) -> Result[dict[str, Any]]: ...  # boundary: per-domain analytics payload
 ```
 
 ### Dual-track methods
@@ -176,17 +177,18 @@ async def get_domain_insights(
 
 ## Generated Routes
 
-`IntelligenceRouteFactory` registers three `GET` routes per wired domain. The user comes from
-the session — no route takes a `user_uid` parameter.
+`IntelligenceRouteFactory` registers `GET` routes per wired domain: context and insights at
+either scope, analytics at `USER_OWNED` alone. The user comes from the session — no route takes
+a `user_uid` parameter.
 
-| Method | Route | Query parameters |
-|--------|-------|------------------|
-| `get_performance_analytics` | `GET /api/{domain}/analytics` | `period_days=30` |
-| `get_with_context` | `GET /api/{domain}/context` | `uid`, `depth=2` |
-| `get_domain_insights` | `GET /api/{domain}/insights` | `uid`, `min_confidence=0.7` |
+| Method | Route | Query parameters | Scope |
+|--------|-------|------------------|-------|
+| `get_with_context` | `GET /api/{domain}/context` | `uid`, `depth=2` | either |
+| `get_domain_insights` | `GET /api/{domain}/insights` | `uid`, `min_confidence=0.7` | either |
+| `get_performance_analytics` | `GET /api/{domain}/analytics` | `period_days=30` | `USER_OWNED` |
 
-Wired: `tasks`, `goals`, `habits`, `events`, `choices`, `principles`, `path-steps`, `pathways`.
-Not wired: KU.
+Wired with all three: `tasks`, `goals`, `habits`, `events`, `choices`, `principles`.
+Wired with context and insights: `path-steps`, `pathways`. Not wired: KU.
 
 ---
 

@@ -58,9 +58,9 @@ This is distinct from Python's `_` throwaway variable. The underscore prefix her
 
 ⚠ **These three are live, and the placeholder is user-visible.** All six Activity Domains register
 `GET /api/{domain}/analytics` (`create_activity_domain_route_config` sets
-`intelligence=IntelligenceRouteConfig()`, `domain_route_factory.py:340`). The handler reads
+`intelligence=IntelligenceRouteConfig()`, `domain_route_factory.py:351`). The handler reads
 `period_days` off the query string and passes it through
-(`intelligence_route_factory.py:286`, `290`). Each of the three services then echoes it back as
+(`intelligence_route_factory.py:280`, `285`). Each of the three services then echoes it back as
 `"period_days"` in the response body (habits 178, choices 152, principles 103) while computing over
 every entity the user owns. The response therefore *claims* a window it did not
 apply — this is a wrong answer, not just a missing feature.
@@ -141,6 +141,39 @@ Two of them survived repeated doc sweeps for the same structural reason: **a cla
 nothing never looks stale.** § 2C named four methods that had never existed in any branch;
 INTELLIGENCE_SERVICES_INDEX said "4 services" and counted Goals, which has been implemented
 throughout. Neither error is visible to a link checker, and neither reads as obviously wrong.
+
+---
+
+## Group L — Insights Confidence Threshold
+
+| Service | File | Line | Parameter | Method |
+|---------|------|------|-----------|--------|
+| KuIntelligenceService | `core/services/ku/ku_intelligence_service.py` | 85 | `_min_confidence: float = 0.7` | `get_domain_insights()` (84) |
+| PsIntelligenceService | `core/services/ps/ps_intelligence_service.py` | 152 | `_min_confidence: float = 0.7` | `get_domain_insights()` (151) |
+| LpIntelligenceService | `core/services/lp/lp_intelligence_service.py` | 183 | `_min_confidence: float = 0.7` | `get_domain_insights()` (182) |
+| EventsIntelligenceService | `core/services/events/events_intelligence_service.py` | 150 | `_min_confidence: float = 0.7` | `get_domain_insights()` (149) |
+
+`GET /api/{domain}/insights?uid=…&min_confidence=0.7` reads the threshold off the query string
+and passes it positionally (`intelligence_route_factory.py`, `insights_route`); the route
+factory's `IntelligenceOperations` protocol names the parameter `min_confidence`. Tasks, Goals,
+Habits, Choices and Principles forward it to the analysis behind their payload. These four do
+not apply it:
+
+- **KU** returns the Ku's title, alias count, usage counts and `ORGANIZES` depth. Not routed —
+  `KU_CONFIG` sets no `IntelligenceRouteConfig`.
+- **PS** returns the step's practice counts, practice completeness and a prerequisites flag.
+- **LP** returns the path's title, domain and `HAS_STEP` count.
+- **Events** returns `analyze_event_performance(uid)`, which takes no threshold and reads its
+  cross-domain context at the default one.
+
+None of the four payloads echoes the threshold, so a response never claims a filter it did not
+apply.
+
+**What full implementation requires:** a confidence-bearing read behind the payload. For Events
+that is a `min_confidence` parameter on `analyze_event_performance`, forwarded through
+`_analyze_entity_with_typed_context(**context_kwargs)` to the cross-domain context read. For
+KU, PS and LP there is no such read today — implementing the parameter means first adding a
+payload section that is confidence-scored.
 
 ---
 
@@ -428,6 +461,7 @@ tree is its own definition.
 | High | E — Hardcoded Scalars | The three choices rows are **unreachable** — both enclosing methods filter on a `Choice.date` property that does not exist, so they return empty. Repointing that filter comes before any of the aggregations; `learning_progress_rate` is independent and needs a graph query |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
+| Low | L — Insights Confidence Threshold | `GET /api/{events,path-steps,pathways}/insights` accept a `min_confidence` the payload has nothing to apply it to; no response echoes it. KU's is unrouted |
 | Low | B — Habits Predictions | No caller in the tree — `get_habit_analytics()` is unreached facade surface. Establish a consumer or delete it before implementing either parameter |
 | Low | D — Neo4j Adapter Stubs | Developer tooling; not user-facing, and `_force`'s intent is not recoverable |
 | Low | F — Goal Task Generation | Tasks are already generated; priority/due-date hardcoded and cross-goal context unread in all three generators |
@@ -444,7 +478,7 @@ table rotted last time.
 ## Removed rows
 
 Deletions are recorded here so they are not re-added from memory. **Group letters are identifiers,
-not a sequence** — the gaps at C and G are deliberate; do not re-letter, because `§ E2` and `§ I2`
+not a sequence** — the gaps at C, G and K are deliberate; do not re-letter, because `§ E2` and `§ I2`
 are cited by name from six `FUTURE-IMPL-*` comments in the code.
 
 | Removed | When | Why |

@@ -84,9 +84,9 @@ class EventsIntelligenceService(
         self._knowledge_analyzer = KnowledgePatternAnalyzer(graph_intel=self.graph_intel)
 
     # ========================================================================
-    # INTELLIGENCEOPERATIONS PROTOCOL METHODS
-    # These methods implement the IntelligenceOperations protocol for use
-    # with IntelligenceRouteFactory.
+    # ROUTE FACTORY PROTOCOL METHODS
+    # These methods implement IntelligenceRouteFactory's protocols:
+    # IntelligenceOperations and PerformanceAnalyticsOperations.
     # get_with_context() is inherited from _CoreIntelligenceMixin (_SharedCoreMixin).
     # ========================================================================
 
@@ -147,7 +147,7 @@ class EventsIntelligenceService(
         )
 
     async def get_domain_insights(
-        self, uid: str, min_confidence: float = 0.7
+        self, uid: str, _min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """
         Get domain-specific insights for an event.
@@ -157,7 +157,8 @@ class EventsIntelligenceService(
 
         Args:
             uid: Event UID
-            min_confidence: Minimum confidence threshold (default: 0.7)
+            _min_confidence: Placeholder — analyze_event_performance takes no
+                confidence threshold
 
         Returns:
             Result containing insights data dict

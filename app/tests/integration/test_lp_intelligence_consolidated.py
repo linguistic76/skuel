@@ -562,16 +562,6 @@ class TestAdaptiveOperations:
 
 
 class TestProtocolMethods:
-    async def test_performance_analytics_counts_paths(self, services, lpintel_graph):
-        result = await services.lp.intelligence.get_performance_analytics(_ADEPT)
-
-        assert result.is_ok, f"analytics failed: {result.error}"
-        analytics = result.value
-        assert analytics["user_uid"] == _ADEPT
-        assert analytics["period_days"] == 30
-        assert analytics["total_learning_paths"] >= 4  # this file seeds four
-        assert analytics["analytics"]["total"] == analytics["total_learning_paths"]
-
     async def test_domain_insights_reads_real_path(self, services, lpintel_graph):
         result = await services.lp.intelligence.get_domain_insights(_LP_GOOD)
 
@@ -579,6 +569,8 @@ class TestProtocolMethods:
         insights = result.value
         assert insights["lp_uid"] == _LP_GOOD
         assert insights["lp_title"] == "LP Intel Good Ordering"
+        assert insights["total_steps"] == 2
+        assert "min_confidence" not in insights
 
     async def test_domain_insights_unknown_path_is_not_found(self, services, lpintel_graph):
         from core.utils.result_simplified import ErrorCategory

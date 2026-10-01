@@ -27,11 +27,9 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, cast
 
 from core.models.pathways.path_step import PathStep
-from core.models.type_hints import UserUID
 from core.ports.query_types import (
     PsDomainInsights,
     PsGuidanceCountsRow,
-    PsPerformanceAnalytics,
     PsPracticeCountsRow,
     PsPracticeSummaryResult,
     StepSubstance,
@@ -150,47 +148,8 @@ class PsIntelligenceService(
     # `_CoreIntelligenceMixin[PathStep]` — typed return, one delegation.
     # ========================================================================
 
-    async def get_performance_analytics(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[PsPerformanceAnalytics]:
-        """
-        Get path step analytics for a user.
-
-        Protocol method: Aggregates path step metrics.
-        Used by IntelligenceRouteFactory for GET /api/path-steps/analytics route.
-
-        Args:
-            user_uid: User UID
-            period_days: Number of days to analyze (default: 30)
-
-        Returns:
-            Result containing analytics data dict
-
-        Note: PathSteps are shared curriculum content (no user ownership).
-        This returns overall PS statistics rather than user-specific data.
-        """
-        # PS is shared content - get overall stats
-        ps_result = await self.backend.find_by()
-        if ps_result.is_error:
-            return Result.fail(ps_result)
-
-        all_steps = ps_result.value or []
-        total_steps = len(all_steps)
-
-        return Result.ok(
-            {
-                "user_uid": user_uid,
-                "period_days": period_days,
-                "total_path_steps": total_steps,
-                "analytics": {
-                    "total": total_steps,
-                    "note": "PathSteps are shared curriculum content",
-                },
-            }
-        )
-
     async def get_domain_insights(
-        self, uid: str, min_confidence: float = 0.7
+        self, uid: str, _min_confidence: float = 0.7
     ) -> Result[PsDomainInsights]:
         """
         Get domain-specific insights for a path step.
@@ -199,8 +158,9 @@ class PsIntelligenceService(
         Used by IntelligenceRouteFactory for GET /api/path-steps/insights route.
 
         Args:
-            uid: Learning Step UID
-            min_confidence: Minimum confidence threshold (default: 0.7)
+            uid: PathStep UID
+            _min_confidence: Placeholder — the payload carries counts and flags,
+                nothing confidence-scored to filter
 
         Returns:
             Result containing insights data dict with practice analysis
@@ -246,7 +206,6 @@ class PsIntelligenceService(
                 "practice_summary": practice,
                 "practice_completeness": completeness,
                 "has_prerequisites": has_prerequisites,
-                "min_confidence": min_confidence,
             }
         )
 

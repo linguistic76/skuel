@@ -9,7 +9,7 @@ Purpose: Separate graph-based analytics from AI-powered features (ADR-030)
 
 Analytics services contain:
 - Graph context retrieval (get_with_context)
-- Performance aggregation (get_performance_analytics)
+- Performance aggregation (get_performance_analytics — user-owned domains)
 - Pattern analysis (PatternAnalyzer - pure Python)
 - Scoring calculations (graph queries + math)
 - Domain insights (non-AI)

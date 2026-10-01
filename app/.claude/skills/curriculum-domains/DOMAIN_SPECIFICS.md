@@ -103,7 +103,7 @@ await ps_service.semantic.get_semantic_neighborhood(ps_uid)
 | `KuCoreService` | CRUD operations |
 | `KuSearchService` | Text search, filtering |
 | `UnifiedRelationshipService` | Graph relationship operations |
-| `KuIntelligenceService` | Usage summary, per-user substance, dual-track mastery, corpus analytics by NOUS topic |
+| `KuIntelligenceService` | Usage summary, per-user substance, dual-track mastery, per-Ku insights |
 
 **Unique Features:**
 - **Lightweight** — extends Entity directly, not Curriculum.

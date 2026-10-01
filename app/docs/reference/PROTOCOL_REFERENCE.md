@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-30
+updated: 2026-10-01
 status: current
 category: reference
 tags: [protocol, reference]
@@ -31,7 +31,7 @@ related: [ADR-025, ADR-027]
 | Category | Location | Purpose |
 |----------|----------|---------|
 | **Base Protocols** | `/core/ports/base_protocols.py` | Core types, backend operations |
-| **Conversion Protocols + Helpers** | `/core/utils/type_converters.py` | Duck-typed conversion (EnumLike, PydanticModel, HasDict, HasToDict, Serializable + to_dict/get_enum_value/get_enum_attr_str/normalize_enum_str) — import leaf, safe from anywhere |
+| **Conversion Protocols + Helpers** | `/core/utils/type_converters.py` | Duck-typed conversion (EnumLike, PydanticModel, HasToDict + get_enum_value/get_enum_attr_str/normalize_enum_str/finite_float) — import leaf, safe from anywhere |
 | **Domain Protocols** | `/core/ports/domain_protocols.py` | Domain service operations |
 | **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, PS, LP, MOC operations |
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
@@ -129,14 +129,8 @@ class HasToDict(Protocol):
     def to_dict(self) -> dict[str, Any]: ...
 ```
 
-**Helper Function:**
-```python
-from core.utils.type_converters import to_dict
-
-# Universal conversion - tries model_dump(), dict(), to_dict(), serialize(),
-# then dataclasses.asdict() for plain (frozen) dataclasses
-data = to_dict(any_object)
-```
+**Consumer:** the Deepgram adapter keeps an SDK response's `to_dict()` payload when
+the response offers one (`adapters/external/deepgram/adapter.py`).
 
 ---
 
@@ -632,7 +626,9 @@ class KnowledgeIntelligenceOperations(Protocol):
 **Implementor:** `ActivityKnowledgeIntelligenceService` (one shared singleton for all 6 Activity Domains)
 
 The per-domain intelligence services share no core protocol. The route-facing slice they satisfy
-is `IntelligenceRouteFactory`'s own 3-method `IntelligenceOperations`
+is `IntelligenceRouteFactory`'s own `IntelligenceOperations` (`get_with_context`,
+`get_domain_insights`) — plus `PerformanceAnalyticsOperations` (`get_performance_analytics`) for
+the six Activity services
 (`adapters/inbound/route_factories/intelligence_route_factory.py`) — see `/docs/patterns/ROUTE_FACTORIES.md`.
 
 ---

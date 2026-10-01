@@ -1,6 +1,6 @@
 ---
 name: base-analytics-service
-description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations or the route factory's IntelligenceOperations protocol, cross-domain context retrieval (mechanism B / get_with_context), or working with the 9 domain intelligence services.
+description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations or the route factory's IntelligenceOperations / PerformanceAnalyticsOperations protocols, cross-domain context retrieval (mechanism B / get_with_context), or working with the 9 domain intelligence services.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -248,17 +248,19 @@ job.
 
 ## The Three Route-Facing Methods
 
-Each of the nine per-domain services has these; the two shared services do not. The contract
-is the `IntelligenceOperations` protocol in
-`adapters/inbound/route_factories/intelligence_route_factory.py`. No service names it as a
-base, and the factory calls the three methods positionally. `core/ports` declares no protocol
-for the per-domain services.
+The nine per-domain services have the two per-entity methods; the six Activity services add
+the per-user aggregate. The two shared services have none of the three. The contract is a pair
+of protocols in `adapters/inbound/route_factories/intelligence_route_factory.py`:
+`IntelligenceOperations` (`get_with_context`, `get_domain_insights`) and
+`PerformanceAnalyticsOperations` (`get_performance_analytics`). No service names either as a
+base, and the factory calls the methods positionally. `core/ports` declares no protocol for
+the per-domain services.
 
 | Method | Provided by |
 |--------|-------------|
 | `get_with_context(uid, depth=2)` | Inherited from `_CoreIntelligenceMixin` — never written per service |
-| `get_performance_analytics(user_uid, period_days=30)` | Each service |
-| `get_domain_insights(uid, min_confidence=0.7)` | Each service |
+| `get_domain_insights(uid, min_confidence=0.7)` | Each of the nine services |
+| `get_performance_analytics(user_uid, period_days=30)` | Each of the six Activity services. KU, PS and LP have no such method: shared curriculum has no per-user set to aggregate |
 
 What each service does with the two optional parameters:
 
@@ -266,19 +268,19 @@ What each service does with the two optional parameters:
 |---------|---------------|------------------|
 | Tasks | applied in Python — keeps the tasks created inside the window | forwarded to the cross-domain read |
 | Goals | applied — a date-range read | forwarded to `get_goal_progress_dashboard` |
-| Events | applied — a date window | **accepted, not used** |
+| Events | applied — a date window | **not applied** — declared `_min_confidence` |
 | Habits | **not applied** — declared `_period_days` | forwarded; defaults to `ConfidenceLevel.MEDIUM` |
 | Choices | **not applied** — declared `_period_days` | forwarded; defaults to `ConfidenceLevel.MEDIUM` |
 | Principles | **not applied** — declared `_period_days` | forwarded |
-| KU, PS, LP | **not applied** — echoed in the payload | **not applied** — echoed in the payload |
+| KU, PS, LP | — (no analytics method) | **not applied** — declared `_min_confidence` |
 
-- The underscore prefix marks a parameter that is accepted and not applied. KU, PS, LP and
-  Events' `min_confidence` are in that state without the prefix. The register is
+- The underscore prefix marks a parameter that is accepted and not applied. The register is
   `docs/reference/PLACEHOLDER_INDEX.md`.
-- A payload that echoes `period_days` or `min_confidence` has not necessarily applied it.
+- A payload that echoes `period_days` has not necessarily applied it.
 - Tasks' `get_domain_insights` takes an extra optional `user_context`.
-- KU, PS and LP read shared content: their `get_performance_analytics` takes `user_uid` and
-  reads with no user filter.
+- The analytics route exists at `ContentScope.USER_OWNED` alone. A USER_OWNED factory with
+  analytics enabled refuses to construct over a service with no `get_performance_analytics`;
+  a SHARED factory registers context and insights.
 
 **Whole-set reads.** `find_by(limit=100, **filters)` returns a page unless the caller writes a
 limit. A method that counts or averages everything a user owns reads through
@@ -286,9 +288,8 @@ limit. A method that counts or averages everything a user owns reads through
 (`core/services/whole_set_read.py`): `QueryLimit.MAXIMUM` rows, and a logged warning when a read
 fills that cap. Tasks, Habits, Events, Choices and Principles `get_performance_analytics` do;
 Goals reads `find_by_date_range(limit=QueryLimit.MAXIMUM)` and passes the rows to
-`warn_if_capped`. KU, PS and LP call `find_by()` with no filter and no limit — one page of the
-corpus. `tests/unit/services/test_whole_set_read.py` fails on a new call that takes a backend
-door's default page.
+`warn_if_capped`. `tests/unit/services/test_whole_set_read.py` fails on a new call that takes a
+backend door's default page.
 
 Routes: eight domains have them (the six Activity domains, PS and LP). KU implements the
 methods and has no generated routes. See [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md).
@@ -529,7 +530,7 @@ return Result.fail(Errors.validation(message="uid required", field="uid"))
 | `core/models/graph/path_aware_types.py` | Path-aware cross-domain context types |
 | `core/models/graph_context.py` | `GraphContext` |
 | `core/ports/intelligence_protocols.py` | `KnowledgeIntelligenceOperations` |
-| `adapters/inbound/route_factories/intelligence_route_factory.py` | `IntelligenceOperations`, `IntelligenceRouteFactory` |
+| `adapters/inbound/route_factories/intelligence_route_factory.py` | `IntelligenceOperations`, `PerformanceAnalyticsOperations`, `IntelligenceRouteFactory` |
 | `core/services/activity_domain_config.py` | `create_common_sub_services()`, `intelligence_class` |
 | `core/services/{domain}/{domain}_intelligence_service.py` | The nine services |
 
