@@ -2677,6 +2677,17 @@ class CurrentPathStepItem(TypedDict):
     title: str
 
 
+class MasteredPathStepItem(TypedDict):
+    """Shape for UserContext.mastered_path_steps items — a step the learner has
+    mastered (``(User)-[:MASTERED]->(PathStep)``, derived when its last Ku was
+    mastered). ``entity_type`` rides along so a reader that pools these with Ku
+    rows tells them apart by the label-derived field, never the uid (ADR-013)."""
+
+    uid: str
+    title: str
+    entity_type: str
+
+
 class EntryKnowledgeAppliedRow(TypedDict):
     """One UserEntry and the Ku uids it APPLIES_KNOWLEDGE to (ADR-069), PathStep→Ku rollup applied.
 

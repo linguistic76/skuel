@@ -22,8 +22,9 @@ This service is part of the refactored AskesisService architecture:
 Architecture:
 - Matches against the titles ``RichUserContext`` already carries —
   ``entities_rich`` for the six activity domains, ``knowledge_units_rich`` for
-  every MASTERED | IN_PROGRESS Ku and ``active_path_steps_rich`` for the steps
-  the learner is studying — which the MEGA-QUERY fetched once and the context
+  every MASTERED | IN_PROGRESS Ku, ``active_path_steps_rich`` for the steps
+  the learner is studying and ``mastered_path_steps`` for the steps completed —
+  which the MEGA-QUERY and the reads beside it fetched once and the context
   cache holds. Zero graph reads per question, whatever the learner's size; the
   pipeline's 30 s budget is spent on the answer, not on re-fetching titles one
   uid at a time.
@@ -76,8 +77,9 @@ class EntityExtractor:
         Identifies specific entities (knowledge, tasks, goals, habits, events,
         principles, choices) that the user is asking about, enabling more
         targeted responses. Every candidate title is read from the context —
-        ``entities_rich`` for the activity domains, ``knowledge_units_rich`` and
-        ``active_path_steps_rich`` for knowledge — so this is pure computation
+        ``entities_rich`` for the activity domains, ``knowledge_units_rich``,
+        ``active_path_steps_rich`` and ``mastered_path_steps`` for knowledge —
+        so this is pure computation
         over a context the pipeline has already built; the parameter is typed
         ``RichUserContext`` because a standard-depth context carries those
         fields empty.
@@ -86,8 +88,9 @@ class EntityExtractor:
         open tasks, active goals and habits, today's and upcoming events, the
         core principles, pending choices, and — for knowledge — everything the
         learner is engaged with: the mastered and in-progress Kus
-        (``known_or_engaged_ku_uids``) and the steps being studied (the
-        curriculum section's active steps). Every match carries the node's
+        (``known_or_engaged_ku_uids``), the steps being studied (the
+        curriculum section's active steps) and the steps mastered (their own
+        read — mastery retires a step's enrollment). Every match carries the node's
         ``entity_type``, which is how a reader tells a Ku from a PathStep under
         the one "knowledge" key — by the label-derived field, never by the uid's
         spelling (ADR-013).
@@ -112,21 +115,24 @@ class EntityExtractor:
         rich = user_context.entities_rich
         event_uids = set(user_context.today_event_uids) | set(user_context.upcoming_event_uids)
 
-        # The steps being studied, by their node properties — a step is a
-        # knowledge candidate typed 'path_step'; the knowledge section holds Kus only.
-        active_steps = [
+        # The steps being studied and the steps mastered, by their node
+        # properties — a step is a knowledge candidate typed 'path_step'; the
+        # knowledge section holds Kus only.
+        # boundary: node properties exactly as the rich items carry them
+        steps: list[tuple[str, dict[str, Any]]] = [
             (str(step["uid"]), step)
             for step in (item.get("step") or {} for item in user_context.active_path_steps_rich)
             if step.get("uid")
         ]
+        steps.extend((item["uid"], dict(item)) for item in user_context.mastered_path_steps)
         knowledge_candidates = [
             *(
                 (uid, item.get("ku") or {})
                 for uid, item in user_context.knowledge_units_rich.items()
             ),
-            *active_steps,
+            *steps,
         ]
-        knowledge_scope = user_context.known_or_engaged_ku_uids() | {uid for uid, _ in active_steps}
+        knowledge_scope = user_context.known_or_engaged_ku_uids() | {uid for uid, _ in steps}
 
         entities = {
             "knowledge": self._match_titles(query_lower, knowledge_candidates, knowledge_scope),

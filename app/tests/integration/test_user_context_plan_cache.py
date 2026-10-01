@@ -25,6 +25,7 @@ from adapters.persistence.neo4j import user_context_queries
 from adapters.persistence.neo4j.user_context_queries import (
     CONSOLIDATED_QUERY,
     ENTRY_KNOWLEDGE_APPLIED_QUERY,
+    MASTERED_PATH_STEPS_QUERY,
     RICH_CONTEXT_STATEMENTS,
     STATUS_PARAMS,
     SUBMISSION_STATS_QUERY,
@@ -52,6 +53,9 @@ _STATEMENTS = [
         ENTRY_KNOWLEDGE_APPLIED_QUERY,
         {"user_uid": _USER_UID, "min_confidence": 0.7},
         id="ENTRY_KNOWLEDGE_APPLIED_QUERY",
+    ),
+    pytest.param(
+        MASTERED_PATH_STEPS_QUERY, {"user_uid": _USER_UID}, id="MASTERED_PATH_STEPS_QUERY"
     ),
     pytest.param(
         CONSOLIDATED_QUERY,

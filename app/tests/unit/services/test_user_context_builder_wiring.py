@@ -50,6 +50,9 @@ def _mock_query_executor() -> MagicMock:
     executor.fetch_current_path_steps = AsyncMock(
         return_value=Result.fail(Errors.system(message="not in this test"))
     )
+    executor.fetch_mastered_path_steps = AsyncMock(
+        return_value=Result.fail(Errors.system(message="not in this test"))
+    )
     executor.fetch_user_groups = AsyncMock(
         return_value=Result.fail(Errors.system(message="not in this test"))
     )

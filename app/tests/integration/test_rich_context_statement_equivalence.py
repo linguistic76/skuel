@@ -72,6 +72,7 @@ CREATE (lp)-[:HAS_STEP {sequence: 1}]->(ps1)
 CREATE (lp)-[:HAS_STEP {sequence: 2}]->(ps2)
 CREATE (lp)-[:REQUIRES_KNOWLEDGE]->(ku_pre)
 CREATE (u)-[:IN_PROGRESS]->(ps1)
+CREATE (u)-[:MASTERED {mastered_at: $iso, mastery_score: 1.0, confidence: 1.0, method: 'derived'}]->(ps0)
 CREATE (ps1)-[:REQUIRES_STEP]->(ps0)
 CREATE (ps1)-[:USES_KU]->(ku_c)
 CREATE (ps1)-[:REQUIRES_KNOWLEDGE]->(ku_pre)
@@ -559,6 +560,11 @@ async def test_the_rich_context_carries_every_section(
     assert context.active_moc_uids == ["moc.eq.one"]
     assert context.recently_viewed_moc_uids == ["moc.eq.one"]
     assert context.current_ps_uids == {"ps.eq.one"}
+    # the mastered step is its own read beside the MEGA-QUERY (mastery retires the enrollment)
+    assert context.mastered_ps_uids == {"ps.eq.zero"}
+    assert context.mastered_path_steps == [
+        {"uid": "ps.eq.zero", "title": "Step 0", "entity_type": "path_step"}
+    ]
     # rich fields
     assert {
         domain: sorted(item["entity"]["uid"] for item in items)

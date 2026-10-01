@@ -2,8 +2,9 @@
 EntityExtractor matches a question against the rich context, in memory.
 
 Every candidate title comes from ``RichUserContext.entities_rich`` (the six
-activity domains), ``knowledge_units_rich`` (every MASTERED | IN_PROGRESS Ku)
-and ``active_path_steps_rich`` (the steps being studied); the extractor holds
+activity domains), ``knowledge_units_rich`` (every MASTERED | IN_PROGRESS Ku),
+``active_path_steps_rich`` (the steps being studied) and ``mastered_path_steps``
+(the steps completed — mastery retires the enrollment); the extractor holds
 no service handle and makes no graph read per question. Each domain is scoped
 to the uids the standard context marks live, and every match carries the
 node's ``entity_type``.
@@ -47,6 +48,10 @@ def context() -> RichUserContext:
     }
     # the step being studied is the curriculum section's, never a knowledge row
     ctx.current_ps_uids = {"ps.data-pipelines"}
+    ctx.mastered_ps_uids = {"ps.sql-foundations"}
+    ctx.mastered_path_steps = [
+        {"uid": "ps.sql-foundations", "title": "SQL Foundations", "entity_type": "path_step"}
+    ]
     ctx.active_path_steps_rich = [
         {
             "step": {
@@ -116,6 +121,17 @@ def test_every_match_carries_the_node_entity_type(context: RichUserContext) -> N
         "ps.data-pipelines": "path_step",
     }
     assert entities["knowledge"][0].keys() == {"uid", "title", "entity_type"}
+
+
+def test_a_mastered_step_is_still_a_candidate(context: RichUserContext) -> None:
+    """Mastery retires a step's enrollment; the step stays askable by name."""
+    entities = EntityExtractor().extract_entities_from_query(
+        "What did SQL Foundations cover?", context
+    )
+
+    assert {m["uid"]: m["entity_type"] for m in entities["knowledge"]} == {
+        "ps.sql-foundations": "path_step"
+    }
 
 
 def test_matching_is_case_insensitive(context: RichUserContext) -> None:
