@@ -1,6 +1,6 @@
 ---
 title: Learning Progress Event Chain
-updated: 2026-09-05
+updated: 2026-10-01
 status: current
 category: architecture
 related:
@@ -55,7 +55,10 @@ mark_mastered(ku_uid, user_uid)
            └─► PsMasteryService.handle_knowledge_mastered
                    For each PathStep using this KU:
                      Check if ALL KUs in that PathStep are mastered
-                     → if yes: publish PathStepCompleted
+                     → if yes: MERGE (User)-[:MASTERED]->(PathStep)
+                               (mark_mastered — the Ku edge's writer and
+                               shape; retires the step's IN_PROGRESS edge)
+                               then publish PathStepCompleted
                                    │
                                    └─► LpProgressService.handle_step_completed
                                            Find LPs containing this PS (via HAS_STEP)
@@ -71,7 +74,7 @@ mark_mastered(ku_uid, user_uid)
 |-------|-------------|-------------------|
 | `KnowledgeMastered` | `PsMasteryService.mark_mastered()` | `knowledge.mastered` |
 | `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | `path_step.progress_updated` |
-| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` | `path_step.completed` |
+| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` — after the step's `MASTERED` edge is written; a write that does not land withholds the event | `path_step.completed` |
 | `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.progress_updated` |
 | `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.completed` |
 
@@ -96,7 +99,8 @@ The chain relies on two graph relationships to propagate progress:
 
 | Relationship | Pattern | Purpose |
 |-------------|---------|---------|
-| `USES_KU` | `(PathStep)-[:USES_KU]->(Ku)` | PS completion detection — are ALL KUs in this PathStep mastered? |
+| `USES_KU` | `(PathStep)-[:USES_KU]->(Ku)` | PS completion detection — are ALL KUs in this PathStep mastered? (`CONTAINS_KNOWLEDGE` and `TRAINS_KU` count the same way) |
+| `MASTERED` | `(User)-[:MASTERED {mastered_at, mastery_score, confidence, method}]->(Ku \| PathStep)` | One writer, one shape: a Ku's by report approval, a PathStep's derived when its last Ku is mastered. Readers that report "Kus mastered" match `:Ku` |
 | `HAS_STEP` | `(LearningPath)-[:HAS_STEP]->(PathStep)` | LP progress recalculation on PS completion |
 
 There is no intermediate `HAS_LESSON` edge. PathStep composes atomic Kus directly
@@ -108,7 +112,7 @@ via `USES_KU`, and LearningPaths compose PathSteps directly via `HAS_STEP`.
 
 | Service | File | Role |
 |---------|------|------|
-| `PsMasteryService` | `core/services/ps/ps_mastery_service.py` | Publishes `KnowledgeMastered` on `mark_mastered()`, detects PathStep completion |
+| `PsMasteryService` | `core/services/ps/ps_mastery_service.py` | Publishes `KnowledgeMastered` on `mark_mastered()`; detects PathStep completion, writes the step's `MASTERED` edge (`method = 'derived'`), publishes `PathStepCompleted` |
 | `PsProgressService` | `core/services/ps/ps_progress_service.py` | Recalculates PS progress from KU mastery |
 | `LpProgressService` | `core/services/lp/lp_progress_service.py` | Tracks LP progress from KU mastery and PS completion |
 

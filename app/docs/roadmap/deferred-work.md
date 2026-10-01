@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-30
+updated: 2026-10-01
 ---
 
 # Deferred Work
@@ -202,6 +202,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Naive-Local Timestamps Read as UTC
 
 [Naive-Local Timestamps Read as UTC](naive-local-timestamps-read-as-utc.md) — Writers stamp naive local time that Neo4j reads as UTC, so on a host west of UTC the generation cooldown never fires and share times read hours off; ruled 2026-09-27 and taken on as the [UTC Instants arc](utc-instants-arc.md).
+
+## Zero-Ku PathStep Mastery
+
+[Zero-Ku PathStep Mastery — a step that teaches no Ku cannot be mastered by derivation](zero-ku-step-mastery.md) — A PathStep's `MASTERED` edge is derived from its Kus; a step with no `USES_KU` / `CONTAINS_KNOWLEDGE` / `TRAINS_KU` edge is never detected and has no door of its own — waits on a product decision for a manual "mark step complete" door.
 
 ## Review Schedule
 

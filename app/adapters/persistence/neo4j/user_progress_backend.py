@@ -266,10 +266,10 @@ class UserProgressBackend:
         `mastery_level` (read here as `>= 0.7`), but that model was never built;
         the live vocabulary splits the same continuum across two edge types —
         IN_PROGRESS carries `progress`, MASTERED is its terminal state. Mastery
-        is therefore the edge, not a property comparison, and it has to be:
-        `_AdaptiveMixin.track_mastery_completion` creates MASTERED edges with no
-        `mastery_score` at all (its `mastery_level` is a STRING — 'introduced' /
-        'proficient'), so any numeric filter here would silently drop them.
+        is therefore the edge, not a property comparison: `mastery_score` is
+        per-writer (`UserBackend.record_knowledge_mastery` sets it, the derived
+        PathStep edge pins it at 1.0), and a numeric filter would encode one
+        writer's scale as the rule for all.
 
         The mastery match is OPTIONAL and the query anchors on the User. A
         mandatory match yields zero rows for a user who has mastered nothing,

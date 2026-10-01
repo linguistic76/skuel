@@ -534,22 +534,21 @@ _ENGAGED_AT = (
 """When the learner last touched the step: the newest timestamp ON the edge.
 
 Derived from the edge's properties rather than named, because the field name is
-NOT one vocabulary. Six writers stamp these three edge types, and between them
-they use NINE different names:
+NOT one vocabulary. Five writers stamp these three edge types, and between them
+they use SEVEN different names:
 
     started_at, last_activity_at   _LearningStateMixin / KuBackend (IN_PROGRESS)
-    mastered_at                    _LearningStateMixin / KuBackend (MASTERED)
+    mastered_at                    _LearningStateMixin / KuBackend (MASTERED —
+                                   a Ku's by report approval, a PathStep's
+                                   derived by PsMasteryService)
     marked_at                      _LearningStateMixin (MARKED_AS_READ)
-    created_at, updated_at         _AdaptiveMixin.track_mastery_completion
     achieved_at, last_practiced    UserProgressBackend
     last_accessed                  UserProgressBackend / UserBackend
 
-A hand-written ``coalesce`` of the names one happens to know is exactly the
-enumeration defect this codebase keeps re-learning: the first version of this
-listed four, so a step mastered through ``PsService.track_curriculum_completion``
-(which writes ``created_at``/``updated_at``) evaluated to NULL and was dropped
-from every windowed report — silently, because an under-return looks identical
-to "the learner did nothing".
+A hand-written ``coalesce`` of the names one happens to know is the enumeration
+defect this codebase keeps re-learning: a writer whose stamp the list omits
+evaluates to NULL and drops out of every windowed report — silently, because an
+under-return looks identical to "the learner did nothing".
 
 Keying on the TYPE instead has no list to drift: a new writer stamping a new
 name is picked up without touching this. Every datetime on these edges is an

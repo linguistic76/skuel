@@ -1123,13 +1123,8 @@ class PsOperations(
         ...
 
     # =========================================================================
-    # ADAPTIVE    # =========================================================================
-
-    async def track_mastery_completion(
-        self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns MASTERED relationship properties
-        """Create/update MASTERED relationship."""
-        ...
+    # ADAPTIVE
+    # =========================================================================
 
     async def query_user_masteries(self, user_uid: UserUID) -> Result[list[UserMasteryResult]]:
         """Query all MASTERED relationships with full metadata for a user."""
@@ -1245,12 +1240,15 @@ class PsOperations(
         ...
 
     async def mark_mastered(
-        self, user_uid: UserUID, ku_uid: str, now: str, mastery_score: float, method: str
+        self, user_uid: UserUID, entity_uid: str, now: str, mastery_score: float, method: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {mastery_score}
-        """Record mastery of a KU; the highest score ever reported always wins.
+        """Record mastery of a Ku, or of a PathStep whose Kus are all mastered;
+        the highest score ever reported always wins.
 
-        Idempotent — a lower score never regresses the stored mastery or
-        confidence, but the reporting method is always the most recent one.
+        One writer for both targets, so every MASTERED edge carries the same
+        shape. Idempotent — a lower score never regresses the stored mastery
+        or confidence, but the reporting method is always the most recent one.
+        Retires the entity's IN_PROGRESS edge: mastery is the terminal state.
         Returns the score that ended up stored.
         """
         ...

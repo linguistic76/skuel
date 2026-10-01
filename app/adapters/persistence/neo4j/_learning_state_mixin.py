@@ -123,13 +123,20 @@ class _LearningStateMixin:
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
     async def mark_mastered(
-        self, user_uid: UserUID, ku_uid: str, now: str, mastery_score: float, method: str
+        self, user_uid: UserUID, entity_uid: str, now: str, mastery_score: float, method: str
     ) -> Result[list[Neo4jProperties]]:
-        """MERGE MASTERED relationship with score comparison."""
+        """MERGE the MASTERED edge onto a Ku or a PathStep; the higher score wins.
+
+        One writer, one edge shape for both targets: ``mastered_at`` (the
+        caller's ISO instant), ``mastery_score``, ``confidence``, ``method``.
+        Mastery is the terminal learning state, so the entity's IN_PROGRESS
+        edge is retired in the same statement — a mastered step holds no
+        enrollment-cap slot (``count_in_progress_path_steps``).
+        """
         query = """
         MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (user)-[r:MASTERED]->(ku)
+        MATCH (entity:Entity {uid: $entity_uid})
+        MERGE (user)-[r:MASTERED]->(entity)
         ON CREATE SET
             r.mastered_at = datetime($now),
             r.mastery_score = $mastery_score,
@@ -145,13 +152,16 @@ class _LearningStateMixin:
                 ELSE r.confidence
             END,
             r.method = $method
+        WITH user, entity, r
+        OPTIONAL MATCH (user)-[ip:IN_PROGRESS]->(entity)
+        DELETE ip
         RETURN r.mastery_score as mastery_score
         """
         return await self.execute_query(
             query,
             {
                 "user_uid": user_uid,
-                "ku_uid": ku_uid,
+                "entity_uid": entity_uid,
                 "now": now,
                 "mastery_score": mastery_score,
                 "method": method,
@@ -220,14 +230,21 @@ class _LearningStateMixin:
     async def get_learning_state_raw(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Fetch all user-entity learning relationships in one query."""
+        """Fetch all user-entity learning relationships in one query.
+
+        The user is bound ONCE, optionally, before the edge probes. Binding
+        ``u`` inside the first OPTIONAL MATCH would null it for a learner with
+        no VIEWED edge, and every later probe on ``u`` would then read null
+        too — a step mastered without ever being viewed would report NONE.
+        """
         query = """
         MATCH (ku:Entity {uid: $ku_uid})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[mr:MARKED_AS_READ]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[bk:BOOKMARKED]->(ku)
+        OPTIONAL MATCH (u:User {uid: $user_uid})
+        OPTIONAL MATCH (u)-[v:VIEWED]->(ku)
+        OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(ku)
+        OPTIONAL MATCH (u)-[m:MASTERED]->(ku)
+        OPTIONAL MATCH (u)-[mr:MARKED_AS_READ]->(ku)
+        OPTIONAL MATCH (u)-[bk:BOOKMARKED]->(ku)
         RETURN
             v IS NOT NULL as has_viewed,
             p IS NOT NULL as has_in_progress,
@@ -246,13 +263,14 @@ class _LearningStateMixin:
     async def get_learning_states_batch_raw(
         self, user_uid: UserUID, ku_uids: list[str]
     ) -> Result[list[Neo4jProperties]]:
-        """Batch query learning states for multiple KUs."""
+        """Batch query learning states for multiple KUs (user bound once, as above)."""
         query = """
         UNWIND $ku_uids as ku_uid
         MATCH (ku:Entity {uid: ku_uid})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
+        OPTIONAL MATCH (u:User {uid: $user_uid})
+        OPTIONAL MATCH (u)-[v:VIEWED]->(ku)
+        OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(ku)
+        OPTIONAL MATCH (u)-[m:MASTERED]->(ku)
         RETURN
             ku.uid as ku_uid,
             v IS NOT NULL as has_viewed,

@@ -177,11 +177,11 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 |-------|---------|-------------|
 | VIEWED | Automatic on page load (`ExploreOrchestrator`) | `(User)-[:VIEWED]->(PathStep)` |
 | IN_PROGRESS | User clicks "Start" / progress `state=learning` (capped) | `(User)-[:IN_PROGRESS]->(PathStep)` |
-| MASTERED | `PsService.track_curriculum_completion` → `track_mastery_completion` — the only writer, and nothing calls it today | `(User)-[:MASTERED {mastery_level, source: 'curriculum'}]->(PathStep)` |
+| MASTERED | Derived — `PsMasteryService.handle_knowledge_mastered` writes it when the step's last Ku is mastered, through the Ku edge's writer `mark_mastered`; retires the step's IN_PROGRESS edge; then publishes `PathStepCompleted` | `(User)-[:MASTERED {mastered_at, mastery_score: 1.0, confidence, method: 'derived'}]->(PathStep)` |
 
 Beside the progression: `MARKED_AS_READ` (progress `state=read`) and `BOOKMARKED` (`POST /explore/ps/{uid}/bookmark`).
 
-Report approval masters **Kus**, not steps: `ReportMasteryService.propagate_mastery` marks the entry's linked `:Ku` uids `MASTERED {mastery_score}` (through `ps_service.mastery.mark_mastered`), and `PsProgressService` then publishes `PathStepProgressUpdated` for the steps that use those Kus — a progress figure, not a `MASTERED` edge on the step.
+Report approval masters **Kus**: `ReportMasteryService.propagate_mastery` marks the entry's linked `:Ku` uids `MASTERED {mastery_score}` (through `ps_service.mastery.mark_mastered`); `PsProgressService` then publishes `PathStepProgressUpdated` for the steps that use those Kus, and `PsMasteryService` masters any step whose every Ku is mastered. A step teaching no Ku has no derivable mastery (`/docs/roadmap/zero-ku-step-mastery.md`). Readers that report "Kus mastered" match `:Ku` — a step's edge is the same shape and must not be counted as knowledge.
 
 **Key routes:**
 - `GET /path-steps` — Browse all PathSteps; rows link to the reading page, with an "Enrolled" badge on the session user's IN_PROGRESS steps

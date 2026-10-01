@@ -12,7 +12,8 @@ Responsibilities:
 - Track in-progress learning state
 - Manage MASTERED transitions
 - Support pedagogical search filters
-- Detect PathStep completion when all KUs are mastered
+- Detect PathStep completion when all KUs are mastered, write the step's
+  MASTERED edge, and publish PathStepCompleted
 
 Architecture:
 - Delegates Cypher to PathStep backend
@@ -34,6 +35,16 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import PsOperations
+
+
+STEP_MASTERY_METHOD = "derived"
+"""``method`` on a PathStep's MASTERED edge: earned by mastering every Ku the
+step teaches, never reported directly (a Ku's ``method`` names its reporter —
+``report_approval``, ``activity_report``, ``self_report``)."""
+
+STEP_MASTERY_SCORE = 1.0
+"""``mastery_score`` on a PathStep's MASTERED edge: the step's mastered-Ku
+ratio, which is 1.0 by the time the edge is written."""
 
 
 class LearningState(StrEnum):
@@ -73,7 +84,9 @@ class PsMasteryService:
     State Transitions:
         - record_view(): NONE -> VIEWED (or updates existing VIEWED)
         - mark_in_progress(): VIEWED -> IN_PROGRESS
-        - mark_mastered(): IN_PROGRESS -> MASTERED (handled elsewhere)
+        - mark_mastered(): IN_PROGRESS -> MASTERED for a Ku (report approval)
+        - handle_knowledge_mastered(): IN_PROGRESS -> MASTERED for a PathStep,
+          derived the moment its last Ku is mastered
 
     Relationship Properties:
         VIEWED: first_viewed_at, last_viewed_at, view_count, time_spent_seconds
@@ -376,10 +389,18 @@ class PsMasteryService:
 
     async def handle_knowledge_mastered(self, event: KnowledgeMastered) -> None:
         """
-        Detect PathStep completion when a KU is mastered.
+        Master the PathSteps a Ku mastery completes.
 
-        Checks if all KUs linked via USES_KU/CONTAINS_KNOWLEDGE are now mastered.
-        If so, publishes PathStepCompleted.
+        A step is complete when every Ku it teaches (USES_KU / CONTAINS_KNOWLEDGE /
+        TRAINS_KU) is mastered. For each such step the learner's MASTERED edge is
+        written first — the same writer and edge shape as a Ku's — and
+        PathStepCompleted is published only once the write has landed, so the
+        event announces a persisted fact and no subscriber can advance on a step
+        the graph does not show as mastered. Idempotent: a repeat mastery event
+        re-detects the step, and the MERGE leaves one edge.
+
+        A step that teaches no Ku is never detected here; it has no derivable
+        mastery (see ``docs/roadmap/zero-ku-step-mastery.md``).
 
         Best-effort: errors are logged but not raised to prevent
         KU mastery from failing if path step detection fails.
@@ -391,15 +412,24 @@ class PsMasteryService:
                 self.logger.error(f"Failed to check path step completion: {result.error}")
                 return
 
+            now = datetime.now(UTC).isoformat()
             for record in result.value or []:
-                ps_event = PathStepCompleted(
-                    ps_uid=record["ps_uid"],
-                    user_uid=event.user_uid,
+                ps_uid = str(record["ps_uid"])
+                written = await self.backend.mark_mastered(
+                    event.user_uid, ps_uid, now, STEP_MASTERY_SCORE, STEP_MASTERY_METHOD
                 )
+                if written.is_error or not written.value:
+                    self.logger.error(
+                        f"Path step {ps_uid} completed by {event.user_uid} but its MASTERED "
+                        f"edge was not written; PathStepCompleted withheld: "
+                        f"{written.error if written.is_error else 'no row returned'}"
+                    )
+                    continue
+
+                ps_event = PathStepCompleted(ps_uid=ps_uid, user_uid=event.user_uid)
                 await publish_event(self.event_bus, ps_event, self.logger)
                 self.logger.info(
-                    f"Path step completed: {record['ps_uid']} "
-                    f"(all KUs mastered by {event.user_uid})"
+                    f"Path step mastered: {ps_uid} (all KUs mastered by {event.user_uid})"
                 )
 
         except NEO4J_EXCEPTIONS as e:

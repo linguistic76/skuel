@@ -563,7 +563,9 @@ MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // KNOWLEDGE - Fetch with BOTH UIDs and rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity)
+// :Ku — a PathStep carries both edge types too (IN_PROGRESS = enrollment,
+// MASTERED = derived step mastery); the step side is the curriculum read.
+OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity:Ku)
 WITH user,
      collect(CASE WHEN ku IS NOT NULL THEN {
          uid: ku.uid,
@@ -1033,8 +1035,9 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
      collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} END) as goal_data
 
-// Knowledge - parallel collection with mastery scores
-OPTIONAL MATCH (user)-[mastered:MASTERED]->(ku:Entity)
+// Knowledge - parallel collection with mastery scores (:Ku — a mastered
+// PathStep carries the same edge and is not a knowledge unit)
+OPTIONAL MATCH (user)-[mastered:MASTERED]->(ku:Entity:Ku)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,

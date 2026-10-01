@@ -1,6 +1,6 @@
 ---
 title: "ADR-002: Knowledge Coverage Calculation Query"
-updated: 2026-09-21
+updated: 2026-10-01
 status: current
 category: decisions
 tags: [002, adr, decisions, progress, query]
@@ -22,8 +22,8 @@ related: []
 > Live vocabulary splits the same continuum across two edge types:
 > `(User)-[:IN_PROGRESS]->` carries `progress`, and `(User)-[:MASTERED]->` is
 > its terminal state. Mastery is therefore the **edge's existence**, not a score
-> threshold — and it has to be, because `_AdaptiveMixin.track_mastery_completion`
-> writes MASTERED edges with no `mastery_score` property at all.
+> threshold — `mastery_score` is a per-writer figure (report approval, the
+> pathways progress route, the derived PathStep edge pinned at 1.0), not one scale.
 >
 > SKUEL030 findings tranche 3 repointed the query onto MASTERED. The decision
 > this ADR actually records — *one complex query instead of N+M round trips* —

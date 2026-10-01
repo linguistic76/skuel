@@ -563,9 +563,13 @@ class CrossDomainBackend:
 
         The "when was this mastered" stamp is coalesced across the four MASTERED
         writers, which disagree on its name. Creation stamps come first
-        (`mastered_at` / `achieved_at` / `created_at`) — all ON CREATE for the
-        same event, and exactly one writer creates any given edge, so coalesce
-        picks the only non-null rather than hiding a newer one.
+        (`mastered_at` / `achieved_at`) — all ON CREATE for the same event, and
+        exactly one writer creates any given edge, so coalesce picks the only
+        non-null rather than hiding a newer one.
+
+        Scoped to `:Ku`: a PathStep carries a MASTERED edge too (derived by
+        `PsMasteryService` when its last Ku is mastered), and counting it here
+        would double every completed step into `kus_mastered_per_week`.
 
         `last_practiced` is the deliberate LAST fallback, and it is required:
         `UserBackend.record_knowledge_mastery` — the writer behind the pathways
@@ -601,9 +605,9 @@ class CrossDomainBackend:
             """
             MATCH (u:User {uid: $user_uid})
             OPTIONAL MATCH (velocity:LearningVelocity {user_uid: $user_uid})
-            OPTIONAL MATCH (u)-[m:MASTERED]->(:Entity)
+            OPTIONAL MATCH (u)-[m:MASTERED]->(:Entity:Ku)
             WITH velocity, m,
-                 coalesce(m.mastered_at, m.achieved_at, m.created_at, m.last_practiced)
+                 coalesce(m.mastered_at, m.achieved_at, m.last_practiced)
                      AS mastered_when
             WITH velocity,
                  count(m) AS total_kus,
@@ -1212,7 +1216,7 @@ class CrossDomainBackend:
         return await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})
-            OPTIONAL MATCH (u)-[:MASTERED]->(ku:Entity)
+            OPTIONAL MATCH (u)-[:MASTERED]->(ku:Entity:Ku)
             WITH u, collect(DISTINCT ku.uid) as mastered
             OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:LearningPath)
             OPTIONAL MATCH (lp)-[:HAS_STEP]->(step:PathStep)
@@ -1276,13 +1280,13 @@ class CrossDomainBackend:
         """System-wide learning metrics: entity totals and interaction counts."""
         return await self.executor.execute_query(
             """
-            OPTIONAL MATCH (ku:Entity)
+            OPTIONAL MATCH (ku:Entity:Ku)
             WITH count(DISTINCT ku) AS total_kus
             OPTIONAL MATCH (:User)-[v:VIEWED]->(:Entity)
             WITH total_kus, count(v) AS total_viewed
             OPTIONAL MATCH (:User)-[:IN_PROGRESS]->(:Entity)
             WITH total_kus, total_viewed, count(*) AS total_in_progress
-            OPTIONAL MATCH (:User)-[:MASTERED]->(:Entity)
+            OPTIONAL MATCH (:User)-[:MASTERED]->(:Entity:Ku)
             WITH total_kus, total_viewed, total_in_progress, count(*) AS total_mastered
             OPTIONAL MATCH (:User)-[:BOOKMARKED]->(:Entity)
             WITH total_kus, total_viewed, total_in_progress, total_mastered,
@@ -1304,7 +1308,7 @@ class CrossDomainBackend:
             WITH u, count(DISTINCT ku1) AS viewed_count
             OPTIONAL MATCH (u)-[:IN_PROGRESS]->(ku2:Entity)
             WITH u, viewed_count, count(DISTINCT ku2) AS in_progress_count
-            OPTIONAL MATCH (u)-[:MASTERED]->(ku3:Entity)
+            OPTIONAL MATCH (u)-[:MASTERED]->(ku3:Entity:Ku)
             WITH u, viewed_count, in_progress_count, count(DISTINCT ku3) AS mastered_count
             OPTIONAL MATCH (u)-[:BOOKMARKED]->(ku4:Entity)
             WITH u, viewed_count, in_progress_count, mastered_count,
@@ -1343,7 +1347,7 @@ class CrossDomainBackend:
                 progress_score: p.progress_score
             }) AS progress_kus
 
-            OPTIONAL MATCH (u)-[m:MASTERED]->(mku:Entity)
+            OPTIONAL MATCH (u)-[m:MASTERED]->(mku:Entity:Ku)
             WITH u, viewed_kus, progress_kus, collect(DISTINCT {
                 uid: mku.uid, title: mku.title,
                 mastered_at: toString(m.mastered_at),
@@ -1432,7 +1436,7 @@ class CrossDomainBackend:
                  habits_total, habits_active, events_total, choices_total,
                  principles_total, ku_viewed,
                  count(DISTINCT kp) AS ku_in_progress
-            OPTIONAL MATCH (u)-[:MASTERED]->(km:Entity)
+            OPTIONAL MATCH (u)-[:MASTERED]->(km:Entity:Ku)
             WITH u, tasks_total, tasks_completed, goals_total, goals_active,
                  habits_total, habits_active, events_total, choices_total,
                  principles_total, ku_viewed, ku_in_progress,
@@ -1496,7 +1500,7 @@ class CrossDomainBackend:
             With u, task_count, count(DISTINCT g) AS goal_count
             OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
             WITH u, task_count, goal_count, count(DISTINCT h) AS habit_count
-            OPTIONAL MATCH (u)-[:MASTERED]->(km:Entity)
+            OPTIONAL MATCH (u)-[:MASTERED]->(km:Entity:Ku)
             WITH u, task_count, goal_count, habit_count,
                  count(DISTINCT km) AS ku_mastered
 
@@ -1553,7 +1557,7 @@ class CrossDomainBackend:
                 ORDER BY at DESC
                 LIMIT 5
               UNION ALL
-                MATCH (u)-[m:MASTERED]->(ku:Entity)
+                MATCH (u)-[m:MASTERED]->(ku:Entity:Ku)
                 WHERE m.mastered_at IS NOT NULL
                 RETURN {
                     type: 'knowledge',

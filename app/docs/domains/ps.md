@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-09-20
+updated: 2026-10-01
 status: current
 category: domains
 tags:
@@ -99,6 +99,7 @@ await ps_service.intelligence.is_ready(step_uid, completed_steps)
 | `SUPPORTS_GOAL` | Outgoing | Goal | Outcome alignment (authored directly on PS) |
 | `GUIDED_BY_PRINCIPLE` | Outgoing | Principle | Values-based guidance (authored directly on PS) |
 | `INFORMS_CHOICE` | Outgoing | Choice | Decision points (authored directly on PS) |
+| `MASTERED` (incoming) | Incoming | User | Derived: `PsMasteryService.handle_knowledge_mastered` writes it the moment the step's last Ku is mastered — same writer (`mark_mastered`) and shape (`mastered_at`, `mastery_score` 1.0, `confidence`, `method = 'derived'`) as a Ku's edge; the step's `IN_PROGRESS` enrollment is retired in the same write. A step teaching no Ku is never derived (`../roadmap/zero-ku-step-mastery.md`) |
 
 ## Intelligence Methods
 
@@ -120,13 +121,12 @@ PsIntelligenceService provides:
 personalized path steps. `SELCategory` is a lens over Ku and PathStep — the `sel_category`
 field on both carries one of the five CASEL competencies (`self_awareness`, `self_management`,
 `social_awareness`, `relationship_skills`, `responsible_decision_making`); there is no SEL
-domain, page or sidebar. Three public methods, each delegated by the facade:
+domain, page or sidebar. Two public methods, each delegated by the facade:
 
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `get_personalized_curriculum(user_uid, sel_category, limit=10)` | `list[PathStep]` | Steps in the category the learner is ready for (not mastered, prerequisites met, level fits), ranked by learning value |
 | `get_sel_journey(user_uid)` | `LearningJourney` | Progress across all five categories + the recommended next one |
-| `track_curriculum_completion(user_uid, ps_uid, completion_time_minutes=30)` | `None` | Upserts the learner's `MASTERED` edge to the step |
 
 Routes (JSON, authenticated; `adapters/inbound/path_steps_api.py`): `GET /api/path-steps/journey`
 and `GET /api/path-steps/curriculum/{category}?limit=10` — an unknown category is a 400. Their
