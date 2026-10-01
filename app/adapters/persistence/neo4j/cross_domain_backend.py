@@ -1139,6 +1139,8 @@ class CrossDomainBackend:
 
         Returns one record ``{center_uid, domain_context}``; ``domain_context`` is the
         attributed node list the service-layer transformer de-dups into a ``GraphContext``.
+        The producer ties every node to the center's owner, and the cap is applied to
+        the tied rows — another user's nodes take none of the 100.
         See: /docs/roadmap/intent-traversal-registry-convergence.md
         """
         from core.utils.type_converters import get_enum_value

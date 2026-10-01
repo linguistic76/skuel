@@ -451,6 +451,11 @@ class GraphIntelligenceService:
         rich graph context around an entity. Uses Pure Cypher traversal
         optimized for the given query intent.
 
+        The context holds the origin's owner's nodes and shared content only —
+        each node arrives with its full property map, and none is another
+        user's. An origin that is shared content has shared content around it.
+        Access to the origin itself is the caller's to verify.
+
         Args:
             domain: Domain of the origin node
             node_uid: UID of node to get context for

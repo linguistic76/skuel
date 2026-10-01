@@ -195,8 +195,9 @@ class GraphContext:
         """Get the curriculum knowledge (Ku, PathStep) a learner may be shown.
 
         Kind comes from the stored ``entity_type`` — never the ``:Entity`` label,
-        which every entity carries. The traversal is not owner-scoped, so this
-        filter is also what keeps other users' entities out of a knowledge read.
+        which every entity carries. The traversal returns the origin's owner's
+        entities alongside shared content, so this filter is what keeps a
+        learner's own tasks and goals out of a knowledge read.
 
         Unpublished curriculum is withheld with the NULL-tolerant reading
         ``build_publication_clause`` applies in Cypher: only an explicit

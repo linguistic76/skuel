@@ -117,9 +117,10 @@ Methods: `get_nodes_by_domain(domain)`, `get_published_knowledge_nodes()`,
 `get_connected_domains()`, `has_cross_domain_connections()` and `get_summary()`.
 
 `get_published_knowledge_nodes()` decides kind by the stored `entity_type` and withholds a node
-whose `publication_state` is `draft`. Because the traversal is not owner-scoped, that filter is
-also what keeps another user's entities out of a knowledge read — use it, rather than filtering
-`all_nodes` by hand, when showing curriculum to a learner.
+whose `publication_state` is `draft`. The traversal returns the origin's owner's own entities
+alongside shared content (never another user's — the producer ties every node to the origin's
+owner), so use this filter, rather than filtering `all_nodes` by hand, when showing curriculum
+to a learner.
 
 For typed, per-domain entity lists use `_analyze_entity_with_typed_context` (see
 [SKILL.md](SKILL.md)), not `GraphContext`.

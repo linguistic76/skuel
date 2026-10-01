@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-09-21
+updated: 2026-10-01
 category: patterns
 related_skills:
 - base-analytics-service
@@ -518,6 +518,16 @@ edge **incident to it** (its last hop), not by any earlier edge in the path:
   relationship but differ by `target_label` are tried specific-label-first (the generic
   `Entity` bucket is the catch-all), so e.g. a Task reinforcing a habit lands in
   `reinforcing_tasks`, not the catch-all `reinforcing_habits`.
+
+**The context is the owner's.** Every node on a path past the source is the source's
+owner's or shared content — the producer reads the owner from the source node (all three
+spellings: `user_uid`, `owner_uid`, the `OWNS` edge) and takes no user from the caller.
+Two users who each link their own entity to the same Ku are two hops apart; neither is in
+the other's buckets, and a path never runs through another user's node. A share link is
+not ownership, so an entity shared *with* the owner is not in the context either. A
+source that is itself shared content (Ku / PathStep / LearningPath) has only shared
+content around it. Pinned by `tests/integration/test_neighbourhood_owner_scope.py`
+(ADR-085 G9).
 
 > ⚠️ **Buckets are NOT de-duped by uid — a node can recur once per path.** The producer
 > Cypher does `collect(DISTINCT {uid, distance, path_strength, via_relationships, …})` —

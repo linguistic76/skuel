@@ -1273,7 +1273,11 @@ class GraphTraversalOperations(Protocol):
         min_confidence: float = 0.7,
         bidirectional: bool = False,
     ) -> ResultType[builtins.list[GraphContextNode]]:
-        """Get raw graph context for cross-domain intelligence analysis."""
+        """Get raw graph context for cross-domain intelligence analysis.
+
+        The rows are the entity's owner's nodes and shared content: no node of
+        another user is returned, and no path runs through one.
+        """
         ...
 
     async def find_uids_by_semantic_filter(

@@ -11,6 +11,8 @@ for ``get_completion_impact`` / Tasks dependency traversals on dense graphs).
 
 from __future__ import annotations
 
+import pytest
+
 from adapters.persistence.neo4j.query import build_domain_context_with_paths
 from core.models.enums.neo_labels import NeoLabel
 
@@ -70,3 +72,45 @@ def test_keeps_center_row_for_edge_less_node() -> None:
     query, _ = build_domain_context_with_paths("uid", relationship_types=["DEPENDS_ON"])
     assert "related IS NULL OR" in query
     assert "[x in ctx WHERE x IS NOT NULL]" in query
+
+
+@pytest.mark.parametrize(
+    ("node_label", "relationship_types", "limit"),
+    [
+        pytest.param(NeoLabel.ENTITY, ["DEPENDS_ON"], None, id="bucketed"),
+        pytest.param(None, ["DEPENDS_ON"], 100, id="intent-registry"),
+        pytest.param(None, [], None, id="intent-every-edge"),
+    ],
+)
+@pytest.mark.parametrize("bidirectional", [True, False])
+def test_every_lens_ties_each_path_node_to_the_center_owner(
+    node_label: NeoLabel | None,
+    relationship_types: list[str],
+    limit: int | None,
+    bidirectional: bool,
+) -> None:
+    """Whatever the label, edge set, direction or cap, every node on a path past the
+    center is held to the center's owners — and the owner is read from the center, so
+    no caller passes a user."""
+    query, params = build_domain_context_with_paths(
+        "uid",
+        node_label=node_label,
+        relationship_types=relationship_types,
+        bidirectional=bidirectional,
+        limit=limit,
+    )
+
+    assert "all(n IN nodes(path)[1..] WHERE" in query
+    assert "center_owners" in query
+    assert set(params) - {"limit"} == {"uid", "min_confidence"}
+
+
+def test_owner_is_read_in_all_three_spellings_and_a_user_is_its_own() -> None:
+    query, _ = build_domain_context_with_paths("uid", relationship_types=["DEPENDS_ON"])
+
+    for node in ("center", "n"):
+        assert f"{node}.user_uid" in query
+        assert f"{node}.owner_uid" in query
+        assert f"WHEN {node}:User THEN [{node}.uid]" in query
+    assert "(center_owner:User)-[:OWNS]->(center)" in query
+    assert "[(o:User)-[:OWNS]->(n) | o.uid]" in query
