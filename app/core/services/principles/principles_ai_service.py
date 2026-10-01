@@ -19,6 +19,7 @@ from core.models.principle.principle import Principle
 from core.models.type_hints import EntityUID
 from core.ports import PrinciplesOperations
 from core.services.base_ai_service import BaseAIService
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -68,7 +69,9 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
         if not principle:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
-        all_principles_result = await self.backend.find_by(user_uid=principle.user_uid)
+        all_principles_result = await find_all_by(
+            self.backend, self.logger, "Principle similarity pool", user_uid=principle.user_uid
+        )
         if all_principles_result.is_error:
             return Result.fail(all_principles_result)
 

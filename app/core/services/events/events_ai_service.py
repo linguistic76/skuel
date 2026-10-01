@@ -17,6 +17,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -67,7 +68,9 @@ class EventsAIService(BaseAIService["EventsOperations", Event]):
         if not event:
             return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
 
-        all_events_result = await self.backend.find_by(user_uid=event.user_uid)
+        all_events_result = await find_all_by(
+            self.backend, self.logger, "Event similarity pool", user_uid=event.user_uid
+        )
         if all_events_result.is_error:
             return Result.fail(all_events_result)
 

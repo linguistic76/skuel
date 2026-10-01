@@ -22,7 +22,9 @@ import dataclasses
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final
 
+from core.constants import QueryLimit
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.services.whole_set_read import warn_if_capped
 from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
@@ -862,12 +864,13 @@ class TasksCoreService(
         Returns:
             Result containing list of Tasks
         """
-        result = await self.backend.get_user_entities(user_uid)
+        result = await self.backend.get_user_entities(user_uid, limit=QueryLimit.MAXIMUM)
         if result.is_error:
             return Result.fail(result)
 
         # Unpack tuple (entities, total_count) from get_user_entities
         entities, _total = result.value
+        warn_if_capped(self.logger, "Task list", entities, user_uid=user_uid)
 
         # Convert to enriched Task models
         tasks = [self._to_domain_model(task_data, TaskDTO, Task) for task_data in entities]

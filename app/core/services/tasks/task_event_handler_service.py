@@ -36,6 +36,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.models.update_contracts import StatusWriteGuard
 from core.services.insight import persist_principle_alignment_insight
+from core.services.whole_set_read import find_all_by
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_float, coerce_int
@@ -515,7 +516,9 @@ class TaskEventHandlerService:
 
         Warns if >60% of recent tasks are high priority.
         """
-        tasks_result = await self.backend.find_by(user_uid=event.user_uid)
+        tasks_result = await find_all_by(
+            self.backend, self.logger, "Task priority-inflation check", user_uid=event.user_uid
+        )
         if tasks_result.is_error:
             return
 

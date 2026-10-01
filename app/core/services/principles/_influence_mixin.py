@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 from core.services.intelligence import MetricsCalculator, RecommendationEngine
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.neo4j_props import coerce_float, coerce_int
 from core.utils.result_simplified import Errors, Result
@@ -61,7 +62,9 @@ class _InfluenceMixin:
         from core.models.principle.principle import Principle
 
         # Get user's principles
-        principles_result = await self.backend.find_by(user_uid=user_uid)
+        principles_result = await find_all_by(
+            self.backend, self.logger, "Principle conflict analysis", user_uid=user_uid
+        )
         if principles_result.is_error:
             return Result.fail(principles_result)
 

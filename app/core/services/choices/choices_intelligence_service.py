@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.constants import ConfidenceLevel, QueryLimit
+from core.constants import ConfidenceLevel
 from core.models.choice.choice import Choice
 from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -29,6 +29,7 @@ from core.services.choices._analytics_mixin import _AnalyticsMixin
 from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.choices._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -128,7 +129,9 @@ class ChoicesIntelligenceService(
         over ALL choices. Future enhancement: filter by created_at within period.
         """
         # Get all choices for user
-        choices_result = await self.backend.find_by(user_uid=user_uid)
+        choices_result = await find_all_by(
+            self.backend, self.logger, "Choice performance analytics", user_uid=user_uid
+        )
         if choices_result.is_error:
             return Result.fail(choices_result)
 
@@ -186,7 +189,9 @@ class ChoicesIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's choice activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        entities_result = await find_all_by(
+            self.backend, self.logger, "Choice learning-pattern analysis", user_uid=user_uid
+        )
         if entities_result.is_error:
             return Result.fail(entities_result)
 

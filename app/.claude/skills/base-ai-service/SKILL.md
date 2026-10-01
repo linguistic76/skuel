@@ -178,9 +178,9 @@ the pool by the `embedding` each carries — the vector the embedding worker sto
 - No threshold: the top `limit` are returned however weak. An empty pool (after the two
   exclusions) returns `Result.ok([])` without embedding anything.
 
-The caller owns the pool read — `backend.find_by(user_uid=source.user_uid)`, the owner's own
-entities, at most 100 (`find_by`'s default `limit`); entities past the cap are never ranked
-([PATTERNS.md](PATTERNS.md) § Pattern 1).
+The caller owns the pool read — `find_all_by(self.backend, …, user_uid=source.user_uid)`
+(`core/services/whole_set_read.py`), the owner's whole set of that domain up to
+`QueryLimit.MAXIMUM` rows ([PATTERNS.md](PATTERNS.md) § Pattern 1).
 
 Do not hand-roll `f"{title} {description}"`: it drifts from the text the stored embeddings were
 built from.

@@ -100,8 +100,9 @@ result = await tasks_search.get_by_status("active", user_uid="user.123")
 
 #### `get_all_for_user(user_uid: UserUID) -> Result[list[Model]]`
 Fetch a user's entities of the domain, whatever their status. The read is
-`backend.find_by(user_uid=...)`, so `find_by`'s default limit of 100 applies.
-A status filter is the caller's: `get_by_status`, or the facade's
+`find_all_by(self.backend, …, user_uid=...)` (`core/services/whole_set_read.py`):
+the user's whole set, up to `QueryLimit.MAXIMUM` rows, with a warning logged when
+a read fills that cap. A status filter is the caller's: `get_by_status`, or the facade's
 `_{DOMAIN}_FILTER_CONFIG` applied to the returned list.
 
 ```python

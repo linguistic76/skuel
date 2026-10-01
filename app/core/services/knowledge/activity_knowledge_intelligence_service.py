@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.models.type_hints import EntityUID, UserUID
+from core.services.whole_set_read import find_all_by
 from core.utils.timestamp_helpers import as_utc, now_utc
 
 if TYPE_CHECKING:
@@ -118,8 +119,12 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
 
             entities = [entity_result.value]
         else:
-            entities_result = await self.backend.find_by(
-                user_uid=user_uid, status=EntityStatus.COMPLETED
+            entities_result = await find_all_by(
+                self.backend,
+                self.logger,
+                "Knowledge suggestions",
+                user_uid=user_uid,
+                status=EntityStatus.COMPLETED,
             )
 
             if entities_result.is_error:
@@ -188,8 +193,12 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
         self.logger.info(f"Generating knowledge units from entities for user {user_uid}")
 
         cutoff = now_utc() - timedelta(days=period_days)
-        entities_result = await self.backend.find_by(
-            user_uid=user_uid, status=EntityStatus.COMPLETED
+        entities_result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Knowledge generation from entities",
+            user_uid=user_uid,
+            status=EntityStatus.COMPLETED,
         )
 
         if entities_result.is_error:
@@ -280,7 +289,9 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
         """
         self.logger.info(f"Discovering learning opportunities for user {user_uid}")
 
-        entities_result = await self.backend.find_by(user_uid=user_uid)
+        entities_result = await find_all_by(
+            self.backend, self.logger, "Learning opportunities", user_uid=user_uid
+        )
 
         if entities_result.is_error:
             return Result.fail(entities_result)

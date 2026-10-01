@@ -15,7 +15,6 @@ Uses pure Cypher for 8-10x performance improvement over sequential queries.
 
 from typing import TYPE_CHECKING, Any
 
-from core.constants import QueryLimit
 from core.models.event.event import Event
 from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -24,6 +23,7 @@ from core.services.events._behavioral_signals_mixin import _BehavioralSignalsMix
 from core.services.events._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.events.event_relationships import EventRelationships
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -111,7 +111,9 @@ class EventsIntelligenceService(
         end_date = today_in(current_zone())
         start_date = end_date - timedelta(days=period_days)
 
-        events_result = await self.backend.find_by(user_uid=user_uid)
+        events_result = await find_all_by(
+            self.backend, self.logger, "Event performance analytics", user_uid=user_uid
+        )
         if events_result.is_error:
             return Result.fail(events_result)
 
@@ -166,7 +168,9 @@ class EventsIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's event activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        entities_result = await find_all_by(
+            self.backend, self.logger, "Event learning-pattern analysis", user_uid=user_uid
+        )
         if entities_result.is_error:
             return Result.fail(entities_result)
 

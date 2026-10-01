@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-29
+updated: 2026-10-01
 ---
 
 # Intelligence Backlog: Implementation Guide
@@ -177,7 +177,7 @@ Group A's remedy is `find_by_date_range` — for **both** candidate keys, not ju
 `find_by(<field>__gte=...)` evaluates to null on the temporally-stored rows and drops them.
 
 **The goals call now IS the model to copy** — it used exactly that bare `__gte` and has been
-repointed at `find_by_date_range` (`goals_intelligence_service.py:176–182`), with a day-granular
+repointed at `find_by_date_range` (`goals_intelligence_service.py:180–186`), with a day-granular
 `date` bound, an explicit `limit`, and owner scoping retained. Group A in
 `docs/reference/PLACEHOLDER_INDEX.md` carries the full call shape and the three non-obvious
 constraints; `tests/unit/services/goals/test_goals_analytics_window.py` fails tree-wide if any

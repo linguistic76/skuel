@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.type_hints import UserUID
+from core.services.whole_set_read import warn_if_capped
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count, get_principle_frequency_rank
 from core.utils.timestamp_helpers import today_in
@@ -248,14 +249,10 @@ class _AnalyticsMixin:
             additional_filters={"user_uid": user_uid},
             limit=QueryLimit.MAXIMUM,
         )
-        # find_by_date_range defaults to limit=100; the period metrics below divide by the
-        # requested window, so a truncated page would silently understate every rate.
-        if result.is_ok and len(result.value) >= QueryLimit.MAXIMUM:
-            self.logger.warning(
-                "Choice period analytics for %s capped at %d choices — rates may be truncated",
-                user_uid,
-                QueryLimit.MAXIMUM,
-            )
+        # The period metrics divide by the requested window, so the read is of the
+        # whole window.
+        if result.is_ok:
+            warn_if_capped(self.logger, "Choice period analytics", result.value, user_uid=user_uid)
         return result
 
     async def _fetch_alignment_links(

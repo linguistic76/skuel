@@ -227,7 +227,9 @@ class WidgetIntelligenceService(
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:  # boundary: per-domain analytics payload
-        widgets_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        widgets_result = await find_all_by(
+            self.backend, self.logger, "Widget performance analytics", user_uid=user_uid
+        )
         if widgets_result.is_error:
             return Result.fail(widgets_result)
 

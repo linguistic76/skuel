@@ -282,9 +282,9 @@ Appended to `plan.warnings` in this order:
 the `stats` dict, or `None` when the domain has no provider or the read failed. `None` means
 "unavailable", never "zero" — a warning whose stats are `None` is skipped.
 
-Each facade computes `stats` over what its read returns, and that read is `find_by` with its
-default `limit=100`. For a user with more than 100 entities in a domain, `total` stops at 100
-and every other count is a count within those 100.
+Each facade computes `stats` over what its read returns, and that read is `get_all_for_user`:
+the user's whole set of that domain, up to `QueryLimit.MAXIMUM` rows, with a warning logged
+when a read fills that cap (`core/services/whole_set_read.py`).
 
 Only the six Activity keys are read:
 

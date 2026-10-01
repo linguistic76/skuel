@@ -25,6 +25,7 @@ from core.models.type_hints import UserUID
 from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -75,7 +76,9 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
         from core.models.principle.principle import Principle
 
         # Get all principles for user
-        principles_result = await self.backend.find_by(user_uid=user_uid)
+        principles_result = await find_all_by(
+            self.backend, self.logger, "Principle performance analytics", user_uid=user_uid
+        )
         if principles_result.is_error:
             return Result.fail(principles_result)
 

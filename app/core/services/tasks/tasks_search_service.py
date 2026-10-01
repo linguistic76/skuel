@@ -25,6 +25,7 @@ from operator import attrgetter
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
+from core.services.whole_set_read import find_all_by, warn_if_capped
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -83,7 +84,9 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
             Result containing tasks fulfilling this goal, sorted by contribution
         """
         # Query backend for tasks with this goal
-        result = await self.backend.find_by(fulfills_goal_uid=goal_uid)
+        result = await find_all_by(
+            self.backend, self.logger, "Tasks for a goal", fulfills_goal_uid=goal_uid
+        )
 
         if result.is_error:
             return result
@@ -174,12 +177,13 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
             Result containing blocked tasks
         """
         # Get user's tasks
-        tasks_result = await self.backend.get_user_entities(user_uid)
+        tasks_result = await self.backend.get_user_entities(user_uid, limit=QueryLimit.MAXIMUM)
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
         # Unpack tuple (entities, total_count) from get_user_entities
         entities, _total = tasks_result.value
+        warn_if_capped(self.logger, "Tasks blocked by prerequisites", entities, user_uid=user_uid)
 
         # Filter tasks that have any prerequisites (using graph relationships)
         all_tasks = self._to_domain_models(entities, TaskDTO, Task)

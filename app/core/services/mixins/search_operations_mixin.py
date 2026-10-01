@@ -47,6 +47,7 @@ from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -722,7 +723,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(config_result)
         dto_class, model_class = config_result.value
 
-        result = await self.backend.find_by(user_uid=user_uid)
+        result = await find_all_by(
+            self.backend, self.logger, f"{self.config_lookup_label} list", user_uid=user_uid
+        )
         if result.is_error:
             return Result.fail(result)
 

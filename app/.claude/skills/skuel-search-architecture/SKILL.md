@@ -97,7 +97,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 | `SearchOperationsMixin` | `search(query, limit=50, user_uid=None)`, `search_by_tags(tags, match_all=False, limit=50, user_uid=None)` | 50 |
 | | `graph_aware_faceted_search(request, user_uid)` | `request.limit` (SearchRequest default 20, max 200) |
 | | `get_by_status(status, limit=100, user_uid=None)`, `get_by_category(category, user_uid=None, limit=100)` | 100 |
-| | `get_all_for_user(user_uid)` → `backend.find_by(user_uid=...)` | 100 (`find_by`'s default — the daily plan's domain stats read through it; a silent cap, not a feature) |
+| | `get_all_for_user(user_uid)` → `find_all_by(backend, …, user_uid=...)` | `QueryLimit.MAXIMUM`, with a warning logged when a read fills it (the daily plan's domain stats read through it) |
 | | `list_user_categories(user_uid)`, `list_all_categories()`, `tag_frequencies(user_uid=None)`, `count(**filters)` | — |
 | `RelationshipOperationsMixin` | `get_prerequisites(uid, depth=3)`, `get_enables(uid, depth=3)` | depth 3 |
 | `TimeQueryMixin` | `get_upcoming(days_ahead=7, user_uid=None, limit=100)`, `get_overdue(user_uid=None, limit=100)`, `get_active(user_uid, limit=100)` | 100 |
@@ -179,7 +179,7 @@ result = await search_router.advanced_search(request)   # Result[UnifiedSearchRe
 `core/models/search/scoring.py` holds `score_task` … `score_principle` (each a weighted sum of shared `ComponentScore` helpers → `PriorityScore`). They are reached two ways, and neither has a production caller:
 
 - `SearchRouter._score_results(items, user_context)` runs inside `intelligent_search` / `advanced_search` **only when the caller passes `user_context`** — `/api/search/intelligent` and `/api/search/unified` pass none.
-- `get_prioritized(user_context, limit=10)` on the six Activity search services (PS/LP take `(user_uid, context, limit=20)`); `TasksService.get_prioritized` is the only facade delegation and has no caller. The Activity implementations read `backend.get_user_entities(user_uid)` with its default `limit=100`.
+- `get_prioritized(user_context, limit=10)` on the six Activity search services (PS/LP take `(user_uid, context, limit=20)`); `TasksService.get_prioritized` is the only facade delegation and has no caller. Tasks reads `backend.get_user_entities(user_uid)` and Choices, Events, Goals and Principles read `backend.find_by(...)`, each with the door's default `limit=100`; Habits reads `backend.get_active_habits_prioritized`.
 
 Do not describe `/search` results as priority-ranked: `faceted_search` builds no `UserContext` and runs no ranking pass, and on the two routes that return `SearchResultItem`s the `priority_score` stays at its 0.0 default.
 

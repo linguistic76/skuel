@@ -33,6 +33,7 @@ from core.services.goals._predictive_mixin import _PredictiveMixin
 from core.services.goals.goal_relationships import GoalRelationships
 from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
+from core.services.whole_set_read import find_all_by, warn_if_capped
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
@@ -187,14 +188,9 @@ class GoalsIntelligenceService(
             return Result.fail(goals_result)
 
         goals = goals_result.value or []
-        # find_by_date_range defaults to limit=100; every metric below is a count or a
-        # mean over this set, so a truncated page would understate all of them silently.
-        if len(goals) >= QueryLimit.MAXIMUM:
-            self.logger.warning(
-                "Goal performance analytics for %s capped at %d goals — metrics may be truncated",
-                user_uid,
-                QueryLimit.MAXIMUM,
-            )
+        # Every metric below is a count or a mean over this set, so the read is of the
+        # whole window.
+        warn_if_capped(self.logger, "Goal performance analytics", goals, user_uid=user_uid)
 
         # Calculate analytics
         total_goals = len(goals)
@@ -257,7 +253,9 @@ class GoalsIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's goal activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        entities_result = await find_all_by(
+            self.backend, self.logger, "Goal learning-pattern analysis", user_uid=user_uid
+        )
         if entities_result.is_error:
             return Result.fail(entities_result)
 

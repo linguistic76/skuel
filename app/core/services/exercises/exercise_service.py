@@ -40,6 +40,7 @@ from core.ports.query_types import (
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.filtered_context import build_filtered_context
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
@@ -477,8 +478,13 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         Returns:
             Result containing list of assigned exercises
         """
-        result = await self.backend.find_by(
-            group_uid=group_uid, scope="assigned", entity_type=EntityType.EXERCISE.value
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Group exercise list",
+            group_uid=group_uid,
+            scope="assigned",
+            entity_type=EntityType.EXERCISE.value,
         )
         if result.is_error:
             return result

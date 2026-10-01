@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.constants import QueryLimit
 from core.models.principle.principle import Principle
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
@@ -31,6 +30,7 @@ from core.services.principles._alignment_intelligence_mixin import _AlignmentInt
 from core.services.principles._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.principles._influence_mixin import _InfluenceMixin
 from core.services.principles.principle_relationships import PrincipleRelationships
+from core.services.whole_set_read import find_all_by
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -95,7 +95,9 @@ class PrinciplesIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's principle activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        entities_result = await find_all_by(
+            self.backend, self.logger, "Principle learning-pattern analysis", user_uid=user_uid
+        )
         if entities_result.is_error:
             return Result.fail(entities_result)
 

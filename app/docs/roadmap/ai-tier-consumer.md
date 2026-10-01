@@ -1,6 +1,6 @@
 ---
 title: "AI Tier Consumer — the routed AI features wait for their first UI surface"
-updated: 2026-09-30
+updated: 2026-10-01
 status: "staged — the tier is repaired and routed (34 POST routes over 8 services), and nothing in the repo calls any of them"
 registered: 2026-09-29
 ruled: 2026-09-29
@@ -70,8 +70,9 @@ a spec whose `method_name` does not resolve on its AI class is refused at regist
   similarity call *about* a draft uid read the uid they are given, under the standing by-uid
   rule (a by-uid read is deliberately ungated). Whether a `SHARED` AI spec should refuse a
   draft source is open.
-- **The Activity similarity pools** are `find_by(user_uid=…)` with its default `limit=100`
-  — a user with more than 100 entities is ranked over a page. Belongs with the analytics
-  read caps, not here.
+- **The Activity similarity pools** are the owner's whole set — `find_all_by(…, user_uid=…)`
+  (`core/services/whole_set_read.py`), up to `QueryLimit.MAXIMUM` rows — read and ranked in
+  Python on each call. A vector query with a limit is the shape that scales
+  (`TODO(blocked:embeddings)` in `tasks_ai_service.py`).
 - **Prompt input is unbounded** — the `generate_*_insight` methods pass `description` whole,
   and the request models set no `max_length` on it.

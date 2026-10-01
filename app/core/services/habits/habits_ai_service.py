@@ -28,6 +28,7 @@ from core.models.habit.habit import Habit
 from core.models.type_hints import EntityUID
 from core.ports import HabitsOperations
 from core.services.base_ai_service import BaseAIService
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -109,7 +110,9 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
         if not habit:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
-        all_habits_result = await self.backend.find_by(user_uid=habit.user_uid)
+        all_habits_result = await find_all_by(
+            self.backend, self.logger, "Habit similarity pool", user_uid=habit.user_uid
+        )
         if all_habits_result.is_error:
             return Result.fail(all_habits_result)
 

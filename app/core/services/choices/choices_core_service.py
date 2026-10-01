@@ -40,6 +40,7 @@ from core.services.mixins.link_edge_guard import (
     LinkEdge,
     keep_permitted_link_edges,
 )
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorContext, Errors, Result
@@ -545,7 +546,7 @@ class ChoicesCoreService(
         Returns:
             Result containing list of Choices
         """
-        result = await self.backend.find_by(user_uid=user_uid)
+        result = await find_all_by(self.backend, self.logger, "Choice list", user_uid=user_uid)
         if result.is_error:
             return result
 

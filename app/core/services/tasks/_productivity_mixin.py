@@ -21,6 +21,7 @@ from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.services.tasks.task_relationships import TaskRelationships
 from core.services.tasks_types import KnowledgePatternAnalysis
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -60,7 +61,9 @@ class _ProductivityMixin:
         Returns:
             Result containing detected learning patterns
         """
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        tasks_result = await find_all_by(
+            self.backend, self.logger, "Task learning-pattern analysis", user_uid=user_uid
+        )
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
@@ -86,7 +89,9 @@ class _ProductivityMixin:
 
         from core.services.tasks.task_relationships import TaskRelationships
 
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        tasks_result = await find_all_by(
+            self.backend, self.logger, "Knowledge-aware task priorities", user_uid=user_uid
+        )
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
@@ -150,7 +155,9 @@ class _ProductivityMixin:
         Returns:
             Result containing generated task insights
         """
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        tasks_result = await find_all_by(
+            self.backend, self.logger, "Task insight generation", user_uid=user_uid
+        )
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
@@ -185,7 +192,9 @@ class _ProductivityMixin:
 
         from core.services.tasks.task_relationships import TaskRelationships
 
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        tasks_result = await find_all_by(
+            self.backend, self.logger, "Task knowledge-mastery progression", user_uid=user_uid
+        )
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 

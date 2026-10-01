@@ -62,6 +62,7 @@ from core.services.tasks._analytics_mixin import _AnalyticsMixin
 from core.services.tasks._dual_track_mixin import _DualTrackMixin
 from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.services.tasks.task_knowledge_analyzer import TaskKnowledgeAnalyzer
+from core.services.whole_set_read import find_all_by
 from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import as_utc, now_utc, today_in
@@ -324,7 +325,9 @@ class TasksIntelligenceService(
         self.logger.info(f"Analyzing performance metrics for user {user_uid}")
 
         cutoff = now_utc() - timedelta(days=period_days)
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        tasks_result = await find_all_by(
+            self.backend, self.logger, "Task performance analytics", user_uid=user_uid
+        )
 
         if tasks_result.is_error:
             return Result.fail(tasks_result)

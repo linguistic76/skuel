@@ -21,7 +21,9 @@ async def find_similar_tasks(
     if not task:
         return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
-    all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
+    all_tasks_result = await find_all_by(
+        self.backend, self.logger, "Task similarity pool", user_uid=task.user_uid
+    )
     if all_tasks_result.is_error:
         return Result.fail(all_tasks_result)
 
@@ -39,9 +41,9 @@ async def find_similar_tasks(
   has verified the caller owns `task_uid`; a direct caller verifies ownership itself first.
 - `_rank_similar_entities` ranks the pool by each model's stored `embedding` and leaves out a
   candidate that has none. The method passes models, not strings.
-- **The pool is at most 100 entities.** `find_by(limit=100, **filters)` defaults its limit and
-  the call passes none, so for an owner with more than 100 tasks the rest are never candidates.
-  The five other Activity `find_similar_*` methods make the same call and carry the same cap.
+- **The pool is the owner's whole set.** `find_all_by` (`core/services/whole_set_read.py`) asks
+  `find_by` for `QueryLimit.MAXIMUM` rows and logs a warning when it gets that many. The five
+  other Activity `find_similar_*` methods make the same call.
 - Nothing is embedded per call unless the source itself has no stored vector — then its
   canonical text is embedded once.
 

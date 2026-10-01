@@ -16,6 +16,7 @@ from __future__ import annotations
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
+from core.constants import QueryLimit
 from core.models.enums import Domain, EntityStatus
 from core.models.pathways.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
@@ -26,6 +27,7 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentBridge
 from core.services.user import UserContext
+from core.services.whole_set_read import warn_if_capped
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
@@ -73,11 +75,12 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
         # async fetch per task. The Bridge's sync scorer cannot express that, and
         # LpPosition.assess_task_relevance has current+next-step semantics distinct
         # from the Bridge's default sum-based scorer.
-        tasks_result = await self.backend.get_user_entities(user_uid)
+        tasks_result = await self.backend.get_user_entities(user_uid, limit=QueryLimit.MAXIMUM)
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
         entities, _total = tasks_result.value
+        warn_if_capped(self.logger, "Learning-relevant tasks", entities, user_uid=user_uid)
         all_tasks = self._to_domain_models(entities, TaskDTO, Task)
 
         task_scores: list[tuple[Task, float]] = []
