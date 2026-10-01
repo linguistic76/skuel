@@ -82,50 +82,6 @@ class _LpProgressMixin:
         records = result.value or []
         return Result.ok([record["lp_uid"] for record in records])
 
-    async def get_ku_mastery_progress(
-        self, lp_uid: str, user_uid: UserUID
-    ) -> Result[Neo4jProperties]:
-        """
-        Return total and mastered KU counts for a user's progress in a learning path.
-
-        Used by LpProgressService to calculate new progress percentage after a KU
-        is mastered.
-
-        Args:
-            lp_uid: Learning Path UID
-            user_uid: User UID
-
-        Returns:
-            Result containing dict with 'total_kus' and 'mastered_kus' keys,
-            or empty dict if the learning path contains no KUs.
-        """
-        # Same two routes to the path's Kus as get_paths_containing_ku. Both
-        # legs are OPTIONAL and the mastery test is an EXISTS predicate rather
-        # than a MATCH: a user who has mastered nothing must read as 0-of-N, not
-        # collapse the query to zero rows, which the service would report as
-        # "this path has no Kus".
-        query = """
-        MATCH (lp:Entity {uid: $lp_uid})
-        OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity:Ku)
-        WITH lp, collect(DISTINCT direct_ku) as direct_kus
-        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(step_ku:Entity:Ku)
-        WITH direct_kus, collect(DISTINCT step_ku) as step_kus
-        WITH direct_kus + step_kus as candidate_kus
-        UNWIND (CASE WHEN size(candidate_kus) = 0 THEN [null] ELSE candidate_kus END) as ku
-        WITH [k IN collect(DISTINCT ku) WHERE k IS NOT NULL] as lp_kus
-        RETURN
-            size(lp_kus) as total_kus,
-            size([k IN lp_kus
-                  WHERE EXISTS { (:User {uid: $user_uid})-[:MASTERED]->(k) }]) as mastered_kus
-        """
-        result = await self.execute_query(query, {"lp_uid": lp_uid, "user_uid": user_uid})
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.ok({})
-        return Result.ok(dict(records[0]))
-
     # ========================================================================
     # SEARCH QUERIES (migrated from LpSearchService / LpProgressService)
     # ========================================================================
@@ -262,40 +218,61 @@ class _LpProgressMixin:
         )
 
     async def record_enrollment_progress(
-        self, user_uid: UserUID, lp_uid: str, progress: float, now: str
+        self, user_uid: UserUID, lp_uid: str, now: str
     ) -> Result[list[Neo4jProperties]]:
-        """Record the learner's progress (0.0-1.0) on the ENROLLED_IN edge; report
-        the prior progress and whether the enrollment was already completed.
+        """Recompute the learner's progress in a path and record it on the
+        ENROLLED_IN edge, in one statement under the edge's lock; report the
+        prior progress, whether the enrollment was already completed, and the
+        figure written.
 
         Progress and completion live on the enrollment edge (``r.progress``,
         ``r.status``), so this one write decides both transitions the chain
         announces: ``LearningPathProgressUpdated`` when the progress changed,
         ``LearningPathCompleted`` when the status flipped. Decided by the write
-        (ADR-087): the edge's lock is taken first (``SET r.status = r.status``),
-        the priors are read under it, then the new state is written — two
-        triggers recomputing the same path (a Ku mastery and the step
-        completion it causes, or a reconciled step) see one transition between
-        them. ``completed_at`` keeps its first value. No row: not enrolled.
+        (ADR-087, the recompute-under-the-lock shape): the edge's lock is taken
+        first (``SET r.status = r.status``), the priors are read under it, the
+        path's Kus and the learner's mastered ones are counted under it, and the
+        new state is written from that count — so two handlers for different
+        Kus of the same path cannot carry a stale fraction past each other, and
+        two triggers for the same Ku (its mastery and the step completion it
+        causes, or a reconciled step) see one transition between them.
+        ``completed_at`` keeps its first value. No row: not enrolled.
+
+        The path's Kus are the same two routes as ``get_paths_containing_ku``;
+        both legs are OPTIONAL and the mastery test is an EXISTS predicate, so a
+        learner who has mastered nothing reads as 0-of-N and an empty path as
+        0-of-0 — never as a vanished row.
         """
         query = """
         MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $lp_uid})
         SET r.status = r.status
-        WITH r, coalesce(r.progress, 0.0) AS prior_progress,
+        WITH u, r, lp, coalesce(r.progress, 0.0) AS prior_progress,
              coalesce(r.status, $active) = $completed AS was_completed
-        SET r.progress = $progress,
-            r.status = CASE WHEN $progress >= 1.0 THEN $completed ELSE r.status END,
+        OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity:Ku)
+        WITH u, r, lp, prior_progress, was_completed, collect(DISTINCT direct_ku) AS direct_kus
+        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(step_ku:Entity:Ku)
+        WITH u, r, prior_progress, was_completed, direct_kus, collect(DISTINCT step_ku) AS step_kus
+        WITH u, r, prior_progress, was_completed, direct_kus + step_kus AS candidate_kus
+        UNWIND (CASE WHEN size(candidate_kus) = 0 THEN [null] ELSE candidate_kus END) AS ku
+        WITH u, r, prior_progress, was_completed,
+             [k IN collect(DISTINCT ku) WHERE k IS NOT NULL] AS lp_kus
+        WITH r, prior_progress, was_completed, size(lp_kus) AS total_kus,
+             size([k IN lp_kus WHERE EXISTS { (u)-[:MASTERED]->(k) }]) AS mastered_kus
+        WITH r, prior_progress, was_completed, total_kus, mastered_kus,
+             CASE WHEN total_kus = 0 THEN 0.0 ELSE toFloat(mastered_kus) / total_kus END AS progress
+        SET r.progress = progress,
+            r.status = CASE WHEN progress >= 1.0 THEN $completed ELSE r.status END,
             r.completed_at = CASE
-                WHEN $progress >= 1.0 THEN coalesce(r.completed_at, datetime($now))
+                WHEN progress >= 1.0 THEN coalesce(r.completed_at, datetime($now))
                 ELSE r.completed_at
             END
-        RETURN prior_progress, was_completed
+        RETURN prior_progress, was_completed, progress, total_kus, mastered_kus
         """
         return await self.execute_query(
             query,
             {
                 "user_uid": user_uid,
                 "lp_uid": lp_uid,
-                "progress": progress,
                 "now": now,
                 "active": EnrollmentStatus.ACTIVE.value,
                 "completed": EnrollmentStatus.COMPLETED.value,

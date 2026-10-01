@@ -74,7 +74,8 @@ class LpProgressService:
         1. Find all learning paths that contain this KU
         2. For each path, check if user is enrolled/active
         3. Calculate new progress (mastered KUs / total KUs)
-        4. Record it on the ENROLLED_IN edge (under its lock; the priors come back)
+        4. Recount and record it on the ENROLLED_IN edge, in one statement under
+           its lock (the priors come back with the figure written)
         5. Publish LearningPathProgressUpdated if the progress changed
         6. At 1.0, the same write flips the enrollment to completed — for the
            write that flipped it, publish LearningPathCompleted
@@ -189,28 +190,15 @@ class LpProgressService:
             self.logger.warning("No backend available for LP progress tracking")
             return
 
-        result = await self.backend.get_ku_mastery_progress(lp_uid, user_uid)
-        if result.is_error:
-            self.logger.error(f"Failed to query LP progress: {result.error}")
-            return
-
-        progress_data = result.value or {}
-
-        if not progress_data or progress_data.get("total_kus", 0) == 0:
-            self.logger.debug(f"No KUs found for learning path {lp_uid}")
-            return
-
-        total_kus = coerce_int(progress_data.get("total_kus"))
-        mastered_kus = coerce_int(progress_data.get("mastered_kus"))
-        new_progress = mastered_kus / total_kus
-
-        # The learner's progress lives on the ENROLLED_IN edge; one write under
-        # its lock records the new figure and reports the priors, so both
-        # events below announce a transition the graph shows — the Ku mastery
-        # and the step completion it causes both reach here for the same path,
-        # and the second sees nothing changed. Not enrolled: nothing to record.
+        # The learner's progress lives on the ENROLLED_IN edge; one statement
+        # under its lock recounts the path's Kus against the learner's mastered
+        # ones, records the figure and reports the priors — so a handler for
+        # another Ku of the same path cannot carry a stale fraction past this
+        # one, and the two triggers for one Ku (its mastery and the step
+        # completion it causes) see one transition between them. Not enrolled:
+        # nothing to record.
         recorded = await self.backend.record_enrollment_progress(
-            user_uid, lp_uid, new_progress, datetime.now(UTC).isoformat()
+            user_uid, lp_uid, datetime.now(UTC).isoformat()
         )
         if recorded.is_error:
             self.logger.error(f"Failed to record progress in {lp_uid}: {recorded.error}")
@@ -219,6 +207,12 @@ class LpProgressService:
             self.logger.debug(f"LP {lp_uid}: {user_uid} is not enrolled; progress not recorded")
             return
         prior = recorded.value[0]
+        total_kus = coerce_int(prior["total_kus"])
+        mastered_kus = coerce_int(prior["mastered_kus"])
+        if total_kus == 0:
+            self.logger.debug(f"No KUs found for learning path {lp_uid}")
+            return
+        new_progress = coerce_float(prior["progress"], 0.0)
         old_progress = coerce_float(prior["prior_progress"], 0.0)
         # Two independent transitions out of the one write: the figure changed
         # (the same fraction recomputed by the second trigger is equal, not

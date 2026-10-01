@@ -45,8 +45,8 @@ UserProgressRecorderService.record_knowledge_mastery (pathways progress)
     └─ Publishes KnowledgeMastered
            │
            ├─► LpProgressService.handle_knowledge_mastered
-           │       Find LPs containing this KU → recalculate LP progress
-           │       → record it on the ENROLLED_IN edge (under its lock; the
+           │       Find LPs containing this KU → recount and record progress on
+           │         the ENROLLED_IN edge, one statement under its lock (the
            │         write reports the prior progress and status)
            │       → if it changed: publish LearningPathProgressUpdated
            │       → if 1.0 and the status flipped: publish LearningPathCompleted
@@ -126,7 +126,7 @@ via `USES_KU`, and LearningPaths compose PathSteps directly via `HAS_STEP`.
 | Backend | File | Methods |
 |---------|------|---------|
 | `PsBackend` | `adapters/persistence/neo4j/backends/curriculum_backends.py` | PathStep ↔ Ku traversal, mastery rollup queries |
-| `LpBackend` | `adapters/persistence/neo4j/backends/curriculum_backends.py` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |
+| `LpBackend` | `adapters/persistence/neo4j/backends/curriculum_backends.py` | `get_paths_containing_ku()`, `record_enrollment_progress()` (the Ku tally and the enrollment write, one statement under the edge's lock) |
 
 ---
 
