@@ -60,7 +60,7 @@ class PsContextService:
 
         Context-First Pattern:
         - Filters by user's current mastery (knowledge_mastery field)
-        - Ranks by goal alignment (active_goal_uids field)
+        - Ranks by readiness, mastery gap and dependent count — goals are not read
         - Enriches with application opportunities
 
         Args:

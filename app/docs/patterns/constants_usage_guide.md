@@ -421,6 +421,12 @@ priority = (
 
 **See:** `core/services/zpd/zpd_service.py`, `docs/roadmap/done/zpd-service-architecture.md`
 
+**Next-step ranking (`NextStepRanking`):** what goal alignment adds to a recommended step's
+`priority_score` in `UserContextIntelligence.get_optimal_next_path_steps` when the caller
+passes `consider_goals` — `GOAL_WEIGHT_PER_GOAL` (0.1) per goal the step serves, up to
+`GOAL_WEIGHT_MAX` (0.3). One weight for every candidate source. See the
+user-context-intelligence skill's MIXIN_ARCHITECTURE.md.
+
 ### 11. Relationship Strength — REMOVED (2026-06, #259)
 
 The per-edge default-confidence constant class `core.constants.RelationshipStrength`

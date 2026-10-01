@@ -886,6 +886,27 @@ class ZPDWeights:
 
 
 # ============================================================================
+# NEXT-STEP RANKING (UserContextIntelligence.get_optimal_next_path_steps)
+# ============================================================================
+
+
+class NextStepRanking:
+    """What goal alignment adds to a recommended step's ``priority_score``.
+
+    One weight for every candidate source, applied when the caller asks for
+    ``consider_goals``.
+
+    See: core/services/user/intelligence/learning_intelligence.py
+    """
+
+    # Added per goal the step serves.
+    GOAL_WEIGHT_PER_GOAL: Final = 0.1
+
+    # The most goal alignment can add, however many goals the step serves.
+    GOAL_WEIGHT_MAX: Final = 0.3
+
+
+# ============================================================================
 # EXERCISE TIME ESTIMATES (daily planning)
 # ============================================================================
 

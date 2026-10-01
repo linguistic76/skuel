@@ -272,15 +272,23 @@ async def get_optimal_next_path_steps(
     max_steps: int = 5,
     consider_goals: bool = True,
     consider_capacity: bool = True,
-) -> list[PathStep]:
+) -> Result[list[PathStep]]:
 ```
 
 **Parameters:**
 - `max_steps` (int, default=5) - Maximum number of steps to return
-- `consider_goals` (bool, default=True) - Weight by goal alignment
-- `consider_capacity` (bool, default=True) - Respect user capacity limits
+- `consider_goals` (bool, default=True) - Weight by goal alignment: each goal a step serves
+  adds `NextStepRanking.GOAL_WEIGHT_PER_GOAL` to its `priority_score`, up to `GOAL_WEIGHT_MAX`.
+  Off, goal alignment changes no score; `aligns_with_goals` is filled either way
+- `consider_capacity` (bool, default=True) - Respect user capacity limits: the returned steps
+  fit `context.available_minutes_daily` together. Off, no step is dropped
 
-**Returns:**
+Both flags act in one place (`_rank_steps`), so they mean the same thing whichever source
+answered. The context fields they read (`learning_goals`, `prerequisites_needed`,
+`estimated_time_to_mastery`) have no writer in `UserContextBuilder` — see the skill's
+[MIXIN_ARCHITECTURE.md](../../.claude/skills/user-context-intelligence/MIXIN_ARCHITECTURE.md).
+
+**Returns** (the `Result`'s value, in descending `priority_score` order):
 ```python
 [
     PathStep(
@@ -301,30 +309,31 @@ async def get_optimal_next_path_steps(
 ```
 
 **Synthesis Algorithm:**
-1. Get ready-to-learn KUs via `ps.get_ready_to_learn_for_user()`
-2. For each KU, find application opportunities (tasks/goals it enables)
-3. Count items unlocked (knowledge with high unblocking potential)
-4. Find aligned goals (knowledge supporting active goals)
-5. Generate rationale and priority score
-6. Sort by priority, return top N
+1. Take candidates from the first source that has them: the ZPD assessment (its learn
+   actions, else its proximal zone), vector search, `ps.get_ready_to_learn_for_user()`, the
+   context's `get_ready_to_learn()`
+2. For each candidate, find application opportunities, count the items it unlocks, find the
+   goals it serves, and build the rationale; the source supplies the priority score
+3. `_rank_steps`: add the goal weight (`consider_goals`), sort by priority, keep the steps
+   that fit the day (`consider_capacity`), return the top N
 
 **Example:**
 ```python
 intelligence = factory.create(context)
-steps = await intelligence.get_optimal_next_path_steps(
+result = await intelligence.get_optimal_next_path_steps(
     max_steps=3,
     consider_goals=True,
     consider_capacity=True
 )
 
-for step in steps:
+for step in result.value:
     print(f"Learn: {step.title}")
     print(f"  Priority: {step.priority_score:.2f}")
     print(f"  Unlocks: {step.unlocks_count} items")
     print(f"  Rationale: {step.rationale}")
 ```
 
-**Dependencies:** ku (KuGraphService), tasks, goals (UnifiedRelationshipService)
+**Dependencies:** `zpd_service` and `vector_search` (optional), `ps`, `tasks`, context
 
 ---
 

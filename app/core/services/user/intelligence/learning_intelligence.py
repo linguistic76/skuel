@@ -14,14 +14,22 @@ optimal learning priorities.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
+from core.constants import NextStepRanking
 from core.models.context_types import PathStep
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
+from core.utils.sort_functions import get_priority_score
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
+    from core.models.zpd.zpd_assessment import ZPDAction, ZPDAssessment
+
+
+def _action_priority(action: ZPDAction) -> float:
+    return action.priority
 
 
 class LearningIntelligenceMixin(IntelligenceMixinBase):
@@ -53,21 +61,24 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         3. KU relationship service: prerequisite-aware candidates.
         4. Context fallback: ready_to_learn UIDs from UserContext.
 
-        **Ranking Factors (activity-based paths):**
-        - Prerequisites met (ready to learn)
-        - Learning state (prefer unmastered content)
-        - Goal alignment (helps achieve goals)
-        - User capacity (fits available time)
-        - Life path alignment (flows toward ultimate path)
-        - Unblocking potential (unlocks other items)
+        Each source scores its own candidates (readiness, learning state, life path
+        alignment, unblocking potential — read the source). The two flags then mean the
+        same thing whichever source answered; ``_rank_steps`` is the one place they act.
 
         Args:
             max_steps: Maximum number of steps to return
-            consider_goals: Weight by goal alignment
-            consider_capacity: Respect user capacity limits
+            consider_goals: Weight by goal alignment. On, each goal a step serves adds
+                ``NextStepRanking.GOAL_WEIGHT_PER_GOAL`` to its ``priority_score``, up to
+                ``GOAL_WEIGHT_MAX``. Off, goal alignment adds nothing to a score and moves
+                no step. ``aligns_with_goals`` and the rationale name the goals either
+                way — they are information, not ranking.
+            consider_capacity: Respect user capacity limits. On, the returned steps fit
+                ``context.available_minutes_daily`` together: walking the ranking, a step
+                is kept when its ``estimated_time_minutes`` fits in what is left of the
+                day. Off, no step is dropped or scored for time.
 
         Returns:
-            Result[list[PathStep]] ranked by priority with full context
+            Result[list[PathStep]] in descending ``priority_score`` order
         """
         # ── ZPD path (highest priority when available) ─────────────────────────
         if self.zpd_service is not None:
@@ -75,15 +86,18 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             if not assessment_result.is_error:
                 assessment = assessment_result.value
                 if not assessment.is_empty():
-                    return await self._rank_by_zpd(assessment, max_steps, consider_capacity)
+                    return await self._rank_by_zpd(
+                        assessment, max_steps, consider_goals, consider_capacity
+                    )
 
         # ── Activity-based path (fallback) ──────────────────────────────────────
         return await self._rank_by_activity(max_steps, consider_goals, consider_capacity)
 
     async def _rank_by_zpd(
         self,
-        assessment: Any,  # ZPDAssessment — typed via TYPE_CHECKING only
+        assessment: ZPDAssessment,
         max_steps: int,
+        consider_goals: bool,
         consider_capacity: bool,
     ) -> Result[list[PathStep]]:
         """Rank path steps using ZPD proximal zone, readiness scores, and evidence.
@@ -96,11 +110,15 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         """
         # If recommended_actions are pre-computed, use them directly
         if assessment.recommended_actions:
-            learn_actions = [a for a in assessment.recommended_actions if a.action_type == "learn"]
+            learn_actions = sorted(
+                [a for a in assessment.recommended_actions if a.action_type == "learn"],
+                key=_action_priority,
+                reverse=True,
+            )
             if learn_actions:
                 path_steps = []
                 for action in learn_actions[: max_steps * 2]:
-                    ku_uid = action.entity_uid
+                    ku_uid: str = action.entity_uid
                     applications = await self._get_application_opportunities_for_ku(ku_uid)
                     unlocks_count = self._count_items_unlocked_by(ku_uid)
                     aligned_goals = self._find_aligned_goals(ku_uid)
@@ -121,14 +139,14 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                     )
                     path_steps.append(step)
 
-                if consider_capacity:
-                    path_steps = self._filter_by_capacity(path_steps)
-                return Result.ok(path_steps[:max_steps])
+                return Result.ok(
+                    self._rank_steps(path_steps, max_steps, consider_goals, consider_capacity)
+                )
 
         proximal_uids = assessment.top_proximal_ku_uids(max_steps * 2)
         if not proximal_uids:
             # ZPD produced an assessment but proximal zone is empty — use activity path
-            return await self._rank_by_activity(max_steps, True, consider_capacity)
+            return await self._rank_by_activity(max_steps, consider_goals, consider_capacity)
 
         # Confirmed KUs in current zone get higher confidence base
         confirmed_uids = set(assessment.confirmed_zone_uids())
@@ -173,10 +191,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             )
             path_steps.append(step)
 
-        if consider_capacity:
-            path_steps = self._filter_by_capacity(path_steps)
-
-        return Result.ok(path_steps[:max_steps])
+        return Result.ok(self._rank_steps(path_steps, max_steps, consider_goals, consider_capacity))
 
     async def _rank_by_activity(
         self,
@@ -184,15 +199,15 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         consider_goals: bool,
         consider_capacity: bool,
     ) -> Result[list[PathStep]]:
-        """Activity-based path step ranking (the original algorithm).
+        """Activity-based path step ranking.
 
-        Tries vector search → KU service → context fallback, in that order.
+        Tries vector search → ``ps`` service → context fallback, in that order.
         """
         # Try learning-aware search first (if available)
         if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
             # Use semantic/learning-aware search to find optimal next steps
             # This personalizes based on mastery state (MASTERED, IN_PROGRESS, etc.)
-            search_query = self._generate_learning_query()
+            search_query = self._generate_learning_query(consider_goals)
             vector_result = await self.vector_search.learning_aware_search(
                 label="Entity",
                 text=search_query,
@@ -213,7 +228,12 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         if ready_result.is_error or not ready_result.value:
             # Fall back to context-based approach
             return Result.ok(
-                self._get_path_steps_from_context(max_steps, consider_goals, consider_capacity)
+                self._rank_steps(
+                    self._get_path_steps_from_context(max_steps),
+                    max_steps,
+                    consider_goals,
+                    consider_capacity,
+                )
             )
 
         path_steps = []
@@ -247,24 +267,10 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
             path_steps.append(step)
 
-        # Sort by priority score (highest first)
-        from core.utils.sort_functions import get_priority_score
+        return Result.ok(self._rank_steps(path_steps, max_steps, consider_goals, consider_capacity))
 
-        path_steps.sort(key=get_priority_score, reverse=True)
-
-        # Apply capacity filter if requested
-        if consider_capacity:
-            path_steps = self._filter_by_capacity(path_steps)
-
-        return Result.ok(path_steps[:max_steps])
-
-    def _get_path_steps_from_context(
-        self,
-        max_steps: int,
-        consider_goals: bool,
-        consider_capacity: bool,
-    ) -> list[PathStep]:
-        """Fallback: Get path steps from context when service unavailable."""
+    def _get_path_steps_from_context(self, max_steps: int) -> list[PathStep]:
+        """Fallback candidates from the context's own ready-to-learn list, unranked."""
         ready_uids = self.context.get_ready_to_learn()
 
         if not ready_uids:
@@ -273,9 +279,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         path_steps = []
 
         for ku_uid in ready_uids[: max_steps * 2]:
-            priority_score = self._calculate_learning_priority(
-                ku_uid, consider_goals, consider_capacity
-            )
+            priority_score = self._context_priority(ku_uid)
 
             # NOTE: This is a fallback path - no application discovery
             # when main KU service is unavailable (fail-fast principle)
@@ -304,43 +308,59 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
             path_steps.append(step)
 
-        from core.utils.sort_functions import get_priority_score
+        return path_steps
 
-        path_steps.sort(key=get_priority_score, reverse=True)
-        return path_steps[:max_steps]
-
-    def _calculate_learning_priority(
-        self, ku_uid: str, consider_goals: bool, consider_capacity: bool
-    ) -> float:
-        """Calculate priority score for a knowledge unit (0.0-1.0)."""
+    def _context_priority(self, ku_uid: str) -> float:
+        """Score a context-fallback candidate (0.0-1.0) before the flags act on it."""
         score = 0.5  # Base score
 
-        # Factor 1: Goal alignment (30% weight)
-        if consider_goals:
-            aligned_goals = self._find_aligned_goals(ku_uid)
-            if aligned_goals:
-                goal_weight = min(0.3, len(aligned_goals) * 0.1)
-                score += goal_weight
-
-        # Factor 2: Unblocking potential (25% weight)
+        # Unblocking potential (25% weight)
         unlocks_count = self._count_items_unlocked_by(ku_uid)
         if unlocks_count > 0:
             unblocking_weight = min(0.25, unlocks_count * 0.05)
             score += unblocking_weight
 
-        # Factor 3: Life path alignment (25% weight)
+        # Life path alignment (25% weight)
         if self.context.life_path_uid and ku_uid in self.context.next_recommended_knowledge:
             score += 0.25
 
-        # Factor 4: Capacity fit (20% weight)
-        if consider_capacity:
-            estimated_time = self.context.estimated_time_to_mastery.get(ku_uid, 60)
-            if estimated_time <= self.context.available_minutes_daily:
-                score += 0.2
-            elif estimated_time <= self.context.available_minutes_daily * 2:
-                score += 0.1
-
         return min(1.0, score)
+
+    def _rank_steps(
+        self,
+        steps: list[PathStep],
+        max_steps: int,
+        consider_goals: bool,
+        consider_capacity: bool,
+    ) -> list[PathStep]:
+        """Turn one source's candidates into the answer: weigh goals, order, fit the day, cut.
+
+        Every candidate source ends here, so ``consider_goals`` and ``consider_capacity``
+        have one meaning. Candidates that tie keep the order their source gave them.
+        """
+        if consider_goals:
+            steps = [self._with_goal_weight(step) for step in steps]
+
+        ranked = sorted(steps, key=get_priority_score, reverse=True)
+
+        if consider_capacity:
+            ranked = self._filter_by_capacity(ranked)
+
+        return ranked[:max_steps]
+
+    def _with_goal_weight(self, step: PathStep) -> PathStep:
+        """Raise a step's score by the goals it serves; a step serving none is returned as is."""
+        if not step.aligns_with_goals:
+            return step
+
+        goal_weight = min(
+            NextStepRanking.GOAL_WEIGHT_MAX,
+            len(step.aligns_with_goals) * NextStepRanking.GOAL_WEIGHT_PER_GOAL,
+        )
+        # A vector score can sit above 1.0 (similarity times a learning-state boost);
+        # the ceiling applies to what the weight adds and never lowers a score.
+        weighted = max(step.priority_score, min(1.0, step.priority_score + goal_weight))
+        return replace(step, priority_score=weighted)
 
     def _generate_learning_rationale(
         self,
@@ -445,7 +465,11 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         return opportunities
 
     def _filter_by_capacity(self, steps: list[PathStep]) -> list[PathStep]:
-        """Filter path steps by user capacity."""
+        """Keep, in order, each step that fits in what is left of the day's minutes.
+
+        A step too long for the remainder is skipped and the walk continues, so a shorter
+        step ranked below it can be kept.
+        """
         available = self.context.available_minutes_daily
         filtered = []
         total_time = 0
@@ -616,13 +640,13 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
     # Vector Search Helpers
     # =========================================================================
 
-    def _generate_learning_query(self) -> str:
+    def _generate_learning_query(self, consider_goals: bool) -> str:
         """
         Generate a semantic search query based on user's learning goals and life path.
 
         Combines:
         - Life path focus
-        - Active learning goals
+        - Active learning goals (when ``consider_goals``)
         - Current knowledge context
         """
         query_parts = []
@@ -633,7 +657,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             query_parts.append("learning path knowledge")
 
         # Include learning goals context
-        if self.context.learning_goals:
+        if consider_goals and self.context.learning_goals:
             query_parts.append("goal-aligned learning")
 
         # Include current learning focus
@@ -654,13 +678,13 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         consider_capacity: bool,
     ) -> Result[list[PathStep]]:
         """
-        Convert vector search results to PathStep objects.
+        Convert vector search results to PathStep objects and rank them.
 
         Args:
             vector_results: Results from learning_aware_search()
             max_steps: Maximum steps to return
-            consider_goals: Whether to weight by goal alignment
-            consider_capacity: Whether to filter by capacity
+            consider_goals: Weight by goal alignment (``_rank_steps``)
+            consider_capacity: Fit the steps to the day (``_rank_steps``)
 
         Returns:
             Result[list[PathStep]] with full context
@@ -704,11 +728,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
             path_steps.append(step)
 
-        # Apply capacity filter if requested
-        if consider_capacity:
-            path_steps = self._filter_by_capacity(path_steps)
-
-        return Result.ok(path_steps[:max_steps])
+        return Result.ok(self._rank_steps(path_steps, max_steps, consider_goals, consider_capacity))
 
 
 __all__ = ["LearningIntelligenceMixin"]

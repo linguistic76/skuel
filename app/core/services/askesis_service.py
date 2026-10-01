@@ -532,8 +532,10 @@ class AskesisService:
         Args:
             user_context: Complete UserContext snapshot
             max_steps: Maximum number of steps to return
-            consider_goals: Weight by goal alignment
-            consider_capacity: Respect user capacity limits
+            consider_goals: Weight by goal alignment — a step serving a goal
+                scores higher
+            consider_capacity: Respect user capacity limits — the returned steps
+                fit the day's available minutes together
 
         Returns:
             Result[list[PathStep]]: Ranked list with:
