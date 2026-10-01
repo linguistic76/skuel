@@ -20,7 +20,9 @@ class TaskCreateRequest(CreateRequestBase):
     title: str = Field(min_length=1, max_length=200, description="Task title")
 
     # Optional fields (with defaults)
-    description: str | None = Field(default=None, description="Detailed description")
+    description: str | None = Field(
+        default=None, max_length=2000, description="Detailed description"
+    )
     due_date: date | None = Field(default=None)
     duration_minutes: int | None = Field(default=None, ge=5, le=480)
 
@@ -42,7 +44,7 @@ class TaskUpdateRequest(UpdateRequestBase):
 
     # ALL fields optional for partial update
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     due_date: date | None = None
     priority: Priority | None = None
     actual_minutes: int | None = Field(default=None, ge=0)

@@ -23,7 +23,9 @@ from core.models.validation_rules import validate_future_date, validate_recurren
 
 class TaskCreateRequest(CreateRequestBase):
     title: str = Field(min_length=1, max_length=200, description="Task title")
-    description: str | None = Field(default=None, description="Detailed description")
+    description: str | None = Field(
+        default=None, max_length=2000, description="Detailed description"
+    )
     due_date: date | None = Field(default=None, description="Due date")
     priority: Priority = Field(default=Priority.MEDIUM, description="Task priority")
     status: EntityStatus = Field(default=EntityStatus.DRAFT, description="Initial status")

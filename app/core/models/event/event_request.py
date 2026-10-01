@@ -28,7 +28,7 @@ class EventCreateRequest(BaseModel):
     """External API request for creating an event."""
 
     title: str = Field(min_length=1, max_length=200, description="Event title")
-    description: str | None = Field(default=None, description="Event description")
+    description: str | None = Field(default=None, max_length=2000, description="Event description")
 
     # Timing
     event_date: date = Field(description="Date of the event")
@@ -107,7 +107,7 @@ class EventUpdateRequest(BaseModel):
     """External API request for updating an event."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     event_date: date | None = None
     start_time: time | None = None
     end_time: time | None = None

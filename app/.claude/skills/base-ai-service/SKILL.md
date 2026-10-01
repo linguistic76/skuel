@@ -151,10 +151,15 @@ ingest path publishes after persisting. `./dev embed-backfill` fills nodes that 
 
 ### `_generate_insight(prompt, context=None, max_tokens=500) -> Result[str]`
 
-Prepends `context` as `key: value` lines, calls `self.llm.generate(full_prompt,
-max_tokens=max_tokens)`, and returns `Result.ok(response.content)`.
+Prepends `context` as `key: value` lines — each value through `_bounded` — calls
+`self.llm.generate(full_prompt, max_tokens=max_tokens)`, and returns
+`Result.ok(response.content)`.
 
 - No LLM → `Result.fail(Errors.unavailable(feature="ai_insights", ...))`.
+- An assembled prompt over `PromptInput.PROMPT_MAX_CHARS` → `Result.fail(Errors.system(...))`,
+  and nothing is sent. The helper refuses instead of cutting: the instructions are the end of
+  the prompt, and a cut here would take them. Bounded fields keep every live prompt under the
+  ceiling; a builder that interpolates a field without `_bounded` is what reaches it.
 - A response with `error` set → `Result.fail(Errors.integration(service="llm", ...))`.
   `LLMService.generate` never raises: a provider failure is a response with empty `content`
   and a set `error`, and this helper is where it becomes a failed `Result`. There is no
@@ -162,6 +167,21 @@ max_tokens=max_tokens)`, and returns `Result.ok(response.content)`.
 
 A method that returns the helper's `Result` hands the caller text; a method that parses the
 text (`.split("\n")`, `json.loads`) parses a `str`.
+
+### `_bounded(value, limit=PromptInput.FIELD_MAX_CHARS) -> str`
+
+Renders one entity field as prompt text of at most `limit` characters
+(`truncate_to_budget`, `core/utils/text_truncation.py`): a field within the limit is returned
+as written; a longer one is cut at a paragraph, sentence or word boundary and ends in `...`.
+`_generate_insight` applies it to every `context` value, so a field that goes into the context
+dict needs nothing more. A builder that writes a field straight into its prompt string calls
+it at the interpolation — `generate_task_breakdown` and `generate_milestones` do.
+
+The bound is per field because the request models are not the only writers: a Task or Event
+`description` is capped at 2000 by its request model, the limit `FIELD_MAX_CHARS` matches, and
+a field written by vault ingestion or a template spawn has no cap at all.
+`tests/unit/services/test_ai_prompt_input_bounds.py` runs every prompt-building method of the
+eight services over an entity whose every text field is 50 000 characters.
 
 ### `_rank_similar_entities(source, entity_type, candidate_pool, *, exclude_uid, limit=5)`
 
@@ -338,8 +358,9 @@ The eight domain AI services hold their prompts inline, as string literals in th
 and the report generators among them. A new prompt goes in the registry — see the
 [prompt-templates](../prompt-templates/SKILL.md) skill.
 
-Bound what reaches the model: truncate long fields and cap list lengths. `max_tokens` caps the
-reply only. The live methods pass entity fields whole.
+Entity text reaches the model bounded: put a field in the `context` dict, or pass it through
+`self._bounded(...)` where the prompt string interpolates it (§ The Helpers). `max_tokens` caps
+the reply only.
 
 ---
 

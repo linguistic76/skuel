@@ -314,8 +314,6 @@ class AskesisTokenBudget:
 
     These budgets use characters (~4 chars ≈ 1 token) as a practical proxy.
     Truncation preserves sentence boundaries where possible.
-
-    March 2026: Added to prevent unbounded context growth in RAG pipeline.
     """
 
     # Maximum characters for curriculum content injected from PsBundle.
@@ -330,6 +328,30 @@ class AskesisTokenBudget:
     # sent to the LLM in the guided pipeline.
     # ~2500 tokens — curriculum is reference material, not the focus.
     MAX_USER_PROMPT_CURRICULUM_CHARS: Final = 10000
+
+
+class PromptInput:
+    """
+    Character bounds on the entity text the domain AI services hand to an LLM.
+
+    A domain ``*AIService`` builds its prompt from an entity's stored fields.
+    A request model's ``max_length`` holds only at the doors that validate
+    through it; a field written through another door — vault ingestion, a
+    template spawn — has no cap at all. So the bound is applied where the text
+    enters the prompt (``BaseAIService._bounded``): each field is cut on its
+    own, and the instructions that follow it are never the part that is lost.
+    """
+
+    # The most characters of one field that reach a prompt. No Activity request
+    # model caps a text field above it, so a field that passed its request
+    # model's cap reaches the prompt whole.
+    FIELD_MAX_CHARS: Final = 2000
+
+    # The most characters of an assembled prompt `_generate_insight` sends.
+    # Above every prompt the domain AI services build from bounded fields, so
+    # only a builder that interpolates an unbounded field can reach it — and
+    # that call is refused, not cut.
+    PROMPT_MAX_CHARS: Final = 20000
 
 
 class AskesisPipelineTimeout:

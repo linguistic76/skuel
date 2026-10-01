@@ -53,7 +53,9 @@ class TaskCreateRequest(CreateRequestBase):
     """External API request for creating a task."""
 
     title: str = Field(min_length=1, max_length=200, description="Task title")
-    description: str | None = Field(default=None, description="Detailed description")
+    description: str | None = Field(
+        default=None, max_length=2000, description="Detailed description"
+    )
 
     # Scheduling
     due_date: date | None = Field(
@@ -168,7 +170,7 @@ class TaskUpdateRequest(UpdateRequestBase):
     """External API request for updating a task."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     due_date: date | None = None
     scheduled_date: date | None = None
     duration_minutes: int | None = Field(default=None, ge=5, le=480)

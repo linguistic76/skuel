@@ -85,7 +85,7 @@ skills:
 
   - name: pydantic
     description: Pydantic V2 validation models
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: []
     dependencies: []
     library_package: pydantic

@@ -163,8 +163,8 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         # Build prompt for LLM
         prompt = f"""Break down this task into {max_subtasks} or fewer actionable subtasks.
 
-Task: {task.title}
-Description: {task.description or "No description provided"}
+Task: {self._bounded(task.title)}
+Description: {self._bounded(task.description or "No description provided")}
 
 Return only the subtask titles, one per line. Be specific and actionable."""
 

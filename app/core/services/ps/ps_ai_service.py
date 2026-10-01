@@ -237,7 +237,7 @@ Keep it under 100 words."""
         context = {
             "title": ps.title,
             "intent": ps.intent or "Not specified",
-            "description": (ps.description or "")[:1500],
+            "description": ps.description or "",
             "domain": ps.domain.value if ps.domain else "General",
         }
 
@@ -339,7 +339,7 @@ Each item should be concrete and actionable, not generic."""
         context = {
             "title": ps.title,
             "intent": ps.intent or "Not specified",
-            "description": (ps.description or "")[:1500],
+            "description": ps.description or "",
             "domain": ps.domain.value if ps.domain else "General",
         }
 

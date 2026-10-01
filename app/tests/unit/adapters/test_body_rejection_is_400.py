@@ -26,6 +26,8 @@ from starlette.testclient import TestClient
 import adapters.inbound.pathways_api as pathways_api
 import adapters.inbound.route_factories.crud_route_factory as crud_module
 from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
+from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
+from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.utils.result_simplified import Result
 
 _CSRF = {"X-CSRF-Token": "tok", "content-type": "application/json"}
@@ -108,3 +110,76 @@ def test_a_valid_body_still_reaches_the_service(monkeypatch: pytest.MonkeyPatch)
     )
 
     assert response.status_code == 201, response.text
+
+
+# ---------------------------------------------------------------------------
+# Task and Event `description` — capped by the real request models
+# ---------------------------------------------------------------------------
+
+_EVENT_TIMES = {"event_date": "2099-01-05", "start_time": "09:00", "end_time": "10:00"}
+
+#: domain → (create schema, update schema, the fields a create body must carry)
+_DESCRIPTION_DOORS: dict[str, tuple[type[BaseModel], type[BaseModel], dict[str, str]]] = {
+    "tasks": (TaskCreateRequest, TaskUpdateRequest, {"title": "a real task"}),
+    "events": (EventCreateRequest, EventUpdateRequest, {"title": "a real event", **_EVENT_TIMES}),
+}
+
+_DESCRIPTION_CASES = [
+    pytest.param(domain, "create", id=f"{domain}-create") for domain in _DESCRIPTION_DOORS
+] + [pytest.param(domain, "update", id=f"{domain}-update") for domain in _DESCRIPTION_DOORS]
+
+
+def _to_dict_entity(schema: BaseModel, uid: str, user_uid: str) -> dict[str, object]:
+    """Stand in for the domain's registered converter."""
+    return {"uid": uid, "user_uid": user_uid, **schema.model_dump(mode="json")}
+
+
+def _post_description(
+    monkeypatch: pytest.MonkeyPatch, domain: str, door: str, description: str
+) -> tuple[int, str]:
+    """POST one description through the real schemas; answer (status, body text)."""
+    create_schema, update_schema, required = _DESCRIPTION_DOORS[domain]
+    app, rt = fast_app(pico=False, default_hdrs=False)
+    monkeypatch.setattr(crud_module, "require_authenticated_user", _fake_authenticated_user)
+
+    service = MagicMock()
+    service.create = AsyncMock(return_value=Result.ok({"uid": "entity_1"}))
+    service.update_for_user = AsyncMock(return_value=Result.ok({"uid": "entity_1"}))
+    service.verify_ownership = AsyncMock(return_value=Result.ok(True))
+
+    CRUDRouteFactory(
+        service=service,
+        domain_name=domain,
+        create_schema=create_schema,
+        update_schema=update_schema,
+        entity_converter=_to_dict_entity,
+    ).register_routes(app, rt)
+
+    if door == "create":
+        path, body = f"/api/{domain}/create", {**required, "description": description}
+    else:
+        path, body = f"/api/{domain}/update?uid=entity_1", {"description": description}
+    response = TestClient(app, cookies=_COOKIES).post(path, json=body, headers=_CSRF)
+    return response.status_code, response.text
+
+
+@pytest.mark.parametrize(("domain", "door"), _DESCRIPTION_CASES)
+def test_an_over_length_description_is_400(
+    monkeypatch: pytest.MonkeyPatch, domain: str, door: str
+) -> None:
+    """One character past the cap is the caller's error, named by field."""
+    status, text = _post_description(monkeypatch, domain, door, "x" * 2001)
+
+    assert status == 400, text
+    payload = json.loads(text)
+    assert payload["category"] == "validation"
+    assert "description" in payload["message"]
+
+
+@pytest.mark.parametrize(("domain", "door"), _DESCRIPTION_CASES)
+def test_a_description_at_the_cap_reaches_the_service(
+    monkeypatch: pytest.MonkeyPatch, domain: str, door: str
+) -> None:
+    status, text = _post_description(monkeypatch, domain, door, "x" * 2000)
+
+    assert status == (201 if door == "create" else 200), text

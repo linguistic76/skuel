@@ -68,10 +68,13 @@ class BaseAIService(Generic[B, T]):
 ## Helper Signatures
 
 ```python
+@staticmethod
+def _bounded(value: object, limit: int = PromptInput.FIELD_MAX_CHARS) -> str: ...
+
 async def _generate_insight(
     self,
     prompt: str,
-    context: dict[str, Any] | None = None,  # boundary: free-form prompt context
+    context: Mapping[str, object] | None = None,
     max_tokens: int = 500,
 ) -> Result[str]: ...
 
@@ -101,7 +104,10 @@ async def rank_similar_curriculum(
 ```
 
 `_generate_insight` returns the response's `content`, or `Errors.integration(service="llm")`
-when the response's `error` is set. Both rankings score on the index's `[0, 1]` cosine scale.
+when the response's `error` is set. It bounds each `context` value with `_bounded`
+(`PromptInput.FIELD_MAX_CHARS`, 2000) and refuses an assembled prompt over
+`PromptInput.PROMPT_MAX_CHARS` (20000) with `Errors.system`, unsent. Both rankings score on the
+index's `[0, 1]` cosine scale.
 
 ## The Services the Helpers Call
 
