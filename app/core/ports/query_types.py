@@ -3985,6 +3985,16 @@ class Violation(TypedDict):
 # ============================================================================
 
 
+class KnowledgeKuLessStep(TypedDict):
+    """One PathStep that teaches no Ku — no USES_KU / CONTAINS_KNOWLEDGE / TRAINS_KU
+    edge onto a Ku. A content defect: every legitimate step composes Kus, and a
+    step's mastery is derived from them, so a Ku-less step can never be mastered
+    and contributes nothing to its path's (Ku-counted) progress."""
+
+    uid: str
+    title: str
+
+
 class KnowledgeOrphanKu(TypedDict):
     """One orphan Ku — a knowledge unit with zero incident relationships.
 
@@ -4090,6 +4100,9 @@ class KnowledgeHealthReport(TypedDict):
     orphan_ku_count: int
     orphan_fraction: float
     orphan_kus: list[KnowledgeOrphanKu]
+    # PathSteps composing no Ku — content defects (every legitimate step teaches Kus)
+    ku_less_step_count: int
+    ku_less_steps: list[KnowledgeKuLessStep]
     # Structural coverage slices
     composition: KnowledgeCoverageMetric
     prerequisite_dag: KnowledgeCoverageMetric
@@ -4131,6 +4144,8 @@ class KnowledgeHealthRaw(TypedDict):
     max_ku_degree: int
     orphan_ku_count: int
     orphan_kus: list[KnowledgeOrphanKu]
+    ku_less_step_count: int
+    ku_less_steps: list[KnowledgeKuLessStep]
     composition_edge_count: int
     composed_ku_count: int
     prerequisite_edge_count: int

@@ -99,7 +99,7 @@ await ps_service.intelligence.is_ready(step_uid, completed_steps)
 | `SUPPORTS_GOAL` | Outgoing | Goal | Outcome alignment (authored directly on PS) |
 | `GUIDED_BY_PRINCIPLE` | Outgoing | Principle | Values-based guidance (authored directly on PS) |
 | `INFORMS_CHOICE` | Outgoing | Choice | Decision points (authored directly on PS) |
-| `MASTERED` (incoming) | Incoming | User | Derived: `PsMasteryService.handle_knowledge_mastered` writes it the moment the step's last Ku is mastered — same writer (`mark_mastered`) and shape (`mastered_at`, `mastery_score` 1.0, `confidence`, `method = 'derived'`) as a Ku's edge; the step's `IN_PROGRESS` enrollment is retired in the same write. A step teaching no Ku is never derived (`../roadmap/zero-ku-step-mastery.md`) |
+| `MASTERED` (incoming) | Incoming | User | Derived: `PsMasteryService.handle_knowledge_mastered` writes it the moment the step's last Ku is mastered — same writer (`mark_mastered`) and shape (`mastered_at`, `mastery_score` 1.0, `confidence`, `method = 'derived'`) as a Ku's edge; the step's `IN_PROGRESS` enrollment is retired in the same write. A step teaching no Ku is never derived — it is a content defect the knowledge-health gauge lists (`../roadmap/done/zero-ku-step-mastery.md`) |
 
 ## Intelligence Methods
 

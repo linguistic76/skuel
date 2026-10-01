@@ -9,9 +9,11 @@ facts the ``KnowledgeHealthBackend`` measures and derives coverage ratios, a
 composite GDS-readiness score, and human-readable authoring-guidance flags.
 
 It serves two audiences from one report:
-- **Authoring today** — flags the orphan Kus, the near-empty prerequisite DAG,
-  the missing ORGANIZES/MOC hierarchy, and under-composed / un-practised content
-  as concrete gaps to fill.
+- **Authoring today** — flags the orphan Kus, the PathSteps that teach no Ku
+  (a content defect — every legitimate step composes Kus, and a step's mastery
+  is derived from them), the near-empty prerequisite DAG, the missing
+  ORGANIZES/MOC hierarchy, and under-composed / un-practised content as
+  concrete gaps to fill.
 - **GDS-readiness for Horizon 2** — the composite score is the density signal
   ADR-080's "when to revisit" gate reads: GDS (centrality / shortest-path /
   community detection) says nothing useful until the graph is dense enough.
@@ -170,10 +172,20 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
         positive line so the panel is never blank.
         """
         total_kus = raw["total_kus"]
-        if total_kus == 0:
-            return ["No Kus in the knowledge subgraph yet — ingest curriculum to begin."]
-
         flags: list[str] = []
+
+        # Any Ku-less step is a defect, not a density signal: no threshold — and
+        # it is reported before the empty-corpus note, which is exactly the
+        # corpus where every step is Ku-less.
+        if raw["ku_less_step_count"] > 0:
+            flags.append(
+                f"{raw['ku_less_step_count']} PathStep(s) teach no Ku — a content defect: "
+                "compose Kus into each (uses_ku / trains_ku); a step teaching nothing can "
+                "never be mastered and contributes nothing to its path's progress."
+            )
+        if total_kus == 0:
+            flags.append("No Kus in the knowledge subgraph yet — ingest curriculum to begin.")
+            return flags
 
         if orphan_fraction > KnowledgeHealth.ORPHAN_FLAG_FRACTION:
             flags.append(
@@ -262,6 +274,8 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
             "orphan_ku_count": raw["orphan_ku_count"],
             "orphan_fraction": round(orphan_fraction, 4),
             "orphan_kus": raw["orphan_kus"],
+            "ku_less_step_count": raw["ku_less_step_count"],
+            "ku_less_steps": raw["ku_less_steps"],
             "composition": cls._coverage(
                 raw["composition_edge_count"], raw["composed_ku_count"], total_kus
             ),

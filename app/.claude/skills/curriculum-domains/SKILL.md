@@ -181,7 +181,7 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 
 Beside the progression: `MARKED_AS_READ` (progress `state=read`) and `BOOKMARKED` (`POST /explore/ps/{uid}/bookmark`).
 
-Report approval masters **Kus**: `ReportMasteryService.propagate_mastery` marks the entry's linked `:Ku` uids `MASTERED {mastery_score}` (through `ps_service.mastery.mark_mastered`); `PsProgressService` then publishes `PathStepProgressUpdated` for the steps that use those Kus, and `PsMasteryService` masters any step whose every Ku is mastered. A step teaching no Ku has no derivable mastery (`/docs/roadmap/zero-ku-step-mastery.md`). Readers that report "Kus mastered" match `:Ku` — a step's edge is the same shape and must not be counted as knowledge.
+Report approval masters **Kus**: `ReportMasteryService.propagate_mastery` marks the entry's linked `:Ku` uids `MASTERED {mastery_score}` (through `ps_service.mastery.mark_mastered`); `PsProgressService` then publishes `PathStepProgressUpdated` for the steps that use those Kus, and `PsMasteryService` masters any step whose every Ku is mastered. A step teaching no Ku has no derivable mastery and is a content defect — the knowledge-health gauge lists it (`/docs/roadmap/done/zero-ku-step-mastery.md`). Readers that report "Kus mastered" match `:Ku` — a step's edge is the same shape and must not be counted as knowledge.
 
 **Key routes:**
 - `GET /path-steps` — Browse all PathSteps; rows link to the reading page, with an "Enrolled" badge on the session user's IN_PROGRESS steps

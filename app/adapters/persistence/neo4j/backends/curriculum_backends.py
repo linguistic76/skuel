@@ -34,6 +34,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     KnowledgeHealthRaw,
+    KnowledgeKuLessStep,
     KnowledgeOrphanKu,
     MasteredWriteRow,
     PsDeleteStepRow,
@@ -1254,6 +1255,17 @@ CALL () {
         AS composition_edge_count
 }
 CALL () {
+    // A step composing no Ku is a content defect: a step's mastery is derived
+    // from its Kus, so it can never be mastered and it contributes nothing to
+    // its path's (Ku-counted) progress. Listed by uid so the author can fix
+    // each one.
+    MATCH (ps:Entity {entity_type: __ET_PS__})
+    WHERE NOT exists{ (ps)-[:__COMPOSITION__]->(:Entity {entity_type: __ET_KU__}) }
+    WITH ps ORDER BY ps.uid
+    RETURN count(ps) AS ku_less_step_count,
+           collect({ uid: ps.uid, title: coalesce(ps.title, ps.uid) }) AS ku_less_steps
+}
+CALL () {
     MATCH (k:Entity {entity_type: __ET_KU__})
     WHERE exists{ (:Entity {entity_type: __ET_PS__})-[:__COMPOSITION__]->(k) }
     RETURN count(k) AS composed_ku_count
@@ -1321,6 +1333,7 @@ CALL () {
 }
 RETURN total_kus, total_path_steps, total_learning_paths, total_exercises,
        avg_ku_degree, max_ku_degree, orphan_ku_count, orphan_kus,
+       ku_less_step_count, ku_less_steps,
        composition_edge_count, composed_ku_count,
        prerequisite_edge_count, dag_ku_count,
        reduce(m = 0, x IN [fwd_depth, inv_depth, step_depth] | CASE WHEN x > m THEN x ELSE m END)
@@ -1375,6 +1388,8 @@ _EMPTY_KNOWLEDGE_HEALTH_RAW: KnowledgeHealthRaw = {
     "max_ku_degree": 0,
     "orphan_ku_count": 0,
     "orphan_kus": [],
+    "ku_less_step_count": 0,
+    "ku_less_steps": [],
     "composition_edge_count": 0,
     "composed_ku_count": 0,
     "prerequisite_edge_count": 0,
@@ -1429,6 +1444,10 @@ class KnowledgeHealthBackend:
             {"uid": str(entry["uid"]), "title": str(entry["title"])}
             for entry in (row.get("orphan_kus") or [])
         ]
+        ku_less_steps: list[KnowledgeKuLessStep] = [
+            {"uid": str(entry["uid"]), "title": str(entry["title"])}
+            for entry in (row.get("ku_less_steps") or [])
+        ]
         return Result.ok(
             KnowledgeHealthRaw(
                 total_kus=int(row["total_kus"]),
@@ -1439,6 +1458,8 @@ class KnowledgeHealthBackend:
                 max_ku_degree=int(row["max_ku_degree"]),
                 orphan_ku_count=int(row["orphan_ku_count"]),
                 orphan_kus=orphan_kus,
+                ku_less_step_count=int(row["ku_less_step_count"]),
+                ku_less_steps=ku_less_steps,
                 composition_edge_count=int(row["composition_edge_count"]),
                 composed_ku_count=int(row["composed_ku_count"]),
                 prerequisite_edge_count=int(row["prerequisite_edge_count"]),
