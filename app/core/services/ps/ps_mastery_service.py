@@ -22,7 +22,7 @@ Architecture:
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -46,6 +46,14 @@ step teaches, never reported directly (a Ku's ``method`` names its reporter —
 STEP_MASTERY_SCORE = 1.0
 """``mastery_score`` on a PathStep's MASTERED edge: the step's mastered-Ku
 ratio, which is 1.0 by the time the edge is written."""
+
+
+class StepWrite(Enum):
+    """What one attempt to master a step came to."""
+
+    TRANSITION = "transition"  # the edge is new — PathStepCompleted announced
+    ALREADY_MASTERED = "already_mastered"  # the edge existed — nothing to announce
+    NOT_WRITTEN = "not_written"  # the write failed or matched nothing — logged, withheld
 
 
 class LearningState(StrEnum):
@@ -432,12 +440,13 @@ class PsMasteryService:
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error detecting path step completion: {e}")
 
-    async def _master_step(self, user_uid: UserUID, ps_uid: str, now: str) -> bool:
+    async def _master_step(self, user_uid: UserUID, ps_uid: str, now: str) -> StepWrite:
         """Write the step's MASTERED edge; announce it if this write created it.
 
-        Returns True when a transition was announced. A write that errors or
-        matches nothing withholds the event (logged); an edge that already
-        existed is a repeat, not a transition.
+        A write that errors or matches nothing withholds the event (logged);
+        an edge that already existed is a repeat, not a transition — the two
+        are told apart in the verdict, because a caller reconciling gaps must
+        not read "another writer got there first" as a failure.
         """
         written = await self.backend.mark_mastered(
             user_uid, ps_uid, now, STEP_MASTERY_SCORE, STEP_MASTERY_METHOD
@@ -448,16 +457,16 @@ class PsMasteryService:
                 f"edge was not written; PathStepCompleted withheld: "
                 f"{written.error if written.is_error else 'no row returned'}"
             )
-            return False
+            return StepWrite.NOT_WRITTEN
         if written.value[0]["was_mastered"]:
             self.logger.debug(f"Path step {ps_uid} already mastered by {user_uid}")
-            return False
+            return StepWrite.ALREADY_MASTERED
 
         await publish_event(
             self.event_bus, PathStepCompleted(ps_uid=ps_uid, user_uid=user_uid), self.logger
         )
         self.logger.info(f"Path step mastered: {ps_uid} (all KUs mastered by {user_uid})")
-        return True
+        return StepWrite.TRANSITION
 
     async def reconcile_step_mastery(
         self, *, dry_run: bool = False
@@ -473,9 +482,11 @@ class PsMasteryService:
         Idempotent: a second run finds nothing. ``dry_run`` reports the gaps
         and writes nothing.
 
-        Returns the gaps closed. Every gap is attempted; if any write failed
-        the result is a failure naming the pairs left open, so a caller never
-        reads a partial run as a clean one.
+        Returns the gaps closed — by this run, or by the live handler in the
+        moment between the read and the write (an edge found already there is
+        a healthy graph, not a failure). Every gap is attempted; if any write
+        failed the result is a failure naming the pairs left open, so a caller
+        never reads a partial run as a clean one.
         """
         gaps = await self.backend.find_step_mastery_gaps()
         if gaps.is_error:
@@ -487,10 +498,11 @@ class PsMasteryService:
         closed: list[StepMasteryGapRow] = []
         left_open: list[StepMasteryGapRow] = []
         for gap in gaps.value:
-            if await self._master_step(UserUID(gap["user_uid"]), gap["ps_uid"], now):
-                closed.append(gap)
-            else:
+            verdict = await self._master_step(UserUID(gap["user_uid"]), gap["ps_uid"], now)
+            if verdict is StepWrite.NOT_WRITTEN:
                 left_open.append(gap)
+            else:
+                closed.append(gap)
         if left_open:
             pairs = ", ".join(f"{g['user_uid']}→{g['ps_uid']}" for g in left_open)
             return Result.fail(

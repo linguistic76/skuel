@@ -38,6 +38,7 @@ class _Backend:
     writes: list[tuple[str, str, float, str]] = field(default_factory=list)
     gaps: list[dict[str, str]] = field(default_factory=list)
     failing: set[str] = field(default_factory=set)
+    already: set[str] = field(default_factory=set)
 
     async def find_step_mastery_gaps(self) -> Result[list[dict[str, str]]]:
         self.trace.steps.append("gaps")
@@ -58,6 +59,8 @@ class _Backend:
         self.writes.append((user_uid, entity_uid, mastery_score, method))
         if entity_uid in self.failing:
             return Result.fail(Errors.database("write", f"{entity_uid} down"))
+        if entity_uid in self.already:
+            return Result.ok([{"mastery_score": mastery_score, "was_mastered": True}])
         if self.write_result is not None:
             return self.write_result
         return Result.ok([{"mastery_score": mastery_score, "was_mastered": False}])
@@ -205,3 +208,18 @@ async def test_reconcile_fails_naming_the_gaps_it_could_not_close() -> None:
     message = str(result.error)
     assert "1 of 2" in message and "user_1→ps.one" in message and "1 closed" in message
     assert trace.steps == ["gaps", "write:ps.one", "write:ps.two", "publish:PathStepCompleted"]
+
+
+@pytest.mark.asyncio
+async def test_reconcile_counts_a_gap_the_live_handler_closed_meanwhile_as_closed() -> None:
+    """Between the gap read and the write the handler may master the step itself;
+    the edge is there, nothing is announced, and the run is clean."""
+    trace = _Trace()
+    gaps = [{"user_uid": "user_1", "ps_uid": "ps.one"}, {"user_uid": "user_2", "ps_uid": "ps.two"}]
+    backend = _Backend(trace, detected=[], gaps=gaps, already={"ps.one"})
+    bus = _Bus(trace)
+
+    result = await PsMasteryService(backend=backend, event_bus=bus).reconcile_step_mastery()  # type: ignore[arg-type]
+
+    assert result.is_ok and result.value == gaps
+    assert [e.ps_uid for e in bus.published if isinstance(e, PathStepCompleted)] == ["ps.two"]

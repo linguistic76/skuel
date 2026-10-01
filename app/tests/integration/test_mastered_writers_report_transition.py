@@ -7,7 +7,10 @@ route). Each reads the edge's prior existence in the same statement and returns 
 ``was_mastered``: False for the write that created the edge, True for every repeat.
 The publishers hang on that flag, so it is pinned against real Neo4j for all three —
 including under concurrency: the flag is set inside the ``MERGE``, under its lock, so
-N simultaneous first writes report exactly one transition and leave one edge.
+N simultaneous first writes report exactly one transition and leave one edge. Neo4j may
+refuse one of the N with a transient ``DeadlockDetected`` (node-vs-relationship lock
+cycle between two MERGEs of the same pair); that write fails loudly and is retried by
+its caller, so the probe counts transitions among the writes that landed.
 """
 
 from __future__ import annotations
@@ -84,6 +87,16 @@ async def test_user_backend_writer(neo4j_driver, graph) -> None:
     assert repeat.is_ok and repeat.value == {"mastery_score": 0.9, "was_mastered": True}
 
 
+def _first_row_flag(write) -> bool:
+    """``was_mastered`` of a list-returning writer's one row."""
+    return bool(write.value[0]["was_mastered"])
+
+
+def _single_row_flag(write) -> bool:
+    """``was_mastered`` of the single-row writer."""
+    return bool(write.value["was_mastered"])
+
+
 async def _edge_count(neo4j_driver, ku_uid: str) -> int:
     async with neo4j_driver.session() as session:
         result = await session.run(
@@ -111,12 +124,18 @@ async def test_concurrent_first_writes_report_one_transition(neo4j_driver, graph
         *(user.record_knowledge_mastery(USER, KU_C, 0.85) for _ in range(6))
     )
 
-    for label, writes, flags in (
-        ("learning-state", learning_state, [w.value[0]["was_mastered"] for w in learning_state]),
-        ("ku-page", ku_page, [w.value[0]["was_mastered"] for w in ku_page]),
-        ("pathways", pathways, [w.value["was_mastered"] for w in pathways]),
+    for label, writes, flag_of in (
+        ("learning-state", learning_state, _first_row_flag),
+        ("ku-page", ku_page, _first_row_flag),
+        ("pathways", pathways, _single_row_flag),
     ):
-        assert all(w.is_ok for w in writes), f"{label}: a concurrent write failed"
+        landed = [w for w in writes if w.is_ok]
+        refused = [w for w in writes if w.is_error]
+        assert all("DeadlockDetected" in str(w.error) for w in refused), (
+            f"{label}: a concurrent write failed for a reason other than lock contention"
+        )
+        assert landed, f"{label}: no write landed"
+        flags = [flag_of(w) for w in landed]
         assert flags.count(False) == 1, f"{label}: {flags.count(False)} transitions reported"
     for ku_uid in (KU_A, KU_B, KU_C):
         assert await _edge_count(neo4j_driver, ku_uid) == 1
