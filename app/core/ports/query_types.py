@@ -3480,6 +3480,14 @@ class UserMasteryResult(TypedDict, total=False):
     updated_at: str | None
 
 
+class StepMasteryGapRow(TypedDict):
+    """One (user, PathStep) pair whose every Ku the user has mastered while the
+    step's own MASTERED edge is absent — what ``reconcile_step_mastery`` closes."""
+
+    user_uid: str
+    ps_uid: str
+
+
 class MasteredWriteRow(TypedDict):
     """What a MASTERED writer reports: the score that ended up stored and whether
     the edge already existed. ``was_mastered`` is the transition flag — a repeat

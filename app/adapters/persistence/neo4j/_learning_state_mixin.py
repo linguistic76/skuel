@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     import logging
 
     from core.models.type_hints import Neo4jProperties
-    from core.ports.query_types import MasteredWriteRow
+    from core.ports.query_types import MasteredWriteRow, StepMasteryGapRow
 
 
 def to_mastered_write_rows(
@@ -332,6 +332,35 @@ class _LearningStateMixin:
         RETURN ps.uid as ps_uid, ps.title as ps_title, all_ku_uids
         """
         return await self.execute_query(query, {"ku_uid": ku_uid, "user_uid": user_uid})
+
+    async def find_step_mastery_gaps(self) -> Result[list[StepMasteryGapRow]]:
+        """Every (user, step) pair where the user has mastered all of the step's
+        Kus and the step's own MASTERED edge is absent — across all users.
+
+        The derived writer runs best-effort behind ``KnowledgeMastered``; a
+        detection or write that failed after the Ku edge committed leaves this
+        gap, and the transition event is not replayed. The reconciler reads the
+        gaps from the graph's own state and closes them.
+        """
+        query = """
+        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity)
+        WITH ps, collect(DISTINCT ku) AS kus
+        MATCH (user:User)-[:MASTERED]->(mastered:Entity)
+        WHERE mastered IN kus
+        WITH ps, kus, user, count(DISTINCT mastered) AS mastered_count
+        WHERE mastered_count = size(kus) AND NOT EXISTS { (user)-[:MASTERED]->(ps) }
+        RETURN user.uid AS user_uid, ps.uid AS ps_uid
+        ORDER BY user.uid, ps.uid
+        """
+        result = await self.execute_query(query, {})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                {"user_uid": str(r["user_uid"]), "ps_uid": str(r["ps_uid"])}
+                for r in (result.value or [])
+            ]
+        )
 
     async def get_bookmarked_kus(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all bookmarked KU UIDs for a user."""

@@ -14,6 +14,8 @@ numeric reader sees one vocabulary. Mastery is terminal, so the step's IN_PROGRE
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 import pytest_asyncio
 
@@ -187,3 +189,32 @@ async def test_a_step_teaching_no_ku_is_never_derived(neo4j_driver, backend, bus
 
     assert await _step_edges(neo4j_driver, STEP_EMPTY) == []
     assert all(e.ps_uid != STEP_EMPTY for e in _completions(bus))
+
+
+@pytest.mark.asyncio
+async def test_reconcile_closes_a_gap_the_handler_left(neo4j_driver, backend, bus, mastery) -> None:
+    """Ku masteries written with no handler running (a failed derivation, or a graph
+    that predates the writer) leave a gap the graph shows; the reconciler closes it
+    through the same writer and announces the transition once."""
+    now = datetime.now(UTC).isoformat()
+    # Both Kus mastered straight at the backend: no KnowledgeMastered, no derivation.
+    assert (await backend.mark_mastered(USER, KU_A, now, 0.9, "report_approval")).is_ok
+    assert (await backend.mark_mastered(USER, KU_B, now, 0.9, "report_approval")).is_ok
+    assert await _step_edges(neo4j_driver, STEP) == []
+
+    preview = await mastery.reconcile_step_mastery(dry_run=True)
+    assert preview.is_ok and preview.value == [{"user_uid": USER, "ps_uid": STEP}]
+    assert await _step_edges(neo4j_driver, STEP) == [], "a dry run writes nothing"
+    assert _completions(bus) == []
+
+    closed = await mastery.reconcile_step_mastery()
+    assert closed.is_ok and closed.value == [{"user_uid": USER, "ps_uid": STEP}]
+    edges = await _step_edges(neo4j_driver, STEP)
+    assert len(edges) == 1 and edges[0]["props"]["method"] == STEP_MASTERY_METHOD
+    assert [e.ps_uid for e in _completions(bus)] == [STEP]
+    assert not await _enrolled(neo4j_driver, STEP)
+
+    again = await mastery.reconcile_step_mastery()
+    assert again.is_ok and again.value == [], "idempotent — a second run finds no gap"
+    assert len(_completions(bus)) == 1
+    assert all(e.ps_uid != STEP_EMPTY for e in _completions(bus)), "a zero-Ku step is no gap"

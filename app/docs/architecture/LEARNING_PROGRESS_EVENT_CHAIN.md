@@ -102,7 +102,7 @@ The chain relies on two graph relationships to propagate progress:
 | Relationship | Pattern | Purpose |
 |-------------|---------|---------|
 | `USES_KU` | `(PathStep)-[:USES_KU]->(Ku)` | PS completion detection — are ALL KUs in this PathStep mastered? (`CONTAINS_KNOWLEDGE` and `TRAINS_KU` count the same way) |
-| `MASTERED` | `(User)-[:MASTERED {mastered_at, mastery_score, confidence, method}]->(Ku \| PathStep)` | One writer, one shape: a Ku's by report approval, a PathStep's derived when its last Ku is mastered. Readers that report "Kus mastered" match `:Ku` |
+| `MASTERED` | `(User)-[:MASTERED {mastered_at, mastery_score, confidence, method}]->(Ku \| PathStep)` | One writer, one shape: a Ku's by report approval, a PathStep's derived when its last Ku is mastered. Readers that report "Kus mastered" match `:Ku`. The derivation is best-effort behind the event; `./dev reconcile-step-mastery` (`PsMasteryService.reconcile_step_mastery`) closes any gap the graph shows — every Ku mastered, no step edge — through the same writer, publishing `PathStepCompleted` for each edge it creates |
 | `HAS_STEP` | `(LearningPath)-[:HAS_STEP]->(PathStep)` | LP progress recalculation on PS completion |
 
 There is no intermediate `HAS_LESSON` edge. PathStep composes atomic Kus directly

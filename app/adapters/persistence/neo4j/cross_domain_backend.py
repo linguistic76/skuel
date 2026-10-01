@@ -1277,22 +1277,29 @@ class CrossDomainBackend:
     # ========================================================================
 
     async def get_entity_system_metrics(self) -> Result[list[dict[str, Any]]]:
-        """System-wide learning metrics: entity totals and interaction counts."""
+        """System-wide learning metrics: Ku totals and Ku interaction counts.
+
+        Every arm is ``:Ku`` — a PathStep carries the same four edges (the
+        page-load view, a bookmark, the enrollment, the derived mastery) and
+        is not a knowledge unit. Each count binds its relationship and counts
+        THAT: ``count(*)`` after an OPTIONAL MATCH that matched nothing counts
+        the one null row and reads 1 where the truth is 0.
+        """
         return await self.executor.execute_query(
             """
             OPTIONAL MATCH (ku:Entity:Ku)
             WITH count(DISTINCT ku) AS total_kus
-            OPTIONAL MATCH (:User)-[v:VIEWED]->(:Entity)
+            OPTIONAL MATCH (:User)-[v:VIEWED]->(:Entity:Ku)
             WITH total_kus, count(v) AS total_viewed
-            OPTIONAL MATCH (:User)-[:IN_PROGRESS]->(:Entity)
-            WITH total_kus, total_viewed, count(*) AS total_in_progress
-            OPTIONAL MATCH (:User)-[:MASTERED]->(:Entity:Ku)
-            WITH total_kus, total_viewed, total_in_progress, count(*) AS total_mastered
-            OPTIONAL MATCH (:User)-[:BOOKMARKED]->(:Entity)
+            OPTIONAL MATCH (:User)-[p:IN_PROGRESS]->(:Entity:Ku)
+            WITH total_kus, total_viewed, count(p) AS total_in_progress
+            OPTIONAL MATCH (:User)-[m:MASTERED]->(:Entity:Ku)
+            WITH total_kus, total_viewed, total_in_progress, count(m) AS total_mastered
+            OPTIONAL MATCH (:User)-[b:BOOKMARKED]->(:Entity:Ku)
             WITH total_kus, total_viewed, total_in_progress, total_mastered,
-                 count(*) AS total_bookmarked
+                 count(b) AS total_bookmarked
             OPTIONAL MATCH (u:User)
-                WHERE EXISTS { (u)-[:VIEWED|IN_PROGRESS|MASTERED|BOOKMARKED]->(:Entity) }
+                WHERE EXISTS { (u)-[:VIEWED|IN_PROGRESS|MASTERED|BOOKMARKED]->(:Entity:Ku) }
             RETURN total_kus, total_viewed, total_in_progress, total_mastered,
                    total_bookmarked, count(DISTINCT u) AS users_with_progress
             """
@@ -1304,13 +1311,13 @@ class CrossDomainBackend:
             """
             MATCH (u:User)
             WHERE u.uid <> 'user_system'
-            OPTIONAL MATCH (u)-[:VIEWED]->(ku1:Entity)
+            OPTIONAL MATCH (u)-[:VIEWED]->(ku1:Entity:Ku)
             WITH u, count(DISTINCT ku1) AS viewed_count
-            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(ku2:Entity)
+            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(ku2:Entity:Ku)
             WITH u, viewed_count, count(DISTINCT ku2) AS in_progress_count
             OPTIONAL MATCH (u)-[:MASTERED]->(ku3:Entity:Ku)
             WITH u, viewed_count, in_progress_count, count(DISTINCT ku3) AS mastered_count
-            OPTIONAL MATCH (u)-[:BOOKMARKED]->(ku4:Entity)
+            OPTIONAL MATCH (u)-[:BOOKMARKED]->(ku4:Entity:Ku)
             WITH u, viewed_count, in_progress_count, mastered_count,
                  count(DISTINCT ku4) AS bookmarked_count
             RETURN u.uid AS uid,
@@ -1327,39 +1334,44 @@ class CrossDomainBackend:
         )
 
     async def get_user_ku_detail(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Detailed KU progress for one user."""
+        """Detailed KU progress for one user — the four Ku interaction lists.
+
+        ``:Ku`` on every arm (a PathStep carries the same edges and is not a
+        Ku); each collect is null-guarded, so a list with no matches is ``[]``
+        rather than one all-null map.
+        """
         return await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})
 
-            OPTIONAL MATCH (u)-[v:VIEWED]->(vku:Entity)
-            WITH u, collect(DISTINCT {
+            OPTIONAL MATCH (u)-[v:VIEWED]->(vku:Entity:Ku)
+            WITH u, collect(DISTINCT CASE WHEN vku IS NOT NULL THEN {
                 uid: vku.uid, title: vku.title,
                 view_count: v.view_count,
                 first_viewed_at: toString(v.first_viewed_at),
                 last_viewed_at: toString(v.last_viewed_at)
-            }) AS viewed_kus
+            } END) AS viewed_kus
 
-            OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(pku:Entity)
-            WITH u, viewed_kus, collect(DISTINCT {
+            OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(pku:Entity:Ku)
+            WITH u, viewed_kus, collect(DISTINCT CASE WHEN pku IS NOT NULL THEN {
                 uid: pku.uid, title: pku.title,
                 started_at: toString(p.started_at),
                 progress_score: p.progress_score
-            }) AS progress_kus
+            } END) AS progress_kus
 
             OPTIONAL MATCH (u)-[m:MASTERED]->(mku:Entity:Ku)
-            WITH u, viewed_kus, progress_kus, collect(DISTINCT {
+            WITH u, viewed_kus, progress_kus, collect(DISTINCT CASE WHEN mku IS NOT NULL THEN {
                 uid: mku.uid, title: mku.title,
                 mastered_at: toString(m.mastered_at),
                 mastery_score: m.mastery_score,
                 method: m.method
-            }) AS mastered_kus
+            } END) AS mastered_kus
 
-            OPTIONAL MATCH (u)-[b:BOOKMARKED]->(bku:Entity)
-            WITH viewed_kus, progress_kus, mastered_kus, collect(DISTINCT {
+            OPTIONAL MATCH (u)-[b:BOOKMARKED]->(bku:Entity:Ku)
+            WITH viewed_kus, progress_kus, mastered_kus, collect(DISTINCT CASE WHEN bku IS NOT NULL THEN {
                 uid: bku.uid, title: bku.title,
                 bookmarked_at: toString(b.bookmarked_at)
-            }) AS bookmarked_kus
+            } END) AS bookmarked_kus
 
             RETURN viewed_kus, progress_kus, mastered_kus, bookmarked_kus
             """,
@@ -1427,11 +1439,11 @@ class CrossDomainBackend:
                  habits_total, habits_active, events_total, choices_total,
                  count(DISTINCT p) AS principles_total
 
-            OPTIONAL MATCH (u)-[:VIEWED]->(kv:Entity)
+            OPTIONAL MATCH (u)-[:VIEWED]->(kv:Entity:Ku)
             WITH u, tasks_total, tasks_completed, goals_total, goals_active,
                  habits_total, habits_active, events_total, choices_total,
                  principles_total, count(DISTINCT kv) AS ku_viewed
-            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(kp:Entity)
+            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(kp:Entity:Ku)
             WITH u, tasks_total, tasks_completed, goals_total, goals_active,
                  habits_total, habits_active, events_total, choices_total,
                  principles_total, ku_viewed,

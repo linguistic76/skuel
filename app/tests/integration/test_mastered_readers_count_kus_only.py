@@ -49,6 +49,19 @@ async def graph(neo4j_driver, clean_neo4j) -> None:
     now = datetime.now(UTC).isoformat()
     assert (await backend.mark_mastered(USER, KU, now, 0.9, "report_approval")).is_ok
     assert (await backend.mark_mastered(USER, STEP, now, 1.0, "derived")).is_ok
+    # The step's own engagement edges (the page-load view, a bookmark, a second
+    # enrollment) — none of them is Ku engagement either.
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (u:User {uid: $u}), (ps:Entity {uid: $step})
+            CREATE (u)-[:VIEWED {view_count: 1}]->(ps)
+            CREATE (u)-[:BOOKMARKED {bookmarked_at: datetime()}]->(ps)
+            CREATE (u)-[:IN_PROGRESS {started_at: datetime()}]->(ps)
+            """,
+            u=USER,
+            step=STEP,
+        )
 
 
 @pytest.fixture
@@ -104,6 +117,10 @@ async def test_system_totals(graph, cross_domain) -> None:
     row = result.value[0]
     assert row["total_kus"] == 1, "the corpus total is Ku nodes, not every entity"
     assert row["total_mastered"] == 1
+    assert (row["total_viewed"], row["total_in_progress"], row["total_bookmarked"]) == (0, 0, 0), (
+        "a step's view / enrollment / bookmark is not Ku engagement"
+    )
+    assert row["users_with_progress"] == 1
 
 
 @pytest.mark.asyncio
@@ -112,6 +129,7 @@ async def test_all_users_progress_mastered_count(graph, cross_domain) -> None:
     assert result.is_ok
     row = next(r for r in result.value if r["uid"] == USER)
     assert row["mastered_count"] == 1
+    assert (row["viewed_count"], row["in_progress_count"], row["bookmarked_count"]) == (0, 0, 0)
 
 
 @pytest.mark.asyncio
@@ -119,6 +137,8 @@ async def test_user_ku_detail_mastered_list(graph, cross_domain) -> None:
     result = await cross_domain.get_user_ku_detail(USER)
     assert result.is_ok
     assert [m["uid"] for m in result.value[0]["mastered_kus"]] == [KU]
+    detail = result.value[0]
+    assert (detail["viewed_kus"], detail["progress_kus"], detail["bookmarked_kus"]) == ([], [], [])
 
 
 @pytest.mark.asyncio
@@ -126,6 +146,7 @@ async def test_user_detail_stats_ku_mastered(graph, cross_domain) -> None:
     result = await cross_domain.get_user_detail_stats(USER)
     assert result.is_ok
     assert result.value[0]["ku_mastered"] == 1
+    assert (result.value[0]["ku_viewed"], result.value[0]["ku_in_progress"]) == (0, 0)
 
 
 @pytest.mark.asyncio

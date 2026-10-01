@@ -124,6 +124,7 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
     RootOrganizerResult,
+    StepMasteryGapRow,
     TeacherAuthorityRow,
     UserMasteryResult,
     UserProgressResult,
@@ -1305,6 +1306,10 @@ class PsOperations(
         self, ku_uid: str, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {ps_uid, ps_title, all_ku_uids}
         """Find PathSteps whose KUs are all mastered after a KU-mastery event."""
+        ...
+
+    async def find_step_mastery_gaps(self) -> Result[list[StepMasteryGapRow]]:
+        """Every (user, step) pair whose Kus are all mastered while the step's MASTERED edge is absent."""
         ...
 
     async def get_bookmarked_kus(

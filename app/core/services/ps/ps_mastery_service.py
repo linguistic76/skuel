@@ -35,6 +35,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import PsOperations
+    from core.ports.query_types import StepMasteryGapRow
 
 
 STEP_MASTERY_METHOD = "derived"
@@ -408,8 +409,12 @@ class PsMasteryService:
         A step that teaches no Ku is never detected here; it has no derivable
         mastery (see ``docs/roadmap/zero-ku-step-mastery.md``).
 
-        Best-effort: errors are logged but not raised to prevent
-        KU mastery from failing if path step detection fails.
+        Best-effort: errors are logged but not raised to prevent KU mastery
+        from failing if path step detection fails. The Ku edge has committed by
+        then and the transition event is not replayed, so a detection or write
+        that failed here leaves a gap the graph itself shows — a user with
+        every Ku of a step mastered and no step edge — which
+        ``reconcile_step_mastery`` (``./dev reconcile-step-mastery``) closes.
         """
         try:
             result = await self.backend.detect_path_step_completion(event.ku_uid, event.user_uid)
@@ -420,31 +425,64 @@ class PsMasteryService:
 
             now = datetime.now(UTC).isoformat()
             for record in result.value or []:
-                ps_uid = str(record["ps_uid"])
-                written = await self.backend.mark_mastered(
-                    event.user_uid, ps_uid, now, STEP_MASTERY_SCORE, STEP_MASTERY_METHOD
-                )
-                if written.is_error or not written.value:
-                    self.logger.error(
-                        f"Path step {ps_uid} completed by {event.user_uid} but its MASTERED "
-                        f"edge was not written; PathStepCompleted withheld: "
-                        f"{written.error if written.is_error else 'no row returned'}"
-                    )
-                    continue
-                if written.value[0]["was_mastered"]:
-                    self.logger.debug(f"Path step {ps_uid} already mastered by {event.user_uid}")
-                    continue
-
-                ps_event = PathStepCompleted(ps_uid=ps_uid, user_uid=event.user_uid)
-                await publish_event(self.event_bus, ps_event, self.logger)
-                self.logger.info(
-                    f"Path step mastered: {ps_uid} (all KUs mastered by {event.user_uid})"
-                )
+                await self._master_step(event.user_uid, str(record["ps_uid"]), now)
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error detecting path step completion: {e}")
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error detecting path step completion: {e}")
+
+    async def _master_step(self, user_uid: UserUID, ps_uid: str, now: str) -> bool:
+        """Write the step's MASTERED edge; announce it if this write created it.
+
+        Returns True when a transition was announced. A write that errors or
+        matches nothing withholds the event (logged); an edge that already
+        existed is a repeat, not a transition.
+        """
+        written = await self.backend.mark_mastered(
+            user_uid, ps_uid, now, STEP_MASTERY_SCORE, STEP_MASTERY_METHOD
+        )
+        if written.is_error or not written.value:
+            self.logger.error(
+                f"Path step {ps_uid} completed by {user_uid} but its MASTERED "
+                f"edge was not written; PathStepCompleted withheld: "
+                f"{written.error if written.is_error else 'no row returned'}"
+            )
+            return False
+        if written.value[0]["was_mastered"]:
+            self.logger.debug(f"Path step {ps_uid} already mastered by {user_uid}")
+            return False
+
+        await publish_event(
+            self.event_bus, PathStepCompleted(ps_uid=ps_uid, user_uid=user_uid), self.logger
+        )
+        self.logger.info(f"Path step mastered: {ps_uid} (all KUs mastered by {user_uid})")
+        return True
+
+    async def reconcile_step_mastery(
+        self, *, dry_run: bool = False
+    ) -> Result[list[StepMasteryGapRow]]:
+        """Close every step-mastery gap the graph shows, across all users.
+
+        A gap is a (user, step) pair with every Ku of the step mastered and no
+        step edge — what a derivation that failed behind ``KnowledgeMastered``
+        leaves, or a graph whose Ku masteries predate the derived writer. Each
+        gap is closed through the one writer (``_master_step``), which publishes
+        ``PathStepCompleted`` for the edge it creates, so the path-progress
+        chain runs for the reconciled step as it would have at the time.
+        Idempotent: a second run finds nothing. ``dry_run`` reports the gaps
+        and writes nothing. Returns the gaps found.
+        """
+        gaps = await self.backend.find_step_mastery_gaps()
+        if gaps.is_error:
+            return Result.fail(gaps)
+        if dry_run:
+            return Result.ok(gaps.value)
+
+        now = datetime.now(UTC).isoformat()
+        for gap in gaps.value:
+            await self._master_step(UserUID(gap["user_uid"]), gap["ps_uid"], now)
+        return Result.ok(gaps.value)
 
     async def get_bookmarked_kus(
         self,

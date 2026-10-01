@@ -187,6 +187,12 @@ EXEMPTED_METHODS: dict[str, str] = {
         "ingest door), outside the scanner's production roots; becomes an in-app "
         "caller when a canon management route/UI is built (Phase 3+)"
     ),
+    "core/services/ps/ps_mastery_service.py::reconcile_step_mastery": (
+        "LIVE — called only by scripts/reconcile_step_mastery.py "
+        "(./dev reconcile-step-mastery), outside the scanner's production roots: the "
+        "one-shot that closes a step-mastery gap the best-effort KnowledgeMastered "
+        "handler left (every Ku mastered, no step edge) through the same writer"
+    ),
     "core/services/askesis/intent_classifier.py::classify_intent_scored": (
         "LIVE — called only by the two eval instruments "
         "(scripts/eval_askesis_chunk_draw.py, scripts/eval_intent_classification.py), "
