@@ -50,7 +50,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     logger: Any
 
     # ========================================================================
-    # INTELLIGENCEOPERATIONS PROTOCOL METHODS
+    # ROUTE FACTORY PROTOCOL METHODS (IntelligenceOperations, PerformanceAnalyticsOperations)
     # ========================================================================
 
     async def get_performance_analytics(

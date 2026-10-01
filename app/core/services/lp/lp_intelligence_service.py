@@ -41,7 +41,6 @@ from core.ports.content_protocols import ContentAdapter
 from core.ports.curriculum_protocols import LpOperations
 from core.ports.query_types import (
     LpDomainInsights,
-    LpPerformanceAnalytics,
     LpRecommendedStep,
 )
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -180,68 +179,22 @@ class LpIntelligenceService(
     # `_CoreIntelligenceMixin[LearningPath]` — typed return, one delegation.
     # ========================================================================
 
-    async def get_performance_analytics(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[LpPerformanceAnalytics]:
-        """
-        Get learning path analytics for a user.
-
-        Protocol method: Aggregates learning path metrics.
-        Used by IntelligenceRouteFactory for GET /api/learning-paths/analytics route.
-
-        Args:
-            user_uid: User UID
-            period_days: Number of days to analyze (default: 30)
-
-        Returns:
-            Result containing analytics data
-
-        Note: Learning Paths are shared curriculum content (no user ownership).
-        This returns overall LP statistics rather than user-specific data.
-        """
-        # LP is shared content - get overall stats
-        if not self.backend:
-            return Result.fail(
-                Errors.system(
-                    message="Learning backend required for analytics",
-                    operation="get_performance_analytics",
-                )
-            )
-
-        lp_result = await self.backend.find_by()
-        if lp_result.is_error:
-            return Result.fail(lp_result)
-
-        all_paths = lp_result.value or []
-        total_paths = len(all_paths)
-
-        return Result.ok(
-            {
-                "user_uid": user_uid,
-                "period_days": period_days,
-                "total_learning_paths": total_paths,
-                "analytics": {
-                    "total": total_paths,
-                    "note": "Learning Paths are shared curriculum content",
-                },
-            }
-        )
-
     async def get_domain_insights(
-        self, uid: str, min_confidence: float = 0.7
+        self, uid: str, _min_confidence: float = 0.7
     ) -> Result[LpDomainInsights]:
         """
         Get domain-specific insights for a learning path.
 
         Protocol method: Provides LP-specific intelligence.
-        Used by IntelligenceRouteFactory for GET /api/learning-paths/insights route.
+        Used by IntelligenceRouteFactory for GET /api/pathways/insights route.
 
         Args:
             uid: Learning Path UID
-            min_confidence: Minimum confidence threshold (default: 0.7)
+            _min_confidence: Placeholder — the payload carries the path's title,
+                domain and step count, nothing confidence-scored to filter
 
         Returns:
-            Result containing insights data with validation and analysis
+            Result containing the path's title, domain and step count
         """
         if not self.backend:
             return Result.fail(
@@ -260,14 +213,17 @@ class LpIntelligenceService(
         if not lp:
             return Result.fail(Errors.not_found(resource="LearningPath", identifier=uid))
 
-        steps = getattr(lp, "steps", None) or ()
+        # GRAPH-NATIVE: a path's steps are its HAS_STEP edges, not a model field.
+        steps_result = await self.backend.get_steps_raw(uid)
+        if steps_result.is_error:
+            return Result.fail(steps_result)
+
         return Result.ok(
             {
                 "lp_uid": uid,
                 "lp_title": lp.title,
                 "lp_domain": lp.domain.value if lp.domain else None,
-                "total_steps": len(steps),
-                "min_confidence": min_confidence,
+                "total_steps": len(steps_result.value or []),
             }
         )
 

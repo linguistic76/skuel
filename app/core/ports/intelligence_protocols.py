@@ -9,7 +9,8 @@ Protocol definitions for intelligence services across all domains.
 
 The per-domain intelligence services (TasksIntelligenceService, etc.) share no core
 protocol; the route-facing slice they satisfy is IntelligenceRouteFactory's own
-IntelligenceOperations (adapters/inbound/route_factories/intelligence_route_factory.py).
+IntelligenceOperations — and, for the six Activity services, PerformanceAnalyticsOperations
+(adapters/inbound/route_factories/intelligence_route_factory.py).
 
 See: /docs/patterns/protocol_architecture.md
 """

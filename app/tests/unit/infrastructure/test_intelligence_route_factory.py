@@ -2,12 +2,11 @@
 Tests for Intelligence Route Factory
 ====================================
 
-Comprehensive test coverage for generic intelligence route generation.
+The factory registers a domain's intelligence routes from its analytics service:
 
-Updated January 2026 for new 3-method protocol:
-- get_with_context(uid, depth) -> Result[tuple[T, GraphContext]]
-- get_performance_analytics(user_uid, period_days) -> Result[dict]
-- get_domain_insights(uid, min_confidence) -> Result[dict]
+- get_with_context(uid, depth) -> Result[tuple[T, GraphContext]]   (either scope)
+- get_domain_insights(uid, min_confidence) -> Result[dict]          (either scope)
+- get_performance_analytics(user_uid, period_days) -> Result[dict]  (USER_OWNED only)
 """
 
 import json
@@ -101,7 +100,7 @@ class MockGoal:
 
 
 class MockIntelligenceService:
-    """Mock service implementing IntelligenceOperations protocol (3-method design)."""
+    """A user-owned domain's service: context, insights and the user's analytics."""
 
     def __init__(self):
         self.context_calls = []
@@ -161,6 +160,26 @@ class MockIntelligenceService:
         )
 
 
+class MockSharedIntelligenceService:
+    """A shared-content service: context and insights, no per-user analytics."""
+
+    def __init__(self):
+        self.context_calls = []
+        self.insights_calls = []
+
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[MockGoal, MockGraphContext]]:
+        self.context_calls.append((uid, depth))
+        return Result.ok((MockGoal(uid=uid, title=f"Step {uid}"), MockGraphContext(uid)))
+
+    async def get_domain_insights(
+        self, uid: str, _min_confidence: float = 0.7
+    ) -> Result[dict[str, str]]:
+        self.insights_calls.append(uid)
+        return Result.ok({"uid": uid})
+
+
 # ============================================================================
 # TEST FIXTURES - Mock Request & Router
 # ============================================================================
@@ -211,9 +230,9 @@ def mock_router() -> MockRouter:
 class AllowAllOwnership:
     """Permissive OwnershipVerifier — every uid is owned.
 
-    USER_OWNED without an ownership_service is now a construction error
-    (ADR-085 fail-fast conversion), so generic route-behavior fixtures carry
-    this stand-in; ownership-refusal tests use MockOwnershipService below.
+    USER_OWNED without an ownership_service is a construction error (ADR-085),
+    so generic route-behavior fixtures carry this stand-in; ownership-refusal
+    tests use MockOwnershipService below.
     """
 
     async def verify_ownership(self, uid: str, user_uid: str) -> Result:
@@ -273,9 +292,8 @@ def test_factory_feature_flags(mock_service):
 def test_factory_user_owned_without_ownership_service_raises(mock_service):
     """USER_OWNED without an ownership_service is a construction-time error.
 
-    Pin of the ADR-085 fail-fast conversion: the factory used to log a
-    warning and then SILENTLY SKIP the ownership checks on its
-    context/insights routes — a wiring bug surfacing as a cross-user read.
+    Without the service the context/insights routes could not verify ownership,
+    and a wiring mistake would surface as a cross-user read (ADR-085).
     """
     with pytest.raises(ValueError, match=r"requires\s+an ownership_service"):
         IntelligenceRouteFactory(
@@ -495,18 +513,116 @@ async def test_insights_route_default_confidence(intelligence_factory, mock_rout
 # ============================================================================
 
 
-def test_service_implements_intelligence_operations_protocol():
-    """Test MockIntelligenceService implements IntelligenceOperations protocol."""
-    service = MockIntelligenceService()
+def test_a_user_owned_factory_constructs_over_each_activity_service():
+    """The six Activity analytics services carry the per-user aggregate."""
+    from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
+    from core.services.events.events_intelligence_service import EventsIntelligenceService
+    from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
+    from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
+    from core.services.principles.principles_intelligence_service import (
+        PrinciplesIntelligenceService,
+    )
+    from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 
-    # Protocol check (duck typing) - 3 methods
-    assert hasattr(service, "get_with_context")
-    assert hasattr(service, "get_performance_analytics")
-    assert hasattr(service, "get_domain_insights")
+    for service_class in (
+        TasksIntelligenceService,
+        GoalsIntelligenceService,
+        HabitsIntelligenceService,
+        EventsIntelligenceService,
+        ChoicesIntelligenceService,
+        PrinciplesIntelligenceService,
+    ):
+        # object.__new__: an instance with no dependencies — construction reads
+        # the method's presence and calls nothing.
+        factory = IntelligenceRouteFactory(
+            intelligence_service=object.__new__(service_class),
+            domain_name="activity",
+            ownership_service=AllowAllOwnership(),
+        )
+        assert factory.analytics_service is not None, service_class.__name__
+
+
+def test_a_user_owned_factory_refuses_each_curriculum_service():
+    """Shared curriculum has no per-user set to aggregate: KU, PS and LP carry no
+    get_performance_analytics, so none can back a USER_OWNED analytics route."""
+    from core.services.ku.ku_intelligence_service import KuIntelligenceService
+    from core.services.lp.lp_intelligence_service import LpIntelligenceService
+    from core.services.ps.ps_intelligence_service import PsIntelligenceService
+
+    for service_class in (KuIntelligenceService, PsIntelligenceService, LpIntelligenceService):
+        with pytest.raises(ValueError, match="get_performance_analytics"):
+            IntelligenceRouteFactory(
+                intelligence_service=object.__new__(service_class),
+                domain_name="curriculum",
+                ownership_service=AllowAllOwnership(),
+            )
 
 
 # ============================================================================
-# TESTS - Ownership Verification (January 2026 Security Fix)
+# TESTS - Analytics is a USER_OWNED route
+# ============================================================================
+
+
+def test_shared_scope_registers_no_analytics_route(mock_router):
+    """A SHARED factory registers context and insights and nothing else."""
+    factory = IntelligenceRouteFactory(
+        intelligence_service=MockSharedIntelligenceService(),
+        domain_name="path-steps",
+        scope=ContentScope.SHARED,
+    )
+
+    factory.register_routes(_app=None, rt=mock_router)
+
+    assert set(mock_router.routes) == {
+        "GET:/api/path-steps/context",
+        "GET:/api/path-steps/insights",
+    }
+
+
+def test_shared_scope_has_no_analytics_route_whatever_the_service_offers(mock_service, mock_router):
+    """Scope decides, not the service: a SHARED factory over a service that has
+    get_performance_analytics, with the flag left on, registers no analytics route."""
+    factory = IntelligenceRouteFactory(
+        intelligence_service=mock_service,
+        domain_name="pathways",
+        scope=ContentScope.SHARED,
+        enable_analytics=True,
+    )
+
+    factory.register_routes(_app=None, rt=mock_router)
+
+    assert factory.enable_analytics is False
+    assert "GET:/api/pathways/analytics" not in mock_router.routes
+    assert "GET:/api/pathways/context" in mock_router.routes
+    assert "GET:/api/pathways/insights" in mock_router.routes
+
+
+def test_user_owned_service_without_analytics_refuses_to_construct():
+    """A USER_OWNED factory cannot register an analytics route over a service
+    with no get_performance_analytics."""
+    with pytest.raises(ValueError, match="get_performance_analytics"):
+        IntelligenceRouteFactory(
+            intelligence_service=MockSharedIntelligenceService(),
+            domain_name="goals",
+            ownership_service=AllowAllOwnership(),
+        )
+
+
+def test_user_owned_service_without_analytics_constructs_with_the_route_disabled(mock_router):
+    factory = IntelligenceRouteFactory(
+        intelligence_service=MockSharedIntelligenceService(),
+        domain_name="goals",
+        ownership_service=AllowAllOwnership(),
+        enable_analytics=False,
+    )
+
+    factory.register_routes(_app=None, rt=mock_router)
+
+    assert set(mock_router.routes) == {"GET:/api/goals/context", "GET:/api/goals/insights"}
+
+
+# ============================================================================
+# TESTS - Ownership Verification
 # ============================================================================
 
 

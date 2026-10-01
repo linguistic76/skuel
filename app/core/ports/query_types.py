@@ -1992,22 +1992,6 @@ class PsPracticeSummaryResult(TypedDict):
 # ============================================================================
 
 
-class PsAnalyticsSummary(TypedDict):
-    """Nested summary for PS analytics."""
-
-    total: int
-    note: str
-
-
-class PsPerformanceAnalytics(TypedDict, total=False):
-    """Return shape for PsIntelligenceService.get_performance_analytics()."""
-
-    user_uid: str
-    period_days: int
-    total_path_steps: int
-    analytics: PsAnalyticsSummary
-
-
 class PsDomainInsights(TypedDict, total=False):
     """Return shape for PsIntelligenceService.get_domain_insights()."""
 
@@ -2017,7 +2001,6 @@ class PsDomainInsights(TypedDict, total=False):
     practice_summary: PsPracticeSummaryResult
     practice_completeness: float
     has_prerequisites: bool
-    min_confidence: float
 
 
 # ----------------------------------------------------------------------------
@@ -2270,22 +2253,6 @@ class LifePathMomentumCounts(TypedDict):
 # ============================================================================
 
 
-class LpAnalyticsSummary(TypedDict):
-    """Nested summary for LP analytics."""
-
-    total: int
-    note: str
-
-
-class LpPerformanceAnalytics(TypedDict, total=False):
-    """Return shape for LpIntelligenceService.get_performance_analytics()."""
-
-    user_uid: str
-    period_days: int
-    total_learning_paths: int
-    analytics: LpAnalyticsSummary
-
-
 class LpDomainInsights(TypedDict, total=False):
     """Return shape for LpIntelligenceService.get_domain_insights()."""
 
@@ -2293,7 +2260,6 @@ class LpDomainInsights(TypedDict, total=False):
     lp_title: str
     lp_domain: str | None
     total_steps: int
-    min_confidence: float
 
 
 class LpPathOverview(TypedDict, total=False):
@@ -4372,8 +4338,6 @@ __all__ = [
     # PS Backend Result Types
     "PsDeleteStepRow",
     # PS Intelligence Result Types
-    "PsAnalyticsSummary",
-    "PsPerformanceAnalytics",
     "PsDomainInsights",
     # PsIntelligenceBackendOperations raw Cypher rows
     "PsPrerequisiteStepUidsRow",
@@ -4381,8 +4345,6 @@ __all__ = [
     "PsGuidanceCountsRow",
     "PsTaughtKuUidRow",
     # LP Intelligence Result Types
-    "LpAnalyticsSummary",
-    "LpPerformanceAnalytics",
     "LpDomainInsights",
     "LpPathOverview",
     "LpCompletionStrategy",

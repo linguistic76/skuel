@@ -105,8 +105,9 @@ class QueryRouteConfig:
 class IntelligenceRouteConfig:
     """Configuration for IntelligenceRouteFactory.
 
-    Activity Domains use the default (USER_OWNED).
-    Curriculum Domains (PS, LP, Exercise) use SHARED.
+    Activity Domains use the default (USER_OWNED): context, insights and the
+    user's analytics. Curriculum domains (PS, LP) use SHARED: context and
+    insights, no analytics route.
 
     See: /docs/patterns/ROUTE_FACTORIES.md
     """

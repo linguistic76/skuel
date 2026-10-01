@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-09-27
+updated: 2026-10-01
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -220,7 +220,7 @@ On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, 
 | `analyze_event_performance(uid)` | Performance analysis for one event |
 | `analyze_upcoming_events(user_uid, days_ahead)` | Batch analysis of upcoming events |
 | `get_performance_analytics(user_uid, period_days)` | Event performance metrics for period |
-| `get_domain_insights(uid, min_confidence)` | Domain-specific insights |
+| `get_domain_insights(uid, _min_confidence)` | Domain-specific insights — `analyze_event_performance(uid)`; the threshold is accepted and not applied |
 
 **See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 

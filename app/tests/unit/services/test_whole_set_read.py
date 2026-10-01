@@ -142,15 +142,6 @@ PAGE_READS: dict[tuple[str, str, str], str] = {
     ("core/services/tasks/tasks_search_service.py", "get_prioritized", "get_user_entities"): (
         "no production caller"
     ),
-    ("core/services/ku/ku_intelligence_service.py", "get_performance_analytics", "find_by"): (
-        "an unfiltered read of one page of the corpus"
-    ),
-    ("core/services/ps/ps_intelligence_service.py", "get_performance_analytics", "find_by"): (
-        "an unfiltered read of one page of the corpus"
-    ),
-    ("core/services/lp/lp_intelligence_service.py", "get_performance_analytics", "find_by"): (
-        "an unfiltered read of one page of the corpus"
-    ),
 }
 
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-10-01
 ---
 
 # EventsIntelligenceService - Cross-Domain Impact Analysis & Schedule Optimization
@@ -94,7 +94,7 @@ if result.is_ok:
 
 ---
 
-### Method 2: get_performance_analytics() (IntelligenceOperations Protocol)
+### Method 2: get_performance_analytics() (PerformanceAnalyticsOperations Protocol)
 
 **Purpose:** Get event performance analytics for a user within a specified time period.
 
@@ -131,7 +131,7 @@ async def get_performance_analytics(
 }
 ```
 
-**Note:** As of January 19, 2026, `period_days` is fully implemented (no longer a placeholder).
+**Note:** `period_days` is applied — a window over `event_date`. `get_domain_insights(uid, _min_confidence)` ignores its threshold (`analyze_event_performance` takes none); the register is `docs/reference/PLACEHOLDER_INDEX.md` § Group L.
 
 **Example:**
 ```python

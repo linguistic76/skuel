@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-23
+updated: 2026-10-01
 ---
 
 # KuIntelligenceService - Usage, Organization & Per-User Substance
@@ -29,10 +29,9 @@ A Ku is an atomic, shared knowledge unit. KuIntelligenceService answers three qu
 
 ### Route-factory surface
 
-`get_with_context(uid, depth=2)` (inherited from `_CoreIntelligenceMixin[Ku]`), `get_performance_analytics(user_uid, period_days=30)` and `get_domain_insights(uid, min_confidence=0.7)` implement the three-method `IntelligenceRouteFactory` surface. **KU has no routes for them:** `KU_CONFIG` wires no `IntelligenceRouteConfig` (see [INTELLIGENCE_SERVICES_INDEX.md](INTELLIGENCE_SERVICES_INDEX.md) § Route Factory Protocol).
+`get_with_context(uid, depth=2)` (inherited from `_CoreIntelligenceMixin[Ku]`) and `get_domain_insights(uid, _min_confidence=0.7)` implement the route factory's `IntelligenceOperations`. **KU has no routes for them:** `KU_CONFIG` wires no `IntelligenceRouteConfig` (see [INTELLIGENCE_SERVICES_INDEX.md](INTELLIGENCE_SERVICES_INDEX.md) § Route Factory Protocol). There is no `get_performance_analytics`: Kus are shared content, with no per-user set to aggregate — corpus-level counts are `KnowledgeHealthService`'s.
 
-- `get_performance_analytics` returns corpus-level counts, not per-user data (Kus are shared content): `total_kus` and `by_nous` (Ku count per NOUS topic; a Ku with no topic counts under `"unassigned"`). `user_uid` and `period_days` are echoed back, not filtered on.
-- `get_domain_insights` returns the Ku's title, alias count, `get_usage_summary()` result and `get_organization_depth()`.
+- `get_domain_insights` returns the Ku's title, alias count, `get_usage_summary()` result and `get_organization_depth()`. `_min_confidence` is accepted and not applied — nothing in the payload is confidence-scored.
 
 ### get_usage_summary(ku_uid) → `Result[dict[str, int]]`
 

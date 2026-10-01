@@ -2,9 +2,9 @@
 Type Converter Utilities
 ========================
 
-THE canonical home of SKUEL's duck-typed conversion layer: five
+THE canonical home of SKUEL's duck-typed conversion layer: three
 `@runtime_checkable` protocols describing the shapes objects convert
-through, and the helpers that perform the conversions.
+through, and the enum and float helpers that perform the conversions.
 
 This module MUST import only the standard library. That constraint is
 load-bearing: it makes the module a true import leaf, so any module —
@@ -15,16 +15,12 @@ dodge a cycle, and the copies drifted. The leaf property is what makes
 the single copy possible; do not add first-party imports here.)
 
 Usage:
-    from core.utils.type_converters import to_dict, get_enum_value
-
-    # Convert any dict-like object
-    data = to_dict(some_object)
+    from core.utils.type_converters import get_enum_value
 
     # Extract enum value safely
     value = get_enum_value(some_enum_or_value)
 """
 
-import dataclasses
 import math
 from typing import Any, Protocol, overload, runtime_checkable
 
@@ -36,20 +32,11 @@ class PydanticModel(Protocol):
     def model_dump(self, *, exclude_none: bool = False) -> dict[str, Any]:
         """Dump model to dictionary.
 
-        ``exclude_none`` is the whole keyword surface the two consumers use
-        (``ConversionServiceV2.create_to_pure`` passes it; ``to_dict`` below
-        calls it bare). A real ``pydantic.BaseModel`` still satisfies this —
-        its extra keywords all have defaults.
+        ``exclude_none`` is the whole keyword surface its consumer uses
+        (``create_to_pure`` in ``core/services/conversion_service.py`` passes
+        it). A real ``pydantic.BaseModel`` satisfies this — its extra keywords
+        all have defaults.
         """
-        ...
-
-
-@runtime_checkable
-class HasDict(Protocol):
-    """Protocol for objects that can be converted to dict."""
-
-    def dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
         ...
 
 
@@ -59,15 +46,6 @@ class HasToDict(Protocol):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        ...
-
-
-@runtime_checkable
-class Serializable(Protocol):
-    """Protocol for objects that can be serialized to dict."""
-
-    def serialize(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
         ...
 
 
@@ -85,69 +63,6 @@ class EnumLike[V = str | int | float](Protocol):
 
     @property
     def value(self) -> V: ...
-
-
-def to_dict(obj: object) -> object:
-    """
-    Universal converter to dictionary format.
-
-    Every branch is an isinstance narrow, so ``object`` accepts exactly what
-    ``Any`` did while forbidding unchecked attribute access inside. The return
-    is ``object`` because the arms genuinely differ — ``dict[str, Any]`` from
-    the four protocol branches and the dataclass branch, a list from the
-    sequence branch, and the input untouched otherwise.
-
-    Conversion priority:
-    1. PydanticModel.model_dump() - Pydantic v2 models
-    2. HasDict.dict() - Objects with dict() method
-    3. HasToDict.to_dict() - Objects with to_dict() method
-    4. Serializable.serialize() - Objects with serialize() method
-    5. dataclass - Use dataclasses.asdict() for frozen dataclasses
-    6. dict - Pass through unchanged
-    7. list/tuple - Recursively convert elements
-    8. Anything else - Return as-is (primitives, etc.)
-
-    A dataclass that also defines ``to_dict()`` takes the HasToDict branch:
-    the protocol branches outrank the structural dataclass check so a type's
-    own conversion method always wins over field-dump reflection.
-
-    Args:
-        obj: Object to convert to dictionary format
-
-    Returns:
-        Dictionary representation of the object, or list of dicts for sequences
-
-    Examples:
-        >>> from pydantic import BaseModel
-        >>> class User(BaseModel):
-        ...     name: str
-        >>> to_dict(User(name="Alice"))
-        {'name': 'Alice'}
-
-        >>> to_dict([User(name="Alice"), User(name="Bob")])
-        [{'name': 'Alice'}, {'name': 'Bob'}]
-
-        >>> to_dict({"key": "value"})
-        {'key': 'value'}
-    """
-    if isinstance(obj, PydanticModel):
-        return obj.model_dump()
-    elif isinstance(obj, HasDict):
-        return obj.dict()
-    elif isinstance(obj, HasToDict):
-        return obj.to_dict()
-    elif isinstance(obj, Serializable):
-        return obj.serialize()
-    elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        # Handle frozen dataclasses (SKUEL domain models)
-        return dataclasses.asdict(obj)
-    elif isinstance(obj, dict):
-        return obj
-    elif isinstance(obj, list | tuple):
-        return [to_dict(item) for item in obj]
-    else:
-        # Fallback for primitive types
-        return obj
 
 
 @overload
@@ -310,13 +225,10 @@ def get_enum_attr_str(obj: object, attr: str, default: str = "") -> str:
 
 __all__ = [
     "EnumLike",
-    "HasDict",
     "HasToDict",
     "PydanticModel",
-    "Serializable",
     "finite_float",
     "get_enum_attr_str",
     "get_enum_value",
     "normalize_enum_str",
-    "to_dict",
 ]

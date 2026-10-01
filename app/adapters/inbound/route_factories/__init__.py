@@ -51,6 +51,7 @@ from adapters.inbound.route_factories.hierarchy_api_factory import (
 from adapters.inbound.route_factories.intelligence_route_factory import (
     IntelligenceOperations,
     IntelligenceRouteFactory,
+    PerformanceAnalyticsOperations,
 )
 from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
 from adapters.inbound.route_factories.route_helpers import (
@@ -101,6 +102,7 @@ __all__ = [
     "register_domain_routes",
     "IntelligenceOperations",
     "IntelligenceRouteFactory",
+    "PerformanceAnalyticsOperations",
     # Shared route helpers
     "DateRangeParams",
     "PaginationParams",

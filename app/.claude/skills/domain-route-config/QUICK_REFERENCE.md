@@ -253,7 +253,7 @@ __all__ = ["create_{domain}_routes"]
 
 **Exemplars:** `groups_routes.py` (role_gates_reads=False), `form_templates_routes.py` (SHARED+ADMIN), `revised_exercises_routes.py` (USER_OWNED+TEACHER), `exercises_routes.py` (USER_OWNED+TEACHER), `_pathstep_template_routes_helpers.py` (SHARED+TEACHER, the six PathStep activity templates)
 
-**Adding Intelligence routes:** `intelligence=IntelligenceRouteConfig(scope=...)` registers the three intelligence routes. PathStep and LearningPath carry it alone, `SHARED`, with no `crud=` — curriculum is created by ingestion:
+**Adding Intelligence routes:** `intelligence=IntelligenceRouteConfig(scope=...)` registers the intelligence routes — context and insights at either scope, analytics at `USER_OWNED` alone. PathStep and LearningPath carry it alone, `SHARED` (context + insights), with no `crud=` — curriculum is created by ingestion:
 
 ```python
 from adapters.inbound.route_factories import IntelligenceRouteConfig

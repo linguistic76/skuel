@@ -1,7 +1,7 @@
 ---
 title: Protocol Implementation Guide
 created: 2026-01-03
-updated: 2026-09-17
+updated: 2026-10-01
 status: active
 audience: developers
 tags: [guide, protocols, implementation]
@@ -65,11 +65,6 @@ class PydanticModel(Protocol):
     def model_dump(self, **kwargs) -> dict[str, Any]: ...
 
 @runtime_checkable
-class HasDict(Protocol):
-    """Protocol for objects that can be converted to dict."""
-    def dict(self) -> dict[str, Any]: ...
-
-@runtime_checkable
 class HasToDict(Protocol):
     """Protocol for objects with to_dict method."""
     def to_dict(self) -> dict[str, Any]: ...
@@ -88,8 +83,6 @@ def serialize(obj: Any) -> dict[str, Any]:
         return obj.model_dump()
     elif isinstance(obj, HasToDict):
         return obj.to_dict()
-    elif isinstance(obj, HasDict):
-        return obj.dict()
     elif isinstance(obj, HasNeo4jProperties):
         return obj.to_neo4j_properties()
     else:
@@ -464,7 +457,7 @@ async def test_notify_user():
 - [PORTS_TO_PROTOCOLS_MIGRATION.md](../migrations/PORTS_TO_PROTOCOLS_MIGRATION.md) - Migration history and lessons learned
 - [BACKEND_OPERATIONS_ISP.md](../patterns/BACKEND_OPERATIONS_ISP.md) - BackendOperations protocol hierarchy
 - [PROTOCOL_REFERENCE.md](../reference/PROTOCOL_REFERENCE.md) - Complete protocol catalog
-- `/core/ports/base_protocols.py` - the `Has*` attribute protocols (`HasCreatedAt`, `HasUpdatedAt`, `HasScore`, `HasRelevanceScore`, …); `/core/utils/type_converters.py` - the conversion protocols (`PydanticModel`, `HasDict`, `HasToDict`)
+- `/core/ports/base_protocols.py` - the `Has*` attribute protocols (`HasCreatedAt`, `HasUpdatedAt`, `HasScore`, `HasRelevanceScore`, …); `/core/utils/type_converters.py` - the conversion protocols (`PydanticModel`, `HasToDict`)
 - `core/ports/` - All domain operation protocols
 
 ---

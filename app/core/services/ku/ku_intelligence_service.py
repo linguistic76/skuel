@@ -6,7 +6,6 @@ Intelligence service for atomic Knowledge Units — graph analytics, no AI.
 
 Provides:
 - Graph context retrieval (get_with_context)
-- Performance analytics (get_performance_analytics)
 - Domain insights (get_domain_insights)
 - Usage summary (path steps using, path steps training, organized children)
 - Organization depth (ORGANIZES tree traversal)
@@ -82,42 +81,10 @@ class KuIntelligenceService(
     # mechanism B (registry-sourced), typed return.
     # ========================================================================
 
-    async def get_performance_analytics(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Get overall Ku statistics (shared content, not user-specific)."""
-        ku_result = await self.backend.find_by()
-        if ku_result.is_error:
-            return Result.fail(ku_result)
-
-        all_kus = ku_result.value or []
-        total = len(all_kus)
-
-        # Count by NOUS topic (multi-topic: a Ku counts once per topic;
-        # empty nous = deliberately unassigned, rawness principle)
-        topics: dict[str, int] = {}
-        for ku in all_kus:
-            ku_topics = getattr(ku, "nous", ()) or ("unassigned",)
-            for topic in ku_topics:
-                topics[topic] = topics.get(topic, 0) + 1
-
-        return Result.ok(
-            {
-                "user_uid": user_uid,
-                "period_days": period_days,
-                "total_kus": total,
-                "by_nous": topics,
-                "analytics": {
-                    "total": total,
-                    "note": "Kus are shared curriculum content",
-                },
-            }
-        )
-
     async def get_domain_insights(
-        self, uid: str, min_confidence: float = 0.7
+        self, uid: str, _min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
-        """Get domain-specific insights for a Ku."""
+        """Get domain-specific insights for a Ku: alias count, usage, ORGANIZES depth."""
         ku_result = await self.backend.get(uid)
         if ku_result.is_error:
             return Result.fail(ku_result)
@@ -139,7 +106,6 @@ class KuIntelligenceService(
                 "alias_count": len(ku.aliases),
                 "usage": usage,
                 "organization_depth": org_depth,
-                "min_confidence": min_confidence,
             }
         )
 

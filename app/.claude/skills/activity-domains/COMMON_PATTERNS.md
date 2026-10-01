@@ -330,7 +330,7 @@ class TasksIntelligenceService(
     _service_name = "tasks.intelligence"
 ```
 
-Every domain's intelligence service provides `get_with_context`, `get_performance_analytics` and
+Every Activity domain's intelligence service provides `get_with_context`, `get_performance_analytics` and
 `get_domain_insights` — the three `IntelligenceRouteFactory` serves at `/api/{domain}/context`,
 `/analytics` and `/insights`.
 

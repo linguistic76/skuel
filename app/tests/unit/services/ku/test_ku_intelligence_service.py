@@ -2,7 +2,7 @@
 Unit tests for KuIntelligenceService.
 
 Tests graph analytics for atomic Knowledge Units:
-- Protocol methods (get_with_context, get_performance_analytics, get_domain_insights)
+- Protocol methods (get_with_context, get_domain_insights)
 - Domain-specific methods (get_usage_summary, get_organization_depth)
 """
 
@@ -12,7 +12,7 @@ import pytest
 
 from core.models.ku.ku import Ku
 from core.services.ku.ku_intelligence_service import KuIntelligenceService
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 
 def _make_ku(uid: str = "ku_test_abc123", title: str = "Test Ku", **kwargs):
@@ -76,43 +76,6 @@ class TestKuIntelligenceGetWithContext:
         relationships.get_with_context.assert_awaited_once_with("ku_test_abc123", 3)
 
 
-class TestKuIntelligencePerformanceAnalytics:
-    """Test get_performance_analytics protocol method."""
-
-    @pytest.mark.asyncio
-    async def test_returns_total_and_nous_breakdown(self):
-        backend = _make_backend()
-        backend.find_by.return_value = Result.ok(
-            [
-                _make_ku("ku_a_1", nous=("body",)),
-                _make_ku("ku_b_2", nous=("body", "self-awareness")),
-                _make_ku("ku_c_3"),  # empty nous = deliberately unassigned
-            ]
-        )
-        service = KuIntelligenceService(backend=backend)
-
-        result = await service.get_performance_analytics("user_123", period_days=7)
-
-        assert result.is_ok
-        data = result.value
-        assert data["total_kus"] == 3
-        assert data["by_nous"]["body"] == 2
-        assert data["by_nous"]["self-awareness"] == 1
-        assert data["by_nous"]["unassigned"] == 1
-
-    @pytest.mark.asyncio
-    async def test_handles_backend_error(self):
-        backend = _make_backend()
-        backend.find_by.return_value = Result.fail(
-            Errors.database(operation="find_by", message="connection failed")
-        )
-        service = KuIntelligenceService(backend=backend)
-
-        result = await service.get_performance_analytics("user_123")
-
-        assert result.is_error
-
-
 class TestKuIntelligenceDomainInsights:
     """Test get_domain_insights protocol method."""
 
@@ -134,6 +97,25 @@ class TestKuIntelligenceDomainInsights:
         assert data["ku_title"] == "Test Ku"
         assert data["alias_count"] == 2
         assert data["usage"]["path_steps_using"] == 3
+
+    @pytest.mark.asyncio
+    async def test_payload_carries_no_threshold_echo(self):
+        backend = _make_backend()
+        backend.get.return_value = Result.ok(_make_ku())
+        backend.get_usage_summary.return_value = Result.ok([])
+        backend.get_organization_depth.return_value = Result.ok([{"max_depth": 0}])
+        service = KuIntelligenceService(backend=backend)
+
+        result = await service.get_domain_insights("ku_test_abc123", 0.9)
+
+        assert result.is_ok
+        assert set(result.value) == {
+            "ku_uid",
+            "ku_title",
+            "alias_count",
+            "usage",
+            "organization_depth",
+        }
 
     @pytest.mark.asyncio
     async def test_returns_not_found_for_missing_ku(self):

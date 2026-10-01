@@ -1,24 +1,16 @@
 """Unit tests for core/utils/type_converters.py — the canonical duck-typed
 conversion layer.
 
-Two of these tests are structural guards, not behavior checks:
-
-- ``test_module_is_an_import_leaf`` pins the property that makes the single
-  canonical copy possible at all: the module imports only stdlib, so any
-  module (including ``core.ports``) can import from it without a cycle.
-- ``test_to_dict_converts_plain_dataclass`` pins the branch that silently
-  went missing when the module was duplicated into
-  ``core.ports.base_protocols`` (the copies drifted; the ports copy dropped
-  the dataclass branch). It is the red test that duplication-by-copy earns.
+``test_module_is_an_import_leaf`` is a structural guard, not a behavior check:
+it pins the property that makes the single canonical copy possible at all — the
+module imports only stdlib, so any module (including ``core.ports``) can import
+from it without a cycle.
 """
 
 import ast
 import inspect
-from dataclasses import dataclass
 from enum import Enum
 from types import SimpleNamespace
-
-from pydantic import BaseModel
 
 import core.utils.type_converters as type_converters
 from core.utils.type_converters import (
@@ -27,30 +19,11 @@ from core.utils.type_converters import (
     get_enum_attr_str,
     get_enum_value,
     normalize_enum_str,
-    to_dict,
 )
 
 
 class _Color(Enum):
     RED = "red"
-
-
-class _PydanticUser(BaseModel):
-    name: str
-
-
-@dataclass(frozen=True)
-class _FrozenPoint:
-    x: int
-    y: int
-
-
-@dataclass(frozen=True)
-class _FrozenWithToDict:
-    x: int
-
-    def to_dict(self) -> dict[str, object]:
-        return {"custom": self.x}
 
 
 class TestModuleStructure:
@@ -71,27 +44,6 @@ class TestModuleStructure:
             f"type_converters must stay a stdlib-only import leaf "
             f"(cycle-proof from anywhere), but imports: {sorted(first_party)}"
         )
-
-
-class TestToDict:
-    def test_pydantic_model_uses_model_dump(self) -> None:
-        assert to_dict(_PydanticUser(name="Alice")) == {"name": "Alice"}
-
-    def test_dict_passes_through(self) -> None:
-        payload = {"key": "value"}
-        assert to_dict(payload) is payload
-
-    def test_converts_plain_dataclass(self) -> None:
-        assert to_dict(_FrozenPoint(x=1, y=2)) == {"x": 1, "y": 2}
-
-    def test_own_to_dict_outranks_dataclass_reflection(self) -> None:
-        assert to_dict(_FrozenWithToDict(x=7)) == {"custom": 7}
-
-    def test_sequence_converts_recursively(self) -> None:
-        assert to_dict([_FrozenPoint(x=1, y=2), {"a": 1}]) == [{"x": 1, "y": 2}, {"a": 1}]
-
-    def test_primitive_passes_through(self) -> None:
-        assert to_dict(42) == 42
 
 
 class TestGetEnumValue:

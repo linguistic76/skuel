@@ -1,7 +1,7 @@
 ---
 title: KU (Knowledge Unit) Domain
 created: 2025-12-04
-updated: 2026-09-30
+updated: 2026-10-01
 status: current
 category: domains
 tags:
@@ -135,11 +135,10 @@ vocabulary. Ingestion config derives from the registry — see ADR-026.
 
 ## Intelligence Methods
 
-`KuIntelligenceService` (reached as `ku_service.intelligence`; the facade delegates the last three):
+`KuIntelligenceService` (reached as `ku_service.intelligence`; the facade delegates all three):
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `get_performance_analytics(user_uid, period_days)` | `dict` | Corpus-level Ku statistics by NOUS topic (shared content, not per-user) |
 | `get_usage_summary(ku_uid)` | `dict[str, int]` | Path steps using (`USES_KU`) / training (`TRAINS_KU`) this Ku, organized children |
 | `calculate_user_substance(ku_uid, user_context)` | `KuUserSubstanceResult` | How much this user has applied the Ku across the six activity channels — needs a RICH context (`build_rich`); a standard context reads as a confident 0.0 |
 | `assess_mastery_dual_track(user_uid, ku_uid, user_level, user_evidence, user_context)` | `DualTrackResult[MasteryLevel]` | Self-assessed vs system-derived mastery, the substance score as evidence |

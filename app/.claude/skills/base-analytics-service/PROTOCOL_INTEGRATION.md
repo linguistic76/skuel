@@ -1,12 +1,13 @@
 # Intelligence Protocols and the Route Factory
 
-Two protocols touch the intelligence services, and they sit on opposite sides of the hexagonal
-boundary.
+Three protocols touch the intelligence services: one in `core/ports`, and the route factory's
+pair on the other side of the hexagonal boundary.
 
 | Protocol | Location | Satisfied by |
 |----------|----------|--------------|
 | `KnowledgeIntelligenceOperations` | `core/ports/intelligence_protocols.py` | `ActivityKnowledgeIntelligenceService` — one shared instance |
 | `IntelligenceOperations[T]` | `adapters/inbound/route_factories/intelligence_route_factory.py` | The nine per-domain services — none names it as a base |
+| `PerformanceAnalyticsOperations` | `adapters/inbound/route_factories/intelligence_route_factory.py` | The six Activity services — none names it as a base |
 
 The per-domain services share no `core/ports` protocol. Their common contract is the route
 factory's.
@@ -46,7 +47,7 @@ and drops out of a user-scoped read.
 
 ---
 
-## `IntelligenceOperations[T]`
+## `IntelligenceOperations[T]` and `PerformanceAnalyticsOperations`
 
 ```python
 class IntelligenceOperations(Protocol[T]):
@@ -54,14 +55,25 @@ class IntelligenceOperations(Protocol[T]):
         self, uid: str, depth: int = 2
     ) -> Result[tuple[T, GraphContext]]: ...
 
-    async def get_performance_analytics(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]: ...  # boundary: per-domain analytics payload
-
     async def get_domain_insights(
         self, uid: str, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]: ...  # boundary: per-domain insights payload
+    ) -> Result[IntelligencePayload]: ...
+
+
+class PerformanceAnalyticsOperations(Protocol):
+    async def get_performance_analytics(
+        self, user_uid: UserUID, period_days: int = 30
+    ) -> Result[IntelligencePayload]: ...
 ```
+
+`IntelligencePayload = dict[str, Any]  # boundary: route-factory erased-T` — one factory serves
+each routed domain, so the payload's shape varies per domain and the factory reads none of its
+keys. A service may declare a TypedDict for its own payload (`PsDomainInsights`,
+`LpDomainInsights`).
+
+The split follows who has a per-user set to aggregate. The per-entity reads exist for a
+domain at either scope; the per-user aggregate exists for a user-owned domain. KU, PS and LP
+are shared curriculum and implement `IntelligenceOperations` alone.
 
 ### `get_with_context` — inherited
 
@@ -135,24 +147,29 @@ IntelligenceRouteFactory(
 
 - `scope=ContentScope.USER_OWNED` without an `ownership_service` raises `ValueError` at
   construction. A misconfigured factory does not start.
+- `scope=ContentScope.USER_OWNED` with analytics enabled, over a service that has no
+  `get_performance_analytics`, raises `ValueError` at construction.
+- `scope=ContentScope.SHARED` registers no analytics route, whatever `enable_analytics` says
+  and whatever the service offers.
 - `ownership_service` is anything with `verify_ownership(uid, user_uid) -> Result[...]` — in
   practice the domain facade.
 - There is no `verify_ownership=` keyword; `scope` decides.
 
 ### Routes
 
-All three are registered with `methods=["GET"]`.
+Each is registered with `methods=["GET"]`.
 
-| Route | Calls | Query parameters |
-|-------|-------|------------------|
-| `GET {base_path}/analytics` | `get_performance_analytics(user_uid, period_days)` | `period_days=30` |
-| `GET {base_path}/context` | `get_with_context(uid, depth)` | `uid` (required), `depth=2` |
-| `GET {base_path}/insights` | `get_domain_insights(uid, min_confidence)` | `uid` (required), `min_confidence=0.7` |
+| Route | Calls | Query parameters | Scope |
+|-------|-------|------------------|-------|
+| `GET {base_path}/context` | `get_with_context(uid, depth)` | `uid` (required), `depth=2` | either |
+| `GET {base_path}/insights` | `get_domain_insights(uid, min_confidence)` | `uid` (required), `min_confidence=0.7` | either |
+| `GET {base_path}/analytics` | `get_performance_analytics(user_uid, period_days)` | `period_days=30` | `USER_OWNED` |
 
 `user_uid` always comes from the session. A `user_uid` query parameter is ignored.
 
-The context route answers `{"entity": <entity as dict>, "context": <GraphContext.get_summary()>}`.
-The analytics and insights routes return the service's payload unchanged.
+The context route answers `{"entity": <the entity>, "context": <GraphContext.get_summary()>}`;
+the HTTP boundary serializes the entity as it does a CRUD read's. The analytics and insights
+routes return the service's payload unchanged.
 
 ### Measured behavior
 
@@ -160,8 +177,9 @@ Reproduced with a `TestClient` against the factory:
 
 | Request | Status |
 |---------|--------|
-| Any of the three, no session — either scope | 401 |
-| `POST`, `PUT` or `DELETE` to any of the three | 405 |
+| Any registered route, no session — either scope | 401 |
+| `POST`, `PUT` or `DELETE` to any registered route | 405 |
+| `SHARED`: `GET {base_path}/analytics` | 404 — not registered |
 | `context` / `insights` with no `uid` | 400 |
 | `depth=abc` (a value the annotation cannot coerce) | 404 |
 | `USER_OWNED`: a uid the user does not own | 404 |
@@ -188,9 +206,9 @@ service and the facade itself as `ownership_service`.
 
 | Domain | `domain_name` | Routes |
 |--------|---------------|--------|
-| Tasks, Goals, Habits, Events, Choices, Principles | `tasks`, `goals`, … | yes — `USER_OWNED` |
-| PathStep | `path-steps` | yes — `SHARED` |
-| LearningPath | `pathways` | yes — `SHARED` |
+| Tasks, Goals, Habits, Events, Choices, Principles | `tasks`, `goals`, … | context, insights, analytics — `USER_OWNED` |
+| PathStep | `path-steps` | context, insights — `SHARED` |
+| LearningPath | `pathways` | context, insights — `SHARED` |
 | KU | — | **no** — `KU_CONFIG` sets no `IntelligenceRouteConfig` |
 
 `KuIntelligenceService` is still reached over HTTP for mastery check-ins:
@@ -203,8 +221,8 @@ See the [domain-route-config](../domain-route-config/SKILL.md) skill.
 ## Adding a Domain
 
 1. Write the service: `_CoreIntelligenceMixin[Model]` first, then
-   `BaseAnalyticsService[BackendProtocol, Model]`. Give it `get_performance_analytics` and
-   `get_domain_insights`.
+   `BaseAnalyticsService[BackendProtocol, Model]`. Give it `get_domain_insights`, and — for a
+   user-owned domain — `get_performance_analytics`.
 2. Build it where the facade is built and store it on the facade's `intelligence` slot.
 3. Pass both `graph_intel` and the domain's relationship service (`relationship_service`).
    `get_with_context` returns a failed `Result` without either, so the generated context route
@@ -244,6 +262,7 @@ class WidgetIntelligenceService(
 | What | Where |
 |------|-------|
 | The factory | `tests/unit/infrastructure/test_intelligence_route_factory.py` |
+| The route set per scope, over real HTTP with the composed services | `tests/integration/routes/test_intelligence_route_set.py` |
 | The services, on a real graph | `tests/integration/intelligence/` |
 
 The factory tests patch `require_authenticated_user` in the factory's module and pass a stub

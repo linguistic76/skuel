@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-09-29
+updated: 2026-10-01
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -475,7 +475,7 @@ SKUEL uses specialized factories to generate common endpoint patterns. All facto
 | **CRUDRouteFactory** | Standard CRUD operations | create, get, update, delete, list | USER_OWNED (default) / SHARED |
 | **create_activity_field_api_routes** | Inline field updates (status, priority) | `POST /api/{domain}/{uid}/{field}` | USER_OWNED |
 | **CommonQueryRouteFactory** | Cross-domain query patterns | mine, by-status, goal, habit filters | USER_OWNED (default) / SHARED |
-| **IntelligenceRouteFactory** | Analytics and insights | context, analytics, insights | USER_OWNED (default) / SHARED |
+| **IntelligenceRouteFactory** | Analytics and insights | context, insights; analytics at USER_OWNED only | USER_OWNED (default) / SHARED |
 | **AnalyticsRouteFactory** | Custom analytics handlers | performance, behavioral, etc. | USER_OWNED only |
 
 #### ContentScope Values
