@@ -15,8 +15,8 @@ The contract:
 - a signed-out request to any of the fourteen routes is 401 — on the composed
   app's own route table too;
 - another user's goal or habit is answered exactly as a uid that names nothing —
-  same status, same body — the response carries none of its text, and no task
-  or event is written for either user;
+  same status, same body, same toast header — the response carries none of its
+  text, and no task or event is written for either user;
 - the caller's own goal or habit is answered 200, and the two write routes write
   entities the caller owns;
 - the three routes that write answer POST alone, behind the CSRF check.
@@ -60,6 +60,15 @@ MISSING_HABIT = "habit_nb2a_missing"
 
 # Text only the foreign entities carry — it must reach no response.
 FOREIGN_MARK = "nb2a-foreign-private"
+
+
+def _toast(response: httpx.Response, uid: str) -> str:
+    """The error message the boundary mirrors into a header, with the requested uid masked.
+
+    The message names the uid the caller sent, so two refusals are at parity
+    when they differ in nothing else.
+    """
+    return response.headers["X-Toast-Message"].replace(uid, "<uid>")
 
 
 @dataclass(frozen=True)
@@ -296,13 +305,15 @@ class TestAnotherUsersEntity:
     ) -> None:
         await _clear_generated(driver)
 
-        foreign = await client.request(door.method, door.url(_FOREIGN[door.kind]))
-        missing = await client.request(door.method, door.url(_MISSING[door.kind]))
+        foreign_uid, missing_uid = _FOREIGN[door.kind], _MISSING[door.kind]
+        foreign = await client.request(door.method, door.url(foreign_uid))
+        missing = await client.request(door.method, door.url(missing_uid))
 
         assert foreign.status_code == 404, foreign.text
         assert FOREIGN_MARK not in foreign.text
         assert missing.status_code == 404, missing.text
         assert without_timestamp(foreign) == without_timestamp(missing)
+        assert _toast(foreign, foreign_uid) == _toast(missing, missing_uid)
         assert await _generated(driver) == {CALLER: [], OTHER: []}
 
 
