@@ -37,6 +37,7 @@ from core.services.mixins.link_edge_guard import (
     LinkEdge,
     keep_permitted_link_edges,
 )
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import get_enum_value
@@ -222,7 +223,7 @@ class HabitsCoreService(
 
     async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         """Get all habits for a user."""
-        result = await self.backend.find_by(user_uid=user_uid)
+        result = await find_all_by(self.backend, self.logger, "Habit list", user_uid=user_uid)
         if result.is_error:
             return result
 

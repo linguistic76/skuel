@@ -238,6 +238,8 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Rules:** Domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services; services call `self.backend.method_name()` (never inline `execute_query()`). `cascade=True` for Activity Domains.
 
+**Whole-set reads:** `find_by`, `get_user_entities` and `list_by_user` return a page of 100 unless the caller writes a limit. A service that counts, averages or ranks a whole set reads it through `find_all_by` (`core/services/whole_set_read.py` — `QueryLimit.MAXIMUM` rows, a warning logged when a read fills the cap); `tests/unit/services/test_whole_set_read.py` holds the census of bare page reads and fails on a new one.
+
 **`UniversalNeo4jBackend` is the hexagonal boundary** — Neo4j is a committed architectural choice (ADR-044), not a swappable adapter.
 
 **See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md` (full backend inventory + mixin layout)

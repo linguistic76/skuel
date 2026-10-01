@@ -280,11 +280,15 @@ What each service does with the two optional parameters:
 - KU, PS and LP read shared content: their `get_performance_analytics` takes `user_uid` and
   reads with no user filter.
 
-**Read caps.** `find_by(limit=100, **filters)` defaults its limit. Eight of the nine
-`get_performance_analytics` methods call it without one — Tasks, Habits, Events, Choices and
-Principles with `user_uid=`; KU, PS and LP with no filter — so each computes over at most 100
-entities. Goals reads with `limit=QueryLimit.MAXIMUM`. A count in one of the eight payloads is a
-count of what was read, not of what exists. A new method passes its limit explicitly.
+**Whole-set reads.** `find_by(limit=100, **filters)` returns a page unless the caller writes a
+limit. A method that counts or averages everything a user owns reads through
+`find_all_by(self.backend, self.logger, "<what is computed>", user_uid=...)`
+(`core/services/whole_set_read.py`): `QueryLimit.MAXIMUM` rows, and a logged warning when a read
+fills that cap. Tasks, Habits, Events, Choices and Principles `get_performance_analytics` do;
+Goals reads `find_by_date_range(limit=QueryLimit.MAXIMUM)` and passes the rows to
+`warn_if_capped`. KU, PS and LP call `find_by()` with no filter and no limit — one page of the
+corpus. `tests/unit/services/test_whole_set_read.py` fails on a new call that takes a backend
+door's default page.
 
 Routes: eight domains have them (the six Activity domains, PS and LP). KU implements the
 methods and has no generated routes. See [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md).

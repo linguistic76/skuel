@@ -55,6 +55,7 @@ from core.services.completion_stamp import (
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr
@@ -234,8 +235,8 @@ class EventsCoreService(
         Returns:
             Result containing list of Event objects
         """
-        # Use find_by with user_uid filter (UniversalNeo4jBackend pattern)
-        result = await self.backend.find_by(user_uid=user_uid)
+        # find_by on the user_uid property, read whole
+        result = await find_all_by(self.backend, self.logger, "Event list", user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 

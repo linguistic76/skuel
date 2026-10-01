@@ -17,6 +17,7 @@ from core.models.choice.choice import Choice
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -67,7 +68,9 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
         if not choice:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
-        all_choices_result = await self.backend.find_by(user_uid=choice.user_uid)
+        all_choices_result = await find_all_by(
+            self.backend, self.logger, "Choice similarity pool", user_uid=choice.user_uid
+        )
         if all_choices_result.is_error:
             return Result.fail(all_choices_result)
 

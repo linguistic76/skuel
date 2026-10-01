@@ -52,21 +52,21 @@ This is distinct from Python's `_` throwaway variable. The underscore prefix her
 
 | Service | File | Line | Parameter | Method |
 |---------|------|------|-----------|--------|
-| HabitsIntelligenceService | `core/services/habits/habits_intelligence_service.py` | 112 | `_period_days: int = 30` | `get_performance_analytics()` (111) |
-| ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 111 | `_period_days: int = 30` | `get_performance_analytics()` (110) |
-| PrinciplesIntelligenceService | `core/services/principles/_core_intelligence_mixin.py` | 55 | `_period_days: int = 30` | `get_performance_analytics()` (54), mixed into `principles_intelligence_service.py:44` |
+| HabitsIntelligenceService | `core/services/habits/habits_intelligence_service.py` | 115 | `_period_days: int = 30` | `get_performance_analytics()` (114) |
+| ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 112 | `_period_days: int = 30` | `get_performance_analytics()` (111) |
+| PrinciplesIntelligenceService | `core/services/principles/_core_intelligence_mixin.py` | 57 | `_period_days: int = 30` | `get_performance_analytics()` (56), mixed into `principles_intelligence_service.py:44` |
 
 ⚠ **These three are live, and the placeholder is user-visible.** All six Activity Domains register
 `GET /api/{domain}/analytics` (`create_activity_domain_route_config` sets
 `intelligence=IntelligenceRouteConfig()`, `domain_route_factory.py:340`). The handler reads
 `period_days` off the query string and passes it through
 (`intelligence_route_factory.py:286`, `290`). Each of the three services then echoes it back as
-`"period_days"` in the response body (habits 173, choices 149, principles 99) while computing over
-everything `find_by(user_uid=...)` returns. The response therefore *claims* a window it did not
+`"period_days"` in the response body (habits 178, choices 152, principles 103) while computing over
+every entity the user owns. The response therefore *claims* a window it did not
 apply — this is a wrong answer, not just a missing feature.
 
 **Goals is already implemented and is not listed here:** `GoalsIntelligenceService` takes a
-non-underscore `period_days` and filters on it at `goals_intelligence_service.py:176–182`.
+non-underscore `period_days` and filters on it at `goals_intelligence_service.py:180–186`.
 
 ✅ **Goals is now the worked reference for this group.** It previously used
 `find_by(updated_at__gte=cutoff.isoformat())` — a bare `>=` against a string bound, which
@@ -78,7 +78,8 @@ Copy that call shape. Three things it had to get right beyond naming the helper:
   for it.
 - **Set `limit` explicitly.** `find_by_date_range` defaults to `limit=100`, and every metric in
   these responses is a count or a mean over the returned set — the default page size is the
-  same silent-under-return class as the bug being fixed.
+  same silent-under-return class as the bug being fixed. Pass the rows to `warn_if_capped`
+  (`core/services/whole_set_read.py`) so a read that fills `QueryLimit.MAXIMUM` is logged.
 - **Keep `user_uid` in `additional_filters`.** The helper matches on the label first, so
   dropping the owner filter leaks other users' rows into one user's analytics.
 
@@ -111,7 +112,7 @@ result = await self.backend.find_by_date_range(
 )
 ```
 
-Live as written in `goals_intelligence_service.py:176–182`.
+Live as written in `goals_intelligence_service.py:180–186`.
 
 ⚠ **Not `find_by(<field>__gte=...)`, for either key.** The window is days in the user's zone,
 and `find_by_date_range` takes days. A `find_by` range on these instant fields compares instants

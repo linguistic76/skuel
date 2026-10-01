@@ -13,7 +13,9 @@ Each pattern below is taken from a live service. Read the named file for the who
 async def get_performance_analytics(
     self, user_uid: UserUID, _period_days: int = 30
 ) -> Result[dict[str, Any]]:  # boundary: per-domain analytics payload
-    habits_result = await self.backend.find_by(user_uid=user_uid)
+    habits_result = await find_all_by(
+        self.backend, self.logger, "Habit performance analytics", user_uid=user_uid
+    )
     if habits_result.is_error:
         return Result.fail(habits_result)
 
@@ -40,11 +42,12 @@ async def get_performance_analytics(
 
 What to take from it:
 
-- The read is `self.backend.find_by(user_uid=...)` — a method the backend protocol declares.
-  Do not invent a backend method in the service; add it to the protocol and the backend.
-- `find_by` defaults to `limit=100`, and this call passes none: `total_habits` is at most 100.
-  Pass the limit a new method needs — `limit=QueryLimit.MAXIMUM` (`core/constants.py`) where the
-  metric is a count over everything the user has.
+- The read is `find_all_by` (`core/services/whole_set_read.py`) over `backend.find_by` — a
+  method the backend protocol declares. Do not invent a backend method in the service; add it
+  to the protocol and the backend.
+- `find_by` alone returns a page of 100. `total_habits` is a count over everything the user
+  has, so the read asks for `QueryLimit.MAXIMUM` rows and logs a warning when it gets that many.
+  The third argument names what is computed; it is the log line's subject.
 - A failed read is propagated, not turned into zeros.
 - Guard every division: an empty list is a normal input.
 - `_period_days` is accepted and not applied. The payload echoes it, which does not mean the
@@ -240,11 +243,13 @@ Line counts are advisory; coherence decides. See
 ### Inventing a backend method
 
 ```python
-# WRONG - no protocol declares get_user_habits; mypy rejects it against HabitsOperations
-habits = await self.backend.get_user_habits(user_uid)
+# WRONG - no protocol declares get_habits_for_user; mypy rejects it against HabitsOperations
+habits = await self.backend.get_habits_for_user(user_uid)
 
 # CORRECT
-habits_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+habits_result = await find_all_by(
+    self.backend, self.logger, "Habit performance analytics", user_uid=user_uid
+)
 ```
 
 ### Passing a relationship type to `get_related_uids`

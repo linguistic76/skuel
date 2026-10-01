@@ -26,10 +26,10 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
-from core.constants import QueryLimit
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
@@ -139,22 +139,17 @@ class _BehavioralSignalsMixin:
 
         evidence: list[str] = []
 
-        # Get choices for period — fetch the full set (find_by defaults to limit=100,
-        # so the in-memory window filter below would otherwise sample an arbitrary page).
+        # The period window is cut in memory below, so the read is of the whole set.
         start_date = today_in(current_zone()) - timedelta(days=period_days)
-        choices_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        choices_result = await find_all_by(
+            self.backend, self.logger, "Decision-quality assessment", user_uid=user_uid
+        )
 
         if choices_result.is_error or not choices_result.value:
             evidence.append("No choices found in analysis period")
             return DecisionQualityLevel.STRUGGLING, 0.0, evidence
 
         all_items = choices_result.value
-        if len(all_items) >= QueryLimit.MAXIMUM:
-            self.logger.warning(
-                "Decision-quality assessment for %s capped at %d choices — score may be truncated",
-                user_uid,
-                QueryLimit.MAXIMUM,
-            )
         # Filter to Choice instances and period (using created_at)
         zone = current_zone()
         period_choices = [

@@ -20,6 +20,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
@@ -95,11 +96,16 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
         end_date = today + timedelta(days=days_to_schedule)
 
         # Get existing events in period
-        result = await self.backend.find_by(
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Recurring-schedule optimization",
             user_uid=user_uid,
             event_date__gte=today.isoformat(),
             event_date__lte=end_date.isoformat(),
         )
+        if result.is_error:
+            return Result.fail(result)
 
         # Count events per day
         busy_days: dict[date, int] = {}

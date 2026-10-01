@@ -443,6 +443,21 @@ class EmbeddingGeometry:
     )
 
 
+class RelationshipFanOut:
+    """
+    Ceiling on simultaneous per-entity relationship fetches from one caller.
+
+    A domain's ``*Relationships.fetch`` reads one entity's edges with one query
+    per relationship kind, all at once — twelve for a Task. A caller that
+    fetches for a set of entities through ``gather_bounded``
+    (``core/utils/bounded_gather.py``) keeps at most this many entities in
+    flight, so the request holds a few dozen of the driver's pooled connections
+    (``max_connection_pool_size``, 50 by default) and not the whole pool.
+    """
+
+    MAX_ENTITIES_IN_FLIGHT: Final = 3
+
+
 class EmbeddingFanOut:
     """
     Ceiling on simultaneous single-text embedding requests from one caller.

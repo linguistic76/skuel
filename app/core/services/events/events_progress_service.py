@@ -26,6 +26,7 @@ from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.events._habit_links import enrich_events_with_habit_links
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
@@ -104,7 +105,10 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         today = today_in(current_zone())
 
         # Get all events in period
-        result = await self.backend.find_by(
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Event attendance rate",
             user_uid=user_uid,
             event_date__gte=start_date.isoformat(),
             event_date__lte=today.isoformat(),
@@ -164,7 +168,10 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         """
         start_date = today_in(current_zone()) - timedelta(days=period_days)
 
-        result = await self.backend.find_by(
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Event quality trends",
             user_uid=user_uid,
             event_date__gte=start_date.isoformat(),
             status=EntityStatus.COMPLETED.value,
@@ -282,7 +289,10 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         today = today_in(current_zone())
         start_date = today - timedelta(weeks=weeks_back)
 
-        result = await self.backend.find_by(
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Event weekly summary",
             user_uid=user_uid,
             event_date__gte=start_date.isoformat(),
         )
@@ -339,7 +349,10 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         """
         start_date = today_in(current_zone()) - timedelta(days=period_days)
 
-        result = await self.backend.find_by(
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Habit-event statistics",
             user_uid=user_uid,
             event_date__gte=start_date.isoformat(),
         )

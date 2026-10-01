@@ -20,7 +20,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.constants import ConfidenceLevel, QueryLimit
+from core.constants import ConfidenceLevel
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -32,6 +32,7 @@ from core.services.habits._dual_track_mixin import _DualTrackMixin
 from core.services.habits.habit_relationships import HabitRelationships
 from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
+from core.services.whole_set_read import find_all_by
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import day_of, today_in
@@ -131,7 +132,9 @@ class HabitsIntelligenceService(
         over ALL habits. Future enhancement: filter by created_at within period.
         """
         # Get all habits for user
-        habits_result = await self.backend.find_by(user_uid=user_uid)
+        habits_result = await find_all_by(
+            self.backend, self.logger, "Habit performance analytics", user_uid=user_uid
+        )
         if habits_result.is_error:
             return Result.fail(habits_result)
 
@@ -325,7 +328,9 @@ class HabitsIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's habit activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        entities_result = await find_all_by(
+            self.backend, self.logger, "Habit learning-pattern analysis", user_uid=user_uid
+        )
         if entities_result.is_error:
             return Result.fail(entities_result)
 

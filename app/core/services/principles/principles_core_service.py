@@ -31,6 +31,7 @@ from core.services.base_service import BaseService
 from core.services.completion_stamp import validate_status_target
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -451,7 +452,7 @@ class PrinciplesCoreService(
         Returns:
             List of user's principles sorted by priority
         """
-        result = await self.backend.find_by(user_uid=user_uid)
+        result = await find_all_by(self.backend, self.logger, "Principle list", user_uid=user_uid)
 
         if result.is_error:
             return result

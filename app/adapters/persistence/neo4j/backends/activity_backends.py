@@ -12,6 +12,7 @@ from adapters.persistence.neo4j.query.cypher.choice_fragments import (
     build_choice_pending_predicate,
 )
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.constants import QueryLimit
 from core.models.choice.choice import Choice
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.neo_labels import NeoLabel
@@ -173,7 +174,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
 
     async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         """Get all habits for a user. Alias for list_by_user."""
-        return await self.list_by_user(user_uid)
+        return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
 
     async def archive_habit(self, habit_id: str) -> Result[bool]:
         """Archive a habit by transitioning its status to 'archived'."""
@@ -492,7 +493,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
 
     async def get_user_goals(self, user_uid: UserUID) -> Result[list[Goal]]:
         """Get all goals for a user. Returns flat list (not paginated tuple)."""
-        return await self.list_by_user(user_uid)
+        return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[GoalStats]:
         """Count goal stats: total, active, completed."""
@@ -748,7 +749,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
 
     async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get all tasks for a user. Alias for list_by_user."""
-        return await self.list_by_user(user_uid)
+        return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
 
     async def get_tasks_reinforcing_habit(self, habit_uid: str) -> Result[list[Neo4jProperties]]:
         """Return node props for tasks linked to a habit via REINFORCES_HABIT.
@@ -988,7 +989,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
 
     async def get_user_events(self, user_uid: UserUID) -> Result[list[Event]]:
         """Get all events for a user. Alias for list_by_user."""
-        return await self.list_by_user(user_uid)
+        return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
 
     async def get_events_in_range(
         self,
@@ -1345,7 +1346,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
 
     async def get_user_choices(self, user_uid: UserUID) -> Result[list[Choice]]:
         """Get all choices for a user. Alias for list_by_user."""
-        return await self.list_by_user(user_uid)
+        return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[ChoiceStats]:
         """Count choice stats: total, pending, decided."""
@@ -1442,7 +1443,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
 
     async def get_user_principles(self, user_uid: UserUID) -> Result[list[Principle]]:
         """Get all principles for a user. Alias for list_by_user."""
-        return await self.list_by_user(user_uid)
+        return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[PrincipleStats]:
         """Count principle stats: total, core, active."""

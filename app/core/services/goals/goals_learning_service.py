@@ -24,6 +24,7 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.goals_types import GoalLearningProgress, PathProgressData
 from core.services.infrastructure import LearningAlignmentBridge
 from core.services.user import UserContext
+from core.services.whole_set_read import find_all_by
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Result
 
@@ -254,7 +255,9 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing goals needing habit support
         """
-        goals_result = await self.backend.find_by(user_uid=user_context.user_uid)
+        goals_result = await find_all_by(
+            self.backend, self.logger, "Goals needing habits", user_uid=user_context.user_uid
+        )
         if goals_result.is_error:
             return goals_result
 
@@ -290,7 +293,9 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing goals blocked by knowledge gaps
         """
-        goals_result = await self.backend.find_by(user_uid=user_context.user_uid)
+        goals_result = await find_all_by(
+            self.backend, self.logger, "Goals blocked by knowledge", user_uid=user_context.user_uid
+        )
         if goals_result.is_error:
             return goals_result
 

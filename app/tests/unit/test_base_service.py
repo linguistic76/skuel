@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 import pytest
 
 from adapters.inbound.boundary import result_to_response
+from core.constants import QueryLimit
 from core.models.enums import SearchVisibility
 from core.models.relationship_names import RelationshipName
 from core.models.update_contracts import RawChanges
@@ -595,14 +596,14 @@ class TestSearchOperations:
 
 
 class TestGetAllForUser:
-    """The read is owner-scoped and carries no status constraint."""
+    """The read is owner-scoped, carries no status constraint, and asks for the whole set."""
 
     @pytest.mark.asyncio
     async def test_reads_by_owner_alone(self, service, mock_backend):
         result = await service.get_all_for_user("user_001")
 
         assert result.is_ok
-        mock_backend.find_by.assert_awaited_with(user_uid="user_001")
+        mock_backend.find_by.assert_awaited_with(limit=QueryLimit.MAXIMUM, user_uid="user_001")
 
     @pytest.mark.asyncio
     async def test_empty_user_uid_is_validation_error(self, service, mock_backend):

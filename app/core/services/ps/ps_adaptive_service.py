@@ -37,6 +37,7 @@ from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -97,7 +98,9 @@ class PsAdaptiveService:
             user_intel = self._create_default_intelligence(user_uid)
 
         # 2. Query path steps for this SEL category
-        all_ps_result = await self.backend.find_by(sel_category=sel_category.value)
+        all_ps_result = await find_all_by(
+            self.backend, self.logger, "Personalized curriculum", sel_category=sel_category.value
+        )
         if all_ps_result.is_error:
             return Result.fail(all_ps_result)
         all_ps = all_ps_result.value or []
@@ -268,7 +271,9 @@ class PsAdaptiveService:
     ) -> CurriculumProgress:
         """Calculate progress in one SEL category."""
         try:
-            all_ps_result = await self.backend.find_by(sel_category=category.value)
+            all_ps_result = await find_all_by(
+                self.backend, self.logger, "SEL category progress", sel_category=category.value
+            )
             if all_ps_result.is_error:
                 all_ps: list[PathStep] = []
             else:

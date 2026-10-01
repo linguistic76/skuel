@@ -28,6 +28,7 @@ from core.models.goal.goal import Goal
 from core.models.type_hints import EntityUID
 from core.ports import GoalsOperations
 from core.services.base_ai_service import BaseAIService
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -109,7 +110,9 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
         if not goal:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
-        all_goals_result = await self.backend.find_by(user_uid=goal.user_uid)
+        all_goals_result = await find_all_by(
+            self.backend, self.logger, "Goal similarity pool", user_uid=goal.user_uid
+        )
         if all_goals_result.is_error:
             return Result.fail(all_goals_result)
 

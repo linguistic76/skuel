@@ -36,6 +36,7 @@ from core.ports.domain_protocols import PrinciplesOperations
 from core.services.cross_domain import CrossDomainQueryService
 from core.services.cross_domain.cross_domain_types import PrincipleAlignmentEvidence
 from core.services.intelligence import principle_gap_insights, principle_gap_recommendations
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -218,7 +219,9 @@ class PrinciplesAlignmentService:
             user_uid: User whose principles to check.
         """
         # Get user's principles
-        principles_result = await self.backend.find_by(user_uid=user_uid)
+        principles_result = await find_all_by(
+            self.backend, self.logger, "Principle alignment assessment", user_uid=user_uid
+        )
         if principles_result.is_error:
             return Result.fail(principles_result)
 
@@ -571,7 +574,9 @@ class PrinciplesAlignmentService:
             Complete motivational profile.
         """
         # Get principles
-        principles_result = await self.backend.find_by(user_uid=user_uid)
+        principles_result = await find_all_by(
+            self.backend, self.logger, "Motivational profile", user_uid=user_uid
+        )
         if principles_result.is_error:
             return Result.fail(principles_result)
 
@@ -662,7 +667,9 @@ class PrinciplesAlignmentService:
             Principle-based decision recommendation
         """
         # Get user's principles
-        principles_result = await self.backend.find_by(user_uid=user_uid)
+        principles_result = await find_all_by(
+            self.backend, self.logger, "Principle-based decision", user_uid=user_uid
+        )
         if principles_result.is_error:
             return Result.fail(principles_result)
 

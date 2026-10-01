@@ -225,12 +225,21 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         List a user's entities as a flat list (not a paginated tuple).
 
         THE generic body behind the domain backends' list_by_user /
-        get_user_{tasks,goals,...} wrappers.
+        get_user_{tasks,goals,...} wrappers. Callers read the list as the user's
+        whole set, so a list that ``limit`` cut short is logged as a warning.
         """
         page_result = await self.get_user_entities(user_uid, limit=limit)
         if page_result.is_error:
             return Result.fail(page_result)
-        entities, _ = page_result.value
+        entities, total_count = page_result.value
+        if total_count > len(entities):
+            self.logger.warning(
+                "list_by_user returned %d of %d %s nodes for %s — the list is truncated",
+                len(entities),
+                total_count,
+                self.label,
+                user_uid,
+            )
         return Result.ok(entities)
 
     @safe_backend_operation("count_user_entities")

@@ -47,6 +47,7 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
@@ -258,7 +259,9 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
             Result containing capacity analysis
         """
         # Get user's goals
-        result = await self.backend.find_by(user_uid=user_uid)
+        result = await find_all_by(
+            self.backend, self.logger, "Goal capacity check", user_uid=user_uid
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -494,7 +497,9 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         default_days = DEFAULT_DAYS_BY_TIMEFRAME.get(timeframe, 90)
 
         # Get user's goal history for velocity estimation
-        result = await self.backend.find_by(user_uid=user_uid)
+        result = await find_all_by(
+            self.backend, self.logger, "Goal timeline suggestion", user_uid=user_uid
+        )
         if result.is_error:
             # Fall back to defaults if can't get history
             return Result.ok(
@@ -739,7 +744,9 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
             Result containing recommended goal or None
         """
         # Get active goals
-        result = await self.backend.find_by(user_uid=user_context.user_uid)
+        result = await find_all_by(
+            self.backend, self.logger, "Schedule-aware next goal", user_uid=user_context.user_uid
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -935,7 +942,9 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing load analysis by timeframe
         """
-        result = await self.backend.find_by(user_uid=user_uid)
+        result = await find_all_by(
+            self.backend, self.logger, "Goal load by timeframe", user_uid=user_uid
+        )
         if result.is_error:
             return Result.fail(result)
 

@@ -30,6 +30,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.task.task import Task
 from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -117,7 +118,9 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
             return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
         # TODO(blocked:embeddings): use a vector/limit query instead of fetching all tasks
-        all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
+        all_tasks_result = await find_all_by(
+            self.backend, self.logger, "Task similarity pool", user_uid=task.user_uid
+        )
         if all_tasks_result.is_error:
             return Result.fail(all_tasks_result)
 

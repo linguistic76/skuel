@@ -17,7 +17,6 @@ See: core/services/knowledge/knowledge_pattern_analyzer.py  (generic 5-pattern b
 
 from __future__ import annotations
 
-import asyncio
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -42,6 +41,7 @@ from core.services.knowledge.knowledge_pattern_analyzer import (
     _by_confidence_and_frequency,
 )
 from core.services.tasks.task_relationships import TaskRelationships
+from core.utils.bounded_gather import gather_bounded
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -342,13 +342,11 @@ class TaskKnowledgeAnalyzer:
             Result[dict[knowledge_uid, MasteryProgression]]
         """
         try:
-            if not tasks or not self.relationship_service:
+            if not tasks or not knowledge_uids or not self.relationship_service:
                 return Result.ok({})
 
-            rels_list: list[TaskRelationships] = list(
-                await asyncio.gather(
-                    *[TaskRelationships.fetch(t.uid, self.relationship_service) for t in tasks]
-                )
+            rels_list = await gather_bounded(
+                TaskRelationships.fetch(t.uid, self.relationship_service) for t in tasks
             )
             progressions: dict[str, MasteryProgression] = {}
 
@@ -406,10 +404,8 @@ class TaskKnowledgeAnalyzer:
         if not tasks or not self.relationship_service:
             return patterns
 
-        rels_list: list[TaskRelationships] = list(
-            await asyncio.gather(
-                *[TaskRelationships.fetch(t.uid, self.relationship_service) for t in tasks]
-            )
+        rels_list = await gather_bounded(
+            TaskRelationships.fetch(t.uid, self.relationship_service) for t in tasks
         )
 
         validation_pairs = [
@@ -659,10 +655,8 @@ class TaskKnowledgeAnalyzer:
         if not tasks or not self.relationship_service:
             return insights
 
-        rels_list: list[TaskRelationships] = list(
-            await asyncio.gather(
-                *[TaskRelationships.fetch(t.uid, self.relationship_service) for t in tasks]
-            )
+        rels_list = await gather_bounded(
+            TaskRelationships.fetch(t.uid, self.relationship_service) for t in tasks
         )
 
         knowledge_usage: dict[str, dict[str, Any]] = {}

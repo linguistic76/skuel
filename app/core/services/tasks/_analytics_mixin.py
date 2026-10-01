@@ -13,12 +13,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import CompletionStatus, Priority
+from core.models.enums import Priority
+from core.models.enums.entity_enums import EntityStatus
 from core.services.intelligence import (
     PatternAnalyzer,
     RecommendationEngine,
     analyze_completion_trend,
 )
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import hour_of, today_in
 from core.utils.zone_context import current_zone
@@ -93,7 +95,13 @@ class _AnalyticsMixin:
         # Get completed tasks in period. completion_date is a calendar day, so the
         # window's first day is a day in the user's zone, not a moment.
         cutoff_date = today_in(current_zone()) - timedelta(days=period_days)
-        tasks_result = await self.backend.find_by(user_uid=user_uid, status=CompletionStatus.DONE)
+        tasks_result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Task behavioral insights",
+            user_uid=user_uid,
+            status=EntityStatus.COMPLETED,
+        )
 
         if tasks_result.is_error:
             return Result.fail(tasks_result)
@@ -175,7 +183,7 @@ class _AnalyticsMixin:
 
     def _analyze_performance_trends(self, tasks: list) -> dict[str, Any]:
         """Analyze performance trends over time from task completion data."""
-        completed_count = sum(1 for task in tasks if task.status == CompletionStatus.DONE)
+        completed_count = sum(1 for task in tasks if task.status == EntityStatus.COMPLETED)
         result = analyze_completion_trend(completed_count, len(tasks))
 
         return {

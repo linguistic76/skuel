@@ -12,11 +12,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.constants import QueryLimit
 from core.models.enums.activity_enums import EngagementLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.services.events._habit_links import enrich_events_with_habit_links
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -119,21 +119,16 @@ class _BehavioralSignalsMixin:
         evidence: list[str] = []
 
         start_date = today_in(current_zone()) - timedelta(days=period_days)
-        # Fetch the full set — find_by defaults to limit=100, so the in-memory window
-        # filter below would otherwise sample an arbitrary page for prolific users.
-        events_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        # The period window is cut in memory below, so the read is of the whole set.
+        events_result = await find_all_by(
+            self.backend, self.logger, "Engagement assessment", user_uid=user_uid
+        )
 
         if events_result.is_error or not events_result.value:
             evidence.append("No events found in analysis period")
             return EngagementLevel.ABSENT, 0.0, evidence
 
         all_events = events_result.value
-        if len(all_events) >= QueryLimit.MAXIMUM:
-            self.logger.warning(
-                "Engagement assessment for %s capped at %d events — score may be truncated",
-                user_uid,
-                QueryLimit.MAXIMUM,
-            )
         period_events = [e for e in all_events if e.event_date and e.event_date >= start_date]
         # Populate the derived reinforces_habit_uid from the REINFORCES_HABIT edge.
         period_events = await enrich_events_with_habit_links(self.backend, period_events)
