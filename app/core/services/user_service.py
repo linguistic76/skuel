@@ -33,6 +33,7 @@ from core.ports.infrastructure_protocols import (
     EventBusOperations,
     UserOperations,
 )
+from core.ports.query_types import MasteredWriteRow
 
 if TYPE_CHECKING:
     from core.ports.service_protocols import SessionInvalidationOperations
@@ -348,7 +349,7 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         practice_count: int = 1,
         confidence_level: float = 0.8,
         update_progress: bool = True,
-    ) -> Result[bool]:
+    ) -> Result[MasteredWriteRow]:
         """Record knowledge mastery using graph relationships."""
         return await self.progress.record_knowledge_mastery(
             user_uid,

@@ -32,11 +32,13 @@ from typing import Any
 from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
+from adapters.persistence.neo4j._learning_state_mixin import to_mastered_write_rows
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.enums.user_enums import UserStatus
 from core.models.type_hints import FilterValue, UserUID
 from core.models.user import User
+from core.ports.query_types import MasteredWriteRow
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -508,7 +510,7 @@ class UserBackend(Neo4jSessionRunner):
         mastery_score: float,
         practice_count: int = 1,
         confidence_level: float = 0.8,
-    ) -> Result[bool]:
+    ) -> Result[MasteredWriteRow]:
         """
         Record user's mastery of a knowledge unit.
 
@@ -522,7 +524,9 @@ class UserBackend(Neo4jSessionRunner):
             confidence_level: Confidence in mastery assessment
 
         Returns:
-            Result[bool]: Success status
+            Result[MasteredWriteRow]: the stored score and ``was_mastered`` —
+            whether the edge existed before this write (the publisher's
+            transition flag)
         """
         # Not _merge_user_edge: mastering a KU must also retire its IN_PROGRESS
         # edge (the state progression is VIEWED → IN_PROGRESS → MASTERED, and
@@ -533,15 +537,17 @@ class UserBackend(Neo4jSessionRunner):
             """
             MATCH (u:User {uid: $user_uid})
             MATCH (t:Entity {uid: $target_uid})
+            OPTIONAL MATCH (u)-[existing:MASTERED]->(t)
+            WITH u, t, existing IS NOT NULL AS was_mastered
             MERGE (u)-[r:MASTERED]->(t)
             SET r.mastery_score = $mastery_score,
                 r.practice_count = $practice_count,
                 r.confidence_level = $confidence_level,
                 r.last_practiced = datetime()
-            WITH u, t, r
+            WITH u, t, r, was_mastered
             OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(t)
             DELETE ip
-            RETURN r
+            RETURN r.mastery_score AS mastery_score, was_mastered
             """,
             {
                 "user_uid": user_uid,
@@ -560,7 +566,7 @@ class UserBackend(Neo4jSessionRunner):
             )
 
         self.logger.info(f"Recorded mastery: {user_uid} → {knowledge_uid} ({mastery_score:.2f})")
-        return Result.ok(True)
+        return Result.ok(to_mastered_write_rows([dict(record)])[0])
 
     @safe_backend_operation("record_knowledge_progress")
     async def record_knowledge_progress(

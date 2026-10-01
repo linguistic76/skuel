@@ -3469,6 +3469,17 @@ class UserMasteryResult(TypedDict, total=False):
     updated_at: str | None
 
 
+class MasteredWriteRow(TypedDict):
+    """What a MASTERED writer reports: the score that ended up stored and whether
+    the edge already existed. ``was_mastered`` is the transition flag — a repeat
+    write (a retry, a re-approval, a second "understood") raises the stored score
+    at most, and is not an event: ``KnowledgeMastered`` is published only when it
+    is False."""
+
+    mastery_score: float
+    was_mastered: bool
+
+
 class MasteredEntityUidRow(TypedDict):
     """Return shape for UserProgressBackend.get_mastered_entity_uids() — the uid of
     one entity the user has mastered, a Ku or a PathStep (the query's one alias)."""

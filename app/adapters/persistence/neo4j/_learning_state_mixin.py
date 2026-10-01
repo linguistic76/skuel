@@ -28,6 +28,22 @@ if TYPE_CHECKING:
     import logging
 
     from core.models.type_hints import Neo4jProperties
+    from core.ports.query_types import MasteredWriteRow
+
+
+def to_mastered_write_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[MasteredWriteRow]:
+    """Project a MASTERED writer's rows onto MasteredWriteRow (KeyError on alias drift).
+
+    Shared by every writer of the edge — ``_LearningStateMixin.mark_mastered``,
+    ``KuBackend.mark_mastered`` and ``UserBackend.record_knowledge_mastery`` —
+    so the transition flag has one spelling.
+    """
+    return [
+        {"mastery_score": float(row["mastery_score"]), "was_mastered": bool(row["was_mastered"])}
+        for row in records
+    ]
 
 
 class _LearningStateMixin:
@@ -124,7 +140,7 @@ class _LearningStateMixin:
 
     async def mark_mastered(
         self, user_uid: UserUID, entity_uid: str, now: str, mastery_score: float, method: str
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[MasteredWriteRow]]:
         """MERGE the MASTERED edge onto a Ku or a PathStep; the higher score wins.
 
         One writer, one edge shape for both targets: ``mastered_at`` (the
@@ -132,10 +148,16 @@ class _LearningStateMixin:
         Mastery is the terminal learning state, so the entity's IN_PROGRESS
         edge is retired in the same statement — a mastered step holds no
         enrollment-cap slot (``count_in_progress_path_steps``).
+
+        Reports ``was_mastered`` — whether the edge existed before this write,
+        read in the same statement — so the caller publishes on the transition
+        only, never on a repeat.
         """
         query = """
         MATCH (user:User {uid: $user_uid})
         MATCH (entity:Entity {uid: $entity_uid})
+        OPTIONAL MATCH (user)-[existing:MASTERED]->(entity)
+        WITH user, entity, existing IS NOT NULL AS was_mastered
         MERGE (user)-[r:MASTERED]->(entity)
         ON CREATE SET
             r.mastered_at = datetime($now),
@@ -152,12 +174,12 @@ class _LearningStateMixin:
                 ELSE r.confidence
             END,
             r.method = $method
-        WITH user, entity, r
+        WITH user, entity, r, was_mastered
         OPTIONAL MATCH (user)-[ip:IN_PROGRESS]->(entity)
         DELETE ip
-        RETURN r.mastery_score as mastery_score
+        RETURN r.mastery_score AS mastery_score, was_mastered
         """
-        return await self.execute_query(
+        result = await self.execute_query(
             query,
             {
                 "user_uid": user_uid,
@@ -167,6 +189,9 @@ class _LearningStateMixin:
                 "method": method,
             },
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(to_mastered_write_rows(result.value or []))
 
     async def count_in_progress_path_steps(
         self, user_uid: UserUID

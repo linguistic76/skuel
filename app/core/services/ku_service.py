@@ -283,20 +283,22 @@ class KuService:
     async def mark_as_understood(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
         """Mark a Ku as understood (MASTERED relationship, self-reported).
 
-        A landed write publishes ``KnowledgeMastered`` — every Ku-mastery door
-        announces itself, so the progress chain (path-step and path progress,
-        the derived step mastery) runs however the Ku was mastered.
+        The write that creates the edge publishes ``KnowledgeMastered`` with the
+        score the graph stored — every Ku-mastery door announces its transition,
+        so the progress chain (path-step and path progress, the derived step
+        mastery) runs however the Ku was mastered. A second "understood" on a Ku
+        already mastered (by a report, at a higher score) is not an event.
         """
         result = await self.backend.mark_mastered(
             user_uid, ku_uid, mastery_score=_SELF_REPORT_MASTERY_SCORE, method="self_report"
         )
         if result.is_error:
             return Result.fail(result)
-        if result.value:
+        if result.value and not result.value[0]["was_mastered"]:
             await publish_event(
                 self.event_bus,
                 KnowledgeMastered(
-                    ku_uid=ku_uid, user_uid=user_uid, mastery_score=_SELF_REPORT_MASTERY_SCORE
+                    ku_uid=ku_uid, user_uid=user_uid, mastery_score=result.value[0]["mastery_score"]
                 ),
                 logger,
             )

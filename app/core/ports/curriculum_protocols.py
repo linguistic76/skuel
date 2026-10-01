@@ -108,6 +108,7 @@ from core.ports.query_types import (
     LearningGapResult,
     LearningRecommendationResult,
     LpKnowledgeScopeSummary,
+    MasteredWriteRow,
     OrganizerResult,
     PrereqMasteryResult,
     PsDeleteStepRow,
@@ -512,8 +513,12 @@ class KuOperations(BackendOperations["Ku"], Protocol):
         ku_uid: str,
         mastery_score: float = 0.7,
         method: str = "self_report",
-    ) -> Result[list[Neo4jProperties]]:
-        """Mark a Ku as understood/mastered by the user."""
+    ) -> Result[list[MasteredWriteRow]]:
+        """Mark a Ku as understood/mastered by the user; the higher score wins.
+
+        Returns the stored score and ``was_mastered`` — whether the edge already
+        existed — so the caller publishes on the transition only.
+        """
         ...
 
     async def get_ku_learning_state(
@@ -1241,7 +1246,7 @@ class PsOperations(
 
     async def mark_mastered(
         self, user_uid: UserUID, entity_uid: str, now: str, mastery_score: float, method: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {mastery_score}
+    ) -> Result[list[MasteredWriteRow]]:
         """Record mastery of a Ku, or of a PathStep whose Kus are all mastered;
         the highest score ever reported always wins.
 
@@ -1249,7 +1254,8 @@ class PsOperations(
         shape. Idempotent — a lower score never regresses the stored mastery
         or confidence, but the reporting method is always the most recent one.
         Retires the entity's IN_PROGRESS edge: mastery is the terminal state.
-        Returns the score that ended up stored.
+        Returns the score that ended up stored and whether the edge already
+        existed (``was_mastered`` — the transition flag the publisher reads).
         """
         ...
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from core.models.type_hints import FilterValue, Metadata, UserUID
+from core.ports.query_types import MasteredWriteRow
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -191,8 +192,9 @@ class UserLearningStateOperations(Protocol):
         mastery_score: float,
         practice_count: int = 1,
         confidence_level: float = 0.8,
-    ) -> Result[bool]:
-        """Record user's mastery level for a knowledge unit."""
+    ) -> Result[MasteredWriteRow]:
+        """Record user's mastery level for a knowledge unit; reports the stored
+        score and whether the edge already existed (``was_mastered``)."""
         ...
 
     async def record_knowledge_progress(

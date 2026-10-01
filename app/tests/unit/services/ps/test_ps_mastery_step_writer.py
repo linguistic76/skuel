@@ -52,7 +52,7 @@ class _Backend:
         self.writes.append((user_uid, entity_uid, mastery_score, method))
         if self.write_result is not None:
             return self.write_result
-        return Result.ok([{"mastery_score": mastery_score}])
+        return Result.ok([{"mastery_score": mastery_score, "was_mastered": False}])
 
 
 @dataclass
@@ -131,4 +131,21 @@ async def test_no_completed_step_writes_nothing() -> None:
 
     assert trace.steps == ["detect:ku.a"]
     assert backend.writes == []
+    assert bus.published == []
+
+
+@pytest.mark.asyncio
+async def test_a_step_already_mastered_is_not_announced_again() -> None:
+    """A replayed KnowledgeMastered re-detects the step; its edge exists, so no event."""
+    trace = _Trace()
+    backend = _Backend(
+        trace,
+        detected=["ps.one"],
+        write_result=Result.ok([{"mastery_score": 1.0, "was_mastered": True}]),
+    )
+    bus = _Bus(trace)
+
+    await PsMasteryService(backend=backend, event_bus=bus).handle_knowledge_mastered(_event())  # type: ignore[arg-type]
+
+    assert trace.steps == ["detect:ku.a", "write:ps.one"]
     assert bus.published == []

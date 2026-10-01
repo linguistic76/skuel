@@ -9,7 +9,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._adaptive_mixin import _AdaptiveMixin
 from adapters.persistence.neo4j._knowledge_context_mixin import _KnowledgeContextMixin
-from adapters.persistence.neo4j._learning_state_mixin import _LearningStateMixin
+from adapters.persistence.neo4j._learning_state_mixin import (
+    _LearningStateMixin,
+    to_mastered_write_rows,
+)
 from adapters.persistence.neo4j._lp_intelligence_mixin import _LpIntelligenceMixin
 from adapters.persistence.neo4j._lp_progress_mixin import _LpProgressMixin
 from adapters.persistence.neo4j._lp_step_mixin import _LpStepMixin
@@ -32,6 +35,7 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     KnowledgeHealthRaw,
     KnowledgeOrphanKu,
+    MasteredWriteRow,
     PsDeleteStepRow,
     PsEngagementCountsRow,
     PsKnowledgeSummaryResult,
@@ -433,11 +437,17 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         ku_uid: str,
         mastery_score: float = 0.7,
         method: str = "self_report",
-    ) -> Result[list[Neo4jProperties]]:
-        """Mark a Ku as understood/mastered by the user."""
+    ) -> Result[list[MasteredWriteRow]]:
+        """Mark a Ku as understood/mastered by the user; the higher score wins.
+
+        Reports ``was_mastered`` (the edge existed before this write) so the
+        service publishes on the transition only.
+        """
         query = """
         MATCH (user:User {uid: $user_uid})
         MATCH (ku:Entity:Ku {uid: $ku_uid})
+        OPTIONAL MATCH (user)-[existing:MASTERED]->(ku)
+        WITH user, ku, existing IS NOT NULL AS was_mastered
         MERGE (user)-[r:MASTERED]->(ku)
         ON CREATE SET
             r.mastered_at = datetime(),
@@ -454,9 +464,9 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 ELSE r.confidence
             END,
             r.method = $method
-        RETURN ku.uid AS uid
+        RETURN r.mastery_score AS mastery_score, was_mastered
         """
-        return await self.execute_query(
+        result = await self.execute_query(
             query,
             {
                 "user_uid": user_uid,
@@ -465,6 +475,9 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 "method": method,
             },
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(to_mastered_write_rows(result.value or []))
 
     async def get_ku_learning_state(
         self, user_uid: UserUID, ku_uid: str

@@ -1,12 +1,15 @@
-"""Every Ku-mastery door publishes ``KnowledgeMastered`` once its write has landed.
+"""Every Ku-mastery door publishes ``KnowledgeMastered`` for the write that created the edge.
 
 Three doors master a Ku — report approval (``PsMasteryService.mark_mastered``), the
 Ku page's "understood" (``KuService.mark_as_understood``) and the pathways progress
 route (``UserProgressRecorderService.record_knowledge_mastery``). The progress chain
 (path-step and path progress, the derived step mastery, the ZPD snapshot) hangs off
 the event, so a door that wrote the edge silently would leave a step whose last Ku was
-mastered through it unmastered. The report-approval door is covered by
-``test_ps_step_mastery_derived``; these pin the other two.
+mastered through it unmastered. And only the transition is an event: the chain counts
+per event (the velocity counter, ``paths_completed``), so a retry or a second "understood"
+on a mastered Ku publishes nothing, and the event carries the score the graph stored.
+The report-approval door is covered by ``test_ps_step_mastery_derived``; these pin the
+other two.
 """
 
 from __future__ import annotations
@@ -52,15 +55,27 @@ def _ku_service(write: Result, bus: _Bus):
 
 
 @pytest.mark.asyncio
-async def test_understood_publishes_after_the_write_lands() -> None:
+async def test_understood_publishes_the_transition_with_the_stored_score() -> None:
     bus = _Bus()
-    service = _ku_service(Result.ok([{"uid": "ku.a"}]), bus)
+    service = _ku_service(Result.ok([{"mastery_score": 0.7, "was_mastered": False}]), bus)
 
     result = await service.mark_as_understood(USER, "ku.a")
 
     assert result.is_ok
     [event] = _mastered(bus)
     assert (event.ku_uid, event.user_uid, event.mastery_score) == ("ku.a", USER, 0.7)
+
+
+@pytest.mark.asyncio
+async def test_understood_of_a_ku_already_mastered_publishes_nothing() -> None:
+    """A report mastered it at 0.95; "understood" keeps that score and is not an event."""
+    bus = _Bus()
+    service = _ku_service(Result.ok([{"mastery_score": 0.95, "was_mastered": True}]), bus)
+
+    result = await service.mark_as_understood(USER, "ku.a")
+
+    assert result.is_ok
+    assert bus.published == []
 
 
 @pytest.mark.asyncio
@@ -98,15 +113,26 @@ def _recorder(write: Result, bus: _Bus) -> UserProgressRecorderService:
 
 
 @pytest.mark.asyncio
-async def test_recorded_mastery_publishes_after_the_write_lands() -> None:
+async def test_recorded_mastery_publishes_the_transition_with_the_stored_score() -> None:
     bus = _Bus()
-    service = _recorder(Result.ok(True), bus)
+    service = _recorder(Result.ok({"mastery_score": 0.9, "was_mastered": False}), bus)
 
     result = await service.record_knowledge_mastery(USER, "ku.b", 0.9, update_progress=False)
 
     assert result.is_ok
     [event] = _mastered(bus)
     assert (event.ku_uid, event.user_uid, event.mastery_score) == ("ku.b", USER, 0.9)
+
+
+@pytest.mark.asyncio
+async def test_recorded_mastery_retry_publishes_nothing() -> None:
+    bus = _Bus()
+    service = _recorder(Result.ok({"mastery_score": 0.9, "was_mastered": True}), bus)
+
+    result = await service.record_knowledge_mastery(USER, "ku.b", 0.9, update_progress=False)
+
+    assert result.is_ok
+    assert bus.published == []
 
 
 @pytest.mark.asyncio

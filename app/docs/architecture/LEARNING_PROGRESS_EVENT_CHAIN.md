@@ -60,7 +60,7 @@ UserProgressRecorderService.record_knowledge_mastery (pathways progress)
                      → if yes: MERGE (User)-[:MASTERED]->(PathStep)
                                (mark_mastered — the Ku edge's writer and
                                shape; retires the step's IN_PROGRESS edge)
-                               then publish PathStepCompleted
+                               then, if the edge is new, publish PathStepCompleted
                                    │
                                    └─► LpProgressService.handle_step_completed
                                            Find LPs containing this PS (via HAS_STEP)
@@ -74,9 +74,9 @@ UserProgressRecorderService.record_knowledge_mastery (pathways progress)
 
 | Event | Published By | Event Type String |
 |-------|-------------|-------------------|
-| `KnowledgeMastered` | every Ku-mastery door, once its write has landed: `PsMasteryService.mark_mastered()` (report approval), `KuService.mark_as_understood()` (the Ku page), `UserProgressRecorderService.record_knowledge_mastery()` (the pathways progress route) | `knowledge.mastered` |
+| `KnowledgeMastered` | every Ku-mastery door, for the write that **created** the edge (`was_mastered` False on the writer's row — a repeat raises the stored score and is not an event, since the velocity counter and `paths_completed` count per event): `PsMasteryService.mark_mastered()` (report approval), `KuService.mark_as_understood()` (the Ku page), `UserProgressRecorderService.record_knowledge_mastery()` (the pathways progress route) | `knowledge.mastered` |
 | `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | `path_step.progress_updated` |
-| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` — after the step's `MASTERED` edge is written; a write that does not land withholds the event | `path_step.completed` |
+| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` — for the write that created the step's `MASTERED` edge; a write that does not land, or finds the edge already there, withholds the event | `path_step.completed` |
 | `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.progress_updated` |
 | `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.completed` |
 

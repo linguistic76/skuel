@@ -352,6 +352,11 @@ class PsMasteryService:
         CASE WHEN new > existing so higher scores always win — teacher
         approval scores will upgrade AI feedback scores for the same exercise.
 
+        ``KnowledgeMastered`` is published on the transition only — the write
+        that created the edge. A re-approval raises the stored score and is
+        not an event: the chain behind it counts per event (the velocity
+        counter, ``paths_completed``), so a repeat would inflate it.
+
         The mastery_score is determined by MasteryImpact on the Exercise:
         - EntryReportService uses MasteryImpact.get_ai_score() (0.4-0.8)
         - TeacherReviewService uses MasteryImpact.get_teacher_score() (0.6-0.95)
@@ -364,14 +369,16 @@ class PsMasteryService:
         if result.is_error:
             return Result.fail(result)
 
-        if result.value:
-            record = result.value[0]
-            self.logger.info(
-                f"Marked KU as mastered: {user_uid} -> {ku_uid} "
-                f"(score={record['mastery_score']}, method={method})"
-            )
+        if not result.value:
+            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
 
-            # Publish KnowledgeMastered event to activate LP progress chain
+        record = result.value[0]
+        self.logger.info(
+            f"Marked KU as mastered: {user_uid} -> {ku_uid} "
+            f"(score={record['mastery_score']}, method={method}, "
+            f"transition={not record['was_mastered']})"
+        )
+        if not record["was_mastered"]:
             event = KnowledgeMastered(
                 ku_uid=ku_uid,
                 user_uid=user_uid,
@@ -379,9 +386,7 @@ class PsMasteryService:
             )
             await publish_event(self.event_bus, event, self.logger)
 
-            return Result.ok(True)
-        else:
-            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+        return Result.ok(True)
 
     # =========================================================================
     # EVENT HANDLERS
@@ -394,10 +399,11 @@ class PsMasteryService:
         A step is complete when every Ku it teaches (USES_KU / CONTAINS_KNOWLEDGE /
         TRAINS_KU) is mastered. For each such step the learner's MASTERED edge is
         written first — the same writer and edge shape as a Ku's — and
-        PathStepCompleted is published only once the write has landed, so the
-        event announces a persisted fact and no subscriber can advance on a step
-        the graph does not show as mastered. Idempotent: a repeat mastery event
-        re-detects the step, and the MERGE leaves one edge.
+        PathStepCompleted is published only once the write has landed, and only
+        for the write that created the edge, so the event announces a persisted
+        transition and no subscriber can advance on a step the graph does not
+        show as mastered. Idempotent: a repeat mastery event re-detects the step,
+        the MERGE leaves one edge, and nothing is announced twice.
 
         A step that teaches no Ku is never detected here; it has no derivable
         mastery (see ``docs/roadmap/zero-ku-step-mastery.md``).
@@ -424,6 +430,9 @@ class PsMasteryService:
                         f"edge was not written; PathStepCompleted withheld: "
                         f"{written.error if written.is_error else 'no row returned'}"
                     )
+                    continue
+                if written.value[0]["was_mastered"]:
+                    self.logger.debug(f"Path step {ps_uid} already mastered by {event.user_uid}")
                     continue
 
                 ps_event = PathStepCompleted(ps_uid=ps_uid, user_uid=event.user_uid)

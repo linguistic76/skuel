@@ -27,6 +27,7 @@ from core.events import publish_event
 from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations, UserLearningStateOperations
+from core.ports.query_types import MasteredWriteRow
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -86,13 +87,14 @@ class UserProgressRecorderService:
         practice_count: int = 1,
         confidence_level: float = 0.8,
         update_progress: bool = True,
-    ) -> Result[bool]:
+    ) -> Result[MasteredWriteRow]:
         """
         Record knowledge mastery using graph relationships.
 
         Creates/Updates: (User)-[:MASTERED]->(Knowledge), and publishes
-        ``KnowledgeMastered`` once the write has landed — every Ku-mastery door
-        announces itself, so the progress chain runs however the Ku was mastered.
+        ``KnowledgeMastered`` for the write that created the edge — every
+        Ku-mastery door announces its transition, so the progress chain runs
+        however the Ku was mastered; a retry on a mastered Ku is not an event.
 
         Args:
             user_uid: User's unique identifier
@@ -103,7 +105,7 @@ class UserProgressRecorderService:
             update_progress: Whether to update overall progress metrics
 
         Returns:
-            Result[bool]: True if recorded successfully
+            Result[MasteredWriteRow]: the stored score and ``was_mastered``
 
         Error cases:
             - Invalid mastery score → VALIDATION
@@ -125,13 +127,16 @@ class UserProgressRecorderService:
             logger.info(
                 f"Recorded mastery for user {user_uid}, knowledge {knowledge_uid}: {mastery_score}"
             )
-            await publish_event(
-                self.event_bus,
-                KnowledgeMastered(
-                    ku_uid=knowledge_uid, user_uid=user_uid, mastery_score=mastery_score
-                ),
-                logger,
-            )
+            if not result.value["was_mastered"]:
+                await publish_event(
+                    self.event_bus,
+                    KnowledgeMastered(
+                        ku_uid=knowledge_uid,
+                        user_uid=user_uid,
+                        mastery_score=result.value["mastery_score"],
+                    ),
+                    logger,
+                )
 
         return result
 

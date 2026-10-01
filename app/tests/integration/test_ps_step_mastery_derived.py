@@ -155,19 +155,29 @@ async def test_mastery_is_terminal_for_the_enrollment(neo4j_driver, backend, bus
     assert batch.is_ok and set(batch.value.values()) == {LearningState.MASTERED}
 
 
+def _ku_masteries(bus: InMemoryEventBus) -> list[KnowledgeMastered]:
+    return [e for e in bus.get_event_history() if isinstance(e, KnowledgeMastered)]
+
+
 @pytest.mark.asyncio
-async def test_a_repeat_mastery_event_leaves_one_edge(neo4j_driver, backend, bus, mastery) -> None:
+async def test_a_repeat_mastery_is_not_a_transition(neo4j_driver, backend, bus, mastery) -> None:
     assert (await mastery.mark_mastered(USER, KU_A, 0.9)).is_ok
     assert (await mastery.mark_mastered(USER, KU_B, 0.9)).is_ok
     first = (await _step_edges(neo4j_driver, STEP))[0]["props"]["mastered_at"]
+    assert len(_ku_masteries(bus)) == 2
 
-    # Re-approval of the same Ku publishes KnowledgeMastered again.
+    # Re-approval raises the stored score; the edge existed, so nothing is announced.
     assert (await mastery.mark_mastered(USER, KU_B, 0.95)).is_ok
+    assert len(_ku_masteries(bus)) == 2, "a repeat write on a mastered Ku is not an event"
+
+    # A replayed KnowledgeMastered re-detects the step; the MERGE leaves one edge
+    # and the step's own transition is not announced twice.
+    await bus.publish_async(KnowledgeMastered(ku_uid=KU_B, user_uid=USER, mastery_score=0.95))
 
     edges = await _step_edges(neo4j_driver, STEP)
     assert len(edges) == 1, "MERGE — never a second MASTERED edge on the step"
     assert edges[0]["props"]["mastered_at"] == first, "the first mastery instant survives"
-    assert len(_completions(bus)) == 2, "each detection announces the (unchanged) fact"
+    assert len(_completions(bus)) == 1, "PathStepCompleted announces the transition only"
 
 
 @pytest.mark.asyncio

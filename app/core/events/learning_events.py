@@ -32,7 +32,13 @@ from core.models.type_hints import UserUID
 @dataclass(frozen=True)
 class KnowledgeMastered(BaseEvent):
     """
-    Published when user masters a knowledge unit.
+    Published when user masters a knowledge unit — on the transition only.
+
+    One event per (user, Ku) edge: the write that created the edge publishes,
+    from whichever door (report approval, the Ku page's "understood", the
+    pathways progress route). A repeat write raises the stored score at most
+    and is not an event — the chain behind this counts per event (the
+    learning-velocity counter, ``paths_completed``).
 
     Mastery criteria: Typically >80% score on assessments + consistent application.
 
