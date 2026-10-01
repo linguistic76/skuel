@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from core.events.learning_events import KnowledgeMastered
+from core.events.learning_events import KnowledgeMastered, LearningPathStarted
 from core.models.type_hints import UserUID
 from core.services.user.user_progress_recorder_service import UserProgressRecorderService
 from core.utils.result_simplified import Errors, Result
@@ -143,4 +143,36 @@ async def test_recorded_mastery_failed_write_publishes_nothing() -> None:
     result = await service.record_knowledge_mastery(USER, "ku.b", 0.9, update_progress=False)
 
     assert result.is_error
+    assert bus.published == []
+
+
+# ---------------------------------------------------------------------------
+# UserProgressRecorderService.enroll_in_learning_path
+# ---------------------------------------------------------------------------
+
+
+def _enroller(newly_enrolled: bool, bus: _Bus) -> UserProgressRecorderService:
+    repo = MagicMock()
+    repo.enroll_in_learning_path = AsyncMock(return_value=Result.ok(newly_enrolled))
+    return UserProgressRecorderService(repo, event_bus=bus)
+
+
+@pytest.mark.asyncio
+async def test_a_new_enrollment_publishes_learning_path_started() -> None:
+    bus = _Bus()
+
+    result = await _enroller(True, bus).enroll_in_learning_path(USER, "lp.one")
+
+    assert result.is_ok and result.value is True
+    [event] = [e for e in bus.published if isinstance(e, LearningPathStarted)]
+    assert (event.path_uid, event.user_uid) == ("lp.one", USER)
+
+
+@pytest.mark.asyncio
+async def test_a_repeat_enrollment_publishes_nothing() -> None:
+    bus = _Bus()
+
+    result = await _enroller(False, bus).enroll_in_learning_path(USER, "lp.one")
+
+    assert result.is_ok and result.value is False
     assert bus.published == []

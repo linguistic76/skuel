@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from core.events import LearningPathCompleted, LearningPathProgressUpdated, publish_event
 from core.events.curriculum_events import PathStepCompleted
-from core.events.learning_events import KnowledgeMastered
+from core.events.learning_events import KnowledgeMastered, LearningPathStarted
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -34,7 +34,9 @@ class LpProgressService:
     eliminating direct dependencies between PsService and LpService.
 
     Event-Driven Architecture:
-    - Subscribes to KnowledgeMastered events
+    - Subscribes to KnowledgeMastered, PathStepCompleted and LearningPathStarted
+      events (the last initializes a new enrollment's progress from what the
+      learner already mastered)
     - Calculates LP progress from mastered KUs
     - Records the learner's progress on the ENROLLED_IN edge and publishes
       LearningPathProgressUpdated when it changed
@@ -131,6 +133,24 @@ class LpProgressService:
             self.logger.error(f"Error handling knowledge_mastered event: {e}")
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error handling knowledge_mastered event: {e}")
+
+    async def handle_path_started(self, event: LearningPathStarted) -> None:
+        """
+        Initialize a new enrollment's progress from the Kus already mastered.
+
+        A learner may enroll after mastering some or all of a path's Kus; those
+        masteries published nothing for this path (there was no enrollment to
+        record on), so the enrollment recounts under its lock the moment it is
+        created — at 1.0 it completes at once, and announces it once.
+
+        Errors are logged but not raised — progress updates are best-effort.
+        """
+        try:
+            await self._update_lp_from_ku_mastery(lp_uid=event.path_uid, user_uid=event.user_uid)
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Error handling learning_path.started event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Error handling learning_path.started event: {e}")
 
     async def handle_step_completed(self, event: PathStepCompleted) -> None:
         """

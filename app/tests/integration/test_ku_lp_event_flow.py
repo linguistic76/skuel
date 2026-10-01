@@ -28,11 +28,13 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, LpBackend
+from adapters.persistence.neo4j.user_backend import UserBackend
 from core.events.curriculum_events import PathStepCompleted
 from core.events.learning_events import (
     KnowledgeMastered,
     LearningPathCompleted,
     LearningPathProgressUpdated,
+    LearningPathStarted,
 )
 from core.models.enums import Domain, SELCategory
 from core.models.enums.curriculum_enums import LpType
@@ -327,6 +329,63 @@ class TestKuLpEventFlow:
             True,
             1.0,
         )
+
+    async def test_enrolling_after_mastery_initializes_progress(
+        self,
+        event_bus,
+        lp_progress_service,
+        neo4j_driver,
+        python_basics_path,
+        test_user_uid,
+    ):
+        """A learner who mastered every Ku before enrolling: the enrollment is
+        created at 1.0 and completed at once — the masteries announced nothing
+        for this path (there was no enrollment to record on), so the creation
+        itself triggers the recount."""
+        lp, kus = python_basics_path
+        event_bus.subscribe(LearningPathStarted, lp_progress_service.handle_path_started)
+
+        async with neo4j_driver.session() as session:
+            # Mastered before enrolling: drop the fixture's enrollment, master every Ku.
+            await session.run(
+                """
+                MATCH (:User {uid: $user_uid})-[e:ENROLLED_IN]->(:Entity {uid: $lp_uid})
+                DELETE e
+                """,
+                user_uid=test_user_uid,
+                lp_uid=lp.uid,
+            )
+            for ku in kus:
+                await session.run(
+                    """
+                    MATCH (user:User {uid: $user_uid}), (ku:Entity {uid: $ku_uid})
+                    MERGE (user)-[:MASTERED {mastery_score: 0.9}]->(ku)
+                    """,
+                    user_uid=test_user_uid,
+                    ku_uid=ku.uid,
+                )
+
+        enrolled = await UserBackend(neo4j_driver).enroll_in_learning_path(test_user_uid, lp.uid)
+        assert enrolled.is_ok and enrolled.value is True
+        await event_bus.publish_async(LearningPathStarted(path_uid=lp.uid, user_uid=test_user_uid))
+        await asyncio.sleep(0.1)
+
+        history = event_bus.get_event_history()
+        progress_events = [e for e in history if isinstance(e, LearningPathProgressUpdated)]
+        assert [(e.old_progress, e.new_progress) for e in progress_events] == [(0.0, 1.0)]
+        completed_events = [e for e in history if isinstance(e, LearningPathCompleted)]
+        assert [e.path_uid for e in completed_events] == [lp.uid]
+        async with neo4j_driver.session() as session:
+            row = await session.run(
+                """
+                MATCH (:User {uid: $user_uid})-[e:ENROLLED_IN]->(:Entity {uid: $lp_uid})
+                RETURN e.status AS status, e.progress AS progress
+                """,
+                user_uid=test_user_uid,
+                lp_uid=lp.uid,
+            )
+            record = await row.single()
+        assert (record["status"], record["progress"]) == ("completed", 1.0)
 
     async def test_no_update_when_ku_not_in_lp(
         self,

@@ -191,7 +191,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         # Curriculum / learning
         KnowledgeCreated: 1,
         KnowledgeMastered: 6,  # invalidate + LP/PS-mastery/PS-progress chains + recs + x-domain
-        LearningPathStarted: 1,
+        LearningPathStarted: 2,  # invalidate + LP progress init on enrollment
         LearningPathCompleted: 4,  # invalidate + recommendations + x-domain + analytics report
         LearningPathProgressUpdated: 1,
         PathStepCreated: 1,

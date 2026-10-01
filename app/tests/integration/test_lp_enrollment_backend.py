@@ -82,13 +82,15 @@ async def test_enroll_creates_enrolled_in_edge(neo4j_driver, enrollment_graph):
 
 
 async def test_enroll_is_idempotent(neo4j_driver, enrollment_graph):
-    """MERGE semantics: enrolling twice leaves exactly one edge."""
+    """MERGE semantics: enrolling twice leaves exactly one edge — and reports
+    the transition once, so LearningPathStarted is published once."""
     backend = UserBackend(neo4j_driver)
 
     first = await backend.enroll_in_learning_path(_USER_UID, _LP_UID)
     second = await backend.enroll_in_learning_path(_USER_UID, _LP_UID)
 
     assert first.is_ok and second.is_ok
+    assert (first.value, second.value) == (True, False)
     assert await _count_enrollments(neo4j_driver) == 1
 
 

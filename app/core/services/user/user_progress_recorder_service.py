@@ -24,7 +24,7 @@ This service is part of the refactored UserService architecture:
 """
 
 from core.events import publish_event
-from core.events.learning_events import KnowledgeMastered
+from core.events.learning_events import KnowledgeMastered, LearningPathStarted
 from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations, UserLearningStateOperations
 from core.ports.query_types import MasteredWriteRow
@@ -204,10 +204,15 @@ class UserProgressRecorderService:
             motivation_note: User's motivation
 
         Returns:
-            Result[bool]: True if enrolled successfully
+            Result[bool]: True when this call created the enrollment
 
         Error cases:
             - Database operation fails → DATABASE
+
+        The enrollment that is created publishes ``LearningPathStarted``, so the
+        progress chain initializes the enrollment's progress from the Kus the
+        learner has already mastered; a repeat enroll refreshes the edge and
+        announces nothing.
         """
         result = await self.repo.enroll_in_learning_path(
             user_uid,
@@ -219,6 +224,12 @@ class UserProgressRecorderService:
 
         if result.is_ok:
             logger.info(f"Enrolled user {user_uid} in learning path {learning_path_uid}")
+            if result.value:
+                await publish_event(
+                    self.event_bus,
+                    LearningPathStarted(path_uid=learning_path_uid, user_uid=user_uid),
+                    logger,
+                )
 
         return result
 

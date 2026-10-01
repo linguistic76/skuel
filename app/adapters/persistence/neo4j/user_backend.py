@@ -704,26 +704,42 @@ class UserBackend(Neo4jSessionRunner):
             motivation_note: User's motivation for enrolling
 
         Returns:
-            Result[bool]: Success status
+            Result[bool]: True when this call created the enrollment, False
+            when the user was already enrolled (the edge's fields are
+            refreshed either way)
         """
-        merged = await self._merge_user_edge(
-            user_uid,
-            learning_path_uid,
-            "ENROLLED_IN",
-            """r.enrolled_at = coalesce(r.enrolled_at, datetime()),
-            r.target_completion = $target_completion,
-            r.weekly_time_commitment = $weekly_time_commitment,
-            r.motivation_note = $motivation_note,
-            r.status = $active""",
+        # Not _merge_user_edge: the publisher of LearningPathStarted needs to
+        # know whether THIS call created the enrollment (a repeat enroll is not
+        # a start), and the helper reports existence only. The MERGE sets a
+        # marker in its ON CREATE / ON MATCH branch, under its lock, and the
+        # statement removes it before returning — the same shape as the
+        # MASTERED writers' was_mastered.
+        record = await self._run_single(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (lp:LearningPath {uid: $learning_path_uid})
+            MERGE (u)-[r:ENROLLED_IN]->(lp)
+            ON CREATE SET r.transition = true
+            ON MATCH SET r.transition = false
+            SET r.enrolled_at = coalesce(r.enrolled_at, datetime()),
+                r.target_completion = $target_completion,
+                r.weekly_time_commitment = $weekly_time_commitment,
+                r.motivation_note = $motivation_note,
+                r.status = $active
+            WITH r, r.transition AS newly_enrolled
+            REMOVE r.transition
+            RETURN newly_enrolled
+            """,
             {
+                "user_uid": user_uid,
+                "learning_path_uid": learning_path_uid,
                 "target_completion": target_completion or datetime.now().isoformat(),
                 "weekly_time_commitment": weekly_time_commitment,
                 "motivation_note": motivation_note,
                 "active": EnrollmentStatus.ACTIVE.value,
             },
-            target_label="LearningPath",
         )
-        if not merged:
+        if record is None:
             # MERGE only fails to produce a row when a MATCH found nothing —
             # the LP (or user) doesn't exist, not a database outage.
             return Result.fail(
@@ -731,7 +747,7 @@ class UserBackend(Neo4jSessionRunner):
             )
 
         self.logger.info(f"Enrolled user in path: {user_uid} → {learning_path_uid}")
-        return Result.ok(True)
+        return Result.ok(bool(record["newly_enrolled"]))
 
     @safe_backend_operation("complete_learning_path")
     async def complete_learning_path(

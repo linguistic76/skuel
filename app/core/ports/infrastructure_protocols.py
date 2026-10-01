@@ -224,7 +224,7 @@ class UserLearningStateOperations(Protocol):
         weekly_time_commitment: int = 300,
         motivation_note: str = "",
     ) -> Result[bool]:
-        """Enroll user in a learning path."""
+        """Enroll user in a learning path; True when this call created the enrollment."""
         ...
 
     async def complete_learning_path(

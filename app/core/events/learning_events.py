@@ -121,19 +121,23 @@ class KnowledgeCreated(BaseEvent):
 @dataclass(frozen=True)
 class LearningPathStarted(BaseEvent):
     """
-    Published when user starts a learning path.
+    Published when a user's enrollment in a learning path is created — once per
+    (user, path) edge, from whichever door created it (``LpCoreService`` with the
+    path's details, the pathways enrollment route with the uid alone).
 
     Subscribers:
+    - LpProgressService (initialize the enrollment's progress from the Kus the
+      learner has already mastered — a path enrolled after its Kus were mastered
+      is at 1.0 from the start)
     - UserService (invalidate context)
-    - ProgressTrackingService (initialize progress)
-    - AnalyticsEngine (track path popularity)
+    - the metrics handler (entities_created for lp)
     """
 
     path_uid: str
     user_uid: UserUID
 
-    # Path details
-    path_title: str
+    # Path details — carried when the publisher holds them
+    path_title: str | None = None
     estimated_duration_hours: int | None = None
     total_kus: int = 0
 
