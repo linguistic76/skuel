@@ -60,7 +60,7 @@ This is distinct from Python's `_` throwaway variable. The underscore prefix her
 `GET /api/{domain}/analytics` (`create_activity_domain_route_config` sets
 `intelligence=IntelligenceRouteConfig()`, `domain_route_factory.py:351`). The handler reads
 `period_days` off the query string and passes it through
-(`intelligence_route_factory.py:280`, `285`). Each of the three services then echoes it back as
+(`intelligence_route_factory.py:288`, `293`). Each of the three services then echoes it back as
 `"period_days"` in the response body (habits 178, choices 152, principles 103) while computing over
 every entity the user owns. The response therefore *claims* a window it did not
 apply — this is a wrong answer, not just a missing feature.

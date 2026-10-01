@@ -54,6 +54,12 @@ logger = get_logger(__name__)
 
 T = TypeVar("T")
 
+# What an analytics or insights route answers with. One factory serves each routed
+# domain, so the payload's shape varies per domain (a Task's analytics, a PathStep's
+# insights): the route-factory erased-T boundary (CLAUDE.md Any policy). A service
+# may declare a TypedDict for its own payload; the factory reads none of its keys.
+IntelligencePayload = dict[str, Any]  # boundary: route-factory erased-T
+
 
 # ============================================================================
 # PROTOCOLS
@@ -71,7 +77,9 @@ class OwnershipVerifier(Protocol):
     UID enumeration attacks.
     """
 
-    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Any]:
+    async def verify_ownership(
+        self, uid: str, user_uid: UserUID
+    ) -> Result[Any]:  # boundary: route-factory erased-T — the owned entity, any domain's model
         """
         Verify that user owns the entity.
 
@@ -108,7 +116,7 @@ class IntelligenceOperations(Protocol[T]):
 
     async def get_domain_insights(
         self, uid: str, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[IntelligencePayload]:
         """
         Get domain-specific insights for entity.
 
@@ -133,7 +141,7 @@ class PerformanceAnalyticsOperations(Protocol):
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[IntelligencePayload]:
         """
         Get performance analytics for user.
 
@@ -278,7 +286,7 @@ class IntelligenceRouteFactory:
         @boundary_handler()
         async def analytics_route(
             request: Request, period_days: int = 30
-        ) -> Result[dict[str, Any]]:
+        ) -> Result[IntelligencePayload]:
             """Get performance analytics for authenticated user"""
             user_uid = require_authenticated_user(request)
 
@@ -305,7 +313,7 @@ class IntelligenceRouteFactory:
         @boundary_handler()
         async def context_route(
             request: Request, uid: str, depth: int = 2
-        ) -> Result[dict[str, Any]]:
+        ) -> Result[IntelligencePayload]:
             """Get entity with full graph context"""
             user_uid = require_authenticated_user(request)
 
@@ -357,7 +365,7 @@ class IntelligenceRouteFactory:
         @boundary_handler()
         async def insights_route(
             request: Request, uid: str, min_confidence: float = 0.7
-        ) -> Result[dict[str, Any]]:
+        ) -> Result[IntelligencePayload]:
             """Get domain-specific insights for entity"""
             user_uid = require_authenticated_user(request)
 

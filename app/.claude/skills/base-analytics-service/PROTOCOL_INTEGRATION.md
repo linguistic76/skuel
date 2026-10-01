@@ -57,14 +57,19 @@ class IntelligenceOperations(Protocol[T]):
 
     async def get_domain_insights(
         self, uid: str, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]: ...  # boundary: per-domain insights payload
+    ) -> Result[IntelligencePayload]: ...
 
 
 class PerformanceAnalyticsOperations(Protocol):
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]: ...  # boundary: per-domain analytics payload
+    ) -> Result[IntelligencePayload]: ...
 ```
+
+`IntelligencePayload = dict[str, Any]  # boundary: route-factory erased-T` — one factory serves
+each routed domain, so the payload's shape varies per domain and the factory reads none of its
+keys. A service may declare a TypedDict for its own payload (`PsDomainInsights`,
+`LpDomainInsights`).
 
 The split follows who has a per-user set to aggregate. The per-entity reads exist for a
 domain at either scope; the per-user aggregate exists for a user-owned domain. KU, PS and LP
