@@ -269,8 +269,11 @@ Appended to `plan.warnings` in this order:
 4. `workload_utilization > 0.9`; no learning scheduled while `context.learning_goals` is set.
 5. Domain health — only when `filtered_providers` is non-empty (§ Domain-health warnings).
 6. Momentum — `TemporalMomentumMixin`: domains with nothing in `entities_rich`, and habit
-   consistency under 0.4. Consistency is 0.0 when there are no habit items to average, so the
-   low-consistency warning also reaches a user who tracks no habits.
+   consistency under 0.4. Consistency is the mean of the `completion_rate` values the habit
+   items in `entities_rich` carry, and `None` when no item carries one; `None` raises no
+   warning. The Habit node's rate property is `success_rate` and no completion door writes a
+   `completion_rate`, so the signal is `None` for a habit created through the app — see
+   `/docs/roadmap/habit-completion-persistence-bundle.md` (⚠ *Readers of a rate no door writes*).
 
 ### Domain-health warnings
 
@@ -302,9 +305,14 @@ Choice's statuses are `draft` / `active` / `completed` / `archived` — it is th
 
 ### Plan metadata
 
-- `workload_utilization = min(1.0, estimated_time / max(available_minutes, 1))`.
-- `fits_capacity = workload_utilization <= 1.0` — with the clamp above, this is `True` on every
-  plan. Read `workload_utilization` or `estimated_time_minutes`, not `fits_capacity`.
+- `fits_capacity = estimated_time <= available_minutes`. At-risk habits and events are planned
+  whatever the capacity (15 and 30 minutes each), so a plan can exceed it even with
+  `respect_capacity=True`; the other blocks are skipped once they would.
+- `workload_utilization = min(1.0, estimated_time / max(available_minutes, 1))` — 1.0 for a plan
+  at or over capacity.
+- `UserContextService.get_next_action` turns `fits_capacity == False` into one alert of type
+  `capacity_warning`, severity `high`, ahead of the plan's warnings; each plan warning is a
+  `plan_warning` / `medium` alert whether or not the plan fits.
 - `priorities` and `rationale` are built from the assembled plan, then set with
   `dataclasses.replace`.
 - **PS-engagement buckets (ADR-059)** — when `context.active_ps_engagements` is non-empty,

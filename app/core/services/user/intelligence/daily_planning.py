@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         ContextualKnowledge,
         ContextualTask,
     )
+    from core.ports.query_types import MomentumSignals
     from core.services.ps_engagement.engagement import Engagement
     from core.services.user.unified_user_context import RichUserContext
 
@@ -70,11 +71,11 @@ class DailyPlanningMixin(IntelligenceMixinBase):
     # inside this file.
     if TYPE_CHECKING:
 
-        def compute_momentum_signals(self) -> dict[str, Any]: ...
+        def compute_momentum_signals(self) -> MomentumSignals: ...
 
-        def _momentum_warnings(self, signals: dict[str, Any]) -> list[str]: ...
+        def _momentum_warnings(self, signals: MomentumSignals) -> list[str]: ...
 
-        def _momentum_rationale(self, signals: dict[str, Any]) -> str | None: ...
+        def _momentum_rationale(self, signals: MomentumSignals) -> str | None: ...
 
     # =========================================================================
     # METHOD 5: Ready to Work on Today - THE FLAGSHIP METHOD
@@ -314,8 +315,11 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         # =====================================================================
         # Calculate final metrics
         # =====================================================================
+        # Habits and events are planned whatever the capacity, so a plan can need
+        # more minutes than the user has. fits_capacity compares the two counts;
+        # workload_utilization is their ratio held to 0.0-1.0.
+        fits_capacity = estimated_time <= available_time
         workload_utilization = min(1.0, estimated_time / max(available_time, 1))
-        fits_capacity = workload_utilization <= 1.0
 
         # Final warnings
         if workload_utilization > 0.9:
@@ -429,7 +433,7 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         self,
         plan: DailyWorkPlan,
         prioritize_life_path: bool,
-        momentum: dict[str, Any] | None = None,
+        momentum: MomentumSignals | None = None,
     ) -> str:
         """Generate human-readable rationale for daily plan."""
         rationale_parts = []

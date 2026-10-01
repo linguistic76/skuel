@@ -1536,6 +1536,23 @@ class ContextHealthResult(TypedDict, total=False):
     recommendations: list[str]
 
 
+class MomentumSignals(TypedDict):
+    """Return shape for TemporalMomentumMixin.compute_momentum_signals().
+
+    Fields:
+        velocities: Activity domain -> share of its window items that are completed
+        neglected: Activity domains with no items in the window
+        habit_consistency: Mean of the rates the habit items carry; None when no
+            item carries one (a user with no habits has no consistency to report)
+        phase: "accelerating" | "steady" | "decelerating" | "unknown"
+    """
+
+    velocities: dict[str, float]
+    neglected: list[str]
+    habit_consistency: float | None
+    phase: str
+
+
 # ============================================================================
 # AUTH RESULT TYPES
 # ============================================================================

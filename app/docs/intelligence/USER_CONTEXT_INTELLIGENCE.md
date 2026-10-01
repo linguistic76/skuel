@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-09-30
+updated: 2026-10-01
 ---
 # UserContextIntelligence - Central Intelligence Hub
 ## Related Skills
@@ -1176,7 +1176,9 @@ async def test_daily_planning_workflow():
     plan = await intelligence.get_ready_to_work_on_today()
 
     # Verify plan structure
-    assert plan.fits_capacity
+    assert plan.fits_capacity == (
+        plan.estimated_time_minutes <= context.available_minutes_daily
+    )
     assert plan.workload_utilization <= 1.0
     assert len(plan.priorities) > 0
 ```

@@ -313,15 +313,31 @@ class UserContextService:
             "capacity_utilization": plan.workload_utilization,
         }
 
-        alerts: list[ContextAlert] = [
+        # The capacity alert is the plan's own arithmetic, stated once; the plan's
+        # warnings are about other things (overdue work, neglected domains, blocked
+        # exercises) and keep their own type whether or not the plan fits.
+        alerts: list[ContextAlert] = []
+        if not plan.fits_capacity:
+            alerts.append(
+                {
+                    "type": "capacity_warning",
+                    "severity": "high",
+                    "message": (
+                        f"Today's plan needs {plan.estimated_time_minutes} minutes — "
+                        "more than the time available"
+                    ),
+                    "item_count": 0,
+                }
+            )
+        alerts.extend(
             {
-                "type": "capacity_warning" if not plan.fits_capacity else "plan_warning",
-                "severity": "high" if not plan.fits_capacity else "medium",
+                "type": "plan_warning",
+                "severity": "medium",
                 "message": warning,
                 "item_count": 0,
             }
             for warning in plan.warnings
-        ]
+        )
 
         next_action: NextActionResult = {
             "user_uid": user_uid,

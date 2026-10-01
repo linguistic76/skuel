@@ -145,7 +145,7 @@ async def get_cross_domain_perception_analysis(
 ) -> Result[dict[str, Any]]: ...  # boundary: heterogeneous rollup map
 
 # TemporalMomentumMixin — synchronous
-def compute_momentum_signals(self) -> dict[str, Any]: ...  # boundary: heterogeneous signal map
+def compute_momentum_signals(self) -> MomentumSignals: ...  # TypedDict, core/ports/query_types.py
 ```
 
 `prioritize_life_path` changes one clause of the plan's `rationale`; it does not change which
