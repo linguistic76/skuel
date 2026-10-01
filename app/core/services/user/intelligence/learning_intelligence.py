@@ -208,7 +208,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
             # Use semantic/learning-aware search to find optimal next steps
             # This personalizes based on mastery state (MASTERED, IN_PROGRESS, etc.)
-            search_query = self._generate_learning_query(consider_goals)
+            search_query = self._generate_learning_query()
             vector_result = await self.vector_search.learning_aware_search(
                 label="Entity",
                 text=search_query,
@@ -641,13 +641,13 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
     # Vector Search Helpers
     # =========================================================================
 
-    def _generate_learning_query(self, consider_goals: bool) -> str:
+    def _generate_learning_query(self) -> str:
         """
         Generate a semantic search query based on user's learning goals and life path.
 
         Combines:
         - Life path focus
-        - Active learning goals (when ``consider_goals``)
+        - Active learning goals
         - Current knowledge context
         """
         query_parts = []
@@ -658,7 +658,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             query_parts.append("learning path knowledge")
 
         # Include learning goals context
-        if consider_goals and self.context.learning_goals:
+        if self.context.learning_goals:
             query_parts.append("goal-aligned learning")
 
         # Include current learning focus

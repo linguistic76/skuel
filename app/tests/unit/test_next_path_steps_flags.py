@@ -308,18 +308,31 @@ async def test_empty_proximal_zone_passes_the_goals_flag_to_the_next_source() ->
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("consider_goals", "names_goals"), [(True, True), (False, False)], ids=["on", "off"]
-)
-async def test_vector_query_names_goals_only_when_goals_are_considered(
-    consider_goals: bool, names_goals: bool
-) -> None:
-    intelligence = _vector(_context())
+@pytest.mark.parametrize("arrange", SOURCES)
+async def test_a_source_is_asked_the_same_questions_whatever_the_flags(arrange: Arrange) -> None:
+    """Candidate retrieval reads neither flag; they act on what the source returned."""
+    intelligence = arrange(_timed_context())
+    services = [
+        service
+        for service in (
+            intelligence.ps,
+            intelligence.tasks,
+            intelligence.vector_search,
+            intelligence.zpd_service,
+        )
+        if service is not None
+    ]
 
-    await _steps(intelligence, consider_goals=consider_goals, consider_capacity=False)
+    await _steps(intelligence, consider_goals=False, consider_capacity=False)
+    asked_with_flags_off = [list(service.mock_calls) for service in services]
+    for service in services:
+        service.reset_mock()
 
-    query = intelligence.vector_search.learning_aware_search.call_args.kwargs["text"]
-    assert ("goal-aligned learning" in query) is names_goals
+    await _steps(intelligence, consider_goals=True, consider_capacity=True)
+    asked_with_flags_on = [list(service.mock_calls) for service in services]
+
+    assert asked_with_flags_on == asked_with_flags_off
+    assert any(asked_with_flags_off), "the source under test asked its services nothing"
 
 
 @pytest.mark.asyncio
