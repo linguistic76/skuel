@@ -134,8 +134,9 @@ class ZPDAssessment:
         The user's life path UID, when available.
 
     recommended_actions : tuple[ZPDAction, ...]
-        Concrete recommended actions derived from proximal zone analysis.
-        Sorted by priority descending. Consumed by daily planning P5.
+        Concrete recommended actions derived from proximal zone analysis, in the
+        order they were built (unblock, learn, reinforce) — ``top_recommended_actions()``
+        is the read that sorts by priority. Consumed by daily planning P5.
 
     zone_evidence : dict[str, ZoneEvidence]
         Per-KU compound evidence tracking. Maps ku_uid to ZoneEvidence.

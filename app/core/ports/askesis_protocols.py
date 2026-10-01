@@ -308,8 +308,10 @@ class AskesisDomainSynthesisOperations(Protocol):
         Args:
             user_context: Complete user context
             max_steps: Maximum steps to return (default: 5)
-            consider_goals: Include goal alignment (default: True)
-            consider_capacity: Respect learning capacity (default: True)
+            consider_goals: Weight by goal alignment — a step serving a goal
+                scores higher (default: True)
+            consider_capacity: Respect learning capacity — the returned steps fit
+                the day's available minutes together (default: True)
 
         Returns:
             Result[list[PathStep]]: Prioritized path steps

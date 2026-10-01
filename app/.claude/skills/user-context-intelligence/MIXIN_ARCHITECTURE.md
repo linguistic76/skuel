@@ -78,19 +78,37 @@ number.
 | 3 `get_knowledge_application_opportunities` | `tasks`, context | `Result[dict[str, list[str]]]` |
 | 4 `get_unblocking_priority_order` | context | `Result[list[tuple[str, int]]]`, highest count first |
 
-**Method 1 has four candidate sources, tried in this order:** the ZPD assessment, vector
-search, `ps.get_ready_to_learn_for_user`, and the context's own `get_ready_to_learn()`. Which
-one answers depends on what is wired and what each returns.
+**Method 1 has four candidate sources, tried in this order:** the ZPD assessment (its learn
+actions, else its proximal zone), vector search, `ps.get_ready_to_learn_for_user`, and the
+context's own `get_ready_to_learn()`. Which one answers depends on what is wired and what each
+returns. A source scores its own candidates and hands them to `_rank_steps`, where the two
+flags act:
+
+- **`consider_goals`** — each goal a step serves adds `NextStepRanking.GOAL_WEIGHT_PER_GOAL`
+  to its `priority_score`, up to `GOAL_WEIGHT_MAX`; the weight lifts a score no higher than
+  1.0, so a step a source already scored near the top gains less. Off, goal alignment changes
+  no score and moves no step. `aligns_with_goals` and the rationale name the goals either way.
+- **`consider_capacity`** — the returned steps fit `context.available_minutes_daily`
+  together. Walking the ranking, a step is kept when its `estimated_time_minutes` fits in what
+  is left of the day, so a step too long for the remainder is skipped and a shorter one ranked
+  below it can be kept. Off, no step is dropped. Time changes no score in either case.
+
+The steps come back in descending `priority_score` order; candidates that tie keep their
+source's order.
 
 What a caller must not assume:
 
-- **`consider_capacity` is not a guarantee that the steps fit the day.** The ZPD, vector and
-  `ps` sources filter by it. The context source only adds to a step's score, so its steps can
-  exceed `context.available_minutes_daily`.
-- **`consider_goals` is not honoured on every path.** Only the context source reads it. The
-  vector source accepts and ignores it. When a ZPD assessment is non-empty but yields no
-  candidates, the fall-through to the other sources passes `True` regardless of what the caller
-  sent.
+- **A built context gives the flags little to act on.** `learning_goals`,
+  `prerequisites_needed` and `estimated_time_to_mastery` are declared on `UserContext` and
+  `UserContextBuilder` writes none of them. On a built context no step aligns with a goal, so
+  `consider_goals` changes nothing, and a step's estimate is the 60-minute default, so
+  `consider_capacity` keeps at most `available_minutes_daily // 60` steps — one at the default
+  60, none below it. `next_recommended_knowledge` is unwritten too, so the context source has
+  no candidates. Method 1 has no production caller; these fields need writers before it gets
+  one.
+- **The goal weight re-ranks the candidates a source returned.** A source hands over at most
+  twice `max_steps` candidates, chosen by its own score; a goal-aligned step outside that cut
+  is not weighed.
 - **It can raise.** Steps from the first three sources are enriched by
   `_get_application_opportunities_for_ku`, which raises `RuntimeError` when its habits or
   events read fails — the one place in the package that raises on a service failure rather than
