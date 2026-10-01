@@ -26,9 +26,10 @@ Usage:
             ...
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
+from core.constants import PromptInput
 from core.events import publish_event
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
@@ -37,6 +38,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
+from core.utils.text_truncation import truncate_to_budget
 from core.utils.vector_math import normalized_cosine_similarity
 
 if TYPE_CHECKING:
@@ -93,8 +95,8 @@ class BaseAIService(Generic[B, T]):
         llm_service: LLMService | None = None,
         embeddings_service: EmbeddingsService | None = None,
         graph_intel: GraphIntelligenceService | None = None,
-        relationship_service: Any | None = None,
-        event_bus: Any | None = None,
+        relationship_service: Any | None = None,  # boundary: UnifiedRelationshipService
+        event_bus: Any | None = None,  # boundary: EventBusOperations
     ) -> None:
         """
         Initialize AI service with common attributes.
@@ -173,10 +175,23 @@ class BaseAIService(Generic[B, T]):
         """Publish an event to the event bus if available."""
         await publish_event(self.event_bus, event, self.logger)
 
+    @staticmethod
+    def _bounded(value: object, limit: int = PromptInput.FIELD_MAX_CHARS) -> str:
+        """Render ``value`` as prompt text of at most ``limit`` characters.
+
+        Every entity field a prompt builder interpolates goes through this:
+        a field within the limit is returned as written, a longer one is cut
+        at a paragraph, sentence or word boundary and ends in ``...`` so the
+        model can see it was cut. ``_generate_insight`` applies it to each
+        ``context`` value; a builder that writes a field straight into its
+        prompt string calls it at the interpolation.
+        """
+        return truncate_to_budget(f"{value}", limit)
+
     async def _generate_insight(
         self,
         prompt: str,
-        context: dict[str, Any] | None = None,
+        context: Mapping[str, object] | None = None,
         max_tokens: int = 500,
     ) -> Result[str]:
         """
@@ -188,13 +203,22 @@ class BaseAIService(Generic[B, T]):
         failed ``Result``, so a caller that parses the text never sees an
         empty answer as success.
 
+        Each ``context`` value is bounded on its own (``_bounded``), so a long
+        field shortens that field and leaves the instructions in ``prompt``
+        whole. The assembled prompt is then held to
+        ``PromptInput.PROMPT_MAX_CHARS``: one over the ceiling is refused with
+        a system error and never sent, because cutting it here would cut the
+        instructions.
+
         Args:
-            prompt: The prompt for the LLM
-            context: Optional context to include
+            prompt: The instructions for the LLM, with any entity field it
+                interpolates already passed through ``_bounded``
+            context: Optional entity fields to put before the instructions
             max_tokens: Maximum tokens in response
 
         Returns:
-            Result containing the generated text, or an integration error
+            Result containing the generated text; an integration error when the
+            provider fails; a system error when the prompt is over the ceiling
         """
         if not self.llm:
             return Result.fail(
@@ -208,8 +232,26 @@ class BaseAIService(Generic[B, T]):
         # Build full prompt with context if provided
         full_prompt = prompt
         if context:
-            context_str = "\n".join(f"{k}: {v}" for k, v in context.items())
+            context_str = "\n".join(f"{k}: {self._bounded(v)}" for k, v in context.items())
             full_prompt = f"Context:\n{context_str}\n\n{prompt}"
+
+        if len(full_prompt) > PromptInput.PROMPT_MAX_CHARS:
+            self.logger.error(
+                f"Prompt of {len(full_prompt)} characters exceeds the "
+                f"{PromptInput.PROMPT_MAX_CHARS}-character ceiling - not sent"
+            )
+            return Result.fail(
+                Errors.system(
+                    message=(
+                        f"Assembled prompt is {len(full_prompt)} characters; the ceiling is "
+                        f"{PromptInput.PROMPT_MAX_CHARS}. A prompt builder interpolated a "
+                        "field without bounding it."
+                    ),
+                    operation="generate_insight",
+                    prompt_chars=len(full_prompt),
+                    ceiling=PromptInput.PROMPT_MAX_CHARS,
+                )
+            )
 
         response = await self.llm.generate(full_prompt, max_tokens=max_tokens)
         if response.error is not None:

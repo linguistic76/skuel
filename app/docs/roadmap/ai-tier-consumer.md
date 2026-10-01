@@ -74,5 +74,11 @@ a spec whose `method_name` does not resolve on its AI class is refused at regist
   (`core/services/whole_set_read.py`), up to `QueryLimit.MAXIMUM` rows — read and ranked in
   Python on each call. A vector query with a limit is the shape that scales
   (`TODO(blocked:embeddings)` in `tasks_ai_service.py`).
-- **Prompt input is unbounded** — the `generate_*_insight` methods pass `description` whole,
-  and the request models set no `max_length` on it.
+- ~~Prompt input is unbounded~~ — ruled 2026-10-01 (both caps): every Activity request model
+  caps `description` (Tasks and Events at 2000, the two that had none), and the prompt
+  builders bound each entity field where it enters the prompt (`BaseAIService._bounded`,
+  `PromptInput.FIELD_MAX_CHARS`), because a field written by vault ingestion or a template
+  spawn passes no request model. `_generate_insight` refuses an assembled prompt over
+  `PromptInput.PROMPT_MAX_CHARS`. The Activity-template request models
+  (`core/models/templates/*_template_request.py`) set no `max_length` on `description`; a
+  spawned instance's text is bounded at the prompt like any other.

@@ -96,10 +96,16 @@ async def generate_task_insight(self, task_uid: str) -> Result[str]:
     context = {
         "title": task.title,
         "description": task.description or "No description",
+        "priority": task.priority if task.priority else "Not set",
         "status": task.status.value if task.status else "Unknown",
         "due_date": str(task.due_date) if task.due_date else "No deadline",
     }
-    prompt = "Provide a brief, actionable insight about this task. Keep it under 100 words."
+
+    prompt = """Provide a brief, actionable insight about this task.
+Focus on:
+1. Why this task might be important
+2. One specific tip for completing it effectively
+Keep it under 100 words."""
 
     return await self._generate_insight(prompt, context=context, max_tokens=200)
 ```
@@ -107,10 +113,10 @@ async def generate_task_insight(self, task_uid: str) -> Result[str]:
 The shape to keep: fetch, guard not-found, build the context, one helper call, return its
 `Result` — `Result.ok(str)`, or the provider's failure as `Errors.integration(service="llm")`.
 
-**The live method does not bound its input.** `task.description` is passed whole, and
-`TaskCreateRequest.description` has no maximum length; `max_tokens` caps the reply, not the
-prompt. A new method truncates each free-text field before it goes into the context — see
-§ Anti-Patterns, Unbounded input.
+**The helper bounds the input.** Each `context` value goes through `_bounded`
+(`PromptInput.FIELD_MAX_CHARS`), so a long `task.description` shortens that one line and the
+instructions stay whole; `max_tokens` caps the reply, not the prompt. A method that writes a
+field into the prompt string itself bounds it there — see § Anti-Patterns, Unbounded input.
 
 Entity fields reach the model as written by the user. Treat the output as untrusted text: it is
 data for display, never an instruction to act on.
@@ -210,9 +216,12 @@ def tasks_ai() -> TasksAIService:
 
 ### With the helper replaced
 
-`tests/unit/services/tasks/test_tasks_ai_priority_suggestion.py` replaces `_generate_insight`
-with an `AsyncMock` returning `Result.ok("<text>")`. That tests the method's parsing of text. It
-does not test what the helper returns.
+Replacing `_generate_insight` with an `AsyncMock` returning `Result.ok("<text>")` tests the
+method's parsing of text. It does not test what the helper returns, or what it sends: the
+prompt bound and the ceiling live in the helper. Script the chat port instead
+(`scripted_llm`, `tests/fixtures/llm_doubles.py`) and read the prompt from
+`ScriptedChatCaller.calls` — `tests/unit/services/tasks/test_tasks_ai_priority_suggestion.py`
+and `tests/unit/services/test_ai_prompt_input_bounds.py` do.
 
 ### The routes
 
@@ -243,14 +252,21 @@ return await self._rank_similar_entities(
 ### Unbounded input
 
 ```python
-# WRONG - the whole body, no cap
-prompt = f"Summarize: {step.content}"
+# WRONG - the field goes into the prompt string as stored, whatever its length
+prompt = f"Summarize: {step.description}"
 
-# CORRECT
-excerpt = step.description[:2000] if step.description else ""
+# WRONG - a hand slice: a second limit, and no mark that the text was cut
+excerpt = step.description[:1500] if step.description else ""
+
+# CORRECT - a context value is bounded by the helper
 result = await self._generate_insight(
-    "Summarize this path step.", context={"description": excerpt}, max_tokens=200
+    "Summarize this path step.",
+    context={"description": step.description or ""},
+    max_tokens=200,
 )
+
+# CORRECT - a field the prompt string interpolates is bounded at the interpolation
+prompt = f"Summarize: {self._bounded(step.description or '')}"
 ```
 
 ### A failed call reported as an empty answer

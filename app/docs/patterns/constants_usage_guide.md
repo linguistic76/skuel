@@ -1,6 +1,6 @@
 ---
 title: Constants Usage Guide
-updated: 2026-09-27
+updated: 2026-10-01
 category: patterns
 related_skills: []
 related_docs: []
@@ -271,6 +271,8 @@ truncated = truncate_to_budget(raw_context, AskesisTokenBudget.MAX_LLM_CONTEXT_C
 ```
 
 Truncation uses `core/utils/text_truncation.py` which cuts at sentence/paragraph boundaries and appends "...".
+
+**Prompt input (`PromptInput`):** the eight domain AI services bound entity text with the same helper, one field at a time — `BaseAIService._bounded` cuts a field at `FIELD_MAX_CHARS` (2000, the largest `max_length` an Activity request model sets on a text field), and `_generate_insight` refuses an assembled prompt over `PROMPT_MAX_CHARS` (20000) instead of cutting it. See the base-ai-service skill § The Helpers.
 
 ### 6. Askesis Pipeline Timeouts (`AskesisPipelineTimeout`)
 

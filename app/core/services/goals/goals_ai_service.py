@@ -153,9 +153,9 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
 
         prompt = f"""Generate {max_milestones} meaningful milestones for achieving this goal.
 
-Goal: {goal.title}
-Description: {goal.description or "No description provided"}
-Success Criteria: {goal.success_criteria or "Not specified"}
+Goal: {self._bounded(goal.title)}
+Description: {self._bounded(goal.description or "No description provided")}
+Success Criteria: {self._bounded(goal.success_criteria or "Not specified")}
 Timeframe: {goal.timeframe.value if goal.timeframe else "Not specified"}
 
 For each milestone, provide:
