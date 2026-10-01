@@ -172,18 +172,21 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
         positive line so the panel is never blank.
         """
         total_kus = raw["total_kus"]
-        if total_kus == 0:
-            return ["No Kus in the knowledge subgraph yet — ingest curriculum to begin."]
-
         flags: list[str] = []
 
-        # Any Ku-less step is a defect, not a density signal: no threshold.
+        # Any Ku-less step is a defect, not a density signal: no threshold — and
+        # it is reported before the empty-corpus note, which is exactly the
+        # corpus where every step is Ku-less.
         if raw["ku_less_step_count"] > 0:
             flags.append(
                 f"{raw['ku_less_step_count']} PathStep(s) teach no Ku — a content defect: "
                 "compose Kus into each (uses_ku / trains_ku), or the step can never be "
                 "mastered and no path through it completes."
             )
+        if total_kus == 0:
+            flags.append("No Kus in the knowledge subgraph yet — ingest curriculum to begin.")
+            return flags
+
         if orphan_fraction > KnowledgeHealth.ORPHAN_FLAG_FRACTION:
             flags.append(
                 f"{raw['orphan_ku_count']} orphan Kus ({orphan_fraction:.0%}) — compose them "

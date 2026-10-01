@@ -27,7 +27,11 @@ from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
-    from core.ports.query_types import KnowledgeCoverageMetric, KnowledgeHealthReport
+    from core.ports.query_types import (
+        KnowledgeCoverageMetric,
+        KnowledgeHealthReport,
+        KnowledgeKuLessStep,
+    )
 
 _QUICK_LINK_CLS = (
     ButtonT.ghost,
@@ -364,7 +368,9 @@ def _orphan_card(orphan_kus: list[Any], orphan_count: int) -> Any:
     )
 
 
-def _ku_less_steps_card(steps: list[Any], count: int) -> Any:
+def _ku_less_steps_card(
+    steps: list[KnowledgeKuLessStep], count: int
+) -> Any:  # boundary: fasthtml-elements
     """PathSteps that teach no Ku — content defects (a step's mastery is derived from its Kus)."""
     if not steps:
         body: Any = P("Every PathStep teaches at least one Ku.", cls="text-sm text-success")

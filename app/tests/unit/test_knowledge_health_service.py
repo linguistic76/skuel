@@ -359,3 +359,14 @@ class TestKuLessSteps:
     def test_a_healthy_graph_has_no_ku_less_flag(self) -> None:
         report = KnowledgeHealthService._build_report(_healthy_raw())
         assert not any("teach no Ku" in f for f in report["flags"])
+
+    def test_a_corpus_with_steps_and_no_kus_keeps_the_defect_flag(self) -> None:
+        """Every step is Ku-less when there are no Kus at all — the defect must not
+        hide behind the empty-corpus note."""
+        raw = _empty_raw()
+        raw["total_path_steps"] = 1
+        raw["ku_less_step_count"] = 1
+        raw["ku_less_steps"] = [{"uid": "ps.only", "title": "Only"}]
+        report = KnowledgeHealthService._build_report(raw)
+        assert any("teach no Ku" in f for f in report["flags"])
+        assert any("No Kus in the knowledge subgraph yet" in f for f in report["flags"])

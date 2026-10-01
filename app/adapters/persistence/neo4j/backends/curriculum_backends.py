@@ -1255,9 +1255,9 @@ CALL () {
         AS composition_edge_count
 }
 CALL () {
-    // A step composing no Ku is a content defect (ruled 2026-10-01): its mastery
-    // is derived from its Kus, so it can never be mastered and no path through
-    // it completes. Listed by uid so the author can fix each one.
+    // A step composing no Ku is a content defect: a step's mastery is derived
+    // from its Kus, so it can never be mastered and no path through it
+    // completes. Listed by uid so the author can fix each one.
     MATCH (ps:Entity {entity_type: __ET_PS__})
     WHERE NOT exists{ (ps)-[:__COMPOSITION__]->(:Entity {entity_type: __ET_KU__}) }
     WITH ps ORDER BY ps.uid
