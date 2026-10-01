@@ -38,12 +38,6 @@ only then publishes `PathStepCompleted`. There is no other writer of a step's ma
 `detect_path_step_completion` anchors on the mastered Ku, so a step with **no** Ku edge is never a candidate,
 and `get_ku_completion_progress` reports `total_kus == 0` for it — `PsProgressService` logs and returns.
 Such a step can be viewed, started (`IN_PROGRESS`), read and bookmarked, but never mastered: nothing a
-learner does reaches a `MASTERED` edge, its enrollment never retires, and a learning path containing it can
-never reach 100 % through the step chain.
-
-## What the gap meant for a learner
-
-Such a step can be viewed, started (`IN_PROGRESS`), read and bookmarked, but never mastered: nothing a
 learner does reaches a `MASTERED` edge and its enrollment never retires. It does not block its path — path
 progress is counted over the Kus the path's steps teach, so a step teaching none simply contributes nothing
 to it. The ruling makes the step the author's problem, surfaced by the gauge, not a learner door.
