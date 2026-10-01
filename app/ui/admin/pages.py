@@ -364,6 +364,32 @@ def _orphan_card(orphan_kus: list[Any], orphan_count: int) -> Any:
     )
 
 
+def _ku_less_steps_card(steps: list[Any], count: int) -> Any:
+    """PathSteps that teach no Ku — content defects (a step's mastery is derived from its Kus)."""
+    if not steps:
+        body: Any = P("Every PathStep teaches at least one Ku.", cls="text-sm text-success")
+    else:
+        body = Ul(
+            *[
+                Li(
+                    A(
+                        step["title"],
+                        href=f"/explore/ps/{step['uid']}",
+                        cls="text-primary hover:underline",
+                    ),
+                    Span(f"  ({step['uid']})", cls="text-xs text-muted-foreground"),
+                    cls="text-sm py-0.5",
+                )
+                for step in steps
+            ],
+            cls="space-y-0.5 max-h-96 overflow-y-auto",
+        )
+    return Card(
+        CardHeader(CardTitle(f"PathSteps teaching no Ku — content defects ({count})")),
+        CardBody(body),
+    )
+
+
 def knowledge_health_page(report: KnowledgeHealthReport) -> Any:
     """/admin/knowledge-health — ADR-080 Horizon-1 structural-health gauge.
 
@@ -459,6 +485,8 @@ def knowledge_health_page(report: KnowledgeHealthReport) -> Any:
         _flags_card(report["flags"]),
         Div(cls="mt-6"),
         _orphan_card(report["orphan_kus"], report["orphan_ku_count"]),
+        Div(cls="mt-6"),
+        _ku_less_steps_card(report["ku_less_steps"], report["ku_less_step_count"]),
     )
 
 

@@ -25,8 +25,9 @@ P = "khtest_"  # uid prefix for this module's fixture graph
 async def _build_graph(neo4j_driver) -> None:
     """Plant a deterministic knowledge subgraph + an activity noise pair.
 
-    Kus k1..k6 (k6 isolated → orphan); PathSteps ps1/ps2; LP lp1; Exercise ex1;
-    Tasks t1/t2 carrying the activity-domain noise edges.
+    Kus k1..k6 (k6 isolated → orphan); PathSteps ps1/ps2 (composing Kus) and ps3
+    (teaching none — a content defect); LP lp1; Exercise ex1; Tasks t1/t2 carrying
+    the activity-domain noise edges.
     """
     nodes = [
         (P + "k1", "Ku", "ku"),
@@ -37,6 +38,7 @@ async def _build_graph(neo4j_driver) -> None:
         (P + "k6", "Ku", "ku"),  # orphan — zero incident edges
         (P + "ps1", "PathStep", "path_step"),
         (P + "ps2", "PathStep", "path_step"),
+        (P + "ps3", "PathStep", "path_step"),  # Ku-less — a content defect
         (P + "lp1", "LearningPath", "learning_path"),
         (P + "ex1", "Exercise", "exercise"),
         (P + "t1", "Task", "task"),  # activity noise
@@ -94,7 +96,7 @@ async def test_measures_constructed_subgraph(neo4j_driver, clean_neo4j) -> None:
     raw = result.value
 
     assert raw["total_kus"] == 6
-    assert raw["total_path_steps"] == 2
+    assert raw["total_path_steps"] == 3
     assert raw["total_learning_paths"] == 1
     assert raw["total_exercises"] == 1
 
@@ -103,6 +105,9 @@ async def test_measures_constructed_subgraph(neo4j_driver, clean_neo4j) -> None:
     assert raw["max_ku_degree"] == 4
     assert raw["orphan_ku_count"] == 1
     assert [o["uid"] for o in raw["orphan_kus"]] == [P + "k6"]
+    # ps3 composes no Ku — the content defect the gauge names by uid.
+    assert raw["ku_less_step_count"] == 1
+    assert [s["uid"] for s in raw["ku_less_steps"]] == [P + "ps3"]
 
     assert raw["composition_edge_count"] == 3
     assert raw["composed_ku_count"] == 3
@@ -149,11 +154,13 @@ async def test_service_derives_report(neo4j_driver, clean_neo4j) -> None:
     assert report["composition"]["coverage"] == pytest.approx(3 / 6, abs=1e-3)
     assert report["prerequisite_dag"]["coverage"] == pytest.approx(3 / 6, abs=1e-3)
     assert report["organizes"]["coverage"] == pytest.approx(2 / 6, abs=1e-3)
-    assert report["practice_coverage"] == pytest.approx(1 / 2, abs=1e-3)
+    assert report["practice_coverage"] == pytest.approx(1 / 3, abs=1e-3)
     assert 0.0 <= report["gds_readiness_score"] <= 1.0
-    # Sparse fixture → not GDS-ready, and the orphan is flagged.
+    # Sparse fixture → not GDS-ready; the orphan and the Ku-less step are flagged.
     assert report["gds_ready"] is False
     assert any("orphan" in f.lower() for f in report["flags"])
+    assert any("teach no Ku" in f for f in report["flags"])
+    assert report["ku_less_steps"] == [{"uid": P + "ps3", "title": P + "ps3"}]
 
 
 @pytest.mark.asyncio

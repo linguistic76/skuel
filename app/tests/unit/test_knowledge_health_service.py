@@ -33,6 +33,8 @@ LIVE_RAW: KnowledgeHealthRaw = {
     "max_ku_degree": 12,
     "orphan_ku_count": 17,
     "orphan_kus": [{"uid": "ku.yoga.prana", "title": "Prana"}],
+    "ku_less_step_count": 1,
+    "ku_less_steps": [{"uid": "ps.yoga.closing", "title": "Closing"}],
     "composition_edge_count": 53,
     "composed_ku_count": 47,
     "prerequisite_edge_count": 13,  # 9 PREREQUISITE_FOR (Ku) + 4 REQUIRES_STEP (PathStep)
@@ -57,6 +59,8 @@ def _empty_raw() -> KnowledgeHealthRaw:
         "max_ku_degree": 0,
         "orphan_ku_count": 0,
         "orphan_kus": [],
+        "ku_less_step_count": 0,
+        "ku_less_steps": [],
         "composition_edge_count": 0,
         "composed_ku_count": 0,
         "prerequisite_edge_count": 0,
@@ -82,6 +86,8 @@ def _healthy_raw() -> KnowledgeHealthRaw:
         "max_ku_degree": 20,
         "orphan_ku_count": 0,
         "orphan_kus": [],
+        "ku_less_step_count": 0,
+        "ku_less_steps": [],
         "composition_edge_count": 200,
         "composed_ku_count": 95,
         "prerequisite_edge_count": 180,
@@ -336,3 +342,20 @@ class TestFacadeDelegation:
         assert facade.knowledge_health is None
         result = await facade.analyze_knowledge_subgraph_health()
         assert result.is_error
+
+
+class TestKuLessSteps:
+    """A PathStep teaching no Ku is a content defect (ruled 2026-10-01) — any count flags."""
+
+    def test_list_and_count_pass_through(self) -> None:
+        report = KnowledgeHealthService._build_report(LIVE_RAW)
+        assert report["ku_less_step_count"] == 1
+        assert report["ku_less_steps"] == [{"uid": "ps.yoga.closing", "title": "Closing"}]
+
+    def test_one_ku_less_step_is_flagged_without_a_threshold(self) -> None:
+        report = KnowledgeHealthService._build_report(LIVE_RAW)
+        assert any("teach no Ku" in f and "1 PathStep" in f for f in report["flags"])
+
+    def test_a_healthy_graph_has_no_ku_less_flag(self) -> None:
+        report = KnowledgeHealthService._build_report(_healthy_raw())
+        assert not any("teach no Ku" in f for f in report["flags"])

@@ -104,6 +104,10 @@ def _print_human(report: dict[str, Any]) -> None:
         print(f"\nOrphan Kus ({report['orphan_ku_count']}):")
         for ku in report["orphan_kus"]:
             print(f"  - {ku['uid']}  ({ku['title']})")
+    if report["ku_less_steps"]:
+        print(f"\nPathSteps teaching no Ku — content defects ({report['ku_less_step_count']}):")
+        for step in report["ku_less_steps"]:
+            print(f"  - {step['uid']}  ({step['title']})")
     print()
 
 

@@ -414,8 +414,9 @@ class PsMasteryService:
         show as mastered. Idempotent: a repeat mastery event re-detects the step,
         the MERGE leaves one edge, and nothing is announced twice.
 
-        A step that teaches no Ku is never detected here; it has no derivable
-        mastery (see ``docs/roadmap/zero-ku-step-mastery.md``).
+        A step that teaches no Ku is never detected here: it has no derivable
+        mastery, and is a content defect the knowledge-health gauge names
+        (``docs/roadmap/done/zero-ku-step-mastery.md``).
 
         Best-effort: errors are logged but not raised to prevent KU mastery
         from failing if path step detection fails. The Ku edge has committed by

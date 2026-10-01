@@ -1,6 +1,6 @@
 ---
 title: Knowledge-Health Gauge
-updated: 2026-09-05
+updated: 2026-10-01
 status: current
 category: tools
 tags: [analytics, knowledge, graph, authoring, gds, adr-080, embeddings]
@@ -16,9 +16,12 @@ related: [HEALTH_CHECKS.md]
 One consolidated, corpus-level structural-health report over the knowledge
 subgraph (Ku / PathStep / LearningPath / Exercise — authored content only,
 user-generated data and telemetry excluded): node counts, Ku degree
-distribution, orphan Kus, composition / prerequisite-DAG / ORGANIZES / lateral
-coverage, practice coverage, and a composite GDS-readiness score with
-authoring-guidance flags. Pure graph analytics — CORE-tier safe, no API keys.
+distribution, orphan Kus, the PathSteps that teach no Ku (a content defect by
+ruling — every legitimate step composes Kus, and a step's mastery is derived
+from them, so any count flags; listed by uid), composition / prerequisite-DAG /
+ORGANIZES / lateral coverage, practice coverage, and a composite GDS-readiness
+score with authoring-guidance flags. Pure graph analytics — CORE-tier safe, no
+API keys.
 
 **Embedding coverage (retrievability) block:** the report also carries per-label
 embedding coverage — total vs `embedding IS NULL` counts over every embeddable
