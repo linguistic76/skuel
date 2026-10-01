@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-10-01
 ---
 
 # GoalsIntelligenceService - Progress Forecasting & Predictive Analytics
@@ -143,6 +143,24 @@ async def get_goal_progress_dashboard(
     }
 }
 ```
+
+**Two sets of tasks, two questions.** The payload reports the goal's tasks twice, and the two are
+not the same set:
+
+- `supporting_activities.tasks` and `metrics.task_support_count` (which `insights.needs_more_tasks`
+  reads) are the **neighbourhood** — the tasks the path-aware context reaches at `min_confidence`.
+- `supporting_activities.total_tasks` / `completed_tasks` and `contributions.task_contribution` are
+  the **progress tally** — the owner's tasks that `FULFILLS_GOAL` the goal with
+  `completion_updates_goal` true, read by `GoalsBackend.get_linked_task_tally`. It is the statement
+  the task recompute writes a TASK_BASED goal's progress from
+  (`adapters/persistence/neo4j/query/cypher/goal_tally_queries.py`), and `task_contribution` is the
+  same percentage function (`linked_task_progress`): completed over total, `0.0` with no counting
+  task. Both counts come from the one read, so completed never exceeds total.
+
+A task that opts out of the tally is in the list and in neither count; a task linked below
+`min_confidence` is in both counts and not in the list. The tally is read at call time, so it can
+be ahead of `progress.percentage`, which is the stored figure — see
+[goal-tally-membership-changes.md](../roadmap/goal-tally-membership-changes.md).
 
 **Example:**
 ```python

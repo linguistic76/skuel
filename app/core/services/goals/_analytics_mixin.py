@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.graph.path_aware_types import GoalCrossContext
+from core.ports.domain_protocols import GoalsOperations
+from core.services.goals.goals_progress_service import linked_task_progress
 from core.services.infrastructure.prerequisite_checker import build_learning_requirements
 from core.services.intelligence import (
     calculate_goal_progress_metrics,
@@ -39,6 +41,7 @@ class _AnalyticsMixin:
     """
 
     # Populated by GoalsIntelligenceService.__init__
+    backend: GoalsOperations
     relationships: Any
     progress: Any
     logger: Any
@@ -55,11 +58,27 @@ class _AnalyticsMixin:
 
         Provides complete view including:
         - Current progress and status
-        - Supporting tasks with completion status
-        - Supporting habits with consistency metrics
-        - Learning paths and knowledge requirements
+        - Supporting tasks, habits and learning paths
         - Timeline tracking and insights
         - Actionable recommendations
+
+        Two different sets of tasks are reported, and they answer different questions:
+
+        - ``supporting_activities.tasks`` (and ``metrics.task_support_count``, which
+          ``insights.needs_more_tasks`` reads) is the goal's NEIGHBOURHOOD — the tasks
+          the path-aware context reaches at ``min_confidence``.
+        - ``supporting_activities.total_tasks`` / ``completed_tasks`` and
+          ``contributions.task_contribution`` are the goal's PROGRESS TALLY — the
+          owner's linked tasks that count toward the goal, by the rule a TASK_BASED
+          goal's stored progress is written by. Both counts come from that one read,
+          so completed never exceeds total; ``task_contribution`` is completed over
+          total as a percentage (0.0 with no counting task).
+
+        The tally is read at call time, not taken from the goal's stored
+        ``current_value`` / ``target_value``: those hold it only for a goal a recompute
+        chose to write.
+
+        Backend: GoalsBackend.get_linked_task_tally
         """
         # Use base class template over the CANONICAL typed (path-aware) reader.
         analysis_result = await self._analyze_entity_with_typed_context(
@@ -92,10 +111,14 @@ class _AnalyticsMixin:
         if goal.target_date:
             days_remaining = (goal.target_date - today_in(current_zone())).days
 
-        # Calculate contributions (from metrics)
-        total_tasks = metrics["task_support_count"]
-        completed_tasks = 0  # Would need task status from actual task entities
-        task_contribution = 0.0  # Simplified
+        # The task figures are the progress tally, not the neighbourhood above.
+        tally_result = await self.backend.get_linked_task_tally(uid, goal.user_uid)
+        if tally_result.is_error:
+            return Result.fail(tally_result)
+        tally = tally_result.value
+        total_tasks = tally["total_tasks"]
+        completed_tasks = tally["completed_tasks"]
+        task_contribution = linked_task_progress(tally)
         habit_contribution = metrics["support_coverage"] * 100 if metrics["has_habit_system"] else 0
         learning_contribution = (len(learning_paths) * 10.0) if learning_paths else 0
 

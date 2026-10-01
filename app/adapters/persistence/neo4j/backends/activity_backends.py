@@ -11,10 +11,14 @@ from adapters.persistence.neo4j.query.cypher.choice_fragments import (
     build_choice_decided_predicate,
     build_choice_pending_predicate,
 )
+from adapters.persistence.neo4j.query.cypher.goal_tally_queries import (
+    build_linked_task_tally_query,
+    linked_task_tally_params,
+)
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import QueryLimit
 from core.models.choice.choice import Choice
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
@@ -147,6 +151,16 @@ async def _edge_map_multi(
     for source_uid, target_uid in pairs.value:
         link_map.setdefault(source_uid, []).append(target_uid)
     return Result.ok(link_map)
+
+
+# boundary: the tally statement's row — a driver record under the lock, a plain dict
+# from ``execute_query``; narrowed here to the TypedDict both callers hand on.
+def _linked_task_tally(row: Mapping[str, Any]) -> LinkedTaskTally:
+    """The linked-task tally statement's row (``{}`` for none) as a ``LinkedTaskTally``."""
+    return LinkedTaskTally(
+        total_tasks=int(row.get("total_tasks") or 0),
+        completed_tasks=int(row.get("completed_tasks") or 0),
+    )
 
 
 class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
@@ -607,33 +621,41 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         """Recompute a goal from the tasks that fulfill it, tallied under the goal's lock.
 
         The tally is ``(Task)-[:FULFILLS_GOAL]->(Goal)`` over the user's tasks that count
-        toward the goal — ``completion_updates_goal``, absent read as True. Lock, tally,
-        plan and write are one transaction (``_recompute_with_status_guard``), so a
-        second recompute of this goal counts after this one commits.
+        toward the goal — ``completion_updates_goal``, absent read as True
+        (``build_linked_task_tally_query``, the statement :meth:`get_linked_task_tally`
+        also runs). Lock, tally, plan and write are one transaction
+        (``_recompute_with_status_guard``), so a second recompute of this goal counts
+        after this one commits.
         """
-        query = f"""
-        MATCH (goal:Entity {{uid: $uid}})
-        OPTIONAL MATCH (task:Entity {{entity_type: $task_type}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(goal)
-        WHERE task.user_uid = $user_uid AND coalesce(task.completion_updates_goal, true)
-        RETURN count(task) AS total_tasks,
-               count(CASE WHEN task.status = $completed THEN 1 END) AS completed_tasks
-        """
-        params: Neo4jProperties = {
-            "user_uid": user_uid,
-            "task_type": EntityType.TASK.value,
-            "completed": EntityStatus.COMPLETED.value,
-        }
 
         def plan_from_row(goal: Goal, row: Mapping[str, Any]) -> P | None:
-            return plan(
-                goal,
-                LinkedTaskTally(
-                    total_tasks=int(row.get("total_tasks") or 0),
-                    completed_tasks=int(row.get("completed_tasks") or 0),
-                ),
-            )
+            return plan(goal, _linked_task_tally(row))
 
-        return await self._recompute_with_status_guard(goal_uid, query, params, plan_from_row)
+        return await self._recompute_with_status_guard(
+            goal_uid,
+            build_linked_task_tally_query(),
+            linked_task_tally_params(user_uid),
+            plan_from_row,
+        )
+
+    async def get_linked_task_tally(
+        self, goal_uid: str, user_uid: UserUID
+    ) -> Result[LinkedTaskTally]:
+        """A goal's linked-task tally as it stands now — a read; no lock, no write.
+
+        The statement :meth:`recompute_progress_from_linked_tasks` counts with
+        (``build_linked_task_tally_query``), so a reader reports by the membership rule
+        the goal's stored figure was written by: the user's tasks that fulfill the goal
+        and count toward it. A goal with no such task — or no goal — reads 0 / 0.
+        """
+        result = await self.execute_query(
+            build_linked_task_tally_query(),
+            {**linked_task_tally_params(user_uid), "uid": goal_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(_linked_task_tally(rows[0] if rows else {}))
 
     async def find_linked_goals_for_habit(
         self, habit_uid: str, user_uid: UserUID

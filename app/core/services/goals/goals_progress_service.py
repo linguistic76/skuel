@@ -175,6 +175,19 @@ class _ProgressWrite:
     detail: str
 
 
+def linked_task_progress(tally: LinkedTaskTally) -> float:
+    """A linked-task tally as a percentage: completed over total, 0.0 for no tasks.
+
+    The figure a TASK_BASED goal's progress is written as (:func:`_plan_task_progress`)
+    and the one the progress dashboard reports as its task contribution — one function,
+    so the two cannot round or scale apart.
+    """
+    total_tasks = tally["total_tasks"]
+    if total_tasks == 0:
+        return 0.0
+    return tally["completed_tasks"] / total_tasks * 100
+
+
 def _plan_task_progress(goal: Goal, tally: LinkedTaskTally) -> _ProgressWrite | None:
     """Plan a TASK_BASED goal's write from its linked-task tally; ``None`` for no write.
 
@@ -193,7 +206,7 @@ def _plan_task_progress(goal: Goal, tally: LinkedTaskTally) -> _ProgressWrite | 
     if total_tasks == 0:
         return None
 
-    new_progress = completed_tasks / total_tasks * 100
+    new_progress = linked_task_progress(tally)
     old_progress = goal.progress_percentage or 0.0
 
     # Only write if something changed. The stored tally is part of "something":

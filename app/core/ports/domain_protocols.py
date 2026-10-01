@@ -738,6 +738,17 @@ class GoalsOperations(
         """
         ...
 
+    async def get_linked_task_tally(
+        self, goal_uid: str, user_uid: UserUID
+    ) -> Result[LinkedTaskTally]:
+        """Read a goal's linked-task tally as it stands now — no lock, no write.
+
+        Counted by the membership rule ``recompute_progress_from_linked_tasks`` writes
+        the goal's figure by, so a report and the stored figure cannot disagree on which
+        tasks count. A goal with no counting task reads 0 / 0.
+        """
+        ...
+
     async def find_linked_goals_for_habit(
         self, habit_uid: str, user_uid: UserUID
     ) -> Result[list[str]]:
