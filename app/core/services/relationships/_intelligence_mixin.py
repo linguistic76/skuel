@@ -174,6 +174,12 @@ class IntelligenceMixin[Ops: BackendOperations]:
         merely left the source. Every bucket entry carries its ``distance``, so callers
         wanting direct-only context can filter on ``distance == 1``.
 
+        The context holds the entity's owner's nodes and shared content only: another
+        user's node is in no bucket, whether linked directly or two hops out through a
+        Ku both users link. The caller answers for access to the entity itself.
+
+        Backend: get_domain_context_raw (build_domain_context_with_paths)
+
         Args:
             entity_uid: Entity UID
             depth: Graph traversal depth — how many hops of transitive context to

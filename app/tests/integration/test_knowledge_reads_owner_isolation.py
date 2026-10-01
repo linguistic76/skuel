@@ -1,12 +1,13 @@
 """Real-Neo4j guard: a knowledge read of my task names published knowledge — never
 your task, never an unpublished Ku.
 
-``get_entity_context`` walks every edge type, both directions, with no owner
-scoping. Two users whose tasks apply the same Ku are therefore two hops apart,
-so the reader's filter is the only thing between one user and the other's task
-title in ``GET /api/tasks/insights``' ``knowledge_prerequisites``. Both knowledge
-readers keep only ``GraphContext.get_published_knowledge_nodes()``, which also
-withholds curriculum explicitly marked ``publication_state: draft``.
+``get_entity_context`` walks every edge type, both directions. Two users whose
+tasks apply the same Ku are two hops apart; the traversal ties every node it
+returns to the center's owner, so it stops at the shared Ku
+(``test_neighbourhood_owner_scope.py`` holds that guard). What it does reach is
+every Ku my task links, published or not, and both knowledge readers keep only
+``GraphContext.get_published_knowledge_nodes()`` — knowledge by ``entity_type``,
+minus curriculum explicitly marked ``publication_state: draft``.
 
 The in-memory guard is
 ``tests/unit/services/test_knowledge_nodes_from_graph_context.py``.
@@ -79,11 +80,13 @@ async def _seed(neo4j_driver) -> None:
 async def test_prerequisites_of_my_task_omit_their_task(neo4j_driver, graph_intel, clean_neo4j):
     await _seed(neo4j_driver)
 
-    # The traversal itself reaches their task and the draft — the filter keeps them out.
+    # The traversal stops short of their task; the draft it reaches, and the filter
+    # keeps that out.
     context = await graph_intel.get_entity_context(MY_TASK, GraphDepth.DEFAULT)
     assert context.is_ok, context
     reached = [n.uid for n in context.value.all_nodes]
-    assert THEIR_TASK in reached and DRAFT_KU in reached
+    assert THEIR_TASK not in reached
+    assert DRAFT_KU in reached
 
     result = await get_knowledge_prerequisites(
         graph=graph_intel, entity_uid=MY_TASK, depth=GraphDepth.DEFAULT

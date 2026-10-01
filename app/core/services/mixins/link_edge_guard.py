@@ -11,9 +11,10 @@ two things the batch does not check, and both cost something:
 
 WHO owns the other end
     The batch validates labels, never ownership, so one user could link their entity to
-    another's — and the reads that follow those edges do not filter by owner. A goal's
-    context would hand back the victim's entity title; a victim's principle-alignment
-    read (incoming ``EMBODIES_PRINCIPLE``) would pick up the caller's habit.
+    another's. The path-aware neighbourhood reader refuses to return across such an edge
+    (it ties every node to its center's owner), but an edge is a fact other reads take
+    at face value, and one that joins two users' entities is a wrong fact wherever it is
+    read. It is refused here, where it would be written.
 
 WHAT KIND the other end is
     The registry validator keys its target-label rule off the SOURCE's domain config, so

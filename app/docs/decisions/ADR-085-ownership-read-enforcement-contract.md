@@ -1,6 +1,6 @@
 ---
 title: "ADR-085: Ownership Read-Enforcement Contract"
-updated: 2026-09-25
+updated: 2026-10-01
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, multi-tenancy, security, search, reads]
@@ -133,6 +133,16 @@ the anchor rather than adding a predicate home. A *new* read surface may be self
 only when it reads exclusively the requesting user's own data; the moment it can return
 another user's rows it is an audience read and belongs to a chokepoint.
 
+> **2026-10-01 — entity-anchored traversals (G9).** The same obligation holds for a read
+> anchored on an *entity* whose access a chokepoint has already decided (the route's
+> `verify_ownership` on the center uid): the path-aware neighbourhood producer
+> (`build_domain_context_with_paths`) keeps every node on a path tied to the anchor's owner —
+> the owner's nodes and shared content, ownership read in all three spellings, a `:User` node
+> its own owner. It decides no audience question (a share link does not widen it, and it
+> takes no viewer), so it is an anchor re-tie in the statement, not a predicate home. A
+> traversal that needs a *viewer's* audience — "what may this user see around a shared
+> Ku" — is an audience read and belongs to a chokepoint.
+
 (The one existing composition-adjacent rule stands unchanged: `has_user=True` is fail-closed
 convention everywhere the clause composes — deriving `has_user` from `user_uid is not None`
 turns a null uid into an unscoped query. See SEARCH_ARCHITECTURE § Ownership Scoping.)
@@ -152,6 +162,7 @@ each closure gets a pinning test whose fixtures mirror writer shapes.
 | G6 | Insight by-UID | `core/services/insight/insight_store.py:161` `get_insight_by_uid` takes no `user_uid` (sibling `:263` does) | Adopt the sibling's shape |
 | G7 | Factory search route | `adapters/inbound/route_factories/crud_route_factory.py:703-751` `_register_search_route` never calls `require_authenticated_user` and passes no user to the handler | Authenticate + thread `user_uid` (or route via SearchRouter) |
 | G8 | Askesis chunk (RAG) retrieval — found after the census, 2026-08-30 | `core/orchestrator/search_router.py` `retrieve_scoped_chunks` discarded its `user_uid` (`del user_uid`, "reserved" since canon P3 #615) and `VectorSearchBackend.semantic_search_chunks` composed no audience clause, while the chunk index held non-private knowledge UserEntries from 2 users (303 of 998 chunks) — any user's Askesis answer could ground in any other user's notes | **Closed the same day:** the backend composes the clause per parent on EVERY chunk query — `viewer_uid` → published curriculum + own UserEntry (the `OWNER_ONLY` predicate via `build_search_visibility_clause`, plus the private gate); `None` → published curriculum only. Pinned by `tests/integration/test_chunk_retrieval_visibility.py` (real index, two users) |
+| G9 | Path-aware neighbourhood — found after the census, 2026-10-01 | `adapters/persistence/neo4j/query/cypher/semantic_queries.py` `build_domain_context_with_paths` — the one producer under `get_cross_domain_context` (all six activity dashboards/insights) and `query_with_intent` (`GraphContext`, full property maps) — walked `(center)-[*1..depth]-(related)` undirected with no owner predicate. Two users who each link their own entity to one shared Ku are two hops apart, every edge on the path one its own owner may write: the reader returned the other user's nodes (uid + title in the shared-neighbour buckets; the whole property map on the intent reader). On that path the consumers traced dropped the rows before a response (typed contexts read no shared-neighbour bucket; knowledge readers filter by `entity_type`; the context route returns counts), so what left through a route was a count. Across a *direct* cross-user edge the dashboards returned the far node's uid and title — and a link door that does not verify its target writes one (`link_goal_to_knowledge` accepted another user's task as the knowledge; measured) | **Closed the same day:** the statement ties every node on a path to the center's owner (§4, entity-anchored). Pinned by `tests/integration/test_neighbourhood_owner_scope.py` (real graph, two users, six domain vocabularies, each ownership spelling) |
 
 Adjacent, closed with the census: `IntelligenceRouteFactory` only *warns* when a USER_OWNED
 domain is wired without an ownership service (`intelligence_route_factory.py:240-244`; the

@@ -265,7 +265,8 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
         neither count;
       * ``weak`` — an edge below ``min_confidence``: in both counts, not in the
         neighbourhood;
-      * ``foreign`` — another user's task: in neither count.
+      * ``foreign`` — another user's task: in neither count, and not in the
+        neighbourhood.
     The counts are the pair a recompute of this goal plans its write from.
     """
     goal_uid = GL + "rule_goal"
@@ -299,6 +300,7 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
     neighbourhood = {t["uid"] for t in activities["tasks"]}
     assert opted_out in neighbourhood
     assert weak not in neighbourhood
+    assert foreign not in neighbourhood
 
     # The pair is the one the locked recompute hands its planner.
     planned: list[Any] = []
