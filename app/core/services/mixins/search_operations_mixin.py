@@ -39,14 +39,13 @@ ActivityFilterSpec) for type safety while remaining backward compatible.
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.enums import EntityStatus, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import FilterParams, UserUID
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -704,24 +703,16 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         )
         return Result.ok(entities)
 
-    @with_error_handling("get_for_user_filtered", error_type="database")
-    async def get_for_user_filtered(
-        self, user_uid: UserUID, status_filter: str = "all"
-    ) -> Result[builtins.list[T]]:
+    @with_error_handling("get_all_for_user", error_type="database")
+    async def get_all_for_user(self, user_uid: UserUID) -> Result[builtins.list[T]]:
         """
-        Fetch the user's entities with the status filter pushed to Cypher WHERE.
-
-        The filter vocabulary is domain-configured via DomainConfig.status_filters
-        (filter-name -> extra find_by kwargs). "all" or an unconfigured name
-        applies no status constraint; domains with no status_filters (Principles)
-        always return every entity for the user.
+        Fetch the user's entities of this domain, whatever their status.
 
         Args:
             user_uid: Owner of the entities (required)
-            status_filter: Domain filter name (e.g., "active", "completed")
 
         Returns:
-            Result containing the user's entities matching the filter
+            Result containing the user's entities
         """
         if not user_uid:
             return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
@@ -731,20 +722,14 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(config_result)
         dto_class, model_class = config_result.value
 
-        status_filters: Mapping[str, FilterParams] = self._get_config_value("status_filters", {})
-        # Same call-boundary shape as get_by_status: find_by's **kwargs signature
-        # needs a plain dict for unpacking alongside its typed keywords.
-        filters: dict[str, Any] = {"user_uid": user_uid, **status_filters.get(status_filter, {})}
-
-        result = await self.backend.find_by(**filters)
+        result = await self.backend.find_by(user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 
         entities = self._to_domain_models(result.value, dto_class, model_class)
 
         self.logger.debug(
-            f"Found {len(entities)} {self.config_lookup_label}(s) for user {user_uid} "
-            f"(status_filter={status_filter!r})"
+            f"Found {len(entities)} {self.config_lookup_label}(s) for user {user_uid}"
         )
         return Result.ok(entities)
 

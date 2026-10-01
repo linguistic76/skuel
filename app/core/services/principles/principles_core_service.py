@@ -570,6 +570,4 @@ class PrinciplesCoreService(
         """Count principle stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    # get_for_user_filtered: inherited from SearchOperationsMixin. Principles
-    # configures no status_filters, so every call returns all of the user's
-    # principles (category/strength filtering stays Python-side).
+    # get_all_for_user: inherited from SearchOperationsMixin.

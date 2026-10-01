@@ -1,7 +1,7 @@
 ---
 related_skills:
 - skuel-search-architecture
-updated: 2026-08-21
+updated: 2026-10-01
 ---
 # Search Service Method Reference
 *Last updated: 2026-06-11*
@@ -98,16 +98,14 @@ Filter by status field. Activity domains use `EntityStatus` enum.
 result = await tasks_search.get_by_status("active", user_uid="user.123")
 ```
 
-#### `get_for_user_filtered(user_uid: UserUID, status_filter: str = "all") -> Result[list[Model]]`
-Fetch a user's entities with a domain-configured status filter. The filter
-vocabulary lives in `DomainConfig.status_filters` (filter-name → extra
-`find_by` kwargs); `"all"` or an unconfigured name applies no status
-constraint. Domains without `status_filters` (Principles) always return
-every entity for the user.
+#### `get_all_for_user(user_uid: UserUID) -> Result[list[Model]]`
+Fetch a user's entities of the domain, whatever their status. The read is
+`backend.find_by(user_uid=...)`, so `find_by`'s default limit of 100 applies.
+A status filter is the caller's: `get_by_status`, or the facade's
+`_{DOMAIN}_FILTER_CONFIG` applied to the returned list.
 
 ```python
-result = await tasks_core.get_for_user_filtered("user.123", "active")
-# Tasks' "active" is configured as status__not_in=["completed"]
+result = await tasks_core.get_all_for_user("user.123")
 ```
 
 #### `get_by_category(category: str, user_uid: UserUID | None = None) -> Result[list[Model]]`
@@ -313,8 +311,8 @@ category_field = "category"  # DomainConfig (default)
 | `get_calendar_events` | `(user_uid, start_date, end_date, limit) -> Result[list[Event]]` | Calendar window query |
 
 Deleted in the 2026-06 events dead-code campaign: `get_by_type` (superseded by
-`find_events(filters={"event_type": ...})`) and `get_history` (superseded by the
-status-filtered list path, `get_for_user_filtered`).
+`find_events(filters={"event_type": ...})`) and `get_history` (superseded by
+`get_by_status`).
 
 ---
 

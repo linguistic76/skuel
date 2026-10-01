@@ -97,7 +97,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 | `SearchOperationsMixin` | `search(query, limit=50, user_uid=None)`, `search_by_tags(tags, match_all=False, limit=50, user_uid=None)` | 50 |
 | | `graph_aware_faceted_search(request, user_uid)` | `request.limit` (SearchRequest default 20, max 200) |
 | | `get_by_status(status, limit=100, user_uid=None)`, `get_by_category(category, user_uid=None, limit=100)` | 100 |
-| | `get_for_user_filtered(user_uid, status_filter="all")` → `backend.find_by(**filters)` | 100 (`find_by`'s default — the daily plan's domain stats read through it; a silent cap, not a feature) |
+| | `get_all_for_user(user_uid)` → `backend.find_by(user_uid=...)` | 100 (`find_by`'s default — the daily plan's domain stats read through it; a silent cap, not a feature) |
 | | `list_user_categories(user_uid)`, `list_all_categories()`, `tag_frequencies(user_uid=None)`, `count(**filters)` | — |
 | `RelationshipOperationsMixin` | `get_prerequisites(uid, depth=3)`, `get_enables(uid, depth=3)` | depth 3 |
 | `TimeQueryMixin` | `get_upcoming(days_ahead=7, user_uid=None, limit=100)`, `get_overdue(user_uid=None, limit=100)`, `get_active(user_uid, limit=100)` | 100 |

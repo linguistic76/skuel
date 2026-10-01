@@ -37,7 +37,7 @@ class _EnrichmentMixin:
 
     async def get_analytics_summary(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Analytics: counts, adherence, recent reflections. Orchestrates sub-services."""
-        all_result = await self.core.get_for_user_filtered(user_uid)
+        all_result = await self.core.get_all_for_user(user_uid)
         if all_result.is_error:
             return Result.fail(all_result)
         principles = all_result.value

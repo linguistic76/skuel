@@ -48,12 +48,8 @@ if TYPE_CHECKING:
 def ChoiceStatsBar(choices: list[Choice]) -> FT:
     """Quick stats bar showing choice counts."""
     total = len(choices)
-    pending = sum(
-        1 for c in choices if not c.decided_at and not (c.status and c.status.value == "completed")
-    )
-    decided = sum(
-        1 for c in choices if c.decided_at or (c.status and c.status.value == "completed")
-    )
+    pending = sum(1 for c in choices if c.is_pending())
+    decided = sum(1 for c in choices if c.is_decided())
     satisfaction_scores = [
         c.satisfaction_score
         for c in choices
@@ -94,7 +90,7 @@ def ChoiceCard(
     connections: list[dict[str, str]] | None = None,
 ) -> FT:
     """Single choice card with type, deadline, decision status, and connections."""
-    is_decided = bool(choice.decided_at) or (choice.status and choice.status.value == "completed")
+    is_decided = choice.is_decided()
 
     # Status toggle button
     new_status = "active" if is_decided else "completed"
@@ -192,7 +188,7 @@ def ChoiceDetailView(
     connections: list[dict[str, str]],
 ) -> FT:
     """Full detail page for a single choice."""
-    is_decided = bool(choice.decided_at) or (choice.status and choice.status.value == "completed")
+    is_decided = choice.is_decided()
 
     # Subtitle
     subtitle_parts: list[str] = []

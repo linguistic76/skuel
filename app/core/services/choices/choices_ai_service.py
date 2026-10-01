@@ -210,7 +210,7 @@ TRADEOFF: [key downside or consideration]"""
         context = {
             "title": choice.title,
             "description": choice.description or "No description",
-            "status": choice.status.value if choice.status else "pending",
+            "status": choice.status.value,
             "priority": choice.priority if choice.priority else "medium",
         }
 

@@ -393,21 +393,15 @@ class SearchOperations(Protocol[T]):
         """
         ...
 
-    async def get_for_user_filtered(
-        self, user_uid: UserUID, status_filter: str = "all"
-    ) -> Result[list[T]]:
+    async def get_all_for_user(self, user_uid: UserUID) -> Result[list[T]]:
         """
-        Fetch the user's entities with a domain-configured status filter.
-
-        Filter vocabulary comes from DomainConfig.status_filters; "all" or an
-        unconfigured name applies no status constraint.
+        Fetch the user's entities of this domain, whatever their status.
 
         Args:
             user_uid: Owner of the entities (required)
-            status_filter: Domain filter name (e.g., "active", "completed")
 
         Returns:
-            Result containing the user's entities matching the filter
+            Result containing the user's entities
         """
         ...
 

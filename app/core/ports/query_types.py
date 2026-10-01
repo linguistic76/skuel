@@ -1398,9 +1398,8 @@ class ListContext(TypedDict, total=False):
     """
     Typed context returned by service.get_filtered_context() methods.
 
-    Every domain facade (Activity + Curriculum) exposes get_filtered_context()
-    which fetches, computes stats, filters, and sorts entities in one call.
-    All implementations satisfy the FilteredContextProvider protocol.
+    A facade that implements FilteredContextProvider fetches, computes stats,
+    filters, and sorts its entities in one get_filtered_context() call.
 
     Fields:
         entities: Filtered and sorted entity list

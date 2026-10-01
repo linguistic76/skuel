@@ -190,11 +190,6 @@ class ChoicesCoreService(
         domain_name="choices",
         date_field="decision_deadline",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        status_filters={
-            "pending": {"status": "pending"},
-            "decided": {"status": "decided"},
-            "implemented": {"status": "implemented"},
-        },
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -1325,5 +1320,4 @@ class ChoicesCoreService(
         """Count choice stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
-    # the status_filters map in _config above.
+    # get_all_for_user: inherited from SearchOperationsMixin.

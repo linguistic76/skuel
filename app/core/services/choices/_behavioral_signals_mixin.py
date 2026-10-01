@@ -171,7 +171,7 @@ class _BehavioralSignalsMixin:
         evidence.append(f"{total_choices} choices in period")
 
         # Calculate decision rate (decided vs pending)
-        decided = [c for c in period_choices if c.selected_option_uid is not None]
+        decided = [c for c in period_choices if c.is_decided()]
         decision_rate = len(decided) / total_choices if total_choices > 0 else 0.0
         evidence.append(f"Decision rate: {decision_rate:.0%}")
 

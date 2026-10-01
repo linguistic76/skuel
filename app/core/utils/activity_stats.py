@@ -236,7 +236,14 @@ def compute_event_stats(events: list[Event]) -> EventStats:
 
 @dataclass(frozen=True)
 class ChoiceStats:
-    """Aggregated stats for a list of Choice entities."""
+    """Aggregated stats for a list of Choice entities.
+
+    ``pending`` and ``decided`` count by the model's own predicates
+    (``Choice.is_pending`` / ``Choice.is_decided``), not by status value: neither
+    is a Choice status. An archived, never-decided choice is in ``total`` only.
+    ``active`` is the pending count — a choice awaiting its decision is the one
+    state that asks something of the user.
+    """
 
     total: int
     active: int
@@ -245,16 +252,10 @@ class ChoiceStats:
 
 
 def compute_choice_stats(choices: list[Choice]) -> ChoiceStats:
-    """Compute aggregate stats from a list of Choice domain models.
-
-    Semantics:
-        active = pending count (a pending choice is the only "active" state)
-        pending = status == "pending"
-        decided = status == "decided"
-    """
+    """Compute aggregate stats from a list of Choice domain models."""
     total = len(choices)
-    pending = sum(1 for c in choices if get_enum_attr_str(c, "status") == "pending")
-    decided = sum(1 for c in choices if get_enum_attr_str(c, "status") == "decided")
+    pending = sum(1 for c in choices if c.is_pending())
+    decided = sum(1 for c in choices if c.is_decided())
     return ChoiceStats(
         total=total,
         active=pending,

@@ -7,6 +7,10 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
+from adapters.persistence.neo4j.query.cypher.choice_fragments import (
+    build_choice_decided_predicate,
+    build_choice_pending_predicate,
+)
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -1322,6 +1326,9 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     - get_choice(uid)                      → get_or_fail() wrapper (NotFound as error)
     - get_user_choices(uid)                → alias for inherited list_by_user()
     - get_stats_for_user(uid)              → choice count stats (total/pending/decided)
+
+    Pending and decided are the model's predicates (``Choice.is_pending`` /
+    ``Choice.is_decided``), composed from ``query/cypher/choice_fragments.py``.
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -1346,7 +1353,10 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
             self,
             user_uid,
             "choice",
-            {"pending": "n.status = 'pending'", "decided": "n.status = 'decided'"},
+            {
+                "pending": build_choice_pending_predicate("n"),
+                "decided": build_choice_decided_predicate("n"),
+            },
         )
         if result.is_error:
             return Result.fail(result)
@@ -1355,7 +1365,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     async def get_pending_choices(
         self, user_uid: UserUID, limit: int = 100
     ) -> Result[list[Neo4jProperties]]:
-        """Get pending/undecided choices for a user.
+        """Get the choices a user has yet to decide (``Choice.is_pending``).
 
         Args:
             user_uid: Owner of the choices.
@@ -1364,10 +1374,10 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         Returns:
             Result containing list of choice node properties.
         """
-        query = """
-        MATCH (c:Entity {entity_type: 'choice'})
+        query = f"""
+        MATCH (c:Entity {{entity_type: 'choice'}})
         WHERE c.user_uid = $user_uid
-          AND c.status IN ['draft', 'active', 'scheduled']
+          AND {build_choice_pending_predicate("c")}
         RETURN c
         ORDER BY datetime(c.decision_deadline) ASC, datetime(c.created_at) DESC
         LIMIT $limit
@@ -1380,7 +1390,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     async def get_choices_needing_decision(
         self, user_uid: UserUID, end_date: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get choices that need a decision by a deadline.
+        """Get the pending choices whose decision is due by a deadline.
 
         Args:
             user_uid: Owner of the choices.
@@ -1390,11 +1400,11 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         Returns:
             Result containing list of choice node properties.
         """
-        query = """
-        MATCH (c:Entity {entity_type: 'choice'})
+        query = f"""
+        MATCH (c:Entity {{entity_type: 'choice'}})
         WHERE c.user_uid = $user_uid
           AND datetime(c.decision_deadline) < datetime($end_bound)
-          AND NOT c.status IN ['completed', 'decided', 'cancelled', 'archived']
+          AND {build_choice_pending_predicate("c")}
         RETURN c
         ORDER BY datetime(c.decision_deadline) ASC
         """

@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-09-17
+updated: 2026-10-01
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -328,7 +328,7 @@ result = await choices_service.add_option(
 
 ## MEGA-QUERY Sections
 
-- `pending_choice_uids` - Pending choice UIDs (status = pending or active)
+- `pending_choice_uids` - UIDs of the choices awaiting a decision (`Choice.is_pending()`)
 - `entities_rich["choices"]` - Full choice data with graph context
 
 ## Scoring Weights
@@ -343,14 +343,21 @@ result = await choices_service.add_option(
 
 ## Decision Tracking
 
-Choices support full decision lifecycle:
+A Choice's `status` is one of `draft` / `active` / `completed` / `archived`. The decision
+stages are not statuses — they are read from the choice's fields:
 
-| Stage | Status | Key Fields |
-|-------|--------|------------|
-| **Pending** | `PENDING` | `options`, `decision_criteria`, `constraints` |
-| **Decided** | `DECIDED` | `selected_option_uid`, `decision_rationale`, `decided_at` |
-| **Implemented** | `IMPLEMENTED` | `implementing_tasks` relationship |
-| **Evaluated** | `EVALUATED` | `satisfaction_score`, `actual_outcome`, `lessons_learned` |
+| Stage | How it is read | Key Fields |
+|-------|----------------|------------|
+| **Pending** | `Choice.is_pending()` — not decided and not archived | `options`, `decision_criteria`, `constraints` |
+| **Decided** | `Choice.is_decided()` — a `decided_at`, or status `completed` | `selected_option_uid`, `decision_rationale`, `decided_at` |
+| **Implemented** | `(Task)-[:IMPLEMENTS_CHOICE]->(Choice)` edges | — |
+| **Evaluated** | an outcome is recorded | `satisfaction_score`, `actual_outcome`, `lessons_learned` |
+
+A decided choice stays `active` until it is completed. An archived choice that was never
+decided is neither pending nor decided. The list page and its stats bar, the daily plan's
+stats, and the decision-rate analytics call the two methods; `ChoicesBackend.get_pending_choices` /
+`get_choices_needing_decision` / `get_stats_for_user` and UserContext's `pending_choice_uids`
+compose their Cypher spelling (`adapters/persistence/neo4j/query/cypher/choice_fragments.py`).
 
 ## Search Methods
 
@@ -361,7 +368,7 @@ Choices support full decision lifecycle:
 | Method | Description |
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description |
-| `get_by_status(status, user_uid)` | Filter by ChoiceStatus |
+| `get_by_status(status, user_uid)` | Filter by `EntityStatus` |
 | `get_by_category(category, user_uid)` | Filter by category field |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
 | `graph_aware_faceted_search(request)` | Unified search with graph context |
@@ -370,8 +377,8 @@ Choices support full decision lifecycle:
 
 | Method | Description |
 |--------|-------------|
-| `get_pending(user_uid)` | Undecided choices |
-| `get_needing_decision(user_uid, days=7)` | Choices with deadline approaching |
+| `get_pending(user_uid)` | Pending choices (`Choice.is_pending()`) |
+| `get_needing_decision(user_uid, deadline_days=7)` | Pending choices whose deadline falls within the window |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
 **Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)

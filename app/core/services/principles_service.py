@@ -686,7 +686,7 @@ class PrinciplesService(
         """Get filtered and sorted principles with pre-filter stats in a single query."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.core.get_for_user_filtered(user_uid)
+            return await self.core.get_all_for_user(user_uid)
 
         def apply_filters(all_principles: list[Any]) -> list[Any]:
             return _apply_principle_filters(

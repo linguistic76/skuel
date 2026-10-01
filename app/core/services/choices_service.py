@@ -70,11 +70,6 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
-    """Extract value from attribute (handles both enum and string)."""
-    return get_enum_attr_str(obj, attr, default)
-
-
 def _get_choice_priority(c: Any) -> str:
     """Extract priority string for sort key (SKUEL012: named function, no lambda)."""
     return get_enum_attr_str(c, "priority", "medium")
@@ -91,25 +86,19 @@ def _compute_choice_stats(all_choices: list[Any]) -> dict[str, int | float]:
     }
 
 
-def _is_choice_pending(c: Any) -> bool:
-    """Filter predicate: choice is pending."""
-    return _get_choice_enum_value(c, "status") == "pending"
+def _is_choice_pending(c: Choice) -> bool:
+    """Filter predicate: the choice awaits a decision."""
+    return c.is_pending()
 
 
-def _is_choice_decided(c: Any) -> bool:
-    """Filter predicate: choice is decided."""
-    return _get_choice_enum_value(c, "status") == "decided"
-
-
-def _is_choice_implemented(c: Any) -> bool:
-    """Filter predicate: choice is implemented."""
-    return _get_choice_enum_value(c, "status") == "implemented"
+def _is_choice_decided(c: Choice) -> bool:
+    """Filter predicate: the decision is made."""
+    return c.is_decided()
 
 
 _CHOICE_FILTER_CONFIG: FilterConfig = {
     "pending": _is_choice_pending,
     "decided": _is_choice_decided,
-    "implemented": _is_choice_implemented,
 }
 
 
@@ -587,7 +576,7 @@ class ChoicesService(
         """Get filtered and sorted choices with pre-filter stats in a single query."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.core.get_for_user_filtered(user_uid, "all")
+            return await self.core.get_all_for_user(user_uid)
 
         def apply_filters(all_choices: list[Any]) -> list[Any]:
             return apply_entity_filter(all_choices, status_filter, _CHOICE_FILTER_CONFIG)

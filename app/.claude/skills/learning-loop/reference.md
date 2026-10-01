@@ -157,7 +157,7 @@ revision: 1                    ← student increments for resubmissions
 The student fills in responses and submits the file at `POST /api/user-entries/upload`.
 The exercise link is carried by the `fulfills_exercise_uid` form field (set by the `/submissions/submit`
 form via the exercise selector or the `?exercise_uid=` deep-link hidden field); the revision
-is computed server-side by `UserEntryService._next_revision()`. The current upload endpoint
+is minted server-side by the turn-in writer (`UserEntryBackend.create_with_exercise_link()`). The current upload endpoint
 does **not** parse the worksheet's YAML frontmatter — that auto-detection is not implemented
 here; the pre-filled frontmatter is for the student's reference.
 
@@ -237,10 +237,13 @@ modality: SubmissionModality | None  # FILE_UPLOAD | STRUCTURED_FORM (None for t
 > **Revision tracking is edge-authoritative, node-mirrored (ADR-054).** `revision_number` is
 > not a field on the frozen `UserEntry` dataclass. The authoritative value lives on the
 > `FULFILLS_EXERCISE {revision}` edge (and the parallel `FULFILLS_REVISED_EXERCISE {revision}`
-> edge for revision-cycle entries): `UserEntryService._next_revision()` computes it as
-> `count_entries_for_exercise(...) + 1` (1 when the count read fails) and passes it to
-> `UserEntryBackend.create_with_exercise_link()`, which stamps it onto the edge. A second
-> attempt against the same exercise creates a new `UserEntry` whose edge carries `revision=2`.
+> edge for revision-cycle entries): `UserEntryBackend.create_with_exercise_link(entry, exercise_uid)`
+> mints it inside the one statement that creates the entry and its edges — one more than the
+> highest revision among the owner's entries already fulfilling the root exercise, read under
+> the root's write-lock. It is a max, not a count (a deleted entry leaves a gap; a count would
+> mint a number a living entry already carries), and concurrent turn-ins of one pair take
+> distinct numbers. A second attempt against the same exercise creates a new `UserEntry` whose
+> edge carries `revision=2`. A target that is not an exercise is a not-found and writes nothing.
 > The same statement stamps the snapshot `turn_in_revision` onto the node beside the exercise
 > snapshot, so the version outlives the exercise (Submit & Share arc R12), and titles an untitled
 > turn-in `"{root exercise title} v{revision}"` — a title the student typed is kept (the PR 7
@@ -340,8 +343,8 @@ services.user_entry_processor  # UserEntryProcessingService — pipeline dispatc
 **Backend (domain-specific Cypher):**
 ```python
 # UserEntryBackend — :UserEntry node CRUD, exercise linking, review queue, assessment
-await backend.create_with_exercise_link(entry, exercise_uid, revision)  # FULFILLS_* edges
-await backend.count_entries_for_exercise(user_uid, exercise_uid)        # revision counter
+await backend.create_with_exercise_link(entry, exercise_uid)            # node + FULFILLS_* edges + revision mint, one statement
+await backend.count_entries_for_exercise(user_uid, exercise_uid)        # attempt count (learning-loop handler)
 await backend.get_review_queue_by_groups(teacher_uid, status_filter, student_uid)  # teacher queue; student_uid scopes it (per-student Needs Review reads the SAME query)
 await backend.get_exercise_context(...)                                 # OWNS/COALESCE teacher
 ```

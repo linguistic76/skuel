@@ -16,10 +16,6 @@ class TasksCoreService(BaseService[TasksOperations, Task, TaskUpdateIntent]):
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        status_filters={
-            "active": {"status__not_in": ["completed"]},
-            "completed": {"status": "completed"},
-        },
         entity_label="Entity",
     )
 ```
@@ -32,7 +28,6 @@ class TasksCoreService(BaseService[TasksOperations, Task, TaskUpdateIntent]):
 | `domain_name` | Domain identifier | Required |
 | `date_field` | Date field for time queries | `"created_at"` |
 | `completed_statuses` | Terminal statuses | `()` |
-| `status_filters` | `get_for_user_filtered` vocabulary (filter name → extra `find_by` kwargs) | `{}` |
 | `category_field` | Field for categorization | `"category"` |
 | `search_fields` | Fields for text search | `("title", "description")` |
 | `search_order_by` | Default sort field | `"created_at"` |

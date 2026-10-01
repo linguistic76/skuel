@@ -7,11 +7,8 @@ they are directly testable without mocking any service or database.
 
 Domains covered: habits, tasks, goals, events, choices, principles.
 
-Note: _compute_*_stats and simple status _apply_*_filters functions for Goals,
-Habits, Events, and Choices were removed in the Cypher-level filtering refactor
-(Phase 4 of the query layer push-down). Stats and status filtering are now
-handled at the database level via get_stats_for_user() and get_for_user_filtered()
-on the respective CoreServices.
+Status filtering goes through each facade's ``_{DOMAIN}_FILTER_CONFIG`` and
+``apply_entity_filter``; Choices' is covered in ``test_choice_decided_vocabulary.py``.
 """
 
 from datetime import date, datetime, time, timedelta
@@ -20,10 +17,7 @@ from typing import Any
 
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.principle_enums import PrincipleStrength
-from core.services.choices_service import (
-    _apply_choice_sort,
-    _get_choice_enum_value,
-)
+from core.services.choices_service import _apply_choice_sort
 from core.services.events_service import (
     _apply_event_sort,
     _get_event_status_value,
@@ -118,10 +112,7 @@ def make_task(
 
 
 class TestApplyTaskSecondaryFilters:
-    """Tests for secondary filters (project, assignee, due date).
-
-    Status filtering is now handled at Cypher level via get_for_user_filtered().
-    """
+    """Tests for secondary filters (project, assignee, due date)."""
 
     def test_project_filter(self):
         tasks = [make_task(project="Alpha"), make_task(project="Beta"), make_task(project="Alpha")]
@@ -350,26 +341,6 @@ def make_choice(
         created_at=created_at or datetime(2024, 1, 1),
         title="choice",
     )
-
-
-class TestGetChoiceEnumValue:
-    def test_string_value(self):
-        choice = make_choice(status="pending")
-        assert _get_choice_enum_value(choice, "status") == "pending"
-
-    def test_none_returns_default(self):
-        choice = make_choice()
-        choice.status = None
-        assert _get_choice_enum_value(choice, "status", "unknown") == "unknown"
-
-    def test_enum_value(self):
-        choice = make_choice()
-        choice.status = EntityStatus.ACTIVE
-        assert _get_choice_enum_value(choice, "status") == EntityStatus.ACTIVE.value.lower()
-
-    def test_missing_attr_returns_default(self):
-        choice = SimpleNamespace()  # no 'status' attr
-        assert _get_choice_enum_value(choice, "status", "fallback") == "fallback"
 
 
 class TestApplyChoiceSort:

@@ -274,9 +274,9 @@ def filter_choices(
     filtered = list(choices)
 
     if status_filter == "pending":
-        filtered = [c for c in filtered if not c.decided_at and c.status != EntityStatus.COMPLETED]
+        filtered = [c for c in filtered if c.is_pending()]
     elif status_filter == "decided":
-        filtered = [c for c in filtered if c.decided_at or c.status == EntityStatus.COMPLETED]
+        filtered = [c for c in filtered if c.is_decided()]
 
     def by_deadline(c: Any) -> datetime:
         return instant_key(c.decision_deadline, LATEST_INSTANT)

@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-30'
+updated: '2026-10-01'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1163,14 +1163,14 @@ MetadataField("Satisfaction",
 
 ### Solution: Single-Fetch `get_filtered_context()` with `FilteredContextProvider` Protocol
 
-All 11 domain facades (6 Activity + 5 Curriculum) expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Each facade delegates to a shared skeleton (`build_filtered_context()` in `core/services/filtered_context.py`) with domain-specific callables for stats, filters, and sorting.
+The six Activity facades plus `PsService`, `LpService` and `ExerciseService` expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Each facade delegates to a shared skeleton (`build_filtered_context()` in `core/services/filtered_context.py`) with domain-specific callables for stats, filters, and sorting.
 
 ```python
 # Shared skeleton orchestrates: fetch → stats → filter → sort → return
 # Sort/filter logic is config-driven via declarative dicts (core/utils/list_helpers.py)
 async def get_filtered_context(self, user_uid, status_filter="active", sort_by="due_date"):
     async def fetch_all():
-        return await self.core.get_for_user_filtered(user_uid, "all")
+        return await self.core.get_all_for_user(user_uid)
 
     def apply_filters(all_tasks):
         filtered = apply_entity_filter(all_tasks, status_filter, _TASK_FILTER_CONFIG)
@@ -1186,18 +1186,18 @@ async def get_filtered_context(self, user_uid, status_filter="active", sort_by="
     )
 ```
 
-**`FilteredContextProvider` protocol** (`core/ports/filtered_context_protocols.py`): Common params `user_uid`, `status_filter`, `sort_by`. Intelligence services call via protocol; UI routes call concrete classes directly for domain-specific params.
+**`FilteredContextProvider` protocol** (`core/ports/filtered_context_protocols.py`): Common params `user_uid`, `status_filter`, `sort_by`. The one caller is the daily plan (`DailyPlanningMixin._query_domain_stats`), through the protocol, for `stats`. No route calls it: the Activity list pages fetch with their config's `get_all` and filter with `core/utils/entity_filters.py`.
 
 **`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float] — guaranteed `total` + `active` per `BaseStats` contract), `metadata` (dict[str, Any], optional).
 
-**Metadata**: Tasks returns `projects`/`assignees`; Principles, Goals, Habits return `categories` (derived from domain enums — `PrincipleCategory`, `_GOAL_CATEGORIES`, `HabitCategory`). UI routes consume via `ctx.get("metadata", {}).get("categories", [])`. Standalone create forms that don't call `get_filtered_context()` import the enum directly.
+**Metadata**: Tasks returns `projects`/`assignees`; Principles, Goals, Habits return `categories` (derived from domain enums — `PrincipleCategory`, `_GOAL_CATEGORIES`, `HabitCategory`). No caller reads `metadata` today; create forms import the enum directly.
 
 **Consuming a `ListContext`:** `ctx["entities"]` and `ctx["stats"]` are always present; `metadata` is optional (the TypedDict is `total=False` and `build_filtered_context()` only sets it when a `compute_metadata` callable is passed), so read it as `ctx.get("metadata", {})`. `entities` is typed `list[Any]`, so annotate at the call site to narrow: `tasks: list[Task] = ctx["entities"]`.
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
-- `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains, guaranteed `total` + `active`)
-- `_{DOMAIN}_SORT_CONFIG: SortConfig` — declarative sort key dict (all 11 domains), consumed by `apply_entity_sort()`
-- `_{DOMAIN}_FILTER_CONFIG: FilterConfig` — declarative filter predicate dict (7 domains), consumed by `apply_entity_filter()`
+- `_compute_{domain}_stats(entities)` — stats from full set (every provider; guaranteed `total` + `active`)
+- `_{DOMAIN}_SORT_CONFIG: SortConfig` — declarative sort key dict (every provider), consumed by `apply_entity_sort()`
+- `_{DOMAIN}_FILTER_CONFIG: FilterConfig` — declarative filter predicate dict (Tasks, Goals, Habits, Events, Choices, PathSteps), consumed by `apply_entity_filter()`
 - `_apply_{domain}_sort(entities, sort_by)` — thin wrapper delegating to `apply_entity_sort()` with domain config
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only
 - `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only (multi-dimensional)

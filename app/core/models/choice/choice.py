@@ -12,8 +12,9 @@ Inherits common fields from UserOwnedEntity. Adds 16 choice-specific fields:
 - Outcome (3): satisfaction_score, actual_outcome, lessons_learned
 - Choice-Curriculum Integration (2): inspiration_type, expands_possibilities
 
-Choice-specific methods: has_high_stakes, calculate_decision_complexity,
-get_decision_quality_score, get_summary, explain_existence, category, from_dto.
+Choice-specific methods: is_decided, is_pending, has_high_stakes,
+calculate_decision_complexity, get_decision_quality_score, get_summary,
+explain_existence, category, from_dto.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 from core.models.choice.choice_option import ChoiceOption
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.choice_enums import ChoiceType
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -121,6 +122,23 @@ class Choice(UserOwnedEntity):
     # CHOICE-SPECIFIC METHODS
     # =========================================================================
 
+    def is_decided(self) -> bool:
+        """Whether the decision is made: a decision is recorded, or the choice is closed.
+
+        ``decided_at`` is the record of a decision. A choice completed without one
+        (closed from the list) is decided too — nothing is left to decide on it.
+        Decided is not a status: a decided choice stays ACTIVE until it is completed.
+        """
+        return self.decided_at is not None or self.status == EntityStatus.COMPLETED
+
+    def is_pending(self) -> bool:
+        """Whether the choice awaits a decision: not decided, and not archived.
+
+        An archived choice that was never decided is neither pending nor decided —
+        it was set aside.
+        """
+        return not self.is_decided() and self.status != EntityStatus.ARCHIVED
+
     def is_deadline_past(self) -> bool:
         """Check if decision deadline has passed."""
         if not self.decision_deadline:
@@ -147,7 +165,7 @@ class Choice(UserOwnedEntity):
 
     def get_decision_quality_score(self) -> float:
         """Get quality score for a decision."""
-        if not self.decided_at:
+        if not self.is_decided():
             return 0.0
         score = 0.3  # Base for having decided
         if self.decision_rationale:

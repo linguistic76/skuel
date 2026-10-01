@@ -157,7 +157,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     @with_error_handling("get_pending", error_type="database", uid_param="user_uid")
     async def get_pending(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
         """
-        Get pending/undecided choices for a user.
+        Get the choices a user has yet to decide (``Choice.is_pending``).
 
         Args:
             user_uid: User identifier
@@ -180,12 +180,10 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list[Choice]]:
         """
-        Get choices that need a decision within N days.
+        Get the pending choices whose deadline falls within N days.
 
-        Choices needing decision:
-        - Have a deadline within deadline_days
-        - Status is pending/active
-        - Not yet decided
+        Pending is ``Choice.is_pending``: no decision recorded, not completed,
+        not archived.
 
         Args:
             user_uid: User identifier
