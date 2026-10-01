@@ -188,10 +188,11 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
             if persist_result.is_error:
                 return Result.fail(persist_result)
 
-        # Publish LearningPathStarted event
-        from core.events import LearningPathStarted
+        # The path exists; nobody is enrolled in it (enrollment is the pathways
+        # door's LearningPathStarted).
+        from core.events import LearningPathCreated
 
-        event = LearningPathStarted(
+        event = LearningPathCreated(
             path_uid=path_uid,
             user_uid=user_uid,
             path_title=title,

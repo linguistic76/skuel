@@ -47,7 +47,7 @@ The cache is invalidated IMMEDIATELY when any of these domain events occur:
     - ChoiceCreated, ChoiceUpdated, ChoiceDeleted
     - PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged
     - JournalCreated, JournalUpdated, JournalDeleted
-    - KnowledgeCreated, LearningPathStarted, LearningPathCompleted
+    - KnowledgeCreated, LearningPathCreated, LearningPathStarted, LearningPathCompleted
 
 Event subscriptions are wired in services_bootstrap.py:
     event_bus.subscribe(TaskCompleted, user_activity_service.invalidate_context)
@@ -198,7 +198,7 @@ class UserContextCache:
 #   - ChoiceCreated, ChoiceUpdated, ChoiceDeleted
 #   - CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, etc.
 #   - JournalCreated, JournalUpdated, JournalDeleted
-#   - KnowledgeCreated, LearningPathStarted
+#   - KnowledgeCreated, LearningPathCreated, LearningPathStarted
 
 
 __all__ = ["UserContextCache"]
