@@ -260,6 +260,29 @@ class _LpProgressMixin:
             )
         )
 
+    async def complete_enrollment(
+        self, user_uid: UserUID, lp_uid: str, now: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Flip the user's ENROLLED_IN edge to ``completed``; report whether it already was.
+
+        Completion lives on the enrollment edge (``r.status``), so this is the
+        transition ``LearningPathCompleted`` announces. Decided by the write
+        (ADR-087): the edge's lock is taken first (``SET r.status = r.status``),
+        the prior is read under it, then the flip is written — two triggers
+        reaching 100 % for the same path (a Ku mastery and the step completion
+        it causes, or a reconciled step) see one transition between them.
+        ``completed_at`` keeps its first value. No row: the user is not enrolled.
+        """
+        query = """
+        MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $lp_uid})
+        SET r.status = r.status
+        WITH r, coalesce(r.status, 'active') = 'completed' AS was_completed
+        SET r.status = 'completed',
+            r.completed_at = coalesce(r.completed_at, datetime($now))
+        RETURN was_completed
+        """
+        return await self.execute_query(query, {"user_uid": user_uid, "lp_uid": lp_uid, "now": now})
+
     async def get_paths_containing_step(self, ps_uid: str) -> Result[list[str]]:
         """Get UIDs of all learning paths containing a given path step via HAS_STEP.
 

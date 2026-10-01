@@ -47,7 +47,9 @@ UserProgressRecorderService.record_knowledge_mastery (pathways progress)
            ├─► LpProgressService.handle_knowledge_mastered
            │       Find LPs containing this KU → recalculate LP progress
            │       → publish LearningPathProgressUpdated
-           │       → if 100%: publish LearningPathCompleted
+           │       → if 100%: flip the ENROLLED_IN edge to completed (under
+           │                  its lock) and, for the write that flipped it,
+           │                  publish LearningPathCompleted
            │
            ├─► PsProgressService.handle_knowledge_mastered
            │       Find PathSteps using this KU (via USES_KU) → recalculate
@@ -78,7 +80,7 @@ UserProgressRecorderService.record_knowledge_mastery (pathways progress)
 | `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | `path_step.progress_updated` |
 | `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` — for the write that created the step's `MASTERED` edge; a write that does not land, or finds the edge already there, withholds the event | `path_step.completed` |
 | `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.progress_updated` |
-| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.completed` |
+| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` — once per enrollment: the ENROLLED_IN edge's flip to `completed` is the transition (`complete_enrollment`), so the Ku mastery and the step completion it causes, both reaching 100 % for the same path, announce it once; an unenrolled learner gets no completion | `learning_path.completed` |
 
 There is deliberately no *Subscribers* column. The one that used to be here named
 "Dashboard, Notifications" as consumers of the two progress events — neither of which has a

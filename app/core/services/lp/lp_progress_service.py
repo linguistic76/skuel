@@ -11,6 +11,7 @@ Responsibilities:
 - Milestone management
 """
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from core.events import LearningPathCompleted, LearningPathProgressUpdated, publish_event
@@ -36,7 +37,9 @@ class LpProgressService:
     - Subscribes to KnowledgeMastered events
     - Calculates LP progress from mastered KUs
     - Publishes LearningPathProgressUpdated events
-    - Publishes LearningPathCompleted when all KUs mastered
+    - Publishes LearningPathCompleted once, when all KUs are mastered AND the
+      user's enrollment flips to completed (the transition lives on the
+      ENROLLED_IN edge, so two triggers reaching 100 % announce it once)
     """
 
     def __init__(
@@ -72,7 +75,8 @@ class LpProgressService:
         3. Calculate new progress (mastered KUs / total KUs)
         4. Update LP progress in database
         5. Publish LearningPathProgressUpdated event
-        6. If 100%, publish LearningPathCompleted event
+        6. If 100%, flip the enrollment to completed and — for the write that
+           flipped it — publish LearningPathCompleted
 
         Args:
             event: KnowledgeMastered event containing ku_uid and user_uid
@@ -228,10 +232,23 @@ class LpProgressService:
         )
         await publish_event(self.event_bus, progress_event, self.logger)
 
-        # If path completed (100%), publish LearningPathCompleted event
-        if new_progress_percentage >= 100 and old_progress_percentage < 100:
-            # Calculate time to completion (would need UserLpProgress entity with start_date)
-            # For now, using estimated hours from LP
+        # At 100 % the completion is the enrollment edge's flip — written under
+        # its lock, announced once: the Ku mastery and the step completion it
+        # causes both reach here for the same path, and the analytics behind
+        # LearningPathCompleted count per event.
+        if new_progress_percentage >= 100:
+            flipped = await self.backend.complete_enrollment(
+                user_uid, lp_uid, datetime.now(UTC).isoformat()
+            )
+            if flipped.is_error:
+                self.logger.error(f"Failed to complete enrollment in {lp_uid}: {flipped.error}")
+                return
+            if not flipped.value:
+                self.logger.debug(f"LP {lp_uid} at 100% for {user_uid}, who is not enrolled")
+                return
+            if flipped.value[0]["was_completed"]:
+                self.logger.debug(f"LP {lp_uid} already completed by {user_uid}")
+                return
             completed_event = LearningPathCompleted(
                 path_uid=lp_uid,
                 user_uid=user_uid,

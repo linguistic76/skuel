@@ -20,6 +20,7 @@ KU mastered → KnowledgeMastered event → LpProgressService.handle_knowledge_m
     → Publish LearningPathProgressUpdated event → (If 100%) Publish LearningPathCompleted event
 """
 
+import asyncio
 from datetime import datetime
 
 import pytest
@@ -27,6 +28,7 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, LpBackend
+from core.events.curriculum_events import PathStepCompleted
 from core.events.learning_events import (
     KnowledgeMastered,
     LearningPathCompleted,
@@ -121,6 +123,19 @@ class TestKuLpEventFlow:
         assert result.is_ok
         created_lp = result.value
 
+        # Enrolled: completion is the ENROLLED_IN edge's flip, so an unenrolled
+        # learner mastering every Ku gets progress events but no completion.
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                MATCH (u:User {uid: $user_uid}), (lp:Entity {uid: $lp_uid})
+                MERGE (u)-[e:ENROLLED_IN]->(lp)
+                ON CREATE SET e.status = 'active', e.enrolled_at = datetime()
+                """,
+                user_uid=test_user_uid,
+                lp_uid=lp.uid,
+            )
+
         # Create graph relationships along the real composition route:
         # (LP)-[:HAS_STEP]->(PathStep)-[:USES_KU]->(KU). These used to seed a
         # direct (LP)-[:INCLUDES_KU]->(KU) edge, which no writer creates and
@@ -184,7 +199,6 @@ class TestKuLpEventFlow:
         await event_bus.publish_async(event)
 
         # Give event processing time to complete
-        import asyncio
 
         await asyncio.sleep(0.1)
 
@@ -231,8 +245,6 @@ class TestKuLpEventFlow:
         )
         await event_bus.publish_async(event)
 
-        import asyncio
-
         await asyncio.sleep(0.1)
 
         # Verify progress is 66.67% (2/3)
@@ -251,10 +263,13 @@ class TestKuLpEventFlow:
         python_basics_path,
         test_user_uid,
     ):
-        """Test that LearningPathCompleted event is published when all KUs mastered."""
+        """LearningPathCompleted is published ONCE when all KUs are mastered — the
+        enrollment's flip to completed is the transition, whichever trigger
+        (the Ku mastery, the step completion it causes) reaches 100 % first."""
         lp, kus = python_basics_path
 
         event_bus.subscribe(KnowledgeMastered, lp_progress_service.handle_knowledge_mastered)
+        event_bus.subscribe(PathStepCompleted, lp_progress_service.handle_step_completed)
 
         # Master all 3 KUs
         async with neo4j_driver.session() as session:
@@ -278,16 +293,32 @@ class TestKuLpEventFlow:
         )
         await event_bus.publish_async(event)
 
-        import asyncio
-
         await asyncio.sleep(0.1)
 
-        # Verify LearningPathCompleted event was published
+        # The step that teaches the last Ku completes too — the second trigger
+        # for the same path, which must not announce the completion again.
+        await event_bus.publish_async(
+            PathStepCompleted(ps_uid=f"{lp.uid}.step2", user_uid=test_user_uid)
+        )
+        await asyncio.sleep(0.1)
+
+        # Verify LearningPathCompleted event was published — once
         history = event_bus.get_event_history()
         completed_events = [e for e in history if isinstance(e, LearningPathCompleted)]
         assert len(completed_events) == 1
         assert completed_events[0].path_uid == lp.uid
         assert completed_events[0].kus_mastered == 3
+        async with neo4j_driver.session() as session:
+            row = await session.run(
+                """
+                MATCH (:User {uid: $user_uid})-[e:ENROLLED_IN]->(:Entity {uid: $lp_uid})
+                RETURN e.status AS status, e.completed_at IS NOT NULL AS stamped
+                """,
+                user_uid=test_user_uid,
+                lp_uid=lp.uid,
+            )
+            record = await row.single()
+        assert (record["status"], record["stamped"]) == ("completed", True)
 
     async def test_no_update_when_ku_not_in_lp(
         self,
@@ -319,8 +350,6 @@ class TestKuLpEventFlow:
             occurred_at=datetime.now(),
         )
         await event_bus.publish_async(event)
-
-        import asyncio
 
         await asyncio.sleep(0.1)
 
@@ -390,8 +419,6 @@ class TestKuLpEventFlow:
             occurred_at=datetime.now(),
         )
         await event_bus.publish_async(event)
-
-        import asyncio
 
         await asyncio.sleep(0.1)
 
