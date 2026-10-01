@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-09-30
+updated: 2026-10-01
 category: patterns
 related_skills:
 - fasthtml
@@ -838,28 +838,35 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
     domain_name="orchestration",
     primary_service_attr="goal_task_generator",  # services.goal_task_generator
     api_factory=create_goal_task_routes,         # Primary: 2 endpoints
+    api_related_services={"goals": "goals"},     # the facade that owner-verifies a goal uid
 )
 
 
 def create_orchestration_routes(app, rt, services, _sync_service=None):
     register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
 
-    if services and services.habit_event_scheduler:
-        create_habit_event_routes(app, rt, services.habit_event_scheduler)
+    if services and services.goal_task_generator and services.user:
+        create_goal_task_bulk_routes(app, rt, services.goal_task_generator, services.user)
 
-    if services and services.goals_intelligence:
-        create_goals_intelligence_routes(app, rt, services.goals_intelligence, services.habits)
+    if services and services.habit_event_scheduler:
+        create_habit_event_routes(app, rt, services.habit_event_scheduler, services.habits)
+
+    if services and services.goals:
+        create_goals_intelligence_routes(app, rt, services.goals.intelligence, services.goals)
 
     if services and services.principles:
-        create_principle_alignment_routes(app, rt, services.principles)
+        create_principle_alignment_routes(
+            app, rt, services.principles, services.goals, services.habits
+        )
 ```
 
 **Key features:**
-- **Three extension factories** beyond the primary — the largest Multi-Factory in the codebase
+- **Four extension factories** beyond the primary — the largest Multi-Factory in the codebase
 - Each extension factory is independently guarded: if its service is unavailable, only that group is skipped
-- `create_goals_intelligence_routes` receives two services (`goals_intelligence` + `habits`) as positional args — the closure captures both, no config change needed
-- All 12 endpoints share a single bootstrap call (`create_orchestration_routes(app, rt, services)`) — zero bootstrap changes from pre-migration
-- Primary service (`goal_task_generator`) chosen because it's the namesake orchestration service; the other three groups are extensions by nature
+- **A factory whose routes take a goal or habit uid is handed the facade that owner-verifies it** (`OwnershipVerifier`) and refuses to register without one — every such route runs `verify_entity_ownership` before the service behind it reads the uid, so another user's uid is answered as a missing one
+- The three routes that write (`POST /goals/generate-tasks`, `POST /goals/generate-tasks-all`, `POST /habits/schedule-events`) are POST behind `@csrf_protected`; the eleven reads are GET
+- All 14 endpoints share a single bootstrap call (`create_orchestration_routes(app, rt, services)`)
+- Primary service (`goal_task_generator`) chosen because it's the namesake orchestration service; the other four groups are extensions by nature
 
 **When to reach for this variant:**
 A route file groups endpoints by service rather than by domain. Each group is independently optional. Pick one group as primary; the rest become extension factories.

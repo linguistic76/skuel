@@ -382,16 +382,16 @@ not established here — "it has a caller" is the weak question.
 | `adapters/persistence/neo4j/_relationship_crud_mixin.py` | 910 | (inline comment) | `_props` | Property validation not yet implemented |
 | `core/services/calendar_optimization_service.py` | 143 | `_get_user_energy_profile()` | `_user_uid: UserUID` | Returns a static demo profile — the docstring says "for demo"; real profile query deferred |
 | `core/services/schema_change_detector.py` | 537 | `_update_optimizations()` | `_report: SchemaChangeReport` | Clears two optimization caches unconditionally; full re-optimization *from the report* deferred |
-| `core/services/goals/_predictive_mixin.py` | 401 | `_calculate_consistency_factor()` | `_lookback_days: int` | Caller passes a real window (135) |
-| `core/services/goals/_predictive_mixin.py` | 449 | `_calculate_momentum_factor()` | `_lookback_days: int` | Caller passes a real window (137) |
-| `core/services/goals/_predictive_mixin.py` | 676 | `_determine_trend()` | `_lookback_days: int` | Caller passes a real window (167) |
+| `core/services/goals/_predictive_mixin.py` | 405 | `_calculate_consistency_factor()` | `_lookback_days: int` | Caller passes a real window (139) |
+| `core/services/goals/_predictive_mixin.py` | 452 | `_calculate_momentum_factor()` | `_lookback_days: int` | Caller passes a real window (141) |
+| `core/services/goals/_predictive_mixin.py` | 680 | `_determine_trend()` | `_lookback_days: int` | Caller passes a real window (171) |
 | `core/services/lp_intelligence/learning_recommendation_engine.py` | 216 | (inline comment) | `recommended_ku_uids = []` | Returns empty list; real recommendation logic deferred |
 
-The three `_predictive_mixin` rows are one deferral, not three: `predict_goal_success()` (97) accepts
-`lookback_days: int = 30` (100) and threads it into all three helpers, every one of which discards
+The three `_predictive_mixin` rows are one deferral, not three: `predict_goal_success()` (101) accepts
+`lookback_days: int = 30` (104) and threads it into all three helpers, every one of which discards
 it — so no consistency, momentum or trend output responds to the window the caller asked for. The
-parameter is not wholly dead: its one live consumer is `_determine_confidence_level()` (536), called
-at 149, which receives it positionally as `data_points` (537) and buckets it at 543–548.
+parameter is not wholly dead: its one live consumer is `_determine_confidence_level()` (540), called
+at 152, which receives it positionally as `data_points` (541) and buckets it at 547–552.
 
 ### I2 — Progress event handlers (`FUTURE-IMPL-*`)
 
