@@ -26,17 +26,16 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, LpBackend
 from core.events.learning_events import (
     KnowledgeMastered,
     LearningPathCompleted,
     LearningPathProgressUpdated,
 )
-from core.models.curriculum import Curriculum
 from core.models.enums import Domain, SELCategory
 from core.models.enums.curriculum_enums import LpType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.services.lp.lp_progress_service import LpProgressService
 
@@ -52,8 +51,8 @@ class TestKuLpEventFlow:
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
-        """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
+        """The real Ku backend: a Ku is :Entity:Ku, which every progress tally matches on."""
+        return KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
 
     @pytest_asyncio.fixture
     async def lp_backend(self, neo4j_driver, clean_neo4j):
@@ -101,10 +100,9 @@ class TestKuLpEventFlow:
         for i, title in enumerate(
             ["Python Variables", "Python Functions", "Python Classes"], start=1
         ):
-            ku = Curriculum(
+            ku = Ku(
                 uid=f"ku.python_basics_{i}",
                 title=title,
-                domain=Domain.TECH,
                 sel_category=SELCategory.SELF_AWARENESS,
             )
             result = await ku_backend.create(ku)
@@ -305,10 +303,9 @@ class TestKuLpEventFlow:
         event_bus.subscribe(KnowledgeMastered, lp_progress_service.handle_knowledge_mastered)
 
         # Create unrelated KU
-        unrelated_ku = Curriculum(
+        unrelated_ku = Ku(
             uid="ku.advanced_algorithms",
             title="Advanced Algorithms",
-            domain=Domain.TECH,
             sel_category=SELCategory.SELF_AWARENESS,
         )
         result = await ku_backend.create(unrelated_ku)

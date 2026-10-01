@@ -319,11 +319,17 @@ class _LearningStateMixin:
         objectives, from ``trains_ku_uids``) counts toward completion exactly as
         ``USES_KU``/``CONTAINS_KNOWLEDGE`` (its content) does — a step whose
         objectives are unmastered is not complete.
+
+        The composition targets counted are ``:Ku`` only: the edge writer
+        (``create_step_node``) matches its target by uid alone, so a step can
+        point one of these edges at another step, and a step's mastery is
+        announced as ``PathStepCompleted`` — never ``KnowledgeMastered`` — so
+        a non-Ku target in the tally would leave the parent underivable.
         """
         query = """
         MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {uid: $ku_uid})
         WITH ps
-        MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(all_ku:Entity)
+        MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(all_ku:Entity:Ku)
         WITH ps, collect(DISTINCT all_ku.uid) as all_ku_uids, count(DISTINCT all_ku) as total
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered_ku:Entity)
         WHERE mastered_ku.uid IN all_ku_uids
@@ -340,10 +346,11 @@ class _LearningStateMixin:
         The derived writer runs best-effort behind ``KnowledgeMastered``; a
         detection or write that failed after the Ku edge committed leaves this
         gap, and the transition event is not replayed. The reconciler reads the
-        gaps from the graph's own state and closes them.
+        gaps from the graph's own state and closes them. The tally is ``:Ku``
+        only, as in ``detect_path_step_completion``.
         """
         query = """
-        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity)
+        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity:Ku)
         WITH ps, collect(DISTINCT ku) AS kus
         MATCH (user:User)-[:MASTERED]->(mastered:Entity)
         WHERE mastered IN kus

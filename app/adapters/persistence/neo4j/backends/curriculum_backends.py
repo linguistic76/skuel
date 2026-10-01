@@ -796,7 +796,7 @@ class PsBackend(
             Result containing dict with total_kus and mastered_kus
         """
         query = """
-        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity)
+        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity:Ku)
         WITH collect(DISTINCT ku) as all_kus, count(DISTINCT ku) as total
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
         WHERE mastered IN all_kus

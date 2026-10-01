@@ -105,9 +105,9 @@ class _LpProgressMixin:
         # "this path has no Kus".
         query = """
         MATCH (lp:Entity {uid: $lp_uid})
-        OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity)
+        OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity:Ku)
         WITH lp, collect(DISTINCT direct_ku) as direct_kus
-        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(step_ku:Entity)
+        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(step_ku:Entity:Ku)
         WITH direct_kus, collect(DISTINCT step_ku) as step_kus
         WITH direct_kus + step_kus as candidate_kus
         UNWIND (CASE WHEN size(candidate_kus) = 0 THEN [null] ELSE candidate_kus END) as ku

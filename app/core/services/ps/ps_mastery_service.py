@@ -471,7 +471,11 @@ class PsMasteryService:
         ``PathStepCompleted`` for the edge it creates, so the path-progress
         chain runs for the reconciled step as it would have at the time.
         Idempotent: a second run finds nothing. ``dry_run`` reports the gaps
-        and writes nothing. Returns the gaps found.
+        and writes nothing.
+
+        Returns the gaps closed. Every gap is attempted; if any write failed
+        the result is a failure naming the pairs left open, so a caller never
+        reads a partial run as a clean one.
         """
         gaps = await self.backend.find_step_mastery_gaps()
         if gaps.is_error:
@@ -480,9 +484,23 @@ class PsMasteryService:
             return Result.ok(gaps.value)
 
         now = datetime.now(UTC).isoformat()
+        closed: list[StepMasteryGapRow] = []
+        left_open: list[StepMasteryGapRow] = []
         for gap in gaps.value:
-            await self._master_step(UserUID(gap["user_uid"]), gap["ps_uid"], now)
-        return Result.ok(gaps.value)
+            if await self._master_step(UserUID(gap["user_uid"]), gap["ps_uid"], now):
+                closed.append(gap)
+            else:
+                left_open.append(gap)
+        if left_open:
+            pairs = ", ".join(f"{g['user_uid']}→{g['ps_uid']}" for g in left_open)
+            return Result.fail(
+                Errors.database(
+                    "reconcile_step_mastery",
+                    f"{len(left_open)} of {len(gaps.value)} step-mastery gap(s) left open "
+                    f"({len(closed)} closed): {pairs}",
+                )
+            )
+        return Result.ok(closed)
 
     async def get_bookmarked_kus(
         self,

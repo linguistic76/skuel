@@ -56,7 +56,7 @@ async def run(*, dry_run: bool) -> int:
 
         gaps = result.value
         verb = "would write" if dry_run else "wrote"
-        print(f"{verb} {len(gaps)} step MASTERED edge(s)")
+        print(f"{verb} {len(gaps)} step MASTERED edge(s)")  # a failed write is the error above
         for gap in gaps:
             print(f"  {gap['user_uid']} → {gap['ps_uid']}")
         return 0

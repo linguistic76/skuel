@@ -36,6 +36,12 @@ class _Backend:
     detected: list[str]
     write_result: Result[list[dict[str, object]]] | None = None
     writes: list[tuple[str, str, float, str]] = field(default_factory=list)
+    gaps: list[dict[str, str]] = field(default_factory=list)
+    failing: set[str] = field(default_factory=set)
+
+    async def find_step_mastery_gaps(self) -> Result[list[dict[str, str]]]:
+        self.trace.steps.append("gaps")
+        return Result.ok(list(self.gaps))
 
     async def detect_path_step_completion(
         self, ku_uid: str, user_uid: UserUID
@@ -50,6 +56,8 @@ class _Backend:
     ) -> Result[list[dict[str, object]]]:
         self.trace.steps.append(f"write:{entity_uid}")
         self.writes.append((user_uid, entity_uid, mastery_score, method))
+        if entity_uid in self.failing:
+            return Result.fail(Errors.database("write", f"{entity_uid} down"))
         if self.write_result is not None:
             return self.write_result
         return Result.ok([{"mastery_score": mastery_score, "was_mastered": False}])
@@ -149,3 +157,51 @@ async def test_a_step_already_mastered_is_not_announced_again() -> None:
 
     assert trace.steps == ["detect:ku.a", "write:ps.one"]
     assert bus.published == []
+
+
+@pytest.mark.asyncio
+async def test_reconcile_returns_the_gaps_it_closed() -> None:
+    trace = _Trace()
+    gaps = [{"user_uid": "user_1", "ps_uid": "ps.one"}, {"user_uid": "user_2", "ps_uid": "ps.two"}]
+    backend = _Backend(trace, detected=[], gaps=gaps)
+    bus = _Bus(trace)
+
+    result = await PsMasteryService(backend=backend, event_bus=bus).reconcile_step_mastery()  # type: ignore[arg-type]
+
+    assert result.is_ok and result.value == gaps
+    assert [e.ps_uid for e in bus.published if isinstance(e, PathStepCompleted)] == [
+        "ps.one",
+        "ps.two",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_reconcile_dry_run_reports_without_writing() -> None:
+    trace = _Trace()
+    gaps = [{"user_uid": "user_1", "ps_uid": "ps.one"}]
+    backend = _Backend(trace, detected=[], gaps=gaps)
+    bus = _Bus(trace)
+
+    result = await PsMasteryService(backend=backend, event_bus=bus).reconcile_step_mastery(  # type: ignore[arg-type]
+        dry_run=True
+    )
+
+    assert result.is_ok and result.value == gaps
+    assert trace.steps == ["gaps"]
+    assert bus.published == []
+
+
+@pytest.mark.asyncio
+async def test_reconcile_fails_naming_the_gaps_it_could_not_close() -> None:
+    """Every gap is attempted; one failed write makes the run a failure, not a clean report."""
+    trace = _Trace()
+    gaps = [{"user_uid": "user_1", "ps_uid": "ps.one"}, {"user_uid": "user_2", "ps_uid": "ps.two"}]
+    backend = _Backend(trace, detected=[], gaps=gaps, failing={"ps.one"})
+    bus = _Bus(trace)
+
+    result = await PsMasteryService(backend=backend, event_bus=bus).reconcile_step_mastery()  # type: ignore[arg-type]
+
+    assert result.is_error
+    message = str(result.error)
+    assert "1 of 2" in message and "user_1→ps.one" in message and "1 closed" in message
+    assert trace.steps == ["gaps", "write:ps.one", "write:ps.two", "publish:PathStepCompleted"]

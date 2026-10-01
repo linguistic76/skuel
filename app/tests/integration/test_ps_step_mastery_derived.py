@@ -42,7 +42,10 @@ KU_B = "ku.probe.b"
 
 @pytest_asyncio.fixture
 async def backend(neo4j_driver, clean_neo4j) -> PsBackend:
-    """One step teaching two Kus (the learner is enrolled in it), one step teaching none."""
+    """One step teaching two Kus (the learner is enrolled in it) — and pointing a
+    composition edge at a second step that teaches none. Only Kus count toward
+    the tally: the step-to-step edge, which the edge writer permits, must not
+    hold the parent back (a step's mastery is never a KnowledgeMastered)."""
     async with neo4j_driver.session() as session:
         await session.run("MERGE (u:User {uid: $u})", u=USER)
         await session.run(
@@ -56,6 +59,7 @@ async def backend(neo4j_driver, clean_neo4j) -> PsBackend:
             CREATE (b:Entity:Ku {uid: $b, entity_type: 'ku', title: 'B'})
             CREATE (ps)-[:USES_KU]->(a)
             CREATE (ps)-[:USES_KU]->(b)
+            CREATE (ps)-[:USES_KU]->(empty)
             CREATE (u)-[:IN_PROGRESS {started_at: datetime()}]->(ps)
             """,
             u=USER,
