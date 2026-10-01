@@ -142,7 +142,7 @@ stats = result.value["stats"]
 | `ChoicesService` | `get_filtered_context(user_uid, status_filter="pending", sort_by="deadline")` |
 | `PrinciplesService` | `get_filtered_context(user_uid, category_filter="all", strength_filter="all", sort_by="strength", status_filter="all")` |
 
-**Pending and decided are Choice predicates, not statuses.** A Choice's legal statuses are `draft`, `active`, `completed` and `archived`. `Choice.is_decided()` (a `decided_at`, or COMPLETED) and `Choice.is_pending()` (not decided and not ARCHIVED) are the one definition; `_CHOICE_FILTER_CONFIG`, `compute_choice_stats`, the list page's `filter_choices` and `ChoiceStatsBar` all call them, and `ChoicesBackend` spells the same two predicates for Cypher (`_choice_pending` / `_choice_decided`). An archived choice that was never decided is neither.
+**Pending and decided are Choice predicates, not statuses.** A Choice's legal statuses are `draft`, `active`, `completed` and `archived`. `Choice.is_decided()` (a `decided_at`, or COMPLETED) and `Choice.is_pending()` (not decided and not ARCHIVED) are the one definition; `_CHOICE_FILTER_CONFIG`, `compute_choice_stats`, the list page's `filter_choices` and `ChoiceStatsBar` all call them, and their one Cypher spelling (`build_choice_pending_predicate` / `build_choice_decided_predicate`, `adapters/persistence/neo4j/query/cypher/choice_fragments.py`) is composed by `ChoicesBackend`'s stats and list reads and by UserContext's `pending_choice_uids`. An archived choice that was never decided is neither.
 
 **Method signatures (Curriculum — 3):**
 

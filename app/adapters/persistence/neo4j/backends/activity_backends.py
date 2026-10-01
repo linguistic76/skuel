@@ -7,6 +7,10 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
+from adapters.persistence.neo4j.query.cypher.choice_fragments import (
+    build_choice_decided_predicate,
+    build_choice_pending_predicate,
+)
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -1313,27 +1317,6 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         return Result.ok(deleted > 0)
 
 
-def _choice_decided(alias: str) -> str:
-    """``Choice.is_decided`` as a Cypher predicate on ``alias``.
-
-    A decision is recorded (``decided_at``) or the choice is COMPLETED. Decided is
-    not a status value — a decided choice stays ACTIVE until it is completed.
-    """
-    return f"({alias}.decided_at IS NOT NULL OR {alias}.status = '{EntityStatus.COMPLETED.value}')"
-
-
-def _choice_pending(alias: str) -> str:
-    """``Choice.is_pending`` as a Cypher predicate on ``alias``.
-
-    Not decided and not ARCHIVED. A node with no status reads as pending, as the
-    model defaults a missing status to DRAFT.
-    """
-    return (
-        f"({alias}.decided_at IS NULL AND NOT coalesce({alias}.status, '') IN "
-        f"['{EntityStatus.COMPLETED.value}', '{EntityStatus.ARCHIVED.value}'])"
-    )
-
-
 class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     """
     Domain backend for Choice entities.
@@ -1345,8 +1328,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     - get_stats_for_user(uid)              → choice count stats (total/pending/decided)
 
     Pending and decided are the model's predicates (``Choice.is_pending`` /
-    ``Choice.is_decided``), spelled once for Cypher in ``_choice_pending`` /
-    ``_choice_decided``.
+    ``Choice.is_decided``), composed from ``query/cypher/choice_fragments.py``.
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -1371,7 +1353,10 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
             self,
             user_uid,
             "choice",
-            {"pending": _choice_pending("n"), "decided": _choice_decided("n")},
+            {
+                "pending": build_choice_pending_predicate("n"),
+                "decided": build_choice_decided_predicate("n"),
+            },
         )
         if result.is_error:
             return Result.fail(result)
@@ -1392,7 +1377,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         query = f"""
         MATCH (c:Entity {{entity_type: 'choice'}})
         WHERE c.user_uid = $user_uid
-          AND {_choice_pending("c")}
+          AND {build_choice_pending_predicate("c")}
         RETURN c
         ORDER BY datetime(c.decision_deadline) ASC, datetime(c.created_at) DESC
         LIMIT $limit
@@ -1419,7 +1404,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         MATCH (c:Entity {{entity_type: 'choice'}})
         WHERE c.user_uid = $user_uid
           AND datetime(c.decision_deadline) < datetime($end_bound)
-          AND {_choice_pending("c")}
+          AND {build_choice_pending_predicate("c")}
         RETURN c
         ORDER BY datetime(c.decision_deadline) ASC
         """

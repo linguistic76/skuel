@@ -1,10 +1,11 @@
 """
 The Choices backend counts and lists pending and decided as the model defines them.
 
-``Choice.is_pending`` / ``Choice.is_decided`` are the one definition; the backend
-spells the same two predicates in Cypher for its count and list reads. Every legal
+``Choice.is_pending`` / ``Choice.is_decided`` are the one definition; their Cypher
+spelling (``query/cypher/choice_fragments.py``) is composed by the Choices backend's
+count and list reads and by the user context's ``pending_choice_uids``. Every legal
 Choice status is seeded with and without a ``decided_at``, the models are read back,
-and each Cypher read must select exactly the rows the model's predicate selects.
+and each composing read must select exactly the rows the model's predicate selects.
 """
 
 from __future__ import annotations
@@ -15,9 +16,14 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from core.models.choice.choice import Choice
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.type_hints import UserUID
+from core.models.user.user import User
+from core.services.user.user_context_builder import UserContextBuilder
 
 _OWNER = "user_choice_vocabulary"
 _STRANGER = "user_choice_vocabulary_stranger"
@@ -129,3 +135,25 @@ async def test_a_choice_stored_without_a_status_reads_as_pending_on_both_sides(
     assert listed.is_ok and stats.is_ok
     assert "choice_active_open" in {row["uid"] for row in listed.value}
     assert stats.value["pending"] == sum(1 for c in models if c.is_pending()) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("depth", ["standard", "rich"])
+async def test_the_user_context_lists_the_models_pending_set(
+    choices: ChoicesBackend, neo4j_driver, depth: str
+) -> None:
+    """Both context depths read ``pending_choice_uids`` through their own statement."""
+    models = await _models(choices)
+    builder = UserContextBuilder(UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)))
+    owner = UserUID(_OWNER)
+    user = User(uid=_OWNER, title="vocabulary", email="vocabulary@test.com")
+
+    built = await (
+        builder.build_rich_user_context(owner, user)
+        if depth == "rich"
+        else builder.build_user_context(owner, user)
+    )
+
+    assert built.is_ok, built.error
+    assert set(built.value.pending_choice_uids) == {c.uid for c in models if c.is_pending()}
+    assert "choice_active_decided" not in built.value.pending_choice_uids

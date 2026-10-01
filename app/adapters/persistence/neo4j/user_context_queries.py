@@ -40,6 +40,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
+from adapters.persistence.neo4j.query.cypher.choice_fragments import build_choice_pending_predicate
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.type_hints import UserUID
@@ -92,7 +93,6 @@ STATUS_PARAMS: dict[str, Any] = {
         EntityStatus.SCHEDULED.value,
         EntityStatus.ACTIVE.value,
     ],
-    "pending_choice_statuses": [EntityStatus.DRAFT.value, EntityStatus.ACTIVE.value],
     "open_ps_statuses": [EntityStatus.DRAFT.value, EntityStatus.ACTIVE.value],
     "status_active": EntityStatus.ACTIVE.value,
     "status_completed": EntityStatus.COMPLETED.value,
@@ -120,6 +120,11 @@ STATUS_PARAMS: dict[str, Any] = {
 # A rename that moved one and not the other would put two different personal
 # scores on the same knowledge.
 _COMPOSITION_EDGES_TOKEN = "__COMPOSITION_EDGES__"
+
+# A choice awaiting its decision (``Choice.is_pending``) — composed into both
+# statements that list ``pending_choice_uids``, never restated in either.
+_CHOICE_PENDING_TOKEN = "__CHOICE_PENDING__"
+_CHOICE_PENDING = build_choice_pending_predicate("choice")
 
 # Tasks and goals — one statement because progress_counts spans both and each
 # projects the other (a task's goal_context, a goal's contributing_tasks).
@@ -485,11 +490,11 @@ WITH user, core_principle_uids,
 // CHOICES - Fetch UIDs AND rich data (pending/active; windowed completed also included)
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
-WHERE choice.status IN $pending_choice_statuses
+WHERE __CHOICE_PENDING__
    OR datetime(choice.created_at) >= datetime($window_start)
    OR (choice.decided_at IS NOT NULL AND datetime(choice.decided_at) >= datetime($window_start))
 WITH user, core_principle_uids, principles_rich,
-     collect(CASE WHEN choice.status IN $pending_choice_statuses THEN choice.uid END) as pending_choice_uids,
+     collect(CASE WHEN __CHOICE_PENDING__ THEN choice.uid END) as pending_choice_uids,
      collect(choice) as all_choice_nodes
 
 // Filter choices for rich data (with graph neighborhoods)
@@ -559,7 +564,9 @@ RETURN {
         choices: [item IN choices_rich WHERE item.entity IS NOT NULL]
     }
 } as result
-""".replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
+""".replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES).replace(
+    _CHOICE_PENDING_TOKEN, _CHOICE_PENDING
+)
 
 # Knowledge — every user→Ku edge: mastery / in-progress, viewed, marked as
 # read, bookmarked.
@@ -1131,7 +1138,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Choices - pending decisions block forward motion
 OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
-WHERE choice.status IN $pending_choice_statuses
+WHERE __CHOICE_PENDING__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
@@ -1198,7 +1205,7 @@ RETURN
         content: latest_ar.processed_content,
         user_annotation: latest_ar.user_annotation
     } ELSE null END AS latest_ar
-"""
+""".replace(_CHOICE_PENDING_TOKEN, _CHOICE_PENDING)
 
 
 # =============================================================================

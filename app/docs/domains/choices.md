@@ -328,7 +328,7 @@ result = await choices_service.add_option(
 
 ## MEGA-QUERY Sections
 
-- `pending_choice_uids` - Pending choice UIDs (status = pending or active)
+- `pending_choice_uids` - UIDs of the choices awaiting a decision (`Choice.is_pending()`)
 - `entities_rich["choices"]` - Full choice data with graph context
 
 ## Scoring Weights
@@ -354,9 +354,10 @@ stages are not statuses — they are read from the choice's fields:
 | **Evaluated** | an outcome is recorded | `satisfaction_score`, `actual_outcome`, `lessons_learned` |
 
 A decided choice stays `active` until it is completed. An archived choice that was never
-decided is neither pending nor decided. Every count and filter of pending / decided — the list
-page, its stats bar, the daily plan's stats, `ChoicesBackend.get_pending_choices` /
-`get_choices_needing_decision` / `get_stats_for_user` — uses those two predicates.
+decided is neither pending nor decided. The list page and its stats bar, the daily plan's
+stats, and the decision-rate analytics call the two methods; `ChoicesBackend.get_pending_choices` /
+`get_choices_needing_decision` / `get_stats_for_user` and UserContext's `pending_choice_uids`
+compose their Cypher spelling (`adapters/persistence/neo4j/query/cypher/choice_fragments.py`).
 
 ## Search Methods
 
