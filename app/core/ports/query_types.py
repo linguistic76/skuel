@@ -3299,11 +3299,14 @@ class GoalsAchievedCount(TypedDict):
 
 
 class LinkedTaskTally(TypedDict):
-    """A goal's linked-task tally, read under the goal's lock.
+    """A goal's linked-task tally.
 
-    Shape handed to the planner of ``GoalsBackend.recompute_progress_from_linked_tasks``.
     Counts the user's tasks that fulfill the goal and count toward it
-    (``completion_updates_goal``, absent read as True).
+    (``completion_updates_goal``, absent read as True). Handed to the planner of
+    ``GoalsBackend.recompute_progress_from_linked_tasks`` (read under the goal's lock)
+    and returned by ``GoalsBackend.get_linked_task_tally`` (a plain read) — one
+    membership rule for the figure a goal is written with and the one it is reported
+    with.
     """
 
     total_tasks: int

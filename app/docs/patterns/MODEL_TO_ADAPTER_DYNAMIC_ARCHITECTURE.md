@@ -217,7 +217,7 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 |---------|-------------|
 | `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
 | `LpBackend` | 5 HAS_STEP methods: `get_steps_raw`, `get_parent_path_raw`, `add_step_to_path`, `remove_step_from_path`, `reorder_steps` |
-| `GoalsBackend` | 4 progress-helper methods: `find_linked_goals_for_task`, `recompute_progress_from_linked_tasks`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`) |
+| `GoalsBackend` | 5 progress-helper methods: `find_linked_goals_for_task`, `recompute_progress_from_linked_tasks`, `get_linked_task_tally`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`; `get_linked_task_tally` is the plain read of the task tally, running the statement the task recompute counts with — `query/cypher/goal_tally_queries.py`) |
 | `KuBackend` | 2 substance methods: `batch_increment_substance`, `increment_substance` |
 
 **Protocols updated:** `EventsOperations`, `ChoicesOperations`, `PrinciplesOperations` now extend `HierarchyOperations`. `PsOperations`, `LpOperations`, `GoalsOperations` gained method signatures for the new backend methods.

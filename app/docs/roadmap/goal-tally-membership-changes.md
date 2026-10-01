@@ -1,6 +1,6 @@
 ---
 title: "Goal Tally Membership Changes Don't Recompute"
-updated: 2026-09-23
+updated: 2026-10-01
 status: "registered"
 registered: "2026-09-23 (Codex finding on #1408, round 3)"
 trigger: "a report of a goal whose stored tally disagrees with its linked tasks, OR the next change to how goal progress is triggered"
@@ -28,6 +28,11 @@ Four changes alter the tally without a status transition, and none of them recom
 
 Example: a goal at 1 of 2 (50%) whose completed task opts out keeps reading 50%. The live tally is
 0 of 1.
+
+The progress dashboard (`get_goal_progress_dashboard`, `GET /api/goals/insights`) reads the live
+tally for its task figures (`GoalsBackend.get_linked_task_tally`) and the stored figure for
+`progress.percentage`, so inside that window one payload shows both: `completed_tasks` 0 of
+`total_tasks` 1 beside a `percentage` of 50.
 
 ## Why it is not worse
 

@@ -18,6 +18,10 @@ These tests seed a real graph, run the migrated methods against it, and assert:
 
 Mirrors test_habits_analytics_pipeline.py (PR1). Mocked unit tests cannot catch the
 key/shape mismatch (a silent empty list); the guard must run against real Cypher.
+
+The harness runs over the real ``GoalsBackend``: the goal the methods analyse is the
+node as stored, and the dashboard's task figures are the linked-task tally read from
+the graph (``GoalsBackend.get_linked_task_tally``).
 """
 
 from __future__ import annotations
@@ -30,7 +34,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.relationship_registry import GOALS_CONFIG
@@ -38,9 +42,10 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
-from core.utils.result_simplified import Result
 
 GL = "glctx_"  # uid prefix for this module's fixture graph
+GL_USER = GL + "user"  # owner of every seeded goal and activity
+GL_OTHER_USER = GL + "other_user"
 GL_GOAL = GL + "goal"
 GL_GOAL_BARE = GL + "goal_bare"  # negative control: no cross-domain edges
 GL_TASK = GL + "task"  # task -[FULFILLS_GOAL]-> goal (contributing_tasks)
@@ -53,21 +58,9 @@ GL_PRIN = GL + "principle"  # goal -[GUIDED_BY_PRINCIPLE]-> principle (aligned_p
 
 @pytest.fixture
 def rel_backend(neo4j_driver):
-    """Multi-label Entity backend — registry edge validation requires the domain label
-    alongside :Entity, so the single-:Entity form is not used."""
-    return UniversalNeo4jBackend[Goal](
-        neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
-    )
-
-
-class _FakeGoalBackend:
-    """Minimal backend exposing the single ``.get`` the mixin calls — returns a real Goal."""
-
-    def __init__(self, goal: Goal) -> None:
-        self._goal = goal
-
-    async def get(self, _uid: str) -> Result[Goal]:
-        return Result.ok(self._goal)
+    """The real Goals backend, multi-label — registry edge validation requires the
+    domain label alongside :Entity, so the single-:Entity form is not used."""
+    return GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
 
 
 class _FakeProgress:
@@ -114,24 +107,18 @@ class _GoalIntelHarness(_AnalyticsMixin, BaseAnalyticsService):
     methods can reach ``_analyze_entity_with_typed_context``. ``graph_intel`` only needs to be
     truthy (the ``@requires_graph_intelligence`` guard is its sole reader)."""
 
-    def __init__(self, backend: _FakeGoalBackend, relationships: Any) -> None:
+    def __init__(self, backend: GoalsBackend, relationships: Any) -> None:
         self.backend = backend
         self.relationships = relationships
         self.progress = _FakeProgress()
         self.graph_intel = Mock(spec=GraphIntelligenceService)
 
 
-def _harness(rel_backend, goal_uid: str) -> _GoalIntelHarness:
-    goal = Goal(
-        uid=goal_uid,
-        title="Master the topic",
-        user_uid="glctx_user",
-        progress_percentage=25.0,
-    )
+def _harness(rel_backend: GoalsBackend) -> _GoalIntelHarness:
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=rel_backend, config=GOALS_CONFIG, graph_intel=None
     )
-    return _GoalIntelHarness(_FakeGoalBackend(goal), rels)
+    return _GoalIntelHarness(rel_backend, rels)
 
 
 async def _seed_goal_graph(neo4j_driver) -> None:
@@ -146,9 +133,10 @@ async def _seed_goal_graph(neo4j_driver) -> None:
         ]:
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-                f"status:'active', created_at:datetime()}})",
+                f"user_uid:$owner, status:'active', created_at:datetime()}})",
                 u=uid,
                 t=etype,
+                owner=GL_USER,
             )
         await s.run(
             "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=GL_KU
@@ -172,7 +160,7 @@ async def _seed_goal_graph(neo4j_driver) -> None:
 async def test_goal_progress_dashboard_populates_from_graph(neo4j_driver, rel_backend, clean_neo4j):
     """get_goal_progress_dashboard surfaces seeded tasks/habits and rich path-aware metrics."""
     await _seed_goal_graph(neo4j_driver)
-    svc = _harness(rel_backend, GL_GOAL)
+    svc = _harness(rel_backend)
 
     res = await svc.get_goal_progress_dashboard(GL_GOAL, min_confidence=0.7)
     assert res.is_ok, res
@@ -183,7 +171,9 @@ async def test_goal_progress_dashboard_populates_from_graph(neo4j_driver, rel_ba
     assert [h["uid"] for h in activities["habits"]] == [GL_HABIT]
     assert activities["learning_paths"] == []  # 0 LearningPath nodes live
     assert activities["total_tasks"] == 1
+    assert activities["completed_tasks"] == 0  # the one linked task is still open
     assert activities["active_habits"] == 1
+    assert analysis["contributions"]["task_contribution"] == 0.0
 
     # Flat metric keys preserved (payload contract).
     metrics = analysis["metrics"]
@@ -205,11 +195,127 @@ async def test_goal_progress_dashboard_populates_from_graph(neo4j_driver, rel_ba
     assert pac["avg_path_strength"] > 0.0
 
 
+async def _seed_tally_goal(neo4j_driver, goal_uid: str, tasks: list[dict[str, Any]]) -> None:
+    """A goal owned by ``GL_USER`` and the tasks linked to it by FULFILLS_GOAL.
+
+    Each task: ``uid``, ``status``, and optionally ``owner`` (default ``GL_USER``),
+    ``counts`` (``completion_updates_goal``; omitted leaves the property absent) and
+    ``confidence`` (the edge's; default 0.95).
+    """
+    async with neo4j_driver.session() as s:
+        await s.run(
+            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+            "user_uid:$owner, status:'active', created_at:datetime()})",
+            u=goal_uid,
+            owner=GL_USER,
+        )
+        for task in tasks:
+            props: dict[str, Any] = {
+                "uid": task["uid"],
+                "entity_type": "task",
+                "title": task["uid"],
+                "user_uid": task.get("owner", GL_USER),
+                "status": task["status"],
+            }
+            if "counts" in task:
+                props["completion_updates_goal"] = task["counts"]
+            await s.run(
+                "MATCH (g:Entity {uid:$g}) "
+                "CREATE (t:Entity:Task)-[:FULFILLS_GOAL {confidence:$c}]->(g) "
+                "SET t = $props, t.created_at = datetime()",
+                g=goal_uid,
+                c=task.get("confidence", 0.95),
+                props=props,
+            )
+
+
+@pytest.mark.asyncio
+async def test_goal_dashboard_task_figures_are_the_linked_task_tally(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """8 of a goal's 10 linked tasks completed reads 8 / 10 / 80.0 — computed, not 0 / 0.0."""
+    goal_uid = GL + "tally_goal"
+    await _seed_tally_goal(
+        neo4j_driver,
+        goal_uid,
+        [
+            {"uid": f"{GL}tally_task_{i}", "status": "completed" if i < 8 else "active"}
+            for i in range(10)
+        ],
+    )
+
+    res = await _harness(rel_backend).get_goal_progress_dashboard(goal_uid, min_confidence=0.7)
+    assert res.is_ok, res
+
+    activities = res.value["supporting_activities"]
+    assert activities["total_tasks"] == 10
+    assert activities["completed_tasks"] == 8
+    assert res.value["contributions"]["task_contribution"] == 80.0
+
+
+@pytest.mark.asyncio
+async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """Both counts follow the progress tally's membership; the uid list stays the neighbourhood.
+
+    Four linked tasks, all completed, that the two readers disagree on:
+      * ``counted`` — in both;
+      * ``opted_out`` — ``completion_updates_goal = false``: in the neighbourhood, in
+        neither count;
+      * ``weak`` — an edge below ``min_confidence``: in both counts, not in the
+        neighbourhood;
+      * ``foreign`` — another user's task: in neither count.
+    The counts are the pair a recompute of this goal plans its write from.
+    """
+    goal_uid = GL + "rule_goal"
+    counted, opted_out, weak, foreign = (
+        GL + "rule_counted",
+        GL + "rule_opted_out",
+        GL + "rule_weak",
+        GL + "rule_foreign",
+    )
+    await _seed_tally_goal(
+        neo4j_driver,
+        goal_uid,
+        [
+            {"uid": counted, "status": "completed"},
+            {"uid": opted_out, "status": "completed", "counts": False},
+            {"uid": weak, "status": "completed", "confidence": 0.3},
+            {"uid": foreign, "status": "completed", "owner": GL_OTHER_USER},
+            {"uid": GL + "rule_open", "status": "active"},
+        ],
+    )
+
+    res = await _harness(rel_backend).get_goal_progress_dashboard(goal_uid, min_confidence=0.7)
+    assert res.is_ok, res
+    activities = res.value["supporting_activities"]
+
+    # counted + weak + the open one; opted_out and foreign are in neither number.
+    assert activities["total_tasks"] == 3
+    assert activities["completed_tasks"] == 2
+    assert res.value["contributions"]["task_contribution"] == pytest.approx(200 / 3)
+
+    neighbourhood = {t["uid"] for t in activities["tasks"]}
+    assert opted_out in neighbourhood
+    assert weak not in neighbourhood
+
+    # The pair is the one the locked recompute hands its planner.
+    planned: list[Any] = []
+
+    def capture(_goal: Goal, tally: Any) -> None:
+        planned.append(dict(tally))
+
+    recompute = await rel_backend.recompute_progress_from_linked_tasks(goal_uid, GL_USER, capture)
+    assert recompute.is_ok, recompute
+    assert planned == [{"total_tasks": 3, "completed_tasks": 2}]
+
+
 @pytest.mark.asyncio
 async def test_goal_completion_forecast_reads_graph_context(neo4j_driver, rel_backend, clean_neo4j):
     """get_goal_completion_forecast's graph_context block reads off the path-aware context."""
     await _seed_goal_graph(neo4j_driver)
-    svc = _harness(rel_backend, GL_GOAL)
+    svc = _harness(rel_backend)
 
     res = await svc.get_goal_completion_forecast(GL_GOAL, depth=1, min_confidence=0.7)
     assert res.is_ok, res
@@ -225,7 +331,7 @@ async def test_goal_learning_requirements_populates_from_graph(
 ):
     """get_goal_learning_requirements surfaces the seeded REQUIRES_KNOWLEDGE edge."""
     await _seed_goal_graph(neo4j_driver)
-    svc = _harness(rel_backend, GL_GOAL)
+    svc = _harness(rel_backend)
 
     res = await svc.get_goal_learning_requirements(GL_GOAL, depth=1, min_confidence=0.7)
     assert res.is_ok, res
@@ -248,7 +354,7 @@ async def test_goal_learning_requirements_mastery_is_real_with_context(
     ``knowledge_mastery`` end-to-end over the real graph, not a stub.
     """
     await _seed_goal_graph(neo4j_driver)
-    svc = _harness(rel_backend, GL_GOAL)
+    svc = _harness(rel_backend)
 
     # Context-free: the required KU is an open gap.
     bare = await svc.get_goal_learning_requirements(GL_GOAL, depth=1, min_confidence=0.7)
@@ -275,15 +381,19 @@ async def test_goal_intelligence_empty_when_no_edges(neo4j_driver, rel_backend, 
     async with neo4j_driver.session() as s:
         await s.run(
             "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
-            "status:'active', created_at:datetime()})",
+            "user_uid:$owner, status:'active', created_at:datetime()})",
             u=GL_GOAL_BARE,
+            owner=GL_USER,
         )
-    svc = _harness(rel_backend, GL_GOAL_BARE)
+    svc = _harness(rel_backend)
 
     dash = await svc.get_goal_progress_dashboard(GL_GOAL_BARE, min_confidence=0.7)
     assert dash.is_ok, dash
     assert dash.value["supporting_activities"]["tasks"] == []
     assert dash.value["supporting_activities"]["habits"] == []
+    assert dash.value["supporting_activities"]["total_tasks"] == 0
+    assert dash.value["supporting_activities"]["completed_tasks"] == 0
+    assert dash.value["contributions"]["task_contribution"] == 0.0
     assert dash.value["metrics"]["task_support_count"] == 0
     assert dash.value["metrics"]["has_habit_system"] is False
     # Empty context still produces the rich blocks (zeroed), not a crash.
@@ -306,7 +416,7 @@ async def test_goal_dashboard_payload_is_json_serializable(neo4j_driver, rel_bac
     path_aware_context — must already be primitives/dicts (NO PathAware* leaks).
     """
     await _seed_goal_graph(neo4j_driver)
-    svc = _harness(rel_backend, GL_GOAL)
+    svc = _harness(rel_backend)
 
     res = await svc.get_goal_progress_dashboard(GL_GOAL, min_confidence=0.7)
     assert res.is_ok, res
@@ -341,8 +451,9 @@ async def test_goal_dashboard_dedupes_multipath_knowledge_at_depth2(
     async with neo4j_driver.session() as s:
         await s.run(
             "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
-            "status:'active', created_at:datetime()})",
+            "user_uid:$owner, status:'active', created_at:datetime()})",
             u=dup_goal,
+            owner=GL_USER,
         )
         for uid in (dup_mid, dup_ku):
             await s.run(
@@ -356,7 +467,7 @@ async def test_goal_dashboard_dedupes_multipath_knowledge_at_depth2(
                 a=a,
                 b=b,
             )
-    svc = _harness(rel_backend, dup_goal)
+    svc = _harness(rel_backend)
 
     # Sanity: the raw bucket DOES carry the duplicate (proves dedup is load-bearing).
     assert svc.relationships is not None
