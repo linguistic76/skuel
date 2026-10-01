@@ -36,7 +36,9 @@ sufficient**: some subscriptions are registered by looping over a list of event 
 `.subscribe(` calls in the tree are examples inside docstrings rather than live wiring.
 
 ```
-mark_mastered(ku_uid, user_uid)
+a Ku-mastery door — PsMasteryService.mark_mastered (report approval),
+KuService.mark_as_understood (the Ku page), or
+UserProgressRecorderService.record_knowledge_mastery (pathways progress)
     │
     ├─ Creates (User)-[:MASTERED]->(Ku) in Neo4j
     │
@@ -72,7 +74,7 @@ mark_mastered(ku_uid, user_uid)
 
 | Event | Published By | Event Type String |
 |-------|-------------|-------------------|
-| `KnowledgeMastered` | `PsMasteryService.mark_mastered()` | `knowledge.mastered` |
+| `KnowledgeMastered` | every Ku-mastery door, once its write has landed: `PsMasteryService.mark_mastered()` (report approval), `KuService.mark_as_understood()` (the Ku page), `UserProgressRecorderService.record_knowledge_mastery()` (the pathways progress route) | `knowledge.mastered` |
 | `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | `path_step.progress_updated` |
 | `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` — after the step's `MASTERED` edge is written; a write that does not land withholds the event | `path_step.completed` |
 | `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.progress_updated` |

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from core.events import publish_event
+from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
@@ -33,6 +35,10 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
+
+_SELF_REPORT_MASTERY_SCORE = 0.7
+"""The score a self-reported "understood" earns — below every report-derived score
+(``MasteryImpact``), so an approved report always upgrades it."""
 
 
 class KuService:
@@ -75,6 +81,7 @@ class KuService:
             event_bus=event_bus,
         )
 
+        self.event_bus = event_bus
         self.core = common.core
         # Sub-service ATTRIBUTE, not a delegation method — SearchRouter's
         # _get_search_service resolves `.search` to the sub-service only when
@@ -274,12 +281,25 @@ class KuService:
         return Result.ok(True)
 
     async def mark_as_understood(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
-        """Mark a Ku as understood (MASTERED relationship, self-reported)."""
+        """Mark a Ku as understood (MASTERED relationship, self-reported).
+
+        A landed write publishes ``KnowledgeMastered`` — every Ku-mastery door
+        announces itself, so the progress chain (path-step and path progress,
+        the derived step mastery) runs however the Ku was mastered.
+        """
         result = await self.backend.mark_mastered(
-            user_uid, ku_uid, mastery_score=0.7, method="self_report"
+            user_uid, ku_uid, mastery_score=_SELF_REPORT_MASTERY_SCORE, method="self_report"
         )
         if result.is_error:
             return Result.fail(result)
+        if result.value:
+            await publish_event(
+                self.event_bus,
+                KnowledgeMastered(
+                    ku_uid=ku_uid, user_uid=user_uid, mastery_score=_SELF_REPORT_MASTERY_SCORE
+                ),
+                logger,
+            )
         return Result.ok(True)
 
     async def get_ku_learning_state(

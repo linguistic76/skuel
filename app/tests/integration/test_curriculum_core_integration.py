@@ -390,7 +390,8 @@ class TestCurriculumRelationships:
         # Create two KUs with prerequisite relationship
         async with neo4j_driver.session() as session:
             await session.run("""
-                CREATE (ku1:Entity {
+                CREATE (ku1:Entity:Ku {
+                    entity_type: 'ku',
                     uid: 'ku:python_basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
@@ -398,7 +399,8 @@ class TestCurriculumRelationships:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku2:Entity {
+                CREATE (ku2:Entity:Ku {
+                    entity_type: 'ku',
                     uid: 'ku:python_advanced',
                     title: 'Advanced Python',
                     content: 'Advanced Python',
@@ -483,7 +485,8 @@ class TestCurriculumUserIntegration:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku:Entity {
+                CREATE (ku:Entity:Ku {
+                    entity_type: 'ku',
                     uid: 'ku:python_basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
@@ -542,7 +545,8 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku1:Entity {
+                CREATE (ku1:Entity:Ku {
+                    entity_type: 'ku',
                     uid: 'ku:python_basics',
                     title: 'Python Basics',
                     content: 'Basic Python',
@@ -550,7 +554,8 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku2:Entity {
+                CREATE (ku2:Entity:Ku {
+                    entity_type: 'ku',
                     uid: 'ku:advanced_python',
                     title: 'Advanced Python',
                     content: 'Advanced Python',
@@ -558,7 +563,8 @@ class TestCurriculumContextBuilder:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku3:Entity {
+                CREATE (ku3:Entity:Ku {
+                    entity_type: 'ku',
                     uid: 'ku:testing',
                     title: 'Testing',
                     content: 'Testing knowledge',
@@ -740,14 +746,16 @@ class TestCurriculumContextBuilder:
                 })
 
                 // Curriculum: Knowledge units
-                CREATE (ku1:Entity {
+                CREATE (ku1:Entity:Ku {
+                    entity_type: 'ku',
                     uid: 'ku:python',
                     title: 'Python',
                     content: 'Python programming',
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ku2:Entity {
+                CREATE (ku2:Entity:Ku {
+                    entity_type: 'ku',
                     uid: 'ku:testing',
                     title: 'Testing',
                     content: 'Testing knowledge',

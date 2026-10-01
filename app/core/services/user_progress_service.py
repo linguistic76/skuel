@@ -98,6 +98,10 @@ class UserKnowledgeProfile:
 
     This represents the user's actual learning state as stored in Neo4j,
     not assumptions or empty defaults.
+
+    ``mastered_knowledge`` is the Kus (the concept list behind every count);
+    ``mastered_uids`` is every mastered entity — a Ku or a PathStep — the
+    membership set a path page or a prerequisite chain tests a uid against.
     """
 
     user_uid: UserUID
@@ -177,7 +181,8 @@ class UserProgressService:
 
     @with_error_handling("get_mastered_uids", error_type="database")
     async def get_mastered_uids(self, user_uid: UserUID) -> Result[set[str]]:
-        """Mastered-knowledge UIDs for a user, propagating read failures.
+        """The uid of every entity the user has mastered — a Ku or a PathStep —
+        propagating read failures.
 
         Unlike :meth:`build_user_knowledge_profile` — which is deliberately
         resilient, swallowing each constituent query's error to always return a
@@ -186,12 +191,12 @@ class UserProgressService:
         silently rendered as "nothing mastered" (e.g. per-item mastery
         annotations that would otherwise mark everything unmastered).
 
-        Backend: UserProgressBackend.get_mastered_knowledge
+        Backend: UserProgressBackend.get_mastered_entity_uids
         """
-        result = await self.backend.get_mastered_knowledge(user_uid)
+        result = await self.backend.get_mastered_entity_uids(user_uid)
         if result.is_error:
             return Result.fail(result)
-        return Result.ok({row["knowledge_uid"] for row in result.value if row.get("knowledge_uid")})
+        return Result.ok({str(row["uid"]) for row in result.value if row.get("uid")})
 
     # ========================================================================
     # PROFILE BUILDING (Core Functionality)
@@ -225,9 +230,9 @@ class UserProgressService:
 
         username = user_record["username"] or "User"
 
-        # Get mastered knowledge
+        # Mastered Kus (the concept list) and every mastered entity (membership)
         mastered = await self._get_mastered_knowledge(user_uid)
-        mastered_uids = {m.knowledge_uid for m in mastered}
+        mastered_uids = await self._get_mastered_entity_uids(user_uid)
 
         # Get in-progress knowledge
         in_progress = await self._get_in_progress_knowledge(user_uid)
@@ -380,6 +385,13 @@ class UserProgressService:
             )
             for record in (result.value or [])
         ]
+
+    async def _get_mastered_entity_uids(self, user_uid: UserUID) -> set[str]:
+        """Every mastered entity's uid — a Ku or a PathStep; empty on a failed read."""
+        result = await self.backend.get_mastered_entity_uids(user_uid)
+        if result.is_error:
+            return set()
+        return {str(row["uid"]) for row in (result.value or []) if row.get("uid")}
 
     async def _get_in_progress_knowledge(self, user_uid: UserUID) -> list[UserLearningProgress]:
         """Get all in-progress knowledge for user."""

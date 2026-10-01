@@ -42,8 +42,8 @@ async def test_contextual_goal_learning_requirements_reads_real_mastery(user_ser
             CREATE (u:User {uid:$u, title:'Ctx Goal Mastery', email:'cg@test.com',
                             display_name:'Ctx Goal Mastery', created_at:datetime(),
                             updated_at:datetime()})
-            CREATE (k1:Entity {uid:$mastered, title:'Mastered KU', created_at:datetime()})
-            CREATE (k2:Entity {uid:$gap, title:'Gap KU', created_at:datetime()})
+            CREATE (k1:Entity:Ku {uid:$mastered, entity_type:'ku', title:'Mastered KU', created_at:datetime()})
+            CREATE (k2:Entity:Ku {uid:$gap, entity_type:'ku', title:'Gap KU', created_at:datetime()})
             CREATE (u)-[:MASTERED {mastery_score:0.9}]->(k1)
             """,
             u=USER,

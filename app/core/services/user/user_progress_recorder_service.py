@@ -23,8 +23,10 @@ This service is part of the refactored UserService architecture:
 - UserService: Facade coordinating all sub-services
 """
 
+from core.events import publish_event
+from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
-from core.ports.infrastructure_protocols import UserLearningStateOperations
+from core.ports.infrastructure_protocols import EventBusOperations, UserLearningStateOperations
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -51,12 +53,17 @@ class UserProgressRecorderService:
     - Integrates with progress metrics system
     """
 
-    def __init__(self, user_repo: UserLearningStateOperations) -> None:
+    def __init__(
+        self,
+        user_repo: UserLearningStateOperations,
+        event_bus: EventBusOperations | None = None,
+    ) -> None:
         """
         Initialize user progress recorder service.
 
         Args:
             user_repo: Repository implementation for user persistence (protocol-based)
+            event_bus: Publishes ``KnowledgeMastered`` when a mastery write lands
 
         Raises:
             ValueError: If user_repo is None
@@ -64,6 +71,7 @@ class UserProgressRecorderService:
         if not user_repo:
             raise ValueError("User repository is required")
         self.repo = user_repo
+        self.event_bus = event_bus
 
     # ========================================================================
     # KNOWLEDGE MASTERY & PROGRESS
@@ -82,7 +90,9 @@ class UserProgressRecorderService:
         """
         Record knowledge mastery using graph relationships.
 
-        Creates/Updates: (User)-[:MASTERED]->(Knowledge)
+        Creates/Updates: (User)-[:MASTERED]->(Knowledge), and publishes
+        ``KnowledgeMastered`` once the write has landed — every Ku-mastery door
+        announces itself, so the progress chain runs however the Ku was mastered.
 
         Args:
             user_uid: User's unique identifier
@@ -114,6 +124,13 @@ class UserProgressRecorderService:
         if result.is_ok:
             logger.info(
                 f"Recorded mastery for user {user_uid}, knowledge {knowledge_uid}: {mastery_score}"
+            )
+            await publish_event(
+                self.event_bus,
+                KnowledgeMastered(
+                    ku_uid=knowledge_uid, user_uid=user_uid, mastery_score=mastery_score
+                ),
+                logger,
             )
 
         return result

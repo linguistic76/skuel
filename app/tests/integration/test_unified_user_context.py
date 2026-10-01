@@ -663,7 +663,8 @@ class TestUserContextBuilder:
             await session.run(
                 """
                 MATCH (u:User {uid: $user_uid})
-                CREATE (k:Entity {
+                CREATE (k:Entity:Ku {
+                    entity_type: 'ku',
                     uid: $uid,
                     title: 'Test Knowledge',
                     content: 'Test content',

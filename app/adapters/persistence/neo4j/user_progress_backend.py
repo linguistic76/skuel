@@ -41,10 +41,16 @@ class UserProgressBackend:
         )
 
     async def get_mastered_knowledge(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all mastered knowledge for user with relationship properties."""
+        """Every Ku the user has mastered, with the edge's properties.
+
+        ``:Ku`` — a PathStep carries a MASTERED edge of its own (derived when its
+        last Ku is mastered), and the knowledge list feeds concept counts
+        (``concepts_mastered``) that must not grow by one per completed step.
+        Membership across both kinds is ``get_mastered_entity_uids``.
+        """
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity)
+            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity:Ku)
             RETURN
                 k.uid as knowledge_uid,
                 r.mastery_score as mastery_score,
@@ -72,6 +78,21 @@ class UserProgressBackend:
                 r.difficulty_rating as difficulty_rating,
                 r.last_accessed as last_accessed
             ORDER BY datetime(r.last_accessed) DESC
+            """,
+            {"user_uid": user_uid},
+        )
+
+    async def get_mastered_entity_uids(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+        """The uid of every entity the user has mastered — a Ku or a PathStep.
+
+        The membership set: a path page asks "is this step mastered?", a
+        prerequisite chain asks it of Kus and steps alike. Counting is
+        ``get_mastered_knowledge``'s job.
+        """
+        return await self._executor.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})-[:MASTERED]->(e:Entity)
+            RETURN e.uid AS uid
             """,
             {"user_uid": user_uid},
         )

@@ -112,7 +112,7 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
 
         # Initialize all sub-services
         self.core = UserCoreService(user_repo, event_bus=event_bus)
-        self.progress = UserProgressRecorderService(user_repo)
+        self.progress = UserProgressRecorderService(user_repo, event_bus=event_bus)
         self.activity = UserActivityService(
             user_repo, event_bus=event_bus, metrics_cache=metrics_cache
         )

@@ -2,10 +2,11 @@
 EntityExtractor matches a question against the rich context, in memory.
 
 Every candidate title comes from ``RichUserContext.entities_rich`` (the six
-activity domains) and ``knowledge_units_rich`` (every MASTERED | IN_PROGRESS
-target, Ku or PathStep); the extractor holds no service handle and makes no
-graph read per question. Each domain is scoped to the uids the standard
-context marks live, and every match carries the node's ``entity_type``.
+activity domains), ``knowledge_units_rich`` (every MASTERED | IN_PROGRESS Ku)
+and ``active_path_steps_rich`` (the steps being studied); the extractor holds
+no service handle and makes no graph read per question. Each domain is scoped
+to the uids the standard context marks live, and every match carries the
+node's ``entity_type``.
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ def context() -> RichUserContext:
     """A learner engaged with two Kus and one PathStep, with live activities in every domain."""
     ctx = RichUserContext(user_uid=UserUID("user_test"))
     ctx.mastered_knowledge_uids = {"ku.python-basics"}
-    ctx.in_progress_knowledge_uids = {"ku.machine-learning", "ps.data-pipelines"}
+    ctx.in_progress_knowledge_uids = {"ku.machine-learning"}
     ctx.knowledge_units_rich = {
         "ku.python-basics": {
             "ku": {"uid": "ku.python-basics", "title": "Python Basics", "entity_type": "ku"},
@@ -43,15 +44,19 @@ def context() -> RichUserContext:
             "ku": {"uid": "ku.machine-learning", "title": "Machine Learning", "entity_type": "ku"},
             "graph_context": {},
         },
-        "ps.data-pipelines": {
-            "ku": {
+    }
+    # the step being studied is the curriculum section's, never a knowledge row
+    ctx.current_ps_uids = {"ps.data-pipelines"}
+    ctx.active_path_steps_rich = [
+        {
+            "step": {
                 "uid": "ps.data-pipelines",
                 "title": "Data Pipelines",
                 "entity_type": "path_step",
             },
             "graph_context": {},
-        },
-    }
+        }
+    ]
     ctx.active_task_uids = ["task_001", "task_002"]
     ctx.active_goal_uids = ["goal_001"]
     ctx.active_habit_uids = ["habit_001"]
@@ -104,7 +109,8 @@ def test_every_match_carries_the_node_entity_type(context: RichUserContext) -> N
         "What comes after Python Basics and Data Pipelines?", context
     )
 
-    # Ku and PathStep alike, told apart by the label-derived field, never the uid
+    # Ku and PathStep alike — the step from the curriculum section — told apart
+    # by the label-derived field, never the uid
     assert {m["uid"]: m["entity_type"] for m in entities["knowledge"]} == {
         "ku.python-basics": "ku",
         "ps.data-pipelines": "path_step",

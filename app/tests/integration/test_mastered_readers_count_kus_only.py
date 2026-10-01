@@ -20,6 +20,7 @@ from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
+from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
@@ -58,6 +59,11 @@ def cross_domain(neo4j_driver) -> CrossDomainBackend:
 @pytest.fixture
 def context_executor(neo4j_driver) -> UserContextQueryExecutor:
     return UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver))
+
+
+@pytest.fixture
+def progress(neo4j_driver) -> UserProgressBackend:
+    return UserProgressBackend(Neo4jQueryExecutor(neo4j_driver))
 
 
 @pytest.mark.asyncio
@@ -137,3 +143,17 @@ async def test_recent_activities_knowledge_leg(graph, cross_domain) -> None:
         a["activity"]["entity_uid"] for a in result.value if a["activity"]["type"] == "knowledge"
     ]
     assert mastered == [KU]
+
+
+@pytest.mark.asyncio
+async def test_knowledge_profile_list_is_kus_and_membership_is_every_entity(
+    graph, progress
+) -> None:
+    """The concept list counts Kus; the membership set holds the step too."""
+    knowledge = await progress.get_mastered_knowledge(USER)
+    assert knowledge.is_ok
+    assert [row["knowledge_uid"] for row in knowledge.value] == [KU]
+
+    members = await progress.get_mastered_entity_uids(USER)
+    assert members.is_ok
+    assert {row["uid"] for row in members.value} == {KU, STEP}
