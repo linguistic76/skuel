@@ -380,6 +380,8 @@ def _render_knowledge_health_fixture() -> FT:
         # Required by KnowledgeHealthReport — the admin gauge renders it, so a
         # fixture missing it is a KeyError at render, not a silent zero.
         "draft_curriculum_count": 3,
+        "ku_less_step_count": 1,
+        "ku_less_steps": [{"uid": "ps.smoke.closing", "title": "Closing Reflection"}],
         "gds_readiness_score": 0.3278,
         "gds_ready": False,
         "flags": [
