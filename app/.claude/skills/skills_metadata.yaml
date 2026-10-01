@@ -281,7 +281,7 @@ skills:
 
   - name: neo4j-cypher-patterns
     description: Neo4j Cypher queries and SKUEL's graph patterns
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: []
     dependencies: []
     library_package: neo4j

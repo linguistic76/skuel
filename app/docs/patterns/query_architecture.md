@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-09-30
+updated: 2026-10-01
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -700,7 +700,7 @@ This is the **primary query architecture documentation**. Start here.
 
 ## FilteredContextProvider — Per-Domain Query Protocol
 
-All 11 domain facades (6 Activity + 5 Curriculum) implement `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. This provides the standard interface through which both UI routes and intelligence services access per-domain entity state.
+The six Activity facades plus `PsService`, `LpService` and `ExerciseService` implement `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol (`KuService` does not). It is the interface through which intelligence services read per-domain entity state; its one caller is the daily plan's domain stats, and no route calls it.
 
 **Architecture:** UserContext is the **map** (broad snapshot from the MEGA-QUERY, ~250 fields). `get_filtered_context()` is the **zoom lens** (per-domain filtered view with stats, on-demand).
 

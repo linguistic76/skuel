@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-26
+updated: 2026-10-01
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -182,7 +182,7 @@ Ownership is the universal `(User)-[:OWNS]->(UserEntry)` edge, with the
 
 | Path | Condition | Backend call |
 |------|-----------|--------------|
-| **Turn-in** | `fulfills_exercise_uid` and no caller-supplied uid (the Submit page; a vault note's frozen copy) | `create_with_exercise_link` — writes the `FULFILLS_EXERCISE {revision}` edge atomically |
+| **Turn-in** | `fulfills_exercise_uid` and no caller-supplied uid (the Submit page; a vault note's frozen copy) | `create_with_exercise_link` — one statement creates the node, mints the revision (highest of the owner's entries on the root exercise, plus one) and writes the `FULFILLS_EXERCISE {revision}` edge |
 | **Living entry** | Caller-supplied deterministic uid (every vault note, from its first sync) | `upsert` — idempotent; re-syncing an edited vault file updates the same node in place. A draft: never `teacher_review`, never submitted or shared (R9); a uid naming one of the owner's frozen submissions (`UserEntry.is_frozen_submission`) takes no write |
 | **Plain create** | Neither | `create` |
 
