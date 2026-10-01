@@ -15,11 +15,11 @@ merged map and of the built context. The pinned values are the contract; the
 measurement behind the split and the record of how they were captured is
 ``docs/roadmap/done/mega-query-plan-cache-cliff.md``.
 
-Two of the pinned values are quirks, kept deliberately: a ``PathStep`` the user
-is ``IN_PROGRESS`` on is matched by the knowledge section's
-``MASTERED|IN_PROGRESS`` alternation and lands in ``knowledge_mastery`` at the
-0.1 default, and a ``REQUIRES_KNOWLEDGE`` edge without a ``confidence`` projects
-``null``. Changing either is a decision, not a regression, and re-pins here.
+One of the pinned values is a quirk, kept deliberately: a ``REQUIRES_KNOWLEDGE``
+edge without a ``confidence`` projects ``null``. Changing it is a decision, not a
+regression, and re-pins here. The knowledge section matches ``:Ku`` only — the
+``PathStep`` the learner is ``IN_PROGRESS`` on (and a step's derived ``MASTERED``
+edge) belongs to the curriculum section, never to ``knowledge_mastery``.
 
 Two invariants have a test of their own below: a learner whose every insight is
 dismissed, actioned or expired keeps the rest of the context (the insight
@@ -58,6 +58,7 @@ CREATE (u)-[:MASTERED {mastery_score: 0.9, mastered_at: $iso, confidence: 0.8}]-
 CREATE (u)-[:IN_PROGRESS {progress: 0.4}]->(ku_b)
 CREATE (ku_a)-[:REQUIRES_KNOWLEDGE {confidence: 0.9}]->(ku_pre)
 CREATE (ku_dep)-[:REQUIRES_KNOWLEDGE {confidence: 0.75}]->(ku_a)
+CREATE (ku_a)-[:REQUIRES_KNOWLEDGE]->(ku_c)
 CREATE (u)-[:VIEWED {view_count: 3, time_spent_seconds: 120, last_viewed_at: $iso}]->(ku_a)
 CREATE (u)-[:MARKED_AS_READ]->(ku_a)
 CREATE (u)-[:BOOKMARKED]->(ku_b)
@@ -71,6 +72,7 @@ CREATE (lp)-[:HAS_STEP {sequence: 1}]->(ps1)
 CREATE (lp)-[:HAS_STEP {sequence: 2}]->(ps2)
 CREATE (lp)-[:REQUIRES_KNOWLEDGE]->(ku_pre)
 CREATE (u)-[:IN_PROGRESS]->(ps1)
+CREATE (u)-[:MASTERED {mastered_at: $iso, mastery_score: 1.0, confidence: 1.0, method: 'derived'}]->(ps0)
 CREATE (ps1)-[:REQUIRES_STEP]->(ps0)
 CREATE (ps1)-[:USES_KU]->(ku_c)
 CREATE (ps1)-[:REQUIRES_KNOWLEDGE]->(ku_pre)
@@ -398,7 +400,7 @@ async def test_every_section_reads_what_the_one_statement_read(
         }
     )
 
-    # knowledge — the IN_PROGRESS PathStep rides along at the 0.1 default (old semantics)
+    # knowledge — :Ku only; the IN_PROGRESS PathStep is the curriculum section's
     assert _canon(uids["knowledge_mastery"]) == _canon(
         [
             {
@@ -408,7 +410,6 @@ async def test_every_section_reads_what_the_one_statement_read(
                 "confidence": 0.8,
             },
             {"uid": "ku.eq.b", "score": 0.4, "mastered_at": None, "confidence": 1.0},
-            {"uid": "ps.eq.one", "score": 0.1, "mastered_at": None, "confidence": 1.0},
         ]
     )
     assert uids["ku_view_data"] == [
@@ -422,10 +423,14 @@ async def test_every_section_reads_what_the_one_statement_read(
     assert uids["ku_marked_as_read_uids"] == ["ku.eq.a"]
     assert uids["ku_bookmarked_uids"] == ["ku.eq.b"]
     knowledge = {item["uid"]: item["graph_context"] for item in mega["rich"]["knowledge"]}
-    assert sorted(knowledge) == ["ku.eq.a", "ku.eq.b", "ps.eq.one"]
+    assert sorted(knowledge) == ["ku.eq.a", "ku.eq.b"]
     assert _canon(knowledge["ku.eq.a"]) == _canon(
         {
-            "prerequisites": [{"uid": "ku.eq.pre", "title": "Ku Pre", "confidence": 0.9}],
+            "prerequisites": [
+                {"uid": "ku.eq.pre", "title": "Ku Pre", "confidence": 0.9},
+                # the no-confidence quirk: the edge projects null, not a default
+                {"uid": "ku.eq.c", "title": "Ku C", "confidence": None},
+            ],
             # a Goal that REQUIRES_KNOWLEDGE is a dependent too — the edge is matched on :Entity
             "dependents": [
                 {"uid": "ku.eq.dep", "title": "Ku Dep", "confidence": 0.75},
@@ -433,11 +438,6 @@ async def test_every_section_reads_what_the_one_statement_read(
             ],
         }
     )
-    assert knowledge["ps.eq.one"] == {
-        "prerequisites": [{"uid": "ku.eq.pre", "title": "Ku Pre", "confidence": None}],
-        "dependents": [],
-    }
-
     # curriculum
     assert uids["enrolled_path_uids"] == ["lp.eq.path"]
     paths = _by_uid(mega["entities"]["learning_paths"])
@@ -546,10 +546,10 @@ async def test_the_rich_context_carries_every_section(
     assert context.active_goal_uids == ["goal.eq.active"]
     assert context.goal_progress == {"goal.eq.active": 0.4, "goal.eq.done": 1.0}
     assert context.habit_streaks == {"habit.eq.active": 5, "habit.eq.pre": 0}
-    assert context.knowledge_mastery == {"ku.eq.a": 0.9, "ku.eq.b": 0.4, "ps.eq.one": 0.1}
+    assert context.knowledge_mastery == {"ku.eq.a": 0.9, "ku.eq.b": 0.4}
     assert context.mastered_knowledge_uids == {"ku.eq.a"}
-    assert context.in_progress_knowledge_uids == {"ku.eq.b", "ps.eq.one"}
-    assert context.mastery_confidence_scores == {"ku.eq.a": 0.8, "ku.eq.b": 1.0, "ps.eq.one": 1.0}
+    assert context.in_progress_knowledge_uids == {"ku.eq.b"}
+    assert context.mastery_confidence_scores == {"ku.eq.a": 0.8, "ku.eq.b": 1.0}
     assert context.ku_view_counts == {"ku.eq.a": 3}
     assert context.ku_marked_as_read_uids == {"ku.eq.a"}
     assert context.ku_bookmarked_uids == {"ku.eq.b"}
@@ -560,6 +560,11 @@ async def test_the_rich_context_carries_every_section(
     assert context.active_moc_uids == ["moc.eq.one"]
     assert context.recently_viewed_moc_uids == ["moc.eq.one"]
     assert context.current_ps_uids == {"ps.eq.one"}
+    # the mastered step is its own read beside the MEGA-QUERY (mastery retires the enrollment)
+    assert context.mastered_ps_uids == {"ps.eq.zero"}
+    assert context.mastered_path_steps == [
+        {"uid": "ps.eq.zero", "title": "Step 0", "entity_type": "path_step"}
+    ]
     # rich fields
     assert {
         domain: sorted(item["entity"]["uid"] for item in items)
@@ -576,7 +581,7 @@ async def test_the_rich_context_carries_every_section(
         # derived Python-side from mastery + view data inside the window, not a statement
         "ku": ["ku.eq.a"],
     }
-    assert sorted(context.knowledge_units_rich) == ["ku.eq.a", "ku.eq.b", "ps.eq.one"]
+    assert sorted(context.knowledge_units_rich) == ["ku.eq.a", "ku.eq.b"]
     # the curriculum rich lists keep the old ``path`` / ``step`` keys, not ``entity``
     assert [item["path"]["uid"] for item in context.enrolled_paths_rich] == ["lp.eq.path"]
     assert [item["step"]["uid"] for item in context.active_path_steps_rich] == ["ps.eq.one"]
@@ -594,7 +599,7 @@ async def test_the_rich_context_carries_every_section(
     assert context.principle_knowledge_grounded == {"principle.eq.core": ["ku.eq.a"]}
     assert context.choice_knowledge_informed == {"choice.eq.pending": ["ku.eq.a"]}
     assert context.principle_guided_choice_counts == {"principle.eq.core": 1}
-    assert context.prerequisite_counts == {"ku.eq.a": 1, "ku.eq.b": 0, "ps.eq.one": 1}
+    assert context.prerequisite_counts == {"ku.eq.a": 2, "ku.eq.b": 0}
     assert context.ready_to_learn_uids == {"ku.eq.b"}
     assert context.overall_progress == pytest.approx(1 / 3)
     # learner state

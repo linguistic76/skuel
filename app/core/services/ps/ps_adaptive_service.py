@@ -41,7 +41,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_float
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports.curriculum_protocols import PsOperations
@@ -299,28 +299,6 @@ class PsAdaptiveService:
             )
             return CurriculumProgress(
                 user_uid=user_uid, sel_category=category, steps_mastered=0, total_steps=0
-            )
-
-    # ==========================================================================
-    # COMPLETION TRACKING
-    # ==========================================================================
-
-    async def track_curriculum_completion(
-        self, user_uid: UserUID, ps_uid: str, completion_time_minutes: int = 30
-    ) -> Result[None]:
-        """Track when user completes a path step — creates/updates MASTERED relationship."""
-        try:
-            result = await self.backend.track_mastery_completion(
-                user_uid, ps_uid, completion_time_minutes
-            )
-            if result.is_error:
-                return Result.fail(result)
-            self.logger.info(f"Tracked curriculum completion: {user_uid} -> {ps_uid}")
-            return Result.ok(None)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to track completion: {e}")
-            return Result.fail(
-                Errors.database("track_curriculum_completion", f"Failed to track completion: {e}")
             )
 
     # ==========================================================================

@@ -9,7 +9,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._adaptive_mixin import _AdaptiveMixin
 from adapters.persistence.neo4j._knowledge_context_mixin import _KnowledgeContextMixin
-from adapters.persistence.neo4j._learning_state_mixin import _LearningStateMixin
+from adapters.persistence.neo4j._learning_state_mixin import (
+    _LearningStateMixin,
+    to_mastered_write_rows,
+)
 from adapters.persistence.neo4j._lp_intelligence_mixin import _LpIntelligenceMixin
 from adapters.persistence.neo4j._lp_progress_mixin import _LpProgressMixin
 from adapters.persistence.neo4j._lp_step_mixin import _LpStepMixin
@@ -32,6 +35,7 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     KnowledgeHealthRaw,
     KnowledgeOrphanKu,
+    MasteredWriteRow,
     PsDeleteStepRow,
     PsEngagementCountsRow,
     PsKnowledgeSummaryResult,
@@ -433,8 +437,13 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         ku_uid: str,
         mastery_score: float = 0.7,
         method: str = "self_report",
-    ) -> Result[list[Neo4jProperties]]:
-        """Mark a Ku as understood/mastered by the user."""
+    ) -> Result[list[MasteredWriteRow]]:
+        """Mark a Ku as understood/mastered by the user; the higher score wins.
+
+        Reports ``was_mastered`` (the edge existed before this write) so the
+        service publishes on the transition only — decided by the ``MERGE``
+        itself, under its lock (``_LearningStateMixin.mark_mastered`` explains).
+        """
         query = """
         MATCH (user:User {uid: $user_uid})
         MATCH (ku:Entity:Ku {uid: $ku_uid})
@@ -443,7 +452,8 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             r.mastered_at = datetime(),
             r.mastery_score = $mastery_score,
             r.confidence = $mastery_score,
-            r.method = $method
+            r.method = $method,
+            r.transition = true
         ON MATCH SET
             r.mastery_score = CASE
                 WHEN $mastery_score > r.mastery_score THEN $mastery_score
@@ -453,10 +463,13 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 WHEN $mastery_score > coalesce(r.confidence, 0) THEN $mastery_score
                 ELSE r.confidence
             END,
-            r.method = $method
-        RETURN ku.uid AS uid
+            r.method = $method,
+            r.transition = false
+        WITH r, NOT r.transition AS was_mastered
+        REMOVE r.transition
+        RETURN r.mastery_score AS mastery_score, was_mastered
         """
-        return await self.execute_query(
+        result = await self.execute_query(
             query,
             {
                 "user_uid": user_uid,
@@ -465,6 +478,9 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 "method": method,
             },
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(to_mastered_write_rows(result.value or []))
 
     async def get_ku_learning_state(
         self, user_uid: UserUID, ku_uid: str
@@ -534,22 +550,21 @@ _ENGAGED_AT = (
 """When the learner last touched the step: the newest timestamp ON the edge.
 
 Derived from the edge's properties rather than named, because the field name is
-NOT one vocabulary. Six writers stamp these three edge types, and between them
-they use NINE different names:
+NOT one vocabulary. Five writers stamp these three edge types, and between them
+they use SEVEN different names:
 
     started_at, last_activity_at   _LearningStateMixin / KuBackend (IN_PROGRESS)
-    mastered_at                    _LearningStateMixin / KuBackend (MASTERED)
+    mastered_at                    _LearningStateMixin / KuBackend (MASTERED —
+                                   a Ku's by report approval, a PathStep's
+                                   derived by PsMasteryService)
     marked_at                      _LearningStateMixin (MARKED_AS_READ)
-    created_at, updated_at         _AdaptiveMixin.track_mastery_completion
     achieved_at, last_practiced    UserProgressBackend
     last_accessed                  UserProgressBackend / UserBackend
 
-A hand-written ``coalesce`` of the names one happens to know is exactly the
-enumeration defect this codebase keeps re-learning: the first version of this
-listed four, so a step mastered through ``PsService.track_curriculum_completion``
-(which writes ``created_at``/``updated_at``) evaluated to NULL and was dropped
-from every windowed report — silently, because an under-return looks identical
-to "the learner did nothing".
+A hand-written ``coalesce`` of the names one happens to know is the enumeration
+defect this codebase keeps re-learning: a writer whose stamp the list omits
+evaluates to NULL and drops out of every windowed report — silently, because an
+under-return looks identical to "the learner did nothing".
 
 Keying on the TYPE instead has no list to drift: a new writer stamping a new
 name is picked up without touching this. Every datetime on these edges is an
@@ -781,7 +796,7 @@ class PsBackend(
             Result containing dict with total_kus and mastered_kus
         """
         query = """
-        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity)
+        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity:Ku)
         WITH collect(DISTINCT ku) as all_kus, count(DISTINCT ku) as total
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
         WHERE mastered IN all_kus

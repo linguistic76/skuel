@@ -45,6 +45,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.zone_context import current_zone, zone_scope
 
 if TYPE_CHECKING:
+    from core.ports.query_types import CurrentPathStepItem, MasteredPathStepItem
     from core.ports.user_context_protocols import UserContextQueryOperations
     from core.services.ps_engagement import PsEngagementService
     from core.services.ps_engagement.engagement import Engagement
@@ -303,11 +304,15 @@ class UserContextBuilder:
         # Populate context from query results
         self._populator.populate_from_consolidated_data(context, query_result.value)
 
-        # Fetch current path steps (lightweight secondary query)
+        # Fetch current and mastered path steps (lightweight secondary queries)
         ps_result = await self._query_executor.fetch_current_path_steps(user_uid)
         if ps_result.is_ok:
             context.current_path_steps = ps_result.value
             context.current_ps_uids = {item["uid"] for item in ps_result.value}
+        mastered_ps_result = await self._query_executor.fetch_mastered_path_steps(user_uid)
+        if mastered_ps_result.is_ok:
+            context.mastered_path_steps = mastered_ps_result.value
+            context.mastered_ps_uids = {item["uid"] for item in mastered_ps_result.value}
 
         # Fetch group memberships, ownerships, and assigned curriculum
         groups_result = await self._query_executor.fetch_user_groups(user_uid)
@@ -337,7 +342,7 @@ class UserContextBuilder:
         statements, one per read family (``RICH_CONTEXT_STATEMENTS`` — tasks &
         goals, habits & events, principles & choices, knowledge, curriculum,
         learner state), run concurrently by ``execute_mega_query`` and merged
-        into one map. The reads beside it — current
+        into one map. The reads beside it — current and mastered
         path steps, engagements, groups, the submission & feedback stats, the
         entry→Ku applied-knowledge rows — go out in the same ``asyncio.gather``,
         so the wall cost is the slowest statement, not the sum. Every statement
@@ -426,16 +431,26 @@ class UserContextBuilder:
         window_start = period.start
         window_end = period.end
 
-        # The MEGA-QUERY and the five reads beside it share nothing but user_uid,
+        # The MEGA-QUERY and the six reads beside it share nothing but user_uid,
         # so they go out together — the wall cost is the slowest statement.
         async def _engaged() -> Result[list[Engagement]] | None:
             if self.ps_engagement_service is None:
                 return None
             return await self.ps_engagement_service.list_engaged(user_uid)
 
+        async def _path_steps() -> tuple[
+            Result[list[CurrentPathStepItem]], Result[list[MasteredPathStepItem]]
+        ]:
+            # The two step reads, side by side (keeps the outer gather at the
+            # arity its typing overloads cover).
+            return await asyncio.gather(
+                self._query_executor.fetch_current_path_steps(user_uid),
+                self._query_executor.fetch_mastered_path_steps(user_uid),
+            )
+
         (
             mega_result,
-            ps_result,
+            (ps_result, mastered_ps_result),
             engaged_result,
             groups_result,
             submission_result,
@@ -444,7 +459,7 @@ class UserContextBuilder:
             self._query_executor.execute_mega_query(
                 user_uid, min_confidence, window_start=window_start, window_end=window_end
             ),
-            self._query_executor.fetch_current_path_steps(user_uid),
+            _path_steps(),
             _engaged(),
             self._query_executor.fetch_user_groups(user_uid),
             self._query_executor.fetch_submission_stats(user_uid, window_start),
@@ -490,10 +505,13 @@ class UserContextBuilder:
         # Populate standard context fields (UIDs, relationships, metadata)
         self._populator.populate_standard_fields(context, uids_data)
 
-        # Current path steps (fetched beside the MEGA-QUERY)
+        # Current and mastered path steps (fetched beside the MEGA-QUERY)
         if ps_result.is_ok:
             context.current_path_steps = ps_result.value
             context.current_ps_uids = {item["uid"] for item in ps_result.value}
+        if mastered_ps_result.is_ok:
+            context.mastered_path_steps = mastered_ps_result.value
+            context.mastered_ps_uids = {item["uid"] for item in mastered_ps_result.value}
 
         # Active PS engagements (per ADR-059 — engagement-aware planning).
         # Failure of the engagement read must not kill context build — the daily

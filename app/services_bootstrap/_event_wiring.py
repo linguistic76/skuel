@@ -59,6 +59,7 @@ def _wire_event_subscribers(
         KnowledgeCreated,
         KnowledgeMastered,
         LearningPathCompleted,
+        LearningPathCreated,
         LearningPathProgressUpdated,
         LearningPathStarted,
         PathStepCompleted,
@@ -336,6 +337,7 @@ def _wire_event_subscribers(
     learning_context_events = [
         KnowledgeCreated,
         KnowledgeMastered,
+        LearningPathCreated,
         LearningPathStarted,
         LearningPathCompleted,
         LearningPathProgressUpdated,
@@ -405,6 +407,10 @@ def _wire_event_subscribers(
     logger.info(
         "✅ LpProgressService subscribed to KnowledgeMastered (automatic LP progress updates)"
     )
+
+    # Enrollment created → initialize its progress from the Kus already mastered
+    event_bus.subscribe(LearningPathStarted, lp_service.progress.handle_path_started)
+    logger.info("✅ LpProgressService subscribed to LearningPathStarted (enrollment progress init)")
 
     # Knowledge mastery → PathStep completion detection
     event_bus.subscribe(KnowledgeMastered, ku_service_for_mastery.mastery.handle_knowledge_mastered)

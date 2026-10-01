@@ -2677,6 +2677,17 @@ class CurrentPathStepItem(TypedDict):
     title: str
 
 
+class MasteredPathStepItem(TypedDict):
+    """Shape for UserContext.mastered_path_steps items — a step the learner has
+    mastered (``(User)-[:MASTERED]->(PathStep)``, derived when its last Ku was
+    mastered). ``entity_type`` rides along so a reader that pools these with Ku
+    rows tells them apart by the label-derived field, never the uid (ADR-013)."""
+
+    uid: str
+    title: str
+    entity_type: str
+
+
 class EntryKnowledgeAppliedRow(TypedDict):
     """One UserEntry and the Ku uids it APPLIES_KNOWLEDGE to (ADR-069), PathStep→Ku rollup applied.
 
@@ -3467,6 +3478,41 @@ class UserMasteryResult(TypedDict, total=False):
     preferred_learning_method: str | None
     created_at: str | None
     updated_at: str | None
+
+
+class EnrollmentProgressGapRow(TypedDict):
+    """One (user, LearningPath) enrollment whose progress was never recorded
+    (``ENROLLED_IN.progress`` absent) — what ``reconcile_enrollment_progress``
+    initializes from the Kus the learner has already mastered."""
+
+    user_uid: str
+    lp_uid: str
+
+
+class StepMasteryGapRow(TypedDict):
+    """One (user, PathStep) pair whose every Ku the user has mastered while the
+    step's own MASTERED edge is absent — what ``reconcile_step_mastery`` closes."""
+
+    user_uid: str
+    ps_uid: str
+
+
+class MasteredWriteRow(TypedDict):
+    """What a MASTERED writer reports: the score that ended up stored and whether
+    the edge already existed. ``was_mastered`` is the transition flag — a repeat
+    write (a retry, a re-approval, a second "understood") raises the stored score
+    at most, and is not an event: ``KnowledgeMastered`` is published only when it
+    is False."""
+
+    mastery_score: float
+    was_mastered: bool
+
+
+class MasteredEntityUidRow(TypedDict):
+    """Return shape for UserProgressBackend.get_mastered_entity_uids() — the uid of
+    one entity the user has mastered, a Ku or a PathStep (the query's one alias)."""
+
+    uid: str
 
 
 class SelCategoryRow(TypedDict):

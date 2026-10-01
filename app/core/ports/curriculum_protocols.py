@@ -103,11 +103,13 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import RawChanges
 from core.ports.query_types import (
     CurriculumExerciseResult,
+    EnrollmentProgressGapRow,
     KuEdgeRow,
     KuEmbeddingRow,
     LearningGapResult,
     LearningRecommendationResult,
     LpKnowledgeScopeSummary,
+    MasteredWriteRow,
     OrganizerResult,
     PrereqMasteryResult,
     PsDeleteStepRow,
@@ -123,6 +125,7 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
     RootOrganizerResult,
+    StepMasteryGapRow,
     TeacherAuthorityRow,
     UserMasteryResult,
     UserProgressResult,
@@ -512,8 +515,12 @@ class KuOperations(BackendOperations["Ku"], Protocol):
         ku_uid: str,
         mastery_score: float = 0.7,
         method: str = "self_report",
-    ) -> Result[list[Neo4jProperties]]:
-        """Mark a Ku as understood/mastered by the user."""
+    ) -> Result[list[MasteredWriteRow]]:
+        """Mark a Ku as understood/mastered by the user; the higher score wins.
+
+        Returns the stored score and ``was_mastered`` — whether the edge already
+        existed — so the caller publishes on the transition only.
+        """
         ...
 
     async def get_ku_learning_state(
@@ -1123,13 +1130,8 @@ class PsOperations(
         ...
 
     # =========================================================================
-    # ADAPTIVE    # =========================================================================
-
-    async def track_mastery_completion(
-        self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns MASTERED relationship properties
-        """Create/update MASTERED relationship."""
-        ...
+    # ADAPTIVE
+    # =========================================================================
 
     async def query_user_masteries(self, user_uid: UserUID) -> Result[list[UserMasteryResult]]:
         """Query all MASTERED relationships with full metadata for a user."""
@@ -1245,13 +1247,17 @@ class PsOperations(
         ...
 
     async def mark_mastered(
-        self, user_uid: UserUID, ku_uid: str, now: str, mastery_score: float, method: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {mastery_score}
-        """Record mastery of a KU; the highest score ever reported always wins.
+        self, user_uid: UserUID, entity_uid: str, now: str, mastery_score: float, method: str
+    ) -> Result[list[MasteredWriteRow]]:
+        """Record mastery of a Ku, or of a PathStep whose Kus are all mastered;
+        the highest score ever reported always wins.
 
-        Idempotent — a lower score never regresses the stored mastery or
-        confidence, but the reporting method is always the most recent one.
-        Returns the score that ended up stored.
+        One writer for both targets, so every MASTERED edge carries the same
+        shape. Idempotent — a lower score never regresses the stored mastery
+        or confidence, but the reporting method is always the most recent one.
+        Retires the entity's IN_PROGRESS edge: mastery is the terminal state.
+        Returns the score that ended up stored and whether the edge already
+        existed (``was_mastered`` — the transition flag the publisher reads).
         """
         ...
 
@@ -1303,6 +1309,10 @@ class PsOperations(
         """Find PathSteps whose KUs are all mastered after a KU-mastery event."""
         ...
 
+    async def find_step_mastery_gaps(self) -> Result[list[StepMasteryGapRow]]:
+        """Every (user, step) pair whose Kus are all mastered while the step's MASTERED edge is absent."""
+        ...
+
     async def get_bookmarked_kus(
         self, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {ku_uid}
@@ -1321,10 +1331,11 @@ class LpProgressBackendOperations(Protocol):
     """KU/PathStep → LearningPath progress reads — the backend-layer slice.
 
     ``LpProgressService`` reacts to ``KnowledgeMastered`` / ``PathStepCompleted``
-    events and recomputes LP progress. It consumes exactly these three reads out
-    of ``LpOperations``' ~90-method surface, so it types ``self.backend`` against
-    the slice rather than the wide contract (BACKEND_OPERATIONS_ISP.md §
-    "Introduce a Minimal Protocol, Have the Broad One Inherit It").
+    events and recomputes LP progress. It consumes exactly these three reads and
+    the one enrollment write out of ``LpOperations``' ~90-method surface, so it
+    types ``self.backend`` against the slice rather than the wide contract
+    (BACKEND_OPERATIONS_ISP.md § "Introduce a Minimal Protocol, Have the Broad
+    One Inherit It").
 
     Implementation: ``_LpProgressMixin`` (mixed into ``LpBackend``); signatures
     are lifted from the mixin itself. ``LpOperations`` inherits this slice, so
@@ -1339,10 +1350,17 @@ class LpProgressBackendOperations(Protocol):
         """Get UIDs of all learning paths containing a given path step."""
         ...
 
-    async def get_ku_mastery_progress(
-        self, lp_uid: str, user_uid: UserUID
-    ) -> Result[Neo4jProperties]:
-        """Return total and mastered KU counts for a user's progress in a path."""
+    async def record_enrollment_progress(
+        self, user_uid: UserUID, lp_uid: str, now: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Recompute the learner's progress in the path and record it on the
+        ENROLLED_IN edge, in one statement under its lock, flipping it to
+        completed at 1.0; one row ``{prior_progress, was_completed, progress,
+        total_kus, mastered_kus}``, or none when the user is not enrolled."""
+        ...
+
+    async def find_uninitialized_enrollments(self) -> Result[list[EnrollmentProgressGapRow]]:
+        """Every enrollment whose progress was never recorded, across all users."""
         ...
 
 

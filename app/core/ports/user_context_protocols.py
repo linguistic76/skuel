@@ -41,7 +41,11 @@ from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.type_hints import UserUID
-from core.ports.query_types import CurrentPathStepItem, EntryKnowledgeAppliedRow
+from core.ports.query_types import (
+    CurrentPathStepItem,
+    EntryKnowledgeAppliedRow,
+    MasteredPathStepItem,
+)
 from core.utils.result_simplified import Result
 
 
@@ -84,6 +88,12 @@ class UserContextQueryOperations(Protocol):
         self, user_uid: UserUID
     ) -> Result[list[CurrentPathStepItem]]:
         """Fetch path steps the user is actively studying (IN_PROGRESS)."""
+        ...
+
+    async def fetch_mastered_path_steps(
+        self, user_uid: UserUID
+    ) -> Result[list[MasteredPathStepItem]]:
+        """Fetch the path steps the user has mastered (MASTERED, derived) — beside the MEGA-QUERY."""
         ...
 
     async def fetch_user_groups(

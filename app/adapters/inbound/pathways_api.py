@@ -23,6 +23,7 @@ from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
     LearningPathProgressRequest,
 )
+from core.ports.query_types import MasteredWriteRow
 from core.services.lp_service import LpService
 from core.services.user_progress_service import UserKnowledgeProfile
 from core.utils.logging import get_logger
@@ -125,21 +126,22 @@ def create_pathways_api_routes(
         is_mastered = is_completed and progress_req.mastery_level >= 0.8
 
         for ku_uid in ku_uids:
+            written: Result[MasteredWriteRow] | Result[bool]
             if is_mastered:
-                result = await user_service.record_knowledge_mastery(
+                written = await user_service.record_knowledge_mastery(
                     user_uid=user_uid,
                     knowledge_uid=ku_uid,
                     mastery_score=progress_req.mastery_level,
                 )
             else:
-                result = await user_service.record_knowledge_progress(
+                written = await user_service.record_knowledge_progress(
                     user_uid=user_uid,
                     knowledge_uid=ku_uid,
                     progress=progress_req.mastery_level,
                 )
 
-            if result.is_error:
-                logger.warning(f"Failed to record progress for {ku_uid}: {result.error}")
+            if written.is_error:
+                logger.warning(f"Failed to record progress for {ku_uid}: {written.error}")
                 continue
 
             updated_ku_uids.append(ku_uid)

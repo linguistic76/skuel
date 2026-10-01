@@ -40,10 +40,15 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
-from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.type_hints import UserUID
-from core.ports.query_types import CurrentPathStepItem, EntryKnowledgeAppliedRow, GroupSummary
+from core.ports.query_types import (
+    CurrentPathStepItem,
+    EntryKnowledgeAppliedRow,
+    GroupSummary,
+    MasteredPathStepItem,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -563,7 +568,9 @@ MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // KNOWLEDGE - Fetch with BOTH UIDs and rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity)
+// :Ku — a PathStep carries both edge types too (IN_PROGRESS = enrollment,
+// MASTERED = derived step mastery); the step side is the curriculum read.
+OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity:Ku)
 WITH user,
      collect(CASE WHEN ku IS NOT NULL THEN {
          uid: ku.uid,
@@ -884,10 +891,21 @@ RICH_CONTEXT_STATEMENTS: tuple[tuple[str, str], ...] = (
 )
 
 
-# The two reads below run beside the registry's statements, gathered by
+# The reads below run beside the registry's statements, gathered by
 # build_rich_user_context; each has its own executor method and result
-# contract (a stats map; typed EntryKnowledgeAppliedRow rows), like the
-# current-path-step and group reads. The plan-cache guard covers them too.
+# contract (a stats map; typed EntryKnowledgeAppliedRow rows; typed
+# MasteredPathStepItem rows), like the current-path-step and group reads.
+# The plan-cache guard covers them too.
+
+# Mastered steps — (User)-[:MASTERED]->(PathStep), derived by PsMasteryService
+# when a step's last Ku is mastered. Its own read: mastery retires the step's
+# IN_PROGRESS enrollment (so the curriculum section does not carry it) and a
+# step is not a Ku (so the knowledge section does not either).
+MASTERED_PATH_STEPS_QUERY: str = """
+MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ps:Entity:PathStep)
+RETURN ps.uid AS uid, ps.title AS title, ps.entity_type AS entity_type
+ORDER BY ps.title
+"""
 
 # The learning-loop tail — submission & feedback stats, assigned and revised
 # exercises. Returns exactly the map populate_submission_stats consumes.
@@ -1033,8 +1051,9 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
      collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} END) as goal_data
 
-// Knowledge - parallel collection with mastery scores
-OPTIONAL MATCH (user)-[mastered:MASTERED]->(ku:Entity)
+// Knowledge - parallel collection with mastery scores (:Ku — a mastered
+// PathStep carries the same edge and is not a knowledge unit)
+OPTIONAL MATCH (user)-[mastered:MASTERED]->(ku:Entity:Ku)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
@@ -1464,6 +1483,33 @@ class UserContextQueryExecutor:
             [
                 CurrentPathStepItem(uid=str(r["uid"]), title=str(r.get("title", "Untitled")))
                 for r in records
+            ]
+        )
+
+    @with_error_handling("fetch_mastered_path_steps", error_type="database", uid_param="user_uid")
+    async def fetch_mastered_path_steps(
+        self, user_uid: UserUID
+    ) -> Result[list[MasteredPathStepItem]]:
+        """The steps the learner has mastered — a read beside the MEGA-QUERY.
+
+        A mastered step holds no IN_PROGRESS edge (mastery retires the enrollment)
+        and is not a Ku, so neither the curriculum section nor the knowledge
+        section carries it; this is where Askesis finds a completed step the
+        learner asks about by name.
+        """
+        result = await self.executor.execute_query(
+            MASTERED_PATH_STEPS_QUERY, {"user_uid": user_uid}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                MasteredPathStepItem(
+                    uid=str(r["uid"]),
+                    title=str(r.get("title") or "Untitled"),
+                    entity_type=str(r.get("entity_type") or EntityType.PATH_STEP.value),
+                )
+                for r in (result.value or [])
             ]
         )
 

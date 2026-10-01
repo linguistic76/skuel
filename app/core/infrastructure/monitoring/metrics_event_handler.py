@@ -76,11 +76,11 @@ class MetricsEventHandler:
 
         # Curriculum domains (3)
         from core.events.curriculum_events import PathStepCreated
-        from core.events.learning_events import KnowledgeCreated, LearningPathStarted
+        from core.events.learning_events import KnowledgeCreated, LearningPathCreated
 
         self.event_bus.subscribe(KnowledgeCreated, self._on_knowledge_created)
         self.event_bus.subscribe(PathStepCreated, self._on_ls_created)
-        self.event_bus.subscribe(LearningPathStarted, self._on_lp_started)
+        self.event_bus.subscribe(LearningPathCreated, self._on_lp_created)
 
         # UserEntry domain (ADR-054 — replaces legacy SubmissionCreated)
         from core.events.user_entry_events import UserEntryCreated
@@ -143,8 +143,8 @@ class MetricsEventHandler:
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="ps").inc()
 
-    def _on_lp_started(self, event) -> None:
-        """Track LP start (proxy for creation tracking)."""
+    def _on_lp_created(self, event) -> None:
+        """Track LP creation (an enrollment is LearningPathStarted, not a creation)."""
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="lp").inc()
 

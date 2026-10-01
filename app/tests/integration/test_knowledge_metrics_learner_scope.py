@@ -692,21 +692,21 @@ class TestKnowledgeMetricsLearnerScope:
     async def test_every_real_writer_path_lands_in_the_window(self, backend, neo4j_driver):
         """Engagement must be recognised however the edge was written.
 
-        Six backend methods write these three edge types and between them use
-        NINE timestamp field names. The first version of this query hand-listed
-        four, so a step mastered through ``_AdaptiveMixin.track_mastery_completion``
-        (``created_at``/``updated_at``) evaluated to NULL and vanished from every
-        windowed report — an under-return, which is indistinguishable from "the
-        learner did nothing" unless a test drives the actual writer.
+        The three edge types a learner leaves on a step are stamped by different
+        writers under different field names (``started_at`` / ``last_activity_at``,
+        ``mastered_at``, ``marked_at``). A reader that hand-lists the names it
+        knows drops the writer it forgot — an under-return, indistinguishable
+        from "the learner did nothing" unless a test drives the actual writer.
 
         So this drives the REAL methods rather than seeding properties by hand:
         a hand-seeded fixture can only ever confirm the names its author already
-        thought of.
+        thought of. The step's MASTERED edge goes through ``mark_mastered``, the
+        same writer ``PsMasteryService`` uses when a step's last Ku is mastered.
         """
         writer_user = "user_writer_paths"
         async with neo4j_driver.session() as session:
             await session.run("MERGE (u:User {uid: $u})", u=writer_user)
-            for uid in ("ps_w_learning_state", "ps_w_adaptive", "ps_w_read"):
+            for uid in ("ps_w_learning_state", "ps_w_mastered", "ps_w_read"):
                 await session.run(
                     """
                     CREATE (n:Entity:PathStep {uid: $uid, entity_type: 'path_step',
@@ -718,8 +718,10 @@ class TestKnowledgeMetricsLearnerScope:
         now_iso = datetime.now(UTC).isoformat()
         # started_at / last_activity_at
         assert (await backend.mark_in_progress(writer_user, "ps_w_learning_state", now_iso)).is_ok
-        # created_at only — the field family the original enumeration missed
-        assert (await backend.track_mastery_completion(writer_user, "ps_w_adaptive", 30)).is_ok
+        # mastered_at — the derived step edge
+        assert (
+            await backend.mark_mastered(writer_user, "ps_w_mastered", now_iso, 1.0, "derived")
+        ).is_ok
         # marked_at
         assert (await backend.mark_as_read(writer_user, "ps_w_read")).is_ok
 
@@ -729,7 +731,7 @@ class TestKnowledgeMetricsLearnerScope:
 
         assert {s.uid for s in result.value} == {
             "ps_w_learning_state",
-            "ps_w_adaptive",
+            "ps_w_mastered",
             "ps_w_read",
         }, "a writer path was dropped — its timestamp field is not being recognised"
 

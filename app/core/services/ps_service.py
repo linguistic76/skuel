@@ -660,13 +660,6 @@ class PsService:
     async def get_sel_journey(self, user_uid: UserUID) -> Result[LearningJourney]:
         return await self.adaptive.get_sel_journey(user_uid)
 
-    async def track_curriculum_completion(
-        self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int = 30
-    ) -> Result[None]:
-        return await self.adaptive.track_curriculum_completion(
-            user_uid, ku_uid, completion_time_minutes
-        )
-
     # ============================================================================
     # ORGANIZATION - Delegated to PsOrganizationService
     # ============================================================================

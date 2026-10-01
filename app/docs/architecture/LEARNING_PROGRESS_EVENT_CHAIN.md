@@ -1,6 +1,6 @@
 ---
 title: Learning Progress Event Chain
-updated: 2026-09-05
+updated: 2026-10-01
 status: current
 category: architecture
 related:
@@ -36,16 +36,20 @@ sufficient**: some subscriptions are registered by looping over a list of event 
 `.subscribe(` calls in the tree are examples inside docstrings rather than live wiring.
 
 ```
-mark_mastered(ku_uid, user_uid)
+a Ku-mastery door — PsMasteryService.mark_mastered (report approval),
+KuService.mark_as_understood (the Ku page), or
+UserProgressRecorderService.record_knowledge_mastery (pathways progress)
     │
     ├─ Creates (User)-[:MASTERED]->(Ku) in Neo4j
     │
     └─ Publishes KnowledgeMastered
            │
            ├─► LpProgressService.handle_knowledge_mastered
-           │       Find LPs containing this KU → recalculate LP progress
-           │       → publish LearningPathProgressUpdated
-           │       → if 100%: publish LearningPathCompleted
+           │       Find LPs containing this KU → recount and record progress on
+           │         the ENROLLED_IN edge, one statement under its lock (the
+           │         write reports the prior progress and status)
+           │       → if it changed: publish LearningPathProgressUpdated
+           │       → if 1.0 and the status flipped: publish LearningPathCompleted
            │
            ├─► PsProgressService.handle_knowledge_mastered
            │       Find PathSteps using this KU (via USES_KU) → recalculate
@@ -55,12 +59,16 @@ mark_mastered(ku_uid, user_uid)
            └─► PsMasteryService.handle_knowledge_mastered
                    For each PathStep using this KU:
                      Check if ALL KUs in that PathStep are mastered
-                     → if yes: publish PathStepCompleted
+                     → if yes: MERGE (User)-[:MASTERED]->(PathStep)
+                               (mark_mastered — the Ku edge's writer and
+                               shape; retires the step's IN_PROGRESS edge)
+                               then, if the edge is new, publish PathStepCompleted
                                    │
                                    └─► LpProgressService.handle_step_completed
                                            Find LPs containing this PS (via HAS_STEP)
-                                           → recalculate LP progress
-                                           → publish LearningPathProgressUpdated
+                                           → recalculate LP progress (the same
+                                             write; a progress the Ku mastery
+                                             already recorded announces nothing)
 ```
 
 ---
@@ -69,11 +77,12 @@ mark_mastered(ku_uid, user_uid)
 
 | Event | Published By | Event Type String |
 |-------|-------------|-------------------|
-| `KnowledgeMastered` | `PsMasteryService.mark_mastered()` | `knowledge.mastered` |
+| `KnowledgeMastered` | every Ku-mastery door, for the write that **created** the edge (`was_mastered` False on the writer's row — a repeat raises the stored score and is not an event, since the velocity counter and `paths_completed` count per event): `PsMasteryService.mark_mastered()` (report approval), `KuService.mark_as_understood()` (the Ku page), `UserProgressRecorderService.record_knowledge_mastery()` (the pathways progress route) | `knowledge.mastered` |
 | `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | `path_step.progress_updated` |
-| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` | `path_step.completed` |
-| `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.progress_updated` |
-| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.completed` |
+| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` — for the write that created the step's `MASTERED` edge; a write that does not land, or finds the edge already there, withholds the event | `path_step.completed` |
+| `LearningPathStarted` | `UserProgressRecorderService.enroll_in_learning_path()` (the pathways route) — for the call that created the enrollment; `LpProgressService.handle_path_started()` then recounts the new enrollment from the Kus already mastered (a recount that fails there leaves the edge with no progress, which `./dev reconcile-learning-progress` — `LpProgressService.reconcile_enrollment_progress` — initializes). Creating a path is `LearningPathCreated` (`LpCoreService`), which enrolls no one | `learning_path.started` |
+| `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` — when the progress recorded on the ENROLLED_IN edge changed (`old_progress` is the prior the write reports); an unenrolled learner has no progress to record, and an enrollment created after its Kus were mastered is recounted on creation | `learning_path.progress_updated` |
+| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` — once per enrollment: the ENROLLED_IN edge's flip to `completed` is the transition (`record_enrollment_progress`), so the Ku mastery and the step completion it causes, both reaching 100 % for the same path, announce it once; an unenrolled learner gets no completion | `learning_path.completed` |
 
 There is deliberately no *Subscribers* column. The one that used to be here named
 "Dashboard, Notifications" as consumers of the two progress events — neither of which has a
@@ -96,7 +105,8 @@ The chain relies on two graph relationships to propagate progress:
 
 | Relationship | Pattern | Purpose |
 |-------------|---------|---------|
-| `USES_KU` | `(PathStep)-[:USES_KU]->(Ku)` | PS completion detection — are ALL KUs in this PathStep mastered? |
+| `USES_KU` | `(PathStep)-[:USES_KU]->(Ku)` | PS completion detection — are ALL KUs in this PathStep mastered? (`CONTAINS_KNOWLEDGE` and `TRAINS_KU` count the same way; only `:Ku` targets are tallied — a composition edge the writer lets point at another step is not a Ku to master) |
+| `MASTERED` | `(User)-[:MASTERED {mastered_at, mastery_score, confidence, method}]->(Ku \| PathStep)` | One writer, one shape: a Ku's by report approval, a PathStep's derived when its last Ku is mastered. Readers that report "Kus mastered" match `:Ku`. A draft step is never derived (the derivation reads are publication-gated — a learner-state reference to curriculum the learner never saw would leak it through the ungated learner-state reads). The derivation is best-effort behind the event; `./dev reconcile-learning-progress` (`PsMasteryService.reconcile_step_mastery`) closes any gap the graph shows — every Ku mastered, no step edge, step published — through the same writer, publishing `PathStepCompleted` for each edge it creates; a step published after its Kus were mastered is such a gap |
 | `HAS_STEP` | `(LearningPath)-[:HAS_STEP]->(PathStep)` | LP progress recalculation on PS completion |
 
 There is no intermediate `HAS_LESSON` edge. PathStep composes atomic Kus directly
@@ -108,7 +118,7 @@ via `USES_KU`, and LearningPaths compose PathSteps directly via `HAS_STEP`.
 
 | Service | File | Role |
 |---------|------|------|
-| `PsMasteryService` | `core/services/ps/ps_mastery_service.py` | Publishes `KnowledgeMastered` on `mark_mastered()`, detects PathStep completion |
+| `PsMasteryService` | `core/services/ps/ps_mastery_service.py` | Publishes `KnowledgeMastered` on `mark_mastered()`; detects PathStep completion, writes the step's `MASTERED` edge (`method = 'derived'`), publishes `PathStepCompleted` |
 | `PsProgressService` | `core/services/ps/ps_progress_service.py` | Recalculates PS progress from KU mastery |
 | `LpProgressService` | `core/services/lp/lp_progress_service.py` | Tracks LP progress from KU mastery and PS completion |
 
@@ -117,7 +127,7 @@ via `USES_KU`, and LearningPaths compose PathSteps directly via `HAS_STEP`.
 | Backend | File | Methods |
 |---------|------|---------|
 | `PsBackend` | `adapters/persistence/neo4j/backends/curriculum_backends.py` | PathStep ↔ Ku traversal, mastery rollup queries |
-| `LpBackend` | `adapters/persistence/neo4j/backends/curriculum_backends.py` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |
+| `LpBackend` | `adapters/persistence/neo4j/backends/curriculum_backends.py` | `get_paths_containing_ku()`, `record_enrollment_progress()` (the Ku tally and the enrollment write, one statement under the edge's lock) |
 
 ---
 

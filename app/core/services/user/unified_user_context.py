@@ -84,6 +84,7 @@ if TYPE_CHECKING:
         CrossDomainInsightsData,
         CurrentPathStepItem,
         GroupSummary,
+        MasteredPathStepItem,
         PendingRevisedExerciseItem,
         RichEntityItem,
         RichKnowledgeUnitItem,
@@ -263,6 +264,10 @@ class UserContext:
     current_path_steps: list[CurrentPathStepItem] = field(
         default_factory=list
     )  # {uid, title} for path steps with IN_PROGRESS relationship
+    mastered_ps_uids: set[str] = field(default_factory=set)  # Path steps the user has mastered
+    mastered_path_steps: list[MasteredPathStepItem] = field(
+        default_factory=list
+    )  # {uid, title, entity_type} for path steps with a (derived) MASTERED relationship
 
     # PS engagement state (per ADR-059) — ps_uid -> Engagement projection of the
     # (User)-[:ENGAGED_WITH]->(PathStep) edge. Populated by build_rich() via

@@ -32,7 +32,13 @@ from core.models.type_hints import UserUID
 @dataclass(frozen=True)
 class KnowledgeMastered(BaseEvent):
     """
-    Published when user masters a knowledge unit.
+    Published when user masters a knowledge unit — on the transition only.
+
+    One event per (user, Ku) edge: the write that created the edge publishes,
+    from whichever door (report approval, the Ku page's "understood", the
+    pathways progress route). A repeat write raises the stored score at most
+    and is not an event — the chain behind this counts per event (the
+    learning-velocity counter, ``paths_completed``).
 
     Mastery criteria: Typically >80% score on assessments + consistent application.
 
@@ -113,14 +119,14 @@ class KnowledgeCreated(BaseEvent):
 
 
 @dataclass(frozen=True)
-class LearningPathStarted(BaseEvent):
+class LearningPathCreated(BaseEvent):
     """
-    Published when user starts a learning path.
+    Published when a learning path is created (``LpCoreService``) — the path
+    exists; nobody is enrolled in it yet.
 
     Subscribers:
+    - the metrics handler (entities_created for lp)
     - UserService (invalidate context)
-    - ProgressTrackingService (initialize progress)
-    - AnalyticsEngine (track path popularity)
     """
 
     path_uid: str
@@ -128,6 +134,32 @@ class LearningPathStarted(BaseEvent):
 
     # Path details
     path_title: str
+    estimated_duration_hours: int | None = None
+    total_kus: int = 0
+
+    event_type: ClassVar[str] = "learning_path.created"
+
+
+@dataclass(frozen=True)
+class LearningPathStarted(BaseEvent):
+    """
+    Published when a user's enrollment in a learning path is created — once per
+    (user, path) edge, by the enrollment door (``UserProgressRecorderService``),
+    for the call that created the edge. Creating a path is a different event
+    (``LearningPathCreated``): it enrolls no one.
+
+    Subscribers:
+    - LpProgressService (initialize the enrollment's progress from the Kus the
+      learner has already mastered — a path enrolled after its Kus were mastered
+      is at 1.0 from the start)
+    - UserService (invalidate context)
+    """
+
+    path_uid: str
+    user_uid: UserUID
+
+    # Path details — carried when the publisher holds them
+    path_title: str | None = None
     estimated_duration_hours: int | None = None
     total_kus: int = 0
 

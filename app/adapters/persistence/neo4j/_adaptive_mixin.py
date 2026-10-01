@@ -118,34 +118,8 @@ class _AdaptiveMixin:
     # adapters/persistence/neo4j/vector_search_backend.py.
 
     # ========================================================================
-    # ADAPTIVE MASTERY TRACKING
+    # ADAPTIVE READS — masteries, prerequisites, enrolled paths
     # ========================================================================
-
-    async def track_mastery_completion(
-        self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int
-    ) -> Result[list[Neo4jProperties]]:
-        """Create/update MASTERED relationship when user completes a KU."""
-        query = """
-        MATCH (u:User {uid: $user_uid}), (k:Entity {uid: $ku_uid})
-        MERGE (u)-[m:MASTERED]->(k)
-        ON CREATE SET
-            m.mastery_level = 'introduced',
-            m.created_at = datetime(),
-            m.time_to_mastery_hours = $completion_time_minutes / 60.0,
-            m.source = 'curriculum'
-        ON MATCH SET
-            m.mastery_level = 'proficient',
-            m.updated_at = datetime()
-        RETURN m
-        """
-        return await self.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "ku_uid": ku_uid,
-                "completion_time_minutes": completion_time_minutes,
-            },
-        )
 
     async def query_prerequisite_uids(self, ps_uids: list[str]) -> Result[dict[str, list[str]]]:
         """REQUIRES_KNOWLEDGE targets of each given path step, in one round trip.

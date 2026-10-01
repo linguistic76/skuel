@@ -1,6 +1,6 @@
 ---
 title: "MEGA-QUERY Sits on the Plan-Cache Cliff"
-updated: 2026-09-14
+updated: 2026-10-01
 status: "done — Option A (the learning-loop tail lifted) then Option B (the statement split into the six RICH_CONTEXT_STATEMENTS, merged by execute_mega_query); the cliff is structurally unreachable and every statement is pinned under the edge by tests/integration/test_user_context_plan_cache.py, which derives its parametrization from the registry"
 trigger: "the next read the rich context needs — it is a new RICH_CONTEXT_STATEMENTS entry, never a section appended to an existing statement (the guard fails otherwise); OR the AuraDB tier changing"
 check: "tests/integration/test_user_context_plan_cache.py — the third back-to-back execution of every RICH_CONTEXT_STATEMENTS entry, SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY and CONSOLIDATED_QUERY reads `result_available_after` under 100 ms (cached: 2-5 ms; re-planned: 500+ ms), and test_every_statement_constant_is_guarded names any *_QUERY constant the parametrization misses"
@@ -241,10 +241,12 @@ above; `tests/unit/test_rich_context_statement_merge.py` pins the merge and the 
 verdicts with a fake executor; `test_mega_query_null_placeholders.py` scans the module source,
 so every statement stays in its scope.
 
-**Observed, not changed (a decision, not a regression):** the knowledge section's
-`MASTERED|IN_PROGRESS` alternation also matches the `PathStep` the user is `IN_PROGRESS` on, so
-the step lands in `knowledge_mastery` at the 0.1 default; the equivalence test pins that as the
-old semantics.
+**Observed, then ruled (2026-10-01):** the knowledge section's `MASTERED|IN_PROGRESS`
+alternation also matched the `PathStep` the user is `IN_PROGRESS` on, so the step landed in
+`knowledge_mastery` at the 0.1 default — pinned here as the old semantics. When a PathStep gained
+a `MASTERED` edge of its own (derived by `PsMasteryService` when its last Ku is mastered, PR #1472),
+the section was scoped to `:Ku` so a completed step cannot count as mastered knowledge; the
+equivalence test re-pinned the knowledge section as Ku-only.
 
 ## What would settle more
 

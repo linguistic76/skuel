@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-09-22
+updated: 2026-10-01
 status: current
 category: domains
 tags:
@@ -106,7 +106,7 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | `remove_step_from_path(path_uid, step_uid)` | HAS_STEP removal + reorder |
 | `reorder_steps(path_uid, step_uids)` | Batch step reordering |
 | `get_paths_containing_ku(ku_uid)` | LPs that include a KU |
-| `get_ku_mastery_progress(lp_uid, user_uid)` | KU completion state for LP |
+| `record_enrollment_progress(user_uid, lp_uid, now)` | Recounts the learner's mastered Kus in the path and records progress / completion on the `ENROLLED_IN` edge, one statement under its lock |
 | `get_paths_aligned_with_goal(goal_uid)` | LPs aligned with a goal |
 | `get_paths_by_knowledge(ku_uid)` | LPs containing a KU |
 | `get_user_paths_prioritized(user_uid, context)` | User's LPs ranked by priority |

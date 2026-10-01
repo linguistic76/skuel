@@ -131,7 +131,7 @@ skills:
 
   - name: vis-network
     description: Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: []
     dependencies: []
     library_package: null  # Self-hosted vendor library
@@ -496,7 +496,7 @@ skills:
 
   - name: curriculum-domains
     description: Curriculum domain patterns (KU, PS, LP)
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -535,7 +535,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library

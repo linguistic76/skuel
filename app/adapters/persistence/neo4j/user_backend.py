@@ -32,11 +32,14 @@ from typing import Any
 from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
+from adapters.persistence.neo4j._learning_state_mixin import to_mastered_write_rows
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
+from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.enums.user_enums import UserStatus
 from core.models.type_hints import FilterValue, UserUID
 from core.models.user import User
+from core.ports.query_types import MasteredWriteRow
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -508,7 +511,7 @@ class UserBackend(Neo4jSessionRunner):
         mastery_score: float,
         practice_count: int = 1,
         confidence_level: float = 0.8,
-    ) -> Result[bool]:
+    ) -> Result[MasteredWriteRow]:
         """
         Record user's mastery of a knowledge unit.
 
@@ -522,7 +525,11 @@ class UserBackend(Neo4jSessionRunner):
             confidence_level: Confidence in mastery assessment
 
         Returns:
-            Result[bool]: Success status
+            Result[MasteredWriteRow]: the stored score and ``was_mastered`` —
+            whether the edge existed before this write, decided by the
+            ``MERGE`` under its lock (``_LearningStateMixin.mark_mastered``
+            explains), so the publisher's transition flag survives two
+            concurrent first writes
         """
         # Not _merge_user_edge: mastering a KU must also retire its IN_PROGRESS
         # edge (the state progression is VIEWED → IN_PROGRESS → MASTERED, and
@@ -534,14 +541,18 @@ class UserBackend(Neo4jSessionRunner):
             MATCH (u:User {uid: $user_uid})
             MATCH (t:Entity {uid: $target_uid})
             MERGE (u)-[r:MASTERED]->(t)
+            ON CREATE SET r.transition = true
+            ON MATCH SET r.transition = false
             SET r.mastery_score = $mastery_score,
                 r.practice_count = $practice_count,
                 r.confidence_level = $confidence_level,
                 r.last_practiced = datetime()
-            WITH u, t, r
+            WITH u, t, r, NOT r.transition AS was_mastered
+            REMOVE r.transition
+            WITH u, t, r, was_mastered
             OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(t)
             DELETE ip
-            RETURN r
+            RETURN r.mastery_score AS mastery_score, was_mastered
             """,
             {
                 "user_uid": user_uid,
@@ -560,7 +571,7 @@ class UserBackend(Neo4jSessionRunner):
             )
 
         self.logger.info(f"Recorded mastery: {user_uid} → {knowledge_uid} ({mastery_score:.2f})")
-        return Result.ok(True)
+        return Result.ok(to_mastered_write_rows([dict(record)])[0])
 
     @safe_backend_operation("record_knowledge_progress")
     async def record_knowledge_progress(
@@ -693,25 +704,42 @@ class UserBackend(Neo4jSessionRunner):
             motivation_note: User's motivation for enrolling
 
         Returns:
-            Result[bool]: Success status
+            Result[bool]: True when this call created the enrollment, False
+            when the user was already enrolled (the edge's fields are
+            refreshed either way)
         """
-        merged = await self._merge_user_edge(
-            user_uid,
-            learning_path_uid,
-            "ENROLLED_IN",
-            """r.enrolled_at = coalesce(r.enrolled_at, datetime()),
-            r.target_completion = $target_completion,
-            r.weekly_time_commitment = $weekly_time_commitment,
-            r.motivation_note = $motivation_note,
-            r.status = 'active'""",
+        # Not _merge_user_edge: the publisher of LearningPathStarted needs to
+        # know whether THIS call created the enrollment (a repeat enroll is not
+        # a start), and the helper reports existence only. The MERGE sets a
+        # marker in its ON CREATE / ON MATCH branch, under its lock, and the
+        # statement removes it before returning — the same shape as the
+        # MASTERED writers' was_mastered.
+        record = await self._run_single(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (lp:LearningPath {uid: $learning_path_uid})
+            MERGE (u)-[r:ENROLLED_IN]->(lp)
+            ON CREATE SET r.transition = true
+            ON MATCH SET r.transition = false
+            SET r.enrolled_at = coalesce(r.enrolled_at, datetime()),
+                r.target_completion = $target_completion,
+                r.weekly_time_commitment = $weekly_time_commitment,
+                r.motivation_note = $motivation_note,
+                r.status = $active
+            WITH r, r.transition AS newly_enrolled
+            REMOVE r.transition
+            RETURN newly_enrolled
+            """,
             {
+                "user_uid": user_uid,
+                "learning_path_uid": learning_path_uid,
                 "target_completion": target_completion or datetime.now().isoformat(),
                 "weekly_time_commitment": weekly_time_commitment,
                 "motivation_note": motivation_note,
+                "active": EnrollmentStatus.ACTIVE.value,
             },
-            target_label="LearningPath",
         )
-        if not merged:
+        if record is None:
             # MERGE only fails to produce a row when a MATCH found nothing —
             # the LP (or user) doesn't exist, not a database outage.
             return Result.fail(
@@ -719,7 +747,7 @@ class UserBackend(Neo4jSessionRunner):
             )
 
         self.logger.info(f"Enrolled user in path: {user_uid} → {learning_path_uid}")
-        return Result.ok(True)
+        return Result.ok(bool(record["newly_enrolled"]))
 
     @safe_backend_operation("complete_learning_path")
     async def complete_learning_path(
@@ -745,7 +773,7 @@ class UserBackend(Neo4jSessionRunner):
         """
         query = """
         MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $learning_path_uid})
-        SET r.status = 'completed',
+        SET r.status = $completed,
             r.completed_at = datetime(),
             r.completion_score = $completion_score,
             r.feedback_rating = $feedback_rating
@@ -759,6 +787,7 @@ class UserBackend(Neo4jSessionRunner):
                 "learning_path_uid": learning_path_uid,
                 "completion_score": completion_score,
                 "feedback_rating": feedback_rating,
+                "completed": EnrollmentStatus.COMPLETED.value,
             },
         )
 

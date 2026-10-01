@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-09-30
+updated: 2026-10-01
 category: patterns
 related_skills: []
 related_docs:
@@ -475,7 +475,7 @@ The largest single migration — 35 inline Cypher queries from 8 PathStep servic
 | **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | `_KnowledgeContextMixin` |
 | **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | `_SemanticMixin` |
 | **Graph (8)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps` | `_SemanticMixin` + `_KnowledgeContextMixin` |
-| **Adaptive (4)** | `track_mastery_completion`, `query_user_masteries`, `query_active_learning_paths`, `query_completed_learning_paths` | `_AdaptiveMixin` |
+| **Adaptive (3)** | `query_user_masteries`, `query_active_learning_paths`, `query_completed_learning_paths` (~~`track_mastery_completion`~~ — deleted: a PathStep's `MASTERED` edge is written by `_LearningStateMixin.mark_mastered`, the Ku edge's writer, from `PsMasteryService.handle_knowledge_mastered`) | `_AdaptiveMixin` |
 
 **Protocol:** 31 new methods added to the curriculum protocol (then named `LessonOperations`, now `PsOperations`) in `curriculum_protocols.py`.
 

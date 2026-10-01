@@ -18,6 +18,18 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.ports.query_types import MasteredEntityUidRow
+
+
+def _to_mastered_entity_uid_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[MasteredEntityUidRow]:
+    """Project raw rows onto MasteredEntityUidRow (KeyError on alias drift).
+
+    Indexing the alias turns a renamed RETURN into a failed ``Result`` at the
+    boundary instead of a silently-empty membership set downstream.
+    """
+    return [{"uid": str(row["uid"])} for row in records]
 
 
 class UserProgressBackend:
@@ -41,10 +53,16 @@ class UserProgressBackend:
         )
 
     async def get_mastered_knowledge(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all mastered knowledge for user with relationship properties."""
+        """Every Ku the user has mastered, with the edge's properties.
+
+        ``:Ku`` — a PathStep carries a MASTERED edge of its own (derived when its
+        last Ku is mastered), and the knowledge list feeds concept counts
+        (``concepts_mastered``) that must not grow by one per completed step.
+        Membership across both kinds is ``get_mastered_entity_uids``.
+        """
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity)
+            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity:Ku)
             RETURN
                 k.uid as knowledge_uid,
                 r.mastery_score as mastery_score,
@@ -75,6 +93,24 @@ class UserProgressBackend:
             """,
             {"user_uid": user_uid},
         )
+
+    async def get_mastered_entity_uids(self, user_uid: str) -> Result[list[MasteredEntityUidRow]]:
+        """The uid of every entity the user has mastered — a Ku or a PathStep.
+
+        The membership set: a path page asks "is this step mastered?", a
+        prerequisite chain asks it of Kus and steps alike. Counting is
+        ``get_mastered_knowledge``'s job.
+        """
+        result = await self._executor.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})-[:MASTERED]->(e:Entity)
+            RETURN e.uid AS uid
+            """,
+            {"user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_mastered_entity_uid_rows(result.value or []))
 
     async def get_completed_prerequisites(self, user_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all prerequisites that user has completed (mastered entities that are prereqs)."""
@@ -266,10 +302,10 @@ class UserProgressBackend:
         `mastery_level` (read here as `>= 0.7`), but that model was never built;
         the live vocabulary splits the same continuum across two edge types —
         IN_PROGRESS carries `progress`, MASTERED is its terminal state. Mastery
-        is therefore the edge, not a property comparison, and it has to be:
-        `_AdaptiveMixin.track_mastery_completion` creates MASTERED edges with no
-        `mastery_score` at all (its `mastery_level` is a STRING — 'introduced' /
-        'proficient'), so any numeric filter here would silently drop them.
+        is therefore the edge, not a property comparison: `mastery_score` is
+        per-writer (`UserBackend.record_knowledge_mastery` sets it, the derived
+        PathStep edge pins it at 1.0), and a numeric filter would encode one
+        writer's scale as the rule for all.
 
         The mastery match is OPTIONAL and the query anchors on the User. A
         mandatory match yields zero rows for a user who has mastered nothing,

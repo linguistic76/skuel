@@ -6,8 +6,10 @@ Handles path step progress tracking based on KU mastery.
 
 Event Chain:
     KnowledgeMastered → PsProgressService.handle_knowledge_mastered()
-    → PathStepProgressUpdated / PathStepCompleted
-    → LpProgressService.handle_step_completed()
+    → PathStepProgressUpdated
+
+PathStepCompleted is not published here: PsMasteryService.handle_knowledge_mastered
+detects a fully-mastered step, writes its MASTERED edge, and publishes it.
 
 Progress is calculated as: kus_mastered / total_kus (via USES_KU + CONTAINS_KNOWLEDGE).
 """

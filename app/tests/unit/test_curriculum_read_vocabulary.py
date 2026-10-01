@@ -96,7 +96,7 @@ def test_ku_mastery_progress_survives_a_user_with_no_masteries() -> None:
     who has mastered nothing, which the service reads back as "this path has no
     Kus" — the inverse of the truth, for the learner it matters most to.
     """
-    source = _cypher_only(_source(_lp_progress_mixin._LpProgressMixin.get_ku_mastery_progress))
+    source = _cypher_only(_source(_lp_progress_mixin._LpProgressMixin.record_enrollment_progress))
 
     assert "EXISTS {" in source
     assert "MATCH (user:User" not in source

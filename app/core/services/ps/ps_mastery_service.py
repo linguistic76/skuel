@@ -12,7 +12,8 @@ Responsibilities:
 - Track in-progress learning state
 - Manage MASTERED transitions
 - Support pedagogical search filters
-- Detect PathStep completion when all KUs are mastered
+- Detect PathStep completion when all KUs are mastered, write the step's
+  MASTERED edge, and publish PathStepCompleted
 
 Architecture:
 - Delegates Cypher to PathStep backend
@@ -21,7 +22,7 @@ Architecture:
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -34,6 +35,25 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import PsOperations
+    from core.ports.query_types import StepMasteryGapRow
+
+
+STEP_MASTERY_METHOD = "derived"
+"""``method`` on a PathStep's MASTERED edge: earned by mastering every Ku the
+step teaches, never reported directly (a Ku's ``method`` names its reporter —
+``report_approval``, ``activity_report``, ``self_report``)."""
+
+STEP_MASTERY_SCORE = 1.0
+"""``mastery_score`` on a PathStep's MASTERED edge: the step's mastered-Ku
+ratio, which is 1.0 by the time the edge is written."""
+
+
+class StepWrite(Enum):
+    """What one attempt to master a step came to."""
+
+    TRANSITION = "transition"  # the edge is new — PathStepCompleted announced
+    ALREADY_MASTERED = "already_mastered"  # the edge existed — nothing to announce
+    NOT_WRITTEN = "not_written"  # the write failed or matched nothing — logged, withheld
 
 
 class LearningState(StrEnum):
@@ -73,7 +93,9 @@ class PsMasteryService:
     State Transitions:
         - record_view(): NONE -> VIEWED (or updates existing VIEWED)
         - mark_in_progress(): VIEWED -> IN_PROGRESS
-        - mark_mastered(): IN_PROGRESS -> MASTERED (handled elsewhere)
+        - mark_mastered(): IN_PROGRESS -> MASTERED for a Ku (report approval)
+        - handle_knowledge_mastered(): IN_PROGRESS -> MASTERED for a PathStep,
+          derived the moment its last Ku is mastered
 
     Relationship Properties:
         VIEWED: first_viewed_at, last_viewed_at, view_count, time_spent_seconds
@@ -339,6 +361,11 @@ class PsMasteryService:
         CASE WHEN new > existing so higher scores always win — teacher
         approval scores will upgrade AI feedback scores for the same exercise.
 
+        ``KnowledgeMastered`` is published on the transition only — the write
+        that created the edge. A re-approval raises the stored score and is
+        not an event: the chain behind it counts per event (the velocity
+        counter, ``paths_completed``), so a repeat would inflate it.
+
         The mastery_score is determined by MasteryImpact on the Exercise:
         - EntryReportService uses MasteryImpact.get_ai_score() (0.4-0.8)
         - TeacherReviewService uses MasteryImpact.get_teacher_score() (0.6-0.95)
@@ -351,14 +378,16 @@ class PsMasteryService:
         if result.is_error:
             return Result.fail(result)
 
-        if result.value:
-            record = result.value[0]
-            self.logger.info(
-                f"Marked KU as mastered: {user_uid} -> {ku_uid} "
-                f"(score={record['mastery_score']}, method={method})"
-            )
+        if not result.value:
+            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
 
-            # Publish KnowledgeMastered event to activate LP progress chain
+        record = result.value[0]
+        self.logger.info(
+            f"Marked KU as mastered: {user_uid} -> {ku_uid} "
+            f"(score={record['mastery_score']}, method={method}, "
+            f"transition={not record['was_mastered']})"
+        )
+        if not record["was_mastered"]:
             event = KnowledgeMastered(
                 ku_uid=ku_uid,
                 user_uid=user_uid,
@@ -366,9 +395,7 @@ class PsMasteryService:
             )
             await publish_event(self.event_bus, event, self.logger)
 
-            return Result.ok(True)
-        else:
-            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+        return Result.ok(True)
 
     # =========================================================================
     # EVENT HANDLERS
@@ -376,13 +403,26 @@ class PsMasteryService:
 
     async def handle_knowledge_mastered(self, event: KnowledgeMastered) -> None:
         """
-        Detect PathStep completion when a KU is mastered.
+        Master the PathSteps a Ku mastery completes.
 
-        Checks if all KUs linked via USES_KU/CONTAINS_KNOWLEDGE are now mastered.
-        If so, publishes PathStepCompleted.
+        A step is complete when every Ku it teaches (USES_KU / CONTAINS_KNOWLEDGE /
+        TRAINS_KU) is mastered. For each such step the learner's MASTERED edge is
+        written first — the same writer and edge shape as a Ku's — and
+        PathStepCompleted is published only once the write has landed, and only
+        for the write that created the edge, so the event announces a persisted
+        transition and no subscriber can advance on a step the graph does not
+        show as mastered. Idempotent: a repeat mastery event re-detects the step,
+        the MERGE leaves one edge, and nothing is announced twice.
 
-        Best-effort: errors are logged but not raised to prevent
-        KU mastery from failing if path step detection fails.
+        A step that teaches no Ku is never detected here; it has no derivable
+        mastery (see ``docs/roadmap/zero-ku-step-mastery.md``).
+
+        Best-effort: errors are logged but not raised to prevent KU mastery
+        from failing if path step detection fails. The Ku edge has committed by
+        then and the transition event is not replayed, so a detection or write
+        that failed here leaves a gap the graph itself shows — a user with
+        every Ku of a step mastered and no step edge — which
+        ``reconcile_step_mastery`` (``./dev reconcile-learning-progress``) closes.
         """
         try:
             result = await self.backend.detect_path_step_completion(event.ku_uid, event.user_uid)
@@ -391,21 +431,88 @@ class PsMasteryService:
                 self.logger.error(f"Failed to check path step completion: {result.error}")
                 return
 
+            now = datetime.now(UTC).isoformat()
             for record in result.value or []:
-                ps_event = PathStepCompleted(
-                    ps_uid=record["ps_uid"],
-                    user_uid=event.user_uid,
-                )
-                await publish_event(self.event_bus, ps_event, self.logger)
-                self.logger.info(
-                    f"Path step completed: {record['ps_uid']} "
-                    f"(all KUs mastered by {event.user_uid})"
-                )
+                await self._master_step(event.user_uid, str(record["ps_uid"]), now)
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error detecting path step completion: {e}")
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error detecting path step completion: {e}")
+
+    async def _master_step(self, user_uid: UserUID, ps_uid: str, now: str) -> StepWrite:
+        """Write the step's MASTERED edge; announce it if this write created it.
+
+        A write that errors or matches nothing withholds the event (logged);
+        an edge that already existed is a repeat, not a transition — the two
+        are told apart in the verdict, because a caller reconciling gaps must
+        not read "another writer got there first" as a failure.
+        """
+        written = await self.backend.mark_mastered(
+            user_uid, ps_uid, now, STEP_MASTERY_SCORE, STEP_MASTERY_METHOD
+        )
+        if written.is_error or not written.value:
+            self.logger.error(
+                f"Path step {ps_uid} completed by {user_uid} but its MASTERED "
+                f"edge was not written; PathStepCompleted withheld: "
+                f"{written.error if written.is_error else 'no row returned'}"
+            )
+            return StepWrite.NOT_WRITTEN
+        if written.value[0]["was_mastered"]:
+            self.logger.debug(f"Path step {ps_uid} already mastered by {user_uid}")
+            return StepWrite.ALREADY_MASTERED
+
+        await publish_event(
+            self.event_bus, PathStepCompleted(ps_uid=ps_uid, user_uid=user_uid), self.logger
+        )
+        self.logger.info(f"Path step mastered: {ps_uid} (all KUs mastered by {user_uid})")
+        return StepWrite.TRANSITION
+
+    async def reconcile_step_mastery(
+        self, *, dry_run: bool = False
+    ) -> Result[list[StepMasteryGapRow]]:
+        """Close every step-mastery gap the graph shows, across all users.
+
+        A gap is a (user, step) pair with every Ku of the step mastered and no
+        step edge — what a derivation that failed behind ``KnowledgeMastered``
+        leaves, or a graph whose Ku masteries predate the derived writer. Each
+        gap is closed through the one writer (``_master_step``), which publishes
+        ``PathStepCompleted`` for the edge it creates, so the path-progress
+        chain runs for the reconciled step as it would have at the time.
+        Idempotent: a second run finds nothing. ``dry_run`` reports the gaps
+        and writes nothing.
+
+        Returns the gaps closed — by this run, or by the live handler in the
+        moment between the read and the write (an edge found already there is
+        a healthy graph, not a failure). Every gap is attempted; if any write
+        failed the result is a failure naming the pairs left open, so a caller
+        never reads a partial run as a clean one.
+        """
+        gaps = await self.backend.find_step_mastery_gaps()
+        if gaps.is_error:
+            return Result.fail(gaps)
+        if dry_run:
+            return Result.ok(gaps.value)
+
+        now = datetime.now(UTC).isoformat()
+        closed: list[StepMasteryGapRow] = []
+        left_open: list[StepMasteryGapRow] = []
+        for gap in gaps.value:
+            verdict = await self._master_step(UserUID(gap["user_uid"]), gap["ps_uid"], now)
+            if verdict is StepWrite.NOT_WRITTEN:
+                left_open.append(gap)
+            else:
+                closed.append(gap)
+        if left_open:
+            pairs = ", ".join(f"{g['user_uid']}→{g['ps_uid']}" for g in left_open)
+            return Result.fail(
+                Errors.database(
+                    "reconcile_step_mastery",
+                    f"{len(left_open)} of {len(gaps.value)} step-mastery gap(s) left open "
+                    f"({len(closed)} closed): {pairs}",
+                )
+            )
+        return Result.ok(closed)
 
     async def get_bookmarked_kus(
         self,
