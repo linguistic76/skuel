@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
@@ -325,19 +326,29 @@ class _LearningStateMixin:
         point one of these edges at another step, and a step's mastery is
         announced as ``PathStepCompleted`` — never ``KnowledgeMastered`` — so
         a non-Ku target in the tally would leave the parent underivable.
+
+        Publication-gated: a draft step is never derived. Its mastery would be
+        a learner-state reference to curriculum the learner never saw, and the
+        learner-state reads (``MASTERED_PATH_STEPS_QUERY``) carry no gate of
+        their own. A step published later is a gap ``find_step_mastery_gaps``
+        reports and the reconciler closes.
         """
-        query = """
-        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {uid: $ku_uid})
+        published, published_params = build_publication_clause("ps")
+        query = f"""
+        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {{uid: $ku_uid}})
+        WHERE {published}
         WITH ps
         MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(all_ku:Entity:Ku)
         WITH ps, collect(DISTINCT all_ku.uid) as all_ku_uids, count(DISTINCT all_ku) as total
-        OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered_ku:Entity)
+        OPTIONAL MATCH (user:User {{uid: $user_uid}})-[:MASTERED]->(mastered_ku:Entity)
         WHERE mastered_ku.uid IN all_ku_uids
         WITH ps, total, count(DISTINCT mastered_ku) as mastered_count, all_ku_uids
         WHERE mastered_count = total
         RETURN ps.uid as ps_uid, ps.title as ps_title, all_ku_uids
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid, "user_uid": user_uid})
+        return await self.execute_query(
+            query, {"ku_uid": ku_uid, "user_uid": user_uid, **published_params}
+        )
 
     async def find_step_mastery_gaps(self) -> Result[list[StepMasteryGapRow]]:
         """Every (user, step) pair where the user has mastered all of the step's
@@ -347,19 +358,23 @@ class _LearningStateMixin:
         detection or write that failed after the Ku edge committed leaves this
         gap, and the transition event is not replayed. The reconciler reads the
         gaps from the graph's own state and closes them. The tally is ``:Ku``
-        only, as in ``detect_path_step_completion``.
+        only and the step must be published, as in ``detect_path_step_completion``
+        — which is also how a step published after its Kus were mastered gets
+        its edge.
         """
-        query = """
+        published, published_params = build_publication_clause("ps")
+        query = f"""
         MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity:Ku)
+        WHERE {published}
         WITH ps, collect(DISTINCT ku) AS kus
         MATCH (user:User)-[:MASTERED]->(mastered:Entity)
         WHERE mastered IN kus
         WITH ps, kus, user, count(DISTINCT mastered) AS mastered_count
-        WHERE mastered_count = size(kus) AND NOT EXISTS { (user)-[:MASTERED]->(ps) }
+        WHERE mastered_count = size(kus) AND NOT EXISTS {{ (user)-[:MASTERED]->(ps) }}
         RETURN user.uid AS user_uid, ps.uid AS ps_uid
         ORDER BY user.uid, ps.uid
         """
-        result = await self.execute_query(query, {})
+        result = await self.execute_query(query, published_params)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(

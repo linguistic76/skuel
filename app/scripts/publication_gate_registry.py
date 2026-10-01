@@ -423,6 +423,21 @@ SURFACES: tuple[Surface, ...] = (
         "resurface drafts the vector gate withholds (Codex #1006 class).",
     ),
     Surface(
+        "adapters.persistence.neo4j._learning_state_mixin",
+        "_LearningStateMixin.detect_path_step_completion",
+        Disposition.GATED,
+        "Derives a step's mastery from its Kus. An ungated derivation would write "
+        "a learner-state reference to a draft step the learner never saw, and the "
+        "learner-state reads (MASTERED_PATH_STEPS_QUERY) carry no gate of their own.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j._learning_state_mixin",
+        "_LearningStateMixin.find_step_mastery_gaps",
+        Disposition.GATED,
+        "The reconciler's read of the same derivation across all users; a draft "
+        "step is no gap until it is published.",
+    ),
+    Surface(
         "adapters.persistence.neo4j.vector_search_backend",
         "VectorSearchBackend._chunk_visibility_clause",
         Disposition.GATED,

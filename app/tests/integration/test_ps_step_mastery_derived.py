@@ -36,16 +36,18 @@ from core.services.ps.ps_mastery_service import (
 USER = UserUID("user_step_mastery_derived")
 STEP = "ps.probe.two-kus"
 STEP_EMPTY = "ps.probe.zero-kus"
+STEP_DRAFT = "ps.probe.draft"
 KU_A = "ku.probe.a"
 KU_B = "ku.probe.b"
 
 
 @pytest_asyncio.fixture
 async def backend(neo4j_driver, clean_neo4j) -> PsBackend:
-    """One step teaching two Kus (the learner is enrolled in it) — and pointing a
-    composition edge at a second step that teaches none. Only Kus count toward
-    the tally: the step-to-step edge, which the edge writer permits, must not
-    hold the parent back (a step's mastery is never a KnowledgeMastered)."""
+    """One step teaching two Kus (the learner is enrolled in it) — pointing a
+    composition edge at a second step that teaches none, beside a DRAFT step
+    teaching the same two Kus. Only Kus count toward the tally: the step-to-step
+    edge, which the edge writer permits, must not hold the parent back (a step's
+    mastery is never a KnowledgeMastered); and only a published step is derived."""
     async with neo4j_driver.session() as session:
         await session.run("MERGE (u:User {uid: $u})", u=USER)
         await session.run(
@@ -55,16 +57,22 @@ async def backend(neo4j_driver, clean_neo4j) -> PsBackend:
                                         title: 'Two Kus', status: 'active'})
             CREATE (empty:Entity:PathStep {uid: $empty, entity_type: 'path_step',
                                            title: 'No Kus', status: 'active'})
+            CREATE (draft:Entity:PathStep {uid: $draft, entity_type: 'path_step',
+                                           title: 'Unfinished', status: 'active',
+                                           publication_state: 'draft'})
             CREATE (a:Entity:Ku {uid: $a, entity_type: 'ku', title: 'A'})
             CREATE (b:Entity:Ku {uid: $b, entity_type: 'ku', title: 'B'})
             CREATE (ps)-[:USES_KU]->(a)
             CREATE (ps)-[:USES_KU]->(b)
             CREATE (ps)-[:USES_KU]->(empty)
+            CREATE (draft)-[:USES_KU]->(a)
+            CREATE (draft)-[:USES_KU]->(b)
             CREATE (u)-[:IN_PROGRESS {started_at: datetime()}]->(ps)
             """,
             u=USER,
             step=STEP,
             empty=STEP_EMPTY,
+            draft=STEP_DRAFT,
             a=KU_A,
             b=KU_B,
         )
@@ -222,3 +230,31 @@ async def test_reconcile_closes_a_gap_the_handler_left(neo4j_driver, backend, bu
     assert again.is_ok and again.value == [], "idempotent — a second run finds no gap"
     assert len(_completions(bus)) == 1
     assert all(e.ps_uid != STEP_EMPTY for e in _completions(bus)), "a zero-Ku step is no gap"
+
+
+@pytest.mark.asyncio
+async def test_a_draft_step_is_not_derived_until_published(
+    neo4j_driver, backend, bus, mastery
+) -> None:
+    """The draft shares both Kus with the published step; mastering them derives
+    the published step only. Publishing the draft later makes it a gap the
+    reconciler closes — no replay of the Ku masteries needed."""
+    assert (await mastery.mark_mastered(USER, KU_A, 0.9)).is_ok
+    assert (await mastery.mark_mastered(USER, KU_B, 0.9)).is_ok
+
+    assert len(await _step_edges(neo4j_driver, STEP)) == 1
+    assert await _step_edges(neo4j_driver, STEP_DRAFT) == [], "a draft step is never derived"
+    assert [e.ps_uid for e in _completions(bus)] == [STEP]
+    assert (await mastery.reconcile_step_mastery(dry_run=True)).value == [], (
+        "a draft step is no gap either"
+    )
+
+    async with neo4j_driver.session() as session:
+        await session.run(
+            "MATCH (ps:Entity {uid: $uid}) SET ps.publication_state = 'published'", uid=STEP_DRAFT
+        )
+
+    closed = await mastery.reconcile_step_mastery()
+    assert closed.is_ok and closed.value == [{"user_uid": USER, "ps_uid": STEP_DRAFT}]
+    assert len(await _step_edges(neo4j_driver, STEP_DRAFT)) == 1
+    assert [e.ps_uid for e in _completions(bus)] == [STEP, STEP_DRAFT]

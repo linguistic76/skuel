@@ -569,6 +569,25 @@ _BUILDER_RESIDUAL = (
 )
 
 UNMEASURABLE: dict[tuple[str, str], str] = {
+    (
+        "adapters.persistence.neo4j._learning_state_mixin",
+        "_LearningStateMixin.detect_path_step_completion",
+    ): (
+        "needs a learner who has mastered EVERY Ku of a draft step; this corpus "
+        "seeds one MASTERED edge, onto ku_shared, and no draft step is complete "
+        "for USER. CONVERTIBLE: one MASTERED edge onto KU_VIA_DRAFT_ONLY would "
+        "cover it, deliberately not added because a MASTERED edge changes what "
+        "the mastery-anchored surfaces return. Measured instead in "
+        "test_ps_step_mastery_derived.py (a draft step sharing the mastered Kus "
+        "is not derived; published, the reconciler derives it)"
+    ),
+    (
+        "adapters.persistence.neo4j._learning_state_mixin",
+        "_LearningStateMixin.find_step_mastery_gaps",
+    ): (
+        "the same derivation read across all users — the same corpus gap and "
+        "the same measurement in test_ps_step_mastery_derived.py"
+    ),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "_nous_subtopic_pairs_query"): (
         "returns facet vocabulary (nous/subtopic strings), not entity "
         "identities — there is no uid for an identity-based invariant to detect"
