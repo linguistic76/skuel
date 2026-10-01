@@ -441,19 +441,19 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """Mark a Ku as understood/mastered by the user; the higher score wins.
 
         Reports ``was_mastered`` (the edge existed before this write) so the
-        service publishes on the transition only.
+        service publishes on the transition only — decided by the ``MERGE``
+        itself, under its lock (``_LearningStateMixin.mark_mastered`` explains).
         """
         query = """
         MATCH (user:User {uid: $user_uid})
         MATCH (ku:Entity:Ku {uid: $ku_uid})
-        OPTIONAL MATCH (user)-[existing:MASTERED]->(ku)
-        WITH user, ku, existing IS NOT NULL AS was_mastered
         MERGE (user)-[r:MASTERED]->(ku)
         ON CREATE SET
             r.mastered_at = datetime(),
             r.mastery_score = $mastery_score,
             r.confidence = $mastery_score,
-            r.method = $method
+            r.method = $method,
+            r.transition = true
         ON MATCH SET
             r.mastery_score = CASE
                 WHEN $mastery_score > r.mastery_score THEN $mastery_score
@@ -463,7 +463,10 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 WHEN $mastery_score > coalesce(r.confidence, 0) THEN $mastery_score
                 ELSE r.confidence
             END,
-            r.method = $method
+            r.method = $method,
+            r.transition = false
+        WITH r, NOT r.transition AS was_mastered
+        REMOVE r.transition
         RETURN r.mastery_score AS mastery_score, was_mastered
         """
         result = await self.execute_query(

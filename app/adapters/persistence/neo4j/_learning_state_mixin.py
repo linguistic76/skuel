@@ -149,21 +149,24 @@ class _LearningStateMixin:
         edge is retired in the same statement — a mastered step holds no
         enrollment-cap slot (``count_in_progress_path_steps``).
 
-        Reports ``was_mastered`` — whether the edge existed before this write,
-        read in the same statement — so the caller publishes on the transition
-        only, never on a repeat.
+        Reports ``was_mastered`` — whether the edge existed before this write —
+        so the caller publishes on the transition only, never on a repeat. The
+        verdict is decided BY the write (ADR-087): ``MERGE`` sets a marker in
+        its ``ON CREATE`` / ``ON MATCH`` branch, under the lock it holds on the
+        pair, and the marker is removed before the row is returned. A read
+        taken before the ``MERGE`` would let two concurrent first writes both
+        report a transition.
         """
         query = """
         MATCH (user:User {uid: $user_uid})
         MATCH (entity:Entity {uid: $entity_uid})
-        OPTIONAL MATCH (user)-[existing:MASTERED]->(entity)
-        WITH user, entity, existing IS NOT NULL AS was_mastered
         MERGE (user)-[r:MASTERED]->(entity)
         ON CREATE SET
             r.mastered_at = datetime($now),
             r.mastery_score = $mastery_score,
             r.confidence = $mastery_score,
-            r.method = $method
+            r.method = $method,
+            r.transition = true
         ON MATCH SET
             r.mastery_score = CASE
                 WHEN $mastery_score > r.mastery_score THEN $mastery_score
@@ -173,7 +176,10 @@ class _LearningStateMixin:
                 WHEN $mastery_score > coalesce(r.confidence, 0) THEN $mastery_score
                 ELSE r.confidence
             END,
-            r.method = $method
+            r.method = $method,
+            r.transition = false
+        WITH user, entity, r, NOT r.transition AS was_mastered
+        REMOVE r.transition
         WITH user, entity, r, was_mastered
         OPTIONAL MATCH (user)-[ip:IN_PROGRESS]->(entity)
         DELETE ip

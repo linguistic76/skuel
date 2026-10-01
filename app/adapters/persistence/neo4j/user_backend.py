@@ -525,8 +525,10 @@ class UserBackend(Neo4jSessionRunner):
 
         Returns:
             Result[MasteredWriteRow]: the stored score and ``was_mastered`` —
-            whether the edge existed before this write (the publisher's
-            transition flag)
+            whether the edge existed before this write, decided by the
+            ``MERGE`` under its lock (``_LearningStateMixin.mark_mastered``
+            explains), so the publisher's transition flag survives two
+            concurrent first writes
         """
         # Not _merge_user_edge: mastering a KU must also retire its IN_PROGRESS
         # edge (the state progression is VIEWED → IN_PROGRESS → MASTERED, and
@@ -537,13 +539,15 @@ class UserBackend(Neo4jSessionRunner):
             """
             MATCH (u:User {uid: $user_uid})
             MATCH (t:Entity {uid: $target_uid})
-            OPTIONAL MATCH (u)-[existing:MASTERED]->(t)
-            WITH u, t, existing IS NOT NULL AS was_mastered
             MERGE (u)-[r:MASTERED]->(t)
+            ON CREATE SET r.transition = true
+            ON MATCH SET r.transition = false
             SET r.mastery_score = $mastery_score,
                 r.practice_count = $practice_count,
                 r.confidence_level = $confidence_level,
                 r.last_practiced = datetime()
+            WITH u, t, r, NOT r.transition AS was_mastered
+            REMOVE r.transition
             WITH u, t, r, was_mastered
             OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(t)
             DELETE ip
