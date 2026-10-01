@@ -278,8 +278,9 @@ async def get_optimal_next_path_steps(
 **Parameters:**
 - `max_steps` (int, default=5) - Maximum number of steps to return
 - `consider_goals` (bool, default=True) - Weight by goal alignment: each goal a step serves
-  adds `NextStepRanking.GOAL_WEIGHT_PER_GOAL` to its `priority_score`, up to `GOAL_WEIGHT_MAX`.
-  Off, goal alignment changes no score; `aligns_with_goals` is filled either way
+  adds `NextStepRanking.GOAL_WEIGHT_PER_GOAL` to its `priority_score`, up to `GOAL_WEIGHT_MAX`
+  and no higher than a score of 1.0. Off, goal alignment changes no score;
+  `aligns_with_goals` is filled either way
 - `consider_capacity` (bool, default=True) - Respect user capacity limits: the returned steps
   fit `context.available_minutes_daily` together. Off, no step is dropped
 

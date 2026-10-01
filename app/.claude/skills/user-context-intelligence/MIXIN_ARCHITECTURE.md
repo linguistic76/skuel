@@ -85,8 +85,9 @@ returns. A source scores its own candidates and hands them to `_rank_steps`, whe
 flags act:
 
 - **`consider_goals`** — each goal a step serves adds `NextStepRanking.GOAL_WEIGHT_PER_GOAL`
-  to its `priority_score`, up to `GOAL_WEIGHT_MAX`. Off, goal alignment changes no score and
-  moves no step. `aligns_with_goals` and the rationale name the goals either way.
+  to its `priority_score`, up to `GOAL_WEIGHT_MAX`; the weight lifts a score no higher than
+  1.0, so a step a source already scored near the top gains less. Off, goal alignment changes
+  no score and moves no step. `aligns_with_goals` and the rationale name the goals either way.
 - **`consider_capacity`** — the returned steps fit `context.available_minutes_daily`
   together. Walking the ranking, a step is kept when its `estimated_time_minutes` fits in what
   is left of the day, so a step too long for the remainder is skipped and a shorter one ranked

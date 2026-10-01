@@ -902,7 +902,8 @@ class NextStepRanking:
     # Added per goal the step serves.
     GOAL_WEIGHT_PER_GOAL: Final = 0.1
 
-    # The most goal alignment can add, however many goals the step serves.
+    # The most goal alignment can add, however many goals the step serves. The
+    # weighted score itself stops at 1.0.
     GOAL_WEIGHT_MAX: Final = 0.3
 
 

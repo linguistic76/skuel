@@ -69,9 +69,10 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             max_steps: Maximum number of steps to return
             consider_goals: Weight by goal alignment. On, each goal a step serves adds
                 ``NextStepRanking.GOAL_WEIGHT_PER_GOAL`` to its ``priority_score``, up to
-                ``GOAL_WEIGHT_MAX``. Off, goal alignment adds nothing to a score and moves
-                no step. ``aligns_with_goals`` and the rationale name the goals either
-                way — they are information, not ranking.
+                ``GOAL_WEIGHT_MAX``, and the weight lifts a score no higher than 1.0. Off,
+                goal alignment adds nothing to a score and moves no step.
+                ``aligns_with_goals`` and the rationale name the goals either way — they
+                are information, not ranking.
             consider_capacity: Respect user capacity limits. On, the returned steps fit
                 ``context.available_minutes_daily`` together: walking the ranking, a step
                 is kept when its ``estimated_time_minutes`` fits in what is left of the

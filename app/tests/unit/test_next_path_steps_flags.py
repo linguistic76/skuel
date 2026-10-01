@@ -269,6 +269,18 @@ async def test_goal_weight_stops_at_its_maximum() -> None:
 
 
 @pytest.mark.asyncio
+async def test_goal_weight_lifts_a_score_no_higher_than_one() -> None:
+    ready = [
+        ContextualKnowledge(uid=THIRD, title=THIRD, priority_score=0.95, prerequisites_met=True)
+    ]
+    on = await _steps(
+        _intelligence(_context(), ready=ready), consider_goals=True, consider_capacity=False
+    )
+
+    assert _scores(on) == {THIRD: 1.0}
+
+
+@pytest.mark.asyncio
 async def test_goal_weight_never_lowers_a_vector_score_above_one() -> None:
     rows: list[dict[str, object]] = [
         {"node": {"uid": THIRD, "title": THIRD}, "score": 1.12},
@@ -283,7 +295,7 @@ async def test_goal_weight_never_lowers_a_vector_score_above_one() -> None:
 
 
 @pytest.mark.asyncio
-async def test_empty_proximal_zone_hands_the_caller_s_goals_flag_to_the_next_source() -> None:
+async def test_empty_proximal_zone_passes_the_goals_flag_to_the_next_source() -> None:
     """A non-empty assessment with no candidates falls through; the flag goes with it."""
     context = _context()
     intelligence = _intelligence(context, assessment=_assessment(proximal=[]))
