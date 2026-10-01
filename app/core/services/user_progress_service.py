@@ -230,9 +230,13 @@ class UserProgressService:
 
         username = user_record["username"] or "User"
 
-        # Mastered Kus (the concept list) and every mastered entity (membership)
+        # Mastered Kus (the concept list) seed the membership set; the entity read
+        # widens it with the mastered steps — a failed widening keeps the Kus
+        # (this builder is best-effort), so the two never disagree on a Ku.
         mastered = await self._get_mastered_knowledge(user_uid)
-        mastered_uids = await self._get_mastered_entity_uids(user_uid)
+        mastered_uids = {m.knowledge_uid for m in mastered} | await self._get_mastered_entity_uids(
+            user_uid
+        )
 
         # Get in-progress knowledge
         in_progress = await self._get_in_progress_knowledge(user_uid)

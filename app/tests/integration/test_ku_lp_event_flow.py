@@ -302,23 +302,31 @@ class TestKuLpEventFlow:
         )
         await asyncio.sleep(0.1)
 
-        # Verify LearningPathCompleted event was published — once
+        # Verify LearningPathCompleted event was published — once; the second
+        # trigger found the recorded progress unchanged and announced nothing.
         history = event_bus.get_event_history()
         completed_events = [e for e in history if isinstance(e, LearningPathCompleted)]
         assert len(completed_events) == 1
         assert completed_events[0].path_uid == lp.uid
         assert completed_events[0].kus_mastered == 3
+        progress_events = [e for e in history if isinstance(e, LearningPathProgressUpdated)]
+        assert [(e.old_progress, e.new_progress) for e in progress_events] == [(0.0, 1.0)]
         async with neo4j_driver.session() as session:
             row = await session.run(
                 """
                 MATCH (:User {uid: $user_uid})-[e:ENROLLED_IN]->(:Entity {uid: $lp_uid})
-                RETURN e.status AS status, e.completed_at IS NOT NULL AS stamped
+                RETURN e.status AS status, e.completed_at IS NOT NULL AS stamped,
+                       e.progress AS progress
                 """,
                 user_uid=test_user_uid,
                 lp_uid=lp.uid,
             )
             record = await row.single()
-        assert (record["status"], record["stamped"]) == ("completed", True)
+        assert (record["status"], record["stamped"], record["progress"]) == (
+            "completed",
+            True,
+            1.0,
+        )
 
     async def test_no_update_when_ku_not_in_lp(
         self,
@@ -381,20 +389,24 @@ class TestKuLpEventFlow:
         result = await lp_backend.create(lp2)
         assert result.is_ok, "Setup failed: Could not create LP"
 
-        # Link first KU to second LP
+        # Link first KU to second LP; the learner is enrolled in it too
         async with neo4j_driver.session() as session:
             await session.run(
                 """
                 MATCH (lp:Entity {uid: $lp_uid})
                 MATCH (ku:Entity {uid: $ku_uid})
+                MATCH (u:User {uid: $user_uid})
                 MERGE (ps:Entity:PathStep {uid: $ps_uid})
                   ON CREATE SET ps.entity_type = 'path_step', ps.title = $ps_uid
                 MERGE (lp)-[:HAS_STEP]->(ps)
                 MERGE (ps)-[:USES_KU]->(ku)
+                MERGE (u)-[e:ENROLLED_IN]->(lp)
+                  ON CREATE SET e.status = 'active', e.enrolled_at = datetime()
                 """,
                 lp_uid=lp2.uid,
                 ku_uid=kus[0].uid,
                 ps_uid=f"{lp2.uid}.step0",
+                user_uid=test_user_uid,
             )
 
         event_bus.subscribe(KnowledgeMastered, lp_progress_service.handle_knowledge_mastered)

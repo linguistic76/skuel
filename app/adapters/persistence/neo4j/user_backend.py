@@ -35,6 +35,7 @@ from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_c
 from adapters.persistence.neo4j._learning_state_mixin import to_mastered_write_rows
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
+from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.enums.user_enums import UserStatus
 from core.models.type_hints import FilterValue, UserUID
 from core.models.user import User
@@ -713,11 +714,12 @@ class UserBackend(Neo4jSessionRunner):
             r.target_completion = $target_completion,
             r.weekly_time_commitment = $weekly_time_commitment,
             r.motivation_note = $motivation_note,
-            r.status = 'active'""",
+            r.status = $active""",
             {
                 "target_completion": target_completion or datetime.now().isoformat(),
                 "weekly_time_commitment": weekly_time_commitment,
                 "motivation_note": motivation_note,
+                "active": EnrollmentStatus.ACTIVE.value,
             },
             target_label="LearningPath",
         )
@@ -755,7 +757,7 @@ class UserBackend(Neo4jSessionRunner):
         """
         query = """
         MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $learning_path_uid})
-        SET r.status = 'completed',
+        SET r.status = $completed,
             r.completed_at = datetime(),
             r.completion_score = $completion_score,
             r.feedback_rating = $feedback_rating
@@ -769,6 +771,7 @@ class UserBackend(Neo4jSessionRunner):
                 "learning_path_uid": learning_path_uid,
                 "completion_score": completion_score,
                 "feedback_rating": feedback_rating,
+                "completed": EnrollmentStatus.COMPLETED.value,
             },
         )
 

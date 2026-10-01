@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -260,28 +261,46 @@ class _LpProgressMixin:
             )
         )
 
-    async def complete_enrollment(
-        self, user_uid: UserUID, lp_uid: str, now: str
+    async def record_enrollment_progress(
+        self, user_uid: UserUID, lp_uid: str, progress: float, now: str
     ) -> Result[list[Neo4jProperties]]:
-        """Flip the user's ENROLLED_IN edge to ``completed``; report whether it already was.
+        """Record the learner's progress (0.0-1.0) on the ENROLLED_IN edge; report
+        the prior progress and whether the enrollment was already completed.
 
-        Completion lives on the enrollment edge (``r.status``), so this is the
-        transition ``LearningPathCompleted`` announces. Decided by the write
+        Progress and completion live on the enrollment edge (``r.progress``,
+        ``r.status``), so this one write decides both transitions the chain
+        announces: ``LearningPathProgressUpdated`` when the progress changed,
+        ``LearningPathCompleted`` when the status flipped. Decided by the write
         (ADR-087): the edge's lock is taken first (``SET r.status = r.status``),
-        the prior is read under it, then the flip is written — two triggers
-        reaching 100 % for the same path (a Ku mastery and the step completion
-        it causes, or a reconciled step) see one transition between them.
-        ``completed_at`` keeps its first value. No row: the user is not enrolled.
+        the priors are read under it, then the new state is written — two
+        triggers recomputing the same path (a Ku mastery and the step
+        completion it causes, or a reconciled step) see one transition between
+        them. ``completed_at`` keeps its first value. No row: not enrolled.
         """
         query = """
         MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $lp_uid})
         SET r.status = r.status
-        WITH r, coalesce(r.status, 'active') = 'completed' AS was_completed
-        SET r.status = 'completed',
-            r.completed_at = coalesce(r.completed_at, datetime($now))
-        RETURN was_completed
+        WITH r, coalesce(r.progress, 0.0) AS prior_progress,
+             coalesce(r.status, $active) = $completed AS was_completed
+        SET r.progress = $progress,
+            r.status = CASE WHEN $progress >= 1.0 THEN $completed ELSE r.status END,
+            r.completed_at = CASE
+                WHEN $progress >= 1.0 THEN coalesce(r.completed_at, datetime($now))
+                ELSE r.completed_at
+            END
+        RETURN prior_progress, was_completed
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "lp_uid": lp_uid, "now": now})
+        return await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "lp_uid": lp_uid,
+                "progress": progress,
+                "now": now,
+                "active": EnrollmentStatus.ACTIVE.value,
+                "completed": EnrollmentStatus.COMPLETED.value,
+            },
+        )
 
     async def get_paths_containing_step(self, ps_uid: str) -> Result[list[str]]:
         """Get UIDs of all learning paths containing a given path step via HAS_STEP.

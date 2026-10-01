@@ -46,10 +46,10 @@ UserProgressRecorderService.record_knowledge_mastery (pathways progress)
            │
            ├─► LpProgressService.handle_knowledge_mastered
            │       Find LPs containing this KU → recalculate LP progress
-           │       → publish LearningPathProgressUpdated
-           │       → if 100%: flip the ENROLLED_IN edge to completed (under
-           │                  its lock) and, for the write that flipped it,
-           │                  publish LearningPathCompleted
+           │       → record it on the ENROLLED_IN edge (under its lock; the
+           │         write reports the prior progress and status)
+           │       → if it changed: publish LearningPathProgressUpdated
+           │       → if 1.0 and the status flipped: publish LearningPathCompleted
            │
            ├─► PsProgressService.handle_knowledge_mastered
            │       Find PathSteps using this KU (via USES_KU) → recalculate
@@ -66,8 +66,9 @@ UserProgressRecorderService.record_knowledge_mastery (pathways progress)
                                    │
                                    └─► LpProgressService.handle_step_completed
                                            Find LPs containing this PS (via HAS_STEP)
-                                           → recalculate LP progress
-                                           → publish LearningPathProgressUpdated
+                                           → recalculate LP progress (the same
+                                             write; a progress the Ku mastery
+                                             already recorded announces nothing)
 ```
 
 ---
@@ -79,8 +80,8 @@ UserProgressRecorderService.record_knowledge_mastery (pathways progress)
 | `KnowledgeMastered` | every Ku-mastery door, for the write that **created** the edge (`was_mastered` False on the writer's row — a repeat raises the stored score and is not an event, since the velocity counter and `paths_completed` count per event): `PsMasteryService.mark_mastered()` (report approval), `KuService.mark_as_understood()` (the Ku page), `UserProgressRecorderService.record_knowledge_mastery()` (the pathways progress route) | `knowledge.mastered` |
 | `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | `path_step.progress_updated` |
 | `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` — for the write that created the step's `MASTERED` edge; a write that does not land, or finds the edge already there, withholds the event | `path_step.completed` |
-| `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.progress_updated` |
-| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` — once per enrollment: the ENROLLED_IN edge's flip to `completed` is the transition (`complete_enrollment`), so the Ku mastery and the step completion it causes, both reaching 100 % for the same path, announce it once; an unenrolled learner gets no completion | `learning_path.completed` |
+| `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` — when the progress recorded on the ENROLLED_IN edge changed (`old_progress` is the prior the write reports); an unenrolled learner has no progress to record | `learning_path.progress_updated` |
+| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` — once per enrollment: the ENROLLED_IN edge's flip to `completed` is the transition (`record_enrollment_progress`), so the Ku mastery and the step completion it causes, both reaching 100 % for the same path, announce it once; an unenrolled learner gets no completion | `learning_path.completed` |
 
 There is deliberately no *Subscribers* column. The one that used to be here named
 "Dashboard, Notifications" as consumers of the two progress events — neither of which has a

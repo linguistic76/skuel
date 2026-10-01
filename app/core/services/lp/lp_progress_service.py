@@ -20,7 +20,7 @@ from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_props import coerce_int
+from core.utils.neo4j_props import coerce_float, coerce_int
 
 if TYPE_CHECKING:
     from core.ports.curriculum_protocols import LpProgressBackendOperations
@@ -36,10 +36,11 @@ class LpProgressService:
     Event-Driven Architecture:
     - Subscribes to KnowledgeMastered events
     - Calculates LP progress from mastered KUs
-    - Publishes LearningPathProgressUpdated events
+    - Records the learner's progress on the ENROLLED_IN edge and publishes
+      LearningPathProgressUpdated when it changed
     - Publishes LearningPathCompleted once, when all KUs are mastered AND the
-      user's enrollment flips to completed (the transition lives on the
-      ENROLLED_IN edge, so two triggers reaching 100 % announce it once)
+      enrollment flips to completed (both transitions live on the ENROLLED_IN
+      edge, so two triggers recomputing the same path announce each once)
     """
 
     def __init__(
@@ -73,10 +74,10 @@ class LpProgressService:
         1. Find all learning paths that contain this KU
         2. For each path, check if user is enrolled/active
         3. Calculate new progress (mastered KUs / total KUs)
-        4. Update LP progress in database
-        5. Publish LearningPathProgressUpdated event
-        6. If 100%, flip the enrollment to completed and — for the write that
-           flipped it — publish LearningPathCompleted
+        4. Record it on the ENROLLED_IN edge (under its lock; the priors come back)
+        5. Publish LearningPathProgressUpdated if the progress changed
+        6. At 1.0, the same write flips the enrollment to completed — for the
+           write that flipped it, publish LearningPathCompleted
 
         Args:
             event: KnowledgeMastered event containing ku_uid and user_uid
@@ -172,13 +173,13 @@ class LpProgressService:
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error handling path_step.completed event: {e}")
 
-    # FUTURE-IMPL-009: See docs/reference/PLACEHOLDER_INDEX.md § I2
+    # FUTURE-IMPL-009: See docs/reference/PLACEHOLDER_INDEX.md § I2 (average_mastery_score)
     async def _update_lp_from_ku_mastery(self, lp_uid: str, user_uid: UserUID) -> None:
         """
         Internal helper to update a single learning path's progress from KU mastery.
 
         For learning paths, progress is calculated as:
-        - progress = (mastered_kus_count / total_kus_count) * 100
+        - progress = mastered_kus_count / total_kus_count (0.0-1.0)
 
         Args:
             lp_uid: Learning path to update
@@ -201,54 +202,45 @@ class LpProgressService:
 
         total_kus = coerce_int(progress_data.get("total_kus"))
         mastered_kus = coerce_int(progress_data.get("mastered_kus"))
+        new_progress = mastered_kus / total_kus
 
-        # Calculate old and new progress
-        # Note: We need to get the user's current LP progress from storage
-        # For now, we'll calculate it fresh each time
-        # In a real implementation, we'd query a UserLpProgress entity
-        old_progress_percentage = ((mastered_kus - 1) / total_kus) * 100 if total_kus > 0 else 0.0
-        new_progress_percentage = (mastered_kus / total_kus) * 100 if total_kus > 0 else 0.0
-
-        # Skip update if progress unchanged
-        if abs(new_progress_percentage - old_progress_percentage) < 0.01:
+        # The learner's progress lives on the ENROLLED_IN edge; one write under
+        # its lock records the new figure and reports the priors, so both
+        # events below announce a transition the graph shows — the Ku mastery
+        # and the step completion it causes both reach here for the same path,
+        # and the second sees nothing changed. Not enrolled: nothing to record.
+        recorded = await self.backend.record_enrollment_progress(
+            user_uid, lp_uid, new_progress, datetime.now(UTC).isoformat()
+        )
+        if recorded.is_error:
+            self.logger.error(f"Failed to record progress in {lp_uid}: {recorded.error}")
+            return
+        if not recorded.value:
+            self.logger.debug(f"LP {lp_uid}: {user_uid} is not enrolled; progress not recorded")
+            return
+        prior = recorded.value[0]
+        old_progress = coerce_float(prior["prior_progress"], 0.0)
+        if abs(new_progress - old_progress) < 0.0001:
             self.logger.debug(
-                f"LP {lp_uid} progress unchanged ({new_progress_percentage:.1f}%), skipping update"
+                f"LP {lp_uid} progress unchanged ({new_progress:.1%}), skipping update"
             )
             return
 
         self.logger.info(
-            f"Updated LP {lp_uid} progress: {old_progress_percentage:.1f}% → {new_progress_percentage:.1f}% "
+            f"Updated LP {lp_uid} progress: {old_progress:.1%} → {new_progress:.1%} "
             f"({mastered_kus}/{total_kus} KUs mastered)"
         )
-
-        # Publish LearningPathProgressUpdated event
         progress_event = LearningPathProgressUpdated(
             path_uid=lp_uid,
             user_uid=user_uid,
-            old_progress=old_progress_percentage / 100.0,  # Convert to 0.0-1.0
-            new_progress=new_progress_percentage / 100.0,  # Convert to 0.0-1.0
+            old_progress=old_progress,
+            new_progress=new_progress,
             kus_completed=mastered_kus,
             kus_total=total_kus,
         )
         await publish_event(self.event_bus, progress_event, self.logger)
 
-        # At 100 % the completion is the enrollment edge's flip — written under
-        # its lock, announced once: the Ku mastery and the step completion it
-        # causes both reach here for the same path, and the analytics behind
-        # LearningPathCompleted count per event.
-        if new_progress_percentage >= 100:
-            flipped = await self.backend.complete_enrollment(
-                user_uid, lp_uid, datetime.now(UTC).isoformat()
-            )
-            if flipped.is_error:
-                self.logger.error(f"Failed to complete enrollment in {lp_uid}: {flipped.error}")
-                return
-            if not flipped.value:
-                self.logger.debug(f"LP {lp_uid} at 100% for {user_uid}, who is not enrolled")
-                return
-            if flipped.value[0]["was_completed"]:
-                self.logger.debug(f"LP {lp_uid} already completed by {user_uid}")
-                return
+        if new_progress >= 1.0 and not prior["was_completed"]:
             completed_event = LearningPathCompleted(
                 path_uid=lp_uid,
                 user_uid=user_uid,

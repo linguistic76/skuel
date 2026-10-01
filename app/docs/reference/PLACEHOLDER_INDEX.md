@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-29
+updated: 2026-10-01
 ---
 
 # Placeholder Parameter Index
@@ -364,19 +364,20 @@ at 149, which receives it positionally as `data_points` (537) and buckets it at 
 | Marker | File | Line | Placeholder | Notes |
 |--------|------|------|-------------|-------|
 | `FUTURE-IMPL-008` | `core/services/goals/goals_progress_service.py` | 1339 | `current_streak: int` (1341) on `_update_goal_from_habit_completion()` (1340) | ⚠ **One of the two deferred *parameters* in this register that are NOT underscore-prefixed** (the other is `user_uid` on `_generate_recommendations()`, Group E2). ⚠ **Intent unknown — do not assume a remedy.** The value is not lost: the completing habit's streak is persisted (`habits_progress_service.py:242`) *before* the event is published, and `recompute_progress_from_linked_habits` averages the persisted `current_streak` of every linked habit, so it is already counted. The parameter is redundant as it stands, and the handler receives no `habit_uid` with which to single that habit out. |
-| `FUTURE-IMPL-009` | `core/services/lp/lp_progress_service.py` | 171 | `old_progress_percentage` synthesised as `((mastered_kus - 1) / total_kus) * 100` (205); `average_mastery_score=1.0` (239) | Nothing reads persisted LP progress, so prior progress is inferred by assuming exactly one KU was just mastered; and whenever the completion branch fires, `LearningPathCompleted` reports mastery of exactly 1.0. |
+| `FUTURE-IMPL-009` | `core/services/lp/lp_progress_service.py` | 171 | `average_mastery_score=1.0` on `LearningPathCompleted` | The prior-progress half is resolved: progress is recorded on the learner's `ENROLLED_IN` edge (`r.progress`, `_LpProgressMixin.record_enrollment_progress`) and `old_progress` is the prior the write reports. What remains: whenever the completion branch fires, `LearningPathCompleted` reports mastery of exactly 1.0. |
 
 **What full implementation requires:**
 - `FUTURE-IMPL-008`: **decide, don't implement.** The averaged progress already includes the
   completing habit, so there is no missing input to restore — establish whether a per-habit
   emphasis was ever intended (which would need a `habit_uid` this handler is not given), and if
   not, delete the parameter rather than invent a use for it.
-- `FUTURE-IMPL-009`: a persisted record of prior LP progress and its start date. **Read the live
-  relationship state** — enrollment lifecycle is on `ENROLLED_IN` (`r.status`, written by
-  `UserBackend.enroll_in_learning_path` / `complete_learning_path`), and per-KU progression is the
-  `VIEWED → IN_PROGRESS → MASTERED` edge chain, where mastery is the **edge's existence**, not a
-  score. Two placeholders resolve from it: the inferred `old_progress_percentage`, and the
-  hardcoded `average_mastery_score`.
+- `FUTURE-IMPL-009`: the average mastery score at completion. **Read the live relationship
+  state** — per-KU progression is the `VIEWED → IN_PROGRESS → MASTERED` edge chain, and every
+  MASTERED edge carries a `mastery_score` (one writer, one shape), so the average is a read over
+  the path's Kus. The enrollment lifecycle and the learner's progress are on `ENROLLED_IN`
+  (`r.status`, `r.progress` — `EnrollmentStatus`, written by `UserBackend.enroll_in_learning_path`
+  / `complete_learning_path` and `_LpProgressMixin.record_enrollment_progress`), which is how the
+  prior-progress half was resolved.
 
   ⚠ **Two dead ends to avoid here.** Do not add the `UserLpProgress` entity that
   `lp_progress_service.py:204` names in passing. And do not reach for `UserProgress`

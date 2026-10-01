@@ -24,6 +24,19 @@ class LpType(StrEnum):
     ACCELERATED = "accelerated"
 
 
+class EnrollmentStatus(StrEnum):
+    """Lifecycle of a learner's ``(User)-[:ENROLLED_IN]->(LearningPath)`` edge (``r.status``).
+
+    Written by ``UserBackend.enroll_in_learning_path`` (ACTIVE), by
+    ``UserBackend.complete_learning_path`` and — on the progress chain — by
+    ``_LpProgressMixin.record_enrollment_progress`` (COMPLETED). A missing
+    status reads as ACTIVE (``coalesce(r.status, 'active')``) on every reader.
+    """
+
+    ACTIVE = "active"
+    COMPLETED = "completed"
+
+
 class PublicationState(StrEnum):
     """Whether authored curriculum content is finished enough to face an audience.
 

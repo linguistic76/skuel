@@ -1331,7 +1331,7 @@ class LpProgressBackendOperations(Protocol):
 
     ``LpProgressService`` reacts to ``KnowledgeMastered`` / ``PathStepCompleted``
     events and recomputes LP progress. It consumes exactly these three reads and
-    the one completion write out of ``LpOperations``' ~90-method surface, so it
+    the one enrollment write out of ``LpOperations``' ~90-method surface, so it
     types ``self.backend`` against the slice rather than the wide contract
     (BACKEND_OPERATIONS_ISP.md § "Introduce a Minimal Protocol, Have the Broad
     One Inherit It").
@@ -1355,11 +1355,12 @@ class LpProgressBackendOperations(Protocol):
         """Return total and mastered KU counts for a user's progress in a path."""
         ...
 
-    async def complete_enrollment(
-        self, user_uid: UserUID, lp_uid: str, now: str
+    async def record_enrollment_progress(
+        self, user_uid: UserUID, lp_uid: str, progress: float, now: str
     ) -> Result[list[Neo4jProperties]]:
-        """Flip the user's ENROLLED_IN edge to completed under its lock; one row
-        ``{was_completed}``, or none when the user is not enrolled."""
+        """Record progress (0.0-1.0) on the user's ENROLLED_IN edge under its lock,
+        flipping it to completed at 1.0; one row ``{prior_progress, was_completed}``,
+        or none when the user is not enrolled."""
         ...
 
 
