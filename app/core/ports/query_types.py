@@ -3989,7 +3989,7 @@ class KnowledgeKuLessStep(TypedDict):
     """One PathStep that teaches no Ku — no USES_KU / CONTAINS_KNOWLEDGE / TRAINS_KU
     edge onto a Ku. A content defect: every legitimate step composes Kus, and a
     step's mastery is derived from them, so a Ku-less step can never be mastered
-    and a path containing it never completes."""
+    and contributes nothing to its path's (Ku-counted) progress."""
 
     uid: str
     title: str

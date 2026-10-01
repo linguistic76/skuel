@@ -1256,8 +1256,9 @@ CALL () {
 }
 CALL () {
     // A step composing no Ku is a content defect: a step's mastery is derived
-    // from its Kus, so it can never be mastered and no path through it
-    // completes. Listed by uid so the author can fix each one.
+    // from its Kus, so it can never be mastered and it contributes nothing to
+    // its path's (Ku-counted) progress. Listed by uid so the author can fix
+    // each one.
     MATCH (ps:Entity {entity_type: __ET_PS__})
     WHERE NOT exists{ (ps)-[:__COMPOSITION__]->(:Entity {entity_type: __ET_KU__}) }
     WITH ps ORDER BY ps.uid

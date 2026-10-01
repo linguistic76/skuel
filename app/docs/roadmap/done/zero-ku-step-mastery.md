@@ -43,7 +43,7 @@ never reach 100 % through the step chain.
 
 ## What the gap meant for a learner
 
-Such a step could be viewed, started (`IN_PROGRESS`), read and bookmarked, but never mastered: nothing a
-learner did reached a `MASTERED` edge, its enrollment never retired, and a learning path containing it could
-never reach 100 % through the step chain. The ruling makes that the author's problem, surfaced by the gauge,
-not a learner door.
+Such a step can be viewed, started (`IN_PROGRESS`), read and bookmarked, but never mastered: nothing a
+learner does reaches a `MASTERED` edge and its enrollment never retires. It does not block its path — path
+progress is counted over the Kus the path's steps teach, so a step teaching none simply contributes nothing
+to it. The ruling makes the step the author's problem, surfaced by the gauge, not a learner door.
