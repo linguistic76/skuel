@@ -3469,6 +3469,13 @@ class UserMasteryResult(TypedDict, total=False):
     updated_at: str | None
 
 
+class MasteredEntityUidRow(TypedDict):
+    """Return shape for UserProgressBackend.get_mastered_entity_uids() — the uid of
+    one entity the user has mastered, a Ku or a PathStep (the query's one alias)."""
+
+    uid: str
+
+
 class SelCategoryRow(TypedDict):
     """Return shape for get_sel_categories() — an entity uid paired with its
     non-null ``sel_category`` field (the query filters null categories at the

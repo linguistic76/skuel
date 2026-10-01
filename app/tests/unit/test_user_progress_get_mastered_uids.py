@@ -23,15 +23,7 @@ def _service(backend_result: Result) -> UserProgressService:
 
 @pytest.mark.asyncio
 async def test_extracts_every_mastered_uid_ku_or_step() -> None:
-    service = _service(
-        Result.ok(
-            [
-                {"uid": "ku.a"},
-                {"uid": "ps.the-step"},
-                {"uid": None},  # skipped
-            ]
-        )
-    )
+    service = _service(Result.ok([{"uid": "ku.a"}, {"uid": "ps.the-step"}]))
 
     result = await service.get_mastered_uids("user_x")
 

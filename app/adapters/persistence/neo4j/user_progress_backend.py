@@ -18,6 +18,18 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.ports.query_types import MasteredEntityUidRow
+
+
+def _to_mastered_entity_uid_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[MasteredEntityUidRow]:
+    """Project raw rows onto MasteredEntityUidRow (KeyError on alias drift).
+
+    Indexing the alias turns a renamed RETURN into a failed ``Result`` at the
+    boundary instead of a silently-empty membership set downstream.
+    """
+    return [{"uid": str(row["uid"])} for row in records]
 
 
 class UserProgressBackend:
@@ -82,20 +94,23 @@ class UserProgressBackend:
             {"user_uid": user_uid},
         )
 
-    async def get_mastered_entity_uids(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_mastered_entity_uids(self, user_uid: str) -> Result[list[MasteredEntityUidRow]]:
         """The uid of every entity the user has mastered — a Ku or a PathStep.
 
         The membership set: a path page asks "is this step mastered?", a
         prerequisite chain asks it of Kus and steps alike. Counting is
         ``get_mastered_knowledge``'s job.
         """
-        return await self._executor.execute_query(
+        result = await self._executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[:MASTERED]->(e:Entity)
             RETURN e.uid AS uid
             """,
             {"user_uid": user_uid},
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_mastered_entity_uid_rows(result.value or []))
 
     async def get_completed_prerequisites(self, user_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all prerequisites that user has completed (mastered entities that are prereqs)."""

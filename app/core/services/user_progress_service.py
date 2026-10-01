@@ -196,7 +196,7 @@ class UserProgressService:
         result = await self.backend.get_mastered_entity_uids(user_uid)
         if result.is_error:
             return Result.fail(result)
-        return Result.ok({str(row["uid"]) for row in result.value if row.get("uid")})
+        return Result.ok({row["uid"] for row in result.value})
 
     # ========================================================================
     # PROFILE BUILDING (Core Functionality)
@@ -391,7 +391,7 @@ class UserProgressService:
         result = await self.backend.get_mastered_entity_uids(user_uid)
         if result.is_error:
             return set()
-        return {str(row["uid"]) for row in (result.value or []) if row.get("uid")}
+        return {row["uid"] for row in result.value}
 
     async def _get_in_progress_knowledge(self, user_uid: UserUID) -> list[UserLearningProgress]:
         """Get all in-progress knowledge for user."""
