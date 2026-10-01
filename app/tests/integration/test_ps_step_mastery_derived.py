@@ -37,6 +37,7 @@ USER = UserUID("user_step_mastery_derived")
 STEP = "ps.probe.two-kus"
 STEP_EMPTY = "ps.probe.zero-kus"
 STEP_DRAFT = "ps.probe.draft"
+STEP_OF_STEPS = "ps.probe.only-a-step"
 KU_A = "ku.probe.a"
 KU_B = "ku.probe.b"
 
@@ -67,12 +68,16 @@ async def backend(neo4j_driver, clean_neo4j) -> PsBackend:
             CREATE (ps)-[:USES_KU]->(empty)
             CREATE (draft)-[:USES_KU]->(a)
             CREATE (draft)-[:USES_KU]->(b)
+            CREATE (of_steps:Entity:PathStep {uid: $of_steps, entity_type: 'path_step',
+                                              title: 'Only a step', status: 'active'})
+            CREATE (of_steps)-[:USES_KU]->(empty)
             CREATE (u)-[:IN_PROGRESS {started_at: datetime()}]->(ps)
             """,
             u=USER,
             step=STEP,
             empty=STEP_EMPTY,
             draft=STEP_DRAFT,
+            of_steps=STEP_OF_STEPS,
             a=KU_A,
             b=KU_B,
         )
@@ -258,3 +263,19 @@ async def test_a_draft_step_is_not_derived_until_published(
     assert closed.is_ok and closed.value == [{"user_uid": USER, "ps_uid": STEP_DRAFT}]
     assert len(await _step_edges(neo4j_driver, STEP_DRAFT)) == 1
     assert [e.ps_uid for e in _completions(bus)] == [STEP, STEP_DRAFT]
+
+
+@pytest.mark.asyncio
+async def test_a_mastery_announced_for_a_non_ku_derives_nothing(
+    neo4j_driver, backend, bus, mastery
+) -> None:
+    """A step whose only composition target is another step tallies no Kus; a
+    KnowledgeMastered carrying that step's uid (the pathways route publishes for
+    whatever a step's knowledge_uids name) derives nothing. The tally's mandatory
+    MATCH already drops a step with no Ku target (0 of 0 never reaches the
+    comparison — this case passes on the ungated trigger too); the ``:Ku`` on the
+    trigger states the same rule at the door."""
+    await bus.publish_async(KnowledgeMastered(ku_uid=STEP_EMPTY, user_uid=USER, mastery_score=0.9))
+
+    assert await _step_edges(neo4j_driver, STEP_OF_STEPS) == []
+    assert _completions(bus) == []

@@ -3480,6 +3480,15 @@ class UserMasteryResult(TypedDict, total=False):
     updated_at: str | None
 
 
+class EnrollmentProgressGapRow(TypedDict):
+    """One (user, LearningPath) enrollment whose progress was never recorded
+    (``ENROLLED_IN.progress`` absent) — what ``reconcile_enrollment_progress``
+    initializes from the Kus the learner has already mastered."""
+
+    user_uid: str
+    lp_uid: str
+
+
 class StepMasteryGapRow(TypedDict):
     """One (user, PathStep) pair whose every Ku the user has mastered while the
     step's own MASTERED edge is absent — what ``reconcile_step_mastery`` closes."""

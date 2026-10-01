@@ -103,6 +103,7 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import RawChanges
 from core.ports.query_types import (
     CurriculumExerciseResult,
+    EnrollmentProgressGapRow,
     KuEdgeRow,
     KuEmbeddingRow,
     LearningGapResult,
@@ -1330,7 +1331,7 @@ class LpProgressBackendOperations(Protocol):
     """KU/PathStep → LearningPath progress reads — the backend-layer slice.
 
     ``LpProgressService`` reacts to ``KnowledgeMastered`` / ``PathStepCompleted``
-    events and recomputes LP progress. It consumes exactly these two reads and
+    events and recomputes LP progress. It consumes exactly these three reads and
     the one enrollment write out of ``LpOperations``' ~90-method surface, so it
     types ``self.backend`` against the slice rather than the wide contract
     (BACKEND_OPERATIONS_ISP.md § "Introduce a Minimal Protocol, Have the Broad
@@ -1356,6 +1357,10 @@ class LpProgressBackendOperations(Protocol):
         ENROLLED_IN edge, in one statement under its lock, flipping it to
         completed at 1.0; one row ``{prior_progress, was_completed, progress,
         total_kus, mastered_kus}``, or none when the user is not enrolled."""
+        ...
+
+    async def find_uninitialized_enrollments(self) -> Result[list[EnrollmentProgressGapRow]]:
+        """Every enrollment whose progress was never recorded, across all users."""
         ...
 
 

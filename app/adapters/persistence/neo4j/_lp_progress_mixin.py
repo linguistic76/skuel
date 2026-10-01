@@ -22,6 +22,7 @@ from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.ports.query_types import EnrollmentProgressGapRow
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -277,6 +278,30 @@ class _LpProgressMixin:
                 "active": EnrollmentStatus.ACTIVE.value,
                 "completed": EnrollmentStatus.COMPLETED.value,
             },
+        )
+
+    async def find_uninitialized_enrollments(self) -> Result[list[EnrollmentProgressGapRow]]:
+        """Every enrollment whose progress was never recorded, across all users.
+
+        ``record_enrollment_progress`` runs best-effort behind
+        ``LearningPathStarted``; a recount that failed after the enrollment
+        committed leaves ``r.progress`` absent, and the event is not replayed.
+        The reconciler reads these from the graph's own state and recounts them.
+        """
+        query = """
+        MATCH (u:User)-[r:ENROLLED_IN]->(lp:LearningPath)
+        WHERE r.progress IS NULL
+        RETURN u.uid AS user_uid, lp.uid AS lp_uid
+        ORDER BY u.uid, lp.uid
+        """
+        result = await self.execute_query(query, {})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                {"user_uid": str(r["user_uid"]), "lp_uid": str(r["lp_uid"])}
+                for r in (result.value or [])
+            ]
         )
 
     async def get_paths_containing_step(self, ps_uid: str) -> Result[list[str]]:

@@ -387,6 +387,46 @@ class TestKuLpEventFlow:
             record = await row.single()
         assert (record["status"], record["progress"]) == ("completed", 1.0)
 
+    async def test_reconcile_initializes_an_enrollment_the_handler_missed(
+        self,
+        lp_progress_service,
+        neo4j_driver,
+        python_basics_path,
+        test_user_uid,
+        event_bus,
+    ):
+        """An enrollment whose recount never ran (the fixture's edge carries no
+        progress) is recounted by the reconciler through the same write; at 1.0 it
+        completes and announces once; a second run finds nothing."""
+        lp, kus = python_basics_path
+        async with neo4j_driver.session() as session:
+            for ku in kus:
+                await session.run(
+                    """
+                    MATCH (user:User {uid: $user_uid}), (ku:Entity {uid: $ku_uid})
+                    MERGE (user)-[:MASTERED {mastery_score: 0.9}]->(ku)
+                    """,
+                    user_uid=test_user_uid,
+                    ku_uid=ku.uid,
+                )
+
+        preview = await lp_progress_service.reconcile_enrollment_progress(dry_run=True)
+        assert preview.is_ok and preview.value == [{"user_uid": test_user_uid, "lp_uid": lp.uid}]
+        assert event_bus.get_event_history() == []
+
+        closed = await lp_progress_service.reconcile_enrollment_progress()
+        assert closed.is_ok and closed.value == [{"user_uid": test_user_uid, "lp_uid": lp.uid}]
+        history = event_bus.get_event_history()
+        assert [e.path_uid for e in history if isinstance(e, LearningPathCompleted)] == [lp.uid]
+        assert [
+            (e.old_progress, e.new_progress)
+            for e in history
+            if isinstance(e, LearningPathProgressUpdated)
+        ] == [(0.0, 1.0)]
+
+        again = await lp_progress_service.reconcile_enrollment_progress()
+        assert again.is_ok and again.value == [], "a recorded enrollment is no gap"
+
     async def test_no_update_when_ku_not_in_lp(
         self,
         event_bus,

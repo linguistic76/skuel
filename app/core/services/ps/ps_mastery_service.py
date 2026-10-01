@@ -422,7 +422,7 @@ class PsMasteryService:
         then and the transition event is not replayed, so a detection or write
         that failed here leaves a gap the graph itself shows — a user with
         every Ku of a step mastered and no step edge — which
-        ``reconcile_step_mastery`` (``./dev reconcile-step-mastery``) closes.
+        ``reconcile_step_mastery`` (``./dev reconcile-learning-progress``) closes.
         """
         try:
             result = await self.backend.detect_path_step_completion(event.ku_uid, event.user_uid)

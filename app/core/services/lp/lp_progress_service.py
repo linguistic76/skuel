@@ -21,9 +21,11 @@ from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_float, coerce_int
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.curriculum_protocols import LpProgressBackendOperations
+    from core.ports.query_types import EnrollmentProgressGapRow
 
 
 class LpProgressService:
@@ -144,6 +146,9 @@ class LpProgressService:
         created — at 1.0 it completes at once, and announces it once.
 
         Errors are logged but not raised — progress updates are best-effort.
+        A recount that failed here leaves the enrollment with no recorded
+        progress, which ``reconcile_enrollment_progress``
+        (``./dev reconcile-learning-progress``) initializes.
         """
         try:
             await self._update_lp_from_ku_mastery(lp_uid=event.path_uid, user_uid=event.user_uid)
@@ -195,7 +200,7 @@ class LpProgressService:
             self.logger.error(f"Error handling path_step.completed event: {e}")
 
     # FUTURE-IMPL-009: See docs/reference/PLACEHOLDER_INDEX.md § I2 (average_mastery_score)
-    async def _update_lp_from_ku_mastery(self, lp_uid: str, user_uid: UserUID) -> None:
+    async def _update_lp_from_ku_mastery(self, lp_uid: str, user_uid: UserUID) -> bool:
         """
         Internal helper to update a single learning path's progress from KU mastery.
 
@@ -205,10 +210,14 @@ class LpProgressService:
         Args:
             lp_uid: Learning path to update
             user_uid: User who mastered the KU
+
+        Returns True when the enrollment's progress was recorded (changed or
+        not), False when nothing was written — no backend, a failed write, or
+        no enrollment to record on.
         """
         if not self.backend:
             self.logger.warning("No backend available for LP progress tracking")
-            return
+            return False
 
         # The learner's progress lives on the ENROLLED_IN edge; one statement
         # under its lock recounts the path's Kus against the learner's mastered
@@ -222,16 +231,16 @@ class LpProgressService:
         )
         if recorded.is_error:
             self.logger.error(f"Failed to record progress in {lp_uid}: {recorded.error}")
-            return
+            return False
         if not recorded.value:
             self.logger.debug(f"LP {lp_uid}: {user_uid} is not enrolled; progress not recorded")
-            return
+            return False
         prior = recorded.value[0]
         total_kus = coerce_int(prior["total_kus"])
         mastered_kus = coerce_int(prior["mastered_kus"])
         if total_kus == 0:
             self.logger.debug(f"No KUs found for learning path {lp_uid}")
-            return
+            return True
         new_progress = coerce_float(prior["progress"], 0.0)
         old_progress = coerce_float(prior["prior_progress"], 0.0)
         # Two independent transitions out of the one write: the figure changed
@@ -244,7 +253,7 @@ class LpProgressService:
             self.logger.debug(
                 f"LP {lp_uid} progress unchanged ({new_progress:.1%}), skipping update"
             )
-            return
+            return True
 
         if progress_changed:
             self.logger.info(
@@ -270,3 +279,45 @@ class LpProgressService:
             )
             await publish_event(self.event_bus, completed_event, self.logger)
             self.logger.info(f"🎉 LP {lp_uid} completed!")
+        return True
+
+    async def reconcile_enrollment_progress(
+        self, *, dry_run: bool = False
+    ) -> Result[list[EnrollmentProgressGapRow]]:
+        """Initialize every enrollment whose progress was never recorded.
+
+        An enrollment is recounted when it is created (``LearningPathStarted``);
+        a recount that failed after the enrollment committed leaves the edge
+        with no progress, and nothing replays it. Each such enrollment is
+        recounted through the one write (``_update_lp_from_ku_mastery``), which
+        announces the transitions it finds — a path enrolled after its Kus
+        were mastered completes here. Idempotent: a recorded enrollment is no
+        gap, so a second run finds nothing. ``dry_run`` reports and writes
+        nothing. Returns the enrollments initialized; a recount that failed
+        makes the result a failure naming the pairs left open.
+        """
+        if not self.backend:
+            return Result.fail(Errors.system("No backend available for LP progress tracking"))
+        gaps = await self.backend.find_uninitialized_enrollments()
+        if gaps.is_error:
+            return Result.fail(gaps)
+        if dry_run:
+            return Result.ok(gaps.value)
+
+        closed: list[EnrollmentProgressGapRow] = []
+        left_open: list[EnrollmentProgressGapRow] = []
+        for gap in gaps.value:
+            if await self._update_lp_from_ku_mastery(gap["lp_uid"], UserUID(gap["user_uid"])):
+                closed.append(gap)
+            else:
+                left_open.append(gap)
+        if left_open:
+            pairs = ", ".join(f"{g['user_uid']}→{g['lp_uid']}" for g in left_open)
+            return Result.fail(
+                Errors.database(
+                    "reconcile_enrollment_progress",
+                    f"{len(left_open)} of {len(gaps.value)} enrollment(s) left uninitialized "
+                    f"({len(closed)} initialized): {pairs}",
+                )
+            )
+        return Result.ok(closed)

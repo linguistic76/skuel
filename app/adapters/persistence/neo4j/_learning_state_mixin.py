@@ -325,7 +325,10 @@ class _LearningStateMixin:
         (``create_step_node``) matches its target by uid alone, so a step can
         point one of these edges at another step, and a step's mastery is
         announced as ``PathStepCompleted`` — never ``KnowledgeMastered`` — so
-        a non-Ku target in the tally would leave the parent underivable.
+        a non-Ku target in the tally would leave the parent underivable. The
+        trigger is ``:Ku`` for the same reason from the other side: a mastery
+        announced for a non-Ku uid must not enter the derivation, or a step
+        whose only target is another step would tally 0 of 0 and be mastered.
 
         Publication-gated: a draft step is never derived. Its mastery would be
         a learner-state reference to curriculum the learner never saw, and the
@@ -335,7 +338,7 @@ class _LearningStateMixin:
         """
         published, published_params = build_publication_clause("ps")
         query = f"""
-        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {{uid: $ku_uid}})
+        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity:Ku {{uid: $ku_uid}})
         WHERE {published}
         WITH ps
         MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(all_ku:Entity:Ku)
