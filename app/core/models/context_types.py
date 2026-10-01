@@ -1547,8 +1547,8 @@ class DailyWorkPlan:
 
     # Capacity metrics
     estimated_time_minutes: int = 0
-    fits_capacity: bool = True
-    workload_utilization: float = 0.0  # 0.0-1.0
+    fits_capacity: bool = True  # estimated_time_minutes <= the user's available minutes
+    workload_utilization: float = 0.0  # 0.0-1.0; 1.0 for a plan at or over capacity
 
     # Plan metadata
     rationale: str = ""

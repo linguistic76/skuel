@@ -312,8 +312,9 @@ def test_factory_names_a_missing_service() -> None:
         )
 ```
 
-Do not assert `plan.fits_capacity` — it is `True` on every plan (see [SKILL.md](SKILL.md) § Plan
-metadata). Assert on `estimated_time_minutes` or `workload_utilization`.
+`plan.fits_capacity` is `estimated_time_minutes <= context.available_minutes_daily` (see
+[SKILL.md](SKILL.md) § Plan metadata): set `available_minutes_daily` on the stub context to the
+capacity the test is about, since at-risk habits and events are planned past it.
 
 For a route test, replace the factory on the service under test and have `create` return a mock
 whose method returns a real `Result`.

@@ -154,11 +154,13 @@ respect_energy=True)` returns a **bare list**, at most `max_recommendations` lon
 Synchronous; no I/O.
 
 ```python
-def compute_momentum_signals(self) -> dict[str, Any]:  # boundary: heterogeneous signal map
+def compute_momentum_signals(self) -> MomentumSignals:
     ...
 ```
 
-The keys are `velocities`, `neglected`, `habit_consistency` and `phase`. `phase` is one of
+`MomentumSignals` is a TypedDict in `core/ports/query_types.py`. The keys are `velocities`,
+`neglected`, `habit_consistency` and `phase`. `habit_consistency` is `float | None` — `None`
+when no habit item carries a rate to average. `phase` is one of
 `accelerating`, `steady`, `decelerating`, `unknown`; it is `unknown` only when
 `context.entities_rich` is empty. `DailyPlanningMixin` turns the signals into warnings and a
 rationale clause.

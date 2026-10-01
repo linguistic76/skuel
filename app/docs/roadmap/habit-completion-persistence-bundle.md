@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-09-28
+updated: 2026-10-01
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -217,6 +217,28 @@ future timestamp into `_upsert_counter_analytics` (a permanently future `first_c
 and the handler would learn its hour and on-time sample. Its side effects are deferred or
 excluded until its occurrence day arrives — the same decision as that row's `current_streak`
 semantics, taken once.
+
+⚠ **Readers of a rate no door writes.** Four readers name the habit's rate `completion_rate`,
+a property no door sets on a `Habit` node (the model and DTO field is `success_rate`; the only
+writers of `completion_rate` are test fixtures that `CREATE` the node by hand —
+`tests/integration/test_unified_user_context.py`,
+`tests/integration/test_rich_context_statement_equivalence.py`): `HABITS_AND_EVENTS_QUERY` and
+`CONSOLIDATED_QUERY` (`adapters/persistence/neo4j/user_context_queries.py`) project
+`coalesce(habit.completion_rate, 0.0)` as each habit's rate;
+`TemporalMomentumMixin.compute_momentum_signals` reads `completion_rate` off the habit's
+properties; and `AnalyticsMetricsService.calculate_habit_metrics` reads `habit.completion_rate` off the
+model under a suppressed `AttributeError`, so its `completion_rate` and `consistency_rate` are
+0.0, and `AnalyticsAggregationService`'s `habit_consistency` with them. So
+`UserContext.habit_completion_rates` is 0.0 for every habit, and what is derived from it
+follows: `populate_derived_fields` classes a habit at risk when `streak == 0 or rate <
+0.5`, which is every habit in the window; `HabitsStats.consistency_rate` and the overall
+completion blend (`core/services/user_stats_types.py`) average zeros; `ContextualHabit`'s
+fallback rate is 0.0. The momentum signal is `None` (nothing to average), so the daily plan's
+"Habit consistency is low" warning stays silent — a silence, not a false statement, which is
+why #1475 left the property name alone. Re-pointing these readers at `success_rate` is part of
+this bundle and not before it: `record_completion` never writes `success_rate`, so until the
+shared writer derives it the re-pointed readers would report 0.0 for a habit kept daily through
+`/api/habits/track` and the warning would fire on it.
 
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
