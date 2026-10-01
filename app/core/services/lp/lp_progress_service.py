@@ -220,27 +220,34 @@ class LpProgressService:
             return
         prior = recorded.value[0]
         old_progress = coerce_float(prior["prior_progress"], 0.0)
-        if abs(new_progress - old_progress) < 0.0001:
+        # Two independent transitions out of the one write: the figure changed
+        # (the same fraction recomputed by the second trigger is equal, not
+        # merely close — no tolerance, so a path of any size announces its last
+        # Ku), and the status flipped.
+        progress_changed = new_progress != old_progress
+        completed_now = new_progress >= 1.0 and not prior["was_completed"]
+        if not progress_changed and not completed_now:
             self.logger.debug(
                 f"LP {lp_uid} progress unchanged ({new_progress:.1%}), skipping update"
             )
             return
 
-        self.logger.info(
-            f"Updated LP {lp_uid} progress: {old_progress:.1%} → {new_progress:.1%} "
-            f"({mastered_kus}/{total_kus} KUs mastered)"
-        )
-        progress_event = LearningPathProgressUpdated(
-            path_uid=lp_uid,
-            user_uid=user_uid,
-            old_progress=old_progress,
-            new_progress=new_progress,
-            kus_completed=mastered_kus,
-            kus_total=total_kus,
-        )
-        await publish_event(self.event_bus, progress_event, self.logger)
+        if progress_changed:
+            self.logger.info(
+                f"Updated LP {lp_uid} progress: {old_progress:.1%} → {new_progress:.1%} "
+                f"({mastered_kus}/{total_kus} KUs mastered)"
+            )
+            progress_event = LearningPathProgressUpdated(
+                path_uid=lp_uid,
+                user_uid=user_uid,
+                old_progress=old_progress,
+                new_progress=new_progress,
+                kus_completed=mastered_kus,
+                kus_total=total_kus,
+            )
+            await publish_event(self.event_bus, progress_event, self.logger)
 
-        if new_progress >= 1.0 and not prior["was_completed"]:
+        if completed_now:
             completed_event = LearningPathCompleted(
                 path_uid=lp_uid,
                 user_uid=user_uid,
