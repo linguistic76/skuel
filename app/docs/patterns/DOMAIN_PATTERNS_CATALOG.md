@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-09-30
+updated: 2026-10-01
 category: patterns
 related_skills:
 - python
@@ -152,12 +152,12 @@ class TaskCreateRequest(CreateRequestBase):
     """External API request for creating a task."""
 
     title: str = Field(min_length=1, max_length=200, description="Task title")
-    description: str | None = Field(None, description="Detailed description")
+    description: str | None = Field(None, max_length=2000, description="Detailed description")
 
     # Scheduling
     due_date: date | None = Field(None, description="Due date")
     scheduled_date: date | None = Field(None, description="Scheduled work date")
-    duration_minutes: int = Field(default=30, ge=5, le=480, description="Estimated duration")
+    duration_minutes: int | None = Field(None, ge=5, le=480, description="Estimated duration")
 
     # Priority and status
     priority: Priority = Field(default=Priority.MEDIUM, description="Task priority")
