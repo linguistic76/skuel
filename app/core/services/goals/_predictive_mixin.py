@@ -32,6 +32,7 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.ports.domain_protocols import GoalsOperations
+    from core.ports.query_types import GoalRiskAssessment
 
     from .goals_intelligence_service import GoalPrediction, HabitImpactAnalysis
 
@@ -268,7 +269,7 @@ class _PredictiveMixin:
     async def assess_goal_risk(
         self,
         goal_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GoalRiskAssessment]:
         """
         Assess risk factors for goal achievement.
 

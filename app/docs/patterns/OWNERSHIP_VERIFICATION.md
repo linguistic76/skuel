@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-09-30'
+updated: '2026-10-01'
 category: patterns
 related_skills:
 - activity-domains
@@ -335,6 +335,8 @@ class OwnershipVerifier(Protocol):
 Every Activity Domain facade satisfies this automatically via `BaseServiceInterface[T]`. Use it when a service or orchestrator needs a typed handle to "something that can verify ownership" without coupling to a specific facade.
 
 **Canonical consumer:** seven of `LateralRelationshipService`'s eight public methods — all but `get_cousins`: `create_lateral_relationship`, `delete_lateral_relationship`, `get_lateral_relationships`, `get_siblings`, `get_blocking_chain`, `get_alternatives_with_comparison`, `get_relationship_graph` — accept `domain_service: OwnershipVerifier | None = None`. `LateralRelationshipsOrchestrator` stores the 6 Activity Domain services as `dict[str, OwnershipVerifier]` and returns `None` for curriculum domains (ku/ps/lp) which are shared content. With `None`, a lateral read's anchor and a lateral write's endpoints are held to curriculum (Ku / PathStep / LearningPath by `entity_type`; anything else answers as missing, so a curriculum route never says whether a uid its caller cannot open exists) and the write routes are TEACHER-gated — see [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md#ownership-coverage).
+
+**Route factories that take another domain's uid:** a route module whose primary service is not the facade of the entity its routes name is handed that facade as an `OwnershipVerifier` and passes it to `verify_entity_ownership`. `adapters/inbound/orchestration_routes.py` is the instance — Goal→Task generation, Habit→Event scheduling, goal analytics and principle alignment all take a goal or habit uid, and each factory refuses to register without the verifier, so a uid-taking route there cannot exist unverified.
 
 This is the *only* acceptable `Result[Any]` in a protocol: `Result[T]` is invariant, each facade returns a different concrete `T`, and callers only branch on `.is_error`. See `docs/patterns/ANY_USAGE_POLICY.md` Phase 4.
 

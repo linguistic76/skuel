@@ -3284,6 +3284,20 @@ class GoalStats(TypedDict, total=False):
     completed: int
 
 
+class GoalRiskAssessment(TypedDict):
+    """Return shape for GoalsIntelligenceService.assess_goal_risk().
+
+    The risk half of a goal's success prediction: the level its success
+    probability falls in, with the prediction's own factors, actions and trend.
+    """
+
+    goal_uid: str
+    risk_level: str  # "high", "medium", "low"
+    risk_factors: list[str]
+    recommended_actions: list[str]
+    trend: str  # "improving", "stable", "declining"
+
+
 class GoalsAchievedCount(TypedDict):
     """Return shape for GoalsBackend.count_goals_achieved().
 
