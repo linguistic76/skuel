@@ -35,7 +35,6 @@ def _make_backend(entry: UserEntry | None = None) -> MagicMock:
     backend.create = AsyncMock(return_value=Result.ok(entry))
     backend.upsert = AsyncMock(return_value=Result.ok(entry))
     backend.create_with_exercise_link = AsyncMock(return_value=Result.ok(entry))
-    backend.count_entries_for_exercise = AsyncMock(return_value=Result.ok(0))
     backend.add_relationship = AsyncMock(return_value=Result.ok(True))
     backend.get = AsyncMock(return_value=Result.ok(entry))
     backend.update = AsyncMock(return_value=Result.ok(entry))
@@ -304,9 +303,9 @@ class TestCreateEntryRouting:
         backend.create.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_revision_number_comes_from_count_plus_one(self):
+    async def test_the_writer_mints_the_revision(self):
+        """The service names the exercise and nothing else — no ordinal of its own."""
         backend = _make_backend()
-        backend.count_entries_for_exercise = AsyncMock(return_value=Result.ok(2))
         service = _make_service(backend=backend, sharing_service=_make_sharing_service())
         request = UserEntryCreateRequest(
             title="Retry",
@@ -315,7 +314,27 @@ class TestCreateEntryRouting:
         )
         await service.create_entry(request, user_uid="user_1")
         kwargs = backend.create_with_exercise_link.await_args.kwargs
-        assert kwargs["revision"] == 3
+        assert set(kwargs) == {"entry", "exercise_uid"}
+        assert kwargs["exercise_uid"] == "ex_1"
+
+    @pytest.mark.asyncio
+    async def test_a_refused_turn_in_write_fails_the_turn_in(self):
+        """A writer that could not mint a revision leaves no entry reported as created."""
+        backend = _make_backend()
+        backend.create_with_exercise_link = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(operation="create_with_exercise_link", message="lock timeout")
+            )
+        )
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Retry",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+        backend.create.assert_not_called()
 
 
 class TestTitleRule:
@@ -392,7 +411,6 @@ class TestLivingEntryChannel:
         backend.upsert.assert_awaited_once()
         backend.create_with_exercise_link.assert_not_called()
         backend.create.assert_not_called()
-        backend.count_entries_for_exercise.assert_not_called()
         entry_passed = backend.upsert.await_args.args[0]
         assert entry_passed.uid == "ue:vault:tasks-list"
         assert entry_passed.fulfills_exercise_uid == "ex_1"

@@ -89,11 +89,6 @@ class HabitsCoreService(
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(EntityStatus.ARCHIVED.value,),
-        status_filters={
-            "active": {"status": "active"},
-            "paused": {"status": "paused"},
-            "completed": {"status": "completed"},
-        },
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -698,5 +693,4 @@ class HabitsCoreService(
         """Count habit stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
-    # the status_filters map in _config above.
+    # get_all_for_user: inherited from SearchOperationsMixin.

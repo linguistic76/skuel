@@ -106,7 +106,7 @@ async def get_filtered_context(
     """Get filtered and sorted tasks with pre-filter stats in a single query."""
 
     async def fetch_all() -> Result[list[Task]]:
-        return await self.core.get_for_user_filtered(user_uid, "all")
+        return await self.core.get_all_for_user(user_uid)
 
     def apply_filters(all_tasks: list[Any]) -> list[Any]:
         return apply_entity_filter(all_tasks, status_filter, _TASK_FILTER_CONFIG)

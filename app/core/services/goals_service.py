@@ -169,7 +169,7 @@ def _get_goal_progress(goal: Goal) -> float:
 
     Typed ``Goal``, unlike its ``Any`` siblings above: they exist to absorb a value
     that may be an enum or a string, while this one needs the method, and
-    ``get_for_user_filtered`` returns ``list[Goal]``.
+    ``get_all_for_user`` returns ``list[Goal]``.
     """
     return goal.calculate_progress()
 
@@ -796,7 +796,7 @@ class GoalsService(
         """Get filtered and sorted goals with pre-filter stats in a single query."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.core.get_for_user_filtered(user_uid, "all")
+            return await self.core.get_all_for_user(user_uid)
 
         def apply_filters(all_goals: list[Any]) -> list[Any]:
             return apply_entity_filter(all_goals, status_filter, _GOAL_FILTER_CONFIG)

@@ -670,7 +670,7 @@ class HabitsService(
         """Get filtered and sorted habits with pre-filter stats in a single query."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.core.get_for_user_filtered(user_uid, "all")
+            return await self.core.get_all_for_user(user_uid)
 
         def apply_filters(all_habits: list[Any]) -> list[Any]:
             return apply_entity_filter(all_habits, status_filter, _HABIT_FILTER_CONFIG)

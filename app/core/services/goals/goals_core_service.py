@@ -293,11 +293,6 @@ class GoalsCoreService(
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        status_filters={
-            "active": {"status": "active"},
-            "completed": {"status": "completed"},
-            "paused": {"status": "paused"},
-        },
         entity_label="Entity",
     )
     # ========================================================================
@@ -1117,5 +1112,4 @@ class GoalsCoreService(
         """Count goal stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
-    # the status_filters map in _config above.
+    # get_all_for_user: inherited from SearchOperationsMixin.

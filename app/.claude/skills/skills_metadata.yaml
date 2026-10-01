@@ -102,7 +102,7 @@ skills:
 
   - name: ui-css
     description: SKUEL CSS layer — Tailwind + ui.components (SKUEL-owned pure-Tailwind layer, ADR-071)
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: []
     dependencies: []
     library_package: null  # CDN/static, not PyPI package
@@ -191,7 +191,7 @@ skills:
 
   - name: ui-browser
     description: SKUEL browser interactivity — HTMX for server communication + Alpine.js for client-side state
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [fasthtml]
     dependencies: [fasthtml]
     library_package: null  # Vendored static files
@@ -214,7 +214,7 @@ skills:
 
   - name: accessibility-guide
     description: Expert guide for building accessible web applications following WCAG standards
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [ui-browser, ui-css]
     dependencies: [ui-browser, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -228,7 +228,7 @@ skills:
 
   - name: skuel-ui
     description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [fasthtml, ui-css, ui-browser, pydantic]
     dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library
@@ -246,7 +246,7 @@ skills:
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [result-pattern, ui-css]
     dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -472,7 +472,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-10-01"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library
@@ -516,7 +516,7 @@ skills:
 
   - name: skuel-search-architecture
     description: SKUEL's unified search architecture and SearchRouter
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -558,7 +558,7 @@ skills:
 
   - name: learning-loop
     description: SKUEL's Learning Loop — the development lens for PathStep, Exercise, UserEntry, Report, RevisedExercise, Interaction; every feature must strengthen a loop phase
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-10-01"
     foundation: [curriculum-domains, activity-domains]
     dependencies: [curriculum-domains, activity-domains]
     library_package: null  # SKUEL pattern, not external library

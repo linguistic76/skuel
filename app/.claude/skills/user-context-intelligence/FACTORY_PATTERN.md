@@ -113,20 +113,16 @@ miss the post-wiring and produce contexts without a ZPD assessment or engagement
 ## `filtered_providers`
 
 ```python
-filtered_providers: dict[str, FilteredContextProvider] = {
-    "tasks": activity_services["tasks"],
-    "goals": activity_services["goals"],
-    "habits": activity_services["habits"],
-    "events": activity_services["events"],
-    "choices": activity_services["choices"],
-    "principles": activity_services["principles"],
-    "ku": learning_services["atomic_ku_service"],
-    "ps": learning_services["ps"],
-    "learning_paths": learning_services["learning_paths"],
-}
-if services.exercises is not None:
-    filtered_providers["exercises"] = services.exercises
+filtered_providers = _filtered_context_providers(
+    activity_services, learning_services, services.exercises
+)
+# keys: tasks, goals, habits, events, choices, principles, ps, learning_paths, exercises
 ```
+
+`_filtered_context_providers` (`services_bootstrap/_intelligence_hub.py`) checks each facade
+with `isinstance(facade, FilteredContextProvider)` and raises `RuntimeError` naming the domain
+when one has no `get_filtered_context` — the service dicts it reads are `Any`-valued, so the
+annotation alone would not catch it. `KuService` is not a provider and is not registered.
 
 The protocol (`core/ports/filtered_context_protocols.py`) is one method:
 
@@ -142,10 +138,11 @@ async def get_filtered_context(
 What the code does with the dict:
 
 - `DailyPlanningMixin` is the only reader, and it looks up the six Activity keys by name. Nothing
-  reads `ku`, `ps`, `learning_paths` or `exercises`.
-- The `ku` entry is the `KuService` facade, which has **no** `get_filtered_context` method. The
-  other nine do. Do not iterate the dict and call every provider — look a domain up by key, and
-  do not use `ku`.
+  reads `ps`, `learning_paths` or `exercises`.
+- Every registered value is a provider, held by the check above and by
+  `tests/unit/test_filtered_context_provider_wiring.py` (the registry is exactly the facades
+  that define the method) and `tests/integration/test_filtered_provider_wiring.py` (the
+  composed app).
 - `UserContext` is the broad snapshot; `get_filtered_context()` is a per-domain read made at
   call time. The daily plan uses it for the `stats` aggregate only, with `status_filter="all"`.
 

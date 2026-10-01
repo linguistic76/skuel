@@ -1,16 +1,55 @@
 """Intelligence hub wiring — UserContextIntelligence, ZPD, and Askesis."""
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from core.ports import EventBusOperations, ZPDOperations
+from core.ports.filtered_context_protocols import FilteredContextProvider
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.config.intelligence_tier import IntelligenceTier
-    from core.ports.filtered_context_protocols import FilteredContextProvider
     from services_bootstrap._container import Services
 
 logger = get_logger("skuel.bootstrap")
+
+
+def _filtered_context_providers(
+    activity_services: Mapping[str, object],
+    learning_services: Mapping[str, object],
+    exercises: object,
+) -> dict[str, FilteredContextProvider]:
+    """Map each domain name to the facade that serves its filtered context.
+
+    The composition root holds its services in ``Any``-valued dicts, so an
+    annotation on the returned dict would prove nothing about what is put in it.
+    Each facade is checked against ``FilteredContextProvider`` here, and one that
+    does not expose ``get_filtered_context`` stops the boot rather than reaching
+    a caller.
+
+    Raises:
+        RuntimeError: naming the domain whose facade is not a provider.
+    """
+    candidates: dict[str, object] = {
+        "tasks": activity_services["tasks"],
+        "goals": activity_services["goals"],
+        "habits": activity_services["habits"],
+        "events": activity_services["events"],
+        "choices": activity_services["choices"],
+        "principles": activity_services["principles"],
+        "ps": learning_services["ps"],
+        "learning_paths": learning_services["learning_paths"],
+        "exercises": exercises,
+    }
+    providers: dict[str, FilteredContextProvider] = {}
+    for domain, facade in candidates.items():
+        if not isinstance(facade, FilteredContextProvider):
+            raise RuntimeError(
+                f"filtered_providers[{domain!r}] is a {type(facade).__name__}, which has no "
+                "get_filtered_context — only a FilteredContextProvider may be registered."
+            )
+        providers[domain] = facade
+    return providers
 
 
 def _create_intelligence_hub(
@@ -110,32 +149,16 @@ def _create_intelligence_hub(
     else:
         logger.info("⏭️  ZPDService skipped (intelligence tier: CORE)")
 
-    # ── FilteredContextProvider dict (11 domains with get_filtered_context) ──
-    # Maps domain names to facades that implement FilteredContextProvider protocol.
-    # Intelligence services use this for on-demand, per-domain filtered queries.
-    filtered_providers: dict[str, FilteredContextProvider] = {
-        # Activity Domains (6) — facades are the services dict values
-        "tasks": activity_services["tasks"],
-        "goals": activity_services["goals"],
-        "habits": activity_services["habits"],
-        "events": activity_services["events"],
-        "choices": activity_services["choices"],
-        "principles": activity_services["principles"],
-        # Curriculum Domains (3) — facades from learning_services
-        "ku": learning_services["atomic_ku_service"],
-        "ps": learning_services["ps"],
-        "learning_paths": learning_services["learning_paths"],
-    }
-    # Exercise is created in compose_services, passed via services container
-    if services.exercises is not None:
-        filtered_providers["exercises"] = services.exercises  # type: ignore[assignment]  # ExerciseOperations satisfies FilteredContextProvider protocol
-
-    # ── UserContextIntelligence factory (13-domain architecture) ────────────
+    # ── UserContextIntelligence factory ─────────────────────────────────────
     if services.exercises is None:
         raise RuntimeError(
             "UserContextIntelligence factory requires services.exercises (ExerciseService). "
             "compose_services must wire ExerciseService before _create_intelligence_hub."
         )
+    # Intelligence services ask a provider by domain name for its filtered view.
+    filtered_providers = _filtered_context_providers(
+        activity_services, learning_services, services.exercises
+    )
     context_intelligence_factory = UserContextIntelligenceFactory(
         # Activity Domains (6) — facade services (not .relationships)
         tasks=activity_services["tasks"],

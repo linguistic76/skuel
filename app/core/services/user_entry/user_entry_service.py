@@ -11,8 +11,9 @@ Create flow
 1. Build ``UserEntry`` from ``UserEntryCreateRequest``
 2. Persist node. Three mutually exclusive paths:
      - **Turn-in** (``fulfills_exercise_uid`` + no caller uid): fresh
-       random-uid node via ``backend.create_with_exercise_link`` — writes
-       the ``FULFILLS_EXERCISE {revision}`` edge atomically.
+       random-uid node via ``backend.create_with_exercise_link`` — one
+       statement writes the node and its ``FULFILLS_EXERCISE {revision}``
+       edge and mints the revision.
      - **Living entry** (caller-supplied deterministic uid, with or
        without ``fulfills_exercise_uid``): idempotent ``backend.upsert``.
        A declared ``fulfills_exercise_uid`` is stored as a node property
@@ -329,11 +330,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
 
         # 2. Persist node (turn-in / living upsert / plain create)
         if submitted_against_uid:
-            revision = await self._next_revision(user_uid, submitted_against_uid)
             create_result = await self.backend.create_with_exercise_link(
                 entry=entry,
                 exercise_uid=submitted_against_uid,
-                revision=revision,
             )
         elif request.uid:
             # Deterministic uid → idempotent MERGE-on-uid so vault re-sync of an
@@ -979,16 +978,6 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 )
             )
         return Result.ok(None)
-
-    async def _next_revision(self, user_uid: UserUID, exercise_uid: str) -> int:
-        """Compute the next revision number for (user, exercise)."""
-        count_result = await self.backend.count_entries_for_exercise(
-            user_uid=user_uid,
-            exercise_uid=exercise_uid,
-        )
-        if count_result.is_error:
-            return 1
-        return int(count_result.value or 0) + 1
 
     async def _create_interaction_record(
         self,

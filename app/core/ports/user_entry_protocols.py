@@ -204,9 +204,9 @@ class UserEntryCrudOperations(Protocol):
 class UserEntryLifecycleOperations(Protocol):
     """FULFILLS_EXERCISE wiring + entry-owner / group-membership reads.
 
-    Replaces ``_SubmissionLifecycleMixin``. ``create_with_exercise_link``
-    carries the revision on the edge (``FULFILLS_EXERCISE {revision}``);
-    no node field.
+    ``create_with_exercise_link`` mints the turn-in's revision and carries it
+    on the edge (``FULFILLS_EXERCISE {revision}``) and in the entry's snapshot
+    (``turn_in_revision``).
 
     Implementation: ``_UserEntryLifecycleMixin``.
     """
@@ -232,14 +232,22 @@ class UserEntryLifecycleOperations(Protocol):
         self,
         entry: UserEntry,
         exercise_uid: str,
-        revision: int,
     ) -> Result[UserEntry]:
-        """Atomically create a ``UserEntry`` and link it to an exercise.
+        """Atomically create a ``UserEntry`` linked to an exercise, minting its revision.
 
-        Writes ``(:UserEntry)-[:FULFILLS_EXERCISE {revision}]->(:Exercise)``.
-        For a ``RevisedExercise`` target, additionally writes
-        ``FULFILLS_REVISED_EXERCISE`` to the revision node while anchoring
-        ``FULFILLS_EXERCISE`` on the root ``Exercise``.
+        The entry fulfills the root ``Exercise`` at the next revision of its
+        (owner, root exercise) pair: one more than the highest revision among
+        the owner's entries already fulfilling that root. The write decides the
+        number, so concurrent turn-ins of one pair never share it, and a deleted
+        entry's number is not handed to a later one while a higher one survives.
+        A ``RevisedExercise`` target is additionally linked as the revision the
+        entry answers. The returned entry carries the turn-in snapshot
+        (``turn_in_exercise_uid`` / ``turn_in_exercise_title`` /
+        ``turn_in_revision``) and its final title.
+
+        A target that is not an exercise is a not-found; nothing is written.
+
+        Backend: UserEntryBackend.create_with_exercise_link
         """
         ...
 

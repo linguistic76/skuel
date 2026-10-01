@@ -1313,6 +1313,27 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         return Result.ok(deleted > 0)
 
 
+def _choice_decided(alias: str) -> str:
+    """``Choice.is_decided`` as a Cypher predicate on ``alias``.
+
+    A decision is recorded (``decided_at``) or the choice is COMPLETED. Decided is
+    not a status value — a decided choice stays ACTIVE until it is completed.
+    """
+    return f"({alias}.decided_at IS NOT NULL OR {alias}.status = '{EntityStatus.COMPLETED.value}')"
+
+
+def _choice_pending(alias: str) -> str:
+    """``Choice.is_pending`` as a Cypher predicate on ``alias``.
+
+    Not decided and not ARCHIVED. A node with no status reads as pending, as the
+    model defaults a missing status to DRAFT.
+    """
+    return (
+        f"({alias}.decided_at IS NULL AND NOT coalesce({alias}.status, '') IN "
+        f"['{EntityStatus.COMPLETED.value}', '{EntityStatus.ARCHIVED.value}'])"
+    )
+
+
 class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     """
     Domain backend for Choice entities.
@@ -1322,6 +1343,10 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     - get_choice(uid)                      → get_or_fail() wrapper (NotFound as error)
     - get_user_choices(uid)                → alias for inherited list_by_user()
     - get_stats_for_user(uid)              → choice count stats (total/pending/decided)
+
+    Pending and decided are the model's predicates (``Choice.is_pending`` /
+    ``Choice.is_decided``), spelled once for Cypher in ``_choice_pending`` /
+    ``_choice_decided``.
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -1346,7 +1371,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
             self,
             user_uid,
             "choice",
-            {"pending": "n.status = 'pending'", "decided": "n.status = 'decided'"},
+            {"pending": _choice_pending("n"), "decided": _choice_decided("n")},
         )
         if result.is_error:
             return Result.fail(result)
@@ -1355,7 +1380,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     async def get_pending_choices(
         self, user_uid: UserUID, limit: int = 100
     ) -> Result[list[Neo4jProperties]]:
-        """Get pending/undecided choices for a user.
+        """Get the choices a user has yet to decide (``Choice.is_pending``).
 
         Args:
             user_uid: Owner of the choices.
@@ -1364,10 +1389,10 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         Returns:
             Result containing list of choice node properties.
         """
-        query = """
-        MATCH (c:Entity {entity_type: 'choice'})
+        query = f"""
+        MATCH (c:Entity {{entity_type: 'choice'}})
         WHERE c.user_uid = $user_uid
-          AND c.status IN ['draft', 'active', 'scheduled']
+          AND {_choice_pending("c")}
         RETURN c
         ORDER BY datetime(c.decision_deadline) ASC, datetime(c.created_at) DESC
         LIMIT $limit
@@ -1380,7 +1405,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     async def get_choices_needing_decision(
         self, user_uid: UserUID, end_date: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get choices that need a decision by a deadline.
+        """Get the pending choices whose decision is due by a deadline.
 
         Args:
             user_uid: Owner of the choices.
@@ -1390,11 +1415,11 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         Returns:
             Result containing list of choice node properties.
         """
-        query = """
-        MATCH (c:Entity {entity_type: 'choice'})
+        query = f"""
+        MATCH (c:Entity {{entity_type: 'choice'}})
         WHERE c.user_uid = $user_uid
           AND datetime(c.decision_deadline) < datetime($end_bound)
-          AND NOT c.status IN ['completed', 'decided', 'cancelled', 'archived']
+          AND {_choice_pending("c")}
         RETURN c
         ORDER BY datetime(c.decision_deadline) ASC
         """

@@ -194,7 +194,7 @@ def _apply_task_secondary_filters(
 ) -> list[Any]:
     """Apply secondary filter criteria (project, assignee, due date) to task list.
 
-    Status filtering is handled at Cypher level via get_for_user_filtered.
+    The status filter is applied beside it, through ``_TASK_FILTER_CONFIG``.
     """
     today = today_in(current_zone())
 
@@ -1149,7 +1149,7 @@ class TasksService(
         """Get filtered and sorted tasks with pre-filter stats in a single query."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.core.get_for_user_filtered(user_uid, "all")
+            return await self.core.get_all_for_user(user_uid)
 
         def apply_filters(all_tasks: list[Any]) -> list[Any]:
             filtered = apply_entity_filter(all_tasks, status_filter, _TASK_FILTER_CONFIG)

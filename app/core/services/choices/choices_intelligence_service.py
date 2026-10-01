@@ -137,8 +137,8 @@ class ChoicesIntelligenceService(
 
         # Calculate analytics
         total_choices = len(choices)
-        decided_choices = [c for c in choices if c.selected_option_uid is not None]
-        pending_choices = [c for c in choices if c.selected_option_uid is None]
+        decided_choices = [c for c in choices if c.is_decided()]
+        pending_choices = [c for c in choices if c.is_pending()]
 
         # Calculate decision rate
         decision_rate = len(decided_choices) / total_choices if total_choices > 0 else 0.0

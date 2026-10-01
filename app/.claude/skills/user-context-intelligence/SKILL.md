@@ -296,10 +296,9 @@ Only the six Activity keys are read:
 | goals + habits | `active`, `active` | goals `>= 10` and habits `== 0` |
 | tasks + goals | `active`, `active` | tasks `> 20` and goals `== 0` |
 
-The stats come from `core/utils/activity_stats.py`. `compute_choice_stats` counts the statuses
-`"pending"` and `"decided"`; a Choice's statuses are `draft` / `active` / `completed` /
-`archived`, so `pending` is 0 for every user and **the choices warning does not fire**. Do not
-build on it.
+The stats come from `core/utils/activity_stats.py`. Choices' `pending` is not a status — a
+Choice's statuses are `draft` / `active` / `completed` / `archived` — it is the count of
+`Choice.is_pending()`: no decision recorded, not completed, not archived.
 
 ### Plan metadata
 

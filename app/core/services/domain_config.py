@@ -53,8 +53,7 @@ See Also:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from core.models.enums import SearchVisibility
@@ -68,7 +67,6 @@ from core.models.relationship_registry import (
     generate_graph_enrichment,
     generate_prerequisite_relationships,
 )
-from core.models.type_hints import FilterParams
 
 
 @dataclass(frozen=True)
@@ -148,12 +146,6 @@ class DomainConfig:
     # Date Range Queries
     date_field: str = "created_at"
     completed_statuses: tuple[str, ...] = ()
-
-    # get_for_user_filtered vocabulary: filter-name -> extra find_by kwargs.
-    # "all" or any unconfigured name applies no status constraint. Per-domain
-    # semantics are preserved exactly here (e.g. Tasks' "active" means NOT
-    # completed via status__not_in; Goals' "active" means status == "active").
-    status_filters: Mapping[str, FilterParams] = field(default_factory=dict)
 
     # Text Search
     search_fields: tuple[str, ...] = ("title", "description")
@@ -236,13 +228,6 @@ class DomainConfig:
             raise ValueError(
                 f"DomainConfig for {self.get_entity_label()}: OWNER_OR_AUDIENCE is a "
                 "read_visibility, never a search_visibility (ADR-088 §5)."
-            )
-
-        # Validate: "all" is reserved in status_filters (always means no constraint)
-        if "all" in self.status_filters:
-            raise ValueError(
-                f"DomainConfig for {self.get_entity_label()}: 'all' is reserved in "
-                f"status_filters (it always means no status constraint)."
             )
 
         # Validate: mastery_threshold is meaningless without progress tracking
@@ -361,7 +346,6 @@ def create_activity_domain_config(
     domain_name: str,
     date_field: str = "created_at",
     completed_statuses: tuple[str, ...] = (),
-    status_filters: Mapping[str, FilterParams] | None = None,
     category_field: str = "category",
     search_fields: tuple[str, ...] | None = None,
     search_order_by: str | None = None,
@@ -382,8 +366,6 @@ def create_activity_domain_config(
         domain_name: Domain name (e.g., "tasks", "goals")
         date_field: Field for date queries
         completed_statuses: Status values indicating completion
-        status_filters: get_for_user_filtered vocabulary (filter-name -> extra
-            find_by kwargs); "all"/unknown names mean no status constraint
         category_field: Field for category filtering
         search_fields: Fields for text search (default: ["title", "description"])
         search_order_by: Default sort field (default: "created_at")
@@ -419,7 +401,6 @@ def create_activity_domain_config(
         service_name=f"{domain_name}.search",
         date_field=date_field,
         completed_statuses=completed_statuses,
-        status_filters=status_filters or {},
         category_field=category_field,
         search_fields=search_fields or ("title", "description"),
         search_order_by=search_order_by or "created_at",

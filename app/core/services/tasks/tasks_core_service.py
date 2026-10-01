@@ -162,12 +162,6 @@ class TasksCoreService(
         domain_name="tasks",
         date_field="due_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        # "active" deliberately means NOT completed (keeps in-progress statuses),
-        # not status == "active".
-        status_filters={
-            "active": {"status__not_in": ["completed"]},
-            "completed": {"status": "completed"},
-        },
         entity_label="Entity",
     )
 
@@ -1232,8 +1226,7 @@ class TasksCoreService(
         """Count task stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
-    # the status_filters map in _config above.
+    # get_all_for_user: inherited from SearchOperationsMixin.
 
     async def calculate_parent_progress(self, parent_uid: str) -> Result[ParentProgressResult]:
         """Calculate parent task progress based on weighted subtask completion."""

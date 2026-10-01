@@ -26,12 +26,17 @@ Covers:
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime
+from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
 
+from core.models.choice.choice import Choice
+from core.models.enums.entity_enums import EntityStatus
 from core.ports.filtered_context_protocols import FilteredContextProvider
+from core.services.choices_service import ChoicesService
 from core.services.user.intelligence.daily_planning import DailyPlanningMixin
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 from core.utils.result_simplified import Errors, Result
@@ -295,6 +300,59 @@ async def test_pending_choices_decision_fatigue():
     assert not result.is_error
     plan = result.value
     assert any("pending choices" in w for w in plan.warnings)
+
+
+def _choices_facade(undecided: int) -> ChoicesService:
+    """The real Choices facade over a user holding ``undecided`` open choices.
+
+    Beside them sit two decided choices (ACTIVE, with a ``decided_at``) and one
+    archived, never-decided choice — neither kind awaits a decision.
+    """
+    decided_at = datetime(2026, 9, 1, 12, 0)
+    choices = [
+        *(
+            Choice(
+                uid=f"c_open_{i}", title="open", user_uid="user_test", status=EntityStatus.ACTIVE
+            )
+            for i in range(undecided)
+        ),
+        *(
+            Choice(
+                uid=f"c_decided_{i}",
+                title="decided",
+                user_uid="user_test",
+                status=EntityStatus.ACTIVE,
+                decided_at=decided_at,
+            )
+            for i in range(2)
+        ),
+        Choice(
+            uid="c_shelved", title="shelved", user_uid="user_test", status=EntityStatus.ARCHIVED
+        ),
+    ]
+    facade = object.__new__(ChoicesService)
+    facade.core = SimpleNamespace(  # type: ignore[assignment]  # one-method stand-in for the core
+        get_all_for_user=AsyncMock(return_value=Result.ok(choices))
+    )
+    return facade
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("undecided", "warned"), [(5, True), (4, False)])
+async def test_decision_fatigue_counts_the_choices_still_to_decide(
+    undecided: int, warned: bool
+) -> None:
+    """The warning reads the facade's own stats: undecided choices, at the threshold of five."""
+    svc = build_service(filtered_providers={"choices": _choices_facade(undecided)})
+    result = await svc.get_ready_to_work_on_today()
+
+    assert not result.is_error
+    fatigue = [w for w in result.value.warnings if "pending choices" in w]
+    assert fatigue == (
+        [f"{undecided} pending choices — decision fatigue risk, prioritize or defer"]
+        if warned
+        else []
+    )
 
 
 @pytest.mark.asyncio

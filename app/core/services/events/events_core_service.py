@@ -124,11 +124,6 @@ class EventsCoreService(
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
-        status_filters={
-            "scheduled": {"status": "scheduled"},
-            "completed": {"status": "completed"},
-            "cancelled": {"status": "cancelled"},
-        },
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -780,5 +775,4 @@ class EventsCoreService(
         """Count event stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
-    # the status_filters map in _config above.
+    # get_all_for_user: inherited from SearchOperationsMixin.

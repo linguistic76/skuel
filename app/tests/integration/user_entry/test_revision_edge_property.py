@@ -2,15 +2,16 @@
 Revision-on-edge Integration Test — ADR-054 Commit 3
 =====================================================
 
-ADR-054 moves ``revision_number`` off the node and onto the
-``FULFILLS_EXERCISE`` edge. A second attempt against the same exercise
-produces a brand-new ``:UserEntry`` node with a brand-new edge carrying
-``revision = 2`` — the first entry's edge still carries ``revision = 1``
-and its node is unchanged.
+A turn-in's revision lives on its ``FULFILLS_EXERCISE`` edge (ADR-054). A
+second attempt against the same exercise produces a brand-new ``:UserEntry``
+node with a brand-new edge carrying ``revision = 2``; the first entry keeps its
+node and its edge's ``revision = 1``.
 
-The same link statement stamps the turn-in snapshot — the root exercise's
-uid and title — on the node and on the returned model (Submit & Share arc
-R12); the second test pins that it survives the exercise's deletion.
+The same statement stamps the turn-in snapshot — the root exercise's uid and
+title — on the node and on the returned model (Submit & Share arc R12); the
+second test pins that it survives the exercise's deletion. The third pins the
+numbering across a delete: the next revision is one past the highest living
+one, so a deleted entry's number is never minted onto a second living entry.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from __future__ import annotations
 import pytest
 
 from core.models.enums.pipeline import Pipeline
+from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 
 
@@ -156,3 +158,56 @@ async def test_turn_in_carries_the_exercise_snapshot(
         assert after is not None
         assert after["uid"] == ctx["exercise_uid"]
         assert after["has_edge"] is False
+
+
+@pytest.mark.asyncio
+async def test_a_deleted_turn_in_leaves_a_gap_the_next_one_does_not_fill(
+    clean_neo4j,
+    user_entry_service,
+    neo4j_driver,
+    seed_classroom,
+) -> None:
+    """v1, v2, the student deletes v1: the next turn-in is v3, not a second v2.
+
+    The number reaches three places — the edge, the snapshot and the default
+    title — and all three read 3.
+    """
+    ctx = await seed_classroom()
+
+    async def turn_in() -> UserEntry:
+        created = await user_entry_service.create_entry(
+            request=UserEntryCreateRequest(
+                content="an answer",
+                pipeline=Pipeline.TEACHER_REVIEW,
+                fulfills_exercise_uid=ctx["exercise_uid"],
+            ),
+            user_uid=ctx["student_uid"],
+        )
+        assert created.is_ok, created.expect_error()
+        return created.value[0]
+
+    first = await turn_in()
+    second = await turn_in()
+    assert (first.turn_in_revision, second.turn_in_revision) == (1, 2)
+
+    deleted = await user_entry_service.delete_entry(first.uid, ctx["student_uid"])
+    assert deleted.is_ok, deleted.expect_error()
+
+    third = await turn_in()
+
+    assert third.turn_in_revision == 3
+    assert third.title == "Test Exercise v3"
+    async with neo4j_driver.session() as session:
+        rows = await session.run(
+            """
+            MATCH (u:UserEntry {user_uid: $sid})-[r:FULFILLS_EXERCISE]->(:Exercise {uid: $ex})
+            RETURN u.uid AS uid, u.title AS title, r.revision AS edge, u.turn_in_revision AS snapshot
+            """,
+            sid=ctx["student_uid"],
+            ex=ctx["exercise_uid"],
+        )
+        living = {row["uid"]: (row["title"], row["edge"], row["snapshot"]) async for row in rows}
+    assert living == {
+        second.uid: ("Test Exercise v2", 2, 2),
+        third.uid: ("Test Exercise v3", 3, 3),
+    }

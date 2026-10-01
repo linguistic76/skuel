@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-09-25
+updated: 2026-10-01
 status: current
 category: architecture
 related:
@@ -409,11 +409,11 @@ content should be processed.
 **Loop role:** The *evidence* — the student's demonstration of engagement with PathStep content.
 Without it, the Curriculum Track has no student voice.
 
-**Derivation chain fields (set at creation, no graph query needed):**
-- `parent_entity_uid` — the `fulfills_exercise_uid` passed at submission time (may be an Exercise or RevisedExercise UID). Set from `UserEntryCreateRequest.fulfills_exercise_uid` (via `create_entry`) / `submit_form()`. Useful as a Python-layer lookup; the graph edges are the authoritative source.
-- `revision_number` — which attempt this is (1 = first; auto-computed by `process_exercise_submission()` as `prior_FULFILLS_EXERCISE_count + 1` counted against the **root Exercise** UID). Written to DB alongside the auto-generated canonical title.
+**Turn-in fields (set at creation, no graph query needed):**
+- `fulfills_exercise_uid` — the exercise named at submission time (an Exercise or a RevisedExercise UID), from `UserEntryCreateRequest.fulfills_exercise_uid`. The graph edges are the authoritative source.
+- `turn_in_exercise_uid` / `turn_in_exercise_title` / `turn_in_revision` — the turn-in snapshot: the **root Exercise**, its title as it read at submission, and which attempt this is (1 = first). The writer (`UserEntryBackend.create_with_exercise_link`) mints the revision in the statement that creates the entry — one more than the highest revision among the owner's entries already fulfilling that root, so a deleted attempt's number is not minted onto a second living entry — and writes the same number on the `FULFILLS_EXERCISE {revision}` edge. An untitled turn-in is titled `"<root title> v<revision>"`.
 
-Both fields make the Python model self-describing without a round-trip to the graph. Note: `FULFILLS_EXERCISE` always points to the root Exercise (see below); `parent_entity_uid` may point to a RevisedExercise UID for revision submissions.
+The snapshot makes the Python model self-describing without a round-trip to the graph, and it outlives the exercise. Note: `FULFILLS_EXERCISE` always points to the root Exercise (see below); `fulfills_exercise_uid` may name a RevisedExercise for a revision submission.
 
 **See:** [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) —
 full pipeline from upload to sharing and teacher review queue.
