@@ -11,7 +11,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
@@ -22,6 +21,7 @@ from core.models.task.task import Task
 from core.services.tasks.task_relationships import TaskRelationships
 from core.services.tasks_types import KnowledgePatternAnalysis
 from core.services.whole_set_read import find_all_by
+from core.utils.bounded_gather import gather_bounded
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -84,10 +84,7 @@ class _ProductivityMixin:
         Returns:
             Result containing knowledge-aware priority scores
         """
-        import asyncio
         from operator import attrgetter
-
-        from core.services.tasks.task_relationships import TaskRelationships
 
         tasks_result = await find_all_by(
             self.backend, self.logger, "Knowledge-aware task priorities", user_uid=user_uid
@@ -109,12 +106,8 @@ class _ProductivityMixin:
         patterns_result = await self.analyze_learning_patterns(user_uid)
         patterns = patterns_result.value if patterns_result.is_ok else []
 
-        rels_list = await asyncio.gather(
-            *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
-        )
-
         all_knowledge_uids: set[str] = set()
-        for task, _rels in zip(all_tasks, rels_list, strict=False):
+        for task in all_tasks:
             all_knowledge_uids.update(task.get_combined_knowledge_uids())
 
         mastery_result = await self._knowledge_analyzer.track_knowledge_mastery_progression(
@@ -122,9 +115,12 @@ class _ProductivityMixin:
         )
         mastery_progressions = mastery_result.value if mastery_result.is_ok else {}
 
-        # One sel_category batch for the whole task set — the per-task scorer
-        # would otherwise issue one lookup per task (Codex P2 #1054). Union of
-        # the same uid tiers the scorer reads (applies + inferred).
+        # One sel_category batch for the tasks being scored — the per-task scorer
+        # would otherwise issue one lookup per task. Union of the same uid tiers
+        # the scorer reads (applies + inferred), over the tasks it scores.
+        rels_list = await gather_bounded(
+            TaskRelationships.fetch(task.uid, self.relationships) for task in tasks_to_prioritize
+        )
         linked_uids: set[str] = set()
         for rels in rels_list:
             linked_uids.update(rels.applies_knowledge_uids)
@@ -188,10 +184,6 @@ class _ProductivityMixin:
         Returns:
             Result containing mastery progressions by knowledge UID
         """
-        import asyncio
-
-        from core.services.tasks.task_relationships import TaskRelationships
-
         tasks_result = await find_all_by(
             self.backend, self.logger, "Task knowledge-mastery progression", user_uid=user_uid
         )
@@ -201,11 +193,8 @@ class _ProductivityMixin:
         all_tasks = tasks_result.value
 
         if knowledge_uids is None:
-            rels_list = await asyncio.gather(
-                *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
-            )
             all_knowledge_uids: set[str] = set()
-            for task, _rels in zip(all_tasks, rels_list, strict=False):
+            for task in all_tasks:
                 all_knowledge_uids.update(task.get_combined_knowledge_uids())
             knowledge_uids = list(all_knowledge_uids)
 
@@ -237,11 +226,9 @@ class _ProductivityMixin:
         if not tasks_with_opportunities:
             return Result.ok([])
 
-        rels_list = await asyncio.gather(
-            *[
-                TaskRelationships.fetch(task.uid, self.relationships)
-                for task in tasks_with_opportunities
-            ]
+        rels_list = await gather_bounded(
+            TaskRelationships.fetch(task.uid, self.relationships)
+            for task in tasks_with_opportunities
         )
 
         opportunities: list[dict[str, Any]] = []
@@ -273,7 +260,7 @@ class _ProductivityMixin:
         count, and total learning opportunities; derives ratios and knowledge
         pattern analysis.
 
-        GRAPH-NATIVE: Fetches relationships for all tasks in parallel.
+        GRAPH-NATIVE: Fetches relationships for each task, a bounded number at a time.
         """
         tasks_result = await self.backend.list(limit=QueryLimit.COMPREHENSIVE)
         if tasks_result.is_error:
@@ -296,8 +283,8 @@ class _ProductivityMixin:
                 }
             )
 
-        rels_list = await asyncio.gather(
-            *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
+        rels_list = await gather_bounded(
+            TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks
         )
 
         knowledge_bridge_tasks: list[Task] = []

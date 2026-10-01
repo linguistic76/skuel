@@ -27,7 +27,6 @@ Usage::
 
 from __future__ import annotations
 
-import asyncio
 import statistics
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
@@ -38,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel, CrossDomainImpactScore, InsightThreshold
 from core.ports.knowledge_pattern_protocol import KnowledgeLinkedRelationships
+from core.utils.bounded_gather import gather_bounded
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -165,8 +165,8 @@ class KnowledgePatternAnalyzer:
         """
         Detect knowledge-learning patterns across a set of domain entities.
 
-        Fetches relationship data for all entities in a single parallel batch,
-        then runs five pattern detectors over the result.
+        Fetches relationship data for each entity created in the timeframe, a
+        bounded number at a time, then runs five pattern detectors over the result.
 
         Args:
             entities: Domain entities to analyse (Task, Goal, Habit, …).
@@ -192,10 +192,8 @@ class KnowledgePatternAnalyzer:
             if not recent:
                 return Result.ok([])
 
-            # Fetch all relationships in a single parallel batch.
-            rels_list: list[KnowledgeLinkedRelationships] = list(
-                await asyncio.gather(*[fetch_rels(e.uid) for e in recent])
-            )
+            # One relationship fetch per recent entity, a bounded number in flight.
+            rels_list = await gather_bounded(fetch_rels(e.uid) for e in recent)
             entity_rels = list(zip(recent, rels_list, strict=False))
 
             # Filter to entities that actually have knowledge links.
