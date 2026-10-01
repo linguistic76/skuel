@@ -151,7 +151,7 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-01"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
