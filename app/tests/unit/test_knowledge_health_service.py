@@ -345,7 +345,7 @@ class TestFacadeDelegation:
 
 
 class TestKuLessSteps:
-    """A PathStep teaching no Ku is a content defect (ruled 2026-10-01) — any count flags."""
+    """A PathStep teaching no Ku is a content defect — any count flags, no threshold."""
 
     def test_list_and_count_pass_through(self) -> None:
         report = KnowledgeHealthService._build_report(LIVE_RAW)
