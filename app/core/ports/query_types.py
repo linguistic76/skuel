@@ -1536,14 +1536,40 @@ class ContextHealthResult(TypedDict, total=False):
     recommendations: list[str]
 
 
+class HabitAdherenceRow(TypedDict):
+    """One active habit's adherence inputs, as both user-context statements project them.
+
+    The populator turns each row into the habit's rate with
+    ``core.models.habit.adherence.habit_adherence``; the statements carry the
+    completions, never a rate, because the rate is derived at read time.
+
+    Fields:
+        uid: The habit
+        completion_stamps: The ``completed_at`` of each of its owner's
+            ``:HabitCompletion`` nodes for it inside the trailing adherence
+            window, in whatever shape the node holds it
+        recurrence_pattern: The stored ``RecurrencePattern`` value, or None
+        target_days_per_week: The custom-frequency target, or None
+        created_at: The habit's stored creation stamp, in whatever shape the
+            node holds it (``creation_day`` reads every one), or None
+    """
+
+    uid: str
+    completion_stamps: list[object]
+    recurrence_pattern: str | None
+    target_days_per_week: int | None
+    created_at: object
+
+
 class MomentumSignals(TypedDict):
     """Return shape for TemporalMomentumMixin.compute_momentum_signals().
 
     Fields:
         velocities: Activity domain -> share of its window items that are completed
         neglected: Activity domains with no items in the window
-        habit_consistency: Mean of the rates the habit items carry; None when no
-            item carries one (a user with no habits has no consistency to report)
+        habit_consistency: Mean adherence over the user's active habits that
+            have a rate (``UserContext.habit_completion_rates``); None when none
+            does — a user with no habits has no consistency to report
         phase: "accelerating" | "steady" | "decelerating" | "unknown"
     """
 

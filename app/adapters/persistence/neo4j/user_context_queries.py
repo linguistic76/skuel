@@ -5,15 +5,15 @@ User Context Queries - Cypher Query Definitions and Execution
 **EXTRACTED (December 2025):** From user_context_builder.py for separation of concerns.
 
 This module contains:
-- RICH_CONTEXT_STATEMENTS: the rich context's graph reads — six statements, one per
-  read family (tasks & goals, habits & events, principles & choices, knowledge,
-  curriculum, learner state), run concurrently and merged into one map
+- RICH_CONTEXT_STATEMENTS: the rich context's graph reads — seven statements, one per
+  read family (tasks & goals, habits & events, habit adherence, principles & choices,
+  knowledge, curriculum, learner state), run concurrently and merged into one map
 - SUBMISSION_STATS_QUERY: the learning-loop tail (submission & feedback stats), its own statement
 - ENTRY_KNOWLEDGE_APPLIED_QUERY: the entry→Ku applied-knowledge rows, its own statement
 - CONSOLIDATED_QUERY: Standard context query (UIDs only)
 - UserContextQueryExecutor: Query execution with error handling
 
-Why six statements and not one: a Cypher statement is served from the server's
+Why seven statements and not one: a Cypher statement is served from the server's
 plan cache only up to a size — cumulative across MATCHes, WITHs and the RETURN
 map — past which it is re-planned on every execution (~0.5 s self-hosted, ~1 s
 on AuraDB Free, against ~40 ms of execution), and the planner's cost grows
@@ -41,13 +41,20 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
 from adapters.persistence.neo4j.query.cypher.choice_fragments import build_choice_pending_predicate
+from adapters.persistence.neo4j.query.cypher.habit_fragments import (
+    HABIT_WINDOW_END_PARAM,
+    HABIT_WINDOW_START_PARAM,
+    build_habit_window_completion_stamps,
+)
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
+from core.models.habit.adherence import adherence_window_bounds
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
     CurrentPathStepItem,
     EntryKnowledgeAppliedRow,
     GroupSummary,
+    HabitAdherenceRow,
     MasteredPathStepItem,
 )
 from core.utils.decorators import with_error_handling
@@ -71,6 +78,43 @@ logger = get_logger(__name__)
 def _sort_by_last_viewed_at(item: Mapping[str, object]) -> datetime:
     """A view's ``last_viewed_at`` as its instant — any stored shape; absent or unreadable first."""
     return instant_of(item["last_viewed_at"], current_zone()) or EARLIEST_INSTANT
+
+
+def _habit_adherence_row(
+    item: Mapping[str, Any],  # boundary: one projected map from a Neo4j record
+) -> HabitAdherenceRow:
+    """A consolidated ``habit_data`` item's adherence inputs — the streak stays behind."""
+    return {
+        "uid": item["uid"],
+        "completion_stamps": item["completion_stamps"],
+        "recurrence_pattern": item["recurrence_pattern"],
+        "target_days_per_week": item["target_days_per_week"],
+        "created_at": item["created_at"],
+    }
+
+
+def habit_window_params() -> dict[str, str]:
+    """``$habit_window_start`` / ``$habit_window_end``: the adherence window as of today.
+
+    Today in the current zone — the context user's (``zone_scope``) — whatever
+    activity window a rich build was asked for: adherence is "how well is this
+    habit kept now", so its window always ends today.
+    """
+    start, end = adherence_window_bounds(current_zone())
+    return {HABIT_WINDOW_START_PARAM: start.isoformat(), HABIT_WINDOW_END_PARAM: end.isoformat()}
+
+
+def build_consolidated_query_params(
+    user_uid: UserUID,
+) -> dict[str, Any]:  # boundary: Cypher parameters — strings, lists and numbers by name
+    """The parameter map CONSOLIDATED_QUERY runs with — one builder for the
+    executor and the plan-cache guard. ``$today`` is today in the current zone."""
+    return {
+        "user_uid": user_uid,
+        "today": today_in(current_zone()).isoformat(),
+        **habit_window_params(),
+        **STATUS_PARAMS,
+    }
 
 
 # =============================================================================
@@ -125,6 +169,19 @@ _COMPOSITION_EDGES_TOKEN = "__COMPOSITION_EDGES__"
 # statements that list ``pending_choice_uids``, never restated in either.
 _CHOICE_PENDING_TOKEN = "__CHOICE_PENDING__"
 _CHOICE_PENDING = build_choice_pending_predicate("choice")
+
+# An active habit's adherence inputs (``HabitAdherenceRow``) — its completion
+# stamps in the window, the frequency and the creation stamp ``habit_adherence``
+# reads — projected by HABIT_ADHERENCE_QUERY
+# and CONSOLIDATED_QUERY from this one spelling. The statements carry the count,
+# never a rate: the rate is derived at read time by the populator.
+_HABIT_ADHERENCE_FIELDS_TOKEN = "__HABIT_ADHERENCE_FIELDS__"
+_HABIT_ADHERENCE_FIELDS = (
+    f"completion_stamps: {build_habit_window_completion_stamps('user', 'habit')}, "
+    "recurrence_pattern: habit.recurrence_pattern, "
+    "target_days_per_week: habit.target_days_per_week, "
+    "created_at: habit.created_at"
+)
 
 # Tasks and goals — one statement because progress_counts spans both and each
 # projects the other (a task's goal_context, a goal's contributing_tasks).
@@ -287,7 +344,7 @@ OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
 WHERE habit.status = $status_active OR datetime(habit.updated_at) >= datetime($window_start)
 WITH user,
      collect(CASE WHEN habit.status = $status_active THEN habit.uid END) as active_habit_uids,
-     collect(CASE WHEN habit.status = $status_active THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)} END) as habit_metadata,
+     collect(CASE WHEN habit.status = $status_active THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0)} END) as habit_metadata,
      collect(habit) as all_habit_nodes
 
 // Filter habits for rich data (with graph neighborhoods)
@@ -880,6 +937,23 @@ RETURN {
 } as result
 """
 
+# Habit adherence — per active habit, its completions inside the trailing
+# adherence window plus the frequency the rate is measured against. Its own
+# statement: a read of the :HabitCompletion family, which no other statement
+# touches. ``habit_metadata`` (habits & events) carries the same habits' streaks.
+HABIT_ADHERENCE_QUERY: str = """
+MATCH (user:User {uid: $user_uid})
+OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
+WHERE habit.status = $status_active
+WITH user,
+     collect(CASE WHEN habit IS NOT NULL THEN {uid: habit.uid, __HABIT_ADHERENCE_FIELDS__} END) as habit_adherence
+RETURN {
+    uids: {
+        habit_adherence: habit_adherence
+    }
+} as result
+""".replace(_HABIT_ADHERENCE_FIELDS_TOKEN, _HABIT_ADHERENCE_FIELDS)
+
 # The rich context's graph reads, one statement per read family, in ONE tuple:
 # ``execute_mega_query`` runs every entry concurrently and merges the partial maps
 # into the one ``mega_data`` map the populator reads, and
@@ -891,6 +965,7 @@ RETURN {
 RICH_CONTEXT_STATEMENTS: tuple[tuple[str, str], ...] = (
     ("tasks_and_goals", TASKS_AND_GOALS_QUERY),
     ("habits_and_events", HABITS_AND_EVENTS_QUERY),
+    ("habit_adherence", HABIT_ADHERENCE_QUERY),
     ("principles_and_choices", PRINCIPLES_AND_CHOICES_QUERY),
     ("knowledge", KNOWLEDGE_QUERY),
     ("curriculum", CURRICULUM_QUERY),
@@ -1048,7 +1123,7 @@ OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
 WHERE habit.status = $status_active
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      collect(habit.uid) as active_habit_uids,
-     collect(CASE WHEN habit IS NOT NULL THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)} END) as habit_data
+     collect(CASE WHEN habit IS NOT NULL THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0), __HABIT_ADHERENCE_FIELDS__} END) as habit_data
 
 // Goals - parallel collection with status and progress
 OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
@@ -1205,7 +1280,9 @@ RETURN
         content: latest_ar.processed_content,
         user_annotation: latest_ar.user_annotation
     } ELSE null END AS latest_ar
-""".replace(_CHOICE_PENDING_TOKEN, _CHOICE_PENDING)
+""".replace(_CHOICE_PENDING_TOKEN, _CHOICE_PENDING).replace(
+    _HABIT_ADHERENCE_FIELDS_TOKEN, _HABIT_ADHERENCE_FIELDS
+)
 
 
 # =============================================================================
@@ -1222,7 +1299,7 @@ def empty_context_data() -> dict[str, Any]:
             "overdue_uids": [],
             "today_uids": [],
         },
-        "habits": {"active_uids": [], "habit_streaks": {}, "completion_rates": {}},
+        "habits": {"active_uids": [], "habit_streaks": {}, "adherence": []},
         "goals": {"active_uids": [], "completed_uids": set(), "goal_progress": {}},
         "knowledge": {
             "mastered_uids": set(),
@@ -1261,7 +1338,7 @@ def merge_partial_context(
     """Fold one statement's ``RETURN`` partial into the merged ``mega_data`` map.
 
     The top-level keys are the map's sections; a section several statements
-    contribute to (``uids`` is split across five of them, ``entities`` across
+    contribute to (``uids`` is split across six of them, ``entities`` across
     four, ``rich`` across two) is merged key by key, and a section one statement
     owns outright (``progress_counts``, ``life_path``, ``activity_report``,
     ``active_insights_raw``) is taken as is.
@@ -1289,9 +1366,10 @@ def build_mega_query_params(
 
     Always carries ``$window_start`` / ``$window_end`` (default: the trailing
     30 days), ``$window_start_day`` (the day the window starts on, which an
-    event's calendar ``event_date`` is compared with), ``$today`` and the
-    status vocabulary; one map for all six
-    statements (a parameter a statement does not read is fine in Cypher, a
+    event's calendar ``event_date`` is compared with), ``$today``, the
+    adherence window (``habit_window_params``) and the status vocabulary; one
+    map for every
+    statement (a parameter a statement does not read is fine in Cypher, a
     missing one is a ``ParameterMissing`` error), and one builder so the
     executor and the plan-cache guard run the statements the same way.
     ``$today`` and ``$window_start_day`` are days in the current zone: the
@@ -1308,6 +1386,7 @@ def build_mega_query_params(
         "window_start": effective_start.isoformat(),
         "window_start_day": day_of(effective_start, zone).isoformat(),
         "window_end": effective_end.isoformat(),
+        **habit_window_params(),
         **STATUS_PARAMS,
     }
 
@@ -1631,8 +1710,7 @@ class UserContextQueryExecutor:
         Returns:
             Result containing structured domain data
         """
-        today = today_in(current_zone()).isoformat()
-        params = {"user_uid": user_uid, "today": today, **STATUS_PARAMS}
+        params = build_consolidated_query_params(user_uid)
 
         result = await self.executor.execute_query(CONSOLIDATED_QUERY, params)
         if result.is_error:
@@ -1660,11 +1738,11 @@ class UserContextQueryExecutor:
                         for item in (record["habit_data"] or [])
                         if item and item.get("uid") is not None
                     },
-                    "completion_rates": {
-                        item["uid"]: item["rate"]
+                    "adherence": [
+                        _habit_adherence_row(item)
                         for item in (record["habit_data"] or [])
                         if item and item.get("uid") is not None
-                    },
+                    ],
                 },
                 "goals": {
                     "active_uids": [uid for uid in (record["active_goal_uids"] or []) if uid],

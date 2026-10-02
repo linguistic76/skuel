@@ -314,6 +314,9 @@ class HabitsService(
     ) -> Result[dict[str, Any]]:
         return await self.progress.analyze_habit_consistency(habit_uid, user_context, _days)
 
+    async def get_adherence_rates(self, habits: list[Habit]) -> Result[dict[str, float]]:
+        return await self.progress.get_adherence_rates(habits)
+
     async def get_keystone_habits(self, user_context: UserContext) -> Result[list[Habit]]:
         return await self.progress.get_keystone_habits(user_context)
 

@@ -29,7 +29,6 @@ Part of the 4-service Analytics architecture:
 - AnalyticsService: Facade orchestrating all
 """
 
-import contextlib
 from collections import Counter
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
@@ -221,9 +220,11 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for habits.
 
-        Refactoring:
-        Uses unified query pattern with Cypher-level filtering.
-        Note: Habits don't use date filtering (ongoing practices).
+        Habits don't use date filtering (ongoing practices). ``completion_rate``
+        and ``consistency_rate`` are the mean adherence of the active habits that
+        have a rate, in percent — each derived now from its completions in the
+        trailing window (``HabitsService.get_adherence_rates``), never read off
+        the node; 0.0 when none has one yet, as for a user with no habits.
         """
         if not self.habits:
             return Result.fail(
@@ -231,7 +232,6 @@ class AnalyticsMetricsService:
                     message="Habits service not available", operation="calculate_habit_metrics"
                 )
             )
-
         # Use unified API - dates ignored for habits
         habits_result = await self.habits.get_user_items_in_range(
             user_uid=user_uid,
@@ -253,17 +253,16 @@ class AnalyticsMetricsService:
 
         habits = habits_result.value
 
-        # Calculate metrics
+        rates_result = await self.habits.get_adherence_rates(habits)
+        if rates_result.is_error:
+            return Result.fail(rates_result)
+        completion_rates = list(rates_result.value.values())
+
         current_streaks = {}
         best_streaks = {}
-        completion_rates = []
-
         for habit in habits:
-            current_streaks[habit.title] = getattr(habit, "current_streak", 0)
-            best_streaks[habit.title] = getattr(habit, "best_streak", 0)
-            # completion_rate may not be present on all habit types
-            with contextlib.suppress(AttributeError):
-                completion_rates.append(habit.completion_rate)
+            current_streaks[habit.title] = habit.current_streak
+            best_streaks[habit.title] = habit.best_streak
 
         avg_completion = sum(completion_rates) / len(completion_rates) if completion_rates else 0.0
 

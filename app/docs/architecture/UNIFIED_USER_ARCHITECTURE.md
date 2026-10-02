@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-10-01
+updated: 2026-10-02
 status: current
 category: architecture
 tags:
@@ -167,12 +167,12 @@ async def admin_only_route(request: Request, current_user: Any = None):
 **The solution:** One object (~250 fields), built by one concurrent round-trip — the MEGA-QUERY plus the statements that run beside it — and consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift. Core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) are populated from the `User` model during context building — callers should use `UserContext` directly instead of fetching `User` separately (the builder already resolves the user internally).
 
 ```
-Graph (Neo4j) → MEGA-QUERY (six statements, merged) + its side statements → UserContext → UserContextIntelligence → Recommendations
+Graph (Neo4j) → MEGA-QUERY (seven statements, merged) + its side statements → UserContext → UserContextIntelligence → Recommendations
                   ^                                                                          ^
        one concurrent round-trip                                                    "What should I work on?"
 ```
 
-**Why the MEGA-QUERY is six statements, not one:** a Cypher statement is served from the server's plan cache only up to a size — cumulative across `MATCH`es, `WITH`s and the `RETURN` map — past which the server re-plans it on *every* execution (~0.5 s self-hosted, ~1 s on AuraDB Free, against ~40 ms of actual execution), and the planner's cost is super-linear in statement size, so the cold first build on a server is set by the largest statement. `RICH_CONTEXT_STATEMENTS` (`user_context_queries.py`) is the registry: one statement per read family — tasks & goals (`progress_counts` spans both), habits & events (the practice pair), principles & choices (the values pair the populator integrates), knowledge (every user→Ku edge), curriculum (enrolled paths, active steps, MOCs), learner state (life path, latest report, active insights — the family most likely to grow). Each carries only its own names through its `WITH` lists and returns the partial of the merged map it owns; `execute_mega_query` runs them concurrently and merges by top-level key. The learning-loop reads (`SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`) run beside them with the current-path-step, mastered-path-step (`MASTERED_PATH_STEPS_QUERY` — a mastered step is neither IN_PROGRESS nor a Ku, so no family carries it), engagement and group reads, so the wall cost is the slowest statement. `tests/integration/test_user_context_plan_cache.py` derives its parametrization from the registry and pins every statement under the edge with the driver's `result_available_after` (a line or `OPTIONAL MATCH` count is the wrong guard; the edge is server-version dependent); `tests/integration/test_rich_context_statement_equivalence.py` pins what the merged map contains for a learner seeded in every section. **A new read is a new registry entry, never a section appended to an existing statement.** Measured in [../roadmap/done/mega-query-plan-cache-cliff.md](../roadmap/done/mega-query-plan-cache-cliff.md).
+**Why the MEGA-QUERY is seven statements, not one:** a Cypher statement is served from the server's plan cache only up to a size — cumulative across `MATCH`es, `WITH`s and the `RETURN` map — past which the server re-plans it on *every* execution (~0.5 s self-hosted, ~1 s on AuraDB Free, against ~40 ms of actual execution), and the planner's cost is super-linear in statement size, so the cold first build on a server is set by the largest statement. `RICH_CONTEXT_STATEMENTS` (`user_context_queries.py`) is the registry: one statement per read family — tasks & goals (`progress_counts` spans both), habits & events (the practice pair), habit adherence (each active habit's `:HabitCompletion` stamps in the trailing adherence window — the only statement that reads that label), principles & choices (the values pair the populator integrates), knowledge (every user→Ku edge), curriculum (enrolled paths, active steps, MOCs), learner state (life path, latest report, active insights — the family most likely to grow). Each carries only its own names through its `WITH` lists and returns the partial of the merged map it owns; `execute_mega_query` runs them concurrently and merges by top-level key. The learning-loop reads (`SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`) run beside them with the current-path-step, mastered-path-step (`MASTERED_PATH_STEPS_QUERY` — a mastered step is neither IN_PROGRESS nor a Ku, so no family carries it), engagement and group reads, so the wall cost is the slowest statement. `tests/integration/test_user_context_plan_cache.py` derives its parametrization from the registry and pins every statement under the edge with the driver's `result_available_after` (a line or `OPTIONAL MATCH` count is the wrong guard; the edge is server-version dependent); `tests/integration/test_rich_context_statement_equivalence.py` pins what the merged map contains for a learner seeded in every section. **A new read is a new registry entry, never a section appended to an existing statement.** Measured in [../roadmap/done/mega-query-plan-cache-cliff.md](../roadmap/done/mega-query-plan-cache-cliff.md).
 
 ### Two Depths
 
@@ -263,7 +263,7 @@ Domain intelligence services (`TasksIntelligenceService`, etc.) analyse single d
 
 ```
 user_context_builder.py    (~331 lines)   Orchestration — build() vs build_rich()
-user_context_queries.py    (~1600 lines)  RICH_CONTEXT_STATEMENTS (six statements), SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY, CONSOLIDATED_QUERY + the executor
+user_context_queries.py    (~1600 lines)  RICH_CONTEXT_STATEMENTS (seven statements), SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY, CONSOLIDATED_QUERY + the executor
 user_context_extractor.py  (~351 lines)   Result parsing + relationship extraction
 user_context_populator.py  (~235 lines)   Context field population
 ```
@@ -302,14 +302,23 @@ class UserContextQueryExecutor:
 
 **Population methods** (`UserContextPopulator`):
 
+`habit_completion_rates` is derived, never read off a node: both paths' statements project each
+active habit's `:HabitCompletion` stamps in the trailing 30-day window (`HABIT_ADHERENCE_QUERY` on
+the rich path, `CONSOLIDATED_QUERY`'s `habit_data` on the standard one, one Cypher fragment in
+`query/cypher/habit_fragments.py`), and the populator turns each habit's completion days into its adherence
+with `core/models/habit/adherence.py::habit_adherence` — completions over what the habit's
+frequency expects in the window, cut short at the habit's creation day, at most 1.0. A habit with
+no rate (quarterly, yearly, one-time, or nothing due yet) is left out of the map, so it is neither
+averaged nor at risk. A section missing those rows raises; it is never read as 0.0. Design: `/docs/roadmap/habit-completion-persistence-bundle.md`.
+
 | Method | What it populates | Path |
 |--------|-------------------|------|
-| `populate_standard_fields()` | `active_task_uids`, `active_goal_uids`, `habit_streaks`, `in_progress_knowledge_uids`, etc. | Both |
+| `populate_standard_fields()` | `active_task_uids`, `active_goal_uids`, `habit_streaks`, `habit_completion_rates`, `in_progress_knowledge_uids`, etc. | Both |
 | `populate_entities_rich()` | `entities_rich` dict (9 keys) | Rich only |
 | `populate_user_preferences()` | `learning_level`, `preferred_time`, `available_minutes_daily` — from the parsed `User.preferences` model (the :User node stores a JSON-string blob, not flat preference properties) | Both |
 | `populate_life_path()` | `life_path_uid`, `life_path_alignment_score` | Both |
 | `populate_progress_metrics()` | `overall_progress` | Both |
-| `populate_derived_fields()` | `tasks_by_goal`, `at_risk_habits`, `blocked_task_uids` | Rich only |
+| `populate_derived_fields()` | `tasks_by_goal`, `at_risk_habits` (an active habit with no streak or adherence under 0.5), `blocked_task_uids` | Rich only |
 | `populate_activity_report()` | `latest_activity_report_*` fields | Both |
 | `populate_submission_stats()` | `total_submission_count`, `pending_feedback_count`, `unsubmitted_exercises`, `pending_revised_exercises`, etc. (11 fields) | Rich only |
 | `populate_cross_domain_insights()` | `cross_domain_insights` | Rich only |
@@ -318,7 +327,7 @@ class UserContextQueryExecutor:
 
 ## MEGA-QUERY Architecture
 
-The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data with graph neighbourhoods in one concurrent round-trip: the six `RICH_CONTEXT_STATEMENTS`, run together and merged (see *Why the MEGA-QUERY is six statements* above).
+The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data with graph neighbourhoods in one concurrent round-trip: the seven `RICH_CONTEXT_STATEMENTS`, run together and merged (see *Why the MEGA-QUERY is seven statements* above).
 
 `build_rich()` passes the activity window (`$window_start`) to every statement; the six activity sections admit an entity if it is open or touched since the window's start, and populate `context.entities_rich`.
 

@@ -58,7 +58,7 @@ skills:
 
   - name: python
     description: Python development patterns in SKUEL
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-02"
     foundation: []
     dependencies: []
     library_package: null  # Language, not a package
@@ -281,7 +281,7 @@ skills:
 
   - name: neo4j-cypher-patterns
     description: Neo4j Cypher queries and SKUEL's graph patterns
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-02"
     foundation: []
     dependencies: []
     library_package: neo4j
@@ -472,7 +472,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-02"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library
@@ -535,7 +535,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-02"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library

@@ -40,9 +40,10 @@ class TemporalMomentumMixin(IntelligenceMixinBase):
         Returns:
             velocities: {domain: 0.0-1.0}  — completion ratio per domain
             neglected: [domain, ...]       — domains with zero window activity
-            habit_consistency: float | None — mean completion_rate over the habit
-                items that carry one; None when none does (no habits, or habits
-                with no rate recorded) — an absent measurement, not a zero
+            habit_consistency: float | None — mean adherence over the user's
+                active habits that have a rate (``context.habit_completion_rates``,
+                derived at read time); None when none does — an absent
+                measurement, not a zero
             phase: "accelerating" | "steady" | "decelerating" | "unknown"
 
         Returns empty signals (phase "unknown") if entities_rich is unpopulated.
@@ -72,13 +73,9 @@ class TemporalMomentumMixin(IntelligenceMixinBase):
             )
             velocities[domain] = completed / len(items)
 
-        # Habit consistency — the mean of the rates the habit items carry. With
+        # Habit consistency — the mean adherence of the active habits. With
         # nothing to average there is no consistency to report, low or otherwise.
-        habit_rates = [
-            float(rate)
-            for item in entities_rich.get("habits", [])
-            if (rate := item.get("entity", {}).get("completion_rate")) is not None
-        ]
+        habit_rates = list(self.context.habit_completion_rates.values())
         habit_consistency = sum(habit_rates) / len(habit_rates) if habit_rates else None
 
         # Overall phase from average velocity across active domains
@@ -102,7 +99,7 @@ class TemporalMomentumMixin(IntelligenceMixinBase):
         """Generate warning strings from momentum signals.
 
         The low-consistency warning needs a measured consistency: a user with no
-        habit rates to average gets none.
+        active habit gets none.
         """
         warnings: list[str] = []
         neglected = signals["neglected"]

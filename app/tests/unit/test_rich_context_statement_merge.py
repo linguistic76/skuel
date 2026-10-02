@@ -59,6 +59,18 @@ _PARTIALS: dict[str, dict[str, Any]] = {
         "uids": {"active_habit_uids": ["h1"], "upcoming_event_uids": []},
         "entities": {"habits": [{"entity": {"uid": "h1"}}], "events": []},
     },
+    "habit_adherence": {
+        "uids": {
+            "habit_adherence": [
+                {
+                    "uid": "h1",
+                    "completion_stamps": ["2026-10-01T12:00:00"],
+                    "recurrence_pattern": "daily",
+                    "target_days_per_week": None,
+                }
+            ]
+        },
+    },
     "principles_and_choices": {
         "uids": {"core_principle_uids": [], "pending_choice_uids": []},
         "entities": {"principles": [], "choices": []},
@@ -94,7 +106,7 @@ def test_merge_folds_shared_sections_and_takes_owned_ones_whole() -> None:
         "rich",
         "uids",
     ]
-    # a section five statements contribute to holds every key, from every one of them
+    # a section six statements contribute to holds every key, from every one of them
     assert sorted(merged["uids"]) == [
         "active_goal_uids",
         "active_habit_uids",
@@ -102,6 +114,7 @@ def test_merge_folds_shared_sections_and_takes_owned_ones_whole() -> None:
         "active_task_uids",
         "core_principle_uids",
         "enrolled_path_uids",
+        "habit_adherence",
         "knowledge_mastery",
         "ku_view_data",
         "pending_choice_uids",

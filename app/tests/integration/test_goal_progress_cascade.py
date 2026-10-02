@@ -32,7 +32,7 @@ from neo4j import AsyncDriver
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
-from core.models.enums import Domain, EntityStatus, Priority
+from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
@@ -194,6 +194,37 @@ async def test_completing_a_linked_habit_moves_its_goal(services: _Composed) -> 
 
     stored = await _stored_goal(services, goal.uid)
     assert stored.progress_percentage == pytest.approx(10.0)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_a_cadence_with_no_rate_does_not_leave_an_earlier_rate_standing(
+    services: _Composed,
+) -> None:
+    """A quarterly habit has no adherence a 30-day window can measure, so completing
+    it stores the field's default — not the 0.9 it carried from an earlier cadence."""
+    created = await services.habits.create(
+        Habit(
+            uid=f"{_PREFIX}habit_quarterly",
+            user_uid=_USER_UID,
+            entity_type=EntityType.HABIT,
+            title="Quarterly review",
+            recurrence_pattern=RecurrencePattern.QUARTERLY,
+            success_rate=0.9,
+        )
+    )
+    assert created.is_ok, created
+
+    completed = await services.habits.complete_habit_with_quality(
+        created.value.uid, UserContext(user_uid=_USER_UID)
+    )
+    assert completed.is_ok, completed
+
+    async with services.neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (h:Habit {uid: $uid}) RETURN h.success_rate AS rate", uid=created.value.uid
+        )
+        record = await result.single()
+    assert record is not None and record["rate"] == 0.0
 
 
 @pytest.mark.asyncio(loop_scope="session")

@@ -31,7 +31,7 @@ from core.models.enums import (
     ResponseTone,
 )
 from core.services.user.unified_user_context import RichUserContext, UserContext
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 
@@ -595,10 +595,9 @@ class TestUserContextBuilder:
                     title: 'Test Habit',
                     user_uid: $user_uid,
                     status: $status,
-                    frequency: $frequency,
+                    recurrence_pattern: $frequency,
                     current_streak: $streak,
-                    completion_rate: $rate,
-                    created_at: datetime(),
+                    created_at: datetime() - duration({days: 60}),
                     updated_at: datetime()
                 })
                 CREATE (u)-[:OWNS]->(h)
@@ -608,7 +607,27 @@ class TestUserContextBuilder:
                 status="active",
                 frequency=RecurrencePattern.DAILY.value,
                 streak=15,
-                rate=0.85,
+            )
+            # Its streak, as completion records: the last 15 days at noon in the
+            # current zone, on the stored clock — 15 of the window's 30 days.
+            zone = current_zone()
+            await session.run(
+                """
+                MATCH (u:User {uid: $user_uid})
+                UNWIND $stamps AS stamp
+                CREATE (hc:HabitCompletion {uid: 'hc.builder.' + stamp, habit_uid: $habit_uid,
+                                            user_uid: $user_uid, completed_at: stamp})
+                CREATE (u)-[:OWNS]->(hc)
+                """,
+                user_uid=test_user_uid,
+                habit_uid="habit:builder_1",
+                stamps=[
+                    as_stored_clock(
+                        local_day_bounds(today_in(zone) - timedelta(days=n), zone)[0]
+                        + timedelta(hours=12)
+                    ).isoformat()
+                    for n in range(15)
+                ],
             )
 
             # Goal
@@ -729,7 +748,7 @@ class TestUserContextBuilder:
         assert len(context.active_habit_uids) == 1
         assert "habit:builder_1" in context.active_habit_uids
         assert context.habit_streaks["habit:builder_1"] == 15
-        assert context.habit_completion_rates["habit:builder_1"] == 0.85
+        assert context.habit_completion_rates["habit:builder_1"] == 0.5  # 15 of 30 days
 
         # Verify goal data
         assert len(context.active_goal_uids) == 1

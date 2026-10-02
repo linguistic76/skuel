@@ -16,9 +16,13 @@ from datetime import date
 from operator import attrgetter
 from typing import Any
 
-from core.constants import HabitConsistencyWindow
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
-from core.models.enums import RecurrencePattern as HabitFrequency
+from core.models.habit.adherence import (
+    adherence_window_days,
+    completion_days,
+    creation_day,
+    habit_adherence,
+)
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -251,7 +255,9 @@ class HabitsProgressService:
         consistency = self._calculate_consistency_from_completions(
             habit, existing_completions, today_in(current_zone())
         )
-        updates["success_rate"] = consistency
+        # No rate (a cadence the window cannot measure, nothing due yet) stores the
+        # field's default rather than leaving an earlier rate standing.
+        updates["success_rate"] = consistency if consistency is not None else 0.0
 
         update_result = await self.backend.update_habit(habit_uid, dict(updates))
         if update_result.is_error:
@@ -468,9 +474,42 @@ class HabitsProgressService:
 
         return Result.ok(analysis)
 
+    async def get_adherence_rates(self, habits: list[Habit]) -> Result[dict[str, float]]:
+        """Each habit's adherence now, keyed by uid — the habits that have a rate.
+
+        Reads each habit's completions in the trailing window in one read
+        (``HabitsOperations.get_habit_window_completions``, owner-scoped) and
+        hands each count to :func:`~core.models.habit.adherence.habit_adherence`
+        with the habit's cadence and creation day. A habit with no rate yet is
+        left out — no measurement, not 0.0.
+        """
+        if not habits:
+            return Result.ok({})
+        zone = current_zone()
+        today = today_in(zone)
+        first_day, last_day = adherence_window_days(zone)
+        counts_result = await self.backend.get_habit_window_completions(
+            [habit.uid for habit in habits], first_day.isoformat(), last_day.isoformat()
+        )
+        if counts_result.is_error:
+            return Result.fail(counts_result)
+        stamps = counts_result.value
+        rates: dict[str, float] = {}
+        for habit in habits:
+            rate = habit_adherence(
+                habit.recurrence_pattern,
+                habit.target_days_per_week,
+                completion_days(stamps.get(habit.uid, []), zone),
+                created_on=creation_day(habit.created_at, zone),
+                today=today,
+            )
+            if rate is not None:
+                rates[habit.uid] = rate
+        return Result.ok(rates)
+
     def _calculate_consistency_from_completions(
         self, habit: Habit, completions: list[HabitCompletion], as_of_date: date
-    ) -> float:
+    ) -> float | None:
         """Adherence over the trailing consistency window, anchored at ``as_of_date``.
 
         The habit's completions inside the window divided by the number its own
@@ -499,30 +538,22 @@ class HabitsProgressService:
         to persist: see the note at the ``success_rate`` write in
         :meth:`complete_habit_with_quality`.
 
+        The ratio itself is :func:`~core.models.habit.adherence.habit_adherence`,
+        the one definition the read-time readers share — measured from the
+        habit's creation day when that falls inside the window, and ``None`` when
+        the habit has no rate yet; this method only hands it the day of each
+        completion in the list.
+
         GRAPH-NATIVE: Completions fetched from graph, not from habit.completion_history.
         """
-        if not completions:
-            return 0.0
-
-        window_start = HabitConsistencyWindow.start_date(as_of_date)
-        window_end = HabitConsistencyWindow.end_date(as_of_date)
         zone = current_zone()
-        recent_completions = [
-            c for c in completions if window_start <= day_of(c.completed_at, zone) <= window_end
-        ]
-
-        # Expected completions across the window, per the habit's own frequency.
-        expected = HabitConsistencyWindow.DAYS  # Daily
-        if habit.recurrence_pattern == HabitFrequency.WEEKLY:
-            expected = HabitConsistencyWindow.DAYS // 7
-        elif habit.recurrence_pattern == HabitFrequency.CUSTOM:
-            # Use target_days_per_week for custom frequency, scaled to the window
-            expected = ((habit.target_days_per_week or 0) * HabitConsistencyWindow.DAYS) // 7
-
-        if expected == 0:
-            return 0.0
-
-        return min(1.0, len(recent_completions) / expected)
+        return habit_adherence(
+            habit.recurrence_pattern,
+            habit.target_days_per_week,
+            [day_of(c.completed_at, zone) for c in completions],
+            created_on=creation_day(habit.created_at, zone),
+            today=as_of_date,
+        )
 
     # ========================================================================
     # KEYSTONE HABIT MANAGEMENT

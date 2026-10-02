@@ -24,6 +24,9 @@ from adapters.persistence.neo4j.query.cypher import (
     build_knowledge_read_clause,
     build_publication_clause,
 )
+from adapters.persistence.neo4j.query.cypher.habit_fragments import (
+    build_completion_in_window_predicate,
+)
 from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
@@ -776,8 +779,7 @@ class CrossDomainBackend:
             OPTIONAL MATCH (analytics:HabitAnalytics {{user_uid: $user_uid}})
             OPTIONAL MATCH (u:User {{uid: $user_uid}})
             OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(hc:HabitCompletion)
-            WHERE datetime(hc.completed_at) >= datetime($start_bound)
-              AND datetime(hc.completed_at) < datetime($end_bound)
+            WHERE {build_completion_in_window_predicate("hc", "start_bound", "end_bound")}
             RETURN analytics, count(hc) AS completions_in_window
             """,
             params={

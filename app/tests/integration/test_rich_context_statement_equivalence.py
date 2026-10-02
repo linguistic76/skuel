@@ -1,5 +1,5 @@
 """
-The six rich-context statements, merged, read every section of a learner's graph.
+The seven rich-context statements, merged, read every section of a learner's graph.
 
 ``RICH_CONTEXT_STATEMENTS`` carries each read family in a statement of its own,
 and each statement's ``WITH`` lists carry only its own names. That is where a
@@ -8,7 +8,7 @@ field goes quietly wrong: a name dropped from a carry list is a Cypher error
 learner with at least one node in EVERY section — a task with a subtask, a
 dependency and applied knowledge (direct and through a PathStep), a goal with a
 subgoal, a mastered and an in-progress Ku, a viewed / read / bookmarked Ku, a
-habit with a prerequisite, an event with a conflict, a principle, a choice, an
+habit with a prerequisite and 24 completions in the adherence window, an event with a conflict, a principle, a choice, an
 enrolled path with an in-progress step, a life path, an organizer, two activity
 reports, a live and a dismissed insight — and pins every field group of the
 merged map and of the built context. The pinned values are the contract; the
@@ -40,7 +40,7 @@ from adapters.persistence.neo4j.user_context_queries import UserContextQueryExec
 from core.models.type_hints import UserUID
 from core.models.user.user import User
 from core.services.user.user_context_builder import UserContextBuilder
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 _USER_UID = UserUID("user_test")
@@ -100,7 +100,7 @@ CREATE (g_active)-[:HAS_SUBGOAL]->(g_done)
 CREATE (g_active)-[:REQUIRES_KNOWLEDGE {confidence: 0.8}]->(ku_a)
 // habits
 CREATE (h_active:Entity:Habit {uid: 'habit.eq.active', entity_type: 'habit', title: 'Active habit', status: 'active',
-                               current_streak: 5, completion_rate: 0.8, updated_at: $iso, user_uid: $user_uid})
+                               current_streak: 5, recurrence_pattern: 'daily', updated_at: $iso, user_uid: $user_uid})
 CREATE (h_pre:Entity:Habit {uid: 'habit.eq.pre', entity_type: 'habit', title: 'Prereq habit', status: 'active',
                             updated_at: $iso, user_uid: $user_uid})
 CREATE (h_old:Entity:Habit {uid: 'habit.eq.old', entity_type: 'habit', title: 'Old habit', status: 'completed',
@@ -205,17 +205,40 @@ def _by_uid(items: list[dict[str, Any]], key: str = "entity") -> dict[str, dict[
     return {item[key]["uid"]: item["graph_context"] for item in items}
 
 
+# The active habit kept on 24 of the window's 30 days — at noon on each of the
+# last 24 days in the current zone, on the stored clock: adherence 24 / 30 = 0.8.
+_SEED_COMPLETIONS = """
+MATCH (u:User {uid: $user_uid})
+UNWIND $stamps AS stamp
+CREATE (hc:HabitCompletion {uid: 'hc.eq.' + stamp, habit_uid: 'habit.eq.active',
+                            user_uid: $user_uid, completed_at: stamp})
+CREATE (u)-[:OWNS]->(hc)
+"""
+
+
+def _kept_daily_stamps(days: int) -> list[str]:
+    zone = current_zone()
+    today = today_in(zone)
+    return [
+        as_stored_clock(
+            local_day_bounds(today - timedelta(days=n), zone)[0] + timedelta(hours=12)
+        ).isoformat()
+        for n in range(days)
+    ]
+
+
 @pytest.fixture
 async def every_section_seeded(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
     async with neo4j_driver.session() as session:
         await session.run(_SEED, **_seed_params(_USER_UID))
+        await session.run(_SEED_COMPLETIONS, user_uid=_USER_UID, stamps=_kept_daily_stamps(24))
 
 
 @pytest.mark.asyncio
 async def test_the_merged_map_has_the_shape_the_populator_reads(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
-    """The six partials merge into the one map, every section and every key present."""
+    """The seven partials merge into the one map, every section and every key present."""
     executor = UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver))
 
     result = await executor.execute_mega_query(_USER_UID)
@@ -241,6 +264,7 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
         "core_principle_uids",
         "enrolled_path_uids",
         "goal_progress",
+        "habit_adherence",
         "habit_metadata",
         "knowledge_mastery",
         "ku_bookmarked_uids",
@@ -332,8 +356,27 @@ async def test_every_section_reads_what_the_one_statement_read(
     assert sorted(uids["active_habit_uids"]) == ["habit.eq.active", "habit.eq.pre"]
     assert _canon(uids["habit_metadata"]) == _canon(
         [
-            {"uid": "habit.eq.active", "streak": 5, "rate": 0.8},
-            {"uid": "habit.eq.pre", "streak": 0, "rate": 0.0},
+            {"uid": "habit.eq.active", "streak": 5},
+            {"uid": "habit.eq.pre", "streak": 0},
+        ]
+    )
+    # habit adherence — the window's completion stamps, never a rate off the node
+    assert _canon(uids["habit_adherence"]) == _canon(
+        [
+            {
+                "uid": "habit.eq.active",
+                "completion_stamps": _kept_daily_stamps(24),
+                "recurrence_pattern": "daily",
+                "target_days_per_week": None,
+                "created_at": None,
+            },
+            {
+                "uid": "habit.eq.pre",
+                "completion_stamps": [],
+                "recurrence_pattern": None,
+                "target_days_per_week": None,
+                "created_at": None,
+            },
         ]
     )
     habits = _by_uid(mega["entities"]["habits"])
@@ -546,6 +589,8 @@ async def test_the_rich_context_carries_every_section(
     assert context.active_goal_uids == ["goal.eq.active"]
     assert context.goal_progress == {"goal.eq.active": 0.4, "goal.eq.done": 1.0}
     assert context.habit_streaks == {"habit.eq.active": 5, "habit.eq.pre": 0}
+    assert context.habit_completion_rates == {"habit.eq.active": 0.8, "habit.eq.pre": 0.0}
+    assert context.at_risk_habits == ["habit.eq.pre"]  # no streak, no completions
     assert context.knowledge_mastery == {"ku.eq.a": 0.9, "ku.eq.b": 0.4}
     assert context.mastered_knowledge_uids == {"ku.eq.a"}
     assert context.in_progress_knowledge_uids == {"ku.eq.b"}
@@ -635,6 +680,24 @@ async def test_the_standard_context_skips_the_admin_report_too(
 
     assert result.is_ok, result.error
     assert result.value.latest_activity_report_uid == "ar.eq.new"
+
+
+@pytest.mark.asyncio
+async def test_the_standard_context_derives_the_same_habit_rates(
+    neo4j_driver: AsyncDriver, every_section_seeded: None
+) -> None:
+    """CONSOLIDATED_QUERY projects the same adherence inputs as the rich
+    statement, so the two builds agree on every habit's rate and streak."""
+    builder = UserContextBuilder(UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)))
+    user = User(uid=_USER_UID, title="eq", email="eq@test.com")
+
+    standard = await builder.build_user_context(_USER_UID, user)
+    rich = await builder.build_rich_user_context(_USER_UID, user)
+
+    assert standard.is_ok and rich.is_ok
+    assert standard.value.habit_completion_rates == {"habit.eq.active": 0.8, "habit.eq.pre": 0.0}
+    assert standard.value.habit_completion_rates == rich.value.habit_completion_rates
+    assert standard.value.habit_streaks == rich.value.habit_streaks
 
 
 @pytest.mark.asyncio

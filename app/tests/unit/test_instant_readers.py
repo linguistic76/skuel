@@ -312,6 +312,7 @@ class TestContextPopulatorReadsInstants:
     def test_recently_viewed_kus_sort_by_instant(self, vancouver_user: None) -> None:
         context = UserContext(user_uid="u")
         uids = {
+            "habit_adherence": [],
             "ku_view_data": [
                 {"uid": "ku.naive", "last_viewed_at": "2026-09-28T02:00:00", "view_count": 1},
                 {
@@ -324,7 +325,7 @@ class TestContextPopulatorReadsInstants:
                     "last_viewed_at": "2026-09-28T08:00:00+07:00",
                     "view_count": 1,
                 },
-            ]
+            ],
         }
 
         UserContextPopulator().populate_standard_fields(context, uids)

@@ -97,6 +97,16 @@ class _StubDomainService:
         return Result.ok([i for i in self._items if i.status != EntityStatus.COMPLETED])
 
 
+class _StubHabitsService(_StubDomainService):
+    """Adds the facade's derived-adherence read — the rates the habits facade
+    answers (``HabitsService.get_adherence_rates``): 1.0, 0.5 and 0.0, a mean of
+    exactly 50 %."""
+
+    async def get_adherence_rates(self, habits: list[Any]) -> Result[dict[str, float]]:
+        rates = {"h1": 1.0, "h2": 0.5, "h3": 0.0}
+        return Result.ok({habit.uid: rates[habit.uid] for habit in habits})
+
+
 class _StubPsService:
     """``PsService``'s three knowledge delegations, as ``AnalyticsMetricsService`` calls them.
 
@@ -225,7 +235,7 @@ def metrics() -> AnalyticsMetricsService:
                 Task(uid="t2", title="Draft outline", user_uid=USER, status=EntityStatus.ACTIVE),
             ]
         ),
-        habits_service=_StubDomainService(
+        habits_service=_StubHabitsService(
             [
                 Habit(uid="h1", title="Morning pages", user_uid=USER),
                 Habit(uid="h2", title="Evening walk", user_uid=USER),
@@ -410,6 +420,7 @@ class TestWeeklyLifeSummaryComposition:
         assert layer1["tasks"]["completed_count"] == 1
         assert layer1["tasks"]["completion_rate"] == 50.0
         assert layer1["habits"]["total_active"] == 3
+        assert layer1["habits"]["consistency_rate"] == 50.0
         assert layer1["goals"]["total_active"] == 1
         assert layer1["goals"]["total_completed"] == 1
         assert layer1["events"]["total_count"] == 2

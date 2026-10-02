@@ -9,9 +9,10 @@ Two statements the daily plan makes about a user, each held to what was measured
   so a plan can exceed it; ``workload_utilization`` is the ratio held to 0.0-1.0.
   ``UserContextService.get_next_action`` reports an over-capacity plan as one
   ``capacity_warning`` alert and leaves the plan's warnings their own type.
-- ``habit_consistency`` in the momentum signals is the mean of the rates the
-  habit items carry, and ``None`` when no item carries one. The low-consistency
-  warning needs a value.
+- ``habit_consistency`` in the momentum signals is the mean of the user's
+  active-habit adherence rates (``context.habit_completion_rates``, derived at
+  read time by the populator), and ``None`` when they have no active habit. The
+  low-consistency warning needs a value.
 
 The plan under test is assembled by the real ``DailyPlanningMixin`` over the
 no-op domain services of ``test_daily_planning_domain_stats``.
@@ -67,20 +68,23 @@ def _context_service(planner: MockDailyPlanningService) -> UserContextService:
     )
 
 
-def _habit_item(completion_rate: float | None) -> RichEntityItem:
-    entity: dict[str, object] = {"uid": "habit_x", "status": EntityStatus.ACTIVE.value}
-    if completion_rate is not None:
-        entity["completion_rate"] = completion_rate
-    return {"entity": entity, "graph_context": {}}
+def _momentum_planner(*rates: float) -> MockDailyPlanningService:
+    """A planner whose window holds one task and one active habit per rate.
 
-
-def _momentum_planner(habits: list[RichEntityItem]) -> MockDailyPlanningService:
-    """A planner whose window holds one task and the given habit items."""
+    The rates sit where the populator puts them, ``habit_completion_rates``;
+    the habit items themselves carry no rate (the node has none).
+    """
+    uids = [f"habit_{n}" for n in range(len(rates))]
+    habits: list[RichEntityItem] = [
+        {"entity": {"uid": uid, "status": EntityStatus.ACTIVE.value}, "graph_context": {}}
+        for uid in uids
+    ]
     context = make_context()
     context.entities_rich = {
         "tasks": [{"entity": {"uid": "task_x", "status": EntityStatus.ACTIVE.value}}],
         "habits": habits,
     }
+    context.habit_completion_rates = dict(zip(uids, rates, strict=True))
     return MockDailyPlanningService(context=context)
 
 
@@ -199,7 +203,7 @@ async def test_next_action_for_a_plan_that_fits_has_no_capacity_alert() -> None:
 
 
 def test_no_habits_in_the_window_is_no_consistency_signal() -> None:
-    planner = _momentum_planner(habits=[])
+    planner = _momentum_planner()
 
     signals = planner.compute_momentum_signals()
 
@@ -222,8 +226,13 @@ def test_unpopulated_window_is_no_consistency_signal() -> None:
     assert planner._momentum_warnings(signals) == []
 
 
-def test_habits_carrying_no_rate_are_no_consistency_signal() -> None:
-    planner = _momentum_planner(habits=[_habit_item(None), _habit_item(None)])
+def test_a_rate_on_the_habit_node_is_not_read() -> None:
+    """The signal reads the derived rates only — a ``completion_rate`` left on a
+    node (no door writes one) does not stand in for a measurement."""
+    planner = _momentum_planner()
+    planner.context.entities_rich["habits"] = [
+        {"entity": {"uid": "habit_x", "completion_rate": 0.1}, "graph_context": {}}
+    ]
 
     signals = planner.compute_momentum_signals()
 
@@ -232,7 +241,7 @@ def test_habits_carrying_no_rate_are_no_consistency_signal() -> None:
 
 
 def test_low_mean_rate_warns() -> None:
-    planner = _momentum_planner(habits=[_habit_item(0.1), _habit_item(0.3)])
+    planner = _momentum_planner(0.1, 0.3)
 
     signals = planner.compute_momentum_signals()
 
@@ -241,7 +250,7 @@ def test_low_mean_rate_warns() -> None:
 
 
 def test_a_measured_zero_rate_warns() -> None:
-    planner = _momentum_planner(habits=[_habit_item(0.0)])
+    planner = _momentum_planner(0.0)
 
     signals = planner.compute_momentum_signals()
 
@@ -249,15 +258,9 @@ def test_a_measured_zero_rate_warns() -> None:
     assert LOW_CONSISTENCY in planner._momentum_warnings(signals)
 
 
-def test_mean_rate_skips_the_habits_that_carry_none() -> None:
-    planner = _momentum_planner(habits=[_habit_item(0.2), _habit_item(None)])
-
-    assert planner.compute_momentum_signals()["habit_consistency"] == pytest.approx(0.2)
-
-
 @pytest.mark.parametrize("rates", [(0.4,), (0.4, 0.9), (1.0,)])
 def test_mean_rate_at_or_above_the_threshold_does_not_warn(rates: tuple[float, ...]) -> None:
-    planner = _momentum_planner(habits=[_habit_item(rate) for rate in rates])
+    planner = _momentum_planner(*rates)
 
     signals = planner.compute_momentum_signals()
 
@@ -266,7 +269,7 @@ def test_mean_rate_at_or_above_the_threshold_does_not_warn(rates: tuple[float, .
 
 @pytest.mark.asyncio
 async def test_daily_plan_for_a_user_with_no_habits_has_no_consistency_warning() -> None:
-    result = await _momentum_planner(habits=[]).get_ready_to_work_on_today()
+    result = await _momentum_planner().get_ready_to_work_on_today()
 
     assert result.is_ok
     assert LOW_CONSISTENCY not in result.value.warnings
@@ -284,7 +287,7 @@ async def test_daily_plan_for_an_unpopulated_window_has_no_consistency_warning()
 
 @pytest.mark.asyncio
 async def test_daily_plan_carries_the_consistency_warning_for_low_rates() -> None:
-    result = await _momentum_planner(habits=[_habit_item(0.2)]).get_ready_to_work_on_today()
+    result = await _momentum_planner(0.2).get_ready_to_work_on_today()
 
     assert result.is_ok
     assert LOW_CONSISTENCY in result.value.warnings

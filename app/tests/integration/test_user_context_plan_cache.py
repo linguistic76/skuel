@@ -27,8 +27,8 @@ from adapters.persistence.neo4j.user_context_queries import (
     ENTRY_KNOWLEDGE_APPLIED_QUERY,
     MASTERED_PATH_STEPS_QUERY,
     RICH_CONTEXT_STATEMENTS,
-    STATUS_PARAMS,
     SUBMISSION_STATS_QUERY,
+    build_consolidated_query_params,
     build_mega_query_params,
 )
 from core.models.type_hints import UserUID
@@ -59,7 +59,7 @@ _STATEMENTS = [
     ),
     pytest.param(
         CONSOLIDATED_QUERY,
-        {"user_uid": _USER_UID, "today": _RICH_PARAMS["today"], **STATUS_PARAMS},
+        build_consolidated_query_params(_USER_UID),
         id="CONSOLIDATED_QUERY",
     ),
 ]
