@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus, PrincipleStrength
-from core.models.habit.adherence import adherence_window_days, habit_adherence
+from core.models.habit.adherence import adherence_window_days, creation_day, habit_adherence
 from core.models.type_hints import UserUID
 from core.services.knowledge.user_substance import (
     SUBSTANCE_ACTIVITY_TYPES,
@@ -222,9 +222,10 @@ class AnalyticsMetricsService:
         Calculate statistical metrics for habits.
 
         Habits don't use date filtering (ongoing practices). ``completion_rate``
-        and ``consistency_rate`` are the mean adherence of the active habits, in
-        percent — each habit's rate derived now from its completions in the
-        trailing window (``habit_adherence``), never read off the node.
+        and ``consistency_rate`` are the mean adherence of the active habits that
+        have a rate, in percent — each derived now from its completions in the
+        trailing window (``habit_adherence``), never read off the node; 0.0 when
+        none has one yet, as for a user with no habits.
         """
         if not self.habits:
             return Result.fail(
@@ -264,7 +265,9 @@ class AnalyticsMetricsService:
 
         habits = habits_result.value
 
-        window_first, window_last = adherence_window_days(current_zone())
+        zone = current_zone()
+        today = today_in(zone)
+        window_first, window_last = adherence_window_days(zone)
         counts_result = await self.cross_domain_backend.get_habit_window_completions(
             [habit.uid for habit in habits], window_first.isoformat(), window_last.isoformat()
         )
@@ -279,15 +282,17 @@ class AnalyticsMetricsService:
         for habit in habits:
             current_streaks[habit.title] = habit.current_streak
             best_streaks[habit.title] = habit.best_streak
-            completion_rates.append(
-                habit_adherence(
-                    habit.recurrence_pattern,
-                    habit.target_days_per_week,
-                    counts.get(habit.uid, 0),
-                )
+            rate = habit_adherence(
+                habit.recurrence_pattern,
+                habit.target_days_per_week,
+                counts.get(habit.uid, 0),
+                created_on=creation_day(habit.created_at, zone),
+                today=today,
             )
+            if rate is not None:
+                completion_rates.append(rate)
 
-        avg_completion = sum(completion_rates) / len(completion_rates)
+        avg_completion = sum(completion_rates) / len(completion_rates) if completion_rates else 0.0
 
         return Result.ok(
             {

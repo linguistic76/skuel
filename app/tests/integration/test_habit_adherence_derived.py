@@ -21,6 +21,11 @@ The users:
   another user wrote against its uid: 7 / 30, whatever the rest.
 - INTRUDER — writes those five, and keeps a habit of their own.
 - NO_HABITS — none at all: no rate, no consistency signal, no warning.
+- YOUNG — a daily habit created three days ago and kept all three days (1.0, not
+  3 / 30), and a weekly habit created four days ago with nothing due yet (no
+  rate: neither averaged nor at risk).
+
+Every other habit is created forty days ago, so it is measured over the whole window.
 
 The design and what it leaves to the write side:
 ``docs/roadmap/habit-completion-persistence-bundle.md``.
@@ -28,7 +33,7 @@ The design and what it leaves to the write side:
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 import pytest_asyncio
@@ -64,12 +69,15 @@ BULK = UserUID("user_adherence_bulk")
 DROPPED = UserUID("user_adherence_dropped")
 INTRUDER = UserUID("user_adherence_intruder")
 NO_HABITS = UserUID("user_adherence_none")
-USERS = (KEPT, BULK, DROPPED, INTRUDER, NO_HABITS)
+YOUNG = UserUID("user_adherence_young")
+USERS = (KEPT, BULK, DROPPED, INTRUDER, NO_HABITS, YOUNG)
 
 KEPT_HABIT = "habit.adherence.kept"
 BULK_HABIT = "habit.adherence.bulk"
 DROPPED_HABIT = "habit.adherence.dropped"
 INTRUDER_HABIT = "habit.adherence.intruder"
+YOUNG_HABIT = "habit.adherence.young"
+YOUNG_WEEKLY_HABIT = "habit.adherence.young_weekly"
 
 TODAY = today_in(current_zone())
 KEPT_DAYS = [TODAY - timedelta(days=n) for n in range(28)]
@@ -77,6 +85,8 @@ DROPPED_DAYS = [TODAY - timedelta(days=n) for n in range(14, 21)]  # dropped two
 LONG_AGO_DAYS = [TODAY - timedelta(days=n) for n in (40, 41)]  # outside the window
 FUTURE_DAYS = [TODAY + timedelta(days=n) for n in (1, 5)]
 INTRUDER_DAYS = [TODAY - timedelta(days=n) for n in range(2, 7)]
+CREATED_LONG_AGO = TODAY - timedelta(days=40)
+YOUNG_DAYS = [TODAY - timedelta(days=n) for n in range(3)]
 
 KEPT_RATE = 28 / HabitConsistencyWindow.DAYS
 DROPPED_RATE = 7 / HabitConsistencyWindow.DAYS
@@ -110,17 +120,27 @@ class _HabitsFacade:
         return await self._backend.find_by(user_uid=user_uid)
 
 
-async def _create_habit(backend: HabitsBackend, uid: str, user_uid: str) -> None:
-    created = await backend.create(
-        Habit(
-            uid=uid,
-            user_uid=user_uid,
-            entity_type=EntityType.HABIT,
-            title=uid,
-            status=EntityStatus.ACTIVE,
-            recurrence_pattern=RecurrencePattern.DAILY,
+async def _create_habit(
+    backend: HabitsBackend,
+    uid: str,
+    user_uid: str,
+    on: date = CREATED_LONG_AGO,
+    pattern: RecurrencePattern = RecurrencePattern.DAILY,
+) -> None:
+    """Create the habit on the day ``on`` — its ``created_at`` is that day's noon."""
+    with _on(on):
+        created = await backend.create(
+            Habit(
+                uid=uid,
+                user_uid=user_uid,
+                entity_type=EntityType.HABIT,
+                title=uid,
+                status=EntityStatus.ACTIVE,
+                recurrence_pattern=pattern,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
         )
-    )
     assert created.is_ok, created
 
 
@@ -144,6 +164,14 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
         (INTRUDER_HABIT, INTRUDER),
     ):
         await _create_habit(habits, uid, owner)
+    await _create_habit(habits, YOUNG_HABIT, YOUNG, on=YOUNG_DAYS[-1])
+    await _create_habit(
+        habits,
+        YOUNG_WEEKLY_HABIT,
+        YOUNG,
+        on=TODAY - timedelta(days=3),
+        pattern=RecurrencePattern.WEEKLY,
+    )
 
     for day in KEPT_DAYS:
         with _on(day):
@@ -157,6 +185,9 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
     for day in FUTURE_DAYS:
         stamped = await service.record_completion(DROPPED_HABIT, DROPPED, completed_at=_noon(day))
         assert stamped.is_ok, stamped
+    for day in YOUNG_DAYS:
+        with _on(day):
+            assert (await service.record_completion(YOUNG_HABIT, YOUNG)).is_ok
     for day in INTRUDER_DAYS:
         with _on(day):
             assert (await service.record_completion(DROPPED_HABIT, INTRUDER)).is_ok
@@ -177,6 +208,7 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
         (DROPPED, DROPPED_HABIT): 2 + 7 + 2,
         (INTRUDER, DROPPED_HABIT): 5,
         (INTRUDER, INTRUDER_HABIT): 5,
+        (YOUNG, YOUNG_HABIT): 3,
     }
     return habits
 
@@ -254,6 +286,18 @@ class TestHabitAdherenceInTheUserContext:
             INTRUDER_HABIT: pytest.approx(5 / HabitConsistencyWindow.DAYS)
         }
 
+    async def test_a_young_habit_is_measured_over_the_days_it_has_existed(
+        self, neo4j_driver: AsyncDriver, graph: HabitsBackend
+    ) -> None:
+        """Kept all three of its days: 1.0 and not at risk. The weekly habit four
+        days old has no week behind it — no rate, so nothing averages or flags it."""
+        context = await _rich(neo4j_driver, YOUNG)
+
+        assert context.habit_completion_rates == {YOUNG_HABIT: 1.0}
+        assert context.at_risk_habits == []
+        signals = _Momentum(context).compute_momentum_signals()
+        assert signals["habit_consistency"] == 1.0
+
     async def test_a_user_with_no_habits_has_no_rate_and_no_consistency_warning(
         self, neo4j_driver: AsyncDriver, graph: HabitsBackend
     ) -> None:
@@ -275,6 +319,7 @@ class TestHabitAdherenceInTheUserContext:
             (DROPPED, {DROPPED_HABIT: DROPPED_RATE}),
             (INTRUDER, {INTRUDER_HABIT: 5 / HabitConsistencyWindow.DAYS}),
             (NO_HABITS, {}),
+            (YOUNG, {YOUNG_HABIT: 1.0}),
         ],
     )
     async def test_the_standard_build_derives_the_same_rates(

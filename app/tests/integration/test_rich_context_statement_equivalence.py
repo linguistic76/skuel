@@ -368,12 +368,14 @@ async def test_every_section_reads_what_the_one_statement_read(
                 "completions_in_window": 24,
                 "recurrence_pattern": "daily",
                 "target_days_per_week": None,
+                "created_at": None,
             },
             {
                 "uid": "habit.eq.pre",
                 "completions_in_window": 0,
                 "recurrence_pattern": None,
                 "target_days_per_week": None,
+                "created_at": None,
             },
         ]
     )

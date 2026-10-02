@@ -88,7 +88,10 @@ def _habit(
         best_streak=10,
         status=HabitStatus.ACTIVE,
         priority=Priority.HIGH,
-        created_at=FIXED_NOW,
+        # Older than the window, so these tests measure the window itself; a
+        # habit created inside it is measured from its creation day
+        # (tests/unit/test_habit_adherence.py).
+        created_at=FIXED_NOW - timedelta(days=90),
         updated_at=FIXED_NOW,
     )
 
@@ -221,13 +224,14 @@ def test_a_custom_habit_scales_its_weekly_target_to_the_window(service):
     assert score == pytest.approx(6 / expected)
 
 
-def test_a_custom_habit_with_no_target_reports_zero_rather_than_dividing_by_it(service):
-    """The guard: an expectation of zero is not a ratio, and must not raise."""
+def test_a_custom_habit_with_no_target_has_no_rate_rather_than_dividing_by_it(service):
+    """The guard: an expectation of zero is not a ratio, and must not raise — the
+    habit asks for nothing, so there is nothing to measure (None, not 0.0)."""
     score = service._calculate_consistency_from_completions(
         _habit(RecurrencePattern.CUSTOM, target_days_per_week=0), _completions(ANCHOR), ANCHOR
     )
 
-    assert score == 0.0
+    assert score is None
 
 
 def test_no_completions_at_all_reports_zero(service):

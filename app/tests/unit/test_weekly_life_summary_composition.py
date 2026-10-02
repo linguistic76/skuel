@@ -60,6 +60,8 @@ from core.utils.timestamp_helpers import wall_clock_in
 from core.utils.zone_context import current_zone
 
 USER = "user_weekly_summary"
+# Created before the adherence window, so each habit is measured over all of it.
+LONG_AGO = datetime.now() - timedelta(days=90)
 
 # A 7-day window, which is what the journal metric divides entries by.
 START_DATE = date(2026, 8, 1)
@@ -237,9 +239,9 @@ def metrics() -> AnalyticsMetricsService:
         ),
         habits_service=_StubDomainService(
             [
-                Habit(uid="h1", title="Morning pages", user_uid=USER),
-                Habit(uid="h2", title="Evening walk", user_uid=USER),
-                Habit(uid="h3", title="Reading", user_uid=USER),
+                Habit(uid="h1", title="Morning pages", user_uid=USER, created_at=LONG_AGO),
+                Habit(uid="h2", title="Evening walk", user_uid=USER, created_at=LONG_AGO),
+                Habit(uid="h3", title="Reading", user_uid=USER, created_at=LONG_AGO),
             ]
         ),
         goals_service=_StubDomainService(

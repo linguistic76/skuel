@@ -1549,12 +1549,15 @@ class HabitAdherenceRow(TypedDict):
             inside the trailing adherence window
         recurrence_pattern: The stored ``RecurrencePattern`` value, or None
         target_days_per_week: The custom-frequency target, or None
+        created_at: The habit's stored creation stamp, in whatever shape the
+            node holds it (``creation_day`` reads every one), or None
     """
 
     uid: str
     completions_in_window: int
     recurrence_pattern: str | None
     target_days_per_week: int | None
+    created_at: object
 
 
 class MomentumSignals(TypedDict):

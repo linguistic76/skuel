@@ -18,7 +18,7 @@ from typing import Any
 
 from core.constants import HabitConsistencyWindow
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
-from core.models.habit.adherence import habit_adherence
+from core.models.habit.adherence import creation_day, habit_adherence
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -251,7 +251,8 @@ class HabitsProgressService:
         consistency = self._calculate_consistency_from_completions(
             habit, existing_completions, today_in(current_zone())
         )
-        updates["success_rate"] = consistency
+        if consistency is not None:  # no rate yet: nothing true to store
+            updates["success_rate"] = consistency
 
         update_result = await self.backend.update_habit(habit_uid, dict(updates))
         if update_result.is_error:
@@ -470,7 +471,7 @@ class HabitsProgressService:
 
     def _calculate_consistency_from_completions(
         self, habit: Habit, completions: list[HabitCompletion], as_of_date: date
-    ) -> float:
+    ) -> float | None:
         """Adherence over the trailing consistency window, anchored at ``as_of_date``.
 
         The habit's completions inside the window divided by the number its own
@@ -500,8 +501,10 @@ class HabitsProgressService:
         :meth:`complete_habit_with_quality`.
 
         The ratio itself is :func:`~core.models.habit.adherence.habit_adherence`,
-        the one definition the read-time readers share; this method only counts
-        the window's completions from the list it is handed.
+        the one definition the read-time readers share — measured from the
+        habit's creation day when that falls inside the window, and ``None`` when
+        the habit has no rate yet; this method only counts the window's
+        completions from the list it is handed.
 
         GRAPH-NATIVE: Completions fetched from graph, not from habit.completion_history.
         """
@@ -511,7 +514,13 @@ class HabitsProgressService:
         in_window = sum(
             1 for c in completions if window_start <= day_of(c.completed_at, zone) <= window_end
         )
-        return habit_adherence(habit.recurrence_pattern, habit.target_days_per_week, in_window)
+        return habit_adherence(
+            habit.recurrence_pattern,
+            habit.target_days_per_week,
+            in_window,
+            created_on=creation_day(habit.created_at, zone),
+            today=as_of_date,
+        )
 
     # ========================================================================
     # KEYSTONE HABIT MANAGEMENT

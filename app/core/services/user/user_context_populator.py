@@ -23,11 +23,11 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
-from core.models.habit.adherence import habit_adherence
+from core.models.habit.adherence import creation_day, habit_adherence
 from core.models.user import UserPreferences
 from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
-from core.utils.timestamp_helpers import EARLIEST_INSTANT, as_utc, instant_of
+from core.utils.timestamp_helpers import EARLIEST_INSTANT, as_utc, instant_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -41,13 +41,26 @@ logger = get_logger(__name__)
 
 
 def habit_adherence_rates(rows: Iterable[HabitAdherenceRow]) -> dict[str, float]:
-    """Each active habit's adherence, from the window count its statement projected."""
-    return {
-        row["uid"]: habit_adherence(
-            row["recurrence_pattern"], row["target_days_per_week"], row["completions_in_window"]
+    """Each active habit's adherence, from the window count its statement projected.
+
+    A habit with no rate yet (``habit_adherence`` returns None — nothing due in
+    its span, or a frequency the window cannot hold) is left out: it has no
+    measurement, so nothing averages or classifies it.
+    """
+    zone = current_zone()
+    today = today_in(zone)
+    rates: dict[str, float] = {}
+    for row in rows:
+        rate = habit_adherence(
+            row["recurrence_pattern"],
+            row["target_days_per_week"],
+            row["completions_in_window"],
+            created_on=creation_day(row["created_at"], zone),
+            today=today,
         )
-        for row in rows
-    }
+        if rate is not None:
+            rates[row["uid"]] = rate
+    return rates
 
 
 class UserContextPopulator:
@@ -713,9 +726,9 @@ class UserContextPopulator:
                 if goal and goal.get("uid"):
                     habits_by_goal.setdefault(goal["uid"], []).append(habit_uid)
 
-            # At risk: an active habit (the ones with a measured rate) whose
-            # streak is broken or whose adherence is under half. A paused or
-            # archived habit in the window has no rate and is not at risk.
+            # At risk: a habit with a measured rate whose streak is broken or
+            # whose adherence is under half. A paused or archived habit in the
+            # window, and an active one with no rate yet, is not at risk.
             completion_rate = context.habit_completion_rates.get(habit_uid)
             if completion_rate is None:
                 continue

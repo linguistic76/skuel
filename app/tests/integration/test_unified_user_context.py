@@ -597,7 +597,7 @@ class TestUserContextBuilder:
                     status: $status,
                     recurrence_pattern: $frequency,
                     current_streak: $streak,
-                    created_at: datetime(),
+                    created_at: datetime() - duration({days: 60}),
                     updated_at: datetime()
                 })
                 CREATE (u)-[:OWNS]->(h)

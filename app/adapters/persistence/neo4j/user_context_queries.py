@@ -87,6 +87,7 @@ def _habit_adherence_row(item: Mapping[str, Any]) -> HabitAdherenceRow:
         "completions_in_window": item["completions_in_window"],
         "recurrence_pattern": item["recurrence_pattern"],
         "target_days_per_week": item["target_days_per_week"],
+        "created_at": item["created_at"],
     }
 
 
@@ -165,15 +166,16 @@ _COMPOSITION_EDGES_TOKEN = "__COMPOSITION_EDGES__"
 _CHOICE_PENDING_TOKEN = "__CHOICE_PENDING__"
 _CHOICE_PENDING = build_choice_pending_predicate("choice")
 
-# An active habit's adherence inputs (``HabitAdherenceRow``) — the window count
-# and the frequency ``habit_adherence`` reads — projected by HABIT_ADHERENCE_QUERY
+# An active habit's adherence inputs (``HabitAdherenceRow``) — the window count,
+# the frequency and the creation stamp ``habit_adherence`` reads — projected by HABIT_ADHERENCE_QUERY
 # and CONSOLIDATED_QUERY from this one spelling. The statements carry the count,
 # never a rate: the rate is derived at read time by the populator.
 _HABIT_ADHERENCE_FIELDS_TOKEN = "__HABIT_ADHERENCE_FIELDS__"
 _HABIT_ADHERENCE_FIELDS = (
     f"completions_in_window: {build_habit_window_completion_count('user', 'habit')}, "
     "recurrence_pattern: habit.recurrence_pattern, "
-    "target_days_per_week: habit.target_days_per_week"
+    "target_days_per_week: habit.target_days_per_week, "
+    "created_at: habit.created_at"
 )
 
 # Tasks and goals — one statement because progress_counts spans both and each
