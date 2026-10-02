@@ -52,7 +52,9 @@ def habit_adherence(
     are counted over that one span — ``completed_on`` holds one day per
     completion (a completion backfilled to before the habit existed, or stamped
     after today, is outside it), and what the span expects is
-    :func:`expected_completions`. ``None`` when the habit has no rate yet —
+    :func:`expected_completions`. A weekdays or weekends habit counts only the
+    completions made on the days it expects: a weekday completion of a weekends
+    habit keeps no part of its schedule. ``None`` when the habit has no rate yet —
     nothing is due in its span (a weekly habit younger than a week), or its
     pattern cannot be measured in the window at all — an absent measurement,
     never a zero.
@@ -68,8 +70,21 @@ def habit_adherence(
     expected = expected_completions(recurrence_pattern, target_days_per_week, first_day, today)
     if not expected:
         return None
-    kept = sum(1 for day in completed_on if first_day <= day <= today)
+    kept = sum(
+        1
+        for day in completed_on
+        if first_day <= day <= today and _on_cadence(recurrence_pattern, day)
+    )
     return min(1.0, kept / expected)
+
+
+def _on_cadence(recurrence_pattern: str | None, day: date) -> bool:
+    """Whether a completion on ``day`` falls on a day the habit's cadence expects."""
+    if recurrence_pattern == RecurrencePattern.WEEKDAYS:
+        return day.weekday() < _SATURDAY
+    if recurrence_pattern == RecurrencePattern.WEEKENDS:
+        return day.weekday() >= _SATURDAY
+    return True
 
 
 def expected_completions(

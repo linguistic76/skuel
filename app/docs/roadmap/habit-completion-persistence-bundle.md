@@ -231,8 +231,9 @@ not this bundle's work: it shipped ahead of it. What it is now:
   it. Two rulings (Mike, 2026-10-02) shape `expected`: the span is cut short at the habit's
   creation day (a 3-day-old daily habit kept 3/3 reads 1.0, not 0.1), and every
   `RecurrencePattern` expects what the span holds of its own cadence (`expected_completions`:
-  daily every day; weekdays / weekends the days of their kind on the calendar; weekly, biweekly,
-  monthly the whole periods; custom its weekly target scaled). Quarterly, yearly and one-time
+  daily every day; weekdays / weekends the days of their kind on the calendar — and only
+  completions on those days count toward them; weekly, biweekly, monthly the whole periods; custom
+  its weekly target scaled). Quarterly, yearly and one-time
   habits — and a habit with nothing due yet in its span — have **no rate** (`None`): they are left
   out of every average and never at risk, rather than read as 0.0. Both sides of the ratio are
   counted over the one span: `completed_on` holds the day of each completion, and a completion

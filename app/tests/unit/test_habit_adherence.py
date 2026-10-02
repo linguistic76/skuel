@@ -46,13 +46,16 @@ DAYS = HabitConsistencyWindow.DAYS
 TODAY = date(2026, 10, 2)
 WINDOW_START = HabitConsistencyWindow.start_date(TODAY)
 OLD = TODAY - timedelta(days=90)  # created long before the window
+LAST_SUNDAY = date(2026, 9, 27)
 
 
 def _rate(
     pattern: str | None, count: int, *, target: int | None = None, created_on: date | None = OLD
 ) -> float | None:
-    """``count`` completions, all made today — inside any span the habit is measured over."""
-    return habit_adherence(pattern, target, [TODAY] * count, created_on=created_on, today=TODAY)
+    """``count`` completions, all made on the most recent day the cadence expects —
+    today (a Friday), or Sunday 2026-09-27 for a weekends habit."""
+    day = LAST_SUNDAY if pattern == RecurrencePattern.WEEKENDS else TODAY
+    return habit_adherence(pattern, target, [day] * count, created_on=created_on, today=TODAY)
 
 
 # =============================================================================
@@ -168,6 +171,28 @@ def test_only_completions_inside_the_measured_span_count() -> None:
     )
 
     assert rate == pytest.approx(1 / 3)
+
+
+def test_a_weekdays_or_weekends_habit_counts_only_its_own_days() -> None:
+    """Eight weekday completions keep none of a weekends habit's schedule, and a
+    weekend completion does not stand in for a missed weekday."""
+    weekdays = [WINDOW_START + timedelta(days=n) for n in range(DAYS)]
+    on_weekdays = [day for day in weekdays if day.weekday() < 5][:8]
+    on_weekends = [day for day in weekdays if day.weekday() >= 5]
+
+    weekends_rate = habit_adherence(
+        RecurrencePattern.WEEKENDS, None, on_weekdays, created_on=OLD, today=TODAY
+    )
+    weekdays_rate = habit_adherence(
+        RecurrencePattern.WEEKDAYS,
+        None,
+        on_weekends + on_weekdays[:11],
+        created_on=OLD,
+        today=TODAY,
+    )
+
+    assert weekends_rate == 0.0
+    assert weekdays_rate == pytest.approx(8 / 22)  # the eight weekdays only
 
 
 def test_each_completion_counts_including_two_on_one_day() -> None:
