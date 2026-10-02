@@ -158,6 +158,9 @@ def _preview_harness(tmp_path, *, consented: bool = True):
     backend.get_ingestion_metadata = AsyncMock(return_value=Result.ok([]))
     backend.get_tracked_files_under = AsyncMock(return_value=Result.ok([]))
     backend.get_entity_owner_uids = AsyncMock(return_value=Result.ok([]))
+    # A personal vault keeps a LIVE node nobody owns (shared content); by default
+    # the tracked rows here name nodes that are already gone, so their rows clear.
+    backend.get_live_entity_uids = AsyncMock(return_value=Result.ok([]))
     backend.delete_entities_with_metadata = AsyncMock()
     backend.delete_edge_with_metadata = AsyncMock()
     backend.delete_ingestion_metadata = AsyncMock()
@@ -286,6 +289,31 @@ class TestVaultPreview:
         assert preview.would_delete_entity_examples == ("periodic_notes/gone.md",)
         # The owner scope of a governed sync applies to the plan too.
         backend.get_entity_owner_uids.assert_awaited_once_with(["ku.gone"])
+        _assert_no_deletes(backend)
+
+    @pytest.mark.asyncio
+    async def test_preview_never_plans_deleting_shared_content(self, tmp_path) -> None:
+        """A personal vault's preview keeps a live node nobody owns, and says so."""
+        reconciler, backend, notes = _preview_harness(tmp_path)
+        (notes / "keep.md").write_text("x")
+        gone = notes / "atom.md"
+        backend.get_tracked_files_under = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {"file_path": str(notes / "keep.md"), "entity_uid": "task_keep"},
+                    {"file_path": str(gone), "entity_uid": "ku.shared"},
+                ]
+            )
+        )
+        backend.get_live_entity_uids = AsyncMock(return_value=Result.ok([{"uid": "ku.shared"}]))
+
+        result = await reconciler.preview(VaultKind.PERSONAL, "user_owner")
+
+        assert result.is_ok
+        preview = result.value
+        assert preview.would_delete_entities == 0
+        (kept,) = preview.ownership_mismatches
+        assert "periodic_notes/atom.md" in kept and "shared content" in kept
         _assert_no_deletes(backend)
 
     @pytest.mark.asyncio
