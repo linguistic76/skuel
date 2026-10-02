@@ -190,8 +190,13 @@ async def test_recent_tasks_list_by_last_update(clean_neo4j, neo4j_driver, newer
     if newer_is_native:
         with _at(edit_at):
             assert (await tasks.update("task_6b_edited", {"title": "edited"})).is_ok
+    # A vault re-sync carries the task's owner — the upsert writes nothing to a
+    # node someone else owns, and a row naming no owner is not the owner's.
     resynced = await BulkUpsertBackend(neo4j_driver).upsert_nodes(
-        "Task", "Entity", [{"uid": "task_6b_resynced", "title": "resynced"}], {}
+        "Task",
+        "Entity",
+        [{"uid": "task_6b_resynced", "title": "resynced", "user_uid": str(user)}],
+        {},
     )
     assert resynced.is_ok, resynced.expect_error()
     if not newer_is_native:

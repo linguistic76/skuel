@@ -29,6 +29,7 @@ from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.services.vault.vault_descriptor import VaultKind
 from core.utils.exception_types import (
     DATA_CONVERSION_EXCEPTIONS,
     FILE_IO_EXCEPTIONS,
@@ -64,6 +65,16 @@ from .validator import (
     validate_relationship_targets,
     validate_required_fields,
     validate_uid_format,
+)
+from .vault_policy import (
+    MINTED_IDENTITY_TYPES,
+    TrackedIdentity,
+    admit_frontmatter_targets,
+    missing_target_warning,
+    personal_file_uid,
+    read_tracked_identities,
+    uid_in_use_reason,
+    vault_refusal,
 )
 
 if TYPE_CHECKING:
@@ -167,6 +178,8 @@ def parse_file_sync(
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
     *,
     owner_is_authoritative: bool = False,
+    vault_kind: VaultKind | None = None,
+    identities: Mapping[str, TrackedIdentity] | None = None,
 ) -> tuple[EntityType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
     Synchronous file parsing for use in thread pool.
@@ -184,6 +197,12 @@ def parse_file_sync(
         file_path: Path to file to parse
         default_user_uid: Default user UID for multi-tenant entities
         max_file_size_bytes: Maximum file size
+        vault_kind: The kind of vault the file lives in — a personal vault
+            refuses what it may not hold (``vault_policy.vault_refusal``) as a
+            content fault. ``None`` refuses nothing by kind.
+        identities: The tracker's identity per canonical path, when the vault
+            gives its uid-less files their own identity (a tracked personal
+            vault). ``None`` derives ``{prefix}.{file stem}``.
 
     Returns:
         Tuple of (entity_type, entity_data, None) on success
@@ -263,6 +282,16 @@ def parse_file_sync(
 
         # Stage 3a: Check for edge type (edges are NOT entities)
         if is_edge_type(data):
+            refusal = vault_refusal(vault_kind, None, data)
+            if refusal is not None:
+                error = create_error(
+                    file_path=file_path,
+                    error=refusal,
+                    stage="validation",
+                    error_type="validation",
+                    entity_type="edge",
+                )
+                return (None, None, error.to_dict())
             validation = validate_edge_data(data)
             if validation.is_error:
                 err = validation.expect_error()
@@ -294,6 +323,20 @@ def parse_file_sync(
                 stage="type_detection",
                 error_type="validation",
                 suggestion="Add 'type: <entity_type>' field (e.g., type: ku, type: task).",
+            )
+            return (None, None, error.to_dict())
+
+        # Stage 3c: what this vault may hold (ADR-070 Decision 11) — before any uid or field
+        # check, so a refused file is reported for what it is.
+        refusal = vault_refusal(vault_kind, entity_type, data)
+        if refusal is not None:
+            error = create_error(
+                file_path=file_path,
+                error=refusal,
+                stage="validation",
+                error_type="validation",
+                entity_type=entity_type_str,
+                field="type",
             )
             return (None, None, error.to_dict())
 
@@ -334,6 +377,19 @@ def parse_file_sync(
             return (None, None, error.to_dict())
 
         # Stage 5: Data preparation
+        file_uid = (
+            personal_file_uid(
+                entity_type,
+                file_path,
+                default_user_uid,
+                identities.get(str(file_path.resolve())),
+            )
+            if identities is not None
+            and isinstance(entity_type, EntityType)
+            and entity_type in MINTED_IDENTITY_TYPES
+            and "uid" not in data
+            else None
+        )
         try:
             entity_data = prepare_entity_data(
                 entity_type,
@@ -342,6 +398,7 @@ def parse_file_sync(
                 file_path,
                 default_user_uid,
                 owner_is_authoritative=owner_is_authoritative,
+                file_uid=file_uid,
             )
         except DATA_CONVERSION_EXCEPTIONS as e:
             error = create_error(
@@ -410,6 +467,8 @@ async def parse_file_for_batch(
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
     *,
     owner_is_authoritative: bool = False,
+    vault_kind: VaultKind | None = None,
+    identities: Mapping[str, TrackedIdentity] | None = None,
 ) -> tuple[EntityType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
     Parse and validate a single file for batch ingestion.
@@ -436,6 +495,8 @@ async def parse_file_for_batch(
                 default_user_uid,
                 max_file_size_bytes,
                 owner_is_authoritative=owner_is_authoritative,
+                vault_kind=vault_kind,
+                identities=identities,
             )
         except (OSError, RuntimeError) as e:
             error = create_error(
@@ -593,6 +654,7 @@ async def ingest_directory(
         Awaitable[None],
     ]
     | None = None,
+    vault_kind: VaultKind | None = None,
 ) -> Result[IngestionStats | IncrementalStats]:
     """
     Ingest all supported files in a directory.
@@ -669,6 +731,12 @@ async def ingest_directory(
             relationship configs author — and phase 1 has written none of them
             yet, so this runs at end-of-sync, after every edge this run writes.
             Never called for failed batches.
+        vault_kind: The kind of vault ``directory`` is (the facade resolves it
+            from the registry; ``None`` when none governs it). A PERSONAL vault
+            refuses the files it may not hold, gives each uid-less Activity or
+            life-path file its own identity through the tracker, and admits a
+            file's frontmatter targets only when they are its owner's
+            (``default_user_uid``) or nobody's — see ``vault_policy``.
 
     Returns:
         Result with IngestionStats (full mode) or IncrementalStats (incremental/smart mode)
@@ -915,6 +983,19 @@ async def ingest_directory(
         f"Processing {len(files_to_process)} files from {directory} (max_concurrent={max_concurrent})"
     )
 
+    # Per-file identity (personal vaults): each uid-less file keeps the uid its
+    # tracker row holds — read AFTER the move pre-pass, so a renamed file finds
+    # its row at the new path. No tracker, no identity to keep: such a scan
+    # derives ``{prefix}.{file stem}``, which the upsert's owner gate still keeps
+    # from taking another user's node. A failed read fails the sync rather than
+    # minting a second identity for every file.
+    identities: dict[str, TrackedIdentity] | None = None
+    if vault_kind is VaultKind.PERSONAL and tracker is not None and write_backend is not None:
+        identities_result = await read_tracked_identities(tracker, write_backend, files_to_process)
+        if identities_result.is_error:
+            return Result.fail(identities_result)
+        identities = identities_result.value
+
     # PARALLEL PARSING: Process all files concurrently with semaphore limiting
     semaphore = asyncio.Semaphore(max_concurrent)
     parse_tasks = [
@@ -924,6 +1005,8 @@ async def ingest_directory(
             default_user_uid,
             max_file_size_bytes,
             owner_is_authoritative=owner_is_authoritative,
+            vault_kind=vault_kind,
+            identities=identities,
         )
         for fp in files_to_process
     ]
@@ -935,7 +1018,7 @@ async def ingest_directory(
     file_entity_map: dict[
         str, tuple[EntityType | NonKuDomain, str]
     ] = {}  # file_path -> (entity_type, uid)
-    # file_path -> uid of a UserEntry that persisted but whose file must be
+    # file_path -> uid of an entity that persisted but whose file must be
     # re-ingested next sync — stamped as a pending tracker row.
     retry_uids: dict[str, str] = {}
     errors: list[dict[str, str]] = []
@@ -985,6 +1068,36 @@ async def ingest_directory(
     # "add pipeline: knowledge to promote" hint reaches the sync UI/API,
     # plus any move-detection degradation from the pre-pass above.
     validation_warnings: list[str] = list(collection_skips.warnings) + move_warnings
+
+    # A personal vault's frontmatter targets (ADR-070 Decision 11): admitted BEFORE any node
+    # lands, so a refused target never reaches an edge or a property. The uids
+    # this sync is about to create count as the owner's (their nodes land in
+    # phase 1); a refusal is removed from the entity and warned as a missing
+    # target is. A failed read writes nothing.
+    if vault_kind is VaultKind.PERSONAL and write_backend is not None:
+        linked = [
+            (entity, config.relationship_config)
+            for etype, ents in entities_by_type.items()
+            if (config := ENTITY_CONFIGS.get(etype)) is not None and config.relationship_config
+            for entity in ents
+        ]
+        pending_labels = {
+            str(entity["uid"]): [cfg.entity_label, *([cfg.base_label] if cfg.base_label else [])]
+            for etype, ents in entities_by_type.items()
+            if (cfg := ENTITY_CONFIGS.get(etype)) is not None
+            for entity in ents
+            if entity.get("uid")
+        }
+        admitted = await admit_frontmatter_targets(
+            write_backend,
+            entities=linked,
+            owner_uid=str(default_user_uid),
+            pending_labels=pending_labels,
+        )
+        if admitted.is_error:
+            return Result.fail(admitted)
+        validation_warnings.extend(admitted.value)
+
     if validate_targets and write_backend is not None:
         known_uids_by_label: dict[str, set[str]] = {}
         for etype, ents in entities_by_type.items():
@@ -1013,10 +1126,7 @@ async def ingest_directory(
                         validation_result.value.missing_by_entity.items()
                     ):
                         for target_uid in targets:
-                            warning = (
-                                f"{source_uid}: relationship target '{target_uid}' does not "
-                                "exist — edge not created"
-                            )
+                            warning = missing_target_warning(source_uid, target_uid)
                             logger.warning(f"[{entity_type.value}] {warning}")
                             validation_warnings.append(warning)
 
@@ -1231,8 +1341,11 @@ async def ingest_directory(
         # chunk step can run.
         chunk_sources: dict[str, ChunkSource] = {}
         batch_moc_items: list[tuple[str, list[str], Path, list[str]]] = []
+        source_paths: dict[str, str] = {}
         for entity in entities:
             source_path = entity.pop("_file_path", None)
+            if source_path:
+                source_paths[str(entity["uid"])] = source_path
             # MOC link suffixes are engine-private too — popped for every
             # entity (never a node property), collected for the end-of-sync
             # edge pass when the file carried ``moc: true``.
@@ -1274,6 +1387,28 @@ async def ingest_directory(
             stats = result.value
             total_nodes_created += stats.nodes_created
             total_nodes_updated += stats.nodes_updated
+            # A refused row names a node someone else owns (the upsert's owner
+            # gate): nothing was written, so its file is reported, left
+            # unstamped, and dropped from every step below.
+            refused = set(stats.refused_uids)
+            for uid in sorted(refused):
+                refused_path = source_paths.get(uid, f"<batch:{entity_type.value}>")
+                errors.append(
+                    create_error(
+                        file_path=Path(refused_path),
+                        error=uid_in_use_reason(uid),
+                        stage="validation",
+                        error_type="validation",
+                        entity_type=entity_type.value,
+                        field="uid",
+                    ).to_dict()
+                )
+                file_entity_map.pop(refused_path, None)
+            entities = [entity for entity in entities if str(entity["uid"]) not in refused]
+            chunk_sources = {
+                uid: source for uid, source in chunk_sources.items() if uid not in refused
+            }
+            batch_moc_items = [item for item in batch_moc_items if item[0] not in refused]
             logger.info(f"Ingested {len(entities)} {entity_type.value} entities")
             if rel_config:
                 relationship_passes.append((entity_type, entities, rel_config))
@@ -1287,6 +1422,10 @@ async def ingest_directory(
             # batch would refresh edges against a node that never landed.
             moc_items.extend(batch_moc_items)
         else:
+            # Nothing landed: the batch's files stay unstamped so the next sync
+            # retries them, rather than reading as ingested.
+            for source_path in source_paths.values():
+                file_entity_map.pop(source_path, None)
             batch_error = IngestionError(
                 file=f"<batch:{entity_type.value}>",
                 error=str(result.expect_error()),
@@ -1366,6 +1505,7 @@ async def ingest_directory(
                 continue
             if prior_lookup_failed:
                 file_entity_map.pop(file_str, None)
+                retry_uids[file_str] = str(entity["uid"])
                 continue
             fingerprint = authored_edge_fingerprint(entity, rel_config)
             authored_edges_by_file[file_str] = fingerprint
@@ -1379,6 +1519,7 @@ async def ingest_directory(
                     "retracted without a write backend — file left unstamped"
                 )
                 file_entity_map.pop(file_str, None)
+                retry_uids[file_str] = source_uid
                 continue
             try:
                 deleted = await write_backend.delete_authored_edges(source_uid, dropped)
@@ -1397,6 +1538,7 @@ async def ingest_directory(
                     ).to_dict()
                 )
                 file_entity_map.pop(file_str, None)
+                retry_uids[file_str] = source_uid
                 continue
             logger.info(
                 f"Retracted {deleted} frontmatter edge(s) {source_uid} no longer declares "
@@ -1449,13 +1591,13 @@ async def ingest_directory(
             await tracker.update_ingestion_metadata_batch(ingestion_updates)
             logger.info(f"Updated ingestion metadata for {len(ingestion_updates)} files")
 
-        # A note that persisted but must be retried keeps its identity in a
+        # A file that persisted but must be retried keeps its identity in a
         # pending row, so its next sync re-ingests it on the same uid — a
-        # first-sync note's minted uid is never lost to a retry.
+        # first sync's minted uid is never lost to a retry.
         for file_str, uid in retry_uids.items():
             pending = await tracker.record_pending(Path(file_str), uid)
             if pending.is_error:
-                # The note persisted but its identity and its retry did not:
+                # The file persisted but its identity and its retry did not:
                 # an existing row keeps its old stamp (the next sync may skip
                 # the file), and a first sync's minted uid is not recorded.
                 errors.append(
@@ -1463,12 +1605,11 @@ async def ingest_directory(
                         file=file_str,
                         error=(
                             f"Could not record {uid} for a retry ({pending.expect_error()}) — "
-                            "the next sync may skip this note or give it a new uid; "
+                            "the next sync may skip this file or give it a new uid; "
                             "re-sync, or sync with --force"
                         ),
                         stage="tracking",
                         error_type="database",
-                        entity_type=EntityType.USER_ENTRY.value,
                     ).to_dict()
                 )
 
@@ -1524,7 +1665,9 @@ async def ingest_directory(
                     ).to_dict()
                 )
                 if tracker is not None and ingestion_mode != "full":
-                    await tracker.delete_ingestion_metadata([moc_path])
+                    # Pending, not deleted: the row keeps the uid a uid-less
+                    # note was given, so the retry upserts the same entity.
+                    await tracker.record_pending(moc_path, moc_uid)
 
     # Status transitions (ADR-087) — AFTER every edge this run writes: phase
     # 2's frontmatter relationships, the edge files, and the MOC pass above.

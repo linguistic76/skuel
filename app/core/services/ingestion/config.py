@@ -358,10 +358,14 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         # No YAML-driven relationships — context relationships are created
         # programmatically by InteractionService.create_interaction().
     ),
+    # The vault's owner is the life path's owner, as for the six Activity types —
+    # a ``user_uid:`` line is overridden, never required. How a vault-authored
+    # LifePath meets the designation model (a designated LearningPath) is a
+    # deferred question (docs/roadmap/vault-life-path-designation.md).
     EntityType.LIFE_PATH: EntityIngestionConfig(
         entity_label="LifePath",
         uid_prefix="lifepath",
-        required_fields=("user_uid",),
+        requires_user_uid=True,
     ),
     # --- The 6 Activity Templates ------------------------------------------
     # PS-owned curriculum content that spawns Activity instances on engagement.

@@ -241,23 +241,36 @@ def is_non_entity_note(file_path: Path) -> bool:
     ``VaultReconciler.preview`` uses it so a vault of loose notes is one
     set-aside count, not hundreds of pending "new" ingests.
     """
+    data = read_document(file_path)
+    if data is None:
+        return False
+    return not declares_entity_type(data)
+
+
+def read_document(file_path: Path) -> dict[str, Any] | None:
+    """A file's frontmatter (markdown) or YAML document, read as the ingest gate reads it.
+
+    ``None`` for anything the gate would not read as a mapping: an unsupported
+    extension, an unreadable, empty or oversized file, a document that does not
+    parse, or one that is not a mapping. The readers that classify a file without
+    ingesting it — the non-entity predicate above, the vault-kind refusal the sync
+    preview reports — share it, so they read every file alike.
+    """
     try:
         file_format = detect_format(file_path)
     except ValueError:
-        return False
+        return None
     if file_format == "markdown":
         parsed_markdown = parse_markdown(file_path)
         if parsed_markdown.is_error:
-            return False
+            return None
         data: object = parsed_markdown.value[0]
     else:
         parsed_yaml = parse_yaml(file_path)
         if parsed_yaml.is_error:
-            return False
+            return None
         data = parsed_yaml.value
-    if not isinstance(data, dict):
-        return False
-    return not declares_entity_type(data)
+    return data if isinstance(data, dict) else None
 
 
 def is_edge_type(data: dict[str, Any]) -> bool:
@@ -273,4 +286,5 @@ __all__ = [
     "detect_format",
     "is_edge_type",
     "is_non_entity_note",
+    "read_document",
 ]

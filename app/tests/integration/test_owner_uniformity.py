@@ -124,6 +124,22 @@ async def owner_env(neo4j_driver, tmp_path: Path):
             )
 
 
+async def _titled(driver, title: str) -> tuple[str, str | None]:
+    """(uid, owner) of the one entity with ``title``.
+
+    A uid-less personal-vault file mints its own uid (ADR-070 Decision 11), so these tests find
+    a personal entity by what the file says rather than by a derived uid.
+    """
+    async with driver.session() as session:
+        result = await session.run(
+            "MATCH (n:Entity {title: $title}) RETURN n.uid AS uid, n.user_uid AS owner",
+            title=title,
+        )
+        records = [record async for record in result]
+    assert len(records) == 1, records
+    return records[0]["uid"], records[0]["owner"]
+
+
 async def _owner_of(driver, uid: str) -> str | None:
     async with driver.session() as session:
         result = await session.run(
@@ -195,8 +211,9 @@ async def test_personal_task_owned_by_vault_bound_owner(owner_env) -> None:
     result = await service.ingest_directory(personal_root, user_uid=_ALICE)
     assert result.is_ok, result
 
-    owner_env["created_uids"].append("task.alice-task")
-    assert await _owner_of(driver, "task.alice-task") == _ALICE
+    uid, owner = await _titled(driver, "Alice Task")
+    owner_env["created_uids"].append(uid)
+    assert owner == _ALICE
 
     # Caller-independence: acting as user_beta on alice's vault still
     # attributes alice — the descriptor's bound owner, not the hint.
@@ -204,8 +221,9 @@ async def test_personal_task_owned_by_vault_bound_owner(owner_env) -> None:
     result = await service.ingest_directory(personal_root, user_uid="user_beta")
     assert result.is_ok, result
 
-    owner_env["created_uids"].append("task.second-task")
-    assert await _owner_of(driver, "task.second-task") == _ALICE
+    uid, owner = await _titled(driver, "Second Task")
+    owner_env["created_uids"].append(uid)
+    assert owner == _ALICE
 
 
 async def test_file_supplied_user_uid_cannot_spoof_owner(owner_env) -> None:
@@ -225,9 +243,10 @@ async def test_file_supplied_user_uid_cannot_spoof_owner(owner_env) -> None:
     result = await service.ingest_directory(personal_root, user_uid=_ALICE)
     assert result.is_ok, result
 
-    owner_env["created_uids"].append("task.spoof-task")
+    uid, owner = await _titled(driver, "Spoof")
+    owner_env["created_uids"].append(uid)
     # Descriptor bound owner (alice) wins over the file's claimed user_victim.
-    assert await _owner_of(driver, "task.spoof-task") == _ALICE
+    assert owner == _ALICE
 
 
 async def test_multi_vault_span_scan_rejected(owner_env) -> None:

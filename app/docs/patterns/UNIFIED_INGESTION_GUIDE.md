@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-27
+updated: 2026-10-02
 category: patterns
 related_skills: []
 related_docs:
@@ -20,9 +20,9 @@ The "hips" of SKUEL - stability through clarity. Connects content (MD/YAML) to t
 
 The vault is a mixed authoring space — a file **opts in** to ingestion; anything without the opt-in is a plain note. For a `.md`/`.yaml`/`.yml` file to become a graph entity, its YAML frontmatter (markdown) or YAML body needs:
 
-1. **`type:` — non-empty, an accepted entity type.** One of: `ku`, `ps`, `lp`, `exercise`, `resource`, `user_entry`, `task`, `goal`, `habit`, `event`, `choice`, `principle`, `group`, `lifepath`, `interaction` (aliases like `lesson`/`pathstep`/`learningpath` also resolve — `TYPE_MAPPING` in `core/services/ingestion/detector.py`). No `type:` (or an empty one) → non-entity note, skipped. **A frontmatter fence that does not parse is NOT a non-entity note** — authoring `---` is the opt-in gesture, so a fence whose YAML is broken is a broken opt-in and is reported (`parsing` stage) rather than set aside; a file with no fence at all stays a plain note. Two exceptions/rejections: `moc: true` ingests without a type (as a PathStep — see § MOC files), and the retired strings `je_input`/`je_output`/`exercise_submission` (ADR-054) and `expense`/`finance` (ADR-052) are rejected with a pointer, never aliased.
-2. **The type's required fields** — see § Entity Configuration for the full table. Most types need only `title`, which auto-falls back to the filename (`name:` is accepted as an alias). Notable extras: `exercise` → `instructions`, `principle` → `statement`, `lifepath` → `user_uid`, `group` → `name`, `interaction` → `interaction_type` + `target_uid`; `user_entry` files additionally need an explicit `pipeline:` (door-level rule, § UserEntry YAMLs).
-3. **`uid:` is optional.** Omit it to auto-generate `{prefix}.{filename}`. If declared, it must be non-empty and start with the type's prefix (`ku.` for a Ku, etc. — § UID Format Validation). An empty `uid:` line is never silently replaced with a generated one — the file is ignored with that reason. **`user_entry` differs on both halves** (its branch bypasses the preparer): a declared uid is an opaque join key with no prefix check (ADR-013 never-sniff), and an omitted `uid:` resolves to a derived periodic uid (`ue:daily:{user}:{date}`), the tracker's prior path-keyed uid, or a service-minted random `ue_` uid — never `{prefix}.{filename}` (§ Optional field: `uid`, § Path-keyed identity). A vault sync still ignores a `user_entry` file whose `uid:` line is present but empty (the batch parse stage runs the preparer's guard).
+1. **`type:` — non-empty, an accepted entity type.** One of: `ku`, `ps`, `lp`, `exercise`, `resource`, `user_entry`, `task`, `goal`, `habit`, `event`, `choice`, `principle`, `group`, `lifepath`, `interaction` (aliases like `lesson`/`pathstep`/`learningpath` also resolve — `TYPE_MAPPING` in `core/services/ingestion/detector.py`). No `type:` (or an empty one) → non-entity note, skipped. **A frontmatter fence that does not parse is NOT a non-entity note** — authoring `---` is the opt-in gesture, so a fence whose YAML is broken is a broken opt-in and is reported (`parsing` stage) rather than set aside; a file with no fence at all stays a plain note. Two exceptions/rejections: `moc: true` ingests without a type (as a PathStep — see § MOC files; a personal vault refuses it, § What a personal vault may hold), and the retired strings `je_input`/`je_output`/`exercise_submission` (ADR-054) and `expense`/`finance` (ADR-052) are rejected with a pointer, never aliased.
+2. **The type's required fields** — see § Entity Configuration for the full table. Most types need only `title`, which auto-falls back to the filename (`name:` is accepted as an alias). Notable extras: `exercise` → `instructions`, `principle` → `statement`, `group` → `name`, `interaction` → `interaction_type` + `target_uid`; `user_entry` files additionally need an explicit `pipeline:` (door-level rule, § UserEntry YAMLs).
+3. **`uid:` is optional.** Omit it to auto-generate `{prefix}.{filename}` — in the content vault; in a personal vault a uid-less Activity or life-path file mints its own `{prefix}_{slug}_{random}` and keeps it through its tracker row (§ What a personal vault may hold). If declared, it must be non-empty and start with the type's prefix (`ku.` for a Ku, etc. — § UID Format Validation). An empty `uid:` line is never silently replaced with a generated one — the file is ignored with that reason. **`user_entry` differs on both halves** (its branch bypasses the preparer): a declared uid is an opaque join key with no prefix check (ADR-013 never-sniff), and an omitted `uid:` resolves to a derived periodic uid (`ue:daily:{user}:{date}`), the tracker's prior path-keyed uid, or a service-minted random `ue_` uid — never `{prefix}.{filename}` (§ Optional field: `uid`, § Path-keyed identity). A vault sync still ignores a `user_entry` file whose `uid:` line is present but empty (the batch parse stage runs the preparer's guard).
 
 4. **Registered enum fields must use the field's vocabulary.** Every field in `ENUM_FIELD_TYPES` (`core/models/enum_field_registry.py`, ~30 fields: `status`, `event_type`, `learning_level`, `sel_category`, ...) is membership-checked by `validate_entity_data` after preparation. The preparer first resolves everything the read boundary sanctions (`canonicalize_enum_values`, mirroring `parse_enum_field` — #513/#536): casing (`BEGINNER` → `beginner`), each enum's own `from_string` aliases (`status: pending` → `draft`, stored canonical — aliases are input-only), and the authored absence marker `none` on enums without such a member (`sel_category: none` → property dropped; deliberately-unassigned is valid). A value outside all of that (`event_type: practice`, `learning_level: grandmaster`) rejects the file with the full member list in the reason. **Vault-independent** (unlike dangling MOC links, whose posture varies by vault): an unsanctioned value is a content fault in the file itself and never becomes valid later — persisted, it would hide from every exact-match filter until a data migration (the 2026-08 `event_type` cleanup). The read side deliberately stays `str`-tolerant so pre-existing strays still load; this door is where the vocabulary is enforced. **`user_entry` files are exempt** (the same shape as their `uid:` exemption in criterion 3): their ADR-054 branch owns their frontmatter with its own alias-aware parsers (unknown pipelines/statuses still fail loudly there), so the gate never runs for them on any door.
 
@@ -31,6 +31,32 @@ The vault is a mixed authoring space — a file **opts in** to ingestion; anythi
 Standalone edge files use `type: edge` + `from`/`to`/`relationship` instead (§ Edge Ingestion).
 
 Files that fall short are **ignored and reported with a per-file reason** on every sync — never treated as sync errors. See § Ignored files vs sync errors.
+
+### What a personal vault may hold (ADR-070 Decision 11)
+
+A personal vault belongs to one user, so a file in it may write only that user's graph:
+
+| A personal vault ingests | A personal vault refuses (ignored-with-reason) |
+|---|---|
+| `task`, `goal`, `habit`, `event`, `choice`, `principle` | Edge files (`type: Edge`) — link your own entities with `connections:` |
+| `user_entry` — journals, daily notes, fulfilled assignments, knowledge notes | Group files — content vault only |
+| `life_path` — owned by the vault's owner, whatever its `user_uid:` says | every curriculum type: `ku`, `path_step`, `learning_path`, `exercise`, `resource`, the six `*_template` types; anything else (`interaction`) |
+
+- **Identity.** A uid-less personal Activity or life-path file mints `{prefix}_{slug}_{random}`
+  on its first sync and keeps it through its tracker row — a re-sync, a rename and a retried
+  file all land on the same entity, and two users with the same filename hold two entities.
+  An authored `uid:` still wins (dot form, § UID Format Validation).
+- **Ownership never changes — in any vault.** A file whose uid names a node someone else owns
+  is refused: "uid '…' is already in use by an entity this vault does not own". Nothing is
+  written to that node, and deleting the file later deletes nothing of it.
+- **Links.** A personal file's frontmatter targets (`connections:` …) are its owner's or
+  unowned content (a shared Ku). Any other target — another user's, a uid that names nothing,
+  the wrong kind — draws no edge and is warned in the same words: "relationship target '…' does
+  not exist — edge not created".
+- **Maps.** A personal MOC is any of the types above with `moc: true` (in practice
+  `type: user_entry` + `pipeline: knowledge`); its body links resolve within the same vault.
+  A `moc: true` file with no `type:` is a PathStep and is refused with that hint.
+- The sync preview lists each refused file with its reason (`would_ignore_*`).
 
 ---
 
@@ -961,13 +987,15 @@ also auto-fall back to the filename.
 | `principle_template` | `pt.` | `:Entity:PrincipleTemplate` | title | `small-steps_tmpl.md` |
 | `interaction` | `ia.` | `:Entity:Interaction` | interaction_type, target_uid | `ia_viewed-ps.yaml` |
 | `group` | `group.` | `:Group` | name | `group_class-of-2026.yaml` |
-| `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath_vision.yaml` |
+| `lifepath` | `lifepath.` | `:Entity:LifePath` | — (owner = the vault's) | `lifepath_vision.yaml` |
 
 **Example filenames are convention, not contract** — the filename never determines *type*
 (only the frontmatter `type:` field does; see § Entity Type Detection). Identity has one
 filename-shaped exception: when `uid:` is **absent**, ingestion derives the stored UID from
 the filename stem (`{prefix}.{stem}` — so `ku_python-basics.md` without a `uid:` becomes
-`ku.ku_python-basics`, prefix leak and all, and a later rename changes identity). Author an
+`ku.ku_python-basics`, prefix leak and all, and a later rename changes identity) — in the
+content vault. A personal vault's uid-less Activity or life-path file mints its own uid instead
+and keeps it across renames (§ What a personal vault may hold). Author an
 explicit `uid:` and the filename stays fully free. The `Prefix` column is the *stored UID*
 prefix the validator enforces on explicit `uid:` values, always dot-form.
 
@@ -1174,6 +1202,12 @@ source: self_observation
 evidence: "Buzzing consistently worse 30-60 min after coffee"
 tags: [health, nervous-system]
 ```
+
+Edge files are synced from the **content vault only** (a personal vault refuses them, ADR-070
+Decision 11). An Edge file joins two entities: both ends are bound to `:Entity`, so an end that
+is a `:User` or a `:Group` matches nothing and reports exactly as a missing end does — which is
+what keeps every ownership, sharing and membership edge (all of them have such an end) out of
+reach — and `OWNS` is refused by name.
 
 **How it works:**
 - `is_edge_type()` detects `type: Edge` before entity type detection

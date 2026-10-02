@@ -142,14 +142,15 @@ async def test_reingest_is_idempotent_one_owns_edge(
 
 
 @pytest.mark.asyncio
-async def test_reingest_removes_stale_owner_edge(
+async def test_reingest_never_changes_a_nodes_owners(
     clean_neo4j, neo4j_driver, ingestion_service, tmp_path: Path
 ) -> None:
     """
-    Single-owner invariant (Kody #514 finding, accepted): when a node carries
-    an :OWNS edge from a user other than its resolved owner (owner change or
-    an out-of-band edge), re-ingest removes the stale edge — a former owner
-    must not keep access.
+    The upsert never changes a node's owner (ADR-070 Decision 11): a node that carries an
+    :OWNS edge from a user other than the file's resolved owner takes no write
+    on re-ingest — its owners, and the file's edit, stay as they were — and the
+    file is refused rather than the other owner's edge removed. Taking that edge
+    away is the same statement as taking the node.
     """
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -167,10 +168,19 @@ async def test_reingest_removes_stale_owner_edge(
 
     # Touch the file so incremental hashing re-processes it, then re-ingest
     _write_task_file(vault, "ownstest-stale", extra_frontmatter="description: touched\n")
-    assert (await ingestion_service.ingest_directory(vault)).is_ok
+    result = await ingestion_service.ingest_directory(vault)
+    assert result.is_ok
+    assert [e["field"] for e in result.value.errors or []] == ["uid"], result.value.errors
 
     edges = await _owns_edges(neo4j_driver, "task.ownstest-stale")
-    assert [e["owner"] for e in edges] == [OWNER_UID]
+    assert sorted(e["owner"] for e in edges) == sorted([OWNER_UID, "user_test_123"])
+    async with neo4j_driver.session() as session:
+        record = await (
+            await session.run(
+                "MATCH (n:Entity {uid: 'task.ownstest-stale'}) RETURN n.description AS d"
+            )
+        ).single()
+    assert record["d"] != "touched"
 
 
 @pytest.mark.asyncio

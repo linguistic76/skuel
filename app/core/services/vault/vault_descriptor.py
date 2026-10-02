@@ -203,12 +203,10 @@ class VaultRegistry:
         Precedence is fail-safe:
 
         1. **Primary personal root wins for any in-root path**, attributed to its
-           bound owner. This also covers the **combined vault** (``INGESTION_PATH``
-           coincident with or nested inside ``VAULT_ROOT``): the whole thing is one
-           user-owned vault — consistent with ``build_sync_allowlist``, which opens
-           such a vault whole. SHARED curriculum still drops its owner at persist
-           regardless, so a Ku in a combined vault is unaffected; only USER_OWNED
-           types carry the owner.
+           bound owner. A content root nested inside it (the old **combined
+           vault**) would therefore be read as that user's files — and a personal
+           vault holds no curriculum (ADR-070 Decision 11) — so compose refuses that layout at
+           boot (``VaultConfig.validate_roots``).
         2. **Member vault family.** A path under ``{user_vaults_root}/{uid}/`` is
            owned by ``{uid}`` — the directory the file lives in, never the caller.
            (``user_vaults_root`` itself, hidden entries, and non-directories fall
@@ -322,9 +320,9 @@ class VaultRegistry:
         would have its files swept under the wrong owner — the caller rejects
         such a scan.
 
-        Returns ``[]`` for a **combined vault** (a content root nested inside a
-        personal root resolves to the *same* personal descriptor as the enclosing
-        directory), so the normal nested-config personal sync is allowed. Returns
+        Returns ``[]`` for a content root nested inside a personal root (it
+        resolves to the *same* personal descriptor as the enclosing directory) —
+        a layout compose refuses at boot (``VaultConfig.validate_roots``). Returns
         the offending roots for an **ancestor** scan (roots resolve to differing
         descriptors), a **personal vault nested inside a content scan**, a scan
         of the user-vaults root itself (each member resolves to its own PERSONAL

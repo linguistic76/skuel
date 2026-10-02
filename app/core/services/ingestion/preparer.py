@@ -261,6 +261,7 @@ def prepare_entity_data(
     default_user_uid: UserUID = DEFAULT_USER_UID,
     *,
     owner_is_authoritative: bool = False,
+    file_uid: str | None = None,
 ) -> dict[str, Any]:
     """
     Prepare parsed file data for persistence — the one path for both ingest doors.
@@ -279,7 +280,11 @@ def prepare_entity_data(
         file_path: Source file path
         default_user_uid: Default user UID for multi-tenant entities
         owner_is_authoritative: When True (descriptor-governed ingestion), the
-            vault-resolved owner overrides any file-supplied ``user_uid``.
+            vault-resolved owner overrides any file-supplied ``user_uid`` — and,
+            for a Group, any file-supplied ``owner_uid``.
+        file_uid: The uid a file with no ``uid:`` line takes, when its vault gives
+            files their own identity (a personal vault — ``vault_policy.personal_file_uid``).
+            ``None`` derives ``{prefix}.{file stem}``. An authored ``uid:`` always wins.
 
     Returns:
         Prepared entity data dict
@@ -327,7 +332,7 @@ def prepare_entity_data(
             )
         entity_data["uid"] = str(raw_uid)
     else:
-        entity_data["uid"] = generate_uid(entity_type, file_path)
+        entity_data["uid"] = file_uid or generate_uid(entity_type, file_path)
 
     # Handle content for markdown files (type-safe check).
     # Only set body content if it's non-empty — an empty body means all content
@@ -388,7 +393,14 @@ def prepare_entity_data(
         entity_data["user_uid"] = TypeConverter.to_user_uid(str(raw_user_uid))
 
     if config.owner_uid_from_user_uid:
-        owner_uid = entity_data.pop("owner_uid", None) or entity_data.pop("user_uid", None)
+        # Governed: the vault's resolved owner (stamped as ``user_uid`` above) is
+        # the owner, whatever ``owner_uid:`` the file names — the same rule that
+        # keeps a file from claiming ``user_uid:``. Ungoverned: the file's own.
+        authored_owner = entity_data.pop("owner_uid", None)
+        if owner_is_authoritative:
+            owner_uid = entity_data.pop("user_uid", None)
+        else:
+            owner_uid = authored_owner or entity_data.pop("user_uid", None)
         if owner_uid:
             entity_data["owner_uid"] = owner_uid
 

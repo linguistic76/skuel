@@ -55,6 +55,7 @@ from core.services.ingestion.config import collect_files
 from core.services.ingestion.detector import is_non_entity_note
 from core.services.ingestion.ingestion_tracker import IngestionDecision, IngestionTracker
 from core.services.ingestion.types import IncrementalStats, IngestionStats
+from core.services.ingestion.vault_policy import file_vault_refusal
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -136,6 +137,12 @@ class VaultSyncPreview:
     # gate sets them aside as non-entity notes, so they are excluded from every
     # would_ingest_* figure and reported here once, as one number.
     non_entity_notes: int = 0
+    # New/changed files this vault may not hold (``vault_policy.vault_refusal`` —
+    # an Edge, Group or curriculum file in a personal vault): the sync reports
+    # them as ignored-with-reason, so the preview lists them that way —
+    # "path — reason" lines — and leaves them out of every would_ingest_* figure.
+    would_ignore_count: int = 0
+    would_ignore_examples: tuple[str, ...] = ()
     would_delete_entities: int = 0
     would_delete_entity_examples: tuple[str, ...] = ()
     would_delete_edges: int = 0
@@ -517,13 +524,23 @@ class VaultReconciler:
             # (``is_non_entity_note`` — the detector's predicate, not a copy)
             # so the would-ingest figures describe what a sync would write; the
             # set-aside notes are reported once, as one number.
+            # A file this vault may not hold is classified by the ingest gate's
+            # own verdict too (``file_vault_refusal`` — the policy the sync's
+            # parse stage applies), so the preview names it as the sync will.
             would_ingest: list[IngestionDecision] = []
+            would_ignore: list[str] = []
             non_entity_notes = 0
             for decision in decisions:
                 if not decision.needs_ingestion:
                     continue
                 if is_non_entity_note(decision.file_path):
                     non_entity_notes += 1
+                elif (
+                    refusal := file_vault_refusal(decision.file_path, descriptor.kind)
+                ) is not None:
+                    would_ignore.append(
+                        f"{display_path(decision.file_path, descriptor.root)} — {refusal}"
+                    )
                 else:
                     would_ingest.append(decision)
             new_count = sum(1 for d in would_ingest if d.reason == "new")
@@ -552,6 +569,8 @@ class VaultReconciler:
                     would_ingest_changed=len(would_ingest) - new_count,
                     would_ingest_examples=ingest_examples,
                     non_entity_notes=non_entity_notes,
+                    would_ignore_count=len(would_ignore),
+                    would_ignore_examples=tuple(would_ignore[:PREVIEW_EXAMPLE_LIMIT]),
                     would_delete_entities=len(plan.entity_deletions),
                     would_delete_entity_examples=tuple(
                         planned.display_path for planned in plan.entity_deletions
@@ -576,8 +595,10 @@ class VaultReconciler:
         is the combined-root config (VAULT_ROOT == INGESTION_PATH), where the
         single vault resolves to PERSONAL by-path: there is no distinct
         content vault, so a CONTENT sync would stamp content_owner_uid onto
-        the user's own files. Refuse it — the combined vault syncs as
-        PERSONAL. Owner disagreement is a nested-roots misconfiguration (e.g.
+        the user's own files. Refuse it. Compose refuses that layout at boot
+        (``VaultConfig.validate_roots``); this is the reconciler's own refusal
+        for a registry built some other way. Owner disagreement is a
+        nested-roots misconfiguration (e.g.
         a member vault placed inside the primary personal root): by-path
         governance belongs to the enclosing vault's owner, so syncing it as
         anyone else would split attribution. Refuse that too.
@@ -593,8 +614,8 @@ class VaultReconciler:
                 Errors.validation(
                     f"{kind.value} vault sync is unavailable in a combined-root "
                     "configuration (VAULT_ROOT coincides with INGESTION_PATH); the "
-                    f"single vault resolves as {by_path.value.kind.value} — sync it "
-                    "under that kind instead.",
+                    f"single vault resolves as {by_path.value.kind.value} — give the "
+                    "content vault its own folder.",
                     field="kind",
                 )
             )

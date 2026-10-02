@@ -125,7 +125,22 @@ class IngestionWriteOperations(Protocol):
         """
         ...
 
-    async def entity_exists(self, uid: str) -> bool: ...
+    async def get_node_labels_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]:
+        """uid -> labels for each uid that names a node (absent = names nothing).
+
+        One of the two reads the link-edge guard admits a vault file's
+        frontmatter targets by (``core/services/mixins/link_edge_guard.py``) —
+        Result-shaped so the guard can fail closed on a failed read.
+        """
+        ...
+
+    async def get_owner_uids_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]:
+        """uid -> owning user uids for each owned node (absent = owned by nobody).
+
+        Reads all three spellings of ownership — ``user_uid``, ``owner_uid`` and
+        the ``:OWNS`` edge — as the domain backends' read of the same name does.
+        """
+        ...
 
     async def create_group_ownership(self, owner_uid: str, group_uid: str) -> int:
         """Assert the owner's ``:OWNS`` edge onto a persisted Group (idempotent)

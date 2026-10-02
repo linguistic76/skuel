@@ -10,7 +10,10 @@ edge, in two shapes:
 - a LINK door names one far end and is refused when it may not write it —
   ``UnifiedRelationshipService`` admits every edge it writes through
   ``admit_far_ends_for_source``, and a door that links entities it is about to
-  create goes through ``admit_far_ends_for_owner``.
+  create goes through ``admit_far_ends_for_owner``;
+- the personal-vault door admits a file's frontmatter targets through
+  ``partition_link_edges`` — the create doors' filter with its failure kept, so
+  a sync can leave the file unstamped and retry rather than lose its edges.
 
 A request field like ``linked_goal_uids`` or ``knowledge_uid`` is a UID the caller
 chose. Writing it straight into ``create_relationships_batch`` trusts two things the
@@ -46,7 +49,7 @@ edges are refused); a link door fails with the read's error.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
 from core.models.enums.neo_labels import NeoLabel
@@ -54,7 +57,7 @@ from core.models.type_hints import Neo4jProperties
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
 # (from_uid, to_uid, relationship_type, properties) — the batch writer's tuple.
 EdgeTuple = tuple[str, str, str, Neo4jProperties | None]
@@ -255,6 +258,74 @@ async def admit_far_ends_for_source(
     )
 
 
+@dataclass(frozen=True)
+class LinkPartition:
+    """The candidates a rule admitted, and the ones it refused with the reason.
+
+    ``refused`` pairs each edge with the reason ``_refusal_reason`` gave —
+    ``missing``, ``cross_user`` or ``wrong_kind`` — for the caller's log only. A
+    caller that reports a refusal to the user reports all three alike, so a uid
+    that names another user's node reads exactly as one that names nothing.
+    """
+
+    kept: list[LinkEdge] = field(default_factory=list)
+    refused: list[tuple[LinkEdge, str]] = field(default_factory=list)
+
+
+async def partition_link_edges(
+    backend: _EndpointReader,
+    *,
+    candidates: Sequence[LinkEdge],
+    owner_uid: str,
+    pending_labels: Mapping[str, Sequence[str]] | None = None,
+) -> Result[LinkPartition]:
+    """Split ``candidates`` into the edges ``owner_uid`` may write and the ones it may not.
+
+    The rule is ``_refusal_reason`` — the far end exists, carries one of the
+    candidate's allowed labels, and is owned by ``owner_uid`` or by nobody.
+
+    ``pending_labels`` names far ends the SAME write is about to create for
+    ``owner_uid`` (a vault sync's own files, whose nodes land after this check): a
+    uid the graph does not hold yet but this map does counts as the owner's, with
+    these labels. The graph wins for a uid it already holds — a pending file whose
+    uid names another user's node does not make that node the owner's.
+
+    Fails with the read's error when either endpoint read fails — the caller
+    decides what fail-closed means for it (``keep_permitted_link_edges`` writes no
+    edge; the vault door leaves the file unstamped).
+    """
+    if not candidates:
+        return Result.ok(LinkPartition())
+    other_uids = sorted({candidate.other_uid for candidate in candidates})
+    owners_result = await backend.get_owner_uids_batch(other_uids)
+    if owners_result.is_error:
+        return Result.fail(owners_result)
+    labels_result = await backend.get_node_labels_batch(other_uids)
+    if labels_result.is_error:
+        return Result.fail(labels_result)
+    owners = dict(owners_result.value)
+    labels = dict(labels_result.value)
+    for uid, pending in (pending_labels or {}).items():
+        if uid not in labels:
+            labels[uid] = list(pending)
+            owners[uid] = [owner_uid]
+
+    owner_uids = frozenset({owner_uid})
+    partition = LinkPartition()
+    for candidate in candidates:
+        reason = _refusal_reason(
+            labels.get(candidate.other_uid),
+            owners.get(candidate.other_uid),
+            owner_uids,
+            candidate.allowed_labels,
+        )
+        if reason is None:
+            partition.kept.append(candidate)
+        else:
+            partition.refused.append((candidate, reason))
+    return Result.ok(partition)
+
+
 # Returns a plain list, not Result[...]: this is a pure filter, not a fallible
 # operation. Its one failure mode — an unreadable owner/label map — is ABSORBED into
 # the fail-closed contract (refuse everything), so a Result here would never error and
@@ -295,54 +366,23 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
     if not candidates:
         return []
 
-    other_uids = sorted({candidate.other_uid for candidate in candidates})
-
-    owners_result = await backend.get_owner_uids_batch(other_uids)
-    if owners_result.is_error:
+    partition = await partition_link_edges(backend, candidates=candidates, owner_uid=owner_uid)
+    if partition.is_error:
         logger.warning(
-            "Skipping %d link edges for %s: owner lookup failed: %s",
+            "Skipping %d link edges for %s: endpoint lookup failed: %s",
             len(candidates),
             subject_uid,
-            owners_result.error,
+            partition.error,
         )
         return []
 
-    labels_result = await backend.get_node_labels_batch(other_uids)
-    if labels_result.is_error:
-        logger.warning(
-            "Skipping %d link edges for %s: label lookup failed: %s",
-            len(candidates),
-            subject_uid,
-            labels_result.error,
-        )
-        return []
-
-    owners = owners_result.value
-    labels = labels_result.value
-
-    kept: list[EdgeTuple] = []
-    missing = 0
-    cross_user = 0
-    wrong_kind = 0
-
-    owner_uids = frozenset({owner_uid})
-    for candidate in candidates:
-        reason = _refusal_reason(
-            labels.get(candidate.other_uid),
-            owners.get(candidate.other_uid),
-            owner_uids,
-            candidate.allowed_labels,
-        )
-        # Counted apart so the log says which it was: "you named something that is
-        # gone" and "you named the wrong kind of thing" are different fixes.
-        if reason == "missing":
-            missing += 1
-        elif reason == "cross_user":
-            cross_user += 1
-        elif reason == "wrong_kind":
-            wrong_kind += 1
-        else:
-            kept.append(candidate.edge)
+    # Counted apart so the log says which it was: "you named something that is
+    # gone" and "you named the wrong kind of thing" are different fixes.
+    reasons = [reason for _, reason in partition.value.refused]
+    missing = reasons.count("missing")
+    cross_user = reasons.count("cross_user")
+    wrong_kind = reasons.count("wrong_kind")
+    kept = [candidate.edge for candidate in partition.value.kept]
 
     if missing:
         logger.warning(

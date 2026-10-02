@@ -870,6 +870,16 @@ def validate_edge_data(data: dict[str, Any]) -> Result[None]:
         errors.append("Missing required field: 'relationship'")
     elif not RelationshipName.is_valid(data["relationship"]):
         errors.append(f"Unknown relationship type: '{data['relationship']}'")
+    elif RelationshipName(data["relationship"]).is_ownership_relationship():
+        # Ownership is written by the door that creates an entity, never by an
+        # Edge file. The edge writer binds both ends to :Entity, which already
+        # refuses every edge with a :User or :Group end (ownership, sharing,
+        # membership); this names the one type that would still be grammatical
+        # between two entities.
+        errors.append(
+            f"'{data['relationship']}' cannot be authored in an Edge file — ownership "
+            "belongs to the door that creates an entity"
+        )
 
     # Optional field validation
     confidence = data.get("confidence")

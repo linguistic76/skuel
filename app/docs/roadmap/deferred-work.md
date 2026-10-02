@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-01
+updated: 2026-10-02
 ---
 
 # Deferred Work
@@ -202,6 +202,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Naive-Local Timestamps Read as UTC
 
 [Naive-Local Timestamps Read as UTC](naive-local-timestamps-read-as-utc.md) — Writers stamp naive local time that Neo4j reads as UTC, so on a host west of UTC the generation cooldown never fires and share times read hours off; ruled 2026-09-27 and taken on as the [UTC Instants arc](utc-instants-arc.md).
+
+## Vault-Authored LifePath and the Designation Model
+
+[How a Vault-Authored LifePath Meets the Designation Model](vault-life-path-designation.md) — A personal vault syncs `life_path` files, owned by the vault's owner (ADR-070 Decision 11); how such a node relates to the app's designated LearningPath (`ULTIMATE_PATH`) is deferred by ruling (2026-10-01), and until then nothing reads it.
 
 ## Review Schedule
 

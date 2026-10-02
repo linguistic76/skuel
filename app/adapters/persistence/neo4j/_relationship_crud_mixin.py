@@ -26,6 +26,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal, Required, TypedDict
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
+from adapters.persistence.neo4j.endpoint_queries import (
+    NODE_LABELS_BATCH_QUERY,
+    OWNER_UIDS_BATCH_QUERY,
+)
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
@@ -395,13 +399,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         absent from the map — callers decide whether that is an error.
         """
         # NOT :Content — same G13 shadow-uid guard as _get_node_labels.
-        query = """
-        UNWIND $uids AS uid
-        MATCH (n {uid: uid}) WHERE NOT n:Content
-        RETURN uid, labels(n) AS labels
-        """
-
-        records = await self._run_records(query, {"uids": uids})
+        records = await self._run_records(NODE_LABELS_BATCH_QUERY, {"uids": uids})
 
         return Result.ok({record["uid"]: record["labels"] for record in records})
 
@@ -452,17 +450,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         first.
         """
         # NOT :Content — same G13 shadow-uid guard as _get_node_labels_batch.
-        query = """
-        UNWIND $uids AS uid
-        MATCH (n {uid: uid}) WHERE NOT n:Content
-        OPTIONAL MATCH (owner:User)-[:OWNS]->(n)
-        WITH uid, n, collect(DISTINCT owner.uid) AS owns_uids
-        WITH uid, [o IN owns_uids + [n.user_uid, n.owner_uid] WHERE o IS NOT NULL] AS owners
-        WHERE size(owners) > 0
-        RETURN uid, owners
-        """
-
-        records = await self._run_records(query, {"uids": uids})
+        records = await self._run_records(OWNER_UIDS_BATCH_QUERY, {"uids": uids})
 
         return Result.ok({record["uid"]: list(record["owners"]) for record in records})
 
