@@ -529,11 +529,11 @@ async def test_deleting_a_refused_file_never_deletes_the_node_it_failed_to_take(
 
 @pytest.mark.parametrize("door", ("directory", "reconciler"))
 async def test_a_personal_vault_never_deletes_shared_content(env, door) -> None:
-    """A legacy tracker row naming a shared Ku does not let a personal file delete it.
+    """A personal vault's tracker row that names a shared Ku never deletes it.
 
-    Before refusals existed a member's ``type: ku`` file could name a content-vault
-    Ku and be tracked; no such row can be written now, but one written earlier must
-    not turn the file's deletion into the Ku's. The owner's own deletions still run.
+    A personal vault deletes only its owner's nodes: when a tracked file is gone and
+    its row names a node nobody owns, the node stays and the sync reports it. The
+    owner's own deletions in the same sync still run.
     """
     d = env["driver"]
     _write(env["content"] / "atom.md", "---\ntype: ku\nuid: ku.nb2c.atom\ntitle: Atom\n---\n\nx\n")
