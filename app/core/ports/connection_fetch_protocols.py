@@ -35,10 +35,10 @@ class ConnectionFetchOperations(Protocol):
         """
         ...
 
-    async def fetch_source_pathstep(self, ps_uid: str) -> dict[str, str] | None:
+    async def fetch_source_pathstep(self, ps_uid: str, owner_uid: str) -> dict[str, str] | None:
         """Resolve a spawned activity's ``source_path_step_uid`` to its PathStep.
 
-        Returns ``{"uid", "title"}`` or ``None`` if the PathStep is missing or
-        the lookup fails.
+        Returns ``{"uid", "title"}`` or ``None`` if the PathStep is missing, is a
+        draft ``owner_uid`` never engaged, or the lookup fails.
         """
         ...

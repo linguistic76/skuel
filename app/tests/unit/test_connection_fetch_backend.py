@@ -127,38 +127,52 @@ class TestFetchSourcePathstep:
     @pytest.mark.asyncio
     async def test_returns_uid_and_title_on_hit(self):
         backend, _ = _backend_returning(Result.ok([{"uid": "ps:demo:step-1", "title": "Intro"}]))
-        assert await backend.fetch_source_pathstep("ps:demo:step-1") == {
+        assert await backend.fetch_source_pathstep("ps:demo:step-1", "user_owner") == {
             "uid": "ps:demo:step-1",
             "title": "Intro",
         }
 
     @pytest.mark.asyncio
+    async def test_asks_for_a_published_step_or_one_the_owner_engaged(self):
+        backend, execute_query = _backend_returning(Result.ok([]))
+        await backend.fetch_source_pathstep("ps:demo:step-1", "user_owner")
+
+        query, params = execute_query.call_args.args
+        assert params == {
+            "uid": "ps:demo:step-1",
+            "owner_uid": "user_owner",
+            "publication_draft": "draft",
+        }
+        assert "publication_state" in query
+        assert "ENGAGED_WITH" in query
+
+    @pytest.mark.asyncio
     async def test_none_for_empty_uid_without_querying(self):
         backend, execute_query = _backend_returning(Result.ok([]))
-        assert await backend.fetch_source_pathstep("") is None
+        assert await backend.fetch_source_pathstep("", "user_owner") is None
         execute_query.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_none_when_pathstep_missing(self):
         backend, _ = _backend_returning(Result.ok([]))
-        assert await backend.fetch_source_pathstep("ps:gone") is None
+        assert await backend.fetch_source_pathstep("ps:gone", "user_owner") is None
 
     @pytest.mark.asyncio
     async def test_none_on_query_error(self):
         backend, _ = _backend_returning(Result.fail(Errors.database("lookup", "boom")))
-        assert await backend.fetch_source_pathstep("ps:demo:step-1") is None
+        assert await backend.fetch_source_pathstep("ps:demo:step-1", "user_owner") is None
 
     @pytest.mark.asyncio
     async def test_none_on_executor_exception_safety_net(self):
         executor = AsyncMock()
         executor.execute_query = AsyncMock(side_effect=RuntimeError("driver down"))
         backend = ConnectionFetchBackend(executor)
-        assert await backend.fetch_source_pathstep("ps:demo:step-1") is None
+        assert await backend.fetch_source_pathstep("ps:demo:step-1", "user_owner") is None
 
     @pytest.mark.asyncio
     async def test_falls_back_to_uid_when_title_null(self):
         backend, _ = _backend_returning(Result.ok([{"uid": "ps:demo:step-1", "title": None}]))
-        assert await backend.fetch_source_pathstep("ps:demo:step-1") == {
+        assert await backend.fetch_source_pathstep("ps:demo:step-1", "user_owner") == {
             "uid": "ps:demo:step-1",
             "title": "ps:demo:step-1",
         }
