@@ -25,6 +25,10 @@ The users:
   3 / 30), and a weekly habit created four days ago with nothing due yet (no
   rate: neither averaged nor at risk).
 
+- CADENCES — a weekends habit kept on every weekend day of the window, a monthly
+  habit kept once, and a quarterly habit kept once: 1.0, 1.0, and no rate (a
+  30-day window cannot hold a quarter).
+
 Every other habit is created forty days ago, so it is measured over the whole window.
 
 The design and what it leaves to the write side:
@@ -70,7 +74,8 @@ DROPPED = UserUID("user_adherence_dropped")
 INTRUDER = UserUID("user_adherence_intruder")
 NO_HABITS = UserUID("user_adherence_none")
 YOUNG = UserUID("user_adherence_young")
-USERS = (KEPT, BULK, DROPPED, INTRUDER, NO_HABITS, YOUNG)
+CADENCES = UserUID("user_adherence_cadences")
+USERS = (KEPT, BULK, DROPPED, INTRUDER, NO_HABITS, YOUNG, CADENCES)
 
 KEPT_HABIT = "habit.adherence.kept"
 BULK_HABIT = "habit.adherence.bulk"
@@ -78,6 +83,9 @@ DROPPED_HABIT = "habit.adherence.dropped"
 INTRUDER_HABIT = "habit.adherence.intruder"
 YOUNG_HABIT = "habit.adherence.young"
 YOUNG_WEEKLY_HABIT = "habit.adherence.young_weekly"
+WEEKENDS_HABIT = "habit.adherence.weekends"
+MONTHLY_HABIT = "habit.adherence.monthly"
+QUARTERLY_HABIT = "habit.adherence.quarterly"
 
 TODAY = today_in(current_zone())
 KEPT_DAYS = [TODAY - timedelta(days=n) for n in range(28)]
@@ -87,6 +95,11 @@ FUTURE_DAYS = [TODAY + timedelta(days=n) for n in (1, 5)]
 INTRUDER_DAYS = [TODAY - timedelta(days=n) for n in range(2, 7)]
 CREATED_LONG_AGO = TODAY - timedelta(days=40)
 YOUNG_DAYS = [TODAY - timedelta(days=n) for n in range(3)]
+WEEKEND_DAYS = [
+    day
+    for day in (TODAY - timedelta(days=n) for n in range(HabitConsistencyWindow.DAYS))
+    if day.weekday() >= 5
+]
 
 KEPT_RATE = 28 / HabitConsistencyWindow.DAYS
 DROPPED_RATE = 7 / HabitConsistencyWindow.DAYS
@@ -185,6 +198,18 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
     for day in FUTURE_DAYS:
         stamped = await service.record_completion(DROPPED_HABIT, DROPPED, completed_at=_noon(day))
         assert stamped.is_ok, stamped
+    for uid, pattern in (
+        (WEEKENDS_HABIT, RecurrencePattern.WEEKENDS),
+        (MONTHLY_HABIT, RecurrencePattern.MONTHLY),
+        (QUARTERLY_HABIT, RecurrencePattern.QUARTERLY),
+    ):
+        await _create_habit(habits, uid, CADENCES, pattern=pattern)
+    for day in WEEKEND_DAYS:
+        with _on(day):
+            assert (await service.record_completion(WEEKENDS_HABIT, CADENCES)).is_ok
+    with _on(TODAY - timedelta(days=10)):
+        assert (await service.record_completion(MONTHLY_HABIT, CADENCES)).is_ok
+        assert (await service.record_completion(QUARTERLY_HABIT, CADENCES)).is_ok
     for day in YOUNG_DAYS:
         with _on(day):
             assert (await service.record_completion(YOUNG_HABIT, YOUNG)).is_ok
@@ -209,6 +234,9 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
         (INTRUDER, DROPPED_HABIT): 5,
         (INTRUDER, INTRUDER_HABIT): 5,
         (YOUNG, YOUNG_HABIT): 3,
+        (CADENCES, WEEKENDS_HABIT): len(WEEKEND_DAYS),
+        (CADENCES, MONTHLY_HABIT): 1,
+        (CADENCES, QUARTERLY_HABIT): 1,
     }
     return habits
 
@@ -298,6 +326,15 @@ class TestHabitAdherenceInTheUserContext:
         signals = _Momentum(context).compute_momentum_signals()
         assert signals["habit_consistency"] == 1.0
 
+    async def test_each_cadence_is_measured_against_what_the_window_holds_of_it(
+        self, neo4j_driver: AsyncDriver, graph: HabitsBackend
+    ) -> None:
+        """Every weekend day kept, the month's one completion made: both full. A
+        quarter does not fit in the window, so the quarterly habit has no rate."""
+        context = await _rich(neo4j_driver, CADENCES)
+
+        assert context.habit_completion_rates == {WEEKENDS_HABIT: 1.0, MONTHLY_HABIT: 1.0}
+
     async def test_a_user_with_no_habits_has_no_rate_and_no_consistency_warning(
         self, neo4j_driver: AsyncDriver, graph: HabitsBackend
     ) -> None:
@@ -320,6 +357,7 @@ class TestHabitAdherenceInTheUserContext:
             (INTRUDER, {INTRUDER_HABIT: 5 / HabitConsistencyWindow.DAYS}),
             (NO_HABITS, {}),
             (YOUNG, {YOUNG_HABIT: 1.0}),
+            (CADENCES, {WEEKENDS_HABIT: 1.0, MONTHLY_HABIT: 1.0}),
         ],
     )
     async def test_the_standard_build_derives_the_same_rates(
