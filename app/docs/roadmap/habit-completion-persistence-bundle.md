@@ -225,8 +225,8 @@ persisted at completion time cannot stay true — a habit kept daily and then dr
 not this bundle's work: it shipped ahead of it. What it is now:
 
 - **One definition.** `core/models/habit/adherence.py` — `habit_adherence(recurrence_pattern,
-  target_days_per_week, completions_in_window, *, created_on, today)`: the habit's completions in
-  the trailing `HabitConsistencyWindow` over what its frequency expects there, at most 1.0 —
+  target_days_per_week, completed_on, *, created_on, today)`: the habit's completions in the
+  trailing `HabitConsistencyWindow` over what its frequency expects there, at most 1.0 —
   lifted out of `HabitsProgressService._calculate_consistency_from_completions`, which now calls
   it. Two rulings (Mike, 2026-10-02) shape `expected`: the span is cut short at the habit's
   creation day (a 3-day-old daily habit kept 3/3 reads 1.0, not 0.1), and every
@@ -234,17 +234,21 @@ not this bundle's work: it shipped ahead of it. What it is now:
   daily every day; weekdays / weekends the days of their kind on the calendar; weekly, biweekly,
   monthly the whole periods; custom its weekly target scaled). Quarterly, yearly and one-time
   habits — and a habit with nothing due yet in its span — have **no rate** (`None`): they are left
-  out of every average and never at risk, rather than read as 0.0.
-- **One count.** `adapters/persistence/neo4j/query/cypher/habit_fragments.py` — the window
+  out of every average and never at risk, rather than read as 0.0. Both sides of the ratio are
+  counted over the one span: `completed_on` holds the day of each completion, and a completion
+  backfilled to before the habit existed is outside it (Codex r2 on #1488 — counting the window
+  but measuring from creation let three pre-creation backfills read a new habit as 1.0).
+- **One read.** `adapters/persistence/neo4j/query/cypher/habit_fragments.py` — the window
   predicate (`datetime()` on both operands, `[start, end)` from `stored_day_bounds`, so a
-  future-stamped completion is outside) and the per-habit count (completions the habit's OWNER
-  owns that name the habit). Composed by `CrossDomainBackend.get_habit_analytics` (per user),
+  future-stamped completion is outside) and the per-habit completions (the `completed_at` stamps of
+  completions the habit's OWNER owns that name the habit — stamps, not a count, so the creation-day
+  cut is made in the user's zone by `completion_days`). Composed by `CrossDomainBackend.get_habit_analytics` (per user),
   `HabitsBackend.get_habit_window_completions` (per habit, on `HabitsOperations`), and both
   user-context statements. `HabitsService.get_adherence_rates(habits)` composes the per-habit
-  count with `habit_adherence` for any caller holding Habit models.
+  completions with `habit_adherence` for any caller holding Habit models.
 - **The readers the stale `completion_rate` name used to blind.** `HABIT_ADHERENCE_QUERY` (its own
   `RICH_CONTEXT_STATEMENTS` entry) and `CONSOLIDATED_QUERY` project each active habit's window
-  count; the populator derives `UserContext.habit_completion_rates` from it, so the at-risk
+  completions; the populator derives `UserContext.habit_completion_rates` from it, so the at-risk
   classification (active habits only: no streak, or under half), `HabitsStats.consistency_rate`,
   the overall completion blend (`core/services/user_stats_types.py`) and `ContextualHabit`'s
   fallback rate are true together. `TemporalMomentumMixin` reads the derived rates (`None` for a
