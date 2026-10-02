@@ -310,8 +310,10 @@ await service.create_relationship(
 > node of the wrong kind are refused alike — `Errors.not_found(far_end.resource, uid)`,
 > the diagnosis in `details["reason"]` only. A "knowledge" link takes a `:Ku`
 > (`KNOWLEDGE_LABELS`), the kind the create doors' knowledge lists take. A door that writes
-> anything beside the edge calls `admit_far_ends` before its first write
-> (`EventsService.update_event`). `tests/unit/services/test_link_writer_census.py` holds
+> anything beside the edge calls `admit_far_ends` before its first write and hands the
+> `AdmittedFarEnds` it returns back as the write's `far_end`, so the edge is written on
+> that one admission with no second endpoint read (`EventsService.update_event`); a proof
+> covers its own `(from_uid, to_uid)` only. `tests/unit/services/test_link_writer_census.py` holds
 > every edge-writer call site under `core/services/` to an admission.
 
 > **`create_relationship(key, from_uid, to_uid, properties, *, far_end)` is safe** (root-fixed

@@ -44,7 +44,7 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
-from core.models.enums import RecurrencePattern
+from core.models.enums import PrincipleLinkType, RecurrencePattern
 from core.models.type_hints import EntityUID, UserUID
 from core.services.mixins.link_edge_guard import (
     GOAL_FAR_END,
@@ -422,6 +422,46 @@ class TestTheSourceItself:
             "link_type": "knowledge",
         }
         assert await edges() == {(OWN["Principle"], "GROUNDED_IN_KNOWLEDGE", SHARED_KU)}
+
+
+class TestPrincipleLinkTypes:
+    """``link_type`` is one of ``PrincipleLinkType`` on the write and on the read."""
+
+    async def test_an_unknown_link_type_is_a_bad_request_and_writes_no_edge(
+        self, client: httpx.AsyncClient, edges: EdgeReader
+    ) -> None:
+        response = await client.post(
+            f"/api/principles/link?uid={OWN['Principle']}",
+            json={"link_type": "task", "target_uid": OWN["Task"]},
+        )
+
+        assert response.status_code == 400, response.text
+        assert await edges() == set()
+
+    @pytest.mark.parametrize("link_type", list(PrincipleLinkType))
+    async def test_the_links_read_returns_what_the_link_door_wrote(
+        self, client: httpx.AsyncClient, edges: EdgeReader, link_type: PrincipleLinkType
+    ) -> None:
+        door = next(door for door in DOORS if ("link_type", link_type.value) in door.extra)
+        linked = await client.post(door.url, json=door.body(door.linkable))
+        assert linked.status_code == 200, linked.text
+
+        of_type = await client.get(
+            f"/api/principles/links?uid={OWN['Principle']}&link_type={link_type.value}"
+        )
+        every = await client.get(f"/api/principles/links?uid={OWN['Principle']}")
+
+        expected = [{"target_uid": door.linkable, "link_type": link_type.value}]
+        assert of_type.status_code == 200, of_type.text
+        assert of_type.json() == expected
+        assert every.json() == expected
+
+    async def test_the_links_read_refuses_an_unknown_link_type(
+        self, client: httpx.AsyncClient, edges: EdgeReader
+    ) -> None:
+        response = await client.get(f"/api/principles/links?uid={OWN['Principle']}&link_type=task")
+
+        assert response.status_code == 400, response.text
 
 
 class TestRefusedEventUpdate:

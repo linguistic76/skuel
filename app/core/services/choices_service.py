@@ -23,7 +23,7 @@ from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums import EntityStatus, Priority
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.domain_protocols import ChoicesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
@@ -519,7 +519,7 @@ class ChoicesService(
         Uses the ``impacted_habits`` config key — Choices has no ``"habits"`` key
         (that earlier value silently failed config validation in create_relationship).
         """
-        properties = {"reinforcement_strength": reinforcement_strength}
+        properties: Neo4jProperties = {"reinforcement_strength": reinforcement_strength}
         return await self.relationships.create_relationship(
             "impacted_habits", choice_uid, habit_uid, properties, far_end=HABIT_FAR_END
         )

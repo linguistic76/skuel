@@ -56,7 +56,12 @@ from core.models.type_hints import EntityUID, Neo4jProperties
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.infrastructure import SemanticRelationshipLinker
-from core.services.mixins.link_edge_guard import LinkFarEnd, admit_far_ends_for_source
+from core.services.mixins.link_edge_guard import (
+    AdmittedFarEnds,
+    EdgeTuple,
+    LinkFarEnd,
+    admit_far_ends_for_source,
+)
 from core.services.relationships._batch_operations_mixin import BatchOperationsMixin
 from core.services.relationships._intelligence_mixin import IntelligenceMixin
 from core.services.relationships._ordered_relationships_mixin import OrderedRelationshipsMixin
@@ -338,7 +343,7 @@ class UnifiedRelationshipService[
 
     async def admit_far_ends(
         self, from_uid: str, to_uids: Sequence[str], far_end: LinkFarEnd
-    ) -> Result[None]:
+    ) -> Result[AdmittedFarEnds]:
         """Whether ``from_uid`` may be linked to each of ``to_uids``.
 
         Every edge this service writes is admitted here first: the far end exists,
@@ -348,40 +353,47 @@ class UnifiedRelationshipService[
         wrong kind are refused alike, as ``not_found(far_end.resource)``.
 
         A door that writes anything else alongside the edge calls this BEFORE its
-        first write, so a refused link leaves nothing half-applied.
+        first write and hands the returned ``AdmittedFarEnds`` to
+        ``create_relationship`` as ``far_end``: a refused link leaves nothing
+        half-applied, and the write after it reads no endpoint again.
 
         See: core/services/mixins/link_edge_guard.py
         """
-        return await admit_far_ends_for_source(
+        admitted = await admit_far_ends_for_source(
             self.backend,
             source_uid=from_uid,
             source_resource=self.config.entity_label,
             far_uids=to_uids,
             far_end=far_end,
         )
+        if admitted.is_error:
+            return Result.fail(admitted)
+        return Result.ok(AdmittedFarEnds(source_uid=from_uid, far_uids=frozenset(to_uids)))
 
     async def create_relationship(
         self,
         relationship_key: str,
         from_uid: str,
         to_uid: str,
-        properties: dict[str, Any] | None = None,
+        properties: Neo4jProperties | None = None,
         *,
-        far_end: LinkFarEnd,
+        far_end: LinkFarEnd | AdmittedFarEnds,
     ) -> Result[bool]:
         """
         Create a single relationship edge between entities.
 
-        The far end is admitted first (``admit_far_ends``); the edge type is taken from
-        the registry ``spec`` for ``relationship_key`` and written through
-        ``backend.create_relationships_batch``, the path the create flows use.
+        The far end is admitted first (``admit_far_ends``), unless ``far_end`` is the
+        ``AdmittedFarEnds`` an earlier admission of this same link returned; the edge
+        type is taken from the registry ``spec`` for ``relationship_key`` and written
+        through ``backend.create_relationships_batch``, the path the create flows use.
 
         Args:
             relationship_key: Key from config
             from_uid: The entity this domain config belongs to
             to_uid: The related entity — the far end, whatever the edge's direction
             properties: Optional edge properties (persisted on the relationship)
-            far_end: The kinds ``to_uid`` may be, and the name a refusal answers with
+            far_end: The kinds ``to_uid`` may be and the name a refusal answers with,
+                or the proof that this link was already admitted
 
         Returns:
             Result[bool] — True when the edge was created.
@@ -394,9 +406,17 @@ class UnifiedRelationshipService[
                 )
             )
 
-        admitted = await self.admit_far_ends(from_uid, [to_uid], far_end)
-        if admitted.is_error:
-            return Result.fail(admitted)
+        if isinstance(far_end, AdmittedFarEnds):
+            if not far_end.covers(from_uid, to_uid):
+                return Result.fail(
+                    Errors.validation(
+                        "The admission handed to create_relationship is for another link"
+                    )
+                )
+        else:
+            admitted = await self.admit_far_ends(from_uid, [to_uid], far_end)
+            if admitted.is_error:
+                return Result.fail(admitted)
 
         result = await self.backend.create_relationships_batch(
             [self._orient_edge(spec, from_uid, to_uid, properties)]
@@ -427,8 +447,8 @@ class UnifiedRelationshipService[
         spec: UnifiedRelationshipDefinition,
         from_uid: str,
         to_uid: str,
-        properties: dict[str, Any] | None,
-    ) -> tuple[str, str, str, dict[str, Any] | None]:
+        properties: Neo4jProperties | None,
+    ) -> EdgeTuple:
         """``_orient`` plus the relationship type and (filter-stamped) properties.
 
         A *filtered* spec (e.g. ``essential_habits`` = SUPPORTS_GOAL with
@@ -449,8 +469,8 @@ class UnifiedRelationshipService[
 
     @staticmethod
     def _stamp_spec_filter(
-        spec: UnifiedRelationshipDefinition, properties: dict[str, Any] | None
-    ) -> dict[str, Any] | None:
+        spec: UnifiedRelationshipDefinition, properties: Neo4jProperties | None
+    ) -> Neo4jProperties | None:
         """Merge a filtered spec's ``filter_property=filter_value`` into write properties.
 
         Keeps create/read symmetric for property-filtered relationship keys (see
@@ -517,7 +537,7 @@ class UnifiedRelationshipService[
         Returns:
             Result[int] with count of relationships created
         """
-        batches: list[list[tuple[str, str, str, dict[str, Any] | None]]] = []
+        batches: list[list[EdgeTuple]] = []
 
         for relationship_key, target_uids in relationships.items():
             if not target_uids:

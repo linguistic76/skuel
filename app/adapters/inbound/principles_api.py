@@ -42,6 +42,7 @@ from core.models.entity_requests import (
     AddHierarchyChildRequest,
     LinkPrincipleToKnowledgeRequest,
 )
+from core.models.enums.principle_enums import PrincipleLinkType
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import (
     PrincipleBatchImpactRequest,
@@ -239,7 +240,19 @@ def create_principles_api_routes(
         )
         if ownership_error:
             return ownership_error
-        link_type = request.query_params.get("link_type") or None
+        link_type: PrincipleLinkType | None = None
+        requested = request.query_params.get("link_type")
+        if requested:
+            try:
+                link_type = PrincipleLinkType(requested)
+            except ValueError:
+                return Result.fail(
+                    Errors.validation(
+                        message=f"link_type must be one of: {', '.join(PrincipleLinkType)}",
+                        field="link_type",
+                        value=requested,
+                    )
+                )
         return await principles_service.get_principle_links(uid, link_type)
 
     # ================================================================

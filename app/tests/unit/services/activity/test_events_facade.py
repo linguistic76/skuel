@@ -11,7 +11,11 @@ import pytest
 
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.services.events_service import EventsService
-from core.services.mixins.link_edge_guard import GOAL_FAR_END, HABIT_FAR_END
+from core.services.mixins.link_edge_guard import (
+    GOAL_FAR_END,
+    HABIT_FAR_END,
+    AdmittedFarEnds,
+)
 from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
@@ -149,7 +153,8 @@ class TestUpdateEventEdges:
         )
         events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
         events_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
-        events_service.relationships.admit_far_ends = AsyncMock(return_value=Result.ok(None))
+        admission = AdmittedFarEnds(source_uid="event_abc", far_uids=frozenset({"goal_new"}))
+        events_service.relationships.admit_far_ends = AsyncMock(return_value=Result.ok(admission))
 
         result = await events_service.update_event(
             "event_abc", EventUpdateIntent(milestone_celebration_for_goal="goal_new")
@@ -162,8 +167,10 @@ class TestUpdateEventEdges:
         events_service.relationships.delete_relationship.assert_awaited_once_with(
             "celebrated_goals", "event_abc", "goal_old"
         )
+        # The edge is written on update_event's own admission — the write is handed
+        # the proof, not the far-end declaration that would admit a second time.
         events_service.relationships.create_relationship.assert_awaited_once_with(
-            "celebrated_goals", "event_abc", "goal_new", far_end=GOAL_FAR_END
+            "celebrated_goals", "event_abc", "goal_new", far_end=admission
         )
 
     @pytest.mark.asyncio

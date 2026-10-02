@@ -403,7 +403,7 @@ class PrinciplesFacadeProtocol(Protocol):
         ...
 
     async def create_principle_link(
-        self, principle_uid: str, target_uid: str, link_type: str
+        self, principle_uid: str, target_uid: str, link_type: PrincipleLinkType
     ) -> Result[dict[str, Any]]:
         """Link a principle to a goal, habit, Ku, choice or another principle."""
         ...

@@ -89,6 +89,24 @@ class LinkFarEnd:
     resource: str
 
 
+@dataclass(frozen=True)
+class AdmittedFarEnds:
+    """Proof that a source's far ends passed admission.
+
+    ``UnifiedRelationshipService.admit_far_ends`` returns one; handing it back as a
+    write's ``far_end`` writes the edge on that admission, with no second read. A door
+    that admits before its first write and links after it uses this, so the link cannot
+    fail on an endpoint read once the door has started writing.
+    """
+
+    source_uid: str
+    far_uids: frozenset[str]
+
+    def covers(self, source_uid: str, far_uid: str) -> bool:
+        """Whether this admission is for exactly this link."""
+        return source_uid == self.source_uid and far_uid in self.far_uids
+
+
 KNOWLEDGE_FAR_END: Final = LinkFarEnd(KNOWLEDGE_LABELS, "Ku")
 GOAL_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.GOAL.value}), "Goal")
 HABIT_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.HABIT.value}), "Habit")

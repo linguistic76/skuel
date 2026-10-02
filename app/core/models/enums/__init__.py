@@ -12,7 +12,8 @@ Module Organization:
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
 - event_enums: EventType, AttendanceStatus
-- principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
+- principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel,
+                   PrincipleLinkType
 - user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ProgressDepth, ReportPeriodKind,
                     ParseDoor, CheckboxVerdict
 - pipeline: Pipeline, JeUse, ProcessingMode, ReportSource, ExchangeStatus
@@ -136,6 +137,7 @@ from .pipeline import ExchangeStatus, JeUse, Pipeline, ProcessingMode, ReportSou
 from .principle_enums import (
     AlignmentLevel,
     PrincipleCategory,
+    PrincipleLinkType,
     PrincipleSource,
     PrincipleStrength,
     TriggerType,
@@ -243,6 +245,7 @@ __all__ = [
     "ProcessingMode",
     "ReportSource",
     "PrincipleCategory",
+    "PrincipleLinkType",
     "PrincipleSource",
     "PrincipleStrength",
     "Priority",

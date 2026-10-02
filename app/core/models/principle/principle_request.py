@@ -17,6 +17,7 @@ from core.models.enums import Priority
 from core.models.enums.principle_enums import (
     AlignmentLevel,
     PrincipleCategory,
+    PrincipleLinkType,
     PrincipleSource,
     PrincipleStrength,
 )
@@ -195,7 +196,7 @@ class PrincipleLinkRequest(BaseModel):
     at this boundary.
     """
 
-    link_type: str = Field(..., pattern="^(goal|habit|knowledge|principle|choice)$")
+    link_type: PrincipleLinkType
     target_uid: str = Field(..., min_length=1)
 
 

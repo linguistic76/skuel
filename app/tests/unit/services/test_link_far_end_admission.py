@@ -4,6 +4,8 @@
 ``admit_far_ends_for_owner`` is handed the owner by a door that creates the source.
 Both answer a refusal as ``not_found`` of the far end's resource, whatever the
 reason, and write nothing on an unreadable endpoint map.
+``UnifiedRelationshipService`` admits before every edge it writes, or writes on the
+proof of an admission it already made.
 
 The rule over a real graph and real HTTP:
 ``tests/integration/routes/test_link_door_far_end.py``.
@@ -12,9 +14,12 @@ The rule over a real graph and real HTTP:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 
+from core.models.relationship_registry import GOALS_CONFIG
+from core.models.type_hints import EntityUID, Neo4jProperties
 from core.services.mixins.link_edge_guard import (
     GOAL_FAR_END,
     HABIT_FAR_END,
@@ -23,6 +28,7 @@ from core.services.mixins.link_edge_guard import (
     admit_far_ends_for_owner,
     admit_far_ends_for_source,
 )
+from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 ALICE = "user_alice"
@@ -62,6 +68,19 @@ class Endpoints:
         if self.labels_error:
             return Result.fail(Errors.database("get_node_labels_batch", "unreachable"))
         return Result.ok({uid: _LABELS[uid] for uid in uids if uid in _LABELS})
+
+
+@dataclass
+class WritingEndpoints(Endpoints):
+    """The endpoint reads plus the batch write, recording every edge written."""
+
+    written: list[tuple[str, str, str]] = field(default_factory=list)
+
+    async def create_relationships_batch(
+        self, relationships: list[tuple[str, str, str, Neo4jProperties | None]]
+    ) -> Result[int]:
+        self.written.extend((source, target, name) for source, target, name, _ in relationships)
+        return Result.ok(len(relationships))
 
 
 async def _from_source(
@@ -221,3 +240,94 @@ class TestForOwner:
 
         assert refused.is_error
         assert refused.expect_error().category == ErrorCategory.DATABASE
+
+
+class TestTheServiceWritesOnAnAdmission:
+    """``UnifiedRelationshipService``: admit once, then write on the proof."""
+
+    @staticmethod
+    def _service(endpoints: WritingEndpoints) -> UnifiedRelationshipService[Any, Any, Any]:
+        return UnifiedRelationshipService(backend=endpoints, config=GOALS_CONFIG)
+
+    @pytest.mark.asyncio
+    async def test_a_declared_far_end_is_admitted_then_written(self) -> None:
+        endpoints = WritingEndpoints()
+
+        linked = await self._service(endpoints).create_relationship(
+            "supporting_habits", "goal_alice", "habit_alice", far_end=HABIT_FAR_END
+        )
+
+        assert linked.is_ok, linked.error
+        assert len(endpoints.asked) == 1
+        assert endpoints.written == [("habit_alice", "goal_alice", "SUPPORTS_GOAL")]
+
+    @pytest.mark.asyncio
+    async def test_a_refused_far_end_writes_nothing(self) -> None:
+        endpoints = WritingEndpoints()
+
+        refused = await self._service(endpoints).create_relationship(
+            "supporting_habits", "goal_alice", "habit_bob", far_end=HABIT_FAR_END
+        )
+
+        assert refused.is_error
+        assert endpoints.written == []
+
+    @pytest.mark.asyncio
+    async def test_the_proof_of_an_admission_writes_without_reading_again(self) -> None:
+        endpoints = WritingEndpoints()
+        service = self._service(endpoints)
+        admission = await service.admit_far_ends("goal_alice", ["habit_alice"], HABIT_FAR_END)
+        assert admission.is_ok, admission.error
+        reads_at_admission = len(endpoints.asked)
+
+        linked = await service.create_relationship(
+            "supporting_habits", "goal_alice", "habit_alice", far_end=admission.value
+        )
+
+        assert linked.is_ok, linked.error
+        assert len(endpoints.asked) == reads_at_admission
+        assert endpoints.written == [("habit_alice", "goal_alice", "SUPPORTS_GOAL")]
+
+    @pytest.mark.parametrize(
+        ("from_uid", "to_uid"),
+        [("goal_alice", "habit_bob"), ("habit_bob", "habit_alice")],
+    )
+    @pytest.mark.asyncio
+    async def test_a_proof_is_good_for_its_own_link_only(self, from_uid: str, to_uid: str) -> None:
+        endpoints = WritingEndpoints()
+        service = self._service(endpoints)
+        admission = await service.admit_far_ends("goal_alice", ["habit_alice"], HABIT_FAR_END)
+        assert admission.is_ok, admission.error
+
+        refused = await service.create_relationship(
+            "supporting_habits", from_uid, to_uid, far_end=admission.value
+        )
+
+        assert refused.is_error
+        assert refused.expect_error().category == ErrorCategory.VALIDATION
+        assert endpoints.written == []
+
+    @pytest.mark.asyncio
+    async def test_a_batch_admits_every_far_end_before_the_first_write(self) -> None:
+        endpoints = WritingEndpoints()
+
+        refused = await self._service(endpoints).create_relationships_batch(
+            EntityUID("goal_alice"),
+            {"supporting_habits": ["habit_alice", "habit_bob"]},
+            far_ends={"supporting_habits": HABIT_FAR_END},
+        )
+
+        assert refused.is_error
+        assert endpoints.written == []
+
+    @pytest.mark.asyncio
+    async def test_a_batch_key_with_no_declared_far_end_is_refused(self) -> None:
+        endpoints = WritingEndpoints()
+
+        refused = await self._service(endpoints).create_relationships_batch(
+            EntityUID("goal_alice"), {"supporting_habits": ["habit_alice"]}, far_ends={}
+        )
+
+        assert refused.is_error
+        assert refused.expect_error().category == ErrorCategory.VALIDATION
+        assert endpoints.written == []

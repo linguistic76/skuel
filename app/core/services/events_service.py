@@ -57,7 +57,12 @@ from core.services.events._scheduling_mixin import _SchedulingMixin
 from core.services.filtered_context import build_filtered_context
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
-from core.services.mixins.link_edge_guard import GOAL_FAR_END, HABIT_FAR_END, LinkFarEnd
+from core.services.mixins.link_edge_guard import (
+    GOAL_FAR_END,
+    HABIT_FAR_END,
+    AdmittedFarEnds,
+    LinkFarEnd,
+)
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
@@ -306,14 +311,18 @@ class EventsService(
         goal_uid, habit_uid, prop_intent = self._split_relationship_intent(intent)
 
         # Both far ends are admitted before the first write, so a refused link leaves
-        # the event's properties and its existing edges as they were.
+        # the event's properties and its existing edges as they were — and each edge
+        # is then written on that admission, so no link fails on a second endpoint
+        # read after the first write.
+        admitted: dict[str, AdmittedFarEnds] = {}
         for relationship_key, target_uid in (("celebrated_goals", goal_uid), ("habits", habit_uid)):
             if isinstance(target_uid, str) and target_uid:
-                admitted = await self.relationships.admit_far_ends(
+                admission = await self.relationships.admit_far_ends(
                     event_uid, [target_uid], self._EDGE_FAR_ENDS[relationship_key]
                 )
-                if admitted.is_error:
-                    return Result.fail(admitted)
+                if admission.is_error:
+                    return Result.fail(admission)
+                admitted[relationship_key] = admission.value
 
         # An edge-only update (e.g. only milestone_celebration_for_goal, which
         # EventUpdateRequest permits) leaves no node properties to write. The backend
@@ -330,11 +339,15 @@ class EventsService(
             return result
 
         if goal_uid is not UNSET:
-            replaced = await self._replace_edge("celebrated_goals", event_uid, goal_uid)
+            replaced = await self._replace_edge(
+                "celebrated_goals", event_uid, goal_uid, admitted.get("celebrated_goals")
+            )
             if replaced.is_error:
                 return Result.fail(replaced)
         if habit_uid is not UNSET:
-            replaced = await self._replace_edge("habits", event_uid, habit_uid)
+            replaced = await self._replace_edge(
+                "habits", event_uid, habit_uid, admitted.get("habits")
+            )
             if replaced.is_error:
                 return Result.fail(replaced)
 
@@ -363,13 +376,18 @@ class EventsService(
         return await self.update_event(uid, updates)
 
     async def _replace_edge(
-        self, relationship_key: str, event_uid: str, target_uid: str | None
+        self,
+        relationship_key: str,
+        event_uid: str,
+        target_uid: str | None,
+        admitted: AdmittedFarEnds | None,
     ) -> Result[bool]:
         """Replace the single outbound edge of ``relationship_key`` with ``target_uid``.
 
         A falsy ``target_uid`` (``None`` — the explicit-clear signal) clears the edge
         (delete only). Used by update_event to route cross-domain field updates to
-        graph-edge mutations.
+        graph-edge mutations. ``admitted`` is update_event's admission of the new
+        target; without one the write admits the target itself.
         """
         existing = await self.relationships.get_related_uids(relationship_key, EntityUID(event_uid))
         if existing.is_ok:
@@ -380,7 +398,7 @@ class EventsService(
                 relationship_key,
                 event_uid,
                 target_uid,
-                far_end=self._EDGE_FAR_ENDS[relationship_key],
+                far_end=admitted or self._EDGE_FAR_ENDS[relationship_key],
             )
         return Result.ok(True)
 

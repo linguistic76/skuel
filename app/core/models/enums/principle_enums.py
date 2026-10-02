@@ -101,6 +101,20 @@ _PRINCIPLE_STRENGTH_SORT_ORDERS: dict[PrincipleStrength, int] = {
 }
 
 
+class PrincipleLinkType(StrEnum):
+    """What a principle is linked to through ``POST /api/principles/link``.
+
+    Each member selects the relationship the link writes and the kind its target
+    must be (``PrinciplesService.create_principle_link``).
+    """
+
+    GOAL = "goal"
+    HABIT = "habit"
+    KNOWLEDGE = "knowledge"
+    PRINCIPLE = "principle"
+    CHOICE = "choice"
+
+
 class AlignmentLevel(StrEnum):
     """
     Alignment measurement for principles and life path.

@@ -31,7 +31,7 @@ from core.models.enums.goal_enums import GoalTimeframe, GoalType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_update_intent import GoalUpdateIntent
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalsAchievedCount
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -684,7 +684,7 @@ class GoalsService(
         It MUST match the read mappings' ``filter_property="essentiality"`` — storing the
         tier under any other key (the former ``contribution_type``) left every tier empty.
         """
-        properties = {"weight": weight, "essentiality": essentiality}
+        properties: Neo4jProperties = {"weight": weight, "essentiality": essentiality}
         return await self.relationships.create_relationship(
             "supporting_habits", goal_uid, habit_uid, properties, far_end=HABIT_FAR_END
         )

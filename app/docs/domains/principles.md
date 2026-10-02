@@ -468,8 +468,8 @@ All ownership-verified unless otherwise noted.
 | `/api/principles/expression?uid=` | POST | Append a lived expression (context + behavior) |
 | `/api/principles/portfolio` | GET | Authenticated user's complete principle portfolio |
 | `/api/principles/integrity?uid=` | GET | Action-alignment integrity score for a principle |
-| `/api/principles/link?uid=` | POST | Link the principle (query `uid`) to the body's `target_uid` — a goal / habit / Ku / principle / choice, per `link_type`. The target is admitted by the service: it exists, is of that kind, and is the caller's own or shared content; anything else is 404 |
-| `/api/principles/links?uid=&link_type=` | GET | Cross-domain links (all or filtered by type) |
+| `/api/principles/link?uid=` | POST | Link the principle (query `uid`) to the body's `target_uid` — a goal / habit / Ku / principle / choice, per `link_type` (`PrincipleLinkType`). The target is admitted by the service: it exists, is of that kind, and is the caller's own or shared content; anything else is 404 |
+| `/api/principles/links?uid=&link_type=` | GET | Cross-domain links (all, or one `PrincipleLinkType`; any other value is 400) |
 | `/api/principles/impact?uid=` | GET | Quick impact metrics (adoption level, counts) |
 | `/api/principles/batch-impact` | POST | Parallel adoption analysis for N principles |
 | `/api/principles/choice-effectiveness?uid=&period_days=` | GET | How effectively principle guides choices |
