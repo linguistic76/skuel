@@ -330,6 +330,17 @@ SURFACES: tuple[Surface, ...] = (
         "has nothing to withhold here either way.",
     ),
     Surface(
+        "adapters.persistence.neo4j.connection_fetch_backend",
+        "ConnectionFetchBackend.fetch_source_pathstep",
+        Disposition.GATED,
+        "An activity's source_path_step_uid is a plain uid a vault file writes "
+        "verbatim, so the step it resolves is curriculum the activity's owner may "
+        "never have been shown: a draft resolves only when the owner ENGAGED_WITH "
+        "it (the learner who started a step keeps the banner after it is "
+        "unpublished — the gate yields to the learner's own engagement, as the "
+        "mixed catalogue surfaces do).",
+    ),
+    Surface(
         "adapters.persistence.neo4j.cross_domain_backend",
         "CrossDomainBackend.find_knowledge_hubs",
         Disposition.GATED,

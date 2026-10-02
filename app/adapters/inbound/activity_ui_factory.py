@@ -320,7 +320,9 @@ def create_activity_ui_routes(
         # Surface curriculum origin: activities spawned by engaging a PathStep
         # carry source_path_step_uid. User-created activities leave it None.
         if entity.source_path_step_uid:
-            source_ps = await config.backend.fetch_source_pathstep(entity.source_path_step_uid)
+            source_ps = await config.backend.fetch_source_pathstep(
+                entity.source_path_step_uid, user_uid
+            )
             if source_ps:
                 return Div(CurriculumOriginField(source_ps["uid"], source_ps["title"]), body)
 

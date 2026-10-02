@@ -1,6 +1,6 @@
 ---
 title: "Cross-Domain UID Patterns: Structural Anchors vs Enrichment Links"
-updated: 2026-09-23
+updated: 2026-10-02
 status: current
 category: architecture
 tags: [architecture, uid-patterns, cross-domain, structural-anchor, enrichment-link]
@@ -114,6 +114,10 @@ Here the field is the **only** back-reference. There is no `SPAWNED_FROM` edge t
 ### Which is authoritative?
 
 `source_path_step_uid` records the **spawn-time PS**. The `SPAWNED_FROM` edge reflects **current template ownership**. For a PUBLISHED template that was never moved, the two are identical. For non-template activities, only the field exists. Read the field; traverse the edge only when you need to interrogate the template itself.
+
+### What the field may show
+
+The field is a plain uid, and a personal vault file writes it verbatim — so naming a step is not having been shown it. The detail page's "From learning step" banner (`ConnectionFetchBackend.fetch_source_pathstep(ps_uid, owner_uid)`) resolves a `:PathStep` only, and only one that is published (`build_publication_clause`) or that the activity's owner has `ENGAGED_WITH`: a learner who started a step keeps the banner after it is unpublished; a draft named by a vault field shows nothing, as a uid that names no step does.
 
 ---
 

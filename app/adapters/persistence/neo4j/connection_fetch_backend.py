@@ -22,8 +22,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label
 from core.models.enums.neo_labels import NeoLabel
+from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -105,7 +107,7 @@ class ConnectionFetchBackend:
             )
         return connections_map
 
-    async def fetch_source_pathstep(self, ps_uid: str) -> dict[str, str] | None:
+    async def fetch_source_pathstep(self, ps_uid: str, owner_uid: str) -> dict[str, str] | None:
         """Resolve a spawned activity's ``source_path_step_uid`` to its PathStep title.
 
         Returns ``{"uid", "title"}`` or ``None`` if the PathStep is missing or the
@@ -117,16 +119,33 @@ class ConnectionFetchBackend:
         plain uid any writer can set (a vault file writes it verbatim), so a uid that
         names anything else — another user's task or journal — renders nothing,
         exactly as a uid that names no node does.
+
+        A draft step resolves only for an owner who has engaged it: a learner who
+        started a step keeps seeing where their activity came from after the step is
+        unpublished, and a uid written into a vault file is not engagement. The
+        predicate is ``build_publication_clause``.
+
+        Args:
+            ps_uid: the activity's ``source_path_step_uid``.
+            owner_uid: the activity's owner — the user the detail route verified.
         """
         if not ps_uid:
             return None
 
+        published, params = build_publication_clause("ps")
         query = f"""
         MATCH (ps:{NeoLabel.PATH_STEP.value} {{uid: $uid}})
+        WHERE {published}
+           OR EXISTS {{
+               MATCH (:{NeoLabel.USER.value} {{uid: $owner_uid}})
+                     -[:{RelationshipName.ENGAGED_WITH.value}]->(ps)
+           }}
         RETURN ps.uid AS uid, ps.title AS title
         """
         try:
-            result = await self._executor.execute_query(query, {"uid": ps_uid})
+            result = await self._executor.execute_query(
+                query, {**params, "uid": ps_uid, "owner_uid": owner_uid}
+            )
         except Exception:  # safety-net: a missing source PathStep shouldn't break the page
             logger.warning("Failed to fetch source PathStep %s", ps_uid, exc_info=True)
             return None

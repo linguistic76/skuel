@@ -670,10 +670,10 @@ async def test_a_source_path_step_names_only_a_path_step(env) -> None:
     await _sync(env, "alice", "reconciler")
 
     fetch = ConnectionFetchBackend(Neo4jQueryExecutor(d))
-    assert await fetch.fetch_source_pathstep("task.secret") is None
-    assert await fetch.fetch_source_pathstep("task.nowhere") is None
+    assert await fetch.fetch_source_pathstep("task.secret", ALICE) is None
+    assert await fetch.fetch_source_pathstep("task.nowhere", ALICE) is None
     # Positive control: a real PathStep still resolves.
-    assert await fetch.fetch_source_pathstep("ps.nb2c.step") == {
+    assert await fetch.fetch_source_pathstep("ps.nb2c.step", ALICE) == {
         "uid": "ps.nb2c.step",
         "title": "A real step",
     }

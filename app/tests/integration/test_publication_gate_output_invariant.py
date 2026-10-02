@@ -63,6 +63,7 @@ from adapters.persistence.neo4j.backends.curriculum_backends import (
     LpBackend,
     PsBackend,
 )
+from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
@@ -292,6 +293,7 @@ GATE_CONSUMERS = (
     "adapters.persistence.neo4j._lp_step_mixin",
     "adapters.persistence.neo4j._organizes_mixin",
     "adapters.persistence.neo4j._semantic_mixin",
+    "adapters.persistence.neo4j.connection_fetch_backend",
     "adapters.persistence.neo4j.cross_domain_backend",
     "adapters.persistence.neo4j.vector_search_backend",
     "adapters.persistence.neo4j.query.cypher.crud_queries",
@@ -454,9 +456,19 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
     lp = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
     xd = CrossDomainBackend(Neo4jQueryExecutor(driver))
     vs = VectorSearchBackend(Neo4jQueryExecutor(driver))
+    cf = ConnectionFetchBackend(Neo4jQueryExecutor(driver))
     hub_params = {"min_confidence": 0.0, "min_connections": 0, "limit": LIMIT}
 
+    async def source_step() -> Result[Payload]:
+        # A uid an activity of USER's names; USER never engaged it. The method
+        # returns ``dict | None`` (a page-resilient read), wrapped for the harness.
+        return Result.ok(await cf.fetch_source_pathstep(STEP_DRAFT, USER))
+
     return {
+        (
+            "adapters.persistence.neo4j.connection_fetch_backend",
+            "ConnectionFetchBackend.fetch_source_pathstep",
+        ): source_step,
         (
             "adapters.persistence.neo4j.backends.curriculum_backends",
             "KuBackend.search_by_alias",
@@ -693,6 +705,10 @@ def test_registry_and_coverage_agree() -> None:
 
 
 _COVERED_KEYS = (
+    (
+        "adapters.persistence.neo4j.connection_fetch_backend",
+        "ConnectionFetchBackend.fetch_source_pathstep",
+    ),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.search_by_alias"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.get_learning_path_uids"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.get_standalone_steps"),
