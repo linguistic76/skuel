@@ -268,7 +268,9 @@ that door onto the shared node-writing operation (which it already requires). Th
 caller.
 
 **The bundle keeps every write-side defect, and its trigger.** No write path was touched by the
-derivation. The derived rate counts nodes, so the defects above now reach it: a same-day
+derivation. (One write-side defect the derivation reads through is not this bundle's:
+`track_habit` stamps a bare-day `completion_date` a day early west of UTC — registered in
+[utc-instants-arc.md](utc-instants-arc.md) § PR 7.) The derived rate counts nodes, so the defects above now reach it: a same-day
 double-tap or a same-second uid collision (defects 2 and 4) adds a node and inflates the day's
 count until the `(habit_uid, day)` invariant lands — bounded by the clamp at 1.0 — and an
 orphaned completion (defect 1) still counts toward a user's per-user consistency, though not
