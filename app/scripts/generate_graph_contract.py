@@ -74,6 +74,7 @@ _TRAIT_PREDICATES: tuple[tuple[str, str], ...] = (
     ("knowledge", "is_knowledge_relationship"),
     ("blocking", "is_blocking_relationship"),
     ("ownership", "is_ownership_relationship"),
+    ("access", "is_access_relationship"),
     ("evidence", "is_evidence_relationship"),
     ("learning_progress", "is_learning_progress_relationship"),
     ("life_path", "is_life_path_relationship"),

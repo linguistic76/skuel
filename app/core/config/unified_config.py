@@ -640,32 +640,38 @@ class VaultConfig:
     vault_transport: str = os.getenv("VAULT_TRANSPORT", "filesystem")
 
     def validated_transport(self) -> str:
-        """The configured transport, fail-fast on an unknown value (compose calls this).
-
-        For ``local_agent``, also refuses mirror roots that overlap the content
-        vault (Kody #531): the mirror puller's deletion sweep manages its root
-        as a pull-owned cache, so a combined/nested layout would let a personal
-        sync delete curriculum files missing from the user's agent listing.
-        """
+        """The configured transport, fail-fast on an unknown value (compose calls this)."""
         if self.vault_transport not in VAULT_TRANSPORTS:
             raise ValueError(
                 f"Invalid VAULT_TRANSPORT {self.vault_transport!r} — "
                 f"must be one of {', '.join(sorted(VAULT_TRANSPORTS))} (ADR-075 Decision 6)"
             )
-        if self.vault_transport == "local_agent":
-            content = self.ingestion_path.resolve()
-            for name, root in (
-                ("VAULT_ROOT", self.vault_path.resolve()),
-                ("SKUEL_USER_VAULTS_ROOT", self.user_vaults_path.resolve()),
-            ):
-                if content == root or content.is_relative_to(root) or root.is_relative_to(content):
-                    raise ValueError(
-                        f"VAULT_TRANSPORT=local_agent requires {name} ({root}) to not "
-                        f"overlap INGESTION_PATH ({content}) — the staging mirror's "
-                        "deletion sweep would treat curriculum files as pull-managed "
-                        "cache (ADR-075 Decision 4)."
-                    )
         return self.vault_transport
+
+    def validate_roots(self) -> None:
+        """Refuse a personal vault root that overlaps the content vault (compose calls this).
+
+        A personal root — ``VAULT_ROOT`` or the member family under
+        ``SKUEL_USER_VAULTS_ROOT`` — may not be, contain, or sit inside
+        ``INGESTION_PATH``, on any transport. A path resolves to ONE vault, and a
+        personal vault holds no curriculum (ADR-070 Decision 11): curriculum nested in
+        a personal root would be read as that user's files and refused, so the
+        content vault could never sync. On ``local_agent`` there is a second
+        reason — the staging mirror's deletion sweep owns its root as a
+        pull-managed cache and would delete curriculum files (ADR-075 Decision 4).
+        """
+        content = self.ingestion_path.resolve()
+        for name, root in (
+            ("VAULT_ROOT", self.vault_path.resolve()),
+            ("SKUEL_USER_VAULTS_ROOT", self.user_vaults_path.resolve()),
+        ):
+            if content == root or content.is_relative_to(root) or root.is_relative_to(content):
+                raise ValueError(
+                    f"{name} ({root}) must not overlap INGESTION_PATH ({content}) — the "
+                    "content vault is its own folder: a personal vault holds no curriculum "
+                    "(ADR-070), and a local_agent mirror's deletion sweep would treat "
+                    "curriculum files as pull-managed cache (ADR-075 Decision 4)."
+                )
 
     @property
     def vault_path(self) -> Path:

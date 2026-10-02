@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-09-23
+updated: 2026-10-02
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -257,7 +257,7 @@ PR #482 (Decision 7) removed the `SKUEL_VAULT_SYNC_ALLOWED_DIRS` env read from `
 Both Codex and Kody flagged that operators who relied on the env var now have it silently ignored. **We deliberately keep it removed (code-defined only), for two reasons that compound:**
 
 1. **Re-wiring via `os.getenv` is unsound at *any* layer** — compose root included. `override=False` means an exported shell var still wins over `.env`, reintroducing the exact shadow bug. (This is *not* unique to the allowlist — `VAULT_ROOT`/`INGESTION_PATH`/`SKUEL_CONTENT_VAULT_OWNER` are equally shadowable. We tolerate it there because those fail **loud**; the allowlist was uniquely dangerous because it is a privacy wall that fails **silent**.)
-2. **There is no current need, and the future need has a different shape.** SKUEL is single-tenant today; the doorway folders are a deliberate ADR-073 design, a one-line `_DEFAULT_SYNC_SUBDIRS` edit if they ever change. Operator-configurability is **downstream of the hosting / multi-tenancy milestone** (ADR-073 §Consequences "multi-tenant allowlist" residual, R2, is hosting-gated). When it is needed it must be **per-user** — the personal vault *is* per-user (ADR-070 north star = per-user local agent). A global env var or a global config file is therefore **dominated: unneeded now, wrong shape later.**
+2. **There is no current need, and the future need has a different shape.** One account holds a personal vault today (and since Decision 11 a second one could not write into the first's graph); the doorway folders are a deliberate ADR-073 design, a one-line `_DEFAULT_SYNC_SUBDIRS` edit if they ever change. Operator-configurability is **downstream of the hosting / multi-tenancy milestone** (ADR-073 §Consequences "multi-tenant allowlist" residual, R2, is hosting-gated). When it is needed it must be **per-user** — the personal vault *is* per-user (ADR-070 north star = per-user local agent). A global env var or a global config file is therefore **dominated: unneeded now, wrong shape later.**
 
 **One Path Forward is preserved:** no second competing config source is introduced. `build_sync_allowlist(governed_root, *, allowed_dirs=..., content_root=...)` still accepts an explicit `allowed_dirs` (colon-separated, strictly-under-root validated, `":"` = wall-everything); compose simply never passes it. That parameter is the single seam — fed by code today, fed by a **per-user source** when hosting arrives.
 
@@ -347,6 +347,49 @@ the content vault bidirectional" resolves to this decision.
 **See:** Decision 7 (the two vaults differ only in access rights), Decision 9 (human-initiated
 sync), CLAUDE.md § Unified Content Ingestion, `docs/user-guides/how-your-content-is-used.md` (the
 personal vault's own direction statement).
+
+### Decision 11 — A personal vault writes only its owner's graph (2026-10-02)
+
+The vault doors were built for one vault owner. Measured 2026-10-01 with two (the primary root
+and a member vault, through `ingest_directory`): an Edge file wrote any relationship between any
+two uids, `OWNS` and `SHARES_WITH` included; a file naming another user's uid re-owned that node —
+and so did two users with the same filename and no `uid:` line, because the generated uid was
+`{prefix}.{file stem}`; deleting the file that had taken the node then deleted it; frontmatter
+targets linked across users; a Group file's `owner_uid` beat the vault owner; a member's
+`type: ku` file rewrote a content-vault Ku. Ruled with Mike in three rounds (2026-10-01):
+
+1. **What a personal vault holds.** The six Activity types, `life_path` and `user_entry`
+   (journals, fulfilled assignments, knowledge notes). An Edge file, a Group file and every
+   curriculum type (Ku, PathStep, LearningPath, Exercise, Resource, the six Activity Templates)
+   are synced from the content vault only; in a personal vault each is refused and reported as
+   ignored-with-reason, by the directory door, the single-file door and the preview alike.
+   A typeless `moc: true` file is a PathStep and is refused with a pointer to
+   `type: user_entry` + `pipeline: knowledge`. `life_path` takes the vault's owner, not its
+   `user_uid:` line (how it meets the designation model is deferred —
+   `docs/roadmap/vault-life-path-designation.md`).
+2. **The upsert never changes a node's owner — in every vault.** The node template reads the
+   node's owners (`:OWNS`, `user_uid`, `owner_uid`) under the MERGE's lock and writes nothing to a
+   node someone else owns; the file is refused in words that never say whose it is. The
+   single-owner "stale owner" delete it replaces was the same statement as the takeover.
+3. **Per-file identity.** A uid-less personal Activity or life-path file takes
+   `{prefix}_{slug}_{8 hex}`, the hex derived from its owner and path — so a sync whose tracker
+   stamp was lost derives the same uid, and two owners never share one — and keeps it through
+   its tracker row (re-sync, rename, retry), the path-keyed identity `user_entry` notes already
+   had. The content vault keeps `{prefix}.{file stem}`.
+4. **Links.** A personal file's frontmatter targets are its owner's or unowned content — the
+   link-edge guard's rule (`partition_link_edges`), applied before the node lands; a refused
+   target is warned exactly as a missing one is.
+5. **The content vault.** An Edge file joins two `:Entity` nodes — every ownership, sharing or
+   membership edge has a `:User` or `:Group` end, so none can be written — and never authors an
+   access type even between two entities (`RelationshipName.is_access_relationship`: `OWNS`,
+   `SHARES_WITH`, `SHARED_WITH_GROUP`, `SUBMITTED_TO_GROUP`, `MEMBER_OF`); a Group file's owner is
+   the vault's resolved owner.
+6. **One folder per vault.** Compose refuses a personal root that overlaps `INGESTION_PATH`, on
+   every transport (`VaultConfig.validate_roots`): a path resolves to one vault, and a personal
+   vault holds no curriculum.
+
+**See:** `core/services/ingestion/vault_policy.py`, `tests/integration/test_personal_vault_doors.py`
+(every rule through all three doors), `tests/unit/services/ingestion/test_vault_writer_census.py`.
 
 ---
 
@@ -473,3 +516,4 @@ personal vault's own direction statement).
 | 2026-09-21 | Mike + Claude Code | **Decision 9 AMENDED** — Ruling 1 made true in code: `POST /api/ingest/vault` and `POST /api/ingest/domain/{domain_name}` (raw `ingest_directory` over a caller-chosen sub-directory, no consumer) deleted with `ingest_vault`, the `dry_run` preview mode of `ingest_directory` and its two fragments; the reconciler is the one directory door, `VaultReconciler.preview` the one dry run. | 1.1 |
 | 2026-09-22 | Mike + Claude Code | **Decision 9 AMENDED again — one ingestion system.** `POST /api/ingest/file` (+ the dashboard card that had 403'd since 2026-04-19) and `POST /api/ingest/bundle` (+ `ingest_bundle`, `BundleStats`, `find_entity_file`; no manifest ever existed) deleted with the HTTP path allowlist (`_validate_ingestion_path`, `SKUEL_INGESTION_ALLOWED_PATHS`) and the nous generator pair (`ingest_nous.py`, `generate_kus_from_moc.py`, `hierarchy_parser.py`). Ruling 2's entry points restated as the three doors built; Resolved Design Question 1 restated as built (one trigger). | 1.2 |
 | 2026-09-22 | Mike + Claude Code | **No scoped re-ingest — the open conditional closed.** The 2026-09-21 and 2026-09-22 amendments and Resolved Design Question 1 each ended by hedging that "a scoped re-ingest, if ever wanted, is a `--path` option on `scripts/vault_bridge_sync.py`". Ruled: a forced re-ingest of one *unchanged* file is not a want. All three now state the built behaviour — a changed file is re-ingested by the next sync, the whole vault by `--force` — and no `--path` option is registered as staged work. | 1.3 |
+| 2026-10-02 | Mike + Claude Code | **Decision 11 — a personal vault writes only its owner's graph.** Type allowlist per vault kind; the node upsert never changes a node's owner (content vault included); per-file identity for uid-less personal Activity / life-path files; personal frontmatter targets admitted by the link-edge guard; content Edge files bound to `:Entity` ends and never `OWNS`; Group owner = the vault's; overlapping vault roots refused at boot. Decision 8's "single-tenant today" restated. |

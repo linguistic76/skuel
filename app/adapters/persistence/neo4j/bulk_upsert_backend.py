@@ -90,11 +90,19 @@ def _prior_statuses(
     prior: dict[str, str | None] = {}
     for row in rows:
         uid = row.get("uid")
-        if uid is None:
+        if uid is None or row.get("refused"):
             continue
         status = row.get("prior_status")
         prior[str(uid)] = None if status is None else str(status)
     return prior
+
+
+def _refused_uids(
+    # boundary: raw Neo4j records — see ``_prior_statuses``.
+    rows: list[dict[str, Any]],
+) -> tuple[str, ...]:
+    """The uids the node template refused to write (see :func:`build_node_upsert_template`)."""
+    return tuple(sorted({str(row["uid"]) for row in rows if row.get("uid") and row.get("refused")}))
 
 
 def build_node_upsert_template(
@@ -117,14 +125,22 @@ def build_node_upsert_template(
     ordinary edit. ``null`` for a node this batch created — a create has no
     prior status.
 
-    For ``:Entity``-based labels the template also maintains the owner edge:
-    every row persisted with a ``user_uid`` property gets its
-    ``(User)-[:OWNS]->(entity)`` edge and loses any :OWNS edge from OTHER
-    users (single-owner invariant — a former owner must not keep access
-    after a re-ingest under a different owner), restoring the invariant the
-    June-2026 migration enforces from the other side (property == :OWNS owner). The
-    owner is ``MATCH``ed, not ``MERGE``d, so an unknown user is silently
-    skipped — same no-stub semantics as relationship targets. Carve-outs hold
+    **The write never changes a node's owner.** The node's owners before the
+    write — the ``:OWNS`` edges and the ``user_uid`` / ``owner_uid`` properties,
+    the three spellings ``get_owner_uids_batch`` reads — are read under the same
+    lock, and a node that already has an owner other than the row's own (a
+    ``user_uid`` for an Entity, an ``owner_uid`` for a Group, none for shared
+    curriculum) takes no write: no property, no ``:OWNS`` edge. The row comes back
+    ``refused`` for the caller to report against its file. Doing it in the
+    statement, not in a read before it, is what keeps two syncs racing on one uid
+    from both deciding the node is theirs. A node nobody owns is written; a node
+    this row creates has no prior owner.
+
+    For ``:Entity``-based labels the template also writes the owner edge: every
+    row it writes with a ``user_uid`` gets its ``(User)-[:OWNS]->(entity)`` edge
+    (property == :OWNS owner, ADR-086). The owner is ``MATCH``ed, not ``MERGE``d,
+    so an unknown user is silently skipped — same no-stub semantics as
+    relationship targets, made loud by ``_refuse_unknown_owners``. Carve-outs hold
     by construction: file-ingested exercises are ownerless curriculum content
     (the validator forces ``scope: curriculum`` and no ``user_uid``), and
     Group ownership is popped to ``owner_uid`` before this template runs —
@@ -135,23 +151,14 @@ def build_node_upsert_template(
     owns_clause = ""
     if base_label == "Entity":
         owns_clause = """
-// Owner edge — user_uid property implies :OWNS, single owner (edge props
-// mirror the CRUD create door's :OWNS edge shape — ADR-086; timestamps are
-// Python-side ISO strings, matching the existing OWNS edge storage format).
-// The stale-owner DELETE enforces the single-owner invariant on re-ingest:
-// when the resolved owner changes (or an out-of-band edge exists), the
-// former owner must not keep access through a leftover :OWNS edge.
-WITH item, props, n, prior_status
-CALL (n, props) {
-  WITH n, props.user_uid AS _owner_uid
-  WHERE _owner_uid IS NOT NULL
-  OPTIONAL MATCH (_stale:User)-[_stale_owns:OWNS]->(n)
-  WHERE _stale.uid <> _owner_uid
-  DELETE _stale_owns
-}
-CALL (n, props) {
-  WITH n, props.user_uid AS _owner_uid
-  WHERE _owner_uid IS NOT NULL
+// Owner edge — user_uid property implies :OWNS (edge props mirror the CRUD
+// create door's :OWNS edge shape — ADR-086; timestamps are Python-side ISO
+// strings, matching the existing OWNS edge storage format). A refused row has
+// another owner and gets no edge.
+WITH item, props, n, prior_status, refused
+CALL (n, props, refused) {
+  WITH n, props.user_uid AS _owner_uid, refused
+  WHERE _owner_uid IS NOT NULL AND NOT refused
   MATCH (owner:User {uid: _owner_uid})
   MERGE (owner)-[_owns:OWNS]->(n)
     ON CREATE SET
@@ -171,16 +178,22 @@ MERGE (n:{label_clause} {{uid: item.uid}})
 // before the property write overwrites it (ADR-087). The create/match branches
 // therefore live in the FOREACHes below rather than on the MERGE, with their
 // semantics intact: `n = props` REPLACES, `n += props` MERGES.
-WITH item, props, n, n.status AS prior_status, n.{_CREATE_MARKER} AS created
+WITH item, props, n, n.status AS prior_status, n.{_CREATE_MARKER} AS created,
+     [_o IN COLLECT {{ MATCH (_prior:User)-[:OWNS]->(n) RETURN _prior.uid }}
+            + [n.user_uid, n.owner_uid] WHERE _o IS NOT NULL] AS prior_owners
+// The owner gate (docstring): a node someone else owns takes no write.
+WITH item, props, n, prior_status, created,
+     (NOT created AND any(_o IN prior_owners
+        WHERE _o <> coalesce(props.user_uid, props.owner_uid, ''))) AS refused
 FOREACH (_ IN CASE WHEN created THEN [1] ELSE [] END |
   SET n = props,
       n.created_at = coalesce(props.created_at, toString(datetime())))
-FOREACH (_ IN CASE WHEN created THEN [] ELSE [1] END |
+FOREACH (_ IN CASE WHEN created OR refused THEN [] ELSE [1] END |
   SET n += props,
       n.updated_at = datetime())
 REMOVE n.{_CREATE_MARKER}
 {owns_clause}
-RETURN item.uid AS uid, prior_status
+RETURN item.uid AS uid, prior_status, refused
 """
     return CypherTemplate(
         name=f"{entity_label.lower()}_node_upsert",
@@ -325,6 +338,7 @@ class BulkUpsertBackend:
                         relationships_created=0,
                         errors=[],
                         prior_status_by_uid=_prior_statuses(stats.get("rows", [])),
+                        refused_uids=_refused_uids(stats.get("rows", [])),
                     )
                 )
 
@@ -513,8 +527,11 @@ class BulkUpsertBackend:
         if nodes_result.is_error:
             return nodes_result
 
+        # A refused row's node is someone else's: its edges are not this file's to write.
+        refused = set(nodes_result.value.refused_uids)
+        written = [entity for entity in entities if str(entity.get("uid")) not in refused]
         rels_result = await self.create_relationships(
-            entity_label, base_label, entities, relationship_config, batch_size
+            entity_label, base_label, written, relationship_config, batch_size
         )
         if rels_result.is_error:
             return rels_result
@@ -529,5 +546,6 @@ class BulkUpsertBackend:
                 errors=[],
                 # The prior statuses belong to phase 1; phase 2 writes only edges.
                 prior_status_by_uid=nodes.prior_status_by_uid,
+                refused_uids=nodes.refused_uids,
             )
         )

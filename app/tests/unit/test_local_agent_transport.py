@@ -869,53 +869,32 @@ class TestVaultTransportConfig:
         with pytest.raises(ValueError, match="VAULT_TRANSPORT"):
             VaultConfig(vault_transport="carrier_pigeon").validated_transport()
 
-    def test_local_agent_refuses_overlapping_mirror_roots(self, tmp_path: Path) -> None:
-        # Kody #531: the mirror's deletion sweep treats its root as a
-        # pull-managed cache — a combined/nested content layout would let a
-        # personal sync delete curriculum files. Both directions, both roots.
-        combined = VaultConfig(
-            vault_transport="local_agent",
-            vault_root=str(tmp_path / "vault"),
-            ingestion_root=str(tmp_path / "vault"),  # coincident
-            user_vaults_root=str(tmp_path / "user_vaults"),
-        )
-        with pytest.raises(ValueError, match="overlap"):
-            combined.validated_transport()
+    @pytest.mark.parametrize("transport", ["filesystem", "local_agent"])
+    def test_overlapping_vault_roots_are_refused_on_every_transport(
+        self, tmp_path: Path, transport: str
+    ) -> None:
+        # A path resolves to ONE vault and a personal vault holds no curriculum
+        # (ADR-070 Decision 11), so a combined/nested layout is refused on every transport —
+        # on local_agent it would also let the mirror's deletion sweep delete
+        # curriculum files (Kody #531). Both directions, both personal roots.
+        def config(vault: Path, content: Path, members: Path) -> VaultConfig:
+            return VaultConfig(
+                vault_transport=transport,
+                vault_root=str(vault),
+                ingestion_root=str(content),
+                user_vaults_root=str(members),
+            )
 
-        nested_content = VaultConfig(
-            vault_transport="local_agent",
-            vault_root=str(tmp_path / "vault"),
-            ingestion_root=str(tmp_path / "vault" / "curriculum"),  # content inside personal
-            user_vaults_root=str(tmp_path / "user_vaults"),
-        )
-        with pytest.raises(ValueError, match="overlap"):
-            nested_content.validated_transport()
+        for overlapping in (
+            config(tmp_path / "vault", tmp_path / "vault", tmp_path / "user_vaults"),
+            config(tmp_path / "vault", tmp_path / "vault" / "curriculum", tmp_path / "user_vaults"),
+            config(tmp_path / "vault" / "curriculum", tmp_path / "vault", tmp_path / "user_vaults"),
+            config(tmp_path / "vault", tmp_path / "content", tmp_path / "content" / "user_vaults"),
+        ):
+            with pytest.raises(ValueError, match="overlap"):
+                overlapping.validate_roots()
 
-        members_inside_content = VaultConfig(
-            vault_transport="local_agent",
-            vault_root=str(tmp_path / "vault"),
-            ingestion_root=str(tmp_path / "content"),
-            user_vaults_root=str(tmp_path / "content" / "user_vaults"),
-        )
-        with pytest.raises(ValueError, match="overlap"):
-            members_inside_content.validated_transport()
-
-        disjoint = VaultConfig(
-            vault_transport="local_agent",
-            vault_root=str(tmp_path / "vault"),
-            ingestion_root=str(tmp_path / "content"),
-            user_vaults_root=str(tmp_path / "user_vaults"),
-        )
-        assert disjoint.validated_transport() == "local_agent"
-
-        # Filesystem transport never runs the mirror sweep — combined roots
-        # stay legal there (Stage 1 unchanged).
-        stage1_combined = VaultConfig(
-            vault_transport="filesystem",
-            vault_root=str(tmp_path / "vault"),
-            ingestion_root=str(tmp_path / "vault"),
-        )
-        assert stage1_combined.validated_transport() == "filesystem"
+        config(tmp_path / "vault", tmp_path / "content", tmp_path / "user_vaults").validate_roots()
 
 
 if __name__ == "__main__":

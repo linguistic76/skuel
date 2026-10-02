@@ -85,6 +85,10 @@ class IngestionResult:
     #: the node's write-lock (ADR-087). ``None`` for a node the write created.
     #: Empty for every operation that is not a node upsert.
     prior_status_by_uid: dict[str, str | None] = field(default_factory=dict)
+    #: uids the upsert refused to write: each names a node owned by someone other
+    #: than the row's owner, and the write never changes a node's owner. Absent
+    #: from ``prior_status_by_uid`` — nothing was written to transition.
+    refused_uids: tuple[str, ...] = ()
 
     @property
     def success_rate(self) -> float:

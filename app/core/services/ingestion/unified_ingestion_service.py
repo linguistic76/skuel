@@ -119,6 +119,14 @@ from .validator import (
     validate_required_fields,
     validate_uid_format,
 )
+from .vault_policy import (
+    MINTED_IDENTITY_TYPES,
+    admit_frontmatter_targets,
+    personal_file_uid,
+    read_tracked_identities,
+    uid_in_use_reason,
+    vault_refusal,
+)
 
 logger = get_logger("skuel.services.unified_ingestion")
 
@@ -320,16 +328,12 @@ class UnifiedIngestionService:
             records = await self._write_backend.ingest_edge(from_uid, to_uid, rel_type, props)
 
             if not records:
-                # One or both entities not found
-                missing: list[str] = []
-                for uid, label in [(from_uid, "from"), (to_uid, "to")]:
-                    if not await self._write_backend.entity_exists(uid):
-                        missing.append(f"{label}={uid}")
+                # An end that names no entity — absent, or a :User / :Group the
+                # writer refuses — is not diagnosed per end: the batch door says
+                # the same, and a per-end probe would tell a refused end from a
+                # missing one.
                 return Result.fail(
-                    Errors.not_found(
-                        resource="Entity",
-                        identifier=", ".join(missing),
-                    )
+                    Errors.not_found(resource="Entity", identifier=f"{from_uid} or {to_uid}")
                 )
 
             record = records[0]
@@ -393,6 +397,18 @@ class UnifiedIngestionService:
             return acting
         descriptor = self.vault_registry.resolve_by_path(path, acting)
         return descriptor.value.owner_uid if descriptor.is_ok else acting
+
+    def _resolve_vault_kind(self, path: Path) -> VaultKind | None:
+        """The kind of vault that governs ``path`` — what decides what it may hold.
+
+        ``None`` when no registry is wired or no descriptor governs the path; a
+        caller refuses nothing by kind then (``vault_policy.vault_refusal``).
+        Owner-independent, so the acting hint is ``self.default_user_uid``.
+        """
+        if self.vault_registry is None:
+            return None
+        descriptor = self.vault_registry.resolve_by_path(path, self.default_user_uid)
+        return descriptor.value.kind if descriptor.is_ok else None
 
     def _resolve_allowlist(
         self, path: Path, allowlist: SyncAllowlist | None
@@ -1010,8 +1026,15 @@ class UnifiedIngestionService:
             data = yaml_result.value
             body = None
 
+        # What this file's vault may hold (ADR-070 Decision 11) — the same verdict the
+        # directory door's parse stage gives, so both doors refuse alike.
+        vault_kind = self._resolve_vault_kind(file_path)
+
         # Check for edge type BEFORE entity type detection
         if is_edge_type(data):
+            refusal = vault_refusal(vault_kind, None, data)
+            if refusal is not None:
+                return Result.fail(Errors.validation(refusal, field="type"))
             validation = validate_edge_data(data)
             if validation.is_error:
                 return Result.fail(validation)
@@ -1028,6 +1051,9 @@ class UnifiedIngestionService:
                     field="type",
                 )
             )
+        refusal = vault_refusal(vault_kind, entity_type, data)
+        if refusal is not None:
+            return Result.fail(Errors.validation(refusal, field="type"))
 
         # UserEntry has its own creation pipeline (audience resolution,
         # Interaction audit, TRANSFORMS edges, compensation delete) that the
@@ -1104,6 +1130,24 @@ class UnifiedIngestionService:
         # Owner is descriptor-derived from the file's vault (surface-independent);
         # only requires_user_uid types persist it, SHARED curriculum drops it.
         effective_user_uid = self._resolve_owner(file_path, user_uid)
+        # A uid-less personal Activity / life-path file keeps the identity its
+        # tracker row holds, or is given its own (``vault_policy.personal_file_uid``).
+        file_uid: str | None = None
+        if (
+            vault_kind is VaultKind.PERSONAL
+            and isinstance(entity_type, EntityType)
+            and entity_type in MINTED_IDENTITY_TYPES
+            and "uid" not in data
+        ):
+            tracked = None
+            if self.ingestion_backend is not None:
+                identities = await read_tracked_identities(
+                    IngestionTracker(self.ingestion_backend), self._write_backend, [file_path]
+                )
+                if identities.is_error:
+                    return Result.fail(identities)
+                tracked = identities.value.get(str(file_path.resolve()))
+            file_uid = personal_file_uid(entity_type, file_path, effective_user_uid, tracked)
         try:
             entity_data = prepare_entity_data(
                 entity_type,
@@ -1112,6 +1156,7 @@ class UnifiedIngestionService:
                 file_path,
                 effective_user_uid,
                 owner_is_authoritative=self._owner_is_authoritative,
+                file_uid=file_uid,
             )
         except ValueError as e:
             # Content faults the preparer raises (blank ``uid:``, colon-spelled
@@ -1145,8 +1190,28 @@ class UnifiedIngestionService:
             chunk_content_body = entity_data.pop("content", "") or ""
             entity_data["word_count"] = len(chunk_content_body.split())
 
-        # Ingest with relationships (node upsert + edge creation below the boundary)
+        # A personal file's frontmatter targets are its owner's or nobody's
+        # (ADR-070 Decision 11) — admitted before anything is written, as the directory door
+        # does; a refused target is warned as a missing one.
         rel_config = config.relationship_config or {}
+        target_warnings: list[str] = []
+        if vault_kind is VaultKind.PERSONAL and rel_config:
+            admitted = await admit_frontmatter_targets(
+                self._write_backend,
+                entities=[(entity_data, rel_config)],
+                owner_uid=str(effective_user_uid),
+                pending_labels={
+                    str(entity_data["uid"]): [
+                        config.entity_label,
+                        *([config.base_label] if config.base_label else []),
+                    ]
+                },
+            )
+            if admitted.is_error:
+                return Result.fail(admitted)
+            target_warnings = admitted.value
+
+        # Ingest with relationships (node upsert + edge creation below the boundary)
         result = await self._bulk_backend.upsert_with_relationships(
             entity_label=config.entity_label,
             base_label=config.base_label,
@@ -1158,6 +1223,12 @@ class UnifiedIngestionService:
             return Result.fail(result)
 
         stats = result.value
+        # The upsert never changes a node's owner: a uid naming a node someone
+        # else owns took no write, and the file is the author's to fix.
+        if str(entity_data["uid"]) in stats.refused_uids:
+            return Result.fail(
+                Errors.validation(uid_in_use_reason(str(entity_data["uid"])), field="uid")
+            )
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
 
         # A Group is owned or its file fails (ADR-086 § 1, door 5): the bulk
@@ -1301,6 +1372,8 @@ class UnifiedIngestionService:
         }
         if moc_warnings:
             result_payload["moc_warnings"] = moc_warnings
+        if target_warnings:
+            result_payload["warnings"] = target_warnings
         return Result.ok(result_payload)
 
     # ========================================================================
@@ -1367,9 +1440,9 @@ class UnifiedIngestionService:
         # to the same vault as the directory. Reject a scan that nests a vault
         # resolving to a DIFFERENT kind — an ancestor scan (roots differ) or a
         # personal vault nested inside a content scan (its private files would be
-        # stamped with the content owner). A combined vault (content nested inside
-        # personal → same personal descriptor) is uniform and allowed, so the
-        # normal nested-config personal sync is never broken.
+        # stamped with the content owner). Content nested inside a personal root
+        # resolves to the same personal descriptor and passes here; compose
+        # refuses that layout at boot (``VaultConfig.validate_roots``).
         if self.vault_registry is not None:
             acting_hint = user_uid or self.default_user_uid
             conflicting = self.vault_registry.conflicting_nested_roots(directory, acting_hint)
@@ -1421,6 +1494,7 @@ class UnifiedIngestionService:
 
         return await ingest_directory(
             directory=directory,
+            vault_kind=self._resolve_vault_kind(directory),
             write_backend=self._write_backend,
             bulk_backend=self._bulk_backend,
             ingestion_backend=self.ingestion_backend,

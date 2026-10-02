@@ -235,8 +235,10 @@ class TestVaultPreview:
         """A loose note with no ``type:`` is never tracked, so the tracker compare
         calls it "new" on every preview, forever. The ingest gate sets it aside,
         so the preview must too — one count, no phantom pending ingest — while
-        a typed note and a ``moc: true`` file still count (they DO ingest), and
-        a declared-but-unknown type still counts (the sync reports that typo)."""
+        a typed note still counts (it DOES ingest), a declared-but-unknown type
+        still counts (the sync reports that typo), and a typeless ``moc: true``
+        file — a PathStep, which a personal vault refuses (ADR-070 Decision 11) — is listed as
+        ignored, with the reason the sync will give."""
         reconciler, backend, notes = _preview_harness(tmp_path)
         (notes / "typed.md").write_text("---\ntype: user_entry\npipeline: knowledge\n---\nbody")
         (notes / "moc.md").write_text("---\nmoc: true\n---\n[[typed]]")
@@ -248,14 +250,17 @@ class TestVaultPreview:
         assert result.is_ok
         preview = result.value
         assert preview.non_entity_notes == 2
-        assert preview.would_ingest_count == 3
-        assert preview.would_ingest_new == 3
+        assert preview.would_ingest_count == 2
+        assert preview.would_ingest_new == 2
         assert preview.would_ingest_changed == 0
         assert set(preview.would_ingest_examples) == {
             "periodic_notes/typed.md (new)",
-            "periodic_notes/moc.md (new)",
             "periodic_notes/typo.md (new)",
         }
+        assert preview.would_ignore_count == 1
+        (ignored,) = preview.would_ignore_examples
+        assert ignored.startswith("periodic_notes/moc.md — ")
+        assert "type: user_entry" in ignored
         _assert_no_deletes(backend)
 
     @pytest.mark.asyncio

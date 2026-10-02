@@ -558,6 +558,16 @@ class RelationshipName(StrEnum):
         """Check if this is THE user ownership relationship (universal ``OWNS``, ADR-086)."""
         return self is self.OWNS
 
+    def is_access_relationship(self) -> bool:
+        """Check if this edge says who owns, sees, or belongs to something.
+
+        Ownership (``OWNS``), sharing (``SHARES_WITH``, ``SHARED_WITH_GROUP``), a
+        feedback request (``SUBMITTED_TO_GROUP``) and membership (``MEMBER_OF``) —
+        the edges the read gates decide by (ADR-085, ADR-088). Only the door that
+        grants an access writes one; an Edge file never does (ADR-070 Decision 11).
+        """
+        return self in _ACCESS_TYPES
+
     def is_evidence_relationship(self) -> bool:
         """Check if this is an evidence relationship between knowledge units."""
         evidence_types = {
@@ -694,6 +704,16 @@ class RelationshipName(StrEnum):
 
 
 # Module-level constants (computed once at import time, not per-call)
+
+_ACCESS_TYPES = frozenset(
+    {
+        RelationshipName.OWNS,
+        RelationshipName.SHARES_WITH,
+        RelationshipName.SHARED_WITH_GROUP,
+        RelationshipName.SUBMITTED_TO_GROUP,
+        RelationshipName.MEMBER_OF,
+    }
+)
 
 _LATERAL_TYPES = frozenset(
     {

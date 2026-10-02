@@ -1375,6 +1375,9 @@ async def compose_services(
         # The content vault above is server-local by definition and stays
         # filesystem regardless.
         _vault_transport = config.vault.validated_transport()
+        # Every personal root is its own folder, apart from the content vault —
+        # a combined layout is refused here, on every transport.
+        config.vault.validate_roots()
 
         def _build_personal_descriptor(owner_uid: UserUID, root: Path) -> VaultDescriptor:
             """One user's personal vault: per-root doorway wall + root-bound bridge.
@@ -1400,9 +1403,9 @@ async def compose_services(
                 resolved_root = root.resolve()
                 # Server-side top-level folder names scope the pull + its
                 # deletion sweep. The whole-vault-open combined-root shape
-                # cannot reach here: validated_transport() rejects any
-                # local_agent config whose mirror roots overlap INGESTION_PATH
-                # (Kody #531), so the allowlist is always the doorway set.
+                # cannot reach here: validate_roots() rejects any config whose
+                # personal roots overlap INGESTION_PATH (Kody #531, ADR-070 Decision 11), so
+                # the allowlist is always the doorway set.
                 allowed_folders = frozenset(
                     d.relative_to(resolved_root).parts[0]
                     for d in allowlist.allowed_dirs

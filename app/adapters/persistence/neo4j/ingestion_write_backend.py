@@ -21,9 +21,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.endpoint_queries import (
+    NODE_LABELS_BATCH_QUERY,
+    OWNER_UIDS_BATCH_QUERY,
+)
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
 from core.utils import timestamp_helpers
+from core.utils.exception_types import NEO4J_EXCEPTIONS
+from core.utils.result_simplified import Errors, Result
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -126,7 +132,8 @@ class IngestionWriteBackend:
         value the preceding ``SET`` had just written, so it was always ``true``
         and a re-ingested edge reported itself as newly created.
 
-        Empty result means one or both endpoints were not found. ``rel_type`` is a
+        Empty result means one or both endpoints name no entity — absent, or a
+        node that is not an ``:Entity`` (a ``:User``, a ``:Group``). ``rel_type`` is a
         ``RelationshipName`` — the enum type makes the interpolation injection-safe
         (MyPy rejects raw strings at the call site).
         """
@@ -134,13 +141,15 @@ class IngestionWriteBackend:
         # map re-applied on every write — `+=` would undo the guarantee.
         refreshed = {key: value for key, value in props.items() if key != "created_at"}
 
-        # NOT :Content — the chunk store's shadow node shares its entity's
-        # uid; an unguarded MERGE would duplicate the edge onto the shadow
-        # (G13). Exclusion, not :Entity binding: edge endpoints may be
-        # non-Entity labels (e.g. Group).
+        # Both ends are bound to :Entity. An Edge file joins two entities, and
+        # every edge that records who owns, sees or belongs to something has a
+        # :User or a :Group end — so binding both ends refuses that whole family
+        # without naming one of its types, and a refused end matches nothing,
+        # exactly as a missing one does. The binding also keeps the write off
+        # the chunk store's :Content shadow, which shares its entity's uid (G13).
         query = f"""
-        MATCH (a {{uid: $from_uid}}) WHERE NOT a:Content
-        MATCH (b {{uid: $to_uid}}) WHERE NOT b:Content
+        MATCH (a:{NeoLabel.ENTITY.value} {{uid: $from_uid}})
+        MATCH (b:{NeoLabel.ENTITY.value} {{uid: $to_uid}})
         MERGE (a)-[r:{rel_type}]->(b)
           ON CREATE SET r.created_at = $created_at, r.{_CREATE_MARKER} = true
           ON MATCH SET r.{_CREATE_MARKER} = false
@@ -158,12 +167,31 @@ class IngestionWriteBackend:
         )
         return list(records)
 
-    async def entity_exists(self, uid: str) -> bool:
-        """True if a node with ``uid`` exists (:Content shadows excluded, G13)."""
-        records, _, _ = await self._driver.execute_query(
-            "MATCH (n {uid: $uid}) WHERE NOT n:Content RETURN n.uid", uid=uid
-        )
-        return bool(records)
+    async def get_node_labels_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]:
+        """uid -> labels for each uid that names a node; the link-edge guard's kind read.
+
+        Result-shaped, unlike this backend's writes, because the guard it serves
+        (``core/services/mixins/link_edge_guard.py``) decides fail-closed on a
+        failed read rather than raising. The Cypher is shared with the domain
+        backends (``endpoint_queries``).
+        """
+        try:
+            records, _, _ = await self._driver.execute_query(NODE_LABELS_BATCH_QUERY, uids=uids)
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(Errors.database("get_node_labels_batch", str(e)))
+        return Result.ok({str(r["uid"]): list(r["labels"]) for r in records})
+
+    async def get_owner_uids_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]:
+        """uid -> owning user uids for each OWNED node; the link-edge guard's owner read.
+
+        All three spellings of ownership are read (``endpoint_queries``); a node
+        nobody owns is absent. Result-shaped for the reason ``get_node_labels_batch`` is.
+        """
+        try:
+            records, _, _ = await self._driver.execute_query(OWNER_UIDS_BATCH_QUERY, uids=uids)
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(Errors.database("get_owner_uids_batch", str(e)))
+        return Result.ok({str(r["uid"]): list(r["owners"]) for r in records})
 
     async def create_group_ownership(self, owner_uid: str, group_uid: str) -> int:
         """MERGE the (User)-[:OWNS]->(Group) edge; return how many edges the

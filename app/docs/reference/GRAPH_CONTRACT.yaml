@@ -561,7 +561,7 @@ relationships:
         definitions:
           - {direction: incoming, target: Event, context_field: triggering_events, method: triggering_events, fields: [uid, title, start_time]}
   OWNS:
-    traits: [ownership]
+    traits: [ownership, access]
     contract: null
   REQUESTED:
     contract: null
@@ -623,8 +623,10 @@ relationships:
   ENROLLED_IN:
     contract: null
   MEMBER_OF:
+    traits: [access]
     contract: null
   SHARES_WITH:
+    traits: [access]
     contract: null
   PART_OF_PROJECT:
     contract: null
@@ -743,11 +745,13 @@ relationships:
         definitions:
           - {direction: incoming, target: Entity, context_field: submissions, method: submissions, fields: [uid, title, status, user_uid]}
   SHARED_WITH_GROUP:
+    traits: [access]
     contract:
       - config: Exercise
         definitions:
           - {direction: outgoing, target: Group, context_field: shared_groups, method: shared_groups, fields: [uid, name]}
   SUBMITTED_TO_GROUP:
+    traits: [access]
     contract: null
   RESPONDS_TO_REPORT:
     contract:

@@ -1,6 +1,6 @@
 ---
 title: "ADR-086: Universal :OWNS Ratified; Attendance Is ATTENDS"
-updated: 2026-09-30
+updated: 2026-10-02
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, owns, attends, events, graph-schema, relationships]
@@ -66,8 +66,12 @@ Consequences for the rule that governs those):
 1. **Generic CRUD create** — `_crud_mixin.py:157-168`: the `MERGE (owner)-[:OWNS]->(n)` is
    composed into the same statement as the node CREATE; the owner is `MATCH`ed, so a
    `user_uid` naming a non-existent User aborts the whole write.
-2. **Ingestion bulk upsert** — `bulk_upsert_backend.py`: `MERGE` plus a stale-owner
-   guard that deletes any previous owner's edge — single-owner invariant. The owner is
+2. **Ingestion bulk upsert** — `bulk_upsert_backend.py`: `MERGE` plus an **owner gate**
+   (ADR-070 Decision 11, 2026-10-02): the node's owners are read under the MERGE's lock
+   and a node owned by anyone other than the row's owner takes no write at all — no
+   property, no edge — and comes back refused, so the single-owner invariant holds by
+   never changing an owner rather than by deleting the previous one's edge (that delete
+   was the takeover). The owner is
    still `MATCH`ed inside a row-preserving unit `CALL` subquery *after* the node has
    persisted, so the statement alone cannot abort the row; the door instead **refuses the
    batch before it runs** — `BulkUpsertBackend._refuse_unknown_owners` resolves the batch's
@@ -104,11 +108,10 @@ June-2026 migration + the single-owner guard and watched by
 `tests/integration/test_owner_only_ownership_invariant.py`. `owner_uid` domains (Exercise,
 Group) carry edge + `owner_uid` property instead of `user_uid`.
 
-**One residue stays open, by name:** a re-ingest that sets `user_uid` to null skips the
-stale-owner `DELETE` (the guard is gated on `_owner_uid IS NOT NULL`), leaving a prior
-owner's `:OWNS` edge beside a nulled property. The preparer always stamps a string owner on
-`requires_user_uid` types, so no live path reaches it — it is a latent shape, not a
-defect in flight. Live-graph measurement 2026-08-28 (AuraDB `d2d160c4`): 337 `:Entity`,
+**The residue this section used to name is closed:** a re-ingest that set `user_uid` to
+null skipped the stale-owner `DELETE` and left a prior owner's `:OWNS` edge beside a nulled
+property. The owner gate refuses that row outright — a row naming no owner is not the
+owner's, so an owned node takes no write. Live-graph measurement 2026-08-28 (AuraDB `d2d160c4`): 337 `:Entity`,
 161 owned, **zero** violations in all four directions (property-only, edge-less,
 stale-owner, nulled-property).
 
@@ -277,8 +280,8 @@ DDL (only user-admin Cypher is refused).
   (`BulkUpsertBackend._refuse_unknown_owners`); Exercise and Group return the failed edge
   write instead of warning past it. Pins: `tests/unit/test_ownership_write_door_hardening.py`
   and `tests/integration/test_ingestion_owns_enum_casing.py` (refusal + positive control).
-  The one residue — a nulled `user_uid` on re-ingest skipping the stale-owner DELETE — is
-  named in §1 and has no live path.
+  The one residue §1 named — a nulled `user_uid` on re-ingest skipping the stale-owner
+  DELETE — closed with the owner gate (ADR-070 Decision 11).
 - Attendance wiring (routes, UI, `OWNER_OR_ATTENDEE`, auto-attend, ghost filter,
   `max_attendees`, role enum): a future arc, on Mike's explicit decision — the surface stays
   staged until then.

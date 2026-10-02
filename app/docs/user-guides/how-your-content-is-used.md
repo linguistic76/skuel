@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-10-02
 ---
 
 # How Your Content Is Used — SKUEL.app
@@ -42,7 +42,7 @@ When a report is generated, your recent activity data (task counts, habit comple
 
 ### Vault files (Obsidian sync)
 
-If you use the vault sync feature (`/submissions/sync`), SKUEL reads your personal vault folder and ingests selected files as entries in your account. Ingestion is **fail-closed**: only files inside allowed folders are ever read into your account — the code-defined doorway folders `periodic_notes/`, `personal_notes/`, `activity_notes/`, and `knowledge/`. Every other folder in your vault is walled off — SKUEL never reads it into the graph, never searches it, and never sends it to an AI service. The wall is on by default (it does not depend on any setting being present), and a new folder you create stays private until you deliberately add it to the allowlist.
+If you use the vault sync feature (`/submissions/sync`), SKUEL reads your personal vault folder and ingests selected files as entries in your account. Ingestion is **fail-closed**: only files inside allowed folders are ever read into your account — the code-defined doorway folders `periodic_notes/`, `personal_notes/`, `activity_notes/`, and `knowledge/`, plus `je_pro/`, where a file is read only when its own frontmatter says so (an explicit `pipeline:` line, and a `je_use:` that is not exemplar-only). Every other folder in your vault is walled off — SKUEL never reads it into the graph, never searches it, and never sends it to an AI service. The wall is on by default (it does not depend on any setting being present), and a new folder you create stays private until you deliberately add it to the allowlist.
 
 In addition, the journal staging folders below are **always** excluded — unconditionally, regardless of your allowlist or their contents — because they hold pipeline artifacts (e.g. `je_out/` holds generated transcripts that must never sync back):
 
@@ -51,11 +51,12 @@ In addition, the journal staging folders below are **always** excluded — uncon
 | `je_in/` | Audio staging — processed via the journals upload tool, not vault sync |
 | `je_out/` | Transcript staging — text files written by batch transcription |
 | `je_raw/` | Reference archive input |
-| `je_pro/` | Reference archive output |
 
 The wall works retroactively: if you narrow it — remove a folder from the allowlist, or a folder becomes disallowed — the entries that were previously synced from that folder are **removed from SKUEL on the next sync**, not just excluded going forward. Your vault file stays put (it is the source of truth), so re-allowing the folder re-ingests it.
 
-Vault sync is inbound only: it reads your vault and creates SKUEL entries. It writes back only the task completion markers (`🆔 sk_<id>` and `[x] ✅ date`) for tasks you created from vault files.
+What a file in your vault can create is limited to your own things: your tasks, goals, habits, events, choices and principles, your life path, and your notes — journals, knowledge notes, and responses to exercises. Lessons and other curriculum, groups, and standalone link files belong to the shared content vault; if your vault holds one, the sync lists it as ignored and says why, and nothing is created from it. Whatever a vault file creates is yours alone: a file cannot take over or change another person's entry — even one with the same file name — and the links it declares reach only your own entries or shared lessons.
+
+Vault sync reads your vault and creates SKUEL entries. It writes back only task markers on the task lines you created from vault files: the `🆔 sk_<id>` that ties a line to its task, and `[x] ✅ date` when you complete that task in SKUEL — removed again if you reopen it.
 
 ### Audio recordings
 
