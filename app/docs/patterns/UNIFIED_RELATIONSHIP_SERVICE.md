@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-10-01
+updated: 2026-10-02
 category: patterns
 related_skills:
 - base-analytics-service
@@ -278,25 +278,46 @@ all_habits = await service.get_related_uids("supporting_habits", "goal.123")  # 
 ### Relationship Creation (6 methods)
 
 ```python
-# Batch create — canonical, every-domain-safe. Signature is
-# (entity_uid, {relationship_key: [target_uids]}). Each key's targets go through
-# one validated backend.create_relationships_batch (atomic per key). NOTE: a
-# multi-key call iterates keys, so it is NOT all-or-nothing across keys — a
-# per-key failure is skipped, not rolled back. Use one key for atomic semantics.
+# Batch create. Signature is (entity_uid, {relationship_key: [target_uids]},
+# far_ends={relationship_key: LinkFarEnd}). Every far end of every key is admitted
+# BEFORE the first write, so one refused uid fails the call with nothing written.
+# After admission each key's targets go through one validated
+# backend.create_relationships_batch (atomic per key); a per-key WRITE failure is
+# skipped, not rolled back — use one key for atomic semantics.
 await service.create_relationships_batch(
     EntityUID("task.123"),
     {"knowledge": ["ku.py", "ku.js", "ku.sql"]},
+    far_ends={"knowledge": KNOWLEDGE_FAR_END},
 )
 
 # Delete relationship
-await service.delete_relationship("task.123", "knowledge", "ku.py")
+await service.delete_relationship("knowledge", "task.123", "ku.py")
 
 # Single edge — config-keyed, every-domain-safe (root-fixed PR #197)
-await service.create_relationship("knowledge", "task.123", "ku.py", {"confidence": 0.9})
+await service.create_relationship(
+    "knowledge", "task.123", "ku.py", {"confidence": 0.9}, far_end=KNOWLEDGE_FAR_END
+)
 ```
 
-> **`create_relationship(key, from_uid, to_uid, properties)` is safe** (root-fixed
-> PR #197). It looks up the registry `spec` for `key`, orients direction via
+> **Every edge this service writes is admitted first** (`admit_far_ends` →
+> `core/services/mixins/link_edge_guard.py`). `far_end` is a required keyword — a
+> `LinkFarEnd(labels, resource)`, with `KNOWLEDGE_FAR_END` / `GOAL_FAR_END` /
+> `HABIT_FAR_END` / `PRINCIPLE_FAR_END` / `CHOICE_FAR_END` defined beside the guard — and
+> the far end (`to_uid`, whatever the edge's direction) must exist, carry one of its
+> labels, and be shared content or owned by `from_uid`'s owner. The owner is read from the
+> source node, so no caller passes a user and none can pass the wrong one; a source nobody
+> owns links to shared content only. A uid that names nothing, another user's node and a
+> node of the wrong kind are refused alike — `Errors.not_found(far_end.resource, uid)`,
+> the diagnosis in `details["reason"]` only. A "knowledge" link takes a `:Ku`
+> (`KNOWLEDGE_LABELS`), the kind the create doors' knowledge lists take. A door that writes
+> anything beside the edge calls `admit_far_ends` before its first write and hands the
+> `AdmittedFarEnds` it returns back as the write's `far_end`, so the edge is written on
+> that one admission with no second endpoint read (`EventsService.update_event`); a proof
+> covers its own `(from_uid, to_uid)` only. `tests/unit/services/test_link_writer_census.py` holds
+> every edge-writer call site under `core/services/` to an admission.
+
+> **`create_relationship(key, from_uid, to_uid, properties, *, far_end)` is safe** (root-fixed
+> PR #197). It looks up the registry `spec` for `key`, admits the far end, orients direction via
 > `_orient_edge` (an *incoming* spec swaps endpoints on write/delete so direction-aware
 > reads still match), and routes through the same `backend.create_relationships_batch`
 > path create-flows use. It **fails closed** on an unknown key (`Result.fail`, no edge).
@@ -424,13 +445,15 @@ candidate list and silently `Result.fail`-ed when none matched) were removed —
 already knows exactly which edge it means, so it names the key directly.
 
 ```python
-# Facade method names the explicit key; create_relationship validates it against the
-# registry (fails closed on a typo), orients direction, and writes via the batch path.
+# Facade method names the explicit key and the far end's kind; create_relationship
+# validates the key against the registry (fails closed on a typo), admits the far end,
+# orients direction, and writes via the batch path.
 await service.create_relationship(
     "knowledge",            # method_key in this domain's config -> APPLIES_KNOWLEDGE
     "task.123",
     "ku.python",
     {"knowledge_score_required": 0.9, "is_learning_opportunity": True},
+    far_end=KNOWLEDGE_FAR_END,
 )
 
 await service.create_relationship(
@@ -438,6 +461,7 @@ await service.create_relationship(
     "task.123",
     "goal.456",
     {"contribution_percentage": 0.1},
+    far_end=GOAL_FAR_END,
 )
 ```
 
@@ -673,7 +697,7 @@ context = await tasks_service.get_cross_domain_context_typed(task_uid)
 | `get_task_goals()` | `get_related_uids("contributes_to_goal", uid)` |
 | `get_task_dependencies()` | `get_task_dependencies_for_user(uid, context)` (context-enriched, supports transitive via `include_transitive=True, max_depth=N`) |
 | `get_task_cross_domain_context()` | `get_cross_domain_context_typed(uid)` |
-| `create_knowledge_link()` | `create_relationship("knowledge", uid, ku_uid, props)` |
+| `create_knowledge_link()` | `create_relationship("knowledge", uid, ku_uid, props, far_end=KNOWLEDGE_FAR_END)` |
 
 ---
 

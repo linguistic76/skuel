@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-01
+updated: 2026-10-02
 ---
 
 # Sub-Service Responsibility Catalog
@@ -145,7 +145,8 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 **Responsibility:** Cross-domain graph relationships
 
 **Key Methods:**
-- `create_relationship(method_key, from_uid, to_uid, properties)` - The single cross-domain link write path (registry-validated key, fails closed)
+- `create_relationship(method_key, from_uid, to_uid, properties, *, far_end)` - The single cross-domain link write path (registry-validated key, fails closed). `far_end` is required: the far end is admitted before the write — it exists, is one of `far_end.labels`, and is shared content or owned by `from_uid`'s owner
+- `admit_far_ends(from_uid, to_uids, far_end)` → `Result[AdmittedFarEnds]` - The admission alone, for a door that must refuse before its first write; the returned proof is a valid `far_end` for writing that same link without a second read
 - `delete_relationship(method_key, from_uid, to_uid)` - Remove a link
 - `get_related_uids(method_key, entity_uid)` - Query relationships
 - `get_with_context()` - Get entity with graph context
@@ -161,11 +162,12 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 **Example:**
 ```python
 from core.models.relationship_registry import TASKS_CONFIG
+from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END
 from core.services.relationships import UnifiedRelationshipService
 
 rels = UnifiedRelationshipService(backend=backend, config=TASKS_CONFIG)
 result = await rels.create_relationship(
-    "knowledge", task_uid, ku_uid, {"knowledge_score_required": 0.8}
+    "knowledge", task_uid, ku_uid, {"knowledge_score_required": 0.8}, far_end=KNOWLEDGE_FAR_END
 )
 ```
 

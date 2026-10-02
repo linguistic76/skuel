@@ -28,12 +28,15 @@ class TasksService(
         contribution_percentage: float = 0.1,
         milestone_uid: str | None = None,
     ) -> Result[bool]:
-        # The facade names the explicit registry method_key; create_relationship validates it.
+        # The facade names the explicit registry method_key and what the far end must be;
+        # create_relationship validates the key and admits the far end (exists, a Goal, the
+        # task owner's own) before it writes.
         return await self.relationships.create_relationship(
             "contributes_to_goal",
             task_uid,
             goal_uid,
             {"contribution_percentage": contribution_percentage, "milestone_uid": milestone_uid},
+            far_end=GOAL_FAR_END,
         )
 ```
 

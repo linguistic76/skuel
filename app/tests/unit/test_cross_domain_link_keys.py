@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import pytest
 
+from core.models.enums.principle_enums import PrincipleLinkType
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
     EVENTS_CONFIG,
@@ -122,17 +123,27 @@ def test_handler_read_key_resolves_in_config(
 @pytest.mark.parametrize(
     ("link_type", "key"),
     list(_GravityMixin._LINK_TYPE_MAP.items()),
-    ids=list(_GravityMixin._LINK_TYPE_MAP),
+    ids=[link_type.value for link_type in _GravityMixin._LINK_TYPE_MAP],
 )
-def test_principle_link_type_map_keys_resolve(link_type: str, key: str) -> None:
-    """Every link_type in create_principle_link/get_principle_links maps to a real key.
+def test_principle_link_type_map_keys_resolve(link_type: PrincipleLinkType, key: str) -> None:
+    """Every link type in create_principle_link/get_principle_links maps to a real key.
 
-    Guards the ``grounding_knowledge`` -> ``knowledge`` class of bug: a link_type whose
+    Guards the ``grounding_knowledge`` -> ``knowledge`` class of bug: a link type whose
     mapped config key doesn't exist makes that whole link type silently dead.
     """
     spec = PRINCIPLES_CONFIG.get_relationship_by_method(key)
     assert spec is not None, (
-        f"principle link_type {link_type!r} maps to '{key}', which is not a method_key "
-        f"in PRINCIPLES_CONFIG. Available: "
+        f"principle link type {link_type.value!r} maps to '{key}', which is not a "
+        f"method_key in PRINCIPLES_CONFIG. Available: "
         f"{sorted(PRINCIPLES_CONFIG.get_all_relationship_methods())}"
     )
+
+
+def test_both_principle_link_maps_are_total_over_the_link_types() -> None:
+    """Every ``PrincipleLinkType`` names its relationship key and what its target must be.
+
+    ``create_principle_link`` indexes both maps with the request's link type, so a
+    member missing from either is a KeyError on a value the request model accepts.
+    """
+    assert set(_GravityMixin._LINK_TYPE_MAP) == set(PrincipleLinkType)
+    assert set(_GravityMixin._LINK_FAR_ENDS) == set(PrincipleLinkType)

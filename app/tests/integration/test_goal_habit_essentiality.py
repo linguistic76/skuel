@@ -33,6 +33,7 @@ from adapters.persistence.neo4j.query import generate_context_query
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_registry import GOALS_CONFIG
+from core.services.mixins.link_edge_guard import HABIT_FAR_END
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 P = "esstest_"
@@ -86,7 +87,11 @@ async def test_essentiality_write_stores_property_and_orients_edge(
         await _seed_goal_and_habits(s, GOAL, [H_ESSENTIAL])
 
     res = await goal_rel.create_relationship(
-        "supporting_habits", GOAL, H_ESSENTIAL, {"weight": 1.0, "essentiality": "essential"}
+        "supporting_habits",
+        GOAL,
+        H_ESSENTIAL,
+        {"weight": 1.0, "essentiality": "essential"},
+        far_end=HABIT_FAR_END,
     )
     assert res.is_ok, res
 
@@ -120,7 +125,11 @@ async def test_essentiality_tiers_partition_via_get_related_uids(
         (H_OPTIONAL, "optional"),
     ]:
         res = await goal_rel.create_relationship(
-            "supporting_habits", GOAL, habit, {"weight": 1.0, "essentiality": tier}
+            "supporting_habits",
+            GOAL,
+            habit,
+            {"weight": 1.0, "essentiality": tier},
+            far_end=HABIT_FAR_END,
         )
         assert res.is_ok, res
 
@@ -159,7 +168,11 @@ async def test_essentiality_tiers_partition_via_cross_domain_context(
         (H_OPTIONAL, "optional"),
     ]:
         res = await goal_rel.create_relationship(
-            "supporting_habits", GOAL, habit, {"weight": 1.0, "essentiality": tier}
+            "supporting_habits",
+            GOAL,
+            habit,
+            {"weight": 1.0, "essentiality": tier},
+            far_end=HABIT_FAR_END,
         )
         assert res.is_ok, res
 
@@ -200,7 +213,11 @@ async def test_untiered_habit_falls_to_catch_all(neo4j_driver, goal_rel, clean_n
 
     # Default essentiality from link_goal_to_habit is "supporting".
     res = await goal_rel.create_relationship(
-        "supporting_habits", GOAL_BARE, H_PLAIN, {"weight": 1.0, "essentiality": "supporting"}
+        "supporting_habits",
+        GOAL_BARE,
+        H_PLAIN,
+        {"weight": 1.0, "essentiality": "supporting"},
+        far_end=HABIT_FAR_END,
     )
     assert res.is_ok, res
 
@@ -232,7 +249,9 @@ async def test_create_via_filtered_key_round_trips(neo4j_driver, goal_rel, clean
         await _seed_goal_and_habits(s, GOAL, [H_ESSENTIAL])
 
     # Create via the FILTERED key, passing NO explicit essentiality property.
-    res = await goal_rel.create_relationship("essential_habits", GOAL, H_ESSENTIAL)
+    res = await goal_rel.create_relationship(
+        "essential_habits", GOAL, H_ESSENTIAL, far_end=HABIT_FAR_END
+    )
     assert res.is_ok, res
 
     # The edge carries the stamped tier property.
@@ -275,7 +294,11 @@ async def test_essentiality_tiers_filter_via_get_with_context_path(
         (H_OPTIONAL, "optional"),
     ]:
         res = await goal_rel.create_relationship(
-            "supporting_habits", GOAL, habit, {"weight": 1.0, "essentiality": tier}
+            "supporting_habits",
+            GOAL,
+            habit,
+            {"weight": 1.0, "essentiality": tier},
+            far_end=HABIT_FAR_END,
         )
         assert res.is_ok, res
 

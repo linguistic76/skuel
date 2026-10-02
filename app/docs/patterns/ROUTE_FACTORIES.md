@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-10-01'
+updated: '2026-10-02'
 category: patterns
 related_skills:
 - domain-route-config
@@ -342,7 +342,7 @@ The analytics route is user-scoped (no entity uid) and skips step 2.
 - Standard CRUD operations → CRUDRouteFactory
 - Inline card field updates (status, priority) → create_activity_field_api_routes
 - Activity hierarchy block (children / parent / hierarchy / add-child / remove-child) → create_activity_hierarchy_api_routes
-- Cross-domain link POSTs (owner + optional target verification) → create_activity_link_api_routes
+- Cross-domain link POSTs (owner verified at the route, plus a user-owned target; the far end of every link — a Ku included — is admitted by the service that writes the edge) → create_activity_link_api_routes
 - Common query patterns → CommonQueryRouteFactory
 
 An ownership-verified route with a shape none of these express (a uid list, a verify-through-one-service-call-another, a conditional second entity) is a manual route: `require_authenticated_user` → `verify_entity_ownership` → the service call, in the handler.

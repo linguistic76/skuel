@@ -48,6 +48,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit import Habit as Habit
 from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goals_progress_service import GoalsProgressService
+from core.services.mixins.link_edge_guard import HABIT_FAR_END
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 
@@ -59,7 +60,11 @@ async def _link_habit_to_goal(neo4j_driver: AsyncDriver, goal_uid: str, habit_ui
         graph_intel=None,
     )
     result = await relationships.create_relationship(
-        "supporting_habits", goal_uid, habit_uid, {"weight": 1.0, "essentiality": "supporting"}
+        "supporting_habits",
+        goal_uid,
+        habit_uid,
+        {"weight": 1.0, "essentiality": "supporting"},
+        far_end=HABIT_FAR_END,
     )
     assert result.is_ok, result
 

@@ -505,7 +505,7 @@ POST (Create) → 201, GET/PUT/DELETE → 200, POST (Action) → 200
 | CommonQueryRouteFactory | Query patterns |
 | AnalyticsRouteFactory | Analytics |
 | create_activity_field_api_routes | Inline field updates incl. status (`POST /api/{domain}/{uid}/{field}`) |
-| create_activity_hierarchy_api_routes / create_activity_link_api_routes | Activity hierarchy block; cross-domain link POSTs (owner + optional target verified) |
+| create_activity_hierarchy_api_routes / create_activity_link_api_routes | Activity hierarchy block; cross-domain link POSTs (owner verified at the route; the far end of every link admitted by the service that writes the edge) |
 `CRUDRouteFactory` and `CommonQueryRouteFactory` take `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`); `CRUDRouteFactory`'s `role_gates_reads=False` allows role-gated mutations with open reads (Groups pattern). Scope and role are orthogonal — both ownership verification and role checks apply independently. `AnalyticsRouteFactory` takes `require_role` only (user-scoped aggregates, no per-entity uid). The `create_activity_*` functions take neither: Activity-Domain-only, always authenticated, always ownership-verified.
 
 **See:** `/docs/patterns/ROUTE_FACTORIES.md`

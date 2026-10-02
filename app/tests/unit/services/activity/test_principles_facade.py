@@ -11,6 +11,7 @@ import pytest
 
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle_request import PrincipleCreateRequest
+from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END
 from core.services.principles_service import PrinciplesService
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
@@ -165,6 +166,7 @@ class TestPrinciplesServiceRelationships:
             "principle_abc",
             "ku_stoicism_xyz",
             {"relevance": "foundational"},
+            far_end=KNOWLEDGE_FAR_END,
         )
 
 

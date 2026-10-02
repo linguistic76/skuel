@@ -13,7 +13,16 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from core.utils.result_simplified import Errors, Result
+from core.models.enums.principle_enums import PrincipleLinkType
+from core.services.mixins.link_edge_guard import (
+    CHOICE_FAR_END,
+    GOAL_FAR_END,
+    HABIT_FAR_END,
+    KNOWLEDGE_FAR_END,
+    PRINCIPLE_FAR_END,
+    LinkFarEnd,
+)
+from core.utils.result_simplified import Result
 
 
 class _GravityMixin:
@@ -28,24 +37,39 @@ class _GravityMixin:
     relationships: Any
     logger: Any
 
-    # Maps a public link_type to its PRINCIPLES_CONFIG relationship method key.
-    # Single source for both create_principle_link (write) and get_principle_links
-    # (read) so the two can never drift to different keys. Each value must be a real
-    # method_key in PRINCIPLES_CONFIG — guarded by tests/test_cross_domain_link_keys.py.
-    _LINK_TYPE_MAP: ClassVar[dict[str, str]] = {
-        "goal": "guided_goals",
-        "habit": "inspired_habits",
-        "knowledge": "knowledge",
-        "principle": "supporting_principles",
-        "choice": "guided_choices",
+    # The PRINCIPLES_CONFIG relationship method key each link type writes and reads
+    # through. One map for create_principle_link (write) and get_principle_links
+    # (read), so the two cannot drift to different keys. Each value is a method_key in
+    # PRINCIPLES_CONFIG — guarded by tests/unit/test_cross_domain_link_keys.py.
+    _LINK_TYPE_MAP: ClassVar[dict[PrincipleLinkType, str]] = {
+        PrincipleLinkType.GOAL: "guided_goals",
+        PrincipleLinkType.HABIT: "inspired_habits",
+        PrincipleLinkType.KNOWLEDGE: "knowledge",
+        PrincipleLinkType.PRINCIPLE: "supporting_principles",
+        PrincipleLinkType.CHOICE: "guided_choices",
+    }
+
+    # What each link type links to — the kind the far end must be, and the name a
+    # refusal answers with. Total over PrincipleLinkType, as _LINK_TYPE_MAP is; the
+    # same test guards both.
+    _LINK_FAR_ENDS: ClassVar[dict[PrincipleLinkType, LinkFarEnd]] = {
+        PrincipleLinkType.GOAL: GOAL_FAR_END,
+        PrincipleLinkType.HABIT: HABIT_FAR_END,
+        PrincipleLinkType.KNOWLEDGE: KNOWLEDGE_FAR_END,
+        PrincipleLinkType.PRINCIPLE: PRINCIPLE_FAR_END,
+        PrincipleLinkType.CHOICE: CHOICE_FAR_END,
     }
 
     async def link_principle_to_knowledge(
         self, principle_uid: str, knowledge_uid: str, relevance: str = "fundamental"
     ) -> Result[bool]:
-        """Link principle to knowledge it's grounded in (``GROUNDED_IN_KNOWLEDGE``)."""
+        """Link principle to the Ku it is grounded in (``GROUNDED_IN_KNOWLEDGE``)."""
         return await self.relationships.create_relationship(
-            "knowledge", principle_uid, knowledge_uid, {"relevance": relevance}
+            "knowledge",
+            principle_uid,
+            knowledge_uid,
+            {"relevance": relevance},
+            far_end=KNOWLEDGE_FAR_END,
         )
 
     # ========================================================================
@@ -54,116 +78,75 @@ class _GravityMixin:
 
     async def create_principle_link(
         self,
-        dto: Any,
+        principle_uid: str,
+        target_uid: str,
+        link_type: PrincipleLinkType,
     ) -> Result[dict[str, Any]]:
         """
-        Create a link between a principle and another entity.
+        Link a principle to a goal, habit, Ku, choice or another principle.
 
-        Maps link_type to the appropriate relationship config key in PRINCIPLES_CONFIG
-        and delegates to UnifiedRelationshipService.
-
-        Args:
-            dto: Dict with principle_uid, target_uid, link_type (goal/habit/knowledge/principle),
-                 and optional properties
+        ``link_type`` selects both the relationship (``_LINK_TYPE_MAP``) and what the
+        target must be (``_LINK_FAR_ENDS``): the target is admitted by
+        ``UnifiedRelationshipService`` — it exists, is of that kind, and is the
+        principle's owner's or shared content. A target that is none of those is
+        refused as not found.
 
         Returns:
             Result with the created link info
         """
-        principle_uid = (
-            dto.get("principle_uid")
-            if isinstance(dto, dict)
-            else getattr(dto, "principle_uid", None)
-        )
-        target_uid = (
-            dto.get("target_uid") if isinstance(dto, dict) else getattr(dto, "target_uid", None)
-        )
-        link_type = (
-            dto.get("link_type") if isinstance(dto, dict) else getattr(dto, "link_type", None)
-        )
-
-        if not principle_uid or not target_uid or not link_type:
-            return Result.fail(
-                Errors.validation(
-                    message="principle_uid, target_uid, and link_type are required",
-                    field="link_type",
-                )
-            )
-
-        # Map link_type to PRINCIPLES_CONFIG relationship config key
-        config_key = self._LINK_TYPE_MAP.get(link_type)
-        if not config_key:
-            return Result.fail(
-                Errors.validation(
-                    message=(
-                        f"Unknown link_type: {link_type}. Valid: {', '.join(self._LINK_TYPE_MAP)}"
-                    ),
-                    field="link_type",
-                )
-            )
-
-        properties = (
-            dto.get("properties") if isinstance(dto, dict) else getattr(dto, "properties", None)
-        )
         result = await self.relationships.create_relationship(
-            config_key, principle_uid, target_uid, properties
+            self._LINK_TYPE_MAP[link_type],
+            principle_uid,
+            target_uid,
+            far_end=self._LINK_FAR_ENDS[link_type],
         )
         if result.is_error:
             return Result.fail(result)
 
         self.logger.info(
-            "Created %s link from principle %s to %s", link_type, principle_uid, target_uid
+            "Created %s link from principle %s to %s", link_type.value, principle_uid, target_uid
         )
         return Result.ok(
             {
                 "principle_uid": principle_uid,
                 "target_uid": target_uid,
-                "link_type": link_type,
+                "link_type": link_type.value,
             }
         )
 
     async def get_principle_links(
         self,
         principle_uid: str,
-        link_type: str | None = None,
+        link_type: PrincipleLinkType | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
-        Get links for a principle (relationships to goals, habits, knowledge, principles).
-
-        Queries via UnifiedRelationshipService cross-domain context and filters
-        by link_type if provided.
+        Get a principle's links to goals, habits, Kus, choices and principles.
 
         Args:
             principle_uid: Principle UID
-            link_type: Optional filter (goal/habit/knowledge/principle/choice)
+            link_type: One link type, or ``None`` for all of them
 
         Returns:
-            Result with list of link dicts containing target info
+            Result with one ``{"target_uid", "link_type"}`` dict per link
         """
-        if link_type:
-            config_key = self._LINK_TYPE_MAP.get(link_type)
-            if not config_key:
-                return Result.fail(
-                    Errors.validation(
-                        message=(
-                            f"Unknown link_type: {link_type}. "
-                            f"Valid: {', '.join(self._LINK_TYPE_MAP)}"
-                        ),
-                        field="link_type",
-                    )
-                )
-            uids_result = await self.relationships.get_related_uids(config_key, principle_uid)
+        if link_type is not None:
+            uids_result = await self.relationships.get_related_uids(
+                self._LINK_TYPE_MAP[link_type], principle_uid
+            )
             if uids_result.is_error:
                 return Result.fail(uids_result)
             return Result.ok(
-                [{"target_uid": uid, "link_type": link_type} for uid in uids_result.value]
+                [{"target_uid": uid, "link_type": link_type.value} for uid in uids_result.value]
             )
 
         # No filter — get all link types
         all_links: list[dict[str, Any]] = []
-        for lt, config_key in self._LINK_TYPE_MAP.items():
+        for each_type, config_key in self._LINK_TYPE_MAP.items():
             uids_result = await self.relationships.get_related_uids(config_key, principle_uid)
             if uids_result.is_error:
                 continue  # Skip failed queries, return what we can
-            all_links.extend({"target_uid": uid, "link_type": lt} for uid in uids_result.value)
+            all_links.extend(
+                {"target_uid": uid, "link_type": each_type.value} for uid in uids_result.value
+            )
 
         return Result.ok(all_links)

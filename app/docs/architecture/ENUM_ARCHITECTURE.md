@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-10-02
 ---
 
 # Enum Architecture
@@ -24,7 +24,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `askesis_enums.py` | Askesis query complexity and integration | QueryComplexity, IntegrationSuccess |
 | `choice_enums.py` | Decision types | ChoiceType |
 | `event_enums.py` | Event domain classification | EventType |
-| `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
+| `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType, PrincipleLinkType |
 | `pipeline.py` | User entry processing dispatch + report provenance (ADR-054, supersede ProcessorType) | Pipeline, ReportSource |
 | `user_entry_enums.py` | User entry (submissions/journal) processing and report periods | SubmissionModality, ExerciseScope, EnrichmentMode, ProgressDepth, ReportPeriodKind |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
@@ -316,6 +316,7 @@ CompletionStatus has dynamic methods: `counts_as_success()` (DONE and PARTIAL co
 | PrincipleStrength | CORE, STRONG, MODERATE, DEVELOPING, EXPLORING | How deeply held |
 | AlignmentLevel | FLOURISHING (1.0), ALIGNED (0.85), ... UNKNOWN (0.0) — 8 values | Alignment scoring |
 | TriggerType | GOAL, HABIT, EVENT, CHOICE, MANUAL | What activates a principle |
+| PrincipleLinkType | GOAL, HABIT, KNOWLEDGE, PRINCIPLE, CHOICE | What `POST /api/principles/link` links a principle to — selects the relationship and the kind its target must be |
 
 AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track assessment pattern, and `get_color()` for UI rendering (green/yellow/red).
 

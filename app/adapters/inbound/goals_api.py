@@ -243,8 +243,8 @@ def create_goals_api_routes(
                 request_model=LinkGoalToKnowledgeRequest,
                 owner_uid_field="goal_uid",
                 apply=apply_link_knowledge,
-                doc="Link goal to required knowledge/skill (REQUIRES_KNOWLEDGE). "
-                "Ku is shared content.",
+                doc="Link goal to a Ku it requires (REQUIRES_KNOWLEDGE). "
+                "The service admits the far end: a Ku, shared content.",
             ),
             CrossDomainLinkSpec(
                 action="link-principle",

@@ -20,6 +20,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.mixins.link_edge_guard import HABIT_FAR_END, admit_far_ends_for_owner
 from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
@@ -172,6 +173,17 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing list of created events
         """
+        # The habit is the user's own before any event is created for it.
+        if reinforces_habit_uid:
+            admitted = await admit_far_ends_for_owner(
+                self.backend,
+                owner_uid=user_uid,
+                far_uids=[reinforces_habit_uid],
+                far_end=HABIT_FAR_END,
+            )
+            if admitted.is_error:
+                return Result.fail(admitted)
+
         # Get optimized dates
         dates_result = await self.optimize_recurring_schedule(
             user_uid=user_uid,

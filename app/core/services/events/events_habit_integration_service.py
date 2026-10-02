@@ -30,6 +30,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties
 from core.services.completion_stamp import status_transition_guard
 from core.services.events._habit_links import enrich_events_with_habit_links
+from core.services.mixins.link_edge_guard import HABIT_FAR_END, admit_far_ends_for_owner
 from core.services.user import UserContext
 from core.services.user.rich_context import rich_entity_to_model
 from core.utils.dto_converters import to_domain_model
@@ -476,6 +477,16 @@ class EventsHabitIntegrationService:
         Returns:
             Result containing list of created events
         """
+        # The habit is the user's own before any event is created for it.
+        admitted = await admit_far_ends_for_owner(
+            self.backend,
+            owner_uid=user_context.user_uid,
+            far_uids=[habit_uid],
+            far_end=HABIT_FAR_END,
+        )
+        if admitted.is_error:
+            return Result.fail(admitted)
+
         events = []
         current_date = today_in(current_zone())
         end_date = current_date + timedelta(days=days_to_create)

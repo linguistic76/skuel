@@ -367,8 +367,9 @@ result = await parse_form_body(request, RequestRevisionRequest)
 
 # When the owner uid is a model field (TrackHabitRequest.habit_uid): parse first, then
 # verify_entity_ownership(service, req.habit_uid, user_uid, ...). When it is in the query string
-# (POST /api/principles/link?uid=): verify first, then parse — that model's `uid` is the target.
-# Nothing is merged into the body before validation.
+# (POST /api/principles/link?uid=): verify first, then parse — that model's `target_uid` is the
+# target. A query parameter overrides a same-named JSON body field (FastHTML merges the query
+# string into the parsed body), so a body model never reuses a query parameter's name.
 ```
 
 See: `/docs/patterns/API_VALIDATION_PATTERNS.md`

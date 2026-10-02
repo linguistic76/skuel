@@ -4,11 +4,17 @@ Two same-shape route families that were copy-pasted across the 6 Activity
 Domain ``*_api.py`` modules:
 
 Cross-domain links — ``POST /api/{domain}/{action}``:
-    parse body → verify ownership of the source entity → optionally verify
-    ownership of a user-owned link target (goal/principle; Ku is SHARED
-    content and needs no check) → call the domain link method →
-    ``{"linked": bool}``. Only the request model, the ownership fields, and
-    the service call vary — captured in ``CrossDomainLinkSpec``.
+    parse body → verify ownership of the source entity → for a user-owned
+    link target (goal/principle), verify ownership of it too → call the
+    domain link method → ``{"linked": bool}``. Only the request model, the
+    ownership fields, and the service call vary — captured in
+    ``CrossDomainLinkSpec``.
+
+    The far end of EVERY link is admitted where the edge is written: the
+    domain link method goes through ``UnifiedRelationshipService``, which
+    refuses a far end that names nothing, is another user's, or is not the
+    kind the link takes (a knowledge link takes a Ku) — all three as not
+    found. A spec with no ``target`` is therefore not an unchecked link.
 
 Knowledge patterns — ``GET /api/{domain}/knowledge-patterns``:
     the identical handler + 8-field ``LearningPattern`` serialization dict
@@ -47,10 +53,11 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class LinkTargetSpec:
-    """Ownership check for a user-owned link target (goal/principle).
+    """Route-level ownership check for a user-owned link target (goal/principle).
 
-    Omit for SHARED targets (Ku) — shared content is readable by everyone,
-    so linking to it needs no target ownership check.
+    Omit for a SHARED target (Ku): no facade owns it to ask. The service the
+    link method writes through admits the far end either way — its kind and
+    its owner — so an omitted target is still a checked one.
     """
 
     service: Any
@@ -70,7 +77,8 @@ class CrossDomainLinkSpec[R: BaseModel]:
         apply: Coroutine ``(parsed request) -> Result[bool]``. A small named
             adapter per domain unpacks the request into the service call.
         doc: Route docstring (shows the relationship type).
-        target: Optional second ownership check for a user-owned target.
+        target: Route-level ownership check for a user-owned target. The service
+            admits the far end of every link whether or not this is set.
     """
 
     action: str

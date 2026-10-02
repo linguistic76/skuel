@@ -17,6 +17,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
+from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Errors, Result
 
@@ -218,6 +219,7 @@ class TestLinkTaskToKnowledge:
             "task_abc",
             "ku_python_xyz",
             {"knowledge_score_required": 0.9, "is_learning_opportunity": True},
+            far_end=KNOWLEDGE_FAR_END,
         )
 
 

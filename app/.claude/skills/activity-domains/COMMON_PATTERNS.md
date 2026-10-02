@@ -399,12 +399,18 @@ that supply the key (it knows which edge it means):
 # Facade wrapper -> create_relationship with the explicit key:
 async def link_choice_to_goal(self, choice_uid, goal_uid, contribution_score=0.5):
     return await self.relationships.create_relationship(
-        "goals", choice_uid, goal_uid, {"contribution_score": contribution_score}
+        "goals",
+        choice_uid,
+        goal_uid,
+        {"contribution_score": contribution_score},
+        far_end=GOAL_FAR_END,  # core/services/mixins/link_edge_guard.py
     )
 
 # create_relationship validates the key against the domain config (fails closed on a
-# typo — e.g. "habits" when the Choice config key is "impacted_habits"), orients
-# direction from the registry spec, and writes via the proven batch path.
+# typo — e.g. "habits" when the Choice config key is "impacted_habits"), admits the far
+# end (it exists, is one of far_end.labels, and is shared content or owned by the
+# source's owner — anything else is not found), orients direction from the registry
+# spec, and writes via the batch path. far_end is required: there is no unchecked link.
 
 # Get related entities (key + uid — no direction arg; the registry spec supplies it):
 related = await service.relationships.get_related_uids("knowledge", entity_uid)  # Result[list[str]]

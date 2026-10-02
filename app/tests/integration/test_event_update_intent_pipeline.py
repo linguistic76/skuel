@@ -43,6 +43,7 @@ from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.sentinels import UNSET
 from core.services.events.events_core_service import EventsCoreService
 from core.services.events_service import EventsService
+from core.services.mixins.link_edge_guard import GOAL_FAR_END, HABIT_FAR_END
 
 
 @pytest.mark.asyncio
@@ -231,11 +232,13 @@ class TestEventUpdateIntentPipeline:
         # Establish the initial edges to the "old" targets.
         assert (
             await facade.relationships.create_relationship(
-                "celebrated_goals", event_uid, "goal:edge_old"
+                "celebrated_goals", event_uid, "goal:edge_old", far_end=GOAL_FAR_END
             )
         ).is_ok
         assert (
-            await facade.relationships.create_relationship("habits", event_uid, "habit:edge_old")
+            await facade.relationships.create_relationship(
+                "habits", event_uid, "habit:edge_old", far_end=HABIT_FAR_END
+            )
         ).is_ok
 
         event_bus.clear_event_history()
@@ -316,11 +319,13 @@ class TestEventUpdateIntentPipeline:
         # Seed both edges; only the goal edge will be cleared.
         assert (
             await facade.relationships.create_relationship(
-                "celebrated_goals", event_uid, "goal:to_clear"
+                "celebrated_goals", event_uid, "goal:to_clear", far_end=GOAL_FAR_END
             )
         ).is_ok
         assert (
-            await facade.relationships.create_relationship("habits", event_uid, "habit:keep")
+            await facade.relationships.create_relationship(
+                "habits", event_uid, "habit:keep", far_end=HABIT_FAR_END
+            )
         ).is_ok
 
         event_bus.clear_event_history()

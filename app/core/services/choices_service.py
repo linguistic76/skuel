@@ -23,7 +23,7 @@ from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums import EntityStatus, Priority
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.domain_protocols import ChoicesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
@@ -38,6 +38,11 @@ from core.services.filtered_context import build_filtered_context
 # Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
+from core.services.mixins.link_edge_guard import (
+    GOAL_FAR_END,
+    HABIT_FAR_END,
+    PRINCIPLE_FAR_END,
+)
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_stats import compute_choice_stats
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
@@ -499,7 +504,11 @@ class ChoicesService(
     ) -> Result[bool]:
         """Link choice to goal it affects/advances (``AFFECTS_GOAL``)."""
         return await self.relationships.create_relationship(
-            "goals", choice_uid, goal_uid, {"contribution_score": contribution_score}
+            "goals",
+            choice_uid,
+            goal_uid,
+            {"contribution_score": contribution_score},
+            far_end=GOAL_FAR_END,
         )
 
     async def link_choice_to_habit(
@@ -510,9 +519,9 @@ class ChoicesService(
         Uses the ``impacted_habits`` config key — Choices has no ``"habits"`` key
         (that earlier value silently failed config validation in create_relationship).
         """
-        properties = {"reinforcement_strength": reinforcement_strength}
+        properties: Neo4jProperties = {"reinforcement_strength": reinforcement_strength}
         return await self.relationships.create_relationship(
-            "impacted_habits", choice_uid, habit_uid, properties
+            "impacted_habits", choice_uid, habit_uid, properties, far_end=HABIT_FAR_END
         )
 
     async def link_choice_to_principle(
@@ -520,7 +529,11 @@ class ChoicesService(
     ) -> Result[bool]:
         """Link choice to principle it is informed by (``INFORMED_BY_PRINCIPLE``)."""
         return await self.relationships.create_relationship(
-            "principles", choice_uid, principle_uid, {"alignment_score": alignment_score}
+            "principles",
+            choice_uid,
+            principle_uid,
+            {"alignment_score": alignment_score},
+            far_end=PRINCIPLE_FAR_END,
         )
 
     async def create_semantic_choice_relationship(

@@ -48,6 +48,11 @@ from core.models.ku.ku import Ku
 from core.models.principle.principle import Principle
 from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goal_event_handler_service import GoalEventHandlerService
+from core.services.mixins.link_edge_guard import (
+    HABIT_FAR_END,
+    KNOWLEDGE_FAR_END,
+    PRINCIPLE_FAR_END,
+)
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 
@@ -186,12 +191,20 @@ class TestGoalRecommendationsFlow:
             graph_intel=None,
         )
         links = [
-            *(("knowledge", ku.uid, {"proficiency_required": "intermediate"}) for ku in kus),
-            *(("supporting_habits", h.uid, {"essentiality": "supporting"}) for h in habits),
-            ("principles", principle.uid, {"alignment_strength": 1.0}),
+            *(
+                ("knowledge", ku.uid, {"proficiency_required": "intermediate"}, KNOWLEDGE_FAR_END)
+                for ku in kus
+            ),
+            *(
+                ("supporting_habits", h.uid, {"essentiality": "supporting"}, HABIT_FAR_END)
+                for h in habits
+            ),
+            ("principles", principle.uid, {"alignment_strength": 1.0}, PRINCIPLE_FAR_END),
         ]
-        for key, other_uid, properties in links:
-            linked = await relationships.create_relationship(key, goal.uid, other_uid, properties)
+        for key, other_uid, properties, far_end in links:
+            linked = await relationships.create_relationship(
+                key, goal.uid, other_uid, properties, far_end=far_end
+            )
             assert linked.is_ok, linked
 
         return created_goal, kus, habits, [principle]

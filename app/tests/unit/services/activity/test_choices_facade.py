@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 
 from core.services.choices_service import ChoicesService
+from core.services.mixins.link_edge_guard import GOAL_FAR_END, HABIT_FAR_END, PRINCIPLE_FAR_END
 from core.utils.result_simplified import Result
 
 # ---------------------------------------------------------------------------
@@ -116,6 +117,7 @@ class TestChoicesServiceRelationships:
             "choice_abc",
             "habit_xyz",
             {"reinforcement_strength": 0.7},
+            far_end=HABIT_FAR_END,
         )
 
     @pytest.mark.asyncio
@@ -134,6 +136,7 @@ class TestChoicesServiceRelationships:
             "choice_abc",
             "principle_xyz",
             {"alignment_score": 0.6},
+            far_end=PRINCIPLE_FAR_END,
         )
 
     @pytest.mark.asyncio
@@ -150,4 +153,5 @@ class TestChoicesServiceRelationships:
             "choice_abc",
             "goal_xyz",
             {"contribution_score": 0.4},
+            far_end=GOAL_FAR_END,
         )

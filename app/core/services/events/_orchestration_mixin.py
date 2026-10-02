@@ -19,6 +19,11 @@ from core.models.enums import AttendanceStatus, EventType, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
+from core.services.mixins.link_edge_guard import (
+    GOAL_FAR_END,
+    HABIT_FAR_END,
+    KNOWLEDGE_FAR_END,
+)
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -65,19 +70,25 @@ class _OrchestrationMixin:
     ) -> Result[bool]:
         """Link event to goal it contributes to (``CONTRIBUTES_TO_GOAL``)."""
         return await self.relationships.create_relationship(
-            "goals", event_uid, goal_uid, {"contribution_weight": contribution_weight}
+            "goals",
+            event_uid,
+            goal_uid,
+            {"contribution_weight": contribution_weight},
+            far_end=GOAL_FAR_END,
         )
 
     async def link_event_to_habit(self, event_uid: str, habit_uid: str) -> Result[bool]:
         """Link event to habit it reinforces."""
-        return await self.relationships.create_relationship("habits", event_uid, habit_uid)
+        return await self.relationships.create_relationship(
+            "habits", event_uid, habit_uid, far_end=HABIT_FAR_END
+        )
 
     async def link_event_to_knowledge(
         self, event_uid: str, knowledge_uids: list[str]
     ) -> Result[bool]:
-        """Link event to knowledge units it reinforces."""
+        """Link event to the Kus it applies (``APPLIES_KNOWLEDGE``)."""
         result = await self.relationships.create_relationships_batch(
-            event_uid, {"knowledge": knowledge_uids}
+            event_uid, {"knowledge": knowledge_uids}, far_ends={"knowledge": KNOWLEDGE_FAR_END}
         )
         if result.is_error:
             return Result.fail(result)
