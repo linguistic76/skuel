@@ -29,13 +29,13 @@ Part of the 4-service Analytics architecture:
 - AnalyticsService: Facade orchestrating all
 """
 
-import contextlib
 from collections import Counter
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus, PrincipleStrength
+from core.models.habit.adherence import adherence_window_days, habit_adherence
 from core.models.type_hints import UserUID
 from core.services.knowledge.user_substance import (
     SUBSTANCE_ACTIVITY_TYPES,
@@ -221,14 +221,25 @@ class AnalyticsMetricsService:
         """
         Calculate statistical metrics for habits.
 
-        Refactoring:
-        Uses unified query pattern with Cypher-level filtering.
-        Note: Habits don't use date filtering (ongoing practices).
+        Habits don't use date filtering (ongoing practices). ``completion_rate``
+        and ``consistency_rate`` are the mean adherence of the active habits, in
+        percent — each habit's rate derived now from its completions in the
+        trailing window (``habit_adherence``), never read off the node.
         """
         if not self.habits:
             return Result.fail(
                 Errors.system(
                     message="Habits service not available", operation="calculate_habit_metrics"
+                )
+            )
+        if not self.cross_domain_backend:
+            return Result.fail(
+                Errors.system(
+                    message=(
+                        "CrossDomainBackend not available — habit completions cannot be "
+                        "counted, so adherence has no source"
+                    ),
+                    operation="calculate_habit_metrics",
                 )
             )
 
@@ -253,19 +264,30 @@ class AnalyticsMetricsService:
 
         habits = habits_result.value
 
-        # Calculate metrics
+        window_first, window_last = adherence_window_days(current_zone())
+        counts_result = await self.cross_domain_backend.get_habit_window_completions(
+            [habit.uid for habit in habits], window_first.isoformat(), window_last.isoformat()
+        )
+        if counts_result.is_error:
+            return Result.fail(counts_result)
+        counts = counts_result.value
+
         current_streaks = {}
         best_streaks = {}
         completion_rates = []
 
         for habit in habits:
-            current_streaks[habit.title] = getattr(habit, "current_streak", 0)
-            best_streaks[habit.title] = getattr(habit, "best_streak", 0)
-            # completion_rate may not be present on all habit types
-            with contextlib.suppress(AttributeError):
-                completion_rates.append(habit.completion_rate)
+            current_streaks[habit.title] = habit.current_streak
+            best_streaks[habit.title] = habit.best_streak
+            completion_rates.append(
+                habit_adherence(
+                    habit.recurrence_pattern,
+                    habit.target_days_per_week,
+                    counts.get(habit.uid, 0),
+                )
+            )
 
-        avg_completion = sum(completion_rates) / len(completion_rates) if completion_rates else 0.0
+        avg_completion = sum(completion_rates) / len(completion_rates)
 
         return Result.ok(
             {

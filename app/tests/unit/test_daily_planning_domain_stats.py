@@ -58,6 +58,7 @@ class _StubContext:
     latest_activity_report_uid: str | None = None
     latest_activity_report_period: str | None = None
     entities_rich: dict[str, Any] = field(default_factory=dict)
+    habit_completion_rates: dict[str, float] = field(default_factory=dict)
     unsubmitted_exercises: list[Any] = field(default_factory=list)
     pending_revised_exercises: list[Any] = field(default_factory=list)
     zpd_assessment: Any = None

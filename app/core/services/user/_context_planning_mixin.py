@@ -149,7 +149,7 @@ class _ContextPlanningMixin:
         - Auto-invalidation: Domain events (TaskCompleted, GoalAchieved, etc.) clear cache
 
         **ARCHITECTURE:** the MEGA-QUERY (``UserContextBuilder.build_rich``) is
-        one concurrent round-trip — six plan-cached statements merged into one
+        one concurrent round-trip — seven plan-cached statements merged into one
         map, plus the reads beside them — and it fetches:
         1. **Standard context fields** (UIDs, relationships, metadata)
            - active_task_uids, active_goal_uids, active_habit_uids

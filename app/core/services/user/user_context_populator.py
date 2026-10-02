@@ -23,6 +23,7 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
+from core.models.habit.adherence import habit_adherence
 from core.models.user import UserPreferences
 from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
@@ -30,11 +31,23 @@ from core.utils.timestamp_helpers import EARLIEST_INSTANT, as_utc, instant_of
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
-    from core.ports.query_types import EntryKnowledgeAppliedRow, RichEntityItem
+    from collections.abc import Iterable
+
+    from core.ports.query_types import EntryKnowledgeAppliedRow, HabitAdherenceRow, RichEntityItem
     from core.services.user import UserContext
     from core.services.user.user_context_extractor import GraphSourcedData
 
 logger = get_logger(__name__)
+
+
+def habit_adherence_rates(rows: Iterable[HabitAdherenceRow]) -> dict[str, float]:
+    """Each active habit's adherence, from the window count its statement projected."""
+    return {
+        row["uid"]: habit_adherence(
+            row["recurrence_pattern"], row["target_days_per_week"], row["completions_in_window"]
+        )
+        for row in rows
+    }
 
 
 class UserContextPopulator:
@@ -81,11 +94,13 @@ class UserContextPopulator:
             for item in habit_metadata
             if item and item.get("uid") is not None
         }
-        context.habit_completion_rates = {
-            item["uid"]: item["rate"]
-            for item in habit_metadata
-            if item and item.get("uid") is not None
-        }
+        # Derived here, never read off the node (habit_adherence). An empty
+        # ``uids`` section is the unknown-user sentinel; any other must carry the
+        # adherence rows — a missing key is a statement or fake out of shape, and
+        # raises rather than reading every habit as 0.0.
+        context.habit_completion_rates = (
+            habit_adherence_rates(uids_data["habit_adherence"]) if uids_data else {}
+        )
 
         # Knowledge - extract mastery scores, timestamps, and confidence
         knowledge_mastery_list = uids_data.get("knowledge_mastery", [])
@@ -367,7 +382,7 @@ class UserContextPopulator:
         habits_data = data.get("habits", {})
         context.active_habit_uids = habits_data.get("active_uids", [])
         context.habit_streaks = habits_data.get("habit_streaks", {})
-        context.habit_completion_rates = habits_data.get("completion_rates", {})
+        context.habit_completion_rates = habit_adherence_rates(habits_data["adherence"])
 
         # Goals
         goals_data = data.get("goals", {})
@@ -698,9 +713,13 @@ class UserContextPopulator:
                 if goal and goal.get("uid"):
                     habits_by_goal.setdefault(goal["uid"], []).append(habit_uid)
 
-            # Compute at-risk habits (streak == 0 or low completion rate)
+            # At risk: an active habit (the ones with a measured rate) whose
+            # streak is broken or whose adherence is under half. A paused or
+            # archived habit in the window has no rate and is not at risk.
+            completion_rate = context.habit_completion_rates.get(habit_uid)
+            if completion_rate is None:
+                continue
             streak = context.habit_streaks.get(habit_uid, 0)
-            completion_rate = context.habit_completion_rates.get(habit_uid, 0.0)
             if streak == 0 or completion_rate < 0.5:
                 at_risk_habits.append(habit_uid)
 

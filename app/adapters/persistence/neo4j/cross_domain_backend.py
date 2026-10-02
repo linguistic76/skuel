@@ -24,6 +24,10 @@ from adapters.persistence.neo4j.query.cypher import (
     build_knowledge_read_clause,
     build_publication_clause,
 )
+from adapters.persistence.neo4j.query.cypher.habit_fragments import (
+    build_completion_in_window_predicate,
+    build_habit_window_completion_count,
+)
 from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
@@ -776,8 +780,7 @@ class CrossDomainBackend:
             OPTIONAL MATCH (analytics:HabitAnalytics {{user_uid: $user_uid}})
             OPTIONAL MATCH (u:User {{uid: $user_uid}})
             OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(hc:HabitCompletion)
-            WHERE datetime(hc.completed_at) >= datetime($start_bound)
-              AND datetime(hc.completed_at) < datetime($end_bound)
+            WHERE {build_completion_in_window_predicate("hc", "start_bound", "end_bound")}
             RETURN analytics, count(hc) AS completions_in_window
             """,
             params={
@@ -787,6 +790,50 @@ class CrossDomainBackend:
             },
             processor=_to_habit_analytics_rows,
             operation="get_habit_analytics",
+        )
+
+    async def get_habit_window_completions(
+        self, habit_uids: list[str], window_start: str, window_end: str
+    ) -> Result[dict[str, int]]:
+        """Each habit's completions in the trailing window — the per-habit sibling
+        of :meth:`get_habit_analytics`' per-user count.
+
+        The numerator of a habit's adherence
+        (``core.models.habit.adherence.habit_adherence``). ``window_start`` and
+        ``window_end`` are inclusive ISO ``YYYY-MM-DD`` dates
+        (``adherence_window_days``), turned into the same ``[start, end)``
+        stored-clock bounds and compared through the same predicate
+        (``habit_fragments``), so a future-stamped completion is outside the
+        window and a stamp's storage type cannot change the answer.
+
+        A completion counts for a habit when the habit's owner owns it (``OWNS``,
+        ADR-086) and it names the habit — the owner is read from the habit, so
+        another user's record carrying the same ``habit_uid`` never counts.
+        Every requested habit that has an owner gets an entry, zero included; a
+        uid that matches no owned habit is absent.
+        """
+        start_bound, end_bound = stored_day_bounds(
+            date.fromisoformat(window_start), date.fromisoformat(window_end), current_zone()
+        )
+        count = build_habit_window_completion_count(
+            "owner", "habit", start_param="start_bound", end_param="end_bound"
+        )
+        result = await self.executor.execute_query(
+            f"""
+            MATCH (owner:User)-[:{RelationshipName.OWNS.value}]->(habit:Entity:Habit)
+            WHERE habit.uid IN $habit_uids
+            RETURN habit.uid AS uid, {count} AS completions_in_window
+            """,
+            {
+                "habit_uids": habit_uids,
+                "start_bound": start_bound.isoformat(),
+                "end_bound": end_bound.isoformat(),
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            {str(row["uid"]): int(row["completions_in_window"]) for row in result.value or []}
         )
 
     # ====================================================================

@@ -146,9 +146,10 @@ At standard depth it is an empty dict.
 
 One concurrent round-trip under a single `asyncio.gather`:
 
-- **The MEGA-QUERY** — six plan-cached statements, one per read family
+- **The MEGA-QUERY** — seven plan-cached statements, one per read family
   (`RICH_CONTEXT_STATEMENTS` in `adapters/persistence/neo4j/user_context_queries.py`: tasks &
-  goals, habits & events, principles & choices, knowledge, curriculum, learner state), run by
+  goals, habits & events, habit adherence, principles & choices, knowledge, curriculum, learner
+  state), run by
   `execute_mega_query` and merged by top-level key.
 - **Five reads beside it** — current path steps, PS engagements, groups,
   `SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`.
@@ -270,11 +271,12 @@ Appended to `plan.warnings` in this order:
 4. `workload_utilization > 0.9`; no learning scheduled while `context.learning_goals` is set.
 5. Domain health — only when `filtered_providers` is non-empty (§ Domain-health warnings).
 6. Momentum — `TemporalMomentumMixin`: domains with nothing in `entities_rich`, and habit
-   consistency under 0.4. Consistency is the mean of the `completion_rate` values the habit
-   items in `entities_rich` carry, and `None` when no item carries one; `None` raises no
-   warning. The Habit node's rate property is `success_rate` and no completion door writes a
-   `completion_rate`, so the signal is `None` for a habit created through the app — see
-   `/docs/roadmap/habit-completion-persistence-bundle.md` (⚠ *Readers of a rate no door writes*).
+   consistency under 0.4. Consistency is the mean of `context.habit_completion_rates` — each
+   active habit's adherence, derived at read time from its `:HabitCompletion` nodes in the
+   trailing 30-day window (`core/models/habit/adherence.py`) — and `None` for a user with no
+   active habit; `None` raises no warning. A completion made through
+   `POST /api/context/habit/complete` leaves no node and does not count — see
+   `/docs/roadmap/habit-completion-persistence-bundle.md` (⚠ *A rate derived at read time*).
 
 ### Domain-health warnings
 

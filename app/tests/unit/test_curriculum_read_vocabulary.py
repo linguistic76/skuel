@@ -225,6 +225,7 @@ def test_the_rich_context_composition_token_is_actually_substituted() -> None:
     rollups_per_statement = {
         "tasks_and_goals": 1,
         "habits_and_events": 2,
+        "habit_adherence": 0,
         "principles_and_choices": 2,
         "knowledge": 0,
         "curriculum": 0,

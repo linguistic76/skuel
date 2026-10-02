@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-09-29
+updated: 2026-10-02
 status: current
 category: domains
 tags:
@@ -125,17 +125,20 @@ Common sub-services created via `create_common_sub_services()` factory (with `sk
 | `user_uid` | `str` | Owner user |
 | `title` | `str` | Habit title |
 | `description` | `str?` | Habit description |
-| `frequency` | `HabitFrequency` | Daily, Weekly, etc. |
-| `target_count` | `int` | Target completions per period |
-| `current_streak` | `int` | Current streak count |
-| `best_streak` | `int` | Best streak achieved |
-| `completion_rate` | `float` | Historical completion rate (0.0-1.0) |
-| `is_active` | `bool` | Whether habit is active |
-| `priority` | `Priority` | Low, Medium, High, Urgent |
-| `cue` | `str?` | Habit cue (trigger) |
-| `craving` | `str?` | What the habit satisfies |
-| `response` | `str?` | The habit action |
-| `reward` | `str?` | The habit reward |
+| `recurrence_pattern` | `RecurrencePattern?` | Daily, weekly, custom, … — what adherence is measured against |
+| `target_days_per_week` | `int?` | The target for a custom frequency |
+| `current_streak` / `best_streak` | `int` | Streak counters, written by the completion doors |
+| `total_completions` | `int` | Completion tally |
+| `success_rate` | `float` | Stored adherence, written only by `complete_habit_with_quality` (`POST /api/context/habit/complete`); the user context derives the rate at read time instead (see below) |
+| `status` | `EntityStatus` | `is_active()` reads it |
+| `priority` | `Priority` | On `UserOwnedEntity` |
+| `cue` / `routine` / `reward` | `str?` | The habit loop |
+
+Adherence — a habit's completions in the trailing 30-day window over what its frequency expects
+there, at most 1.0 — is derived when it is read, from `:HabitCompletion` nodes
+(`core/models/habit/adherence.py`); a value stored at completion time stops being true the next
+day without a completion. Design and the write-side work it leaves open:
+`/docs/roadmap/habit-completion-persistence-bundle.md`.
 
 ## Relationships
 
@@ -185,9 +188,12 @@ The helper lives in `core/services/habits/_goal_links.py` and is called by `Habi
 ## MEGA-QUERY Sections
 
 - `active_habit_uids` - Active habit UIDs
-- `habit_metadata` - Streak and rate per habit `{uid, streak, rate}`
+- `habit_metadata` - Streak per active habit `{uid, streak}`
+- `habit_adherence` - Per active habit, its completions in the adherence window and its frequency
+  (`HABIT_ADHERENCE_QUERY`, its own statement)
 - `habit_streaks` - Current streaks dict
-- `habit_completion_rates` - Completion rates dict
+- `habit_completion_rates` - Adherence per active habit, derived by the populator from
+  `habit_adherence` with `habit_adherence()` — never read off the node
 - `entities_rich["habits"]` - Full habit data with graph context
 
 ## Habit Loop (Atomic Habits)

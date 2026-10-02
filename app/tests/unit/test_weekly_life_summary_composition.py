@@ -138,7 +138,7 @@ class _StubLpService:
 
 
 class _StubCrossDomainBackend:
-    """The two cross-domain reads the metrics service makes — ONE object, as in production.
+    """The three cross-domain reads the metrics service makes — ONE object, as in production.
 
     ``get_journal_entries_in_range`` returns rows shaped as
     ``_get_journal_reports`` reads them.
@@ -151,6 +151,10 @@ class _StubCrossDomainBackend:
     at this seam is that the metric sources its channels from the BACKEND at all
     — a UserContext's copies are bounded by the planning window and would drop
     older applications.
+
+    ``get_habit_window_completions`` answers each habit's completions in the
+    adherence window: the three daily habits seeded below read 30, 15 and 0 of
+    an expected 30, so their mean adherence is exactly 50 %.
     """
 
     def __init__(self, records: list[dict[str, Any]]) -> None:
@@ -165,6 +169,12 @@ class _StubCrossDomainBackend:
         self, user_uid: str, activity_types: list[str]
     ) -> Result[list[dict[str, Any]]]:
         return Result.ok([])
+
+    async def get_habit_window_completions(
+        self, habit_uids: list[str], window_start: str, window_end: str
+    ) -> Result[dict[str, int]]:
+        counts = {"h1": 30, "h2": 15, "h3": 0}
+        return Result.ok({uid: counts[uid] for uid in habit_uids})
 
 
 # ============================================================================
@@ -410,6 +420,7 @@ class TestWeeklyLifeSummaryComposition:
         assert layer1["tasks"]["completed_count"] == 1
         assert layer1["tasks"]["completion_rate"] == 50.0
         assert layer1["habits"]["total_active"] == 3
+        assert layer1["habits"]["consistency_rate"] == 50.0
         assert layer1["goals"]["total_active"] == 1
         assert layer1["goals"]["total_completed"] == 1
         assert layer1["events"]["total_count"] == 2

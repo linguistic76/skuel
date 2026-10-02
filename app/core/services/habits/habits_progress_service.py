@@ -18,7 +18,7 @@ from typing import Any
 
 from core.constants import HabitConsistencyWindow
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
-from core.models.enums import RecurrencePattern as HabitFrequency
+from core.models.habit.adherence import habit_adherence
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -499,30 +499,19 @@ class HabitsProgressService:
         to persist: see the note at the ``success_rate`` write in
         :meth:`complete_habit_with_quality`.
 
+        The ratio itself is :func:`~core.models.habit.adherence.habit_adherence`,
+        the one definition the read-time readers share; this method only counts
+        the window's completions from the list it is handed.
+
         GRAPH-NATIVE: Completions fetched from graph, not from habit.completion_history.
         """
-        if not completions:
-            return 0.0
-
         window_start = HabitConsistencyWindow.start_date(as_of_date)
         window_end = HabitConsistencyWindow.end_date(as_of_date)
         zone = current_zone()
-        recent_completions = [
-            c for c in completions if window_start <= day_of(c.completed_at, zone) <= window_end
-        ]
-
-        # Expected completions across the window, per the habit's own frequency.
-        expected = HabitConsistencyWindow.DAYS  # Daily
-        if habit.recurrence_pattern == HabitFrequency.WEEKLY:
-            expected = HabitConsistencyWindow.DAYS // 7
-        elif habit.recurrence_pattern == HabitFrequency.CUSTOM:
-            # Use target_days_per_week for custom frequency, scaled to the window
-            expected = ((habit.target_days_per_week or 0) * HabitConsistencyWindow.DAYS) // 7
-
-        if expected == 0:
-            return 0.0
-
-        return min(1.0, len(recent_completions) / expected)
+        in_window = sum(
+            1 for c in completions if window_start <= day_of(c.completed_at, zone) <= window_end
+        )
+        return habit_adherence(habit.recurrence_pattern, habit.target_days_per_week, in_window)
 
     # ========================================================================
     # KEYSTONE HABIT MANAGEMENT

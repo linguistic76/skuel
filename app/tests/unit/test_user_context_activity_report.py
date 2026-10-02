@@ -158,7 +158,7 @@ def test_populate_from_consolidated_data_wires_activity_report() -> None:
 
     data = {
         "tasks": {},
-        "habits": {},
+        "habits": {"adherence": []},
         "goals": {},
         "knowledge": {},
         "events": {},
@@ -185,7 +185,7 @@ def test_populate_from_consolidated_data_no_activity_report() -> None:
 
     data: dict[str, Any] = {
         "tasks": {},
-        "habits": {},
+        "habits": {"adherence": []},
         "goals": {},
         "knowledge": {},
         "events": {},
@@ -210,7 +210,7 @@ def test_populate_from_consolidated_data_wires_principles_and_choices() -> None:
 
     data = {
         "tasks": {},
-        "habits": {},
+        "habits": {"adherence": []},
         "goals": {},
         "knowledge": {},
         "events": {},
@@ -232,7 +232,7 @@ def test_populate_from_consolidated_data_principles_choices_absent() -> None:
 
     data: dict[str, Any] = {
         "tasks": {},
-        "habits": {},
+        "habits": {"adherence": []},
         "goals": {},
         "knowledge": {},
         "events": {},
@@ -252,7 +252,7 @@ def test_populate_from_consolidated_data_filters_null_principle_choice_uids() ->
 
     data = {
         "tasks": {},
-        "habits": {},
+        "habits": {"adherence": []},
         "goals": {},
         "knowledge": {},
         "events": {},

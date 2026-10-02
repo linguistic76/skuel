@@ -18,6 +18,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+from adapters.persistence.neo4j.user_context_queries import empty_context_data
 from core.models.enums import LearningLevel, TimeOfDay
 from core.models.user.user import User, UserPreferences
 from core.services.user.unified_user_context import UserContext
@@ -171,7 +172,10 @@ class TestBuilderWiresPreferences:
         executor.execute_mega_query = AsyncMock(
             return_value=Result.ok({"uids": {}, "entities": {}, "rich": {}})
         )
-        executor.execute_consolidated_query = AsyncMock(return_value=Result.ok({}))
+        # The shape the real executor answers for a user with no graph rows.
+        executor.execute_consolidated_query = AsyncMock(
+            return_value=Result.ok(empty_context_data())
+        )
         executor.fetch_current_path_steps = AsyncMock(
             return_value=Result.fail(Errors.system(message="not in this test"))
         )

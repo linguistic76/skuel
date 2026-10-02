@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-10-01
+updated: 2026-10-02
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -166,11 +166,11 @@ lock-derived persistence operation behind all four production doors**: `/api/hab
 (`record_completion`), the calendar (`record_habit_occurrence` → the same), `/api/habits/bulk-complete`
 (`_record_completion_no_event`, with explicit bulk response/event semantics — today it has UID
 collisions, discarded update failures, partial success and non-canonical events of its own), and
-`/api/context/habit/complete` — carrying `success_rate` into the shared operation, **derived and
-persisted inside the same locked statement** (or derived at read time), never as post-commit
-work: a recalculation that runs after the node commits recreates defect 4's stranded window and
-lets concurrent completions overwrite each other's rate; the same holds for untrack's inverse —
-or deletes the door; a ruling taken at build time, not a default.
+`/api/context/habit/complete` — or deletes the door; a ruling taken at build time, not a default.
+The rate is no longer the shared operation's to persist: it is **derived at read time** (ruled
+2026-10-01, see *A rate derived at read time* below), so the migrated door's only obligation to
+it is to leave a node behind — a rate persisted after the node commits would recreate defect 4's
+stranded window and let concurrent completions overwrite each other's value.
 A redesign that leaves bulk on its own helper closes the bundle with a defective path still
 open. **And routing future calls is not enough:** every contextual completion made before the
 migration exists only in `Habit.total_completions`, the streak fields and already-published
@@ -218,27 +218,50 @@ and the handler would learn its hour and on-time sample. Its side effects are de
 excluded until its occurrence day arrives — the same decision as that row's `current_streak`
 semantics, taken once.
 
-⚠ **Readers of a rate no door writes.** Four readers name the habit's rate `completion_rate`,
-a property no door sets on a `Habit` node (the model and DTO field is `success_rate`; the only
-writers of `completion_rate` are test fixtures that `CREATE` the node by hand —
-`tests/integration/test_unified_user_context.py`,
-`tests/integration/test_rich_context_statement_equivalence.py`): `HABITS_AND_EVENTS_QUERY` and
-`CONSOLIDATED_QUERY` (`adapters/persistence/neo4j/user_context_queries.py`) project
-`coalesce(habit.completion_rate, 0.0)` as each habit's rate;
-`TemporalMomentumMixin.compute_momentum_signals` reads `completion_rate` off the habit's
-properties; and `AnalyticsMetricsService.calculate_habit_metrics` reads `habit.completion_rate` off the
-model under a suppressed `AttributeError`, so its `completion_rate` and `consistency_rate` are
-0.0, and `AnalyticsAggregationService`'s `habit_consistency` with them. So
-`UserContext.habit_completion_rates` is 0.0 for every habit, and what is derived from it
-follows: `populate_derived_fields` classes a habit at risk when `streak == 0 or rate <
-0.5`, which is every habit in the window; `HabitsStats.consistency_rate` and the overall
-completion blend (`core/services/user_stats_types.py`) average zeros; `ContextualHabit`'s
-fallback rate is 0.0. The momentum signal is `None` (nothing to average), so the daily plan's
-"Habit consistency is low" warning stays silent — a silence, not a false statement, which is
-why #1475 left the property name alone. Re-pointing these readers at `success_rate` is part of
-this bundle and not before it: `record_completion` never writes `success_rate`, so until the
-shared writer derives it the re-pointed readers would report 0.0 for a habit kept daily through
-`/api/habits/track` and the warning would fire on it.
+⚠ **A rate derived at read time — pulled forward out of this bundle (HA-1, ruled 2026-10-01).**
+A rate over "the last thirty days" changes when a day passes with no completion, so a value
+persisted at completion time cannot stay true — a habit kept daily and then dropped would hold
+1.0 forever. Mike ruled (A1) that the rate is derived when it is read, and that the derivation is
+not this bundle's work: it shipped ahead of it. What it is now:
+
+- **One definition.** `core/models/habit/adherence.py` — `habit_adherence(recurrence_pattern,
+  target_days_per_week, completions_in_window)`: the habit's completions in the trailing
+  `HabitConsistencyWindow` over what its frequency expects there, at most 1.0 — the ratio
+  `HabitsProgressService._calculate_consistency_from_completions` always computed, which now calls
+  it. The window is fixed: a habit younger than it is measured against all thirty days (a 3-day-old
+  daily habit kept 3/3 reads 0.1 — whether `expected` scales to a habit's age is an open product
+  question).
+- **One count.** `adapters/persistence/neo4j/query/cypher/habit_fragments.py` — the window
+  predicate (`datetime()` on both operands, `[start, end)` from `stored_day_bounds`, so a
+  future-stamped completion is outside) and the per-habit count (completions the habit's OWNER
+  owns that name the habit). Composed by `CrossDomainBackend.get_habit_analytics` (per user),
+  `CrossDomainBackend.get_habit_window_completions` (per habit), and both user-context statements.
+- **The readers the stale `completion_rate` name used to blind.** `HABIT_ADHERENCE_QUERY` (its own
+  `RICH_CONTEXT_STATEMENTS` entry) and `CONSOLIDATED_QUERY` project each active habit's window
+  count; the populator derives `UserContext.habit_completion_rates` from it, so the at-risk
+  classification (active habits only: no streak, or under half), `HabitsStats.consistency_rate`,
+  the overall completion blend (`core/services/user_stats_types.py`) and `ContextualHabit`'s
+  fallback rate are true together. `TemporalMomentumMixin` reads the derived rates (`None` for a
+  user with no active habit); `AnalyticsMetricsService.calculate_habit_metrics` counts through
+  `get_habit_window_completions`. Nothing reads a `completion_rate` property off a Habit node any
+  longer, and no fixture writes one.
+- **Not yet:** the stored `Habit.success_rate` and its ~25 readers (goal prediction, dual-track,
+  scheduling, planning, intelligence, AI, the habit detail page) still read the field
+  `complete_habit_with_quality` persists — HA-2 hydrates it at the Habit read chokepoints from the
+  same count and retires the stored field and its writer.
+
+**B1 — the node-less door is left exactly as it is, and is invisible to the rate.** Only a
+`:HabitCompletion` node counts, so a completion made through `POST /api/context/habit/complete`
+(`complete_habit_with_quality`) counts for nothing in the derived rate until this bundle migrates
+that door onto the shared node-writing operation (which it already requires). The door has no UI
+caller.
+
+**The bundle keeps every write-side defect, and its trigger.** No write path was touched by the
+derivation. The derived rate counts nodes, so the defects above now reach it: a same-day
+double-tap or a same-second uid collision (defects 2 and 4) adds a node and inflates the day's
+count until the `(habit_uid, day)` invariant lands — bounded by the clamp at 1.0 — and an
+orphaned completion (defect 1) still counts toward a user's per-user consistency, though not
+toward any habit's rate (its habit is gone).
 
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
@@ -251,7 +274,10 @@ rides `find_by_date_range`'s normalized range predicate.
 **Trigger:** lived habit-completion use — live graph 2026-08-28: **0 `HabitCompletion` nodes**
 across 5 habits, and the node-less door's footprint is zero too (`sum(h.total_completions)` 0, no
 `last_completed`, `max(current_streak)` 0); the machinery has never been exercised outside #915's
-swept acceptance run. ⚠ The node count alone cannot see the `/api/context` door — a habit tally
+swept acceptance run. Re-read 2026-10-02 (HA-1, read-only): **1 node** across 6 habits (all
+daily), `completed_at` an ISO string (`2026-09-04T07:00:00`), owned by its habit's owner, and
+`sum(h.total_completions)` 1 — tally equals node count, so no `/api/context` completion; no Habit
+carries a non-zero `success_rate`, none carries `completion_rate`. ⚠ The node count alone cannot see the `/api/context` door — a habit tally
 above the node count is that door's signature (`get_habit_analytics` already counts nodes only),
 so the check reads both. Or
 the next touch of the completion write path (`record_completion` / `_record_completion_no_event` /
@@ -265,4 +291,4 @@ leaves totals permanently stale behind a "success"; a dup-heavy history under-re
 `best_streak`; an untrack answers `removed: true` having removed nothing; a tracked or calendar
 completion advances no goal progress, invalidates no context cache, and reports no broken streak
 (no `HabitCompleted`, no `HabitStreakBroken`).
-Today every one of these costs nothing, because nothing has been written.
+Today every one of these costs next to nothing: one completion has been written.
