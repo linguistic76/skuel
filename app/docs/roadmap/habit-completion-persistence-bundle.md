@@ -239,15 +239,18 @@ not this bundle's work: it shipped ahead of it. What it is now:
   predicate (`datetime()` on both operands, `[start, end)` from `stored_day_bounds`, so a
   future-stamped completion is outside) and the per-habit count (completions the habit's OWNER
   owns that name the habit). Composed by `CrossDomainBackend.get_habit_analytics` (per user),
-  `CrossDomainBackend.get_habit_window_completions` (per habit), and both user-context statements.
+  `HabitsBackend.get_habit_window_completions` (per habit, on `HabitsOperations`), and both
+  user-context statements. `HabitsService.get_adherence_rates(habits)` composes the per-habit
+  count with `habit_adherence` for any caller holding Habit models.
 - **The readers the stale `completion_rate` name used to blind.** `HABIT_ADHERENCE_QUERY` (its own
   `RICH_CONTEXT_STATEMENTS` entry) and `CONSOLIDATED_QUERY` project each active habit's window
   count; the populator derives `UserContext.habit_completion_rates` from it, so the at-risk
   classification (active habits only: no streak, or under half), `HabitsStats.consistency_rate`,
   the overall completion blend (`core/services/user_stats_types.py`) and `ContextualHabit`'s
   fallback rate are true together. `TemporalMomentumMixin` reads the derived rates (`None` for a
-  user with no habit that has a rate); `AnalyticsMetricsService.calculate_habit_metrics` counts through
-  `get_habit_window_completions`. Nothing reads a `completion_rate` property off a Habit node any
+  user with no habit that has a rate); `AnalyticsMetricsService.calculate_habit_metrics` reads
+  `HabitsService.get_adherence_rates`. A completion through `complete_habit_with_quality` on a
+  habit with no rate stores the field's default (0.0) rather than leaving an earlier rate standing. Nothing reads a `completion_rate` property off a Habit node any
   longer, and no fixture writes one.
 - **Not yet:** the stored `Habit.success_rate` and its ~25 readers (goal prediction, dual-track,
   scheduling, planning, intelligence, AI, the habit detail page) still read the field

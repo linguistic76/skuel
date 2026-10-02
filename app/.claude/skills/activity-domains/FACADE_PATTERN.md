@@ -255,4 +255,6 @@ Each Activity Domain backend extends `_HierarchyMixin` for parent-child ops (HAS
 HAS_SUBGOAL, etc.). Most add domain-specific methods such as `get_stats_for_user()`.
 HabitsBackend additionally has badge/achievement methods: per-habit streak badges
 (`award_badge`, `check_badge_already_earned`) and cross-habit aggregate badges
-(`award_user_badge`, `check_user_badge_earned`, `get_user_badge_stats`).
+(`award_user_badge`, `check_user_badge_earned`, `get_user_badge_stats`), and
+`get_habit_window_completions` — each habit's completions in the adherence window, the count
+`HabitsService.get_adherence_rates` turns into rates (`core/models/habit/adherence.py`).

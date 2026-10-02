@@ -472,7 +472,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-02"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library

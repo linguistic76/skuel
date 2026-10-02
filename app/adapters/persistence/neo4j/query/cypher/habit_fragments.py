@@ -7,7 +7,7 @@ are the Cypher half of that definition: which ``:HabitCompletion`` is inside the
 window, and how many of them belong to one habit. Every read that counts
 completions toward adherence or consistency composes them — the per-user count
 behind ``consistency_score`` (``CrossDomainBackend.get_habit_analytics``), the
-per-habit count (``CrossDomainBackend.get_habit_window_completions``) and both
+per-habit count (``HabitsBackend.get_habit_window_completions``) and both
 user-context statements. A copy is a second definition that drifts — compose,
 never restate.
 
