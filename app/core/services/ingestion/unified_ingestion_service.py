@@ -1135,22 +1135,19 @@ class UnifiedIngestionService:
         file_uid: str | None = None
         if (
             vault_kind is VaultKind.PERSONAL
-            and self.ingestion_backend is not None
             and isinstance(entity_type, EntityType)
             and entity_type in MINTED_IDENTITY_TYPES
             and "uid" not in data
         ):
-            identities = await read_tracked_identities(
-                IngestionTracker(self.ingestion_backend), self._write_backend, [file_path]
-            )
-            if identities.is_error:
-                return Result.fail(identities)
-            file_uid = personal_file_uid(
-                entity_type,
-                file_path,
-                effective_user_uid,
-                identities.value.get(str(file_path.resolve())),
-            )
+            tracked = None
+            if self.ingestion_backend is not None:
+                identities = await read_tracked_identities(
+                    IngestionTracker(self.ingestion_backend), self._write_backend, [file_path]
+                )
+                if identities.is_error:
+                    return Result.fail(identities)
+                tracked = identities.value.get(str(file_path.resolve()))
+            file_uid = personal_file_uid(entity_type, file_path, effective_user_uid, tracked)
         try:
             entity_data = prepare_entity_data(
                 entity_type,

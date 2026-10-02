@@ -3,17 +3,18 @@ Vault Policy — what a vault file may write, by the kind of vault it lives in
 =============================================================================
 
 A personal vault belongs to one user, so what a file in it can say is narrower
-than what the content vault can (ADR-070 Decision 11, ruled 2026-10-01):
+than what the content vault can (ADR-070 Decision 11):
 
 - **What it may hold.** A personal vault ingests the six Activity types, the
   user's ``life_path`` and ``user_entry`` notes (journals, fulfilled assignments,
   knowledge notes). An Edge file, a Group file and every curriculum type belong
   to the content vault and are refused — reported as ignored-with-reason, never
   half-written.
-- **Whose identity it has.** A uid-less personal Activity or life-path file mints
-  its own uid on its first sync (``task_{slug}_{random}``, the API's form) and keeps
-  it through its tracker row, so two users with the same filename hold two
-  entities and a rename keeps the entity. The content vault keeps
+- **Whose identity it has.** A uid-less personal Activity or life-path file has its
+  own uid (``task_{slug}_{suffix}``, the API's form) — derived from its owner and
+  path, so the first sync and any re-sync agree whether or not a tracker row
+  landed — and keeps it through its tracker row, so a rename keeps the entity and
+  two users with the same filename hold two entities. The content vault keeps
   ``{prefix}.{file stem}``. ``user_entry`` has its own path-keyed identity
   (``UnifiedIngestionService._resolve_prior_user_entry_uid``).
 - **What it may link.** A personal file's frontmatter targets are its owner's or
@@ -31,6 +32,7 @@ See: /docs/decisions/ADR-070-bidirectional-vault-bridge.md,
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
@@ -67,7 +69,8 @@ _PERSONAL_TYPE_NAMES: Final = ", ".join(sorted(member.value for member in PERSON
 
 
 def personal_vault_refusal(
-    entity_type: EntityType | NonKuDomain | None, data: Mapping[str, Any]
+    entity_type: EntityType | NonKuDomain | None,
+    data: Mapping[str, Any],  # boundary: parsed YAML frontmatter — heterogeneous by authoring
 ) -> str | None:
     """Why a personal vault refuses this file, or ``None`` when it ingests it.
 
@@ -98,7 +101,7 @@ def personal_vault_refusal(
 def vault_refusal(
     kind: VaultKind | None,
     entity_type: EntityType | NonKuDomain | None,
-    data: Mapping[str, Any],
+    data: Mapping[str, Any],  # boundary: parsed YAML frontmatter — heterogeneous by authoring
 ) -> str | None:
     """Why the vault of ``kind`` refuses this file, or ``None``.
 
@@ -210,12 +213,15 @@ def personal_file_uid(
     owner_uid: str,
     tracked: TrackedIdentity | None,
 ) -> str:
-    """The uid a uid-less personal file takes: its tracked one, or a fresh one.
+    """The uid a uid-less personal file takes: its tracked one, or its own derived one.
 
     The tracked uid is kept only while it still names a node of this type owned by
-    this vault's owner alone. Anything else — a row from when the file was another
-    type, an Edge file's identity, a node deleted in the app, or a node someone else
-    holds — gives the file a fresh identity rather than a borrowed one.
+    this vault's owner alone — that is what carries an entity across a rename. Anything
+    else — no row, a row from when the file was another type, an Edge file's identity,
+    a node deleted in the app, a node someone else holds — gives the file the uid
+    derived from its owner and canonical path: ``{prefix}_{slug}_{8 hex}``. Derived,
+    not random, so a sync whose tracker stamp was lost derives the same uid next time
+    instead of creating a second entity, and two owners never derive the same one.
     """
     config = ENTITY_CONFIGS[entity_type]
     if (
@@ -224,7 +230,8 @@ def personal_file_uid(
         and tracked.owners == frozenset({owner_uid})
     ):
         return tracked.uid
-    return str(UIDGenerator.generate_uid(config.uid_prefix, file_path.stem))
+    digest = hashlib.sha256(f"{owner_uid}\0{file_path.resolve()}".encode()).hexdigest()[:8]
+    return f"{config.uid_prefix}_{UIDGenerator.slugify(file_path.stem)}_{digest}"
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +255,7 @@ _TASK_GOAL_COLUMN: Final = "fulfills_goal_uid"
 
 @dataclass(frozen=True)
 class _TargetSite:
-    entity: dict[str, Any]
+    entity: dict[str, Any]  # boundary: a prepared ingestion row — heterogeneous file fields
     field_name: str
     target_uid: str
 
@@ -256,6 +263,7 @@ class _TargetSite:
 async def admit_frontmatter_targets(
     reader: IngestionWriteOperations,
     *,
+    # boundary: prepared ingestion rows — heterogeneous file fields, edited in place
     entities: Sequence[tuple[dict[str, Any], Mapping[str, RelationshipConfig]]],
     owner_uid: str,
     pending_labels: Mapping[str, Sequence[str]],

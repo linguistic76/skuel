@@ -371,16 +371,19 @@ targets linked across users; a Group file's `owner_uid` beat the vault owner; a 
    node's owners (`:OWNS`, `user_uid`, `owner_uid`) under the MERGE's lock and writes nothing to a
    node someone else owns; the file is refused in words that never say whose it is. The
    single-owner "stale owner" delete it replaces was the same statement as the takeover.
-3. **Per-file identity.** A uid-less personal Activity or life-path file mints
-   `{prefix}_{slug}_{random}` on its first sync and keeps it through its tracker row (re-sync,
-   rename, retry) — the path-keyed identity `user_entry` notes already had. The content vault keeps
-   `{prefix}.{file stem}`.
+3. **Per-file identity.** A uid-less personal Activity or life-path file takes
+   `{prefix}_{slug}_{8 hex}`, the hex derived from its owner and path — so a sync whose tracker
+   stamp was lost derives the same uid, and two owners never share one — and keeps it through
+   its tracker row (re-sync, rename, retry), the path-keyed identity `user_entry` notes already
+   had. The content vault keeps `{prefix}.{file stem}`.
 4. **Links.** A personal file's frontmatter targets are its owner's or unowned content — the
    link-edge guard's rule (`partition_link_edges`), applied before the node lands; a refused
    target is warned exactly as a missing one is.
 5. **The content vault.** An Edge file joins two `:Entity` nodes — every ownership, sharing or
-   membership edge has a `:User` or `:Group` end, so none can be written — and never authors
-   `OWNS`; a Group file's owner is the vault's resolved owner.
+   membership edge has a `:User` or `:Group` end, so none can be written — and never authors an
+   access type even between two entities (`RelationshipName.is_access_relationship`: `OWNS`,
+   `SHARES_WITH`, `SHARED_WITH_GROUP`, `SUBMITTED_TO_GROUP`, `MEMBER_OF`); a Group file's owner is
+   the vault's resolved owner.
 6. **One folder per vault.** Compose refuses a personal root that overlaps `INGESTION_PATH`, on
    every transport (`VaultConfig.validate_roots`): a path resolves to one vault, and a personal
    vault holds no curriculum.

@@ -201,8 +201,8 @@ def parse_file_sync(
             refuses what it may not hold (``vault_policy.vault_refusal``) as a
             content fault. ``None`` refuses nothing by kind.
         identities: The tracker's identity per canonical path, when the vault
-            gives its uid-less files their own identity (a tracked personal
-            vault). ``None`` derives ``{prefix}.{file stem}``.
+            gives its uid-less files their own identity (a personal vault; empty
+            when no tracker is wired). ``None`` derives ``{prefix}.{file stem}``.
 
     Returns:
         Tuple of (entity_type, entity_data, None) on success
@@ -985,16 +985,19 @@ async def ingest_directory(
 
     # Per-file identity (personal vaults): each uid-less file keeps the uid its
     # tracker row holds — read AFTER the move pre-pass, so a renamed file finds
-    # its row at the new path. No tracker, no identity to keep: such a scan
-    # derives ``{prefix}.{file stem}``, which the upsert's owner gate still keeps
-    # from taking another user's node. A failed read fails the sync rather than
-    # minting a second identity for every file.
+    # its row at the new path — or takes the uid derived from its owner and path
+    # (``vault_policy.personal_file_uid``). A failed read fails the sync: it
+    # would otherwise hand a renamed file a new identity.
     identities: dict[str, TrackedIdentity] | None = None
-    if vault_kind is VaultKind.PERSONAL and tracker is not None and write_backend is not None:
-        identities_result = await read_tracked_identities(tracker, write_backend, files_to_process)
-        if identities_result.is_error:
-            return Result.fail(identities_result)
-        identities = identities_result.value
+    if vault_kind is VaultKind.PERSONAL:
+        identities = {}
+        if tracker is not None and write_backend is not None:
+            identities_result = await read_tracked_identities(
+                tracker, write_backend, files_to_process
+            )
+            if identities_result.is_error:
+                return Result.fail(identities_result)
+            identities = identities_result.value
 
     # PARALLEL PARSING: Process all files concurrently with semaphore limiting
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -1341,11 +1344,12 @@ async def ingest_directory(
         # chunk step can run.
         chunk_sources: dict[str, ChunkSource] = {}
         batch_moc_items: list[tuple[str, list[str], Path, list[str]]] = []
-        source_paths: dict[str, str] = {}
+        # uid -> every file that authored it: two files may name one uid.
+        source_paths: dict[str, list[str]] = {}
         for entity in entities:
             source_path = entity.pop("_file_path", None)
             if source_path:
-                source_paths[str(entity["uid"])] = source_path
+                source_paths.setdefault(str(entity["uid"]), []).append(source_path)
             # MOC link suffixes are engine-private too — popped for every
             # entity (never a node property), collected for the end-of-sync
             # edge pass when the file carried ``moc: true``.
@@ -1392,18 +1396,18 @@ async def ingest_directory(
             # unstamped, and dropped from every step below.
             refused = set(stats.refused_uids)
             for uid in sorted(refused):
-                refused_path = source_paths.get(uid, f"<batch:{entity_type.value}>")
-                errors.append(
-                    create_error(
-                        file_path=Path(refused_path),
-                        error=uid_in_use_reason(uid),
-                        stage="validation",
-                        error_type="validation",
-                        entity_type=entity_type.value,
-                        field="uid",
-                    ).to_dict()
-                )
-                file_entity_map.pop(refused_path, None)
+                for refused_path in source_paths.get(uid, [f"<batch:{entity_type.value}>"]):
+                    errors.append(
+                        create_error(
+                            file_path=Path(refused_path),
+                            error=uid_in_use_reason(uid),
+                            stage="validation",
+                            error_type="validation",
+                            entity_type=entity_type.value,
+                            field="uid",
+                        ).to_dict()
+                    )
+                    file_entity_map.pop(refused_path, None)
             entities = [entity for entity in entities if str(entity["uid"]) not in refused]
             chunk_sources = {
                 uid: source for uid, source in chunk_sources.items() if uid not in refused
@@ -1424,8 +1428,9 @@ async def ingest_directory(
         else:
             # Nothing landed: the batch's files stay unstamped so the next sync
             # retries them, rather than reading as ingested.
-            for source_path in source_paths.values():
-                file_entity_map.pop(source_path, None)
+            for paths in source_paths.values():
+                for source_path in paths:
+                    file_entity_map.pop(source_path, None)
             batch_error = IngestionError(
                 file=f"<batch:{entity_type.value}>",
                 error=str(result.expect_error()),

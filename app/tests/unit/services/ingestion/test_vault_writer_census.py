@@ -30,8 +30,8 @@ _WRITERS = {
 # ``"<file>::<function>::<call>"`` -> what keeps the write the vault owner's.
 ADMITTED: dict[str, str] = {
     "batch.py::_ingest_edge_batch::write_backend.ingest_edge": (
-        "a personal vault's Edge file is refused at parse (vault_policy); the writer "
-        "binds both ends to :Entity, so no Edge file writes an access edge"
+        "a personal vault's Edge file is refused at parse (vault_policy); an access type "
+        "is refused by validate_edge_data, and the writer binds both ends to :Entity"
     ),
     "unified_ingestion_service.py::ingest_edge::self._write_backend.ingest_edge": (
         "reached only from ingest_file, after its vault-kind refusal — same writer"

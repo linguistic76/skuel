@@ -247,6 +247,7 @@ def is_non_entity_note(file_path: Path) -> bool:
     return not declares_entity_type(data)
 
 
+# boundary: a parsed YAML document — heterogeneous by authoring
 def read_document(file_path: Path) -> dict[str, Any] | None:
     """A file's frontmatter (markdown) or YAML document, read as the ingest gate reads it.
 

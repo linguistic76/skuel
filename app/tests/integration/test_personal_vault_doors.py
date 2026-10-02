@@ -6,7 +6,7 @@ acts-as account. Every scenario runs through the three doors a vault file reache
 the graph by — ``UnifiedIngestionService.ingest_directory``, the single-file door
 ``ingest_file``, and ``VaultReconciler.sync`` — and asserts the graph, not a log.
 
-The rules (ruled 2026-10-01):
+The rules:
 
 1. A personal vault ingests the six Activity types, ``life_path`` and
    ``user_entry``; an Edge file, a Group file and every curriculum type are
@@ -436,6 +436,42 @@ async def test_uidless_personal_task_keeps_its_identity_across_resync_and_rename
     assert [r["uid"] for r in rows] == [uid], rows
 
 
+@pytest.mark.parametrize("door", DOORS)
+async def test_a_lost_tracker_row_never_mints_a_second_entity(env, door) -> None:
+    """The identity a uid-less file is given does not depend on its stamp landing.
+
+    A first sync whose tracker stamp is lost (a failed write) must not leave the
+    next sync to mint a second entity for the same file.
+    """
+    d = env["driver"]
+    _write(env["alice"] / "knowledge" / "once.md", _md("task", "Only once"))
+    await _sync(env, "alice", door)
+    async with d.session() as session:
+        await session.run("MATCH (m:IngestionMetadata) DETACH DELETE m")
+
+    await _sync(env, "alice", door)
+
+    rows = await _uids_titled(d, "Only once")
+    assert len(rows) == 1 and rows[0]["owners"] == [str(ALICE)], rows
+
+
+@pytest.mark.parametrize("door", ("directory", "reconciler"))
+async def test_every_file_naming_a_foreign_uid_is_refused(env, door) -> None:
+    """Two files that name the same node someone else owns are both refused, every sync."""
+    d = env["driver"]
+    _write(env["bob"] / "knowledge" / "secret.md", _md("task", "Bob secret", "uid: task.secret\n"))
+    await _sync(env, "bob", "directory")
+    _write(env["alice"] / "knowledge" / "one.md", _md("task", "One", "uid: task.secret\n"))
+    _write(env["alice"] / "knowledge" / "two.md", _md("task", "Two", "uid: task.secret\n"))
+
+    first = await _sync(env, "alice", door)
+    second = await _sync(env, "alice", door)
+
+    for outcome in (first, second):
+        assert {"one.md", "two.md"} <= set(outcome.refused), outcome.refused
+    assert (await _node(d, "task.secret"))["title"] == "Bob secret"
+
+
 @pytest.mark.parametrize("door", ("directory", "reconciler"))
 async def test_deleting_a_refused_file_never_deletes_the_node_it_failed_to_take(env, door) -> None:
     d = env["driver"]
@@ -567,6 +603,12 @@ async def test_content_edge_files_never_write_access_edges(env, door) -> None:
         "acc_group_share": ("ku.nb2c.a", "group.nb2c-class", "SHARED_WITH_GROUP"),
         "acc_submit": ("ku.nb2c.a", "group.nb2c-class", "SUBMITTED_TO_GROUP"),
         "acc_to_user": ("ku.nb2c.a", str(BOB), "RELATED_TO"),
+        # An access type between two entities grants nothing, and is still
+        # never written: an Edge file authors no ownership, sharing or membership.
+        "acc_shares_entities": ("ku.nb2c.a", "ku.nb2c.b", "SHARES_WITH"),
+        "acc_member_entities": ("ku.nb2c.a", "ku.nb2c.b", "MEMBER_OF"),
+        "acc_group_share_entities": ("ku.nb2c.a", "ku.nb2c.b", "SHARED_WITH_GROUP"),
+        "acc_submit_entities": ("ku.nb2c.a", "ku.nb2c.b", "SUBMITTED_TO_GROUP"),
     }
     for name, (f, t, rel) in access.items():
         _write(c / f"{name}.yaml", f"type: Edge\nfrom: {f}\nto: {t}\nrelationship: {rel}\n")
