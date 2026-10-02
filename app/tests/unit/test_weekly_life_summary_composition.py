@@ -60,8 +60,6 @@ from core.utils.timestamp_helpers import wall_clock_in
 from core.utils.zone_context import current_zone
 
 USER = "user_weekly_summary"
-# Created before the adherence window, so each habit is measured over all of it.
-LONG_AGO = datetime.now() - timedelta(days=90)
 
 # A 7-day window, which is what the journal metric divides entries by.
 START_DATE = date(2026, 8, 1)
@@ -97,6 +95,16 @@ class _StubDomainService:
         if include_completed:
             return Result.ok(list(self._items))
         return Result.ok([i for i in self._items if i.status != EntityStatus.COMPLETED])
+
+
+class _StubHabitsService(_StubDomainService):
+    """Adds the facade's derived-adherence read — the rates the habits facade
+    answers (``HabitsService.get_adherence_rates``): 1.0, 0.5 and 0.0, a mean of
+    exactly 50 %."""
+
+    async def get_adherence_rates(self, habits: list[Any]) -> Result[dict[str, float]]:
+        rates = {"h1": 1.0, "h2": 0.5, "h3": 0.0}
+        return Result.ok({habit.uid: rates[habit.uid] for habit in habits})
 
 
 class _StubPsService:
@@ -140,7 +148,7 @@ class _StubLpService:
 
 
 class _StubCrossDomainBackend:
-    """The three cross-domain reads the metrics service makes — ONE object, as in production.
+    """The two cross-domain reads the metrics service makes — ONE object, as in production.
 
     ``get_journal_entries_in_range`` returns rows shaped as
     ``_get_journal_reports`` reads them.
@@ -153,10 +161,6 @@ class _StubCrossDomainBackend:
     at this seam is that the metric sources its channels from the BACKEND at all
     — a UserContext's copies are bounded by the planning window and would drop
     older applications.
-
-    ``get_habit_window_completions`` answers each habit's completions in the
-    adherence window: the three daily habits seeded below read 30, 15 and 0 of
-    an expected 30, so their mean adherence is exactly 50 %.
     """
 
     def __init__(self, records: list[dict[str, Any]]) -> None:
@@ -171,12 +175,6 @@ class _StubCrossDomainBackend:
         self, user_uid: str, activity_types: list[str]
     ) -> Result[list[dict[str, Any]]]:
         return Result.ok([])
-
-    async def get_habit_window_completions(
-        self, habit_uids: list[str], window_start: str, window_end: str
-    ) -> Result[dict[str, int]]:
-        counts = {"h1": 30, "h2": 15, "h3": 0}
-        return Result.ok({uid: counts[uid] for uid in habit_uids})
 
 
 # ============================================================================
@@ -237,11 +235,11 @@ def metrics() -> AnalyticsMetricsService:
                 Task(uid="t2", title="Draft outline", user_uid=USER, status=EntityStatus.ACTIVE),
             ]
         ),
-        habits_service=_StubDomainService(
+        habits_service=_StubHabitsService(
             [
-                Habit(uid="h1", title="Morning pages", user_uid=USER, created_at=LONG_AGO),
-                Habit(uid="h2", title="Evening walk", user_uid=USER, created_at=LONG_AGO),
-                Habit(uid="h3", title="Reading", user_uid=USER, created_at=LONG_AGO),
+                Habit(uid="h1", title="Morning pages", user_uid=USER),
+                Habit(uid="h2", title="Evening walk", user_uid=USER),
+                Habit(uid="h3", title="Reading", user_uid=USER),
             ]
         ),
         goals_service=_StubDomainService(

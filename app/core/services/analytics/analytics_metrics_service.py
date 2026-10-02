@@ -35,7 +35,6 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus, PrincipleStrength
-from core.models.habit.adherence import adherence_window_days, creation_day, habit_adherence
 from core.models.type_hints import UserUID
 from core.services.knowledge.user_substance import (
     SUBSTANCE_ACTIVITY_TYPES,
@@ -224,8 +223,8 @@ class AnalyticsMetricsService:
         Habits don't use date filtering (ongoing practices). ``completion_rate``
         and ``consistency_rate`` are the mean adherence of the active habits that
         have a rate, in percent — each derived now from its completions in the
-        trailing window (``habit_adherence``), never read off the node; 0.0 when
-        none has one yet, as for a user with no habits.
+        trailing window (``HabitsService.get_adherence_rates``), never read off
+        the node; 0.0 when none has one yet, as for a user with no habits.
         """
         if not self.habits:
             return Result.fail(
@@ -233,17 +232,6 @@ class AnalyticsMetricsService:
                     message="Habits service not available", operation="calculate_habit_metrics"
                 )
             )
-        if not self.cross_domain_backend:
-            return Result.fail(
-                Errors.system(
-                    message=(
-                        "CrossDomainBackend not available — habit completions cannot be "
-                        "counted, so adherence has no source"
-                    ),
-                    operation="calculate_habit_metrics",
-                )
-            )
-
         # Use unified API - dates ignored for habits
         habits_result = await self.habits.get_user_items_in_range(
             user_uid=user_uid,
@@ -265,32 +253,16 @@ class AnalyticsMetricsService:
 
         habits = habits_result.value
 
-        zone = current_zone()
-        today = today_in(zone)
-        window_first, window_last = adherence_window_days(zone)
-        counts_result = await self.cross_domain_backend.get_habit_window_completions(
-            [habit.uid for habit in habits], window_first.isoformat(), window_last.isoformat()
-        )
-        if counts_result.is_error:
-            return Result.fail(counts_result)
-        counts = counts_result.value
+        rates_result = await self.habits.get_adherence_rates(habits)
+        if rates_result.is_error:
+            return Result.fail(rates_result)
+        completion_rates = list(rates_result.value.values())
 
         current_streaks = {}
         best_streaks = {}
-        completion_rates = []
-
         for habit in habits:
             current_streaks[habit.title] = habit.current_streak
             best_streaks[habit.title] = habit.best_streak
-            rate = habit_adherence(
-                habit.recurrence_pattern,
-                habit.target_days_per_week,
-                counts.get(habit.uid, 0),
-                created_on=creation_day(habit.created_at, zone),
-                today=today,
-            )
-            if rate is not None:
-                completion_rates.append(rate)
 
         avg_completion = sum(completion_rates) / len(completion_rates) if completion_rates else 0.0
 

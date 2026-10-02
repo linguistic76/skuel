@@ -18,7 +18,7 @@ from typing import Any
 
 from core.constants import HabitConsistencyWindow
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
-from core.models.habit.adherence import creation_day, habit_adherence
+from core.models.habit.adherence import adherence_window_days, creation_day, habit_adherence
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -251,8 +251,9 @@ class HabitsProgressService:
         consistency = self._calculate_consistency_from_completions(
             habit, existing_completions, today_in(current_zone())
         )
-        if consistency is not None:  # no rate yet: nothing true to store
-            updates["success_rate"] = consistency
+        # No rate (a cadence the window cannot measure, nothing due yet) stores the
+        # field's default rather than leaving an earlier rate standing.
+        updates["success_rate"] = consistency if consistency is not None else 0.0
 
         update_result = await self.backend.update_habit(habit_uid, dict(updates))
         if update_result.is_error:
@@ -468,6 +469,39 @@ class HabitsProgressService:
             analysis["trend"] = "starting"
 
         return Result.ok(analysis)
+
+    async def get_adherence_rates(self, habits: list[Habit]) -> Result[dict[str, float]]:
+        """Each habit's adherence now, keyed by uid — the habits that have a rate.
+
+        Counts each habit's completions in the trailing window in one read
+        (``HabitsOperations.get_habit_window_completions``, owner-scoped) and
+        hands each count to :func:`~core.models.habit.adherence.habit_adherence`
+        with the habit's cadence and creation day. A habit with no rate yet is
+        left out — no measurement, not 0.0.
+        """
+        if not habits:
+            return Result.ok({})
+        zone = current_zone()
+        today = today_in(zone)
+        first_day, last_day = adherence_window_days(zone)
+        counts_result = await self.backend.get_habit_window_completions(
+            [habit.uid for habit in habits], first_day.isoformat(), last_day.isoformat()
+        )
+        if counts_result.is_error:
+            return Result.fail(counts_result)
+        counts = counts_result.value
+        rates: dict[str, float] = {}
+        for habit in habits:
+            rate = habit_adherence(
+                habit.recurrence_pattern,
+                habit.target_days_per_week,
+                counts.get(habit.uid, 0),
+                created_on=creation_day(habit.created_at, zone),
+                today=today,
+            )
+            if rate is not None:
+                rates[habit.uid] = rate
+        return Result.ok(rates)
 
     def _calculate_consistency_from_completions(
         self, habit: Habit, completions: list[HabitCompletion], as_of_date: date

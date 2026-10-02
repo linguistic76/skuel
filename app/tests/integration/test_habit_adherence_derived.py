@@ -45,7 +45,6 @@ import time_machine
 from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
@@ -59,6 +58,7 @@ from core.models.type_hints import UserUID
 from core.models.user.user import User
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
 from core.services.habits.habits_completion_service import HabitsCompletionService
+from core.services.habits.habits_progress_service import HabitsProgressService
 from core.services.user import UserContext
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 from core.services.user.unified_user_context import is_rich
@@ -124,13 +124,20 @@ class _Momentum(TemporalMomentumMixin):
 
 
 class _HabitsFacade:
-    """The one facade call ``calculate_habit_metrics`` makes, answered from the graph."""
+    """The two facade calls ``calculate_habit_metrics`` makes, answered from the graph —
+    the rates by the real ``HabitsProgressService`` over the real backend."""
 
     def __init__(self, backend: HabitsBackend) -> None:
         self._backend = backend
+        self._progress = HabitsProgressService(
+            backend, completions_service=None, relationship_service=None
+        )
 
     async def get_user_items_in_range(self, user_uid: str, **_: object) -> Result[list[Habit]]:
         return await self._backend.find_by(user_uid=user_uid)
+
+    async def get_adherence_rates(self, habits: list[Habit]) -> Result[dict[str, float]]:
+        return await self._progress.get_adherence_rates(habits)
 
 
 async def _create_habit(
@@ -380,11 +387,10 @@ class TestHabitWindowCompletionsRead:
     async def test_each_habit_counts_its_owners_completions_in_the_window(
         self, neo4j_driver: AsyncDriver, graph: HabitsBackend
     ) -> None:
-        backend = CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver))
         first = HabitConsistencyWindow.start_date(TODAY).isoformat()
         last = HabitConsistencyWindow.end_date(TODAY).isoformat()
 
-        result = await backend.get_habit_window_completions(
+        result = await graph.get_habit_window_completions(
             [KEPT_HABIT, BULK_HABIT, DROPPED_HABIT, INTRUDER_HABIT, "habit.adherence.missing"],
             first,
             last,
@@ -401,10 +407,7 @@ class TestHabitWindowCompletionsRead:
     async def test_the_analytics_habit_metrics_read_the_derived_rate(
         self, neo4j_driver: AsyncDriver, graph: HabitsBackend
     ) -> None:
-        metrics = AnalyticsMetricsService(
-            habits_service=_HabitsFacade(graph),
-            cross_domain_backend=CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)),
-        )
+        metrics = AnalyticsMetricsService(habits_service=_HabitsFacade(graph))
 
         kept = await metrics.calculate_habit_metrics(KEPT, TODAY, TODAY)
         dropped = await metrics.calculate_habit_metrics(DROPPED, TODAY, TODAY)
