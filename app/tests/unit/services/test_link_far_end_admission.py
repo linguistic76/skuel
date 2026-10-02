@@ -19,6 +19,7 @@ from core.services.mixins.link_edge_guard import (
     GOAL_FAR_END,
     HABIT_FAR_END,
     KNOWLEDGE_FAR_END,
+    LinkFarEnd,
     admit_far_ends_for_owner,
     admit_far_ends_for_source,
 )
@@ -63,7 +64,9 @@ class Endpoints:
         return Result.ok({uid: _LABELS[uid] for uid in uids if uid in _LABELS})
 
 
-async def _from_source(source_uid: str, far_uid: str, far_end=HABIT_FAR_END) -> Result[None]:
+async def _from_source(
+    source_uid: str, far_uid: str, far_end: LinkFarEnd = HABIT_FAR_END
+) -> Result[None]:
     return await admit_far_ends_for_source(
         Endpoints(),
         source_uid=source_uid,
@@ -98,7 +101,7 @@ class TestForSource:
     )
     @pytest.mark.asyncio
     async def test_every_refusal_is_not_found_of_the_far_ends_resource(
-        self, far_uid: str, far_end, reason: str
+        self, far_uid: str, far_end: LinkFarEnd, reason: str
     ) -> None:
         refused = await _from_source("goal_alice", far_uid, far_end)
 

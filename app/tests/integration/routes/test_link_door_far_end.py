@@ -30,6 +30,7 @@ The writers no route reaches are held to the same rule at the service.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 import httpx
@@ -78,6 +79,9 @@ SHARED_STEP = "ps_nb2b_shared"
 _SEEDED = (*OWN.values(), *FOREIGN.values(), OWN_SECOND_PRINCIPLE, SHARED_KU, SHARED_STEP)
 
 OWN_EVENT_TITLE = "caller-owned Event"
+
+# Reads every edge among the seeded nodes as ``(source, type, target)``.
+EdgeReader = Callable[[], Awaitable[set[tuple[str, str, str]]]]
 
 
 @dataclass(frozen=True)
@@ -282,7 +286,7 @@ async def driver(skuel_app) -> AsyncDriver:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def edges(driver: AsyncDriver):
+async def edges(driver: AsyncDriver) -> EdgeReader:
     """Clears every link edge among the seeded nodes, and reads them back."""
 
     async def read() -> set[tuple[str, str, str]]:
@@ -353,7 +357,7 @@ async def client(skuel_app, driver):
 class TestOwnOrSharedFarEnd:
     @pytest.mark.parametrize("door", DOORS, ids=_DOOR_IDS)
     async def test_links_and_writes_the_edge_the_door_names(
-        self, client: httpx.AsyncClient, edges, door: Door
+        self, client: httpx.AsyncClient, edges: EdgeReader, door: Door
     ) -> None:
         response = await client.post(door.url, json=door.body(door.linkable))
 
@@ -364,7 +368,7 @@ class TestOwnOrSharedFarEnd:
 class TestAnotherUsersFarEnd:
     @pytest.mark.parametrize("door", DOORS, ids=_DOOR_IDS)
     async def test_is_refused_as_a_missing_uid_is_and_writes_no_edge(
-        self, client: httpx.AsyncClient, edges, door: Door
+        self, client: httpx.AsyncClient, edges: EdgeReader, door: Door
     ) -> None:
         foreign = await client.post(door.url, json=door.body(door.foreign))
         missing = await client.post(door.url, json=door.body(door.missing))
@@ -380,7 +384,7 @@ class TestAnotherUsersFarEnd:
 class TestWrongKindFarEnd:
     @pytest.mark.parametrize(("door", "far_uid"), _WRONG_KIND_CASES, ids=_WRONG_KIND_IDS)
     async def test_is_refused_as_a_missing_uid_is_and_writes_no_edge(
-        self, client: httpx.AsyncClient, edges, door: Door, far_uid: str
+        self, client: httpx.AsyncClient, edges: EdgeReader, door: Door, far_uid: str
     ) -> None:
         wrong = await client.post(door.url, json=door.body(far_uid))
         missing = await client.post(door.url, json=door.body(door.missing))
@@ -393,7 +397,7 @@ class TestWrongKindFarEnd:
 
 class TestTheSourceItself:
     async def test_a_principle_is_not_linked_to_itself(
-        self, client: httpx.AsyncClient, edges
+        self, client: httpx.AsyncClient, edges: EdgeReader
     ) -> None:
         response = await client.post(
             f"/api/principles/link?uid={OWN['Principle']}",
@@ -404,7 +408,7 @@ class TestTheSourceItself:
         assert await edges() == set()
 
     async def test_the_query_uid_names_the_principle_and_the_body_the_target(
-        self, client: httpx.AsyncClient, edges
+        self, client: httpx.AsyncClient, edges: EdgeReader
     ) -> None:
         response = await client.post(
             f"/api/principles/link?uid={OWN['Principle']}",
@@ -433,7 +437,12 @@ class TestRefusedEventUpdate:
         ],
     )
     async def test_changes_no_property_and_no_existing_edge(
-        self, client: httpx.AsyncClient, driver: AsyncDriver, edges, field: str, far_uid: str
+        self,
+        client: httpx.AsyncClient,
+        driver: AsyncDriver,
+        edges: EdgeReader,
+        field: str,
+        far_uid: str,
     ) -> None:
         linked = await client.post(
             f"/api/events/update?uid={OWN['Event']}",
@@ -463,7 +472,9 @@ class TestRefusedEventUpdate:
             ).single()
         assert row["title"] == OWN_EVENT_TITLE
 
-    async def test_a_cleared_link_is_still_cleared(self, client: httpx.AsyncClient, edges) -> None:
+    async def test_a_cleared_link_is_still_cleared(
+        self, client: httpx.AsyncClient, edges: EdgeReader
+    ) -> None:
         linked = await client.post(
             f"/api/events/update?uid={OWN['Event']}",
             json={"milestone_celebration_for_goal": OWN["Goal"]},
@@ -484,7 +495,7 @@ class TestEventEditForm:
     """``POST /events/edit`` — the form door onto the same update path."""
 
     async def test_the_callers_own_goal_and_habit_link(
-        self, client: httpx.AsyncClient, edges
+        self, client: httpx.AsyncClient, edges: EdgeReader
     ) -> None:
         response = await client.post(
             f"/events/edit?uid={OWN['Event']}",
@@ -509,7 +520,7 @@ class TestEventEditForm:
         ],
     )
     async def test_another_users_or_a_wrong_kind_far_end_writes_no_edge(
-        self, client: httpx.AsyncClient, edges, field: str, far_uid: str
+        self, client: httpx.AsyncClient, edges: EdgeReader, field: str, far_uid: str
     ) -> None:
         response = await client.post(f"/events/edit?uid={OWN['Event']}", data={field: far_uid})
 
@@ -520,7 +531,7 @@ class TestEventEditForm:
 class TestWritersNoRouteReaches:
     """The facade link methods behind no route are held to the same rule."""
 
-    async def test_goal_to_habit(self, skuel_app, edges) -> None:
+    async def test_goal_to_habit(self, skuel_app, edges: EdgeReader) -> None:
         goals = skuel_app.state.services.goals
 
         for far_uid in (FOREIGN["Habit"], OWN["Task"], "habit_nb2b_missing"):
@@ -533,7 +544,7 @@ class TestWritersNoRouteReaches:
         assert linked.is_ok, linked.error
         assert await edges() == {(OWN["Habit"], "SUPPORTS_GOAL", OWN["Goal"])}
 
-    async def test_choice_to_habit(self, skuel_app, edges) -> None:
+    async def test_choice_to_habit(self, skuel_app, edges: EdgeReader) -> None:
         choices = skuel_app.state.services.choices
 
         refused = await choices.link_choice_to_habit(OWN["Choice"], FOREIGN["Habit"])
@@ -544,7 +555,7 @@ class TestWritersNoRouteReaches:
         assert linked.is_ok, linked.error
         assert await edges() == {(OWN["Choice"], "IMPACTS_HABIT", OWN["Habit"])}
 
-    async def test_task_to_knowledge(self, skuel_app, edges) -> None:
+    async def test_task_to_knowledge(self, skuel_app, edges: EdgeReader) -> None:
         tasks = skuel_app.state.services.tasks
 
         for far_uid in (FOREIGN["Task"], SHARED_STEP):
@@ -557,7 +568,7 @@ class TestWritersNoRouteReaches:
         assert await edges() == {(OWN["Task"], "APPLIES_KNOWLEDGE", SHARED_KU)}
 
     async def test_event_to_knowledge_writes_nothing_when_one_far_end_is_refused(
-        self, skuel_app, edges
+        self, skuel_app, edges: EdgeReader
     ) -> None:
         events = skuel_app.state.services.events
 
@@ -569,7 +580,7 @@ class TestWritersNoRouteReaches:
         assert linked.is_ok, linked.error
         assert await edges() == {(OWN["Event"], "APPLIES_KNOWLEDGE", SHARED_KU)}
 
-    async def test_event_to_habit(self, skuel_app, edges) -> None:
+    async def test_event_to_habit(self, skuel_app, edges: EdgeReader) -> None:
         events = skuel_app.state.services.events
 
         refused = await events.link_event_to_habit(OWN["Event"], FOREIGN["Habit"])
@@ -578,7 +589,7 @@ class TestWritersNoRouteReaches:
 
     @pytest.mark.parametrize("habit_uid", [FOREIGN["Habit"], OWN["Task"], "habit_nb2b_missing"])
     async def test_recurring_events_are_not_created_for_a_habit_that_is_not_the_users(
-        self, skuel_app, driver: AsyncDriver, edges, habit_uid: str
+        self, skuel_app, driver: AsyncDriver, edges: EdgeReader, habit_uid: str
     ) -> None:
         services = skuel_app.state.services
         context = await services.user.context_builder.build(UserUID(CALLER))
