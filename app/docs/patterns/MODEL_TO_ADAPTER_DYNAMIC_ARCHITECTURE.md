@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-10-01
+updated: 2026-10-02
 category: patterns
 related_skills: []
 related_docs:
@@ -712,7 +712,8 @@ CREATE INDEX task_due_date IF NOT EXISTS FOR (t:Task) ON (t.due_date)
 ```python
 # Cross-domain relationships created via UnifiedRelationshipService (not domain backends)
 # Facade delegates: tasks_service.link_task_to_goal()
-#   → self.relationships.create_relationship("contributes_to_goal", task_uid, goal_uid, props)
+#   → self.relationships.create_relationship(
+#         "contributes_to_goal", task_uid, goal_uid, props, far_end=GOAL_FAR_END)
 # (explicit registry method_key — the old candidate-list link_to_goal() wrapper was removed)
 await tasks_service.link_task_to_goal(task_uid, goal_uid, contribution_percentage=0.1)
 ```

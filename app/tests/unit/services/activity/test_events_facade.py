@@ -11,6 +11,7 @@ import pytest
 
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.services.events_service import EventsService
+from core.services.mixins.link_edge_guard import GOAL_FAR_END, HABIT_FAR_END
 from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
@@ -148,18 +149,51 @@ class TestUpdateEventEdges:
         )
         events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
         events_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
+        events_service.relationships.admit_far_ends = AsyncMock(return_value=Result.ok(None))
 
         result = await events_service.update_event(
             "event_abc", EventUpdateIntent(milestone_celebration_for_goal="goal_new")
         )
 
         assert result.is_ok
+        events_service.relationships.admit_far_ends.assert_awaited_once_with(
+            "event_abc", ["goal_new"], GOAL_FAR_END
+        )
         events_service.relationships.delete_relationship.assert_awaited_once_with(
             "celebrated_goals", "event_abc", "goal_old"
         )
         events_service.relationships.create_relationship.assert_awaited_once_with(
-            "celebrated_goals", "event_abc", "goal_new"
+            "celebrated_goals", "event_abc", "goal_new", far_end=GOAL_FAR_END
         )
+
+    @pytest.mark.asyncio
+    async def test_a_refused_far_end_is_refused_before_any_write(
+        self, events_service: EventsService
+    ) -> None:
+        """A far end the relationship service does not admit fails the update with
+        nothing written: no property, no edge deleted, no edge created."""
+        events_service.core.update_event = AsyncMock(return_value=Result.ok(Mock()))
+        events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
+        events_service.relationships.get_related_uids = AsyncMock(
+            return_value=Result.ok(["habit_old"])
+        )
+        events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        events_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
+        events_service.relationships.admit_far_ends = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Habit", "habit_other"))
+        )
+
+        result = await events_service.update_event(
+            "event_abc", EventUpdateIntent(title="New", reinforces_habit_uid="habit_other")
+        )
+
+        assert result.is_error
+        events_service.relationships.admit_far_ends.assert_awaited_once_with(
+            "event_abc", ["habit_other"], HABIT_FAR_END
+        )
+        events_service.core.update_event.assert_not_called()
+        events_service.relationships.delete_relationship.assert_not_called()
+        events_service.relationships.create_relationship.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_unset_edges_leave_them_untouched(self, events_service: EventsService) -> None:

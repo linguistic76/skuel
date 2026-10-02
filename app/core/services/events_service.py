@@ -22,7 +22,7 @@ Facade Mixins (extracted April 2026):
 from __future__ import annotations
 
 import dataclasses
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from datetime import date, time
@@ -57,6 +57,7 @@ from core.services.events._scheduling_mixin import _SchedulingMixin
 from core.services.filtered_context import build_filtered_context
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
+from core.services.mixins.link_edge_guard import GOAL_FAR_END, HABIT_FAR_END, LinkFarEnd
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
@@ -292,11 +293,27 @@ class EventsService(
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
+    # What each edge-typed update field links the event to.
+    _EDGE_FAR_ENDS: ClassVar[dict[str, LinkFarEnd]] = {
+        "celebrated_goals": GOAL_FAR_END,
+        "habits": HABIT_FAR_END,
+    }
+
     async def update_event(self, event_uid: str, intent: EventUpdateIntent) -> Result[Event]:
         """THE Events update path (ADR-066). Splits the two edge-typed fields off the
         intent, writes node properties via core (events fire), and replaces the
         ``CELEBRATES_GOAL`` / ``REINFORCES_HABIT`` edges. See ``_replace_edge``."""
         goal_uid, habit_uid, prop_intent = self._split_relationship_intent(intent)
+
+        # Both far ends are admitted before the first write, so a refused link leaves
+        # the event's properties and its existing edges as they were.
+        for relationship_key, target_uid in (("celebrated_goals", goal_uid), ("habits", habit_uid)):
+            if isinstance(target_uid, str) and target_uid:
+                admitted = await self.relationships.admit_far_ends(
+                    event_uid, [target_uid], self._EDGE_FAR_ENDS[relationship_key]
+                )
+                if admitted.is_error:
+                    return Result.fail(admitted)
 
         # An edge-only update (e.g. only milestone_celebration_for_goal, which
         # EventUpdateRequest permits) leaves no node properties to write. The backend
@@ -360,7 +377,10 @@ class EventsService(
                 await self.relationships.delete_relationship(relationship_key, event_uid, old_uid)
         if target_uid:  # non-empty → create the new edge (None = cleared)
             return await self.relationships.create_relationship(
-                relationship_key, event_uid, target_uid
+                relationship_key,
+                event_uid,
+                target_uid,
+                far_end=self._EDGE_FAR_ENDS[relationship_key],
             )
         return Result.ok(True)
 

@@ -56,6 +56,8 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 from core.services.mixins.link_edge_guard import (
+    GOAL_FAR_END,
+    KNOWLEDGE_FAR_END,
     KNOWLEDGE_LABELS,
     LinkEdge,
     keep_permitted_link_edges,
@@ -891,7 +893,7 @@ class TasksService(
         knowledge_score_required: float = 0.8,
         is_learning_opportunity: bool = False,
     ) -> Result[bool]:
-        """Link task to the knowledge it applies (``APPLIES_KNOWLEDGE``)."""
+        """Link task to the Ku it applies (``APPLIES_KNOWLEDGE``)."""
         return await self.relationships.create_relationship(
             "knowledge",
             task_uid,
@@ -900,6 +902,7 @@ class TasksService(
                 "knowledge_score_required": knowledge_score_required,
                 "is_learning_opportunity": is_learning_opportunity,
             },
+            far_end=KNOWLEDGE_FAR_END,
         )
 
     async def link_task_to_goal(
@@ -918,6 +921,7 @@ class TasksService(
                 "contribution_percentage": contribution_percentage,
                 "milestone_uid": milestone_uid,
             },
+            far_end=GOAL_FAR_END,
         )
 
     async def create_task_dependency(

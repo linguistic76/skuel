@@ -51,6 +51,11 @@ from core.services.goals import (
 from core.services.goals._orchestration_mixin import _OrchestrationMixin
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
+from core.services.mixins.link_edge_guard import (
+    HABIT_FAR_END,
+    KNOWLEDGE_FAR_END,
+    PRINCIPLE_FAR_END,
+)
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
@@ -681,7 +686,7 @@ class GoalsService(
         """
         properties = {"weight": weight, "essentiality": essentiality}
         return await self.relationships.create_relationship(
-            "supporting_habits", goal_uid, habit_uid, properties
+            "supporting_habits", goal_uid, habit_uid, properties, far_end=HABIT_FAR_END
         )
 
     async def unlink_goal_from_habit(self, uid: str, habit_uid: str) -> Result[bool]:
@@ -695,12 +700,13 @@ class GoalsService(
         proficiency_required: str = "intermediate",
         priority: int = 1,
     ) -> Result[bool]:
-        """Link goal to required knowledge/skill (``REQUIRES_KNOWLEDGE``)."""
+        """Link goal to the Ku it requires (``REQUIRES_KNOWLEDGE``)."""
         return await self.relationships.create_relationship(
             "knowledge",
             goal_uid,
             knowledge_uid,
             {"proficiency_required": proficiency_required, "priority": priority},
+            far_end=KNOWLEDGE_FAR_END,
         )
 
     async def link_goal_to_principle(
@@ -708,7 +714,11 @@ class GoalsService(
     ) -> Result[bool]:
         """Link goal to guiding principle/value (``GUIDED_BY_PRINCIPLE``)."""
         return await self.relationships.create_relationship(
-            "principles", goal_uid, principle_uid, {"alignment_strength": alignment_strength}
+            "principles",
+            goal_uid,
+            principle_uid,
+            {"alignment_strength": alignment_strength},
+            far_end=PRINCIPLE_FAR_END,
         )
 
     async def create_semantic_goal_relationship(

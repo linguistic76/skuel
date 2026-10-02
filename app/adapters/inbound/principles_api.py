@@ -42,7 +42,6 @@ from core.models.entity_requests import (
     AddHierarchyChildRequest,
     LinkPrincipleToKnowledgeRequest,
 )
-from core.models.enums.entity_enums import EntityType
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import (
     PrincipleBatchImpactRequest,
@@ -63,8 +62,6 @@ def create_principles_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     principles_service: PrinciplesService,
-    goals_service: Any = None,
-    habits_service: Any = None,
     **_kwargs: Any,
 ) -> None:
     """Register Principles API routes."""
@@ -142,8 +139,8 @@ def create_principles_api_routes(
                 request_model=LinkPrincipleToKnowledgeRequest,
                 owner_uid_field="principle_uid",
                 apply=apply_link_knowledge,
-                doc="Link principle to knowledge it is grounded in (GROUNDED_IN_KNOWLEDGE). "
-                "Ku is shared.",
+                doc="Link principle to a Ku it is grounded in (GROUNDED_IN_KNOWLEDGE). "
+                "The service admits the far end: a Ku, shared content.",
             ),
         ),
     )
@@ -211,7 +208,7 @@ def create_principles_api_routes(
     @csrf_protected
     @boundary_handler()
     async def principle_create_link(request: Request) -> Result[dict[str, Any]]:
-        """Link a principle to a goal, habit, knowledge unit, or another principle."""
+        """Link the caller's principle (query ``uid``) to a goal, habit, Ku, choice or principle."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
@@ -225,25 +222,9 @@ def create_principles_api_routes(
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
-        # Knowledge (Ku) is SHARED — no ownership check required.
-        # User-owned targets (goal, habit, principle) must 404 for wrong owner.
-        if req.link_type == EntityType.GOAL.value and goals_service is not None:
-            target_err = await verify_entity_ownership(goals_service, req.uid, user_uid, "goal")
-            if target_err:
-                return target_err
-        elif req.link_type == EntityType.HABIT.value and habits_service is not None:
-            target_err = await verify_entity_ownership(habits_service, req.uid, user_uid, "habit")
-            if target_err:
-                return target_err
-        elif req.link_type == EntityType.PRINCIPLE.value:
-            target_err = await verify_entity_ownership(
-                principles_service, req.uid, user_uid, "principle"
-            )
-            if target_err:
-                return target_err
-        return await principles_service.create_principle_link(
-            {"principle_uid": uid, "target_uid": req.uid, "link_type": req.link_type}
-        )
+        # The target is admitted by the service, per link_type: it exists, is of that
+        # kind, and is the caller's own or shared content — anything else is not found.
+        return await principles_service.create_principle_link(uid, req.target_uid, req.link_type)
 
     @rt("/api/principles/links", methods=["GET"])
     @boundary_handler()

@@ -478,8 +478,8 @@ def create_habits_api_routes(
                 request_model=LinkHabitToKnowledgeRequest,
                 owner_uid_field="habit_uid",
                 apply=apply_link_knowledge,
-                doc="Link habit to knowledge/skill it develops (REINFORCES_KNOWLEDGE). "
-                "Ku is shared content.",
+                doc="Link habit to a Ku it develops (REINFORCES_KNOWLEDGE). "
+                "The service admits the far end: a Ku, shared content.",
             ),
             CrossDomainLinkSpec(
                 action="link-principle",

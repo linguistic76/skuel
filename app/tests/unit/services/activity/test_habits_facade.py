@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.services.habits_service import HabitsService
+from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END, PRINCIPLE_FAR_END
 from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
@@ -213,6 +214,7 @@ class TestHabitsServiceRelationships:
             "habit_abc",
             "ku_python_xyz",
             {"skill_level": "intermediate", "proficiency_gain_rate": 0.2},
+            far_end=KNOWLEDGE_FAR_END,
         )
 
     @pytest.mark.asyncio
@@ -231,4 +233,5 @@ class TestHabitsServiceRelationships:
             "habit_abc",
             "principle_xyz",
             {"embodiment_strength": 0.8},
+            far_end=PRINCIPLE_FAR_END,
         )

@@ -19,8 +19,11 @@ the guard lives at the registry layer instead.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
+from core.models.principle.principle_request import PrincipleLinkRequest
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
     EVENTS_CONFIG,
@@ -136,3 +139,19 @@ def test_principle_link_type_map_keys_resolve(link_type: str, key: str) -> None:
         f"in PRINCIPLES_CONFIG. Available: "
         f"{sorted(PRINCIPLES_CONFIG.get_all_relationship_methods())}"
     )
+
+
+def test_principle_link_types_each_declare_a_far_end() -> None:
+    """Every link_type names both its relationship key and what its target must be.
+
+    ``create_principle_link`` refuses a link_type missing from either map, so a type
+    added to one alone would be a dead route value; and the request model accepts
+    exactly the types the service links.
+    """
+    link_types = set(_GravityMixin._LINK_TYPE_MAP)
+
+    assert set(_GravityMixin._LINK_FAR_ENDS) == link_types
+    pattern = PrincipleLinkRequest.model_fields["link_type"].metadata[0].pattern
+    alternatives = re.fullmatch(r"\^\((.+)\)\$", pattern)
+    assert alternatives is not None, pattern
+    assert set(alternatives.group(1).split("|")) == link_types

@@ -188,11 +188,15 @@ class AlignmentAssessmentRequest(BaseModel):
 
 
 class PrincipleLinkRequest(BaseModel):
-    """Request to link a principle to goals/habits/knowledge."""
+    """Body of ``POST /api/principles/link?uid=<principle>``: what to link it to.
 
-    link_type: str = Field(..., pattern="^(goal|habit|knowledge|principle)$")
-    uid: str = Field(..., min_length=1)
-    bidirectional: bool = Field(default=False, description="Create reverse link")
+    The principle is the query ``uid``; the far end is ``target_uid``. The two are
+    named apart because a query parameter overrides a same-named JSON body field
+    at this boundary.
+    """
+
+    link_type: str = Field(..., pattern="^(goal|habit|knowledge|principle|choice)$")
+    target_uid: str = Field(..., min_length=1)
 
 
 class PrincipleReflectionRequest(BaseModel):

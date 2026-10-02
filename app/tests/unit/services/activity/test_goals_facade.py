@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.services.goals_service import GoalsService
+from core.services.mixins.link_edge_guard import HABIT_FAR_END, KNOWLEDGE_FAR_END, PRINCIPLE_FAR_END
 from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
@@ -194,6 +195,7 @@ class TestGoalsServiceRelationships:
             "goal_abc",
             "habit_xyz",
             {"weight": 0.7, "essentiality": "essential"},
+            far_end=HABIT_FAR_END,
         )
 
     @pytest.mark.asyncio
@@ -212,6 +214,7 @@ class TestGoalsServiceRelationships:
             "goal_abc",
             "ku_python_abc",
             {"proficiency_required": "advanced", "priority": 2},
+            far_end=KNOWLEDGE_FAR_END,
         )
 
     @pytest.mark.asyncio
@@ -230,4 +233,5 @@ class TestGoalsServiceRelationships:
             "goal_abc",
             "principle_xyz",
             {"alignment_strength": 0.9},
+            far_end=PRINCIPLE_FAR_END,
         )

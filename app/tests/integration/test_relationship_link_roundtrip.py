@@ -23,8 +23,8 @@ from datetime import date, timedelta
 
 import pytest
 
+from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
 from core.models.choice.choice import Choice
-from core.models.curriculum import Curriculum
 from core.models.enums import (
     Domain,
     EntityStatus,
@@ -39,15 +39,22 @@ from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.event_enums import AttendanceStatus
 from core.models.enums.habit_enums import HabitCategory
+from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.event.event import Event
 from core.models.event.event_request import AddAttendeeRequest, RemoveAttendeeRequest
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
+from core.models.ku.ku import Ku
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import HABITS_CONFIG
 from core.models.task.task import Task
+from core.services.mixins.link_edge_guard import (
+    GOAL_FAR_END,
+    HABIT_FAR_END,
+    KNOWLEDGE_FAR_END,
+)
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 
@@ -56,10 +63,10 @@ class TestRelationshipLinkRoundTrip:
     """End-to-end (real Neo4j) coverage for the single create_relationship path."""
 
     async def _make_ku(self, ku_backend, uid: str) -> None:
-        ku = Curriculum(
-            uid=uid, title=uid, domain=Domain.TECH, sel_category=SELCategory.SELF_AWARENESS
-        )
-        assert (await ku_backend.create(ku)).is_ok
+        """A shared ``:Ku`` — written through ``KuBackend``, so it carries the label."""
+        ku = Ku(uid=uid, title=uid, domain=Domain.TECH, sel_category=SELCategory.SELF_AWARENESS)
+        backend = KuBackend(ku_backend.driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+        assert (await backend.create(ku)).is_ok
 
     async def _make_task(self, services, uid: str) -> None:
         task = Task(
@@ -105,6 +112,7 @@ class TestRelationshipLinkRoundTrip:
             "task:link_props_src",
             "ku:link_props_target",
             properties={"confidence": 0.9},
+            far_end=KNOWLEDGE_FAR_END,
         )
         assert result.is_ok
         assert result.value is True
@@ -142,7 +150,9 @@ class TestRelationshipLinkRoundTrip:
 
         result = await UnifiedRelationshipService(
             backend=habits_backend, config=HABITS_CONFIG
-        ).create_relationship("knowledge", "habit:link_ku_src", "ku:habit_target")
+        ).create_relationship(
+            "knowledge", "habit:link_ku_src", "ku:habit_target", far_end=KNOWLEDGE_FAR_END
+        )
         assert result.is_ok
         assert result.value is True
 
@@ -196,7 +206,10 @@ class TestRelationshipLinkRoundTrip:
         assert (await habits_backend.create(habit)).is_ok
 
         result = await services.goals.relationships.create_relationship(
-            "supporting_habits", "goal:incoming_owner", "habit:incoming_related"
+            "supporting_habits",
+            "goal:incoming_owner",
+            "habit:incoming_related",
+            far_end=HABIT_FAR_END,
         )
         assert result.is_ok
         assert result.value is True
@@ -440,11 +453,13 @@ class TestRelationshipLinkRoundTrip:
 
         rels = services.principles.relationships
         assert (
-            await rels.create_relationship("guided_goals", "principle:align_rt", "goal:align_rt")
+            await rels.create_relationship(
+                "guided_goals", "principle:align_rt", "goal:align_rt", far_end=GOAL_FAR_END
+            )
         ).is_ok
         assert (
             await rels.create_relationship(
-                "inspired_habits", "principle:align_rt", "habit:align_rt"
+                "inspired_habits", "principle:align_rt", "habit:align_rt", far_end=HABIT_FAR_END
             )
         ).is_ok
 

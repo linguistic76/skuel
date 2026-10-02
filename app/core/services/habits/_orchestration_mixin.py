@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END, PRINCIPLE_FAR_END
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Result
 
@@ -147,12 +148,13 @@ class _OrchestrationMixin:
         skill_level: str = "beginner",
         proficiency_gain_rate: float = 0.1,
     ) -> Result[bool]:
-        """Link habit to knowledge/skill it develops (``REINFORCES_KNOWLEDGE``)."""
+        """Link habit to the Ku it develops (``REINFORCES_KNOWLEDGE``)."""
         return await self.relationships.create_relationship(
             "knowledge",
             habit_uid,
             knowledge_uid,
             {"skill_level": skill_level, "proficiency_gain_rate": proficiency_gain_rate},
+            far_end=KNOWLEDGE_FAR_END,
         )
 
     async def link_habit_to_principle(
@@ -164,6 +166,7 @@ class _OrchestrationMixin:
             habit_uid,
             principle_uid,
             {"embodiment_strength": embodiment_strength},
+            far_end=PRINCIPLE_FAR_END,
         )
 
     async def get_skills_developed_by_habits(self, user_uid: UserUID) -> Result[dict[str, Any]]:

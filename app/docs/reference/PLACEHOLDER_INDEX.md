@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-01
+updated: 2026-10-02
 ---
 
 # Placeholder Parameter Index
@@ -278,7 +278,7 @@ claim that `GUIDES_CHOICE` "has no writer anywhere in the tree".** That claim wa
 it was reached is the reusable part: I grepped for the *edge name* and for its Choice-side method key.
 The writer names neither. `PrinciplesService.create_principle_link` takes a user-supplied
 `link_type` and resolves the edge through `_GravityMixin._LINK_TYPE_MAP` (`"choice"` →
-`guided_choices`), reachable at `POST /api/principles/links`. **A generic, registry-driven writer is
+`guided_choices`), reachable at `POST /api/principles/link`. **A generic, registry-driven writer is
 invisible to a name grep** — to rule out a writer, search the *dispatch table*, not the identifier.
 
 A failed relationship read propagates as an error `Result` rather than degrading to 0.0, and

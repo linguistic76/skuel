@@ -13,6 +13,14 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from core.services.mixins.link_edge_guard import (
+    CHOICE_FAR_END,
+    GOAL_FAR_END,
+    HABIT_FAR_END,
+    KNOWLEDGE_FAR_END,
+    PRINCIPLE_FAR_END,
+    LinkFarEnd,
+)
 from core.utils.result_simplified import Errors, Result
 
 
@@ -40,12 +48,27 @@ class _GravityMixin:
         "choice": "guided_choices",
     }
 
+    # What each link_type links to — the kind the far end must be, and the name a
+    # refusal answers with. Keyed like ``_LINK_TYPE_MAP``; the pairing is guarded by
+    # tests/unit/test_cross_domain_link_keys.py.
+    _LINK_FAR_ENDS: ClassVar[dict[str, LinkFarEnd]] = {
+        "goal": GOAL_FAR_END,
+        "habit": HABIT_FAR_END,
+        "knowledge": KNOWLEDGE_FAR_END,
+        "principle": PRINCIPLE_FAR_END,
+        "choice": CHOICE_FAR_END,
+    }
+
     async def link_principle_to_knowledge(
         self, principle_uid: str, knowledge_uid: str, relevance: str = "fundamental"
     ) -> Result[bool]:
-        """Link principle to knowledge it's grounded in (``GROUNDED_IN_KNOWLEDGE``)."""
+        """Link principle to the Ku it is grounded in (``GROUNDED_IN_KNOWLEDGE``)."""
         return await self.relationships.create_relationship(
-            "knowledge", principle_uid, knowledge_uid, {"relevance": relevance}
+            "knowledge",
+            principle_uid,
+            knowledge_uid,
+            {"relevance": relevance},
+            far_end=KNOWLEDGE_FAR_END,
         )
 
     # ========================================================================
@@ -54,44 +77,25 @@ class _GravityMixin:
 
     async def create_principle_link(
         self,
-        dto: Any,
+        principle_uid: str,
+        target_uid: str,
+        link_type: str,
     ) -> Result[dict[str, Any]]:
         """
-        Create a link between a principle and another entity.
+        Link a principle to a goal, habit, Ku, choice or another principle.
 
-        Maps link_type to the appropriate relationship config key in PRINCIPLES_CONFIG
-        and delegates to UnifiedRelationshipService.
-
-        Args:
-            dto: Dict with principle_uid, target_uid, link_type (goal/habit/knowledge/principle),
-                 and optional properties
+        ``link_type`` selects both the relationship (``_LINK_TYPE_MAP``) and what the
+        target must be (``_LINK_FAR_ENDS``): the target is admitted by
+        ``UnifiedRelationshipService`` — it exists, is of that kind, and is the
+        principle's owner's or shared content. A target that is none of those is
+        refused as not found.
 
         Returns:
             Result with the created link info
         """
-        principle_uid = (
-            dto.get("principle_uid")
-            if isinstance(dto, dict)
-            else getattr(dto, "principle_uid", None)
-        )
-        target_uid = (
-            dto.get("target_uid") if isinstance(dto, dict) else getattr(dto, "target_uid", None)
-        )
-        link_type = (
-            dto.get("link_type") if isinstance(dto, dict) else getattr(dto, "link_type", None)
-        )
-
-        if not principle_uid or not target_uid or not link_type:
-            return Result.fail(
-                Errors.validation(
-                    message="principle_uid, target_uid, and link_type are required",
-                    field="link_type",
-                )
-            )
-
-        # Map link_type to PRINCIPLES_CONFIG relationship config key
         config_key = self._LINK_TYPE_MAP.get(link_type)
-        if not config_key:
+        far_end = self._LINK_FAR_ENDS.get(link_type)
+        if config_key is None or far_end is None:
             return Result.fail(
                 Errors.validation(
                     message=(
@@ -101,11 +105,8 @@ class _GravityMixin:
                 )
             )
 
-        properties = (
-            dto.get("properties") if isinstance(dto, dict) else getattr(dto, "properties", None)
-        )
         result = await self.relationships.create_relationship(
-            config_key, principle_uid, target_uid, properties
+            config_key, principle_uid, target_uid, far_end=far_end
         )
         if result.is_error:
             return Result.fail(result)

@@ -39,10 +39,6 @@ PRINCIPLES_CONFIG = create_activity_domain_route_config(
     request_create_method="create_principle",
     supports_goal_filter=True,
     supports_habit_filter=False,
-    api_related_services={
-        "goals_service": "goals",
-        "habits_service": "habits",
-    },
     ui_related_services={"connection_fetch_backend": "connection_fetch_backend"},
     prometheus_metrics_attr="prometheus_metrics",
 )

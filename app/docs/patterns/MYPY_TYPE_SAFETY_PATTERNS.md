@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-09-18
+updated: 2026-10-02
 category: patterns
 related_skills:
 - python
@@ -402,8 +402,10 @@ class PrinciplesFacadeProtocol(Protocol):
         """Get principle alignment history."""
         ...
 
-    async def create_principle_link(self, dto: Any) -> Result[dict[str, Any]]:
-        """Create a link between principles (e.g., supports, conflicts with)."""
+    async def create_principle_link(
+        self, principle_uid: str, target_uid: str, link_type: str
+    ) -> Result[dict[str, Any]]:
+        """Link a principle to a goal, habit, Ku, choice or another principle."""
         ...
 
 # Route code now works

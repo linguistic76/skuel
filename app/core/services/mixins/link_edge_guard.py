@@ -2,19 +2,27 @@
 Link-Edge Guard
 ===============
 
-One admission check for every create door that turns request-supplied UIDs into
-graph edges — each domain's ``_write_link_edges`` admits its links through here.
+One admission rule for every door that turns a request-supplied UID into a graph
+edge, in two shapes:
 
-A request field like ``linked_goal_uids`` or ``supporting_habit_uids`` is a list of
-UIDs the caller chose. Writing them straight into ``create_relationships_batch`` trusts
-two things the batch does not check, and both cost something:
+- a CREATE door admits a list of links and drops the ones it may not write — each
+  domain's ``_write_link_edges`` goes through ``keep_permitted_link_edges``;
+- a LINK door names one far end and is refused when it may not write it —
+  ``UnifiedRelationshipService`` admits every edge it writes through
+  ``admit_far_ends_for_source``, and a door that links entities it is about to
+  create goes through ``admit_far_ends_for_owner``.
+
+A request field like ``linked_goal_uids`` or ``knowledge_uid`` is a UID the caller
+chose. Writing it straight into ``create_relationships_batch`` trusts two things the
+batch does not check, and both cost something:
 
 WHO owns the other end
     The batch validates labels, never ownership, so one user could link their entity to
     another's. The path-aware neighbourhood reader refuses to return across such an edge
     (it ties every node to its center's owner), but an edge is a fact other reads take
-    at face value, and one that joins two users' entities is a wrong fact wherever it is
-    read. It is refused here, where it would be written.
+    at face value — the Events pages render a linked goal's title, the user context
+    carries a linked node's title — and one that joins two users' entities is a wrong
+    fact wherever it is read. It is refused here, where it would be written.
 
 WHAT KIND the other end is
     The registry validator keys its target-label rule off the SOURCE's domain config, so
@@ -25,12 +33,15 @@ WHAT KIND the other end is
     under ``supporting_habits``, corrupting planning and progress context.
 
 Both are properties of the WRITE SITE — the field name is what says "these are habits" —
-so this is where they belong, rather than duplicated in each domain service or
-approximated in the registry. Both are checked in ONE pair of batched queries.
+so the write site declares the kind (``LinkEdge.allowed_labels`` / ``LinkFarEnd``) and
+the rule is applied here, in ONE pair of batched queries.
 
-FAIL-CLOSED: an unreadable owner or label map drops the whole batch rather than writing
-it unchecked. The subject entity itself is the caller's own and is never affected — only
-its edges are refused.
+THE RULE: the far end exists, carries an allowed label, and is owned by nobody (shared
+content) or by an owner of the source. A source nobody owns links to shared content only.
+
+FAIL-CLOSED: an unreadable owner or label map writes nothing. A create door drops the
+whole batch (its subject entity is the caller's own and is never affected — only its
+edges are refused); a link door fails with the read's error.
 """
 
 from __future__ import annotations
@@ -40,7 +51,7 @@ from typing import TYPE_CHECKING, Any, Final, Protocol
 
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jProperties
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -62,6 +73,27 @@ EdgeTuple = tuple[str, str, str, Neo4jProperties | None]
 # these fields — the forms omit list-typed links by design — so no UI flow narrows.
 # Shared so the lists cannot drift into disagreeing about what knowledge is.
 KNOWLEDGE_LABELS: Final = frozenset({NeoLabel.KU.value})
+
+
+@dataclass(frozen=True)
+class LinkFarEnd:
+    """What a link door accepts at its far end.
+
+    Attributes:
+        labels: the kinds the door links to. REQUIRED, with no "any kind" value, for the
+            reason ``LinkEdge.allowed_labels`` is.
+        resource: the name a refusal answers with (``Errors.not_found(resource, uid)``).
+    """
+
+    labels: frozenset[str]
+    resource: str
+
+
+KNOWLEDGE_FAR_END: Final = LinkFarEnd(KNOWLEDGE_LABELS, "Ku")
+GOAL_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.GOAL.value}), "Goal")
+HABIT_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.HABIT.value}), "Habit")
+PRINCIPLE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.PRINCIPLE.value}), "Principle")
+CHOICE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.CHOICE.value}), "Choice")
 
 
 class _EndpointReader(Protocol):
@@ -91,6 +123,118 @@ class LinkEdge:
     edge: EdgeTuple
     other_uid: str
     allowed_labels: frozenset[str]
+
+
+def _refusal_reason(
+    node_labels: Sequence[str] | None,
+    far_owners: Sequence[str] | None,
+    owner_uids: frozenset[str],
+    allowed_labels: frozenset[str],
+) -> str | None:
+    """Why this far end may not be linked, or ``None`` when it may.
+
+    ``node_labels`` is ``None`` for a UID that resolves to no node — absence in the
+    LABELS map is non-existence. ``far_owners`` is ``None`` for a node nobody owns —
+    absence in the OWNERS map is shared content. An owned far end needs an owner in
+    ``owner_uids``; an empty ``owner_uids`` (a shared source) therefore admits shared
+    content only. A labelless node fails the kind check too; the missing branch is
+    separate so the reason names the real cause.
+    """
+    if node_labels is None:
+        return "missing"
+    if far_owners and owner_uids.isdisjoint(far_owners):
+        return "cross_user"
+    if allowed_labels.isdisjoint(node_labels):
+        return "wrong_kind"
+    return None
+
+
+def _admit(
+    *,
+    owner_uids: frozenset[str],
+    owners: dict[str, list[str]],
+    labels: dict[str, list[str]],
+    far_uids: Sequence[str],
+    far_end: LinkFarEnd,
+) -> Result[None]:
+    for far_uid in far_uids:
+        reason = _refusal_reason(
+            labels.get(far_uid), owners.get(far_uid), owner_uids, far_end.labels
+        )
+        if reason is not None:
+            return Result.fail(Errors.not_found(far_end.resource, far_uid, reason=reason))
+    return Result.ok(None)
+
+
+async def admit_far_ends_for_owner(
+    backend: _EndpointReader,
+    *,
+    owner_uid: str,
+    far_uids: Sequence[str],
+    far_end: LinkFarEnd,
+) -> Result[None]:
+    """Admit the far ends a door links entities it creates for ``owner_uid`` to.
+
+    Fails with the first refused UID as ``not_found`` — a UID that names nothing,
+    another user's node and a node of the wrong kind answer alike (the diagnosis is
+    in ``details["reason"]`` only). A failed endpoint read fails with its own error.
+    """
+    uids = sorted(set(far_uids))
+    if not uids:
+        return Result.ok(None)
+    owners = await backend.get_owner_uids_batch(uids)
+    if owners.is_error:
+        return Result.fail(owners)
+    labels = await backend.get_node_labels_batch(uids)
+    if labels.is_error:
+        return Result.fail(labels)
+    return _admit(
+        owner_uids=frozenset({owner_uid}),
+        owners=owners.value,
+        labels=labels.value,
+        far_uids=far_uids,
+        far_end=far_end,
+    )
+
+
+async def admit_far_ends_for_source(
+    backend: _EndpointReader,
+    *,
+    source_uid: str,
+    source_resource: str,
+    far_uids: Sequence[str],
+    far_end: LinkFarEnd,
+) -> Result[None]:
+    """Admit the far ends an existing entity is linked to, its owner read from the node.
+
+    The owner is whoever owns ``source_uid`` in the graph — no caller passes a user, so
+    no caller can pass the wrong one. A source nobody owns links to shared content only.
+    Refusals answer as in ``admit_far_ends_for_owner``; a source that resolves to no
+    node is ``not_found(source_resource)``, and a link from an entity to itself is a
+    validation error.
+    """
+    if not far_uids:
+        return Result.ok(None)
+    if source_uid in far_uids:
+        return Result.fail(
+            Errors.validation("An entity cannot be linked to itself", field="target_uid")
+        )
+    uids = sorted({source_uid, *far_uids})
+    owners = await backend.get_owner_uids_batch(uids)
+    if owners.is_error:
+        return Result.fail(owners)
+    labels = await backend.get_node_labels_batch(uids)
+    if labels.is_error:
+        return Result.fail(labels)
+    if source_uid not in labels.value:
+        return Result.fail(Errors.not_found(source_resource, source_uid))
+    return _admit(
+        owner_uids=frozenset(owners.value.get(source_uid, ())),
+        owners=owners.value,
+        labels=labels.value,
+        far_uids=far_uids,
+        far_end=far_end,
+    )
 
 
 # Returns a plain list, not Result[...]: this is a pure filter, not a fallible
@@ -163,23 +307,24 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
     cross_user = 0
     wrong_kind = 0
 
+    owner_uids = frozenset({owner_uid})
     for candidate in candidates:
-        # An absent LABELS entry means the node does not exist — absence here is
-        # existence, unlike the owners map, whose absence legitimately means "owned by
-        # nobody". Split from the kind check below, which would also reject a labelless
-        # node, only so the log says which of the two it was: "you named something that
-        # is gone" and "you named the wrong kind of thing" are different fixes.
-        node_labels = labels.get(candidate.other_uid)
-        if node_labels is None:
+        reason = _refusal_reason(
+            labels.get(candidate.other_uid),
+            owners.get(candidate.other_uid),
+            owner_uids,
+            candidate.allowed_labels,
+        )
+        # Counted apart so the log says which it was: "you named something that is
+        # gone" and "you named the wrong kind of thing" are different fixes.
+        if reason == "missing":
             missing += 1
-            continue
-        if owner_uid not in owners.get(candidate.other_uid, [owner_uid]):
+        elif reason == "cross_user":
             cross_user += 1
-            continue
-        if candidate.allowed_labels.isdisjoint(node_labels):
+        elif reason == "wrong_kind":
             wrong_kind += 1
-            continue
-        kept.append(candidate.edge)
+        else:
+            kept.append(candidate.edge)
 
     if missing:
         logger.warning(

@@ -141,9 +141,12 @@ convert; and a Pydantic rejection escapes the same way. Each answers 500. Throug
 Pydantic sees the raw value and every rejection is a 400 — so a `Literal` or an enum field
 is fine there.
 
-The helpers merge nothing into the body. When a route verifies ownership, it checks the
-owner uid wherever it travels: a model field (`TrackHabitRequest.habit_uid`) is verified
-after parsing; a query-string uid (`POST /api/principles/link?uid=`) before.
+When a route verifies ownership, it checks the owner uid wherever it travels: a model
+field (`TrackHabitRequest.habit_uid`) is verified after parsing; a query-string uid
+(`POST /api/principles/link?uid=`) before. ⚠ A query parameter overrides a same-named
+field of a JSON body — FastHTML merges the query string into the parsed body before any
+helper reads it — so a body model never reuses a query parameter's name (that route's
+body names its target `target_uid`).
 
 Secret-bearing auth fields (passwords, reset tokens) are `pydantic.SecretStr`, so neither
 the model's `repr` nor `model_dump()` can disclose them — see
