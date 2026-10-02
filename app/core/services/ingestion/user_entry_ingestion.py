@@ -30,9 +30,12 @@ from core.models.type_hints import UserUID
 from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.submitted_copy import SubmittedCopy, submission_fingerprint
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.ports.user_entry_protocols import UPSERT_UID_TAKEN
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 from core.utils.uid_generator import UIDGenerator
+
+from .vault_policy import uid_in_use_reason
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -494,6 +497,15 @@ async def ingest_user_entry(
         user_uid=user_uid,
     )
     if create_result.is_error:
+        refusal = create_result.expect_error()
+        if (
+            refusal.category is ErrorCategory.NOT_FOUND
+            and refusal.details.get("reason") == UPSERT_UID_TAKEN
+        ):
+            # The note's uid names an entry someone else owns: the file's own
+            # fault, reported as every vault door reports a taken uid — never
+            # whose it is (ADR-070 Decision 11).
+            return Result.fail(Errors.validation(uid_in_use_reason(str(request.uid)), field="uid"))
         return Result.fail(create_result)
 
     entry, outcome = create_result.value

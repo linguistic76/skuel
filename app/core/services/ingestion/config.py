@@ -777,17 +777,19 @@ def build_sync_allowlist(
       only the default doorway folders (``_DEFAULT_SYNC_SUBDIRS`` under
       ``governed_root`` — periodic/personal/activity notes + knowledge + je_pro),
       so an un-opted-in folder stays private without configuration.
-    - **``allowed_dirs`` unset, single-vault** (``content_root`` is / is under the
-      governed root) → allow the *whole vault* (``allowed_dirs = {governed_root}``)
-      so curriculum still ingests; only the ``je_*`` staging floor (scoped inside
+    - **``allowed_dirs`` unset, the content vault's own wall** (``content_root`` IS
+      the governed root) → allow the *whole vault* (``allowed_dirs = {governed_root}``)
+      so curriculum ingests; only the ``je_*`` staging floor (scoped inside
       ``permits``) applies. ``governs()`` is still true here, so full-mode
       reprocesses retract stale staging rows like the routine incremental paths.
+      A personal root is never the content root and never contains it — compose
+      refuses that layout (``VaultConfig.validate_roots``) — so a personal wall is
+      always the doorway set.
 
     ``gates_je_pro``: pass ``False`` when building the CONTENT vault's own
     allowlist — the je_pro consent gate is a personal-vault concept and must
     not gate a curriculum folder that happens to share the name (Codex #608).
-    A combined personal+content root keeps the default (its je_pro IS the
-    personal doorway).
+    Every personal vault keeps the default (its je_pro IS the personal doorway).
     """
     governed = governed_root.resolve()
     resolved_excluded = frozenset(d.resolve() for d in excluded_dirs)
@@ -810,12 +812,12 @@ def build_sync_allowlist(
             gates_je_pro=gates_je_pro,
         )
 
-    # Var unset. Single-vault (content vault is / is under the governed root):
+    # Var unset. The content vault's own wall (content_root IS the governed root):
     # allow the whole vault so curriculum isn't starved — the staging floor still
     # excludes je_* and governs() still holds, so retraction works there too.
     if content_root is not None:
         content = content_root.resolve()
-        if content == governed or content.is_relative_to(governed):
+        if content == governed:
             return SyncAllowlist(
                 governed_root=governed,
                 allowed_dirs=frozenset({governed}),

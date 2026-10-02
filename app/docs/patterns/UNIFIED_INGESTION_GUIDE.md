@@ -1293,9 +1293,11 @@ hatch: delete explicitly via the ingestion dashboard, or sync in smaller batches
 user-owned node whose owner differs from the syncing vault's owner is never deleted —
 node and tracking row both survive and the mismatch is surfaced as a warning
 (`ownership_mismatches` → stats `warnings`); the owner lookup failing fails the run closed.
-The lookup covers every shape the delete removes: `:Entity` `user_uid`, `:Group` `owner_uid`,
-`:Expense` `user_uid`.
-Ownerless SHARED curriculum and Edge YAMLs (relationships carry no owner) stay path-scoped.
+The lookup covers every shape the delete removes: `:Entity` `user_uid` and `:Group` `owner_uid`.
+In the content vault, ownerless SHARED curriculum and Edge YAMLs (relationships carry no owner)
+stay path-scoped. A personal vault deletes only its owner's nodes (`owner_only`): a live node
+nobody owns — shared content a legacy tracker row still names — is kept and reported, since a
+personal vault never authors shared content (ADR-070 Decision 11); a row whose node is gone clears.
 Reconciliation is split plan/execute: `IngestionTracker.plan_deletions` performs the full
 classification read-only (it backs the vault sync preview — `VaultReconciler.preview` /
 `POST /api/vault/preview`), and `reconcile_deletions` executes the resulting `DeletionPlan`.

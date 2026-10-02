@@ -173,9 +173,9 @@ def test_build_blank_defaults_to_fail_closed_wall(tmp_path: Path) -> None:
     assert wall.allowed_dirs == _default_allowed(root)
 
 
-def test_build_single_vault_allows_whole_vault_minus_staging(tmp_path: Path) -> None:
-    # When the content vault IS (or is under) the governed root, the default wall
-    # would starve curriculum — so allow the WHOLE vault, keeping only the je_*
+def test_build_content_vault_allows_whole_vault_minus_staging(tmp_path: Path) -> None:
+    # The content vault's own wall (content_root IS the governed root): the default
+    # wall would starve curriculum — so allow the WHOLE vault, keeping only the je_*
     # staging floor. governs() must still hold so full-mode reprocesses retract.
     root = tmp_path / "vault"
     wall = build_sync_allowlist(root, content_root=root)
@@ -183,9 +183,15 @@ def test_build_single_vault_allows_whole_vault_minus_staging(tmp_path: Path) -> 
     assert wall.permits(root / "curriculum" / "ku.md") is True  # curriculum ingests
     assert wall.permits(root / "je_out" / "t.md") is False  # staging still walled
     assert wall.governs(root) is True
-    # content nested under the governed root is also single-vault
-    assert build_sync_allowlist(root, content_root=root / "sub").allowed_dirs == frozenset(
-        {root.resolve()}
+
+
+def test_build_personal_wall_never_opens_whole_vault(tmp_path: Path) -> None:
+    # A content root nested inside a personal root is refused at boot
+    # (VaultConfig.validate_roots); the personal wall stays the doorway set
+    # rather than opening the whole personal vault.
+    root = tmp_path / "vault"
+    assert build_sync_allowlist(root, content_root=root / "sub").allowed_dirs == _default_allowed(
+        root
     )
 
 

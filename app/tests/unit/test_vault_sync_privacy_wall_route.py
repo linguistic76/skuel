@@ -20,7 +20,7 @@ from core.ports.vault_bridge_protocol import VaultSyncStats
 from core.services.vault.vault_reconciler import VaultDescription
 from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
-from ui.vault.sync_fragments import consent_form, privacy_wall_panel
+from ui.vault.sync_fragments import privacy_wall_panel
 
 
 class _RouteRegistry:
@@ -134,12 +134,6 @@ class TestPrivacyWallFragments:
 
         assert "No folders are currently synced" in html
         assert "whole vault" not in html
-
-    def test_combined_vault_says_whole_vault_with_staging_exception(self) -> None:
-        description = VaultDescription(vault_configured=True, whole_vault_open=True)
-
-        assert "whole vault" in to_xml(privacy_wall_panel(description))
-        assert "je_*" in to_xml(consent_form(description))
 
 
 if __name__ == "__main__":

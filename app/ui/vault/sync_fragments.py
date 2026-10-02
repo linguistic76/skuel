@@ -74,13 +74,6 @@ def _read_scope_phrase(description: VaultDescription) -> tuple[Any, ...]:
     never drift apart (or from the actual allowlist). Folder names arrive
     vault-relative (``VaultReconciler.describe``, #525 — no absolute paths).
     """
-    if description.whole_vault_open:
-        return (
-            "SKUEL will read notes from your whole vault (a combined vault syncs "
-            "every folder), except the ",
-            Span("je_*", cls="font-mono text-sm"),
-            " pipeline staging folders, which are never read",
-        )
     if description.allowed_folders:
         return (
             "SKUEL will read notes from these folders of your vault — ",
@@ -95,7 +88,7 @@ def _read_scope_phrase(description: VaultDescription) -> tuple[Any, ...]:
 
 def privacy_wall_panel(description: VaultDescription) -> Div:
     """The visible privacy wall: exactly which folders a sync may read."""
-    if description.allowed_folders and not description.whole_vault_open:
+    if description.allowed_folders:
         scope: Any = Ul(
             *[
                 Li(Span(f"{folder}/", cls="font-mono text-sm"))

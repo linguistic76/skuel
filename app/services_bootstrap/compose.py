@@ -1402,10 +1402,9 @@ async def compose_services(
                 )
                 resolved_root = root.resolve()
                 # Server-side top-level folder names scope the pull + its
-                # deletion sweep. The whole-vault-open combined-root shape
-                # cannot reach here: validate_roots() rejects any config whose
-                # personal roots overlap INGESTION_PATH (Kody #531, ADR-070 Decision 11), so
-                # the allowlist is always the doorway set.
+                # deletion sweep. A personal wall is always the doorway set:
+                # validate_roots() rejects any personal root that overlaps
+                # INGESTION_PATH (Kody #531, ADR-070 Decision 11).
                 allowed_folders = frozenset(
                     d.relative_to(resolved_root).parts[0]
                     for d in allowlist.allowed_dirs

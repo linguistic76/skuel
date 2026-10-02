@@ -1,10 +1,10 @@
-"""VaultReconciler surface-independence guard for combined-root configs.
+"""VaultReconciler surface-independence guard for nested vault roots.
 
-In a combined-root config (``VAULT_ROOT == INGESTION_PATH``) the single vault
-resolves to PERSONAL by-path, so a by-kind CONTENT sync would stamp
-``content_owner_uid`` onto the user's own files — the same file would get a
-different owner than a PERSONAL sync of the same root. The reconciler refuses the
-incoherent CONTENT sync rather than break the surface-independent owner rule.
+By-kind and by-path resolution must agree on a vault's owner: a member vault nested
+inside the primary personal root is governed by the primary owner by path, so the
+reconciler refuses to sync it as anyone else. (A personal root overlapping the
+content vault — the other way the two could disagree — is refused at boot,
+``VaultConfig.validate_roots``.)
 """
 
 from __future__ import annotations
@@ -51,23 +51,6 @@ def _reconciler(registry: VaultRegistry, ingestion: Mock) -> VaultReconciler:
         tasks_service=Mock(),
         user_service=Mock(),
     )
-
-
-async def test_content_sync_refused_in_combined_root(tmp_path: Path) -> None:
-    shared = tmp_path / "vault"
-    registry = VaultRegistry(
-        content=_descriptor(VaultKind.CONTENT, shared, "user_admin"),
-        personal=_descriptor(VaultKind.PERSONAL, shared, "user_placeholder"),
-    )
-    ingestion = Mock()
-    reconciler = _reconciler(registry, ingestion)
-
-    result = await reconciler.sync(VaultKind.CONTENT, "user_admin")
-
-    assert result.is_error
-    assert "combined-root" in result.expect_error().message.lower()
-    # The guard fires before any ingestion is attempted.
-    ingestion.ingest_directory.assert_not_called()
 
 
 async def test_member_sync_refused_when_nested_under_primary_root(tmp_path: Path) -> None:

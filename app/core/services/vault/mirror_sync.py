@@ -90,15 +90,15 @@ class VaultMirrorPuller:
     """Refreshes one vault's staging mirror from its remote agent (ADR-075).
 
     Bound per-descriptor to the mirror root, the remote transport, and the
-    server-side allowed top-level folders (``None`` = whole-vault-open, the
-    combined-root shape — only the ``je_*`` staging floor applies then).
+    server-side allowed top-level folders (the vault's doorway folders — a
+    personal root never opens whole, ``VaultConfig.validate_roots``).
     """
 
     def __init__(
         self,
         transport: RemoteVaultBridgePort,
         mirror_root: Path,
-        allowed_folders: frozenset[str] | None,
+        allowed_folders: frozenset[str],
     ) -> None:
         self._transport = transport
         self._mirror_root = mirror_root.resolve()
@@ -129,11 +129,7 @@ class VaultMirrorPuller:
         # previously-mirrored content retroactively (same fail-closed
         # semantics as the server wall), with the deletion valves as guard.
         agent_allowed = frozenset(wall.allowed_folders)
-        effective_allowed = (
-            agent_allowed
-            if self._allowed_folders is None
-            else self._allowed_folders & agent_allowed
-        )
+        effective_allowed = self._allowed_folders & agent_allowed
         logger.info(
             "Mirror refresh for %s: agent v%s serves %s (effective: %s)",
             user_uid,
@@ -242,8 +238,6 @@ class VaultMirrorPuller:
 
     def _sweep_roots(self) -> list[Path]:
         """The directories whose contents this puller maintains as a cache."""
-        if self._allowed_folders is None:
-            return [self._mirror_root]
         return [self._mirror_root / folder for folder in sorted(self._allowed_folders)]
 
     def _sweep_absent(self, listed: set[str], stats: MirrorPullStats) -> None:

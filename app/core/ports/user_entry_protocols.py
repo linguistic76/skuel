@@ -35,7 +35,7 @@ See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
@@ -57,6 +57,13 @@ if TYPE_CHECKING:
 
 
 # ============================================================================
+# The ``reason`` an ``upsert`` refusal carries when the uid names a UserEntry another
+# user owns (``Errors.not_found``'s ``details["reason"]`` — never shown to a client).
+# The vault door reads it to report the file as ignored-with-reason, as it reports an
+# Activity file whose uid is taken (ADR-070 Decision 11).
+UPSERT_UID_TAKEN: Final = "uid_taken"
+
+
 # ISP parent 1 — CRUD / content search / feedback-count joins
 # ============================================================================
 
@@ -72,7 +79,9 @@ class UserEntryCrudOperations(Protocol):
         """Create-or-update a ``UserEntry`` keyed on its caller-supplied uid.
 
         MERGE-on-uid: re-syncing a deterministic-uid vault note updates the
-        node in place (preserving ``created_at``) instead of duplicating it.
+        node in place (preserving ``created_at``) instead of duplicating it. A uid
+        another user owns takes no write and fails as ``not_found`` with
+        ``reason=UPSERT_UID_TAKEN``.
         """
         ...
 
