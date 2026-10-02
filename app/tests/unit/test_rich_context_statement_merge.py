@@ -64,7 +64,7 @@ _PARTIALS: dict[str, dict[str, Any]] = {
             "habit_adherence": [
                 {
                     "uid": "h1",
-                    "completions_in_window": 3,
+                    "completion_stamps": ["2026-10-01T12:00:00"],
                     "recurrence_pattern": "daily",
                     "target_days_per_week": None,
                 }

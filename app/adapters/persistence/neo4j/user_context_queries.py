@@ -44,7 +44,7 @@ from adapters.persistence.neo4j.query.cypher.choice_fragments import build_choic
 from adapters.persistence.neo4j.query.cypher.habit_fragments import (
     HABIT_WINDOW_END_PARAM,
     HABIT_WINDOW_START_PARAM,
-    build_habit_window_completion_count,
+    build_habit_window_completion_stamps,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
@@ -86,7 +86,7 @@ def _habit_adherence_row(
     """A consolidated ``habit_data`` item's adherence inputs — the streak stays behind."""
     return {
         "uid": item["uid"],
-        "completions_in_window": item["completions_in_window"],
+        "completion_stamps": item["completion_stamps"],
         "recurrence_pattern": item["recurrence_pattern"],
         "target_days_per_week": item["target_days_per_week"],
         "created_at": item["created_at"],
@@ -170,13 +170,14 @@ _COMPOSITION_EDGES_TOKEN = "__COMPOSITION_EDGES__"
 _CHOICE_PENDING_TOKEN = "__CHOICE_PENDING__"
 _CHOICE_PENDING = build_choice_pending_predicate("choice")
 
-# An active habit's adherence inputs (``HabitAdherenceRow``) — the window count,
-# the frequency and the creation stamp ``habit_adherence`` reads — projected by HABIT_ADHERENCE_QUERY
+# An active habit's adherence inputs (``HabitAdherenceRow``) — its completion
+# stamps in the window, the frequency and the creation stamp ``habit_adherence``
+# reads — projected by HABIT_ADHERENCE_QUERY
 # and CONSOLIDATED_QUERY from this one spelling. The statements carry the count,
 # never a rate: the rate is derived at read time by the populator.
 _HABIT_ADHERENCE_FIELDS_TOKEN = "__HABIT_ADHERENCE_FIELDS__"
 _HABIT_ADHERENCE_FIELDS = (
-    f"completions_in_window: {build_habit_window_completion_count('user', 'habit')}, "
+    f"completion_stamps: {build_habit_window_completion_stamps('user', 'habit')}, "
     "recurrence_pattern: habit.recurrence_pattern, "
     "target_days_per_week: habit.target_days_per_week, "
     "created_at: habit.created_at"

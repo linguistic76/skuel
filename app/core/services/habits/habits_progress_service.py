@@ -16,9 +16,13 @@ from datetime import date
 from operator import attrgetter
 from typing import Any
 
-from core.constants import HabitConsistencyWindow
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
-from core.models.habit.adherence import adherence_window_days, creation_day, habit_adherence
+from core.models.habit.adherence import (
+    adherence_window_days,
+    completion_days,
+    creation_day,
+    habit_adherence,
+)
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -473,7 +477,7 @@ class HabitsProgressService:
     async def get_adherence_rates(self, habits: list[Habit]) -> Result[dict[str, float]]:
         """Each habit's adherence now, keyed by uid — the habits that have a rate.
 
-        Counts each habit's completions in the trailing window in one read
+        Reads each habit's completions in the trailing window in one read
         (``HabitsOperations.get_habit_window_completions``, owner-scoped) and
         hands each count to :func:`~core.models.habit.adherence.habit_adherence`
         with the habit's cadence and creation day. A habit with no rate yet is
@@ -489,13 +493,13 @@ class HabitsProgressService:
         )
         if counts_result.is_error:
             return Result.fail(counts_result)
-        counts = counts_result.value
+        stamps = counts_result.value
         rates: dict[str, float] = {}
         for habit in habits:
             rate = habit_adherence(
                 habit.recurrence_pattern,
                 habit.target_days_per_week,
-                counts.get(habit.uid, 0),
+                completion_days(stamps.get(habit.uid, []), zone),
                 created_on=creation_day(habit.created_at, zone),
                 today=today,
             )
@@ -537,21 +541,16 @@ class HabitsProgressService:
         The ratio itself is :func:`~core.models.habit.adherence.habit_adherence`,
         the one definition the read-time readers share — measured from the
         habit's creation day when that falls inside the window, and ``None`` when
-        the habit has no rate yet; this method only counts the window's
-        completions from the list it is handed.
+        the habit has no rate yet; this method only hands it the day of each
+        completion in the list.
 
         GRAPH-NATIVE: Completions fetched from graph, not from habit.completion_history.
         """
-        window_start = HabitConsistencyWindow.start_date(as_of_date)
-        window_end = HabitConsistencyWindow.end_date(as_of_date)
         zone = current_zone()
-        in_window = sum(
-            1 for c in completions if window_start <= day_of(c.completed_at, zone) <= window_end
-        )
         return habit_adherence(
             habit.recurrence_pattern,
             habit.target_days_per_week,
-            in_window,
+            [day_of(c.completed_at, zone) for c in completions],
             created_on=creation_day(habit.created_at, zone),
             today=as_of_date,
         )

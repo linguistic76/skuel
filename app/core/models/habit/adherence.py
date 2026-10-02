@@ -17,14 +17,16 @@ completions when it reads and hands the count to :func:`habit_adherence`.
 Design and the write-side work it leaves open:
 ``docs/roadmap/habit-completion-persistence-bundle.md``.
 
-The count belongs to the window :func:`adherence_window_bounds` returns — the
-window's first instant and the first instant after its last day, on the stored
-clock — counted over ``:HabitCompletion`` nodes the habit's owner owns. Only a
-node counts: a completion that leaves no node behind is invisible to the rate.
+The completions are read inside the window :func:`adherence_window_bounds`
+returns — the window's first instant and the first instant after its last day,
+on the stored clock — over ``:HabitCompletion`` nodes the habit's owner owns,
+and counted here over the span the ratio measures. Only a node counts: a
+completion that leaves no node behind is invisible to the rate.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date, datetime, timedelta, tzinfo
 
 from core.constants import HabitConsistencyWindow
@@ -37,7 +39,7 @@ _SATURDAY = 5  # date.weekday(): Monday is 0
 def habit_adherence(
     recurrence_pattern: str | None,
     target_days_per_week: int | None,
-    completions_in_window: int,
+    completed_on: Iterable[date],
     *,
     created_on: date | None,
     today: date,
@@ -46,7 +48,10 @@ def habit_adherence(
 
     The span is the trailing window, cut short at the day the habit was created
     (``created_on``; ``None`` reads as older than the window): a habit three
-    days old is measured over three days, not thirty. What the span expects is
+    days old is measured over three days, not thirty. Both sides of the ratio
+    are counted over that one span — ``completed_on`` holds one day per
+    completion (a completion backfilled to before the habit existed, or stamped
+    after today, is outside it), and what the span expects is
     :func:`expected_completions`. ``None`` when the habit has no rate yet —
     nothing is due in its span (a weekly habit younger than a week), or its
     pattern cannot be measured in the window at all — an absent measurement,
@@ -63,7 +68,8 @@ def habit_adherence(
     expected = expected_completions(recurrence_pattern, target_days_per_week, first_day, today)
     if not expected:
         return None
-    return min(1.0, completions_in_window / expected)
+    kept = sum(1 for day in completed_on if first_day <= day <= today)
+    return min(1.0, kept / expected)
 
 
 def expected_completions(
@@ -128,3 +134,17 @@ def creation_day(stamp: object, zone: tzinfo) -> date | None:
     """
     instant = instant_of(stamp, zone)
     return instant.astimezone(zone).date() if instant is not None else None
+
+
+def completion_days(stamps: Iterable[object], zone: tzinfo) -> list[date]:
+    """The day each completion fell on in ``zone``, from ``completed_at`` stamps in any stored shape.
+
+    One day per stamp, repeats kept (each completion node counts); an
+    unreadable stamp is dropped.
+    """
+    days: list[date] = []
+    for stamp in stamps:
+        instant = instant_of(stamp, zone)
+        if instant is not None:
+            days.append(instant.astimezone(zone).date())
+    return days

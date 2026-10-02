@@ -23,7 +23,7 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
-from core.models.habit.adherence import creation_day, habit_adherence
+from core.models.habit.adherence import completion_days, creation_day, habit_adherence
 from core.models.user import UserPreferences
 from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
@@ -41,7 +41,7 @@ logger = get_logger(__name__)
 
 
 def habit_adherence_rates(rows: Iterable[HabitAdherenceRow]) -> dict[str, float]:
-    """Each active habit's adherence, from the window count its statement projected.
+    """Each active habit's adherence, from the window's completions its statement projected.
 
     A habit with no rate yet (``habit_adherence`` returns None — nothing due in
     its span, or a frequency the window cannot hold) is left out: it has no
@@ -54,7 +54,7 @@ def habit_adherence_rates(rows: Iterable[HabitAdherenceRow]) -> dict[str, float]
         rate = habit_adherence(
             row["recurrence_pattern"],
             row["target_days_per_week"],
-            row["completions_in_window"],
+            completion_days(row["completion_stamps"], zone),
             created_on=creation_day(row["created_at"], zone),
             today=today,
         )

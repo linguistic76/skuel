@@ -626,13 +626,14 @@ class HabitsOperations(
 
     async def get_habit_window_completions(
         self, habit_uids: list[str], window_start: str, window_end: str
-    ) -> Result[dict[str, int]]:
-        """Each habit's completions in the trailing window, keyed by habit uid.
+    ) -> Result[dict[str, list[object]]]:
+        """Each habit's completions in the trailing window — their ``completed_at``
+        stamps — keyed by habit uid.
 
         The numerator of a habit's adherence (``habit_adherence``). Same
         inclusive ISO date bounds and the same window predicate as
         ``CrossDomainBackend.get_habit_analytics``; a completion counts only when the habit's
-        owner owns it. Every requested habit with an owner has an entry, zero
+        owner owns it. Every requested habit with an owner has an entry, empty
         included.
         """
         ...

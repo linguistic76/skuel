@@ -1,13 +1,13 @@
 """
-Habit Cypher fragments — a completion inside the adherence window, and the per-habit count.
+Habit Cypher fragments — a completion inside the adherence window, and one habit's completions there.
 
 ``core.models.habit.adherence`` defines a habit's adherence as its completions in
 the trailing window over what its frequency expects there. These two fragments
 are the Cypher half of that definition: which ``:HabitCompletion`` is inside the
-window, and how many of them belong to one habit. Every read that counts
+window, and which of them belong to one habit. Every read that counts
 completions toward adherence or consistency composes them — the per-user count
 behind ``consistency_score`` (``CrossDomainBackend.get_habit_analytics``), the
-per-habit count (``HabitsBackend.get_habit_window_completions``) and both
+per-habit stamps (``HabitsBackend.get_habit_window_completions``) and both
 user-context statements. A copy is a second definition that drifts — compose,
 never restate.
 
@@ -43,23 +43,29 @@ def build_completion_in_window_predicate(alias: str, start_param: str, end_param
     )
 
 
-def build_habit_window_completion_count(
+def build_habit_window_completion_stamps(
     owner_alias: str,
     habit_alias: str,
     start_param: str = HABIT_WINDOW_START_PARAM,
     end_param: str = HABIT_WINDOW_END_PARAM,
 ) -> str:
-    """How many of ``owner_alias``'s completions of ``habit_alias`` fall inside the window.
+    """The ``completed_at`` of each of ``owner_alias``'s completions of ``habit_alias`` in the window.
 
-    A completion counts when the habit's owner owns it (``OWNS``, ADR-086) and it
-    names the habit (``habit_uid``) — another user's record of the same uid is
-    not this habit's completion. An integer expression; zero when there are none.
+    A completion belongs to the habit when the habit's owner owns it (``OWNS``,
+    ADR-086) and it names the habit (``habit_uid``) — another user's record of
+    the same uid is not this habit's completion. A list expression, one stamp
+    per completion node (empty when there are none): the stamps, not a count,
+    because the span adherence measures may start later than the window — at
+    the habit's creation day in the user's zone — and
+    ``core.models.habit.adherence.habit_adherence`` counts both sides of the
+    ratio over that one span.
     """
     validate_identifier(owner_alias, "owner_alias")
     validate_identifier(habit_alias, "habit_alias")
     predicate = build_completion_in_window_predicate("window_completion", start_param, end_param)
     return (
-        f"COUNT {{ ({owner_alias})-[:{RelationshipName.OWNS.value}]->"
+        f"[({owner_alias})-[:{RelationshipName.OWNS.value}]->"
         f"(window_completion:{NeoLabel.HABIT_COMPLETION.value}) "
-        f"WHERE window_completion.habit_uid = {habit_alias}.uid AND {predicate} }}"
+        f"WHERE window_completion.habit_uid = {habit_alias}.uid AND {predicate} "
+        f"| window_completion.completed_at]"
     )

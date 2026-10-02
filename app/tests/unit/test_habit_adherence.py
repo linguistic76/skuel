@@ -8,7 +8,7 @@ measured over three days), every ``RecurrencePattern`` expects what the span
 holds of its own cadence, and a habit with nothing due yet — or a cadence the
 window cannot hold — has no rate (None), never a zero.
 
-The populator turns each statement row (a window count, never a rate) into
+The populator turns each statement row (completion stamps, never a rate) into
 ``habit_completion_rates``; a row set that is missing is a statement or a fake
 out of shape, and raises rather than reading every habit as 0.0.
 """
@@ -25,6 +25,7 @@ from core.models.enums import RecurrencePattern
 from core.models.enums.entity_enums import EntityType
 from core.models.habit.adherence import (
     adherence_window_bounds,
+    completion_days,
     creation_day,
     expected_completions,
     habit_adherence,
@@ -50,7 +51,8 @@ OLD = TODAY - timedelta(days=90)  # created long before the window
 def _rate(
     pattern: str | None, count: int, *, target: int | None = None, created_on: date | None = OLD
 ) -> float | None:
-    return habit_adherence(pattern, target, count, created_on=created_on, today=TODAY)
+    """``count`` completions, all made today — inside any span the habit is measured over."""
+    return habit_adherence(pattern, target, [TODAY] * count, created_on=created_on, today=TODAY)
 
 
 # =============================================================================
@@ -148,6 +150,41 @@ def test_an_unknown_creation_day_measures_the_whole_window() -> None:
     assert _rate(RecurrencePattern.DAILY, 15, created_on=None) == pytest.approx(0.5)
 
 
+def test_only_completions_inside_the_measured_span_count() -> None:
+    """Backfilled to before the habit existed, made before the window, or stamped
+    after today: none of them is a completion of the span the ratio measures."""
+    created = TODAY - timedelta(days=2)  # three days: expects three
+    completed_on = [
+        TODAY - timedelta(days=5),  # backfilled to before the habit existed
+        TODAY - timedelta(days=4),
+        TODAY - timedelta(days=3),
+        TODAY - timedelta(days=40),  # before the window
+        TODAY + timedelta(days=1),  # in the future
+        created,  # the one that counts
+    ]
+
+    rate = habit_adherence(
+        RecurrencePattern.DAILY, None, completed_on, created_on=created, today=TODAY
+    )
+
+    assert rate == pytest.approx(1 / 3)
+
+
+def test_each_completion_counts_including_two_on_one_day() -> None:
+    """The count is of completion nodes — a same-day duplicate counts twice (the
+    write side's one-per-day invariant is the completion bundle's)."""
+    assert _rate(RecurrencePattern.DAILY, 2, created_on=TODAY - timedelta(days=3)) == 0.5
+
+
+def test_completion_days_read_every_stored_shape_and_drop_the_unreadable() -> None:
+    days = completion_days(
+        ["2026-09-20T12:00:00", datetime(2026, 9, 21, 12, 0), None, "not a stamp"],
+        current_zone(),
+    )
+
+    assert days == [date(2026, 9, 20), date(2026, 9, 21)]
+
+
 def test_a_creation_day_after_today_has_no_rate() -> None:
     assert _rate(RecurrencePattern.DAILY, 1, created_on=TODAY + timedelta(days=1)) is None
 
@@ -198,8 +235,8 @@ def _completion(day: date) -> HabitCompletion:
 def test_the_progress_service_computes_the_same_ratio(
     pattern: RecurrencePattern, target: int | None
 ) -> None:
-    """``_calculate_consistency_from_completions`` windows the list it is
-    handed and hands the count to the one definition."""
+    """``_calculate_consistency_from_completions`` hands the one definition the
+    day of each completion in the list; the two outside the window do not count."""
     today = today_in(current_zone())
     in_window = [_completion(today - timedelta(days=n)) for n in range(0, 20, 2)]
     outside = [_completion(today - timedelta(days=DAYS)), _completion(today + timedelta(days=1))]
@@ -219,7 +256,7 @@ def test_the_progress_service_computes_the_same_ratio(
     assert ratio == habit_adherence(
         pattern,
         target,
-        len(in_window),
+        [today] * len(in_window),
         created_on=creation_day(habit.created_at, current_zone()),
         today=today,
     )
@@ -235,7 +272,7 @@ def _row(
 ) -> HabitAdherenceRow:
     return {
         "uid": uid,
-        "completions_in_window": count,
+        "completion_stamps": [f"{today_in(current_zone()).isoformat()}T12:00:00"] * count,
         "recurrence_pattern": pattern,
         "target_days_per_week": None,
         "created_at": created_at,

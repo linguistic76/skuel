@@ -1541,12 +1541,13 @@ class HabitAdherenceRow(TypedDict):
 
     The populator turns each row into the habit's rate with
     ``core.models.habit.adherence.habit_adherence``; the statements carry the
-    count, never a rate, because the rate is derived at read time.
+    completions, never a rate, because the rate is derived at read time.
 
     Fields:
         uid: The habit
-        completions_in_window: Its owner's ``:HabitCompletion`` nodes for it
-            inside the trailing adherence window
+        completion_stamps: The ``completed_at`` of each of its owner's
+            ``:HabitCompletion`` nodes for it inside the trailing adherence
+            window, in whatever shape the node holds it
         recurrence_pattern: The stored ``RecurrencePattern`` value, or None
         target_days_per_week: The custom-frequency target, or None
         created_at: The habit's stored creation stamp, in whatever shape the
@@ -1554,7 +1555,7 @@ class HabitAdherenceRow(TypedDict):
     """
 
     uid: str
-    completions_in_window: int
+    completion_stamps: list[object]
     recurrence_pattern: str | None
     target_days_per_week: int | None
     created_at: object

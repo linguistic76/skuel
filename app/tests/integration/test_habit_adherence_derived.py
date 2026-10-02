@@ -22,8 +22,11 @@ The users:
 - INTRUDER — writes those five, and keeps a habit of their own.
 - NO_HABITS — none at all: no rate, no consistency signal, no warning.
 - YOUNG — a daily habit created three days ago and kept all three days (1.0, not
-  3 / 30), and a weekly habit created four days ago with nothing due yet (no
-  rate: neither averaged nor at risk).
+  3 / 30); a weekly habit created four days ago with nothing due yet (no rate:
+  neither averaged nor at risk); and a daily habit created three days ago, never
+  done since, with three completions backfilled to the days before it existed
+  (0.0 — a completion from before the habit is outside the span it is measured
+  over, on both sides of the ratio).
 
 - CADENCES — a weekends habit kept on every weekend day of the window, a monthly
   habit kept once, and a quarterly habit kept once: 1.0, 1.0, and no rate (a
@@ -65,7 +68,7 @@ from core.services.user.unified_user_context import is_rich
 from core.services.user.user_context_builder import UserContextBuilder
 from core.services.user_stats_types import _compute_domain_stats_from_context
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import instant_of, today_in
 from core.utils.zone_context import current_zone
 
 KEPT = UserUID("user_adherence_kept")
@@ -83,6 +86,7 @@ DROPPED_HABIT = "habit.adherence.dropped"
 INTRUDER_HABIT = "habit.adherence.intruder"
 YOUNG_HABIT = "habit.adherence.young"
 YOUNG_WEEKLY_HABIT = "habit.adherence.young_weekly"
+BACKFILLED_HABIT = "habit.adherence.backfilled"
 WEEKENDS_HABIT = "habit.adherence.weekends"
 MONTHLY_HABIT = "habit.adherence.monthly"
 QUARTERLY_HABIT = "habit.adherence.quarterly"
@@ -185,6 +189,7 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
     ):
         await _create_habit(habits, uid, owner)
     await _create_habit(habits, YOUNG_HABIT, YOUNG, on=YOUNG_DAYS[-1])
+    await _create_habit(habits, BACKFILLED_HABIT, YOUNG, on=YOUNG_DAYS[-1])
     await _create_habit(
         habits,
         YOUNG_WEEKLY_HABIT,
@@ -220,6 +225,11 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
     for day in YOUNG_DAYS:
         with _on(day):
             assert (await service.record_completion(YOUNG_HABIT, YOUNG)).is_ok
+    for n in (3, 4, 5):  # backfilled through the door to before the habit existed
+        backfill = _noon(TODAY - timedelta(days=n))
+        assert (
+            await service.record_completion(BACKFILLED_HABIT, YOUNG, completed_at=backfill)
+        ).is_ok
     for day in INTRUDER_DAYS:
         with _on(day):
             assert (await service.record_completion(DROPPED_HABIT, INTRUDER)).is_ok
@@ -241,6 +251,7 @@ async def graph(neo4j_driver: AsyncDriver, clean_neo4j) -> HabitsBackend:
         (INTRUDER, DROPPED_HABIT): 5,
         (INTRUDER, INTRUDER_HABIT): 5,
         (YOUNG, YOUNG_HABIT): 3,
+        (YOUNG, BACKFILLED_HABIT): 3,
         (CADENCES, WEEKENDS_HABIT): len(WEEKEND_DAYS),
         (CADENCES, MONTHLY_HABIT): 1,
         (CADENCES, QUARTERLY_HABIT): 1,
@@ -325,13 +336,14 @@ class TestHabitAdherenceInTheUserContext:
         self, neo4j_driver: AsyncDriver, graph: HabitsBackend
     ) -> None:
         """Kept all three of its days: 1.0 and not at risk. The weekly habit four
-        days old has no week behind it — no rate, so nothing averages or flags it."""
+        days old has no week behind it — no rate, so nothing averages or flags it.
+        The backfilled habit's three completions all predate it: 0.0, at risk."""
         context = await _rich(neo4j_driver, YOUNG)
 
-        assert context.habit_completion_rates == {YOUNG_HABIT: 1.0}
-        assert context.at_risk_habits == []
+        assert context.habit_completion_rates == {YOUNG_HABIT: 1.0, BACKFILLED_HABIT: 0.0}
+        assert context.at_risk_habits == [BACKFILLED_HABIT]
         signals = _Momentum(context).compute_momentum_signals()
-        assert signals["habit_consistency"] == 1.0
+        assert signals["habit_consistency"] == 0.5
 
     async def test_each_cadence_is_measured_against_what_the_window_holds_of_it(
         self, neo4j_driver: AsyncDriver, graph: HabitsBackend
@@ -363,7 +375,7 @@ class TestHabitAdherenceInTheUserContext:
             (DROPPED, {DROPPED_HABIT: DROPPED_RATE}),
             (INTRUDER, {INTRUDER_HABIT: 5 / HabitConsistencyWindow.DAYS}),
             (NO_HABITS, {}),
-            (YOUNG, {YOUNG_HABIT: 1.0}),
+            (YOUNG, {YOUNG_HABIT: 1.0, BACKFILLED_HABIT: 0.0}),
             (CADENCES, {WEEKENDS_HABIT: 1.0, MONTHLY_HABIT: 1.0}),
         ],
     )
@@ -397,12 +409,20 @@ class TestHabitWindowCompletionsRead:
         )
 
         assert result.is_ok, result.error
-        assert result.value == {
+        assert {uid: len(stamps) for uid, stamps in result.value.items()} == {
             KEPT_HABIT: 28,
             BULK_HABIT: 28,
             DROPPED_HABIT: 7,
             INTRUDER_HABIT: 5,
         }
+        # The stamps read back as the days the completions were made.
+        zone = current_zone()
+        kept_days = [
+            instant.astimezone(zone).date()
+            for stamp in result.value[KEPT_HABIT]
+            if (instant := instant_of(stamp, zone)) is not None
+        ]
+        assert sorted(kept_days) == sorted(KEPT_DAYS)
 
     async def test_the_analytics_habit_metrics_read_the_derived_rate(
         self, neo4j_driver: AsyncDriver, graph: HabitsBackend

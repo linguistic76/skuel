@@ -360,19 +360,19 @@ async def test_every_section_reads_what_the_one_statement_read(
             {"uid": "habit.eq.pre", "streak": 0},
         ]
     )
-    # habit adherence — the window count, never a rate off the node
+    # habit adherence — the window's completion stamps, never a rate off the node
     assert _canon(uids["habit_adherence"]) == _canon(
         [
             {
                 "uid": "habit.eq.active",
-                "completions_in_window": 24,
+                "completion_stamps": _kept_daily_stamps(24),
                 "recurrence_pattern": "daily",
                 "target_days_per_week": None,
                 "created_at": None,
             },
             {
                 "uid": "habit.eq.pre",
-                "completions_in_window": 0,
+                "completion_stamps": [],
                 "recurrence_pattern": None,
                 "target_days_per_week": None,
                 "created_at": None,

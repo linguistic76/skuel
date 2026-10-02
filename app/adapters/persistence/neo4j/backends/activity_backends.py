@@ -16,7 +16,7 @@ from adapters.persistence.neo4j.query.cypher.goal_tally_queries import (
     linked_task_tally_params,
 )
 from adapters.persistence.neo4j.query.cypher.habit_fragments import (
-    build_habit_window_completion_count,
+    build_habit_window_completion_stamps,
 )
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import QueryLimit
@@ -467,12 +467,14 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
 
     async def get_habit_window_completions(
         self, habit_uids: list[str], window_start: str, window_end: str
-    ) -> Result[dict[str, int]]:
-        """Each habit's completions in the trailing window — the per-habit sibling
-        of ``CrossDomainBackend.get_habit_analytics``' per-user count.
+    ) -> Result[dict[str, list[object]]]:
+        """Each habit's completions in the trailing window, as their ``completed_at``
+        stamps — the per-habit sibling of ``CrossDomainBackend.get_habit_analytics``'
+        per-user count.
 
         The numerator of a habit's adherence
-        (``core.models.habit.adherence.habit_adherence``). ``window_start`` and
+        (``core.models.habit.adherence.habit_adherence``, which counts the stamps'
+        days over the span it measures). ``window_start`` and
         ``window_end`` are inclusive ISO ``YYYY-MM-DD`` dates
         (``adherence_window_days``), turned into the same ``[start, end)``
         stored-clock bounds and compared through the same predicate
@@ -482,20 +484,20 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         A completion counts for a habit when the habit's owner owns it (``OWNS``,
         ADR-086) and it names the habit — the owner is read from the habit, so
         another user's record carrying the same ``habit_uid`` never counts.
-        Every requested habit that has an owner gets an entry, zero included; a
+        Every requested habit that has an owner gets an entry, empty included; a
         uid that matches no owned habit is absent.
         """
         start_bound, end_bound = stored_day_bounds(
             date.fromisoformat(window_start), date.fromisoformat(window_end), current_zone()
         )
-        count = build_habit_window_completion_count(
+        stamps = build_habit_window_completion_stamps(
             "owner", "habit", start_param="start_bound", end_param="end_bound"
         )
         result = await self.execute_query(
             f"""
             MATCH (owner:User)-[:{RelationshipName.OWNS.value}]->(habit:Entity:Habit)
             WHERE habit.uid IN $habit_uids
-            RETURN habit.uid AS uid, {count} AS completions_in_window
+            RETURN habit.uid AS uid, {stamps} AS completion_stamps
             """,
             {
                 "habit_uids": habit_uids,
@@ -506,7 +508,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(
-            {str(row["uid"]): int(row["completions_in_window"]) for row in result.value or []}
+            {str(row["uid"]): list(row["completion_stamps"]) for row in result.value or []}
         )
 
     async def get_goal_links_for_habits(
