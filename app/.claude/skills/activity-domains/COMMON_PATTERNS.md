@@ -408,8 +408,8 @@ async def link_choice_to_goal(self, choice_uid, goal_uid, contribution_score=0.5
 
 # create_relationship validates the key against the domain config (fails closed on a
 # typo — e.g. "habits" when the Choice config key is "impacted_habits"), admits the far
-# end (it exists, is one of far_end.labels, and is shared content or owned by the
-# source's owner — anything else is not found), orients direction from the registry
+# end (it exists, is one of far_end.labels, and is owned by the source's owner or is
+# published shared content — anything else is not found), orients direction from the registry
 # spec, and writes via the batch path. far_end is required: there is no unchecked link.
 
 # Get related entities (key + uid — no direction arg; the registry spec supplies it):

@@ -76,6 +76,12 @@ class Disposition(StrEnum):
     """An authoring instrument. Drafts are the POINT — the knowledge-health
     gauge reports ``draft_curriculum_count`` rather than subtracting it."""
 
+    ADMISSION = "admission"
+    """A write door's admission read. It answers which of the uids a caller
+    handed in name published nodes, so the door refuses an edge to a draft —
+    it returns no curriculum the caller did not name, so there is nothing for
+    the output invariant to withhold."""
+
 
 @dataclass(frozen=True)
 class Surface:
@@ -341,6 +347,17 @@ SURFACES: tuple[Surface, ...] = (
         Disposition.GATED,
         "A traversal from a held Ku that surfaces OTHER Kus — the carve-out is "
         "containment, and a similarity hop is not containment.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.endpoint_queries",
+        "<module>:_PUBLISHED_CLAUSE",
+        Disposition.ADMISSION,
+        "The link-edge guard's publication read (PUBLISHED_UIDS_BATCH_QUERY): of "
+        "the far-end uids a link, create or vault door was handed, which name a "
+        "published node. A shared far end it leaves out is refused like a uid that "
+        "names nothing, so a learner's goal, habit or task cannot carry a draft "
+        "Ku's title into its readers. Composed at module level because both "
+        "backends that serve the guard share the one statement.",
     ),
     Surface(
         "adapters.persistence.neo4j.zpd_backend",

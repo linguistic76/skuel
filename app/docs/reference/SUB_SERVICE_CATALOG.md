@@ -145,7 +145,7 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 **Responsibility:** Cross-domain graph relationships
 
 **Key Methods:**
-- `create_relationship(method_key, from_uid, to_uid, properties, *, far_end)` - The single cross-domain link write path (registry-validated key, fails closed). `far_end` is required: the far end is admitted before the write — it exists, is one of `far_end.labels`, and is shared content or owned by `from_uid`'s owner
+- `create_relationship(method_key, from_uid, to_uid, properties, *, far_end)` - The single cross-domain link write path (registry-validated key, fails closed). `far_end` is required: the far end is admitted before the write — it exists, is one of `far_end.labels`, and is owned by `from_uid`'s owner or is published shared content
 - `admit_far_ends(from_uid, to_uids, far_end)` → `Result[AdmittedFarEnds]` - The admission alone, for a door that must refuse before its first write; the returned proof is a valid `far_end` for writing that same link without a second read
 - `delete_relationship(method_key, from_uid, to_uid)` - Remove a link
 - `get_related_uids(method_key, entity_uid)` - Query relationships

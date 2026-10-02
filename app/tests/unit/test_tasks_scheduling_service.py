@@ -53,8 +53,14 @@ def mock_backend() -> Any:
         return_value=Result.ok(0)
     )  # Batch relationship creation
     # Admission guard reads (keep_permitted_link_edges): every UID resolves, is owned
-    # by nobody (shared → linkable), and carries every label the link fields accept.
+    # by nobody (shared → linkable), is published, and carries every label the link
+    # fields accept.
     backend.get_owner_uids_batch = AsyncMock(return_value=Result.ok({}))
+
+    async def _all_published(uids: Any) -> Result[frozenset[str]]:
+        return Result.ok(frozenset(uids))
+
+    backend.get_published_uids_batch = AsyncMock(side_effect=_all_published)
 
     async def _all_labels(uids: Any) -> Result[dict[str, list[str]]]:
         return Result.ok({uid: ["Entity", "Habit", "Ku", "Principle", "Task"] for uid in uids})

@@ -941,6 +941,17 @@ class RelationshipCrudOperations(Protocol):
         """
         ...
 
+    async def get_published_uids_batch(
+        self, uids: builtins.list[str]
+    ) -> ResultType[frozenset[str]]:
+        """The uids that name a published node, for many uids in one query.
+
+        Published is the one publication predicate: no ``publication_state``, or one
+        not marked draft. A uid that names no node, or a draft, is absent. The
+        link-edge guard refuses an unowned far end this read leaves out.
+        """
+        ...
+
     async def create_extracted_from_links(
         self, entry_uid: str, links: builtins.list[tuple[str, str, str | None, str | None]]
     ) -> ResultType[int]:

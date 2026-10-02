@@ -51,9 +51,10 @@ A personal vault belongs to one user, so a file in it may write only that user's
   is refused: "uid '…' is already in use by an entity this vault does not own". Nothing is
   written to that node, and deleting the file later deletes nothing of it.
 - **Links.** A personal file's frontmatter targets (`connections:` …) are its owner's or
-  unowned content (a shared Ku). Any other target — another user's, a uid that names nothing,
-  the wrong kind — draws no edge and is warned in the same words: "relationship target '…' does
-  not exist — edge not created".
+  unowned published content (a shared Ku with no `publication_state`, or one marked
+  published). Any other target — another user's, a uid that names nothing, the wrong kind, a
+  Ku marked `publication_state: draft` — draws no edge and is warned in the same words:
+  "relationship target '…' does not exist — edge not created".
 - **Maps.** A personal MOC is any of the types above with `moc: true` (in practice
   `type: user_entry` + `pipeline: knowledge`); its body links resolve within the same vault.
   A `moc: true` file with no `type:` is a PathStep and is refused with that hint.

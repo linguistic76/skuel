@@ -30,6 +30,10 @@ async def _every_linkable_kind(uids: list[str]) -> Result[dict[str, list[str]]]:
     return Result.ok({uid: ["Entity", "Goal", "Habit", "Ku"] for uid in uids})
 
 
+async def _all_published(uids: list[str]) -> Result[frozenset[str]]:
+    return Result.ok(frozenset(uids))
+
+
 @pytest.fixture
 def mock_event_bus() -> Mock:
     """Mock event bus for testing."""
@@ -84,11 +88,13 @@ def mock_tasks_backend() -> Any:
     # Relationship operations
     backend.create_relationships_batch = AsyncMock(return_value=Result.ok(0))
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
-    # The link-edge admission guard's two batched reads (keep_permitted_link_edges).
-    # Permissive by default — every uid is owned by nobody and carries every kind the
-    # update path links — so tests that are not ABOUT admission keep writing edges.
+    # The link-edge admission guard's three batched reads (keep_permitted_link_edges).
+    # Permissive by default — every uid is owned by nobody, published, and carries
+    # every kind the update path links — so tests that are not ABOUT admission keep
+    # writing edges.
     backend.get_owner_uids_batch = AsyncMock(side_effect=_owned_by_nobody)
     backend.get_node_labels_batch = AsyncMock(side_effect=_every_linkable_kind)
+    backend.get_published_uids_batch = AsyncMock(side_effect=_all_published)
 
     return backend
 

@@ -128,7 +128,7 @@ class IngestionWriteOperations(Protocol):
     async def get_node_labels_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]:
         """uid -> labels for each uid that names a node (absent = names nothing).
 
-        One of the two reads the link-edge guard admits a vault file's
+        One of the three reads the link-edge guard admits a vault file's
         frontmatter targets by (``core/services/mixins/link_edge_guard.py``) —
         Result-shaped so the guard can fail closed on a failed read.
         """
@@ -139,6 +139,14 @@ class IngestionWriteOperations(Protocol):
 
         Reads all three spellings of ownership — ``user_uid``, ``owner_uid`` and
         the ``:OWNS`` edge — as the domain backends' read of the same name does.
+        """
+        ...
+
+    async def get_published_uids_batch(self, uids: list[str]) -> Result[frozenset[str]]:
+        """The uids that name a published node (absent = names nothing, or a draft).
+
+        The third read the link-edge guard admits by — a frontmatter target nobody
+        owns must be published — as the domain backends' read of the same name does.
         """
         ...
 

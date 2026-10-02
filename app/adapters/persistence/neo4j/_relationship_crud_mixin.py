@@ -29,6 +29,8 @@ from adapters.persistence.neo4j._backend_helpers import direction_clause
 from adapters.persistence.neo4j.endpoint_queries import (
     NODE_LABELS_BATCH_QUERY,
     OWNER_UIDS_BATCH_QUERY,
+    PUBLISHED_UIDS_BATCH_PARAMS,
+    PUBLISHED_UIDS_BATCH_QUERY,
 )
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
@@ -453,6 +455,22 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         records = await self._run_records(OWNER_UIDS_BATCH_QUERY, {"uids": uids})
 
         return Result.ok({record["uid"]: list(record["owners"]) for record in records})
+
+    @safe_backend_operation("get_published_uids_batch")
+    async def get_published_uids_batch(self, uids: builtins.list[str]) -> Result[frozenset[str]]:
+        """The uids that name a published node, for many uids in ONE query.
+
+        Published is ``build_publication_clause`` — no ``publication_state``, or one
+        not marked draft — so every node outside curriculum counts as published. A
+        uid that names no node, or names a draft, is absent: absence is the refusal,
+        so a reader that answers nothing admits nothing. The link-edge guard asks it
+        of the far ends nobody owns.
+        """
+        records = await self._run_records(
+            PUBLISHED_UIDS_BATCH_QUERY, {**PUBLISHED_UIDS_BATCH_PARAMS, "uids": uids}
+        )
+
+        return Result.ok(frozenset(record["uid"] for record in records))
 
     @safe_backend_operation("create_relationship")
     async def create_relationship(

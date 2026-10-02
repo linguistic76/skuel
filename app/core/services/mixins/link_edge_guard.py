@@ -16,8 +16,8 @@ edge, in two shapes:
   a sync can leave the file unstamped and retry rather than lose its edges.
 
 A request field like ``linked_goal_uids`` or ``knowledge_uid`` is a UID the caller
-chose. Writing it straight into ``create_relationships_batch`` trusts two things the
-batch does not check, and both cost something:
+chose. Writing it straight into ``create_relationships_batch`` trusts three things the
+batch does not check, and each costs something:
 
 WHO owns the other end
     The batch validates labels, never ownership, so one user could link their entity to
@@ -35,16 +35,29 @@ WHAT KIND the other end is
     same-user Goal UID in that list writes an edge that validates and then reports a Goal
     under ``supporting_habits``, corrupting planning and progress context.
 
-Both are properties of the WRITE SITE — the field name is what says "these are habits" —
-so the write site declares the kind (``LinkEdge.allowed_labels`` / ``LinkFarEnd``) and
-the rule is applied here, in ONE pair of batched queries.
+WHETHER shared content is published
+    A Ku explicitly marked ``publication_state: draft`` is unfinished curriculum no
+    learner is shown, so no learner has a reason to link to it — and an edge to it
+    carries the draft's title into every reader of the link. Publication is the one
+    predicate, ``build_publication_clause``: no ``publication_state``, or one not
+    marked draft, is published, so the whole pre-existing corpus stays linkable. It is
+    asked of shared content only — a user's own entities are theirs whatever they
+    carry — and of everyone, a teacher included: these are personal-activity doors,
+    and an author who wants the link publishes first.
 
-THE RULE: the far end exists, carries an allowed label, and is owned by nobody (shared
-content) or by an owner of the source. A source nobody owns links to shared content only.
+The first two are properties of the WRITE SITE — the field name is what says "these are
+habits" — so the write site declares the kind (``LinkEdge.allowed_labels`` /
+``LinkFarEnd``) and the rule is applied here, in ONE set of three batched queries.
 
-FAIL-CLOSED: an unreadable owner or label map writes nothing. A create door drops the
-whole batch (its subject entity is the caller's own and is never affected — only its
-edges are refused); a link door fails with the read's error.
+THE RULE: the far end exists, carries an allowed label, and is either owned by an owner
+of the source or owned by nobody and published (shared content). A source nobody owns
+links to shared content only. A refusal answers alike whatever its reason — a draft, a
+uid that names nothing, another user's node and a node of the wrong kind are each
+``not_found`` of the far end — so no refusal confirms that a node exists.
+
+FAIL-CLOSED: an unreadable owner, label or publication map writes nothing. A create
+door drops the whole batch (its subject entity is the caller's own and is never
+affected — only its edges are refused); a link door fails with the read's error.
 """
 
 from __future__ import annotations
@@ -118,11 +131,40 @@ CHOICE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.CHOICE.value}), "Choice")
 
 
 class _EndpointReader(Protocol):
-    """The two batched backend reads this guard needs."""
+    """The three batched backend reads this guard needs."""
 
     async def get_owner_uids_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]: ...
 
     async def get_node_labels_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]: ...
+
+    async def get_published_uids_batch(self, uids: list[str]) -> Result[frozenset[str]]: ...
+
+
+@dataclass(frozen=True)
+class _Endpoints:
+    """What the three reads say about a set of uids.
+
+    ``labels`` lacks a uid that names no node; ``owners`` lacks a node nobody owns;
+    ``published`` holds only the nodes the publication predicate admits.
+    """
+
+    owners: dict[str, list[str]]
+    labels: dict[str, list[str]]
+    published: frozenset[str]
+
+
+async def _read_endpoints(backend: _EndpointReader, uids: list[str]) -> Result[_Endpoints]:
+    """The three endpoint reads for ``uids``; fails with the first read that fails."""
+    owners = await backend.get_owner_uids_batch(uids)
+    if owners.is_error:
+        return Result.fail(owners)
+    labels = await backend.get_node_labels_batch(uids)
+    if labels.is_error:
+        return Result.fail(labels)
+    published = await backend.get_published_uids_batch(uids)
+    if published.is_error:
+        return Result.fail(published)
+    return Result.ok(_Endpoints(dict(owners.value), dict(labels.value), published.value))
 
 
 @dataclass(frozen=True)
@@ -149,6 +191,7 @@ class LinkEdge:
 def _refusal_reason(
     node_labels: Sequence[str] | None,
     far_owners: Sequence[str] | None,
+    published: bool,
     owner_uids: frozenset[str],
     allowed_labels: frozenset[str],
 ) -> str | None:
@@ -158,8 +201,9 @@ def _refusal_reason(
     LABELS map is non-existence. ``far_owners`` is ``None`` for a node nobody owns —
     absence in the OWNERS map is shared content. An owned far end needs an owner in
     ``owner_uids``; an empty ``owner_uids`` (a shared source) therefore admits shared
-    content only. A labelless node fails the kind check too; the missing branch is
-    separate so the reason names the real cause.
+    content only. Shared content must be ``published`` too; an owned far end is the
+    owner's whatever it carries. A labelless node fails the kind check too; the
+    missing branch is separate so the reason names the real cause.
     """
     if node_labels is None:
         return "missing"
@@ -167,21 +211,32 @@ def _refusal_reason(
         return "cross_user"
     if allowed_labels.isdisjoint(node_labels):
         return "wrong_kind"
+    if not far_owners and not published:
+        return "draft"
     return None
+
+
+def _reason_for(
+    endpoints: _Endpoints, far_uid: str, owner_uids: frozenset[str], allowed: frozenset[str]
+) -> str | None:
+    return _refusal_reason(
+        endpoints.labels.get(far_uid),
+        endpoints.owners.get(far_uid),
+        far_uid in endpoints.published,
+        owner_uids,
+        allowed,
+    )
 
 
 def _admit(
     *,
     owner_uids: frozenset[str],
-    owners: dict[str, list[str]],
-    labels: dict[str, list[str]],
+    endpoints: _Endpoints,
     far_uids: Sequence[str],
     far_end: LinkFarEnd,
 ) -> Result[None]:
     for far_uid in far_uids:
-        reason = _refusal_reason(
-            labels.get(far_uid), owners.get(far_uid), owner_uids, far_end.labels
-        )
+        reason = _reason_for(endpoints, far_uid, owner_uids, far_end.labels)
         if reason is not None:
             return Result.fail(Errors.not_found(far_end.resource, far_uid, reason=reason))
     return Result.ok(None)
@@ -197,22 +252,19 @@ async def admit_far_ends_for_owner(
     """Admit the far ends a door links entities it creates for ``owner_uid`` to.
 
     Fails with the first refused UID as ``not_found`` — a UID that names nothing,
-    another user's node and a node of the wrong kind answer alike (the diagnosis is
-    in ``details["reason"]`` only). A failed endpoint read fails with its own error.
+    another user's node, a node of the wrong kind and unpublished shared content
+    answer alike (the diagnosis is in ``details["reason"]`` only). A failed endpoint
+    read fails with its own error.
     """
     uids = sorted(set(far_uids))
     if not uids:
         return Result.ok(None)
-    owners = await backend.get_owner_uids_batch(uids)
-    if owners.is_error:
-        return Result.fail(owners)
-    labels = await backend.get_node_labels_batch(uids)
-    if labels.is_error:
-        return Result.fail(labels)
+    endpoints = await _read_endpoints(backend, uids)
+    if endpoints.is_error:
+        return Result.fail(endpoints)
     return _admit(
         owner_uids=frozenset({owner_uid}),
-        owners=owners.value,
-        labels=labels.value,
+        endpoints=endpoints.value,
         far_uids=far_uids,
         far_end=far_end,
     )
@@ -241,18 +293,14 @@ async def admit_far_ends_for_source(
             Errors.validation("An entity cannot be linked to itself", field="target_uid")
         )
     uids = sorted({source_uid, *far_uids})
-    owners = await backend.get_owner_uids_batch(uids)
-    if owners.is_error:
-        return Result.fail(owners)
-    labels = await backend.get_node_labels_batch(uids)
-    if labels.is_error:
-        return Result.fail(labels)
-    if source_uid not in labels.value:
+    endpoints = await _read_endpoints(backend, uids)
+    if endpoints.is_error:
+        return Result.fail(endpoints)
+    if source_uid not in endpoints.value.labels:
         return Result.fail(Errors.not_found(source_resource, source_uid))
     return _admit(
-        owner_uids=frozenset(owners.value.get(source_uid, ())),
-        owners=owners.value,
-        labels=labels.value,
+        owner_uids=frozenset(endpoints.value.owners.get(source_uid, ())),
+        endpoints=endpoints.value,
         far_uids=far_uids,
         far_end=far_end,
     )
@@ -263,9 +311,10 @@ class LinkPartition:
     """The candidates a rule admitted, and the ones it refused with the reason.
 
     ``refused`` pairs each edge with the reason ``_refusal_reason`` gave —
-    ``missing``, ``cross_user`` or ``wrong_kind`` — for the caller's log only. A
-    caller that reports a refusal to the user reports all three alike, so a uid
-    that names another user's node reads exactly as one that names nothing.
+    ``missing``, ``cross_user``, ``wrong_kind`` or ``draft`` — for the caller's log
+    only. A caller that reports a refusal to the user reports all four alike, so a
+    uid that names another user's node or a draft reads exactly as one that names
+    nothing.
     """
 
     kept: list[LinkEdge] = field(default_factory=list)
@@ -282,7 +331,8 @@ async def partition_link_edges(
     """Split ``candidates`` into the edges ``owner_uid`` may write and the ones it may not.
 
     The rule is ``_refusal_reason`` — the far end exists, carries one of the
-    candidate's allowed labels, and is owned by ``owner_uid`` or by nobody.
+    candidate's allowed labels, and is owned by ``owner_uid``, or by nobody and
+    published.
 
     ``pending_labels`` names far ends the SAME write is about to create for
     ``owner_uid`` (a vault sync's own files, whose nodes land after this check): a
@@ -290,35 +340,26 @@ async def partition_link_edges(
     these labels. The graph wins for a uid it already holds — a pending file whose
     uid names another user's node does not make that node the owner's.
 
-    Fails with the read's error when either endpoint read fails — the caller
+    Fails with the read's error when any endpoint read fails — the caller
     decides what fail-closed means for it (``keep_permitted_link_edges`` writes no
     edge; the vault door leaves the file unstamped).
     """
     if not candidates:
         return Result.ok(LinkPartition())
     other_uids = sorted({candidate.other_uid for candidate in candidates})
-    owners_result = await backend.get_owner_uids_batch(other_uids)
-    if owners_result.is_error:
-        return Result.fail(owners_result)
-    labels_result = await backend.get_node_labels_batch(other_uids)
-    if labels_result.is_error:
-        return Result.fail(labels_result)
-    owners = dict(owners_result.value)
-    labels = dict(labels_result.value)
+    read = await _read_endpoints(backend, other_uids)
+    if read.is_error:
+        return Result.fail(read)
+    endpoints = read.value
     for uid, pending in (pending_labels or {}).items():
-        if uid not in labels:
-            labels[uid] = list(pending)
-            owners[uid] = [owner_uid]
+        if uid not in endpoints.labels:
+            endpoints.labels[uid] = list(pending)
+            endpoints.owners[uid] = [owner_uid]
 
     owner_uids = frozenset({owner_uid})
     partition = LinkPartition()
     for candidate in candidates:
-        reason = _refusal_reason(
-            labels.get(candidate.other_uid),
-            owners.get(candidate.other_uid),
-            owner_uids,
-            candidate.allowed_labels,
-        )
+        reason = _reason_for(endpoints, candidate.other_uid, owner_uids, candidate.allowed_labels)
         if reason is None:
             partition.kept.append(candidate)
         else:
@@ -340,7 +381,7 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
 ) -> list[EdgeTuple]:
     """Return the candidate edges whose far end this owner may legitimately link.
 
-    An edge is kept when ALL THREE hold:
+    An edge is kept when ALL FOUR hold:
 
     - the far end EXISTS. This matters because ``create_relationships_batch`` is
       all-or-nothing: one stale UID fails the whole batch, and since that failure is
@@ -352,12 +393,15 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
       uses (``user_uid``, ``owner_uid``, the ``OWNS`` edge); "owned by nobody" means
       shared content — a Ku carries none of the three and must stay linkable.
     - the far end carries one of ``allowed_labels``.
+    - a far end nobody owns is published (``get_published_uids_batch``) — a Ku
+      marked draft is unfinished curriculum, refused like a uid that names nothing.
 
     Args:
-        backend: the domain backend (its two batched endpoint reads).
+        backend: the domain backend (its three batched endpoint reads).
         candidates: edges to admit, each with its far end and expected kind.
         subject_uid: the entity being created — for log messages only.
-        owner_uid: the creating user; the far end must be theirs or unowned.
+        owner_uid: the creating user; the far end must be theirs, or unowned and
+            published.
         logger: service logger; refusals are logged, never raised.
 
     Returns:
@@ -382,6 +426,7 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
     missing = reasons.count("missing")
     cross_user = reasons.count("cross_user")
     wrong_kind = reasons.count("wrong_kind")
+    draft = reasons.count("draft")
     kept = [candidate.edge for candidate in partition.value.kept]
 
     if missing:
@@ -402,6 +447,12 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
         logger.warning(
             "Refusing %d link edge(s) for %s whose target is the wrong entity kind",
             wrong_kind,
+            subject_uid,
+        )
+    if draft:
+        logger.warning(
+            "Refusing %d link edge(s) for %s whose target is unpublished shared content",
+            draft,
             subject_uid,
         )
 

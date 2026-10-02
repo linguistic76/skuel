@@ -16,7 +16,8 @@ The rules:
 3. A uid-less personal Activity file has its own identity: two users with the
    same filename get two entities, and a rename keeps the entity.
 4. A personal Activity file's frontmatter targets are the vault owner's or
-   unowned content.
+   unowned published content — a Ku marked ``publication_state: draft`` draws no
+   edge and is warned about in the words a missing target is.
 
 Content vault: an Edge file joins two entities (never a :User or a :Group end,
 never an ``OWNS``), and a Group file's owner is the vault's resolved owner.
@@ -608,6 +609,42 @@ async def test_frontmatter_targets_link_only_the_owners_or_shared_content(env, d
     # A refused target reads exactly like a missing one.
     for warning in outcome.warnings:
         _assert_never_names_owner(warning)
+
+
+@pytest.mark.parametrize("door", DOORS)
+async def test_a_draft_target_draws_no_edge_and_reads_like_a_missing_one(env, door) -> None:
+    d = env["driver"]
+    _write(env["content"] / "atom.md", "---\ntype: ku\nuid: ku.nb2f.atom\ntitle: Atom\n---\n\nx\n")
+    _write(
+        env["content"] / "draft.md",
+        "---\ntype: ku\nuid: ku.nb2f.draft\ntitle: Draft\npublication_state: draft\n---\n\nx\n",
+    )
+    await _sync(env, "content", "directory")
+    assert (await _q(d, "MATCH (k:Ku {uid: 'ku.nb2f.draft'}) RETURN k.publication_state AS s")) == [
+        {"s": "draft"}
+    ]
+    _write(
+        env["alice"] / "knowledge" / "a.md",
+        "---\ntype: task\nuid: task.a\ntitle: A\n"
+        "connections:\n  applies_knowledge: [ku.nb2f.draft, ku.nb2f.atom]\n---\n\nx\n",
+    )
+    _write(
+        env["alice"] / "knowledge" / "b.md",
+        "---\ntype: task\nuid: task.b\ntitle: B\n"
+        "connections:\n  applies_knowledge: [ku.nb2f.nowhere]\n---\n\nx\n",
+    )
+
+    outcome = await _sync(env, "alice", door)
+
+    assert await _edge_types(d, "task.a", "ku.nb2f.draft") == []
+    # Positive control: a published Ku in the same list still links.
+    assert await _edge_types(d, "task.a", "ku.nb2f.atom") == ["APPLIES_KNOWLEDGE"]
+    draft = [w for w in outcome.warnings if "ku.nb2f.draft" in w]
+    missing = [w for w in outcome.warnings if "ku.nb2f.nowhere" in w]
+    assert len(draft) == 1 and len(missing) == 1, outcome.warnings
+    assert draft[0].replace("task.a", "X").replace("ku.nb2f.draft", "Y") == missing[0].replace(
+        "task.b", "X"
+    ).replace("ku.nb2f.nowhere", "Y")
 
 
 async def test_a_source_path_step_names_only_a_path_step(env) -> None:

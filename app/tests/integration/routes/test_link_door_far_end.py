@@ -3,8 +3,8 @@
 A link door takes the uid of an entity the caller owns and the uid of something to
 link it to. The far end is admitted where the edge is written
 (``UnifiedRelationshipService`` → ``core/services/mixins/link_edge_guard.py``): it
-exists, is of the kind the door links to, and is shared content or owned by the
-source's owner.
+exists, is of the kind the door links to, and is owned by the source's owner or is
+published shared content.
 
 The doors:
 
@@ -16,16 +16,20 @@ The doors:
 
 The contract, per door:
 
-- the caller's own entity of the right kind (or a shared Ku) links, and the edge the
-  door names is the one written;
+- the caller's own entity of the right kind (or a shared Ku — one with no
+  ``publication_state`` or one marked published) links, and the edge the door names
+  is the one written;
 - another user's entity is refused exactly as a uid that names nothing — same status,
   same body, same toast header — and no edge is written;
-- an entity of the wrong kind is refused the same way, the caller's own included;
+- an entity of the wrong kind is refused the same way, the caller's own included, and
+  so is a Ku marked ``publication_state: draft``;
 - a refused Events update changes nothing: not a property, not an existing edge.
 
 The routes are registered through the bootstrap's own entry points over the composed
 app's services, on a ``fast_app`` with real session middleware and a sign-in route.
-The writers no route reaches are held to the same rule at the service.
+The writers no route reaches are held to the same rule at the service, and one create
+door (``POST /api/tasks/create``) to the same rule over a list: it drops the draft and
+keeps the rest.
 """
 
 from __future__ import annotations
@@ -44,7 +48,7 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.fasthtml_types import Request
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
-from core.models.enums import PrincipleLinkType, RecurrencePattern
+from core.models.enums import PrincipleLinkType, PublicationState, RecurrencePattern
 from core.models.type_hints import EntityUID, UserUID
 from core.services.mixins.link_edge_guard import (
     GOAL_FAR_END,
@@ -73,10 +77,20 @@ _KINDS = ("Goal", "Habit", "Principle", "Event", "Task", "Choice")
 OWN = {kind: f"{kind.lower()}_nb2b_own" for kind in _KINDS}
 FOREIGN = {kind: f"{kind.lower()}_nb2b_foreign" for kind in _KINDS}
 OWN_SECOND_PRINCIPLE = "principle_nb2b_own_second"
-SHARED_KU = "ku_nb2b_shared"
+SHARED_KU = "ku_nb2b_shared"  # no publication_state: the whole pre-existing corpus
+PUBLISHED_KU = "ku_nb2b_published"  # publication_state: published
+DRAFT_KU = "ku_nb2b_draft"  # publication_state: draft
 SHARED_STEP = "ps_nb2b_shared"
 
-_SEEDED = (*OWN.values(), *FOREIGN.values(), OWN_SECOND_PRINCIPLE, SHARED_KU, SHARED_STEP)
+_SEEDED = (
+    *OWN.values(),
+    *FOREIGN.values(),
+    OWN_SECOND_PRINCIPLE,
+    SHARED_KU,
+    PUBLISHED_KU,
+    DRAFT_KU,
+    SHARED_STEP,
+)
 
 OWN_EVENT_TITLE = "caller-owned Event"
 
@@ -129,9 +143,9 @@ class Door:
 
     @property
     def wrong_kinds(self) -> tuple[str, ...]:
-        """Uids the caller may read that are not what this door links to."""
+        """Uids that are not what this door links to — a Ku marked draft included."""
         if self.far_kind == "Ku":
-            return (OWN["Task"], SHARED_STEP)
+            return (OWN["Task"], SHARED_STEP, DRAFT_KU)
         other = "Task" if self.far_kind != "Task" else "Goal"
         return (OWN[other], SHARED_KU)
 
@@ -211,6 +225,10 @@ _DOOR_IDS = [door.label for door in DOORS]
 _WRONG_KIND_CASES = [(door, uid) for door in DOORS for uid in door.wrong_kinds]
 _WRONG_KIND_IDS = [f"{door.label} <- {uid}" for door, uid in _WRONG_KIND_CASES]
 
+_KU_DOORS = [door for door in DOORS if door.far_kind == "Ku"]
+_PUBLISHED_CASES = [(door, uid) for door in _KU_DOORS for uid in (SHARED_KU, PUBLISHED_KU)]
+_PUBLISHED_IDS = [f"{door.label} <- {uid}" for door, uid in _PUBLISHED_CASES]
+
 
 def _toast(response: httpx.Response, uid: str) -> str:
     """The error message the boundary mirrors into a header, with the requested uid masked."""
@@ -245,21 +263,34 @@ async def _seed_owned(driver: AsyncDriver, *, kind: str, uid: str, owner: str, t
         )
 
 
-async def _seed_shared(driver: AsyncDriver, *, label: str, entity_type: str, uid: str) -> None:
+async def _seed_shared(
+    driver: AsyncDriver,
+    *,
+    label: str,
+    entity_type: str,
+    uid: str,
+    publication_state: PublicationState | None = None,
+) -> None:
     async with driver.session() as session:
         await session.run(
             f"""
             MERGE (e:Entity:{label} {{uid: $uid}})
-            SET e.title = $uid, e.entity_type = $entity_type, e.status = 'active'
+            SET e.title = $uid, e.entity_type = $entity_type, e.status = 'active',
+                e.publication_state = $publication_state
             """,
             uid=uid,
             entity_type=entity_type,
+            publication_state=publication_state.value if publication_state else None,
         )
 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def driver(skuel_app) -> AsyncDriver:
-    """Two users owning one entity of each Activity kind, plus a shared Ku and PathStep."""
+    """Two users owning one entity of each Activity kind, plus shared Kus and a PathStep.
+
+    The three Kus are the three publication states a node can read as: no property
+    (published), ``published``, and ``draft``.
+    """
     graph: AsyncDriver = skuel_app.state.services.neo4j_driver
     await _wipe(graph)
     async with graph.session() as session:
@@ -280,6 +311,16 @@ async def driver(skuel_app) -> AsyncDriver:
         title="caller-owned second Principle",
     )
     await _seed_shared(graph, label="Ku", entity_type="ku", uid=SHARED_KU)
+    await _seed_shared(
+        graph,
+        label="Ku",
+        entity_type="ku",
+        uid=PUBLISHED_KU,
+        publication_state=PublicationState.PUBLISHED,
+    )
+    await _seed_shared(
+        graph, label="Ku", entity_type="ku", uid=DRAFT_KU, publication_state=PublicationState.DRAFT
+    )
     await _seed_shared(graph, label="PathStep", entity_type="path_step", uid=SHARED_STEP)
     yield graph
     await _wipe(graph)
@@ -321,6 +362,7 @@ def _app(skuel_app):
     from adapters.inbound.goals_routes import create_goals_routes
     from adapters.inbound.habits_routes import create_habits_routes
     from adapters.inbound.principles_routes import create_principles_routes
+    from adapters.inbound.tasks_routes import create_tasks_routes
 
     app, rt = fast_app(pico=False, default_hdrs=False, secret_key="nb2b-link-door-test-key")
     services = skuel_app.state.services
@@ -329,6 +371,7 @@ def _app(skuel_app):
         create_habits_routes,
         create_principles_routes,
         create_events_routes,
+        create_tasks_routes,
     ):
         create_routes(app, rt, services)
 
@@ -363,6 +406,19 @@ class TestOwnOrSharedFarEnd:
 
         assert response.status_code == 200, response.text
         assert await edges() == {door.edge(door.linkable)}
+
+
+class TestPublishedKu:
+    """A Ku with no ``publication_state`` and one marked published both link."""
+
+    @pytest.mark.parametrize(("door", "ku_uid"), _PUBLISHED_CASES, ids=_PUBLISHED_IDS)
+    async def test_links(
+        self, client: httpx.AsyncClient, edges: EdgeReader, door: Door, ku_uid: str
+    ) -> None:
+        response = await client.post(door.url, json=door.body(ku_uid))
+
+        assert response.status_code == 200, response.text
+        assert await edges() == {door.edge(ku_uid)}
 
 
 class TestAnotherUsersFarEnd:
@@ -598,7 +654,7 @@ class TestWritersNoRouteReaches:
     async def test_task_to_knowledge(self, skuel_app, edges: EdgeReader) -> None:
         tasks = skuel_app.state.services.tasks
 
-        for far_uid in (FOREIGN["Task"], SHARED_STEP):
+        for far_uid in (FOREIGN["Task"], SHARED_STEP, DRAFT_KU):
             refused = await tasks.link_task_to_knowledge(OWN["Task"], far_uid)
             assert refused.is_error, far_uid
         assert await edges() == set()
@@ -685,6 +741,18 @@ class TestTheOwnerIsReadFromTheSource:
             assert refused.is_error, owned
             assert refused.expect_error().details["reason"] == "cross_user"
 
+    async def test_a_draft_is_refused_from_an_owned_and_a_shared_source(
+        self, skuel_app, driver
+    ) -> None:
+        relationships = skuel_app.state.services.goals.relationships
+
+        for source in (OWN["Goal"], SHARED_STEP):
+            refused = await relationships.admit_far_ends(
+                EntityUID(source), [DRAFT_KU], KNOWLEDGE_FAR_END
+            )
+            assert refused.is_error, source
+            assert refused.expect_error().details["reason"] == "draft"
+
     async def test_a_source_that_names_nothing_is_not_found(self, skuel_app, driver) -> None:
         relationships = skuel_app.state.services.goals.relationships
 
@@ -695,3 +763,28 @@ class TestTheOwnerIsReadFromTheSource:
         assert refused.is_error
         assert refused.expect_error().category == ErrorCategory.NOT_FOUND
         assert refused.expect_error().details["identifier"] == "goal_nb2b_missing"
+
+
+class TestCreateDoor:
+    """``POST /api/tasks/create`` — a create door drops the draft and keeps the rest."""
+
+    async def test_the_draft_link_is_dropped_and_the_published_ones_kept(
+        self, client: httpx.AsyncClient, driver: AsyncDriver
+    ) -> None:
+        response = await client.post(
+            "/api/tasks/create",
+            json={
+                "title": "nb2f create door",
+                "applies_knowledge_uids": [SHARED_KU, DRAFT_KU, PUBLISHED_KU],
+            },
+        )
+
+        assert response.status_code == 201, response.text
+        task_uid = response.json()["uid"]
+        async with driver.session() as session:
+            result = await session.run(
+                "MATCH (:Task {uid: $uid})-[r:APPLIES_KNOWLEDGE]->(k) RETURN k.uid AS ku",
+                uid=task_uid,
+            )
+            linked = {row["ku"] async for row in result}
+        assert linked == {SHARED_KU, PUBLISHED_KU}
