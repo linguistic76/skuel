@@ -307,8 +307,9 @@ active habit's `:HabitCompletion` count in the trailing 30-day window (`HABIT_AD
 the rich path, `CONSOLIDATED_QUERY`'s `habit_data` on the standard one, one Cypher fragment in
 `query/cypher/habit_fragments.py`), and the populator turns each count into the habit's adherence
 with `core/models/habit/adherence.py::habit_adherence` — completions over what the habit's
-frequency expects there, at most 1.0. A section missing those rows raises; it is never read as
-0.0. Design: `/docs/roadmap/habit-completion-persistence-bundle.md`.
+frequency expects in the window, cut short at the habit's creation day, at most 1.0. A habit with
+no rate (quarterly, yearly, one-time, or nothing due yet) is left out of the map, so it is neither
+averaged nor at risk. A section missing those rows raises; it is never read as 0.0. Design: `/docs/roadmap/habit-completion-persistence-bundle.md`.
 
 | Method | What it populates | Path |
 |--------|-------------------|------|

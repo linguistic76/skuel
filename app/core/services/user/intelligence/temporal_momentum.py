@@ -41,9 +41,9 @@ class TemporalMomentumMixin(IntelligenceMixinBase):
             velocities: {domain: 0.0-1.0}  — completion ratio per domain
             neglected: [domain, ...]       — domains with zero window activity
             habit_consistency: float | None — mean adherence over the user's
-                active habits (``context.habit_completion_rates``, derived at
-                read time); None when they have none — an absent measurement,
-                not a zero
+                active habits that have a rate (``context.habit_completion_rates``,
+                derived at read time); None when none does — an absent
+                measurement, not a zero
             phase: "accelerating" | "steady" | "decelerating" | "unknown"
 
         Returns empty signals (phase "unknown") if entities_rich is unpopulated.

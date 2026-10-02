@@ -225,12 +225,16 @@ persisted at completion time cannot stay true — a habit kept daily and then dr
 not this bundle's work: it shipped ahead of it. What it is now:
 
 - **One definition.** `core/models/habit/adherence.py` — `habit_adherence(recurrence_pattern,
-  target_days_per_week, completions_in_window)`: the habit's completions in the trailing
-  `HabitConsistencyWindow` over what its frequency expects there, at most 1.0 — the ratio
-  `HabitsProgressService._calculate_consistency_from_completions` always computed, which now calls
-  it. The window is fixed: a habit younger than it is measured against all thirty days (a 3-day-old
-  daily habit kept 3/3 reads 0.1 — whether `expected` scales to a habit's age is an open product
-  question).
+  target_days_per_week, completions_in_window, *, created_on, today)`: the habit's completions in
+  the trailing `HabitConsistencyWindow` over what its frequency expects there, at most 1.0 —
+  lifted out of `HabitsProgressService._calculate_consistency_from_completions`, which now calls
+  it. Two rulings (Mike, 2026-10-02) shape `expected`: the span is cut short at the habit's
+  creation day (a 3-day-old daily habit kept 3/3 reads 1.0, not 0.1), and every
+  `RecurrencePattern` expects what the span holds of its own cadence (`expected_completions`:
+  daily every day; weekdays / weekends the days of their kind on the calendar; weekly, biweekly,
+  monthly the whole periods; custom its weekly target scaled). Quarterly, yearly and one-time
+  habits — and a habit with nothing due yet in its span — have **no rate** (`None`): they are left
+  out of every average and never at risk, rather than read as 0.0.
 - **One count.** `adapters/persistence/neo4j/query/cypher/habit_fragments.py` — the window
   predicate (`datetime()` on both operands, `[start, end)` from `stored_day_bounds`, so a
   future-stamped completion is outside) and the per-habit count (completions the habit's OWNER
@@ -242,7 +246,7 @@ not this bundle's work: it shipped ahead of it. What it is now:
   classification (active habits only: no streak, or under half), `HabitsStats.consistency_rate`,
   the overall completion blend (`core/services/user_stats_types.py`) and `ContextualHabit`'s
   fallback rate are true together. `TemporalMomentumMixin` reads the derived rates (`None` for a
-  user with no active habit); `AnalyticsMetricsService.calculate_habit_metrics` counts through
+  user with no habit that has a rate); `AnalyticsMetricsService.calculate_habit_metrics` counts through
   `get_habit_window_completions`. Nothing reads a `completion_rate` property off a Habit node any
   longer, and no fixture writes one.
 - **Not yet:** the stored `Habit.success_rate` and its ~25 readers (goal prediction, dual-track,

@@ -179,7 +179,7 @@ def compute_momentum_signals(self) -> MomentumSignals:
 `MomentumSignals` is a TypedDict in `core/ports/query_types.py`. The keys are `velocities`,
 `neglected`, `habit_consistency` and `phase`. `habit_consistency` is `float | None` — the mean
 of `context.habit_completion_rates` (each active habit's adherence, derived at read time), `None`
-when the user has no active habit. `phase` is one of
+when no active habit has a rate yet. `phase` is one of
 `accelerating`, `steady`, `decelerating`, `unknown`; it is `unknown` only when
 `context.entities_rich` is empty. `DailyPlanningMixin` turns the signals into warnings and a
 rationale clause.

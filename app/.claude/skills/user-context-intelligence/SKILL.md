@@ -273,8 +273,8 @@ Appended to `plan.warnings` in this order:
 6. Momentum — `TemporalMomentumMixin`: domains with nothing in `entities_rich`, and habit
    consistency under 0.4. Consistency is the mean of `context.habit_completion_rates` — each
    active habit's adherence, derived at read time from its `:HabitCompletion` nodes in the
-   trailing 30-day window (`core/models/habit/adherence.py`) — and `None` for a user with no
-   active habit; `None` raises no warning. A completion made through
+   trailing 30-day window, cut short at the habit's creation day (`core/models/habit/adherence.py`)
+   — and `None` when no active habit has a rate yet; `None` raises no warning. A completion made through
    `POST /api/context/habit/complete` leaves no node and does not count — see
    `/docs/roadmap/habit-completion-persistence-bundle.md` (⚠ *A rate derived at read time*).
 

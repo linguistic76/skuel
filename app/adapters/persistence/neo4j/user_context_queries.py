@@ -80,7 +80,9 @@ def _sort_by_last_viewed_at(item: Mapping[str, object]) -> datetime:
     return instant_of(item["last_viewed_at"], current_zone()) or EARLIEST_INSTANT
 
 
-def _habit_adherence_row(item: Mapping[str, Any]) -> HabitAdherenceRow:
+def _habit_adherence_row(
+    item: Mapping[str, Any],  # boundary: one projected map from a Neo4j record
+) -> HabitAdherenceRow:
     """A consolidated ``habit_data`` item's adherence inputs — the streak stays behind."""
     return {
         "uid": item["uid"],
@@ -102,7 +104,9 @@ def habit_window_params() -> dict[str, str]:
     return {HABIT_WINDOW_START_PARAM: start.isoformat(), HABIT_WINDOW_END_PARAM: end.isoformat()}
 
 
-def build_consolidated_query_params(user_uid: UserUID) -> dict[str, Any]:
+def build_consolidated_query_params(
+    user_uid: UserUID,
+) -> dict[str, Any]:  # boundary: Cypher parameters — strings, lists and numbers by name
     """The parameter map CONSOLIDATED_QUERY runs with — one builder for the
     executor and the plan-cache guard. ``$today`` is today in the current zone."""
     return {

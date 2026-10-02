@@ -1566,9 +1566,9 @@ class MomentumSignals(TypedDict):
     Fields:
         velocities: Activity domain -> share of its window items that are completed
         neglected: Activity domains with no items in the window
-        habit_consistency: Mean adherence over the user's active habits
-            (``UserContext.habit_completion_rates``); None when they have none —
-            a user with no habits has no consistency to report
+        habit_consistency: Mean adherence over the user's active habits that
+            have a rate (``UserContext.habit_completion_rates``); None when none
+            does — a user with no habits has no consistency to report
         phase: "accelerating" | "steady" | "decelerating" | "unknown"
     """
 

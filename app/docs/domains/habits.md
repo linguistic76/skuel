@@ -134,8 +134,9 @@ Common sub-services created via `create_common_sub_services()` factory (with `sk
 | `priority` | `Priority` | On `UserOwnedEntity` |
 | `cue` / `routine` / `reward` | `str?` | The habit loop |
 
-Adherence — a habit's completions in the trailing 30-day window over what its frequency expects
-there, at most 1.0 — is derived when it is read, from `:HabitCompletion` nodes
+Adherence — a habit's completions in the trailing 30-day window (cut short at the day the habit
+was created) over what its frequency expects there, at most 1.0; no rate for a quarterly, yearly or
+one-time habit, or one with nothing due yet — is derived when it is read, from `:HabitCompletion` nodes
 (`core/models/habit/adherence.py`); a value stored at completion time stops being true the next
 day without a completion. Design and the write-side work it leaves open:
 `/docs/roadmap/habit-completion-persistence-bundle.md`.
