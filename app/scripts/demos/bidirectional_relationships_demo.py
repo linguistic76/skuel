@@ -183,6 +183,14 @@ class BiDirectionalDemo:
                 # Empty map = every UID owned by nobody (shared) → linkable
                 return Result.ok({})
 
+            async def get_published_uids_batch(
+                self, uids: list[str]
+            ) -> Result[
+                frozenset[str]
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; the admission guard awaits it
+                # Every UID is published shared content
+                return Result.ok(frozenset(uids))
+
             async def get_node_labels_batch(
                 self, uids: list[str]
             ) -> Result[

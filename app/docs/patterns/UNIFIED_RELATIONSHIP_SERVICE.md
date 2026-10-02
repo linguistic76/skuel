@@ -304,11 +304,14 @@ await service.create_relationship(
 > `LinkFarEnd(labels, resource)`, with `KNOWLEDGE_FAR_END` / `GOAL_FAR_END` /
 > `HABIT_FAR_END` / `PRINCIPLE_FAR_END` / `CHOICE_FAR_END` defined beside the guard — and
 > the far end (`to_uid`, whatever the edge's direction) must exist, carry one of its
-> labels, and be shared content or owned by `from_uid`'s owner. The owner is read from the
-> source node, so no caller passes a user and none can pass the wrong one; a source nobody
-> owns links to shared content only. A uid that names nothing, another user's node and a
-> node of the wrong kind are refused alike — `Errors.not_found(far_end.resource, uid)`,
-> the diagnosis in `details["reason"]` only. A "knowledge" link takes a `:Ku`
+> labels, and be owned by `from_uid`'s owner or be published shared content. The owner is
+> read from the source node, so no caller passes a user and none can pass the wrong one; a
+> source nobody owns links to shared content only. Published is the one publication
+> predicate (`build_publication_clause`): a node with no `publication_state`, or one not
+> marked draft — so a Ku marked `publication_state: draft` is refused, for every caller,
+> while an owned far end is the owner's whatever it carries. A uid that names nothing,
+> another user's node, a node of the wrong kind and a draft are refused alike —
+> `Errors.not_found(far_end.resource, uid)`, the diagnosis in `details["reason"]` only. A "knowledge" link takes a `:Ku`
 > (`KNOWLEDGE_LABELS`), the kind the create doors' knowledge lists take. A door that writes
 > anything beside the edge calls `admit_far_ends` before its first write and hands the
 > `AdmittedFarEnds` it returns back as the write's `far_end`, so the edge is written on

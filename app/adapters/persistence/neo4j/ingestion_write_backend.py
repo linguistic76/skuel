@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.endpoint_queries import (
     NODE_LABELS_BATCH_QUERY,
     OWNER_UIDS_BATCH_QUERY,
+    PUBLISHED_UIDS_BATCH_PARAMS,
+    PUBLISHED_UIDS_BATCH_QUERY,
 )
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
@@ -192,6 +194,21 @@ class IngestionWriteBackend:
         except NEO4J_EXCEPTIONS as e:
             return Result.fail(Errors.database("get_owner_uids_batch", str(e)))
         return Result.ok({str(r["uid"]): list(r["owners"]) for r in records})
+
+    async def get_published_uids_batch(self, uids: list[str]) -> Result[frozenset[str]]:
+        """The uids that name a published node; the link-edge guard's publication read.
+
+        Published is ``build_publication_clause`` (``endpoint_queries``); a uid that
+        names no node or names a draft is absent. Result-shaped for the reason
+        ``get_node_labels_batch`` is.
+        """
+        try:
+            records, _, _ = await self._driver.execute_query(
+                PUBLISHED_UIDS_BATCH_QUERY, uids=uids, **PUBLISHED_UIDS_BATCH_PARAMS
+            )
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(Errors.database("get_published_uids_batch", str(e)))
+        return Result.ok(frozenset(str(r["uid"]) for r in records))
 
     async def create_group_ownership(self, owner_uid: str, group_uid: str) -> int:
         """MERGE the (User)-[:OWNS]->(Group) edge; return how many edges the

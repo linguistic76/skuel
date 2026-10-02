@@ -376,8 +376,8 @@ targets linked across users; a Group file's `owner_uid` beat the vault owner; a 
    stamp was lost derives the same uid, and two owners never share one — and keeps it through
    its tracker row (re-sync, rename, retry), the path-keyed identity `user_entry` notes already
    had. The content vault keeps `{prefix}.{file stem}`.
-4. **Links.** A personal file's frontmatter targets are its owner's or unowned content — the
-   link-edge guard's rule (`partition_link_edges`), applied before the node lands; a refused
+4. **Links.** A personal file's frontmatter targets are its owner's or unowned published
+   content (a Ku marked `publication_state: draft` is refused, NB-2f) — the link-edge guard's rule (`partition_link_edges`), applied before the node lands; a refused
    target is warned exactly as a missing one is.
 5. **The content vault.** An Edge file joins two `:Entity` nodes — every ownership, sharing or
    membership edge has a `:User` or `:Group` end, so none can be written — and never authors an

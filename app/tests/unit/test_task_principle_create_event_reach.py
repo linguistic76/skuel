@@ -159,6 +159,10 @@ class StubBackend:
         """Every link endpoint belongs to the creating user."""
         return Result.ok({uid: [USER_UID] for uid in uids})
 
+    async def get_published_uids_batch(self, uids: Any) -> Result[frozenset[str]]:
+        """Every link endpoint is published."""
+        return Result.ok(frozenset(uids))
+
     async def get_node_labels_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
         """Every link endpoint carries whichever kind its field declares."""
         return Result.ok({uid: ["Entity", "Habit", "Ku"] for uid in uids})

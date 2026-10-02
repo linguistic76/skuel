@@ -298,6 +298,10 @@ class StubBackend:
     async def get_owner_uids_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
         return Result.ok({uid: [USER_UID] for uid in uids})
 
+    async def get_published_uids_batch(self, uids: Any) -> Result[frozenset[str]]:
+        """Every link endpoint is published."""
+        return Result.ok(frozenset(uids))
+
     async def get_node_labels_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
         return Result.ok({uid: ["Entity", "Habit", "Ku", "Principle", "Task"] for uid in uids})
 

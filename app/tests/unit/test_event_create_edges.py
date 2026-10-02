@@ -163,6 +163,11 @@ class StubBackend:
             {uid: [self.owners.get(uid, USER_UID)] for uid in uids if uid not in self.shared}
         )
 
+    async def get_published_uids_batch(self, uids: Any) -> Result[frozenset[str]]:
+        """Every uid that names a node is published; drafts are pinned in
+        ``test_link_far_end_admission.py`` and over a real graph."""
+        return Result.ok(frozenset(uid for uid in uids if uid not in self.missing))
+
     async def get_node_labels_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
         """uid -> labels, defaulting to every kind these fields accept."""
         return Result.ok(

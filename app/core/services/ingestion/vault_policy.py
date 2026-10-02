@@ -18,7 +18,7 @@ than what the content vault can (ADR-070 Decision 11):
   ``{prefix}.{file stem}``. ``user_entry`` has its own path-keyed identity
   (``UnifiedIngestionService._resolve_prior_user_entry_uid``).
 - **What it may link.** A personal file's frontmatter targets are its owner's or
-  unowned content — the link-edge guard's rule (``partition_link_edges``), applied
+  unowned published content — the link-edge guard's rule (``partition_link_edges``), applied
   before the node lands so no foreign uid reaches a property either. A refused
   target is reported exactly as a missing one.
 
@@ -272,8 +272,8 @@ async def admit_frontmatter_targets(
 
     Each entity is paired with its relationship config. A target is kept when the
     link-edge guard admits it: it names an entity of the field's kind that is the
-    owner's or nobody's. ``pending_labels`` names the uids this same sync is about
-    to create (their nodes land after this check). Refused targets are removed
+    owner's, or nobody's and published. ``pending_labels`` names the uids this same
+    sync is about to create (their nodes land after this check). Refused targets are removed
     from the entity in place, BEFORE its node and edges are written, so no foreign
     uid reaches an edge — or the property a Task keeps beside its goal edge, which
     is realigned here. Each refusal is warned in the words a missing target is.
