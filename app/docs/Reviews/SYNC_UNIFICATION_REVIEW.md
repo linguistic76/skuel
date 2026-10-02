@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-02
+updated: 2026-10-02
 ---
 
 # Review — Sync Unification (#482): "One Path Forward" Residual Surfaces
@@ -23,7 +23,7 @@ surface. The core is coherent and pinned by tests:
 
 - owner-uniformity across surfaces — `tests/integration/test_owner_uniformity.py`
 - resolve-by-path precedence — `tests/unit/services/vault/test_resolve_by_path.py`
-- combined-root guard — `tests/unit/services/vault/test_reconciler_coincident_guard.py`
+- nested-root guard — `tests/unit/services/vault/test_reconciler_nested_root_guard.py` (its combined-root case retired with the combined layout, ADR-070 Decision 11)
 - fail-closed wall + resolver chokepoint — `tests/unit/services/ingestion/test_sync_allowlist.py`,
   `tests/unit/services/ingestion/test_owner_resolution.py`
 

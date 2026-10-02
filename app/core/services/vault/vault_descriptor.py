@@ -273,9 +273,9 @@ class VaultRegistry:
         (or IS it), every existing member directory is a nested personal root —
         a scan of that ancestor would sweep multiple users' vaults.
 
-        Sibling roots (the live split-root config) and coincident roots (the
-        combined-root default) are *not* strict descendants, so neither trips
-        this — only a scan of a genuine ancestor directory does.
+        Sibling roots (the split-root config) and coincident roots (refused at
+        boot, ``VaultConfig.validate_roots``) are *not* strict descendants, so
+        neither trips this — only a scan of a genuine ancestor directory does.
         """
         resolved = directory.resolve()
         nested: list[Path] = []

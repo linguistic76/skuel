@@ -242,10 +242,10 @@ def test_scan_inside_one_member_vault_is_clean(tmp_path: Path) -> None:
 def test_member_family_nested_under_primary_is_governed_by_primary(tmp_path: Path) -> None:
     # Misconfiguration: the member family placed INSIDE the primary personal
     # root. By-path the primary template wins (everything under the primary
-    # root is the bound owner's — combined-vault precedent), so a member path
-    # attributes to the primary owner; the member's by-kind sync is refused by
-    # the reconciler's surface-independence guard (owner mismatch), tested in
-    # test_reconciler_coincident_guard.py.
+    # root is the bound owner's), so a member path attributes to the primary
+    # owner; the member's by-kind sync is refused by the reconciler's
+    # surface-independence guard (owner mismatch), tested in
+    # test_reconciler_nested_root_guard.py.
     content_root = tmp_path / "content"
     primary_root = tmp_path / "personal"
     family_root = primary_root / "user_vaults"

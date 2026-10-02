@@ -97,15 +97,12 @@ class VaultDescription:
     form's folder list — the wall shown to the user comes from the live
     allowlist, never from hardcoded prose. Folder names are RELATIVE to the
     vault root (#525 policy: absolute host paths never leave the service
-    layer). ``whole_vault_open`` marks the combined single-vault configuration
-    where ``build_sync_allowlist`` opens the entire root (the ``je_*`` staging
-    floor still applies). A user with no personal vault gets
-    ``vault_configured=False`` — a normal state, not an error.
+    layer). A user with no personal vault gets ``vault_configured=False`` — a
+    normal state, not an error.
     """
 
     vault_configured: bool
     allowed_folders: tuple[str, ...] = ()
-    whole_vault_open: bool = False
 
 
 # How many example file names a preview lists per category — enough to see
@@ -592,17 +589,13 @@ class VaultReconciler:
 
         By-kind and by-path resolution must agree on the root, otherwise the
         ingestion mechanism (which resolves owner + wall by path) would
-        attribute a different owner than this by-kind sync. Kind disagreement
-        is the combined-root config (VAULT_ROOT == INGESTION_PATH), where the
-        single vault resolves to PERSONAL by-path: there is no distinct
-        content vault, so a CONTENT sync would stamp content_owner_uid onto
-        the user's own files. Refuse it. Compose refuses that layout at boot
-        (``VaultConfig.validate_roots``); this is the reconciler's own refusal
-        for a registry built some other way. Owner disagreement is a
-        nested-roots misconfiguration (e.g.
-        a member vault placed inside the primary personal root): by-path
+        attribute a different owner than this by-kind sync. A personal root
+        overlapping the content vault — the only way the two could disagree on
+        the KIND — is refused at boot (``VaultConfig.validate_roots``). What
+        remains is owner disagreement, a nested-roots misconfiguration (e.g. a
+        member vault placed inside the primary personal root): by-path
         governance belongs to the enclosing vault's owner, so syncing it as
-        anyone else would split attribution. Refuse that too.
+        anyone else would split attribution. Refuse it.
         """
         descriptor_result = self._registry.resolve(kind, user_uid)
         if descriptor_result.is_error:
@@ -610,16 +603,6 @@ class VaultReconciler:
         descriptor = descriptor_result.value
 
         by_path = self._registry.resolve_by_path(descriptor.root, descriptor.owner_uid)
-        if by_path.is_ok and by_path.value.kind is not kind:
-            return Result.fail(
-                Errors.validation(
-                    f"{kind.value} vault sync is unavailable in a combined-root "
-                    "configuration (VAULT_ROOT coincides with INGESTION_PATH); the "
-                    f"single vault resolves as {by_path.value.kind.value} — give the "
-                    "content vault its own folder.",
-                    field="kind",
-                )
-            )
         if by_path.is_ok and by_path.value.owner_uid != descriptor.owner_uid:
             return Result.fail(
                 Errors.validation(
@@ -750,34 +733,24 @@ class VaultReconciler:
         descriptor = descriptor_result.value
         allowlist = descriptor.allowlist
         root = allowlist.governed_root
-        folders: list[str] = []
-        whole_vault_open = False
-        for allowed in allowlist.allowed_dirs:
-            if allowed == root:
-                # build_sync_allowlist's single-vault case: the whole root is
-                # open (only the je_* staging floor applies).
-                whole_vault_open = True
-            elif allowed.is_relative_to(root):
-                folders.append(allowed.relative_to(root).as_posix())
-            # An allowed dir outside the governed root cannot come out of
-            # build_sync_allowlist (such entries are dropped there) — skip
-            # defensively rather than leak an absolute path (#525).
+        # A personal vault's wall is its doorway folders, each strictly under
+        # the root (compose refuses a root that would open the whole vault —
+        # VaultConfig.validate_roots). An allowed dir outside the governed root
+        # cannot come out of build_sync_allowlist — skip defensively rather than
+        # leak an absolute path (#525).
+        folders = [
+            allowed.relative_to(root).as_posix()
+            for allowed in allowlist.allowed_dirs
+            if allowed != root and allowed.is_relative_to(root)
+        ]
 
         if descriptor.mirror_pull is not None:
             wall_result = await descriptor.mirror_pull.describe_wall(descriptor.owner_uid)
             if wall_result.is_ok:
-                agent_folders = set(wall_result.value.allowed_folders)
-                folders = sorted(
-                    agent_folders if whole_vault_open else set(folders) & agent_folders
-                )
-                whole_vault_open = False
+                folders = sorted(set(folders) & set(wall_result.value.allowed_folders))
 
         return Result.ok(
-            VaultDescription(
-                vault_configured=True,
-                allowed_folders=tuple(sorted(folders)),
-                whole_vault_open=whole_vault_open,
-            )
+            VaultDescription(vault_configured=True, allowed_folders=tuple(sorted(folders)))
         )
 
     # =========================================================================

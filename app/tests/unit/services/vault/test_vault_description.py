@@ -62,7 +62,6 @@ async def test_personal_vault_yields_relative_sorted_doorway_folders(tmp_path: P
     assert result.is_ok
     description = result.value
     assert description.vault_configured is True
-    assert description.whole_vault_open is False
     assert description.allowed_folders == (
         "activity_notes",
         "je_pro",
@@ -101,26 +100,11 @@ async def test_user_without_vault_is_unconfigured_not_error(tmp_path: Path) -> N
     assert result.is_ok
     assert result.value.vault_configured is False
     assert result.value.allowed_folders == ()
-    assert result.value.whole_vault_open is False
 
 
 @pytest.mark.asyncio
-async def test_combined_single_vault_reports_whole_vault_open(tmp_path: Path) -> None:
-    """allowed_dirs == {governed_root} (single-vault case) → whole vault, no folder list."""
-    root = tmp_path / "combined"
-    allowlist = build_sync_allowlist(root, content_root=root / "0vault")
-    reconciler = _reconciler(_descriptor(root, allowlist))
-
-    description = (await reconciler.describe(VaultKind.PERSONAL, OWNER)).value
-
-    assert description.vault_configured is True
-    assert description.whole_vault_open is True
-    assert description.allowed_folders == ()
-
-
-@pytest.mark.asyncio
-async def test_empty_allowlist_is_fail_closed_not_whole_vault(tmp_path: Path) -> None:
-    """Empty allowed_dirs on a personal vault = wall everything — never 'everything syncs'."""
+async def test_empty_allowlist_is_fail_closed(tmp_path: Path) -> None:
+    """Empty allowed_dirs on a personal vault = wall everything — no folder is listed."""
     root = tmp_path / "personal"
     allowlist = SyncAllowlist(governed_root=root.resolve(), allowed_dirs=frozenset())
     reconciler = _reconciler(_descriptor(root, allowlist))
@@ -128,7 +112,6 @@ async def test_empty_allowlist_is_fail_closed_not_whole_vault(tmp_path: Path) ->
     description = (await reconciler.describe(VaultKind.PERSONAL, OWNER)).value
 
     assert description.vault_configured is True
-    assert description.whole_vault_open is False
     assert description.allowed_folders == ()
 
 
