@@ -600,6 +600,7 @@ class IngestionTracker:
         *,
         allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
+        owner_only: bool = False,
     ) -> Result[_GoneRowClassification | None]:
         """Shared gone-row classification — the valve-free half of ``plan_deletions``.
 
@@ -608,8 +609,12 @@ class IngestionTracker:
         claimed by a collectible file → stale row, entity survives), the
         entity/edge split, and the owner-scope filter (fail-closed: an owner
         lookup error fails the run rather than falling through to an unscoped
-        delete). Returns ``None`` when nothing is tracked in scope or nothing
-        is gone.
+        delete). ``owner_only`` (a personal vault) narrows that filter to the
+        vault owner's own nodes: a live node nobody owns — shared content a
+        legacy row still names — is kept and reported too, since a personal
+        vault never authors shared content (ADR-070 Decision 11); a row whose
+        node is already gone still clears. Returns ``None`` when nothing is
+        tracked in scope or nothing is gone.
 
         Deliberately does NOT apply the mass-deletion valves: those protect
         DELETION. The move pre-pass consumes this classification too, and must
@@ -667,27 +672,41 @@ class IngestionTracker:
                 # Fail the run rather than fall through to an UNSCOPED delete —
                 # the guard must fail closed.
                 return Result.fail(owners_result)
-            foreign_uids = {
-                str(rec["uid"])
-                for rec in owners_result.value or []
-                if str(rec["user_uid"]) != str(owner_uid)
+            owner_by_uid = {
+                str(rec["uid"]): str(rec["user_uid"]) for rec in owners_result.value or []
             }
-            if foreign_uids:
-                skipped = [row for row in entity_rows if str(row["entity_uid"]) in foreign_uids]
-                entity_rows = [
-                    row for row in entity_rows if str(row["entity_uid"]) not in foreign_uids
+            foreign_uids = {uid for uid, owner in owner_by_uid.items() if owner != str(owner_uid)}
+            shared_uids: set[str] = set()
+            if owner_only:
+                unowned = [
+                    str(row["entity_uid"])
+                    for row in entity_rows
+                    if str(row["entity_uid"]) not in owner_by_uid
                 ]
+                if unowned:
+                    live_result = await self.backend.get_live_entity_uids(unowned)
+                    if live_result.is_error:
+                        return Result.fail(live_result)
+                    shared_uids = {str(rec["uid"]) for rec in live_result.value or []}
+            kept = foreign_uids | shared_uids
+            if kept:
+                skipped = [row for row in entity_rows if str(row["entity_uid"]) in kept]
+                entity_rows = [row for row in entity_rows if str(row["entity_uid"]) not in kept]
                 # Mismatch rows surface in the sync UI/API — render paths
                 # relative to the sync root; the log below keeps absolutes.
                 for row in skipped:
+                    whose = (
+                        "is shared content, which a personal vault never deletes"
+                        if str(row["entity_uid"]) in shared_uids
+                        else "belongs to a different user than this vault's owner"
+                    )
                     ownership_mismatches.append(
                         f"deletion skipped for {display_path(str(row['file_path']), directory)}: "
-                        f"entity {row['entity_uid']} belongs to a different user than this "
-                        "vault's owner — resolve ownership before deleting"
+                        f"entity {row['entity_uid']} {whose} — resolve ownership before deleting"
                     )
                 self.logger.warning(
                     "Deletion reconciliation: skipped %d entity deletion(s) under %s "
-                    "owned by a different user than the vault owner %s: %s",
+                    "not owned by the vault owner %s: %s",
                     len(skipped),
                     directory,
                     owner_uid,
@@ -711,6 +730,7 @@ class IngestionTracker:
         *,
         allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
+        owner_only: bool = False,
     ) -> Result[DeletionPlan]:
         """
         Classify what deletion reconciliation WOULD do — read-only.
@@ -756,13 +776,15 @@ class IngestionTracker:
           (``ownership_mismatches``). Path prefix alone decided deletion before
           per-user vault roots; this closes the cross-owner hole for legacy
           rows and misconfigured roots. SHARED curriculum (ownerless) and Edge
-          YAMLs (relationships carry no owner) stay path-scoped.
+          YAMLs (relationships carry no owner) stay path-scoped — except that
+          with ``owner_only`` (a personal vault) a live ownerless node is kept
+          as well (``_classify_gone_rows``).
 
         Backend (reads only): IngestionBackend.get_tracked_files_under /
         get_entity_owner_uids.
         """
         classification_result = await self._classify_gone_rows(
-            directory, pattern, allowlist=allowlist, owner_uid=owner_uid
+            directory, pattern, allowlist=allowlist, owner_uid=owner_uid, owner_only=owner_only
         )
         if classification_result.is_error:
             return Result.fail(classification_result)
@@ -873,6 +895,7 @@ class IngestionTracker:
         *,
         allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
+        owner_only: bool = False,
     ) -> Result[MovePlan]:
         """Content-hash move pre-pass: turn uid-less renames into row rewrites.
 
@@ -930,7 +953,7 @@ class IngestionTracker:
             return Result.ok(MovePlan())
 
         classification_result = await self._classify_gone_rows(
-            directory, pattern, allowlist=allowlist, owner_uid=owner_uid
+            directory, pattern, allowlist=allowlist, owner_uid=owner_uid, owner_only=owner_only
         )
         if classification_result.is_error:
             return Result.fail(classification_result)
@@ -1159,6 +1182,7 @@ class IngestionTracker:
         *,
         allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
+        owner_only: bool = False,
     ) -> Result[DeletionReconciliation]:
         """
         Propagate vault deletions to the graph for one directory.
@@ -1173,7 +1197,7 @@ class IngestionTracker:
         delete_entities_with_metadata.
         """
         plan_result = await self.plan_deletions(
-            directory, pattern, allowlist=allowlist, owner_uid=owner_uid
+            directory, pattern, allowlist=allowlist, owner_uid=owner_uid, owner_only=owner_only
         )
         if plan_result.is_error:
             return Result.fail(plan_result)

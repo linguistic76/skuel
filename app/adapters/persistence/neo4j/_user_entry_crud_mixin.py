@@ -27,6 +27,7 @@ from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import ExtractionTwinRow, VaultIdTaskRow, VaultRetiredTaskRow
+from core.ports.user_entry_protocols import UPSERT_UID_TAKEN
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -191,7 +192,11 @@ class _UserEntryCrudMixin:
             # A different user already owns this uid — reject without writing
             # and without leaking that it exists (404-not-403).
             return Result.fail(
-                Errors.not_found(resource=self.label.value, identifier=str(node_data["uid"]))
+                Errors.not_found(
+                    resource=self.label.value,
+                    identifier=str(node_data["uid"]),
+                    reason=UPSERT_UID_TAKEN,
+                )
             )
         if record["frozen"]:
             # The owner's own submission: never edited in place (R9) — nothing

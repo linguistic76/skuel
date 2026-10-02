@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -111,12 +112,17 @@ class ConnectionFetchBackend:
         lookup fails. A single primary-key lookup — cheap enough for a cold detail
         render. Surfaces the curriculum origin of activities spawned by PathStep
         engagement (their ``source_path_step_uid``).
+
+        The match is bound to ``:PathStep`` — shared curriculum. The property is a
+        plain uid any writer can set (a vault file writes it verbatim), so a uid that
+        names anything else — another user's task or journal — renders nothing,
+        exactly as a uid that names no node does.
         """
         if not ps_uid:
             return None
 
-        query = """
-        MATCH (ps:Entity {uid: $uid})
+        query = f"""
+        MATCH (ps:{NeoLabel.PATH_STEP.value} {{uid: $uid}})
         RETURN ps.uid AS uid, ps.title AS title
         """
         try:

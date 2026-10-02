@@ -527,6 +527,38 @@ async def test_deleting_a_refused_file_never_deletes_the_node_it_failed_to_take(
     assert keeper.exists() and len(await _uids_titled(d, "Keeper")) == 1
 
 
+@pytest.mark.parametrize("door", ("directory", "reconciler"))
+async def test_a_personal_vault_never_deletes_shared_content(env, door) -> None:
+    """A legacy tracker row naming a shared Ku does not let a personal file delete it.
+
+    Before refusals existed a member's ``type: ku`` file could name a content-vault
+    Ku and be tracked; no such row can be written now, but one written earlier must
+    not turn the file's deletion into the Ku's. The owner's own deletions still run.
+    """
+    d = env["driver"]
+    _write(env["content"] / "atom.md", "---\ntype: ku\nuid: ku.nb2c.atom\ntitle: Atom\n---\n\nx\n")
+    await _sync(env, "content", "directory")
+    mine = _write(env["alice"] / "knowledge" / "mine.md", _md("task", "Mine"))
+    _write(env["alice"] / "knowledge" / "keeper.md", _md("task", "Keeper"))
+    await _sync(env, "alice", door)
+    legacy = (env["alice"] / "knowledge" / "atom.md").resolve()
+    async with d.session() as session:
+        await session.run(
+            "CREATE (:IngestionMetadata {file_path: $path, entity_uid: 'ku.nb2c.atom', "
+            "content_hash: 'legacy', file_mtime: 0.0, last_ingested_at: datetime(), "
+            "authored_edges: []})",
+            path=str(legacy),
+        )
+    mine.unlink()
+
+    outcome = await _sync(env, "alice", door)
+
+    assert (await _node(d, "ku.nb2c.atom"))["title"] == "Atom"
+    assert any("ku.nb2c.atom" in warning for warning in outcome.warnings), outcome.warnings
+    assert await _uids_titled(d, "Mine") == []  # positive control: her own deletion ran
+    assert len(await _uids_titled(d, "Keeper")) == 1
+
+
 # ---------------------------------------------------------------------------
 # Part 4 — a personal Activity file's frontmatter targets
 # ---------------------------------------------------------------------------
@@ -576,6 +608,38 @@ async def test_frontmatter_targets_link_only_the_owners_or_shared_content(env, d
     # A refused target reads exactly like a missing one.
     for warning in outcome.warnings:
         _assert_never_names_owner(warning)
+
+
+async def test_a_source_path_step_names_only_a_path_step(env) -> None:
+    """``source_path_step_uid`` lands on the node as written; its reader resolves a PathStep only.
+
+    Every activity detail page renders the title its ``source_path_step_uid`` names
+    ("From learning step: …"). A vault file can write any uid there, so the reader —
+    not the door — is where another user's entity stops: a uid that is not a
+    PathStep renders nothing, exactly like a uid that names nothing.
+    """
+    from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+    d = env["driver"]
+    _write(env["content"] / "step.md", _md("path_step", "A real step", "uid: ps.nb2c.step\n"))
+    await _sync(env, "content", "directory")
+    _write(env["bob"] / "knowledge" / "secret.md", _md("task", "Bob secret", "uid: task.secret\n"))
+    await _sync(env, "bob", "directory")
+    _write(
+        env["alice"] / "knowledge" / "a.md",
+        _md("task", "Points at bob", "uid: task.a\nsource_path_step_uid: task.secret\n"),
+    )
+    await _sync(env, "alice", "reconciler")
+
+    fetch = ConnectionFetchBackend(Neo4jQueryExecutor(d))
+    assert await fetch.fetch_source_pathstep("task.secret") is None
+    assert await fetch.fetch_source_pathstep("task.nowhere") is None
+    # Positive control: a real PathStep still resolves.
+    assert await fetch.fetch_source_pathstep("ps.nb2c.step") == {
+        "uid": "ps.nb2c.step",
+        "title": "A real step",
+    }
 
 
 async def test_refused_target_reads_like_a_missing_one(env) -> None:

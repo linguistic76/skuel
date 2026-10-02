@@ -557,6 +557,7 @@ class VaultReconciler:
                 "*",
                 allowlist=descriptor.allowlist,
                 owner_uid=descriptor.owner_uid,
+                owner_only=descriptor.kind is VaultKind.PERSONAL,
             )
             if plan_result.is_error:
                 return Result.fail(plan_result)

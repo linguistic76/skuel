@@ -806,6 +806,7 @@ async def ingest_directory(
                 pattern,
                 allowlist=allowlist,
                 owner_uid=deletion_owner_scope,
+                owner_only=vault_kind is VaultKind.PERSONAL,
             )
             if reconcile_result.is_ok:
                 entities_deleted = reconcile_result.value.entities_deleted
@@ -901,6 +902,7 @@ async def ingest_directory(
                 pattern,
                 allowlist=allowlist,
                 owner_uid=deletion_owner_scope,
+                owner_only=vault_kind is VaultKind.PERSONAL,
             )
             if reconcile_result.is_ok:
                 entities_deleted = reconcile_result.value.entities_deleted
@@ -960,6 +962,7 @@ async def ingest_directory(
             pattern,
             allowlist=allowlist,
             owner_uid=deletion_owner_scope,
+            owner_only=vault_kind is VaultKind.PERSONAL,
         )
         if move_result.is_ok:
             moves_detected = len(move_result.value.applied)
@@ -1631,6 +1634,7 @@ async def ingest_directory(
             pattern,
             allowlist=allowlist,
             owner_uid=deletion_owner_scope,
+            owner_only=vault_kind is VaultKind.PERSONAL,
         )
         if reconcile_result.is_ok:
             entities_deleted = reconcile_result.value.entities_deleted
