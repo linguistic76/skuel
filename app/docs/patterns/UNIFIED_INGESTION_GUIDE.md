@@ -792,8 +792,9 @@ explicitly; that is belt-and-suspenders — a by-path caller reproduces the same
 **Ownership is persisted on BOTH signals, single owner.** Any `:Entity` row the
 bulk upsert persists with a `user_uid` property also gets its
 `(User)-[:OWNS]->(entity)` edge in the same template (`build_node_upsert_template`
-— one chokepoint, both ingest doors), and any :OWNS edge from a DIFFERENT user is
-deleted (a former owner must not keep access after re-ingest under a new owner).
+— one chokepoint, both ingest doors). **The upsert never changes a node's owner**
+(ADR-070 Decision 11): a node another user owns — by `:OWNS`, `user_uid` or
+`owner_uid` — takes no write and its file is refused, so an owner is never replaced.
 This keeps the `user_uid == :OWNS owner` single-owner invariant that OWNS-consuming
 read paths (faceted search, `get_user_entities`) depend on. The owner is `MATCH`ed,
 not `MERGE`d — the door never invents a `:User`. It **refuses the batch** instead:

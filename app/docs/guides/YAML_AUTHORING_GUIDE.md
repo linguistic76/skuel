@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-09-22
+updated: 2026-10-02
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -252,11 +252,9 @@ See [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md) for the full trans
 
 ### Ownership
 
-Activity domains (Task, Goal, Habit, Event, Choice, Principle), UserEntry, and LifePath are **user-owned** — they require a `user_uid`. If the YAML file omits `user_uid`, the ingestion engine sets it to the default (`SKUEL_DEFAULT_USER_UID` env var, or `user:system`).
+Activity domains (Task, Goal, Habit, Event, Choice, Principle), UserEntry, and LifePath are **user-owned**. Their owner is the account the file's vault belongs to — the personal vault's owner, or the content vault's acts-as account — never a `user_uid:` line in the file, which is overridden (ADR-070 Decision 7). No `user_uid:` line is needed.
 
-Curriculum types (Ku, PathStep, LearningPath, Exercise) are **shared** — no `user_uid` needed; they are visible to all users.
-
-Expense is **admin-only** and also requires `user_uid`.
+Curriculum types (Ku, PathStep, LearningPath, Exercise, Resource, the Activity Templates) are **shared** — no owner; they are visible to all users, and they are authored in the content vault only: a personal vault refuses them, as it refuses Edge and Group files (ADR-070 Decision 11).
 
 ---
 
