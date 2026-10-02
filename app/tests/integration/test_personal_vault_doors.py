@@ -30,11 +30,12 @@ Requires: Docker running with Neo4j testcontainer.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
@@ -42,6 +43,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.type_hints import UserUID
 from core.ports.vault_bridge_protocol import VaultBridgePort
 from core.services.ingestion.config import build_sync_allowlist
+from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler
 from core.utils.result_simplified import Result
@@ -54,6 +56,17 @@ BOB = UserUID("user_nb2c_bob")
 ADMIN = UserUID("user_nb2c_content_admin")
 
 DOORS = ("directory", "file", "reconciler")
+
+
+class VaultEnv(TypedDict):
+    """Three vaults, the service and reconciler syncing them, and the graph."""
+
+    service: UnifiedIngestionService
+    reconciler: VaultReconciler
+    alice: Path
+    bob: Path
+    content: Path
+    driver: AsyncDriver
 
 
 def _bridge() -> VaultBridgePort:
@@ -71,7 +84,7 @@ def _md(type_: str, title: str, extra: str = "") -> str:
 
 
 @pytest_asyncio.fixture
-async def env(neo4j_driver, clean_neo4j, tmp_path: Path):
+async def env(neo4j_driver, clean_neo4j, tmp_path: Path) -> VaultEnv:
     content_root = tmp_path / "content"
     alice_root = tmp_path / "alice"
     family = tmp_path / "user_vaults"
@@ -126,14 +139,14 @@ async def env(neo4j_driver, clean_neo4j, tmp_path: Path):
         tasks_service=Mock(),
         user_service=user_service,
     )
-    return {
-        "service": service,
-        "reconciler": reconciler,
-        "alice": alice_root,
-        "bob": bob_root,
-        "content": content_root,
-        "driver": neo4j_driver,
-    }
+    return VaultEnv(
+        service=service,
+        reconciler=reconciler,
+        alice=alice_root,
+        bob=bob_root,
+        content=content_root,
+        driver=neo4j_driver,
+    )
 
 
 _ACTING = {"alice": ALICE, "bob": BOB, "content": ADMIN}
@@ -148,40 +161,49 @@ class Outcome:
         self.warnings: list[str] = []
 
 
-async def _sync(env: dict[str, Any], who: str, door: str) -> Outcome:
-    """Sync ``who``'s vault through ``door``; collect what it refused and why."""
+_CONTENT_FAULT_STAGES = {"parsing", "type_detection", "validation", "preparation"}
+
+
+async def _sync_directory(env: VaultEnv, root: Path, owner: UserUID) -> Outcome:
     out = Outcome()
-    root: Path = env[who]
-    owner = _ACTING[who]
-    if door == "directory":
-        result = await env["service"].ingest_directory(root, ingestion_mode="smart", user_uid=owner)
-        assert result.is_ok, result
-        stats = result.value
-        out.warnings = list(stats.warnings)
-        for error in stats.errors or []:
-            name = Path(str(error.get("file", ""))).name
-            if error.get("stage") in {"parsing", "type_detection", "validation", "preparation"}:
-                out.refused[name] = str(error.get("error"))
+    result = await env["service"].ingest_directory(root, ingestion_mode="smart", user_uid=owner)
+    assert result.is_ok, result
+    stats = result.value
+    out.warnings = list(stats.warnings)
+    for error in stats.errors or []:
+        name = Path(str(error.get("file", ""))).name
+        if error.get("stage") in _CONTENT_FAULT_STAGES:
+            out.refused[name] = str(error.get("error"))
+        else:
+            out.failed[name] = str(error.get("error"))
+    return out
+
+
+def _edge_files_last(path: Path) -> bool:
+    """Sort key: the single-file door has no phase ordering, so a caller syncing a
+    vault file by file sends entities before edges."""
+    return path.suffix != ".md"
+
+
+async def _sync_file_by_file(env: VaultEnv, root: Path, owner: UserUID) -> Outcome:
+    out = Outcome()
+    files = sorted(p for p in root.rglob("*") if p.suffix in {".md", ".yaml", ".yml"})
+    files.sort(key=_edge_files_last)
+    for path in files:
+        result = await env["service"].ingest_file(path, user_uid=owner)
+        if result.is_error:
+            failure = result.expect_error()
+            if failure.category.value == "validation":
+                out.refused[path.name] = failure.message
             else:
-                out.failed[name] = str(error.get("error"))
-        return out
-    if door == "file":
-        files = sorted(p for p in root.rglob("*") if p.suffix in {".md", ".yaml", ".yml"})
-        # Edge files last: the single-file door has no phase ordering, so a
-        # caller syncing a vault file by file sends entities before edges.
-        files.sort(key=lambda p: p.suffix != ".md")
-        for path in files:
-            result = await env["service"].ingest_file(path, user_uid=owner)
-            if result.is_error:
-                error = result.expect_error()
-                if error.category.value == "validation":
-                    out.refused[path.name] = error.message
-                else:
-                    out.failed[path.name] = error.message
-            else:
-                out.warnings.extend(result.value.get("warnings") or [])
-        return out
-    kind = VaultKind.CONTENT if who == "content" else VaultKind.PERSONAL
+                out.failed[path.name] = failure.message
+        else:
+            out.warnings.extend(result.value.get("warnings") or [])
+    return out
+
+
+async def _sync_reconciler(env: VaultEnv, kind: VaultKind, owner: UserUID) -> Outcome:
+    out = Outcome()
     result = await env["reconciler"].sync(kind, owner)
     assert result.is_ok, result
     stats = result.value
@@ -194,13 +216,27 @@ async def _sync(env: dict[str, Any], who: str, door: str) -> Outcome:
     return out
 
 
-async def _q(driver, cypher: str, **params: Any) -> list[dict[str, Any]]:
+async def _sync(env: VaultEnv, who: str, door: str) -> Outcome:
+    """Sync ``who``'s vault through ``door``; collect what it refused and why."""
+    root = {"alice": env["alice"], "bob": env["bob"], "content": env["content"]}[who]
+    owner = _ACTING[who]
+    if door == "directory":
+        return await _sync_directory(env, root, owner)
+    if door == "file":
+        return await _sync_file_by_file(env, root, owner)
+    kind = VaultKind.CONTENT if who == "content" else VaultKind.PERSONAL
+    return await _sync_reconciler(env, kind, owner)
+
+
+# boundary: Neo4j record rows — each query projects its own heterogeneous columns
+async def _q(driver: AsyncDriver, cypher: str, **params: object) -> list[dict[str, Any]]:
     async with driver.session() as session:
         result = await session.run(cypher, **params)
         return [dict(r) async for r in result]
 
 
-async def _node(driver, uid: str) -> dict[str, Any]:
+# boundary: one Neo4j record row (labels, owners, properties)
+async def _node(driver: AsyncDriver, uid: str) -> dict[str, Any]:
     """The node with ``uid`` — which must exist."""
     rows = await _q(
         driver,
@@ -217,14 +253,15 @@ async def _node(driver, uid: str) -> dict[str, Any]:
     return rows[0]
 
 
-async def _edge_types(driver, a: str, b: str) -> list[str]:
+async def _edge_types(driver: AsyncDriver, a: str, b: str) -> list[str]:
     rows = await _q(
         driver, "MATCH ({uid: $a})-[r]->({uid: $b}) RETURN type(r) AS t ORDER BY t", a=a, b=b
     )
     return [r["t"] for r in rows]
 
 
-async def _uids_titled(driver, title: str) -> list[dict[str, Any]]:
+# boundary: Neo4j record rows (uid, user_uid, owners)
+async def _uids_titled(driver: AsyncDriver, title: str) -> list[dict[str, Any]]:
     return await _q(
         driver,
         """
