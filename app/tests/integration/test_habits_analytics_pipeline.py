@@ -355,8 +355,8 @@ async def test_habit_goal_support_dedupes_multipath_goals_at_depth2(
 
 
 # ---------------------------------------------------------------------------
-# HA-3: the three analyses read the derived rate where the dead consistency
-# score (0.0 for every habit) used to sit. Red on the pre-HA-3 source.
+# The three analyses read the habit's one consistency measure, the derived
+# rate; a habit with no rate yet reads None / "unknown" there, never 0.0.
 # ---------------------------------------------------------------------------
 
 
@@ -365,7 +365,7 @@ async def test_goal_support_contribution_is_the_adherence_scaled(
     neo4j_driver, rel_backend, clean_neo4j
 ):
     """24 of 30 days kept (0.8): each goal gets 1.6 of 2, impact "high", alignment 1.6 of 10
-    for the one goal, and the booleans read the rate. Pre-HA-3: 0.0 / "low" / 0.0."""
+    for the one goal, and the booleans read the rate."""
     await _seed_habit_graph(neo4j_driver)
     svc = _harness(
         rel_backend, HB_HABIT, habit=_measured_habit(HB_HABIT), done_days_ago=KEPT_24_OF_30
@@ -416,7 +416,7 @@ async def test_performance_effectiveness_is_breadth_times_adherence(
     neo4j_driver, rel_backend, clean_neo4j
 ):
     """One reinforced Ku at 0.8 adherence: effectiveness 0.8, the rate reported under its own
-    name, and "maintain consistency" advised below 0.7 only. Pre-HA-3: 0.0 and always advised."""
+    name, and "maintain consistency" advised below 0.7 only."""
     await _seed_habit_graph(neo4j_driver)
     svc = _harness(
         rel_backend, HB_HABIT, habit=_measured_habit(HB_HABIT), done_days_ago=KEPT_24_OF_30
@@ -443,7 +443,7 @@ async def test_performance_effectiveness_is_breadth_times_adherence(
 @pytest.mark.asyncio
 async def test_practice_effectiveness_base_is_the_adherence(neo4j_driver, rel_backend, clean_neo4j):
     """0.8 * 5 base + 0.5 for one Ku + 2 * 10/30 streak = 5.167; with no rate the base term is
-    absent and the two bonuses stand (1.167). Pre-HA-3 both read 1.167."""
+    absent and the two bonuses stand (1.167)."""
     await _seed_habit_graph(neo4j_driver)
     bonuses = 0.5 + (10 / 30.0) * 2.0
 

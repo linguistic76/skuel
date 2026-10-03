@@ -1,9 +1,9 @@
-"""A keystone habit is an identity habit — there is no second predicate (HA-3).
+"""A keystone habit is an identity habit — there is no second predicate.
 
-``Habit.total_attempts`` had no writer, so ``calculate_consistency_score`` was 0.0
-for every habit and ``is_keystone`` was ``is_identity_habit`` by accident. Both are
-gone with the field; the keystone readers (the list filter, the stats chip) read
-``is_identity_habit`` by name. Pinned here so neither comes back as an alias.
+``Habit`` carries no ``total_attempts`` and no consistency score of its own; the
+habit's one consistency measure is the derived ``success_rate``. The keystone
+readers (the list filter, the stats chip) read ``is_identity_habit`` by name, and
+no alias stands in for it. Record: /docs/roadmap/habit-completion-persistence-bundle.md.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def test_total_attempts_is_gone_from_model_and_dto() -> None:
     assert "total_attempts" not in {f.name for f in fields(HabitDTO)}
 
 
-def test_the_dead_score_and_its_readers_are_gone() -> None:
+def test_habit_has_no_consistency_score_or_keystone_alias() -> None:
     for name in ("calculate_consistency_score", "is_keystone", "predict_goal_impact"):
         assert getattr(Habit, name, None) is None, name
 

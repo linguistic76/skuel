@@ -205,10 +205,7 @@ async def test_a_habit_with_no_rate_shows_neither_rate_pattern() -> None:
 
 @pytest.mark.asyncio
 async def test_goal_system_pattern_confidence_is_the_adherence_rate() -> None:
-    """Pattern 5's confidence is the habit's derived rate — 24 of 30 days kept reads 0.8.
-
-    Pre-HA-3 it was ``calculate_consistency_score()``, 0.0 for every habit.
-    """
+    """Pattern 5's confidence is the habit's derived rate — 24 of 30 days kept reads 0.8."""
     service = _service(_RelationshipsStub(Result.ok(["goal_1", "goal_2"])))
 
     result = await service.analyze_patterns(HABIT_UID, USER_UID)
