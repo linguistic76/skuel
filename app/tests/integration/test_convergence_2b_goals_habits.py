@@ -29,12 +29,14 @@ from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
+from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.relationship_registry import GOALS_CONFIG, HABITS_CONFIG
 from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+from core.utils.result_simplified import Result
 
 P = "conv2b_"  # uid prefix for this module's fixture graph
 
@@ -78,9 +80,20 @@ async def test_goals_delegation_routes_to_mechanism_b_without_recursion():
 
 @pytest.mark.asyncio
 async def test_habits_delegation_routes_to_mechanism_b_without_recursion():
+    """The Habits read is mechanism B with the habit's derived rate hydrated on top."""
     svc, rel = _intel_stub(HabitsIntelligenceService)
-    assert await svc.get_with_context("h", 2) == "MECHANISM_B"
+    habit = Habit(uid="h", user_uid="u", title="h")
+    graph_context = MagicMock()
+    rel.get_with_context = AsyncMock(return_value=Result.ok((habit, graph_context)))
+    svc.backend = MagicMock()
+    svc.backend.get_habit_window_completions = AsyncMock(return_value=Result.ok({"h": []}))
+
+    result = await svc.get_with_context("h", 2)
+
+    assert result.is_ok
+    assert result.value[0].uid == "h" and result.value[1] is graph_context
     rel.get_with_context.assert_any_await("h", 2)
+    svc.backend.get_habit_window_completions.assert_awaited_once()
 
 
 @pytest.mark.asyncio

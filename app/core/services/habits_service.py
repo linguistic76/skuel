@@ -676,7 +676,21 @@ class HabitsService(
         return Result.ok(enriched.value)
 
     async def get_habit_hierarchy(self, habit_uid: str) -> Result[dict[str, Any]]:
-        return await self.core.get_entity_hierarchy(habit_uid)
+        """The habit's ancestors, itself, its siblings and children — every one hydrated."""
+        hierarchy = await self.core.get_entity_hierarchy(habit_uid)
+        if hierarchy.is_error:
+            return hierarchy
+        tree = hierarchy.value
+        groups = ("ancestors", "siblings", "children")
+        flat = [tree["current"], *(habit for key in groups for habit in tree[key])]
+        enriched = await self.enrich_with_adherence(flat)
+        if enriched.is_error:
+            return Result.fail(enriched)
+        hydrated = iter(enriched.value)
+        result = {**tree, "current": next(hydrated)}
+        for key in groups:
+            result[key] = [next(hydrated) for _ in tree[key]]
+        return Result.ok(result)
 
     async def create_subhabit_relationship(
         self, parent_uid: str, child_uid: str, progress_weight: float = 1.0
@@ -699,7 +713,7 @@ class HabitsService(
         """Get filtered and sorted habits with pre-filter stats in a single query."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.core.get_all_for_user(user_uid)
+            return await self._list_with_adherence(await self.core.get_all_for_user(user_uid))
 
         def apply_filters(all_habits: list[Any]) -> list[Any]:
             return apply_entity_filter(all_habits, status_filter, _HABIT_FILTER_CONFIG)

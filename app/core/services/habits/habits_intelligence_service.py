@@ -29,6 +29,7 @@ from core.ports.domain_protocols import HabitsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._adherence import (
     adherence_readings,
+    enrich_habit_with_adherence,
     habit_is_at_risk,
     with_readings,
 )
@@ -44,6 +45,7 @@ from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
+    from core.models.graph_context import GraphContext
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
     from core.services.relationships import UnifiedRelationshipService
@@ -111,10 +113,23 @@ class HabitsIntelligenceService(
     # These methods implement IntelligenceRouteFactory's protocols:
     # IntelligenceOperations and PerformanceAnalyticsOperations.
     #
-    # get_with_context is provided by the shared _CoreIntelligenceMixin
-    # (mechanism B, registry-sourced via self.relationships) — NOT redefined
-    # here. (Convergence Phase 1, 2B.)
+    # get_with_context is the shared _CoreIntelligenceMixin read (mechanism B,
+    # registry-sourced via self.relationships); the override below only
+    # hydrates the habit it returns.
     # ========================================================================
+
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Habit, GraphContext]]:
+        """The shared mechanism-B read, the habit carrying its derived ``success_rate``."""
+        result = await super().get_with_context(uid, depth)
+        if result.is_error:
+            return result
+        habit, graph_context = result.value
+        enriched = await enrich_habit_with_adherence(self.backend, habit)
+        if enriched.is_error:
+            return Result.fail(enriched)
+        return Result.ok((enriched.value, graph_context))
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30

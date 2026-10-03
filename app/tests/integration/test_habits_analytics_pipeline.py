@@ -24,7 +24,7 @@ guard must run against real Cypher.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
@@ -33,6 +33,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit import Habit
 from core.models.relationship_registry import HABITS_CONFIG
+from core.ports.domain_protocols import HabitsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -59,13 +60,19 @@ def rel_backend(neo4j_driver):
 
 
 class _FakeHabitBackend:
-    """Minimal backend exposing the single ``.get`` the mixin calls — returns a real Habit."""
+    """Minimal backend exposing the two reads the mixin makes — ``.get`` (a real Habit) and
+    the adherence window (no completions), which the analyses hydrate the habit from."""
 
     def __init__(self, habit: Habit) -> None:
         self._habit = habit
 
     async def get(self, _uid: str) -> Result[Habit]:
         return Result.ok(self._habit)
+
+    async def get_habit_window_completions(
+        self, habit_uids: list[str], window_start: str, window_end: str
+    ) -> Result[dict[str, list[object]]]:
+        return Result.ok({uid: [] for uid in habit_uids})
 
 
 class _HabitIntelHarness(_BehavioralSignalsMixin, BaseAnalyticsService):
@@ -74,7 +81,8 @@ class _HabitIntelHarness(_BehavioralSignalsMixin, BaseAnalyticsService):
     truthy (the ``@requires_graph_intelligence`` guard is its sole reader)."""
 
     def __init__(self, backend: _FakeHabitBackend, relationships: Any) -> None:
-        self.backend = backend
+        # Only the two reads above are reached; the rest of HabitsOperations is not.
+        self.backend = cast("HabitsOperations", backend)
         self.relationships = relationships
         self.graph_intel = Mock(spec=GraphIntelligenceService)
 

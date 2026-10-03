@@ -379,3 +379,26 @@ class TestEveryHabitReadCarriesTheDerivedRate:
         assert result.is_ok, result
         rates = {h.uid: h.completion_rate for h in result.value}
         assert rates == {uid: _rate(rate) for uid, rate in EXPECTED.items()}
+
+    async def test_habits_inside_a_returned_container_carry_the_rate(
+        self, services: _Composed
+    ) -> None:
+        """The hierarchy, the filtered list context, the per-habit analyses and the
+        context read embed habits in what they return — each carries the context's rate."""
+        habits = services.habits
+        linked = await habits.create_subhabit_relationship(KEPT, BULK)
+        assert linked.is_ok, linked
+
+        hierarchy = await habits.get_habit_hierarchy(KEPT)
+        listed = await habits.get_filtered_context(_USER, status_filter="active")
+        performance = await habits.analyze_habit_performance(KEPT)
+        with_context = await habits.intelligence.get_with_context(KEPT)
+
+        assert hierarchy.is_ok and listed.is_ok and performance.is_ok and with_context.is_ok
+        assert with_context.value[0].success_rate == pytest.approx(KEPT_RATE)
+        assert hierarchy.value["current"].success_rate == pytest.approx(KEPT_RATE)
+        assert [h.success_rate for h in hierarchy.value["children"]] == [pytest.approx(KEPT_RATE)]
+        assert {h.uid: h.success_rate for h in listed.value["entities"]} == {
+            uid: _rate(rate) for uid, rate in EXPECTED.items()
+        }
+        assert performance.value["habit"].success_rate == pytest.approx(KEPT_RATE)
