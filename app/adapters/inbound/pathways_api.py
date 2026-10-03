@@ -194,7 +194,7 @@ def create_pathways_api_routes(
 
         ``parent_depth`` is the path node's depth (steps render one deeper; -1 loads
         them as roots). A step is a leaf. A uid that names no learning path is the
-        ordinary 404, whatever it does name.
+        ordinary 404, whatever it does name. The rows are read-only.
         """
         require_authenticated_user(request)
         result = await learning_service.get_path_steps(uid)
@@ -208,6 +208,9 @@ def create_pathways_api_routes(
             entity_type="lp",
             children_endpoint="/api/lp/{uid}/children",
             parent_depth=parent_depth,
+            # Vault-authored structure: no drag-to-move, rename or actions menu.
+            draggable=False,
+            editable=False,
         )
 
     # Enrollment

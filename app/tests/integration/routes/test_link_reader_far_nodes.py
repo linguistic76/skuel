@@ -513,6 +513,9 @@ async def test_the_step_tree_lists_a_paths_steps_and_nothing_else_is_a_path(
     tree = await http.get(f"/api/lp/{PATH}/children", params={"parent_depth": -1})
     assert tree.status_code == 200
     assert STEP in tree.text
+    # Read-only rows: the structure is vault-authored, so nothing moves or renames it.
+    for handler in ("handleDragStart", "handleDrop", "startEdit", 'draggable="true"'):
+        assert handler not in tree.text, handler
 
     for uid in (OWN["Task"], FOREIGN["Task"], STEP, "lp.nb2e.absent"):
         refused = await http.get(f"/api/lp/{uid}/children")
