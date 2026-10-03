@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-22
+updated: 2026-10-03
 ---
 
 # LpIntelligenceService - Learning State & Content Intelligence
@@ -183,11 +183,11 @@ async def recommend_content(
 
 **Example:**
 ```python
-# The pool is whatever candidates you want ranked. `core.list()` returns ONE
-# page (default limit=100) plus the total — paginate if the pool must be
-# exhaustive. Items are passed through `ensure_content_protocol()` internally,
-# so raw Ku objects are fine here.
-page_result = await ku_service.core.list(limit=100)
+# The pool is whatever candidates you want ranked. `list_library()` returns
+# the first `limit` PUBLISHED Kus plus the published total — a learner-facing
+# pool never draws on drafts. Items are passed through
+# `ensure_content_protocol()` internally, so raw Ku objects are fine here.
+page_result = await ku_service.list_library(limit=100)
 if page_result.is_error:
     return Result.fail(page_result)
 page, total = page_result.value

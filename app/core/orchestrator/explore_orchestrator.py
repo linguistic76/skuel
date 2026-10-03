@@ -438,7 +438,7 @@ class ExploreOrchestrator:
         - ``active_path_step`` — the user's real IN_PROGRESS PathStep, its
           USES_KU composition, and per-KU read state (``is_understood``).
         - ``featured`` — the next unread KU inside that step (real "why");
-          falls back to the first library KU with honest copy.
+          falls back to the library's first published KU with honest copy.
         - ``last_completed`` / ``in_progress`` / ``also_ready`` / ``related``
           — empty until the intelligence behind them exists (read-history
           and the ZPD-derived ready set); the renderer collapses empty
@@ -451,11 +451,11 @@ class ExploreOrchestrator:
         today = today_in(current_zone())
         date_label = today.strftime("%A · %B ") + str(today.day)
 
-        # list() returns (items, total_count) — use the real DB total, not the
-        # page size, and fetch just one row for the fallback hero (Kody #505).
+        # The library's real size, not the page size, and one row for the
+        # fallback hero — both over published Kus only.
         library_total = 0
         first_library_ku: Any = None
-        ku_result = await self._ku.core.list(limit=1)
+        ku_result = await self._ku.list_library(limit=1)
         if not ku_result.is_error and ku_result.value:
             kus, library_total = ku_result.value
             first_library_ku = kus[0] if kus else None

@@ -146,7 +146,7 @@ if TYPE_CHECKING:
     from core.models.enums.user_entry_enums import ExerciseScope
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
-    from core.models.ku.ku import Ku  # noqa: F401 — used in BackendOperations["Ku"]
+    from core.models.ku.ku import Ku
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
@@ -415,6 +415,10 @@ class KuOperations(BackendOperations["Ku"], Protocol):
 
     async def search_by_alias(self, alias: str) -> Result[list[Neo4jProperties]]:
         """Search Kus by alias (case-insensitive substring)."""
+        ...
+
+    async def list_library(self, limit: int) -> Result[tuple[list[Ku], int]]:
+        """The first ``limit`` published Kus, oldest first, and the published total."""
         ...
 
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
