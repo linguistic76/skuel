@@ -195,7 +195,8 @@ def filter_habits(
     elif status_filter == "completed":
         filtered = [h for h in filtered if h.status == EntityStatus.COMPLETED]
     elif status_filter == "keystone":
-        filtered = [h for h in filtered if h.is_keystone]
+        # A keystone habit is an identity habit.
+        filtered = [h for h in filtered if h.is_identity_habit]
 
     if category_filter != "all":
         filtered = [

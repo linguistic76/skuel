@@ -176,7 +176,7 @@ def compute_habit_stats(habits: list[Habit]) -> HabitStats:
     streak_values = [h.current_streak for h in habits if getattr(h, "current_streak", 0) > 0]
     streaks = len(streak_values)
     avg_streak = sum(streak_values) / streaks if streaks else 0.0
-    keystone_count = sum(1 for h in habits if getattr(h, "is_keystone", False))
+    keystone_count = sum(1 for h in habits if h.is_identity_habit)  # keystone = identity habit
     return HabitStats(
         total=total,
         active=active,

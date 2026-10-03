@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-01'
+updated: '2026-10-03'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1081,7 +1081,7 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Route thinning rule (2026-04-07):** A route file importing `Form`, `Input`, `Label`, or `Textarea` directly is a signal that HTML construction is leaking into routing. Extract those blocks to a `render_*` function in the domain's `ui/` package.
 
-**Business logic extraction rule (2026-04-07; updated 2026-05-26 for ADR-044):** Raw Cypher queries, domain filtering/sorting, and workflow bucketing must not live in route or UI view files. Cross-domain connection fetching runs below the hexagonal boundary in `ConnectionFetchBackend` (`adapters/persistence/neo4j/connection_fetch_backend.py`), behind the `ConnectionFetchOperations` port — UI factories receive the port as `ActivityUIConfig.backend` and call `config.backend.fetch_entity_connections(config.connection_config, uids)`; `core/utils/connection_configs.py` holds only the pure-data `ConnectionConfig` constants. Entity filtering uses `filter_{domain}()` from `core/utils/entity_filters.py`. Domain predicate methods (`is_overdue()`, `is_keystone`, `is_upcoming()`, `is_today()`, `is_deadline_past()`) live on domain models, not as UI helpers.
+**Business logic extraction rule (2026-04-07; updated 2026-05-26 for ADR-044):** Raw Cypher queries, domain filtering/sorting, and workflow bucketing must not live in route or UI view files. Cross-domain connection fetching runs below the hexagonal boundary in `ConnectionFetchBackend` (`adapters/persistence/neo4j/connection_fetch_backend.py`), behind the `ConnectionFetchOperations` port — UI factories receive the port as `ActivityUIConfig.backend` and call `config.backend.fetch_entity_connections(config.connection_config, uids)`; `core/utils/connection_configs.py` holds only the pure-data `ConnectionConfig` constants. Entity filtering uses `filter_{domain}()` from `core/utils/entity_filters.py`. Domain predicate methods (`is_overdue()`, `is_identity_habit`, `is_upcoming()`, `is_today()`, `is_deadline_past()`) live on domain models, not as UI helpers.
 
 **Teaching UI as canonical example:** `ui/teaching/forms.py` holds the review actions — `render_review_actions()` (the one action rule) over `render_feedback_submission_form()`, `render_revision_request_form()` and `render_waiting_actions()` — plus `render_submission_metadata()` and `render_form_responses_section()`; `ui/teaching/detail.py` composes them into `render_review_body()`, which the review page and the per-student panel both render. The review routes build no form themselves. Dict→dataclass converters live in `ui/teaching/types.py`; submission bucketing lives in `TeacherOrchestrator.get_bucketed_student_submissions()`.
 

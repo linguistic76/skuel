@@ -301,14 +301,23 @@ that door onto the shared node-writing operation (which it already requires). Th
 caller.
 
 **Read-side residuals HA-2 left, each with its own question (registered 2026-10-02):**
-- **`total_attempts` has no writer**, so `Habit.calculate_consistency_score()` is 0.0 for every
-  habit and `is_keystone` reduces to `is_identity_habit` — read by the habits-list "keystone"
-  filter, the keystone count, the event scheduler's priority and strategy, the progress
-  service, the four behavioral-signal analyses, the dual-track score and
-  `predict_goal_impact`. HA-3's question: delete `total_attempts` and the score and name
-  `is_keystone` for what it is (identity habit), or drop the gate so the score becomes
-  0.4·streak + 0.6·rate (a real change to which habits are keystones, and the list page would
-  then need the rate hydrated).
+- **`total_attempts` and the consistency score are gone (HA-3, ruled 2026-10-03).** The field
+  had no writer, so `calculate_consistency_score()` was 0.0 for every habit; it, `is_keystone`
+  and the uncalled `predict_goal_impact` were deleted with it. A keystone habit IS an identity
+  habit: the list filter, the stats chip, the scheduler's HIGH priority and OPTIMAL_TIME
+  strategy and the 7-streak keystone effects read `is_identity_habit`. Every formula that read
+  the score reads the derived rate instead — the three behavioral-signal analyses
+  (effectiveness = knowledge areas × rate, contribution = rate × 2, alignment = goals × 2 × rate,
+  the practice-effectiveness base term), the pattern service's goal-system confidence — and a
+  habit with no rate yet reads `None` / "unknown" there, never 0.0; the dual-track score lost its
+  dead 0.3 term (every value identical). The live `REMOVE h.success_rate, h.total_attempts`
+  (ruled yes) follows the code merge — counts recorded below when done.
+- **`UserContext.keystone_habits` has no writer** (found by HA-3's census): declared with an
+  empty default, never assigned, so `ContextualHabit.is_keystone` is always False, the
+  planner's keystone bonus never fires, the context's `keystone_count` is always 0 and
+  `get_keystone_habits` always returns `[]`. Neither user-context statement returns
+  `is_identity_habit`, so populating it is a statement change — registered, not built
+  (Mike, 2026-10-03: taken on recommendation).
 - **The ADR-048 `learned_*` fields are written and never readable.**
   `HabitEventHandlerService` writes `learned_preferred_hour`, `learned_on_time_rate`,
   `learned_completion_count`, `learned_recovery_difficulty` and `learned_difficulty_level` as

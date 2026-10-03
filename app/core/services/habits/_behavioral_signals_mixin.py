@@ -73,8 +73,8 @@ class _BehavioralSignalsMixin:
                     "knowledge_reinforced": List[Ku],
                     "supporting_goals": List[Goal],
                     "streak_score": float,
-                    "reinforcement_effectiveness": float,
-                    "consistency_score": float,
+                    "reinforcement_effectiveness": float | None, # None = no rate yet
+                    "success_rate": float | None, # the derived adherence
                     "total_knowledge_areas": int,
                     "total_goals_supported": int
                 },
@@ -138,21 +138,25 @@ class _BehavioralSignalsMixin:
         knowledge_reinforcement_uids = [k.uid for k in context.knowledge]
         supporting_goal_uids = [g.uid for g in context.goals]
 
-        # Calculate performance metrics
+        # Calculate performance metrics. Reinforcement effectiveness is breadth times
+        # adherence; a habit with no rate yet has no effectiveness, not a zero one.
         streak_score = habit.current_streak / habit.best_streak if habit.best_streak > 0 else 0.0
-        consistency_score = habit.calculate_consistency_score()
-        reinforcement_effectiveness = len(knowledge_reinforcement_uids) * consistency_score
+        success_rate = habit.success_rate
+        reinforcement_effectiveness = (
+            len(knowledge_reinforcement_uids) * success_rate if success_rate is not None else None
+        )
 
         # Generate insights from metrics
         insights = {
-            "high_reinforcement": reinforcement_effectiveness > 5.0,
+            "high_reinforcement": reinforcement_effectiveness is not None
+            and reinforcement_effectiveness > 5.0,
             "goal_aligned": metrics["has_goal_connection"],
             "knowledge_builder": metrics["is_knowledge_builder"],
         }
 
         # Generate recommendations dict (convert list to dict for backward compatibility)
         recommendations = {
-            "maintain_consistency": consistency_score < 0.7,
+            "maintain_consistency": success_rate is not None and success_rate < 0.7,
             "expand_knowledge_links": metrics["knowledge_reinforcement_count"] < 3,
             "align_with_more_goals": metrics["goal_support_count"] < 2,
         }
@@ -165,7 +169,7 @@ class _BehavioralSignalsMixin:
                     "supporting_goal_uids": supporting_goal_uids,
                     "streak_score": streak_score,
                     "reinforcement_effectiveness": reinforcement_effectiveness,
-                    "consistency_score": consistency_score,
+                    "success_rate": success_rate,
                     "total_knowledge_areas": metrics["knowledge_reinforcement_count"],
                     "total_goals_supported": metrics["goal_support_count"],
                 },
@@ -206,7 +210,7 @@ class _BehavioralSignalsMixin:
                 "learning_analysis": {
                     "primary_knowledge_areas": List[str],
                     "skill_development_rate": float,
-                    "learning_consistency": float
+                    "learning_consistency": float | None # the derived adherence; None = no rate yet
                 },
                 "graph_context": GraphContext
             }
@@ -267,12 +271,11 @@ class _BehavioralSignalsMixin:
         # Calculate knowledge coverage
         knowledge_coverage = min(1.0, len(knowledge_reinforcement_uids) / 10.0)
 
-        # Learning analysis
-        consistency_score = habit.calculate_consistency_score()
+        # Learning analysis — consistency is the derived adherence (None = no rate yet)
         learning_analysis = {
             "knowledge_uids": knowledge_reinforcement_uids[:3],
             "skill_development_rate": practice_effectiveness / 10.0,
-            "learning_consistency": consistency_score,
+            "learning_consistency": habit.success_rate,
         }
 
         return Result.ok(
@@ -373,39 +376,48 @@ class _BehavioralSignalsMixin:
         # Read UIDs off the path-aware entities.
         supporting_goal_uids = [g.uid for g in context.goals]
 
-        # Calculate goal contributions
-        consistency_score = habit.calculate_consistency_score()
+        # Goal contributions are the habit's adherence, scaled: a habit with no rate
+        # yet contributes an unknown amount, never a zero one.
+        success_rate = habit.success_rate
         goal_contributions = [
             {
                 "goal_uid": goal_uid,
-                "contribution_strength": consistency_score * 2.0,  # 0-2 scale
-                "estimated_impact": "high"
-                if consistency_score > 0.7
+                "contribution_strength": success_rate * 2.0  # 0-2 scale
+                if success_rate is not None
+                else None,
+                "estimated_impact": "unknown"
+                if success_rate is None
+                else "high"
+                if success_rate > 0.7
                 else "medium"
-                if consistency_score > 0.4
+                if success_rate > 0.4
                 else "low",
             }
             for goal_uid in supporting_goal_uids
         ]
 
-        # Calculate alignment score
-        alignment_score = min(10.0, len(supporting_goal_uids) * 2.0 * consistency_score)
+        # Alignment score: goals supported times contribution, capped at 10
+        alignment_score = (
+            min(10.0, len(supporting_goal_uids) * 2.0 * success_rate)
+            if success_rate is not None
+            else None
+        )
 
         # Identify primary goal UID (if any)
         primary_goal_uid = supporting_goal_uids[0] if supporting_goal_uids else None
 
         # Impact analysis from metrics
         impact_analysis = {
-            "high_impact": alignment_score > 7.0,
+            "high_impact": alignment_score is not None and alignment_score > 7.0,
             "goal_aligned": metrics["has_goal_connection"],
-            "consistency_matters": consistency_score > 0.7,
+            "consistency_matters": success_rate is not None and success_rate > 0.7,
         }
 
-        # Recommendations dict
+        # Recommendations dict — each rate reading only when the habit has a rate
         recommendations = {
-            "increase_frequency": consistency_score < 0.5,
+            "increase_frequency": success_rate is not None and success_rate < 0.5,
             "link_more_goals": metrics["goal_support_count"] < 2,
-            "maintain_consistency": consistency_score >= 0.7,
+            "maintain_consistency": success_rate is not None and success_rate >= 0.7,
         }
 
         return Result.ok(
@@ -434,7 +446,8 @@ class _BehavioralSignalsMixin:
         Uses MetricsCalculator for consistent calculations.
 
         Considers:
-        - Habit consistency score
+        - The habit's adherence (its derived success rate) — absent, not 0, when
+          the habit has no rate yet; the two bonuses still stand
         - Number of knowledge areas covered
         - Streak count (if available)
 
@@ -445,11 +458,10 @@ class _BehavioralSignalsMixin:
         Returns:
             Effectiveness score (0-10 scale)
         """
-        consistency = habit.calculate_consistency_score()
         streak = habit.current_streak if habit.current_streak > 0 else 1
 
-        # Base effectiveness from consistency (0-5 points)
-        base_score = consistency * 5.0
+        # Base effectiveness from adherence (0-5 points), only when measured
+        base_score = habit.success_rate * 5.0 if habit.success_rate is not None else 0.0
 
         # Bonus for knowledge coverage (0-3 points, capped)
         knowledge_bonus = MetricsCalculator.clamp(knowledge_count * 0.5, max_val=3.0)

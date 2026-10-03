@@ -24,6 +24,7 @@ guard must run against real Cypher.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from typing import Any, cast
 from unittest.mock import Mock
 
@@ -31,6 +32,7 @@ import pytest
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.habit.habit import Habit
 from core.models.relationship_registry import HABITS_CONFIG
 from core.ports.domain_protocols import HabitsOperations
@@ -39,6 +41,8 @@ from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMix
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
+from core.utils.zone_context import current_zone
 
 HB = "hbctx_"  # uid prefix for this module's fixture graph
 HB_HABIT = HB + "habit"
@@ -61,10 +65,12 @@ def rel_backend(neo4j_driver):
 
 class _FakeHabitBackend:
     """Minimal backend exposing the two reads the mixin makes — ``.get`` (a real Habit) and
-    the adherence window (no completions), which the analyses hydrate the habit from."""
+    the adherence window (one completion on each of ``done_days_ago``), which the analyses
+    hydrate the habit's rate from."""
 
-    def __init__(self, habit: Habit) -> None:
+    def __init__(self, habit: Habit, done_days_ago: list[int] | None = None) -> None:
         self._habit = habit
+        self._done_days_ago = done_days_ago or []
 
     async def get(self, _uid: str) -> Result[Habit]:
         return Result.ok(self._habit)
@@ -72,7 +78,15 @@ class _FakeHabitBackend:
     async def get_habit_window_completions(
         self, habit_uids: list[str], window_start: str, window_end: str
     ) -> Result[dict[str, list[object]]]:
-        return Result.ok({uid: [] for uid in habit_uids})
+        zone = current_zone()
+        today = today_in(zone)
+        stamps = [
+            as_stored_clock(
+                local_day_bounds(today - timedelta(days=n), zone)[0] + timedelta(hours=9)
+            ).isoformat()
+            for n in self._done_days_ago
+        ]
+        return Result.ok({uid: list(stamps) for uid in habit_uids})
 
 
 class _HabitIntelHarness(_BehavioralSignalsMixin, BaseAnalyticsService):
@@ -87,12 +101,49 @@ class _HabitIntelHarness(_BehavioralSignalsMixin, BaseAnalyticsService):
         self.graph_intel = Mock(spec=GraphIntelligenceService)
 
 
-def _harness(rel_backend, habit_uid: str) -> _HabitIntelHarness:
-    habit = Habit(uid=habit_uid, title="Daily practice", user_uid="hbctx_user", current_streak=10)
+def _harness(
+    rel_backend,
+    habit_uid: str,
+    *,
+    habit: Habit | None = None,
+    done_days_ago: list[int] | None = None,
+) -> _HabitIntelHarness:
+    habit = habit or Habit(
+        uid=habit_uid, title="Daily practice", user_uid="hbctx_user", current_streak=10
+    )
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=rel_backend, config=HABITS_CONFIG, graph_intel=None
     )
-    return _HabitIntelHarness(_FakeHabitBackend(habit), rels)
+    return _HabitIntelHarness(_FakeHabitBackend(habit, done_days_ago), rels)
+
+
+def _measured_habit(habit_uid: str) -> Habit:
+    """Older than the adherence window, so 24 kept days of the last 30 read 0.8."""
+    zone = current_zone()
+    return Habit(
+        uid=habit_uid,
+        title="Daily practice",
+        user_uid="hbctx_user",
+        current_streak=10,
+        recurrence_pattern=RecurrencePattern.DAILY,
+        created_at=as_stored_clock(local_day_bounds(today_in(zone) - timedelta(days=90), zone)[0]),
+    )
+
+
+def _unmeasured_habit(habit_uid: str) -> Habit:
+    """A weekly habit created today: nothing due yet, so no rate (``None``, never 0.0)."""
+    zone = current_zone()
+    return Habit(
+        uid=habit_uid,
+        title="Weekly practice",
+        user_uid="hbctx_user",
+        current_streak=10,
+        recurrence_pattern=RecurrencePattern.WEEKLY,
+        created_at=as_stored_clock(local_day_bounds(today_in(zone), zone)[0]),
+    )
+
+
+KEPT_24_OF_30 = list(range(24))
 
 
 async def _seed_habit_graph(neo4j_driver) -> None:
@@ -301,3 +352,115 @@ async def test_habit_goal_support_dedupes_multipath_goals_at_depth2(
     goal_uids = res.value["goal_support"]["supporting_goal_uids"]
     assert sorted(goal_uids) == [dup_goal, dup_mid]  # each once, no inflation
     assert res.value["goal_support"]["total_goals_supported"] == 2
+
+
+# ---------------------------------------------------------------------------
+# The three analyses read the habit's one consistency measure, the derived
+# rate; a habit with no rate yet reads None / "unknown" there, never 0.0.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_goal_support_contribution_is_the_adherence_scaled(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """24 of 30 days kept (0.8): each goal gets 1.6 of 2, impact "high", alignment 1.6 of 10
+    for the one goal, and the booleans read the rate."""
+    await _seed_habit_graph(neo4j_driver)
+    svc = _harness(
+        rel_backend, HB_HABIT, habit=_measured_habit(HB_HABIT), done_days_ago=KEPT_24_OF_30
+    )
+
+    res = await svc.get_habit_goal_support(HB_HABIT, depth=1, min_confidence=0.7)
+    assert res.is_ok, res
+    gs = res.value["goal_support"]
+    assert res.value["habit"].success_rate == pytest.approx(0.8)
+    assert gs["goal_contributions"] == [
+        {
+            "goal_uid": HB_GOAL,
+            "contribution_strength": pytest.approx(1.6),
+            "estimated_impact": "high",
+        }
+    ]
+    assert gs["alignment_score"] == pytest.approx(1.6)
+    assert res.value["impact_analysis"]["consistency_matters"] is True
+    assert res.value["recommendations"]["maintain_consistency"] is True
+    assert res.value["recommendations"]["increase_frequency"] is False
+
+
+@pytest.mark.asyncio
+async def test_goal_support_with_no_rate_claims_no_contribution(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """A habit with no rate yet contributes an unknown amount — None and "unknown", never a
+    0.0 "low" — and no rate-derived boolean fires."""
+    await _seed_habit_graph(neo4j_driver)
+    svc = _harness(rel_backend, HB_HABIT, habit=_unmeasured_habit(HB_HABIT), done_days_ago=[0])
+
+    res = await svc.get_habit_goal_support(HB_HABIT, depth=1, min_confidence=0.7)
+    assert res.is_ok, res
+    gs = res.value["goal_support"]
+    assert res.value["habit"].success_rate is None
+    assert gs["goal_contributions"] == [
+        {"goal_uid": HB_GOAL, "contribution_strength": None, "estimated_impact": "unknown"}
+    ]
+    assert gs["alignment_score"] is None
+    assert res.value["impact_analysis"]["high_impact"] is False
+    assert res.value["impact_analysis"]["consistency_matters"] is False
+    assert res.value["recommendations"]["increase_frequency"] is False
+    assert res.value["recommendations"]["maintain_consistency"] is False
+
+
+@pytest.mark.asyncio
+async def test_performance_effectiveness_is_breadth_times_adherence(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """One reinforced Ku at 0.8 adherence: effectiveness 0.8, the rate reported under its own
+    name, and "maintain consistency" advised below 0.7 only."""
+    await _seed_habit_graph(neo4j_driver)
+    svc = _harness(
+        rel_backend, HB_HABIT, habit=_measured_habit(HB_HABIT), done_days_ago=KEPT_24_OF_30
+    )
+
+    res = await svc.analyze_habit_performance(HB_HABIT, min_confidence=0.7)
+    assert res.is_ok, res
+    perf = res.value["performance"]
+    assert perf["success_rate"] == pytest.approx(0.8)
+    assert "consistency_score" not in perf
+    assert perf["reinforcement_effectiveness"] == pytest.approx(0.8)
+    assert res.value["recommendations"]["maintain_consistency"] is False
+
+    svc = _harness(rel_backend, HB_HABIT, habit=_unmeasured_habit(HB_HABIT), done_days_ago=[0])
+    res = await svc.analyze_habit_performance(HB_HABIT, min_confidence=0.7)
+    assert res.is_ok, res
+    perf = res.value["performance"]
+    assert perf["success_rate"] is None
+    assert perf["reinforcement_effectiveness"] is None
+    assert res.value["insights"]["high_reinforcement"] is False
+    assert res.value["recommendations"]["maintain_consistency"] is False
+
+
+@pytest.mark.asyncio
+async def test_practice_effectiveness_base_is_the_adherence(neo4j_driver, rel_backend, clean_neo4j):
+    """0.8 * 5 base + 0.5 for one Ku + 2 * 10/30 streak = 5.167; with no rate the base term is
+    absent and the two bonuses stand (1.167)."""
+    await _seed_habit_graph(neo4j_driver)
+    bonuses = 0.5 + (10 / 30.0) * 2.0
+
+    svc = _harness(
+        rel_backend, HB_HABIT, habit=_measured_habit(HB_HABIT), done_days_ago=KEPT_24_OF_30
+    )
+    res = await svc.get_habit_knowledge_reinforcement(HB_HABIT, depth=1, min_confidence=0.7)
+    assert res.is_ok, res
+    assert res.value["knowledge_reinforcement"]["practice_effectiveness_score"] == pytest.approx(
+        0.8 * 5.0 + bonuses
+    )
+    assert res.value["learning_analysis"]["learning_consistency"] == pytest.approx(0.8)
+
+    svc = _harness(rel_backend, HB_HABIT, habit=_unmeasured_habit(HB_HABIT), done_days_ago=[0])
+    res = await svc.get_habit_knowledge_reinforcement(HB_HABIT, depth=1, min_confidence=0.7)
+    assert res.is_ok, res
+    assert res.value["knowledge_reinforcement"]["practice_effectiveness_score"] == pytest.approx(
+        bonuses
+    )
+    assert res.value["learning_analysis"]["learning_consistency"] is None
