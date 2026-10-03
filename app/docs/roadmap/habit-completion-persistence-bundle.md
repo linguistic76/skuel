@@ -274,8 +274,8 @@ not this bundle's work: it shipped ahead of it. What it is now:
   0.0 is a reading), the impact analysis skips it, the AI prompt and the dual-track evidence say
   "no rate yet" (the dual-track score then takes the early-stage benefit of the doubt, ≥ 0.5), the
   ZPD strength is the streak alone, and the detail page shows a measured 0% and nothing for none.
-  The 6 live nodes still carry the old `success_rate: 0.0`; nothing reads it (Mike was asked
-  whether to `REMOVE` it — 2026-10-02).
+  The old `success_rate: 0.0` the 6 live nodes carried was removed with `total_attempts`
+  (HA-3 step 5, 2026-10-03 — counts below).
 - **One at-risk definition (HA-2, ruled 2026-10-02).** `habit_at_risk` in
   `core/models/habit/adherence.py`: an ACTIVE habit is at risk when it is **overdue** for its own
   cadence (`habit_overdue` — a due day passed undone for daily / weekdays / weekends, more than
@@ -310,8 +310,11 @@ caller.
   (effectiveness = knowledge areas × rate, contribution = rate × 2, alignment = goals × 2 × rate,
   the practice-effectiveness base term), the pattern service's goal-system confidence — and a
   habit with no rate yet reads `None` / "unknown" there, never 0.0; the dual-track score lost its
-  dead 0.3 term (every value identical). The live `REMOVE h.success_rate, h.total_attempts`
-  (ruled yes) follows the code merge — counts recorded below when done.
+  dead 0.3 term (every value identical). **Live graph (AuraDB 5.27-aura, 2026-10-03, after
+  #1490 merged):** READ census 6 `:Habit`, `success_rate` on 6 (non-zero 0), `total_attempts` on
+  6 (non-zero 0), no other label carrying either; one WRITE session
+  `MATCH (h:Habit) REMOVE h.success_rate, h.total_attempts` touched 6 nodes; READ recount
+  6 `:Habit`, both properties on 0.
 - **`UserContext.keystone_habits` has no writer** (found by HA-3's census): declared with an
   empty default, never assigned, so `ContextualHabit.is_keystone` is always False, the
   planner's keystone bonus never fires, the context's `keystone_count` is always 0 and
@@ -331,7 +334,6 @@ caller.
 - **The staged `HabitsSearchService.get_needing_attention` reads `find_by(limit=…)` with no
   user** — every user's habits — and its protocol declares a `user_uid` it does not take.
   PLANNED (uncalled); it needs an owner scope before anything wires it.
-- The stale `success_rate: 0.0` on the live nodes (above).
 
 **The bundle keeps every write-side defect, and its trigger.** No write path was touched by the
 derivation. (One write-side defect the derivation reads through is not this bundle's:
