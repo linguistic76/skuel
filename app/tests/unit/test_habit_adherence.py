@@ -390,7 +390,7 @@ def _rich_entity(
     pattern: str = "daily",
     created_days_ago: int = 60,
     last_done_days_ago: int | None = 1,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # boundary: a projected Neo4j map — properties(habit) is heterogeneous
     """A rich habit item as ``properties(habit)`` projects it, stamps relative to today."""
     zone = current_zone()
     today = today_in(zone)

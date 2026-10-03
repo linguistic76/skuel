@@ -22,7 +22,9 @@ def _days_ago(n: int) -> date:
     return TODAY - timedelta(days=n)
 
 
-def _overdue(pattern: str | None, *, done: int | None, created: int | None = 400, target=None):
+def _overdue(
+    pattern: str | None, *, done: int | None, created: int | None = 400, target: int | None = None
+) -> bool:
     return habit_overdue(
         pattern,
         target,

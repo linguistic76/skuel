@@ -14,7 +14,7 @@ annotations keep meaning the builtin.
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.services.habits._adherence import (
     enrich_habit_with_adherence,
@@ -24,7 +24,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.habit.habit import Habit
-    from core.models.type_hints import UserUID
+    from core.models.type_hints import FilterParams, UserUID
     from core.ports.domain_protocols import HabitsOperations
 
 
@@ -45,7 +45,7 @@ class _AdherenceReadsMixin:
         self,
         limit: int = 100,
         offset: int = 0,
-        filters: dict[str, Any] | None = None,
+        filters: FilterParams | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
         user_uid: UserUID | None = None,
