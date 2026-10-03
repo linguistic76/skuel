@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-02
+updated: 2026-10-03
 ---
 
 # Sub-Service Responsibility Catalog
@@ -100,7 +100,7 @@ from core.services.tasks import TasksSearchService
 
 search = TasksSearchService(backend=backend)
 result = await search.search("meditation", limit=10)
-tasks_result = await search.get_tasks_for_goal(goal_uid)
+tasks_result = await search.get_tasks_for_goal(goal_uid, user_uid)
 ```
 
 ---

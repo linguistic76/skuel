@@ -12,8 +12,8 @@ that was never implemented:
   an unhandled ``AttributeError`` → 500 on ``GET /api/visualizations/gantt/goal/{uid}``.
 
 The fixes route through real methods: ``relationships.get_related_uids("prerequisite_tasks", uid)``
-(the generic DEPENDS_ON reader) and ``tasks_service.get_tasks_for_goal(uid)``, which returns
-Task models. A mocked service can't catch either bug — the only proof is data flowing
+(the generic DEPENDS_ON reader) and ``tasks_service.get_tasks_for_goal(uid, user_uid)``, which
+returns the user's Task models. A mocked service can't catch either bug — the only proof is data flowing
 through real Neo4j, which is what these do.
 
 COVERAGE NOTE: ``get_tasks_for_goal`` reads the node column ``Task.fulfills_goal_uid``, not
@@ -123,7 +123,7 @@ class TestGanttAggregationRoundTrip:
         ).value
 
         # A DIFFERENT user's task linked to the same goal UID must NOT leak into the
-        # response — get_tasks_for_goal is not user-scoped, so the service must filter.
+        # response — get_tasks_for_goal returns the viewer's tasks only.
         other = await self._user(neo4j_driver, "user_gantt_intruder")
         foreign = (
             await services.tasks.create_task(

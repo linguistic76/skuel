@@ -69,9 +69,9 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
     # ========================================================================
 
     @with_error_handling("get_tasks_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_tasks_for_goal(self, goal_uid: str) -> Result[list[Task]]:
+    async def get_tasks_for_goal(self, goal_uid: str, user_uid: UserUID) -> Result[list[Task]]:
         """
-        Get all tasks that fulfill a specific goal.
+        Get the user's tasks that fulfill a specific goal.
 
         Reads the ``fulfills_goal_uid`` node column — the property half of the
         dual-written goal link (property == FULFILLS_GOAL edge target on every door; see
@@ -79,13 +79,17 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
         Args:
             goal_uid: Goal UID
+            user_uid: The viewer — only tasks this user owns are returned
 
         Returns:
-            Result containing tasks fulfilling this goal, sorted by contribution
+            Result containing the user's tasks fulfilling this goal, sorted by contribution
         """
-        # Query backend for tasks with this goal
         result = await find_all_by(
-            self.backend, self.logger, "Tasks for a goal", fulfills_goal_uid=goal_uid
+            self.backend,
+            self.logger,
+            "Tasks for a goal",
+            fulfills_goal_uid=goal_uid,
+            user_uid=user_uid,
         )
 
         if result.is_error:
@@ -100,62 +104,28 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         return Result.ok(tasks)
 
     @with_error_handling("get_tasks_for_habit", error_type="database", uid_param="habit_uid")
-    async def get_tasks_for_habit(self, habit_uid: str) -> Result[list[Task]]:
+    async def get_tasks_for_habit(self, habit_uid: str, user_uid: UserUID) -> Result[list[Task]]:
         """
-        Get all tasks that reinforce a specific habit.
+        Get the user's tasks that reinforce a specific habit.
 
         Graph-native: traverses the (Task)-[:REINFORCES_HABIT]->(Habit) edge
         rather than reading a property.
 
         Args:
             habit_uid: Habit UID
+            user_uid: The viewer — only tasks this user owns are returned
 
         Returns:
-            Result containing tasks reinforcing this habit
+            Result containing the user's tasks reinforcing this habit
         """
-        result = await self.backend.get_tasks_reinforcing_habit(habit_uid)
+        result = await self.backend.get_tasks_reinforcing_habit(habit_uid, user_uid)
 
         if result.is_error:
             return Result.fail(result)
 
-        tasks = self._to_domain_models(result.value, TaskDTO, Task)
+        tasks = result.value
 
         self.logger.debug(f"Found {len(tasks)} tasks for habit {habit_uid}")
-        return Result.ok(tasks)
-
-    @with_error_handling(
-        "get_tasks_applying_knowledge", error_type="database", uid_param="knowledge_uid"
-    )
-    async def get_tasks_applying_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
-        """
-        Get all tasks that apply specific knowledge.
-
-        GRAPH-NATIVE: Query graph for APPLIES_KNOWLEDGE relationships.
-
-        Args:
-            knowledge_uid: Knowledge UID
-
-        Returns:
-            Result containing tasks applying this knowledge
-        """
-        # GRAPH-NATIVE: Query graph for tasks with APPLIES_KNOWLEDGE relationship to this knowledge
-        task_uids_result = await self.backend.get_related_uids(
-            knowledge_uid, RelationshipName.APPLIES_KNOWLEDGE, direction="incoming"
-        )
-        if task_uids_result.is_error:
-            return Result.fail(task_uids_result)
-
-        task_uids = task_uids_result.value
-
-        # Fetch task details for each UID
-        tasks = []
-        for task_uid in task_uids:
-            task_result = await self.backend.get(task_uid)
-            if task_result.is_ok and task_result.value:
-                task = self._to_domain_model(task_result.value, TaskDTO, Task)
-                tasks.append(task)
-
-        self.logger.debug(f"Found {len(tasks)} tasks applying knowledge {knowledge_uid}")
         return Result.ok(tasks)
 
     @with_error_handling(
@@ -271,55 +241,33 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
     # CURRICULUM TASK DISCOVERY
     # ========================================================================
 
-    @with_error_handling("get_curriculum_tasks", error_type="database")
-    async def get_curriculum_tasks(self) -> Result[list[Task]]:
-        """
-        Get all tasks that originated from the curriculum.
-
-        Uses Task.is_from_path_step() to filter curriculum-driven tasks.
-
-        Returns:
-            Result containing list of tasks linked to path steps
-        """
-        # Get all tasks
-        all_tasks_result = await self.backend.list(QueryLimit.COMPREHENSIVE)
-        if all_tasks_result.is_error:
-            return Result.fail(all_tasks_result)
-
-        # Unpack tuple: backend.list() returns (tasks, total_count)
-        tasks_data, _ = all_tasks_result.value
-
-        # Filter using model method
-        all_tasks = self._to_domain_models(tasks_data, TaskDTO, Task)
-        curriculum_tasks = [task for task in all_tasks if task.is_from_path_step]
-
-        self.logger.info(f"Found {len(curriculum_tasks)} curriculum-driven tasks")
-        return Result.ok(curriculum_tasks)
-
     @with_error_handling("get_tasks_for_path_step", error_type="database", uid_param="step_uid")
-    async def get_tasks_for_path_step(self, step_uid: str) -> Result[list[Task]]:
+    async def get_tasks_for_path_step(self, step_uid: str, user_uid: UserUID) -> Result[list[Task]]:
         """
-        Get all tasks linked to a specific path step.
+        Get the user's tasks spawned from a specific path step.
+
+        A path step is shared content: every learner who engages it has tasks that
+        name it, so the read is scoped to the viewer.
 
         Args:
             step_uid: PathStep UID
+            user_uid: The viewer — only tasks this user owns are returned
 
         Returns:
-            Result containing list of tasks for this path step
+            Result containing the user's tasks for this path step
         """
-        # Get all tasks
-        all_tasks_result = await self.backend.list(QueryLimit.COMPREHENSIVE)
-        if all_tasks_result.is_error:
-            return Result.fail(all_tasks_result)
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Tasks for a path step",
+            source_path_step_uid=step_uid,
+            user_uid=user_uid,
+        )
+        if result.is_error:
+            return result
 
-        # Unpack tuple: backend.list() returns (tasks, total_count)
-        tasks_data, _ = all_tasks_result.value
-
-        # Filter using model method
-        all_tasks = self._to_domain_models(tasks_data, TaskDTO, Task)
-        step_tasks = [task for task in all_tasks if task.source_path_step_uid == step_uid]
-
-        self.logger.info(f"Found {len(step_tasks)} tasks for path step {step_uid}")
+        step_tasks = self._to_domain_models(result.value, TaskDTO, Task)
+        self.logger.debug(f"Found {len(step_tasks)} tasks for path step {step_uid}")
         return Result.ok(step_tasks)
 
     # ========================================================================

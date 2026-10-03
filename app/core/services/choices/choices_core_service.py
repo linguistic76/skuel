@@ -553,45 +553,6 @@ class ChoicesCoreService(
         choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
         return Result.ok(choices)
 
-    @with_error_handling("get_choices_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_choices_for_goal(self, goal_uid: str) -> Result[list[Choice]]:
-        """
-        Get all choices motivated by a specific goal.
-
-        Graph-native query: (goal)-[:MOTIVATED_BY_GOAL]->(choice)
-
-        Args:
-            goal_uid: Goal UID
-
-        Returns:
-            Result containing list of Choices motivated by this goal
-        """
-        # Query graph for choices motivated by this goal
-        uids_result = await self.backend.get_related_uids(
-            uid=goal_uid,
-            relationship_type=RelationshipName.MOTIVATED_BY_GOAL,
-            direction="outgoing",
-            limit=100,
-        )
-
-        if uids_result.is_error:
-            return Result.fail(uids_result)
-
-        choice_uids = uids_result.value
-
-        if not choice_uids:
-            return Result.ok([])
-
-        # Fetch full choice entities
-        choices = []
-        for choice_uid in choice_uids:
-            choice_result = await self.get_choice(choice_uid)
-            if choice_result.is_ok:
-                choices.append(choice_result.value)
-
-        self.logger.debug(f"Found {len(choices)} choices for goal {goal_uid}")
-        return Result.ok(choices)
-
     @with_error_handling("update_choice", error_type="database", uid_param="choice_uid")
     async def update_choice(self, choice_uid: str, intent: ChoiceUpdateIntent) -> Result[Choice]:
         """Update a choice's node properties (ADR-066 typed update contract).

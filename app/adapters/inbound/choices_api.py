@@ -176,12 +176,9 @@ def create_choices_api_routes(
             return Result.fail(
                 Errors.validation(message="min_confidence must be a number", field="min_confidence")
             )
-        result = await choices_service.find_choices_aligned_with_principle(
-            principle_uid, min_confidence
+        return await choices_service.find_choices_aligned_with_principle(
+            principle_uid, user_uid, min_confidence
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([c for c in result.value if c.user_uid == user_uid])
 
     # ================================================================
     # KNOWLEDGE INTELLIGENCE — learning patterns

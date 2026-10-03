@@ -550,11 +550,14 @@ class ChoicesService(
         )
 
     async def find_choices_aligned_with_principle(
-        self, principle_uid: str, min_confidence: float = 0.8
+        self, principle_uid: str, user_uid: UserUID, min_confidence: float = 0.8
     ) -> Result[list[Choice]]:
-        """Find choices aligned with specific principle."""
+        """Find the user's choices aligned with specific principle."""
         return await self.relationships.find_by_semantic_filter(
-            target_uid=principle_uid, min_confidence=min_confidence, direction="incoming"
+            target_uid=principle_uid,
+            user_uid=user_uid,
+            min_confidence=min_confidence,
+            direction="incoming",
         )
 
     # ========================================================================

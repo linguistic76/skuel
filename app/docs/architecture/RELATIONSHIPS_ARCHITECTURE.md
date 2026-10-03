@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-10-01
+updated: 2026-10-03
 status: current
 category: architecture
 version: 2.0.0
@@ -90,7 +90,7 @@ UnifiedRelationshipService[Ops, Model, DtoType]
 - `get_cross_domain_context(entity_uid, depth, min_confidence)` → `Result[dict]`
 - `get_cross_domain_context_typed(entity_uid, depth, min_confidence)` → `Result[dict]`
 - `create_semantic_relationship(...)` → `Result[bool]`
-- `find_by_semantic_filter(semantic_type, context)` → `Result[list[Model]]`
+- `find_by_semantic_filter(target_uid, user_uid, min_confidence, semantic_types, direction)` → `Result[list[Model]]` — the viewer's entities only
 
 
 ---

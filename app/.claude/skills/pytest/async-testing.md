@@ -268,7 +268,7 @@ async def test_cross_domain_flow(services, clean_neo4j):
     assert task_result.is_ok
 
     # Verify the edge from the tasks side (GoalsService has no get_tasks)
-    linked = await services.tasks.get_tasks_for_goal(goal_result.value.uid)
+    linked = await services.tasks.get_tasks_for_goal(goal_result.value.uid, user_uid)
     assert linked.is_ok
     assert task_result.value.uid in [t.uid for t in linked.value]
 ```

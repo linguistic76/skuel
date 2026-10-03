@@ -220,9 +220,10 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         Returns:
             Result[List[str]] of related entity UIDs from graph traversal. Through an
-            Activity backend, from an owned anchor, a related entity is the anchor
-            owner's own or published shared content (``_link_far_node_scope``) —
-            another user's node, or a draft, is left out as if the edge were absent.
+            Activity backend a related entity is the anchor owner's own or published
+            shared content (``_link_far_node_scope``) — another user's node, or a
+            draft, is left out as if the edge were absent. An anchor nobody owns (a
+            Ku) therefore names no user's entity.
 
         Graph Traversal Examples:
             # Get UIDs of knowledge units this enables (outgoing ENABLES edges)

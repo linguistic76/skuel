@@ -1,6 +1,6 @@
 ---
 title: Analytics Architecture - Statistical Aggregation Meta-Service
-updated: 2026-09-05
+updated: 2026-10-03
 status: current
 category: architecture
 tags: [architecture, analytics]
@@ -207,7 +207,7 @@ Markdown File (stored in /data/analytics/)
 await tasks_service.link_task_to_goal(task_uid, goal_uid, contribution_percentage=0.3)
 
 # AnalyticsMetricsService (reads relationships for metrics)
-tasks_for_goal = await tasks_service.get_tasks_for_goal(goal_uid)
+tasks_for_goal = await tasks_service.get_tasks_for_goal(goal_uid, user_uid)
 completion_rate = calculate_completion(tasks_for_goal)
 ```
 

@@ -79,7 +79,7 @@ class DomainSearchOperations(Protocol[T]):
     - get_active() - Non-terminal entities owned by the user
 
     Domain-Specific Methods (examples):
-    - TaskSearchService: get_tasks_for_goal(), get_curriculum_tasks()
+    - TaskSearchService: get_tasks_for_goal(), get_tasks_for_path_step()
     - GoalSearchService: get_goals_by_timeframe(), get_goals_needing_habits()
     - HabitsSearchService: get_habits_by_frequency(), get_habits_needing_attention()
 
@@ -416,28 +416,20 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
     """
 
     # --- Task-specific methods ---
-    async def get_tasks_for_goal(self, goal_uid: str) -> Result[list[Task]]:
-        """Get tasks that fulfill a goal."""
+    async def get_tasks_for_goal(self, goal_uid: str, user_uid: UserUID) -> Result[list[Task]]:
+        """Get the user's tasks that fulfill a goal."""
         ...
 
-    async def get_tasks_for_habit(self, habit_uid: str) -> Result[list[Task]]:
-        """Get tasks related to a habit."""
-        ...
-
-    async def get_tasks_applying_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
-        """Get tasks that apply a knowledge unit."""
+    async def get_tasks_for_habit(self, habit_uid: str, user_uid: UserUID) -> Result[list[Task]]:
+        """Get the user's tasks that reinforce a habit."""
         ...
 
     async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get tasks blocked by unfulfilled prerequisites."""
         ...
 
-    async def get_curriculum_tasks(self) -> Result[list[Task]]:
-        """Get tasks related to curriculum learning."""
-        ...
-
-    async def get_tasks_for_path_step(self, step_uid: str) -> Result[list[Task]]:
-        """Get tasks for a path step."""
+    async def get_tasks_for_path_step(self, step_uid: str, user_uid: UserUID) -> Result[list[Task]]:
+        """Get the user's tasks spawned from a path step."""
         ...
 
     async def get_user_assigned_tasks(

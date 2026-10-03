@@ -29,6 +29,7 @@ from core.infrastructure.relationships.semantic_relationships import (
 )
 from core.models.enums import Domain
 from core.models.protocols.domain_model_protocol import DomainModelProtocol, DTOProtocol
+from core.models.type_hints import UserUID
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.relationship_builder import relate
@@ -191,6 +192,7 @@ class SemanticRelationshipLinker[T: DomainModelProtocol, DTO: DTOProtocol]:
         self,
         target_uid: str,
         semantic_types: list[SemanticRelationshipType],
+        user_uid: UserUID,
         min_confidence: float = 0.8,
         direction: str = "incoming",
     ) -> Result[list[T]]:
@@ -209,6 +211,8 @@ class SemanticRelationshipLinker[T: DomainModelProtocol, DTO: DTOProtocol]:
         Args:
             target_uid: Target entity UID to filter by (usually Knowledge UID),
             semantic_types: List of semantic relationship types to match,
+            user_uid: The viewer — the target may be shared content, so only
+                entities this user owns are returned,
             min_confidence: Minimum confidence threshold (0.0-1.0),
             direction: Relationship direction ('incoming' or 'outgoing')
 
@@ -219,7 +223,7 @@ class SemanticRelationshipLinker[T: DomainModelProtocol, DTO: DTOProtocol]:
             ```python
             # Usage example:
             async def find_habits_developing_knowledge(
-                self, knowledge_uid, min_ConfidenceLevel.STANDARD
+                self, knowledge_uid, user_uid, min_confidence
             ):
                 return await self.semantic_helper.find_by_semantic_filter(
                     target_uid=knowledge_uid,
@@ -227,6 +231,7 @@ class SemanticRelationshipLinker[T: DomainModelProtocol, DTO: DTOProtocol]:
                         SemanticRelationshipType.DEVELOPS_SKILL,
                         SemanticRelationshipType.STRENGTHENS_PRACTICE,
                     ],
+                    user_uid=user_uid,
                     min_confidence=min_confidence,
                     direction="incoming",
                 )
@@ -259,6 +264,7 @@ class SemanticRelationshipLinker[T: DomainModelProtocol, DTO: DTOProtocol]:
             pattern=pattern,
             target_uid=target_uid,
             min_confidence=min_confidence,
+            user_uid=user_uid,
             semantic_type_values=semantic_type_values,
         )
         if result.is_error:

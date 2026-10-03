@@ -137,7 +137,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### TasksService
 
-**Facade-specific public methods:** 54
+**Facade-specific public methods:** 52
 
 | Method | Async |
 |--------|-------|
@@ -162,7 +162,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `get_actionable_tasks_for_user()` | ✅ |
 | `get_active()` | ✅ |
 | `get_blocked_by_prerequisites()` | ✅ |
-| `get_curriculum_tasks()` | ✅ |
 | `get_filtered_context()` | ✅ |
 | `get_learning_relevant_tasks()` | ✅ |
 | `get_learning_tasks_for_user()` | ✅ |
@@ -176,7 +175,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `get_task_dependencies_for_user()` | ✅ |
 | `get_task_dependency_neighbors()` | ✅ |
 | `get_task_hierarchy()` | ✅ |
-| `get_tasks_applying_knowledge()` | ✅ |
 | `get_tasks_for_goal()` | ✅ |
 | `get_tasks_for_habit()` | ✅ |
 | `get_tasks_for_path_step()` | ✅ |
@@ -200,7 +198,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### GoalsService
 
-**Facade-specific public methods:** 60
+**Facade-specific public methods:** 59
 
 | Method | Async |
 |--------|-------|
@@ -223,7 +221,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_goal_with_scheduling_context()` | ✅ |
 | `create_semantic_goal_relationship()` | ✅ |
 | `create_subgoal_relationship()` | ✅ |
-| `find_goals_requiring_knowledge()` | ✅ |
 | `generate_tasks_for_goal()` | ✅ |
 | `get_achievable_goals_for_user()` | ✅ |
 | `get_active()` | ✅ |

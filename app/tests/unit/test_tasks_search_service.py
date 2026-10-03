@@ -39,11 +39,9 @@ def mock_backend() -> Any:
     backend = Mock()
     backend.list_tasks = AsyncMock()
     backend.get_user_tasks = AsyncMock()
-    backend.get = AsyncMock()  # Used by get_tasks_applying_knowledge
     # get_user_entities returns (entities, total_count) tuple
     backend.get_user_entities = AsyncMock(return_value=Result.ok(([], 0)))
     backend.find_by = AsyncMock()  # Search service uses find_by for filtering
-    backend.list = AsyncMock()  # Used by curriculum and path step queries
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     backend.create_relationship = AsyncMock(return_value=Result.ok(True))
@@ -174,9 +172,11 @@ async def test_get_tasks_for_goal_success(search_service, mock_backend, sample_t
     mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in goal_tasks])
 
     # Execute
-    result = await search_service.get_tasks_for_goal("goal:learn_python")
+    result = await search_service.get_tasks_for_goal("goal:learn_python", "user.test")
 
-    # Verify
+    # Verify — the read is scoped to the viewer
+    assert mock_backend.find_by.await_args.kwargs["user_uid"] == "user.test"
+    assert mock_backend.find_by.await_args.kwargs["fulfills_goal_uid"] == "goal:learn_python"
     assert result.is_ok
     tasks = result.value
     assert len(tasks) == 1
@@ -193,7 +193,7 @@ async def test_get_tasks_for_goal_empty(search_service, mock_backend):
     mock_backend.find_by.return_value = Result.ok([])
 
     # Execute
-    result = await search_service.get_tasks_for_goal("goal:nonexistent")
+    result = await search_service.get_tasks_for_goal("goal:nonexistent", "user.test")
 
     # Verify
     assert result.is_ok
@@ -210,51 +210,19 @@ async def test_get_tasks_for_habit_success(search_service, mock_backend, sample_
     """Test successful retrieval of tasks for a specific habit (graph traversal)."""
     # Setup — service traverses (Task)-[:REINFORCES_HABIT]->(Habit) via the backend.
     habit_tasks = [t for t in sample_tasks if t.uid == "task:2"]
-    mock_backend.get_tasks_reinforcing_habit.return_value = Result.ok(
-        [t.to_dto().to_dict() for t in habit_tasks]
-    )
+    mock_backend.get_tasks_reinforcing_habit.return_value = Result.ok(habit_tasks)
 
     # Execute
-    result = await search_service.get_tasks_for_habit("habit:daily_code")
+    result = await search_service.get_tasks_for_habit("habit:daily_code", "user.test")
 
     # Verify
     assert result.is_ok
     tasks = result.value
     assert len(tasks) == 1
     assert tasks[0].uid == "task:2"
-    mock_backend.get_tasks_reinforcing_habit.assert_awaited_once_with("habit:daily_code")
-
-
-# ============================================================================
-# KNOWLEDGE-BASED SEARCH TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_get_tasks_applying_knowledge_success(search_service, mock_backend, sample_tasks):
-    """Test successful retrieval of tasks applying specific knowledge."""
-    # Setup - B: Mock graph query for APPLIES_KNOWLEDGE relationships
-    # Tasks 1 and 4 apply ku.python.basics
-    task_uids = ["task:1", "task:4"]
-    mock_backend.get_related_uids.return_value = Result.ok(task_uids)
-
-    # Mock backend.get to return the tasks (service uses self.backend.get(uid))
-    mock_backend.get = AsyncMock(
-        side_effect=lambda uid: (
-            Result.ok(next(t.to_dto().to_dict() for t in sample_tasks if t.uid == uid))
-            if any(t.uid == uid for t in sample_tasks)
-            else Result.fail(Errors.not_found("Task", uid))
-        )
+    mock_backend.get_tasks_reinforcing_habit.assert_awaited_once_with(
+        "habit:daily_code", "user.test"
     )
-
-    # Execute
-    result = await search_service.get_tasks_applying_knowledge("ku.python.basics")
-
-    # Verify
-    assert result.is_ok
-    tasks = result.value
-    assert len(tasks) == 2  # tasks 1 and 4 apply ku.python.basics
-    assert all(t.uid in task_uids for t in tasks)
 
 
 # ============================================================================
@@ -362,32 +330,6 @@ async def test_get_prioritized_respects_limit(
 
 
 # ============================================================================
-# CURRICULUM TASKS TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_get_curriculum_tasks(search_service, mock_backend, sample_tasks):
-    """Test retrieval of tasks from curriculum."""
-    # Setup
-    # Service uses backend.list() which returns Result[(tasks_data, total_count)] tuple
-    tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
-    mock_backend.list.return_value = Result.ok((tasks_data, len(tasks_data)))
-
-    # Execute
-    result = await search_service.get_curriculum_tasks()
-
-    # Verify
-    assert result.is_ok
-    curriculum_tasks = result.value
-
-    # Only task 4 has source_path_step_uid
-    assert len(curriculum_tasks) == 1
-    assert curriculum_tasks[0].uid == "task:4"
-    assert curriculum_tasks[0].is_from_path_step
-
-
-# ============================================================================
 # LEARNING STEP TASKS TESTS
 # ============================================================================
 
@@ -395,15 +337,18 @@ async def test_get_curriculum_tasks(search_service, mock_backend, sample_tasks):
 @pytest.mark.asyncio
 async def test_get_tasks_for_path_step(search_service, mock_backend, sample_tasks):
     """Test retrieval of tasks for a specific path step."""
-    # Setup
-    # Service uses backend.list() which returns Result[(tasks_data, total_count)] tuple
-    tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
-    mock_backend.list.return_value = Result.ok((tasks_data, len(tasks_data)))
+    # Setup — the backend answers the scoped read
+    step_tasks = [t for t in sample_tasks if t.source_path_step_uid == "ps:python_fundamentals"]
+    mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in step_tasks])
 
     # Execute
-    result = await search_service.get_tasks_for_path_step("ps:python_fundamentals")
+    result = await search_service.get_tasks_for_path_step("ps:python_fundamentals", "user.test")
 
-    # Verify
+    # Verify — asked for this step's tasks, for this viewer only
+    assert mock_backend.find_by.await_args.kwargs["source_path_step_uid"] == (
+        "ps:python_fundamentals"
+    )
+    assert mock_backend.find_by.await_args.kwargs["user_uid"] == "user.test"
     assert result.is_ok
     tasks = result.value
     assert len(tasks) == 1
@@ -424,19 +369,13 @@ async def test_multiple_search_criteria(search_service, mock_backend, sample_tas
     mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in goal_tasks])
 
     # Execute goal search
-    goal_result = await search_service.get_tasks_for_goal("goal:learn_python")
+    goal_result = await search_service.get_tasks_for_goal("goal:learn_python", "user.test")
     assert goal_result.is_ok
 
     # Setup for habit search
     mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in habit_tasks])
-    habit_result = await search_service.get_tasks_for_habit("habit:daily_code")
+    habit_result = await search_service.get_tasks_for_habit("habit:daily_code", "user.test")
     assert habit_result.is_ok
-
-    # Setup for knowledge search
-    mock_backend.get_related_uids.return_value = Result.ok(["task:1"])
-    mock_backend.get.return_value = Result.ok(sample_tasks[0].to_dto().to_dict())
-    knowledge_result = await search_service.get_tasks_applying_knowledge("ku.python.basics")
-    assert knowledge_result.is_ok
 
 
 @pytest.mark.asyncio
@@ -448,7 +387,7 @@ async def test_search_with_backend_error(search_service, mock_backend):
     )
 
     # Execute
-    result = await search_service.get_tasks_for_goal("goal:test")
+    result = await search_service.get_tasks_for_goal("goal:test", "user.test")
 
     # Verify
     assert result.is_error

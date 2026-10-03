@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-09-27
+updated: 2026-10-03
 status: current
 category: domains
 tags:
@@ -81,7 +81,7 @@ class GoalsService(
 |-------|------|---------|
 | `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_goal_with_context`, `generate_tasks_for_goal`, `assess_goal_feasibility` |
 
-Graph relationship methods (`link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
+Graph relationship methods (`link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
 
 **Sub-services:**
 | Service | Purpose |

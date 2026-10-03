@@ -1295,9 +1295,10 @@ class GraphTraversalOperations(Protocol):
         pattern: str,
         target_uid: str,
         min_confidence: float,
+        user_uid: str,
         semantic_type_values: builtins.list[str] | None = None,
     ) -> ResultType[builtins.list[str]]:
-        """Find entity UIDs matching a semantic relationship pattern."""
+        """Find the user's entity UIDs matching a semantic relationship pattern."""
         ...
 
     async def get_batch_cross_domain_context(

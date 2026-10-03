@@ -529,8 +529,8 @@ def create_path_steps_ui_routes(
             immediately after engagement.
             """
             user_uid = require_authenticated_user(request)
-            result = await tasks_service.get_tasks_for_path_step(uid)
-            tasks = [t for t in result.value if t.user_uid == user_uid] if result.is_ok else []
+            result = await tasks_service.get_tasks_for_path_step(uid, user_uid)
+            tasks = result.value if result.is_ok else []
             return _ps_tasks_fragment(uid, tasks)
 
     engagement_routes_note = (
