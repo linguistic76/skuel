@@ -136,19 +136,23 @@ def create_tasks_ui_routes(
     # ------------------------------------------------------------------
 
     async def _resolve_picker_titles(
-        goal_uid: str | None, habit_uid: str | None
+        goal_uid: str | None, habit_uid: str | None, user_uid: UserUID
     ) -> tuple[str | None, str | None]:
-        """Look up titles for the goal/habit pickers' visible-input prefill."""
+        """Look up titles for the goal/habit pickers' visible-input prefill.
+
+        Each title is read as the requesting user (``get_visible_to_user``): a uid
+        that names another user's goal or habit resolves to no title.
+        """
         goal_display: str | None = None
         habit_display: str | None = None
 
         if goal_uid and goals_service is not None:
-            goal_result = await goals_service.get_goal(goal_uid)
+            goal_result = await goals_service.get_visible_to_user(goal_uid, user_uid)
             if goal_result.is_ok:
                 goal_display = goal_result.value.title
 
         if habit_uid and habits_service is not None:
-            habit_result = await habits_service.get_habit(habit_uid)
+            habit_result = await habits_service.get_visible_to_user(habit_uid, user_uid)
             if habit_result.is_ok:
                 habit_display = habit_result.value.title
 
@@ -178,7 +182,7 @@ def create_tasks_ui_routes(
         reinforced = await tasks_service.get_reinforced_habit(task.uid)
         habit_uid = reinforced.value if reinforced.is_ok else None
         goal_display, habit_display = await _resolve_picker_titles(
-            task.fulfills_goal_uid, habit_uid
+            task.fulfills_goal_uid, habit_uid, user_uid
         )
 
         content = Div(
@@ -218,7 +222,7 @@ def create_tasks_ui_routes(
         if parsed.is_error:
             err = parsed.expect_error()
             goal_display, habit_display = await _resolve_picker_titles(
-                task.fulfills_goal_uid, habit_uid
+                task.fulfills_goal_uid, habit_uid, user_uid
             )
             content = Div(
                 PageHeader(f"Edit: {task.title}"),
@@ -243,7 +247,7 @@ def create_tasks_ui_routes(
         if result.is_error:
             err = result.expect_error()
             goal_display, habit_display = await _resolve_picker_titles(
-                task.fulfills_goal_uid, habit_uid
+                task.fulfills_goal_uid, habit_uid, user_uid
             )
             content = Div(
                 PageHeader(f"Edit: {task.title}"),

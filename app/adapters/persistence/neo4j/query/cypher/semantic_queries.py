@@ -22,6 +22,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue
 
 from ._helpers import validate_identifier, validate_label
+from .crud_queries import build_far_node_clause, build_owner_uids_expression
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import (
@@ -165,36 +166,6 @@ def build_semantic_merge(
     return cypher, parameters
 
 
-def _owner_uids(node: str, owns_edge_uids: str) -> str:
-    """Cypher list of a node's owner uids, over every spelling ownership has in the graph.
-
-    ``owns_edge_uids`` is the caller's expression for the uids at the far end of the
-    node's incoming ``OWNS`` edges; the ``user_uid`` and ``owner_uid`` properties are
-    read here. A ``:User`` node is its own owner. An empty list is shared content.
-    """
-    return (
-        f"CASE WHEN {node}:User THEN [{node}.uid] "
-        f"ELSE [o IN {owns_edge_uids} + [{node}.user_uid, {node}.owner_uid] "
-        f"WHERE o IS NOT NULL] END"
-    )
-
-
-def _tied_to_anchor(node: str, anchor_owners: str) -> str:
-    """Cypher predicate: ``node`` belongs in a neighbourhood whose anchor has these owners.
-
-    True when the node is shared content (owned by nobody) or one of its owners is one
-    of the anchor's. Ownership is asked as membership over all three spellings
-    (``_owner_uids``), so a node owned through the ``OWNS`` edge alone — a Group — is
-    not read as shared. A share link is not ownership: an entity shared WITH the
-    anchor's owner stays out of the neighbourhood.
-    """
-    owners = _owner_uids(node, f"[(o:User)-[:OWNS]->({node}) | o.uid]")
-    return (
-        f"any(owners IN [{owners}] WHERE size(owners) = 0 "
-        f"OR any(o IN owners WHERE o IN {anchor_owners}))"
-    )
-
-
 def build_domain_context_with_paths(
     node_uid: str,
     node_label: NeoLabel | None = None,
@@ -221,13 +192,14 @@ def build_domain_context_with_paths(
     so a cycle back to the center never lands the entity in its own result buckets.
 
     The neighbourhood is tied to the center's owner. Every node on a path past the
-    center is the center's owner's or shared content (``_tied_to_anchor``): another
+    center is the center's owner's or shared content (``build_far_node_clause``): another
     user's node is not returned, and no path runs through one — so a node of the
     owner's reachable only across another user's is absent too, and a path's strength
     never carries another user's edge. The owner is read from the center in the
     statement; no caller passes a user. A center that is itself shared content (a Ku, a
     PathStep) has no owner, and its neighbourhood is shared content only — the reader is
-    not told who is asking. The center's own access is the caller's question: a route
+    not told who is asking. Under an owned center, shared content on a path is published:
+    a draft is left out, with the paths that run through it. The center's own access is the caller's question: a route
     verifies it, this statement does not.
     See: /docs/decisions/ADR-085-ownership-read-enforcement-contract.md § 4 (G9)
 
@@ -296,13 +268,14 @@ def build_domain_context_with_paths(
     # absent), so a present-but-unconnected node must still produce a record. (A null row
     # exists ONLY when the OPTIONAL MATCH finds nothing, so it never coexists with real
     # rows.)
+    far_node, far_node_params = build_far_node_clause("n", "center_owners")
     cypher = f"""
     MATCH {center_pattern}
     OPTIONAL MATCH (center_owner:User)-[:OWNS]->(center)
-    WITH center, {_owner_uids("center", "collect(DISTINCT center_owner.uid)")} AS center_owners
+    WITH center, {build_owner_uids_expression("center", "collect(DISTINCT center_owner.uid)")} AS center_owners
     OPTIONAL MATCH path = (center)-{rel_segment}-{direction_pattern}(related)
     WHERE related.uid <> center.uid
-      AND all(n IN nodes(path)[1..] WHERE {_tied_to_anchor("n", "center_owners")})
+      AND all(n IN nodes(path)[1..] WHERE {far_node})
     WITH center, related, relationships(path) as rels,
          [rel in relationships(path) | coalesce(rel.confidence, 0.8)] as confidences,
          length(path) as path_length,
@@ -333,7 +306,11 @@ def build_domain_context_with_paths(
            [x in ctx WHERE x IS NOT NULL] as domain_context
     """
 
-    parameters: dict[str, Neo4jValue] = {"uid": node_uid, "min_confidence": min_confidence}
+    parameters: dict[str, Neo4jValue] = {
+        "uid": node_uid,
+        "min_confidence": min_confidence,
+        **far_node_params,
+    }
     if limit is not None:
         parameters["limit"] = limit
 

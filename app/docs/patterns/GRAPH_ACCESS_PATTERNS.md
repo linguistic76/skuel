@@ -1,6 +1,6 @@
 ---
 title: Graph Access Patterns Guide
-updated: 2026-10-01
+updated: 2026-10-03
 category: patterns
 related_skills:
 - pytest
@@ -238,7 +238,7 @@ The **registry** supplies the edge vocabulary, infrastructure **builds queries**
 | Responsibility | Location | Example |
 |---------------|----------|---------|
 | Source edge vocabulary | `DomainRelationshipConfig.cross_domain_relationship_types` | Registry single source of truth |
-| Build Cypher query | `semantic_queries.build_domain_context_with_paths()` | THE shared incident-edge-attributed producer (both graph readers); returns the center's owner's nodes and shared content only |
+| Build Cypher query | `semantic_queries.build_domain_context_with_paths()` | THE shared incident-edge-attributed producer (both graph readers); returns the center's owner's nodes and shared content only (published, under an owned center) |
 | Execute query | `GraphIntelligenceService.query_with_intent()` | Runs against Neo4j; intent slice from `cross_domain_backend._INTENT_EDGE_SETS` for non-registry callers |
 | Orchestrate flow | `_CoreIntelligenceMixin.get_with_context()` → `UnifiedRelationshipService.get_with_context()` | Combines all steps (mechanism B) |
 

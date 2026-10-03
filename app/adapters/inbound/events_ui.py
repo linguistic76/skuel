@@ -27,6 +27,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import refuse
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
+from core.models.type_hints import UserUID
 from core.utils.connection_configs import EVENT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_events
 from core.utils.logging import get_logger
@@ -79,19 +80,23 @@ def create_events_ui_routes(
     create_activity_ui_routes(app, rt, config)
 
     async def _resolve_picker_titles(
-        habit_uid: str | None, goal_uid: str | None
+        habit_uid: str | None, goal_uid: str | None, user_uid: UserUID
     ) -> tuple[str | None, str | None]:
-        """Look up titles for the habit/goal pickers' visible-input prefill."""
+        """Look up titles for the habit/goal pickers' visible-input prefill.
+
+        Each title is read as the requesting user (``get_visible_to_user``): a uid
+        that names another user's habit or goal resolves to no title.
+        """
         habit_display: str | None = None
         goal_display: str | None = None
 
         if habit_uid and habits_service is not None:
-            habit_result = await habits_service.get_habit(habit_uid)
+            habit_result = await habits_service.get_visible_to_user(habit_uid, user_uid)
             if habit_result.is_ok:
                 habit_display = habit_result.value.title
 
         if goal_uid and goals_service is not None:
-            goal_result = await goals_service.get_goal(goal_uid)
+            goal_result = await goals_service.get_visible_to_user(goal_uid, user_uid)
             if goal_result.is_ok:
                 goal_display = goal_result.value.title
 
@@ -159,7 +164,7 @@ def create_events_ui_routes(
         goal_uid = celebrated.value if celebrated.is_ok else None
         reinforced = await events_service.get_reinforced_habit(event.uid)
         habit_uid = reinforced.value if reinforced.is_ok else None
-        habit_display, goal_display = await _resolve_picker_titles(habit_uid, goal_uid)
+        habit_display, goal_display = await _resolve_picker_titles(habit_uid, goal_uid, user_uid)
 
         content = Div(
             PageHeader(f"Edit: {event.title}"),
@@ -203,7 +208,9 @@ def create_events_ui_routes(
         parsed = await parse_form_body(request, EventUpdateRequest)
         if parsed.is_error:
             err = parsed.expect_error()
-            habit_display, goal_display = await _resolve_picker_titles(habit_uid, goal_uid)
+            habit_display, goal_display = await _resolve_picker_titles(
+                habit_uid, goal_uid, user_uid
+            )
             content = Div(
                 PageHeader(f"Edit: {event.title}"),
                 render_error_banner(err.display_message),
@@ -230,7 +237,9 @@ def create_events_ui_routes(
         result = await events_service.update_event(uid, parsed.value.to_intent())
         if result.is_error:
             err = result.expect_error()
-            habit_display, goal_display = await _resolve_picker_titles(habit_uid, goal_uid)
+            habit_display, goal_display = await _resolve_picker_titles(
+                habit_uid, goal_uid, user_uid
+            )
             content = Div(
                 PageHeader(f"Edit: {event.title}"),
                 render_error_banner(err.display_message),

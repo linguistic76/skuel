@@ -21,6 +21,11 @@ from core.utils.timestamp_helpers import stored_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 from ._helpers import validate_identifier, validate_label
+from .crud_queries import (
+    build_link_far_node_clause,
+    build_owner_uids_expression,
+    is_link_anchor_label,
+)
 
 if TYPE_CHECKING:
     from datetime import date
@@ -118,6 +123,9 @@ def build_simple_prerequisite_chain(
 # ENTITY WITH CONTEXT QUERIES
 # =============================================================================
 
+# The variable the context statement carries the anchored entity's owner uids in.
+ENTITY_OWNERS = "entity_owners"
+
 
 def build_entity_with_context(
     entity_label: NeoLabel,
@@ -136,6 +144,10 @@ def build_entity_with_context(
         relationships: List of relationship specifications
         confidence_param: Parameter name for confidence threshold
         default_confidence: Default confidence value if not provided
+
+    Under an Activity label each related node is the entity owner's own or published
+    shared content (``build_link_far_node_clause``): another user's node, or a draft,
+    at the far end of an edge is left out as if the edge were absent.
 
     Returns:
         Tuple of (cypher_query, base_parameters)
@@ -159,6 +171,12 @@ def build_entity_with_context(
 
     # Initial MATCH
     parts.append(f"MATCH (entity:{entity_label} {{uid: $uid}})")
+
+    # Under a link-edge anchor (an Activity label) every related node is tied to the
+    # entity's owner; the owners are read once and carried through each WITH.
+    if is_link_anchor_label(entity_label):
+        parts.append(f"WITH entity, {build_owner_uids_expression('entity')} AS {ENTITY_OWNERS}")
+        with_vars.append(ENTITY_OWNERS)
 
     # Build each relationship clause
     for i, rel in enumerate(relationships):
@@ -191,6 +209,10 @@ def build_entity_with_context(
             filter_param = f"{alias}_filter"
             where_conditions.append(f"{rel_var}.{filter_property} = ${filter_param}")
             filter_params[filter_param] = rel.get("filter_value")
+        far_node = build_link_far_node_clause(entity_label, f"{alias}_node", ENTITY_OWNERS)
+        if far_node is not None:
+            where_conditions.append(far_node[0])
+            filter_params.update(far_node[1])
         if where_conditions:
             parts.append(f"WHERE {' AND '.join(where_conditions)}")
 

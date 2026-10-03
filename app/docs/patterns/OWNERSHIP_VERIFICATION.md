@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-10-01'
+updated: '2026-10-03'
 category: patterns
 related_skills:
 - activity-domains
@@ -76,7 +76,10 @@ system reads not made on behalf of a user, or structurally `PUBLIC` domains (ADR
 the precise rules). **Nothing may add a third audience-policy mechanism**: a hand-rolled
 audience check is a defect even when its logic is correct. (Self-anchored reads of the
 requesting user's own subgraph — the user-context queries — decide no audience question and
-are defined precisely in ADR-085 §4.) The ownership edge itself is
+are defined precisely in ADR-085 §4.) **A statement that projects the node at the far end
+of an edge composes `build_far_node_clause`** (`query/cypher/crud_queries.py`): the node is
+the anchor owner's own, or published shared content — another user's node, or a draft, is
+left out as if the edge were absent (ADR-085 §4, G12). The ownership edge itself is
 universally `(User)-[:OWNS]->(entity)` —
 [ADR-086](../decisions/ADR-086-universal-owns-and-attends-attendance.md) ratifies the write
 doors and their `user_uid == :OWNS` owner invariant, and specifies the staged `ATTENDS`

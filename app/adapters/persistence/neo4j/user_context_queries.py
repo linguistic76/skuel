@@ -35,11 +35,15 @@ port, never against this class (SKUEL023 / ADR-044). The port is an ISP slice:
 """
 
 import asyncio
+import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
+from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
+    build_far_node_clause,
+)
 from adapters.persistence.neo4j.query.cypher.choice_fragments import build_choice_pending_predicate
 from adapters.persistence.neo4j.query.cypher.habit_fragments import (
     HABIT_WINDOW_END_PARAM,
@@ -192,9 +196,36 @@ _HABIT_ADHERENCE_FIELDS = (
     "recurrence_end_date: habit.recurrence_end_date"
 )
 
+# A node read across an edge from one of the user's entities — or, through shared
+# curriculum, a node of a user-owned type — is the anchored user's own or published
+# shared content. ``__FAR(alias)__`` in a statement is THE far-node predicate
+# (``build_far_node_clause``) for that alias under the statement's ``(user:User)``
+# anchor: another user's node, or a draft, is left out as if the edge were absent.
+# A statement that carries the token runs with ``FAR_NODE_PARAMS``.
+_FAR_NODE_TOKEN = re.compile(r"__FAR\((\w+)\)__")
+_FAR_NODE_ANCHOR_OWNERS = "[user.uid]"
+
+
+def _far_node(alias: str) -> tuple[str, dict[str, str]]:
+    return build_far_node_clause(alias, _FAR_NODE_ANCHOR_OWNERS)
+
+
+FAR_NODE_PARAMS = _far_node("far")[1]
+
+
+def _far_node_fragment(token: re.Match[str]) -> str:
+    return _far_node(token.group(1))[0]
+
+
+def _tie_far_nodes(statement: str) -> str:
+    """Expand every ``__FAR(alias)__`` token in a statement into the far-node predicate."""
+    return _FAR_NODE_TOKEN.sub(_far_node_fragment, statement)
+
+
 # Tasks and goals — one statement because progress_counts spans both and each
 # projects the other (a task's goal_context, a goal's contributing_tasks).
-TASKS_AND_GOALS_QUERY: str = """
+TASKS_AND_GOALS_QUERY: str = _tie_far_nodes(
+    """
 MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // TASKS - Fetch with BOTH UIDs and rich data
@@ -221,12 +252,12 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      [t IN all_tasks_nodes WHERE t.status IN $open_task_statuses OR datetime(t.updated_at) >= datetime($window_start)] as window_task_nodes
 UNWIND CASE WHEN size(window_task_nodes) > 0 THEN window_task_nodes ELSE [null] END as task
 OPTIONAL MATCH (task)-[:HAS_SUBTASK]->(subtask:Task)
-WHERE task IS NOT NULL
+WHERE task IS NOT NULL AND __FAR(subtask)__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, collect(DISTINCT CASE WHEN subtask IS NOT NULL THEN {uid: subtask.uid, title: subtask.title, status: subtask.status} END) as task_subtasks
 
 OPTIONAL MATCH (task)-[dep_rel:DEPENDS_ON]->(dependency:Task)
-WHERE task IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence
+WHERE task IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence AND __FAR(dependency)__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, task_subtasks,
      collect(DISTINCT CASE WHEN dependency IS NOT NULL THEN {uid: dependency.uid, title: dependency.title, confidence: dep_rel.confidence} END) as task_dependencies
@@ -243,18 +274,18 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // composition claims — knowledge reachable only over CONTAINS_KNOWLEDGE scored a
 // flat zero for them however much they had applied it.
 OPTIONAL MATCH (task)-[app_rel:APPLIES_KNOWLEDGE]->(applied:Entity)
-WHERE task IS NOT NULL AND coalesce(app_rel.confidence, 1.0) >= $min_confidence
+WHERE task IS NOT NULL AND coalesce(app_rel.confidence, 1.0) >= $min_confidence AND __FAR(applied)__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, task_subtasks, task_dependencies,
      collect(DISTINCT applied) as applied_nodes
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, task_subtasks, task_dependencies,
      [n IN applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-     reduce(acc = [], p IN applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
+     reduce(acc = [], p IN applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      as task_knowledge
 
 OPTIONAL MATCH (task)-[:FULFILLS_GOAL]->(goal:Goal)
-WHERE task IS NOT NULL
+WHERE task IS NOT NULL AND __FAR(goal)__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      collect(CASE WHEN task IS NOT NULL THEN {
          entity: properties(task),
@@ -285,20 +316,20 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      [g IN all_goals_nodes WHERE g.status = $status_active OR datetime(g.updated_at) >= datetime($window_start)] as window_goal_nodes
 UNWIND CASE WHEN size(window_goal_nodes) > 0 THEN window_goal_nodes ELSE [null] END as goal
 OPTIONAL MATCH (contributing_task:Task)-[:FULFILLS_GOAL]->(goal)
-WHERE goal IS NOT NULL
+WHERE goal IS NOT NULL AND __FAR(contributing_task)__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, collect(DISTINCT CASE WHEN contributing_task IS NOT NULL THEN {uid: contributing_task.uid, title: contributing_task.title, status: contributing_task.status} END) as goal_tasks
 
 OPTIONAL MATCH (goal)-[:HAS_SUBGOAL]->(subgoal:Goal)
-WHERE goal IS NOT NULL
+WHERE goal IS NOT NULL AND __FAR(subgoal)__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, goal_tasks,
      collect(DISTINCT CASE WHEN subgoal IS NOT NULL THEN {uid: subgoal.uid, title: subgoal.title, progress: coalesce(subgoal.progress_percentage, 0.0) / 100.0} END) as goal_subgoals
 
 OPTIONAL MATCH (goal)-[req_rel:REQUIRES_KNOWLEDGE]->(req_ku:Entity)
-WHERE goal IS NOT NULL AND coalesce(req_rel.confidence, 1.0) >= $min_confidence
+WHERE goal IS NOT NULL AND coalesce(req_rel.confidence, 1.0) >= $min_confidence AND __FAR(req_ku)__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, goal_tasks, goal_subgoals,
@@ -341,10 +372,12 @@ RETURN {
     }
 } as result
 """.replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
+)
 
 # Habits and events — the practice pair: an event's practiced_habits and
 # reinforced_habits are the same Habit rows the habits section projects.
-HABITS_AND_EVENTS_QUERY: str = """
+HABITS_AND_EVENTS_QUERY: str = _tie_far_nodes(
+    """
 MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // HABITS - Fetch UIDs, metadata, AND rich data with graph neighborhoods
@@ -359,20 +392,20 @@ WITH user,
 // Filter habits for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_habit_nodes) > 0 THEN all_habit_nodes ELSE [null] END as habit
 OPTIONAL MATCH (habit)-[:FULFILLS_GOAL|SUPPORTS_GOAL|CONTRIBUTES_TO_GOAL]->(linked_goal:Goal)
-WHERE habit IS NOT NULL
+WHERE habit IS NOT NULL AND __FAR(linked_goal)__
 WITH user, active_habit_uids, habit_metadata,
      habit, collect(DISTINCT CASE WHEN linked_goal IS NOT NULL THEN {uid: linked_goal.uid, title: linked_goal.title, status: linked_goal.status} END) as habit_linked_goals
 
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(habit_applied:Entity)
-WHERE habit IS NOT NULL
+WHERE habit IS NOT NULL AND __FAR(habit_applied)__
 WITH user, active_habit_uids, habit_metadata,
      habit, habit_linked_goals,
      collect(DISTINCT habit_applied) as habit_applied_nodes
 WITH user, active_habit_uids, habit_metadata,
      habit, habit_linked_goals,
      [n IN habit_applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
+     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      as habit_applied_knowledge
 
 // Prerequisites arrive two ways. The incoming ENABLES_HABIT / PREREQUISITE_FOR pair is
@@ -385,11 +418,11 @@ WITH user, active_habit_uids, habit_metadata,
 // mirrors habit_applied_knowledge above; the reduce dedupes a habit linked both ways
 // (pure Cypher — APOC stays scoped to apoc.meta.*).
 OPTIONAL MATCH (prereq_habit:Habit)-[:ENABLES_HABIT|PREREQUISITE_FOR]->(habit)
-WHERE habit IS NOT NULL
+WHERE habit IS NOT NULL AND __FAR(prereq_habit)__
 WITH user, active_habit_uids, habit_metadata,
      habit, habit_linked_goals, habit_applied_knowledge,
      collect(DISTINCT CASE WHEN prereq_habit IS NOT NULL THEN {uid: prereq_habit.uid, title: prereq_habit.title} END) +
-     [(habit)-[:REQUIRES_PREREQUISITE_HABIT]->(rp:Habit) | {uid: rp.uid, title: rp.title}]
+     [(habit)-[:REQUIRES_PREREQUISITE_HABIT]->(rp:Habit) WHERE __FAR(rp)__ | {uid: rp.uid, title: rp.title}]
      as habit_prerequisites_raw
 WITH user, active_habit_uids, habit_metadata,
      habit, habit_linked_goals, habit_applied_knowledge,
@@ -420,7 +453,7 @@ WITH user, active_habit_uids, habit_metadata, habits_rich,
 UNWIND CASE WHEN size(all_event_nodes) > 0 THEN all_event_nodes ELSE [null] END as event
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (event)-[:APPLIES_KNOWLEDGE]->(event_applied:Entity)
-WHERE event IS NOT NULL
+WHERE event IS NOT NULL AND __FAR(event_applied)__
 WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, collect(DISTINCT event_applied) as event_applied_nodes
@@ -428,25 +461,25 @@ WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, (
        [n IN event_applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-       reduce(acc = [], p IN event_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
+       reduce(acc = [], p IN event_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      )[0..10] as event_applied_knowledge
 
 OPTIONAL MATCH (event)-[:CONTRIBUTES_TO_GOAL]->(event_goal:Goal)
-WHERE event IS NOT NULL
+WHERE event IS NOT NULL AND __FAR(event_goal)__
 WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge,
      collect(DISTINCT CASE WHEN event_goal IS NOT NULL THEN {uid: event_goal.uid, title: event_goal.title, status: event_goal.status} END)[0..10] as event_linked_goals
 
 OPTIONAL MATCH (event_habit:Habit)-[:PRACTICED_AT_EVENT]->(event)
-WHERE event IS NOT NULL
+WHERE event IS NOT NULL AND __FAR(event_habit)__
 WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals,
      collect(DISTINCT CASE WHEN event_habit IS NOT NULL THEN {uid: event_habit.uid, title: event_habit.title} END)[0..10] as event_practiced_habits
 
 OPTIONAL MATCH (event)-[:CONFLICTS_WITH]-(conflicting_event:Event)
-WHERE event IS NOT NULL AND conflicting_event.uid <> event.uid
+WHERE event IS NOT NULL AND conflicting_event.uid <> event.uid AND __FAR(conflicting_event)__
 WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
@@ -455,7 +488,7 @@ WITH user, active_habit_uids, habit_metadata, habits_rich,
 // Event → Habit reinforcement edge (graph-native; replaces the former
 // reinforces_habit_uid property). Loaded into graph_context.reinforced_habits.
 OPTIONAL MATCH (event)-[:REINFORCES_HABIT]->(event_reinforced_habit:Habit)
-WHERE event IS NOT NULL
+WHERE event IS NOT NULL AND __FAR(event_reinforced_habit)__
 WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
@@ -489,10 +522,12 @@ RETURN {
     }
 } as result
 """.replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
+)
 
 # Principles and choices — the values pair the populator integrates
 # (populate_principle_choice_integration reads both projections together).
-PRINCIPLES_AND_CHOICES_QUERY: str = """
+PRINCIPLES_AND_CHOICES_QUERY: str = _tie_far_nodes(
+    """
 MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // PRINCIPLES - Fetch UIDs AND rich data with graph neighborhoods
@@ -506,35 +541,35 @@ WITH user,
 UNWIND CASE WHEN size(all_principle_nodes) > 0 THEN all_principle_nodes ELSE [null] END as principle
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (principle)-[:GROUNDED_IN_KNOWLEDGE]->(principle_grounded:Entity)
-WHERE principle IS NOT NULL
+WHERE principle IS NOT NULL AND __FAR(principle_grounded)__
 WITH user, core_principle_uids,
      principle, collect(DISTINCT principle_grounded) as principle_grounded_nodes
 WITH user, core_principle_uids,
      principle, (
        [n IN principle_grounded_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-       reduce(acc = [], p IN principle_grounded_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
+       reduce(acc = [], p IN principle_grounded_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      )[0..10] as principle_grounded_knowledge
 
 OPTIONAL MATCH (principle)-[:GUIDES_GOAL]->(principle_goal:Goal)
-WHERE principle IS NOT NULL
+WHERE principle IS NOT NULL AND __FAR(principle_goal)__
 WITH user, core_principle_uids,
      principle, principle_grounded_knowledge,
      collect(DISTINCT CASE WHEN principle_goal IS NOT NULL THEN {uid: principle_goal.uid, title: principle_goal.title, status: principle_goal.status} END)[0..10] as principle_guided_goals
 
 OPTIONAL MATCH (principle)-[:GUIDES_CHOICE]->(principle_choice:Choice)
-WHERE principle IS NOT NULL
+WHERE principle IS NOT NULL AND __FAR(principle_choice)__
 WITH user, core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals,
      collect(DISTINCT CASE WHEN principle_choice IS NOT NULL THEN {uid: principle_choice.uid, title: principle_choice.title} END)[0..10] as principle_guided_choices
 
 OPTIONAL MATCH (principle_habit:Habit)-[:EMBODIES_PRINCIPLE]->(principle)
-WHERE principle IS NOT NULL
+WHERE principle IS NOT NULL AND __FAR(principle_habit)__
 WITH user, core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices,
      collect(DISTINCT CASE WHEN principle_habit IS NOT NULL THEN {uid: principle_habit.uid, title: principle_habit.title} END)[0..10] as principle_embodying_habits
 
 OPTIONAL MATCH (principle_task:Task)-[:ALIGNED_WITH_PRINCIPLE]->(principle)
-WHERE principle IS NOT NULL
+WHERE principle IS NOT NULL AND __FAR(principle_task)__
 WITH user, core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices, principle_embodying_habits,
      collect(DISTINCT CASE WHEN principle_task IS NOT NULL THEN {uid: principle_task.uid, title: principle_task.title, status: principle_task.status} END)[0..10] as principle_aligned_tasks
@@ -567,7 +602,7 @@ WITH user, core_principle_uids, principles_rich,
 UNWIND CASE WHEN size(all_choice_nodes) > 0 THEN all_choice_nodes ELSE [null] END as choice
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (choice)-[:INFORMED_BY_KNOWLEDGE]->(choice_informing:Entity)
-WHERE choice IS NOT NULL
+WHERE choice IS NOT NULL AND __FAR(choice_informing)__
 WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, collect(DISTINCT choice_informing) as choice_informing_nodes
@@ -575,32 +610,32 @@ WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, (
        [n IN choice_informing_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-       reduce(acc = [], p IN choice_informing_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
+       reduce(acc = [], p IN choice_informing_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      )[0..10] as choice_informing_knowledge
 
 OPTIONAL MATCH (choice)-[:INFORMED_BY_PRINCIPLE]->(choice_principle:Principle)
-WHERE choice IS NOT NULL
+WHERE choice IS NOT NULL AND __FAR(choice_principle)__
 WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge,
      collect(DISTINCT CASE WHEN choice_principle IS NOT NULL THEN {uid: choice_principle.uid, title: choice_principle.title} END)[0..10] as choice_guiding_principles
 
 OPTIONAL MATCH (choice)-[:AFFECTS_GOAL]->(choice_goal:Goal)
-WHERE choice IS NOT NULL
+WHERE choice IS NOT NULL AND __FAR(choice_goal)__
 WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles,
      collect(DISTINCT CASE WHEN choice_goal IS NOT NULL THEN {uid: choice_goal.uid, title: choice_goal.title, status: choice_goal.status} END)[0..10] as choice_affected_goals
 
 OPTIONAL MATCH (choice)-[:OPENS_LEARNING_PATH]->(choice_path:LearningPath)
-WHERE choice IS NOT NULL
+WHERE choice IS NOT NULL AND __FAR(choice_path)__
 WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles, choice_affected_goals,
      collect(DISTINCT CASE WHEN choice_path IS NOT NULL THEN {uid: choice_path.uid, title: choice_path.title} END)[0..5] as choice_opened_paths
 
 OPTIONAL MATCH (choice_task:Task)-[:IMPLEMENTS_CHOICE]->(choice)
-WHERE choice IS NOT NULL
+WHERE choice IS NOT NULL AND __FAR(choice_task)__
 WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles, choice_affected_goals, choice_opened_paths,
@@ -631,12 +666,14 @@ RETURN {
     }
 } as result
 """.replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES).replace(
-    _CHOICE_PENDING_TOKEN, _CHOICE_PENDING
+        _CHOICE_PENDING_TOKEN, _CHOICE_PENDING
+    )
 )
 
 # Knowledge — every user→Ku edge: mastery / in-progress, viewed, marked as
 # read, bookmarked.
-KNOWLEDGE_QUERY: str = """
+KNOWLEDGE_QUERY: str = _tie_far_nodes(
+    """
 MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // KNOWLEDGE - Fetch with BOTH UIDs and rich data
@@ -659,12 +696,12 @@ WITH user,
 // Filter knowledge for rich data (with prerequisites/dependents)
 UNWIND CASE WHEN size(all_knowledge_nodes) > 0 THEN all_knowledge_nodes ELSE [null] END as ku
 OPTIONAL MATCH (ku)-[prereq_rel:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence
+WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence AND __FAR(prereq)__
 WITH user, knowledge_mastery_data,
      ku, collect(DISTINCT CASE WHEN prereq IS NOT NULL THEN {uid: prereq.uid, title: prereq.title, confidence: prereq_rel.confidence} END) as ku_prerequisites
 
 OPTIONAL MATCH (dependent:Entity)-[dep_rel:REQUIRES_KNOWLEDGE]->(ku)
-WHERE ku IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence
+WHERE ku IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence AND __FAR(dependent)__
 WITH user, knowledge_mastery_data,
      ku, ku_prerequisites,
      collect(DISTINCT CASE WHEN dependent IS NOT NULL THEN {uid: dependent.uid, title: dependent.title, confidence: dep_rel.confidence} END) as ku_dependents
@@ -716,10 +753,12 @@ RETURN {
     }
 } as result
 """
+)
 
 # Curriculum structure — enrolled paths, the steps in progress, and the
 # user's organizers (emergent MOCs).
-CURRICULUM_QUERY: str = """
+CURRICULUM_QUERY: str = _tie_far_nodes(
+    """
 MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // LEARNING PATHS - Fetch with BOTH UIDs and rich data
@@ -748,19 +787,19 @@ WITH user, enrolled_path_uids,
      } END) as lp_steps
 
 OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Entity)
-WHERE lp IS NOT NULL
+WHERE lp IS NOT NULL AND __FAR(prereq_ku)__
 WITH user, enrolled_path_uids,
      lp, lp_steps,
      collect(DISTINCT CASE WHEN prereq_ku IS NOT NULL THEN {uid: prereq_ku.uid, title: prereq_ku.title} END) as lp_prereqs
 
 OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(lp_goal:Goal)
-WHERE lp IS NOT NULL
+WHERE lp IS NOT NULL AND __FAR(lp_goal)__
 WITH user, enrolled_path_uids,
      lp, lp_steps, lp_prereqs,
      collect(DISTINCT CASE WHEN lp_goal IS NOT NULL THEN {uid: lp_goal.uid, title: lp_goal.title, status: lp_goal.status} END) as lp_goals
 
 OPTIONAL MATCH (lp)-[:EMBODIES_PRINCIPLE]->(lp_principle:Principle)
-WHERE lp IS NOT NULL
+WHERE lp IS NOT NULL AND __FAR(lp_principle)__
 WITH user, enrolled_path_uids,
      lp, lp_steps, lp_prereqs, lp_goals,
      collect(DISTINCT CASE WHEN lp_principle IS NOT NULL THEN {uid: lp_principle.uid, title: lp_principle.title} END) as lp_embodied_principles
@@ -797,7 +836,7 @@ WITH user, enrolled_path_uids, paths_rich,
 // Filter path steps for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_ps_nodes) > 0 THEN all_ps_nodes ELSE [null] END as ps
 OPTIONAL MATCH (ps)-[:REQUIRES_STEP]->(prereq_step:PathStep)
-WHERE ps IS NOT NULL
+WHERE ps IS NOT NULL AND __FAR(prereq_step)__
 WITH user, enrolled_path_uids, paths_rich,
      ps, collect(DISTINCT CASE WHEN prereq_step IS NOT NULL THEN {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed} END) as ps_prereq_steps
 
@@ -806,14 +845,14 @@ WITH user, enrolled_path_uids, paths_rich,
 // Habit — without `ps_habit.user_uid = user.uid` the anchor-escape hands one
 // learner another user's habit (the shape the exercise projections below use).
 OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(ps_habit:Habit)
-WHERE ps IS NOT NULL AND ps_habit.user_uid = user.uid
+WHERE ps IS NOT NULL AND __FAR(ps_habit)__
 WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps,
      collect(DISTINCT CASE WHEN ps_habit IS NOT NULL THEN {uid: ps_habit.uid, title: ps_habit.title} END) as ps_habits
 
 // Same anchor re-tie as ps_habit above (ADR-085 G2): Tasks are OWNER_ONLY.
 OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(ps_task:Task)
-WHERE ps IS NOT NULL AND ps_task.user_uid = user.uid
+WHERE ps IS NOT NULL AND __FAR(ps_task)__
 WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits,
      collect(DISTINCT CASE WHEN ps_task IS NOT NULL THEN {uid: ps_task.uid, title: ps_task.title, status: ps_task.status} END) as ps_tasks
@@ -824,8 +863,10 @@ WITH user, enrolled_path_uids, paths_rich,
 // label-derived type, never by UID prefix (ADR-013 never-sniff rule);
 // rel_type rides along so consumers can separate composition (USES_KU/
 // TRAINS_KU/CONTAINS_KNOWLEDGE) from prerequisite/enabled neighbors.
+// The composition edges are the step's own contents and ride along with the step the
+// learner holds; a prerequisite or enabled neighbour is other curriculum, and is tied.
 OPTIONAL MATCH (ps)-[ps_ku_r:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE]->(ps_ku:Entity)
-WHERE ps IS NOT NULL
+WHERE ps IS NOT NULL AND (NOT type(ps_ku_r) IN ['REQUIRES_KNOWLEDGE', 'ENABLES_KNOWLEDGE'] OR __FAR(ps_ku)__)
 WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits, ps_tasks,
      collect(DISTINCT CASE WHEN ps_ku IS NOT NULL THEN {uid: ps_ku.uid, title: ps_ku.title, domain: ps_ku.domain, entity_type: ps_ku.entity_type, rel_type: type(ps_ku_r)} END) as ps_knowledge
@@ -874,6 +915,7 @@ RETURN {
     }
 } as result
 """
+)
 
 # Learner state — the designated life path, the latest activity report and
 # the active insights. The group most likely to grow (the ZPD capstone's own
@@ -1096,7 +1138,8 @@ RETURN {
 
 
 # The entry→Ku applied-knowledge rows (ADR-069). Returns one row per entry.
-ENTRY_KNOWLEDGE_APPLIED_QUERY: str = """
+ENTRY_KNOWLEDGE_APPLIED_QUERY: str = _tie_far_nodes(
+    """
 MATCH (user:User {uid: $user_uid})
 
 // ENTRY KNOWLEDGE APPLIED — (UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)
@@ -1104,15 +1147,16 @@ MATCH (user:User {uid: $user_uid})
 // substance "entries" channel and the ZPD entry_application signal.
 // Same Ku-grain rollup as the MEGA-QUERY task subquery (ADR-046).
 OPTIONAL MATCH (user)-[:OWNS]->(entry:UserEntry)-[entry_app_rel:APPLIES_KNOWLEDGE]->(entry_applied:Entity)
-WHERE coalesce(entry_app_rel.confidence, 1.0) >= $min_confidence
-WITH entry, collect(DISTINCT entry_applied) AS entry_applied_nodes
+WHERE coalesce(entry_app_rel.confidence, 1.0) >= $min_confidence AND __FAR(entry_applied)__
+WITH user, entry, collect(DISTINCT entry_applied) AS entry_applied_nodes
 WHERE entry IS NOT NULL
 RETURN {
     uid: entry.uid,
     ku_uids: [n IN entry_applied_nodes WHERE n:Ku | n.uid] +
-             reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | k.uid])
+             reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | k.uid])
 } AS entry
 """.replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
+)
 
 
 CONSOLIDATED_QUERY: str = """
@@ -1397,6 +1441,7 @@ def build_mega_query_params(
         "window_end": effective_end.isoformat(),
         **habit_window_params(),
         **STATUS_PARAMS,
+        **FAR_NODE_PARAMS,
     }
 
 
@@ -1538,7 +1583,7 @@ class UserContextQueryExecutor:
         """
         result = await self.executor.execute_query(
             ENTRY_KNOWLEDGE_APPLIED_QUERY,
-            {"user_uid": user_uid, "min_confidence": min_confidence},
+            {"user_uid": user_uid, "min_confidence": min_confidence, **FAR_NODE_PARAMS},
         )
         if result.is_error:
             return Result.fail(result)

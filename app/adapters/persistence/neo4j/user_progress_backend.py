@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import build_knowledge_read_clause
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -124,12 +125,21 @@ class UserProgressBackend:
         )
 
     async def get_prerequisite_map(self) -> Result[list[dict[str, Any]]]:
-        """Build map of knowledge units to their prerequisites."""
+        """Build map of knowledge units to their prerequisites.
+
+        Both ends are published knowledge (``build_knowledge_read_clause``): the
+        edge also joins a user's goal to what it requires, and the map is the
+        shared curriculum's, the same for every caller.
+        """
+        knowledge, params = build_knowledge_read_clause("k")
+        prerequisite, prerequisite_params = build_knowledge_read_clause("prereq")
         return await self._executor.execute_query(
-            """
+            f"""
             MATCH (k:Entity)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
+            WHERE {knowledge} AND {prerequisite}
             RETURN k.uid as knowledge_uid, collect(prereq.uid) as prereq_uids
             """,
+            {**params, **prerequisite_params},
         )
 
     async def get_active_learning_paths(self, user_uid: str) -> Result[list[dict[str, Any]]]:

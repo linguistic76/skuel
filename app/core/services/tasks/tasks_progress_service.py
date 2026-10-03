@@ -89,9 +89,12 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Pattern 1 (Graph-Aware Models): Instant prerequisite validation using UID fields.
 
         Returns dict with:
-        - can_start: bool
-        - missing_knowledge: list of knowledge UIDs
-        - incomplete_tasks: list of task UIDs
+        - can_start: bool — decided from every prerequisite edge
+        - missing_knowledge: list of knowledge UIDs the task's owner may be shown
+        - incomplete_tasks: list of task UIDs the task's owner may be shown
+
+        A prerequisite the owner may not be shown (draft curriculum, another
+        user's node) still blocks: ``can_start`` is False and it is not named.
 
         Args:
             task_uid: Task UID,
@@ -104,36 +107,27 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         if task_result.is_error:
             return Result.fail(task_result)
 
-        # GRAPH-NATIVE: Fetch prerequisite relationships from graph
-        prereq_knowledge_result = await self.backend.get_related_uids(
-            task_uid, RelationshipName.REQUIRES_KNOWLEDGE, direction="outgoing"
-        )
-        prerequisite_knowledge_uids = (
-            prereq_knowledge_result.value if prereq_knowledge_result.is_ok else []
-        )
+        # GRAPH-NATIVE: Fetch prerequisite relationships from graph. Readiness is
+        # decided from EVERY prerequisite edge; the uids returned are the ones the
+        # task's owner may be shown, so a prerequisite that is hidden (another
+        # user's node, a draft) still blocks and is not named.
+        knowledge = await self._prerequisite_uids(task_uid, RelationshipName.REQUIRES_KNOWLEDGE)
+        if knowledge.is_error:
+            return Result.fail(knowledge)
+        tasks = await self._prerequisite_uids(task_uid, RelationshipName.BLOCKED_BY)
+        if tasks.is_error:
+            return Result.fail(tasks)
+        every_knowledge, shown_knowledge = knowledge.value
+        every_task, shown_tasks = tasks.value
 
-        prereq_tasks_result = await self.backend.get_related_uids(
-            task_uid, RelationshipName.BLOCKED_BY, direction="outgoing"
-        )
-        prerequisite_task_uids = prereq_tasks_result.value if prereq_tasks_result.is_ok else []
+        unmet_knowledge = [
+            k for k in every_knowledge if k not in user_context.prerequisites_completed
+        ]
+        unmet_tasks = [t for t in every_task if t not in user_context.completed_task_uids]
+        can_start = not unmet_knowledge and not unmet_tasks
 
-        # Check knowledge prerequisites
-        missing_knowledge = []
-        if prerequisite_knowledge_uids:
-            missing_knowledge = [
-                k
-                for k in prerequisite_knowledge_uids
-                if k not in user_context.prerequisites_completed
-            ]
-
-        # Check task prerequisites
-        incomplete_tasks = []
-        if prerequisite_task_uids:
-            incomplete_tasks = [
-                t for t in prerequisite_task_uids if t not in user_context.completed_task_uids
-            ]
-
-        can_start = len(missing_knowledge) == 0 and len(incomplete_tasks) == 0
+        missing_knowledge = [k for k in unmet_knowledge if k in shown_knowledge]
+        incomplete_tasks = [t for t in unmet_tasks if t in shown_tasks]
 
         self.logger.debug(f"Prerequisite check for task {task_uid}: can_start={can_start}")
 
@@ -144,6 +138,26 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
                 "incomplete_tasks": incomplete_tasks,
             }
         )
+
+    async def _prerequisite_uids(
+        self, task_uid: str, relationship_type: RelationshipName
+    ) -> Result[tuple[list[str], set[str]]]:
+        """A task's prerequisites over one edge: every uid, and the ones its owner may be shown.
+
+        A failed read is a failure, never "no prerequisites": readiness decided from
+        an unread edge would unblock a blocked task.
+        """
+        every = await self.backend.get_related_uids(
+            task_uid, relationship_type, direction="outgoing", include_withheld=True
+        )
+        if every.is_error:
+            return Result.fail(every)
+        shown = await self.backend.get_related_uids(
+            task_uid, relationship_type, direction="outgoing"
+        )
+        if shown.is_error:
+            return Result.fail(shown)
+        return Result.ok((every.value, set(shown.value)))
 
     @with_error_handling("unblock_task_if_ready", error_type="database", uid_param="task_uid")
     async def unblock_task_if_ready(

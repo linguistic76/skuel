@@ -207,6 +207,34 @@ SURFACES: tuple[Surface, ...] = (
         "The MOC root listing — an entry point into curriculum the caller never named.",
     ),
     Surface(
+        "adapters.persistence.neo4j._relationship_crud_mixin",
+        "_RelationshipCrudMixin._batch_related",
+        Disposition.GATED,
+        "The batched related-uid read behind the relationship service. Under an "
+        "Activity label the related node is tied by build_link_far_node_clause, "
+        "so a draft at the far end of a user's link edge is not named. The "
+        "existence and count wrappers over the same statement name nothing and "
+        "stay untied — identity is withheld, arithmetic sees every edge.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j._relationship_query_mixin",
+        "_RelationshipQueryMixin.get_related_entities",
+        Disposition.GATED,
+        "The caller holds one of its own activities and gets back the entities "
+        "across an edge — curriculum it reached by a link, not by name. Tied "
+        "through an Activity backend only (build_link_far_node_clause).",
+    ),
+    Surface(
+        "adapters.persistence.neo4j._relationship_query_mixin",
+        "_RelationshipQueryMixin.get_related_uids",
+        Disposition.GATED,
+        "The uid twin of get_related_entities — the read under every "
+        "relationship-key lookup of the six Activity facades. A draft's uid "
+        "across a link edge is withheld as if the edge were absent; the edge "
+        "stays, so a republish restores it. Tied through an Activity backend only "
+        "(build_link_far_node_clause).",
+    ),
+    Surface(
         "adapters.persistence.neo4j._search_raw_mixin",
         "_SearchRawMixin.faceted_search_raw",
         Disposition.GATED,
@@ -235,6 +263,15 @@ SURFACES: tuple[Surface, ...] = (
         "_SemanticMixin.query_foundational_knowledge",
         Disposition.GATED,
         "Ranks the KU corpus by hub score — discovery over everything.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.activity_backends",
+        "_edge_targets",
+        Disposition.GATED,
+        "The batched source→target edge maps (task→habit, event→habit, "
+        "habit→goal, event→goal). Targets are user-owned types today; the "
+        "far-node predicate is composed whole so a map over a curriculum target "
+        "would be gated by construction.",
     ),
     Surface(
         "adapters.persistence.neo4j.backends.collab_backends",
@@ -331,6 +368,15 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.connection_fetch_backend",
+        "ConnectionFetchBackend.fetch_entity_connections",
+        Disposition.GATED,
+        "The connection chips on every Activity list and detail page: the owner "
+        "sees the titles of what their entity links to. A linked Ku or PathStep "
+        "that is now a draft is hidden, title and all (Mike, 2026-10-03) — no "
+        "'already had it' exemption.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.connection_fetch_backend",
         "ConnectionFetchBackend.fetch_source_pathstep",
         Disposition.GATED,
         "An activity's source_path_step_uid is a plain uid a vault file writes "
@@ -369,6 +415,50 @@ SURFACES: tuple[Surface, ...] = (
         "names nothing, so a learner's goal, habit or task cannot carry a draft "
         "Ku's title into its readers. Composed at module level because both "
         "backends that serve the guard share the one statement.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.context_query_generator",
+        "_build_shared_neighbor_clause",
+        Disposition.GATED,
+        "The two-hop shared-neighbour clauses of the registry context statement: "
+        "entity → shared node → related entity. Both the shared node and the "
+        "related entity are tied to the entity's owner, so a draft is not the "
+        "bridge either.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.domain_queries",
+        "build_entity_with_context",
+        Disposition.GATED,
+        "The registry context statement (get_with_context) — an activity with "
+        "every registered neighbour's uid and title. Under an Activity label each "
+        "neighbour is tied by build_link_far_node_clause.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.semantic_queries",
+        "build_domain_context_with_paths",
+        Disposition.GATED,
+        "The path-aware neighbourhood. Under an owned center a draft on a path is "
+        "left out with the paths that run through it; under a shared center (a Ku "
+        "page) the fragment keeps shared content whatever its state, and "
+        "publication is the curriculum readers' own gate.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.user_context_queries",
+        "_far_node",
+        Disposition.GATED,
+        "THE far-node predicate of the rich-context statements: every "
+        "`__FAR(alias)__` token expands through it. The context feeds daily "
+        "planning, Askesis and the insight routes, so a draft's title linked from "
+        "a user's activity would reach all of them.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.user_progress_backend",
+        "UserProgressBackend.get_prerequisite_map",
+        Disposition.GATED,
+        "The global knowledge → prerequisites map behind the pathways progress "
+        "summary. Unanchored, so it is a listing: both ends are scoped to "
+        "published knowledge, which also keeps every user's goal (a "
+        "REQUIRES_KNOWLEDGE source) out of it.",
     ),
     Surface(
         "adapters.persistence.neo4j.zpd_backend",
