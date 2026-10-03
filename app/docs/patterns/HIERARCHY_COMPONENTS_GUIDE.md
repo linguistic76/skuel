@@ -136,6 +136,10 @@ TreeView(
 )
 ```
 
+A read-only tree — the LP step tree, whose structure the content vault owns — renders
+its rows with `TreeNodeList(..., draggable=False, editable=False)`: no drag handlers,
+no double-click rename, no actions menu.
+
 ### 3. Keyboard Navigation
 
 TreeView supports full keyboard navigation:
