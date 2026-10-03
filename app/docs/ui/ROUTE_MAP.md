@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-27
+updated: 2026-10-03
 ---
 
 # Route Map
@@ -38,10 +38,10 @@ Reading-column view (`max-w-[720px]` centered, `PageType.CUSTOM`, no sidebar) dr
 
 **Sections (top to bottom) — real learner state only (de-faked 2026-07-04, care arc):**
 1. **Greeting header** — time-of-day greeting (Alpine for greeting text); the "you finished X yesterday" line renders only from real read-history and collapses without it (no fabricated line until read-history intelligence exists).
-2. **Hero article** — the next unread KU inside the user's active IN_PROGRESS PathStep (real "why"); falls back to the first library KU with an honest label. Read button + save toggle (Alpine optimistic).
+2. **Hero article** — the next unread KU inside the user's active IN_PROGRESS PathStep (real "why"); falls back to the library's first published KU (`KuService.list_library`) with an honest label. Read button + save toggle (Alpine optimistic).
 3. **Path step** — the user's real IN_PROGRESS PathStep with its `USES_KU` composition and per-KU read state (read/current/upcoming) + capabilities tray (practice, apply, assessment, reflection, journal — varies by step).
 4. **Ready rail / In-progress / Related** — stay collapsed (empty) until the ZPD reading-plan intelligence exists (future `UserContextIntelligence.get_ready_to_read_today`); the renderer collapses empty sections rather than inventing state.
-5. **Library CTA** — links to `/explore/library`; shows real Ku count from DB.
+5. **Library CTA** — links to `/explore/library`; shows the real count of published Kus (drafts are not counted).
 6. **Keyboard hints** — `r` read · `w` why am I ready · `s` save · `/` search library.
 
 **Routes:**
