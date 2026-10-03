@@ -734,14 +734,6 @@ class GoalsService(
             goal_uid, knowledge_uid, semantic_type, confidence, notes
         )
 
-    async def find_goals_requiring_knowledge(
-        self, knowledge_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[Goal]]:
-        """Find goals that require specific knowledge."""
-        return await self.relationships.find_by_semantic_filter(
-            target_uid=knowledge_uid, min_confidence=min_confidence, direction="incoming"
-        )
-
     # ========================================================================
     # HIERARCHY DELEGATIONS
     # ========================================================================

@@ -270,9 +270,10 @@ def build_far_node_clause(far_alias: str, anchor_owners: str) -> tuple[str, dict
     own unfinished Exercise) is the owner arm's and is kept.
 
     Under a shared anchor (``anchor_owners`` empty) the fragment keeps shared content
-    only and leaves publication to the curriculum readers' own gate. A statement whose
-    anchor may be shared and whose far end is then unrestricted says so at its call
-    site (``size(anchor_owners) = 0 OR ...``).
+    only and leaves publication to the curriculum readers' own gate: no user's entity
+    is read from an anchor nobody owns. A read that asks which of a user's entities
+    point at shared content takes the viewer and scopes the entity it returns
+    (``build_search_visibility_clause``).
 
     Args:
         far_alias: the far node's variable.
@@ -337,8 +338,9 @@ def build_link_far_node_clause(
     statement) serve every domain. Through an Activity backend they read link edges,
     and the far node is tied to the anchor's owner by ``build_far_node_clause``. The
     anchor there is matched by uid alone and may be shared content (a Ku asked which
-    tasks apply it): that read is not across a link edge FROM a user's entity, and
-    the fragment leaves it unrestricted.
+    tasks apply it): nobody owns that anchor, so the read keeps shared content only
+    and returns no user's entity. "Which of my tasks apply this Ku" is a viewer's
+    question, answered by a read that takes the viewer.
 
     A read of one edge type names it in ``relationship_type``; attendance and the
     share links (``_TWO_USER_EDGES``) join two users by design and are not tied.
@@ -349,8 +351,7 @@ def build_link_far_node_clause(
     """
     if not is_link_anchor_label(anchor_label) or relationship_type in _TWO_USER_EDGES:
         return None
-    far_node, params = build_far_node_clause(far_alias, anchor_owners)
-    return f"(size({anchor_owners}) = 0 OR {far_node})", params
+    return build_far_node_clause(far_alias, anchor_owners)
 
 
 def build_knowledge_read_clause(

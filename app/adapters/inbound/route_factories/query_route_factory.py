@@ -229,8 +229,8 @@ class CommonQueryRouteFactory:
         Requires authentication. If goals_service is provided and verify_ownership
         is True, verifies the user owns the goal before returning results.
 
-        Calls: service.get_{domain}_for_goal(goal_uid)
-        Example: tasks_service.get_tasks_for_goal(goal_uid)
+        Calls: service.get_{domain}_for_goal(goal_uid, user_uid=user_uid)
+        Example: tasks_service.get_tasks_for_goal(goal_uid, user_uid=user_uid)
         """
         service = self.service
         domain = self.domain
@@ -264,7 +264,7 @@ class CommonQueryRouteFactory:
                     )
                 )
 
-            return cast("Result[Any]", await method(goal_uid))
+            return cast("Result[Any]", await method(goal_uid, user_uid=user_uid))
 
     def _register_habit_filter_route(self, rt) -> None:
         """
@@ -273,8 +273,8 @@ class CommonQueryRouteFactory:
         Requires authentication. If habits_service is provided and verify_ownership
         is True, verifies the user owns the habit before returning results.
 
-        Calls: service.get_{domain}_for_habit(habit_uid)
-        Example: events_service.get_events_for_habit(habit_uid)
+        Calls: service.get_{domain}_for_habit(habit_uid, user_uid=user_uid)
+        Example: tasks_service.get_tasks_for_habit(habit_uid, user_uid=user_uid)
         """
         service = self.service
         domain = self.domain
@@ -308,7 +308,7 @@ class CommonQueryRouteFactory:
                     )
                 )
 
-            return cast("Result[Any]", await method(habit_uid))
+            return cast("Result[Any]", await method(habit_uid, user_uid=user_uid))
 
 
 __all__ = ["CommonQueryRouteFactory"]

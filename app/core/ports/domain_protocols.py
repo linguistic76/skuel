@@ -201,8 +201,10 @@ class TasksOperations(
         """Get tasks that require a specific knowledge unit."""
         ...
 
-    async def get_tasks_reinforcing_habit(self, habit_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get raw node props for tasks linked to a habit via REINFORCES_HABIT."""
+    async def get_tasks_reinforcing_habit(
+        self, habit_uid: str, user_uid: str
+    ) -> Result[list[Task]]:
+        """Get the user's tasks linked to a habit via REINFORCES_HABIT."""
         ...
 
     async def get_habit_links_for_tasks(self, task_uids: list[str]) -> Result[dict[str, str]]:

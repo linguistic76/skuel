@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-30
+updated: 2026-10-03
 ---
 
 # Service Architecture: File Organization & Topology
@@ -553,10 +553,10 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
 1. GET /api/tasks/search?goal_uid=goal_health-2024_xyz
    │
    ▼
-2. Route → services.tasks.get_tasks_for_goal(goal_uid)
+2. Route → services.tasks.get_tasks_for_goal(goal_uid, user_uid)
    │
    ▼
-3. Facade → self.search.get_tasks_for_goal(goal_uid)
+3. Facade → self.search.get_tasks_for_goal(goal_uid, user_uid)
    │
    ▼
 4. TasksSearchService

@@ -158,8 +158,13 @@ another user's rows it is an audience read and belongs to a chokepoint.
 > reads compose it through an Activity backend only (`build_link_far_node_clause`) — the
 > feedback loop, groups and sharing join two users by design and read under their own
 > audience rules (ADR-088), as do attendance and the share links read from an activity
-> (`_TWO_USER_EDGES`) — and leave a shared anchor's far end unrestricted (a Ku asked
-> which tasks apply it). In the rich context a container's own contents — a path's steps, a
+> (`_TWO_USER_EDGES`). Under a shared anchor (a Ku asked which tasks apply it) nobody
+> owns the anchor, so the generic read keeps shared content only and returns no user's
+> entity; "which of my tasks point at this Ku / this path step / this habit" is a
+> viewer's question, and its reader takes the viewer and composes
+> `build_search_visibility_clause` on the entity it returns (the cross-domain
+> knowledge read, the semantic filter, `get_tasks_for_goal` / `_for_habit` /
+> `_for_path_step`). In the rich context a container's own contents — a path's steps, a
 > step's Kus and its parent path — ride along with the container the learner holds and are
 > not tied (the publication registry's CONTAINMENT); its prerequisites are. A by-uid title lookup is not a projection: it goes through
 > `get_visible_to_user` (§2).

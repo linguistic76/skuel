@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-19
+updated: 2026-10-03
 ---
 
 # Semantic Relationship Layer — Development Roadmap
@@ -175,7 +175,8 @@ What *is* staged-and-registered is the semantic **write path** — `create_seman
 - Askesis reads nothing semantic: zero `semantic_type` / `SemanticRelationshipType` /
   `find_by_semantic_filter` hits under `core/services/askesis`. This is net-new consumer wiring.
 - The *existing* `find_by_semantic_filter` (live via `choices_api` →
-  `find_choices_aligned_with_principle`; the goals/habits twins are unreached-by-route) is
+  `find_choices_aligned_with_principle`; the habits twin is unreached-by-route; both take the
+  viewer and return that user's entities only) is
   **exact-value-set** filtering — `r.semantic_type IN config.semantic_types` (`_traversal_mixin.py`
   `find_uids_by_semantic_filter`) — **not** namespace-**prefix** scoping (`learn:*`, `concept:*`).
   Over the 0-row graph it returns empty. "Namespace-scoped retrieval" as worded is a different,

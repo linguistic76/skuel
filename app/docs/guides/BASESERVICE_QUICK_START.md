@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-27
+updated: 2026-10-03
 ---
 
 # BaseService Quick Start Guide
@@ -135,7 +135,7 @@ result = await tasks_service.get_by_status(EntityStatus.ACTIVE, user_uid=user_ui
 result = await tasks_service.get_by_category("health", user_uid=user_uid)
 
 # Domain-specific query
-result = await tasks_service.get_tasks_for_goal(goal_uid="goal.health-2024")
+result = await tasks_service.get_tasks_for_goal("goal.health-2024", user_uid)
 ```
 
 **Behind the scenes:**
@@ -206,18 +206,15 @@ result = await tasks_service.update_task(
 
 ### Task 5: Query relationships
 
-**Question:** "How do I find Tasks that require a specific KU?"
+**Question:** "How do I find a user's Tasks that require a specific KU?"
 
-**Answer:** Use the relationships service:
+**Answer:** A Ku is shared content — every learner's tasks point at it — so the read
+takes the viewer and returns that user's tasks only:
 
 ```python
-result = await tasks_service.get_tasks_applying_knowledge(
-    knowledge_uid="ku.graph-databases"
-)
-
-# Or use relationships service directly
 result = await tasks_service.relationships.find_by_semantic_filter(
     target_uid="ku.graph-databases",
+    user_uid=user_uid,
     min_confidence=0.7,
     direction="incoming",
 )

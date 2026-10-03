@@ -7,9 +7,11 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.query.cypher import (
     build_far_node_clause,
     build_owner_uids_expression,
+    build_search_visibility_clause,
 )
 from adapters.persistence.neo4j.query.cypher.choice_fragments import (
     build_choice_decided_predicate,
@@ -25,6 +27,7 @@ from adapters.persistence.neo4j.query.cypher.habit_fragments import (
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import QueryLimit
 from core.models.choice.choice import Choice
+from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
@@ -832,20 +835,33 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         """Get all tasks for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid, limit=QueryLimit.MAXIMUM)
 
-    async def get_tasks_reinforcing_habit(self, habit_uid: str) -> Result[list[Neo4jProperties]]:
-        """Return node props for tasks linked to a habit via REINFORCES_HABIT.
+    async def get_tasks_reinforcing_habit(
+        self, habit_uid: str, user_uid: str
+    ) -> Result[list[Task]]:
+        """Return the user's tasks linked to a habit via REINFORCES_HABIT.
 
-        Graph-native reverse traversal of ``(Task)-[:REINFORCES_HABIT]->(Habit)``.
-        Replaces the former ``find_by(reinforces_habit_uid=...)`` property query.
+        Graph-native reverse traversal of ``(Task)-[:REINFORCES_HABIT]->(Habit)``,
+        anchored at the habit; the tasks returned are ``user_uid``'s own
+        (``build_search_visibility_clause``, OWNER_ONLY).
         """
-        query = """
-        MATCH (t:Entity {entity_type: 'task'})-[:REINFORCES_HABIT]->(h:Entity {uid: $habit_uid})
+        owned = build_search_visibility_clause(
+            SearchVisibility.OWNER_ONLY, entity_alias="t", has_user=True
+        )
+        assert owned is not None  # OWNER_ONLY always emits a predicate under has_user
+        owner_clause, owner_params = owned
+        query = f"""
+        MATCH (h:Entity {{uid: $habit_uid}})<-[:REINFORCES_HABIT]-(t:Entity {{entity_type: 'task'}})
+        WHERE {owner_clause}
         RETURN t
         """
-        result = await self.execute_query(query, {"habit_uid": habit_uid})
+        result = await self.execute_query(
+            query, {"habit_uid": habit_uid, "user_uid": user_uid, **owner_params}
+        )
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(row["t"]) for row in (result.value or [])])
+        return Result.ok(
+            [from_neo4j_node(dict(row["t"]), self.entity_class) for row in (result.value or [])]
+        )
 
     async def get_habit_links_for_tasks(self, task_uids: list[str]) -> Result[dict[str, str]]:
         """Map task_uid → reinforced habit_uid for the given tasks.

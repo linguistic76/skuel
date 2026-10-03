@@ -716,14 +716,11 @@ class TasksService(
         return await self.core.delete_task(task_uid)
 
     # Search delegations
-    async def get_tasks_for_goal(self, goal_uid: str) -> Result[list[Task]]:
-        return await self.search.get_tasks_for_goal(goal_uid)
+    async def get_tasks_for_goal(self, goal_uid: str, user_uid: UserUID) -> Result[list[Task]]:
+        return await self.search.get_tasks_for_goal(goal_uid, user_uid)
 
-    async def get_tasks_for_habit(self, habit_uid: str) -> Result[list[Task]]:
-        return await self.search.get_tasks_for_habit(habit_uid)
-
-    async def get_tasks_applying_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
-        return await self.search.get_tasks_applying_knowledge(knowledge_uid)
+    async def get_tasks_for_habit(self, habit_uid: str, user_uid: UserUID) -> Result[list[Task]]:
+        return await self.search.get_tasks_for_habit(habit_uid, user_uid)
 
     async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list[Task]]:
         return await self.search.get_blocked_by_prerequisites(user_uid)
@@ -738,11 +735,8 @@ class TasksService(
     ) -> Result[list[Task]]:
         return await self.learning.get_learning_relevant_tasks(user_uid, learning_position, limit)
 
-    async def get_curriculum_tasks(self) -> Result[list[Task]]:
-        return await self.search.get_curriculum_tasks()
-
-    async def get_tasks_for_path_step(self, step_uid: str) -> Result[list[Task]]:
-        return await self.search.get_tasks_for_path_step(step_uid)
+    async def get_tasks_for_path_step(self, step_uid: str, user_uid: UserUID) -> Result[list[Task]]:
+        return await self.search.get_tasks_for_path_step(step_uid, user_uid)
 
     async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100

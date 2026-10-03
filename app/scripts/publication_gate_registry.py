@@ -265,6 +265,22 @@ SURFACES: tuple[Surface, ...] = (
         "Ranks the KU corpus by hub score — discovery over everything.",
     ),
     Surface(
+        "adapters.persistence.neo4j._traversal_mixin",
+        "_TraversalMixin.find_uids_by_semantic_filter",
+        Disposition.USER_STATE,
+        "Returns the viewer's own activities that carry a semantic edge onto a "
+        "target — the OWNER_ONLY clause on the returned node, composed because the "
+        "target may be a shared Ku every learner links to. The rows are the user's "
+        "entities, never curriculum, so there is no draft for a gate to withhold.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.activity_backends",
+        "TasksBackend.get_tasks_reinforcing_habit",
+        Disposition.USER_STATE,
+        "The viewer's own tasks that reinforce a habit — the OWNER_ONLY clause on "
+        "the task. A task is never draft curriculum.",
+    ),
+    Surface(
         "adapters.persistence.neo4j.backends.activity_backends",
         "_edge_targets",
         Disposition.GATED,

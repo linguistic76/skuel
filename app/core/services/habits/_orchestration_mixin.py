@@ -221,11 +221,12 @@ class _OrchestrationMixin:
         )
 
     async def find_habits_developing_knowledge(
-        self, knowledge_uid: str, min_confidence: float = 0.8
+        self, knowledge_uid: str, user_uid: UserUID, min_confidence: float = 0.8
     ) -> Result[list[Habit]]:
-        """Find habits that develop or reinforce specific knowledge/skill."""
+        """Find the user's habits that develop or reinforce specific knowledge/skill."""
         found = await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid,
+            user_uid=user_uid,
             min_confidence=min_confidence,
             direction="incoming",
         )

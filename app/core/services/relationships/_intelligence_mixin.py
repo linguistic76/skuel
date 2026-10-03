@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from core.models.type_hints import EntityUID, Neo4jProperties
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -405,15 +405,17 @@ class IntelligenceMixin[Ops: BackendOperations]:
     async def find_by_semantic_filter(
         self,
         target_uid: str,
+        user_uid: UserUID,
         min_confidence: float = 0.8,
         semantic_types: list[SemanticRelationshipType] | None = None,
         direction: str = "incoming",
     ) -> Result[list[Any]]:
         """
-        Find entities by semantic relationship filter.
+        Find the user's entities by semantic relationship filter.
 
         Args:
             target_uid: Target knowledge UID to filter by
+            user_uid: The viewer — only entities this user owns are returned
             min_confidence: Minimum confidence threshold
             semantic_types: Semantic types to filter by (uses config default)
             direction: Relationship direction ("incoming" or "outgoing")
@@ -431,6 +433,7 @@ class IntelligenceMixin[Ops: BackendOperations]:
         return await self.semantic_helper.find_by_semantic_filter(
             target_uid=target_uid,
             semantic_types=types_to_use,
+            user_uid=user_uid,
             min_confidence=min_confidence,
             direction=direction,
         )

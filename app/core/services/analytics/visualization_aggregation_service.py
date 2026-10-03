@@ -268,13 +268,10 @@ class VisualizationAggregationService:
         # dual-write property + edge, the vault door stamps the property from
         # connections.fulfills_goal), so a vault-ingested task is found here too.
         # See TasksCoreService._write_link_edges for the invariant.
-        # get_tasks_for_goal is NOT user-scoped (find_by on fulfills_goal_uid only), so
-        # filter to the authenticated owner — a foreign task linked to this goal UID must
-        # not leak its title/dates/status into the response (user-owned read invariant).
         tasks: list[Any] = []
-        tasks_result = await self.tasks_service.get_tasks_for_goal(goal_uid)
+        tasks_result = await self.tasks_service.get_tasks_for_goal(goal_uid, user_uid)
         if tasks_result.is_ok:
-            tasks = [t for t in (tasks_result.value or []) if t.user_uid == user_uid]
+            tasks = list(tasks_result.value or [])
 
         return self.vis.format_goal_gantt(goal_result.value, tasks)
 
