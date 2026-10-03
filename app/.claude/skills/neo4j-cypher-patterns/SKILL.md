@@ -210,10 +210,13 @@ source of truth) — there is no per-domain `get_suggested_query_intent()` (dele
 Both graph readers (`query_with_intent` and `get_cross_domain_context`) now run ONE
 incident-edge-attributed producer (`build_domain_context_with_paths`); the old flat
 `build_context_query_for_intent` is deleted (PR #243). The producer ties every node on a
-path to the center's owner — the owner's nodes and shared content only, with ownership read
+path to the center's owner — the owner's nodes and shared content only (published, under
+an owned center), with ownership read
 in all three spellings (`user_uid`, `owner_uid`, the `OWNS` edge) — so a variable-length
 traversal through a shared Ku never returns another user's node
-(`tests/integration/test_neighbourhood_owner_scope.py`). For a non-registry caller,
+(`tests/integration/test_neighbourhood_owner_scope.py`). The predicate is
+`build_far_node_clause` — compose it in any statement that projects the node at the far
+end of an edge (`tests/integration/routes/test_link_reader_far_nodes.py`). For a non-registry caller,
 `QueryIntent` / a domain's `default_context_intent` selects the edge slice from
 `_INTENT_EDGE_SETS` (in `cross_domain_backend`). Those slices:
 

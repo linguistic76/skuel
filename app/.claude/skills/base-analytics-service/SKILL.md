@@ -317,8 +317,8 @@ path.
 
 The traversal is undirected — it follows relationships both into and out of the origin entity,
 so an inbound edge can bring a node into the `GraphContext`. What it returns is tied to the
-origin's owner: every node on a path is that owner's or shared content (Ku, PathStep,
-LearningPath, …), so two users who link the same Ku do not appear in each other's context, and
+origin's owner: every node on a path is that owner's or published shared content (Ku, PathStep,
+LearningPath, … — a draft is left out under an owned origin), so two users who link the same Ku do not appear in each other's context, and
 a shared origin has only shared content around it. The method checks nothing about the caller:
 on a `USER_OWNED` route the factory verifies ownership of the origin before calling it; a
 `SHARED` route verifies nothing, and neither does a caller that reaches the method directly.
