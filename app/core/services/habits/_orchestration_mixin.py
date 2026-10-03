@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.services.habits._adherence import enrich_habits_with_adherence
 from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END, PRINCIPLE_FAR_END
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Result
@@ -223,11 +224,14 @@ class _OrchestrationMixin:
         self, knowledge_uid: str, min_confidence: float = 0.8
     ) -> Result[list[Habit]]:
         """Find habits that develop or reinforce specific knowledge/skill."""
-        return await self.relationships.find_by_semantic_filter(
+        found = await self.relationships.find_by_semantic_filter(
             target_uid=knowledge_uid,
             min_confidence=min_confidence,
             direction="incoming",
         )
+        if found.is_error:
+            return Result.fail(found)
+        return await enrich_habits_with_adherence(self.backend, found.value)
 
     async def create_habit_with_context(
         self, habit_data: HabitCreateRequest, user_context: UserContext

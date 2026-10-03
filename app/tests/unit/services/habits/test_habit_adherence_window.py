@@ -297,8 +297,8 @@ async def test_no_date_bound_reaches_the_query(service):
 
 
 @pytest.mark.asyncio
-async def test_a_failed_read_reports_no_completions_rather_than_raising(service):
-    """Degrades to the reading a habit with no completions gets: 0.0."""
+async def test_a_failed_read_fails_rather_than_reading_as_no_completions(service):
+    """A failed history read is a failure — never the 0.0 a habit with no completions reads."""
 
     class _FailingCompletions:
         async def get_all_completions_for_habit(self, habit_uid: str):
@@ -306,4 +306,4 @@ async def test_a_failed_read_reports_no_completions_rather_than_raising(service)
 
     service.completions = _FailingCompletions()
 
-    assert await service._completion_history("habit.test.1") == []
+    assert (await service._completion_history("habit.test.1")).is_error

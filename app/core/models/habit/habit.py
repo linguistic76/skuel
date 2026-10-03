@@ -7,7 +7,7 @@ Frozen dataclass for habit entities (EntityType.HABIT).
 Inherits common fields from UserOwnedEntity. Adds 31 habit-specific fields:
 - Classification (3): polarity, habit_category, habit_difficulty
 - Streak Tracking (6): current_streak, best_streak, total_completions,
-  total_attempts, success_rate, last_completed
+  total_attempts, success_rate (derived at read), last_completed
 - Atomic Habits / Behavior Design (3): cue, routine, reward
 - Identity (5): reinforces_identity, identity_votes_cast, is_identity_habit,
   target_identity, identity_evidence_required
@@ -81,7 +81,15 @@ class Habit(UserOwnedEntity):
     best_streak: int = 0
     total_completions: int = 0
     total_attempts: int = 0
-    success_rate: float = 0.0
+    # DERIVED AT READ — never a node property. The habit's adherence now
+    # (core.models.habit.adherence.habit_adherence): its completions in the
+    # trailing window over what its cadence expects there. A stored number goes
+    # stale the first day nothing is done, so the mapper's RELATIONSHIP_SKIP_FIELDS
+    # keeps it out of the node and the DTO does not carry it; readers that need it
+    # hydrate it after the read with enrich_habits_with_adherence. ``None`` = no
+    # rate (not hydrated, nothing due yet, or a cadence the window cannot hold) —
+    # never read as 0.0.
+    success_rate: float | None = None
     last_completed: datetime | None = None
 
     # =========================================================================
@@ -167,8 +175,13 @@ class Habit(UserOwnedEntity):
         return self.status == EntityStatus.ACTIVE
 
     def calculate_consistency_score(self) -> float:
-        """Calculate habit consistency based on streak and success rate."""
-        if self.total_attempts == 0:
+        """Calculate habit consistency based on streak and success rate.
+
+        ⚠ No writer sets ``total_attempts``, so this is 0.0 for every habit and
+        ``is_keystone`` reduces to ``is_identity_habit`` — registered in
+        ``docs/roadmap/habit-completion-persistence-bundle.md``.
+        """
+        if self.total_attempts == 0 or self.success_rate is None:
             return 0.0
         streak_factor = min(1.0, self.current_streak / 30.0)
         rate_factor = self.success_rate

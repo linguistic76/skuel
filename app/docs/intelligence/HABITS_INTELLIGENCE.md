@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-10-03
 ---
 
 # HabitsIntelligenceService - Streak Pattern Analysis & Habit Formation
@@ -527,14 +527,17 @@ HabitsIntelligenceService excels at **analyzing consistency patterns** through:
 **Consistency Calculation:**
 ```python
 consistency_score = habit.calculate_consistency_score()
-# Considers:
-# - Recurrence pattern (daily, weekly, etc.)
-# - Completion rate over time
-# - Streak momentum
+# 0.4 × min(streak / 30, 1) + 0.6 × success_rate — but gated on total_attempts,
+# which no writer sets, so it is 0.0 for every habit today
 ```
+⚠ That gate is a registered residual (`/docs/roadmap/habit-completion-persistence-bundle.md`,
+read-side residuals): every reader of the score here reads 0.0. The habit's adherence itself is
+`Habit.success_rate` — derived at read from its window completions, `None` when it has no rate
+yet (`core/models/habit/adherence.py`).
 
 **Pattern Detection:**
-- Identifies "at risk" streaks (missed recent completions)
+- At risk is one definition, `habit_at_risk`: an active habit overdue for its own cadence, or with
+  adherence under 0.5 once at least three completions were due
 - Detects "broken" streaks requiring restart
 - Tracks "building momentum" patterns (improving consistency)
 
@@ -658,12 +661,15 @@ async def get_zpd_knowledge_signals(
 {
     "reinforced_ku_uids": list[str],            # KUs reinforced by active habits
     "reinforcement_strength": dict[str, float], # ku_uid → 0.0-1.0 (streak + success rate blend)
-    "at_risk_ku_uids": list[str],               # KUs whose reinforcing habit has broken streak
-                                                # or success_rate < 0.5
+    "at_risk_ku_uids": list[str],               # KUs whose reinforcing habit is at risk
+                                                # (habit_at_risk — the one definition)
 }
 ```
 
-**Strength formula:** `(min(streak/30, 1.0) × 0.5) + (success_rate × 0.5)`
+**Strength formula:** `(min(streak/30, 1.0) × 0.5) + (success_rate × 0.5)`; a habit with no rate
+yet reinforces on its streak alone (`min(streak/30, 1.0)`). The rate is derived in
+`CrossDomainQueryService.get_habit_knowledge_reinforcement` from the window completion stamps the
+statement projects — never read off the node.
 
 **Consumed by:** `ZPDService.assess_zone()` — reinforced KUs count toward current_zone scoring.
 

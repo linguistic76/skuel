@@ -63,3 +63,15 @@ reason = "mcp 1.22.0 — fix lands in 1.27.2; pinned by fastmcp 2.13.x; same ups
 id = "PYSEC-2026-3483"
 ignoreUntil = 2026-11-07
 reason = "mcp 1.22.0 — fix lands in 1.28.1; pinned by fastmcp 2.13.x; same upstream block"
+
+# ── braces (JS, build-time only). @tailwindcss/cli → @parcel/watcher →
+#    micromatch 4.0.8 → braces ^3.0.3; 3.0.3 is the LATEST release and the
+#    advisory covers "through 3.0.3" — no fixed release exists. braces expands the glob patterns of Tailwind's own content
+#    config inside the CSS build; no user input reaches it, and the production
+#    image serves the pre-compiled CSS. Re-check: `npm view braces versions`,
+#    then `npm update braces` and ./dev audit-deps.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-11-02
+reason = "braces 3.0.3 — stack-exhaustion DoS on nested patterns; no fixed release published; build-time Tailwind watcher only, patterns from our own config"

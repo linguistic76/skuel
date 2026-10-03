@@ -33,10 +33,24 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.ports.domain_protocols import GoalsOperations
     from core.ports.query_types import GoalRiskAssessment
+    from core.services.habits_service import HabitsService
 
     from .goals_intelligence_service import GoalPrediction, HabitImpactAnalysis
 
 logger = get_logger(__name__)
+
+
+def _measured(habits: list[Habit]) -> list[Habit]:
+    """The habits that have an adherence rate — the only ones a rate threshold can judge."""
+    return [habit for habit in habits if habit.success_rate is not None]
+
+
+def _rate(habit: Habit) -> float:
+    """A measured habit's adherence (0.0-1.0); only for habits :func:`_measured` kept."""
+    rate = habit.success_rate
+    if rate is None:
+        raise ValueError(f"Habit {habit.uid} has no adherence rate")
+    return rate
 
 
 def _progress_percent(goal: Goal) -> float:
@@ -94,7 +108,7 @@ class _PredictiveMixin:
     # Populated by GoalsIntelligenceService.__init__
     backend: GoalsOperations
     relationships: Any
-    habits_service: Any
+    habits_service: HabitsService | None
     logger: Any
 
     @with_error_handling("predict_goal_success", error_type="system", uid_param="goal_uid")
@@ -229,10 +243,15 @@ class _PredictiveMixin:
             if not habit:
                 continue
 
+            # The facade's read carries the derived adherence (0.0-1.0). A habit
+            # with no rate yet has no measured impact and no gap to close.
+            consistency = habit.success_rate
+            if consistency is None:
+                continue
+
             # Calculate impact score
             # GRAPH-NATIVE: habit_weights removed - using default weight
             weight = 1.0  # Default weight for all habits
-            consistency = habit.success_rate  # Already 0.0-1.0, not 0-100
             impact_score = weight * consistency
 
             # Determine criticality
@@ -419,17 +438,17 @@ class _PredictiveMixin:
                 return priority_weights.get(habit.priority.lower(), 1.0)
             return 1.0
 
-        def get_normalized_success_rate(habit: Any) -> float:
-            # Habit.success_rate is already 0.0-1.0 (completions/attempts)
-            return habit.success_rate
+        # Only measured habits carry evidence; with none the factor is neutral.
+        # A measured average of 0.0 is a real reading, not a missing one.
+        measured = _measured(habits)
+        if not measured:
+            return 0.5
 
-        result = MetricsCalculator.weighted_average(
-            items=habits,
-            value_fn=get_normalized_success_rate,
+        return MetricsCalculator.weighted_average(
+            items=measured,
+            value_fn=_rate,
             weight_fn=get_priority_weight,
         )
-
-        return result if result > 0 else 0.5
 
     def _calculate_time_factor(self, goal: Goal) -> float:
         """Calculate time pressure factor.
@@ -591,8 +610,8 @@ class _PredictiveMixin:
         if broken_streaks > len(habits) / 2:
             risks.append("Multiple broken habit streaks")
 
-        # Check for low-performing critical habits (success_rate is 0.0-1.0)
-        critical_habits = [h for h in habits if h.success_rate < 0.5]
+        # Check for low-performing critical habits — measured ones (0.0-1.0)
+        critical_habits = [h for h in _measured(habits) if _rate(h) < 0.5]
         if critical_habits:
             risks.append(f"{len(critical_habits)} critical habits underperforming")
 
@@ -633,8 +652,9 @@ class _PredictiveMixin:
     ) -> list[str]:
         """Generate actionable recommendations to improve success probability."""
         # Find weakest habit for targeted recommendations
-        weakest_habit = min(habits, key=attrgetter("success_rate")) if habits else None
-        inconsistent = [h for h in habits if h.success_rate < 0.7]
+        measured = _measured(habits)
+        weakest_habit = min(measured, key=_rate) if measured else None
+        inconsistent = [h for h in measured if _rate(h) < 0.7]
         days_remaining = goal.get_days_remaining()
         has_long_habits = any((h.duration_minutes or 0) > 45 for h in habits)
 
@@ -648,7 +668,7 @@ class _PredictiveMixin:
             )
             .add_conditional(
                 success_probability < 0.5 and weakest_habit is not None,
-                f"Fix '{weakest_habit.title}' - currently at {weakest_habit.success_rate * 100:.0f}%"
+                f"Fix '{weakest_habit.title}' - currently at {_rate(weakest_habit) * 100:.0f}%"
                 if weakest_habit
                 else "",
             )

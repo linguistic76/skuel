@@ -745,7 +745,9 @@ class ContextualHabit(ContextualEntity):
     """
 
     current_streak: int = 0
-    completion_rate: float = 0.0
+    # The habit's adherence (context.habit_completion_rates) — None when it has
+    # no rate yet, never 0.0.
+    completion_rate: float | None = None
     is_at_risk: bool = False
     supports_goals: tuple[str, ...] = field(default_factory=tuple)
 
@@ -786,10 +788,11 @@ class ContextualHabit(ContextualEntity):
         knowledge = applied_knowledge_uids or []
 
         streak = current_streak if current_streak is not None else context.habit_streaks.get(uid, 0)
+        # A habit absent from habit_completion_rates has no rate — it stays None.
         rate = (
             completion_rate
             if completion_rate is not None
-            else context.habit_completion_rates.get(uid, 0.0)
+            else context.habit_completion_rates.get(uid)
         )
         at_risk = uid in context.get_habits_needing_reinforcement()
         keystone = is_keystone if is_keystone is not None else uid in context.keystone_habits

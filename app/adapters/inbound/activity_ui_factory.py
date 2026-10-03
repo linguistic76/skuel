@@ -66,8 +66,10 @@ class ActivityUIConfig:
         filter_params: Ordered (param_name, default) pairs extracted from query string.
             Passed positionally (after items) to filter_fn.
         get_all: Service method (user_uid) -> Result[list[Entity]]
-        get_owned: The facade's verify_ownership (uid, user_uid) -> Result[Entity] —
-            the entity when the caller owns it, NOT_FOUND otherwise (ADR-085)
+        get_owned: The facade's owner-checked read (uid, user_uid) -> Result[Entity] —
+            the entity when the caller owns it, NOT_FOUND otherwise (ADR-085);
+            ``verify_ownership``, or ``get_for_user`` where the facade hydrates
+            derived fields the detail page shows (Habits)
         backend: ConnectionFetchOperations port for connection / source-PathStep fetching
         filter_fn: Domain filter function (items, *param_values) -> filtered
         connection_config: ConnectionConfig for fetch_entity_connections

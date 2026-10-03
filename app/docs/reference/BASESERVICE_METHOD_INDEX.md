@@ -269,7 +269,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### HabitsService
 
-**Facade-specific public methods:** 74
+**Facade-specific public methods:** 78
 
 | Method | Async |
 |--------|-------|
@@ -290,7 +290,9 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_subhabit_relationship()` | ✅ |
 | `create_with_goal_links()` | ✅ |
 | `delete_habit_reminder()` | ✅ |
+| `enrich_with_adherence()` | ✅ |
 | `find_habits_developing_knowledge()` | ✅ |
+| `get()` | ✅ |
 | `get_actionable_habits_for_user()` | ✅ |
 | `get_active()` | ✅ |
 | `get_adherence_rates()` | ✅ |
@@ -303,6 +305,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `get_enriched_prerequisite_metadata()` | ✅ |
 | `get_event_uids_for_habit()` | ✅ |
 | `get_filtered_context()` | ✅ |
+| `get_for_user()` | ✅ |
 | `get_goal_supporting_habits_for_user()` | ✅ |
 | `get_habit()` | ✅ |
 | `get_habit_analytics()` | ✅ |
@@ -334,6 +337,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `identify_potential_keystone_habits()` | ✅ |
 | `link_habit_to_knowledge()` | ✅ |
 | `link_habit_to_principle()` | ✅ |
+| `list()` | ✅ |
 | `list_habits()` | ✅ |
 | `optimize_habit_schedule()` | ✅ |
 | `remove_subhabit_relationship()` | ✅ |

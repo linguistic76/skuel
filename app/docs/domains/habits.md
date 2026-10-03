@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-10-02
+updated: 2026-10-03
 status: current
 category: domains
 tags:
@@ -129,7 +129,7 @@ Common sub-services created via `create_common_sub_services()` factory (with `sk
 | `target_days_per_week` | `int?` | The target for a custom frequency |
 | `current_streak` / `best_streak` | `int` | Streak counters, written by the completion doors |
 | `total_completions` | `int` | Completion tally |
-| `success_rate` | `float` | Stored adherence, written only by `complete_habit_with_quality` (`POST /api/context/habit/complete`); the user context derives the rate at read time instead (see below) |
+| `success_rate` | `float?` | **Derived at read, never stored** — the habit's adherence (below), hydrated after the read by `enrich_habits_with_adherence` (the facade's reads carry it); `None` = no rate yet, never 0.0. Kept off the node by the mapper; not on `HabitDTO` |
 | `status` | `EntityStatus` | `is_active()` reads it |
 | `priority` | `Priority` | On `UserOwnedEntity` |
 | `cue` / `routine` / `reward` | `str?` | The habit loop |
@@ -138,7 +138,17 @@ Adherence — a habit's completions in the trailing 30-day window (cut short at 
 was created) over what its frequency expects there, at most 1.0; no rate for a quarterly, yearly or
 one-time habit, or one with nothing due yet — is derived when it is read, from `:HabitCompletion` nodes
 (`core/models/habit/adherence.py`); a value stored at completion time stops being true the next
-day without a completion. Design and the write-side work it leaves open:
+day without a completion.
+
+**At risk** has one definition, `habit_at_risk` (same module): an active habit that is overdue
+for its own cadence (`habit_overdue`, measured from the last day it was kept on its cadence —
+the stored streak never decays, so it is not consulted), or whose rate is under 0.5 once the
+measured span has asked for at least three completions. A habit with no rate is judged on
+lateness alone; one whose `recurrence_end_date` has passed is never at risk, and its rate is
+measured only up to that end. The user context's
+`at_risk_habits`, `/api/habits/analytics` and the ZPD knowledge signals all call it.
+
+Design and the write-side work it leaves open:
 `/docs/roadmap/habit-completion-persistence-bundle.md`.
 
 ## Relationships
@@ -256,9 +266,13 @@ The habit model tracks all four components of the habit loop:
 | Method | Description |
 |--------|-------------|
 | `get_with_context(uid)` | Habit with full graph neighborhood (shared mechanism B) |
-| `analyze_habit_patterns(user_uid)` | Pattern analysis for all habits |
-| `get_stacking_recommendations(uid)` | Habit stacking suggestions |
-| `identify_at_risk_habits(user_uid)` | Habits with declining streaks |
+| `get_performance_analytics(user_uid)` | `/api/habits/analytics` — average adherence over the habits with a rate, at-risk count (`habit_at_risk`) |
+| `assess_consistency_dual_track(habit_uid, user_uid, level, evidence)` | Self-assessed vs measured consistency (the measured side reads the derived rate) |
+| `get_zpd_knowledge_signals(user_uid)` | Kus reinforced by active habits, their strength, and the at-risk ones |
+| `analyze_habit_performance(habit_uid)` | Performance + knowledge-reinforcement analysis |
+
+Stacking suggestions live on `HabitsSchedulingService.suggest_habit_stacking`; pattern insights
+on `HabitsPatternService.analyze_patterns` (the detail page's insights fragment).
 
 **See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 

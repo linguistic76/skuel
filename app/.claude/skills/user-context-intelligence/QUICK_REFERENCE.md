@@ -417,7 +417,10 @@ item is `{"entity": {...}, "graph_context": {...}}` (`RichEntityItem`,
 | `principle_integration_score` | `get_principle_integration_score()` | — |
 
 `get_tasks_for_goal(goal_uid)` and `get_habits_for_goal(goal_uid)` are per-goal lookups over the
-first two.
+first two. `at_risk_habits` is the one at-risk definition, `habit_at_risk`
+(`core/models/habit/adherence.py`): an active habit overdue for its own cadence, or with adherence
+under 0.5 once at least three completions were due — never the stored streak, which does not
+decay. `/api/habits/analytics` and the ZPD knowledge signals call the same function.
 
 ### Context methods the mixins call
 

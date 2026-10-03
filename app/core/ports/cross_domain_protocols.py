@@ -129,7 +129,7 @@ class CrossDomainBackendOperations(Protocol):
     async def count_active_tasks_for_goal(self, goal_uid: str) -> Result[list[dict[str, Any]]]: ...
 
     async def get_habit_knowledge_reinforcement(
-        self, user_uid: str
+        self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_journal_entries_in_range(

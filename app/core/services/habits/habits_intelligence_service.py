@@ -27,6 +27,12 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.habits._adherence import (
+    adherence_readings,
+    enrich_habit_with_adherence,
+    habit_is_at_risk,
+    with_readings,
+)
 from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.habits._dual_track_mixin import _DualTrackMixin
 from core.services.habits.habit_relationships import HabitRelationships
@@ -39,6 +45,7 @@ from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
+    from core.models.graph_context import GraphContext
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
     from core.services.relationships import UnifiedRelationshipService
@@ -106,10 +113,23 @@ class HabitsIntelligenceService(
     # These methods implement IntelligenceRouteFactory's protocols:
     # IntelligenceOperations and PerformanceAnalyticsOperations.
     #
-    # get_with_context is provided by the shared _CoreIntelligenceMixin
-    # (mechanism B, registry-sourced via self.relationships) — NOT redefined
-    # here. (Convergence Phase 1, 2B.)
+    # get_with_context is the shared _CoreIntelligenceMixin read (mechanism B,
+    # registry-sourced via self.relationships); the override below only
+    # hydrates the habit it returns.
     # ========================================================================
+
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Habit, GraphContext]]:
+        """The shared mechanism-B read, the habit carrying its derived ``success_rate``."""
+        result = await super().get_with_context(uid, depth)
+        if result.is_error:
+            return result
+        habit, graph_context = result.value
+        enriched = await enrich_habit_with_adherence(self.backend, habit)
+        if enriched.is_error:
+            return Result.fail(enriched)
+        return Result.ok((enriched.value, graph_context))
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30
@@ -138,25 +158,33 @@ class HabitsIntelligenceService(
         if habits_result.is_error:
             return Result.fail(habits_result)
 
-        habits = habits_result.value or []
+        # One read gives every habit its reading: the derived rate and the
+        # last day it was kept — the average and the at-risk rule both read it.
+        read = habits_result.value or []
+        readings_result = await adherence_readings(self.backend, read)
+        if readings_result.is_error:
+            return Result.fail(readings_result)
+        readings = readings_result.value
+        habits = with_readings(read, readings)
 
         # Calculate analytics
         total_habits = len(habits)
         active_habits = [h for h in habits if h.is_active]
 
-        # Calculate average consistency (success_rate is 0.0-1.0)
-        if total_habits > 0:
-            avg_consistency = sum(h.success_rate for h in habits) / total_habits
-        else:
-            avg_consistency = 0.0
+        # Average adherence (0.0-1.0) over the habits that have a rate — None
+        # when none does: an unmeasured habit is not a 0.0 one.
+        rates = [h.success_rate for h in habits if h.success_rate is not None]
+        avg_consistency = sum(rates) / len(rates) if rates else None
 
         # Calculate streak stats
         total_current_streak = sum(h.current_streak for h in habits)
         habits_with_streak = [h for h in habits if h.current_streak > 0]
         avg_streak = total_current_streak / len(habits_with_streak) if habits_with_streak else 0.0
 
-        # Calculate at-risk habits (success_rate < 0.5)
-        at_risk_habits = [h for h in active_habits if h.success_rate < 0.5]
+        # At risk: the one definition (habit_at_risk) — overdue for its cadence,
+        # or measured under the threshold on enough evidence.
+        zone = current_zone()
+        at_risk_habits = [h for h in habits if habit_is_at_risk(h, readings[h.uid], zone)]
 
         # Learned insights (ADR-048)
         habits_with_difficulty = [
@@ -180,14 +208,18 @@ class HabitsIntelligenceService(
                 "active_habits": len(active_habits),
                 "habits_with_streak": len(habits_with_streak),
                 "at_risk_habits": len(at_risk_habits),
-                "avg_consistency": round(avg_consistency, 2),
+                "avg_consistency": (
+                    round(avg_consistency, 2) if avg_consistency is not None else None
+                ),
                 "avg_streak": round(avg_streak, 1),
                 "analytics": {
                     "total": total_habits,
                     "active": len(active_habits),
                     "with_streak": len(habits_with_streak),
                     "at_risk": len(at_risk_habits),
-                    "avg_consistency_percentage": round(avg_consistency * 100, 1),
+                    "avg_consistency_percentage": (
+                        round(avg_consistency * 100, 1) if avg_consistency is not None else None
+                    ),
                     "total_current_streak_days": total_current_streak,
                 },
                 "learned_insights": {

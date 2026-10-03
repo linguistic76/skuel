@@ -79,7 +79,9 @@ def create_habits_ui_routes(
         page_title="Habits",
         filter_params=(("status", "active"), ("category", "all"), ("sort_by", "streak")),
         get_all=habits_service.get_user_habits,
-        get_owned=habits_service.verify_ownership,
+        # get_for_user, not verify_ownership: the same owner check, and the habit
+        # comes back carrying its derived success_rate for the detail page.
+        get_owned=habits_service.get_for_user,
         backend=connection_fetch_backend,
         filter_fn=filter_habits,
         connection_config=HABIT_CONNECTION_CONFIG,

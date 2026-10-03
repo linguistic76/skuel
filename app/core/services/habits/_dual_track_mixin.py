@@ -17,11 +17,13 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.type_hints import UserUID
-from core.utils.result_simplified import Result
+from core.services.habits._adherence import enrich_habit_with_adherence
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.shared.dual_track import DualTrackResult
+    from core.ports.domain_protocols import HabitsOperations
     from core.services.cross_domain import CrossDomainQueryService
 
 
@@ -34,6 +36,7 @@ class _DualTrackMixin:
     """
 
     # Populated by HabitsIntelligenceService.__init__
+    backend: HabitsOperations
     orchestrator: Any
     relationships: Any
     cross_domain_query: CrossDomainQueryService
@@ -84,13 +87,30 @@ class _DualTrackMixin:
             ... dual_track = result.value
             ... print(f"Gap: {dual_track.perception_gap:.0%}")
         """
+        # The system side reads the habit's derived adherence, so the habit is
+        # read and hydrated here; the template's own read only gates the call.
+        habit_result = await self.backend.get(habit_uid)
+        if habit_result.is_error:
+            return Result.fail(habit_result)
+        if habit_result.value is None:
+            return Result.fail(Errors.not_found("Habit", habit_uid))
+        enriched = await enrich_habit_with_adherence(self.backend, habit_result.value)
+        if enriched.is_error:
+            return Result.fail(enriched)
+        habit = enriched.value
+
+        async def calculate_system_consistency(  # skuel-lint: disable=SKUEL029 -- dual-track system_calculator callback: typed Awaitable + awaited by base_analytics_service
+            _entity: Habit, calling_user_uid: UserUID
+        ) -> tuple[ConsistencyLevel, float, list[str]]:
+            return self._calculate_system_consistency(habit, calling_user_uid)
+
         return await self._dual_track_assessment(  # type: ignore[attr-defined]
             uid=habit_uid,
             user_uid=user_uid,
             user_level=user_consistency_level,
             user_evidence=user_evidence,
             user_reflection=user_reflection,
-            system_calculator=self._calculate_system_consistency,
+            system_calculator=calculate_system_consistency,
             level_scorer=self._consistency_level_to_score,
             entity_type="habit",
             insight_generator=self._generate_consistency_gap_insights,
@@ -98,14 +118,15 @@ class _DualTrackMixin:
             store_callback=self._store_dual_track_checkin,
         )
 
-    async def _calculate_system_consistency(  # skuel-lint: disable=SKUEL029 -- dual-track system_calculator callback: typed Awaitable + awaited by base_analytics_service
+    def _calculate_system_consistency(
         self, habit: Habit, _user_uid: UserUID
     ) -> tuple[ConsistencyLevel, float, list[str]]:
         """
         Calculate system consistency from habit metrics.
 
         Examines:
-        - Success rate (completions / attempts)
+        - Success rate — the derived adherence; a habit with no rate yet is
+          scored without it and given the early-stage benefit of the doubt
         - Current streak
         - Best streak
         - Recent completion pattern
@@ -119,9 +140,12 @@ class _DualTrackMixin:
         """
         evidence: list[str] = []
 
-        # Primary metric: success rate
-        success_rate = habit.success_rate  # 0.0-1.0
-        evidence.append(f"Success rate: {success_rate * 100:.0f}%")
+        # Primary metric: success rate (0.0-1.0), when the habit has one
+        success_rate = habit.success_rate
+        if success_rate is not None:
+            evidence.append(f"Success rate: {success_rate * 100:.0f}%")
+        else:
+            evidence.append("No success rate yet")
 
         # Streak metrics
         current_streak = habit.current_streak
@@ -147,11 +171,14 @@ class _DualTrackMixin:
         # Calculate consistency score from Habit model
         consistency_score = habit.calculate_consistency_score()
 
-        # Final score: weighted combination
-        score = min(1.0, (success_rate * 0.6) + (consistency_score * 0.3) + streak_factor + 0.1)
+        # Final score: weighted combination — the rate term only when measured
+        rate_term = success_rate * 0.6 if success_rate is not None else 0.0
+        score = min(1.0, rate_term + (consistency_score * 0.3) + streak_factor + 0.1)
 
-        # Adjust for very new habits (give benefit of doubt)
-        if habit.total_completions < 5:
+        # Adjust for very new or not-yet-measurable habits (give benefit of doubt)
+        if success_rate is None:
+            score = max(score, 0.5)
+        elif habit.total_completions < 5:
             score = max(score, 0.5)  # At least "building" for new habits
             evidence.append("Early stage habit - limited data")
 
@@ -253,7 +280,8 @@ class _DualTrackMixin:
             - reinforced_ku_uids: list[str] — KUs reinforced by active habits
             - reinforcement_strength: dict[str, float] — ku_uid → strength (0.0-1.0)
             - at_risk_ku_uids: list[str] — KUs whose reinforcing habit is at risk
-                               (streak broken or low success rate)
+                               (``habit_at_risk``: overdue for its cadence, or
+                               measured under the threshold)
 
         See: core/services/zpd/zpd_service.py — ZPDService.assess_zone()
              counts reinforced KUs toward current_zone scoring.
@@ -269,16 +297,17 @@ class _DualTrackMixin:
         at_risk_ku_uids: list[str] = []
 
         for row in rows_result.value or ():
-            current_streak = row.current_streak
-            success_rate = row.success_rate
+            # Strength: blend streak (cap at 30 days) and the derived adherence.
+            # A habit with no rate yet has only its streak to go on, which then
+            # carries the whole weight — an unmeasured rate is not a zero one.
+            streak_factor = min(1.0, row.current_streak / 30.0)
+            if row.success_rate is None:
+                strength = round(streak_factor, 3)
+            else:
+                strength = round((streak_factor * 0.5) + (row.success_rate * 0.5), 3)
 
-            # Strength: blend streak (cap at 30 days) and success rate
-            streak_factor = min(1.0, current_streak / 30.0)
-            strength = round((streak_factor * 0.5) + (success_rate * 0.5), 3)
-
-            # A habit is "at risk" if its streak just broke (streak=0) or
-            # success rate has dropped below 50%
-            is_at_risk = current_streak == 0 or success_rate < 0.5
+            # At risk: the one definition (habit_at_risk), derived with the row.
+            is_at_risk = row.at_risk
 
             for ku_uid in row.ku_uids:
                 if ku_uid not in reinforced_ku_uids:

@@ -90,6 +90,10 @@ def _habit_adherence_row(
         "recurrence_pattern": item["recurrence_pattern"],
         "target_days_per_week": item["target_days_per_week"],
         "created_at": item["created_at"],
+        "started_at": item["started_at"],
+        "status": item["status"],
+        "last_completed": item["last_completed"],
+        "recurrence_end_date": item["recurrence_end_date"],
     }
 
 
@@ -171,7 +175,8 @@ _CHOICE_PENDING_TOKEN = "__CHOICE_PENDING__"
 _CHOICE_PENDING = build_choice_pending_predicate("choice")
 
 # An active habit's adherence inputs (``HabitAdherenceRow``) — its completion
-# stamps in the window, the frequency and the creation stamp ``habit_adherence``
+# stamps in the window, the frequency, the creation and start stamps and the schedule end
+# ``habit_adherence`` reads, and the status and last completion ``habit_at_risk``
 # reads — projected by HABIT_ADHERENCE_QUERY
 # and CONSOLIDATED_QUERY from this one spelling. The statements carry the count,
 # never a rate: the rate is derived at read time by the populator.
@@ -180,7 +185,11 @@ _HABIT_ADHERENCE_FIELDS = (
     f"completion_stamps: {build_habit_window_completion_stamps('user', 'habit')}, "
     "recurrence_pattern: habit.recurrence_pattern, "
     "target_days_per_week: habit.target_days_per_week, "
-    "created_at: habit.created_at"
+    "created_at: habit.created_at, "
+    "started_at: habit.started_at, "
+    "status: habit.status, "
+    "last_completed: habit.last_completed, "
+    "recurrence_end_date: habit.recurrence_end_date"
 )
 
 # Tasks and goals — one statement because progress_counts spans both and each

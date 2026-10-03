@@ -251,6 +251,17 @@ async def enrich_habits_with_goal_links(
 - Never write the derived field back — it vanishes at the end of the request. The edge IS the persistent state.
 - Adding a new enrichment link: add the helper module, call it in the scoring path, mark the field `# DERIVED FROM EDGE` on the model, keep it absent from the DTO.
 
+**A derived measurement, not an edge — `Habit.success_rate`.** Declared the same way (mapper
+`RELATIONSHIP_SKIP_FIELDS`, absent from `HabitDTO`) but hydrated by
+`enrich_habits_with_adherence(backend, habits)` (`habits/_adherence.py`) from the window's
+`:HabitCompletion` count, and it differs on two rules: it **fails closed** — a failed read fails the
+caller, because a reader judging adherence on habits it could not measure would read every one as
+unmeasured — and it **is** called on every read the Habits facade hands out (`get`,
+`get_for_user`, `list` via `_AdherenceReadsMixin`; `get_habit`, `get_user_habits`, `list_habits`),
+because routes serialize it. `None` = no rate yet; every reader decides what that means, never
+0.0. Sub-services that read habits off the backend call it themselves before consulting the rate.
+At risk is one function over it, `habit_at_risk` (`core/models/habit/adherence.py`).
+
 **See:** `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md` — taxonomy of which fields are structural anchors vs enrichment links.
 
 ---

@@ -40,7 +40,7 @@ from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
-    from core.ports.domain_protocols import HabitsOperations
+    from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
     from core.services.relationships import UnifiedRelationshipService
 
@@ -140,7 +140,9 @@ class GoalsIntelligenceService(
             insight_store=insight_store,
         )
         self.progress = progress_service  # Domain-specific: for velocity calculations
-        self.habits_service: HabitsOperations | None = None  # Post-wired cross-domain dep
+        # Post-wired cross-domain dep: the facade, whose reads carry the derived
+        # Habit.success_rate.
+        self.habits_service: HabitsService | None = None
         self._knowledge_analyzer = KnowledgePatternAnalyzer(graph_intel=self.graph_intel)
 
     # ========================================================================

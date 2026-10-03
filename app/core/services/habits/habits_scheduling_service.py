@@ -42,6 +42,10 @@ from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.habits._adherence import (
+    enrich_habit_with_adherence,
+    enrich_habits_with_adherence,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
@@ -401,7 +405,12 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             return Result.fail(result)
 
         habits = result.value or []
-        category_habits = [h for h in habits if h.category == category]
+        category_result = await enrich_habits_with_adherence(
+            self.backend, [h for h in habits if h.category == category]
+        )
+        if category_result.is_error:
+            return Result.fail(category_result)
+        category_habits = category_result.value
 
         # Analyze success rates by frequency in this category
         frequency_success: dict[RecurrencePattern, list[float]] = {
@@ -413,7 +422,12 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             pattern = (
                 RecurrencePattern(habit.recurrence_pattern) if habit.recurrence_pattern else None
             )
-            if pattern is not None and pattern in frequency_success:
+            # Only a measured habit says how well its frequency is kept.
+            if (
+                pattern is not None
+                and pattern in frequency_success
+                and habit.success_rate is not None
+            ):
                 frequency_success[pattern].append(habit.success_rate)
 
         # Calculate average success by frequency
@@ -486,7 +500,12 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         if not habit_result.value:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
-        habit = to_domain_model(habit_result.value, HabitDTO, Habit)
+        enriched = await enrich_habit_with_adherence(
+            self.backend, to_domain_model(habit_result.value, HabitDTO, Habit)
+        )
+        if enriched.is_error:
+            return Result.fail(enriched)
+        habit = enriched.value
 
         # Get completion history if available
         completion_patterns: dict[str, Any] = {
@@ -538,7 +557,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                 f"you complete this habit most often then."
             )
 
-        if habit.success_rate < 0.5:
+        if habit.success_rate is not None and habit.success_rate < 0.5:
             recommendations.append(
                 "Success rate below 50% - consider reducing difficulty or frequency."
             )
@@ -602,14 +621,18 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return Result.fail(result)
 
-        habits = result.value or []
-
         # Filter to established habits (streak >= 7)
-        established = [
-            h
-            for h in habits
-            if h.status == EntityStatus.ACTIVE and h.current_streak >= ESTABLISHED_STREAK_DAYS
-        ]
+        established_result = await enrich_habits_with_adherence(
+            self.backend,
+            [
+                h
+                for h in result.value or []
+                if h.status == EntityStatus.ACTIVE and h.current_streak >= ESTABLISHED_STREAK_DAYS
+            ],
+        )
+        if established_result.is_error:
+            return Result.fail(established_result)
+        established = established_result.value
 
         if not established:
             return Result.ok(
@@ -654,7 +677,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             reasons.append(f"Strong streak ({habit.current_streak} days)")
 
             # Success rate
-            if habit.success_rate > 0.8:
+            if habit.success_rate is not None and habit.success_rate > 0.8:
                 score += 0.1
                 reasons.append(f"High success rate ({habit.success_rate:.0%})")
 

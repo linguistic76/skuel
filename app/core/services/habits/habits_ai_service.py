@@ -28,6 +28,7 @@ from core.models.habit.habit import Habit
 from core.models.type_hints import EntityUID
 from core.ports import HabitsOperations
 from core.services.base_ai_service import BaseAIService
+from core.services.habits._adherence import enrich_habit_with_adherence
 from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 
@@ -144,9 +145,12 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
         if habit_result.is_error:
             return Result.fail(habit_result)
 
-        habit = habit_result.value
-        if not habit:
+        if not habit_result.value:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
+        enriched = await enrich_habit_with_adherence(self.backend, habit_result.value)
+        if enriched.is_error:
+            return Result.fail(enriched)
+        habit = enriched.value
 
         streak_status = "building momentum" if habit.current_streak > 0 else "starting fresh"
         if habit.current_streak >= habit.best_streak and habit.best_streak > 0:
@@ -157,7 +161,11 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
             "current_streak": habit.current_streak,
             "best_streak": habit.best_streak,
             "total_completions": habit.total_completions,
-            "success_rate": f"{habit.success_rate * 100:.1f}%",
+            "success_rate": (
+                f"{habit.success_rate * 100:.1f}%"
+                if habit.success_rate is not None
+                else "no rate yet"
+            ),
             "streak_status": streak_status,
             "polarity": habit.polarity.value if habit.polarity else "unknown",
         }

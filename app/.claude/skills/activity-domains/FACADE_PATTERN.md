@@ -257,4 +257,5 @@ HabitsBackend additionally has badge/achievement methods: per-habit streak badge
 (`award_badge`, `check_badge_already_earned`) and cross-habit aggregate badges
 (`award_user_badge`, `check_user_badge_earned`, `get_user_badge_stats`), and
 `get_habit_window_completions` — each habit's completion stamps in the adherence window, which
-`HabitsService.get_adherence_rates` turns into rates (`core/models/habit/adherence.py`).
+`enrich_habits_with_adherence` (`core/services/habits/_adherence.py`) turns into each Habit's
+derived `success_rate` (`core/models/habit/adherence.py`); the facade's reads carry it.

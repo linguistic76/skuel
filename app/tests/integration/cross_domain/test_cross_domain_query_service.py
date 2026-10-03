@@ -139,18 +139,19 @@ async def graph(neo4j_driver, clean_neo4j):
             CREATE (h:Entity {
                 uid: 'habit_reading_xdq', entity_type: 'habit',
                 title: 'Morning reading', status: 'active',
-                current_streak: 12, success_rate: 0.85,
-                created_at: datetime($ts)
+                current_streak: 12, recurrence_pattern: 'daily',
+                created_at: datetime($created), last_completed: $yesterday
             })
             """,
-            ts=now,
+            created=(datetime.now(tz=UTC) - timedelta(days=40)).isoformat(),
+            yesterday=(datetime.now(tz=UTC) - timedelta(days=1)).replace(hour=12).isoformat(),
         )
         await s.run(
             """
             CREATE (h:Entity {
                 uid: 'habit_exercise_xdq', entity_type: 'habit',
                 title: 'Exercise', status: 'active',
-                current_streak: 3, success_rate: 0.6,
+                current_streak: 3,
                 created_at: datetime($ts)
             })
             """,
@@ -263,6 +264,22 @@ async def graph(neo4j_driver, clean_neo4j):
             MATCH (t:Entity {uid: 'task_review_xdq'}), (k:Entity {uid: 'ku_python_xdq'})
             CREATE (t)-[:REQUIRES_KNOWLEDGE]->(k)
             """,
+        )
+
+        # The reading habit's completions: 24 of the last 30 days (noon UTC, days 1-24 ago),
+        # owned by the user — its adherence is derived from these, never stored.
+        await s.run(
+            """
+            MATCH (u:User {uid: $uid})
+            UNWIND range(1, 24) AS n
+            CREATE (u)-[:OWNS]->(:HabitCompletion {
+                uid: 'hc_xdq_' + toString(n), habit_uid: 'habit_reading_xdq',
+                completed_at: toString(localdatetime({
+                    date: date() - duration({days: n}), hour: 12
+                }))
+            })
+            """,
+            uid=USER_UID,
         )
 
         # Habit -> KU: REINFORCES_KNOWLEDGE
@@ -453,7 +470,9 @@ class TestHabitKnowledgeReinforcement:
         row = rows[0]
         assert row.habit_uid == "habit_reading_xdq"
         assert row.current_streak == 12
-        assert row.success_rate == pytest.approx(0.85)
+        # Derived from the 24 completions in the window, not read off the node.
+        assert row.success_rate == pytest.approx(24 / 30)
+        assert row.at_risk is False
         assert set(row.ku_uids) == {"ku_python_xdq", "ku_neo4j_xdq"}
 
     async def test_user_with_no_habits(self, service, graph):

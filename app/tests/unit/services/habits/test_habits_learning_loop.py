@@ -347,33 +347,43 @@ class TestMissedPersistence:
         assert learning_call["learned_difficulty_level"] == "normal"
 
 
+def _real_habit(uid: str, **learned: object) -> Habit:
+    """A real Habit (the analytics hydrate it with ``dataclasses.replace``), with any
+    ``learned_*`` values set as plain attributes — the model declares no such fields."""
+    habit = Habit(uid=uid, user_uid="user_123", title=f"Habit {uid}")
+    for name, value in learned.items():
+        object.__setattr__(habit, name, value)
+    return habit
+
+
 class TestPerformanceAnalyticsLearnedInsights:
     """Test that get_performance_analytics includes learned insights."""
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "Known hole: HabitEventHandlerService writes learned_* as node properties, but "
+            "Habit declares no learned_* fields, so no read carries them and these insights "
+            "are always empty — registered in docs/roadmap/habit-completion-persistence-bundle.md"
+        ),
+    )
     @pytest.mark.asyncio
     async def test_includes_learned_insights(self):
         backend = _make_backend()
         habits = [
-            _make_habit(
-                uid="h1",
+            _real_habit(
+                "h1",
                 learned_difficulty_level="difficult",
                 learned_preferred_hour=8,
                 learned_on_time_rate=0.85,
             ),
-            _make_habit(
-                uid="h2",
-                learned_difficulty_level=None,
-                learned_preferred_hour=14,
-                learned_on_time_rate=0.92,
-            ),
-            _make_habit(
-                uid="h3",
-                learned_difficulty_level=None,
-                learned_preferred_hour=None,
-                learned_on_time_rate=None,
-            ),
+            _real_habit("h2", learned_preferred_hour=14, learned_on_time_rate=0.92),
+            _real_habit("h3"),
         ]
         backend.find_by.return_value = Result.ok(habits)
+        backend.get_habit_window_completions.return_value = Result.ok(
+            {habit.uid: [] for habit in habits}
+        )
 
         service = _make_intelligence_service(backend)
         result = await service.get_performance_analytics("user_123")
@@ -387,8 +397,9 @@ class TestPerformanceAnalyticsLearnedInsights:
     @pytest.mark.asyncio
     async def test_no_learned_data(self):
         backend = _make_backend()
-        habits = [_make_habit(uid="h1")]
+        habits = [_real_habit("h1")]
         backend.find_by.return_value = Result.ok(habits)
+        backend.get_habit_window_completions.return_value = Result.ok({"h1": []})
 
         service = _make_intelligence_service(backend)
         result = await service.get_performance_analytics("user_123")

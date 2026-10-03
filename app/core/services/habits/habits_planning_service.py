@@ -173,7 +173,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 supported_goal_uids=goal_uids,
                 applied_knowledge_uids=knowledge_uids,
                 current_streak=habit.current_streak,
-                completion_rate=habit.success_rate,
                 days_since_last=self._days_since_last_completion(habit),
                 best_streak=habit.best_streak,
                 weights=(0.3, 0.3, 0.4),
@@ -267,7 +266,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 supported_goal_uids=goal_uids,
                 is_due_today=True,
                 current_streak=habit.current_streak,
-                completion_rate=habit.success_rate,
                 days_since_last=self._days_since_last_completion(habit),
                 best_streak=habit.best_streak,
                 readiness_override=1.0,
@@ -376,7 +374,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 context=context,
                 applied_knowledge_uids=knowledge_uids,
                 current_streak=habit.current_streak,
-                completion_rate=habit.success_rate,
                 readiness_override=0.8,
                 relevance_override=learning_impact,
                 priority_override=learning_impact,
@@ -460,7 +457,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 supported_goal_uids=supported_goals,
                 is_due_today=habit.should_do_today(),
                 current_streak=habit.current_streak,
-                completion_rate=habit.success_rate,
                 relevance_override=goal_support_score,
                 priority_override=goal_support_score,
             )
@@ -539,7 +535,6 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 title=prereq_habit.title,
                 context=context,
                 current_streak=prereq_streak,
-                completion_rate=prereq_habit.success_rate,
                 readiness_override=1.0
                 if is_established
                 else prereq_streak / ESTABLISHED_STREAK_THRESHOLD,

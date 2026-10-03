@@ -13,6 +13,7 @@ On relationship-fetch failure, the conservative placeholders must survive
 (degrade, never fail the whole analysis).
 """
 
+from datetime import timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -21,6 +22,8 @@ from neo4j.exceptions import ServiceUnavailable
 from core.models.habit.habit import Habit
 from core.services.habits.habits_pattern_service import HabitsPatternService
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
+from core.utils.zone_context import current_zone
 
 USER_UID = "user_test"
 HABIT_UID = "habit_pattern_test"
@@ -31,7 +34,10 @@ def _habit(**kwargs) -> Habit:
         "uid": HABIT_UID,
         "title": "Morning Reading",
         "user_uid": USER_UID,
-        "success_rate": 0.8,
+        # Older than the adherence window, so the rate is measured over all of it.
+        "created_at": as_stored_clock(
+            local_day_bounds(today_in(current_zone()) - timedelta(days=90), current_zone())[0]
+        ),
         "current_streak": 5,
         "best_streak": 10,
         "total_completions": 40,
@@ -61,9 +67,35 @@ class _RaisingRelationshipsStub:
         raise ServiceUnavailable("neo4j down")
 
 
-def _service(relationships, habit: Habit | None = None) -> HabitsPatternService:
+class _WindowCompletionsBackend:
+    """The habits backend's window read: one completion on each of the given days ago."""
+
+    def __init__(self, days_ago: list[int]) -> None:
+        self._days_ago = days_ago
+
+    async def get_habit_window_completions(
+        self, habit_uids: list[str], window_start: str, window_end: str
+    ) -> Result[dict[str, list[object]]]:
+        zone = current_zone()
+        today = today_in(zone)
+        stamps = [
+            as_stored_clock(
+                local_day_bounds(today - timedelta(days=n), zone)[0] + timedelta(hours=9)
+            ).isoformat()
+            for n in self._days_ago
+        ]
+        return Result.ok({uid: stamps for uid in habit_uids})
+
+
+def _service(
+    relationships, habit: Habit | None = None, done_days_ago: list[int] | None = None
+) -> HabitsPatternService:
+    """24 of the last 30 days kept (0.8) unless told otherwise."""
     habits_core = AsyncMock()
     habits_core.verify_ownership.return_value = Result.ok(habit or _habit())
+    habits_core.backend = _WindowCompletionsBackend(
+        done_days_ago if done_days_ago is not None else list(range(24))
+    )
     return HabitsPatternService(habits_core=habits_core, relationships=relationships)
 
 
@@ -136,3 +168,35 @@ async def test_ownership_failure_propagates() -> None:
     result = await service.analyze_patterns(HABIT_UID, USER_UID)
 
     assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_the_patterns_read_the_derived_rate_not_the_one_carried_in() -> None:
+    """A habit read with a stale 0.9 that kept 6 of 30 days reads 0.2 — the low-rate pattern."""
+    service = _service(
+        _RelationshipsStub(Result.ok([])),
+        habit=_habit(success_rate=0.9),
+        done_days_ago=[0, 1, 2, 3, 4, 5],
+    )
+
+    result = await service.analyze_patterns(HABIT_UID, USER_UID)
+
+    assert result.is_ok
+    assert "Low success rate: 20%" in _pattern_texts(result.value.failure_patterns)
+    assert not any("High success rate" in p for p in _pattern_texts(result.value.success_patterns))
+
+
+@pytest.mark.asyncio
+async def test_a_habit_with_no_rate_shows_neither_rate_pattern() -> None:
+    """A quarterly habit has no rate in a 30-day window — not a low one."""
+    service = _service(
+        _RelationshipsStub(Result.ok([])),
+        habit=_habit(recurrence_pattern="quarterly"),
+        done_days_ago=[],
+    )
+
+    result = await service.analyze_patterns(HABIT_UID, USER_UID)
+
+    assert result.is_ok
+    texts = _pattern_texts(result.value.success_patterns + result.value.failure_patterns)
+    assert not any("success rate" in p for p in texts)

@@ -640,7 +640,6 @@ class TestAnalytics:
             best_streak=15,
             total_completions=50,
             total_attempts=55,
-            success_rate=0.9,
             identity_votes_cast=25,
             is_identity_habit=True,
             reinforces_identity="I am consistent",

@@ -20,6 +20,13 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
 
 
+def _consistency_trend(avg_consistency: float | None) -> str:
+    """The trend word for an average adherence — ``unmeasured`` when no habit has a rate."""
+    if avg_consistency is None:
+        return "unmeasured"
+    return "stable" if avg_consistency >= 0.5 else "declining"
+
+
 class _EnrichmentMixin:
     """
     Analytics delegates and enriched data views for HabitsService.
@@ -112,13 +119,11 @@ class _EnrichmentMixin:
                     "active_habits": analytics.get("active_habits", 0),
                     "habits_with_streak": analytics.get("habits_with_streak", 0),
                     "at_risk_habits": analytics.get("at_risk_habits", 0),
-                    "avg_consistency": analytics.get("avg_consistency", 0.0),
+                    "avg_consistency": analytics["avg_consistency"],
                     "avg_streak": analytics.get("avg_streak", 0.0),
                 },
                 "summary": {
-                    "consistency_trend": "stable"
-                    if analytics.get("avg_consistency", 0) >= 0.5
-                    else "declining",
+                    "consistency_trend": _consistency_trend(analytics["avg_consistency"]),
                     "streak_health": "healthy"
                     if analytics.get("habits_with_streak", 0) > analytics.get("at_risk_habits", 0)
                     else "at_risk",

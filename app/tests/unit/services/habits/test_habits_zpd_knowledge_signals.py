@@ -3,7 +3,8 @@ Unit tests for HabitsIntelligenceService.get_zpd_knowledge_signals.
 
 Validates the ZPD bridge that feeds ``ZPDService.assess_zone``:
 - Delegates the cross-domain habit↔KU row fetch to ``CrossDomainQueryService``.
-- Blends streak + success_rate into a per-KU reinforcement strength.
+- Blends streak + success_rate into a per-KU reinforcement strength (the streak
+  alone when the habit has no rate yet).
 - Marks KUs whose reinforcing habit has a broken streak or low success rate
   as at-risk.
 - Propagates query failures.
@@ -40,6 +41,7 @@ class TestGetZpdKnowledgeSignals:
                     habit_uid="habit_1",
                     current_streak=30,  # full streak factor
                     success_rate=1.0,  # max success
+                    at_risk=False,
                     status="active",
                     ku_uids=("ku_a",),
                 ),
@@ -47,6 +49,7 @@ class TestGetZpdKnowledgeSignals:
                     habit_uid="habit_2",
                     current_streak=15,
                     success_rate=0.6,
+                    at_risk=False,
                     status="active",
                     ku_uids=("ku_b",),
                 ),
@@ -68,14 +71,49 @@ class TestGetZpdKnowledgeSignals:
         cross_domain_query.get_habit_knowledge_reinforcement.assert_awaited_once_with("user_mike")
 
     @pytest.mark.asyncio
-    async def test_at_risk_when_streak_broken(self) -> None:
+    async def test_a_habit_with_no_rate_reinforces_on_its_streak_alone(self) -> None:
+        """No rate is not a zero rate: the streak carries the whole strength."""
         cross_domain_query = AsyncMock()
         cross_domain_query.get_habit_knowledge_reinforcement.return_value = Result.ok(
             (
                 HabitKnowledgeReinforcement(
-                    habit_uid="habit_broken",
+                    habit_uid="habit_quarterly",
+                    current_streak=15,
+                    success_rate=None,
+                    at_risk=False,
+                    status="active",
+                    ku_uids=("ku_q",),
+                ),
+            )
+        )
+
+        service = _make_service(cross_domain_query)
+        result = await service.get_zpd_knowledge_signals(user_uid="user_mike")
+
+        assert result.is_ok
+        assert result.value["reinforcement_strength"]["ku_q"] == 0.5
+        assert result.value["at_risk_ku_uids"] == []
+
+    @pytest.mark.asyncio
+    async def test_at_risk_is_the_rows_derived_verdict(self) -> None:
+        """The stored streak plays no part: a broken streak on a kept habit is not at risk,
+        and a habit the one definition flags is — whatever its streak."""
+        cross_domain_query = AsyncMock()
+        cross_domain_query.get_habit_knowledge_reinforcement.return_value = Result.ok(
+            (
+                HabitKnowledgeReinforcement(
+                    habit_uid="habit_streak_zero",
                     current_streak=0,
                     success_rate=0.9,
+                    at_risk=False,
+                    status="active",
+                    ku_uids=("ku_ok",),
+                ),
+                HabitKnowledgeReinforcement(
+                    habit_uid="habit_overdue",
+                    current_streak=25,
+                    success_rate=0.9,
+                    at_risk=True,
                     status="active",
                     ku_uids=("ku_x",),
                 ),

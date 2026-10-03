@@ -1,6 +1,6 @@
 ---
 title: "Habit Streak Counters — Lost-Update Race + Future-Day Credit"
-updated: 2026-09-05
+updated: 2026-10-03
 status: "ruling needed"
 registered: 2026-08-24
 trigger: "next substantive touch of the streak write path, or a lived wrong-streak report"
@@ -29,7 +29,22 @@ Two named defects in the same write family, deliberately scoped OUT of the condi
    completed days ending at *today*, with future completions stored and shown but not advancing
    the streak until their day arrives. The provenance-bearing
    `HabitStreakBroken`/`HabitStreakMilestone` events publish whatever number the writer
-   computed, so milestones inherit the inflation.
+   computed, so milestones inherit the inflation. (The at-risk rule does not inherit it:
+   `last_kept_day` takes no anchor from a day after today.)
+3. **The streak never decays, and counts days whatever the cadence (found by HA-2, 2026-10-02).**
+   `current_streak` is recomputed only when the next completion arrives — a broken streak
+   restarts at 1 then — so time passing never sets it to 0: a habit dropped weeks ago keeps its
+   last streak, and `current_streak == 0` holds only for a habit never completed. Both writers
+   also count *consecutive days* for every `RecurrencePattern`, so a weekly habit kept every week
+   reads 1 forever. Mike, 2026-10-02: "having the current_streak never decay does not sound
+   correct." HA-2 took the streak out of the at-risk rule (`habit_at_risk` reads lateness —
+   `habit_overdue` — from the last day it was kept on its cadence instead), so the one
+   definition no longer trusts it;
+   what the number SHOWS is still the stored one. The read-time fix (0 when `habit_overdue`) is
+   small in itself but `current_streak` / `habit_streaks` have 246 references in 66 files,
+   Cypher sorts and counts included (`get_active_habits_prioritized`, `get_stats_for_user`, the
+   user-context `habit_metadata`), so it is its own PR — and cadence-aware counting (periods,
+   not days) is the same "what does `current_streak` MEAN" ruling as defect 2.
 
 **Trigger:** next substantive touch of the streak write path, or a lived wrong-streak report.
 **Named cost:** inflated or lost streaks and milestones; `best_streak` never heals.

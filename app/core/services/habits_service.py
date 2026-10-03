@@ -60,6 +60,7 @@ from core.services.habits import (
     HabitsProgressService,
     HabitsSchedulingService,
 )
+from core.services.habits._adherence_reads_mixin import _AdherenceReadsMixin
 from core.services.habits._completion_mixin import _CompletionMixin
 from core.services.habits._enrichment_mixin import _EnrichmentMixin
 from core.services.habits._orchestration_mixin import _OrchestrationMixin
@@ -146,6 +147,7 @@ def _apply_habit_sort(habits: list[Any], sort_by: str = "streak") -> list[Any]:
 
 
 class HabitsService(
+    _AdherenceReadsMixin,
     _CompletionMixin,
     _EnrichmentMixin,
     _OrchestrationMixin,
@@ -269,16 +271,20 @@ class HabitsService(
             return ownership
         return await self.update_habit(uid, updates)
 
+    # Reads — every Habit a read method of this facade returns carries its
+    # derived ``success_rate`` (_AdherenceReadsMixin also hydrates the
+    # inherited get / get_for_user / list). A write's result (create, update,
+    # complete) is the stored entity: its rate is None until it is read.
     async def get_habit(self, uid: str) -> Result[Habit]:
-        return await self.core.get_habit(uid)
+        return await self._with_adherence(await self.core.get_habit(uid))
 
     async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
-        return await self.core.get_user_habits(user_uid)
+        return await self._list_with_adherence(await self.core.get_user_habits(user_uid))
 
     async def list_habits(
         self, limit: int = 100, **filters: Any
     ) -> Result[tuple[list[Habit], int]]:
-        return await self.core.list_habits(limit, **filters)
+        return await self._page_with_adherence(await self.core.list_habits(limit, **filters))
 
     async def get_user_items_in_range(
         self,
@@ -288,8 +294,10 @@ class HabitsService(
         include_completed: bool = False,
         date_field: str | list[str] | None = None,
     ) -> Result[list[Habit]]:
-        return await self.core.get_user_items_in_range(
-            user_uid, start_date, end_date, include_completed, date_field
+        return await self._list_with_adherence(
+            await self.core.get_user_items_in_range(
+                user_uid, start_date, end_date, include_completed, date_field
+            )
         )
 
     # Progress delegations
@@ -307,7 +315,9 @@ class HabitsService(
     async def get_at_risk_habits(
         self, user_context: UserContext, _risk_threshold_days: int = 3
     ) -> Result[list[Habit]]:
-        return await self.progress.get_at_risk_habits(user_context, _risk_threshold_days)
+        return await self._list_with_adherence(
+            await self.progress.get_at_risk_habits(user_context, _risk_threshold_days)
+        )
 
     async def analyze_habit_consistency(
         self, habit_uid: str, user_context: UserContext, _days: int = 30
@@ -318,41 +328,49 @@ class HabitsService(
         return await self.progress.get_adherence_rates(habits)
 
     async def get_keystone_habits(self, user_context: UserContext) -> Result[list[Habit]]:
-        return await self.progress.get_keystone_habits(user_context)
+        return await self._list_with_adherence(
+            await self.progress.get_keystone_habits(user_context)
+        )
 
     async def identify_potential_keystone_habits(
         self, user_context: UserContext
     ) -> Result[list[Habit]]:
-        return await self.progress.identify_potential_keystone_habits(user_context)
+        return await self._list_with_adherence(
+            await self.progress.identify_potential_keystone_habits(user_context)
+        )
 
     # Search delegations
     async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
-        return await self.search.get_active(user_uid, limit)
+        return await self._list_with_adherence(await self.search.get_active(user_uid, limit))
 
     async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Habit]]:
-        return await self.search.get_upcoming(days_ahead, user_uid, limit)
+        return await self._list_with_adherence(
+            await self.search.get_upcoming(days_ahead, user_uid, limit)
+        )
 
     async def get_overdue(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Habit]]:
-        return await self.search.get_overdue(user_uid, limit)
+        return await self._list_with_adherence(await self.search.get_overdue(user_uid, limit))
 
     async def get_habits_due_today(self, user_uid: UserUID) -> Result[list[Habit]]:
-        return await self.search.get_user_due_today(user_uid)
+        return await self._list_with_adherence(await self.search.get_user_due_today(user_uid))
 
     async def get_all_habits_due_today(self) -> Result[list[Habit]]:
-        return await self.search.get_all_due_today()
+        return await self._list_with_adherence(await self.search.get_all_due_today())
 
     async def get_habits_by_frequency(
         self, frequency: RecurrencePattern, limit: int = 100
     ) -> Result[list[Habit]]:
-        return await self.search.get_by_frequency(frequency, limit)
+        return await self._list_with_adherence(await self.search.get_by_frequency(frequency, limit))
 
     # Learning delegations
     async def get_learning_habits(self, user_context: UserContext) -> Result[list[Habit]]:
-        return await self.learning.get_learning_habits(user_context)
+        return await self._list_with_adherence(
+            await self.learning.get_learning_habits(user_context)
+        )
 
     async def create_habit_from_learning_goal(
         self,
@@ -374,7 +392,9 @@ class HabitsService(
     async def get_learning_reinforcing_habits(
         self, user_uid: UserUID, learning_position: LpPosition
     ) -> Result[list[Habit]]:
-        return await self.learning.get_learning_reinforcing_habits(user_uid, learning_position)
+        return await self._list_with_adherence(
+            await self.learning.get_learning_reinforcing_habits(user_uid, learning_position)
+        )
 
     async def assess_habit_learning_impact(
         self, habit_uid: str, learning_position: LpPosition
@@ -644,13 +664,33 @@ class HabitsService(
     # ========================================================================
 
     async def get_subhabits(self, parent_uid: str, depth: int = 1) -> Result[list[Habit]]:
-        return await self.core.get_subentities(parent_uid, depth)
+        return await self._list_with_adherence(await self.core.get_subentities(parent_uid, depth))
 
     async def get_parent_habit(self, subhabit_uid: str) -> Result[Habit | None]:
-        return await self.core.get_parent_entity(subhabit_uid)
+        parent = await self.core.get_parent_entity(subhabit_uid)
+        if parent.is_error or parent.value is None:
+            return parent
+        enriched = await self._with_adherence(Result.ok(parent.value))
+        if enriched.is_error:
+            return Result.fail(enriched)
+        return Result.ok(enriched.value)
 
     async def get_habit_hierarchy(self, habit_uid: str) -> Result[dict[str, Any]]:
-        return await self.core.get_entity_hierarchy(habit_uid)
+        """The habit's ancestors, itself, its siblings and children — every one hydrated."""
+        hierarchy = await self.core.get_entity_hierarchy(habit_uid)
+        if hierarchy.is_error:
+            return hierarchy
+        tree = hierarchy.value
+        groups = ("ancestors", "siblings", "children")
+        flat = [tree["current"], *(habit for key in groups for habit in tree[key])]
+        enriched = await self.enrich_with_adherence(flat)
+        if enriched.is_error:
+            return Result.fail(enriched)
+        hydrated = iter(enriched.value)
+        result = {**tree, "current": next(hydrated)}
+        for key in groups:
+            result[key] = [next(hydrated) for _ in tree[key]]
+        return Result.ok(result)
 
     async def create_subhabit_relationship(
         self, parent_uid: str, child_uid: str, progress_weight: float = 1.0
@@ -673,7 +713,7 @@ class HabitsService(
         """Get filtered and sorted habits with pre-filter stats in a single query."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.core.get_all_for_user(user_uid)
+            return await self._list_with_adherence(await self.core.get_all_for_user(user_uid))
 
         def apply_filters(all_habits: list[Any]) -> list[Any]:
             return apply_entity_filter(all_habits, status_filter, _HABIT_FILTER_CONFIG)

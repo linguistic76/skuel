@@ -23,11 +23,18 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
-from core.models.habit.adherence import completion_days, creation_day, habit_adherence
+from core.models.habit.adherence import (
+    completion_days,
+    habit_adherence,
+    habit_at_risk,
+    inception_day,
+    last_kept_day,
+    stamp_day,
+)
 from core.models.user import UserPreferences
 from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
-from core.utils.timestamp_helpers import EARLIEST_INSTANT, as_utc, instant_of, today_in
+from core.utils.timestamp_helpers import EARLIEST_INSTANT, as_utc, day_named, instant_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -55,12 +62,45 @@ def habit_adherence_rates(rows: Iterable[HabitAdherenceRow]) -> dict[str, float]
             row["recurrence_pattern"],
             row["target_days_per_week"],
             completion_days(row["completion_stamps"], zone),
-            created_on=creation_day(row["created_at"], zone),
+            started_on=inception_day(row["started_at"], row["created_at"], zone),
+            ends_on=day_named(row["recurrence_end_date"], zone),
             today=today,
         )
         if rate is not None:
             rates[row["uid"]] = rate
     return rates
+
+
+def habits_at_risk(rows: Iterable[HabitAdherenceRow], rates: dict[str, float]) -> list[str]:
+    """The at-risk habits among the adherence rows — the one definition, ``habit_at_risk``.
+
+    ``rates`` is :func:`habit_adherence_rates` over the same rows: a habit absent
+    from it has no rate and is judged on lateness alone. Lateness is measured
+    from the last day the habit was kept on its cadence (its window completions
+    and its stored ``last_completed``).
+    """
+    zone = current_zone()
+    today = today_in(zone)
+    at_risk: list[str] = []
+    for row in rows:
+        pattern = row["recurrence_pattern"]
+        if habit_at_risk(
+            row["status"],
+            pattern,
+            row["target_days_per_week"],
+            rate=rates.get(row["uid"]),
+            last_kept_on=last_kept_day(
+                pattern,
+                completion_days(row["completion_stamps"], zone),
+                last_completed_on=stamp_day(row["last_completed"], zone),
+                today=today,
+            ),
+            started_on=inception_day(row["started_at"], row["created_at"], zone),
+            ends_on=day_named(row["recurrence_end_date"], zone),
+            today=today,
+        ):
+            at_risk.append(row["uid"])
+    return at_risk
 
 
 class UserContextPopulator:
@@ -667,6 +707,7 @@ class UserContextPopulator:
         context: UserContext,
         tasks_rich: list[dict[str, Any]],
         habits_rich: list[dict[str, Any]],
+        habit_adherence: Iterable[HabitAdherenceRow],
     ) -> None:
         """
         Populate derived fields (tasks_by_goal, habits_by_goal, etc.) from rich data.
@@ -675,6 +716,8 @@ class UserContextPopulator:
             context: UserContext to populate
             tasks_rich: Rich task data from MEGA-QUERY
             habits_rich: Rich habit data from MEGA-QUERY
+            habit_adherence: The adherence rows the rates were derived from
+                (``HABIT_ADHERENCE_QUERY``) — the at-risk rule reads them
         """
         # Build tasks_by_goal (inverse of task_goal_associations)
         tasks_by_goal: dict[str, list[str]] = {}
@@ -708,7 +751,6 @@ class UserContextPopulator:
 
         # Build habits_by_goal from habits_rich
         habits_by_goal: dict[str, list[str]] = {}
-        at_risk_habits: list[str] = []
 
         for habit_item in habits_rich:
             if not habit_item:
@@ -726,18 +768,10 @@ class UserContextPopulator:
                 if goal and goal.get("uid"):
                     habits_by_goal.setdefault(goal["uid"], []).append(habit_uid)
 
-            # At risk: a habit with a measured rate whose streak is broken or
-            # whose adherence is under half. A paused or archived habit in the
-            # window, and an active one with no rate yet, is not at risk.
-            completion_rate = context.habit_completion_rates.get(habit_uid)
-            if completion_rate is None:
-                continue
-            streak = context.habit_streaks.get(habit_uid, 0)
-            if streak == 0 or completion_rate < 0.5:
-                at_risk_habits.append(habit_uid)
-
         context.habits_by_goal = habits_by_goal
-        context.at_risk_habits = at_risk_habits
+        # At risk: the one definition (habit_at_risk) over the adherence rows —
+        # each active habit's window completions, cadence and stamps.
+        context.at_risk_habits = habits_at_risk(habit_adherence, context.habit_completion_rates)
 
         # Compute blocked_task_uids from task_blockers (already populated by graph-sourced)
         for blocked_uids in context.task_blockers.values():

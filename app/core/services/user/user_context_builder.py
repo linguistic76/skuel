@@ -575,7 +575,11 @@ class UserContextBuilder:
 
         # Populate derived fields (Priority 4: tasks_by_goal, habits_by_goal, etc.)
         self._populator.populate_derived_fields(
-            context, entities_data.get("tasks", []), entities_data.get("habits", [])
+            context,
+            entities_data.get("tasks", []),
+            entities_data.get("habits", []),
+            # The unknown-user sentinel is an empty section; any other carries the rows.
+            uids_data["habit_adherence"] if uids_data else [],
         )
 
         # Populate principle-choice integration (Priority 5)

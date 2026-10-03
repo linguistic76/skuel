@@ -333,7 +333,8 @@ def HabitDetailView(
         streak_items.append(MetadataField("Best Streak", Span(f"{habit.best_streak} days")))
     if habit.total_completions:
         streak_items.append(MetadataField("Completions", Span(str(habit.total_completions))))
-    if habit.success_rate is not None and habit.success_rate > 0:
+    # The derived adherence — a measured 0% shows; no rate yet shows nothing.
+    if habit.success_rate is not None:
         streak_items.append(
             MetadataField("Success Rate", Span(f"{int(habit.success_rate * 100)}%"))
         )

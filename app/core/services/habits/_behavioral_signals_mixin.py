@@ -17,6 +17,8 @@ from typing import Any
 from core.models.graph.path_aware_types import HabitCrossContext
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.ports.domain_protocols import HabitsOperations
+from core.services.habits._adherence import enrich_habit_with_adherence
 from core.services.intelligence import (
     MetricsCalculator,
     calculate_habit_integration_metrics,
@@ -36,6 +38,7 @@ class _BehavioralSignalsMixin:
     """
 
     # Populated by HabitsIntelligenceService.__init__
+    backend: HabitsOperations
     orchestrator: Any
     relationships: Any
     cross_domain_query: Any
@@ -122,7 +125,12 @@ class _BehavioralSignalsMixin:
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        enriched = await enrich_habit_with_adherence(
+            self.backend, self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        )
+        if enriched.is_error:
+            return Result.fail(enriched)
+        habit = enriched.value
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -229,7 +237,12 @@ class _BehavioralSignalsMixin:
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        enriched = await enrich_habit_with_adherence(
+            self.backend, self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        )
+        if enriched.is_error:
+            return Result.fail(enriched)
+        habit = enriched.value
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
@@ -348,7 +361,12 @@ class _BehavioralSignalsMixin:
             return analysis_result
 
         analysis = analysis_result.value
-        habit = self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        enriched = await enrich_habit_with_adherence(
+            self.backend, self._to_domain_model(analysis["entity"], HabitDTO, Habit)
+        )
+        if enriched.is_error:
+            return Result.fail(enriched)
+        habit = enriched.value
         context: HabitCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
