@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-10-01
+updated: 2026-10-03
 status: current
 category: domains
 tags:
@@ -101,7 +101,6 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | `persist_path_with_steps(user_uid, path_params, steps_params)` | Create LP node (`:Entity:LearningPath`) + User relationship + step nodes (`:Entity:PathStep`) + PS→KU `USES_KU` edges from each step's `knowledge_uids` |
 | `entity_exists(uid)` | Simple existence check |
 | `get_steps_raw(path_uid, depth)` | Ordered steps as raw dicts |
-| `get_parent_path_raw(step_uid)` | Parent LP for a step |
 | `add_step_to_path(path_uid, step_uid, sequence, order)` | HAS_STEP creation (idempotent) |
 | `remove_step_from_path(path_uid, step_uid)` | HAS_STEP removal + reorder |
 | `reorder_steps(path_uid, step_uids)` | Batch step reordering |
