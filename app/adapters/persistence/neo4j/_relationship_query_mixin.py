@@ -191,6 +191,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         direction: Direction = "outgoing",
         limit: int = 100,
         properties: dict[str, Any] | None = None,
+        include_withheld: bool = False,
     ) -> Result[builtins.list[str]]:
         """
         Get UIDs of related entities via graph edge traversal.
@@ -213,6 +214,9 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 - "both": (n)-[:TYPE]-(related) - All connections regardless of direction,
             limit: Max results to return (default 100)
             properties: Optional dict of relationship properties to filter by
+            include_withheld: Also return the uids the far-node scope withholds.
+                For arithmetic only — a caller that decides readiness from every
+                edge and names none of the withheld uids in what it returns.
 
         Returns:
             Result[List[str]] of related entity UIDs from graph traversal. Through an
@@ -290,8 +294,10 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 where_clauses.append(f"r.{key} = ${param_name}")
                 params[param_name] = value
 
-        owners_line, far_node, far_node_params = self._link_far_node_scope(
-            self.label, relationship_type
+        owners_line, far_node, far_node_params = (
+            ("", "", {})
+            if include_withheld
+            else self._link_far_node_scope(self.label, relationship_type)
         )
         if far_node:
             where_clauses.append(far_node)

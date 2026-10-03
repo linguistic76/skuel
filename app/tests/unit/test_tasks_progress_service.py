@@ -179,7 +179,7 @@ async def test_check_prerequisites_missing_knowledge(
     mock_backend.get.return_value = Result.ok(blocked_task.to_dto().to_dict())
 
     # Mock prerequisite knowledge relationships (user doesn't have ku.python.async)
-    async def mock_get_related(uid, rel_type, direction):
+    async def mock_get_related(uid, rel_type, direction, include_withheld=False):
         if rel_type == "REQUIRES_KNOWLEDGE":
             return Result.ok(["ku.python.async"])
         return Result.ok([])
@@ -197,6 +197,44 @@ async def test_check_prerequisites_missing_knowledge(
 
 
 @pytest.mark.asyncio
+async def test_a_withheld_prerequisite_blocks_and_is_not_named(
+    progress_service, mock_backend, blocked_task, user_context
+):
+    """Readiness is decided from every prerequisite edge; only the prerequisites the
+    owner may be shown are named."""
+    mock_backend.get.return_value = Result.ok(blocked_task.to_dto().to_dict())
+
+    async def mock_get_related(uid, rel_type, direction, include_withheld=False):
+        if rel_type == "REQUIRES_KNOWLEDGE":
+            return Result.ok(["ku.shown", "ku.draft"] if include_withheld else ["ku.shown"])
+        if rel_type == "BLOCKED_BY":
+            return Result.ok(["task:theirs"] if include_withheld else [])
+        return Result.ok([])
+
+    mock_backend.get_related_uids = AsyncMock(side_effect=mock_get_related)
+    user_context.prerequisites_completed = {"ku.shown"}
+
+    result = await progress_service.check_prerequisites("task:blocked", user_context)
+
+    assert result.is_ok
+    assert result.value == {"can_start": False, "missing_knowledge": [], "incomplete_tasks": []}
+
+
+@pytest.mark.asyncio
+async def test_a_failed_prerequisite_read_is_not_reported_as_ready(
+    progress_service, mock_backend, blocked_task, user_context
+):
+    mock_backend.get.return_value = Result.ok(blocked_task.to_dto().to_dict())
+    mock_backend.get_related_uids = AsyncMock(
+        return_value=Result.fail(Errors.database(operation="get_related_uids", message="down"))
+    )
+
+    result = await progress_service.check_prerequisites("task:blocked", user_context)
+
+    assert result.is_error
+
+
+@pytest.mark.asyncio
 async def test_check_prerequisites_incomplete_tasks(
     progress_service, mock_backend, blocked_task, user_context
 ):
@@ -205,7 +243,7 @@ async def test_check_prerequisites_incomplete_tasks(
     mock_backend.get.return_value = Result.ok(blocked_task.to_dto().to_dict())
 
     # Mock prerequisite task relationships (user hasn't completed task:123)
-    async def mock_get_related(uid, rel_type, direction):
+    async def mock_get_related(uid, rel_type, direction, include_withheld=False):
         if rel_type == "BLOCKED_BY":
             return Result.ok(["task:123"])
         return Result.ok([])

@@ -383,6 +383,7 @@ class GraphRelationshipOperations(Protocol):
         direction: Direction = "outgoing",
         limit: int = 100,
         properties: Neo4jProperties | None = None,
+        include_withheld: bool = False,
     ) -> ResultType[builtins.list[str]]:
         """Get UIDs of related entities via specific relationship type.
 
@@ -392,6 +393,10 @@ class GraphRelationshipOperations(Protocol):
             direction: "outgoing", "incoming", or "both"
             limit: Max results to return (default 100)
             properties: Optional dict of relationship properties to filter by
+            include_withheld: Also return the related entities a reader may not be
+                shown (another user's, or draft curriculum, across an edge from the
+                caller's own activity). For arithmetic only: a caller that passes it
+                names none of the withheld uids in what it returns.
 
         Returns:
             Result[list[str]] - List of related entity UIDs
@@ -1091,6 +1096,7 @@ class RelationshipQueryOperations(Protocol):
         direction: Direction = "outgoing",
         limit: int = 100,
         properties: Neo4jProperties | None = None,
+        include_withheld: bool = False,
     ) -> ResultType[builtins.list[str]]:
         """Get UIDs of related entities via graph edge traversal."""
         ...

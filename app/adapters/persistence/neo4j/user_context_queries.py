@@ -863,8 +863,10 @@ WITH user, enrolled_path_uids, paths_rich,
 // label-derived type, never by UID prefix (ADR-013 never-sniff rule);
 // rel_type rides along so consumers can separate composition (USES_KU/
 // TRAINS_KU/CONTAINS_KNOWLEDGE) from prerequisite/enabled neighbors.
+// The composition edges are the step's own contents and ride along with the step the
+// learner holds; a prerequisite or enabled neighbour is other curriculum, and is tied.
 OPTIONAL MATCH (ps)-[ps_ku_r:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE]->(ps_ku:Entity)
-WHERE ps IS NOT NULL
+WHERE ps IS NOT NULL AND (NOT type(ps_ku_r) IN ['REQUIRES_KNOWLEDGE', 'ENABLES_KNOWLEDGE'] OR __FAR(ps_ku)__)
 WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits, ps_tasks,
      collect(DISTINCT CASE WHEN ps_ku IS NOT NULL THEN {uid: ps_ku.uid, title: ps_ku.title, domain: ps_ku.domain, entity_type: ps_ku.entity_type, rel_type: type(ps_ku_r)} END) as ps_knowledge

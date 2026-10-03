@@ -79,7 +79,8 @@ CONTROL = {label: uid.replace("_foreign", "_control") for label, uid in FOREIGN.
 
 KU = "ku.nb2e.linked"
 KU_REQUIRING = "ku.nb2e.requiring"
-KNOWLEDGE_UIDS = (KU, KU_REQUIRING)
+STEP = "ps.nb2e.in-progress"
+KNOWLEDGE_UIDS = (KU, KU_REQUIRING, STEP)
 
 # (own label, edge, far label, direction: own->far unless "in") — the edges the link
 # doors write, each seeded to the FOREIGN and to the CONTROL entity of the far label.
@@ -106,6 +107,7 @@ KU_EDGES = (
     ("Goal", "REQUIRES_KNOWLEDGE"),
     ("Habit", "REINFORCES_KNOWLEDGE"),
     ("Principle", "GROUNDED_IN_KNOWLEDGE"),
+    ("Task", "REQUIRES_KNOWLEDGE"),
 )
 
 # The routes the old readers rendered another user's title on. Each must still render
@@ -242,6 +244,21 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
             u=CALLER,
             k=KU_REQUIRING,
         )
+        # A step the caller is working on names the linked Ku as a prerequisite — other
+        # curriculum, not the step's own contents.
+        await session.run(
+            """
+            MATCH (u:User {uid: $u}), (k:Ku {uid: $k})
+            MERGE (s:Entity:PathStep {uid: $s})
+            SET s.title = 'nb2e in-progress step', s.entity_type = 'path_step',
+                s.created_at = datetime(), s.updated_at = datetime()
+            MERGE (u)-[:IN_PROGRESS]->(s)
+            MERGE (s)-[:REQUIRES_KNOWLEDGE]->(k)
+            """,
+            u=CALLER,
+            k=KU,
+            s=STEP,
+        )
     for label, uid in OWN.items():
         await _seed_activity(driver, label, uid, CALLER, f"caller-owned {label}")
     for label, uid in FOREIGN.items():
@@ -332,6 +349,16 @@ async def _rich_context(skuel_app: Any) -> str:
     return repr(result.value)
 
 
+async def _readiness(skuel_app: Any) -> dict[str, Any]:
+    """Whether the caller's task may start — it REQUIRES_KNOWLEDGE the linked Ku."""
+    services = skuel_app.state.services
+    context = await services.user.context_builder.build_rich(CALLER)
+    assert context.is_ok, context
+    result = await services.tasks.check_prerequisites(OWN["Task"], context.value)
+    assert result.is_ok, result
+    return dict(result.value)
+
+
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
 async def crawl(http: httpx.AsyncClient) -> Crawl:
     """One pass over every read route with each of the caller's own uids, Ku published."""
@@ -379,8 +406,15 @@ async def test_a_linked_ku_reverted_to_draft_is_hidden_and_republished_is_back(
         assert KU_MARK not in drafted
         # The same readers still reach the caller's own linked entity.
         assert [p for p in READER_ROUTES if p in readers and not hidden.control.get(p)] == []
+        # Hidden is not met: the task still waits on the prerequisite it cannot name.
+        assert await _readiness(skuel_app) == {
+            "can_start": False,
+            "missing_knowledge": [],
+            "incomplete_tasks": [],
+        }
 
         await _set_publication(graph, PublicationState.PUBLISHED)
+        assert (await _readiness(skuel_app))["missing_knowledge"] == [KU]
         restored = await _crawl(http, readers)
         assert sorted(restored.knowledge) == readers
         assert KU in await _rich_context(skuel_app)
