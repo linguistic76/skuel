@@ -66,7 +66,9 @@ GOAL = f"{_PREFIX}goal"
 KU = f"{_PREFIX}ku"
 FINISHED = f"{_PREFIX}habit_finished"
 OFF_CADENCE = f"{_PREFIX}habit_weekends"
-ALL_HABITS = (KEPT, BULK, YOUNG, QUARTERLY, DROPPED, FINISHED, OFF_CADENCE)
+RESTARTED = f"{_PREFIX}habit_restarted"
+NOT_STARTED = f"{_PREFIX}habit_not_started"
+ALL_HABITS = (KEPT, BULK, YOUNG, QUARTERLY, DROPPED, FINISHED, OFF_CADENCE, RESTARTED, NOT_STARTED)
 
 TODAY = today_in(current_zone())
 KEPT_RATE = 28 / HabitConsistencyWindow.DAYS
@@ -97,6 +99,10 @@ EXPECTED = {
     # so the days after it ask nothing: 20 / 20.
     FINISHED: 1.0,
     OFF_CADENCE: OFF_CADENCE_RATE,
+    # Created forty days ago, started two days ago, kept on all three days since: 1.0.
+    RESTARTED: 1.0,
+    # Created ten days ago, starts tomorrow: nothing is due yet.
+    NOT_STARTED: None,
 }
 
 
@@ -127,6 +133,7 @@ async def _create_habit(
     created: int,
     pattern: RecurrencePattern,
     ends: date | None = None,
+    starts: date | None = None,
 ) -> None:
     with _on(_days_ago(created)):
         result = await habits.create(
@@ -138,6 +145,7 @@ async def _create_habit(
                 status=EntityStatus.ACTIVE,
                 recurrence_pattern=pattern,
                 recurrence_end_date=ends,
+                started_at=_noon(starts) if starts is not None else None,
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )
@@ -195,6 +203,11 @@ async def services(skuel_app) -> AsyncIterator[_Composed]:
     for n in range(10, 30):
         with _on(_days_ago(n)):
             assert (await doors.record_completion(FINISHED, _USER)).is_ok
+    await _create_habit(habits, RESTARTED, created=40, pattern=daily, starts=_days_ago(2))
+    for n in range(3):
+        with _on(_days_ago(n)):
+            assert (await doors.record_completion(RESTARTED, _USER)).is_ok
+    await _create_habit(habits, NOT_STARTED, created=10, pattern=daily, starts=_days_ago(-1))
     assert MISSED_WEEKEND, "the premise: a weekend before the weekday completion was missed"
     await _create_habit(habits, OFF_CADENCE, created=40, pattern=RecurrencePattern.WEEKENDS)
     for day in [*sorted(KEPT_WEEKEND), LAST_WEEKDAY]:

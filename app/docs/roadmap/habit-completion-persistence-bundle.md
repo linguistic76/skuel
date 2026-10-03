@@ -282,9 +282,12 @@ not this bundle's work: it shipped ahead of it. What it is now:
   its period for weekly 7, biweekly 14, monthly 31, quarterly 92, yearly 366, custom ⌈7 /
   target⌉; one-time never — measured from `last_kept_day`, the latest day up to today it was
   kept *on its cadence* (window completions and the stored `last_completed`; a weekend habit's
-  weekday completion and a future stamp are no anchor), or from the day before creation), or its
+  weekday completion and a future stamp are no anchor) or from the day before the habit's
+  start, whichever is later), or its
   rate is under `HabitAtRisk.RATE_THRESHOLD` (0.5) once the measured span asked for at least
-  `HabitAtRisk.MIN_EXPECTED` (3) completions. A habit with no rate is judged on lateness alone. A
+  `HabitAtRisk.MIN_EXPECTED` (3) completions. A habit's span and lateness start at its
+  `inception_day` — `started_at`, else `created_at`, the calendar's own inception. A habit with no
+  rate is judged on lateness alone. A
   habit whose `recurrence_end_date` is before today is never at risk, and its rate is measured
   only up to that end (the user-context rows and the ZPD statement project the end, status and
   `last_completed`). The stored streak plays no part — it never decays. Called by the user-context populator,

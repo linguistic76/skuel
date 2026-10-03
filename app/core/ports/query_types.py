@@ -1551,7 +1551,9 @@ class HabitAdherenceRow(TypedDict):
         recurrence_pattern: The stored ``RecurrencePattern`` value, or None
         target_days_per_week: The custom-frequency target, or None
         created_at: The habit's stored creation stamp, in whatever shape the
-            node holds it (``creation_day`` reads every one), or None
+            node holds it (``inception_day`` reads every one), or None
+        started_at: The habit's stored start, any shape, or None — its
+            inception when present (``inception_day``)
         status: The habit's stored status (``habit_at_risk`` judges active ones)
         last_completed: The habit's stored last completion, any shape, or None
         recurrence_end_date: The last day of its schedule, any shape, or None
@@ -1563,6 +1565,7 @@ class HabitAdherenceRow(TypedDict):
     recurrence_pattern: str | None
     target_days_per_week: int | None
     created_at: object
+    started_at: object
     status: str | None
     last_completed: object
     recurrence_end_date: object

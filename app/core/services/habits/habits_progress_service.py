@@ -17,7 +17,7 @@ from operator import attrgetter
 from typing import Any
 
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
-from core.models.habit.adherence import creation_day, habit_adherence
+from core.models.habit.adherence import habit_adherence, inception_day
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -499,7 +499,7 @@ class HabitsProgressService:
             habit.recurrence_pattern,
             habit.target_days_per_week,
             [day_of(c.completed_at, zone) for c in completions],
-            created_on=creation_day(habit.created_at, zone),
+            started_on=inception_day(habit.started_at, habit.created_at, zone),
             ends_on=habit.recurrence_end_date,
             today=as_of_date,
         )

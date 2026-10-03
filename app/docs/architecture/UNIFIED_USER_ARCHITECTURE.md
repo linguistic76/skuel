@@ -307,7 +307,7 @@ active habit's `:HabitCompletion` stamps in the trailing 30-day window (`HABIT_A
 the rich path, `CONSOLIDATED_QUERY`'s `habit_data` on the standard one, one Cypher fragment in
 `query/cypher/habit_fragments.py`), and the populator turns each habit's completion days into its adherence
 with `core/models/habit/adherence.py::habit_adherence` — completions over what the habit's
-frequency expects in the window, cut short at the habit's creation day and its schedule's end
+frequency expects in the window, cut short at the habit's start (`inception_day`: `started_at`, else `created_at`) and its schedule's end
 (`recurrence_end_date`), at most 1.0. The rich path's `at_risk_habits` is judged from the same
 rows (`habit_at_risk`: they also carry status and `last_completed`). A habit with
 no rate (quarterly, yearly, one-time, or nothing due yet) is left out of the map, so it is never

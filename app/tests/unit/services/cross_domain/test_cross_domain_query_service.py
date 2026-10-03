@@ -256,6 +256,7 @@ def _habit_record(
         "recurrence_pattern": pattern,
         "target_days_per_week": None,
         "created_at": stamp(90),
+        "started_at": None,
         "last_completed": stamp(last_done_days_ago) if last_done_days_ago is not None else None,
         "recurrence_end_date": None,
         "completion_stamps": [stamp(n) for n in done_days_ago],

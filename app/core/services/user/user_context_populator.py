@@ -25,9 +25,9 @@ from core.models.enums import (
 )
 from core.models.habit.adherence import (
     completion_days,
-    creation_day,
     habit_adherence,
     habit_at_risk,
+    inception_day,
     last_kept_day,
     stamp_day,
 )
@@ -62,7 +62,7 @@ def habit_adherence_rates(rows: Iterable[HabitAdherenceRow]) -> dict[str, float]
             row["recurrence_pattern"],
             row["target_days_per_week"],
             completion_days(row["completion_stamps"], zone),
-            created_on=creation_day(row["created_at"], zone),
+            started_on=inception_day(row["started_at"], row["created_at"], zone),
             ends_on=day_named(row["recurrence_end_date"], zone),
             today=today,
         )
@@ -95,7 +95,7 @@ def habits_at_risk(rows: Iterable[HabitAdherenceRow], rates: dict[str, float]) -
                 last_completed_on=stamp_day(row["last_completed"], zone),
                 today=today,
             ),
-            created_on=creation_day(row["created_at"], zone),
+            started_on=inception_day(row["started_at"], row["created_at"], zone),
             ends_on=day_named(row["recurrence_end_date"], zone),
             today=today,
         ):

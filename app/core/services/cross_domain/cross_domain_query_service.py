@@ -31,9 +31,9 @@ from core.models.enums.principle_enums import AlignmentLevel
 from core.models.habit.adherence import (
     adherence_window_days,
     completion_days,
-    creation_day,
     habit_adherence,
     habit_at_risk,
+    inception_day,
     last_kept_day,
     stamp_day,
 )
@@ -303,13 +303,13 @@ class CrossDomainQueryService:
                 continue
             pattern = record["recurrence_pattern"]
             days = completion_days(record["completion_stamps"], zone)
-            created_on = creation_day(record["created_at"], zone)
+            started_on = inception_day(record["started_at"], record["created_at"], zone)
             ends_on = day_named(record["recurrence_end_date"], zone)
             rate = habit_adherence(
                 pattern,
                 record["target_days_per_week"],
                 days,
-                created_on=created_on,
+                started_on=started_on,
                 ends_on=ends_on,
                 today=today,
             )
@@ -329,7 +329,7 @@ class CrossDomainQueryService:
                             last_completed_on=stamp_day(record["last_completed"], zone),
                             today=today,
                         ),
-                        created_on=created_on,
+                        started_on=started_on,
                         ends_on=ends_on,
                         today=today,
                     ),

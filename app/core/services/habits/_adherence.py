@@ -25,9 +25,9 @@ from typing import TYPE_CHECKING, NamedTuple
 from core.models.habit.adherence import (
     adherence_window_days,
     completion_days,
-    creation_day,
     habit_adherence,
     habit_at_risk,
+    inception_day,
     last_kept_day,
     stamp_day,
 )
@@ -88,7 +88,7 @@ async def adherence_readings(
                 habit.recurrence_pattern,
                 habit.target_days_per_week,
                 days,
-                created_on=creation_day(habit.created_at, zone),
+                started_on=inception_day(habit.started_at, habit.created_at, zone),
                 ends_on=habit.recurrence_end_date,
                 today=today,
             ),
@@ -153,7 +153,7 @@ def habit_is_at_risk(habit: Habit, reading: AdherenceReading, zone: tzinfo) -> b
         habit.target_days_per_week,
         rate=reading.rate,
         last_kept_on=reading.last_kept_on,
-        created_on=creation_day(habit.created_at, zone),
+        started_on=inception_day(habit.started_at, habit.created_at, zone),
         ends_on=habit.recurrence_end_date,
         today=today_in(zone),
     )
