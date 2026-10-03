@@ -57,7 +57,6 @@ def sample_habit() -> Habit:
         current_streak=5,
         best_streak=10,
         total_completions=15,
-        total_attempts=20,
         success_rate=0.75,
         status=HabitStatus.ACTIVE,
         priority=Priority.HIGH,

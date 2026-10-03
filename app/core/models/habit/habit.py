@@ -4,10 +4,10 @@ Habit - Habit Domain Model
 
 Frozen dataclass for habit entities (EntityType.HABIT).
 
-Inherits common fields from UserOwnedEntity. Adds 31 habit-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 30 habit-specific fields:
 - Classification (3): polarity, habit_category, habit_difficulty
-- Streak Tracking (6): current_streak, best_streak, total_completions,
-  total_attempts, success_rate (derived at read), last_completed
+- Streak Tracking (5): current_streak, best_streak, total_completions,
+  success_rate (derived at read), last_completed
 - Atomic Habits / Behavior Design (3): cue, routine, reward
 - Identity (5): reinforces_identity, identity_votes_cast, is_identity_habit,
   target_identity, identity_evidence_required
@@ -18,9 +18,12 @@ Inherits common fields from UserOwnedEntity. Adds 31 habit-specific fields:
 - Cross-domain links (1): source_path_step_uid
 - Flags (1): curriculum_practice_type
 
-Habit-specific methods: calculate_consistency_score, is_keystone, should_do_today,
-get_effort_score, is_identity_based, predict_goal_impact, get_atomic_habits_analysis,
-get_summary, explain_existence, category, from_dto.
+Habit-specific methods: should_do_today, get_effort_score, is_identity_based,
+get_atomic_habits_analysis, get_summary, explain_existence, category, from_dto.
+
+A keystone habit (the list filter, the stats chip, the scheduler's HIGH priority
+and OPTIMAL_TIME strategy, the 7-streak keystone effects) IS an identity habit —
+readers read ``is_identity_habit``; there is no second predicate.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -80,7 +83,6 @@ class Habit(UserOwnedEntity):
     current_streak: int = 0
     best_streak: int = 0
     total_completions: int = 0
-    total_attempts: int = 0
     # DERIVED AT READ — never a node property. The habit's adherence now
     # (core.models.habit.adherence.habit_adherence): its completions in the
     # trailing window over what its cadence expects there. A stored number goes
@@ -174,24 +176,6 @@ class Habit(UserOwnedEntity):
         """Check if habit is active (status == ACTIVE)."""
         return self.status == EntityStatus.ACTIVE
 
-    def calculate_consistency_score(self) -> float:
-        """Calculate habit consistency based on streak and success rate.
-
-        ⚠ No writer sets ``total_attempts``, so this is 0.0 for every habit and
-        ``is_keystone`` reduces to ``is_identity_habit`` — registered in
-        ``docs/roadmap/habit-completion-persistence-bundle.md``.
-        """
-        if self.total_attempts == 0 or self.success_rate is None:
-            return 0.0
-        streak_factor = min(1.0, self.current_streak / 30.0)
-        rate_factor = self.success_rate
-        return streak_factor * 0.4 + rate_factor * 0.6
-
-    @property
-    def is_keystone(self) -> bool:
-        """Check if this is a keystone habit (high impact)."""
-        return self.is_identity_habit or self.calculate_consistency_score() >= 0.8
-
     def should_do_today(self) -> bool:
         """Check if a habit should be done today."""
         if not self.is_active:
@@ -222,12 +206,6 @@ class Habit(UserOwnedEntity):
     def is_identity_based(self) -> bool:
         """Check if this is an identity-based habit."""
         return self.is_identity_habit
-
-    def predict_goal_impact(self) -> float:
-        """Predict this habit's impact on linked goals (0.0-1.0)."""
-        consistency = self.calculate_consistency_score()
-        effort = self.get_effort_score()
-        return min(1.0, (consistency * 0.7) + (effort * 0.3))
 
     def get_atomic_habits_analysis(self) -> dict[str, Any]:
         """Get Atomic Habits analysis for this habit.
@@ -273,7 +251,6 @@ class Habit(UserOwnedEntity):
                 # GRAPH-NATIVE: conservative placeholder — HabitsPatternService
                 # overwrites from live SUPPORTS_GOAL edges before pattern extraction
                 "part_of_system": False,
-                "consistency_score": self.calculate_consistency_score(),
                 # GRAPH-NATIVE: placeholder — filled by HabitsPatternService (graph truth)
                 "supports_goal_count": 0,
             },

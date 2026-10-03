@@ -39,9 +39,9 @@ class HabitDTO(UserOwnedDTO):
     """
     Mutable DTO for habits (EntityType.HABIT).
 
-    Extends UserOwnedDTO with 30 habit-specific fields:
+    Extends UserOwnedDTO with 29 habit-specific fields:
     - Classification (3): polarity, habit_category, habit_difficulty
-    - Streak (5): current_streak, best_streak, total_completions, total_attempts, last_completed
+    - Streak (4): current_streak, best_streak, total_completions, last_completed
       (``Habit.success_rate`` is derived at read and never stored)
     - Atomic (3): cue, routine, reward
     - Identity (5): reinforces_identity, identity_votes_cast, is_identity_habit, target_identity, identity_evidence_required
@@ -68,7 +68,6 @@ class HabitDTO(UserOwnedDTO):
     current_streak: int = 0
     best_streak: int = 0
     total_completions: int = 0
-    total_attempts: int = 0
     last_completed: datetime | None = None
 
     # =========================================================================
@@ -251,7 +250,6 @@ class HabitDTO(UserOwnedDTO):
                 "current_streak",
                 "best_streak",
                 "total_completions",
-                "total_attempts",
                 "last_completed",
                 "cue",
                 "routine",

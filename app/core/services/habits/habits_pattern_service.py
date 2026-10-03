@@ -158,13 +158,14 @@ class HabitsPatternService:
                 }
             )
 
-        # Pattern 5: System integration
+        # Pattern 5: System integration — "effective" is a claim about adherence, so
+        # the confidence is the habit's rate, and a habit with no rate yet shows no pattern
         system = analysis["system_contribution"]
-        if system["part_of_system"]:
+        if system["part_of_system"] and quality["success_rate"] is not None:
             patterns.append(
                 {
                     "pattern": f"Part of goal system ({system['supports_goal_count']} goals)",
-                    "confidence": system["consistency_score"],
+                    "confidence": quality["success_rate"],
                     "recommendation": "Systems-based approach is effective",
                 }
             )

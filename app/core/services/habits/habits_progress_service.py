@@ -261,8 +261,8 @@ class HabitsProgressService:
         if quality_score >= 4 and rels.knowledge_reinforcement_uids:
             self._reinforce_knowledge(rels.knowledge_reinforcement_uids, 0.05)  # 5% mastery boost
 
-        # 3. Check keystone habit effects
-        if habit.is_keystone and new_streak >= 7:
+        # 3. Keystone habit effects — a keystone habit is an identity habit
+        if habit.is_identity_habit and new_streak >= 7:
             self._trigger_keystone_effects(habit_uid, user_context)
 
         # Context invalidation happens via HabitCompleted/HabitStreakBroken/HabitStreakMilestone events (event-driven architecture)
@@ -426,7 +426,7 @@ class HabitsProgressService:
             "consistency_30d": consistency_30d,
             "total_completions": habit.total_completions,
             "average_quality": recent_quality,
-            "is_keystone": habit.is_keystone,
+            "is_keystone": habit.is_identity_habit,
             "streak_risk": habit.current_streak > 0
             and habit_uid in user_context.at_risk_habits_or_empty(),
             "supports_goals": len(rels.linked_goal_uids),

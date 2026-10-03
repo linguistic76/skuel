@@ -113,8 +113,8 @@ async def analyze_habit_performance(
         "knowledge_reinforced": [{"uid": "ku.python-basics"}, ...],
         "supporting_goals": [{"uid": "goal_001"}, ...],
         "streak_score": 0.85,
-        "reinforcement_effectiveness": 6.8,
-        "consistency_score": 0.85,
+        "reinforcement_effectiveness": 3.4,   # knowledge areas × adherence; None = no rate yet
+        "success_rate": 0.85,                 # the derived adherence (None = no rate yet)
         "total_knowledge_areas": 4,
         "total_goals_supported": 2
     },
@@ -149,7 +149,8 @@ if result.is_ok:
     print(f"Streak: {perf['streak_score']:.0%}")
     print(f"Reinforces {perf['total_knowledge_areas']} knowledge areas")
     print(f"Supports {perf['total_goals_supported']} goals")
-    print(f"Consistency: {perf['consistency_score']:.0%}")
+    if perf["success_rate"] is not None:
+        print(f"Adherence: {perf['success_rate']:.0%}")
 
     if analysis["insights"]["high_reinforcement"]:
         print("This is a highly effective learning habit!")
@@ -164,9 +165,10 @@ if result.is_ok:
 
 **Performance Metrics Calculation:**
 - `streak_score` = current_streak / best_streak (0.0-1.0)
-- `consistency_score` = habit.calculate_consistency_score()
-- `reinforcement_effectiveness` = knowledge_count × consistency_score
-- `high_reinforcement` = reinforcement_effectiveness > 5.0
+- `success_rate` = `habit.success_rate`, the derived adherence (`None` = no rate yet)
+- `reinforcement_effectiveness` = knowledge_count × success_rate (`None` with no rate)
+- `high_reinforcement` = reinforcement_effectiveness > 5.0 (False with no rate)
+- `maintain_consistency` = success_rate < 0.7, measured only
 
 ---
 
@@ -245,7 +247,7 @@ if result.is_ok:
 
 **Practice Effectiveness Calculation:**
 ```
-base_score = consistency × 5.0
+base_score = success_rate × 5.0          # absent (0) when the habit has no rate yet
 knowledge_bonus = min(3.0, knowledge_count × 0.5)
 streak_bonus = min(2.0, (streak / 30.0) × 2.0)
 practice_effectiveness = base_score + knowledge_bonus + streak_bonus
@@ -286,11 +288,11 @@ async def get_habit_goal_support(
             {
                 "goal_uid": "goal_001",
                 "goal_title": "goal_001",
-                "contribution_strength": 1.7,
-                "estimated_impact": "high"
+                "contribution_strength": 1.7,   # adherence × 2; None = no rate yet
+                "estimated_impact": "high"      # "unknown" with no rate
             }
         ],
-        "alignment_score": 6.8,
+        "alignment_score": 3.4,                 # goals × 2 × adherence; None = no rate yet
         "total_goals_supported": 2,
         "primary_goal": {"uid": "goal_001"}
     },
@@ -339,21 +341,25 @@ if result.is_ok:
 
 **Goal Contribution Calculation:**
 ```
-contribution_strength = consistency_score × 2.0  # 0-2 scale
-estimated_impact = "high"   if consistency > 0.7
-                 | "medium" if consistency > 0.4
-                 | "low"    otherwise
+rate = habit.success_rate                 # the derived adherence; None = no rate yet
+contribution_strength = rate × 2.0        # 0-2 scale; None with no rate
+estimated_impact = "unknown" if rate is None
+                 | "high"    if rate > 0.7
+                 | "medium"  if rate > 0.4
+                 | "low"     otherwise
 ```
 
 **Alignment Score Calculation:**
 ```
-alignment_score = min(10.0, goal_count × 2.0 × consistency_score)
+alignment_score = min(10.0, goal_count × 2.0 × rate)   # None with no rate
 ```
 
 **Impact Analysis:**
-- `high_impact` = alignment_score > 7.0
+- `high_impact` = alignment_score > 7.0 (False with no rate)
 - `goal_aligned` = has_goal_connection (from metrics)
-- `consistency_matters` = consistency_score > 0.7
+- `consistency_matters` = rate > 0.7 (False with no rate)
+- recommendations `increase_frequency` (rate < 0.5) and `maintain_consistency` (rate ≥ 0.7)
+  read a measured rate only
 
 ---
 
@@ -524,16 +530,15 @@ HabitsIntelligenceService excels at **analyzing consistency patterns** through:
 - `best_streak` - All-time highest streak
 - `streak_score` - Current vs best (0.0-1.0)
 
-**Consistency Calculation:**
+**Consistency Is the Derived Adherence:**
 ```python
-consistency_score = habit.calculate_consistency_score()
-# 0.4 × min(streak / 30, 1) + 0.6 × success_rate — but gated on total_attempts,
-# which no writer sets, so it is 0.0 for every habit today
+rate = habit.success_rate
+# completions in the trailing window over what the cadence expects there
+# (core/models/habit/adherence.py); None when the habit has no rate yet
 ```
-⚠ That gate is a registered residual (`/docs/roadmap/habit-completion-persistence-bundle.md`,
-read-side residuals): every reader of the score here reads 0.0. The habit's adherence itself is
-`Habit.success_rate` — derived at read from its window completions, `None` when it has no rate
-yet (`core/models/habit/adherence.py`).
+There is no second consistency score: every formula in this service reads the rate, and a habit
+with no rate yet gets `None` (or "unknown"), never 0.0. A keystone habit is an identity habit
+(`is_identity_habit`); nothing else promotes one.
 
 **Pattern Detection:**
 - At risk is one definition, `habit_at_risk`: an active habit overdue for its own cadence, or with
@@ -570,8 +575,8 @@ total_effectiveness = base_score + knowledge_bonus + streak_bonus  # 0-10
 
 **Contribution Metrics:**
 ```
-contribution_strength = consistency × 2.0  # 0-2 scale per goal
-alignment_score = goal_count × 2.0 × consistency  # 0-10 overall
+contribution_strength = success_rate × 2.0  # 0-2 scale per goal; None with no rate
+alignment_score = goal_count × 2.0 × success_rate  # 0-10 overall; None with no rate
 ```
 
 **Criticality Classification:**

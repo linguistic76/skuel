@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock
 import pytest
 from neo4j.exceptions import ServiceUnavailable
 
+from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.habit.habit import Habit
 from core.services.habits.habits_pattern_service import HabitsPatternService
 from core.utils.result_simplified import Errors, Result
@@ -200,3 +201,42 @@ async def test_a_habit_with_no_rate_shows_neither_rate_pattern() -> None:
     assert result.is_ok
     texts = _pattern_texts(result.value.success_patterns + result.value.failure_patterns)
     assert not any("success rate" in p for p in texts)
+
+
+@pytest.mark.asyncio
+async def test_goal_system_pattern_confidence_is_the_adherence_rate() -> None:
+    """Pattern 5's confidence is the habit's derived rate — 24 of 30 days kept reads 0.8.
+
+    Pre-HA-3 it was ``calculate_consistency_score()``, 0.0 for every habit.
+    """
+    service = _service(_RelationshipsStub(Result.ok(["goal_1", "goal_2"])))
+
+    result = await service.analyze_patterns(HABIT_UID, USER_UID)
+
+    assert result.is_ok
+    system = [
+        p for p in result.value.success_patterns if "Part of goal system" in str(p["pattern"])
+    ]
+    assert len(system) == 1
+    assert system[0]["confidence"] == pytest.approx(0.8)
+
+
+@pytest.mark.asyncio
+async def test_goal_system_pattern_needs_a_rate() -> None:
+    """A habit with no rate yet shows no system pattern — "effective" is a claim about
+    adherence, and there is none to make it on. A weekly habit created today has had
+    nothing due (``expected_completions`` rounds a partial period down to 0)."""
+    young = _habit(
+        created_at=as_stored_clock(local_day_bounds(today_in(current_zone()), current_zone())[0]),
+        recurrence_pattern=RecurrencePattern.WEEKLY,
+    )
+    service = _service(
+        _RelationshipsStub(Result.ok(["goal_1", "goal_2"])), habit=young, done_days_ago=[0]
+    )
+
+    result = await service.analyze_patterns(HABIT_UID, USER_UID)
+
+    assert result.is_ok
+    assert not any(
+        "Part of goal system" in p for p in _pattern_texts(result.value.success_patterns)
+    )

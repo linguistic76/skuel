@@ -7,8 +7,7 @@ via ``HAS_HABIT_TEMPLATE``. Spawns a Habit instance when the owning PS is
 engaged.
 
 Excludes per-user state (current_streak, best_streak, total_completions,
-total_attempts, success_rate, last_completed, started_at, completed_at,
-identity_votes_cast). HabitTemplate is Layer 0 in the spawn order — no
+success_rate, last_completed, started_at, completed_at, identity_votes_cast). HabitTemplate is Layer 0 in the spawn order — no
 cross-template references.
 """
 

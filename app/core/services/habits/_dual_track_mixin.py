@@ -168,12 +168,9 @@ class _DualTrackMixin:
             streak_factor = -0.1
             evidence.append("Streak recently broken")
 
-        # Calculate consistency score from Habit model
-        consistency_score = habit.calculate_consistency_score()
-
         # Final score: weighted combination — the rate term only when measured
         rate_term = success_rate * 0.6 if success_rate is not None else 0.0
-        score = min(1.0, rate_term + (consistency_score * 0.3) + streak_factor + 0.1)
+        score = min(1.0, rate_term + streak_factor + 0.1)
 
         # Adjust for very new or not-yet-measurable habits (give benefit of doubt)
         if success_rate is None:

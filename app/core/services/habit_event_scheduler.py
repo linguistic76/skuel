@@ -491,9 +491,9 @@ class HabitEventScheduler:
                 event.recurrence_maintains_habit = True
                 event.skip_breaks_habit_streak = True
 
-                # Set priority based on habit importance (at_risk_habits is rich-context only)
+                # A keystone habit is an identity habit; at_risk_habits is rich-context only.
                 at_risk_habits = user_context.at_risk_habits_or_empty()
-                if habit.is_keystone or habit.uid in at_risk_habits:
+                if habit.is_identity_habit or habit.uid in at_risk_habits:
                     event.priority = Priority.HIGH
                 else:
                     event.priority = habit.priority or Priority.MEDIUM
@@ -610,8 +610,8 @@ class HabitEventScheduler:
         if habit.preferred_time is not None:
             return SchedulingStrategy.FIXED_TIME
 
-        # Keystone habits get optimal time
-        if habit.is_keystone:
+        # Keystone (identity) habits get optimal time
+        if habit.is_identity_habit:
             return SchedulingStrategy.OPTIMAL_TIME
 
         # Learning habits in the morning
