@@ -284,6 +284,15 @@ _HABITS_ORCHESTRATION = PlannedEntry(
     "or fold into relationship routes",
     since=date(2026, 6, 10),
 )
+_TASKS_LEARNING_METRICS = PlannedEntry(
+    Readiness.DELAYED,
+    "per-task learning-metrics surface staged (ruled keep-and-register 2026-10-03). "
+    "Before any wiring, decide whether it is worth building at all — nothing consumes "
+    "it and delete is still a valid outcome. If kept: both methods read every user's "
+    "tasks with no viewer, so they take user_uid and scope the read first, then wire a "
+    "route or an Askesis consumer",
+    since=date(2026, 10, 3),
+)
 _HABITS_INSIGHTS = PlannedEntry(
     Readiness.DELAYED,
     "habit analytics/AI insight surface staged; wire an insights UI or Askesis consumer",
@@ -867,6 +876,15 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # create_task_dependency + delete_task_dependency wired live: the task-detail
     # Dependencies section (GET/POST /tasks/{uid}/dependencies*) authors DEPENDS_ON.
     "core/services/tasks_service.py::create_semantic_knowledge_relationship": _TASKS_GRAVITY,
+    # --- Tasks: per-task learning metrics ---
+    "core/services/tasks_service.py::analyze_task_learning_metrics": _TASKS_LEARNING_METRICS,
+    "core/services/tasks_service.py::generate_task_knowledge_insights": _TASKS_LEARNING_METRICS,
+    "core/services/tasks/_productivity_mixin.py::analyze_task_learning_metrics": (
+        _TASKS_LEARNING_METRICS
+    ),
+    "core/services/tasks/_productivity_mixin.py::generate_task_knowledge_insights": (
+        _TASKS_LEARNING_METRICS
+    ),
     # --- PS: semantic write-path symmetry + inference lens ---
     "core/services/ps/ps_semantic_service.py::remove_semantic_relationship": (_PS_SEMANTIC_DELETE),
     "core/services/ps/ps_semantic_service.py::infer_relationships": _PS_SEMANTIC_INFER,
