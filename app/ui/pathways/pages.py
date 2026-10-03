@@ -373,7 +373,7 @@ def analytics_content(analytics: dict[str, Any]) -> Any:
     concepts_mastered = analytics.get("concepts_mastered", 0)
     in_progress = analytics.get("in_progress", 0)
     active_paths_count = analytics.get("active_paths_count", 0)
-    avg_retention = analytics.get("avg_retention", 0.0)
+    avg_retention = analytics.get("avg_retention")
 
     # The former "Learning Health" card is folded in here (SKUEL030 tranche 3):
     # two of its three tiles ("Needs Review", "Struggling") read analytics keys
@@ -394,7 +394,7 @@ def analytics_content(analytics: dict[str, Any]) -> Any:
                         StatItem(label="In Progress", value=str(in_progress), color="primary"),
                         StatItem(
                             label="Avg Retention",
-                            value=f"{avg_retention * 100:.0f}%",
+                            value="—" if avg_retention is None else f"{avg_retention * 100:.0f}%",
                             color="warning",
                         ),
                         StatItem(label="Active Paths", value=str(active_paths_count)),

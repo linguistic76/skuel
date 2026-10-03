@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -80,7 +81,8 @@ CONTROL = {label: uid.replace("_foreign", "_control") for label, uid in FOREIGN.
 KU = "ku.nb2e.linked"
 KU_REQUIRING = "ku.nb2e.requiring"
 STEP = "ps.nb2e.in-progress"
-KNOWLEDGE_UIDS = (KU, KU_REQUIRING, STEP)
+PATH = "lp.nb2e.path"
+KNOWLEDGE_UIDS = (KU, KU_REQUIRING, STEP, PATH)
 
 # (own label, edge, far label, direction: own->far unless "in") — the edges the link
 # doors write, each seeded to the FOREIGN and to the CONTROL entity of the far label.
@@ -138,6 +140,7 @@ _QUERY_NAMES = (
     "task_uid",
     "choice_uid",
     "entity_uid",
+    "path_uid",
 )
 
 
@@ -149,9 +152,12 @@ class Crawl:
     foreign: dict[str, set[str]] = field(default_factory=dict)
     control: dict[str, set[str]] = field(default_factory=dict)
     knowledge: set[str] = field(default_factory=set)
+    server_errors: dict[str, set[str]] = field(default_factory=dict)
 
-    def read(self, path: str, url: str, text: str) -> None:
+    def read(self, path: str, url: str, text: str, status: int, uid: str) -> None:
         self.requests += 1
+        if status >= 500:
+            self.server_errors.setdefault(path, set()).add(uid)
         found = set(re.findall(rf"{FOREIGN_MARK} \w+", text))
         found |= {uid for uid in FOREIGN.values() if uid in text}
         if found:
@@ -190,14 +196,18 @@ async def _seed_activity(driver: AsyncDriver, label: str, uid: str, owner: str, 
             MERGE (e:Entity:{label} {{uid: $uid}})
             SET e.title = $title, e.description = $title + ' description',
                 e.entity_type = $entity_type, e.status = 'active', e.user_uid = $owner,
-                e.recurrence_pattern = 'daily', e.event_date = date(), e.priority = 'medium',
-                e.created_at = datetime(), e.updated_at = datetime()
+                e.recurrence_pattern = 'daily', e.event_date = $today, e.priority = 'medium',
+                e.created_at = $now, e.updated_at = $now
             MERGE (u)-[:OWNS]->(e)
             """,
             uid=uid,
             owner=owner,
             title=title,
             entity_type=label.lower(),
+            # ISO text, as the mapper stores it — a native temporal would reach
+            # a JSON route as a value the app never writes.
+            today=datetime.now(UTC).date().isoformat(),
+            now=datetime.now(UTC).isoformat(),
         )
 
 
@@ -260,6 +270,19 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
             u=CALLER,
             k=KU,
             s=STEP,
+        )
+        # A learning path whose one step is that step — the step tree's root.
+        await session.run(
+            """
+            MATCH (s:PathStep {uid: $s})
+            MERGE (p:Entity:LearningPath {uid: $p})
+            SET p.title = 'nb2e path', p.entity_type = 'learning_path',
+                p.created_at = '2000-01-01T00:00:00+00:00',
+                p.updated_at = '2000-01-01T00:00:00+00:00'
+            MERGE (p)-[:HAS_STEP {sequence: 1}]->(s)
+            """,
+            s=STEP,
+            p=PATH,
         )
     for label, uid in OWN.items():
         await _seed_activity(driver, label, uid, CALLER, f"caller-owned {label}")
@@ -341,7 +364,7 @@ async def _crawl(client: httpx.AsyncClient, paths: list[str]) -> Crawl:
             url = _PATH_PARAM.sub(uid, path)
             query = "&".join(f"{name}={uid}" for name in _QUERY_NAMES)
             response = await client.get(f"{url}?{query}")
-            crawl.read(path, url, response.text)
+            crawl.read(path, url, response.text, response.status_code, uid)
     return crawl
 
 
@@ -370,6 +393,12 @@ async def crawl(http: httpx.AsyncClient) -> Crawl:
 async def test_no_route_returns_another_users_node(crawl: Crawl) -> None:
     assert crawl.requests > 1000
     assert crawl.foreign == {}
+
+
+async def test_no_route_answers_a_server_error(crawl: Crawl) -> None:
+    """Every read route answers each of the caller's uids — of every kind, most of
+    them the wrong kind for the route — with a page or an ordinary refusal."""
+    assert {path: sorted(uids) for path, uids in crawl.server_errors.items()} == {}
 
 
 async def test_the_same_routes_still_render_the_callers_own_linked_entity(crawl: Crawl) -> None:
@@ -456,3 +485,58 @@ async def test_a_draft_ku_is_not_the_library_hero_and_is_not_counted(
         assert _library_size(drafted) == size - 1
     finally:
         await _set_publication(graph, None)
+
+
+async def test_the_habit_filter_returns_the_callers_events_that_reinforce_the_habit(
+    http: httpx.AsyncClient,
+) -> None:
+    # The caller's event reinforces the caller's control habit (and the other
+    # user's habit, which the route refuses as not the caller's).
+    own = await http.get("/api/events/habit", params={"habit_uid": CONTROL["Habit"]})
+    assert own.status_code == 200
+    assert OWN["Event"] in own.text
+
+    foreign = await http.get("/api/events/habit", params={"habit_uid": FOREIGN["Habit"]})
+    assert foreign.status_code == 404
+    assert FOREIGN_MARK not in foreign.text
+
+
+async def test_the_path_recommendation_route_answers(http: httpx.AsyncClient) -> None:
+    response = await http.get("/api/pathways/recommendations")
+    assert response.status_code == 200
+    assert "recommended_path_uid" in response.json()
+
+
+async def test_the_step_tree_lists_a_paths_steps_and_nothing_else_is_a_path(
+    http: httpx.AsyncClient,
+) -> None:
+    tree = await http.get(f"/api/lp/{PATH}/children", params={"parent_depth": -1})
+    assert tree.status_code == 200
+    assert STEP in tree.text
+
+    for uid in (OWN["Task"], FOREIGN["Task"], STEP, "lp.nb2e.absent"):
+        refused = await http.get(f"/api/lp/{uid}/children")
+        assert refused.status_code == 404, uid
+        assert FOREIGN_MARK not in refused.text
+
+
+async def test_a_uid_that_names_no_path_is_not_read_as_one(http: httpx.AsyncClient) -> None:
+    """The path reads match a learning path by uid — any other entity, another
+    user's task included, is the ordinary not-found, never a path built from it."""
+    steps = await http.get("/api/pathways/steps", params={"path_uid": FOREIGN["Task"]})
+    assert steps.status_code == 404
+    for url in (f"/pathways/path/{FOREIGN['Task']}/content", f"/lp/{FOREIGN['Task']}"):
+        assert FOREIGN_MARK not in (await http.get(url)).text, url
+
+    assert STEP in (await http.get("/api/pathways/steps", params={"path_uid": PATH})).text
+    assert "nb2e path" in (await http.get(f"/pathways/path/{PATH}/content")).text
+
+
+async def test_learning_analytics_renders_retention_as_a_placeholder(
+    http: httpx.AsyncClient,
+) -> None:
+    """The caller has mastered a Ku; no mastery edge carries a retention score."""
+    response = await http.get("/pathways/analytics/content")
+    assert response.status_code == 200
+    assert "Avg Retention" in response.text
+    assert "—" in response.text

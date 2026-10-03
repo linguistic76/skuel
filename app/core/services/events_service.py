@@ -446,10 +446,9 @@ class EventsService(
         )
 
     # Habit integration delegations
-    async def get_events_for_habit(
-        self, habit_uid: str, user_context: UserContext, days_ahead: int = 7
-    ) -> Result[list[Event]]:
-        return await self.habits.get_events_for_habit(habit_uid, user_context, days_ahead)
+    async def get_events_for_habit(self, habit_uid: str, user_uid: UserUID) -> Result[list[Event]]:
+        """The user's events that reinforce a habit — the habit filter route's reader."""
+        return await self.search.get_for_habit(habit_uid, user_uid=user_uid)
 
     async def get_habit_reinforcement_events(
         self, user_context: UserContext, days_ahead: int = 7

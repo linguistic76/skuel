@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
@@ -73,22 +74,6 @@ class _LpStepMixin:
         return Result.ok(
             [from_neo4j_node(dict(record["ps"]), PathStep) for record in (result.value or [])]
         )
-
-    async def get_parent_path_raw(self, step_uid: str) -> Result[LearningPath | None]:
-        """Get parent learning path for a step as a typed model, or None."""
-        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
-
-        query = """
-        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ps:Entity {uid: $step_uid})
-        RETURN lp
-        LIMIT 1
-        """
-        result = await self.execute_query(query, {"step_uid": step_uid})
-        if result.is_error:
-            return Result.fail(result)
-        if not result.value:
-            return Result.ok(None)
-        return Result.ok(from_neo4j_node(dict(result.value[0]["lp"]), LearningPath))
 
     async def add_step_to_path(
         self, path_uid: str, step_uid: str, sequence: int, order: int = 0
@@ -207,11 +192,14 @@ class _LpStepMixin:
         """
         Get a single learning path (with its HAS_STEP steps in
         ``metadata["steps"]``) as a typed model, or None if not found.
+
+        Only a learning path: a uid naming any other entity is not found, so no
+        other node — another user's task — is ever read back as a path.
         """
-        query = """
-        MATCH (p:Entity {uid: $uid})
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
-        WITH p, collect({step: s, sequence: r.sequence}) as steps_data
+        query = f"""
+        MATCH (p:{NeoLabel.LEARNING_PATH.value} {{uid: $uid}})
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'path_step'}})
+        WITH p, collect({{step: s, sequence: r.sequence}}) as steps_data
         RETURN p, steps_data
         """
         result = await self.execute_query(query, {"uid": path_uid})

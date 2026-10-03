@@ -3,7 +3,7 @@ Hierarchy Routes — Configuration-Driven Registration
 =====================================================
 
 Registers hierarchy routes for:
-- Goals, Habits, Events, Choices, Principles, LP
+- Goals, Habits, Events, Choices, Principles
 
 Usage:
     from adapters.inbound.hierarchy_routes import create_hierarchy_routes
@@ -38,7 +38,7 @@ def create_hierarchy_api_routes(
         app: FastHTML app instance
         rt: FastHTML route decorator
         _primary: Primary service (unused — hierarchy uses multiple services)
-        **kwargs: All 6 domain services (goals, habits, events, choices, principles, lp)
+        **kwargs: The 5 domain services (goals, habits, events, choices, principles)
 
     Returns:
         List of registered route functions
@@ -69,24 +69,6 @@ def create_hierarchy_api_routes(
         )
         factory.create_routes()
 
-    # LP (special case - uses "steps" instead of "subpaths"; SHARED content, so its
-    # children fragment stays on this factory rather than the activity hierarchy factory)
-    lp_service = kwargs.get("lp")
-    if lp_service:
-        lp_factory = HierarchyRouteFactory(
-            app=app,
-            rt=rt,
-            domain="lp",
-            service=lp_service,
-            entity_name="Learning Path",
-            get_children_method="get_steps",
-            create_relationship_method="create_step_relationship",
-            remove_relationship_method="remove_step_relationship",
-            get_parent_method="get_parent_path",
-            register_children_route=True,
-        )
-        lp_factory.create_routes()
-
 
 HIERARCHY_CONFIG = DomainRouteConfig(
     domain_name="hierarchy",
@@ -98,7 +80,6 @@ HIERARCHY_CONFIG = DomainRouteConfig(
         "events": "events",
         "choices": "choices",
         "principles": "principles",
-        "lp": "lp",
     },
 )
 

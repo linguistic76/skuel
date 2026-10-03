@@ -140,7 +140,7 @@ def _register_children_json_route(
     rt(f"/api/{config.domain_name}/children", methods=["GET"])(boundary_handler()(children))
 
 
-def _tree_error_row(message: str) -> Div:
+def tree_error_row(message: str) -> Div:
     """A TreeNodeList row that carries an error message instead of children."""
     return Div(Span(message, cls="text-error text-sm"), cls="px-2 py-1")
 
@@ -161,7 +161,7 @@ def _register_children_fragment_route(
         if result.is_error:
             # The tree row's refusal, at the status it earns (404 for a foreign or
             # missing parent; the fault's own status otherwise).
-            return refuse(result.expect_error(), _tree_error_row, config.singular.capitalize())
+            return refuse(result.expect_error(), tree_error_row, config.singular.capitalize())
 
         nodes: list[dict[str, Any]] = []
         for child in result.value:

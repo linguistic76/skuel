@@ -747,6 +747,15 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         since=date(2026, 8, 31),
         blocked_by="Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval",
     ),
+    # --- Retention: the staged "Avg Retention" analytics tile's only writer ---
+    "core/services/user_progress_service.py::record_mastery": PlannedEntry(
+        Readiness.DELAYED,
+        "the one writer of MASTERED.retention_score, which the /pathways/analytics "
+        "'Avg Retention' tile averages — kept as a placeholder ('—') by Mike's ruling "
+        "(2026-10-03). No caller: wiring it waits on a retention design (what counts "
+        "as revisiting a Ku, how retention decays from mastered_at)",
+        since=date(2026, 10, 3),
+    ),
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE

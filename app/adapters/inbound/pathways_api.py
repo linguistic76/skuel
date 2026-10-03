@@ -19,15 +19,18 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
+from adapters.inbound.route_factories.hierarchy_api_factory import tree_error_row
+from adapters.inbound.route_factories.route_helpers import refuse
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
     LearningPathProgressRequest,
 )
-from core.ports.query_types import MasteredWriteRow
+from core.ports.query_types import LpPathRecommendation, MasteredWriteRow
 from core.services.lp_service import LpService
 from core.services.user_progress_service import UserKnowledgeProfile
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.patterns.tree_view import TreeNodeList
 
 logger = get_logger("skuel.routes.pathways.api")
 
@@ -176,18 +179,35 @@ def create_pathways_api_routes(
 
     @rt("/api/pathways/recommendations")
     @boundary_handler()
-    async def get_path_recommendations_route(
-        request: Request,
-    ) -> Result[
-        dict[str, Any]
-    ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
-        """Get recommended learning paths for a user."""
-        require_authenticated_user(request)
+    async def get_path_recommendations_route(request: Request) -> Result[LpPathRecommendation]:
+        """The learning path the caller is most ready for, with up to two alternatives.
 
-        return Result.fail(
-            Errors.system(
-                message="Path recommendations not yet implemented", operation="get_recommendations"
-            )
+        Readiness is the share of the path's prerequisite knowledge the caller has
+        mastered; draft paths are never recommended.
+        """
+        user_uid = require_authenticated_user(request)
+        return await learning_service.get_optimal_path_recommendation(user_uid)
+
+    @rt("/api/lp/{uid}/children", methods=["GET"])
+    async def lp_children_fragment(request: Request, uid: str, parent_depth: int = 0) -> Any:
+        """A learning path's steps as a TreeNodeList fragment — the step tree's lazy load.
+
+        ``parent_depth`` is the path node's depth (steps render one deeper; -1 loads
+        them as roots). A step is a leaf. A uid that names no learning path is the
+        ordinary 404, whatever it does name.
+        """
+        require_authenticated_user(request)
+        result = await learning_service.get_path_steps(uid)
+        if result.is_error:
+            return refuse(result.expect_error(), tree_error_row, "Learning path")
+        return TreeNodeList(
+            nodes=[
+                {"uid": step.uid, "title": step.title, "has_children": False}
+                for step in result.value
+            ],
+            entity_type="lp",
+            children_endpoint="/api/lp/{uid}/children",
+            parent_depth=parent_depth,
         )
 
     # Enrollment

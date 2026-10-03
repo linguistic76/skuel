@@ -1453,10 +1453,6 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
         """Get ordered steps as typed models."""
         ...
 
-    async def get_parent_path_raw(self, step_uid: str) -> Result[LearningPath | None]:
-        """Get parent learning path as a typed model, or None."""
-        ...
-
     async def add_step_to_path(
         self, path_uid: str, step_uid: str, sequence: int, order: int = 0
     ) -> Result[bool]:

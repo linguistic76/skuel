@@ -404,25 +404,8 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
         return Result.ok(True)
 
     # ============================================================================
-    # STEP MANAGEMENT (2026-01-30 - Universal Hierarchical Pattern)
-    # Delegated to LpBackend (2026-03-24)
+    # STEP MANAGEMENT
     # ============================================================================
-
-    @with_error_handling("get_steps", error_type="database", uid_param="path_uid")
-    async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:
-        """Get all steps in a learning path ordered by sequence."""
-        result = await self.backend.get_steps_raw(path_uid, depth)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value)
-
-    @with_error_handling("get_parent_path", error_type="database", uid_param="step_uid")
-    async def get_parent_path(self, step_uid: str) -> Result[LearningPath | None]:
-        """Get the learning path containing this step (first match)."""
-        result = await self.backend.get_parent_path_raw(step_uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value)
 
     @with_error_handling("add_step_to_path", error_type="database")
     async def add_step_to_path(

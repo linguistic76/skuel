@@ -544,7 +544,9 @@ class LpService:
             "concepts_mastered": 0,
             "in_progress": 0,
             "active_paths_count": 0,
-            "avg_retention": 0.0,
+            # None until a mastery edge carries a retention score — the placeholder
+            # the analytics tile renders as "—".
+            "avg_retention": None,
         }
 
         if user_progress:
@@ -554,10 +556,13 @@ class LpService:
                 analytics["concepts_mastered"] = len(profile.mastered_knowledge)
                 analytics["in_progress"] = len(profile.in_progress_knowledge)
                 analytics["active_paths_count"] = len(profile.active_learning_paths)
-                if profile.mastered_knowledge:
-                    analytics["avg_retention"] = sum(
-                        m.retention_score for m in profile.mastered_knowledge
-                    ) / len(profile.mastered_knowledge)
+                scores = [
+                    m.retention_score
+                    for m in profile.mastered_knowledge
+                    if m.retention_score is not None
+                ]
+                if scores:
+                    analytics["avg_retention"] = sum(scores) / len(scores)
 
         return Result.ok(analytics)
 
