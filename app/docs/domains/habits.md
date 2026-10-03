@@ -141,9 +141,11 @@ one-time habit, or one with nothing due yet — is derived when it is read, from
 day without a completion.
 
 **At risk** has one definition, `habit_at_risk` (same module): an active habit that is overdue
-for its own cadence (`habit_overdue`, read from `last_completed` — the stored streak never
-decays, so it is not consulted), or whose rate is under 0.5 once the measured span has asked for
-at least three completions. A habit with no rate is judged on lateness alone. The user context's
+for its own cadence (`habit_overdue`, measured from the last day it was kept on its cadence —
+the stored streak never decays, so it is not consulted), or whose rate is under 0.5 once the
+measured span has asked for at least three completions. A habit with no rate is judged on
+lateness alone; one whose `recurrence_end_date` has passed is never at risk, and its rate is
+measured only up to that end. The user context's
 `at_risk_habits`, `/api/habits/analytics` and the ZPD knowledge signals all call it.
 
 Design and the write-side work it leaves open:

@@ -13,7 +13,13 @@ import pytest
 
 from core.constants import HabitAtRisk
 from core.models.enums import EntityStatus, RecurrencePattern
-from core.models.habit.adherence import habit_at_risk, habit_overdue, measured_span_expected
+from core.models.habit.adherence import (
+    habit_adherence,
+    habit_at_risk,
+    habit_overdue,
+    last_kept_day,
+    measured_span_expected,
+)
 
 TODAY = date(2026, 10, 2)  # a Friday
 
@@ -23,13 +29,19 @@ def _days_ago(n: int) -> date:
 
 
 def _overdue(
-    pattern: str | None, *, done: int | None, created: int | None = 400, target: int | None = None
+    pattern: str | None,
+    *,
+    done: int | None,
+    created: int | None = 400,
+    target: int | None = None,
+    ends: int | None = None,
 ) -> bool:
     return habit_overdue(
         pattern,
         target,
-        last_completed_on=_days_ago(done) if done is not None else None,
+        last_kept_on=_days_ago(done) if done is not None else None,
         created_on=_days_ago(created) if created is not None else None,
+        ends_on=_days_ago(ends) if ends is not None else None,
         today=TODAY,
     )
 
@@ -59,8 +71,12 @@ def test_a_weekdays_habit_is_late_only_for_a_weekday_it_missed() -> None:
     monday = date(2026, 10, 5)
     friday, thursday = date(2026, 10, 2), date(2026, 10, 1)
     weekdays = RecurrencePattern.WEEKDAYS
-    on_time = habit_overdue(weekdays, None, last_completed_on=friday, created_on=None, today=monday)
-    late = habit_overdue(weekdays, None, last_completed_on=thursday, created_on=None, today=monday)
+    on_time = habit_overdue(
+        weekdays, None, last_kept_on=friday, created_on=None, ends_on=None, today=monday
+    )
+    late = habit_overdue(
+        weekdays, None, last_kept_on=thursday, created_on=None, ends_on=None, today=monday
+    )
     assert not on_time
     assert late
 
@@ -71,9 +87,11 @@ def test_a_weekends_habit_is_late_only_for_a_weekend_day_it_missed() -> None:
     sunday, saturday = date(2026, 10, 4), date(2026, 10, 3)
     next_saturday, monday = date(2026, 10, 10), date(2026, 10, 5)
     on_time = habit_overdue(
-        weekends, None, last_completed_on=sunday, created_on=None, today=next_saturday
+        weekends, None, last_kept_on=sunday, created_on=None, ends_on=None, today=next_saturday
     )
-    late = habit_overdue(weekends, None, last_completed_on=saturday, created_on=None, today=monday)
+    late = habit_overdue(
+        weekends, None, last_kept_on=saturday, created_on=None, ends_on=None, today=monday
+    )
     assert not on_time
     assert late
 
@@ -101,8 +119,30 @@ def test_with_no_completion_and_no_creation_day_there_is_nothing_to_be_late_agai
     assert not _overdue(RecurrencePattern.DAILY, done=None, created=None)
 
 
-def test_a_completion_stamped_in_the_future_is_not_late() -> None:
-    assert not _overdue(RecurrencePattern.DAILY, done=-3)
+def test_a_schedule_that_ended_before_today_is_never_late() -> None:
+    """A finished daily habit last kept three weeks ago asks nothing of today; one whose
+    schedule ends today is still judged."""
+    assert not _overdue(RecurrencePattern.DAILY, done=20, ends=1)
+    assert _overdue(RecurrencePattern.DAILY, done=20, ends=0)
+
+
+def test_the_last_day_kept_is_on_cadence_and_has_happened() -> None:
+    """A weekday completion keeps no part of a weekends habit; a stamp after today has
+    not happened; the stored last completion reaches past the window."""
+    saturday, monday, tuesday = date(2026, 9, 26), date(2026, 9, 28), date(2026, 9, 29)
+    weekends = RecurrencePattern.WEEKENDS
+    assert last_kept_day(weekends, [saturday, monday], last_completed_on=tuesday, today=TODAY) == (
+        saturday
+    )
+    daily = RecurrencePattern.DAILY
+    future = TODAY + timedelta(days=3)
+    assert last_kept_day(daily, [monday], last_completed_on=future, today=TODAY) == monday
+    long_ago = _days_ago(100)
+    assert (
+        last_kept_day(RecurrencePattern.QUARTERLY, [], last_completed_on=long_ago, today=TODAY)
+        == long_ago
+    )
+    assert last_kept_day(weekends, [monday], last_completed_on=None, today=TODAY) is None
 
 
 def _at_risk(
@@ -112,14 +152,16 @@ def _at_risk(
     created: int = 60,
     status: str = EntityStatus.ACTIVE,
     pattern: str = RecurrencePattern.DAILY,
+    ends: int | None = None,
 ) -> bool:
     return habit_at_risk(
         status,
         pattern,
         None,
         rate=rate,
-        last_completed_on=_days_ago(done) if done is not None else None,
+        last_kept_on=_days_ago(done) if done is not None else None,
         created_on=_days_ago(created),
+        ends_on=_days_ago(ends) if ends is not None else None,
         today=TODAY,
     )
 
@@ -159,8 +201,42 @@ def test_the_stored_status_string_reads_the_same_as_the_enum() -> None:
 def test_the_evidence_is_counted_over_the_span_the_rate_measures() -> None:
     """The window cut short at creation: 30 for an old daily habit, 3 for one created two days ago."""
     daily = RecurrencePattern.DAILY
-    assert measured_span_expected(daily, None, created_on=_days_ago(400), today=TODAY) == 30
-    assert measured_span_expected(daily, None, created_on=_days_ago(2), today=TODAY) == 3
-    assert measured_span_expected(daily, None, created_on=_days_ago(-1), today=TODAY) == 0
+    assert (
+        measured_span_expected(daily, None, created_on=_days_ago(400), ends_on=None, today=TODAY)
+        == 30
+    )
+    assert (
+        measured_span_expected(daily, None, created_on=_days_ago(2), ends_on=None, today=TODAY) == 3
+    )
+    assert (
+        measured_span_expected(daily, None, created_on=_days_ago(-1), ends_on=None, today=TODAY)
+        == 0
+    )
     quarterly = RecurrencePattern.QUARTERLY
-    assert measured_span_expected(quarterly, None, created_on=None, today=TODAY) == 0
+    assert measured_span_expected(quarterly, None, created_on=None, ends_on=None, today=TODAY) == 0
+
+
+def test_a_finished_schedule_is_never_at_risk() -> None:
+    assert not _at_risk(rate=0.0, done=20, ends=1)
+
+
+def test_the_rate_is_measured_up_to_the_schedules_end() -> None:
+    """A daily habit kept on all of its last ten scheduled days, which ended five days
+    ago, reads 1.0 — the days after its end ask nothing of it. A schedule that ended
+    before the habit was created has no rate."""
+    kept = [_days_ago(n) for n in range(5, 15)]
+    daily = RecurrencePattern.DAILY
+    rate = habit_adherence(
+        daily, None, kept, created_on=_days_ago(14), ends_on=_days_ago(5), today=TODAY
+    )
+    assert rate == 1.0
+    assert (
+        habit_adherence(daily, None, [], created_on=_days_ago(3), ends_on=_days_ago(5), today=TODAY)
+        is None
+    )
+    assert (
+        measured_span_expected(
+            daily, None, created_on=_days_ago(14), ends_on=_days_ago(5), today=TODAY
+        )
+        == 10
+    )

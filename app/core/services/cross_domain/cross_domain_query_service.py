@@ -34,6 +34,7 @@ from core.models.habit.adherence import (
     creation_day,
     habit_adherence,
     habit_at_risk,
+    last_kept_day,
     stamp_day,
 )
 from core.models.type_hints import EntityUID, UserUID
@@ -52,7 +53,7 @@ from core.services.cross_domain.cross_domain_types import (
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_named, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -300,12 +301,16 @@ class CrossDomainQueryService:
             ku_uids = tuple(uid for uid in (record.get("ku_uids") or []) if uid)
             if not ku_uids:
                 continue
+            pattern = record["recurrence_pattern"]
+            days = completion_days(record["completion_stamps"], zone)
             created_on = creation_day(record["created_at"], zone)
+            ends_on = day_named(record["recurrence_end_date"], zone)
             rate = habit_adherence(
-                record["recurrence_pattern"],
+                pattern,
                 record["target_days_per_week"],
-                completion_days(record["completion_stamps"], zone),
+                days,
                 created_on=created_on,
+                ends_on=ends_on,
                 today=today,
             )
             rows.append(
@@ -315,11 +320,17 @@ class CrossDomainQueryService:
                     success_rate=rate,
                     at_risk=habit_at_risk(
                         record["status"],
-                        record["recurrence_pattern"],
+                        pattern,
                         record["target_days_per_week"],
                         rate=rate,
-                        last_completed_on=stamp_day(record["last_completed"], zone),
+                        last_kept_on=last_kept_day(
+                            pattern,
+                            days,
+                            last_completed_on=stamp_day(record["last_completed"], zone),
+                            today=today,
+                        ),
                         created_on=created_on,
+                        ends_on=ends_on,
                         today=today,
                     ),
                     status=record.get("status") or "",

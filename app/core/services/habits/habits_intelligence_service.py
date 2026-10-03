@@ -27,7 +27,11 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.habits._adherence import enrich_habits_with_adherence, habit_is_at_risk
+from core.services.habits._adherence import (
+    adherence_readings,
+    habit_is_at_risk,
+    with_readings,
+)
 from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.habits._dual_track_mixin import _DualTrackMixin
 from core.services.habits.habit_relationships import HabitRelationships
@@ -139,10 +143,14 @@ class HabitsIntelligenceService(
         if habits_result.is_error:
             return Result.fail(habits_result)
 
-        enriched = await enrich_habits_with_adherence(self.backend, habits_result.value or [])
-        if enriched.is_error:
-            return Result.fail(enriched)
-        habits = enriched.value
+        # One read gives every habit its reading: the derived rate and the
+        # last day it was kept — the average and the at-risk rule both read it.
+        read = habits_result.value or []
+        readings_result = await adherence_readings(self.backend, read)
+        if readings_result.is_error:
+            return Result.fail(readings_result)
+        readings = readings_result.value
+        habits = with_readings(read, readings)
 
         # Calculate analytics
         total_habits = len(habits)
@@ -161,7 +169,7 @@ class HabitsIntelligenceService(
         # At risk: the one definition (habit_at_risk) — overdue for its cadence,
         # or measured under the threshold on enough evidence.
         zone = current_zone()
-        at_risk_habits = [h for h in habits if habit_is_at_risk(h, zone)]
+        at_risk_habits = [h for h in habits if habit_is_at_risk(h, readings[h.uid], zone)]
 
         # Learned insights (ADR-048)
         habits_with_difficulty = [

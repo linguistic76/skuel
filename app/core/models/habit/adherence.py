@@ -25,7 +25,7 @@ completion that leaves no node behind is invisible to the rate.
 
 The same module holds the one definition of an **at-risk** habit
 (:func:`habit_at_risk`): an active habit that is overdue for its own cadence
-(:func:`habit_overdue`, read from its last completion at the moment it is asked)
+(:func:`habit_overdue`, read from the last day it was kept on its cadence, at the moment it is asked)
 or whose rate is under the threshold once the measured span holds enough
 evidence. Every at-risk reader calls it; none restates it.
 """
@@ -48,13 +48,16 @@ def habit_adherence(
     completed_on: Iterable[date],
     *,
     created_on: date | None,
+    ends_on: date | None,
     today: date,
 ) -> float | None:
     """Completions in the measured span over what the habit's frequency expects there, at most 1.0.
 
     The span is the trailing window, cut short at the day the habit was created
-    (``created_on``; ``None`` reads as older than the window): a habit three
-    days old is measured over three days, not thirty. Both sides of the ratio
+    (``created_on``; ``None`` reads as older than the window) and at the last
+    day of its schedule (``ends_on``, its ``recurrence_end_date``; ``None`` reads
+    as open-ended): a habit three days old is measured over three days, not
+    thirty, and a finished schedule is not measured past its end. Both sides of the ratio
     are counted over that one span — ``completed_on`` holds one day per
     completion (a completion backfilled to before the habit existed, or stamped
     after today, is outside it), and what the span expects is
@@ -68,16 +71,17 @@ def habit_adherence(
     ``recurrence_pattern`` is the stored value — a :class:`RecurrencePattern`
     or the string a statement projects; the two compare equal.
     """
-    first_day = _measured_span_start(created_on, today)
-    if first_day is None:
+    span = _measured_span(created_on, ends_on, today)
+    if span is None:
         return None
-    expected = expected_completions(recurrence_pattern, target_days_per_week, first_day, today)
+    first_day, last_day = span
+    expected = expected_completions(recurrence_pattern, target_days_per_week, first_day, last_day)
     if not expected:
         return None
     kept = sum(
         1
         for day in completed_on
-        if first_day <= day <= today and _on_cadence(recurrence_pattern, day)
+        if first_day <= day <= last_day and _on_cadence(recurrence_pattern, day)
     )
     return min(1.0, kept / expected)
 
@@ -132,25 +136,53 @@ def measured_span_expected(
     target_days_per_week: int | None,
     *,
     created_on: date | None,
+    ends_on: date | None,
     today: date,
 ) -> int:
     """How many completions the span :func:`habit_adherence` measures asks for — the rate's evidence.
 
     The same span the ratio is counted over: the trailing window, cut short at
-    the creation day. 0 when nothing is due yet or the pattern cannot be measured.
+    the creation day and at the schedule's end. 0 when nothing is due yet or the
+    pattern cannot be measured.
     """
-    first_day = _measured_span_start(created_on, today)
-    if first_day is None:
+    span = _measured_span(created_on, ends_on, today)
+    if span is None:
         return 0
-    return expected_completions(recurrence_pattern, target_days_per_week, first_day, today) or 0
+    first_day, last_day = span
+    return expected_completions(recurrence_pattern, target_days_per_week, first_day, last_day) or 0
 
 
-def _measured_span_start(created_on: date | None, today: date) -> date | None:
-    """The first day of the span a rate is measured over — None when it has not begun."""
+def _measured_span(
+    created_on: date | None, ends_on: date | None, today: date
+) -> tuple[date, date] | None:
+    """The first and last day a rate is measured over — None when the span is empty."""
     first_day = HabitConsistencyWindow.start_date(today)
     if created_on is not None and created_on > first_day:
         first_day = created_on
-    return first_day if first_day <= today else None
+    last_day = today if ends_on is None or ends_on > today else ends_on
+    return (first_day, last_day) if first_day <= last_day else None
+
+
+def last_kept_day(
+    recurrence_pattern: str | None,
+    completed_on: Iterable[date],
+    *,
+    last_completed_on: date | None,
+    today: date,
+) -> date | None:
+    """The latest day, up to today, on which the habit was kept on its own cadence.
+
+    Drawn from the window's completion days and the stored ``last_completed``
+    (which reaches further back than the window). A completion on a day the
+    cadence does not expect — a weekend habit done on a Monday — keeps no part of
+    the schedule, and one stamped after today has not happened yet: neither is
+    an anchor. ``None`` when nothing qualifies.
+    """
+    candidates = [day for day in completed_on if day <= today]
+    if last_completed_on is not None and last_completed_on <= today:
+        candidates.append(last_completed_on)
+    kept = [day for day in candidates if _on_cadence(recurrence_pattern, day)]
+    return max(kept) if kept else None
 
 
 #: The longest a habit of each periodic cadence may go between completions —
@@ -169,14 +201,17 @@ def habit_overdue(
     recurrence_pattern: str | None,
     target_days_per_week: int | None,
     *,
-    last_completed_on: date | None,
+    last_kept_on: date | None,
     created_on: date | None,
+    ends_on: date | None,
     today: date,
 ) -> bool:
     """Whether an occurrence the habit's cadence asked for has passed with no completion.
 
-    Measured from the last completion — or, for a habit never completed, from
-    the day before it was created, so its first period counts. A daily, weekdays
+    Measured from the last day the habit was kept (:func:`last_kept_day`) — or,
+    for a habit never kept, from the day before it was created, so its first
+    period counts. A habit whose schedule ended before today (``ends_on``) is
+    never overdue: nothing is asked of it any more. A daily, weekdays
     or weekends habit is overdue once a day it expects has passed undone (today
     is still open); a periodic habit once more than its period has passed since
     the anchor; a custom habit once more than ``7 / target`` days have. A
@@ -187,8 +222,10 @@ def habit_overdue(
     Read at the moment it is asked, so a habit dropped weeks ago is overdue now,
     whatever its stored streak says.
     """
-    if last_completed_on is not None:
-        anchor = last_completed_on
+    if ends_on is not None and ends_on < today:
+        return False
+    if last_kept_on is not None:
+        anchor = last_kept_on
     elif created_on is not None:
         anchor = created_on - timedelta(days=1)
     else:
@@ -221,8 +258,9 @@ def habit_at_risk(
     target_days_per_week: int | None,
     *,
     rate: float | None,
-    last_completed_on: date | None,
+    last_kept_on: date | None,
     created_on: date | None,
+    ends_on: date | None,
     today: date,
 ) -> bool:
     """The one definition of an at-risk habit: active, and overdue or measured below the threshold.
@@ -232,24 +270,31 @@ def habit_at_risk(
     it was measured over asked for at least :attr:`HabitAtRisk.MIN_EXPECTED`
     completions. A habit with no rate yet is judged on lateness alone — no
     measurement is not a low one. A paused, archived or otherwise inactive habit
-    is never at risk.
+    is never at risk, nor is one whose schedule ended before today.
 
     ``status`` is the stored value — an :class:`EntityStatus` or its string.
     """
     if status != EntityStatus.ACTIVE:
         return False
+    if ends_on is not None and ends_on < today:
+        return False
     if habit_overdue(
         recurrence_pattern,
         target_days_per_week,
-        last_completed_on=last_completed_on,
+        last_kept_on=last_kept_on,
         created_on=created_on,
+        ends_on=ends_on,
         today=today,
     ):
         return True
     if rate is None or rate >= HabitAtRisk.RATE_THRESHOLD:
         return False
     evidence = measured_span_expected(
-        recurrence_pattern, target_days_per_week, created_on=created_on, today=today
+        recurrence_pattern,
+        target_days_per_week,
+        created_on=created_on,
+        ends_on=ends_on,
+        today=today,
     )
     return evidence >= HabitAtRisk.MIN_EXPECTED
 

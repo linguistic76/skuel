@@ -157,7 +157,7 @@ RETURN count(t) AS count
 """
 
 # Each active habit's adherence and at-risk inputs — its window completion
-# stamps, cadence, creation and last-completion stamps — beside the KUs it
+# stamps, cadence, creation and last-completion stamps, schedule end — beside the KUs it
 # reinforces. The rate is derived in Python (habit_adherence), never read off
 # the node.
 _HABIT_KNOWLEDGE_REINFORCEMENT_QUERY = f"""
@@ -172,6 +172,7 @@ RETURN h.uid AS habit_uid,
        h.target_days_per_week AS target_days_per_week,
        h.created_at AS created_at,
        h.last_completed AS last_completed,
+       h.recurrence_end_date AS recurrence_end_date,
        completion_stamps,
        collect(ku.uid) AS ku_uids
 """

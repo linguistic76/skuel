@@ -64,12 +64,40 @@ QUARTERLY = f"{_PREFIX}habit_quarterly"
 DROPPED = f"{_PREFIX}habit_dropped"
 GOAL = f"{_PREFIX}goal"
 KU = f"{_PREFIX}ku"
-ALL_HABITS = (KEPT, BULK, YOUNG, QUARTERLY, DROPPED)
+FINISHED = f"{_PREFIX}habit_finished"
+OFF_CADENCE = f"{_PREFIX}habit_weekends"
+ALL_HABITS = (KEPT, BULK, YOUNG, QUARTERLY, DROPPED, FINISHED, OFF_CADENCE)
 
 TODAY = today_in(current_zone())
 KEPT_RATE = 28 / HabitConsistencyWindow.DAYS
 DROPPED_RATE = 7 / HabitConsistencyWindow.DAYS
-EXPECTED = {KEPT: KEPT_RATE, BULK: KEPT_RATE, YOUNG: 1.0, QUARTERLY: None, DROPPED: DROPPED_RATE}
+# The weekends habit: its latest weekday completion is off its cadence, and the weekend
+# before it was missed; every other weekend day in the window was kept.
+LAST_WEEKDAY = next(
+    TODAY - timedelta(days=n) for n in range(7) if (TODAY - timedelta(days=n)).weekday() < 5
+)
+WINDOW_WEEKEND_DAYS = [
+    day
+    for day in (TODAY - timedelta(days=n) for n in range(HabitConsistencyWindow.DAYS))
+    if day.weekday() >= 5
+]
+MISSED_WEEKEND = [
+    d for d in WINDOW_WEEKEND_DAYS if LAST_WEEKDAY - timedelta(days=7) < d < LAST_WEEKDAY
+]
+KEPT_WEEKEND = [d for d in WINDOW_WEEKEND_DAYS if d < LAST_WEEKDAY - timedelta(days=7)]
+OFF_CADENCE_RATE = len(KEPT_WEEKEND) / len(WINDOW_WEEKEND_DAYS)
+
+EXPECTED = {
+    KEPT: KEPT_RATE,
+    BULK: KEPT_RATE,
+    YOUNG: 1.0,
+    QUARTERLY: None,
+    DROPPED: DROPPED_RATE,
+    # Kept on each of its last 20 scheduled days; the schedule ended ten days ago,
+    # so the days after it ask nothing: 20 / 20.
+    FINISHED: 1.0,
+    OFF_CADENCE: OFF_CADENCE_RATE,
+}
 
 
 def _noon(day: date) -> datetime:
@@ -93,7 +121,12 @@ class _Composed:
 
 
 async def _create_habit(
-    habits: HabitsService, uid: str, *, created: int, pattern: RecurrencePattern
+    habits: HabitsService,
+    uid: str,
+    *,
+    created: int,
+    pattern: RecurrencePattern,
+    ends: date | None = None,
 ) -> None:
     with _on(_days_ago(created)):
         result = await habits.create(
@@ -104,6 +137,7 @@ async def _create_habit(
                 title=uid,
                 status=EntityStatus.ACTIVE,
                 recurrence_pattern=pattern,
+                recurrence_end_date=ends,
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )
@@ -157,6 +191,15 @@ async def services(skuel_app) -> AsyncIterator[_Composed]:
             assert (await doors.record_completion(YOUNG, _USER)).is_ok
     with _on(_days_ago(10)):
         assert (await doors.record_completion(QUARTERLY, _USER)).is_ok
+    await _create_habit(habits, FINISHED, created=40, pattern=daily, ends=_days_ago(10))
+    for n in range(10, 30):
+        with _on(_days_ago(n)):
+            assert (await doors.record_completion(FINISHED, _USER)).is_ok
+    assert MISSED_WEEKEND, "the premise: a weekend before the weekday completion was missed"
+    await _create_habit(habits, OFF_CADENCE, created=40, pattern=RecurrencePattern.WEEKENDS)
+    for day in [*sorted(KEPT_WEEKEND), LAST_WEEKDAY]:
+        with _on(day):
+            assert (await doors.record_completion(OFF_CADENCE, _USER)).is_ok
 
     goal = await services.goals.create(
         Goal(
@@ -210,7 +253,9 @@ class TestEveryHabitReadCarriesTheDerivedRate:
         assert context.habit_completion_rates == {
             uid: pytest.approx(rate) for uid, rate in EXPECTED.items() if rate is not None
         }
-        assert context.at_risk_habits == [DROPPED]
+        # DROPPED is late; OFF_CADENCE missed the weekend before its weekday completion,
+        # which keeps no part of its schedule; FINISHED's schedule is over.
+        assert sorted(context.at_risk_habits) == sorted([DROPPED, OFF_CADENCE])
 
     async def test_the_facade_reads_carry_the_contexts_rate(self, services: _Composed) -> None:
         habits = services.habits
@@ -253,7 +298,7 @@ class TestEveryHabitReadCarriesTheDerivedRate:
         assert result.value["avg_consistency"] == pytest.approx(
             round(sum(measured) / len(measured), 2)
         )
-        assert result.value["at_risk_habits"] == 1
+        assert result.value["at_risk_habits"] == 2
 
     async def test_the_pattern_insights_read_the_derived_rate(self, services: _Composed) -> None:
         kept = await services.habits.patterns.analyze_patterns(KEPT, _USER)

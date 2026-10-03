@@ -29,9 +29,8 @@ Two named defects in the same write family, deliberately scoped OUT of the condi
    completed days ending at *today*, with future completions stored and shown but not advancing
    the streak until their day arrives. The provenance-bearing
    `HabitStreakBroken`/`HabitStreakMilestone` events publish whatever number the writer
-   computed, so milestones inherit the inflation. The same advanced `last_completed` reaches
-   the at-risk rule (HA-2): `habit_overdue` measures lateness from it, so a habit completed
-   ahead is not overdue until that future day plus its period, whatever the user does now.
+   computed, so milestones inherit the inflation. (The at-risk rule does not inherit it:
+   `last_kept_day` takes no anchor from a day after today.)
 3. **The streak never decays, and counts days whatever the cadence (found by HA-2, 2026-10-02).**
    `current_streak` is recomputed only when the next completion arrives — a broken streak
    restarts at 1 then — so time passing never sets it to 0: a habit dropped weeks ago keeps its
@@ -39,7 +38,8 @@ Two named defects in the same write family, deliberately scoped OUT of the condi
    also count *consecutive days* for every `RecurrencePattern`, so a weekly habit kept every week
    reads 1 forever. Mike, 2026-10-02: "having the current_streak never decay does not sound
    correct." HA-2 took the streak out of the at-risk rule (`habit_at_risk` reads lateness —
-   `habit_overdue` — from `last_completed` instead), so the one definition no longer trusts it;
+   `habit_overdue` — from the last day it was kept on its cadence instead), so the one
+   definition no longer trusts it;
    what the number SHOWS is still the stored one. The read-time fix (0 when `habit_overdue`) is
    small in itself but `current_streak` / `habit_streaks` have 246 references in 66 files,
    Cypher sorts and counts included (`get_active_habits_prioritized`, `get_stats_for_user`, the

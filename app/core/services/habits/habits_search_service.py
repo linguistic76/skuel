@@ -29,7 +29,11 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.habits._adherence import enrich_habits_with_adherence, habit_is_at_risk
+from core.services.habits._adherence import (
+    adherence_readings,
+    habit_is_at_risk,
+    with_readings,
+)
 from core.services.habits._goal_links import enrich_habits_with_goal_links
 from core.services.user import UserContext
 from core.services.whole_set_read import find_all_by
@@ -399,14 +403,18 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         if result.is_error:
             return result
 
-        enriched = await enrich_habits_with_adherence(
-            self.backend, self._to_domain_models(result.value, HabitDTO, Habit)
-        )
-        if enriched.is_error:
-            return Result.fail(enriched)
+        read = self._to_domain_models(result.value, HabitDTO, Habit)
+        readings_result = await adherence_readings(self.backend, read)
+        if readings_result.is_error:
+            return Result.fail(readings_result)
+        readings = readings_result.value
 
         zone = current_zone()
-        at_risk = [habit for habit in enriched.value if habit_is_at_risk(habit, zone)]
+        at_risk = [
+            habit
+            for habit in with_readings(read, readings)
+            if habit_is_at_risk(habit, readings[habit.uid], zone)
+        ]
 
         # Sort by streak (highest first - most to lose)
         def get_current_streak(habit: Habit) -> int:

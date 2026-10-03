@@ -1537,7 +1537,7 @@ class ContextHealthResult(TypedDict, total=False):
 
 
 class HabitAdherenceRow(TypedDict):
-    """One active habit's adherence inputs, as both user-context statements project them.
+    """One active habit's adherence and at-risk inputs, as both user-context statements project them.
 
     The populator turns each row into the habit's rate with
     ``core.models.habit.adherence.habit_adherence``; the statements carry the
@@ -1552,6 +1552,10 @@ class HabitAdherenceRow(TypedDict):
         target_days_per_week: The custom-frequency target, or None
         created_at: The habit's stored creation stamp, in whatever shape the
             node holds it (``creation_day`` reads every one), or None
+        status: The habit's stored status (``habit_at_risk`` judges active ones)
+        last_completed: The habit's stored last completion, any shape, or None
+        recurrence_end_date: The last day of its schedule, any shape, or None
+            (open-ended)
     """
 
     uid: str
@@ -1559,6 +1563,9 @@ class HabitAdherenceRow(TypedDict):
     recurrence_pattern: str | None
     target_days_per_week: int | None
     created_at: object
+    status: str | None
+    last_completed: object
+    recurrence_end_date: object
 
 
 class MomentumSignals(TypedDict):

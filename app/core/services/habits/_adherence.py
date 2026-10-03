@@ -8,8 +8,10 @@ the trailing window in one backend call
 (``HabitsOperations.get_habit_window_completions``, owner-scoped) and returns
 new Habit instances carrying the rate. A habit with no rate yet keeps ``None``.
 
-:func:`habit_is_at_risk` applies the one at-risk definition
-(``core.models.habit.adherence.habit_at_risk``) to a hydrated Habit.
+The same read yields each habit's :class:`AdherenceReading` — its rate and the
+last day it was kept on its own cadence — which is everything
+:func:`habit_is_at_risk` needs to apply the one at-risk definition
+(``core.models.habit.adherence.habit_at_risk``).
 
 Design: ``docs/roadmap/habit-completion-persistence-bundle.md``.
 """
@@ -17,8 +19,8 @@ Design: ``docs/roadmap/habit-completion-persistence-bundle.md``.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import tzinfo
-from typing import TYPE_CHECKING
+from datetime import date, tzinfo
+from typing import TYPE_CHECKING, NamedTuple
 
 from core.models.habit.adherence import (
     adherence_window_days,
@@ -26,6 +28,7 @@ from core.models.habit.adherence import (
     creation_day,
     habit_adherence,
     habit_at_risk,
+    last_kept_day,
     stamp_day,
 )
 from core.utils.result_simplified import Errors, Result
@@ -37,15 +40,23 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import HabitsOperations
 
 
-async def adherence_rates(
-    backend: HabitsOperations, habits: list[Habit]
-) -> Result[dict[str, float]]:
-    """Each habit's adherence now, keyed by uid — the habits that have a rate.
+class AdherenceReading(NamedTuple):
+    """One habit's reading now: its adherence (``None`` = no rate yet) and the last day it was kept."""
 
-    One read of every habit's window completions, each counted by
+    rate: float | None
+    last_kept_on: date | None
+
+
+async def adherence_readings(
+    backend: HabitsOperations, habits: list[Habit]
+) -> Result[dict[str, AdherenceReading]]:
+    """Every habit's :class:`AdherenceReading`, keyed by uid, from one read of the window.
+
+    The window's completion days are counted by
     :func:`~core.models.habit.adherence.habit_adherence` against the habit's
-    cadence and creation day. A habit with no rate yet is left out — no
-    measurement, not 0.0.
+    cadence, creation day and schedule end, and give the last day it was kept
+    (:func:`~core.models.habit.adherence.last_kept_day`, with the stored
+    ``last_completed`` reaching past the window).
     """
     if not habits:
         return Result.ok({})
@@ -66,21 +77,49 @@ async def adherence_rates(
         return Result.fail(
             Errors.system(
                 message=f"No window completions read for habits {unanswered}",
-                operation="adherence_rates",
+                operation="adherence_readings",
             )
         )
-    rates: dict[str, float] = {}
+    readings: dict[str, AdherenceReading] = {}
     for habit in habits:
-        rate = habit_adherence(
-            habit.recurrence_pattern,
-            habit.target_days_per_week,
-            completion_days(stamps[habit.uid], zone),
-            created_on=creation_day(habit.created_at, zone),
-            today=today,
+        days = completion_days(stamps[habit.uid], zone)
+        readings[habit.uid] = AdherenceReading(
+            rate=habit_adherence(
+                habit.recurrence_pattern,
+                habit.target_days_per_week,
+                days,
+                created_on=creation_day(habit.created_at, zone),
+                ends_on=habit.recurrence_end_date,
+                today=today,
+            ),
+            last_kept_on=last_kept_day(
+                habit.recurrence_pattern,
+                days,
+                last_completed_on=stamp_day(habit.last_completed, zone),
+                today=today,
+            ),
         )
-        if rate is not None:
-            rates[habit.uid] = rate
-    return Result.ok(rates)
+    return Result.ok(readings)
+
+
+async def adherence_rates(
+    backend: HabitsOperations, habits: list[Habit]
+) -> Result[dict[str, float]]:
+    """Each habit's adherence now, keyed by uid — the habits that have a rate.
+
+    A habit with no rate yet is left out — no measurement, not 0.0.
+    """
+    readings = await adherence_readings(backend, habits)
+    if readings.is_error:
+        return Result.fail(readings)
+    return Result.ok(
+        {uid: reading.rate for uid, reading in readings.value.items() if reading.rate is not None}
+    )
+
+
+def with_readings(habits: list[Habit], readings: dict[str, AdherenceReading]) -> list[Habit]:
+    """``habits`` carrying the derived ``success_rate`` their readings hold."""
+    return [replace(habit, success_rate=readings[habit.uid].rate) for habit in habits]
 
 
 async def enrich_habits_with_adherence(
@@ -92,11 +131,10 @@ async def enrich_habits_with_adherence(
     survives. A failed read fails the call: a reader judging adherence on
     habits it could not measure would read every one as unmeasured.
     """
-    rates_result = await adherence_rates(backend, habits)
-    if rates_result.is_error:
-        return Result.fail(rates_result)
-    rates = rates_result.value
-    return Result.ok([replace(habit, success_rate=rates.get(habit.uid)) for habit in habits])
+    readings = await adherence_readings(backend, habits)
+    if readings.is_error:
+        return Result.fail(readings)
+    return Result.ok(with_readings(habits, readings.value))
 
 
 async def enrich_habit_with_adherence(backend: HabitsOperations, habit: Habit) -> Result[Habit]:
@@ -107,14 +145,15 @@ async def enrich_habit_with_adherence(backend: HabitsOperations, habit: Habit) -
     return Result.ok(result.value[0])
 
 
-def habit_is_at_risk(habit: Habit, zone: tzinfo) -> bool:
-    """Whether a hydrated habit is at risk now in ``zone`` — the one definition, read off the Habit."""
+def habit_is_at_risk(habit: Habit, reading: AdherenceReading, zone: tzinfo) -> bool:
+    """Whether a habit is at risk now in ``zone`` — the one definition, over its reading."""
     return habit_at_risk(
         habit.status,
         habit.recurrence_pattern,
         habit.target_days_per_week,
-        rate=habit.success_rate,
-        last_completed_on=stamp_day(habit.last_completed, zone),
+        rate=reading.rate,
+        last_kept_on=reading.last_kept_on,
         created_on=creation_day(habit.created_at, zone),
+        ends_on=habit.recurrence_end_date,
         today=today_in(zone),
     )

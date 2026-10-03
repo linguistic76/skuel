@@ -487,7 +487,8 @@ class HabitsProgressService:
 
         The ratio itself is :func:`~core.models.habit.adherence.habit_adherence`,
         the one definition the read-time readers share — measured from the
-        habit's creation day when that falls inside the window, and ``None`` when
+        habit's creation day when that falls inside the window, up to its schedule's
+        end, and ``None`` when
         the habit has no rate yet; this method only hands it the day of each
         completion in the list.
 
@@ -499,6 +500,7 @@ class HabitsProgressService:
             habit.target_days_per_week,
             [day_of(c.completed_at, zone) for c in completions],
             created_on=creation_day(habit.created_at, zone),
+            ends_on=habit.recurrence_end_date,
             today=as_of_date,
         )
 

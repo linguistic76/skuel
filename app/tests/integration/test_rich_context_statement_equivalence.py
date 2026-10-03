@@ -369,6 +369,9 @@ async def test_every_section_reads_what_the_one_statement_read(
                 "recurrence_pattern": "daily",
                 "target_days_per_week": None,
                 "created_at": None,
+                "status": "active",
+                "last_completed": None,
+                "recurrence_end_date": None,
             },
             {
                 "uid": "habit.eq.pre",
@@ -376,6 +379,9 @@ async def test_every_section_reads_what_the_one_statement_read(
                 "recurrence_pattern": None,
                 "target_days_per_week": None,
                 "created_at": None,
+                "status": "active",
+                "last_completed": None,
+                "recurrence_end_date": None,
             },
         ]
     )

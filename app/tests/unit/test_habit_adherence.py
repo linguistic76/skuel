@@ -55,7 +55,9 @@ def _rate(
     """``count`` completions, all made on the most recent day the cadence expects —
     today (a Friday), or Sunday 2026-09-27 for a weekends habit."""
     day = LAST_SUNDAY if pattern == RecurrencePattern.WEEKENDS else TODAY
-    return habit_adherence(pattern, target, [day] * count, created_on=created_on, today=TODAY)
+    return habit_adherence(
+        pattern, target, [day] * count, created_on=created_on, ends_on=None, today=TODAY
+    )
 
 
 # =============================================================================
@@ -167,7 +169,7 @@ def test_only_completions_inside_the_measured_span_count() -> None:
     ]
 
     rate = habit_adherence(
-        RecurrencePattern.DAILY, None, completed_on, created_on=created, today=TODAY
+        RecurrencePattern.DAILY, None, completed_on, created_on=created, ends_on=None, today=TODAY
     )
 
     assert rate == pytest.approx(1 / 3)
@@ -181,13 +183,14 @@ def test_a_weekdays_or_weekends_habit_counts_only_its_own_days() -> None:
     on_weekends = [day for day in weekdays if day.weekday() >= 5]
 
     weekends_rate = habit_adherence(
-        RecurrencePattern.WEEKENDS, None, on_weekdays, created_on=OLD, today=TODAY
+        RecurrencePattern.WEEKENDS, None, on_weekdays, created_on=OLD, ends_on=None, today=TODAY
     )
     weekdays_rate = habit_adherence(
         RecurrencePattern.WEEKDAYS,
         None,
         on_weekends + on_weekdays[:11],
         created_on=OLD,
+        ends_on=None,
         today=TODAY,
     )
 
@@ -283,6 +286,7 @@ def test_the_progress_service_computes_the_same_ratio(
         target,
         [today] * len(in_window),
         created_on=creation_day(habit.created_at, current_zone()),
+        ends_on=None,
         today=today,
     )
 
@@ -301,6 +305,9 @@ def _row(
         "recurrence_pattern": pattern,
         "target_days_per_week": None,
         "created_at": created_at,
+        "status": "active",
+        "last_completed": None,
+        "recurrence_end_date": None,
     }
 
 
@@ -338,7 +345,10 @@ def test_a_young_habit_reads_its_own_days_and_one_with_no_rate_yet_is_left_out()
 
     UserContextPopulator().populate_standard_fields(context, uids)
     UserContextPopulator().populate_derived_fields(
-        context, tasks_rich=[], habits_rich=[_rich_habit("h.new"), _rich_habit("h.weekly")]
+        context,
+        tasks_rich=[],
+        habits_rich=[_rich_habit("h.new"), _rich_habit("h.weekly")],
+        habit_adherence=uids["habit_adherence"],
     )
 
     assert context.habit_completion_rates == {"h.new": 1.0}
@@ -383,15 +393,17 @@ def test_the_standard_path_refuses_a_habits_section_without_the_adherence_rows()
         )
 
 
-def _rich_entity(
+def _risk_row(
     uid: str,
     *,
     status: str = "active",
     pattern: str = "daily",
     created_days_ago: int = 60,
     last_done_days_ago: int | None = 1,
-) -> dict[str, Any]:  # boundary: a projected Neo4j map — properties(habit) is heterogeneous
-    """A rich habit item as ``properties(habit)`` projects it, stamps relative to today."""
+    done_days_ago: tuple[int, ...] = (),
+    ends_days_ago: int | None = None,
+) -> HabitAdherenceRow:
+    """An adherence row as ``HABIT_ADHERENCE_QUERY`` projects it, stamps relative to today."""
     zone = current_zone()
     today = today_in(zone)
 
@@ -400,15 +412,18 @@ def _rich_entity(
         return as_stored_clock(start + timedelta(hours=9)).isoformat()
 
     return {
-        "entity": {
-            "uid": uid,
-            "status": status,
-            "recurrence_pattern": pattern,
-            "target_days_per_week": None,
-            "created_at": stamp(created_days_ago),
-            "last_completed": stamp(last_done_days_ago) if last_done_days_ago is not None else None,
-        },
-        "graph_context": {"linked_goals": []},
+        "uid": uid,
+        "completion_stamps": [stamp(n) for n in done_days_ago],
+        "recurrence_pattern": pattern,
+        "target_days_per_week": None,
+        "created_at": stamp(created_days_ago),
+        "status": status,
+        "last_completed": stamp(last_done_days_ago) if last_done_days_ago is not None else None,
+        "recurrence_end_date": (
+            (today - timedelta(days=ends_days_ago)).isoformat()
+            if ends_days_ago is not None
+            else None
+        ),
     }
 
 
@@ -424,20 +439,47 @@ def test_at_risk_is_an_active_habit_overdue_or_measured_under_half() -> None:
         "h.overdue": 0.9,
         "h.lapsing": 0.3,
         "h.new": 0.0,
+        "h.finished": 0.1,
     }
+    rows = [
+        _risk_row("h.kept"),
+        _risk_row("h.overdue", last_done_days_ago=3),  # missed two days
+        _risk_row("h.lapsing"),  # done yesterday, but a third of the time
+        _risk_row("h.new", created_days_ago=0, last_done_days_ago=None),  # 0 of 1
+        _risk_row("h.quarterly", pattern="quarterly", last_done_days_ago=40),  # no rate
+        _risk_row("h.dropped", pattern="quarterly", last_done_days_ago=100),  # no rate
+        _risk_row("h.paused", status="paused", last_done_days_ago=30),
+        _risk_row("h.finished", last_done_days_ago=20, ends_days_ago=10),  # schedule over
+    ]
 
     UserContextPopulator().populate_derived_fields(
-        context,
-        tasks_rich=[],
-        habits_rich=[
-            _rich_entity("h.kept"),
-            _rich_entity("h.overdue", last_done_days_ago=3),  # missed two days
-            _rich_entity("h.lapsing"),  # done yesterday, but a third of the time
-            _rich_entity("h.new", created_days_ago=0, last_done_days_ago=None),  # 0 of 1
-            _rich_entity("h.quarterly", pattern="quarterly", last_done_days_ago=40),  # no rate
-            _rich_entity("h.dropped", pattern="quarterly", last_done_days_ago=100),  # no rate
-            _rich_entity("h.paused", status="paused", last_done_days_ago=30),
-        ],
+        context, tasks_rich=[], habits_rich=[], habit_adherence=rows
     )
 
     assert context.at_risk_habits == ["h.overdue", "h.lapsing", "h.dropped"]
+
+
+def test_lateness_runs_from_the_last_day_kept_on_cadence() -> None:
+    """A weekends habit last kept eight days ago, done on a weekday since, is late: the
+    weekday completion keeps no part of its schedule. One whose stored last completion
+    is in the future reads from the latest completion that has happened."""
+    zone = current_zone()
+    today = today_in(zone)
+    weekday_since = next(n for n in range(1, 8) if (today - timedelta(days=n)).weekday() < 5)
+    weekend_long_ago = next(n for n in range(9, 16) if (today - timedelta(days=n)).weekday() >= 5)
+    context = UserContext(user_uid="u")
+    rows = [
+        _risk_row(
+            "h.weekends",
+            pattern="weekends",
+            last_done_days_ago=weekday_since,
+            done_days_ago=(weekday_since, weekend_long_ago),
+        ),
+        _risk_row("h.ahead", last_done_days_ago=-5, done_days_ago=(4,)),
+    ]
+
+    UserContextPopulator().populate_derived_fields(
+        context, tasks_rich=[], habits_rich=[], habit_adherence=rows
+    )
+
+    assert context.at_risk_habits == ["h.weekends", "h.ahead"]
