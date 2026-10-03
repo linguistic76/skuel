@@ -696,7 +696,7 @@ WITH user,
 // Filter knowledge for rich data (with prerequisites/dependents)
 UNWIND CASE WHEN size(all_knowledge_nodes) > 0 THEN all_knowledge_nodes ELSE [null] END as ku
 OPTIONAL MATCH (ku)-[prereq_rel:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence
+WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence AND __FAR(prereq)__
 WITH user, knowledge_mastery_data,
      ku, collect(DISTINCT CASE WHEN prereq IS NOT NULL THEN {uid: prereq.uid, title: prereq.title, confidence: prereq_rel.confidence} END) as ku_prerequisites
 
@@ -787,7 +787,7 @@ WITH user, enrolled_path_uids,
      } END) as lp_steps
 
 OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Entity)
-WHERE lp IS NOT NULL
+WHERE lp IS NOT NULL AND __FAR(prereq_ku)__
 WITH user, enrolled_path_uids,
      lp, lp_steps,
      collect(DISTINCT CASE WHEN prereq_ku IS NOT NULL THEN {uid: prereq_ku.uid, title: prereq_ku.title} END) as lp_prereqs
@@ -836,7 +836,7 @@ WITH user, enrolled_path_uids, paths_rich,
 // Filter path steps for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_ps_nodes) > 0 THEN all_ps_nodes ELSE [null] END as ps
 OPTIONAL MATCH (ps)-[:REQUIRES_STEP]->(prereq_step:PathStep)
-WHERE ps IS NOT NULL
+WHERE ps IS NOT NULL AND __FAR(prereq_step)__
 WITH user, enrolled_path_uids, paths_rich,
      ps, collect(DISTINCT CASE WHEN prereq_step IS NOT NULL THEN {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed} END) as ps_prereq_steps
 

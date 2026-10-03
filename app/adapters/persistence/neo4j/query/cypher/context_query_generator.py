@@ -141,7 +141,7 @@ def _build_shared_neighbor_clause(
     clause_index: int,
     with_vars: list[str],
     entity_label: NeoLabel,
-) -> tuple[str, str]:
+) -> tuple[str, str, dict[str, str]]:
     """
     Build a shared-neighbor Cypher clause for finding related entities.
 
@@ -159,13 +159,14 @@ def _build_shared_neighbor_clause(
             a node other users link to as well.
 
     Returns:
-        Tuple of (cypher_clause, alias) where:
+        Tuple of (cypher_clause, alias, params) where:
         - cypher_clause: The OPTIONAL MATCH...WITH clause(s)
         - alias: The result alias to add to RETURN
+        - params: The parameters the clause's far-node predicates introduce
     """
     config = rel_def.shared_neighbor_config
     if not config:
-        return "", ""
+        return "", "", {}
 
     # Build the relationship pattern (e.g., "APPLIES_KNOWLEDGE|FULFILLS_GOAL")
     rel_pattern = config.get_relationship_pattern()
@@ -194,10 +195,12 @@ def _build_shared_neighbor_clause(
         f"<-[:{rel_pattern}]-(related{clause_index}:{config.target_label})",
         f"WHERE related{clause_index} <> entity",
     ]
+    params: dict[str, str] = {}
     for far_alias in (f"shared{clause_index}", f"related{clause_index}"):
         far_node = build_link_far_node_clause(entity_label, far_alias, ENTITY_OWNERS)
         if far_node is not None:
             clause_parts[-1] += f" AND {far_node[0]}"
+            params.update(far_node[1])
 
     if has_shared_count:
         # Two-step aggregation: first count shared per related, then collect
@@ -213,7 +216,7 @@ def _build_shared_neighbor_clause(
         collect_expr = f"collect(DISTINCT {{{fields_str}}})[0..{config.limit}] as {alias}"
         clause_parts.append(f"WITH {prev_vars}, {collect_expr}")
 
-    return "\n".join(clause_parts), alias
+    return "\n".join(clause_parts), alias, params
 
 
 def _generate_from_config(
@@ -285,10 +288,11 @@ def _generate_from_config(
     shared_aliases = []
 
     for i, rel_def in enumerate(shared_neighbor_relationships):
-        clause, alias = _build_shared_neighbor_clause(
+        clause, alias, clause_params = _build_shared_neighbor_clause(
             rel_def, i, [*return_vars, *carried], entity_label
         )
         if clause:
+            parameters.update(clause_params)
             shared_clauses.append(clause)
             shared_aliases.append(alias)
             return_vars.append(alias)

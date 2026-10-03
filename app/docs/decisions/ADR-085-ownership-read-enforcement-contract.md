@@ -159,7 +159,9 @@ another user's rows it is an audience read and belongs to a chokepoint.
 > feedback loop, groups and sharing join two users by design and read under their own
 > audience rules (ADR-088), as do attendance and the share links read from an activity
 > (`_TWO_USER_EDGES`) — and leave a shared anchor's far end unrestricted (a Ku asked
-> which tasks apply it). A by-uid title lookup is not a projection: it goes through
+> which tasks apply it). In the rich context a container's own contents — a path's steps, a
+> step's Kus and its parent path — ride along with the container the learner holds and are
+> not tied (the publication registry's CONTAINMENT); its prerequisites are. A by-uid title lookup is not a projection: it goes through
 > `get_visible_to_user` (§2).
 
 (The one existing composition-adjacent rule stands unchanged: `has_user=True` is fail-closed

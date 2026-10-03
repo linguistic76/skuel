@@ -235,6 +235,13 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
             a=KU_REQUIRING,
             b=KU,
         )
+        # The caller has mastered the requiring Ku, so its prerequisite — the linked
+        # Ku — is in the knowledge half of the rich context too.
+        await session.run(
+            "MATCH (u:User {uid: $u}), (k:Ku {uid: $k}) MERGE (u)-[:MASTERED]->(k)",
+            u=CALLER,
+            k=KU_REQUIRING,
+        )
     for label, uid in OWN.items():
         await _seed_activity(driver, label, uid, CALLER, f"caller-owned {label}")
     for label, uid in FOREIGN.items():
