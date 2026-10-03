@@ -22,7 +22,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    build_far_node_clause,
+    build_owner_uids_expression,
+    build_publication_clause,
+)
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
@@ -55,6 +59,10 @@ class ConnectionFetchBackend:
         For outgoing domains (Task, Habit, Event, Choice) the connected entity is
         the target. For incoming/gravity-well domains (Goal, Principle) it is the
         source. The dict keys are unified regardless of direction.
+
+        A connected entity is the entity owner's own or published shared content
+        (``build_far_node_clause``): another user's node, or a draft, at the far end
+        of an edge is left out as if the edge were absent.
         """
         if not entity_uids:
             return {}
@@ -67,11 +75,13 @@ class ConnectionFetchBackend:
         # Historical behavior: any non-"outgoing" config traverses incoming
         # (the gravity-well domains Goal/Principle).
         arrow = direction_clause("outgoing" if config.direction == "outgoing" else "incoming")
+        far_node, far_node_params = build_far_node_clause("other", "anchor_owners")
         query = f"""
         MATCH (n:Entity:{label})
         WHERE n.uid IN $uids
+        WITH n, {build_owner_uids_expression("n")} AS anchor_owners
         OPTIONAL MATCH (n){arrow}(other:Entity)
-        WHERE type(r) IN $rel_types
+        WHERE type(r) IN $rel_types AND {far_node}
         RETURN n.uid AS entity_uid,
                type(r) AS rel_type,
                other.uid AS connected_uid,
@@ -81,7 +91,7 @@ class ConnectionFetchBackend:
 
         try:
             result = await self._executor.execute_query(
-                query, {"uids": entity_uids, "rel_types": rel_list}
+                query, {"uids": entity_uids, "rel_types": rel_list, **far_node_params}
             )
         except Exception:  # safety-net: Neo4j query failure shouldn't break the page
             logger.warning("Failed to fetch %s connections", label, exc_info=True)

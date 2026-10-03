@@ -7,6 +7,10 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
+from adapters.persistence.neo4j.query.cypher import (
+    build_far_node_clause,
+    build_owner_uids_expression,
+)
 from adapters.persistence.neo4j.query.cypher.choice_fragments import (
     build_choice_decided_predicate,
     build_choice_pending_predicate,
@@ -104,6 +108,8 @@ async def _edge_targets(
     THE shared query behind the label-swapped link-map clones
     (task→habit, event→habit, habit→goal, event→goal enrichment lookups).
     ``rel_type`` is a RelationshipName value; entity types are parameterized.
+    A target is the source owner's own or published shared content
+    (``build_far_node_clause``).
     """
     if not source_uids:
         return Result.ok([])
@@ -113,12 +119,16 @@ async def _edge_targets(
     if target_entity_type:
         params["target_type"] = target_entity_type
 
+    far_node, far_node_params = build_far_node_clause("t", "anchor_owners")
     query = f"""
-    MATCH (s:Entity {{entity_type: $source_type}})-[:{rel_type}]->{target_part}
+    MATCH (s:Entity {{entity_type: $source_type}})
     WHERE s.uid IN $uids
+    WITH s, {build_owner_uids_expression("s")} AS anchor_owners
+    MATCH (s)-[:{rel_type}]->{target_part}
+    WHERE {far_node}
     RETURN s.uid AS source_uid, t.uid AS target_uid
     """
-    result = await backend.execute_query(query, params)
+    result = await backend.execute_query(query, {**params, **far_node_params})
     if result.is_error:
         return Result.fail(result)
     return Result.ok([(row["source_uid"], row["target_uid"]) for row in (result.value or [])])

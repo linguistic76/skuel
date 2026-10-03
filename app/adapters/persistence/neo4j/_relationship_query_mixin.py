@@ -93,6 +93,14 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             target_label: NeoLabel | None = None,
         ) -> Result[str]: ...
 
+        @staticmethod
+        def _link_far_node_scope(
+            anchor_label: NeoLabel,
+            relationship_type: str,
+            anchor_var: str = "n",
+            far_var: str = "related",
+        ) -> tuple[str, str, dict[str, str]]: ...
+
     # ============================================================================
     # GRAPH-NATIVE RELATIONSHIP QUERIES
     # ============================================================================
@@ -120,7 +128,9 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             limit: Max results to return
 
         Returns:
-            Result[List[T]] of related entities
+            Result[List[T]] of related entities. Through an Activity backend a related
+            entity is the anchor owner's own or published shared content
+            (``_link_far_node_scope``).
 
         Example:
             # Get all prerequisites for a knowledge unit
@@ -142,16 +152,22 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         df_clause = self._default_filter_clause()
         where_line = f"WHERE {df_clause}" if df_clause else ""
+        owners_line, far_node, far_node_params = self._link_far_node_scope(
+            self.label, relationship_type
+        )
+        far_node_line = f"WHERE {far_node}" if far_node else ""
 
         query = f"""
         MATCH (n:{self.label} {{uid: $uid}})
         {where_line}
+        {owners_line}
         MATCH {pattern}
+        {far_node_line}
         RETURN related
         LIMIT $limit
         """
 
-        params: dict[str, Any] = {"uid": uid, "limit": limit}
+        params: dict[str, Any] = {"uid": uid, "limit": limit, **far_node_params}
         params.update(self._default_filter_params())
 
         async with self.driver.session() as session:
@@ -199,7 +215,10 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             properties: Optional dict of relationship properties to filter by
 
         Returns:
-            Result[List[str]] of related entity UIDs from graph traversal
+            Result[List[str]] of related entity UIDs from graph traversal. Through an
+            Activity backend, from an owned anchor, a related entity is the anchor
+            owner's own or published shared content (``_link_far_node_scope``) —
+            another user's node, or a draft, is left out as if the edge were absent.
 
         Graph Traversal Examples:
             # Get UIDs of knowledge units this enables (outgoing ENABLES edges)
@@ -271,12 +290,19 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 where_clauses.append(f"r.{key} = ${param_name}")
                 params[param_name] = value
 
+        owners_line, far_node, far_node_params = self._link_far_node_scope(
+            self.label, relationship_type
+        )
+        if far_node:
+            where_clauses.append(far_node)
+            params.update(far_node_params)
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         # NOT :Content — G13 shadow-uid guard (chunk-store shadow shares uid).
         query = f"""
         MATCH (n {{uid: $uid}})
         WHERE NOT n:Content
+        {owners_line}
         MATCH {pattern}
         {where_clause}
         RETURN related.uid as uid

@@ -102,7 +102,19 @@ def test_every_lens_ties_each_path_node_to_the_center_owner(
 
     assert "all(n IN nodes(path)[1..] WHERE" in query
     assert "center_owners" in query
-    assert set(params) - {"limit"} == {"uid", "min_confidence"}
+    assert set(params) - {"limit"} == {"uid", "min_confidence", "publication_draft"}
+
+
+def test_shared_content_under_an_owned_center_is_published() -> None:
+    """A draft is withheld only when the center has an owner: a shared center's
+    neighbourhood is shared content whatever its state."""
+    query, params = build_domain_context_with_paths("uid", relationship_types=["DEPENDS_ON"])
+
+    assert (
+        "size(far_owners) = 0 AND (size(center_owners) = 0 OR "
+        "(n.publication_state IS NULL OR n.publication_state <> $publication_draft))"
+    ) in query
+    assert params["publication_draft"] == "draft"
 
 
 def test_owner_is_read_in_all_three_spellings_and_a_user_is_its_own() -> None:

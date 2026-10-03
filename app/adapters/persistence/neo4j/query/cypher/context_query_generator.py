@@ -56,7 +56,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from ._types import RelationshipSpec
-from .domain_queries import build_entity_with_context
+from .crud_queries import build_link_far_node_clause, is_link_anchor_label
+from .domain_queries import ENTITY_OWNERS, build_entity_with_context
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -139,6 +140,7 @@ def _build_shared_neighbor_clause(
     rel_def: UnifiedRelationshipDefinition,
     clause_index: int,
     with_vars: list[str],
+    entity_label: NeoLabel,
 ) -> tuple[str, str]:
     """
     Build a shared-neighbor Cypher clause for finding related entities.
@@ -151,6 +153,10 @@ def _build_shared_neighbor_clause(
         rel_def: The relationship definition with shared_neighbor_config
         clause_index: Index for unique variable naming
         with_vars: Current WITH variables to carry forward
+        entity_label: The anchored entity's label. Under an Activity label the shared
+            node and the related entity are both tied to the entity's owner
+            (``build_link_far_node_clause``) — the pattern is a two-hop read through
+            a node other users link to as well.
 
     Returns:
         Tuple of (cypher_clause, alias) where:
@@ -188,6 +194,10 @@ def _build_shared_neighbor_clause(
         f"<-[:{rel_pattern}]-(related{clause_index}:{config.target_label})",
         f"WHERE related{clause_index} <> entity",
     ]
+    for far_alias in (f"shared{clause_index}", f"related{clause_index}"):
+        far_node = build_link_far_node_clause(entity_label, far_alias, ENTITY_OWNERS)
+        if far_node is not None:
+            clause_parts[-1] += f" AND {far_node[0]}"
 
     if has_shared_count:
         # Two-step aggregation: first count shared per related, then collect
@@ -267,13 +277,17 @@ def _generate_from_config(
     # Parse the RETURN line to get current aliases
     # Format: "RETURN entity, alias1, alias2, ..."
     return_vars = [v.strip() for v in return_line.replace("RETURN ", "").split(",")]
+    # The owners the base statement carries stay in scope for the clauses below.
+    carried = [ENTITY_OWNERS] if is_link_anchor_label(entity_label) else []
 
     # Build shared-neighbor clauses
     shared_clauses = []
     shared_aliases = []
 
     for i, rel_def in enumerate(shared_neighbor_relationships):
-        clause, alias = _build_shared_neighbor_clause(rel_def, i, return_vars)
+        clause, alias = _build_shared_neighbor_clause(
+            rel_def, i, [*return_vars, *carried], entity_label
+        )
         if clause:
             shared_clauses.append(clause)
             shared_aliases.append(alias)

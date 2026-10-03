@@ -80,13 +80,13 @@ async def _seed(neo4j_driver) -> None:
 async def test_prerequisites_of_my_task_omit_their_task(neo4j_driver, graph_intel, clean_neo4j):
     await _seed(neo4j_driver)
 
-    # The traversal stops short of their task; the draft it reaches, and the filter
-    # keeps that out.
+    # The traversal stops short of their task, and of the draft: under an owned
+    # center a path holds published shared content only.
     context = await graph_intel.get_entity_context(MY_TASK, GraphDepth.DEFAULT)
     assert context.is_ok, context
     reached = [n.uid for n in context.value.all_nodes]
     assert THEIR_TASK not in reached
-    assert DRAFT_KU in reached
+    assert DRAFT_KU not in reached
 
     result = await get_knowledge_prerequisites(
         graph=graph_intel, entity_uid=MY_TASK, depth=GraphDepth.DEFAULT

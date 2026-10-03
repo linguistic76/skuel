@@ -235,6 +235,124 @@ def build_publication_clause(entity_alias: str = "n") -> tuple[str, dict[str, st
     )
 
 
+def build_owner_uids_expression(node: str, owns_edge_uids: str | None = None) -> str:
+    """Cypher list of a node's owner uids, over every spelling ownership has in the graph.
+
+    ``owns_edge_uids`` is the caller's expression for the uids at the far end of the
+    node's incoming ``OWNS`` edges (default: a pattern comprehension over them); the
+    ``user_uid`` and ``owner_uid`` properties are read here. A ``:User`` node is its own
+    owner. An empty list is shared content.
+    """
+    owns = owns_edge_uids or f"[(o:User)-[:OWNS]->({node}) | o.uid]"
+    return (
+        f"CASE WHEN {node}:User THEN [{node}.uid] "
+        f"ELSE [o IN {owns} + [{node}.user_uid, {node}.owner_uid] "
+        f"WHERE o IS NOT NULL] END"
+    )
+
+
+def build_far_node_clause(far_alias: str, anchor_owners: str) -> tuple[str, dict[str, str]]:
+    """Build the WHERE fragment that ties a node read across an edge to its anchor's owner.
+
+    THE far-node predicate — every statement that projects the node at the other end
+    of an edge from an anchored entity composes THIS, never a hand-written equivalent.
+    The far node is kept when:
+
+    - one of its owners is one of the anchor's (the anchored user's own entity), or
+    - it is shared content (owned by nobody) and, when the anchor is owned, it passes
+      ``build_publication_clause`` — a user's page does not show a draft's title
+      across an edge; the edge stays, so a republish restores the link.
+
+    Ownership is asked as membership over all three spellings
+    (``build_owner_uids_expression``), so a node owned through the ``OWNS`` edge alone
+    — a Group — is not read as shared. A share link is not ownership: an entity shared
+    WITH the anchor's owner is not its owner's and stays out. An owned draft (a user's
+    own unfinished Exercise) is the owner arm's and is kept.
+
+    Under a shared anchor (``anchor_owners`` empty) the fragment keeps shared content
+    only and leaves publication to the curriculum readers' own gate. A statement whose
+    anchor may be shared and whose far end is then unrestricted says so at its call
+    site (``size(anchor_owners) = 0 OR ...``).
+
+    Args:
+        far_alias: the far node's variable.
+        anchor_owners: a Cypher expression for the list of the anchor's owner uids —
+            a bound variable, or ``[user.uid]`` under an anchored ``(user:User)``.
+
+    Returns:
+        ``(fragment, params)`` — a parenthesized WHERE fragment plus the parameters
+        it introduces.
+
+    See: /docs/decisions/ADR-085-ownership-read-enforcement-contract.md § 4
+    """
+    validate_identifier(far_alias, context="entity alias")
+    published, params = build_publication_clause(far_alias)
+    owners = build_owner_uids_expression(far_alias)
+    return (
+        f"any(far_owners IN [{owners}] WHERE "
+        f"any(o IN far_owners WHERE o IN {anchor_owners}) "
+        f"OR (size(far_owners) = 0 AND (size({anchor_owners}) = 0 OR {published})))",
+        params,
+    )
+
+
+# The labels whose edges are link edges: a user's activity, joined by the link doors to
+# the user's other entities and to shared curriculum. The feedback loop, groups and
+# sharing join two users by design and are read under their own audience rules
+# (ADR-088), so their labels are not here.
+_LINK_ANCHOR_LABELS: frozenset[NeoLabel] = frozenset(
+    NeoLabel.from_entity_type(entity_type)
+    for entity_type in EntityType
+    if entity_type.is_activity()
+)
+
+
+# Edges that join an activity to another user by design — attendance and the share
+# links. Their far end is an audience question with its own readers (ADR-086, ADR-088),
+# so a generic read of one of them is not tied.
+_TWO_USER_EDGES: frozenset[str] = frozenset(
+    {
+        RelationshipName.ATTENDS.value,
+        RelationshipName.SHARES_WITH.value,
+        RelationshipName.SHARED_WITH_GROUP.value,
+        RelationshipName.SUBMITTED_TO_GROUP.value,
+    }
+)
+
+
+def is_link_anchor_label(label: NeoLabel) -> bool:
+    """Whether a generic edge read anchored on this label ties its far node."""
+    return label in _LINK_ANCHOR_LABELS
+
+
+def build_link_far_node_clause(
+    anchor_label: NeoLabel,
+    far_alias: str,
+    anchor_owners: str,
+    relationship_type: str | None = None,
+) -> tuple[str, dict[str, str]] | None:
+    """Build the far-node fragment for a generic edge read through a domain backend.
+
+    The generic edge reads (related uids / entities / counts, the registry context
+    statement) serve every domain. Through an Activity backend they read link edges,
+    and the far node is tied to the anchor's owner by ``build_far_node_clause``. The
+    anchor there is matched by uid alone and may be shared content (a Ku asked which
+    tasks apply it): that read is not across a link edge FROM a user's entity, and
+    the fragment leaves it unrestricted.
+
+    A read of one edge type names it in ``relationship_type``; attendance and the
+    share links (``_TWO_USER_EDGES``) join two users by design and are not tied.
+
+    Returns:
+        ``(fragment, params)``, or None when ``anchor_label`` is not a link-edge
+        anchor, or the edge is a two-user edge, and no predicate applies.
+    """
+    if not is_link_anchor_label(anchor_label) or relationship_type in _TWO_USER_EDGES:
+        return None
+    far_node, params = build_far_node_clause(far_alias, anchor_owners)
+    return f"(size({anchor_owners}) = 0 OR {far_node})", params
+
+
 def build_knowledge_read_clause(
     entity_alias: str = "n", *, apply_publication_gate: bool = True
 ) -> tuple[str, Neo4jProperties]:

@@ -48,7 +48,11 @@ class TestFetchEntityConnections:
         assert params == {
             "uids": ["task:1"],
             "rel_types": list(TASK_CONNECTION_CONFIG.relationship_types),
+            "publication_draft": "draft",
         }
+        # The connected entity is tied to the entity's owner.
+        assert "AS anchor_owners" in query
+        assert "any(o IN far_owners WHERE o IN anchor_owners)" in query
 
     @pytest.mark.asyncio
     async def test_incoming_query_shape(self):

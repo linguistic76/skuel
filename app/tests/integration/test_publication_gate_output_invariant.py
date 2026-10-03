@@ -580,6 +580,14 @@ _BUILDER_RESIDUAL = (
     "tests/unit/test_search_visibility_scoping.py"
 )
 
+_FAR_NODE_RESIDUAL = (
+    "a far-node read: it needs one of a user's own activities linked to a draft, "
+    "and an activity → knowledge edge in this corpus changes what the "
+    "goal-anchored surfaces return. Measured through the routes instead, by "
+    "tests/integration/routes/test_link_reader_far_nodes.py (a linked Ku "
+    "reverted to draft is hidden on every reader; republished, it is back)"
+)
+
 UNMEASURABLE: dict[tuple[str, str], str] = {
     (
         "adapters.persistence.neo4j._learning_state_mixin",
@@ -637,6 +645,40 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
         "false — the corpus DOES build one, (u)-[:IN_PROGRESS]->(s_prog). "
         "CONVERTIBLE, on the same cascade caveat as list_root_organizers"
     ),
+    (
+        "adapters.persistence.neo4j._relationship_crud_mixin",
+        "_RelationshipCrudMixin._batch_related",
+    ): _FAR_NODE_RESIDUAL,
+    (
+        "adapters.persistence.neo4j._relationship_query_mixin",
+        "_RelationshipQueryMixin.get_related_entities",
+    ): _FAR_NODE_RESIDUAL,
+    (
+        "adapters.persistence.neo4j._relationship_query_mixin",
+        "_RelationshipQueryMixin.get_related_uids",
+    ): _FAR_NODE_RESIDUAL,
+    ("adapters.persistence.neo4j.backends.activity_backends", "_edge_targets"): _FAR_NODE_RESIDUAL,
+    (
+        "adapters.persistence.neo4j.connection_fetch_backend",
+        "ConnectionFetchBackend.fetch_entity_connections",
+    ): _FAR_NODE_RESIDUAL,
+    (
+        "adapters.persistence.neo4j.query.cypher.context_query_generator",
+        "_build_shared_neighbor_clause",
+    ): _FAR_NODE_RESIDUAL,
+    (
+        "adapters.persistence.neo4j.query.cypher.domain_queries",
+        "build_entity_with_context",
+    ): _FAR_NODE_RESIDUAL,
+    (
+        "adapters.persistence.neo4j.query.cypher.semantic_queries",
+        "build_domain_context_with_paths",
+    ): _FAR_NODE_RESIDUAL,
+    ("adapters.persistence.neo4j.user_context_queries", "_far_node"): _FAR_NODE_RESIDUAL,
+    (
+        "adapters.persistence.neo4j.user_progress_backend",
+        "UserProgressBackend.get_prerequisite_map",
+    ): _FAR_NODE_RESIDUAL,
     (CRUD_QUERIES, "build_text_search_query"): _BUILDER_RESIDUAL,
     (CRUD_QUERIES, "build_graph_aware_search_query"): _BUILDER_RESIDUAL,
     (CRUD_QUERIES, "build_array_any_match_query"): _BUILDER_RESIDUAL,

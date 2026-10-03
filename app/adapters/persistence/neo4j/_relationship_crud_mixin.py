@@ -32,6 +32,10 @@ from adapters.persistence.neo4j.endpoint_queries import (
     PUBLISHED_UIDS_BATCH_PARAMS,
     PUBLISHED_UIDS_BATCH_QUERY,
 )
+from adapters.persistence.neo4j.query.cypher.crud_queries import (
+    build_link_far_node_clause,
+    build_owner_uids_expression,
+)
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
@@ -275,6 +279,32 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             user_message=f"Invalid target type for {relationship_type} relationship",
             source_location=ErrorContext.capture_current_location(),
         )
+
+    @staticmethod
+    def _link_far_node_scope(
+        anchor_label: NeoLabel,
+        relationship_type: str,
+        anchor_var: str = "n",
+        far_var: str = "related",
+    ) -> tuple[str, str, dict[str, str]]:
+        """The far-node scope a generic edge read composes under a link-edge anchor.
+
+        Returns ``(owners_line, predicate, params)``: a ``WITH`` line that carries the
+        anchor and its owner uids, the predicate that keeps a far node only when it is
+        the anchor owner's own or published shared content, and the predicate's
+        parameters. All three are empty when ``anchor_label`` is not a link-edge anchor
+        or ``relationship_type`` joins two users by design
+        (``build_link_far_node_clause``) — the read is then unchanged.
+        """
+        far_node = build_link_far_node_clause(
+            anchor_label, far_var, "anchor_owners", relationship_type
+        )
+        if far_node is None:
+            return "", "", {}
+        owners_line = (
+            f"WITH {anchor_var}, {build_owner_uids_expression(anchor_var)} AS anchor_owners"
+        )
+        return owners_line, far_node[0], far_node[1]
 
     def _build_direction_pattern(
         self,
@@ -1324,6 +1354,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         relationship_type: str,
         direction: str,
         return_clause: str,
+        *,
+        names_related: bool = False,
     ) -> builtins.list[dict[str, Any]]:
         """
         Shared UNWIND core behind the three batch_* relationship queries.
@@ -1332,19 +1364,38 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         batch_get_related_uids) differ only in their RETURN line — pass it as
         ``return_clause``. Exceptions propagate to the wrappers'
         @safe_backend_operation decorators.
+
+        ``names_related`` is set by the wrapper whose RETURN names the related node
+        (its uid). Under a link-edge anchor label that node is then the entity
+        owner's own or published shared content (``_link_far_node_scope``). The
+        existence and count wrappers name nothing and see every edge: a count a
+        caller decides "blocked" from does not drop when a prerequisite is hidden.
         """
+        owners_line, far_node, far_node_params = (
+            self._link_far_node_scope(entity_label, relationship_type, "e")
+            if names_related
+            else ("", "", {})
+        )
+        if owners_line:
+            owners_line += ", entity_uid"
+        far_node_filter = f"AND {far_node}" if far_node else ""
         query = f"""
         UNWIND $entity_uids AS entity_uid
         MATCH (e:{entity_label} {{uid: entity_uid}})
+        {owners_line}
         OPTIONAL MATCH (e){direction_clause(direction)}(related)
-        WHERE type(r) = $relationship_type
+        WHERE type(r) = $relationship_type {far_node_filter}
         RETURN entity_uid, {return_clause}
         """
 
         async with self.driver.session() as session:
             result = await session.run(
                 query,
-                {"entity_uids": entity_uids, "relationship_type": relationship_type},
+                {
+                    "entity_uids": entity_uids,
+                    "relationship_type": relationship_type,
+                    **far_node_params,
+                },
             )
             return [dict(record) async for record in result]
 
@@ -1437,6 +1488,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             relationship_type,
             direction,
             "collect(related.uid) AS related_uids",
+            names_related=True,
         )
         return Result.ok(
             {
