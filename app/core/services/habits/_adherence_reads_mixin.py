@@ -1,11 +1,13 @@
-"""The Habits facade's hydrated reads — every Habit it hands out carries its derived ``success_rate``.
+"""The Habits facade's hydrated reads — every Habit a read returns carries its derived ``success_rate``.
 
 ``Habit.success_rate`` is derived at read time (``core.services.habits._adherence``).
 This mixin sits first in ``HabitsService``'s MRO and wraps the inherited CRUD reads
 the route factories call (``get``, ``get_for_user``, ``list``) so the habit a route
 serializes, and the habit a cross-domain caller reads, carries the rate — never
-the node's stale number. ``verify_ownership`` stays unhydrated: it is the gate in
-front of every write, and a write has no use for the rate.
+the node's stale number; the facade's own read methods go through the same
+helpers. ``verify_ownership`` stays unhydrated: it is the gate in front of every
+write, and a write has no use for the rate. A write's result (create, update,
+complete) is the stored entity — its rate is ``None`` until it is read.
 
 A mixin rather than methods on the facade body so the facade's own ``list[...]``
 annotations keep meaning the builtin.
@@ -75,6 +77,13 @@ class _AdherenceReadsMixin:
         if result.is_error:
             return result
         return await enrich_habit_with_adherence(self.backend, result.value)
+
+    async def _list_with_adherence(
+        self, result: Result[builtins.list[Habit]]
+    ) -> Result[builtins.list[Habit]]:
+        if result.is_error:
+            return result
+        return await self.enrich_with_adherence(result.value)
 
     async def _page_with_adherence(
         self, result: Result[tuple[builtins.list[Habit], int]]

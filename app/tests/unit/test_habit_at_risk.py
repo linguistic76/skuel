@@ -2,7 +2,7 @@
 
 An active habit is at risk when it is overdue for its own cadence, or when its
 adherence is under ``HabitAtRisk.RATE_THRESHOLD`` and the measured span asked
-for at least ``HabitAtRisk.MIN_EXPECTED`` completions. Ruled 2026-10-02.
+for at least ``HabitAtRisk.MIN_EXPECTED`` completions.
 """
 
 from __future__ import annotations

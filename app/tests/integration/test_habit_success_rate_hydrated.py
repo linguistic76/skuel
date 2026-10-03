@@ -225,8 +225,10 @@ class TestEveryHabitReadCarriesTheDerivedRate:
 
         listed = await habits.get_user_habits(_USER)
         page = await habits.list(user_uid=_USER, limit=50)
-        assert listed.is_ok and page.is_ok
-        for read in (listed.value, page.value[0]):
+        active = await habits.get_active(_USER)
+        in_range = await habits.get_user_items_in_range(_USER, _days_ago(60), TODAY)
+        assert listed.is_ok and page.is_ok and active.is_ok and in_range.is_ok
+        for read in (listed.value, page.value[0], active.value, in_range.value):
             assert {h.uid: h.success_rate for h in read} == {
                 uid: _rate(rate) for uid, rate in EXPECTED.items()
             }
