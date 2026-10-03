@@ -372,10 +372,8 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
         """Get habits that need attention (broken streaks, missed completions)."""
         ...
 
-    async def get_at_risk(
-        self, user_uid: UserUID, days_threshold: int = 3, limit: int = 20
-    ) -> Result[list[Habit]]:
-        """Get habits at risk of breaking streak."""
+    async def get_at_risk(self, user_context: UserContext) -> Result[list[Habit]]:
+        """Get the user's at-risk habits (``habit_at_risk``), most streak to lose first."""
         ...
 
     async def get_user_due_today(self, user_uid: UserUID) -> Result[list[Habit]]:

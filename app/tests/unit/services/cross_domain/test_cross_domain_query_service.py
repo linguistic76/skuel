@@ -9,10 +9,12 @@ service transforms raw dicts into typed dataclasses.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 
+from core.models.habit.adherence import adherence_window_days
 from core.services.cross_domain import (
     ActiveTaskCount,
     AlignedEntity,
@@ -25,6 +27,8 @@ from core.services.cross_domain import (
     TasksForKnowledge,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
+from core.utils.zone_context import current_zone
 
 
 @pytest.fixture
@@ -229,27 +233,60 @@ class TestCountActiveTasksForGoal:
 # ---------------------------------------------------------------------------
 
 
+def _habit_record(
+    uid: str,
+    ku_uids: list[str],
+    *,
+    done_days_ago: list[int],
+    last_done_days_ago: int | None,
+    pattern: str = "daily",
+) -> dict[str, object]:
+    """A reinforcement row as the backend projects it — stamps relative to today."""
+    zone = current_zone()
+    today = today_in(zone)
+
+    def stamp(days_ago: int) -> str:
+        start, _ = local_day_bounds(today - timedelta(days=days_ago), zone)
+        return as_stored_clock(start + timedelta(hours=9)).isoformat()
+
+    return {
+        "habit_uid": uid,
+        "current_streak": 10,
+        "status": "active",
+        "recurrence_pattern": pattern,
+        "target_days_per_week": None,
+        "created_at": stamp(90),
+        "last_completed": stamp(last_done_days_ago) if last_done_days_ago is not None else None,
+        "completion_stamps": [stamp(n) for n in done_days_ago],
+        "ku_uids": ku_uids,
+    }
+
+
 class TestGetHabitKnowledgeReinforcement:
     @pytest.mark.asyncio
-    async def test_returns_typed_rows(
+    async def test_returns_typed_rows_with_the_derived_rate_and_risk(
         self, service: CrossDomainQueryService, mock_backend: AsyncMock
     ) -> None:
+        """The rate is counted from the window stamps (24/30, 9/30); at risk is the one
+        definition — the kept habit is not, the one last done three days ago is."""
         mock_backend.get_habit_knowledge_reinforcement.return_value = Result.ok(
             [
-                {
-                    "habit_uid": "habit_1",
-                    "current_streak": 10,
-                    "success_rate": 0.8,
-                    "status": "active",
-                    "ku_uids": ["ku_a", "ku_b"],
-                },
-                {
-                    "habit_uid": "habit_2",
-                    "current_streak": 0,
-                    "success_rate": 0.3,
-                    "status": "active",
-                    "ku_uids": ["ku_c"],
-                },
+                _habit_record(
+                    "habit_1",
+                    ["ku_a", "ku_b"],
+                    done_days_ago=list(range(1, 25)),
+                    last_done_days_ago=1,
+                ),
+                _habit_record(
+                    "habit_2", ["ku_c"], done_days_ago=list(range(3, 12)), last_done_days_ago=3
+                ),
+                _habit_record(
+                    "habit_3",
+                    ["ku_d"],
+                    done_days_ago=[],
+                    last_done_days_ago=10,
+                    pattern="quarterly",
+                ),
             ]
         )
 
@@ -258,18 +295,24 @@ class TestGetHabitKnowledgeReinforcement:
         assert result.is_ok
         rows = result.value
         assert isinstance(rows, tuple)
-        assert len(rows) == 2
         assert rows[0] == HabitKnowledgeReinforcement(
             habit_uid="habit_1",
             current_streak=10,
             success_rate=0.8,
+            at_risk=False,
             status="active",
             ku_uids=("ku_a", "ku_b"),
         )
-        assert rows[1].habit_uid == "habit_2"
+        assert rows[1].success_rate == pytest.approx(0.3)
+        assert rows[1].at_risk is True
+        # A cadence the window cannot hold has no rate — None, never 0.0.
+        assert (rows[2].success_rate, rows[2].at_risk) == (None, False)
 
+        first_day, last_day = adherence_window_days(current_zone())
         mock_backend.get_habit_knowledge_reinforcement.assert_awaited_once_with(
-            user_uid="user_mike"
+            user_uid="user_mike",
+            window_start=first_day.isoformat(),
+            window_end=last_day.isoformat(),
         )
 
     @pytest.mark.asyncio
@@ -278,20 +321,8 @@ class TestGetHabitKnowledgeReinforcement:
     ) -> None:
         mock_backend.get_habit_knowledge_reinforcement.return_value = Result.ok(
             [
-                {
-                    "habit_uid": "habit_lone",
-                    "current_streak": 5,
-                    "success_rate": 0.9,
-                    "status": "active",
-                    "ku_uids": [],
-                },
-                {
-                    "habit_uid": "habit_with_ku",
-                    "current_streak": 1,
-                    "success_rate": 0.5,
-                    "status": "active",
-                    "ku_uids": ["ku_x"],
-                },
+                _habit_record("habit_lone", [], done_days_ago=[1], last_done_days_ago=1),
+                _habit_record("habit_with_ku", ["ku_x"], done_days_ago=[1], last_done_days_ago=1),
             ]
         )
 

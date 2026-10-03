@@ -26,6 +26,7 @@ from adapters.persistence.neo4j.query.cypher import (
 )
 from adapters.persistence.neo4j.query.cypher.habit_fragments import (
     build_completion_in_window_predicate,
+    build_habit_window_completion_stamps,
 )
 from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
@@ -155,19 +156,23 @@ WHERE t.status IN $active_statuses
 RETURN count(t) AS count
 """
 
-_HABIT_ACTIVE_STATUSES: list[str] = [
-    EntityStatus.ACTIVE.value,
-    "pending",
-]
-
+# Each active habit's adherence and at-risk inputs — its window completion
+# stamps, cadence, creation and last-completion stamps — beside the KUs it
+# reinforces. The rate is derived in Python (habit_adherence), never read off
+# the node.
 _HABIT_KNOWLEDGE_REINFORCEMENT_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Entity {{entity_type: 'habit'}})
-WHERE h.status IN $active_statuses
+WHERE h.status = $active_status
+WITH u, h, {build_habit_window_completion_stamps("u", "h", start_param="start_bound", end_param="end_bound")} AS completion_stamps
 OPTIONAL MATCH (h)-[:{RelationshipName.REINFORCES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
 RETURN h.uid AS habit_uid,
        h.current_streak AS current_streak,
-       h.success_rate AS success_rate,
        h.status AS status,
+       h.recurrence_pattern AS recurrence_pattern,
+       h.target_days_per_week AS target_days_per_week,
+       h.created_at AS created_at,
+       h.last_completed AS last_completed,
+       completion_stamps,
        collect(ku.uid) AS ku_uids
 """
 
@@ -376,11 +381,10 @@ RETURN pid AS principle_uid,
        count(hc) AS completion_count
 """
 
-# Local aliases for enum / status tuples used within this backend's queries.
+# Local alias for the enum used within this backend's queries.
 # (FULL_ALIGNMENT_CONNECTION_COUNT moved to core.constants.CrossDomainImpactScore —
 # a magic number belongs in core, not re-exported up across the boundary; SKUEL022.)
 ALIGNMENT_LEVEL = AlignmentLevel
-HABIT_ACTIVE_STATUSES = _HABIT_ACTIVE_STATUSES
 
 
 class CrossDomainBackend:
@@ -847,12 +851,27 @@ class CrossDomainBackend:
         )
 
     async def get_habit_knowledge_reinforcement(
-        self, user_uid: str
+        self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[dict[str, Any]]]:
-        """Fetch active habits with their reinforced KUs."""
+        """Fetch active habits with their reinforced KUs and their adherence inputs.
+
+        ``window_start`` / ``window_end`` are the adherence window's inclusive ISO
+        dates, bound as ``[start, end)`` on the stored clock like
+        ``get_habit_window_completions``; each row carries the habit's in-window
+        completion stamps (owner-scoped, ``habit_fragments``) for the caller to
+        count.
+        """
+        start_bound, end_bound = stored_day_bounds(
+            date.fromisoformat(window_start), date.fromisoformat(window_end), current_zone()
+        )
         return await self.executor.execute_query(
             _HABIT_KNOWLEDGE_REINFORCEMENT_QUERY,
-            {"user_uid": user_uid, "active_statuses": _HABIT_ACTIVE_STATUSES},
+            {
+                "user_uid": user_uid,
+                "active_status": EntityStatus.ACTIVE.value,
+                "start_bound": start_bound.isoformat(),
+                "end_bound": end_bound.isoformat(),
+            },
         )
 
     async def get_user_knowledge_channels(
@@ -1651,5 +1670,4 @@ class CrossDomainBackend:
 __all__ = [
     "ALIGNMENT_LEVEL",
     "CrossDomainBackend",
-    "HABIT_ACTIVE_STATUSES",
 ]

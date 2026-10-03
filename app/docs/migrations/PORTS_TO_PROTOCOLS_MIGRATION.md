@@ -1,7 +1,7 @@
 ---
 title: Ports to Protocols Migration History
 created: 2026-01-03
-updated: 2026-07-28
+updated: 2026-10-03
 status: complete
 category: migration
 tags: [migration, protocols, ports, history]
@@ -322,7 +322,7 @@ Several Phase 1 protocols were never adopted in service signatures and were remo
 - `SupportsRelationships`, `SupportsTraversal`, `SupportsFacets` — superseded by ISP-compliant backend sub-protocols
 
 **Kept (confirmed used):**
-`HasUID`, `HasCreatedAt`, `HasUpdatedAt`, `HasUpdated`, `HasPriority`, `HasSummary`, `HasMetadata`, `HasScore`, `HasRelevanceScore`, ~~`HasValidate`~~, `HasLogger`, `HasSeverity`, `HasStrategy`, `HasUsage`, `MetricsLike`, `StreaksLike`
+`HasUID`, `HasCreatedAt`, `HasUpdatedAt`, `HasUpdated`, `HasPriority`, `HasSummary`, `HasMetadata`, `HasScore`, `HasRelevanceScore`, ~~`HasValidate`~~, `HasLogger`, `HasSeverity`, `HasStrategy`, `HasUsage`, `MetricsLike`, ~~`StreaksLike`~~ (deleted 2026-10 — no consumer; it declared a `success_rate: float` the habit no longer carries)
 
 **Update (2026-07-28):** `HasValidate` was **not** confirmed used — it had zero
 imports, zero annotations and zero `isinstance` checks, and has now been deleted

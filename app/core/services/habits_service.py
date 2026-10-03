@@ -60,6 +60,7 @@ from core.services.habits import (
     HabitsProgressService,
     HabitsSchedulingService,
 )
+from core.services.habits._adherence_reads_mixin import _AdherenceReadsMixin
 from core.services.habits._completion_mixin import _CompletionMixin
 from core.services.habits._enrichment_mixin import _EnrichmentMixin
 from core.services.habits._orchestration_mixin import _OrchestrationMixin
@@ -146,6 +147,7 @@ def _apply_habit_sort(habits: list[Any], sort_by: str = "streak") -> list[Any]:
 
 
 class HabitsService(
+    _AdherenceReadsMixin,
     _CompletionMixin,
     _EnrichmentMixin,
     _OrchestrationMixin,
@@ -269,16 +271,22 @@ class HabitsService(
             return ownership
         return await self.update_habit(uid, updates)
 
+    # Reads — every Habit this facade hands out carries its derived
+    # ``success_rate``; get / get_for_user / list are hydrated by
+    # _AdherenceReadsMixin.
     async def get_habit(self, uid: str) -> Result[Habit]:
-        return await self.core.get_habit(uid)
+        return await self._with_adherence(await self.core.get_habit(uid))
 
     async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
-        return await self.core.get_user_habits(user_uid)
+        result = await self.core.get_user_habits(user_uid)
+        if result.is_error:
+            return result
+        return await self.enrich_with_adherence(result.value)
 
     async def list_habits(
         self, limit: int = 100, **filters: Any
     ) -> Result[tuple[list[Habit], int]]:
-        return await self.core.list_habits(limit, **filters)
+        return await self._page_with_adherence(await self.core.list_habits(limit, **filters))
 
     async def get_user_items_in_range(
         self,

@@ -14,14 +14,18 @@ Methods:
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.services.habits._adherence import enrich_habit_with_adherence
 from core.services.habits.habit_relationships import HabitRelationships
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.services.habits.habits_core_service import HabitsCoreService
 
 logger = get_logger("skuel.services.habits.patterns")
 
@@ -44,7 +48,9 @@ class HabitsPatternService:
     success and failure patterns with confidence scoring.
     """
 
-    def __init__(self, habits_core: Any, relationships: UnifiedRelationshipService) -> None:
+    def __init__(
+        self, habits_core: HabitsCoreService, relationships: UnifiedRelationshipService
+    ) -> None:
         """Initialize with habits core service (ownership) + relationship service (graph fill)."""
         self.habits_core = habits_core
         self.relationships = relationships
@@ -56,7 +62,10 @@ class HabitsPatternService:
         if habit_result.is_error:
             return Result.fail(habit_result)
 
-        habit = habit_result.value
+        enriched = await enrich_habit_with_adherence(self.habits_core.backend, habit_result.value)
+        if enriched.is_error:
+            return Result.fail(enriched)
+        habit = enriched.value
         analysis = habit.get_atomic_habits_analysis()
         await self._fill_system_contribution(habit_uid, analysis)
 
@@ -139,8 +148,8 @@ class HabitsPatternService:
                 }
             )
 
-        # Pattern 4: Success rate
-        if quality["success_rate"] > 0.6:
+        # Pattern 4: Success rate — a habit with no rate yet shows neither pattern
+        if quality["success_rate"] is not None and quality["success_rate"] > 0.6:
             patterns.append(
                 {
                     "pattern": f"High success rate: {int(quality['success_rate'] * 100)}%",
@@ -169,8 +178,8 @@ class HabitsPatternService:
         quality = analysis["habit_quality"]
         design = analysis["behavioral_design"]
 
-        # Failure 1: Low success rate
-        if quality["success_rate"] < 0.5:
+        # Failure 1: Low success rate (measured only)
+        if quality["success_rate"] is not None and quality["success_rate"] < 0.5:
             patterns.append(
                 {
                     "pattern": f"Low success rate: {int(quality['success_rate'] * 100)}%",

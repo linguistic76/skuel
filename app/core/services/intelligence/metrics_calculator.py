@@ -13,10 +13,13 @@ ADR: Intelligence Service Helper Consolidation
 Usage:
     from core.services.intelligence import MetricsCalculator
 
-    # Weighted average (define extractors as named functions)
+    # Weighted average (define extractors as named functions) — over items that
+    # have a value; leave out the ones that do not (an unmeasured habit's
+    # success_rate is None, never 0.0)
     def get_success_rate(h) -> float: return h.success_rate
     def get_priority_weight(h) -> float: return h.priority_weight
-    avg = MetricsCalculator.weighted_average(habits, get_success_rate, get_priority_weight)
+    measured = [h for h in habits if h.success_rate is not None]
+    avg = MetricsCalculator.weighted_average(measured, get_success_rate, get_priority_weight)
 
     # Combine factors
     probability = MetricsCalculator.combine_weighted_factors(
@@ -62,11 +65,12 @@ class MetricsCalculator:
             Weighted average (0.0 if no items or zero total weight)
 
         Example:
-            # Average habit success rate weighted by priority
+            # Average success rate of the measured habits, weighted by priority
             def get_success_rate(h) -> float: return h.success_rate
             def get_priority_weight(h) -> float: return h.priority_weight
+            measured = [h for h in habits if h.success_rate is not None]
             avg = MetricsCalculator.weighted_average(
-                habits, get_success_rate, get_priority_weight
+                measured, get_success_rate, get_priority_weight
             )
         """
         if not items:

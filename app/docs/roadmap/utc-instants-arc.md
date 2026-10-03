@@ -1,6 +1,6 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-10-02
+updated: 2026-10-03
 status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a and 6b merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
@@ -1301,7 +1301,9 @@ Codex round 3): `_CompletionMixin.track_habit` (`POST /api/habits/track`) parses
 `completion_date` with `datetime.fromisoformat`, so a bare `"YYYY-MM-DD"` — the shape
 `TrackHabitRequest` carries — becomes naive midnight, read as UTC: west of UTC that is the
 previous local day, so the completion's day (streaks, the derived adherence's weekday / weekend,
-window and creation-day cuts) is a day early. A bare day takes the method's own `date` branch
+window and creation-day cuts, and — since HA-2 — `last_completed` as `habit_overdue` reads it, so
+a daily habit tracked that way reads at risk a day early) is a day early. The door has no UI
+caller. A bare day takes the method's own `date` branch
 (`local_day_bounds` in the user's zone); a string with a time stays an instant.
 
 **Acceptance:** no `default_factory=datetime.now` remains; a model written and read back carries

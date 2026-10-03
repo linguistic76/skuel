@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-10-02
+updated: 2026-10-03
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -218,7 +218,7 @@ and the handler would learn its hour and on-time sample. Its side effects are de
 excluded until its occurrence day arrives — the same decision as that row's `current_streak`
 semantics, taken once.
 
-⚠ **A rate derived at read time — pulled forward out of this bundle (HA-1, ruled 2026-10-01).**
+⚠ **A rate derived at read time — pulled forward out of this bundle (HA-1 #1488 + HA-2, ruled 2026-10-01).**
 A rate over "the last thirty days" changes when a day passes with no completion, so a value
 persisted at completion time cannot stay true — a habit kept daily and then dropped would hold
 1.0 forever. Mike ruled (A1) that the rate is derived when it is read, and that the derivation is
@@ -246,27 +246,76 @@ not this bundle's work: it shipped ahead of it. What it is now:
   cut is made in the user's zone by `completion_days`). Composed by `CrossDomainBackend.get_habit_analytics` (per user),
   `HabitsBackend.get_habit_window_completions` (per habit, on `HabitsOperations`), and both
   user-context statements. `HabitsService.get_adherence_rates(habits)` composes the per-habit
-  completions with `habit_adherence` for any caller holding Habit models.
+  completions with `habit_adherence` for any caller holding Habit models
+  (`core/services/habits/_adherence.py::adherence_rates` — the one composition).
 - **The readers the stale `completion_rate` name used to blind.** `HABIT_ADHERENCE_QUERY` (its own
   `RICH_CONTEXT_STATEMENTS` entry) and `CONSOLIDATED_QUERY` project each active habit's window
   completions; the populator derives `UserContext.habit_completion_rates` from it, so the at-risk
-  classification (active habits only: no streak, or under half), `HabitsStats.consistency_rate`,
+  classification (below), `HabitsStats.consistency_rate`,
   the overall completion blend (`core/services/user_stats_types.py`) and `ContextualHabit`'s
   fallback rate are true together. `TemporalMomentumMixin` reads the derived rates (`None` for a
   user with no habit that has a rate); `AnalyticsMetricsService.calculate_habit_metrics` reads
-  `HabitsService.get_adherence_rates`. A completion through `complete_habit_with_quality` on a
-  habit with no rate stores the field's default (0.0) rather than leaving an earlier rate standing. Nothing reads a `completion_rate` property off a Habit node any
-  longer, and no fixture writes one.
-- **Not yet:** the stored `Habit.success_rate` and its ~25 readers (goal prediction, dual-track,
-  scheduling, planning, intelligence, AI, the habit detail page) still read the field
-  `complete_habit_with_quality` persists — HA-2 hydrates it at the Habit read chokepoints from the
-  same count and retires the stored field and its writer.
+  `HabitsService.get_adherence_rates`. Nothing reads a `completion_rate` property off a Habit node
+  any longer, and no fixture writes one.
+- **`Habit.success_rate` is derived, never stored (HA-2).** `success_rate: float | None` is a
+  read-side field like `Event.reinforces_habit_uid`: the mapper's `RELATIONSHIP_SKIP_FIELDS` keeps
+  it off the node, `HabitDTO` does not carry it, and `complete_habit_with_quality` no longer writes
+  it (the write and its completion-history read are deleted). Readers hydrate it after the read
+  with `enrich_habits_with_adherence` (`core/services/habits/_adherence.py`): the facade's reads
+  (`get`, `get_for_user`, `list` via `_AdherenceReadsMixin`; `get_habit`, `get_user_habits`,
+  `list_habits`), and every sub-service that reads habits off the backend and consults the rate —
+  `/api/habits/analytics`, the pattern insights, scheduling (frequency, schedule, stacking), the
+  dual-track consistency score, the AI streak insight. The ZPD knowledge-signal read composes
+  `build_habit_window_completion_stamps` in its own statement and derives the rate in
+  `CrossDomainQueryService`. The planning service's `ContextualHabit`s take the context's rate
+  (the five `completion_rate=habit.success_rate` arguments are gone), and the fallback keeps a
+  missing rate `None`. `None` means no rate — each reader leaves it out of averages and thresholds
+  (the goal predictor's consistency factor is neutral only when no habit is measured; a measured
+  0.0 is a reading), the impact analysis skips it, the AI prompt and the dual-track evidence say
+  "no rate yet" (the dual-track score then takes the early-stage benefit of the doubt, ≥ 0.5), the
+  ZPD strength is the streak alone, and the detail page shows a measured 0% and nothing for none.
+  The 6 live nodes still carry the old `success_rate: 0.0`; nothing reads it (Mike was asked
+  whether to `REMOVE` it — 2026-10-02).
+- **One at-risk definition (HA-2, ruled 2026-10-02).** `habit_at_risk` in
+  `core/models/habit/adherence.py`: an ACTIVE habit is at risk when it is **overdue** for its own
+  cadence (`habit_overdue` — a due day passed undone for daily / weekdays / weekends, more than
+  its period since the last completion — or since the day before creation — for weekly 7,
+  biweekly 14, monthly 31, quarterly 92, yearly 366, custom ⌈7 / target⌉; one-time never), or its
+  rate is under `HabitAtRisk.RATE_THRESHOLD` (0.5) once the measured span asked for at least
+  `HabitAtRisk.MIN_EXPECTED` (3) completions. A habit with no rate is judged on lateness alone.
+  The stored streak plays no part — it never decays. Called by the user-context populator,
+  `/api/habits/analytics`, the ZPD signals and the staged `HabitsSearchService.get_at_risk`
+  (three readers had three definitions before).
 
 **B1 — the node-less door is left exactly as it is, and is invisible to the rate.** Only a
 `:HabitCompletion` node counts, so a completion made through `POST /api/context/habit/complete`
 (`complete_habit_with_quality`) counts for nothing in the derived rate until this bundle migrates
 that door onto the shared node-writing operation (which it already requires). The door has no UI
 caller.
+
+**Read-side residuals HA-2 left, each with its own question (registered 2026-10-02):**
+- **`total_attempts` has no writer**, so `Habit.calculate_consistency_score()` is 0.0 for every
+  habit and `is_keystone` reduces to `is_identity_habit` — read by the habits-list "keystone"
+  filter, the keystone count, the event scheduler's priority and strategy, the progress
+  service, the four behavioral-signal analyses, the dual-track score and
+  `predict_goal_impact`. HA-3's question: delete `total_attempts` and the score and name
+  `is_keystone` for what it is (identity habit), or drop the gate so the score becomes
+  0.4·streak + 0.6·rate (a real change to which habits are keystones, and the list page would
+  then need the rate hydrated).
+- **The ADR-048 `learned_*` fields are written and never readable.**
+  `HabitEventHandlerService` writes `learned_preferred_hour`, `learned_on_time_rate`,
+  `learned_completion_count`, `learned_recovery_difficulty` and `learned_difficulty_level` as
+  node properties, but `Habit` declares none of them, so the mapper drops them on every read:
+  `/api/habits/analytics`' `learned_insights` are always empty, and the handler's own running
+  values (`old_count`, `old_on_time_rate`) restart from nothing on every completion. Pinned by
+  the strict xfail `test_includes_learned_insights`.
+- **`AnalyticsMetricsService.calculate_habit_metrics` reports 0.0 when no habit has a rate** (the
+  shape it gives a user with no habits; HA-1's choice), and `analytics_aggregation_service`
+  scores from it — an unmeasured user reads as a 0% one there.
+- **The staged `HabitsSearchService.get_needing_attention` reads `find_by(limit=…)` with no
+  user** — every user's habits — and its protocol declares a `user_uid` it does not take.
+  PLANNED (uncalled); it needs an owner scope before anything wires it.
+- The stale `success_rate: 0.0` on the live nodes (above).
 
 **The bundle keeps every write-side defect, and its trigger.** No write path was touched by the
 derivation. (One write-side defect the derivation reads through is not this bundle's:

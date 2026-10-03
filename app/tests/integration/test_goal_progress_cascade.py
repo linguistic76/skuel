@@ -197,11 +197,11 @@ async def test_completing_a_linked_habit_moves_its_goal(services: _Composed) -> 
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_a_cadence_with_no_rate_does_not_leave_an_earlier_rate_standing(
+async def test_the_derived_rate_never_reaches_the_node(
     services: _Composed,
 ) -> None:
-    """A quarterly habit has no adherence a 30-day window can measure, so completing
-    it stores the field's default — not the 0.9 it carried from an earlier cadence."""
+    """``success_rate`` is derived at read: neither the create (handed a 0.9) nor the
+    completion door writes it, so no stale number is left on the node to be read."""
     created = await services.habits.create(
         Habit(
             uid=f"{_PREFIX}habit_quarterly",
@@ -224,7 +224,7 @@ async def test_a_cadence_with_no_rate_does_not_leave_an_earlier_rate_standing(
             "MATCH (h:Habit {uid: $uid}) RETURN h.success_rate AS rate", uid=created.value.uid
         )
         record = await result.single()
-    assert record is not None and record["rate"] == 0.0
+    assert record is not None and record["rate"] is None
 
 
 @pytest.mark.asyncio(loop_scope="session")

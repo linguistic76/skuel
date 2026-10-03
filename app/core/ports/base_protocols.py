@@ -260,13 +260,6 @@ class MetricsLike(Protocol):
 
 
 @runtime_checkable
-class StreaksLike(Protocol):
-    """Protocol for streak objects with success_rate."""
-
-    success_rate: float
-
-
-@runtime_checkable
 class HasUpdated(Protocol):
     """Protocol for objects with updated field."""
 
@@ -1653,6 +1646,5 @@ __all__ = [
     "RelationshipMetadataOperations",  # Edge properties
     "RelationshipQueryOperations",  # Relationship queries
     "Result",
-    "StreaksLike",
     # Backend Capability Protocols (7 - kept used ones)
 ]

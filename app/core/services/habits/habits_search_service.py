@@ -29,6 +29,7 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.habits._adherence import enrich_habits_with_adherence, habit_is_at_risk
 from core.services.habits._goal_links import enrich_habits_with_goal_links
 from core.services.user import UserContext
 from core.services.whole_set_read import find_all_by
@@ -378,52 +379,34 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         return Result.ok(needing_attention)
 
     @with_error_handling("get_at_risk", error_type="database")
-    async def get_at_risk(
-        self, user_context: UserContext, risk_threshold_days: int = 2
-    ) -> Result[list[Habit]]:
+    async def get_at_risk(self, user_context: UserContext) -> Result[list[Habit]]:
         """
-        Get habits at risk of breaking their streaks.
+        Get the user's at-risk habits, those with the most streak to lose first.
 
-        A habit is at risk if:
-        - Has a streak > 0
-        - Hasn't been completed within risk_threshold_days
+        At risk is the one definition (``habit_at_risk``): an active habit
+        overdue for its own cadence, or measured under the threshold on enough
+        evidence.
 
         Args:
             user_context: User's current context
-            risk_threshold_days: Days without completion to be considered at risk
 
         Returns:
             Result containing at-risk habits
         """
-        today = today_in(current_zone())
-
-        # Get user's habits
         result = await find_all_by(
             self.backend, self.logger, "Habits at risk", user_uid=user_context.user_uid
         )
         if result.is_error:
             return result
 
-        habits = self._to_domain_models(result.value, HabitDTO, Habit)
+        enriched = await enrich_habits_with_adherence(
+            self.backend, self._to_domain_models(result.value, HabitDTO, Habit)
+        )
+        if enriched.is_error:
+            return Result.fail(enriched)
 
-        # Filter to active habits at risk
-        at_risk = []
-        for habit in habits:
-            # Skip inactive (including paused)
-            if not self._is_active(habit):
-                continue
-
-            # Must have a streak to be at risk
-            if not habit.current_streak or habit.current_streak == 0:
-                continue
-
-            # Check days since last completion
-            if habit.last_completed:
-                last_date = day_of(habit.last_completed, current_zone())
-                days_since = (today - last_date).days
-
-                if days_since >= risk_threshold_days:
-                    at_risk.append(habit)
+        zone = current_zone()
+        at_risk = [habit for habit in enriched.value if habit_is_at_risk(habit, zone)]
 
         # Sort by streak (highest first - most to lose)
         def get_current_streak(habit: Habit) -> int:

@@ -732,6 +732,23 @@ class HabitConsistencyWindow:
         return today
 
 
+class HabitAtRisk:
+    """When an active habit is at risk — the thresholds of ``habit_at_risk``.
+
+    Used by: ``core.models.habit.adherence.habit_at_risk`` — the one definition
+    every at-risk reader calls (the user context, ``/api/habits/analytics``, the
+    ZPD knowledge signals).
+    """
+
+    #: A measured adherence below this is at risk.
+    RATE_THRESHOLD: Final = 0.5
+
+    #: The rate is evidence only once the measured span has asked for at least
+    #: this many completions: a daily habit created today reads 0 of 1 and is
+    #: not at risk on its first day.
+    MIN_EXPECTED: Final = 3
+
+
 # ============================================================================
 # FEEDBACK TIME PERIODS
 # ============================================================================

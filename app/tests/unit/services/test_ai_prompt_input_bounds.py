@@ -143,6 +143,8 @@ def _service(
 ) -> tuple[BaseAIService, ScriptedChatCaller]:
     backend = Mock()
     backend.get = AsyncMock(return_value=Result.ok(entity))
+    # Habits hydrate the derived success_rate after the read.
+    backend.get_habit_window_completions = AsyncMock(return_value=Result.ok({entity.uid: []}))
     llm = scripted_llm("An answer.")
     assert isinstance(llm.caller, ScriptedChatCaller)
     extras = {"vector_search": MagicMock()} if SERVICES[service_class][1] else {}

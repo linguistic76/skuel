@@ -383,16 +383,61 @@ def test_the_standard_path_refuses_a_habits_section_without_the_adherence_rows()
         )
 
 
-def test_at_risk_is_an_active_habit_with_no_streak_or_under_half() -> None:
-    """A habit in the window that is not active has no rate and is not at risk."""
+def _rich_entity(
+    uid: str,
+    *,
+    status: str = "active",
+    pattern: str = "daily",
+    created_days_ago: int = 60,
+    last_done_days_ago: int | None = 1,
+) -> dict[str, Any]:
+    """A rich habit item as ``properties(habit)`` projects it, stamps relative to today."""
+    zone = current_zone()
+    today = today_in(zone)
+
+    def stamp(days_ago: int) -> str:
+        start, _ = local_day_bounds(today - timedelta(days=days_ago), zone)
+        return as_stored_clock(start + timedelta(hours=9)).isoformat()
+
+    return {
+        "entity": {
+            "uid": uid,
+            "status": status,
+            "recurrence_pattern": pattern,
+            "target_days_per_week": None,
+            "created_at": stamp(created_days_ago),
+            "last_completed": stamp(last_done_days_ago) if last_done_days_ago is not None else None,
+        },
+        "graph_context": {"linked_goals": []},
+    }
+
+
+def test_at_risk_is_an_active_habit_overdue_or_measured_under_half() -> None:
+    """The one definition: lateness against the habit's own cadence, or a rate under
+    0.5 once the span has asked for three completions. The stored streak plays no part:
+    it never decays, so a habit dropped weeks ago would keep it."""
     context = UserContext(user_uid="u")
-    context.habit_streaks = {"h.kept": 10, "h.broken": 0, "h.lapsing": 4}
-    context.habit_completion_rates = {"h.kept": 0.8, "h.broken": 0.9, "h.lapsing": 0.3}
+    # Streaks as stored — a dropped habit keeps its last one.
+    context.habit_streaks = {"h.kept": 10, "h.overdue": 25, "h.lapsing": 4, "h.new": 0}
+    context.habit_completion_rates = {
+        "h.kept": 0.8,
+        "h.overdue": 0.9,
+        "h.lapsing": 0.3,
+        "h.new": 0.0,
+    }
 
     UserContextPopulator().populate_derived_fields(
         context,
         tasks_rich=[],
-        habits_rich=[_rich_habit(uid) for uid in ("h.kept", "h.broken", "h.lapsing", "h.paused")],
+        habits_rich=[
+            _rich_entity("h.kept"),
+            _rich_entity("h.overdue", last_done_days_ago=3),  # missed two days
+            _rich_entity("h.lapsing"),  # done yesterday, but a third of the time
+            _rich_entity("h.new", created_days_ago=0, last_done_days_ago=None),  # 0 of 1
+            _rich_entity("h.quarterly", pattern="quarterly", last_done_days_ago=40),  # no rate
+            _rich_entity("h.dropped", pattern="quarterly", last_done_days_ago=100),  # no rate
+            _rich_entity("h.paused", status="paused", last_done_days_ago=30),
+        ],
     )
 
-    assert context.at_risk_habits == ["h.broken", "h.lapsing"]
+    assert context.at_risk_habits == ["h.overdue", "h.lapsing", "h.dropped"]

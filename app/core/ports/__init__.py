@@ -112,7 +112,6 @@ from .base_protocols import (
     RelationshipMetadataOperations,
     RelationshipQueryOperations,
     Result,
-    StreaksLike,
     # Backend Capability Protocols (10)
 )
 
@@ -421,7 +420,6 @@ __all__ = [
     "SchemaOperations",
     "SchemaQueryExecutor",
     "ScopedChunkRetrievalOperations",
-    "StreaksLike",
     # ========== BACKEND CAPABILITY PROTOCOLS (10) ==========
     # Graph-aware search capability protocols (January 2026)
     "SupportsGraphAwareSearch",

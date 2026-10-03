@@ -23,7 +23,13 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
-from core.models.habit.adherence import completion_days, creation_day, habit_adherence
+from core.models.habit.adherence import (
+    completion_days,
+    creation_day,
+    habit_adherence,
+    habit_at_risk,
+    stamp_day,
+)
 from core.models.user import UserPreferences
 from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
@@ -709,6 +715,8 @@ class UserContextPopulator:
         # Build habits_by_goal from habits_rich
         habits_by_goal: dict[str, list[str]] = {}
         at_risk_habits: list[str] = []
+        zone = current_zone()
+        today = today_in(zone)
 
         for habit_item in habits_rich:
             if not habit_item:
@@ -726,14 +734,19 @@ class UserContextPopulator:
                 if goal and goal.get("uid"):
                     habits_by_goal.setdefault(goal["uid"], []).append(habit_uid)
 
-            # At risk: a habit with a measured rate whose streak is broken or
-            # whose adherence is under half. A paused or archived habit in the
-            # window, and an active one with no rate yet, is not at risk.
-            completion_rate = context.habit_completion_rates.get(habit_uid)
-            if completion_rate is None:
-                continue
-            streak = context.habit_streaks.get(habit_uid, 0)
-            if streak == 0 or completion_rate < 0.5:
+            # At risk: the one definition (habit_at_risk) — an active habit
+            # overdue for its cadence, or measured under the threshold on enough
+            # evidence. habit_completion_rates leaves out a habit with no rate,
+            # so .get() is None for it: judged on lateness alone.
+            if habit_at_risk(
+                habit_data.get("status"),
+                habit_data.get("recurrence_pattern"),
+                habit_data.get("target_days_per_week"),
+                rate=context.habit_completion_rates.get(habit_uid),
+                last_completed_on=stamp_day(habit_data.get("last_completed"), zone),
+                created_on=creation_day(habit_data.get("created_at"), zone),
+                today=today,
+            ):
                 at_risk_habits.append(habit_uid)
 
         context.habits_by_goal = habits_by_goal

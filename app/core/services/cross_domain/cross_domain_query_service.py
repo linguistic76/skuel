@@ -28,6 +28,14 @@ from typing import TYPE_CHECKING
 
 from core.constants import CrossDomainImpactScore
 from core.models.enums.principle_enums import AlignmentLevel
+from core.models.habit.adherence import (
+    adherence_window_days,
+    completion_days,
+    creation_day,
+    habit_adherence,
+    habit_at_risk,
+    stamp_day,
+)
 from core.models.type_hints import EntityUID, UserUID
 from core.services.cross_domain.cross_domain_types import (
     ActiveTaskCount,
@@ -44,6 +52,8 @@ from core.services.cross_domain.cross_domain_types import (
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from datetime import date
@@ -276,7 +286,12 @@ class CrossDomainQueryService:
         ``HabitsIntelligenceService.get_zpd_knowledge_signals`` to feed
         ``ZPDService.assess_zone``.
         """
-        result = await self.backend.get_habit_knowledge_reinforcement(user_uid=user_uid)
+        zone = current_zone()
+        today = today_in(zone)
+        first_day, last_day = adherence_window_days(zone)
+        result = await self.backend.get_habit_knowledge_reinforcement(
+            user_uid=user_uid, window_start=first_day.isoformat(), window_end=last_day.isoformat()
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -285,11 +300,28 @@ class CrossDomainQueryService:
             ku_uids = tuple(uid for uid in (record.get("ku_uids") or []) if uid)
             if not ku_uids:
                 continue
+            created_on = creation_day(record["created_at"], zone)
+            rate = habit_adherence(
+                record["recurrence_pattern"],
+                record["target_days_per_week"],
+                completion_days(record["completion_stamps"], zone),
+                created_on=created_on,
+                today=today,
+            )
             rows.append(
                 HabitKnowledgeReinforcement(
                     habit_uid=record["habit_uid"],
                     current_streak=int(record.get("current_streak") or 0),
-                    success_rate=float(record.get("success_rate") or 0.0),
+                    success_rate=rate,
+                    at_risk=habit_at_risk(
+                        record["status"],
+                        record["recurrence_pattern"],
+                        record["target_days_per_week"],
+                        rate=rate,
+                        last_completed_on=stamp_day(record["last_completed"], zone),
+                        created_on=created_on,
+                        today=today,
+                    ),
                     status=record.get("status") or "",
                     ku_uids=ku_uids,
                 )

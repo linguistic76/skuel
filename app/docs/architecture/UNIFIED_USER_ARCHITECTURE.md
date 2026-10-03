@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-10-02
+updated: 2026-10-03
 status: current
 category: architecture
 tags:
@@ -308,8 +308,10 @@ the rich path, `CONSOLIDATED_QUERY`'s `habit_data` on the standard one, one Cyph
 `query/cypher/habit_fragments.py`), and the populator turns each habit's completion days into its adherence
 with `core/models/habit/adherence.py::habit_adherence` — completions over what the habit's
 frequency expects in the window, cut short at the habit's creation day, at most 1.0. A habit with
-no rate (quarterly, yearly, one-time, or nothing due yet) is left out of the map, so it is neither
-averaged nor at risk. A section missing those rows raises; it is never read as 0.0. Design: `/docs/roadmap/habit-completion-persistence-bundle.md`.
+no rate (quarterly, yearly, one-time, or nothing due yet) is left out of the map, so it is never
+averaged, and the at-risk rule judges it on lateness alone. A section missing those rows raises;
+it is never read as 0.0. The same number is what a `Habit` read through `HabitsService` carries as
+its derived `success_rate`. Design: `/docs/roadmap/habit-completion-persistence-bundle.md`.
 
 | Method | What it populates | Path |
 |--------|-------------------|------|
@@ -318,7 +320,7 @@ averaged nor at risk. A section missing those rows raises; it is never read as 0
 | `populate_user_preferences()` | `learning_level`, `preferred_time`, `available_minutes_daily` — from the parsed `User.preferences` model (the :User node stores a JSON-string blob, not flat preference properties) | Both |
 | `populate_life_path()` | `life_path_uid`, `life_path_alignment_score` | Both |
 | `populate_progress_metrics()` | `overall_progress` | Both |
-| `populate_derived_fields()` | `tasks_by_goal`, `at_risk_habits` (an active habit with no streak or adherence under 0.5), `blocked_task_uids` | Rich only |
+| `populate_derived_fields()` | `tasks_by_goal`, `at_risk_habits` (`habit_at_risk`: an active habit overdue for its cadence, or with adherence under 0.5 on at least three due completions), `blocked_task_uids` | Rich only |
 | `populate_activity_report()` | `latest_activity_report_*` fields | Both |
 | `populate_submission_stats()` | `total_submission_count`, `pending_feedback_count`, `unsubmitted_exercises`, `pending_revised_exercises`, etc. (11 fields) | Rich only |
 | `populate_cross_domain_insights()` | `cross_domain_insights` | Rich only |

@@ -96,16 +96,19 @@ class ChoicePrincipleConflictCount:
 
 @dataclass(frozen=True)
 class HabitKnowledgeReinforcement:
-    """One habit's relationship to the KUs it reinforces, raw rows from Neo4j.
+    """One active habit's relationship to the KUs it reinforces, with its derived adherence.
 
-    Raw signal rows used by ``HabitsIntelligenceService.get_zpd_knowledge_signals``
-    to compute strength blending + at-risk status. ``ku_uids`` is always non-empty
-    at the boundary — rows with no reinforcing KU are dropped upstream.
+    Signal rows used by ``HabitsIntelligenceService.get_zpd_knowledge_signals``
+    to compute strength blending. ``success_rate`` is derived at read
+    (``habit_adherence``) — ``None`` when the habit has no rate yet — and
+    ``at_risk`` is the one definition (``habit_at_risk``). ``ku_uids`` is always
+    non-empty at the boundary — rows with no reinforcing KU are dropped upstream.
     """
 
     habit_uid: EntityUID
     current_streak: int
-    success_rate: float
+    success_rate: float | None
+    at_risk: bool
     status: str
     ku_uids: tuple[EntityUID, ...]
 

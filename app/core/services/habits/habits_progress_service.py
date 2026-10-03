@@ -17,16 +17,12 @@ from operator import attrgetter
 from typing import Any
 
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
-from core.models.habit.adherence import (
-    adherence_window_days,
-    completion_days,
-    creation_day,
-    habit_adherence,
-)
+from core.models.habit.adherence import creation_day, habit_adherence
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
+from core.services.habits._adherence import adherence_rates
 from core.services.habits.habit_relationships import HabitRelationships
 from core.services.user import UserContext
 from core.services.user.rich_context import (
@@ -162,10 +158,9 @@ class HabitsProgressService:
         This method implements the Context-First Pattern:
         1. Try to get habit data from UserContext (zero queries)
         2. Fallback to Neo4j query only if not in context
-        3. Always query completion history (not in context)
 
         Benefits:
-        - 3 queries → 1 query when rich context available
+        - 2 queries → 1 query when rich context available
         - Single source of truth (UserContext)
         - Consistent with SKUEL architecture
 
@@ -196,14 +191,6 @@ class HabitsProgressService:
             self.logger.debug(f"Context-first HIT: habit {habit_uid} from rich context")
         else:
             self.logger.debug(f"Context-first MISS: habit {habit_uid} queried from Neo4j")
-
-        # ====================================================================
-        # ALWAYS QUERY: Completion history (not in context - mutable data)
-        # ====================================================================
-
-        # Only the adherence score below consumes this — the streak arithmetic
-        # reads habit.last_completed, not this list.
-        existing_completions = await self._completion_history(habit_uid)
 
         # ====================================================================
         # CALCULATE STREAK
@@ -239,25 +226,6 @@ class HabitsProgressService:
             "last_completed": as_stored_clock(day_start),
             "total_completions": habit.total_completions + 1,
         }
-
-        # Calculate consistency score (pass completions for calculation).
-        # Persisted as success_rate — the canonical Habit/HabitDTO field every
-        # reader consumes (a legacy consistency_30d property was write-only:
-        # scripts/migrate_activity_completion_aliases.py renames old nodes).
-        # Anchored at TODAY, not at ``completion_date``. ``success_rate`` is a
-        # current property of the habit, so the window it is measured over must
-        # end at the present regardless of which day this call records. Every
-        # production caller reaches here with today (the facade's
-        # ``completion_date`` parameter has no live user), so this changes no
-        # reading today — it closes the trap: anchoring at the completed day
-        # would persist an as-of-then number, stale for a backfill and
-        # not-yet-true for a future occurrence.
-        consistency = self._calculate_consistency_from_completions(
-            habit, existing_completions, today_in(current_zone())
-        )
-        # No rate (a cadence the window cannot measure, nothing due yet) stores the
-        # field's default rather than leaving an earlier rate standing.
-        updates["success_rate"] = consistency if consistency is not None else 0.0
 
         update_result = await self.backend.update_habit(habit_uid, dict(updates))
         if update_result.is_error:
@@ -415,7 +383,10 @@ class HabitsProgressService:
             )
 
         # ALWAYS QUERY: Completions (mutable data, not in context)
-        completions = await self._completion_history(habit_uid)
+        completions_result = await self._completion_history(habit_uid)
+        if completions_result.is_error:
+            return Result.fail(completions_result)
+        completions = completions_result.value
 
         # Calculate various consistency metrics
         consistency_30d = self._calculate_consistency_from_completions(
@@ -477,35 +448,12 @@ class HabitsProgressService:
     async def get_adherence_rates(self, habits: list[Habit]) -> Result[dict[str, float]]:
         """Each habit's adherence now, keyed by uid — the habits that have a rate.
 
-        Reads each habit's completions in the trailing window in one read
-        (``HabitsOperations.get_habit_window_completions``, owner-scoped) and
-        hands each count to :func:`~core.models.habit.adherence.habit_adherence`
-        with the habit's cadence and creation day. A habit with no rate yet is
-        left out — no measurement, not 0.0.
+        The one composition (``core.services.habits._adherence.adherence_rates``):
+        each habit's window completions in one owner-scoped read, counted by
+        :func:`~core.models.habit.adherence.habit_adherence`. A habit with no
+        rate yet is left out — no measurement, not 0.0.
         """
-        if not habits:
-            return Result.ok({})
-        zone = current_zone()
-        today = today_in(zone)
-        first_day, last_day = adherence_window_days(zone)
-        counts_result = await self.backend.get_habit_window_completions(
-            [habit.uid for habit in habits], first_day.isoformat(), last_day.isoformat()
-        )
-        if counts_result.is_error:
-            return Result.fail(counts_result)
-        stamps = counts_result.value
-        rates: dict[str, float] = {}
-        for habit in habits:
-            rate = habit_adherence(
-                habit.recurrence_pattern,
-                habit.target_days_per_week,
-                completion_days(stamps.get(habit.uid, []), zone),
-                created_on=creation_day(habit.created_at, zone),
-                today=today,
-            )
-            if rate is not None:
-                rates[habit.uid] = rate
-        return Result.ok(rates)
+        return await adherence_rates(self.backend, habits)
 
     def _calculate_consistency_from_completions(
         self, habit: Habit, completions: list[HabitCompletion], as_of_date: date
@@ -534,9 +482,8 @@ class HabitsProgressService:
         ``>=`` spans thirty-*one* days against an expectation of thirty.
 
         ⚠️ The anchor decides the window, so a caller passing anything other than
-        today gets an as-of-*then* reading. That is right for analysis and wrong
-        to persist: see the note at the ``success_rate`` write in
-        :meth:`complete_habit_with_quality`.
+        today gets an as-of-*then* reading — right for analysis, and the reason
+        the rate is never persisted (``Habit.success_rate`` is derived at read).
 
         The ratio itself is :func:`~core.models.habit.adherence.habit_adherence`,
         the one definition the read-time readers share — measured from the
@@ -604,7 +551,7 @@ class HabitsProgressService:
     # PRIVATE HELPER METHODS
     # ========================================================================
 
-    async def _completion_history(self, habit_uid: str) -> list[HabitCompletion]:
+    async def _completion_history(self, habit_uid: str) -> Result[list[HabitCompletion]]:
         """This habit's full completion history, for the scoring below to window.
 
         Paged, not capped, and carrying **no date predicate** — both deliberate,
@@ -615,7 +562,7 @@ class HabitsProgressService:
         replaces returned an arbitrary hundred rows. A habit past a hundred
         completions — a daily one kept four months — could have every in-window
         row missing from that page, and the adherence computed from it is
-        persisted as ``success_rate``.
+        reported as ``consistency_30d``.
 
         Pushing the window into the query fixes the sample and breaks the types:
         ``find_by`` binds a ``datetime`` bound as an ISO **string**
@@ -629,12 +576,10 @@ class HabitsProgressService:
         GRAPH-NATIVE: Completion history is stored as separate HabitCompletion
         nodes, not as a serialized list on the Habit model.
 
-        A failed read degrades to an empty list, which is what both callers did
-        with the Result they no longer have to unpack: adherence over no known
-        completions is 0.0, the same reading a habit with none at all gets.
+        A failed read fails the caller: adherence over completions that could not
+        be read is not adherence over none.
         """
-        result = await self.completions.get_all_completions_for_habit(habit_uid)
-        return result.value if result.is_ok else []
+        return await self.completions.get_all_completions_for_habit(habit_uid)
 
     def _update_goals_from_habit(
         self,

@@ -2,14 +2,15 @@
 HabitDTO - Habit-Specific DTO (Tier 2 - Transfer)
 ===================================================
 
-Extends UserOwnedDTO with 31 habit-specific fields matching the Habit
-frozen dataclass (Tier 3): classification, streak tracking, atomic habits,
-identity, lifecycle, scheduling, reminders, cross-domain links, and flags.
+Extends UserOwnedDTO with 30 habit-specific fields matching the Habit
+frozen dataclass (Tier 3) — every one but the derived ``success_rate``:
+classification, streak tracking, atomic habits, identity, lifecycle,
+scheduling, reminders, cross-domain links, and flags.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── HabitDTO(UserOwnedDTO) +31 habit-specific fields
+        └── HabitDTO(UserOwnedDTO) +30 habit-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -38,9 +39,10 @@ class HabitDTO(UserOwnedDTO):
     """
     Mutable DTO for habits (EntityType.HABIT).
 
-    Extends UserOwnedDTO with 31 habit-specific fields:
+    Extends UserOwnedDTO with 30 habit-specific fields:
     - Classification (3): polarity, habit_category, habit_difficulty
-    - Streak (6): current_streak, best_streak, total_completions, total_attempts, success_rate, last_completed
+    - Streak (5): current_streak, best_streak, total_completions, total_attempts, last_completed
+      (``Habit.success_rate`` is derived at read and never stored)
     - Atomic (3): cue, routine, reward
     - Identity (5): reinforces_identity, identity_votes_cast, is_identity_habit, target_identity, identity_evidence_required
     - Lifecycle (2): started_at, completed_at
@@ -67,7 +69,6 @@ class HabitDTO(UserOwnedDTO):
     best_streak: int = 0
     total_completions: int = 0
     total_attempts: int = 0
-    success_rate: float = 0.0
     last_completed: datetime | None = None
 
     # =========================================================================
@@ -251,7 +252,6 @@ class HabitDTO(UserOwnedDTO):
                 "best_streak",
                 "total_completions",
                 "total_attempts",
-                "success_rate",
                 "last_completed",
                 "cue",
                 "routine",
