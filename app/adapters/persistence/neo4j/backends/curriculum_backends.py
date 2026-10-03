@@ -173,6 +173,34 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"alias": alias, **published_params})
 
+    async def list_library(self, limit: int) -> Result[tuple[list[Ku], int]]:
+        """The Ku library: the first ``limit`` Kus, oldest first, and how many there are.
+
+        The learner-facing catalogue, so a draft is neither listed nor counted —
+        ``build_knowledge_read_clause`` withholds it, NULL-tolerantly, for every
+        viewer, as the library page's own catalogue search does.
+        """
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
+        knowledge, knowledge_params = build_knowledge_read_clause("ku")
+        query = f"""
+        MATCH (ku:{NeoLabel.KU.value})
+        WHERE {knowledge}
+        WITH ku ORDER BY ku.created_at ASC, ku.uid ASC
+        WITH collect(ku) AS library
+        RETURN library[0..$limit] AS page, size(library) AS total
+        """
+        result = await self.execute_query(query, {"limit": limit, **knowledge_params})
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows:
+            return Result.ok(([], 0))
+        row = rows[0]
+        return Result.ok(
+            ([from_neo4j_node(dict(node), Ku) for node in row["page"]], int(row["total"]))
+        )
+
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
         """Distinct co-occurring (nous, nous_subtopic) pairs on this Ku's own label.
 

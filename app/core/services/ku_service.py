@@ -152,6 +152,13 @@ class KuService:
         """Search Kus by alias (alternative name)."""
         return await self.search.search_by_alias(alias)
 
+    async def list_library(self, limit: int) -> Result[tuple[list[Ku], int]]:
+        """The library's first ``limit`` Kus, oldest first, and its size.
+
+        The learner-facing catalogue: a draft is neither listed nor counted.
+        """
+        return await self.search.list_library(limit)
+
     async def list_nous_topics(self) -> Result[list[str]]:
         """List the NOUS topic vocabulary — distinct `nous` values across all Kus.
 

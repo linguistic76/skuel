@@ -60,6 +60,14 @@ class KuSearchService(BaseService[KuOperations, Ku]):
             return Result.fail(result)
         return Result.ok(to_nous_subtopic_pairs(result.value or []))
 
+    async def list_library(self, limit: int) -> Result[tuple[list[Ku], int]]:
+        """The library's first ``limit`` Kus, oldest first, and its size — drafts
+        are neither listed nor counted.
+
+        Backend: ``KuBackend.list_library``.
+        """
+        return await self.backend.list_library(limit)
+
     async def search_by_alias(
         self, alias: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: Neo4j node properties — Ku fields

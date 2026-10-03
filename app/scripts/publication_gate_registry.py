@@ -329,6 +329,14 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
+        "KuBackend.list_library",
+        Disposition.GATED,
+        "The Ku catalogue the /explore reading plan draws its fallback hero and "
+        "its library size from — both a listing and a count, so a draft is "
+        "neither shown nor counted.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.curriculum_backends",
         "KuBackend.search_by_alias",
         Disposition.GATED,
         "A search over the whole Ku corpus.",

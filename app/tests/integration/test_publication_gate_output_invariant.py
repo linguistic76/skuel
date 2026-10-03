@@ -479,6 +479,10 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
         ): partial(ku.get_learning_path_uids, KU_VIA_DRAFT_ONLY),
         (
             "adapters.persistence.neo4j.backends.curriculum_backends",
+            "KuBackend.list_library",
+        ): partial(ku.list_library, LIMIT),
+        (
+            "adapters.persistence.neo4j.backends.curriculum_backends",
             "PsBackend.get_standalone_steps",
         ): partial(ps.get_standalone_steps, LIMIT),
         (
@@ -753,6 +757,7 @@ _COVERED_KEYS = (
     ),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.search_by_alias"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.get_learning_path_uids"),
+    ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.list_library"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.get_standalone_steps"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.get_prioritized_steps"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.list_steps_raw"),

@@ -126,11 +126,6 @@ READER_ROUTES = (
     "/tasks/list-fragment",
 )
 
-# Routes that show a Ku by LISTING the library, not by reading across an edge from
-# one of the caller's entities: the reading plan's hero is the first library Ku. A
-# listing answers to the catalogue's own publication rule, not to the far-node one.
-LISTING_ROUTES = frozenset({"/explore/content"})
-
 _MUTATING = ("delete", "update", "remove", "archive", "complete", "logout", "create")
 _SKIPPED_PREFIXES = ("/sign-in", "/static", "/metrics")
 _PATH_PARAM = re.compile(r"\{[^}]+\}")
@@ -222,15 +217,22 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
     async with driver.session() as session:
         for uid in USERS:
             await session.run("MERGE (u:User {uid: $uid}) SET u.title = $uid", uid=uid)
-        for uid, title in ((KU, f"{KU_MARK} title"), (KU_REQUIRING, "nb2e requiring ku")):
+        # ISO text, as the mapper stores it, and older than anything else in the
+        # library: the linked Ku is the library's first, so the reading plan's
+        # fallback hero while it is published.
+        for uid, title, created in (
+            (KU, f"{KU_MARK} title", "2000-01-01T00:00:00+00:00"),
+            (KU_REQUIRING, "nb2e requiring ku", "2000-01-02T00:00:00+00:00"),
+        ):
             await session.run(
                 """
                 MERGE (k:Entity:Ku {uid: $uid})
                 SET k.title = $title, k.entity_type = 'ku',
-                    k.created_at = datetime(), k.updated_at = datetime()
+                    k.created_at = $created, k.updated_at = $created
                 """,
                 uid=uid,
                 title=title,
+                created=created,
             )
         await session.run(
             "MATCH (a:Ku {uid: $a}), (b:Ku {uid: $b}) MERGE (a)-[:REQUIRES_KNOWLEDGE]->(b)",
@@ -390,10 +392,15 @@ async def test_the_rich_context_carries_the_callers_node_and_not_the_other_users
 async def test_a_linked_ku_reverted_to_draft_is_hidden_and_republished_is_back(
     skuel_app: Any, graph: AsyncDriver, http: httpx.AsyncClient, crawl: Crawl
 ) -> None:
-    readers = sorted(crawl.knowledge - LISTING_ROUTES)
-    # The linked Ku is on the list and detail pages, and under the global
-    # prerequisite map, while it is published.
-    assert {"/tasks/content", "/tasks/detail/content", "/events/content"} <= set(readers)
+    readers = sorted(crawl.knowledge)
+    # The linked Ku is on the list and detail pages, under the global
+    # prerequisite map, and the reading plan's hero, while it is published.
+    assert {
+        "/tasks/content",
+        "/tasks/detail/content",
+        "/events/content",
+        "/explore/content",
+    } <= set(readers)
     assert "/api/pathways/progress/summary" in readers
     assert KU in await _rich_context(skuel_app)
 
@@ -418,5 +425,34 @@ async def test_a_linked_ku_reverted_to_draft_is_hidden_and_republished_is_back(
         restored = await _crawl(http, readers)
         assert sorted(restored.knowledge) == readers
         assert KU in await _rich_context(skuel_app)
+    finally:
+        await _set_publication(graph, None)
+
+
+_LIBRARY_SIZE = re.compile(r"The full library is (\d+) ideas")
+
+
+def _library_size(page: str) -> int:
+    match = _LIBRARY_SIZE.search(page)
+    assert match, "the reading plan names no library size"
+    return int(match.group(1))
+
+
+async def test_a_draft_ku_is_not_the_library_hero_and_is_not_counted(
+    graph: AsyncDriver, http: httpx.AsyncClient
+) -> None:
+    """The reading plan's fallback hero is the library's first Ku and its size is
+    the library's — both over published Kus. The linked Ku sorts first."""
+    published = (await http.get("/explore/content")).text
+    # The control: published, the first Ku is the hero and is counted.
+    assert KU_MARK in published
+    size = _library_size(published)
+
+    try:
+        await _set_publication(graph, PublicationState.DRAFT)
+        drafted = (await http.get("/explore/content")).text
+        assert KU_MARK not in drafted
+        assert KU not in drafted
+        assert _library_size(drafted) == size - 1
     finally:
         await _set_publication(graph, None)
