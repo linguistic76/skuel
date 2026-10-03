@@ -186,7 +186,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         query = f"""
         MATCH (ku:{NeoLabel.KU.value})
         WHERE {knowledge}
-        WITH ku ORDER BY ku.created_at ASC, ku.uid ASC
+        WITH ku ORDER BY datetime(ku.created_at) ASC, ku.uid ASC
         WITH collect(ku) AS library
         RETURN library[0..$limit] AS page, size(library) AS total
         """
