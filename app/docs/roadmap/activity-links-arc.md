@@ -1,14 +1,14 @@
 ---
 title: "Activity Links Arc — Rulings & Contract"
 updated: 2026-10-04
-status: "active — ruled 2026-10-04 (four rounds); PR 0 (this document + ADR-090) in review; O4 (where a page's view is declared) waits on the founder before PR 1b"
+status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; O1 and O4 ruled (R10, R11); O2 deferred; PR 1 next"
 registered: 2026-10-02
 ruled: 2026-10-04
 ---
 
 # Activity Links Arc — Rulings & Contract
 
-**Status:** ACTIVE — ruled 2026-10-04 (founder rulings R1–R9, four rounds). Every PR runs in a
+**Status:** ACTIVE — ruled 2026-10-04 (founder rulings R1–R11, five rounds). Every PR runs in a
 **fresh local session**, one row of the [PR ledger](#pr-ledger) each. This document is the single
 source of truth for the arc, and the ledger's **Status** column is its progress record.
 **Decision record:** [ADR-090 — One Link per Fact, a View per Domain](../decisions/ADR-090-one-link-per-fact-a-view-per-domain.md).
@@ -45,10 +45,12 @@ progress the tally feeds: O1).
 | R3 | **Two links between a pair only when the two directions say different things:** principle inspires habit ≠ habit embodies principle; goal inspired by choice ≠ choice affects goal; habit informs choice ≠ choice impacts habit. |
 | R4 | **The same verb across domains where the meaning is the same:** habits and principles both *support* goals, with the importance level habits carry; habits and principles both *inform* choices. |
 | R5 | **Task → goal is "contributes"** (`CONTRIBUTES_TO_GOAL`, shared with events); `FULFILLS_GOAL` retires. A task may serve SEVERAL goals and counts toward each goal's progress. |
-| R6 | **A contributing event counts toward the goal's progress.** How a cancelled contribution counts is settled in PR 4's kickoff (O1). |
+| R6 | **A contributing event counts toward the goal's progress.** A cancelled contribution is left out of the count (R11). |
 | R7 | **"Practiced at an event" is the event's link, read from the other side.** An event demonstrating a principle and the principle being practiced at the event are one fact ("the same, yet different perspectives"). So are an event reinforcing a habit and the habit being practiced at the event. `PRACTICED_AT_EVENT` retires. |
 | R8 | **Scope: storage and visibility only.** "Link from this page" controls are the NEXT arc. Same-type pairs are a later pass. |
 | R9 | **Vault files: the PR session edits them.** The content vault (`/home/mike/0bsidian/0vault/`) and the personal vault (`/home/mike/0bsidian/skuel/`) are outside the repo. Before the PR, census every retired frontmatter field in both; edit them in the same session, re-sync, then verify the live edges. |
+| R10 | **A page shows its links from the registry** (round 5, answering O4). Each registry definition the page shows carries that domain's name for the link (R2), the page renders its domain's definitions in both directions, and the hand-written lists in `core/utils/connection_configs.py` are deleted. |
+| R11 | **A cancelled contribution, task or event, is left out of the goal's count** (round 5, answering O1). It is no longer part of the goal's plan, so it does not hold the goal's progress down. |
 
 Not ruled: creating the links nothing writes today (`IMPLEMENTS_CHOICE`, `INFORMS_CHOICE` from a
 habit, `TRIGGERS_CHOICE`, `SCHEDULES_EVENT` from a choice, `DEMONSTRATES_PRINCIPLE`) is neither
@@ -81,9 +83,11 @@ dependency readers disagree (the planner and the user context read `DEPENDS_ON`,
 
 ## Open items (not ruled)
 
-Each is settled in prose before the first edit of the PR named.
+Each is settled in prose before the first edit of the PR named. O1 and O4 were answered in round 5
+(R10, R11); O2 is deferred.
 
-- **O1 — How a cancelled contribution counts (PR 4).** Today the goal tally counts every linked task
+- **O1 — How a contribution counts (PR 4). Cancelled: RULED (R11) — left out, for tasks and events
+  alike.** What the ruling answered: today the goal tally counts every linked task
   whose `completion_updates_goal` is not false: COMPLETED is done, and every other status, CANCELLED
   and FAILED included, is not done. A cancelled task therefore holds a goal's progress down.
   Cancelling an open task triggers no recompute (under today's rule nothing changes, but option (b)
@@ -91,33 +95,31 @@ Each is settled in prose before the first edit of the PR named.
   publishes recomputes the goal. An event's statuses are SCHEDULED, ACTIVE, COMPLETED and
   CANCELLED. Three ways to count an event: (a) exactly as a task, a cancelled event counted as not
   done; (b) the tally leaves CANCELLED out for tasks and events alike, and decides FAILED, a task-only
-  status; (c) a rule per kind. Recommendation, not yet put to the founder: (b) — a cancelled
-  contribution is no longer part of the goal's plan, so it should not count against it, and one rule
-  for every contribution keeps the tally one statement. The kickoff also decides which goals' tally a
-  contribution feeds (today only task-based goals are recomputed from it), and that an event's
-  completion triggers the recompute as a task's does.
+  status; (c) a rule per kind. The founder chose (b). **Still open for PR 4's kickoff:** how a
+  FAILED task counts (today: not done); which goals' tally a contribution feeds (today only task-based
+  goals are recomputed from it); and the recompute triggers the rule now needs — an event's
+  completion, and the cancellation of an open task or event (today nothing recomputes on it).
 - **O2 — The PathStep's `GUIDED_BY_PRINCIPLE` (PR 2).** The type also has a curriculum source: a
   PathStep's guiding principles (`principle_uids` frontmatter; one live edge), read by the PathStep
   intelligence. The rulings cover links between Activities only. Retiring the goal's use of the type
-  leaves two choices for the PathStep: keep the type for that one source, or move it. A question for
-  the founder.
+  leaves two choices for the PathStep: keep the type for that one source, or move it. **Deferred by
+  the founder (2026-10-04: "look at that closer later").** Until it is settled, the type stays in
+  the enum with its one PathStep source; PR 2 retires only the goal's use and does not wait on it.
 - **O3 — The shape of `Task.fulfills_goal_uid` (PR 4).** The field is single-valued and dual-written
   with the edge, but the two have already diverged. A vault task writes one `FULFILLS_GOAL` edge per
   `connections.fulfills_goal` target and stores only the first in the field. A task spawned from a
   PathStep template gets the field with no edge. Several goals per task make it a plural field or
   drop it for the edges alone (a GRAPH-NATIVE read). Settle it from its readers' census.
-- **O4 — Where a page's view is declared (PR 1b).** A domain's view of its links is declared twice
+- **O4 — Where a page's view is declared (PR 1b). RULED (R10) — the page reads the registry.** What
+  the ruling answered: a domain's view of its links is declared twice
   today. The registry definitions (`core/models/relationship_registry.py`) feed the context API and
   the services' relationship reads. The detail page's Connections section reads a second,
   hand-written list per domain (`core/utils/connection_configs.py`), with one direction per domain
   and raw strings. That second list has drifted: it names five edge types that do not exist
   (`REINFORCES_GOAL`, `INFORMED_BY_GOAL`, `REINFORCED_BY_PRINCIPLE`, `INFORMS_GOAL_STRATEGY`,
   `EXPRESSES_PRINCIPLE`). SKUEL030 cannot see them: they reach the query as a parameter, not as
-  Cypher text. Recommendation, not yet put to the founder: one
-  declaration. Each registry definition the page shows carries the domain's name for the link (R2),
-  and the page renders its domain's definitions in both directions. `connection_configs.py` then
-  retires. The alternative is to keep the hand lists and fix them in each PR, which leaves two
-  declarations free to drift again.
+  Cypher text. The founder chose one declaration over keeping the hand lists and fixing them in each
+  PR, which would have left two declarations free to drift again.
 
 ## Verified ground truth (2026-10-04 — `main` `cb9741960`)
 
@@ -286,20 +288,20 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
 
 ## PR ledger
 
-Rows run in order. PR 1 needs PR 0. PR 1b needs PR 1 and O4. PRs 2–5 each need PR 1b, and each
+Rows run in order. PR 1 needs PR 0. PR 1b needs PR 1. PRs 2–5 each need PR 1b, and each
 shrinks PR 1's known-gaps list. PRs 2 and 3 are independent of each other. PR 4 rewrites the goal
 tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs last.
 
 | PR | Scope | Acceptance | Status |
 |----|-------|------------|--------|
-| 0 | This document, ADR-090, the INDEX rows and the skill back-link; the cells of ADR-057's diagonals table and of the Sibling Signal and Shared Signal patterns that named edges nothing carries (docs only; summon Codex explicitly) | Merged; `./dev docs-links`, the dead-link scan and the skills validator clean | in review |
+| 0 | This document, ADR-090, the INDEX rows and the skill back-link; the cells of ADR-057's diagonals table and of the Sibling Signal and Shared Signal patterns that named edges nothing carries (docs only; summon Codex explicitly) | Merged; `./dev docs-links`, the dead-link scan and the skills validator clean | merged #1498, 2026-10-04 |
 | 1 | The invariant as a test, derived from the registry: every edge type joining two different Activity domains is read at BOTH ends (same-type edges are the later pass, R8), and a view over an edge type with several kinds of source filters by source label in the read. Lands with a known-gaps list | Passes with the list; removing any entry turns it red; a one-sided definition added turns it red | — |
-| 1b | The pages show both ends, by the route O4 settles (recommended: the page renders the registry's labelled definitions in both directions and `connection_configs.py` retires); the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages; the five nonexistent names are gone | waits on O4 |
-| 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member goes only if O2 moves the PathStep's use; O2 first) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | — |
+| 1b | The pages show both ends (R10): the page renders the registry's labelled definitions in both directions and `connection_configs.py` is deleted; the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages; the five nonexistent names are gone | — |
+| 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | — |
 | 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | — |
-| 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events (O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; the gaps list shrinks | — |
+| 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; the gaps list shrinks | — |
 | 5 | The remaining views: the goal sees choices (affects) and events (celebrates, contributes) apart; event ↔ principle is one link (retire `PRACTICED_AT_EVENT` and the event's `practiced_habits`); the habit names `REINFORCES_HABIT` from events "events where this habit is practiced"; the views still sharing an edge type split by source label (the habit's `REINFORCES_HABIT` views, the principle's `embodying_habits`, the event's `scheduled_by_choices`); a task update writes `ALIGNED_WITH_PRINCIPLE` edges instead of a node property | PR 1's known-gaps list is empty | — |
-| close | ADR-090 marked implemented; this document to `done/` (docs only) | Every retired type reads 0 in the live graph and in live code (`GUIDED_BY_PRINCIPLE`: between Activities, or wholly if O2 moved the PathStep's use) | — |
+| close | ADR-090 marked implemented; this document to `done/` (docs only) | Every retired type reads 0 in the live graph and in live code (`GUIDED_BY_PRINCIPLE`: between Activities; wholly only if O2, deferred, moves the PathStep's use) | — |
 
 ## Choices — per PR
 
@@ -336,10 +338,9 @@ definition added turns it red.
 
 ### PR 1b — The pages show both ends
 
-O4 is settled first. On the recommended route, a registry definition that the page shows carries the
-domain's name for the link. The detail page and the list card render the domain's definitions in both
-directions, grouped by link rather than by the far end's type, so that celebrating and contributing
-events are listed apart. `core/utils/connection_configs.py` and its consumers' wiring retire. PR 1's
+R10 settles the route: a registry definition that the page shows carries the domain's name for the
+link. The detail page and the list card render the domain's definitions in both directions, grouped by link rather than by the far end's type, so that celebrating and contributing
+events are listed apart. `core/utils/connection_configs.py` and its consumers' wiring are deleted. PR 1's
 invariant then covers the pages. The page-list defects go with it.
 
 **Acceptance:** every link that the registry reads at both ends shows on both detail pages, under
@@ -349,16 +350,21 @@ each domain's name for it; a real-graph route test per pair, red on the old sour
 
 `SUPPORTS_GOAL` from principles, with the importance level (`essentiality`) habits carry; the doors
 store the same default habits' doors do. The goal's views split by source label: supporting habits,
-supporting principles. Retire `GUIDES_GOAL` and `GUIDED_BY_PRINCIPLE`: the enum members, registry
-definitions, `GRAPH_CONTRACT.yaml`, the frontmatter fields, the doors (`/api/principles/link`'s goal
-type, goal `link-principle`, goal create, the DSL's goal → principle link), the migration of the
-stored edges, the vault files (R9) and the docs that name the types. `GUIDED_BY_PRINCIPLE`'s enum
-member, PathStep definition and contract rows go only if O2 moves the PathStep's use; O2 is settled
-first. Add the retired names to `scripts/health/stale_names.py`. The scanner has no directory
-exclusion and reads only backtick spans and fences, so every mention left in a record needs its own
-line-anchored `ALLOWED_OCCURRENCES` entry: ADR-090, this document, `docs/INDEX.md`'s ADR-090 row and
-the older ADRs that keep the names (today ADR-015 and ADR-057). Run it with `--verbose` after adding
-the names and take the anchors from its output.
+supporting principles.
+
+Retire `GUIDES_GOAL` whole: its enum member, registry definitions, `GRAPH_CONTRACT.yaml` rows,
+frontmatter field, door (`/api/principles/link`'s goal type), stored edges (migrated), vault files
+(R9) and the docs that name it. Retire the goal's use of `GUIDED_BY_PRINCIPLE`: the goal's
+definition, its frontmatter field, goal `link-principle`, goal create's `guiding_principle_uids`, the
+DSL's goal → principle link, the goal → principle edges (migrated) and the goal file in the vault.
+O2 is deferred, so the type itself stays — its enum member, the PathStep's definition and its
+contract rows — with that one source.
+
+Add `GUIDES_GOAL` to `scripts/health/stale_names.py` (not `GUIDED_BY_PRINCIPLE`, which stays live for
+the PathStep). The scanner has no directory exclusion and reads only backtick spans and fences, so
+every mention left in a record needs its own line-anchored `ALLOWED_OCCURRENCES` entry: ADR-090, this
+document, `docs/INDEX.md`'s ADR-090 row and the older ADRs that keep the name (today ADR-015). Run it
+with `--verbose` after adding the name and take the anchors from its output.
 
 **Acceptance:** real-graph tests — a link made at either door is returned by both entities' views,
 under one key each; unlinking at either door removes it for both; the migration leaves the live
@@ -377,7 +383,8 @@ choice-adherence query read the one edge.
 Tasks link to any number of goals through `CONTRIBUTES_TO_GOAL`. `FULFILLS_GOAL` retires, with
 `Task.fulfills_goal_uid` reshaped (O3), the task form's goal picker, the vault field, the DSL's
 task → goal link, the goal task generator and the readers in § Retiring a type. The goal's tally
-counts contributing tasks and events under O1's rule, and an event's completion triggers the
+counts contributing tasks and events, cancelled ones left out (R11), with the rest of O1 settled in
+the kickoff. An event's completion and the cancellation of an open task or event trigger the
 recompute. Two readers need more than the type's deletion: the goal-cancel guard counts open tasks
 over `FULFILLS_GOAL` only (`cross_domain_backend.py`) and must count open contributions (the kickoff
 decides whether an open contributing event blocks a cancel), and `GOALS_CONFIG`'s shared-neighbour
