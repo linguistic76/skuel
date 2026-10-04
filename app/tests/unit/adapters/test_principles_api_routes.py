@@ -23,6 +23,7 @@ from starlette.testclient import TestClient
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.principles_api import create_principles_api_routes
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.no_page_links import NoPageLinks
 
 _USER_UID = "user_owner"
 _PRINCIPLE_UID = "principle_1"
@@ -80,7 +81,9 @@ def _make_client(
             _fake_auth,
         )
 
-    create_principles_api_routes(app, rt, principles_service)
+    create_principles_api_routes(
+        app, rt, principles_service, connection_fetch_backend=NoPageLinks()
+    )
     return TestClient(app), principles_service
 
 

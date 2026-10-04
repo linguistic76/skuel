@@ -27,9 +27,9 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import refuse, require_owned_entity
+from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.models.type_hints import UserUID
-from core.utils.connection_configs import TASK_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_tasks
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
@@ -77,7 +77,7 @@ def create_tasks_ui_routes(
         get_owned=tasks_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_tasks,
-        connection_config=TASK_CONNECTION_CONFIG,
+        link_label=NeoLabel.TASK,
         filter_config=FILTER_CONFIGS["tasks"],
         list_component=TaskList,
         stats_component=TaskStatsBar,

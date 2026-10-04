@@ -1715,6 +1715,7 @@ async def compose_services(
             goals_service=activity_services["goals"],
             choices_service=activity_services["choices"],
             calendar_service=calendar_service,
+            links=connection_fetch_backend,
         )
         logger.info("✅ Today Orchestrator created")
 

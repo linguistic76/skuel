@@ -79,7 +79,9 @@ principle ↔ principle (`SUPPORTS_PRINCIPLE`, `CONFLICTS_WITH_PRINCIPLE`), habi
 are split today between a lateral edge and a domain edge. That pass starts from a census the arc
 already holds: task create writes a prerequisite as `BLOCKED_BY` with no `BLOCKS` partner, and the
 dependency readers disagree (the planner and the user context read `DEPENDS_ON`, readiness reads
-`BLOCKED_BY`, the blocking chain reads `BLOCKS`).
+`BLOCKED_BY`, the blocking chain reads `BLOCKS`). PR 1b's census adds one: the task registry's
+`subtasks` view names `HAS_CHILD`, but every task writer writes `HAS_SUBTASK`, which the task page's
+Sub-tasks section reads through the hierarchy backend.
 
 ## Open items (not ruled)
 
@@ -130,6 +132,13 @@ graph probe. File names are hints for each PR's own census, not a census of reco
 claim before the first edit.
 
 ### What each layer shows today
+
+The Page column records the hand-written lists PR 1b deleted. From PR 1b the page shows exactly the
+registry's headed views, so the Page column equals the Registry column for every link between two
+Activities. A link the registry reads at one end only shows at that end until its PR adds the other:
+the goal's incoming `CONTRIBUTES_TO_GOAL` (PR 4, PR 5), `CELEBRATES_GOAL` and `AFFECTS_GOAL`
+(PR 5), and the principle's incoming `INFORMED_BY_PRINCIPLE` (retired by PR 3), which the old lists
+happened to read. The live graph holds none of those edges.
 
 "Registry" is the domain's relationship-registry definition, which the context API and the
 services' relationship reads use. "Page" is the detail page's Connections section (and the list
@@ -276,7 +285,8 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
   `APPLIES_KNOWLEDGE` (choices write `INFORMED_BY_KNOWLEDGE` and `REQUIRES_KNOWLEDGE_FOR_DECISION`)
   and `ENABLES_HABIT` (a habit-prerequisite edge no choice writes); the goal page's incoming
   `APPLIES_KNOWLEDGE` (no definition or writer points that edge at a goal), its `#` links and its
-  double-listed task — **PR 1b**.
+  double-listed task — **PR 1b** (fixed: the pages read the registry; the task's goal fallback,
+  which rendered a raw goal uid as its title, went with them).
 - `cross_domain_backend.py`'s alignment-evidence query tests `(goal)-[:EMBODIES_PRINCIPLE]->`, a
   shape nothing writes — **PR 2**.
 - `cross_domain_backend.py`'s choice-adherence query reads `(choice)-[:ALIGNED_WITH_PRINCIPLE]->`,
@@ -292,7 +302,7 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
 
 ## PR ledger
 
-Rows run in order. PR 1 needs PR 0. PR 1b needs PR 1. PRs 2–5 each need PR 1b, and each
+Rows run in order. PR 1 needs PR 0. PR 1b needs PR 1. PR 1c needs PR 1b. PRs 2–5 each need PR 1c, and each
 shrinks PR 1's known-gaps list. PRs 2 and 3 are independent of each other. PR 4 rewrites the goal
 tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs last.
 
@@ -301,6 +311,7 @@ tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs la
 | 0 | This document, ADR-090, the INDEX rows and the skill back-link; the cells of ADR-057's diagonals table and of the Sibling Signal and Shared Signal patterns that named edges nothing carries (docs only; summon Codex explicitly) | Merged; `./dev docs-links`, the dead-link scan and the skills validator clean | merged #1498, 2026-10-04 |
 | 1 | The invariant as a test, derived from the registry: every edge type joining two different Activity domains is read at BOTH ends (same-type edges are the later pass, R8), and a view over an edge type with several kinds of source filters by source label in the read. Lands with a known-gaps list | Passes with the list; removing any entry turns it red; a one-sided definition added turns it red | merged #1500, 2026-10-04 |
 | 1b | The pages show both ends (R10): the page renders the registry's labelled definitions in both directions and `connection_configs.py` is deleted; the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages and both list cards; the five nonexistent names are gone | — |
+| 1c | The keyed readers carry `target_label` and the tier filter: the eight `READERS_IGNORING_TARGET_LABEL` entries (re-owned from 1b, which keeps the pages on the walled batched reader), the readers and the backend methods behind them | `READERS_IGNORING_TARGET_LABEL` is empty; real-graph tests: a label-split view returns only its kind and a tier view only its tier, through each reader; red on the old source | — |
 | 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | — |
 | 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | — |
 | 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; cancelling a completed event, or a goal's last contribution, updates the stored tally (to 0/0 for the last); every membership change recomputes (closes the goal-tally case file); the gaps list shrinks | — |
@@ -350,6 +361,39 @@ invariant then covers the pages. The page-list defects go with it.
 **Acceptance:** every link that the registry reads at both ends shows on both detail pages and on
 both list cards, under each domain's name for it; a real-graph route test per pair for the detail
 route and the list route, red on the old source.
+
+**Settled in prose before the first edit (founder, 2026-10-04):**
+- The name lives on the definition, `page_heading`; a definition with one is shown, one without is
+  not. Two definitions share a heading only when they are one link stored under two names (goal ↔
+  principle and choice ↔ principle until PRs 2–3, the task's fulfills / contributes until PR 4, the
+  event's demonstrates / practiced until PR 5); the page lists each far end once. The headings use
+  the ruled verbs (R2 "support", R4 "inform", R7 "practiced").
+- Shown: every cross-Activity view at both ends, and the knowledge and learning-path views each
+  domain declares. Not shown: laterals (the Relationships section draws them), same-type links (R8;
+  the task has its own Sub-tasks and Dependencies sections) and `SERVES_LIFE_PATH`.
+- The tier views (`essential_habits` / `critical_habits` / `optional_habits`) get no heading. A mixed
+  view lists whatever its edge holds, each item with its kind's icon, until its PR splits it; the
+  habit's mixed `reinforcing_habits` gets none, since its task and event views cover both sources.
+- One card for all six domains, one line per heading. The Today page and the card re-render after a
+  status or priority change read through the same walled reader.
+- PR 1's eight keyed-reader entries move to a row of their own (1c).
+- The invariant gains two rules: every end that reads a link between two Activities shows it, and no
+  edge is listed twice on a page.
+
+### PR 1c — The keyed readers carry the label and the tier
+
+PR 1's test lists eight keyed readers on `UnifiedRelationshipService` that do not carry a
+definition's `target_label` to the backend (`READERS_IGNORING_TARGET_LABEL`), and five of them drop
+the tier filter too (§ Readers that share an edge type). PR 1b kept the pages on
+`ConnectionFetchBackend`'s walled batched statement, which places each row by its far end's label
+itself, so the pages never reach those readers; the entries moved here from 1b (founder, 2026-10-04).
+The label-split views of PRs 2, 3 and 5 are read through these readers, so this row runs first.
+Census each reader's callers and its backend method before the first edit; none of the keyed
+readers carries the far-node wall (`build_far_node_clause`), which is not this row's scope but is
+worth stating in its kickoff.
+
+**Acceptance:** `READERS_IGNORING_TARGET_LABEL` is empty; per reader, a real-graph test shows a
+label-split view returning only its kind and a tier view only its tier; red on the old source.
 
 ### PR 2 — Principle → goal
 
@@ -409,9 +453,8 @@ decides whether an open contributing event blocks a cancel), and `GOALS_CONFIG`'
 `related_goals` definition names `FULFILLS_GOAL` as its placeholder type and as an intermediate edge
 (search enrichment turns the placeholder into a goal ↔ goal arm). Both name the enum member, so
 missing either breaks the import. The readers that fail silently name the type as a raw string: the
-user-context statements, `cross_domain_backend.py`'s `_INTENT_EDGE_SETS["goal_achievement"]`, and
-`connection_configs.py` if PR 1b has not retired it. The field's column-only readers (the goal Gantt, the relevance scorer) go
-with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), whose check names
+user-context statements and `cross_domain_backend.py`'s `_INTENT_EDGE_SETS["goal_achievement"]`.
+The field's column-only readers (the goal Gantt, the relevance scorer) go with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), whose check names
 `FULFILLS_GOAL`.
 
 **Acceptance:** a task linked to two goals counts toward both; a completed contributing event

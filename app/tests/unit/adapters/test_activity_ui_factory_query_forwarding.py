@@ -30,6 +30,7 @@ from fasthtml.common import Div, fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Result
 from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 
@@ -101,7 +102,7 @@ def _client() -> TestClient:
         get_owned=get_owned,
         backend=backend,
         filter_fn=_filter_items,
-        connection_config=MagicMock(),
+        link_label=NeoLabel.TASK,
         filter_config=FilterBarConfig(
             fragment_url="/tasks/list-fragment",
             list_target_id="task-list",

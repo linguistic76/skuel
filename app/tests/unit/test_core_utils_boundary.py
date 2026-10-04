@@ -1,13 +1,11 @@
 """
 Hexagonal boundary guard for core/utils/ (ADR-044).
 
-core/utils/ holds pure, transport-agnostic helpers. Its one remaining raw-Cypher
-leak — ``connection_fetcher.py``, which both *authored* and *executed* Cypher via
-an injected ``QueryExecutor`` — was relocated below the boundary into
-``adapters/persistence/neo4j/connection_fetch_backend.py`` behind the
-``ConnectionFetchOperations`` port (``core/ports/connection_fetch_protocols.py``).
-The pure data (``ConnectionConfig`` + the six per-domain constants) stayed in
-core as ``core/utils/connection_configs.py``.
+core/utils/ holds pure, transport-agnostic helpers. A helper that authors and
+executes Cypher through an injected ``QueryExecutor`` belongs below the boundary,
+behind a port — as the Activity pages' link reader does
+(``adapters/persistence/neo4j/connection_fetch_backend.py`` behind
+``ConnectionFetchOperations``, ``core/ports/connection_fetch_protocols.py``).
 
 This test locks that in. It predates the SKUEL021 lint gate covering
 ``core/utils/``: a naive line-scan widening would have false-positived on the

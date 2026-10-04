@@ -11,8 +11,9 @@ coroutine that applies the change, and an optional value whitelist. Fields
 whose transitions the service itself validates (status) omit the whitelist;
 plain enum fields (priority) declare it so garbage never reaches the graph.
 
-This generalizes the former status-only factory: auth, ownership verification,
-form parsing, and card re-render are shared plumbing — only the field varies.
+Auth, ownership verification, form parsing, and card re-render are shared
+plumbing — only the field varies. The re-rendered card carries its page links
+(ADR-090 §2), read the way the list page reads them, so a toggle keeps them.
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -39,6 +40,9 @@ if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from adapters.inbound.fasthtml_types import RouteDecorator
+    from core.models.enums.neo_labels import NeoLabel
+    from core.ports import ConnectionFetchOperations
+    from core.ports.query_types import EntityConnection
     from core.utils.result_simplified import Result
 
 # Whitelist for FieldUpdateSpec(field="priority", ...) — all 6 domains share it.
@@ -78,21 +82,25 @@ class ActivityFieldApiConfig[T]:
 
     The type parameter ``T`` ties each spec's ``apply`` return value to
     ``card_fn``'s input, so a tasks config produces ``Result[Task]`` and the
-    factory's ``card_fn(result.value)`` is checked against ``Task``.
+    factory's ``card_fn(result.value, links)`` is checked against ``Task``.
 
     Attributes:
         domain_name: URL path segment, e.g. ``"tasks"``.
         singular: Singular form used in error messages, e.g. ``"task"``.
         service: Facade with a ``verify_ownership(uid, user_uid)`` method
             (all Activity Domain facades inherit it from ``BaseService``).
-        card_fn: Card component receiving the updated entity, returns an FT.
+        card_fn: Card component receiving the updated entity and its page links.
+        links: The page-link reader the list page uses (``ConnectionFetchOperations``).
+        link_label: The domain's label — whose page views the card shows.
         fields: The inline-editable fields to register, one route each.
     """
 
     domain_name: str
     singular: str
     service: Any
-    card_fn: Callable[[T], FT]
+    card_fn: Callable[[T, list[EntityConnection]], FT]
+    links: ConnectionFetchOperations
+    link_label: NeoLabel
     fields: tuple[FieldUpdateSpec[T], ...] = field(default_factory=tuple)
 
 
@@ -143,7 +151,8 @@ def _register_field_route[T](
         # The updated card carries the one honest signal: an HX-Trigger naming
         # the field, fired on the requesting element and bubbling to any surface
         # that needs to react to a real update — never to ``successful``.
-        card = config.card_fn(result.value)
+        links = await config.links.fetch_entity_connections(config.link_label, [uid])
+        card = config.card_fn(result.value, links.get(uid, []))
         return HTMLResponse(
             to_xml(card),
             headers={

@@ -4,10 +4,10 @@ Extracted from the 6 Activity Domain view files to eliminate duplication.
 Domain-specific logic stays in each domain's *_views.py file.
 
 Usage:
-    from ui.activities._shared import safe_id, PRIORITY_ORDER, PriorityBadgeDropdown, ConnectionBadges
+    from ui.activities._shared import safe_id, PriorityBadgeDropdown, ConnectionRows
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Button, Div, Li, Small, Span, Ul
@@ -21,53 +21,87 @@ from ui.primitives import dropdown_menu, section_label
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
+    from core.ports.query_types import EntityConnection
 
-def ConnectionsSection(
-    connections: list[dict[str, str]],
-    domain_labels: dict[str, tuple[str, str, str]],
-) -> FT:
-    """Detail-page 'Connections' block: linked entities grouped by domain.
 
-    Args:
-        connections: Dicts with connected_type / connected_uid / title keys.
-        domain_labels: connected_type -> (section label, icon name, href prefix).
-            An href prefix of "#" renders a dead link (detail page not built yet).
-    """
-    groups: dict[str, list[dict[str, str]]] = {}
+def _by_heading(connections: Sequence[EntityConnection]) -> dict[str, list[EntityConnection]]:
+    """Group page links by heading, in the order the reader gives them."""
+    groups: dict[str, list[EntityConnection]] = {}
     for conn in connections:
-        connected_type = conn.get("connected_type", "unknown")
-        if connected_type not in groups:
-            groups[connected_type] = []
-        groups[connected_type].append(conn)
+        groups.setdefault(conn["heading"], []).append(conn)
+    return groups
 
-    sections: list[Any] = []
-    for domain, conns in groups.items():
-        label, icon, base_href = domain_labels.get(
-            domain, (f"{domain.title()} connections", "link", "#")
-        )
-        links = [
-            Li(
-                Icon(icon, size=12, cls="inline mr-2"),
-                A(
-                    conn.get("title", conn.get("connected_uid", "?")),
-                    href=f"{base_href}{conn.get('connected_uid', '')}" if base_href != "#" else "#",
-                    cls="hover:underline text-muted-foreground",
-                ),
-            )
-            for conn in conns
-        ]
-        sections.append(
-            Div(
-                Small(
-                    label,
-                    cls="text-muted-foreground uppercase text-sm block mb-2",
-                ),
-                Ul(*links, cls="divide-y"),
-                cls="mb-2",
-            )
-        )
 
-    return ConnectionsBlock(*sections)
+def _connection_link(conn: EntityConnection, cls: str) -> FT:
+    """The far end's title, linked to its page when it has one."""
+    base_href = CONNECTION_ICONS.get(conn["connected_type"], ("link", "#"))[1]
+    title = conn["title"] or conn["connected_uid"]
+    if base_href == "#":
+        return Span(title, cls=cls)
+    return A(title, href=f"{base_href}{conn['connected_uid']}", cls=f"hover:underline {cls}")
+
+
+def _connection_icon(conn: EntityConnection, size: int) -> FT:
+    """The far end's kind, as an icon that keeps its size beside a wrapping title."""
+    return Icon(
+        CONNECTION_ICONS.get(conn["connected_type"], ("link", "#"))[0], size=size, cls="shrink-0"
+    )
+
+
+def ConnectionsSection(connections: Sequence[EntityConnection]) -> FT:
+    """Detail-page 'Connections' block: the page's links, one list per heading.
+
+    Each heading is this domain's name for a link (``page_heading``, ADR-090 §2), so
+    two links to the same kind of entity — an event celebrating a goal and one
+    contributing to it — are listed apart. Renders an empty Div when there are none.
+    """
+    if not connections:
+        return Div()
+    sections = [
+        Div(
+            Small(heading, cls="text-muted-foreground text-sm block mb-2"),
+            Ul(
+                *[
+                    Li(
+                        _connection_icon(conn, 12),
+                        _connection_link(conn, "text-muted-foreground"),
+                        cls="flex items-center gap-2 py-1",
+                    )
+                    for conn in conns
+                ],
+                cls="divide-y",
+            ),
+            cls="mb-3",
+        )
+        for heading, conns in _by_heading(connections).items()
+    ]
+    return Div(section_label("Connections"), *sections, cls="my-4")
+
+
+def ConnectionRows(connections: Sequence[EntityConnection]) -> FT:
+    """List-card links: one compact line per heading, its titles after it.
+
+    The card's half of the detail page's :func:`ConnectionsSection` — the same
+    headings, so a link shows on the card under the name the page gives it.
+    """
+    if not connections:
+        return Span()
+    rows = [
+        Div(
+            Span(f"{heading}:", cls="text-muted-foreground mr-1"),
+            *[
+                Span(
+                    _connection_icon(conn, 10),
+                    _connection_link(conn, ""),
+                    cls="inline-flex items-center gap-1 mr-2",
+                )
+                for conn in conns
+            ],
+            cls="text-sm",
+        )
+        for heading, conns in _by_heading(connections).items()
+    ]
+    return Div(*rows, cls="mt-2 space-y-0.5")
 
 
 def tag_badges(tags: Sequence[str], limit: int | None = None) -> list[FT]:
@@ -88,17 +122,6 @@ def TagsBlock(tags: Sequence[str]) -> FT:
         *tag_badges(tags),
         cls="my-4",
     )
-
-
-def ConnectionsBlock(*body: FT) -> FT:
-    """Detail-page 'Connections' wrapper: the section label + a caller-supplied body.
-
-    The body varies by lens — flat :func:`ConnectionBadges` for domains that show
-    outgoing links (Tasks, Habits, Events, Choices), domain-grouped lists for the
-    gravity-well domains (see :func:`ConnectionsSection`). Only the label and
-    spacing are shared, so they live here and nowhere else.
-    """
-    return Div(section_label("Connections"), *body, cls="my-4")
 
 
 def MetadataField(label: str, *value: FT) -> FT:
@@ -202,7 +225,7 @@ CONNECTION_ICONS: dict[str, tuple[str, str]] = {
     "principle": ("compass", "/principles/detail?uid="),
     "ku": ("atom", "/explore/ku/"),
     "path_step": ("list", "/explore/ps/"),
-    "learning_path": ("map", "#"),
+    "learning_path": ("map", "/lp/"),
 }
 
 
@@ -226,69 +249,11 @@ def CurriculumOriginField(ps_uid: str, ps_title: str) -> FT:
     )
 
 
-def ConnectionBadges(connections: list[dict[str, str]]) -> FT:
-    """Render typed connection badges for cross-domain links.
-
-    Each badge shows an icon + title and links to the target entity's detail page.
-    Used by domains that show outgoing connections (Tasks, Habits, Events, Choices).
-    """
-    if not connections:
-        return Span()
-
-    badges: list[Any] = []
-    for conn in connections:
-        connected_type = conn.get("connected_type", "")
-        title = conn.get("title", conn.get("connected_uid", "?"))
-        connected_uid = conn.get("connected_uid", "")
-        icon, base_href = CONNECTION_ICONS.get(connected_type, ("link", "#"))
-        href = f"{base_href}{connected_uid}" if base_href != "#" else "#"
-
-        badges.append(
-            A(
-                Icon(icon, size=12, cls="inline mr-1"),
-                title,
-                href=href,
-                cls="inline-flex items-center mr-2",
-                style="text-decoration: none;",
-            )
-        )
-
-    return Div(*badges, cls="mt-2")
-
-
-def ConnectionSummary(connections: list[dict[str, str]]) -> FT:
-    """Render a compact summary of connection counts by domain type.
-
-    Shows icon + count for each domain (e.g. "2 tasks, 1 habit").
-    Used by gravity-well domains (Goals, Principles) that show incoming connections.
-    """
-    if not connections:
-        return Span()
-
-    counts: dict[str, int] = {}
-    for conn in connections:
-        connected_type = conn.get("connected_type", "unknown")
-        counts[connected_type] = counts.get(connected_type, 0) + 1
-
-    parts: list[Any] = []
-    for domain, count in sorted(counts.items()):
-        icon = CONNECTION_ICONS.get(domain, ("link", "#"))[0]
-        parts.append(
-            Span(
-                Icon(icon, size=10, cls="inline"),
-                f" {count}",
-                cls="text-muted-foreground text-sm mr-2",
-            )
-        )
-
-    return Div(*parts, cls="mt-2")
-
-
 def ActivityList(
     items: list,
     domain: str,
     card_fn: Callable,
-    connections_map: dict[str, list[dict[str, str]]] | None = None,
+    connections_map: Mapping[str, list[EntityConnection]] | None = None,
     *,
     empty_state: FT | None = None,
     list_id: str | None = None,
@@ -303,7 +268,7 @@ def ActivityList(
         domain: Singular domain slug (e.g. "task", "goal"). Used for the list
             container id and EmptyState copy.
         card_fn: Domain card component (e.g. TaskCard).
-        connections_map: Cross-domain connection data keyed by entity UID.
+        connections_map: Each entity's page links, keyed by UID (ADR-090 §2).
         empty_state: What to render when ``items`` is empty; the default is the
             domain list page's "sync your vault" state — a surface with its own
             reading of an empty list (the day view) passes its own.

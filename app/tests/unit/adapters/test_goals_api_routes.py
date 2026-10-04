@@ -32,6 +32,7 @@ from adapters.inbound.goals_api import create_goals_api_routes
 from core.models.enums.relationship_enums import ProficiencyLevel
 from core.models.goal.goal import Goal
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.no_page_links import NoPageLinks
 
 _OWNER_UID = "user_owner"
 _GOAL_UID = "goal_1"
@@ -83,7 +84,14 @@ def _make_client(
 
     # user_service is asserted at wiring time (fail-fast) — a mock satisfies it;
     # these tests only exercise the field/hierarchy/link routes.
-    create_goals_api_routes(app, rt, goals_service, principles_service, user_service=MagicMock())
+    create_goals_api_routes(
+        app,
+        rt,
+        goals_service,
+        principles_service,
+        connection_fetch_backend=NoPageLinks(),
+        user_service=MagicMock(),
+    )
     return TestClient(app), goals_service, principles_service
 
 

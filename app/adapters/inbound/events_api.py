@@ -34,6 +34,7 @@ from adapters.inbound.route_factories import (
     create_knowledge_patterns_api_route,
 )
 from core.models.entity_requests import AddHierarchyChildRequest, LinkEventToGoalRequest
+from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.utils.result_simplified import Result
@@ -41,6 +42,7 @@ from ui.activities.events_views import EventCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
 
@@ -50,6 +52,7 @@ def create_events_api_routes(
     rt: RouteDecorator,
     events_service: EventsService,
     goals_service: GoalsService,
+    connection_fetch_backend: ConnectionFetchOperations,
     **_kwargs: Any,
 ) -> None:
     """Register Events API routes."""
@@ -67,6 +70,8 @@ def create_events_api_routes(
             singular="event",
             service=events_service,
             card_fn=EventCard,
+            links=connection_fetch_backend,
+            link_label=NeoLabel.EVENT,
             fields=(
                 FieldUpdateSpec(field="status", apply=update_status),
                 FieldUpdateSpec(

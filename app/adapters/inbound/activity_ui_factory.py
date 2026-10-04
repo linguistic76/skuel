@@ -28,6 +28,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import refuse, refuse_not_found
+from core.models.enums.neo_labels import NeoLabel
 from ui.activities._shared import CurriculumOriginField
 from ui.activities.filter_bar import ActivityFilterBar, with_user_categories
 from ui.activities.nav import render_activity_sidebar_page
@@ -72,7 +73,8 @@ class ActivityUIConfig:
             derived fields the detail page shows (Habits)
         backend: ConnectionFetchOperations port for connection / source-PathStep fetching
         filter_fn: Domain filter function (items, *param_values) -> filtered
-        connection_config: ConnectionConfig for fetch_entity_connections
+        link_label: the domain's label — its page views in the relationship
+            registry are the links the list card and the detail page show (ADR-090 §2)
         filter_config: FilterConfig for ActivityFilterBar
         list_component: (filtered, connections_map) -> FT
         stats_component: (all_items) -> FT
@@ -102,7 +104,7 @@ class ActivityUIConfig:
     get_owned: Callable[[str, UserUID], Awaitable[Any]]
     backend: ConnectionFetchOperations
     filter_fn: Callable[..., list[Any]]
-    connection_config: Any
+    link_label: NeoLabel
     filter_config: Any
     list_component: Callable[..., Any]
     stats_component: Callable[..., Any]
@@ -170,9 +172,7 @@ def create_activity_ui_routes(
         filtered = config.filter_fn(all_items, *filter_args)
 
         uids = [item.uid for item in filtered]
-        connections_map = await config.backend.fetch_entity_connections(
-            config.connection_config, uids
-        )
+        connections_map = await config.backend.fetch_entity_connections(config.link_label, uids)
 
         return None, all_items, filtered, connections_map, param_values
 
@@ -313,7 +313,7 @@ def create_activity_ui_routes(
         entity = owned.value
 
         connections_map = await config.backend.fetch_entity_connections(
-            config.connection_config, [entity.uid]
+            config.link_label, [entity.uid]
         )
         connections = connections_map.get(entity.uid, [])
 

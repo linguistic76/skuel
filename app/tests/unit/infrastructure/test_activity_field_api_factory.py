@@ -23,8 +23,10 @@ from adapters.inbound.route_factories import (
     FieldUpdateSpec,
     create_activity_field_api_routes,
 )
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.no_page_links import NoPageLinks
 
 
 class _RouteRegistry:
@@ -66,7 +68,7 @@ def _request(form_data: dict[str, str] | None, user_uid: str = "user_test") -> A
     )
 
 
-def _card(entity: Any) -> Any:
+def _card(entity: Any, connections: Any = None) -> Any:
     """A minimal domain card: the handler serializes whatever card_fn returns."""
     return Div(entity.uid, id=f"card-{entity.uid}")
 
@@ -89,6 +91,8 @@ def _config(
         singular=singular,
         service=service,
         card_fn=card_fn,
+        links=NoPageLinks(),
+        link_label=NeoLabel.TASK,
         fields=fields,
     )
 
@@ -170,7 +174,7 @@ async def test_success_returns_card_for_updated_entity() -> None:
     response = await handler(_request({"status": "completed"}), uid="task.1")
 
     update.assert_awaited_once_with("task.1", "completed")
-    card_fn.assert_called_once_with(entity)
+    card_fn.assert_called_once_with(entity, [])
     # The serialized card, and the one signal that the entity really changed
     # (a refusal is also a 200 here, so listeners key on the event, not status).
     assert 'id="card-task.1"' in response.body.decode()

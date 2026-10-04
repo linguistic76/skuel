@@ -29,6 +29,8 @@ from ui.patterns.empty_state import EmptyState
 from ui.today.orchestrator import moment_is_on_day
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from fasthtml.common import FT
 
     from core.models.choice.choice import Choice
@@ -36,6 +38,7 @@ if TYPE_CHECKING:
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.task.task import Task
+    from core.ports.query_types import EntityConnection
     from ui.page_contexts import TodayPageContext
 
 _CONTAINER_CLS = "mx-auto max-w-[1280px] py-8 pb-24"
@@ -56,9 +59,9 @@ def TodayPage(ctx: TodayPageContext) -> FT:
         _header(view_date, ctx["heading"], ctx["date_label"]),
         _quick_add(view_date) if ctx["can_quick_add"] else None,
         _caught_up() if not has_anything else None,
-        _overdue_section(ctx["overdue"], view_date) if ctx["overdue"] else None,
-        _tasks_section(ctx["tasks"], view_date) if has_anything else None,
-        _events_section(ctx["events"]) if ctx["events"] else None,
+        _overdue_section(ctx["overdue"], view_date, ctx["task_links"]) if ctx["overdue"] else None,
+        _tasks_section(ctx["tasks"], view_date, ctx["task_links"]) if has_anything else None,
+        _events_section(ctx["events"], ctx["event_links"]) if ctx["events"] else None,
         _habits_section(ctx["habits"], view_date) if ctx["habits"] else None,
         _milestones_section(ctx["milestones"]) if ctx["milestones"] else None,
         _choices_section(ctx["choices"], view_date) if ctx["choices"] else None,
@@ -232,11 +235,11 @@ def _defer_form(task: Task, view_date: date, *, source: str) -> FT:
 
 def _task_card_with_defer(
     view_date: date, *, source: str
-) -> Callable[[Task, list[dict[str, str]]], FT]:
+) -> Callable[[Task, list[EntityConnection]], FT]:
     """A ``TaskCard`` followed by its defer control — the ``card_fn`` shape
     ``ActivityList`` calls with ``(item, connections)``."""
 
-    def card(task: Task, connections: list[dict[str, str]]) -> FT:
+    def card(task: Task, connections: list[EntityConnection]) -> FT:
         # The card's status toggle swaps only the card (its own outerHTML target),
         # which would leave a completed task on the day beside a live defer
         # control. The day is server-rendered, so a status UPDATE reloads it —
@@ -257,7 +260,9 @@ def _task_card_with_defer(
     return card
 
 
-def _overdue_section(overdue: list[Task], view_date: date) -> FT:
+def _overdue_section(
+    overdue: list[Task], view_date: date, links: Mapping[str, list[EntityConnection]]
+) -> FT:
     """The live day's triage: tasks due strictly before today (deadline language)."""
     return _section(
         CalendarItemType.TASK,
@@ -266,12 +271,15 @@ def _overdue_section(overdue: list[Task], view_date: date) -> FT:
             overdue,
             "task",
             _task_card_with_defer(view_date, source="triage"),
+            links,
             list_id="day-overdue",
         ),
     )
 
 
-def _tasks_section(tasks: list[Task], view_date: date) -> FT:
+def _tasks_section(
+    tasks: list[Task], view_date: date, links: Mapping[str, list[EntityConnection]]
+) -> FT:
     return _section(
         CalendarItemType.TASK,
         "Tasks",
@@ -279,6 +287,7 @@ def _tasks_section(tasks: list[Task], view_date: date) -> FT:
             tasks,
             "task",
             _task_card_with_defer(view_date, source="day"),
+            links,
             empty_state=EmptyState(
                 title="No tasks on this day",
                 description="Nothing is scheduled or due here.",
@@ -288,11 +297,11 @@ def _tasks_section(tasks: list[Task], view_date: date) -> FT:
     )
 
 
-def _events_section(events: list[Event]) -> FT:
+def _events_section(events: list[Event], links: Mapping[str, list[EntityConnection]]) -> FT:
     return _section(
         CalendarItemType.EVENT,
         "Events",
-        ActivityList(events, "event", EventCard, list_id="day-events"),
+        ActivityList(events, "event", EventCard, links, list_id="day-events"),
     )
 
 

@@ -41,7 +41,7 @@ chrome. There is no hub page; `/today` is the landing.
 | Choices | `adapters/inbound/choices_ui.py` | `ui/activities/choices_form.py` | `ui/activities/choices_views.py` | `core/events/choice_events.py` |
 | Principles | `adapters/inbound/principles_ui.py` | `ui/activities/principles_form.py` | `ui/activities/principles_views.py` | `core/events/principle_events.py` |
 
-**Shared UI utilities:** `ui/activities/_shared.py` — `MetadataField()` (label + value pairs for detail grids), `safe_id()`, `CONNECTION_ICONS`, `ConnectionBadges()` (outgoing links), `ConnectionSummary()` (incoming count badges for gravity-well domains like Goals/Principles), `PriorityBadgeDropdown()`, `ActivityList()`. `PRIORITY_ORDER` is in `core/utils/entity_filters.py`.
+**Shared UI utilities:** `ui/activities/_shared.py` — `MetadataField()` (label + value pairs for detail grids), `safe_id()`, `CONNECTION_ICONS`, `ConnectionsSection()` (detail page links, one list per heading), `ConnectionRows()` (list card links, one line per heading), `PriorityBadgeDropdown()`, `ActivityList()`. `PRIORITY_ORDER` is in `core/utils/entity_filters.py`.
 
 ## Domain-Specific Quirks
 

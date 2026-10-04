@@ -25,6 +25,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone, current_zone_var
 from tests.helpers.laptop_clock import laptop_wall
+from tests.helpers.no_page_links import NoPageLinks
 from ui.today.orchestrator import (
     TodayOrchestrator,
     _choice_order,
@@ -182,6 +183,7 @@ def _build(
         goals_service=services["goals"],
         choices_service=services["choices"],
         calendar_service=services["calendar"],
+        links=NoPageLinks(),
     )
     return orch, services
 

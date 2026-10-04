@@ -26,8 +26,8 @@ from core.models.enums.principle_enums import AlignmentLevel
 from core.utils.palette import StrengthColor
 from ui.activities._shared import (
     ActivityList,
+    ConnectionRows,
     ConnectionsSection,
-    ConnectionSummary,
     MetadataField,
     PriorityBadgeDropdown,
     TagsBlock,
@@ -44,9 +44,12 @@ from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from fasthtml.common import FT
 
     from core.models.principle.principle import Principle
+    from core.ports.query_types import EntityConnection
 
 # Strength ordering: Core is strongest (0), Exploring is weakest (4)
 _STRENGTH_ORDER = {"core": 0, "strong": 1, "moderate": 2, "developing": 3, "exploring": 4}
@@ -99,7 +102,7 @@ def PrincipleStatsBar(principles: list[Principle]) -> FT:
 
 def PrincipleList(
     principles: list[Principle],
-    connections_map: dict[str, list[dict[str, str]]] | None = None,
+    connections_map: Mapping[str, list[EntityConnection]] | None = None,
 ) -> FT:
     """Render a list of principle cards. Returns a replaceable container for HTMX."""
     return ActivityList(principles, "principle", PrincipleCard, connections_map)
@@ -107,7 +110,7 @@ def PrincipleList(
 
 def PrincipleCard(
     principle: Principle,
-    connections: list[dict[str, str]] | None = None,
+    connections: list[EntityConnection] | None = None,
 ) -> FT:
     """Single principle card with strength, category, alignment, and connections."""
     is_inactive = principle.is_active is not None and not principle.is_active
@@ -177,7 +180,7 @@ def PrincipleCard(
         )
 
     # Connection count summary
-    conn_summary = ConnectionSummary(connections or [])
+    conn_summary = ConnectionRows(connections or [])
 
     # Card assembly
     header = Div(
@@ -202,7 +205,7 @@ def PrincipleCard(
 
 def PrincipleDetailView(
     principle: Principle,
-    connections: list[dict[str, str]],
+    connections: list[EntityConnection],
 ) -> FT:
     """Full detail page for a single principle."""
     # Subtitle
@@ -392,9 +395,7 @@ def PrincipleDetailView(
     tags_el = TagsBlock(principle.tags)
 
     # Connections — gravity well (incoming relationships)
-    conn_section = Div()
-    if connections:
-        conn_section = ConnectionsSection(connections, _CONNECTION_LABELS)
+    conn_section = ConnectionsSection(connections)
 
     # Dual-track self-assessment (perception gap + trend) — ADR-030
     dual_track_section = DualTrackSection(
@@ -431,17 +432,6 @@ def PrincipleDetailView(
         relationships,
         size="3xl",
     )
-
-
-# ConnectionsSection labels (gravity well view): connected_type -> (label, icon, href prefix).
-_CONNECTION_LABELS: dict[str, tuple[str, str, str]] = {
-    "task": ("Tasks embodying this principle", "check-square", "/tasks/detail?uid="),
-    "habit": ("Habits reinforcing this principle", "repeat", "/habits/detail?uid="),
-    "goal": ("Goals aligned with this principle", "target", "/goals/detail?uid="),
-    "event": ("Events demonstrating this principle", "calendar", "/events/detail?uid="),
-    "choice": ("Choices expressing this principle", "git-branch", "/choices/detail?uid="),
-    "ku": ("Knowledge connected", "atom", "/explore/ku/"),
-}
 
 
 def StrengthBadge(strength: str) -> FT:

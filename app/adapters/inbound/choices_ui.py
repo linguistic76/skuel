@@ -26,7 +26,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import refuse
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
-from core.utils.connection_configs import CHOICE_CONNECTION_CONFIG
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.entity_filters import filter_choices
 from core.utils.logging import get_logger
 from ui.activities.choices_form import ChoiceCreateForm, ChoiceEditForm
@@ -63,7 +63,7 @@ def create_choices_ui_routes(
         get_owned=choices_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_choices,
-        connection_config=CHOICE_CONNECTION_CONFIG,
+        link_label=NeoLabel.CHOICE,
         filter_config=FILTER_CONFIGS["choices"],
         list_component=ChoiceList,
         stats_component=ChoiceStatsBar,

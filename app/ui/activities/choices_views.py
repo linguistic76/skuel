@@ -21,8 +21,8 @@ from fasthtml.common import (
 
 from ui.activities._shared import (
     ActivityList,
-    ConnectionBadges,
-    ConnectionsBlock,
+    ConnectionRows,
+    ConnectionsSection,
     MetadataField,
     PriorityBadgeDropdown,
     TagsBlock,
@@ -39,10 +39,13 @@ from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from fasthtml.common import FT
 
     from core.models.choice.choice import Choice
     from core.models.choice.choice_option import ChoiceOption
+    from core.ports.query_types import EntityConnection
 
 
 def ChoiceStatsBar(choices: list[Choice]) -> FT:
@@ -79,7 +82,7 @@ def ChoiceStatsBar(choices: list[Choice]) -> FT:
 
 def ChoiceList(
     choices: list[Choice],
-    connections_map: dict[str, list[dict[str, str]]] | None = None,
+    connections_map: Mapping[str, list[EntityConnection]] | None = None,
 ) -> FT:
     """Render a list of choice cards. Returns a replaceable container for HTMX."""
     return ActivityList(choices, "choice", ChoiceCard, connections_map)
@@ -87,7 +90,7 @@ def ChoiceList(
 
 def ChoiceCard(
     choice: Choice,
-    connections: list[dict[str, str]] | None = None,
+    connections: list[EntityConnection] | None = None,
 ) -> FT:
     """Single choice card with type, deadline, decision status, and connections."""
     is_decided = choice.is_decided()
@@ -159,7 +162,7 @@ def ChoiceCard(
         tags_el = Div(*tag_badges(choice.tags, limit=5), cls="mt-2")
 
     # Connection badges
-    conn_el = ConnectionBadges(connections or [])
+    conn_el = ConnectionRows(connections or [])
 
     # Card assembly
     header = Div(
@@ -185,7 +188,7 @@ def ChoiceCard(
 
 def ChoiceDetailView(
     choice: Choice,
-    connections: list[dict[str, str]],
+    connections: list[EntityConnection],
 ) -> FT:
     """Full detail page for a single choice."""
     is_decided = choice.is_decided()
@@ -305,9 +308,7 @@ def ChoiceDetailView(
     tags_el = TagsBlock(choice.tags)
 
     # Connections
-    conn_section = Div()
-    if connections:
-        conn_section = ConnectionsBlock(ConnectionBadges(connections))
+    conn_section = ConnectionsSection(connections)
 
     # Lateral relationships
     relationships = EntityRelationshipsSection(

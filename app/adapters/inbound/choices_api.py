@@ -46,11 +46,13 @@ from core.models.entity_requests import (
     LinkChoiceToGoalRequest,
     LinkChoiceToPrincipleRequest,
 )
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Errors, Result
 from ui.activities.choices_views import ChoiceCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.choices_service import ChoicesService
     from core.services.goals_service import GoalsService
     from core.services.principles_service import PrinciplesService
@@ -62,6 +64,7 @@ def create_choices_api_routes(
     choices_service: ChoicesService,
     goals_service: GoalsService,
     principles_service: PrinciplesService,
+    connection_fetch_backend: ConnectionFetchOperations,
     **_kwargs: Any,
 ) -> None:
     """Register Choices API routes."""
@@ -82,6 +85,8 @@ def create_choices_api_routes(
             singular="choice",
             service=choices_service,
             card_fn=ChoiceCard,
+            links=connection_fetch_backend,
+            link_label=NeoLabel.CHOICE,
             fields=(
                 FieldUpdateSpec(field="status", apply=update_status),
                 FieldUpdateSpec(
