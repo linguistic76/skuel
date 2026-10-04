@@ -21,7 +21,7 @@ See: /docs/decisions/ADR-090-one-link-per-fact-a-view-per-domain.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from adapters.persistence.neo4j.query.cypher import (
     build_far_node_clause,
@@ -35,8 +35,6 @@ from core.models.relationship_registry import get_config_by_label
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from core.models.relationship_registry import UnifiedRelationshipDefinition
     from core.ports.base_protocols import QueryExecutor
     from core.ports.query_types import EntityConnection
@@ -44,21 +42,48 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.persistence.connection_fetch")
 
 
+class _LinkRow(TypedDict):
+    """One edge the page statement read, as its RETURN projects it."""
+
+    entity_uid: str
+    rel_type: str
+    outgoing: bool  # the anchor is the edge's start node
+    far_labels: list[str]
+    connected_uid: str
+    title: str
+    connected_type: str
+
+
+def _link_row(record: dict[str, Any]) -> _LinkRow | None:  # boundary: neo4j driver record
+    """The typed row, or None for an anchor the OPTIONAL MATCH found no edge for."""
+    if record.get("rel_type") is None:
+        return None
+    connected_uid = str(record.get("connected_uid") or "")
+    return {
+        "entity_uid": str(record["entity_uid"]),
+        "rel_type": str(record["rel_type"]),
+        "outgoing": bool(record["outgoing"]),
+        "far_labels": [str(label) for label in record.get("far_labels") or []],
+        "connected_uid": connected_uid,
+        "title": str(record.get("title") or connected_uid),
+        "connected_type": str(record.get("connected_type") or ""),
+    }
+
+
 def _view_of(
-    views: tuple[UnifiedRelationshipDefinition, ...], record: Mapping[str, Any]
+    views: tuple[UnifiedRelationshipDefinition, ...], row: _LinkRow
 ) -> UnifiedRelationshipDefinition | None:
     """The page view that reads this edge, or None when no view does.
 
     The registry holds at most one per edge type, direction and far-end label
     (tests/unit/test_activity_link_invariant.py § no double listing).
     """
-    direction = "outgoing" if record["outgoing"] else "incoming"
-    far_labels = record["far_labels"] or []
+    direction = "outgoing" if row["outgoing"] else "incoming"
     for view in views:
         if (
-            view.relationship.value == record["rel_type"]
+            view.relationship.value == row["rel_type"]
             and view.direction == direction
-            and (view.target_label == NeoLabel.ENTITY or view.target_label in far_labels)
+            and (view.target_label == NeoLabel.ENTITY or view.target_label in row["far_labels"])
         ):
             return view
     return None
@@ -130,24 +155,24 @@ class ConnectionFetchBackend:
         placed: dict[str, list[EntityConnection]] = {}
         seen: set[tuple[str, str, str]] = set()
         for record in result.value:
-            if record.get("rel_type") is None:
+            row = _link_row(record)
+            if row is None:
                 continue
-            view = _view_of(views, record)
+            view = _view_of(views, row)
             if view is None:
                 continue
             heading = view.page_heading or ""
-            entity_uid: str = record["entity_uid"]
-            connected_uid: str = record.get("connected_uid") or ""
-            if (entity_uid, heading, connected_uid) in seen:
+            key = (row["entity_uid"], heading, row["connected_uid"])
+            if key in seen:
                 continue
-            seen.add((entity_uid, heading, connected_uid))
-            placed.setdefault(entity_uid, []).append(
+            seen.add(key)
+            placed.setdefault(row["entity_uid"], []).append(
                 {
                     "heading": heading,
-                    "rel_type": record["rel_type"],
-                    "connected_uid": connected_uid,
-                    "title": record.get("title") or connected_uid,
-                    "connected_type": record.get("connected_type") or "",
+                    "rel_type": row["rel_type"],
+                    "connected_uid": row["connected_uid"],
+                    "title": row["title"],
+                    "connected_type": row["connected_type"],
                 }
             )
 
