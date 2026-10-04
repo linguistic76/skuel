@@ -22,15 +22,13 @@ that carry its value.
 ``Entity``, over an edge type that reaches that config from more than one kind of node,
 names its kind in ``target_label`` (the declaration half), and every keyed reader on
 ``UnifiedRelationshipService`` carries the definition's ``target_label`` to the backend
-(the read half). The probe sees the arguments the backend is called with; that the
-backend's query applies the label is for the real-graph route tests of the PR that
-closes each reader's entry.
+(the read half). The probe sees the arguments the backend is called with, not the query
+it runs; that the query applies the label is a real-graph test's to show.
 
 The three gap lists (``MISSING_ENDS``, ``MIXED_VIEWS``, ``READERS_IGNORING_TARGET_LABEL``)
 name the ledger row that closes each entry (docs/roadmap/activity-links-arc.md § PR
-ledger) and are empty when the arc's PR 5 lands. Every list fails both ways: a new item is
-red until it is closed or listed, and a listed item that is closed or gone is red until
-its entry is removed.
+ledger). Every list fails both ways: a new item is red until it is closed or listed, and a
+listed item that is closed or gone is red until its entry is removed.
 
 What the registry cannot show, and how the test answers it:
 
