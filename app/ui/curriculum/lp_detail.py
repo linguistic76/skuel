@@ -10,7 +10,6 @@ the viewer's mastery); each step's Kus lazy-load from ``/api/lp/{uid}/children``
 Every row is read-only — the structure is vault-authored.
 """
 
-
 from fasthtml.common import FT, H1, Div, Li, P, Span, Ul
 
 from core.models.enums import EntityType
