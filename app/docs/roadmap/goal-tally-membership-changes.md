@@ -1,7 +1,7 @@
 ---
 title: "Goal Tally Membership Changes Don't Recompute"
-updated: 2026-10-01
-status: "registered"
+updated: 2026-10-04
+status: "registered — taken on by the Activity links arc, PR 4 (activity-links-arc.md): its trigger fired when the arc ruled that tasks and events both contribute to a goal's tally"
 registered: "2026-09-23 (Codex finding on #1408, round 3)"
 trigger: "a report of a goal whose stored tally disagrees with its linked tasks, OR the next change to how goal progress is triggered"
 check: "a TASK_BASED goal's stored tally (current_value/target_value) equals its live FULFILLS_GOAL tally after each of: linking a task, unlinking one, deleting one, and editing completion_updates_goal — with no linked task changing status"
@@ -10,6 +10,8 @@ check: "a TASK_BASED goal's stored tally (current_value/target_value) equals its
 # Goal Tally Membership Changes Don't Recompute
 
 *Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+
+**Taken on by the [Activity links arc](activity-links-arc.md), PR 4** (§ PR 4 — "Contributes"): the tally widens to contributing tasks and events, and every membership change recomputes.
 
 ## What happens
 

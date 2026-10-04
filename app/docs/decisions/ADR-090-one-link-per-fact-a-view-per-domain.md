@@ -16,7 +16,7 @@ is the ledger.
 **Date:** 2026-10-04
 **Deciders:** MCF
 **Decision Type:** ☑ Graph Schema  ☑ Pattern/Practice
-**Arc:** [Activity Links — rulings & contract](../roadmap/activity-links-arc.md) (rulings R1–R9).
+**Arc:** [Activity Links — rulings & contract](../roadmap/activity-links-arc.md) (rulings R1–R11).
 **Related ADRs:**
 - [ADR-026](ADR-026-unified-relationship-registry.md) — the registry where each domain declares
   its view of a link (one `UnifiedRelationshipDefinition` per side). This ADR decides what those
@@ -102,8 +102,10 @@ One consequence is a reader rule. When an edge type has sources of more than one
 lists one kind filters by the source's label, in the read itself. Once principles support goals, a
 goal's "supporting habits" lists habits only, and its "supporting principles" lists principles only.
 
-The rule binds every declaration of a view. Today a domain declares its views twice (the registry
-and the page's list); whether the page comes to read the registry is the arc's open item O4.
+The rule binds every declaration of a view, and a domain declares its views once (R10). Today it
+declares them twice: the registry and the page's hand-written list. The page comes to read the
+registry: each registry definition the page shows carries that domain's name for the link, the page
+renders its domain's definitions in both directions, and the hand-written lists are deleted.
 
 ### 3. Two links between a pair only when the two directions say different things (R3)
 
@@ -130,17 +132,18 @@ statements, not one fact under two names (§6).
 - Tasks and events both **contribute** to goals: `CONTRIBUTES_TO_GOAL` (R5). A task may contribute
   to several goals.
 
-### 5. A goal's progress counts every contribution (R5, R6)
+### 5. A goal's progress counts every contribution (R5, R6, R11)
 
 The goal tally counts the tasks that contribute to a goal and the events that contribute to it, and
 a task linked to several goals counts toward each. The tally is what a goal's progress is computed
 from; today only task-based goals are recomputed from it, and which goals' progress the widened
 tally feeds is settled with the count (arc document, O1).
 
-A completed contribution is done and an open one is not yet done. How a cancelled contribution
-counts is settled in the kickoff of the PR that builds the count (arc document, O1). Today the tally
-counts a cancelled task as not done, so leaving cancelled contributions out would change the rule for
-tasks as well as set it for events.
+A completed contribution is done and an open one is not yet done. A cancelled contribution, task or
+event, is left out of the count (R11): it is no longer part of the goal's plan, so it does not hold
+the goal's progress down. Today the tally counts a cancelled task as not done, so this changes the
+rule for tasks as well as setting it for events. How a failed task counts is settled in the kickoff
+of the PR that builds the count (arc document, O1).
 
 ### 6. Per-pair rulings
 
@@ -174,9 +177,9 @@ stored edges (migrated), and the vault files that declare it. No alias remains.
 
 Five of the six retire outright. `GUIDED_BY_PRINCIPLE` also has a source outside the Activities: a
 PathStep's guiding principles. The rulings cover links between Activities only, so whether that
-curriculum link keeps the type or moves is an open question for the PR that retires the goal's use
-(arc document, O2). If it keeps the type, `GUIDED_BY_PRINCIPLE` stays in the enum with that one
-source; if it moves, all six types go.
+curriculum link keeps the type or moves is open (arc document, O2), deferred by the founder. Until
+it is settled, `GUIDED_BY_PRINCIPLE` stays in the enum with that one source and the goal's use
+retires alone; if the PathStep's use later moves, all six types go.
 
 ### 8. Scope (R8)
 
@@ -241,8 +244,8 @@ either side alone, and unlinking becomes ambiguous.
   edges become two, and two task → goal edges change type) and a change to vault authoring:
   the retired frontmatter fields stop working, and the vault files that use them are edited in the
   same PR. A view over a shared edge type must filter by source label, and a new reader can forget
-  to. The arc's invariant test checks the registry's definitions, and the pages only if they come to
-  read the registry (O4); a reader written in hand Cypher is outside it. `Task.fulfills_goal_uid`
+  to. The arc's invariant test checks the registry's definitions, and through them the pages once
+  they read the registry (R10); a reader written in hand Cypher is outside it. `Task.fulfills_goal_uid`
   changes shape.
 - **Neutral:** every other pair keeps its edge type and gains views, not a migration: the pairs that
   keep two links (§3) and the task → principle, event → goal, event → principle, event → habit,
@@ -273,4 +276,6 @@ acceptance. This ADR is marked implemented when the arc closes.
 
 ## Changelog
 
-- 2026-10-04 — Accepted (Activity Links arc PR 0).
+- 2026-10-04 — Accepted (Activity Links arc PR 0, #1498).
+- 2026-10-04 — Round 5: the page reads the registry (R10, §2) and a cancelled contribution is left
+  out of the count (R11, §5); the PathStep's `GUIDED_BY_PRINCIPLE` (O2) is deferred (§7).
