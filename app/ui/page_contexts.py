@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.task.task import Task
+    from core.ports.query_types import EntityConnection
 
 
 # ============================================================================
@@ -57,6 +58,8 @@ class TodayPageContext(TypedDict):
     overdue: list[Task]
     tasks: list[Task]
     events: list[Event]
+    task_links: dict[str, list[EntityConnection]]  # overdue + tasks, by uid (ADR-090 §2)
+    event_links: dict[str, list[EntityConnection]]
     habits: list[CalendarItem]
     milestones: list[Goal]
     choices: list[Choice]

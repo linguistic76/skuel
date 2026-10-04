@@ -182,9 +182,10 @@ Forms live in `ui/activities/{domain}_form.py` and are appended inside the
 List-typed cross-domain fields and free-text list fields are intentionally
 omitted from forms — assign those via the detail-page relationship picker.
 
-**Cross-domain connections** — the fetch Cypher lives below the hexagonal boundary in `ConnectionFetchBackend` (`adapters/persistence/neo4j/`), behind the `ConnectionFetchOperations` port (ADR-044); the pure-data configs live in `core/utils/connection_configs.py`:
-- `backend.fetch_entity_connections(config, entity_uids)` — unified batch query for cross-domain relationships. Each domain has a `ConnectionConfig` constant (e.g. `TASK_CONNECTION_CONFIG`) specifying entity label, direction (`outgoing` or `incoming` for gravity wells), and relationship types. UI factories receive the port as `ActivityUIConfig.backend` and call `config.backend.fetch_entity_connections(config.connection_config, uids)`.
-- Returns `dict[str, list[dict[str, str]]]` with normalized keys: `rel_type`, `connected_uid`, `title`, `connected_type`. A connected entity is the entity owner's own or published shared content (`build_far_node_clause`) — another user's node, or a draft, is left out.
+**Page links** (ADR-090 §2, R10) — what an Activity page shows is declared once, in the relationship registry: a domain's definitions that carry a `page_heading` (`DomainRelationshipConfig.page_views()`), each naming the link from that domain's side ("Goals this habit supports"). The reader lives below the hexagonal boundary in `ConnectionFetchBackend` (`adapters/persistence/neo4j/`), behind the `ConnectionFetchOperations` port (ADR-044):
+- `backend.fetch_entity_connections(label, entity_uids)` — one batched statement per page over every page-view edge type in both directions; each row is placed under the view that reads it (edge type, direction, far-end label). UI factories receive the port as `ActivityUIConfig.backend` and pass `ActivityUIConfig.link_label`; the card re-render (`activity_field_api_factory`) and the Today page read through the same port.
+- Returns `dict[str, list[EntityConnection]]` (`heading`, `rel_type`, `connected_uid`, `title`, `connected_type`), ordered by the page views; a far end shown under two views sharing a heading (one link stored under two names) is listed once. A connected entity is the entity owner's own or published shared content (`build_far_node_clause`) — another user's node, or a draft, is left out.
+- `tests/unit/test_activity_link_invariant.py` holds the rules: every end that reads a link between two Activities shows it, and no edge is listed twice on a page.
 
 **Entity filtering** (`core/utils/entity_filters.py`):
 - `filter_tasks()`, `filter_goals()`, `filter_habits()`, `filter_events()`, `filter_choices()`, `filter_principles()` — pure functions applying status/category/priority filtering and sorting to domain model lists. Business rules (what "active" or "overdue" means) live here, not in UI views.
@@ -194,8 +195,8 @@ omitted from forms — assign those via the detail-page relationship picker.
 - `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
 - `PRIORITY_ORDER` lives in `core/utils/entity_filters.py` (a business rule), not here
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
-- `ConnectionBadges(connections)` — renders icon+title badge links for outgoing connections (used by Tasks, Habits, Events, Choices). Reads `connected_uid`/`connected_type` keys.
-- `ConnectionSummary(connections)` — renders compact icon+count badges for incoming connections (used by gravity-well domains: Goals, Principles). Reads `connected_type` keys.
+- `ConnectionsSection(connections)` — the detail page's Connections block: one list per heading.
+- `ConnectionRows(connections)` — the list card's links: one compact line per heading, the titles after it. All six cards use it.
 - `PriorityBadgeDropdown(uid, priority, domain, singular)` — interactive priority badge on all 6 cards: Alpine dropdown of the 3 `Priority` levels (`low`, `medium`, `high`), picks POST `/api/{domain}/{uid}/priority` via HTMX and swap the re-rendered card. Both `/status` and `/priority` endpoints come from `activity_field_api_factory` (`create_activity_field_api_routes` + one `FieldUpdateSpec` per field; priority carries the `PRIORITY_VALUES` whitelist).
 
 Calendar cross-cutting system still works (reads service protocols, not UI routes).

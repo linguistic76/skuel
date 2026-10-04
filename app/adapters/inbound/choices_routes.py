@@ -37,6 +37,7 @@ CHOICES_CONFIG = create_activity_domain_route_config(
     supports_goal_filter=False,
     supports_habit_filter=False,
     api_related_services={
+        "connection_fetch_backend": "connection_fetch_backend",
         "goals_service": "goals",
         "principles_service": "principles",
     },

@@ -2,7 +2,7 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
-> All 6 Activity Domains have **list/detail pages and create/edit forms** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`; the calendar month/week views at `/cal` are the temporal lenses), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All are pages of the Tasks+ section — one sidebar (`SidebarPage` via `render_activity_sidebar_page`) with the Tasks+ door (→ `/today`) lit in the chrome; the calendar month/week views and `/today` carry the same list, each calendar view rendering its declared membership (`VIEW_SPECS`: the month shows events only, the week adds habits, goal milestones and high-priority tasks behind the kind legend). Goals and Principles use gravity-well pattern (incoming connections). Activity data enters through the per-domain create/edit forms (`/{domain}/create`, `/{domain}/edit?uid=`), the JSON API, `/submissions/sync` (Obsidian vault sync) and content-vault ingestion.
+> All 6 Activity Domains have **list/detail pages and create/edit forms** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`; the calendar month/week views at `/cal` are the temporal lenses), Choices (`/choices`), Principles (`/principles`). Each has list + detail views showing the domain's links under its own names for them (the registry's `page_heading` views, both directions, ADR-090 §2), `EntityRelationshipsSection`, HTMX status toggles, and filtering. All are pages of the Tasks+ section — one sidebar (`SidebarPage` via `render_activity_sidebar_page`) with the Tasks+ door (→ `/today`) lit in the chrome; the calendar month/week views and `/today` carry the same list, each calendar view rendering its declared membership (`VIEW_SPECS`: the month shows events only, the week adds habits, goal milestones and high-priority tasks behind the kind legend). Activity data enters through the per-domain create/edit forms (`/{domain}/create`, `/{domain}/edit?uid=`), the JSON API, `/submissions/sync` (Obsidian vault sync) and content-vault ingestion.
 
 ## When to Use This Skill
 
@@ -152,8 +152,7 @@ ui/activities/badges.py, domain_stats_config.py  # Sidebar badge renderers + per
 ui/activities/{domain}_views.py          # Pure view components (StatsBar, List, Card, DetailView)
 ui/activities/{domain}_form.py           # Create/edit forms (render_activity_form)
 ui/activities/filter_bar.py              # Shared config-driven filter bar (plain <select>, not <uk-select>)
-ui/activities/_shared.py                 # Shared helpers (MetadataField, ConnectionBadges, safe_id)
-core/utils/connection_configs.py         # Pure-data ConnectionConfig + 6 per-domain constants (fetch Cypher is in ConnectionFetchBackend below the boundary, ADR-044)
+ui/activities/_shared.py                 # Shared helpers (MetadataField, ConnectionsSection, ConnectionRows, safe_id)
 core/utils/entity_filters.py            # filter_tasks/goals/habits/events/choices/principles (business rules)
 ```
 

@@ -19,12 +19,14 @@ from neo4j.time import DateTime as Neo4jDateTime
 
 from core.models.choice.choice import Choice
 from core.models.enums import EntityStatus
+from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone, current_zone_var
 from tests.helpers.laptop_clock import laptop_wall
+from tests.helpers.page_links_fake import FakePageLinks, page_link
 from ui.today.orchestrator import (
     TodayOrchestrator,
     _choice_order,
@@ -166,6 +168,7 @@ def _range_read(tasks: list[Task]):  # type: ignore[no-untyped-def]  # boundary:
 def _build(
     *,
     tasks: list[Task] | None = None,
+    links: FakePageLinks | None = None,
 ) -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
     services: dict[str, MagicMock] = {
         key: MagicMock() for key in ("tasks", "events", "habits", "goals", "choices", "calendar")
@@ -182,6 +185,7 @@ def _build(
         goals_service=services["goals"],
         choices_service=services["choices"],
         calendar_service=services["calendar"],
+        links=links or FakePageLinks(),
     )
     return orch, services
 
@@ -224,6 +228,23 @@ async def test_overdue_and_tasks_split_by_the_shared_predicates() -> None:
 
     assert {t.uid for t in ctx["overdue"]} == {"both", "late"}
     assert {t.uid for t in ctx["tasks"]} == {"due", "sched"}
+
+
+@pytest.mark.asyncio
+async def test_the_days_task_cards_carry_their_page_links() -> None:
+    yesterday = TODAY - timedelta(days=1)
+    overdue = _task("late", due=yesterday)
+    due_today = _task("due", due=TODAY)
+    link = page_link("Goals this task contributes to", "Run a half marathon")
+    links = FakePageLinks({"late": [link]})
+    orch, _ = _build(tasks=[overdue, due_today], links=links)
+
+    ctx = (await orch.build_context(USER)).value
+
+    assert ctx["task_links"] == {"late": [link]}
+    assert ctx["event_links"] == {}
+    assert (NeoLabel.TASK, ["late", "due"]) in links.reads
+    assert (NeoLabel.EVENT, []) in links.reads
 
 
 @pytest.mark.asyncio

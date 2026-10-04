@@ -1,10 +1,12 @@
-"""Unit tests for ConnectionFetchBackend (relocated from core/utils, ADR-044).
+"""Unit tests for ConnectionFetchBackend — the Activity pages' link reader (ADR-044).
 
-The two cross-domain connection queries now live below the hexagonal boundary in
-``adapters/persistence/neo4j/connection_fetch_backend.py`` behind the
-``ConnectionFetchOperations`` port. These tests mock the QueryExecutor and assert
-the outgoing vs incoming query shapes, parameter binding, record mapping, and the
-page-resilient empty-on-error safety-net.
+The reader reads, in one statement, every edge of the domain's page-view types in
+both directions (the registry's ``page_heading`` definitions, ADR-090 §2), and places
+each row under the view that reads it. These tests mock the QueryExecutor and assert
+the statement's shape and parameters, the placement by edge type / direction /
+far-end label, the one-listing-per-heading rule, and the page-resilient
+empty-on-error safety-net. The real-graph half is
+tests/integration/routes/test_activity_page_links.py.
 """
 
 from unittest.mock import AsyncMock
@@ -13,11 +15,7 @@ import pytest
 
 from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 from core.models.enums.neo_labels import NeoLabel
-from core.utils.connection_configs import (
-    GOAL_CONNECTION_CONFIG,
-    TASK_CONNECTION_CONFIG,
-    ConnectionConfig,
-)
+from core.models.relationship_registry import LABEL_CONFIGS, UnifiedRelationshipDefinition
 from core.utils.result_simplified import Errors, Result
 
 
@@ -27,80 +25,77 @@ def _backend_returning(records: object) -> tuple[ConnectionFetchBackend, AsyncMo
     return ConnectionFetchBackend(executor), executor.execute_query
 
 
-class TestFetchEntityConnections:
+def _row(
+    rel_type: str,
+    *,
+    outgoing: bool,
+    far: str,
+    uid: str,
+    title: str = "",
+    entity_uid: str = "goal_1",
+) -> dict[str, object]:
+    return {
+        "entity_uid": entity_uid,
+        "rel_type": rel_type,
+        "outgoing": outgoing,
+        "far_labels": ["Entity", far],
+        "connected_uid": uid,
+        "title": title or uid,
+        "connected_type": far.lower(),
+    }
+
+
+def _far_label(view: UnifiedRelationshipDefinition) -> str:
+    """A far-end label the view reads: its own, or any label for an Entity far end."""
+    return view.target_label if view.target_label != NeoLabel.ENTITY else NeoLabel.PRINCIPLE
+
+
+def _views_sharing_a_heading() -> tuple[
+    str, UnifiedRelationshipDefinition, UnifiedRelationshipDefinition
+]:
+    for label, config in LABEL_CONFIGS.items():
+        seen: dict[str, UnifiedRelationshipDefinition] = {}
+        for view in config.page_views():
+            heading = view.page_heading or ""
+            if heading in seen:
+                return label, seen[heading], view
+            seen[heading] = view
+    raise AssertionError("no config has two page views sharing a heading")
+
+
+class TestTheStatement:
     @pytest.mark.asyncio
     async def test_empty_uids_short_circuits_without_query(self):
         backend, execute_query = _backend_returning(Result.ok([]))
-        assert await backend.fetch_entity_connections(TASK_CONNECTION_CONFIG, []) == {}
+        assert await backend.fetch_entity_connections(NeoLabel.TASK, []) == {}
         execute_query.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_outgoing_query_shape_and_params(self):
+    async def test_a_label_with_no_page_views_reads_nothing(self):
         backend, execute_query = _backend_returning(Result.ok([]))
-        await backend.fetch_entity_connections(TASK_CONNECTION_CONFIG, ["task:1"])
+        assert await backend.fetch_entity_connections(NeoLabel.KU, ["ku_1"]) == {}
+        execute_query.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reads_every_page_view_type_in_both_directions_behind_the_wall(self):
+        backend, execute_query = _backend_returning(Result.ok([]))
+        await backend.fetch_entity_connections(NeoLabel.GOAL, ["goal_1"])
 
         assert execute_query.await_args is not None
         query, params = execute_query.await_args.args
-        # Outgoing: source is n, target is other.
-        assert "(n)-[r]->(other:Entity)" in query
-        # Enum-typed label seam interpolated as its .value.
-        assert ":Entity:Task" in query
-        assert params == {
-            "uids": ["task:1"],
-            "rel_types": list(TASK_CONNECTION_CONFIG.relationship_types),
-            "publication_draft": "draft",
-        }
-        # The connected entity is tied to the entity's owner.
+        page_types = {view.relationship.value for view in LABEL_CONFIGS["Goal"].page_views()}
+        pattern = query.split("OPTIONAL MATCH (n)-[r:", 1)[1].split("]-(other:Entity)", 1)[0]
+        assert set(pattern.split("|")) == page_types
+        assert ":Entity:Goal" in query
+        assert params == {"uids": ["goal_1"], "publication_draft": "draft"}
+        # The far end is the anchor owner's own, or published shared content.
         assert "AS anchor_owners" in query
         assert "any(o IN far_owners WHERE o IN anchor_owners)" in query
 
     @pytest.mark.asyncio
-    async def test_incoming_query_shape(self):
-        backend, execute_query = _backend_returning(Result.ok([]))
-        await backend.fetch_entity_connections(GOAL_CONNECTION_CONFIG, ["goal:1"])
-
-        assert execute_query.await_args is not None
-        query, _params = execute_query.await_args.args
-        # Incoming/gravity-well: edge points from other into n
-        # (expressed via the shared direction_clause arrow).
-        assert "(n)<-[r]-(other:Entity)" in query
-        assert ":Entity:Goal" in query
-
-    @pytest.mark.asyncio
-    async def test_maps_records_and_skips_null_rel_type(self):
-        records = Result.ok(
-            [
-                {
-                    "entity_uid": "task:1",
-                    "rel_type": "FULFILLS_GOAL",
-                    "connected_uid": "goal:9",
-                    "title": "Ship it",
-                    "connected_type": "goal",
-                },
-                # OPTIONAL MATCH miss → rel_type None → skipped.
-                {"entity_uid": "task:2", "rel_type": None},
-            ]
-        )
-        backend, _ = _backend_returning(records)
-        result = await backend.fetch_entity_connections(
-            TASK_CONNECTION_CONFIG, ["task:1", "task:2"]
-        )
-        assert result == {
-            "task:1": [
-                {
-                    "rel_type": "FULFILLS_GOAL",
-                    "connected_uid": "goal:9",
-                    "title": "Ship it",
-                    "connected_type": "goal",
-                }
-            ]
-        }
-        assert "task:2" not in result
-
-    @pytest.mark.asyncio
     async def test_empty_on_result_error(self):
         backend, _ = _backend_returning(Result.fail(Errors.database("connections", "boom")))
-        assert await backend.fetch_entity_connections(TASK_CONNECTION_CONFIG, ["task:1"]) == {}
+        assert await backend.fetch_entity_connections(NeoLabel.TASK, ["task_1"]) == {}
 
     @pytest.mark.asyncio
     async def test_empty_on_executor_exception_safety_net(self):
@@ -108,23 +103,127 @@ class TestFetchEntityConnections:
         executor.execute_query = AsyncMock(side_effect=RuntimeError("driver down"))
         backend = ConnectionFetchBackend(executor)
         # Page-resilient: a Neo4j failure must not propagate.
-        assert await backend.fetch_entity_connections(TASK_CONNECTION_CONFIG, ["task:1"]) == {}
+        assert await backend.fetch_entity_connections(NeoLabel.TASK, ["task_1"]) == {}
+
+
+class TestPlacement:
+    @pytest.mark.asyncio
+    async def test_each_row_is_placed_under_the_view_that_reads_it(self):
+        backend, _ = _backend_returning(
+            Result.ok(
+                [
+                    _row("SUPPORTS_GOAL", outgoing=False, far="Habit", uid="habit_1"),
+                    _row("FULFILLS_GOAL", outgoing=False, far="Task", uid="task_1"),
+                    # OPTIONAL MATCH miss → rel_type None → skipped.
+                    {"entity_uid": "goal_2", "rel_type": None},
+                ]
+            )
+        )
+        result = await backend.fetch_entity_connections(NeoLabel.GOAL, ["goal_1", "goal_2"])
+
+        assert {(row["heading"], row["connected_uid"]) for row in result["goal_1"]} == {
+            ("Habits that support this goal", "habit_1"),
+            ("Tasks that contribute to this goal", "task_1"),
+        }
+        assert "goal_2" not in result
 
     @pytest.mark.asyncio
-    async def test_invalid_label_seam_rejected(self):
-        # An out-of-band label (not a real NeoLabel) is refused before interpolation.
-        bad = ConnectionConfig(config_lookup_label="Task; DROP", relationship_types=("RELATED_TO",))  # type: ignore[arg-type]
-        backend, _ = _backend_returning(Result.ok([]))
-        with pytest.raises(ValueError, match="Invalid Neo4j label"):
-            await backend.fetch_entity_connections(bad, ["task:1"])
+    async def test_an_edge_in_the_direction_no_view_reads_is_left_out(self):
+        # The goal reads SUPPORTS_GOAL incoming only; an outgoing one has no view.
+        backend, _ = _backend_returning(
+            Result.ok([_row("SUPPORTS_GOAL", outgoing=True, far="Habit", uid="habit_1")])
+        )
+        assert await backend.fetch_entity_connections(NeoLabel.GOAL, ["goal_1"]) == {}
 
     @pytest.mark.asyncio
-    async def test_label_seam_accepts_every_activity_config(self):
-        # All six shipped configs carry a valid NeoLabel seam.
-        backend, _ = _backend_returning(Result.ok([]))
-        for config in (TASK_CONNECTION_CONFIG, GOAL_CONNECTION_CONFIG):
-            assert isinstance(config.config_lookup_label, NeoLabel)
-            await backend.fetch_entity_connections(config, ["x:1"])
+    async def test_a_far_end_the_view_does_not_name_is_left_out(self):
+        # The habit's REINFORCES_HABIT views name Task and Event; a Goal is neither.
+        backend, _ = _backend_returning(
+            Result.ok(
+                [
+                    _row(
+                        "REINFORCES_HABIT",
+                        outgoing=False,
+                        far="Event",
+                        uid="event_1",
+                        entity_uid="habit_1",
+                    ),
+                    _row(
+                        "REINFORCES_HABIT",
+                        outgoing=False,
+                        far="Goal",
+                        uid="goal_1",
+                        entity_uid="habit_1",
+                    ),
+                ]
+            )
+        )
+        result = await backend.fetch_entity_connections(NeoLabel.HABIT, ["habit_1"])
+
+        assert [(row["heading"], row["connected_uid"]) for row in result["habit_1"]] == [
+            ("Events where this habit is practiced", "event_1")
+        ]
+
+    @pytest.mark.asyncio
+    async def test_one_link_under_two_names_is_listed_once(self):
+        # Any two page views on one config that share a heading — derived, so a later
+        # PR that retires one pair leaves the test on another.
+        label, first, second = _views_sharing_a_heading()
+        far_uid = "shared_far_end"
+        backend, _ = _backend_returning(
+            Result.ok(
+                [
+                    _row(
+                        view.relationship.value,
+                        outgoing=view.direction == "outgoing",
+                        far=_far_label(view),
+                        uid=far_uid,
+                        entity_uid="anchor",
+                    )
+                    for view in (first, second)
+                ]
+            )
+        )
+        result = await backend.fetch_entity_connections(NeoLabel(label), ["anchor"])
+
+        assert [(row["heading"], row["connected_uid"]) for row in result["anchor"]] == [
+            (first.page_heading, far_uid)
+        ]
+
+    @pytest.mark.asyncio
+    async def test_rows_follow_the_page_views_order_then_title(self):
+        views = LABEL_CONFIGS["Goal"].page_views()
+        first, last = views[0], views[-1]
+        assert first.page_heading != last.page_heading
+        records = [
+            _row(
+                last.relationship.value,
+                outgoing=last.direction == "outgoing",
+                far=last.target_label if last.target_label != "Entity" else "Ku",
+                uid="b",
+                # Sorts before both titles of the first view: only the views' order
+                # puts it last.
+                title="Aardvark",
+            ),
+            _row(
+                first.relationship.value,
+                outgoing=first.direction == "outgoing",
+                far=first.target_label if first.target_label != "Entity" else "Ku",
+                uid="z",
+                title="Zed",
+            ),
+            _row(
+                first.relationship.value,
+                outgoing=first.direction == "outgoing",
+                far=first.target_label if first.target_label != "Entity" else "Ku",
+                uid="a",
+                title="Alpha",
+            ),
+        ]
+        backend, _ = _backend_returning(Result.ok(records))
+        result = await backend.fetch_entity_connections(NeoLabel.GOAL, ["goal_1"])
+
+        assert [row["connected_uid"] for row in result["goal_1"]] == ["a", "z", "b"]
 
 
 class TestFetchSourcePathstep:

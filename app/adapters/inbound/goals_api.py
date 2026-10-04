@@ -59,6 +59,7 @@ from core.models.entity_requests import (
     LinkGoalToKnowledgeRequest,
     LinkGoalToPrincipleRequest,
 )
+from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.goal.goal_update_intent import GoalUpdateIntent
@@ -68,6 +69,7 @@ from ui.activities.goals_views import GoalCard
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.type_hints import UserUID
+    from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
     from core.services.principles_service import PrinciplesService
     from core.services.user.unified_user_context import UserContext
@@ -79,6 +81,7 @@ def create_goals_api_routes(
     rt: RouteDecorator,
     goals_service: GoalsService,
     principles_service: PrinciplesService,
+    connection_fetch_backend: ConnectionFetchOperations,
     user_service: UserService | None = None,
     **_kwargs: Any,
 ) -> None:
@@ -103,6 +106,8 @@ def create_goals_api_routes(
             singular="goal",
             service=goals_service,
             card_fn=GoalCard,
+            links=connection_fetch_backend,
+            link_label=NeoLabel.GOAL,
             fields=(
                 FieldUpdateSpec(field="status", apply=goals_service.set_status),
                 FieldUpdateSpec(

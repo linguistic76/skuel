@@ -26,9 +26,9 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import refuse
+from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
 from core.models.type_hints import UserUID
-from core.utils.connection_configs import EVENT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_events
 from core.utils.logging import get_logger
 from ui.activities.events_form import EventCreateForm, EventEditForm
@@ -70,7 +70,7 @@ def create_events_ui_routes(
         get_owned=events_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_events,
-        connection_config=EVENT_CONNECTION_CONFIG,
+        link_label=NeoLabel.EVENT,
         filter_config=FILTER_CONFIGS["events"],
         list_component=EventList,
         stats_component=EventStatsBar,

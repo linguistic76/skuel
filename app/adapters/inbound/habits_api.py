@@ -78,6 +78,7 @@ from core.models.entity_requests import (
     LinkHabitToKnowledgeRequest,
     LinkHabitToPrincipleRequest,
 )
+from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import (
     BulkCompleteHabitsRequest,
@@ -92,6 +93,7 @@ from ui.activities.habits_views import HabitCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.habits_service import HabitsService
     from core.services.principles_service import PrinciplesService
 
@@ -101,6 +103,7 @@ def create_habits_api_routes(
     rt: RouteDecorator,
     habits_service: HabitsService,
     principles_service: PrinciplesService,
+    connection_fetch_backend: ConnectionFetchOperations,
     **_kwargs: Any,
 ) -> None:
     """Register Habits API routes."""
@@ -120,6 +123,8 @@ def create_habits_api_routes(
             singular="habit",
             service=habits_service,
             card_fn=HabitCard,
+            links=connection_fetch_backend,
+            link_label=NeoLabel.HABIT,
             fields=(
                 FieldUpdateSpec(field="status", apply=update_status),
                 FieldUpdateSpec(

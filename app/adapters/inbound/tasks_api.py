@@ -41,6 +41,7 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.entity_requests import AddHierarchyChildRequest, LinkTaskToGoalRequest
+from core.models.enums.neo_labels import NeoLabel
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Result
@@ -48,6 +49,7 @@ from ui.activities.tasks_views import TaskCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.goals_service import GoalsService
     from core.services.tasks_service import TasksService
 
@@ -57,6 +59,7 @@ def create_tasks_api_routes(
     rt: RouteDecorator,
     tasks_service: TasksService,
     goals_service: GoalsService,
+    connection_fetch_backend: ConnectionFetchOperations,
     **_kwargs: Any,
 ) -> None:
     """Register Tasks API routes."""
@@ -74,6 +77,8 @@ def create_tasks_api_routes(
             singular="task",
             service=tasks_service,
             card_fn=TaskCard,
+            links=connection_fetch_backend,
+            link_label=NeoLabel.TASK,
             fields=(
                 FieldUpdateSpec(field="status", apply=update_status),
                 FieldUpdateSpec(

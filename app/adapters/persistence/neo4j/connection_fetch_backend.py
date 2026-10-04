@@ -2,26 +2,27 @@
 Connection-Fetch Backend
 ========================
 
-Below-the-boundary backend for cross-domain connection fetching on Activity
-Domain list/detail pages (ADR-044). Authors + executes the parameterized Cypher
-that ``core/utils/`` must not hold; implements ``ConnectionFetchOperations``.
+Below-the-boundary backend for the links an Activity Domain page shows (ADR-044):
+the detail page's Connections section and the list card. Implements
+``ConnectionFetchOperations``.
 
-Batch-fetches entity connections (outgoing or incoming) via a single
-parameterized query and resolves an activity's source PathStep. The configs
-(``ConnectionConfig`` + the six per-domain constants) stay in core as pure
-data: core/utils/connection_configs.py.
+What a page shows is the domain's page views in the relationship registry — the
+definitions that carry a ``page_heading`` (ADR-090 §2). One batched, parameterized
+statement per page reads every edge of those types in both directions, behind the
+far-node wall (``build_far_node_clause``); each row is then placed under the view
+that reads it, by edge type, direction and far-end label. Also resolves an
+activity's source PathStep.
 
 Does NOT extend UniversalNeo4jBackend — takes a QueryExecutor directly, like
 CrossDomainBackend / InsightBackend.
 
-See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
+See: /docs/decisions/ADR-090-one-link-per-fact-a-view-per-domain.md
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypedDict
 
-from adapters.persistence.neo4j._backend_helpers import direction_clause
 from adapters.persistence.neo4j.query.cypher import (
     build_far_node_clause,
     build_owner_uids_expression,
@@ -30,17 +31,66 @@ from adapters.persistence.neo4j.query.cypher import (
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import get_config_by_label
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from core.models.relationship_registry import UnifiedRelationshipDefinition
     from core.ports.base_protocols import QueryExecutor
-    from core.utils.connection_configs import ConnectionConfig
+    from core.ports.query_types import EntityConnection
 
 logger = get_logger("skuel.persistence.connection_fetch")
 
 
+class _LinkRow(TypedDict):
+    """One edge the page statement read, as its RETURN projects it."""
+
+    entity_uid: str
+    rel_type: str
+    outgoing: bool  # the anchor is the edge's start node
+    far_labels: list[str]
+    connected_uid: str
+    title: str
+    connected_type: str
+
+
+def _link_row(record: dict[str, Any]) -> _LinkRow | None:  # boundary: neo4j driver record
+    """The typed row, or None for an anchor the OPTIONAL MATCH found no edge for."""
+    if record.get("rel_type") is None:
+        return None
+    connected_uid = str(record.get("connected_uid") or "")
+    return {
+        "entity_uid": str(record["entity_uid"]),
+        "rel_type": str(record["rel_type"]),
+        "outgoing": bool(record["outgoing"]),
+        "far_labels": [str(label) for label in record.get("far_labels") or []],
+        "connected_uid": connected_uid,
+        "title": str(record.get("title") or connected_uid),
+        "connected_type": str(record.get("connected_type") or ""),
+    }
+
+
+def _view_of(
+    views: tuple[UnifiedRelationshipDefinition, ...], row: _LinkRow
+) -> UnifiedRelationshipDefinition | None:
+    """The page view that reads this edge, or None when no view does.
+
+    The registry holds at most one per edge type, direction and far-end label
+    (tests/unit/test_activity_link_invariant.py § no double listing).
+    """
+    direction = "outgoing" if row["outgoing"] else "incoming"
+    for view in views:
+        if (
+            view.relationship.value == row["rel_type"]
+            and view.direction == direction
+            and (view.target_label == NeoLabel.ENTITY or view.target_label in row["far_labels"])
+        ):
+            return view
+    return None
+
+
 class ConnectionFetchBackend:
-    """Fetch cross-domain connections + curriculum origin for activities.
+    """Fetch the page links + curriculum origin of activities.
 
     Implements ``ConnectionFetchOperations`` (core/ports/connection_fetch_protocols.py).
     """
@@ -49,41 +99,38 @@ class ConnectionFetchBackend:
         self._executor = executor
 
     async def fetch_entity_connections(
-        self, config: ConnectionConfig, entity_uids: list[str]
-    ) -> dict[str, list[dict[str, str]]]:
-        """Batch-fetch cross-domain connections for a list of entities.
+        self, label: NeoLabel, entity_uids: list[str]
+    ) -> dict[str, list[EntityConnection]]:
+        """Batch-fetch the page links of ``label`` entities, both directions.
 
-        Returns a map of entity_uid -> list of connection dicts, each with keys:
-        ``rel_type``, ``connected_uid``, ``title``, ``connected_type``.
-
-        For outgoing domains (Task, Habit, Event, Choice) the connected entity is
-        the target. For incoming/gravity-well domains (Goal, Principle) it is the
-        source. The dict keys are unified regardless of direction.
+        Returns ``entity_uid -> rows`` (``heading``, ``rel_type``, ``connected_uid``,
+        ``title``, ``connected_type``), ordered by the domain's page views and then
+        by title. A far end shown under two views that share a heading (one link
+        stored under two names) is listed once under it.
 
         A connected entity is the entity owner's own or published shared content
         (``build_far_node_clause``): another user's node, or a draft, at the far end
         of an edge is left out as if the edge were absent.
         """
-        if not entity_uids:
+        config = get_config_by_label(label)
+        views = config.page_views() if config is not None else ()
+        if not entity_uids or not views:
             return {}
 
-        # Enum-typed node-label seam — validate before interpolation (ADR-044).
-        validate_label(config.config_lookup_label)
-        label = config.config_lookup_label.value
-        rel_list = list(config.relationship_types)
-
-        # Historical behavior: any non-"outgoing" config traverses incoming
-        # (the gravity-well domains Goal/Principle).
-        arrow = direction_clause("outgoing" if config.direction == "outgoing" else "incoming")
+        # Enum-typed seams — validated before interpolation (ADR-044).
+        validate_label(label)
+        rel_types = sorted({RelationshipName(view.relationship).value for view in views})
         far_node, far_node_params = build_far_node_clause("other", "anchor_owners")
         query = f"""
-        MATCH (n:Entity:{label})
+        MATCH (n:{NeoLabel.ENTITY.value}:{label.value})
         WHERE n.uid IN $uids
         WITH n, {build_owner_uids_expression("n")} AS anchor_owners
-        OPTIONAL MATCH (n){arrow}(other:Entity)
-        WHERE type(r) IN $rel_types AND {far_node}
+        OPTIONAL MATCH (n)-[r:{"|".join(rel_types)}]-(other:{NeoLabel.ENTITY.value})
+        WHERE {far_node}
         RETURN n.uid AS entity_uid,
                type(r) AS rel_type,
+               startNode(r) = n AS outgoing,
+               labels(other) AS far_labels,
                other.uid AS connected_uid,
                other.title AS title,
                other.entity_type AS connected_type
@@ -91,31 +138,48 @@ class ConnectionFetchBackend:
 
         try:
             result = await self._executor.execute_query(
-                query, {"uids": entity_uids, "rel_types": rel_list, **far_node_params}
+                query, {"uids": entity_uids, **far_node_params}
             )
         except Exception:  # safety-net: Neo4j query failure shouldn't break the page
-            logger.warning("Failed to fetch %s connections", label, exc_info=True)
+            logger.warning("Failed to fetch %s connections", label.value, exc_info=True)
             return {}
 
         if result.is_error:
             return {}
 
-        connections_map: dict[str, list[dict[str, str]]] = {}
+        # A heading's place is its first view's — two views sharing it list as one.
+        rank: dict[str, int] = {}
+        for index, page_view in enumerate(views):
+            rank.setdefault(page_view.page_heading or "", index)
+
+        placed: dict[str, list[EntityConnection]] = {}
+        seen: set[tuple[str, str, str]] = set()
         for record in result.value:
-            entity_uid: str = record["entity_uid"]
-            if record.get("rel_type") is None:
+            row = _link_row(record)
+            if row is None:
                 continue
-            if entity_uid not in connections_map:
-                connections_map[entity_uid] = []
-            connections_map[entity_uid].append(
+            view = _view_of(views, row)
+            if view is None:
+                continue
+            heading = view.page_heading or ""
+            key = (row["entity_uid"], heading, row["connected_uid"])
+            if key in seen:
+                continue
+            seen.add(key)
+            placed.setdefault(row["entity_uid"], []).append(
                 {
-                    "rel_type": record["rel_type"],
-                    "connected_uid": record.get("connected_uid", ""),
-                    "title": record.get("title", ""),
-                    "connected_type": record.get("connected_type", ""),
+                    "heading": heading,
+                    "rel_type": row["rel_type"],
+                    "connected_uid": row["connected_uid"],
+                    "title": row["title"],
+                    "connected_type": row["connected_type"],
                 }
             )
-        return connections_map
+
+        def page_order(row: EntityConnection) -> tuple[int, str]:
+            return rank[row["heading"]], row["title"]
+
+        return {entity_uid: sorted(rows, key=page_order) for entity_uid, rows in placed.items()}
 
     async def fetch_source_pathstep(self, ps_uid: str, owner_uid: str) -> dict[str, str] | None:
         """Resolve a spawned activity's ``source_path_step_uid`` to its PathStep title.

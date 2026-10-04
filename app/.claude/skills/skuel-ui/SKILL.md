@@ -241,8 +241,9 @@ async def task_detail_content_fragment(request: Request) -> FT | FtResponse:
     if owned.is_error:
         return refuse(owned.expect_error(), slot, "Task")
     task = owned.value
-    # connection_fetch_backend implements the ConnectionFetchOperations port (below the boundary, ADR-044)
-    connections_map = await connection_fetch_backend.fetch_entity_connections(config, [task.uid])
+    # The page links: the registry's page views for the label (ADR-090 §2), read through the
+    # ConnectionFetchOperations port (below the boundary, ADR-044)
+    connections_map = await connection_fetch_backend.fetch_entity_connections(NeoLabel.TASK, [task.uid])
     return TaskDetailView(task, connections_map.get(task.uid, []))
 ```
 
@@ -478,8 +479,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/learning_loop/` | Shared learning loop renderers: `exercise_status.py` (status pills, action links, exercise list), `submissions_section.py` (PS submissions), `feedback_section.py` (PS feedback) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/activities/filter_bar.py` | Config-driven `ActivityFilterBar` component (`FilterBarConfig`, `FilterSelect`) — shared across all 6 Activity Domains |
-| `/ui/activities/_shared.py` | Shared Activity Domain UI utilities (`MetadataField`, `safe_id`, `CONNECTION_ICONS`, `ConnectionBadges`, `ConnectionSummary`). Connection dicts use `connected_uid`/`connected_type` keys. |
-| `/core/utils/connection_configs.py` | Pure-data `ConnectionConfig` + 6 per-domain constants. The batch connection Cypher lives below the boundary in `ConnectionFetchBackend` (behind `ConnectionFetchOperations`, ADR-044); UI factories receive the port as `ActivityUIConfig.backend` |
+| `/ui/activities/_shared.py` | Shared Activity Domain UI utilities (`MetadataField`, `safe_id`, `CONNECTION_ICONS`, `ConnectionsSection`, `ConnectionRows`). Page links are `EntityConnection` rows grouped by `heading` — the registry's `page_heading` (ADR-090 §2); the reader is `ConnectionFetchBackend` (behind `ConnectionFetchOperations`, ADR-044), received as `ActivityUIConfig.backend`. |
 | `/core/utils/entity_filters.py` | `filter_tasks/goals/habits/events/choices/principles()` — business filtering/sorting logic extracted from UI views |
 | `/adapters/inbound/activity_ui_factory.py` | `ActivityUIConfig` dataclass + `create_activity_ui_routes()` — shared factory generating 5 routes per Activity Domain (page shell, content fragment, list-fragment, detail shell, detail content). Each `{domain}_ui.py` is ~50 lines creating an `ActivityUIConfig` and delegating here |
 | `/ui/journals/` | Journal UI rendering: `chat_page.py`, `components.py`, `forms.py`, `period_links.py` — used by `user_entry_ui.py` and `journals_routes.py` |

@@ -402,6 +402,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-071](decisions/ADR-071-skuel-tailwind-component-layer.md)
 - [ADR-072](decisions/ADR-072-server-rendered-inline-svg-icons.md)
 - [ADR-044](decisions/ADR-044-neo4j-committed-architectural-choice.md)
+- [ADR-090](decisions/ADR-090-one-link-per-fact-a-view-per-domain.md)
 
 ### @ui-browser
 
@@ -620,7 +621,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns, @pytest, @python
 - [ADR-088](decisions/ADR-088-submit-and-share.md) → @journals, @learning-loop, @security, @skuel-search-architecture
 - [ADR-089](decisions/ADR-089-instants-utc-days-in-a-zone.md) → @neo4j-cypher-patterns
-- [ADR-090](decisions/ADR-090-one-link-per-fact-a-view-per-domain.md) → @activity-domains
+- [ADR-090](decisions/ADR-090-one-link-per-fact-a-view-per-domain.md) → @activity-domains, @skuel-ui
 
 ---
 

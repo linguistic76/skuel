@@ -28,9 +28,9 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.models.enums.activity_enums import ConsistencyLevel
+from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 from core.models.type_hints import EntityUID, UserUID
-from core.utils.connection_configs import HABIT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_habits
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
@@ -84,7 +84,7 @@ def create_habits_ui_routes(
         get_owned=habits_service.get_for_user,
         backend=connection_fetch_backend,
         filter_fn=filter_habits,
-        connection_config=HABIT_CONNECTION_CONFIG,
+        link_label=NeoLabel.HABIT,
         filter_config=FILTER_CONFIGS["habits"],
         list_component=HabitList,
         stats_component=HabitStatsBar,

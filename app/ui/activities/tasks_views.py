@@ -23,8 +23,8 @@ from core.models.enums import EntityStatus
 from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import (
     ActivityList,
-    ConnectionBadges,
-    ConnectionsBlock,
+    ConnectionRows,
+    ConnectionsSection,
     MetadataField,
     PriorityBadgeDropdown,
     TagsBlock,
@@ -43,10 +43,16 @@ from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from fasthtml.common import FT
 
     from core.models.task.task import Task
-    from core.ports.query_types import TaskDependencyNeighbor, TaskDependencyNeighbors
+    from core.ports.query_types import (
+        EntityConnection,
+        TaskDependencyNeighbor,
+        TaskDependencyNeighbors,
+    )
 
 
 def TaskStatsBar(tasks: list[Task]) -> FT:
@@ -70,7 +76,7 @@ def TaskStatsBar(tasks: list[Task]) -> FT:
 
 def TaskList(
     tasks: list[Task],
-    connections_map: dict[str, list[dict[str, str]]] | None = None,
+    connections_map: Mapping[str, list[EntityConnection]] | None = None,
 ) -> FT:
     """Render a list of task cards. Returns a replaceable container for HTMX."""
     return ActivityList(tasks, "task", TaskCard, connections_map)
@@ -78,7 +84,7 @@ def TaskList(
 
 def TaskCard(
     task: Task,
-    knowledge_connections: list[dict[str, str]] | None = None,
+    connections: list[EntityConnection] | None = None,
 ) -> FT:
     """Single task card with status toggle, priority, due date, and connections."""
     is_completed = task.status and task.status.value == "completed"
@@ -134,8 +140,8 @@ def TaskCard(
     if task.tags:
         tags_el = Div(*tag_badges(task.tags, limit=5), cls="mt-2")
 
-    # Cross-domain connection badges
-    knowledge_el = _task_connection_badges(task, knowledge_connections or [])
+    # The task's page links, under the task's names for them
+    conn_el = ConnectionRows(connections or [])
 
     # Duration
     duration_el = None
@@ -150,7 +156,7 @@ def TaskCard(
             DivHStacked(*badges, cls="flex-wrap mt-2") if badges else "",
             due_el or "",
             tags_el or "",
-            knowledge_el or "",
+            conn_el,
             cls="ml-2 flex-1 min-w-0",
         ),
         cls="flex items-start",
@@ -161,29 +167,6 @@ def TaskCard(
         id=f"task-{safe_id(task.uid)}",
         cls=f"mb-2 p-3 {'opacity-75' if is_completed else ''}",
     )
-
-
-def _task_connection_badges(
-    task: Task,
-    connections: list[dict[str, str]],
-) -> FT:
-    """Connection badges with task-specific fallback to fulfills_goal_uid."""
-    if connections:
-        return ConnectionBadges(connections)
-
-    # Fallback to model field if no connection data was fetched
-    if task.fulfills_goal_uid:
-        return ConnectionBadges(
-            [
-                {
-                    "connected_type": "goal",
-                    "title": task.fulfills_goal_uid,
-                    "connected_uid": task.fulfills_goal_uid,
-                }
-            ]
-        )
-
-    return Span()
 
 
 def SubtaskSection(task_uid: str) -> FT:
@@ -409,7 +392,7 @@ def DependencyListFragment(
 
 def TaskDetailView(
     task: Task,
-    connections: list[dict[str, str]],
+    connections: list[EntityConnection],
 ) -> FT:
     """Full detail page for a single task."""
     # Header badges
@@ -460,10 +443,7 @@ def TaskDetailView(
     tags_el = TagsBlock(task.tags)
 
     # Connections section
-    conn_section = Div()
-    conn_badges = _task_connection_badges(task, connections)
-    if connections or task.fulfills_goal_uid:
-        conn_section = ConnectionsBlock(conn_badges)
+    conn_section = ConnectionsSection(connections)
 
     # Sub-tasks (HTMX-loaded: parent breadcrumb + children + quick-add)
     subtasks = SubtaskSection(task.uid)

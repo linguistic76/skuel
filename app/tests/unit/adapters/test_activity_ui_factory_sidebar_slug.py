@@ -17,6 +17,7 @@ from fasthtml.common import Div, fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Result
 from ui.activities.filter_bar import FilterBarConfig
 
@@ -80,7 +81,7 @@ def _client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list[str]]:
         get_owned=get_owned,
         backend=backend,
         filter_fn=_keep_all,
-        connection_config=MagicMock(),
+        link_label=NeoLabel.TASK,
         filter_config=FilterBarConfig(
             fragment_url="/events/list-fragment", list_target_id="event-list", filters=[]
         ),

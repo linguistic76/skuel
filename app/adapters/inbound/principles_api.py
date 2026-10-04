@@ -42,6 +42,7 @@ from core.models.entity_requests import (
     AddHierarchyChildRequest,
     LinkPrincipleToKnowledgeRequest,
 )
+from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.principle_enums import PrincipleLinkType
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import (
@@ -56,6 +57,7 @@ from ui.activities.principles_views import PrincipleCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.ports import ConnectionFetchOperations
     from core.services.principles_service import PrinciplesService
 
 
@@ -63,6 +65,7 @@ def create_principles_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     principles_service: PrinciplesService,
+    connection_fetch_backend: ConnectionFetchOperations,
     **_kwargs: Any,
 ) -> None:
     """Register Principles API routes."""
@@ -87,6 +90,8 @@ def create_principles_api_routes(
             singular="principle",
             service=principles_service,
             card_fn=PrincipleCard,
+            links=connection_fetch_backend,
+            link_label=NeoLabel.PRINCIPLE,
             fields=(
                 FieldUpdateSpec(field="status", apply=update_status),
                 FieldUpdateSpec(

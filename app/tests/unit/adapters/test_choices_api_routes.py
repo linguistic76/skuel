@@ -23,6 +23,7 @@ from starlette.testclient import TestClient
 from adapters.inbound.choices_api import create_choices_api_routes
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.page_links_fake import FakePageLinks
 
 _USER_UID = "user_owner"
 _CHOICE_UID = "choice_1"
@@ -85,7 +86,14 @@ def _make_harness(
         # one patch covers every seam (same as test_tasks_api_routes.py).
         monkeypatch.setattr("adapters.inbound.auth.session.get_current_user", _fake_auth)
 
-    create_choices_api_routes(app, rt, choices_service, goals_service, principles_service)
+    create_choices_api_routes(
+        app,
+        rt,
+        choices_service,
+        goals_service,
+        principles_service,
+        connection_fetch_backend=FakePageLinks(),
+    )
     return _Harness(
         client=TestClient(app),
         choices=choices_service,

@@ -266,6 +266,13 @@ class UnifiedRelationshipDefinition:
     # None means: applies to the default EntityType for this label.
     ingestion_entity_type: EntityType | None = None
 
+    # The Activity page (ADR-090 §2): this domain's name for the link, written from
+    # its own side ("Goals this habit supports"). A definition with a heading is
+    # shown in the detail page's Connections section and on the list card; one
+    # without is not. Two definitions on one config share a heading only when they
+    # are one link stored under two names — the page lists each far end once.
+    page_heading: str | None = None
+
     def to_graph_enrichment_tuple(self) -> tuple[str, str, str, str]:
         """Generate graph enrichment pattern tuple for BaseService._graph_enrichment_patterns."""
         return (
@@ -389,6 +396,14 @@ class DomainRelationshipConfig:
     # SERVICE INTERFACE - Used by UnifiedRelationshipService directly
     # =========================================================================
 
+    def page_views(self) -> tuple[UnifiedRelationshipDefinition, ...]:
+        """The definitions this domain's page shows, in declaration order (ADR-090 §2).
+
+        A view is shown when it carries a ``page_heading``; the order here is the
+        order of the page's headings.
+        """
+        return tuple(rel for rel in self.relationships if rel.page_heading is not None)
+
     def get_relationship_by_method(self, method_key: str) -> UnifiedRelationshipDefinition | None:
         """
         Look up a relationship definition by method key.
@@ -473,6 +488,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "knowledge",
             use_confidence=True,  # Context: filter by confidence
             yaml_field_path="connections.applies_knowledge",
+            page_heading="Knowledge this task applies",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
@@ -481,6 +497,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "required_knowledge",  # Renamed from prerequisite_knowledge for context consistency
             "prerequisite_knowledge",
             use_confidence=True,  # Context: filter by confidence
+            page_heading="Knowledge this task requires",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ALIGNED_WITH_PRINCIPLE,
@@ -488,6 +505,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "aligned_principles",
             "principles",
+            page_heading="Principles this task is aligned with",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ENABLES_TASK,
@@ -509,6 +527,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "unlocked_knowledge",
             "unlocks_knowledge",
+            page_heading="Knowledge this task unlocks",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.CONTRIBUTES_TO_GOAL,
@@ -516,6 +535,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "contributing_goals",
             "contributes_to_goal",
+            page_heading="Goals this task contributes to",
         ),
         # Task → Goal: single result for context
         UnifiedRelationshipDefinition(
@@ -527,6 +547,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title", "progress_percentage"),  # Context: include progress
             single=True,  # Context: expect single goal
             yaml_field_path="connections.fulfills_goal",
+            page_heading="Goals this task contributes to",
         ),
         # Task → Habit: (Task)-[:REINFORCES_HABIT]->(Habit), single result for context.
         # Consolidated from the former SUPPORTS_HABIT, which disagreed with the
@@ -543,6 +564,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title", "current_streak"),  # Context: include streak
             single=True,  # Context: expect single habit
             yaml_field_path="connections.reinforces_habit",
+            page_heading="Habits this task reinforces",
         ),
         # Task dependencies with status/priority fields
         UnifiedRelationshipDefinition(
@@ -591,6 +613,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "inferred_knowledge",
             "inferred_knowledge",
+            page_heading="Knowledge inferred from this task",
         ),
         # Incoming: Event → Task (events that executed this task)
         UnifiedRelationshipDefinition(
@@ -600,6 +623,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "execution_events",
             "execution_events",
             fields=("uid", "title", "start_time"),
+            page_heading="Events for this task",
         ),
         # Outgoing: Task → Choice (choices implemented by this task)
         UnifiedRelationshipDefinition(
@@ -609,6 +633,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "implemented_choices",
             "implements_choices",
             fields=("uid", "title", "status"),
+            page_heading="Choices this task carries out",
         ),
         # Outgoing: Task → LifePath (task serves user's life path)
         UnifiedRelationshipDefinition(
@@ -685,6 +710,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "knowledge",
             use_confidence=True,  # Context: filter by confidence
             yaml_field_path="connections.requires_knowledge",
+            page_heading="Knowledge this goal requires",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDED_BY_PRINCIPLE,
@@ -693,6 +719,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "aligned_principles",  # Context name: aligned_principles
             "principles",
             yaml_field_path="connections.aligned_with_principle",
+            page_heading="Principles that support this goal",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ALIGNED_WITH_PATH,
@@ -700,6 +727,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "aligned_paths",
             "aligned_paths",
+            page_heading="Learning paths this goal is aligned with",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_PATH_COMPLETION,
@@ -707,6 +735,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "required_paths",
             "required_paths",
+            page_heading="Learning paths this goal requires",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUBGOAL_OF,
@@ -727,6 +756,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "inspired_by_choice",
             fields=("uid", "title"),
             single=True,  # Single choice
+            page_heading="Choices that inspired this goal",
         ),
         # Incoming: Other → Goal (with context-specific fields)
         UnifiedRelationshipDefinition(
@@ -751,6 +781,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "supporting_habits",
             fields=("uid", "title", "current_streak"),  # Context: include streak
             yaml_field_path="connections.supporting_habits",
+            page_heading="Habits that support this goal",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.FULFILLS_GOAL,
@@ -759,6 +790,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "contributing_tasks",  # Context name: contributing_tasks
             "fulfilling_tasks",
             fields=("uid", "title", "status", "priority"),  # Context: include status/priority
+            page_heading="Tasks that contribute to this goal",
         ),
         # NOTE: Milestones are stored as an embedded tuple on the Goal model
         # (`Goal.milestones: tuple[Milestone, ...]`), not as graph nodes. There
@@ -770,6 +802,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "incoming",
             "guiding_principles_incoming",
             "guided_by_principles",
+            page_heading="Principles that support this goal",
         ),
         # Essentiality-filtered habits
         UnifiedRelationshipDefinition(
@@ -872,6 +905,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "reinforced_knowledge",
             "knowledge",
             yaml_field_path="connections.reinforces_knowledge",
+            page_heading="Knowledge this habit reinforces",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.EMBODIES_PRINCIPLE,
@@ -880,6 +914,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "embodied_principles",
             "principles",
             yaml_field_path="connections.embodies_principle",
+            page_heading="Principles this habit embodies",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
@@ -889,6 +924,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "supported_goals",
             fields=("uid", "title", "progress_percentage"),  # Context: include progress
             yaml_field_path="connections.supports_goal",
+            page_heading="Goals this habit supports",
         ),
         # Incoming: Other → Habit
         UnifiedRelationshipDefinition(
@@ -931,6 +967,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "incoming",
             "inspiring_principles",
             "inspiring_principles",
+            page_heading="Principles that inspire this habit",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
@@ -938,6 +975,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "incoming",
             "reinforcing_events",
             "reinforcing_events",
+            page_heading="Events where this habit is practiced",
         ),
         # Task → Habit (reinforcing tasks)
         UnifiedRelationshipDefinition(
@@ -947,6 +985,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "reinforcing_tasks",
             "reinforcing_tasks",
             fields=("uid", "title", "status"),  # Context: include status
+            page_heading="Tasks that reinforce this habit",
         ),
         # Related habits (bidirectional)
         UnifiedRelationshipDefinition(
@@ -976,6 +1015,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "informed_choices",
             "informed_choices",
             fields=("uid", "title", "status"),
+            page_heading="Choices this habit informs",
         ),
         # Incoming: Choice impacts habit
         UnifiedRelationshipDefinition(
@@ -985,6 +1025,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "impacting_choices",
             "impacting_choices",
             fields=("uid", "title", "status"),
+            page_heading="Choices that affect this habit",
         ),
         # Shared-neighbor pattern: Related habits via shared knowledge or goals
         UnifiedRelationshipDefinition(
@@ -1041,6 +1082,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "applied_knowledge",
             "knowledge",
             yaml_field_path="connections.applies_knowledge",
+            page_heading="Knowledge this event applies",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.CONTRIBUTES_TO_GOAL,
@@ -1049,6 +1091,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "supported_goals",
             "goals",
             yaml_field_path="connections.contributes_to_goal",
+            page_heading="Goals this event contributes to",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
@@ -1057,6 +1100,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "reinforced_habits",
             "habits",
             yaml_field_path="connections.reinforces_habit",
+            page_heading="Habits this event reinforces",
         ),
         # Outgoing: Event → Goal (milestone celebration)
         UnifiedRelationshipDefinition(
@@ -1065,6 +1109,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "celebrated_goals",
             "celebrated_goals",
+            page_heading="Goals this event celebrates",
         ),
         # Outgoing: Event → Task (tasks executed in this event)
         UnifiedRelationshipDefinition(
@@ -1075,6 +1120,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "tasks",
             fields=("uid", "title", "status", "priority"),
             yaml_field_path="connections.executes_task",
+            page_heading="Tasks carried out at this event",
         ),
         # Incoming: Other → Event
         UnifiedRelationshipDefinition(
@@ -1083,6 +1129,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "incoming",
             "practiced_habits",
             "practiced_habits",
+            page_heading="Principles this event demonstrates",
         ),
         # Bidirectional
         UnifiedRelationshipDefinition(
@@ -1111,6 +1158,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "triggered_choices",
             "triggered_choices",
             fields=("uid", "title", "status"),
+            page_heading="Choices this event prompts",
         ),
         # Incoming: Choice schedules event
         UnifiedRelationshipDefinition(
@@ -1120,6 +1168,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "scheduled_by_choices",
             "scheduled_by_choices",
             fields=("uid", "title", "status"),
+            page_heading="Choices that scheduled this event",
         ),
         # Event ↔ Principle bidirectional relationships (January 2026)
         # Outgoing: Event demonstrates principle
@@ -1130,6 +1179,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "demonstrated_principles",
             "demonstrated_principles",
             fields=("uid", "title", "strength"),
+            page_heading="Principles this event demonstrates",
         ),
         # Shared-neighbor pattern: Related events via shared knowledge or goals
         UnifiedRelationshipDefinition(
@@ -1184,6 +1234,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "informed_by_knowledge",
             "knowledge",
             yaml_field_path="connections.informed_by_knowledge",
+            page_heading="Knowledge that informs this choice",
         ),
         # Knowledge the choice needs before it can be decided, as opposed to the
         # knowledge that informed it. Declared in prerequisite_relationship_names
@@ -1201,6 +1252,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             # edges (cf. the ALIGNED_WITH_PRINCIPLE/INFORMED_BY_PRINCIPLE divergence
             # guarded in tests/unit/test_ingestion_relationship_config.py).
             yaml_field_path="connections.requires_knowledge_for_decision",
+            page_heading="Knowledge this choice requires",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_PRINCIPLE,
@@ -1209,6 +1261,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "aligned_principles",
             "principles",
             yaml_field_path="connections.guided_by_principle",
+            page_heading="Principles that inform this choice",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.AFFECTS_GOAL,
@@ -1217,6 +1270,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "affected_goals",
             "goals",
             yaml_field_path="connections.affects_goal",
+            page_heading="Goals this choice affects",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.OPENS_LEARNING_PATH,
@@ -1224,6 +1278,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "opened_paths",
             "learning_paths",
+            page_heading="Learning paths this choice opens",
         ),
         # Incoming: Other → Choice
         UnifiedRelationshipDefinition(
@@ -1232,6 +1287,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "incoming",
             "inspired_choices",
             "inspired_choices",
+            page_heading="Goals this choice inspired",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.IMPLEMENTS_CHOICE,
@@ -1239,6 +1295,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "incoming",
             "implementing_tasks",
             "implementing_tasks",
+            page_heading="Tasks that carry out this choice",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDES_CHOICE,
@@ -1246,6 +1303,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "incoming",
             "guiding_principles",
             "guided_by_principles",
+            page_heading="Principles that inform this choice",
         ),
         # Outgoing: Choice → LifePath (choice serves user's life path)
         UnifiedRelationshipDefinition(
@@ -1267,6 +1325,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "impacted_habits",
             fields=("uid", "title", "current_streak"),
             yaml_field_path="connections.impacts_habit",
+            page_heading="Habits this choice affects",
         ),
         # Incoming: Habit informs choice
         UnifiedRelationshipDefinition(
@@ -1276,6 +1335,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "informing_habits",
             "informing_habits",
             fields=("uid", "title", "current_streak"),
+            page_heading="Habits that inform this choice",
         ),
         # Choice ↔ Event bidirectional relationships (January 2026)
         # Outgoing: Choice schedules event
@@ -1286,6 +1346,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "scheduled_events",
             "scheduled_events",
             fields=("uid", "title", "start_time"),
+            page_heading="Events this choice scheduled",
         ),
         # Incoming: Event triggers choice
         UnifiedRelationshipDefinition(
@@ -1295,6 +1356,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "triggering_events",
             "triggering_events",
             fields=("uid", "title", "start_time"),
+            page_heading="Events that prompted this choice",
         ),
         # Shared-neighbor pattern: Related choices via shared principles or goals
         UnifiedRelationshipDefinition(
@@ -1349,6 +1411,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "grounding_knowledge",
             "knowledge",
             yaml_field_path="connections.grounded_in_knowledge",
+            page_heading="Knowledge this principle is grounded in",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDES_GOAL,
@@ -1357,6 +1420,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "guided_goals",
             "guided_goals",
             yaml_field_path="connections.guides_goal",
+            page_heading="Goals this principle supports",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDES_CHOICE,
@@ -1364,6 +1428,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "guided_choices",
             "guided_choices",
+            page_heading="Choices this principle informs",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INSPIRES_HABIT,
@@ -1372,6 +1437,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "inspired_habits",
             "inspired_habits",
             yaml_field_path="connections.inspires_habit",
+            page_heading="Habits this principle inspires",
         ),
         # Incoming: Other → Principle
         UnifiedRelationshipDefinition(
@@ -1380,6 +1446,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "incoming",
             "embodying_habits",
             "embodying_habits",
+            page_heading="Habits that embody this principle",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_PRINCIPLE,
@@ -1401,6 +1468,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "incoming",
             "aligned_tasks",
             "aligned_tasks",
+            page_heading="Tasks aligned with this principle",
         ),
         # Bidirectional
         UnifiedRelationshipDefinition(
@@ -1419,6 +1487,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "demonstrating_events",
             "demonstrating_events",
             fields=("uid", "title", "start_time"),
+            page_heading="Events where this principle is practiced",
         ),
         # Outgoing: Principle practiced at event
         UnifiedRelationshipDefinition(
@@ -1428,6 +1497,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "practice_events",
             "practice_events",
             fields=("uid", "title", "start_time"),
+            page_heading="Events where this principle is practiced",
         ),
         # Outgoing: Principle → LifePath (principle serves user's life path)
         UnifiedRelationshipDefinition(

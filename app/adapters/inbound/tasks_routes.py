@@ -37,6 +37,7 @@ TASKS_CONFIG = create_activity_domain_route_config(
     supports_goal_filter=True,
     supports_habit_filter=True,
     api_related_services={
+        "connection_fetch_backend": "connection_fetch_backend",
         "goals_service": "goals",
         "habits_service": "habits",
     },

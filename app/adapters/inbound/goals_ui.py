@@ -1,8 +1,8 @@
 """Goals UI routes.
 
 Provides the read-focused goal list view at /goals and detail view at /goals/detail.
-Goals are the gravity well — they show incoming relationships from tasks, habits,
-events, choices, and principles.
+The detail page and the cards list the goal's links in both directions, under the
+goal's names for them (the registry's page views, ADR-090 §2).
 
 Also registers the create / edit forms (``GET|POST /goals/create``,
 ``GET|POST /goals/edit``) which use ``ui/activities/goals_form.py`` to render
@@ -27,8 +27,8 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import refuse
 from core.models.enums.activity_enums import ProgressLevel
+from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
-from core.utils.connection_configs import GOAL_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_goals
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
@@ -65,7 +65,7 @@ def create_goals_ui_routes(
         get_owned=goals_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_goals,
-        connection_config=GOAL_CONNECTION_CONFIG,
+        link_label=NeoLabel.GOAL,
         filter_config=FILTER_CONFIGS["goals"],
         list_component=GoalList,
         stats_component=GoalStatsBar,

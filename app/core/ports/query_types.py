@@ -4240,6 +4240,25 @@ class BackfilledGroupRow(TypedDict):
 
 
 # ============================================================================
+# Activity Page Links (ADR-090 §2)
+# ============================================================================
+
+
+class EntityConnection(TypedDict):
+    """One linked entity on an Activity page, under the page's name for the link.
+
+    Produced by ``ConnectionFetchOperations.fetch_entity_connections``; one row
+    per far end per heading, in the order of the domain's page views.
+    """
+
+    heading: str  # the viewing domain's name for the link (``page_heading``)
+    rel_type: str  # the stored edge type
+    connected_uid: str
+    title: str
+    connected_type: str  # the far end's entity_type value ("goal", "ku", ...)
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -4446,4 +4465,6 @@ __all__ = [
     "TeacherSubmissionAccessRow",
     "UnaudiencedSubmissionRow",
     "BackfilledGroupRow",
+    # Activity Page Links
+    "EntityConnection",
 ]

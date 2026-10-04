@@ -1,14 +1,12 @@
 """
-The Activity link invariant: a link between two Activity domains is read at both ends.
-======================================================================================
+The Activity link invariant: a link between two Activity domains is read, and shown, at both ends.
+====================================================================================================
 
 ADR-090 §1 and §2, derived from the relationship registry (``LABEL_CONFIGS``), never from a
-hand list of pairs. Each config is read once (``Lesson`` / ``Ls`` / ``Lp`` are aliases of
-the PathStep and LearningPath configs), curriculum configs included: they are what gives
-an edge type more than one kind of source. A shared-neighbour definition (its type is a
-placeholder), a ``both`` definition and a lateral type (their own system) are not views
-of a link and are left out; a ``both`` definition on an Activity config that is neither
-is refused outright, since it has no ends to check.
+hand list of pairs: ``tests/helpers/activity_links.py`` holds the derivation, shared with
+the page tests. A ``both`` definition on an Activity config that is neither a
+shared-neighbour definition nor a lateral type is refused outright, since it has no ends
+to check.
 
 **Rule 1 — both ends.** For every edge type joining two DIFFERENT Activity domains, the
 source's config holds an outgoing definition whose far end is the target or ``Entity``,
@@ -24,6 +22,17 @@ names its kind in ``target_label`` (the declaration half), and every keyed reade
 ``UnifiedRelationshipService`` carries the definition's ``target_label`` to the backend
 (the read half). The probe sees the arguments the backend is called with, not the query
 it runs; that the query applies the label is a real-graph test's to show.
+
+**Rule 3 — what a page reads, it shows** (R10). Every end that reads a link between two
+Activities (Rule 1) shows it: one of its unfiltered views of the link carries a
+``page_heading``, the domain's name for it, which the page lists it under. A link read at
+one end only (``MISSING_ENDS``) is shown at the end that reads it.
+
+**Rule 4 — no link listed twice.** No two headed views on one config share an edge type
+and a direction while their far ends overlap (an ``Entity`` far end overlaps every
+label). Two different edge types may share a heading: one link stored under two names,
+which the page lists once. A view filtered on an edge property carries no heading: the
+page places an edge by type, direction and far-end label, never by its properties.
 
 The three gap lists (``MISSING_ENDS``, ``MIXED_VIEWS``, ``READERS_IGNORING_TARGET_LABEL``)
 name the ledger row that closes each entry (docs/roadmap/activity-links-arc.md § PR
@@ -50,7 +59,6 @@ from typing import NamedTuple
 
 import pytest
 
-from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
@@ -61,22 +69,18 @@ from core.models.relationship_registry import (
 )
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
-
-ACTIVITY_LABELS = frozenset(
-    NeoLabel.from_entity_type(entity_type)
-    for entity_type in EntityType
-    if entity_type.is_activity()
+from tests.helpers.activity_links import (
+    ACTIVITY_LABELS,
+    Link,
+    activity_links,
+    configs,
+    declarations,
+    far_ends,
+    links,
+    links_read_at_both_ends,
+    reads,
+    shows,
 )
-
-Declaration = tuple[NeoLabel, UnifiedRelationshipDefinition]
-
-
-class Link(NamedTuple):
-    """An edge type joining two labels, as the registry declares it."""
-
-    source: NeoLabel
-    edge: RelationshipName
-    target: NeoLabel
 
 
 class MissingEnd(NamedTuple):
@@ -140,14 +144,14 @@ MIXED_VIEWS: dict[View, str] = {
 
 # Keyed readers that do not carry a definition's target_label to the backend.
 READERS_IGNORING_TARGET_LABEL: dict[str, str] = {
-    "get_related_uids": "PR 1b",
-    "get_related_with_metadata": "PR 1b",
-    "get_ordered_related_uids": "PR 1b",
-    "has_relationship": "PR 1b",
-    "count_related": "PR 1b",
-    "batch_has_relationship": "PR 1b",
-    "batch_count_related": "PR 1b",
-    "batch_get_related_uids": "PR 1b",
+    "get_related_uids": "PR 1c",
+    "get_related_with_metadata": "PR 1c",
+    "get_ordered_related_uids": "PR 1c",
+    "has_relationship": "PR 1c",
+    "count_related": "PR 1c",
+    "batch_has_relationship": "PR 1c",
+    "batch_count_related": "PR 1c",
+    "batch_get_related_uids": "PR 1c",
 }
 
 
@@ -204,110 +208,83 @@ FAR_END_NOT_ANOTHER_ACTIVITY: dict[View, str] = {
 # ============================================================================
 
 
-def _configs(
-    label_configs: Mapping[str, DomainRelationshipConfig],
-) -> dict[NeoLabel, DomainRelationshipConfig]:
-    """Each config once, under the first label it is registered with."""
-    configs: dict[NeoLabel, DomainRelationshipConfig] = {}
-    for label, config in label_configs.items():
-        if not any(config is seen for seen in configs.values()):
-            configs[NeoLabel(label)] = config
-    return configs
-
-
-def _declarations(label_configs: Mapping[str, DomainRelationshipConfig]) -> list[Declaration]:
-    """Every definition that is a view of a link, with its config's label."""
-    return [
-        (label, definition)
-        for label, config in _configs(label_configs).items()
-        for definition in config.relationships
-        if definition.shared_neighbor_config is None
-        and definition.direction != "both"
-        and not definition.relationship.is_lateral_relationship()
-    ]
-
-
-def _far_ends(
-    definition: UnifiedRelationshipDefinition, declarations: list[Declaration]
-) -> set[NeoLabel]:
-    """The labels a definition's far end stands for: its own, or each opposite declarer's."""
-    far_end = NeoLabel(definition.target_label)
-    if far_end != NeoLabel.ENTITY:
-        return {far_end}
-    opposite = "incoming" if definition.direction == "outgoing" else "outgoing"
-    return {
-        label
-        for label, other in declarations
-        if other.relationship == definition.relationship and other.direction == opposite
-    }
-
-
-def _links(declarations: list[Declaration]) -> set[Link]:
-    links: set[Link] = set()
-    for label, definition in declarations:
-        for far_end in _far_ends(definition, declarations):
-            if definition.direction == "outgoing":
-                links.add(Link(label, definition.relationship, far_end))
-            else:
-                links.add(Link(far_end, definition.relationship, label))
-    return links
-
-
-def _reads(
-    declarations: list[Declaration],
-    at: NeoLabel,
-    direction: str,
-    edge: RelationshipName,
-    far_end: NeoLabel,
-) -> bool:
-    """Whether ``at`` holds an unfiltered view of ``edge`` toward ``far_end``."""
-    return any(
-        label == at
-        and definition.direction == direction
-        and definition.relationship == edge
-        and definition.target_label in (far_end, NeoLabel.ENTITY)
-        and definition.filter_property is None
-        for label, definition in declarations
-    )
-
-
 def _missing_ends(label_configs: Mapping[str, DomainRelationshipConfig]) -> set[MissingEnd]:
     """Rule 1: each end of a link between two different Activities that does not read it."""
-    declarations = _declarations(label_configs)
+    declared = declarations(label_configs)
     missing: set[MissingEnd] = set()
-    for link in _links(declarations):
-        if link.source == link.target or not {link.source, link.target} <= ACTIVITY_LABELS:
-            continue
-        if not _reads(declarations, link.source, "outgoing", link.edge, link.target):
+    for link in activity_links(label_configs):
+        if not reads(declared, link.source, "outgoing", link.edge, link.target):
             missing.add(MissingEnd(*link, unread_at=link.source))
-        if not _reads(declarations, link.target, "incoming", link.edge, link.source):
+        if not reads(declared, link.target, "incoming", link.edge, link.source):
             missing.add(MissingEnd(*link, unread_at=link.target))
     return missing
+
+
+def _unshown_ends(label_configs: Mapping[str, DomainRelationshipConfig]) -> set[MissingEnd]:
+    """Rule 3: each end that reads a link between two Activities but does not show it."""
+    declared = declarations(label_configs)
+    unshown: set[MissingEnd] = set()
+    for link in activity_links(label_configs):
+        for at, direction, far_end in (
+            (link.source, "outgoing", link.target),
+            (link.target, "incoming", link.source),
+        ):
+            if reads(declared, at, direction, link.edge, far_end) and not shows(
+                declared, at, direction, link.edge, far_end
+            ):
+                unshown.add(MissingEnd(*link, unread_at=at))
+    return unshown
+
+
+def _double_listings(
+    label_configs: Mapping[str, DomainRelationshipConfig],
+) -> set[tuple[View, View]]:
+    """Rule 4: two headed views on one config that would list the same edge twice."""
+    doubled: set[tuple[View, View]] = set()
+    for label, config in configs(label_configs).items():
+        headed = [definition for definition in config.relationships if definition.page_heading]
+        for index, first in enumerate(headed):
+            for second in headed[index + 1 :]:
+                if (
+                    first.relationship == second.relationship
+                    and first.direction == second.direction
+                    and (
+                        NeoLabel.ENTITY in (first.target_label, second.target_label)
+                        or first.target_label == second.target_label
+                    )
+                ):
+                    doubled.add(
+                        (
+                            View(label, first.relationship, first.method_key),
+                            View(label, second.relationship, second.method_key),
+                        )
+                    )
+    return doubled
 
 
 def _entity_views(
     label_configs: Mapping[str, DomainRelationshipConfig],
 ) -> list[tuple[View, set[NeoLabel]]]:
     """Every Activity view whose far end is Entity, with the labels it resolves to."""
-    declarations = _declarations(label_configs)
+    declared = declarations(label_configs)
     return [
         (
             View(label, definition.relationship, definition.method_key),
-            _far_ends(definition, declarations),
+            far_ends(definition, declared),
         )
-        for label, definition in declarations
+        for label, definition in declared
         if label in ACTIVITY_LABELS and definition.target_label == NeoLabel.ENTITY
     ]
 
 
 def _mixed_views(label_configs: Mapping[str, DomainRelationshipConfig]) -> set[View]:
     """Rule 2, the declaration half: an Entity view over more than one kind of far end."""
-    return {view for view, far_ends in _entity_views(label_configs) if len(far_ends) > 1}
+    return {view for view, resolved in _entity_views(label_configs) if len(resolved) > 1}
 
 
 def _unresolved_views(label_configs: Mapping[str, DomainRelationshipConfig]) -> set[View]:
     """Activity views whose Entity far end has nothing to resolve against."""
-    return {view for view, far_ends in _entity_views(label_configs) if not far_ends}
+    return {view for view, resolved in _entity_views(label_configs) if not resolved}
 
 
 # ============================================================================
@@ -361,7 +338,11 @@ def _without_definition(label: NeoLabel, method_key: str) -> dict[str, DomainRel
 
 
 def _definition(
-    edge: RelationshipName, far_end: NeoLabel, direction: str, method_key: str = "probe"
+    edge: RelationshipName,
+    far_end: NeoLabel,
+    direction: str,
+    method_key: str = "probe",
+    heading: str | None = None,
 ) -> UnifiedRelationshipDefinition:
     return UnifiedRelationshipDefinition(
         relationship=edge,
@@ -369,6 +350,7 @@ def _definition(
         direction=direction,
         context_field_name=method_key,
         method_key=method_key,
+        page_heading=heading,
     )
 
 
@@ -511,7 +493,7 @@ class TestBothEnds:
     def test_no_activity_link_is_declared_both_ways(self):
         both_ways = {
             View(label, definition.relationship, definition.method_key)
-            for label, config in _configs(LABEL_CONFIGS).items()
+            for label, config in configs(LABEL_CONFIGS).items()
             if label in ACTIVITY_LABELS
             for definition in config.relationships
             if definition.direction == "both"
@@ -523,6 +505,52 @@ class TestBothEnds:
             "A 'both' definition has no source and no target, so the test cannot check "
             f"its ends. Declare each direction on its own: {sorted(both_ways)}"
         )
+
+
+# ============================================================================
+# Rules 3 and 4 — the page (R10)
+# ============================================================================
+
+
+class TestThePageShowsWhatItReads:
+    def test_every_end_that_reads_a_link_shows_it(self):
+        unshown = _unshown_ends(LABEL_CONFIGS)
+
+        assert not unshown, (
+            "These ends read a link between two Activities but give it no page_heading, "
+            "so their page does not show it. Name the link from that domain's side "
+            f"(ADR-090 §2): {sorted(unshown)}"
+        )
+
+    def test_no_link_is_listed_twice_on_a_page(self):
+        doubled = _double_listings(LABEL_CONFIGS)
+
+        assert not doubled, (
+            "These headed views share an edge type and a direction with overlapping far "
+            "ends, so the page would list the same edge under both. Keep the heading on "
+            f"one of them: {sorted(doubled)}"
+        )
+
+    def test_no_tier_view_carries_a_heading(self):
+        tiered = {
+            View(label, definition.relationship, definition.method_key)
+            for label, config in configs(LABEL_CONFIGS).items()
+            for definition in config.relationships
+            if definition.page_heading is not None and definition.filter_property is not None
+        }
+
+        assert not tiered, (
+            "The page reader places an edge by its type, direction and far-end label, not "
+            "by its properties, so a headed view filtered on an edge property would list "
+            f"every edge of its type under the tier's heading: {sorted(tiered)}"
+        )
+
+    def test_both_ends_census_is_the_registry_less_its_missing_ends(self):
+        missing = {(end.source, end.edge, end.target) for end in MISSING_ENDS}
+
+        assert set(links_read_at_both_ends()) == {
+            link for link in activity_links(LABEL_CONFIGS) if tuple(link) not in missing
+        }
 
 
 # ============================================================================
@@ -608,11 +636,9 @@ class TestTheInstrument:
     """Each control is built on an edge type no config declares, so no PR in the arc moves it."""
 
     def test_aliases_are_read_once(self):
-        assert NeoLabel.PATH_STEP in _configs(LABEL_CONFIGS)
-        assert NeoLabel.LEARNING_PATH in _configs(LABEL_CONFIGS)
-        assert len(_configs(LABEL_CONFIGS)) == len(
-            {id(config) for config in LABEL_CONFIGS.values()}
-        )
+        assert NeoLabel.PATH_STEP in configs(LABEL_CONFIGS)
+        assert NeoLabel.LEARNING_PATH in configs(LABEL_CONFIGS)
+        assert len(configs(LABEL_CONFIGS)) == len({id(config) for config in LABEL_CONFIGS.values()})
 
     def test_a_view_declared_at_the_source_only_is_a_missing_end(self):
         edge = _undeclared_edge()
@@ -642,7 +668,7 @@ class TestTheInstrument:
             ),
         )
 
-        assert Link(NeoLabel.TASK, edge, NeoLabel.GOAL) in _links(_declarations(configs))
+        assert Link(NeoLabel.TASK, edge, NeoLabel.GOAL) in links(declarations(configs))
         assert _missing_ends(configs) == _missing_ends(LABEL_CONFIGS)
 
     def test_a_tier_view_alone_does_not_read_the_link(self):
@@ -698,6 +724,83 @@ class TestTheInstrument:
         )
 
         assert _mixed_views(configs) == _mixed_views(LABEL_CONFIGS)
+
+    def test_a_link_read_but_not_headed_at_one_end_is_unshown_there(self):
+        edge = _undeclared_edge()
+        configs_ = _with_definitions(
+            NeoLabel.CHOICE,
+            _definition(edge, NeoLabel.TASK, "incoming"),
+            label_configs=_with_definitions(
+                NeoLabel.TASK, _definition(edge, NeoLabel.CHOICE, "outgoing", heading="probe")
+            ),
+        )
+
+        added = _unshown_ends(configs_) - _unshown_ends(LABEL_CONFIGS)
+
+        assert added == {
+            MissingEnd(NeoLabel.TASK, edge, NeoLabel.CHOICE, unread_at=NeoLabel.CHOICE)
+        }
+
+    def test_a_link_headed_at_both_ends_is_shown(self):
+        edge = _undeclared_edge()
+        configs_ = _with_definitions(
+            NeoLabel.CHOICE,
+            _definition(edge, NeoLabel.ENTITY, "incoming", heading="probe"),
+            label_configs=_with_definitions(
+                NeoLabel.TASK, _definition(edge, NeoLabel.CHOICE, "outgoing", heading="probe")
+            ),
+        )
+
+        assert Link(NeoLabel.TASK, edge, NeoLabel.CHOICE) in activity_links(configs_)
+        assert _unshown_ends(configs_) == _unshown_ends(LABEL_CONFIGS)
+
+    def test_a_headed_tier_view_alone_does_not_show_the_link(self):
+        edge = _undeclared_edge()
+        tier = dataclasses.replace(
+            _definition(edge, NeoLabel.ENTITY, "incoming", heading="probe"),
+            filter_property="essentiality",
+            filter_value="essential",
+        )
+        configs_ = _with_definitions(
+            NeoLabel.GOAL,
+            _definition(edge, NeoLabel.HABIT, "incoming", "plain"),
+            tier,
+            label_configs=_with_definitions(
+                NeoLabel.HABIT, _definition(edge, NeoLabel.GOAL, "outgoing", heading="probe")
+            ),
+        )
+
+        added = _unshown_ends(configs_) - _unshown_ends(LABEL_CONFIGS)
+
+        assert added == {MissingEnd(NeoLabel.HABIT, edge, NeoLabel.GOAL, unread_at=NeoLabel.GOAL)}
+
+    def test_two_headed_views_over_overlapping_far_ends_are_a_double_listing(self):
+        edge = _undeclared_edge()
+        configs_ = _with_definitions(
+            NeoLabel.HABIT,
+            _definition(edge, NeoLabel.TASK, "incoming", "from_tasks", heading="a"),
+            _definition(edge, NeoLabel.ENTITY, "incoming", "from_anything", heading="b"),
+        )
+
+        added = _double_listings(configs_) - _double_listings(LABEL_CONFIGS)
+
+        assert added == {
+            (
+                View(NeoLabel.HABIT, edge, "from_tasks"),
+                View(NeoLabel.HABIT, edge, "from_anything"),
+            )
+        }
+
+    def test_headed_views_naming_different_far_ends_are_not_a_double_listing(self):
+        edge = _undeclared_edge()
+        configs_ = _with_definitions(
+            NeoLabel.HABIT,
+            _definition(edge, NeoLabel.TASK, "incoming", "from_tasks", heading="a"),
+            _definition(edge, NeoLabel.EVENT, "incoming", "from_events", heading="b"),
+            _definition(edge, NeoLabel.ENTITY, "incoming", "unheaded"),
+        )
+
+        assert _double_listings(configs_) == _double_listings(LABEL_CONFIGS)
 
     @pytest.mark.parametrize(
         "value",

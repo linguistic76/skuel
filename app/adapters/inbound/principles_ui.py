@@ -1,8 +1,9 @@
 """Principles UI routes.
 
 Provides the read-focused principle list view at /principles and detail view
-at /principles/detail. Principles are a gravity well — they show incoming
-relationships from tasks, habits, choices, events, and goals.
+at /principles/detail. The detail page and the cards list the principle's links in
+both directions, under the principle's names for them (the registry's page views,
+ADR-090 §2).
 
 Also registers the create / edit forms (``GET|POST /principles/create``,
 ``GET|POST /principles/edit``) which use ``ui/activities/principles_form.py`` to
@@ -25,9 +26,9 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from adapters.inbound.route_factories import refuse
+from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
-from core.utils.connection_configs import PRINCIPLE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_principles
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
@@ -69,7 +70,7 @@ def create_principles_ui_routes(
         get_owned=principles_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_principles,
-        connection_config=PRINCIPLE_CONNECTION_CONFIG,
+        link_label=NeoLabel.PRINCIPLE,
         filter_config=FILTER_CONFIGS["principles"],
         list_component=PrincipleList,
         stats_component=PrincipleStatsBar,

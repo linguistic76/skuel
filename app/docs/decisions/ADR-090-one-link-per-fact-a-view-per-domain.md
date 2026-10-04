@@ -102,10 +102,12 @@ One consequence is a reader rule. When an edge type has sources of more than one
 lists one kind filters by the source's label, in the read itself. Once principles support goals, a
 goal's "supporting habits" lists habits only, and its "supporting principles" lists principles only.
 
-The rule binds every declaration of a view, and a domain declares its views once (R10). Today it
-declares them twice: the registry and the page's hand-written list. The page comes to read the
-registry: each registry definition the page shows carries that domain's name for the link, the page
-renders its domain's definitions in both directions, and the hand-written lists are deleted.
+The rule binds every declaration of a view, and a domain declares its views once (R10): the page
+reads the registry. Each registry definition the page shows carries that domain's name for the link
+(`page_heading`), and the detail page and the list card render the domain's definitions in both
+directions, grouped by that name. Two definitions share a name only when they are one link stored
+under two names, and the page lists each far end once under it. The invariant test holds the page to
+it: every end that reads a link between two Activities shows it, and no edge is listed twice.
 
 ### 3. Two links between a pair only when the two directions say different things (R3)
 
@@ -279,3 +281,5 @@ acceptance. This ADR is marked implemented when the arc closes.
 - 2026-10-04 — Accepted (Activity Links arc PR 0, #1498).
 - 2026-10-04 — Round 5: the page reads the registry (R10, §2) and a cancelled contribution is left
   out of the count (R11, §5); the PathStep's `GUIDED_BY_PRINCIPLE` (O2) is deferred (§7).
+- 2026-10-04 — §2 implemented for the pages (Activity Links arc PR 1b): `page_heading` on the
+  registry definition; the hand-written page lists are deleted.

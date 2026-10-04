@@ -17,6 +17,7 @@ import asyncio
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.task.task import Task
+    from core.ports import ConnectionFetchOperations
     from core.ports.service_protocols import CalendarServiceOperations
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
@@ -150,6 +152,7 @@ class TodayOrchestrator:
         goals_service: GoalsService,
         choices_service: ChoicesService,
         calendar_service: CalendarServiceOperations,
+        links: ConnectionFetchOperations,
     ) -> None:
         self._tasks = tasks_service
         self._events = events_service
@@ -157,6 +160,7 @@ class TodayOrchestrator:
         self._goals = goals_service
         self._choices = choices_service
         self._calendar = calendar_service
+        self._links = links
 
     async def _overdue_candidates(self, user_uid: UserUID, today: date) -> Result[list[Task]]:
         """Tasks due before ``today`` and not completed — the query applies the
@@ -244,6 +248,13 @@ class TodayOrchestrator:
             (c for c in _or_empty(choices_r, "choices") if choice_is_on_day(c, view_date)),
             key=_choice_order,
         )
+        # The cards' page links, read as the list pages read them (ADR-090 §2).
+        task_links, event_links = await asyncio.gather(
+            self._links.fetch_entity_connections(
+                NeoLabel.TASK, [t.uid for t in (*overdue, *tasks)]
+            ),
+            self._links.fetch_entity_connections(NeoLabel.EVENT, [e.uid for e in events]),
+        )
 
         return Result.ok(
             TodayPageContext(
@@ -258,6 +269,8 @@ class TodayOrchestrator:
                 overdue=overdue,
                 tasks=tasks,
                 events=events,
+                task_links=task_links,
+                event_links=event_links,
                 habits=habits,
                 milestones=milestones,
                 choices=choices,

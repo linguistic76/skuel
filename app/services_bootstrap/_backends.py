@@ -219,9 +219,9 @@ def create_all_backends(
         base_label=NeoLabel.ENTITY,
     )
 
-    # Cross-domain connection fetcher (Activity Domain list/detail pages).
+    # The Activity pages' link reader (list cards, detail pages, the day view).
     # Standalone backend over the shared executor — keeps raw Cypher below the
-    # boundary (ADR-044); the configs stay in core/utils/connection_configs.py.
+    # boundary (ADR-044); what a page shows is the registry's page views (ADR-090 §2).
     from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 
     connection_fetch_backend = ConnectionFetchBackend(query_executor)

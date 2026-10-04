@@ -239,6 +239,7 @@ skills:
       - ADR-071  # SKUEL-owned Tailwind component layer
       - ADR-072  # Server-rendered inline-SVG icons (the Icon component)
       - ADR-044  # Neo4j as Committed Architectural Choice
+      - ADR-090  # One link per fact, a view per domain (the Activity pages' links)
     patterns:
       - /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
       - /docs/patterns/API_VALIDATION_PATTERNS.md

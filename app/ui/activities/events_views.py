@@ -20,8 +20,8 @@ from fasthtml.common import (
 from core.models.relationship_names import RelationshipName
 from ui.activities._shared import (
     ActivityList,
-    ConnectionBadges,
-    ConnectionsBlock,
+    ConnectionRows,
+    ConnectionsSection,
     MetadataField,
     PriorityBadgeDropdown,
     TagsBlock,
@@ -38,9 +38,12 @@ from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from fasthtml.common import FT
 
     from core.models.event.event import Event
+    from core.ports.query_types import EntityConnection
 
 
 def EventStatsBar(events: list[Event]) -> FT:
@@ -68,7 +71,7 @@ def EventStatsBar(events: list[Event]) -> FT:
 
 def EventList(
     events: list[Event],
-    connections_map: dict[str, list[dict[str, str]]] | None = None,
+    connections_map: Mapping[str, list[EntityConnection]] | None = None,
 ) -> FT:
     """Render a list of event cards. Returns a replaceable container for HTMX."""
     return ActivityList(events, "event", EventCard, connections_map)
@@ -76,7 +79,7 @@ def EventList(
 
 def EventCard(
     event: Event,
-    connections: list[dict[str, str]] | None = None,
+    connections: list[EntityConnection] | None = None,
 ) -> FT:
     """Single event card with date/time, location, and connections."""
     is_completed = event.status and event.status.value == "completed"
@@ -151,8 +154,8 @@ def EventCard(
     if event.tags:
         tags_el = Div(*tag_badges(event.tags, limit=5), cls="mt-2")
 
-    # Connection badges
-    conn_el = ConnectionBadges(connections or [])
+    # Page links, one line per heading
+    conn_el = ConnectionRows(connections or [])
 
     # Card assembly
     header = Div(
@@ -178,7 +181,7 @@ def EventCard(
 
 def EventDetailView(
     event: Event,
-    connections: list[dict[str, str]],
+    connections: list[EntityConnection],
 ) -> FT:
     """Full detail page for a single event."""
     # Subtitle
@@ -331,9 +334,7 @@ def EventDetailView(
     tags_el = TagsBlock(event.tags)
 
     # Connections
-    conn_section = Div()
-    if connections:
-        conn_section = ConnectionsBlock(ConnectionBadges(connections))
+    conn_section = ConnectionsSection(connections)
 
     # Lateral relationships
     relationships = EntityRelationshipsSection(

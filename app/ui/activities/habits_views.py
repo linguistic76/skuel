@@ -21,8 +21,8 @@ from core.models.enums.activity_enums import ConsistencyLevel
 from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import (
     ActivityList,
-    ConnectionBadges,
-    ConnectionsBlock,
+    ConnectionRows,
+    ConnectionsSection,
     MetadataField,
     PriorityBadgeDropdown,
     TagsBlock,
@@ -41,9 +41,12 @@ from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from fasthtml.common import FT
 
     from core.models.habit.habit import Habit
+    from core.ports.query_types import EntityConnection
     from core.services.habits.habits_pattern_service import PatternAnalysis
 
 # HabitPolarity value -> badge variant (build = positive, break = negative).
@@ -77,7 +80,7 @@ def HabitStatsBar(habits: list[Habit]) -> FT:
 
 def HabitList(
     habits: list[Habit],
-    connections_map: dict[str, list[dict[str, str]]] | None = None,
+    connections_map: Mapping[str, list[EntityConnection]] | None = None,
 ) -> FT:
     """Render a list of habit cards. Returns a replaceable container for HTMX."""
     return ActivityList(habits, "habit", HabitCard, connections_map)
@@ -85,7 +88,7 @@ def HabitList(
 
 def HabitCard(
     habit: Habit,
-    connections: list[dict[str, str]] | None = None,
+    connections: list[EntityConnection] | None = None,
 ) -> FT:
     """Single habit card with streak, polarity, category, and connections."""
     is_completed = habit.status and habit.status.value == "completed"
@@ -167,8 +170,8 @@ def HabitCard(
     if habit.tags:
         tags_el = Div(*tag_badges(habit.tags, limit=5), cls="mt-2")
 
-    # Connection badges
-    conn_el = ConnectionBadges(connections or [])
+    # Page links, one line per heading
+    conn_el = ConnectionRows(connections or [])
 
     # Card assembly
     header = Div(
@@ -284,7 +287,7 @@ def HabitChoicesSection(
 
 def HabitDetailView(
     habit: Habit,
-    connections: list[dict[str, str]],
+    connections: list[EntityConnection],
 ) -> FT:
     """Full detail page for a single habit."""
     # Subtitle
@@ -423,9 +426,7 @@ def HabitDetailView(
     tags_el = TagsBlock(habit.tags)
 
     # Connections
-    conn_section = Div()
-    if connections:
-        conn_section = ConnectionsBlock(ConnectionBadges(connections))
+    conn_section = ConnectionsSection(connections)
 
     # Habit ↔ Choice lens — HTMX-loaded (graph fetch happens in the fragment route)
     choices_section = content_loading_placeholder(
