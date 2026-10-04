@@ -36,6 +36,7 @@ from core.ports.query_types import (
     PrereqMasteryResult,
     ReadyToLearnResult,
     ReinforcementCandidateResult,
+    UsedKuRow,
 )
 from core.utils.result_simplified import Errors, Result
 
@@ -281,7 +282,7 @@ class _KnowledgeContextMixin:
             )
         return Result.ok(True)
 
-    async def get_used_kus(self, ps_uid: str) -> Result[list[Neo4jProperties] | None]:
+    async def get_used_kus(self, ps_uid: str) -> Result[list[UsedKuRow] | None]:
         """Get the atomic Kus a PathStep composes via USES_KU, title-ordered.
 
         ``None`` when no PathStep has the uid — a step that composes no Kus is an

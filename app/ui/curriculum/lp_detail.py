@@ -10,7 +10,6 @@ the viewer's mastery); each step's Kus lazy-load from ``/api/lp/{uid}/children``
 Every row is read-only — the structure is vault-authored.
 """
 
-from typing import Any
 
 from fasthtml.common import FT, H1, Div, Li, P, Span, Ul
 
@@ -18,6 +17,7 @@ from core.models.enums import EntityType
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import EntityUID
+from core.ports.query_types import UsedKuRow
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT, Progress
 from ui.layout import Size
@@ -27,7 +27,7 @@ from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.relationships import EntityRelationshipsSection
-from ui.patterns.tree_view import TreeNodeList, TreeView
+from ui.patterns.tree_view import TreeNode, TreeNodeList, TreeView
 from ui.primitives import ButtonLink
 
 #: The tree's lazy-load door: a path's steps, or a step's Kus.
@@ -53,7 +53,7 @@ def lp_detail_refusal(message: str) -> FT:
     )
 
 
-def step_tree_nodes(steps: list[PathStep], mastered_uids: set[str]) -> list[dict[str, Any]]:
+def step_tree_nodes(steps: list[PathStep], mastered_uids: set[str]) -> list[TreeNode]:
     """A path's steps as tree rows, in path order — each links its page and lazy-loads
     its Kus; a step the viewer has mastered carries the badge."""
     return [
@@ -72,12 +72,12 @@ def step_tree_nodes(steps: list[PathStep], mastered_uids: set[str]) -> list[dict
     ]
 
 
-def ku_tree_nodes(kus: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def ku_tree_nodes(kus: list[UsedKuRow]) -> list[TreeNode]:
     """A step's Kus as leaf rows, each linking its page."""
     return [
         {
             "uid": ku["uid"],
-            "title": ku.get("title") or ku["uid"],
+            "title": ku["title"] or ku["uid"],
             "has_children": False,
             "href": entity_detail_href(EntityType.KU.value, ku["uid"]),
         }
@@ -85,7 +85,7 @@ def ku_tree_nodes(kus: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def tree_rows(nodes: list[dict[str, Any]], entity_type: str, parent_depth: int) -> FT:
+def tree_rows(nodes: list[TreeNode], entity_type: str, parent_depth: int) -> FT:
     """Read-only tree rows — no drag-to-move, rename or actions menu."""
     return TreeNodeList(
         nodes=nodes,

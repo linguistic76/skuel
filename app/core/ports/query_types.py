@@ -3550,6 +3550,13 @@ class MasteredEntityUidRow(TypedDict):
     uid: str
 
 
+class UsedKuRow(TypedDict):
+    """Return shape for PsBackend.get_used_kus() — one Ku a PathStep composes."""
+
+    uid: str
+    title: str | None
+
+
 class SelCategoryRow(TypedDict):
     """Return shape for get_sel_categories() — an entity uid paired with its
     non-null ``sel_category`` field (the query filters null categories at the

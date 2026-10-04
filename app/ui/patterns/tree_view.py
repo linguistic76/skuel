@@ -25,12 +25,23 @@ Usage:
 See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 """
 
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 from fasthtml.common import FT, A, Div, Input, Span
 
 from ui.components import Button, ButtonT
 from ui.patterns.skeleton import SkeletonLines
+
+
+class TreeNode(TypedDict):
+    """One row of a tree: the node, whether it has children to lazy-load, and
+    optionally its detail page and a badge shown after the title."""
+
+    uid: str
+    title: str
+    has_children: bool
+    href: NotRequired[str | None]
+    badge: NotRequired[FT | None]
 
 
 def TreeView(
@@ -270,7 +281,7 @@ def _render_tree_node(
 
 
 def TreeNodeList(
-    nodes: list[dict[str, Any]],
+    nodes: list[TreeNode],
     entity_type: str,
     children_endpoint: str,
     parent_depth: int = 0,
@@ -283,8 +294,7 @@ def TreeNodeList(
     Render a list of tree nodes (used by HTMX lazy loading).
 
     Args:
-        nodes: List of dicts with {uid, title, has_children}, optionally ``href``
-            (the row's detail page) and ``badge`` (an element after the title)
+        nodes: The rows (``TreeNode``)
         entity_type: Icon key for the rows ("ps", "ku", "goal", ...)
         children_endpoint: Endpoint template for child loading
         parent_depth: Depth of parent (children are +1)
@@ -308,9 +318,9 @@ def TreeNodeList(
         _render_tree_node(
             uid=node["uid"],
             entity_type=entity_type,
-            title=node.get("title", "Untitled"),
+            title=node["title"],
             depth=child_depth,
-            has_children=node.get("has_children", False),
+            has_children=node["has_children"],
             children_endpoint=children_endpoint,
             show_checkbox=show_checkboxes,
             draggable=draggable,

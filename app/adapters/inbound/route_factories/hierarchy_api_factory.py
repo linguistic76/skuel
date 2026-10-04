@@ -43,7 +43,7 @@ from core.models.entity_requests import (
 )
 from core.models.user_owned_entity import UserOwnedEntity
 from core.utils.result_simplified import Errors, Result
-from ui.patterns.tree_view import TreeNodeList
+from ui.patterns.tree_view import TreeNode, TreeNodeList
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -163,7 +163,7 @@ def _register_children_fragment_route(
             # missing parent; the fault's own status otherwise).
             return refuse(result.expect_error(), tree_error_row, config.singular.capitalize())
 
-        nodes: list[dict[str, Any]] = []
+        nodes: list[TreeNode] = []
         for child in result.value:
             grandchildren = await config.get_children(child.uid)
             has_children = not grandchildren.is_error and any(

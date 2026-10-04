@@ -32,6 +32,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
+from core.ports.query_types import UsedKuRow
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.explore.ku_detail import (
@@ -392,7 +393,7 @@ def create_learning_loop_detail_routes(
                 exercises = exercises_result.value
 
         # Atomic Kus this step composes (USES_KU) — reader links
-        kus: list[dict] = []
+        kus: list[UsedKuRow] = []
         kus_result = await orchestrator.get_used_kus(uid)
         if kus_result.is_ok and kus_result.value:
             kus = list(kus_result.value)
