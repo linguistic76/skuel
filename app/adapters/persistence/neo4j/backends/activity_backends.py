@@ -1283,28 +1283,6 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
             }
         )
 
-    async def get_events_reinforcing_habit(
-        self, habit_uid: str, user_uid: UserUID | None = None
-    ) -> Result[list[Neo4jProperties]]:
-        """Return node props for events linked to a habit via REINFORCES_HABIT.
-
-        Graph-native reverse traversal of ``(Event)-[:REINFORCES_HABIT]->(Habit)``.
-        Replaces the former ``find_by(reinforces_habit_uid=...)`` property query.
-        """
-        user_clause = "WHERE e.user_uid = $user_uid" if user_uid else ""
-        query = f"""
-        MATCH (e:Entity {{entity_type: 'event'}})-[:REINFORCES_HABIT]->(h:Entity {{uid: $habit_uid}})
-        {user_clause}
-        RETURN e
-        """
-        params: dict[str, object] = {"habit_uid": habit_uid}
-        if user_uid:
-            params["user_uid"] = user_uid
-        result = await self.execute_query(query, params)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([dict(row["e"]) for row in (result.value or [])])
-
     async def get_habit_links_for_events(self, event_uids: list[str]) -> Result[dict[str, str]]:
         """Map event_uid → reinforced habit_uid for the given events (batch).
 

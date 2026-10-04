@@ -6,10 +6,9 @@ Provides HTMX-friendly endpoints for all hierarchical domains:
 - POST /api/{domain}/{uid}/move - Move node to new parent
 - PATCH /api/{domain}/{uid} - Update node (inline edit)
 - POST /api/{domain}/bulk-delete - Delete multiple nodes
-- GET /api/{domain}/{uid}/children - Fetch children nodes (LP ONLY —
-  ``register_children_route=True``; the 5 activity domains get both children
-  variants from ``create_activity_hierarchy_api_routes`` in
-  ``route_factories/hierarchy_api_factory.py``, One Path Forward)
+
+The children reads (JSON + TreeNodeList fragment) come from
+``create_activity_hierarchy_api_routes`` in ``route_factories/hierarchy_api_factory.py``.
 
 Usage:
     HierarchyRouteFactory(
@@ -25,7 +24,6 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 
 from typing import Any, Protocol
 
-from fasthtml.common import Div, Span
 from pydantic import BaseModel
 
 from adapters.inbound.auth import require_authenticated_user
@@ -66,12 +64,10 @@ class HierarchyRouteFactory:
         domain: str,  # "goals", "habits", etc.
         service: HierarchicalService,
         entity_name: str,  # "Goal", "Habit", etc.
-        update_schema: type[BaseModel] | None = None,  # domain *UpdateRequest (ADR-066)
-        get_children_method: str | None = None,  # e.g., "get_subgoals"
+        update_schema: type[BaseModel],  # domain *UpdateRequest (ADR-066)
         create_relationship_method: str | None = None,  # e.g., "create_subgoal_relationship"
         remove_relationship_method: str | None = None,  # e.g., "remove_subgoal_relationship"
         get_parent_method: str | None = None,  # e.g., "get_parent_goal"
-        register_children_route: bool = False,  # True only for LP — see module docstring
     ) -> None:
         """
         Initialize hierarchy route factory.
@@ -83,15 +79,10 @@ class HierarchyRouteFactory:
             service: Domain service instance
             entity_name: Entity display name (singular, e.g., "Goal")
             update_schema: Domain ``*UpdateRequest`` (Pydantic) used to build the typed
-                ``*UpdateIntent`` for inline title edits. None for curriculum services
-                (LP), whose ``update`` still accepts a plain mapping.
-            get_children_method: Method name for fetching children (auto-detected if None)
+                ``*UpdateIntent`` for inline title edits.
             create_relationship_method: Method name for creating parent-child relationship
             remove_relationship_method: Method name for removing parent-child relationship
             get_parent_method: Method name for getting parent entity
-            register_children_route: Register GET /api/{domain}/{uid}/children here.
-                True only for LP; activity domains get both children variants from
-                ``create_activity_hierarchy_api_routes`` (One Path Forward).
         """
         self.app = app
         self.rt = rt
@@ -99,12 +90,11 @@ class HierarchyRouteFactory:
         self.service = service
         self.entity_name = entity_name
         # Domain *UpdateRequest so inline title edits build the typed *UpdateIntent
-        # (ADR-066). None for curriculum services (LP) whose update still takes a dict.
+        # (ADR-066).
         self.update_schema = update_schema
 
         # Auto-detect method names if not provided
         singular = domain.rstrip("s")  # "goals" -> "goal"
-        self.get_children_method = get_children_method or f"get_sub{domain}"
         self.create_relationship_method = (
             create_relationship_method or f"create_sub{singular}_relationship"
         )
@@ -112,84 +102,12 @@ class HierarchyRouteFactory:
             remove_relationship_method or f"remove_sub{singular}_relationship"
         )
         self.get_parent_method = get_parent_method or f"get_parent_{singular}"
-        self.register_children_route = register_children_route
 
     def create_routes(self) -> None:
         """Register all hierarchy routes."""
         self._create_move_node_route()
         self._create_update_node_route()
         self._create_bulk_delete_route()
-        if self.register_children_route:
-            self._create_get_children_route()
-
-    def _create_get_children_route(self) -> None:
-        """GET /api/{domain}/{uid}/children - Fetch children for HTMX lazy loading."""
-
-        @self.rt(f"/api/{self.domain}/{{uid}}/children", methods=["GET"])
-        async def get_children(request: Request, uid: str, parent_depth: int = 0) -> Any:
-            """
-            Fetch children for HTMX lazy loading.
-
-            Args:
-                request: FastHTML request
-                uid: Parent node UID
-                parent_depth: Depth of parent node (children will be parent_depth + 1)
-                              -1 for root loading (children will be depth 0)
-            """
-            user_uid = require_authenticated_user(request)
-
-            # Verify ownership
-            ownership_result = await self.service.verify_ownership(uid, user_uid)
-            if ownership_result.is_error:
-                return Div(
-                    Span("Not found or access denied", cls="text-error text-sm"),
-                    cls="px-2 py-1",
-                )
-
-            # Get children
-            get_children_fn = getattr(self.service, self.get_children_method, None)
-            if not get_children_fn:
-                return Div(
-                    Span(f"Method {self.get_children_method} not found", cls="text-error text-sm"),
-                    cls="px-2 py-1",
-                )
-
-            result = await get_children_fn(uid, depth=1)
-
-            if result.is_error:
-                return Div(
-                    Span(f"Error loading children: {result.error}", cls="text-error text-sm"),
-                    cls="px-2 py-1",
-                )
-
-            children = result.value
-
-            # Convert to dicts for rendering
-            children_data = []
-            for child in children:
-                # Check if child has children
-                child_children_result = await get_children_fn(child.uid, depth=1)
-                has_children = (
-                    not child_children_result.is_error and len(child_children_result.value) > 0
-                )
-
-                children_data.append(
-                    {
-                        "uid": child.uid,
-                        "title": child.title,
-                        "has_children": has_children,
-                    }
-                )
-
-            # Render using TreeNodeList component
-            from ui.patterns.tree_view import TreeNodeList
-
-            return TreeNodeList(
-                nodes=children_data,
-                entity_type=self.domain.rstrip("s"),  # "goals" -> "goal"
-                children_endpoint=f"/api/{self.domain}/{{uid}}/children",
-                parent_depth=parent_depth,  # Use actual parent depth from query parameter
-            )
 
     async def _move_node(self, uid: str, new_parent_uid: str) -> Result[bool]:
         """
@@ -280,18 +198,13 @@ class HierarchyRouteFactory:
             if ownership_result.is_error:
                 return {"success": False, "error": "Not found or access denied"}, 404
 
-            # Build the typed update value (ADR-066): activity domains carry a
-            # *UpdateRequest → *UpdateIntent; curriculum (LP) has no schema → RawChanges.
-            updates: SupportsToChanges
-            if self.update_schema is not None:
-                schema = self.update_schema(title=title)
-                updates = (
-                    schema.to_intent()
-                    if isinstance(schema, SupportsToIntent)
-                    else RawChanges({"title": title})
-                )
-            else:
-                updates = RawChanges({"title": title})
+            # Build the typed update value (ADR-066): *UpdateRequest → *UpdateIntent.
+            schema = self.update_schema(title=title)
+            updates: SupportsToChanges = (
+                schema.to_intent()
+                if isinstance(schema, SupportsToIntent)
+                else RawChanges({"title": title})
+            )
 
             # Update
             result = await self.service.update(uid, updates)

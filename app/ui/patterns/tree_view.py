@@ -111,6 +111,7 @@ def _render_tree_node(
     is_expanded: bool = False,
     show_checkbox: bool = False,
     draggable: bool = True,
+    editable: bool = True,
 ) -> Div:
     """
     Render a single tree node with all features.
@@ -125,6 +126,7 @@ def _render_tree_node(
         is_expanded: Initial expanded state
         show_checkbox: Show multi-select checkbox
         draggable: Enable drag-and-drop
+        editable: Double-click rename and the actions menu (False for a read-only tree)
 
     Returns:
         HTML structure:
@@ -179,20 +181,26 @@ def _render_tree_node(
             cls="checkbox checkbox-primary checkbox-sm cursor-pointer mr-2",
         )
 
-    # Title (inline editable)
+    # Title (inline editable when the tree is)
     title_element = Span(
         title,
-        **{
-            "x-on:dblclick": f"startEdit('{uid}')",
-        },
-        cls="grow text-sm cursor-text hover:bg-muted px-1 rounded-sm node-title",
+        **({"x-on:dblclick": f"startEdit('{uid}')"} if editable else {}),
+        cls=(
+            "grow text-sm cursor-text hover:bg-muted px-1 rounded-sm node-title"
+            if editable
+            else "grow text-sm px-1 node-title"
+        ),
         **{"data-uid": uid},
     )
 
-    # Actions menu (edit, delete, add child)
-    actions = Div(
-        Button("⋮", cls=ButtonT.ghost, size="xs", type="button"),
-        cls="dropdown dropdown-end opacity-0 group-hover:opacity-100",
+    # Actions menu (edit, delete, add child) — an editable tree only
+    actions = (
+        Div(
+            Button("⋮", cls=ButtonT.ghost, size="xs", type="button"),
+            cls="dropdown dropdown-end opacity-0 group-hover:opacity-100",
+        )
+        if editable
+        else None
     )
 
     # Drag-and-drop attributes
@@ -206,7 +214,9 @@ def _render_tree_node(
         }
 
     # Build content row elements
-    content_elements = [expand_icon_element, entity_icon, title_element, actions]
+    content_elements = [expand_icon_element, entity_icon, title_element]
+    if actions is not None:
+        content_elements.append(actions)
     if checkbox_element:
         content_elements.insert(0, checkbox_element)
 
@@ -251,6 +261,7 @@ def TreeNodeList(
     parent_depth: int = 0,
     show_checkboxes: bool = False,
     draggable: bool = True,
+    editable: bool = True,
     **kwargs: Any,
 ) -> Div:
     """
@@ -263,6 +274,7 @@ def TreeNodeList(
         parent_depth: Depth of parent (children are +1)
         show_checkboxes: Enable multi-select checkboxes
         draggable: Enable drag-and-drop
+        editable: Double-click rename and the actions menu (False for a read-only tree)
 
     Returns:
         Container with multiple tree nodes
@@ -286,6 +298,7 @@ def TreeNodeList(
             children_endpoint=children_endpoint,
             show_checkbox=show_checkboxes,
             draggable=draggable,
+            editable=editable,
         )
         for node in nodes
     ]

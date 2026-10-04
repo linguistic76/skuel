@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-09-22'
+updated: '2026-10-03'
 category: patterns
 related_skills:
 - skuel-ui
@@ -22,7 +22,7 @@ SKUEL provides a comprehensive set of hierarchy visualization components for dis
 2. **AccordionHierarchy** - MonsterUI collapse-based for content-heavy nodes
 3. **IndentedList** - Simple static indented display
 
-All components support HTMX lazy loading, Alpine.js state management, and work across Goals, Habits, Events, Choices, Principles, and LP domains.
+All components support HTMX lazy loading, Alpine.js state management, and work across Goals, Habits, Events, Choices and Principles; LP has the read-only children fragment.
 
 ---
 
@@ -135,6 +135,10 @@ TreeView(
     draggable=True,
 )
 ```
+
+A read-only tree — the LP step tree, whose structure the content vault owns — renders
+its rows with `TreeNodeList(..., draggable=False, editable=False)`: no drag handlers,
+no double-click rename, no actions menu.
 
 ### 3. Keyboard Navigation
 
@@ -272,9 +276,10 @@ To use hierarchy components, your domain must provide these API endpoints:
   `/hierarchy`, `/add-child`, `/remove-child`). Both children variants render
   from ONE ownership-checked, owner-filtered fetch — configure it per domain
   in the domain's `*_api.py` via `ActivityHierarchyApiConfig`.
-- **LP:** registered by `HierarchyRouteFactory` with
-  `register_children_route=True` (LearningPaths are SHARED content with a
-  step-based child model, so they stay on the tree-manipulation factory).
+- **LP:** `GET /api/lp/{uid}/children` in `adapters/inbound/pathways_api.py` — a
+  read-only fragment of the path's steps (each a leaf). LearningPaths are SHARED,
+  vault-authored content, so there is no ownership check and no move / rename /
+  bulk-delete: a uid that names no learning path is the ordinary 404.
 
 ### POST /api/{domain}/{uid}/move
 
@@ -584,8 +589,8 @@ The live consumer is the Activity Domain hierarchy API factory
 (`/adapters/inbound/route_factories/hierarchy_api_factory.py`), Goals for instance:
 `GET /api/goals/{uid}/children` renders `TreeNodeList` for the HTMX lazy-load, and
 `GET /api/goals/hierarchy` returns the ancestors / siblings / children context as JSON.
-`HierarchyRouteFactory` (`/adapters/inbound/hierarchy_route_factory.py`) serves the same
-fragment for `lp`. No page composes the full `TreeView` today.
+`GET /api/lp/{uid}/children` (`/adapters/inbound/pathways_api.py`) serves the read-only
+step fragment for `lp`. No page composes the full `TreeView` today.
 
 ---
 
@@ -654,4 +659,4 @@ For trees with 1000+ nodes:
 
 **Status:** ✅ Complete (2026-01-30)
 **Tested:** Goals domain
-**Ready for:** Habits, Events, Choices, Principles, LP
+**Ready for:** Habits, Events, Choices, Principles; LP read-only (steps)

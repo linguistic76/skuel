@@ -91,7 +91,6 @@ Step relationships (HAS_STEP) are managed via `LpBackend` — services delegate:
 ```python
 # Backend (LpBackend, _LpStepMixin) — owns the Cypher and maps nodes to models
 steps = await backend.get_steps_raw(path_uid, depth=1)      # Result[list[PathStep]]
-parent = await backend.get_parent_path_raw(step_uid)         # Result[LearningPath | None]
 await backend.add_step_to_path(path_uid, step_uid, sequence=0)
 await backend.remove_step_from_path(path_uid, step_uid)      # auto-reorders remaining
 await backend.reorder_steps(path_uid, ["ps.python.control-flow", "ps.python.first-program"])

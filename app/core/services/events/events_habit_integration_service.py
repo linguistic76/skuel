@@ -49,11 +49,10 @@ class EventFilterCriteria:
     """Criteria for filtering events from rich context.
 
     Used by _filter_events_by_criteria() to reduce code duplication
-    across get_events_for_habit, get_habit_reinforcement_events,
-    get_at_risk_habit_events, and get_next_habit_events.
+    across get_habit_reinforcement_events, get_at_risk_habit_events,
+    and get_next_habit_events.
     """
 
-    habit_uid: str | None = None
     require_habit: bool = False  # Only events with reinforces_habit_uid
     start_date: date | None = None
     end_date: date | None = None
@@ -150,7 +149,6 @@ class EventsHabitIntegrationService:
         Generic event filtering from rich context.
 
         Consolidates filtering logic from:
-        - get_events_for_habit
         - get_habit_reinforcement_events
         - get_at_risk_habit_events
         - get_next_habit_events
@@ -177,10 +175,8 @@ class EventsHabitIntegrationService:
         for event_data in events_rich:
             event_dict = event_data.get("entity", {})
 
-            # Filter by habit_uid (graph-native: from REINFORCES_HABIT edge context)
+            # The reinforced habit (graph-native: from REINFORCES_HABIT edge context)
             event_habit_uid = self._reinforced_habit_uid(event_data)
-            if criteria.habit_uid and event_habit_uid != criteria.habit_uid:
-                continue
             if criteria.require_habit and not event_habit_uid:
                 continue
 
@@ -226,54 +222,6 @@ class EventsHabitIntegrationService:
     # ========================================================================
     # HABIT-RELATED EVENT QUERIES
     # ========================================================================
-
-    async def get_events_for_habit(
-        self, habit_uid: str, user_context: UserContext, days_ahead: int = 7
-    ) -> Result[list[Event]]:
-        """
-        Get all upcoming events that reinforce a specific habit.
-
-        CONTEXT-FIRST: Checks UserContext.entities_rich["events"] before Neo4j query.
-
-        Args:
-            habit_uid: UID of the habit,
-            user_context: User context for filtering,
-            days_ahead: Number of days to look ahead
-
-        Returns:
-            Result containing list of events
-        """
-        start_date = today_in(current_zone())
-        end_date = start_date + timedelta(days=days_ahead)
-
-        # CONTEXT-FIRST: Try rich context before Neo4j
-        criteria = EventFilterCriteria(
-            habit_uid=habit_uid,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        events = self._filter_events_by_criteria(user_context, criteria)
-        if isinstance(events, list) and events:
-            self.logger.debug(
-                f"Context-first: Found {len(events)} events for habit {habit_uid} "
-                f"from rich context (no Neo4j query)"
-            )
-            return Result.ok(events)
-
-        # Fallback: graph traversal of (Event)-[:REINFORCES_HABIT]->(Habit)
-        self.logger.debug(f"No rich context, querying Neo4j for habit {habit_uid} events")
-        result = await self.backend.get_events_reinforcing_habit(habit_uid, user_context.user_uid)
-        if result.is_error:
-            return Result.fail(result)
-
-        events_list: list[Event] = []
-        for event_dict in result.value:
-            event = self._dict_to_event(event_dict)
-            if not event or not event.event_date:
-                continue
-            if start_date <= event.event_date <= end_date:
-                events_list.append(replace(event, reinforces_habit_uid=habit_uid))
-        return Result.ok(events_list)
 
     async def get_habit_reinforcement_events(
         self, user_context: UserContext, days_ahead: int = 7

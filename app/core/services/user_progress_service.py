@@ -49,7 +49,8 @@ class UserKnowledgeMastery:
     practice_count: int
     last_practiced: datetime
     confidence_level: float
-    retention_score: float
+    # Staged: no live writer sets it yet, so it reads None on every edge today.
+    retention_score: float | None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-safe dictionary."""

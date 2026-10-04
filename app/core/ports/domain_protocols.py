@@ -445,12 +445,6 @@ class EventsOperations(
         """Get events on a date for conflict detection (raw properties)."""
         ...
 
-    async def get_events_reinforcing_habit(
-        self, habit_uid: str, user_uid: UserUID | None = None
-    ) -> Result[list[Neo4jProperties]]:
-        """Get raw node props for events linked to a habit via REINFORCES_HABIT."""
-        ...
-
     async def get_habit_links_for_events(self, event_uids: list[str]) -> Result[dict[str, str]]:
         """Map event_uid → reinforced habit_uid via REINFORCES_HABIT edges (batch)."""
         ...
