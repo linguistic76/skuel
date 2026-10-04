@@ -226,12 +226,14 @@ already writes several of these types:
   writer of that type; the live graph holds one.
 - From PR 4, any goal-side `CONTRIBUTES_TO_GOAL` view, written by tasks and events.
 
-**A definition's `target_label` is not a filter on its own:** neither per-key reader passes it.
-`get_related_uids` passes the edge type, the direction and the definition's edge-property filter.
-`get_related_with_metadata` passes the edge type and the direction, plus the edge properties to
-return and an ordering, but no edge-property filter, so a tiered definition read through it returns
-every edge of its type. A view that splits by source label, or by tier, needs that filter in the
-read.
+**A definition's `target_label` is not a filter on its own:** no keyed reader on
+`UnifiedRelationshipService` passes it (PR 1's test lists all eight). `get_related_uids`,
+`has_relationship` and `count_related` pass the edge type, the direction and the definition's
+edge-property filter. `get_related_with_metadata`, `get_ordered_related_uids` and the three batch
+readers (`batch_has_relationship`, `batch_count_related`, `batch_get_related_uids`) pass the edge
+type and the direction, plus an ordering or the edge properties to return, but no edge-property
+filter, so a tiered definition read through any of them returns every edge of its type. A view
+that splits by source label, or by tier, needs that filter in the read.
 
 ### The importance level
 
