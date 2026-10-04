@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-10-03
+updated: 2026-10-04
 status: current
 category: domains
 tags:
@@ -134,6 +134,7 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | Intelligence Mixin | `/adapters/persistence/neo4j/_lp_intelligence_mixin.py` (10 methods) |
 | Model | `/core/models/pathways/learning_path.py` |
 | DTO | `/core/models/pathways/learning_path_dto.py` |
+| Detail page (`/lp/{uid}`) | routes in `/adapters/inbound/pathways_ui.py`, rendering + step tree in `/ui/curriculum/lp_detail.py`, the tree's lazy load `GET /api/lp/{uid}/children` in `/adapters/inbound/pathways_api.py` |
 | Relationship Config | `LP_CONFIG` in `/core/models/relationship_registry.py` |
 
 ### Intelligence Sub-Services
