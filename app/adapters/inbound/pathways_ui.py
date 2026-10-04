@@ -12,7 +12,8 @@ from typing import Any
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.route_factories import refuse, refuse_not_found
+from adapters.inbound.result_helpers import require_found
+from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
 from ui.curriculum import lp_detail
 from ui.layouts.base_page import BasePage
@@ -147,14 +148,10 @@ def create_pathways_ui_routes(
         their progress or Enroll. A uid that names no learning path is the 404."""
         user_uid = get_current_user(request)
         if user_uid is None:
-            path_result = await orchestrator.get_learning_path(uid)
-            if path_result.is_error:
-                return refuse(
-                    path_result.expect_error(), lp_detail.lp_detail_refusal, "Learning path"
-                )
-            if path_result.value is None:
-                return refuse_not_found(lp_detail.lp_detail_refusal("Learning path not found"))
-            return lp_detail.lp_detail_content(path_result.value, signed_in=False)
+            found = require_found(await orchestrator.get_learning_path(uid), "Learning path", uid)
+            if found.is_error:
+                return refuse(found.expect_error(), lp_detail.lp_detail_refusal, "Learning path")
+            return lp_detail.lp_detail_content(found.value, signed_in=False)
 
         detail_result = await orchestrator.get_path_detail_progress(uid, user_uid)
         if detail_result.is_error:

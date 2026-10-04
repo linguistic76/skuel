@@ -1,8 +1,8 @@
 """``/lp/{uid}`` — the one learning path detail page.
 
-It absorbed ``/pathways/path/{uid}``: a signed-in learner sees their progress or
-Enroll, every visitor sees the path's step tree (path → steps → Kus, read-only),
-and a uid that names no learning path is the 404. Everything is measured over real
+A signed-in learner sees their progress or Enroll, every visitor sees the path's
+step tree (path → steps → Kus, read-only), and a uid that names no learning path is
+the 404; ``/pathways/path/{uid}`` is not a route. Everything is measured over real
 HTTP against the whole wired route tree.
 
 The seeded path has two steps; the first composes two Kus, one of them a draft — a
@@ -293,7 +293,7 @@ async def test_a_uid_that_names_no_path_is_the_404(
 
 
 @pytest.mark.parametrize("url", [f"/pathways/path/{PATH}", f"/pathways/path/{PATH}/content"])
-async def test_the_old_pathways_detail_page_is_gone(learner: httpx.AsyncClient, url: str) -> None:
+async def test_pathways_path_is_not_a_route(learner: httpx.AsyncClient, url: str) -> None:
     assert (await learner.get(url)).status_code == 404
 
 

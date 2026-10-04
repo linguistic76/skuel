@@ -12,7 +12,7 @@ Every row is read-only — the structure is vault-authored.
 
 from typing import Any
 
-from fasthtml.common import H1, Div, Li, P, Span, Ul
+from fasthtml.common import FT, H1, Div, Li, P, Span, Ul
 
 from core.models.enums import EntityType
 from core.models.pathways.learning_path import LearningPath
@@ -36,7 +36,7 @@ LP_CHILDREN_ENDPOINT = "/api/lp/{uid}/children"
 _CONTENT_ID = "lp-detail-content"
 
 
-def lp_detail_shell(uid: str) -> Any:
+def lp_detail_shell(uid: str) -> FT:
     """/lp/{uid} shell — the body loads via HTMX."""
     return Div(
         content_loading_placeholder(f"/lp/{uid}/content", _CONTENT_ID),
@@ -44,7 +44,7 @@ def lp_detail_shell(uid: str) -> Any:
     )
 
 
-def lp_detail_refusal(message: str) -> Any:
+def lp_detail_refusal(message: str) -> FT:
     """The body's slot when the path cannot be shown (not found, or a failed read)."""
     return Div(
         render_error_banner(message),
@@ -85,7 +85,7 @@ def ku_tree_nodes(kus: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def tree_rows(nodes: list[dict[str, Any]], entity_type: str, parent_depth: int) -> Any:
+def tree_rows(nodes: list[dict[str, Any]], entity_type: str, parent_depth: int) -> FT:
     """Read-only tree rows — no drag-to-move, rename or actions menu."""
     return TreeNodeList(
         nodes=nodes,
@@ -97,7 +97,7 @@ def tree_rows(nodes: list[dict[str, Any]], entity_type: str, parent_depth: int) 
     )
 
 
-def lp_step_tree(path_uid: str, steps: list[PathStep], mastered_uids: set[str]) -> Any:
+def lp_step_tree(path_uid: str, steps: list[PathStep], mastered_uids: set[str]) -> FT:
     """The path's step tree — the steps rendered here, their Kus on expand."""
     if not steps:
         return EmptyState(title="No steps defined for this path yet")
@@ -110,7 +110,7 @@ def lp_step_tree(path_uid: str, steps: list[PathStep], mastered_uids: set[str]) 
     )
 
 
-def _viewer_panel(path_uid: str, signed_in: bool, is_enrolled: bool, progress: float) -> Any:
+def _viewer_panel(path_uid: str, signed_in: bool, is_enrolled: bool, progress: float) -> FT:
     """Progress for an enrolled learner, Enroll for a signed-in one, sign-in otherwise."""
     if not signed_in:
         return ButtonLink("Sign in to enroll", href="/login", cls=ButtonT.secondary, size="sm")
@@ -135,7 +135,7 @@ def lp_detail_content(
     is_enrolled: bool = False,
     progress: float = 0.0,
     mastered_uids: set[str] | None = None,
-) -> Any:
+) -> FT:
     """HTMX fragment: the path's header, the viewer's panel, the step tree, outcomes,
     and the path's lateral relationships."""
     steps: list[PathStep] = path.metadata.get("steps", []) if path.metadata else []

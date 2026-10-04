@@ -27,7 +27,7 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 
 from typing import Any
 
-from fasthtml.common import A, Div, Input, Span
+from fasthtml.common import FT, A, Div, Input, Span
 
 from ui.components import Button, ButtonT
 from ui.patterns.skeleton import SkeletonLines
@@ -37,7 +37,7 @@ def TreeView(
     root_uid: str,
     entity_type: str,
     children_endpoint: str,
-    roots: Any = None,
+    roots: FT | None = None,
     move_endpoint: str | None = None,
     show_checkboxes: bool = False,
     keyboard_nav: bool = True,
@@ -120,7 +120,7 @@ def _render_tree_node(
     draggable: bool = True,
     editable: bool = True,
     href: str | None = None,
-    badge: Any = None,
+    badge: FT | None = None,
 ) -> Div:
     """
     Render a single tree node with all features.
