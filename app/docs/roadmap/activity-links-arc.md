@@ -388,9 +388,12 @@ Tasks link to any number of goals through `CONTRIBUTES_TO_GOAL`. `FULFILLS_GOAL`
 task → goal link, the goal task generator and the readers in § Retiring a type. The goal's tally
 counts contributing tasks and events, cancelled ones left out (R11), with the rest of O1 settled in
 the kickoff. The recompute's status trigger is the tally's own classes, not a list of transitions:
-any status write that moves a task or an event between done, not done and out (COMPLETED, every
-other non-cancelled status, CANCELLED) recomputes the goals it contributes to, at every door that
-writes a status (the API and the vault). Events need this most: they publish no reopen event, so an
+any status write that moves a task or an event between done, not done and out (COMPLETED; the open
+statuses; CANCELLED; FAILED in whichever class the kickoff settles) recomputes the goals it
+contributes to. The door set is not a list: every status write goes through
+`update_with_status_guard` (ADR-087), so the PR censuses that primitive's task and event callers —
+the API, the vault, and raw writers such as the missed-habit-event writer, which cancels an event
+directly — or puts the trigger where they converge. Events need this most: they publish no reopen event, so an
 event leaving COMPLETED, or a completed event's cancellation, publishes only `CalendarEventUpdated`
 today. When the last contribution leaves the count the recompute still writes:
 today `_plan_task_progress` writes nothing for a 0/0 tally, which would leave the stored progress
@@ -411,8 +414,9 @@ with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), wh
 
 **Acceptance:** a task linked to two goals counts toward both; a completed contributing event
 moves the goal's progress; every status write that changes a contribution's class moves the stored
-tally, for tasks and events, at each status door (a completed event set back to scheduled, a
-completed event cancelled, an open task cancelled), and cancelling a goal's last contribution leaves
+tally, for tasks and events, through each caller of `update_with_status_guard` the census finds
+(a completed event set back to scheduled, a completed event cancelled, an open task cancelled, a
+habit event marked missed), and cancelling a goal's last contribution leaves
 it 0/0; every door that changes a goal's membership moves the
 stored tally with no status transition (linking a scheduled event to a 1/1 goal makes it 1/2). The
 doors come from the PR's own census of writers, not a hand list: every writer of a task's or an
