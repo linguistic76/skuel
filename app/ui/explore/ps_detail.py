@@ -32,6 +32,7 @@ from fasthtml.common import (
 )
 
 from core.models.enums import UserRole
+from core.ports.query_types import UsedKuRow
 from ui.components import Icon
 from ui.library.resource_chip import resource_chip
 from ui.patterns.detail_nav import (
@@ -79,7 +80,7 @@ def render_ps_detail_content(
     user_uid: str | None,
     user_role: UserRole | None = None,
     has_task_templates: bool = False,
-    kus: list[dict] | None = None,
+    kus: list[UsedKuRow] | None = None,
     resources: list[dict] | None = None,
     show_related: bool = False,
     show_next_step_related: bool = False,
@@ -404,7 +405,7 @@ def _body_section(content_html: str) -> FT:
 # ---------------------------------------------------------------------------
 
 
-def _kus_section(kus: list[dict]) -> FT:
+def _kus_section(kus: list[UsedKuRow]) -> FT:
     """Atomic Kus this PathStep composes (USES_KU edges) as reader links."""
     return Section(
         section_label("Knowledge in this step", tag=H2, id="ps-kus-h"),

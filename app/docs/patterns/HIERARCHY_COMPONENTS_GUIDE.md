@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-10-03'
+updated: '2026-10-04'
 category: patterns
 related_skills:
 - skuel-ui
@@ -105,6 +105,24 @@ TreeView(
     children_endpoint="/api/goals/{uid}/children",  # HTMX fetches on expand
 )
 ```
+
+The first level lazy-loads too (`{root_uid}` at `parent_depth=-1`), unless the page
+already holds what its rows need — then it passes them rendered, and only deeper
+levels load on expand:
+
+```python
+TreeView(
+    root_uid=path.uid,
+    entity_type="lp",
+    children_endpoint="/api/lp/{uid}/children",
+    roots=TreeNodeList(nodes=step_nodes, entity_type="ps", parent_depth=-1, ...),
+    draggable=False,
+)
+```
+
+A row is a `TreeNode` (`ui/patterns/tree_view.py`): `uid` / `title` / `has_children`,
+and optionally `href` (the title renders as a link to that page) and `badge` (an
+element after the title).
 
 ### 2. Drag-and-Drop
 
@@ -277,9 +295,10 @@ To use hierarchy components, your domain must provide these API endpoints:
   from ONE ownership-checked, owner-filtered fetch — configure it per domain
   in the domain's `*_api.py` via `ActivityHierarchyApiConfig`.
 - **LP:** `GET /api/lp/{uid}/children` in `adapters/inbound/pathways_api.py` — a
-  read-only fragment of the path's steps (each a leaf). LearningPaths are SHARED,
-  vault-authored content, so there is no ownership check and no move / rename /
-  bulk-delete: a uid that names no learning path is the ordinary 404.
+  read-only fragment: a learning path's steps, or a path step's Kus (each a leaf).
+  LearningPaths are SHARED, vault-authored content, so there is no ownership check,
+  no sign-in, and no move / rename / bulk-delete: a uid that names neither a path
+  nor a step is the ordinary 404.
 
 ### POST /api/{domain}/{uid}/move
 
@@ -589,8 +608,10 @@ The live consumer is the Activity Domain hierarchy API factory
 (`/adapters/inbound/route_factories/hierarchy_api_factory.py`), Goals for instance:
 `GET /api/goals/{uid}/children` renders `TreeNodeList` for the HTMX lazy-load, and
 `GET /api/goals/hierarchy` returns the ancestors / siblings / children context as JSON.
-`GET /api/lp/{uid}/children` (`/adapters/inbound/pathways_api.py`) serves the read-only
-step fragment for `lp`. No page composes the full `TreeView` today.
+The one page that composes the full `TreeView` is the learning path detail page
+(`/lp/{uid}`, `ui/curriculum/lp_detail.py`): it renders the steps itself through
+`roots=` (their rows link each step's page and carry the viewer's Mastered badge),
+and each step's Kus lazy-load from `GET /api/lp/{uid}/children`.
 
 ---
 

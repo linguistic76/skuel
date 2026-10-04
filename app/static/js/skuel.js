@@ -1516,8 +1516,8 @@
                 childrenEndpoint: config.childrenEndpoint || '',
                 moveEndpoint: config.moveEndpoint || '',
                 showCheckboxes: config.showCheckboxes || false,
-                keyboardNav: config.keyboardNav || true,
-                draggable: config.draggable || true,
+                keyboardNav: config.keyboardNav !== false,
+                draggable: config.draggable !== false,
 
                 // State
                 expanded: new Set(),      // Set of expanded node UIDs

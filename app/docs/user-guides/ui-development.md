@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-10-04
 ---
 
 # UI Development Guide
@@ -839,7 +839,7 @@ These are purpose-built for specific features. Check `skuel.js` for their full A
 | Component | Domain |
 |-----------|--------|
 | `calendarLegend` | Calendar views — legend swatches double as type filters |
-| `hierarchyTree` | Goal/KU hierarchy tree views |
+| `hierarchyTree` | `TreeView` — the learning path step tree on `/lp/{uid}` |
 | `relationshipGraph` | Vis.js lateral relationship graphs |
 | `exploreGraph`, `exploreSearch` | Explore sidebar — graph + tag/text search |
 | `entityPicker` | Searchable cross-domain UID picker (pairs with `EntityPicker`) |

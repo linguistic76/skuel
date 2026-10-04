@@ -41,6 +41,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     api_related_services={
         "user_service": "user",
         "user_progress": "user_progress",
+        "ps_service": "ps",
     },
     ui_related_services={
         "orchestrator": "pathways_orchestrator",

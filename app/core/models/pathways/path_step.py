@@ -116,16 +116,6 @@ class PathStep(Curriculum):
         """Alias for get_combined_knowledge_uids."""
         return set(self.knowledge_uids)
 
-    def calculate_mastery_progress(self) -> float:
-        """Calculate progress toward mastery threshold (0.0-1.0)."""
-        if self.mastery_threshold <= 0:
-            return 0.0
-        return min(1.0, self.current_mastery / self.mastery_threshold)
-
-    def is_mastered(self) -> bool:
-        """Check if step mastery target has been reached."""
-        return self.current_mastery >= self.mastery_threshold
-
     def calculate_learning_impact(self) -> float:
         """Calculate learning impact score (0.0-1.0)."""
         score = 0.0

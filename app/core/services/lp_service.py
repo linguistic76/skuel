@@ -386,11 +386,13 @@ class LpService:
     def _calculate_path_progress(
         self,
         paths: list[Any],
+        mastered_uids: set[str],
     ) -> tuple[list[LpActivePathProgress], float]:
-        """Calculate mastery progress for a list of learning paths.
+        """Calculate the learner's mastery progress for a list of learning paths.
 
-        Pure computation over already-fetched path objects. Emits domain values;
-        the pathways UI turns them into display strings.
+        Pure computation over already-fetched path objects and the learner's
+        mastered uids. Emits domain values; the pathways UI turns them into
+        display strings.
 
         Returns:
             Tuple of (per-path progress rows, total estimated hours).
@@ -401,13 +403,13 @@ class LpService:
         for path in paths:
             steps = path.metadata.get("steps", []) if path.metadata else []
             total_steps = len(steps)
-            mastered_count = sum(1 for s in steps if s.is_mastered())
+            mastered_count = sum(1 for s in steps if s.uid in mastered_uids)
             progress = (mastered_count / total_steps * 100.0) if total_steps > 0 else 0.0
 
             is_complete = True
             next_step_title: str | None = None
             for s in steps:
-                if not s.is_mastered():
+                if s.uid not in mastered_uids:
                     is_complete = False
                     next_step_title = s.title or None
                     break
@@ -442,13 +444,16 @@ class LpService:
             return Result.fail(paths_result)
 
         paths = paths_result.value or []
-        rows, total_hours = self._calculate_path_progress(paths)
 
         concepts_mastered = 0
+        mastered_uids: set[str] = set()
         if user_progress:
             profile_result = await user_progress.build_user_knowledge_profile(user_uid)
             if not profile_result.is_error and profile_result.value:
                 concepts_mastered = len(profile_result.value.mastered_knowledge)
+                mastered_uids = profile_result.value.mastered_uids
+
+        rows, total_hours = self._calculate_path_progress(paths, mastered_uids)
 
         completion_rate = 0.0
         if rows:
@@ -518,7 +523,7 @@ class LpService:
                 mastered_uids = profile.mastered_uids
                 is_enrolled = path_uid in profile.active_learning_paths
 
-        mastered_steps = sum(1 for s in steps if s.uid in mastered_uids or s.is_mastered())
+        mastered_steps = sum(1 for s in steps if s.uid in mastered_uids)
         progress = (mastered_steps / total_steps * 100.0) if total_steps > 0 else 0.0
 
         return Result.ok(
