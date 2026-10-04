@@ -135,10 +135,16 @@ claim before the first edit.
 
 The Page column records the hand-written lists PR 1b deleted. From PR 1b the page shows exactly the
 registry's headed views, so the Page column equals the Registry column for every link between two
-Activities. A link the registry reads at one end only shows at that end until its PR adds the other:
-the goal's incoming `CONTRIBUTES_TO_GOAL` (PR 4, PR 5), `CELEBRATES_GOAL` and `AFFECTS_GOAL`
-(PR 5), and the principle's incoming `INFORMED_BY_PRINCIPLE` (retired by PR 3), which the old lists
-happened to read. The live graph holds none of those edges.
+Activities. A link the registry reads at one end only (PR 1's `MISSING_ENDS`) shows at that end until its PR
+adds the other: at the goal, the incoming `CONTRIBUTES_TO_GOAL` (PR 4, PR 5), `CELEBRATES_GOAL` and
+`AFFECTS_GOAL` (PR 5); at the principle, the incoming `GUIDED_BY_PRINCIPLE` (the goal's use retires
+in PR 2) and `INFORMED_BY_PRINCIPLE` (retired by PR 3). Two of these, the goal's incoming
+`CONTRIBUTES_TO_GOAL` and the principle's incoming `INFORMED_BY_PRINCIPLE`, were shown by the deleted
+lists and are not shown until their PRs land; the live graph holds none of those edges. The live
+graph's two goal → principle `GUIDED_BY_PRINCIPLE` edges show on the goal page; the principle page
+shows the same two links through their `GUIDES_GOAL` twins. A task spawned from a PathStep carries
+`fulfills_goal_uid` with no `FULFILLS_GOAL` edge (O3), and the deleted card fallback that drew it
+(a raw goal uid as the title) is not replaced: that task shows no goal until PR 4 settles the field.
 
 "Registry" is the domain's relationship-registry definition, which the context API and the
 services' relationship reads use. "Page" is the detail page's Connections section (and the list

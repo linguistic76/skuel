@@ -23,7 +23,7 @@ from starlette.testclient import TestClient
 from adapters.inbound.choices_api import create_choices_api_routes
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from core.utils.result_simplified import Errors, Result
-from tests.helpers.no_page_links import NoPageLinks
+from tests.helpers.page_links_fake import FakePageLinks
 
 _USER_UID = "user_owner"
 _CHOICE_UID = "choice_1"
@@ -92,7 +92,7 @@ def _make_harness(
         choices_service,
         goals_service,
         principles_service,
-        connection_fetch_backend=NoPageLinks(),
+        connection_fetch_backend=FakePageLinks(),
     )
     return _Harness(
         client=TestClient(app),

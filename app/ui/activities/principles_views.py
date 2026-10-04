@@ -3,8 +3,8 @@
 Pure FastHTML components for rendering principle data. No service calls —
 routes fetch data and pass it to these components.
 
-Principles are a gravity well like Goals — they show incoming relationships
-from tasks, habits, choices, and events that embody/express them.
+The detail page and the cards list the principle's links in both directions, under
+the principle's names for them (the registry's page views, ADR-090 §2).
 
 Usage:
     from ui.activities.principles_views import PrincipleList, PrincipleStatsBar
@@ -179,7 +179,7 @@ def PrincipleCard(
             cls="mt-2",
         )
 
-    # Connection count summary
+    # Page links, one line per heading
     conn_summary = ConnectionRows(connections or [])
 
     # Card assembly
@@ -394,7 +394,7 @@ def PrincipleDetailView(
     # Tags
     tags_el = TagsBlock(principle.tags)
 
-    # Connections — gravity well (incoming relationships)
+    # Connections — one list per heading (ADR-090 §2)
     conn_section = ConnectionsSection(connections)
 
     # Dual-track self-assessment (perception gap + trend) — ADR-030

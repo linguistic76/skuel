@@ -60,7 +60,10 @@ HABITS_CONFIG = create_activity_domain_route_config(
     update_schema=HabitUpdateRequest,
     uid_prefix="habit",
     request_create_method="create_habit",
-    api_related_services={"principles_service": "principles"},
+    api_related_services={
+        "connection_fetch_backend": "connection_fetch_backend",
+        "principles_service": "principles",
+    },
     ui_related_services={
         "connection_fetch_backend": "connection_fetch_backend",
         "choices_ownership": "choices",  # owner-scopes the Habit ↔ Choice fragment

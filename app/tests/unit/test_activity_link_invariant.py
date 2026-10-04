@@ -31,7 +31,8 @@ one end only (``MISSING_ENDS``) is shown at the end that reads it.
 **Rule 4 — no link listed twice.** No two headed views on one config share an edge type
 and a direction while their far ends overlap (an ``Entity`` far end overlaps every
 label). Two different edge types may share a heading: one link stored under two names,
-which the page lists once.
+which the page lists once. A view filtered on an edge property carries no heading: the
+page places an edge by type, direction and far-end label, never by its properties.
 
 The three gap lists (``MISSING_ENDS``, ``MIXED_VIEWS``, ``READERS_IGNORING_TARGET_LABEL``)
 name the ledger row that closes each entry (docs/roadmap/activity-links-arc.md § PR
@@ -528,6 +529,20 @@ class TestThePageShowsWhatItReads:
             "These headed views share an edge type and a direction with overlapping far "
             "ends, so the page would list the same edge under both. Keep the heading on "
             f"one of them: {sorted(doubled)}"
+        )
+
+    def test_no_tier_view_carries_a_heading(self):
+        tiered = {
+            View(label, definition.relationship, definition.method_key)
+            for label, config in configs(LABEL_CONFIGS).items()
+            for definition in config.relationships
+            if definition.page_heading is not None and definition.filter_property is not None
+        }
+
+        assert not tiered, (
+            "The page reader places an edge by its type, direction and far-end label, not "
+            "by its properties, so a headed view filtered on an edge property would list "
+            f"every edge of its type under the tier's heading: {sorted(tiered)}"
         )
 
     def test_both_ends_census_is_the_registry_less_its_missing_ends(self):

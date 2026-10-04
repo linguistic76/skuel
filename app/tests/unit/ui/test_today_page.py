@@ -19,6 +19,7 @@ from core.models.event.calendar_models import CalendarItem, CalendarItemType
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.task.task import Task
+from tests.helpers.page_links_fake import page_link
 from ui.today.page import TodayPage, _step_day
 
 USER = "user_page"
@@ -107,6 +108,14 @@ def test_empty_day_shows_caught_up_and_no_sections() -> None:
 # ---------------------------------------------------------------------------
 # Sections
 # ---------------------------------------------------------------------------
+
+
+def test_the_task_cards_show_their_page_links() -> None:
+    planned = _task("plan", scheduled_date=date(2026, 9, 12))
+    link = page_link("Goals this task contributes to", "Run a half marathon")
+    html = _render(_ctx("2026-09-12", tasks=[planned], task_links={"plan": [link]}))
+    assert "Goals this task contributes to:" in html
+    assert "Run a half marathon" in html
 
 
 def test_overdue_and_tasks_render_cards_with_defer_controls() -> None:

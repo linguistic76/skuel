@@ -1,8 +1,8 @@
 """Goals UI routes.
 
 Provides the read-focused goal list view at /goals and detail view at /goals/detail.
-Goals are the gravity well — they show incoming relationships from tasks, habits,
-events, choices, and principles.
+The detail page and the cards list the goal's links in both directions, under the
+goal's names for them (the registry's page views, ADR-090 §2).
 
 Also registers the create / edit forms (``GET|POST /goals/create``,
 ``GET|POST /goals/edit``) which use ``ui/activities/goals_form.py`` to render

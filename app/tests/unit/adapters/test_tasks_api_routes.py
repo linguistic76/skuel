@@ -32,7 +32,7 @@ from adapters.inbound.tasks_api import create_tasks_api_routes
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Errors, Result
-from tests.helpers.no_page_links import NoPageLinks
+from tests.helpers.page_links_fake import FakePageLinks
 
 _OWNER_UID = "user_owner"
 _TASK_UID = "task_1"
@@ -78,7 +78,7 @@ def _make_client(
         )
 
     create_tasks_api_routes(
-        app, rt, tasks_service, goals_service, connection_fetch_backend=NoPageLinks()
+        app, rt, tasks_service, goals_service, connection_fetch_backend=FakePageLinks()
     )
     return TestClient(app), tasks_service, goals_service
 

@@ -32,7 +32,7 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.habits_api import create_habits_api_routes
 from core.models.habit.habit_request import TrackHabitRequest
 from core.utils.result_simplified import Errors, Result
-from tests.helpers.no_page_links import NoPageLinks
+from tests.helpers.page_links_fake import FakePageLinks
 
 _USER_UID = "user_owner"
 _HABIT_UID = "habit_1"
@@ -86,7 +86,7 @@ def _make_client(
         monkeypatch.setattr(_FIELD_FACTORY_AUTH_SEAM, _fake_auth)
 
     create_habits_api_routes(
-        app, rt, habits_service, principles_service, connection_fetch_backend=NoPageLinks()
+        app, rt, habits_service, principles_service, connection_fetch_backend=FakePageLinks()
     )
     return TestClient(app), habits_service
 

@@ -154,7 +154,7 @@ def EventCard(
     if event.tags:
         tags_el = Div(*tag_badges(event.tags, limit=5), cls="mt-2")
 
-    # Connection badges
+    # Page links, one line per heading
     conn_el = ConnectionRows(connections or [])
 
     # Card assembly

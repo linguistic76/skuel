@@ -1,8 +1,9 @@
 """Principles UI routes.
 
 Provides the read-focused principle list view at /principles and detail view
-at /principles/detail. Principles are a gravity well — they show incoming
-relationships from tasks, habits, choices, events, and goals.
+at /principles/detail. The detail page and the cards list the principle's links in
+both directions, under the principle's names for them (the registry's page views,
+ADR-090 §2).
 
 Also registers the create / edit forms (``GET|POST /principles/create``,
 ``GET|POST /principles/edit``) which use ``ui/activities/principles_form.py`` to

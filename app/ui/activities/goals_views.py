@@ -89,7 +89,7 @@ def GoalCard(
     goal: Goal,
     connections: list[EntityConnection] | None = None,
 ) -> FT:
-    """Single goal card with progress bar, badges, and connection counts."""
+    """Single goal card with progress bar, badges, and its links, one line per heading."""
     progress = goal.calculate_progress()
     progress_pct = int(progress * 100)
     overdue = goal.is_overdue()
@@ -155,7 +155,7 @@ def GoalCard(
             date_str += f" ({days_left}d left)"
         date_el = Small(date_str, cls=date_cls)
 
-    # Connection count summary
+    # Page links, one line per heading
     conn_summary = ConnectionRows(connections or [])
 
     # Card assembly
@@ -284,7 +284,7 @@ def GoalDetailView(
     if goal.milestones:
         milestones_section = MilestonesSection(goal.milestones)
 
-    # Connections section — grouped by domain (gravity well view)
+    # Connections — one list per heading (ADR-090 §2)
     conn_section = ConnectionsSection(connections)
 
     # Dual-track self-assessment (perception gap + trend) — ADR-030

@@ -15,7 +15,7 @@ import pytest
 
 from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 from core.models.enums.neo_labels import NeoLabel
-from core.models.relationship_registry import LABEL_CONFIGS
+from core.models.relationship_registry import LABEL_CONFIGS, UnifiedRelationshipDefinition
 from core.utils.result_simplified import Errors, Result
 
 
@@ -43,6 +43,24 @@ def _row(
         "title": title or uid,
         "connected_type": far.lower(),
     }
+
+
+def _far_label(view: UnifiedRelationshipDefinition) -> str:
+    """A far-end label the view reads: its own, or any label for an Entity far end."""
+    return view.target_label if view.target_label != NeoLabel.ENTITY else NeoLabel.PRINCIPLE
+
+
+def _views_sharing_a_heading() -> tuple[
+    str, UnifiedRelationshipDefinition, UnifiedRelationshipDefinition
+]:
+    for label, config in LABEL_CONFIGS.items():
+        seen: dict[str, UnifiedRelationshipDefinition] = {}
+        for view in config.page_views():
+            heading = view.page_heading or ""
+            if heading in seen:
+                return label, seen[heading], view
+            seen[heading] = view
+    raise AssertionError("no config has two page views sharing a heading")
 
 
 class TestTheStatement:
@@ -148,19 +166,28 @@ class TestPlacement:
 
     @pytest.mark.asyncio
     async def test_one_link_under_two_names_is_listed_once(self):
-        # GUIDED_BY_PRINCIPLE out and GUIDES_GOAL in share the goal's heading.
+        # Any two page views on one config that share a heading — derived, so a later
+        # PR that retires one pair leaves the test on another.
+        label, first, second = _views_sharing_a_heading()
+        far_uid = "shared_far_end"
         backend, _ = _backend_returning(
             Result.ok(
                 [
-                    _row("GUIDED_BY_PRINCIPLE", outgoing=True, far="Principle", uid="principle_1"),
-                    _row("GUIDES_GOAL", outgoing=False, far="Principle", uid="principle_1"),
+                    _row(
+                        view.relationship.value,
+                        outgoing=view.direction == "outgoing",
+                        far=_far_label(view),
+                        uid=far_uid,
+                        entity_uid="anchor",
+                    )
+                    for view in (first, second)
                 ]
             )
         )
-        result = await backend.fetch_entity_connections(NeoLabel.GOAL, ["goal_1"])
+        result = await backend.fetch_entity_connections(NeoLabel(label), ["anchor"])
 
-        assert [(row["heading"], row["connected_uid"]) for row in result["goal_1"]] == [
-            ("Principles that support this goal", "principle_1")
+        assert [(row["heading"], row["connected_uid"]) for row in result["anchor"]] == [
+            (first.page_heading, far_uid)
         ]
 
     @pytest.mark.asyncio
@@ -174,6 +201,9 @@ class TestPlacement:
                 outgoing=last.direction == "outgoing",
                 far=last.target_label if last.target_label != "Entity" else "Ku",
                 uid="b",
+                # Sorts before both titles of the first view: only the views' order
+                # puts it last.
+                title="Aardvark",
             ),
             _row(
                 first.relationship.value,

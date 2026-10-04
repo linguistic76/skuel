@@ -36,7 +36,7 @@ from starlette.testclient import TestClient
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.events_api import create_events_api_routes
 from core.utils.result_simplified import Errors, Result
-from tests.helpers.no_page_links import NoPageLinks
+from tests.helpers.page_links_fake import FakePageLinks
 
 _USER_UID = "user_owner"
 _EVENT_UID = "event_1"
@@ -79,7 +79,7 @@ def _make_client(
         monkeypatch.setattr(_SESSION_AUTH_SEAM, _fake_auth)
 
     create_events_api_routes(
-        app, rt, events_service, goals_service, connection_fetch_backend=NoPageLinks()
+        app, rt, events_service, goals_service, connection_fetch_backend=FakePageLinks()
     )
     return TestClient(app), events_service, goals_service
 

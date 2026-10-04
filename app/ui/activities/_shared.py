@@ -214,7 +214,7 @@ def PriorityBadgeDropdown(
     )
 
 
-# Universal icon + href mapping for cross-domain connection badges.
+# Icon + href prefix per far-end entity_type, for the page links.
 # Covers all Activity Domains + Curriculum types.
 CONNECTION_ICONS: dict[str, tuple[str, str]] = {
     "goal": ("target", "/goals/detail?uid="),

@@ -140,8 +140,9 @@ async def task_detail_content_fragment(request: Request) -> Any:
     if task_result.is_error or task_result.value.user_uid != user_uid:
         return Div(render_error_banner("Task not found"), id="task-detail-content")
     task = task_result.value
-    # connection_fetch_backend implements the ConnectionFetchOperations port (below the boundary, ADR-044)
-    connections_map = await connection_fetch_backend.fetch_entity_connections(config, [task.uid])
+    # The page links: the registry's page views for the label (ADR-090 §2), read through the
+    # ConnectionFetchOperations port (below the boundary, ADR-044)
+    connections_map = await connection_fetch_backend.fetch_entity_connections(NeoLabel.TASK, [task.uid])
     return TaskDetailView(task, connections_map.get(task.uid, []))
 ```
 

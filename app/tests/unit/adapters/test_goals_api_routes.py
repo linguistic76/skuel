@@ -32,7 +32,7 @@ from adapters.inbound.goals_api import create_goals_api_routes
 from core.models.enums.relationship_enums import ProficiencyLevel
 from core.models.goal.goal import Goal
 from core.utils.result_simplified import Errors, Result
-from tests.helpers.no_page_links import NoPageLinks
+from tests.helpers.page_links_fake import FakePageLinks
 
 _OWNER_UID = "user_owner"
 _GOAL_UID = "goal_1"
@@ -89,7 +89,7 @@ def _make_client(
         rt,
         goals_service,
         principles_service,
-        connection_fetch_backend=NoPageLinks(),
+        connection_fetch_backend=FakePageLinks(),
         user_service=MagicMock(),
     )
     return TestClient(app), goals_service, principles_service

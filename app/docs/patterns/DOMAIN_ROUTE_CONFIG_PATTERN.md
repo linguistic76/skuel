@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-10-01
+updated: 2026-10-04
 category: patterns
 related_skills:
 - fasthtml
@@ -606,6 +606,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
     api_related_services={
         # Format: {kwarg_name: container_attr}
         # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
+        "connection_fetch_backend": "connection_fetch_backend",  # the card re-render's page links
         "principles_service": "principles",  # for link_habit_to_principle ownership check
     },
     ui_related_services={
@@ -616,7 +617,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
 ```
 
 **Key features:**
-- API factory receives `principles_service` (for cross-domain `POST /api/habits/link-principle` ownership check on the target principle)
+- API factory receives `connection_fetch_backend` (the card re-rendered after a status or priority change carries its page links, ADR-090 §2) and `principles_service` (for cross-domain `POST /api/habits/link-principle` ownership check on the target principle)
 - UI factory receives `connection_fetch_backend` and `choices_ownership` as named kwargs via `ui_related_services` — same mapping mechanism, UI side
 
 ### Example 3: Multi-Service with UI Dependencies (Finance)
