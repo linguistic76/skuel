@@ -1,6 +1,6 @@
 ---
 title: Sibling Signal Pattern
-updated: 2026-09-17
+updated: 2026-10-04
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, design]
@@ -70,8 +70,8 @@ Not every useful signal flows both ways. These seven are asymmetric — one doma
 | Moments force decisions | Events | Choices | `TRIGGERS_CHOICE` |
 | Work advances aspiration | Tasks | Goals | `CONTRIBUTES_TO_GOAL` |
 | Aspiration directs work | Goals | Tasks | reverse of `CONTRIBUTES_TO_GOAL` |
-| Values anchor execution | Principles | Tasks | `GUIDED_BY_PRINCIPLE` |
-| Aspiration flags time commitment | Goals | Events | reverse of `ADVANCES_GOAL` |
+| Values anchor execution | Principles | Tasks | `ALIGNED_WITH_PRINCIPLE` (task → principle) |
+| Aspiration flags time commitment | Goals | Events | reverse of `CONTRIBUTES_TO_GOAL` (event → goal) |
 
 ## Protocol Shape
 
@@ -166,19 +166,19 @@ Cross-cutting signals (where the producer is infrastructure serving all 6 domain
 
 ## Edge ↔ Signal Mapping
 
-Each sibling signal rides on a Neo4j relationship that already exists. Keep this table in sync when either side changes.
+Each sibling signal rides on graph state that already exists: an edge, or for the calendar signal the event's own properties. Keep this table in sync when either side changes.
 
 | Signal | Neo4j edge(s) | Direction in graph |
 |--------|---------------|--------------------|
 | `HabitConsistencySignal` | `(Habit)-[:SUPPORTS_GOAL]->(Goal)` | Habits are located by goal |
-| `PrincipleAlignmentSignal` | `(Choice)-[:INFORMED_BY_PRINCIPLE]->(Principle)`, `(Task)-[:GUIDED_BY_PRINCIPLE]->(Principle)` | Principles are located by consumer entity |
-| `GoalFeasibilitySignal` | `(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)`, `(Event)-[:ADVANCES_GOAL]->(Goal)` | Goals are located by supporting activity |
-| `EventCollisionSignal` | `(Event)-[:OCCURS_AT]->(TimeSlot)` or direct `event_date` property | Events are located by calendar window |
+| `PrincipleAlignmentSignal` | `(Choice)-[:INFORMED_BY_PRINCIPLE]->(Principle)`, `(Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle)` | Principles are located by consumer entity |
+| `GoalFeasibilitySignal` | `(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)`, `(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` | Goals are located by supporting activity |
+| `EventCollisionSignal` | no edge — the event's `event_date`, `start_time` and `end_time` properties | Events are located by calendar window |
 | `ChoiceAdherenceSignal` | `(Choice)-[:INFORMED_BY_PRINCIPLE]->(Principle)` | Historical adherence count per principle |
 | `HabitEmbodimentSignal` | `(Habit)-[:EMBODIES_PRINCIPLE]->(Principle)` | Habits embodying a principle |
 | `EventDecisionTriggerSignal` | `(Event)-[:TRIGGERS_CHOICE]->(Choice)` | Upcoming events triggering choices |
 
-Every row maps to exactly one graph edge (or a small set of semantically-equivalent edges). If you find yourself wanting to add a user-scoped aggregate row (e.g. task throughput, user capacity, knowledge mastery), the producer is infrastructure, not a peer domain — that belongs in the [Shared Signal Pattern](SHARED_SIGNAL_PATTERN.md) mapping instead.
+Every row but `EventCollisionSignal` maps to exactly one graph edge (or a small set of semantically-equivalent edges); that row reads the event's own scheduling properties. If you find yourself wanting to add a user-scoped aggregate row (e.g. task throughput, user capacity, knowledge mastery), the producer is infrastructure, not a peer domain — that belongs in the [Shared Signal Pattern](SHARED_SIGNAL_PATTERN.md) mapping instead.
 
 ## Precedent to Imitate
 

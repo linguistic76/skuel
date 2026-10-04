@@ -1,6 +1,6 @@
 ---
 title: Shared Signal Pattern
-updated: 2026-09-17
+updated: 2026-10-04
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, cross-cutting, design]
@@ -171,11 +171,11 @@ Shared Signals frequently aggregate across many edges rather than riding on a si
 
 | Signal (future/existing) | Data source | Scope |
 |--------------------------|-------------|-------|
-| `KnowledgeIntelligenceOperations.get_knowledge_suggestions` | `(User)-[:MASTERED_AT]->(Ku)` + entity→Ku edges | User-wide, entity-contextual |
+| `KnowledgeIntelligenceOperations.get_knowledge_suggestions` | `(User)-[:MASTERED]->(Ku)` + entity→Ku edges | User-wide, entity-contextual |
 | `KnowledgeIntelligenceOperations.get_knowledge_prerequisites` | `(Entity)-[:REQUIRES_KNOWLEDGE]->(Ku)` | Per-entity, user-scoped mastery |
-| `TaskThroughputSignal` (future) | `(User)<-[:OWNED_BY]-(Task)` aggregated over a window | User-wide throughput |
-| `CalendarCollisionSignal` (future) | `(Event)-[:OCCURS_AT]->(TimeSlot)` + direct `event_date` / `scheduled_at` properties | User-wide calendar window |
-| `KnowledgeMasterySignal` (future, gap #8) | `(User)-[:MASTERED_AT]->(Ku)` with recency/decay | User-wide mastery aggregate |
+| `TaskThroughputSignal` (future) | `(User)-[:OWNS]->(Task)` aggregated over a window | User-wide throughput |
+| `CalendarCollisionSignal` (future) | no edge — the event's `event_date`, `start_time` and `end_time` properties | User-wide calendar window |
+| `KnowledgeMasterySignal` (future, gap #8) | `(User)-[:MASTERED]->(Ku)` with recency/decay | User-wide mastery aggregate |
 
 ## Precedent to Imitate
 
