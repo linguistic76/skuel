@@ -98,7 +98,9 @@ Each is settled in prose before the first edit of the PR named. O1 and O4 were a
   status; (c) a rule per kind. The founder chose (b). **Still open for PR 4's kickoff:** how a
   FAILED task counts (today: not done); which goals' tally a contribution feeds (today only task-based
   goals are recomputed from it); and the recompute triggers the rule now needs — an event's
-  completion, and the cancellation of an open task or event (today nothing recomputes on it).
+  completion, and any move of a task or event into or out of CANCELLED (an open one's cancellation
+  recomputes nothing today, and a completed event's publishes only `CalendarEventUpdated`: events
+  publish no reopen event).
 - **O2 — The PathStep's `GUIDED_BY_PRINCIPLE` (PR 2).** The type also has a curriculum source: a
   PathStep's guiding principles (`principle_uids` frontmatter; one live edge), read by the PathStep
   intelligence. The rulings cover links between Activities only. Retiring the goal's use of the type
@@ -299,7 +301,7 @@ tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs la
 | 1b | The pages show both ends (R10): the page renders the registry's labelled definitions in both directions and `connection_configs.py` is deleted; the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages; the five nonexistent names are gone | — |
 | 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | — |
 | 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | — |
-| 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; the gaps list shrinks | — |
+| 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; cancelling a completed event, or a goal's last contribution, updates the stored tally (to 0/0 for the last); the gaps list shrinks | — |
 | 5 | The remaining views: the goal sees choices (affects) and events (celebrates, contributes) apart; event ↔ principle is one link (retire `PRACTICED_AT_EVENT` and the event's `practiced_habits`); the habit names `REINFORCES_HABIT` from events "events where this habit is practiced"; the views still sharing an edge type split by source label (the habit's `REINFORCES_HABIT` views, the principle's `embodying_habits`, the event's `scheduled_by_choices`); a task update writes `ALIGNED_WITH_PRINCIPLE` edges instead of a node property | PR 1's known-gaps list is empty | — |
 | close | ADR-090 marked implemented; this document to `done/` (docs only) | Every retired type reads 0 in the live graph and in live code (`GUIDED_BY_PRINCIPLE`: between Activities; wholly only if O2, deferred, moves the PathStep's use) | — |
 
@@ -384,8 +386,11 @@ Tasks link to any number of goals through `CONTRIBUTES_TO_GOAL`. `FULFILLS_GOAL`
 `Task.fulfills_goal_uid` reshaped (O3), the task form's goal picker, the vault field, the DSL's
 task → goal link, the goal task generator and the readers in § Retiring a type. The goal's tally
 counts contributing tasks and events, cancelled ones left out (R11), with the rest of O1 settled in
-the kickoff. An event's completion and the cancellation of an open task or event trigger the
-recompute. Two readers need more than the type's deletion: the goal-cancel guard counts open tasks
+the kickoff. An event's completion and any move of a task or event into or out of CANCELLED trigger
+the recompute — a completed event's cancellation included, which today publishes only
+`CalendarEventUpdated`. When the last contribution leaves the count the recompute still writes:
+today `_plan_task_progress` writes nothing for a 0/0 tally, which would leave the stored progress
+describing the removed contribution. Two readers need more than the type's deletion: the goal-cancel guard counts open tasks
 over `FULFILLS_GOAL` only (`cross_domain_backend.py`) and must count open contributions (the kickoff
 decides whether an open contributing event blocks a cancel), and `GOALS_CONFIG`'s shared-neighbour
 `related_goals` definition names `FULFILLS_GOAL` as its placeholder type and as an intermediate edge
@@ -397,8 +402,9 @@ with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), wh
 `FULFILLS_GOAL`.
 
 **Acceptance:** a task linked to two goals counts toward both; a completed contributing event
-moves the goal's progress; the tally's statement and the user-context statements read the one edge;
-red on the old source.
+moves the goal's progress; cancelling a completed event updates the stored tally, and cancelling a
+goal's last contribution leaves it 0/0; the tally's statement and the user-context statements read
+the one edge; red on the old source.
 
 ### PR 5 — The remaining views
 
