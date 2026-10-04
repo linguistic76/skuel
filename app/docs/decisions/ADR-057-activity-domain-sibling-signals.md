@@ -1,6 +1,6 @@
 ---
 title: "ADR-057: Activity-Domain Sibling Signals"
-updated: 2026-09-01
+updated: 2026-10-04
 status: current
 category: decisions
 tags: [adr, decisions, architecture, activity-domains, intelligence, design]
@@ -83,8 +83,8 @@ The 6 domains organize into **3 primary axes** (mutual sharpening — A↔B) plu
 | Moments force decisions | Events | Choices | `TRIGGERS_CHOICE` |
 | Work advances aspiration | Tasks | Goals | `CONTRIBUTES_TO_GOAL` |
 | Aspiration directs work | Goals | Tasks | reverse of `CONTRIBUTES_TO_GOAL` |
-| Values anchor execution | Principles | Tasks | `GUIDED_BY_PRINCIPLE` |
-| Aspiration flags time commitment | Goals | Events | reverse of `ADVANCES_GOAL` |
+| Values anchor execution | Principles | Tasks | `ALIGNED_WITH_PRINCIPLE` (task → principle) |
+| Aspiration flags time commitment | Goals | Events | reverse of `CONTRIBUTES_TO_GOAL` (event → goal) |
 
 ### Vocabulary
 

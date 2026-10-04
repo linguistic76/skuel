@@ -41,6 +41,7 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md)
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md)
+- [ADR-090](decisions/ADR-090-one-link-per-fact-a-view-per-domain.md)
 - [ADR-044](decisions/ADR-044-neo4j-committed-architectural-choice.md)
 - [ADR-056](decisions/ADR-056-service-layer-label-split.md)
 - [ADR-066](decisions/ADR-066-typed-update-intents.md)
@@ -619,6 +620,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns, @pytest, @python
 - [ADR-088](decisions/ADR-088-submit-and-share.md) → @journals, @learning-loop, @security, @skuel-search-architecture
 - [ADR-089](decisions/ADR-089-instants-utc-days-in-a-zone.md) → @neo4j-cypher-patterns
+- [ADR-090](decisions/ADR-090-one-link-per-fact-a-view-per-domain.md) → @activity-domains
 
 ---
 
@@ -628,7 +630,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Architecture docs:** 9 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 42 docs linked to skills
-- **ADRs:** 46 ADRs linked to skills
+- **ADRs:** 47 ADRs linked to skills
 
 ---
 

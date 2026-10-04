@@ -486,6 +486,7 @@ skills:
     related_adrs:
       - ADR-086  # Universal :OWNS edge + ATTENDS attendance
       - ADR-087  # Status-guarded conditional writes
+      - ADR-090  # One link per fact, a view per domain (Activity ↔ Activity links)
       - ADR-044  # Neo4j as Committed Architectural Choice
       - ADR-056  # Service-Layer Label Split
       - ADR-066  # Typed Update Intents
