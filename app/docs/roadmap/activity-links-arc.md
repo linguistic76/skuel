@@ -408,9 +408,12 @@ with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), wh
 
 **Acceptance:** a task linked to two goals counts toward both; a completed contributing event
 moves the goal's progress; cancelling a completed event updates the stored tally, and cancelling a
-goal's last contribution leaves it 0/0; linking a scheduled event to a 1/1 goal makes its stored
-tally 1/2, and each of the case file's membership changes moves the stored tally with no status
-transition; the tally's statement and the user-context statements read
+goal's last contribution leaves it 0/0; every door that changes a goal's membership moves the
+stored tally with no status transition (linking a scheduled event to a 1/1 goal makes it 1/2). The
+doors come from the PR's own census of writers, not a hand list: every writer of a task's or an
+event's goal link (create, update, link door, vault field, DSL, generator, scheduler), every unlink
+and delete door for tasks and events, and a `completion_updates_goal` change — one real-graph test
+per door; the tally's statement and the user-context statements read
 the one edge; red on the old source.
 
 ### PR 5 — The remaining views
