@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-03
+updated: 2026-10-04
 ---
 
 # Route Map
@@ -198,6 +198,10 @@ Read-focused views with cross-domain connections, detail pages, and `EntityRelat
 ### `/path-steps`
 
 Lists all PathSteps as badge-labeled rows (HTMX fragment at `/path-steps/content`). Rows the session user is enrolled in (`IN_PROGRESS` edge) carry an additional "Enrolled" badge; the list itself is anonymous-readable. Clicking a PathStep navigates to `/explore/ps/{uid}` — the merged discovery/detail page with learning-state actions and the engagement flow.
+
+### `/lp/{uid}`
+
+The one learning path detail page, reached from `/learning-paths`, search, and the pathways cards. Public and shell-first (`/lp/{uid}/content`): the path's header (difficulty, hours, step count, path type), the **step tree** — path → steps → Kus, read-only; the page renders the steps (each linking `/explore/ps/{uid}`), each step's Kus lazy-load from `GET /api/lp/{uid}/children` and link `/explore/ku/{uid}` — the learning outcomes, and the path's lateral relationships. Beside the title: a signed-in learner's progress (enrolled) or **Enroll** (`POST /api/pathways/enroll/{uid}`, which redirects back here), a sign-in link for an anonymous visitor; a step the learner has mastered carries a Mastered badge. A uid that names no learning path answers 404 from the content fragment.
 
 Other curriculum sub-pages (`/learning-paths`, `/exercises`) use `BasePage(STANDARD)`.
 

@@ -67,7 +67,12 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.pathways_api.require_authenticated_user", _fake_auth)
 
     create_pathways_api_routes(
-        app, rt, learning_service, user_service=user_service, user_progress=user_progress
+        app,
+        rt,
+        learning_service,
+        user_service=user_service,
+        user_progress=user_progress,
+        ps_service=MagicMock(),
     )
     return _Harness(
         client=TestClient(app),
@@ -167,7 +172,7 @@ class TestEnrollment:
         response = _post_json(harness.client, f"/api/pathways/enroll/{_PATH_UID}")
 
         assert response.status_code == 200
-        assert response.headers["HX-Redirect"] == f"/pathways/path/{_PATH_UID}"
+        assert response.headers["HX-Redirect"] == f"/lp/{_PATH_UID}"
         harness.users.enroll_in_learning_path.assert_awaited_once_with(_USER_UID, _PATH_UID)
 
     def test_enroll_failure_surfaces_error_status(self, monkeypatch: pytest.MonkeyPatch) -> None:

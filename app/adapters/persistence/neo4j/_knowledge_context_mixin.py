@@ -27,6 +27,7 @@ from adapters.persistence.neo4j.query.cypher import (
 )
 from core.models.entity import Entity
 from core.models.enums.activity_enums import ActivitySortKey
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
@@ -42,7 +43,6 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-    from core.models.enums.neo_labels import NeoLabel
     from core.models.type_hints import Neo4jProperties
 
 # The registry's full lateral vocabulary (Codex #787 P2 — a hard-coded subset
@@ -281,17 +281,27 @@ class _KnowledgeContextMixin:
             )
         return Result.ok(True)
 
-    async def get_used_kus(self, ps_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get all atomic Kus used by a PathStep via USES_KU."""
-        query = """
-        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU]->(ku:Entity)
-        RETURN ku.uid AS uid, ku.title AS title
-        ORDER BY ku.title
+    async def get_used_kus(self, ps_uid: str) -> Result[list[Neo4jProperties] | None]:
+        """Get the atomic Kus a PathStep composes via USES_KU, title-ordered.
+
+        ``None`` when no PathStep has the uid — a step that composes no Kus is an
+        empty list, so a caller can tell the two apart without a second read.
+        Drafts ride along: a step's own composition is containment, not discovery.
+        """
+        query = f"""
+        MATCH (ps:{NeoLabel.PATH_STEP.value} {{uid: $ps_uid}})
+        OPTIONAL MATCH (ps)-[:{RelationshipName.USES_KU}]->(ku:{NeoLabel.KU.value})
+        WITH ps, ku ORDER BY ku.title
+        WITH ps, collect(ku) AS kus
+        RETURN [k IN kus | {{uid: k.uid, title: k.title}}] AS kus
         """
         result = await self.execute_query(query, {"ps_uid": ps_uid})
         if result.is_error:
             return Result.fail(result)
-        return Result.ok(result.value or [])
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        return Result.ok(list(records[0]["kus"]))
 
     # ========================================================================
     # APPLICATION DISCOVERY

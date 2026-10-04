@@ -91,7 +91,9 @@ def test_pathways_progress_rejects_a_bad_body_with_400(monkeypatch: pytest.Monke
     """`mastery_level` is bounded to 0..1; 5.0 is the caller's error, not ours."""
     app, rt = fast_app(pico=False, default_hdrs=False)
     monkeypatch.setattr(pathways_api, "require_authenticated_user", _fake_authenticated_user)
-    pathways_api.create_pathways_api_routes(app, rt, MagicMock(), MagicMock(), MagicMock())
+    pathways_api.create_pathways_api_routes(
+        app, rt, MagicMock(), MagicMock(), MagicMock(), ps_service=MagicMock()
+    )
 
     response = TestClient(app, cookies=_COOKIES).post(
         "/api/pathways/progress",

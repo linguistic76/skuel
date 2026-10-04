@@ -4,7 +4,8 @@ TreeView - Expandable Hierarchy Component
 
 Features:
 - Indented multi-level tree visualization
-- HTMX lazy loading on expand
+- HTMX lazy loading on expand (the first level lazy-loads too, unless the page renders it)
+- Rows may link to a detail page and carry a badge
 - Drag-and-drop reordering
 - Inline title editing
 - Keyboard navigation (↑↓←→ keys)
@@ -26,7 +27,7 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 
 from typing import Any
 
-from fasthtml.common import Div, Input, Span
+from fasthtml.common import A, Div, Input, Span
 
 from ui.components import Button, ButtonT
 from ui.patterns.skeleton import SkeletonLines
@@ -36,6 +37,7 @@ def TreeView(
     root_uid: str,
     entity_type: str,
     children_endpoint: str,
+    roots: Any = None,
     move_endpoint: str | None = None,
     show_checkboxes: bool = False,
     keyboard_nav: bool = True,
@@ -54,6 +56,9 @@ def TreeView(
             it keys the node icon. A route-segment name, NOT an EntityType
             wire value — see ENUM_ARCHITECTURE § Canonical Values vs Aliases.
         children_endpoint: API endpoint template (use {uid} placeholder)
+        roots: The first level, already rendered (a ``TreeNodeList`` at
+            ``parent_depth=-1``) — for a page that holds the data the rows need.
+            Omitted, the first level lazy-loads from ``children_endpoint``.
         move_endpoint: Optional drag-drop move endpoint
         show_checkboxes: Enable multi-select
         keyboard_nav: Enable arrow key navigation
@@ -77,17 +82,19 @@ def TreeView(
         str(alpine_config).replace("True", "true").replace("False", "false").replace("'", '"')
     )
 
+    if roots is None:
+        # Replaced by HTMX; parent_depth=-1 so root nodes render at depth 0
+        roots = Div(
+            SkeletonLines(count=3),
+            hx_get=f"{children_endpoint.replace('{uid}', root_uid)}?parent_depth=-1",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        )
+
     return Div(
         # Root node container
         Div(
-            # Initial loading state - will be replaced by HTMX
-            # Note: parent_depth=-1 so root nodes render at depth 0
-            Div(
-                SkeletonLines(count=3),
-                hx_get=f"{children_endpoint.replace('{uid}', root_uid)}?parent_depth=-1",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            roots,
             id=f"tree-root-{root_uid}",
             cls="tree-view",
         ),
@@ -112,6 +119,8 @@ def _render_tree_node(
     show_checkbox: bool = False,
     draggable: bool = True,
     editable: bool = True,
+    href: str | None = None,
+    badge: Any = None,
 ) -> Div:
     """
     Render a single tree node with all features.
@@ -127,6 +136,8 @@ def _render_tree_node(
         show_checkbox: Show multi-select checkbox
         draggable: Enable drag-and-drop
         editable: Double-click rename and the actions menu (False for a read-only tree)
+        href: The node's detail page — the title renders as a link (for read-only rows)
+        badge: An element shown after the title (e.g. the viewer's mastery)
 
     Returns:
         HTML structure:
@@ -166,6 +177,8 @@ def _render_tree_node(
         "choice": "🤔",
         "principle": "⚖️",
         "lp": "🛤️",
+        "ps": "📘",
+        "ku": "💡",
     }
     entity_icon = Span(entity_icons.get(entity_type, "📄"), cls="text-lg")
 
@@ -181,14 +194,14 @@ def _render_tree_node(
             cls="checkbox checkbox-primary checkbox-sm cursor-pointer mr-2",
         )
 
-    # Title (inline editable when the tree is)
+    # Title (inline editable when the tree is; a link when the row has a page)
     title_element = Span(
-        title,
+        A(title, href=href, cls="text-primary hover:underline") if href else title,
         **({"x-on:dblclick": f"startEdit('{uid}')"} if editable else {}),
         cls=(
             "grow text-sm cursor-text hover:bg-muted px-1 rounded-sm node-title"
             if editable
-            else "grow text-sm px-1 node-title"
+            else "grow min-w-0 break-words text-sm px-1 node-title"
         ),
         **{"data-uid": uid},
     )
@@ -215,6 +228,8 @@ def _render_tree_node(
 
     # Build content row elements
     content_elements = [expand_icon_element, entity_icon, title_element]
+    if badge is not None:
+        content_elements.append(Span(badge, cls="shrink-0"))
     if actions is not None:
         content_elements.append(actions)
     if checkbox_element:
@@ -268,8 +283,9 @@ def TreeNodeList(
     Render a list of tree nodes (used by HTMX lazy loading).
 
     Args:
-        nodes: List of dicts with {uid, title, has_children, ...}
-        entity_type: Entity type for icons
+        nodes: List of dicts with {uid, title, has_children}, optionally ``href``
+            (the row's detail page) and ``badge`` (an element after the title)
+        entity_type: Icon key for the rows ("ps", "ku", "goal", ...)
         children_endpoint: Endpoint template for child loading
         parent_depth: Depth of parent (children are +1)
         show_checkboxes: Enable multi-select checkboxes
@@ -299,6 +315,8 @@ def TreeNodeList(
             show_checkbox=show_checkboxes,
             draggable=draggable,
             editable=editable,
+            href=node.get("href"),
+            badge=node.get("badge"),
         )
         for node in nodes
     ]

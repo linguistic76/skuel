@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Shell-First Page Loading"
-updated: 2026-09-21
+updated: 2026-10-04
 status: current
 category: patterns
 tags: [ui, htmx, performance, page-load]
@@ -216,13 +216,13 @@ The `GET /api/navbar/notification-badge` fragment fetches the actual unread coun
 
 **Library (1):** `/library/path-steps`
 
-**Pathways (4):** `/pathways`, `/pathways/browse`, `/pathways/path/{uid}`, `/pathways/analytics`
+**Pathways (3):** `/pathways`, `/pathways/browse`, `/pathways/analytics`
 
 **LifePath (2):** `/lifepath`, `/lifepath/alignment`
 
 **GradeBook detail (1):** `/activity-reports/detail`
 
-**Other pages (10):** `/settings`, `/exercises`, `/exercises/get`, `/learning-paths`, `/teaching/students`, `/teaching/students/{uid}`, `/teaching/review/{uid}`, `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`
+**Other pages (11):** `/settings`, `/exercises`, `/exercises/get`, `/learning-paths`, `/lp/{uid}`, `/teaching/students`, `/teaching/students/{uid}`, `/teaching/review/{uid}`, `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`
 
 **Navbar:** notification bell placeholder (all authenticated pages)
 

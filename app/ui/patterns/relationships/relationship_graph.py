@@ -103,7 +103,7 @@ def RelationshipGraphView(
                     " Complementary",
                     cls="text-sm",
                 ),
-                cls="flex items-center mt-4 pt-4 border-t border-border",
+                cls="flex flex-wrap items-center gap-y-1 mt-4 pt-4 border-t border-border",
             ),
         ),
     )

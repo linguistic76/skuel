@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-30
+updated: 2026-10-04
 ---
 
 # SKUEL UI Component Catalog
@@ -533,7 +533,7 @@ CardGenerator.from_dataclass(
     path_dict,
     display_fields=["description", "difficulty", "tags"],
     show_labels=False,
-    title_href=f"/pathways/path/{path_dict['uid']}",
+    title_href=f"/lp/{path_dict['uid']}",
     actions=Div(ButtonLink("View Details"), Button("Enroll"), cls="flex gap-2"),
 )
 ```
@@ -989,7 +989,8 @@ ExploreGraphView(mode="entity", entity_uid="ps.step_1", entity_type="ps")
 
 **Location:** `/ui/patterns/tree_view.py`
 
-Hierarchical tree visualization with expand/collapse.
+Hierarchical tree visualization with expand/collapse; rows may link a detail page and
+carry a badge. Used by `/lp/{uid}` (the step tree). **See:** `/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md`
 
 ### Skeleton
 

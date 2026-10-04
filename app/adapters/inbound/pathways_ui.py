@@ -2,16 +2,19 @@
 Pathways UI Routes
 ==================
 
-Route handlers for structured learning pathway browsing and progress.
-Routes parse the request, call the orchestrator, and wrap the page trees from
-``ui/pathways/pages.py`` in ``BasePage`` — all rendering lives in ``ui/``.
+Route handlers for structured learning pathway browsing and progress, and the
+learning path detail page (``/lp/{uid}``). Routes parse the request, call the
+orchestrator, and wrap the page trees from ``ui/pathways/pages.py`` and
+``ui/curriculum/lp_detail.py`` in ``BasePage`` — all rendering lives in ``ui/``.
 """
 
 from typing import Any
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.utils.logging import get_logger
+from ui.curriculum import lp_detail
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.pathways import pages
@@ -106,27 +109,6 @@ def create_pathways_ui_routes(
         paths = filter_result.value if not filter_result.is_error else []
         return pages.paths_grid(paths, empty_message="No learning paths match your filters.")
 
-    @rt("/pathways/path/{path_uid}")
-    def learning_path_detail(request, path_uid: str) -> Any:
-        """Learning path detail — shell only, content loads via HTMX."""
-        require_authenticated_user(request)
-        return BasePage(
-            content=pages.path_detail_shell(path_uid),
-            title="Learning Path",
-            page_type=PageType.STANDARD,
-            request=request,
-            active_page="pathways",
-        )
-
-    @rt("/pathways/path/{path_uid}/content")
-    async def learning_path_detail_content(request, path_uid: str) -> Any:
-        """HTMX fragment: learning path detail body."""
-        user_uid = require_authenticated_user(request)
-        detail_result = await orchestrator.get_path_detail_progress(path_uid, user_uid)
-        if detail_result.is_error:
-            return pages.path_detail_not_found(path_uid)
-        return pages.path_detail_content(path_uid, detail_result.value)
-
     @rt("/pathways/analytics")
     def learning_analytics(request) -> Any:
         """Learning analytics dashboard — shell only, content loads via HTMX."""
@@ -148,17 +130,44 @@ def create_pathways_ui_routes(
         return pages.analytics_content(analytics)
 
     @rt("/lp/{uid}")
-    async def lp_detail_view(request, uid: str) -> Any:
-        """Learning Path detail view with full context and relationships."""
-        path_result = await orchestrator.get_learning_path(uid)
-        path = path_result.value if not path_result.is_error and path_result.value else None
-
+    def lp_detail_view(request, uid: str) -> Any:
+        """Learning path detail — shell only, the body loads via HTMX. Public:
+        shared curriculum reads for every visitor."""
         return BasePage(
-            content=pages.lp_detail_page(uid, path),
-            title=f"LP: {uid}",
+            content=lp_detail.lp_detail_shell(uid),
+            title="Learning Path",
             page_type=PageType.STANDARD,
             request=request,
-            active_page="pathways",
+            active_page="learning-paths",
+        )
+
+    @rt("/lp/{uid}/content")
+    async def lp_detail_content(request, uid: str) -> Any:
+        """HTMX fragment: the path, the step tree, and — for a signed-in viewer —
+        their progress or Enroll. A uid that names no learning path is the 404."""
+        user_uid = get_current_user(request)
+        if user_uid is None:
+            path_result = await orchestrator.get_learning_path(uid)
+            if path_result.is_error:
+                return refuse(
+                    path_result.expect_error(), lp_detail.lp_detail_refusal, "Learning path"
+                )
+            if path_result.value is None:
+                return refuse_not_found(lp_detail.lp_detail_refusal("Learning path not found"))
+            return lp_detail.lp_detail_content(path_result.value, signed_in=False)
+
+        detail_result = await orchestrator.get_path_detail_progress(uid, user_uid)
+        if detail_result.is_error:
+            return refuse(
+                detail_result.expect_error(), lp_detail.lp_detail_refusal, "Learning path"
+            )
+        detail = detail_result.value
+        return lp_detail.lp_detail_content(
+            detail["path"],
+            signed_in=True,
+            is_enrolled=detail["is_enrolled"],
+            progress=detail["progress"],
+            mastered_uids=detail["mastered_uids"],
         )
 
     logger.info("Pathways UI routes registered")

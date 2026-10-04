@@ -517,7 +517,7 @@ async def test_the_step_tree_lists_a_paths_steps_and_nothing_else_is_a_path(
     for handler in ("handleDragStart", "handleDrop", "startEdit", 'draggable="true"'):
         assert handler not in tree.text, handler
 
-    for uid in (OWN["Task"], FOREIGN["Task"], STEP, "lp.nb2e.absent"):
+    for uid in (OWN["Task"], FOREIGN["Task"], KU, "lp.nb2e.absent"):
         refused = await http.get(f"/api/lp/{uid}/children")
         assert refused.status_code == 404, uid
         assert FOREIGN_MARK not in refused.text
@@ -528,11 +528,12 @@ async def test_a_uid_that_names_no_path_is_not_read_as_one(http: httpx.AsyncClie
     user's task included, is the ordinary not-found, never a path built from it."""
     steps = await http.get("/api/pathways/steps", params={"path_uid": FOREIGN["Task"]})
     assert steps.status_code == 404
-    for url in (f"/pathways/path/{FOREIGN['Task']}/content", f"/lp/{FOREIGN['Task']}"):
-        assert FOREIGN_MARK not in (await http.get(url)).text, url
+    refused = await http.get(f"/lp/{FOREIGN['Task']}/content")
+    assert refused.status_code == 404
+    assert FOREIGN_MARK not in refused.text
 
     assert STEP in (await http.get("/api/pathways/steps", params={"path_uid": PATH})).text
-    assert "nb2e path" in (await http.get(f"/pathways/path/{PATH}/content")).text
+    assert "nb2e path" in (await http.get(f"/lp/{PATH}/content")).text
 
 
 async def test_learning_analytics_renders_retention_as_a_placeholder(

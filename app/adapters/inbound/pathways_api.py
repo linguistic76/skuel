@@ -20,17 +20,18 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories.hierarchy_api_factory import tree_error_row
-from adapters.inbound.route_factories.route_helpers import refuse
+from adapters.inbound.route_factories.route_helpers import is_not_found, refuse
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
     LearningPathProgressRequest,
 )
 from core.ports.query_types import LpPathRecommendation, MasteredWriteRow
 from core.services.lp_service import LpService
+from core.services.ps_service import PsService
 from core.services.user_progress_service import UserKnowledgeProfile
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from ui.patterns.tree_view import TreeNodeList
+from ui.curriculum.lp_detail import ku_tree_nodes, step_tree_nodes, tree_rows
 
 logger = get_logger("skuel.routes.pathways.api")
 
@@ -41,6 +42,7 @@ def create_pathways_api_routes(
     learning_service: LpService,
     user_service: Any = None,
     user_progress: Any = None,
+    ps_service: PsService | None = None,
 ) -> None:
     """
     Create pathways API routes using factory pattern.
@@ -53,11 +55,14 @@ def create_pathways_api_routes(
         rt: Route decorator
         learning_service: LpService instance
         user_service: User service for admin role verification
+        user_progress: UserProgressService (the progress summary)
+        ps_service: PsService (a step's Kus, for the step tree)
     """
 
     # Fail-fast: user_progress is always wired at compose (api_related_services
     # maps it from services.user_progress) — a missing one is a wiring defect.
     assert user_progress is not None, "UserProgressService must be wired before pathways API routes"
+    assert ps_service is not None, "PsService must be wired before pathways API routes"
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
@@ -190,28 +195,25 @@ def create_pathways_api_routes(
 
     @rt("/api/lp/{uid}/children", methods=["GET"])
     async def lp_children_fragment(request: Request, uid: str, parent_depth: int = 0) -> Any:
-        """A learning path's steps as a TreeNodeList fragment — the step tree's lazy load.
+        """The step tree's lazy load: a learning path's steps, or a path step's Kus.
 
-        ``parent_depth`` is the path node's depth (steps render one deeper; -1 loads
-        them as roots). A step is a leaf. A uid that names no learning path is the
-        ordinary 404, whatever it does name. The rows are read-only.
+        ``parent_depth`` is the depth of the node whose children these are (-1
+        loads them as roots). A Ku is a leaf. A uid that names neither a learning
+        path nor a path step is the ordinary 404, whatever it does name. Public,
+        like the ``/lp/{uid}`` page it serves; the rows are read-only.
         """
-        require_authenticated_user(request)
-        result = await learning_service.get_path_steps(uid)
-        if result.is_error:
-            return refuse(result.expect_error(), tree_error_row, "Learning path")
-        return TreeNodeList(
-            nodes=[
-                {"uid": step.uid, "title": step.title, "has_children": False}
-                for step in result.value
-            ],
-            entity_type="lp",
-            children_endpoint="/api/lp/{uid}/children",
-            parent_depth=parent_depth,
-            # Vault-authored structure: no drag-to-move, rename or actions menu.
-            draggable=False,
-            editable=False,
-        )
+        steps = await learning_service.get_path_steps(uid)
+        if not steps.is_error:
+            return tree_rows(step_tree_nodes(steps.value, set()), "ps", parent_depth)
+        if not is_not_found(steps.expect_error()):
+            return refuse(steps.expect_error(), tree_error_row, "Learning path")
+
+        kus = await ps_service.get_used_kus(uid)
+        if kus.is_error:
+            return refuse(kus.expect_error(), tree_error_row, "Path step")
+        if kus.value is None:
+            return refuse(steps.expect_error(), tree_error_row, "Learning path or step")
+        return tree_rows(ku_tree_nodes(kus.value), "ku", parent_depth)
 
     # Enrollment
     # ----------
@@ -231,7 +233,7 @@ def create_pathways_api_routes(
         if result.is_error:
             return Result.fail(result)
 
-        return Response(headers={"HX-Redirect": f"/pathways/path/{uid}"})
+        return Response(headers={"HX-Redirect": f"/lp/{uid}"})
 
     logger.info("Pathways API routes registered (CRUDRouteFactory + 7 domain routes)")
 

@@ -804,8 +804,8 @@ class PsService:
         """Link this PathStep to an atomic Ku via USES_KU."""
         return await self.core.backend.link_to_ku(ps_uid, ku_uid)  # type: ignore[attr-defined]
 
-    async def get_used_kus(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all atomic Kus used by this PathStep."""
+    async def get_used_kus(self, ps_uid: str) -> Result[list[dict[str, Any]] | None]:
+        """The atomic Kus this PathStep composes, or None when the uid names no PathStep."""
         return await self.core.backend.get_used_kus(ps_uid)  # type: ignore[attr-defined]
 
     async def get_cited_resources(self, ps_uid: str) -> Result[list[dict[str, Any]]]:

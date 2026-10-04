@@ -4,7 +4,6 @@ from typing import Any
 
 from fasthtml.common import (
     H3,
-    H4,
     Div,
     Option,
     P,
@@ -193,7 +192,7 @@ class PathwaysUIComponents:
                 # Action Button
                 ButtonLink(
                     "Continue Learning",
-                    href=f"/pathways/path/{path.uid}",
+                    href=f"/lp/{path.uid}",
                     cls=(ButtonT.primary, "w-full"),
                     size="sm",
                 ),
@@ -223,7 +222,7 @@ class PathwaysUIComponents:
         action_buttons = Div(
             ButtonLink(
                 "View Details",
-                href=f"/pathways/path/{path['uid']}",
+                href=f"/lp/{path['uid']}",
                 cls=(ButtonT.secondary, "flex-1"),
                 size="sm",
             ),
@@ -248,45 +247,4 @@ class PathwaysUIComponents:
             },
             actions=action_buttons,
             card_attrs={"cls": "hover:shadow-lg transition-shadow h-full p-4"},
-        )
-
-    @staticmethod
-    def render_step_item(step: Any, index: int, is_mastered: bool) -> Any:
-        """Render a single path step in a path's curriculum list."""
-        mastery_badge = (
-            Badge("Mastered", variant=BadgeT.success, size=Size.sm)
-            if is_mastered
-            else Badge("Not started", variant=BadgeT.outline, size=Size.sm)
-        )
-        diff = difficulty_label(step.difficulty_rating) if step.difficulty_rating else ""
-        difficulty_badge = (
-            Badge(diff.title(), variant=BadgeT.primary, size=Size.sm) if diff else None
-        )
-        hours_text = f"{step.estimated_hours:.0f}h" if step.estimated_hours else ""
-
-        return Div(
-            Div(
-                # Sequence number
-                Badge(f"Step {index}", variant=BadgeT.primary, cls="mr-2"),
-                # Title
-                H4(step.title or f"Step {index}", cls="text-lg font-semibold flex-1"),
-                # Mastery status
-                mastery_badge,
-                cls="flex items-center justify-between mb-2",
-            ),
-            Div(
-                P(
-                    step.description or step.intent or "",
-                    cls="text-muted-foreground mb-2",
-                ),
-                Div(
-                    Span(hours_text, cls="text-sm text-muted-foreground mr-3")
-                    if hours_text
-                    else None,
-                    difficulty_badge,
-                    cls="flex items-center gap-2",
-                ),
-                cls="ml-8",
-            ),
-            cls="border border-border rounded-lg p-4 hover:bg-background transition-colors",
         )
