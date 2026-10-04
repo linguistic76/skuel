@@ -1,7 +1,7 @@
 ---
 title: "Activity Links Arc — Rulings & Contract"
 updated: 2026-10-04
-status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; O1 and O4 ruled (R10, R11); O2 deferred; PR 1 next"
+status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; PR 1 merged #1500; O1 and O4 ruled (R10, R11); O2 deferred; PR 1b next"
 registered: 2026-10-02
 ruled: 2026-10-04
 ---
@@ -226,12 +226,14 @@ already writes several of these types:
   writer of that type; the live graph holds one.
 - From PR 4, any goal-side `CONTRIBUTES_TO_GOAL` view, written by tasks and events.
 
-**A definition's `target_label` is not a filter on its own:** neither per-key reader passes it.
-`get_related_uids` passes the edge type, the direction and the definition's edge-property filter.
-`get_related_with_metadata` passes the edge type and the direction, plus the edge properties to
-return and an ordering, but no edge-property filter, so a tiered definition read through it returns
-every edge of its type. A view that splits by source label, or by tier, needs that filter in the
-read.
+**A definition's `target_label` is not a filter on its own:** no keyed reader on
+`UnifiedRelationshipService` passes it (PR 1's test lists all eight). `get_related_uids`,
+`has_relationship` and `count_related` pass the edge type, the direction and the definition's
+edge-property filter. `get_related_with_metadata`, `get_ordered_related_uids` and the three batch
+readers (`batch_has_relationship`, `batch_count_related`, `batch_get_related_uids`) pass the edge
+type and the direction, plus an ordering or the edge properties to return, but no edge-property
+filter, so a tiered definition read through any of them returns every edge of its type. A view
+that splits by source label, or by tier, needs that filter in the read.
 
 ### The importance level
 
@@ -297,7 +299,7 @@ tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs la
 | PR | Scope | Acceptance | Status |
 |----|-------|------------|--------|
 | 0 | This document, ADR-090, the INDEX rows and the skill back-link; the cells of ADR-057's diagonals table and of the Sibling Signal and Shared Signal patterns that named edges nothing carries (docs only; summon Codex explicitly) | Merged; `./dev docs-links`, the dead-link scan and the skills validator clean | merged #1498, 2026-10-04 |
-| 1 | The invariant as a test, derived from the registry: every edge type joining two different Activity domains is read at BOTH ends (same-type edges are the later pass, R8), and a view over an edge type with several kinds of source filters by source label in the read. Lands with a known-gaps list | Passes with the list; removing any entry turns it red; a one-sided definition added turns it red | — |
+| 1 | The invariant as a test, derived from the registry: every edge type joining two different Activity domains is read at BOTH ends (same-type edges are the later pass, R8), and a view over an edge type with several kinds of source filters by source label in the read. Lands with a known-gaps list | Passes with the list; removing any entry turns it red; a one-sided definition added turns it red | merged #1500, 2026-10-04 |
 | 1b | The pages show both ends (R10): the page renders the registry's labelled definitions in both directions and `connection_configs.py` is deleted; the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages and both list cards; the five nonexistent names are gone | — |
 | 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | — |
 | 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | — |
