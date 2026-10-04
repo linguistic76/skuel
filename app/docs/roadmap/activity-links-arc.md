@@ -298,10 +298,10 @@ tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs la
 |----|-------|------------|--------|
 | 0 | This document, ADR-090, the INDEX rows and the skill back-link; the cells of ADR-057's diagonals table and of the Sibling Signal and Shared Signal patterns that named edges nothing carries (docs only; summon Codex explicitly) | Merged; `./dev docs-links`, the dead-link scan and the skills validator clean | merged #1498, 2026-10-04 |
 | 1 | The invariant as a test, derived from the registry: every edge type joining two different Activity domains is read at BOTH ends (same-type edges are the later pass, R8), and a view over an edge type with several kinds of source filters by source label in the read. Lands with a known-gaps list | Passes with the list; removing any entry turns it red; a one-sided definition added turns it red | — |
-| 1b | The pages show both ends (R10): the page renders the registry's labelled definitions in both directions and `connection_configs.py` is deleted; the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages; the five nonexistent names are gone | — |
+| 1b | The pages show both ends (R10): the page renders the registry's labelled definitions in both directions and `connection_configs.py` is deleted; the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages and both list cards; the five nonexistent names are gone | — |
 | 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | — |
 | 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | — |
-| 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; cancelling a completed event, or a goal's last contribution, updates the stored tally (to 0/0 for the last); the gaps list shrinks | — |
+| 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; cancelling a completed event, or a goal's last contribution, updates the stored tally (to 0/0 for the last); every membership change recomputes (closes the goal-tally case file); the gaps list shrinks | — |
 | 5 | The remaining views: the goal sees choices (affects) and events (celebrates, contributes) apart; event ↔ principle is one link (retire `PRACTICED_AT_EVENT` and the event's `practiced_habits`); the habit names `REINFORCES_HABIT` from events "events where this habit is practiced"; the views still sharing an edge type split by source label (the habit's `REINFORCES_HABIT` views, the principle's `embodying_habits`, the event's `scheduled_by_choices`); a task update writes `ALIGNED_WITH_PRINCIPLE` edges instead of a node property | PR 1's known-gaps list is empty | — |
 | close | ADR-090 marked implemented; this document to `done/` (docs only) | Every retired type reads 0 in the live graph and in live code (`GUIDED_BY_PRINCIPLE`: between Activities; wholly only if O2, deferred, moves the PathStep's use) | — |
 
@@ -345,8 +345,9 @@ link. The detail page and the list card render the domain's definitions in both 
 events are listed apart. `core/utils/connection_configs.py` and its consumers' wiring are deleted. PR 1's
 invariant then covers the pages. The page-list defects go with it.
 
-**Acceptance:** every link that the registry reads at both ends shows on both detail pages, under
-each domain's name for it; a real-graph route test per pair, red on the old source.
+**Acceptance:** every link that the registry reads at both ends shows on both detail pages and on
+both list cards, under each domain's name for it; a real-graph route test per pair for the detail
+route and the list route, red on the old source.
 
 ### PR 2 — Principle → goal
 
@@ -390,7 +391,11 @@ the kickoff. An event's completion and any move of a task or event into or out o
 the recompute — a completed event's cancellation included, which today publishes only
 `CalendarEventUpdated`. When the last contribution leaves the count the recompute still writes:
 today `_plan_task_progress` writes nothing for a 0/0 tally, which would leave the stored progress
-describing the removed contribution. Two readers need more than the type's deletion: the goal-cancel guard counts open tasks
+describing the removed contribution. This PR changes how goal progress is triggered, which is the
+trigger of [Goal Tally Membership Changes Don't Recompute](goal-tally-membership-changes.md), so it
+closes that case file too: linking or unlinking a task or event, creating or deleting one with a goal
+link, and changing a task's `completion_updates_goal` all recompute the goals they touch, for both
+kinds of contribution. The case file moves to `done/` with this PR. Two readers need more than the type's deletion: the goal-cancel guard counts open tasks
 over `FULFILLS_GOAL` only (`cross_domain_backend.py`) and must count open contributions (the kickoff
 decides whether an open contributing event blocks a cancel), and `GOALS_CONFIG`'s shared-neighbour
 `related_goals` definition names `FULFILLS_GOAL` as its placeholder type and as an intermediate edge
@@ -403,7 +408,9 @@ with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), wh
 
 **Acceptance:** a task linked to two goals counts toward both; a completed contributing event
 moves the goal's progress; cancelling a completed event updates the stored tally, and cancelling a
-goal's last contribution leaves it 0/0; the tally's statement and the user-context statements read
+goal's last contribution leaves it 0/0; linking a scheduled event to a 1/1 goal makes its stored
+tally 1/2, and each of the case file's membership changes moves the stored tally with no status
+transition; the tally's statement and the user-context statements read
 the one edge; red on the old source.
 
 ### PR 5 — The remaining views
