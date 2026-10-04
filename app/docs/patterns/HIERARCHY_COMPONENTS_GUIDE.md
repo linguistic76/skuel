@@ -120,8 +120,9 @@ TreeView(
 )
 ```
 
-A node dict may carry `href` (the title renders as a link to that page) and `badge`
-(an element after the title) besides `uid` / `title` / `has_children`.
+A row is a `TreeNode` (`ui/patterns/tree_view.py`): `uid` / `title` / `has_children`,
+and optionally `href` (the title renders as a link to that page) and `badge` (an
+element after the title).
 
 ### 2. Drag-and-Drop
 
