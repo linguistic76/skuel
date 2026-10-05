@@ -572,7 +572,7 @@ _RELATIONSHIPS_HIERARCHY = PlannedEntry(
 _RELATIONSHIPS_EXISTS = PlannedEntry(
     Readiness.DELAYED,
     "generic relationship existence-check staged — config-keyed has-any-related "
-    "boolean (sibling of the live count_related / get_related_uids); integration-"
+    "boolean (sibling of the live get_related_uids, over backend count_related); integration-"
     "tested on live Neo4j (LP relationships) but no production caller; wire where "
     "a cheap exists check beats loading UIDs, or fold into the domain relationship "
     "containers (Mike ruled PLANNED 2026-06-13)",

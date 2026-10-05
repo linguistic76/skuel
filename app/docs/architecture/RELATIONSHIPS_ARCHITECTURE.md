@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-10-03
+updated: 2026-10-05
 status: current
 category: architecture
 version: 2.0.0
@@ -58,8 +58,8 @@ actionable = await tasks_service.relationships.get_actionable_for_user(user_cont
 ```
 UnifiedRelationshipService[Ops, Model, DtoType]
     ├── IntelligenceMixin          (~400 lines) — cross-domain context, semantic queries
-    ├── OrderedRelationshipsMixin  (~550 lines) — curriculum hierarchy + edge metadata
-    ├── BatchOperationsMixin       (~190 lines) — N+1 elimination
+    ├── OrderedRelationshipsMixin  — curriculum ordering + hierarchy
+    ├── BatchOperationsMixin       — N+1 elimination (one batched keyed read)
     └── BaseService[Ops, Model]    — CRUD, search, config
 ```
 
@@ -67,21 +67,18 @@ UnifiedRelationshipService[Ops, Model, DtoType]
 
 **Shell (generic CRUD):**
 - `get_related_uids(relationship_key, entity_uid)` → `Result[list[str]]`
-- `has_relationship(relationship_key, entity_uid)` → `Result[bool]`
-- `count_related(relationship_key, entity_uid)` → `Result[int]`
+- `has_relationship(relationship_key, entity_uid)` → `Result[bool]` (PLANNED: no production caller yet)
+
+The keyed readers (these two and `batch_get_related_uids`) resolve the key through `resolve_keyed_read` (`core/services/relationships/_keyed_read.py`): the definition's edge type, direction, tier (`filter_property`) and far end's kind (`target_label`, unless it is `Entity`) all reach the backend. A shared-neighbour definition (`related_*`) is refused — its one-hop read would return the shared neighbours, not the peers it names.
 - `create_relationship(relationship_key, from_uid, to_uid, properties)` → `Result[bool]` — **the single cross-domain link write path.** Routes through `backend.create_relationships_batch` with the registry `spec` for `relationship_key`, orients direction via `_orient_edge`, and **fails closed** on an unknown key. Facade `link_{domain}_to_{key}` methods call this with their explicit key. (Root-fixed PR #197: historically it dispatched to a dynamic `link_{domain}_to_{key}` backend method that existed for only two habit cases — that dispatch is gone.) See [UNIFIED_RELATIONSHIP_SERVICE.md](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md).
 - `delete_relationship(relationship_key, from_uid, to_uid)` → `Result[bool]`
 
 > The `link_to_knowledge` / `link_to_goal` / `link_to_principle` candidate-list wrappers were **removed** — they guessed the key from a hand-maintained list and silently `Result.fail`-ed on a coverage gap or picked the wrong edge when a domain had several to the same target. Facades call `create_relationship` with the explicit key instead; coverage is guarded by `tests/unit/test_cross_domain_link_keys.py`.
 
 **BatchOperationsMixin** — eliminates N+1 queries:
-- `batch_has_relationship(relationship_key, entity_uids)` → `Result[dict[str, bool]]`
-- `batch_count_related(relationship_key, entity_uids)` → `Result[dict[str, int]]`
 - `batch_get_related_uids(relationship_key, entity_uids)` → `Result[dict[str, list[str]]]`
 
 **OrderedRelationshipsMixin** — curriculum hierarchy:
-- `get_ordered_related_uids(relationship_key, entity_uid)` → `Result[list[str]]`
-- `get_related_with_metadata(relationship_key, entity_uid)` → `Result[list[dict]]`
 - `reorder_relationships(relationship_key, entity_uid, new_order)` → `Result[bool]`
 - `create_relationship_with_properties(...)` → `Result[bool]`
 - `get_hierarchical_children(relationship_key, entity_uid, depth)` → `Result[list[dict]]`
@@ -204,15 +201,16 @@ Creation, deletion, validation:
 - `delete_relationship(from_uid, to_uid, relationship_type)` → `Result[bool]`
 - `delete_relationships_batch(relationships_list)` → `Result[int]`
 - `create_relationships_batch(relationships_list)` → `Result[int]`
-- `has_relationship(uid, relationship_type, direction)` → `Result[bool]`
-- `count_related(uid, relationship_type, direction)` → `Result[int]`
+- `has_relationship(from_uid, to_uid, relationship_type)` → `Result[bool]`
+- `count_related(uid, relationship_type, direction, properties, target_label)` → `Result[int]` — sees every edge (arithmetic)
+- `batch_get_related_uids(entity_uids, relationship_type, direction, properties, target_label)` → `Result[dict[str, list[str]]]` — anchors on the backend's own label; walled like `get_related_uids`
 
 ### `_RelationshipQueryMixin` (`adapters/persistence/neo4j/_relationship_query_mixin.py`)
 
 Core queries, edge metadata, fluent `relate()` entry point:
 
 - `get_related_entities(uid, relationship_type, direction, limit)` → `Result[list[T]]`
-- `get_related_uids(uid, relationship_type, direction)` → `Result[list[str]]`
+- `get_related_uids(uid, relationship_type, direction, limit, properties, include_withheld, target_label)` → `Result[list[str]]`
 - `get_relationship_metadata(uid, relationship_type, direction)` → `Result[list[dict]]`
 - `update_relationship_properties(from_uid, to_uid, relationship_type, properties)` → `Result[bool]`
 - `get_relationships_batch(uids, relationship_type, direction)` → `Result[dict[str, list[T]]]`
@@ -223,10 +221,8 @@ Core queries, edge metadata, fluent `relate()` entry point:
 
 ### `_RelationshipOrderedMixin` (`adapters/persistence/neo4j/_relationship_ordered_mixin.py`)
 
-Ordered/hierarchical traversals and lateral-getter convenience wrappers:
+Ordered writes, hierarchical traversals and lateral-getter convenience wrappers:
 
-- `get_ordered_related_uids(entity_label, entity_uid, relationship_type, direction, order_by_property, order_direction)` → `Result[list[str]]`
-- `get_related_with_metadata(...)` → `Result[list[dict]]`
 - `reorder_relationships(..., target_uid_sequence, sequence_property)` → `Result[int]`
 - `create_relationship_with_properties(entity_uid, target_uid, relationship_type, direction, edge_properties)` → `Result[bool]`
 - `get_hierarchical_children_single(...)` / `get_hierarchical_children_two_level(...)` / `get_hierarchical_children_deep(...)` → `Result[list[dict]]`

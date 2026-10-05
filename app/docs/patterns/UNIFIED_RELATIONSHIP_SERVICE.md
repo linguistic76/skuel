@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-10-02
+updated: 2026-10-05
 category: patterns
 related_skills:
 - base-analytics-service
@@ -118,9 +118,10 @@ goals_relationship_service = UnifiedRelationshipService(
 ├── __init__.py                      # Module exports
 ├── extended_config.py               # Extended specs (QuerySpec, PathAwareTypeSpec, etc.)
 ├── unified_relationship_service.py  # Shell: constructor, generic CRUD, typed links (~900 lines)
-├── _batch_operations_mixin.py       # N+1 elimination (batch_has_relationship, batch_count_related, batch_get_related_uids)
-├── _ordered_relationships_mixin.py  # Curriculum hierarchy + edge metadata
+├── _batch_operations_mixin.py       # N+1 elimination (batch_get_related_uids)
+├── _ordered_relationships_mixin.py  # Curriculum ordering + hierarchy
 ├── _intelligence_mixin.py           # Graph intelligence, semantic, cross-domain context
+├── _keyed_read.py                   # resolve_keyed_read — what a registry key asks the backend for
 ├── path_aware_factory.py            # Factory for path-aware entities
 └── relationships_container.py       # Generic relationship container
 ```
@@ -236,26 +237,24 @@ config = LABEL_CONFIGS["Ku"]
 
 ## UnifiedRelationshipService Methods
 
-The service provides 41 methods across categories:
+The service's methods, by category (the class is the census):
 
-### Basic Queries (8 methods)
+### Keyed Reads
+
+A keyed read names a registry definition by its `method_key`. `resolve_keyed_read`
+(`_keyed_read.py`) turns the key into the read: the definition's edge type, direction, tier
+(`filter_property`) and far end's kind (`target_label`, unless it is `Entity`) all reach the
+backend, and a shared-neighbour definition (`related_*`) is refused.
 
 ```python
 # Get related UIDs for a relationship type
 uids = await service.get_related_uids("knowledge", "task.123")
 
-# Check if relationship exists
-has_goal = await service.has_relationship("goal", "task.123")
+# Check if relationship exists (PLANNED — no production caller yet)
+has_goal = await service.has_relationship("fulfills_goal", "task.123")
 
-# Count related entities
-count = await service.count_related("dependents", "task.123")
-
-# Batch operations
-has_batch = await service.batch_has_relationship("goal", ["task.1", "task.2"])
-counts = await service.batch_count_related("knowledge", ["task.1", "task.2"])
-
-# Get all relationships of a type
-entities = await service.get_related_entities("knowledge", "task.123")
+# The same read for many anchors in one query
+knowledge_by_habit = await service.batch_get_related_uids("knowledge", ["habit.1", "habit.2"])
 
 # Edge-property-FILTERED keys (e.g. essentiality tiers on SUPPORTS_GOAL).
 essential = await service.get_related_uids("essential_habits", "goal.123")    # r.essentiality = "essential"
@@ -266,7 +265,7 @@ all_habits = await service.get_related_uids("supporting_habits", "goal.123")  # 
 > `UnifiedRelationshipDefinition` may scope a relationship by an edge property — GOALS_CONFIG
 > splits SUPPORTS_GOAL into `essential_habits`/`critical_habits`/`optional_habits` (filtered)
 > plus the no-filter `supporting_habits`/`contributing_habits` catch-all. The filter applies
-> on **every** read path: `get_related_uids`/`count_related`/`has_relationship` (backend
+> on **every** read path: `get_related_uids`/`has_relationship`/`batch_get_related_uids` (backend
 > `WHERE r.<prop> = $value`), `get_cross_domain_context` categorization (filtered mappings
 > sort before the catch-all, matched on each node's `incident_rel_properties`), and
 > `get_with_context`/`build_entity_with_context` (per-clause `WHERE`). **Catch-all semantics
@@ -740,8 +739,8 @@ rels = await DomainRelationships.fetch("task.123", service)
 
 ```python
 # Batch queries minimize round-trips
-has_goals = await service.batch_has_relationship("goal", task_uids)
-# ↳ Single query with IN clause instead of N queries
+knowledge_by_task = await service.batch_get_related_uids("knowledge", task_uids)
+# ↳ Single UNWIND query instead of N queries
 ```
 
 ### Lazy Loading

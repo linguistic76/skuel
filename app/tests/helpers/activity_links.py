@@ -171,3 +171,17 @@ def heading_at(
         if definition.page_heading is not None:
             return definition.page_heading
     raise AssertionError(f"{at} shows no {direction} {edge} toward {far_end}")
+
+
+def undeclared_edge() -> RelationshipName:
+    """An edge type no config declares — a control built on it cannot be moved by a later PR."""
+    declared = {
+        definition.relationship
+        for config in LABEL_CONFIGS.values()
+        for definition in config.relationships
+    }
+    return next(
+        edge
+        for edge in RelationshipName
+        if edge not in declared and not edge.is_lateral_relationship()
+    )

@@ -651,8 +651,15 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
     ),
     (
         "adapters.persistence.neo4j._relationship_crud_mixin",
-        "_RelationshipCrudMixin._batch_related",
-    ): _FAR_NODE_RESIDUAL,
+        "_RelationshipCrudMixin.batch_get_related_uids",
+    ): (
+        "a far-node read: it needs one of a user's own activities linked to a draft. "
+        "No route shows what it returns, so the route crawl cannot see it; measured "
+        "through the relationship service instead, by "
+        "tests/integration/test_keyed_readers.py (under the Goal backend a linked Ku "
+        "marked draft is withheld and a published one returned, as is another user's "
+        "habit)"
+    ),
     (
         "adapters.persistence.neo4j._relationship_query_mixin",
         "_RelationshipQueryMixin.get_related_entities",

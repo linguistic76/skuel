@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-02
+updated: 2026-10-05
 ---
 
 # Deferred Work
@@ -189,7 +189,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Field-Name Guarding in Cypher
 
-[Field-Name Guarding in Cypher — Which Guarantee, and Where](field-name-guarding-in-cypher.md) — Five backend sites interpolate a property name their caller supplies through none of the layer's three guarantees; ruled to stay that way because every caller passes a literal, a registry constant, or sits behind a PLANNED surface — the case file names the one seam that would make it live in a line (`PsService.list_steps`' `**kwargs`) and holds the measurement that `ORDER BY` on a non-returned property is a paginated disclosure oracle.
+[Field-Name Guarding in Cypher — Which Guarantee, and Where](field-name-guarding-in-cypher.md) — Four backend sites interpolate a property name their caller supplies through none of the layer's three guarantees; ruled to stay that way because every caller passes a literal, a registry constant, or sits behind a PLANNED surface — the case file names the one seam that would make it live in a line (`PsService.list_steps`' `**kwargs`) and holds the measurement that `ORDER BY` on a non-returned property is a paginated disclosure oracle.
 
 ## Development Machine Capacity
 

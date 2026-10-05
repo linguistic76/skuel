@@ -189,7 +189,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
 
         Helps identify goals that need attention by showing:
         1. Goals with low progress
-        2. What's blocking progress (missing knowledge, no habits)
+        2. What's blocking progress (missing knowledge — ContextualGoal derives it)
         3. Recommended next actions
 
         **Context Fields Used:**
@@ -228,36 +228,14 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
 
             # Get requirements via relationship service
             knowledge_uids = []
-            habit_uids = []
             if self._relationship_service:
                 knowledge_result = await self._relationship_service.get_related_uids(
                     "knowledge", EntityUID(goal_uid)
                 )
-                habits_result = await self._relationship_service.get_related_uids(
-                    "habits", EntityUID(goal_uid)
-                )
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
-                habit_uids = habits_result.value if habits_result.is_ok else []
 
-            # Identify blocking reasons
-            blocking_reasons = []
-
-            # Check knowledge gaps
-            knowledge_gaps = []
-            for ku_uid in knowledge_uids:
-                mastery = context.knowledge_mastery.get(ku_uid, 0.0)
-                if mastery < 0.7:
-                    knowledge_gaps.append(ku_uid)
-                    blocking_reasons.append(f"Missing knowledge: {ku_uid} ({mastery:.0%})")
-
-            # Check for supporting system
             contributing_tasks = context.tasks_by_goal_or_empty().get(goal_uid, [])
             contributing_habits = context.habits_by_goal_or_empty().get(goal_uid, [])
-
-            if not contributing_tasks:
-                blocking_reasons.append("No active tasks contributing to this goal")
-            if not contributing_habits and habit_uids:
-                blocking_reasons.append("Has required habits but none active")
 
             # Get title safely
             title = getattr(goal, "title", str(goal_uid))

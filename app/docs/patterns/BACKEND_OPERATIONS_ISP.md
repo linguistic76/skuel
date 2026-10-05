@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-09-30
+updated: 2026-10-05
 category: patterns
 related_skills: []
 related_docs:
@@ -29,8 +29,8 @@ BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
     ├── RelationshipCrudOperations         (13 methods)
     ├── RelationshipMetadataOperations     (3 methods)
     ├── RelationshipQueryOperations        (3 methods)
-    ├── OrderedRelationshipOperations      (7 methods)
-    ├── BatchRelationshipOperations        (3 methods)
+    ├── OrderedRelationshipOperations      (5 methods)
+    ├── BatchRelationshipOperations        (1 method)
     ├── GraphTraversalOperations           (6 methods)
     └── LowLevelOperations                 (2 methods + driver)
 ```
@@ -118,12 +118,12 @@ Query operations for graph relationships.
 
 ```python
 class RelationshipQueryOperations(Protocol):
-    async def count_related(self, uid: str, relationship_type: RelationshipName, direction: Direction = "outgoing", properties: Neo4jProperties | None = None) -> Result[int]: ...
-    async def get_related_uids(self, uid: str, relationship_type: RelationshipName, direction: Direction = "outgoing", limit: int = 100, properties: Neo4jProperties | None = None) -> Result[list[str]]: ...
+    async def count_related(self, uid: str, relationship_type: RelationshipName, direction: Direction = "outgoing", properties: Neo4jProperties | None = None, target_label: NeoLabel | None = None) -> Result[int]: ...
+    async def get_related_uids(self, uid: str, relationship_type: RelationshipName, direction: Direction = "outgoing", limit: int = 100, properties: Neo4jProperties | None = None, include_withheld: bool = False, target_label: NeoLabel | None = None) -> Result[list[str]]: ...
     async def count_relationships_batch(self, requests: list[tuple[str, str, str | None]]) -> Result[dict]: ...
 ```
 
-### OrderedRelationshipOperations (7 methods)
+### OrderedRelationshipOperations (5 methods)
 Ordered and hierarchical traversal driven by edge properties — the curriculum shape, where
 "the steps of this path" is an order rather than a set. Implemented by
 `_RelationshipOrderedMixin`; consumed by `OrderedRelationshipsMixin` on
@@ -131,8 +131,6 @@ Ordered and hierarchical traversal driven by edge properties — the curriculum 
 
 ```python
 class OrderedRelationshipOperations(Protocol):
-    async def get_ordered_related_uids(self, entity_label: NeoLabel, entity_uid: str, relationship_type: str, direction: Direction, order_by_property: str | None = None, order_direction: str = "ASC") -> Result[list[str]]: ...
-    async def get_related_with_metadata(self, ...) -> Result[list[dict[str, Any]]]: ...
     async def reorder_relationships(self, ..., target_uid_sequence: list[str], sequence_property: str = "sequence") -> Result[int]: ...
     async def create_relationship_with_properties(self, entity_uid: str, target_uid: str, relationship_type: RelationshipName, direction: Direction, edge_properties: dict[str, Any]) -> Result[bool]: ...
     async def get_hierarchical_children_single(self, ...) -> Result[list[dict[str, Any]]]: ...
@@ -140,15 +138,13 @@ class OrderedRelationshipOperations(Protocol):
     async def get_hierarchical_children_deep(self, ...) -> Result[list[dict[str, Any]]]: ...
 ```
 
-### BatchRelationshipOperations (3 methods)
+### BatchRelationshipOperations (1 method)
 N+1 elimination: one query answers a relationship question for many source entities, keyed
 by UID. Implemented by `_RelationshipCrudMixin`; consumed by `BatchOperationsMixin`.
 
 ```python
 class BatchRelationshipOperations(Protocol):
-    async def batch_has_relationship(self, entity_label: NeoLabel, entity_uids: list[str], relationship_type: str, direction: Direction) -> Result[dict[str, bool]]: ...
-    async def batch_count_related(self, ...) -> Result[dict[str, int]]: ...
-    async def batch_get_related_uids(self, ...) -> Result[dict[str, list[str]]]: ...
+    async def batch_get_related_uids(self, entity_uids: list[str], relationship_type: RelationshipName, direction: Direction, properties: Neo4jProperties | None = None, target_label: NeoLabel | None = None) -> Result[dict[str, list[str]]]: ...
 ```
 
 ### GraphTraversalOperations (6 methods)
@@ -443,8 +439,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 | `_crud_mixin.py` | `CrudOperations[T]` | `create`, `get`, `get_many`, `update`, `delete`, `list` |
 | `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`*, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
 | `_relationship_query_mixin.py` | `RelationshipMetadata*`, `RelationshipQuery*` | `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, `relate()`, batch queries |
-| `_relationship_ordered_mixin.py` | Ordered/hierarchical queries | `get_ordered_related_uids`, `get_related_with_metadata`, `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, lateral-getter wrappers (`get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`) |
-| `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, helpers |
+| `_relationship_ordered_mixin.py` | Ordered writes / hierarchical queries | `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, lateral-getter wrappers (`get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`) |
+| `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `batch_get_related_uids`, `_build_direction_pattern`, helpers |
 | `_user_entity_mixin.py` | Generic user-entity ops | `get_user_entities`*, `count_user_entities`*, `update_relationship_access` |
 | `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse`, `find_path` |
 
@@ -469,7 +465,7 @@ The original February 2026 decomposition created a single `_relationship_mixin.p
 | File | Lines | Responsibility |
 |------|-------|---------------|
 | `_relationship_query_mixin.py` | ~666 | `RelationshipMetadata*`, `RelationshipQuery*`: `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, fluent `relate()`, batch queries |
-| `_relationship_crud_mixin.py` | ~983 | `RelationshipCrud*`: `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, private helpers |
+| `_relationship_crud_mixin.py` | ~983 | `RelationshipCrud*`: `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `batch_get_related_uids`, `_build_direction_pattern`, private helpers |
 
 `_relationship_query_mixin.py` stubs `_build_direction_pattern` via `TYPE_CHECKING` (declared in `_relationship_crud_mixin.py`). Public API unchanged — 2,817 tests pass.
 

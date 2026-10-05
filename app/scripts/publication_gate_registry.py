@@ -208,13 +208,12 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j._relationship_crud_mixin",
-        "_RelationshipCrudMixin._batch_related",
+        "_RelationshipCrudMixin.batch_get_related_uids",
         Disposition.GATED,
-        "The batched related-uid read behind the relationship service. Under an "
-        "Activity label the related node is tied by build_link_far_node_clause, "
-        "so a draft at the far end of a user's link edge is not named. The "
-        "existence and count wrappers over the same statement name nothing and "
-        "stay untied — identity is withheld, arithmetic sees every edge.",
+        "The batched related-uid read behind the relationship service. Its anchors "
+        "are the backend's own nodes, so under an Activity backend the related node "
+        "is tied by build_link_far_node_clause and a draft at the far end of a "
+        "user's link edge is not named.",
     ),
     Surface(
         "adapters.persistence.neo4j._relationship_query_mixin",
