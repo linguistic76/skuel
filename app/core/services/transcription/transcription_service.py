@@ -212,7 +212,7 @@ class TranscriptionService(EntityTimestampMixin):
         if status:
             filters["status"] = status.value
 
-        result = await self.backend.list(limit=limit, offset=offset, **filters)
+        result = await self.backend.list(limit=limit, offset=offset, filters=filters)
         if result.is_error:
             return Result.fail(result)
         items, _total = result.value
