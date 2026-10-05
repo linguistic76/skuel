@@ -28,7 +28,7 @@ tasks_relationship_service = UnifiedRelationshipService(
 
 # All methods now available:
 await tasks_relationship_service.get_related_uids("subtasks", task_uid)
-await tasks_relationship_service.has_relationship("prerequisites", task_uid)
+await tasks_relationship_service.has_relationship("knowledge", task_uid)
 await tasks_relationship_service.get_cross_domain_context(task_uid)
 await tasks_relationship_service.get_with_context(task_uid)
 ```
@@ -38,7 +38,7 @@ await tasks_relationship_service.get_with_context(task_uid)
 core/services/relationships/
 ├── unified_relationship_service.py   (shell: constructor + core CRUD)
 ├── _batch_operations_mixin.py        (N+1 elimination batch queries)
-├── _ordered_relationships_mixin.py   (curriculum ordered/metadata queries)
+├── _ordered_relationships_mixin.py   (curriculum ordering + hierarchy traversal)
 └── _intelligence_mixin.py            (graph intelligence + semantic + cross-domain)
 ```
 """
@@ -64,6 +64,7 @@ from core.services.mixins.link_edge_guard import (
 )
 from core.services.relationships._batch_operations_mixin import BatchOperationsMixin
 from core.services.relationships._intelligence_mixin import IntelligenceMixin
+from core.services.relationships._keyed_read import resolve_keyed_read
 from core.services.relationships._ordered_relationships_mixin import OrderedRelationshipsMixin
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -76,20 +77,6 @@ if TYPE_CHECKING:
 # Type variables
 T = TypeVar("T")  # Domain model type
 D = TypeVar("D")  # DTO type
-
-
-def _spec_edge_filter(spec: UnifiedRelationshipDefinition) -> Neo4jProperties | None:
-    """Edge-property filter for a relationship spec, or ``None`` when unfiltered.
-
-    A spec with ``filter_property`` (e.g. GOALS_CONFIG's ``essential_habits`` =
-    SUPPORTS_GOAL incoming filtered by ``essentiality="essential"``) selects only edges
-    carrying that property value. Without this, every essentiality tier resolved to the
-    same unfiltered set — the read half of the goal-habit essentiality bug. The backend
-    ``get_related_uids`` / ``count_related`` apply it as ``WHERE r.<prop> = $value``.
-    """
-    if spec.filter_property is None:
-        return None
-    return {spec.filter_property: spec.filter_value}
 
 
 class UnifiedRelationshipService[
@@ -237,10 +224,9 @@ class UnifiedRelationshipService[
         """
         Get UIDs of related entities by relationship key.
 
-        This generic method replaces domain-specific methods like:
-        - get_task_knowledge()
-        - get_goal_principles()
-        - get_habit_supporting_habits()
+        The key's definition decides the edge type, the direction, the tier and the
+        far end's kind (``resolve_keyed_read``). Through an Activity backend a related
+        entity is the anchor owner's own or published shared content.
 
         Args:
             relationship_key: Key from config (e.g., "knowledge", "principles", "subtasks")
@@ -249,19 +235,16 @@ class UnifiedRelationshipService[
         Returns:
             Result[list[str]] of related UIDs
         """
-        spec = self.config.get_relationship_by_method(relationship_key)
-        if not spec:
-            return Result.fail(
-                Errors.validation(
-                    f"Unknown relationship key '{relationship_key}' for {self.config.entity_label}"
-                )
-            )
+        read = resolve_keyed_read(self.config, relationship_key)
+        if read.is_error:
+            return Result.fail(read)
 
         return await self.backend.get_related_uids(
             uid=entity_uid,
-            relationship_type=spec.relationship,
-            direction=spec.direction,
-            properties=_spec_edge_filter(spec),
+            relationship_type=read.value.spec.relationship,
+            direction=read.value.spec.direction,
+            properties=read.value.properties,
+            target_label=read.value.target_label,
         )
 
     async def has_relationship(
@@ -272,10 +255,9 @@ class UnifiedRelationshipService[
         """
         Check if entity has any related entities for a relationship key.
 
-        This generic method replaces domain-specific methods like:
-        - has_subtasks()
-        - is_learning_task()
-        - has_prerequisites()
+        A cheap existence check over the key's definition (edge type, direction, tier,
+        far end's kind). It counts every edge, the far ends ``get_related_uids``
+        withholds included.
 
         Args:
             relationship_key: Key from config (e.g., "knowledge", "prerequisites")
@@ -284,55 +266,22 @@ class UnifiedRelationshipService[
         Returns:
             Result[bool] indicating if any relationships exist
         """
-        spec = self.config.get_relationship_by_method(relationship_key)
-        if not spec:
-            return Result.fail(
-                Errors.validation(
-                    f"Unknown relationship key '{relationship_key}' for {self.config.entity_label}"
-                )
-            )
+        read = resolve_keyed_read(self.config, relationship_key)
+        if read.is_error:
+            return Result.fail(read)
 
         count_result = await self.backend.count_related(
             uid=entity_uid,
-            relationship_type=spec.relationship,
-            direction=spec.direction,
-            properties=_spec_edge_filter(spec),
+            relationship_type=read.value.spec.relationship,
+            direction=read.value.spec.direction,
+            properties=read.value.properties,
+            target_label=read.value.target_label,
         )
 
         if count_result.is_error:
             return Result.fail(count_result)
 
         return Result.ok(count_result.value > 0)
-
-    async def count_related(
-        self,
-        relationship_key: str,
-        entity_uid: EntityUID,
-    ) -> Result[int]:
-        """
-        Count related entities for a relationship key.
-
-        Args:
-            relationship_key: Key from config
-            entity_uid: Entity UID
-
-        Returns:
-            Result[int] with count of related entities
-        """
-        spec = self.config.get_relationship_by_method(relationship_key)
-        if not spec:
-            return Result.fail(
-                Errors.validation(
-                    f"Unknown relationship key '{relationship_key}' for {self.config.entity_label}"
-                )
-            )
-
-        return await self.backend.count_related(
-            uid=entity_uid,
-            relationship_type=spec.relationship,
-            direction=spec.direction,
-            properties=_spec_edge_filter(spec),
-        )
 
     # =========================================================================
     # RELATIONSHIP CREATION

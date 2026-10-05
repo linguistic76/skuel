@@ -28,7 +28,6 @@ EVENT_QUERY_SPECS: list[tuple[str, str]] = [
     ("triggered_choice_uids", "triggered_choices"),
     ("scheduled_by_choice_uids", "scheduled_by_choices"),
     ("demonstrated_principle_uids", "demonstrated_principles"),
-    ("related_event_uids", "related_events"),
 ]
 
 
@@ -75,9 +74,6 @@ class EventRelationships:
 
     # Outgoing: Event → Principle (DEMONSTRATES_PRINCIPLE)
     demonstrated_principle_uids: list[str] = field(default_factory=list)
-
-    # Shared-neighbor: events sharing knowledge or goal context
-    related_event_uids: list[str] = field(default_factory=list)
 
     @classmethod
     async def fetch(cls, event_uid: str, service: UnifiedRelationshipService) -> EventRelationships:

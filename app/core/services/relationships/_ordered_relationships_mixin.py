@@ -2,13 +2,11 @@
 Ordered Relationships Mixin
 ============================
 
-Curriculum-domain-specific operations for ordered relationships and edge metadata.
+Curriculum-domain-specific operations for ordered relationships and hierarchy.
 
 Supports patterns like LP → PS → KU hierarchy with sequence properties on edges.
 
 Provides:
-    get_ordered_related_uids: Get related UIDs ordered by edge property
-    get_related_with_metadata: Get related entities with edge property metadata
     reorder_relationships: Update edge sequence properties to new order
     create_relationship_with_properties: Create relationship with edge properties
     get_hierarchical_children: Multi-hop traversal for curriculum patterns
@@ -33,11 +31,11 @@ if TYPE_CHECKING:
 
 class OrderedRelationshipsMixin[Ops: BackendOperations]:
     """
-    Mixin providing ordered relationship and edge metadata methods.
+    Mixin providing ordered relationship and hierarchy methods.
 
     Methods support curriculum domain patterns:
     - Ordered relationships (HAS_STEP with sequence property)
-    - Edge metadata retrieval (return entity + edge properties)
+    - Edges written with properties
     - Hierarchical traversal (LP → PS → KU)
 
     Requires on concrete class:
@@ -50,85 +48,6 @@ class OrderedRelationshipsMixin[Ops: BackendOperations]:
     config: DomainRelationshipConfig
     backend: Ops
     logger: Any
-
-    @with_error_handling("get_ordered_related_uids", error_type="database", uid_param="entity_uid")
-    async def get_ordered_related_uids(
-        self,
-        relationship_key: str,
-        entity_uid: EntityUID,
-    ) -> Result[list[str]]:
-        """
-        Get related entity UIDs in order defined by edge property.
-
-        Uses order_by_property from RelationshipSpec if configured.
-        Falls back to unordered query if no ordering configured.
-
-        Args:
-            relationship_key: Key from config (e.g., "steps")
-            entity_uid: Entity UID
-
-        Returns:
-            Result[list[str]] of related UIDs in order
-        """
-        spec = self.config.get_relationship_by_method(relationship_key)
-        if not spec:
-            return Result.fail(
-                Errors.validation(
-                    f"Unknown relationship key '{relationship_key}' for {self.config.entity_label}"
-                )
-            )
-
-        return await self.backend.get_ordered_related_uids(
-            entity_label=self.config.entity_label,
-            entity_uid=entity_uid,
-            relationship_type=spec.relationship.value,
-            direction=spec.direction,
-            order_by_property=spec.order_by_property,
-            order_direction=spec.order_direction,
-        )
-
-    @with_error_handling("get_related_with_metadata", error_type="database", uid_param="entity_uid")
-    async def get_related_with_metadata(
-        self,
-        relationship_key: str,
-        entity_uid: EntityUID,
-        edge_properties: list[str] | None = None,
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Get related entities WITH edge property metadata.
-
-        Returns list of dicts containing entity data and edge properties.
-        Uses include_edge_properties from RelationshipSpec if edge_properties not provided.
-        Uses order_by_property from RelationshipSpec if configured.
-
-        Args:
-            relationship_key: Key from config (e.g., "steps")
-            entity_uid: Entity UID
-            edge_properties: Optional override of edge properties to return
-
-        Returns:
-            Result[list[dict]] with structure:
-            [{"uid": "ps:1", "title": "...", "edge": {"sequence": 0, ...}}, ...]
-        """
-        spec = self.config.get_relationship_by_method(relationship_key)
-        if not spec:
-            return Result.fail(
-                Errors.validation(
-                    f"Unknown relationship key '{relationship_key}' for {self.config.entity_label}"
-                )
-            )
-
-        props_to_return = edge_properties or list(spec.include_edge_properties)
-
-        return await self.backend.get_related_with_metadata(
-            entity_label=self.config.entity_label,
-            entity_uid=entity_uid,
-            relationship_type=spec.relationship.value,
-            direction=spec.direction,
-            edge_properties=props_to_return if props_to_return else None,
-            order_by_property=spec.order_by_property,
-            order_direction=spec.order_direction,
-        )
 
     @with_error_handling("reorder_relationships", error_type="database", uid_param="entity_uid")
     async def reorder_relationships(

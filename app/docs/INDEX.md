@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-10-04
+updated: 2026-10-05
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -438,7 +438,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Tasks+ / One-Chrome Follow-ons](roadmap/tasks-plus-follow-ons.md) | What the one-chrome arc left outside itself by ruling — Explore's phone form + the MOC-roots question (D5), the doorless-surfaces census (D8), the `enum_helpers` census, the shared WAI-ARIA tabs-widget extraction, sidebar group dividers, the "Transcribe" rename (D7), PWA first-run — each its own PR |
 | [Deferred Work](roadmap/deferred-work.md) | The deferred-work MOC — one `##` per item with a link to its case file; trigger, check and status live in the case files' frontmatter (`deferred-work.base` renders them as a table) |
 | [Habit-Completion Persistence Bundle](roadmap/habit-completion-persistence-bundle.md) | Six defects around the `HabitCompletion` node plus the node-less third door — one shared lock-derived writer is the shape; defect 3 needs Mike's one-per-day ruling first |
-| [Field-Name Guarding in Cypher — Which Guarantee, and Where](roadmap/field-name-guarding-in-cypher.md) | The three guarantees an interpolated property name can take (syntactic / model-derived / enum-typed) and why they are not interchangeable; the measurement that `ORDER BY` on a non-returned property is a paginated disclosure oracle bounded by `WHERE`; the five backend sites ruled to stay unguarded and the `**kwargs` seam that would reopen them |
+| [Field-Name Guarding in Cypher — Which Guarantee, and Where](roadmap/field-name-guarding-in-cypher.md) | The three guarantees an interpolated property name can take (syntactic / model-derived / enum-typed) and why they are not interchangeable; the measurement that `ORDER BY` on a non-returned property is a paginated disclosure oracle bounded by `WHERE`; the four backend sites ruled to stay unguarded and the `**kwargs` seam that would reopen them |
 | [Sharing HTTP Door — Operations on Existing Shares](roadmap/sharing-http-door.md) | `UnifiedSharingService`'s revoke / access-list / visibility half has no door — the per-method PLANNED / deleted ruling (2026-09-21), why the door operates on the edges audience-at-submit wrote and never a second share form, and why `set_visibility` waits on the PUBLIC reader |
 | [Form-Submission Recipient Read](roadmap/form-submission-recipient-read.md) | A FormSubmission shared with a person is listed on their Shared page and opens as not-found — `get_submission` is owner-only; deferred by the Submit & Share arc until its PR 5 audience read exists to reuse |
 | **[UTC Instants Arc — Rulings & Contract](roadmap/utc-instants-arc.md)** | **ACTIVE (ruled 2026-09-27): the multi-PR arc — run from a Claude Code cloud session, with the AuraDB steps on the laptop — that makes every instant UTC and every calendar concept ask the user's zone — founder rulings R1–R8, the verified census (four stored cohorts, the zone history, the live defects), the migration contract, and the PR ledger** |

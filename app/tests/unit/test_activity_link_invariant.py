@@ -19,9 +19,10 @@ that carry its value.
 **Rule 2 — a view lists one kind.** A view on an Activity config whose far end is
 ``Entity``, over an edge type that reaches that config from more than one kind of node,
 names its kind in ``target_label`` (the declaration half), and every keyed reader on
-``UnifiedRelationshipService`` carries the definition's ``target_label`` to the backend
-(the read half). The probe sees the arguments the backend is called with, not the query
-it runs; that the query applies the label is a real-graph test's to show.
+``UnifiedRelationshipService`` carries the definition's ``target_label`` and its tier
+(``filter_property``) to the backend (the read half). The probe sees the arguments the
+backend is called with, not the query it runs; that the query applies them is
+``tests/integration/test_keyed_readers.py``'s to show.
 
 **Rule 3 — what a page reads, it shows** (R10). Every end that reads a link between two
 Activities (Rule 1) shows it: one of its unfiltered views of the link carries a
@@ -34,7 +35,7 @@ label). Two different edge types may share a heading: one link stored under two 
 which the page lists once. A view filtered on an edge property carries no heading: the
 page places an edge by type, direction and far-end label, never by its properties.
 
-The three gap lists (``MISSING_ENDS``, ``MIXED_VIEWS``, ``READERS_IGNORING_TARGET_LABEL``)
+The two gap lists (``MISSING_ENDS``, ``MIXED_VIEWS``)
 name the ledger row that closes each entry (docs/roadmap/activity-links-arc.md § PR
 ledger). Every list fails both ways: a new item is red until it is closed or listed, and a
 listed item that is closed or gone is red until its entry is removed.
@@ -80,6 +81,7 @@ from tests.helpers.activity_links import (
     links_read_at_both_ends,
     reads,
     shows,
+    undeclared_edge,
 )
 
 
@@ -140,18 +142,6 @@ MIXED_VIEWS: dict[View, str] = {
     View(NeoLabel.HABIT, RelationshipName.REINFORCES_HABIT, "reinforcing_habits"): "PR 5",
     View(NeoLabel.PRINCIPLE, RelationshipName.EMBODIES_PRINCIPLE, "embodying_habits"): "PR 5",
     View(NeoLabel.EVENT, RelationshipName.SCHEDULES_EVENT, "scheduled_by_choices"): "PR 5",
-}
-
-# Keyed readers that do not carry a definition's target_label to the backend.
-READERS_IGNORING_TARGET_LABEL: dict[str, str] = {
-    "get_related_uids": "PR 1c",
-    "get_related_with_metadata": "PR 1c",
-    "get_ordered_related_uids": "PR 1c",
-    "has_relationship": "PR 1c",
-    "count_related": "PR 1c",
-    "batch_has_relationship": "PR 1c",
-    "batch_count_related": "PR 1c",
-    "batch_get_related_uids": "PR 1c",
 }
 
 
@@ -354,27 +344,19 @@ def _definition(
     )
 
 
-def _undeclared_edge() -> RelationshipName:
-    """An edge type no config declares — a control built on it cannot be moved by a later PR."""
-    declared = {
-        definition.relationship
-        for config in LABEL_CONFIGS.values()
-        for definition in config.relationships
-    }
-    return next(
-        edge
-        for edge in RelationshipName
-        if edge not in declared and not edge.is_lateral_relationship()
-    )
-
-
 # ============================================================================
 # The read half: does a keyed reader carry target_label to the backend?
 # ============================================================================
 
 PROBE_FAR_END = NeoLabel.HABIT
 
-PROBE_VIEW = _definition(RelationshipName.SUPPORTS_GOAL, PROBE_FAR_END, "incoming")
+PROBE_TIER = ("essentiality", "probe_tier")
+
+PROBE_VIEW = dataclasses.replace(
+    _definition(RelationshipName.SUPPORTS_GOAL, PROBE_FAR_END, "incoming"),
+    filter_property=PROBE_TIER[0],
+    filter_value=PROBE_TIER[1],
+)
 
 # The arguments a keyed reader takes beside its key
 PROBE_ARGUMENTS: dict[str, str | list[str]] = {
@@ -426,12 +408,29 @@ def _keyed_methods() -> set[str]:
     }
 
 
+def _mentions_tier(value: object) -> bool:
+    """Whether the probe's tier sits in ``value`` as a key with its value, at any depth."""
+    if isinstance(value, Mapping):
+        key, tier = PROBE_TIER
+        return value.get(key) == tier or any(_mentions_tier(item) for item in value.values())
+    if isinstance(value, list | tuple | set | frozenset):
+        return any(_mentions_tier(item) for item in value)
+    return False
+
+
+class _Reach(NamedTuple):
+    """What a keyed reader carried to the backend over the probe view."""
+
+    label: bool
+    tier: bool
+
+
 async def _reaches_backend_with(
     reader: str,
     label: NeoLabel = PROBE_FAR_END,
     service_class: type[UnifiedRelationshipService] | None = None,
-) -> bool:
-    """Run ``reader`` over the probe view; whether ``label`` reached any backend call.
+) -> _Reach:
+    """Run ``reader`` over the probe view; whether ``label`` and the tier reached the backend.
 
     A keyed method this cannot call (a parameter ``PROBE_ARGUMENTS`` does not know) fails
     here, so a new keyed method is red until it is listed where it belongs.
@@ -457,15 +456,15 @@ async def _reaches_backend_with(
 
     assert not result.is_error, f"{reader} failed over the probe view: {result}"
     assert backend.calls, f"{reader} reached no backend call"
-    return any(_mentions((args, kwargs), label) for _name, args, kwargs in backend.calls)
+    passed = [(args, kwargs) for _name, args, kwargs in backend.calls]
+    return _Reach(
+        label=any(_mentions(call, label) for call in passed),
+        tier=any(_mentions_tier(call) for call in passed),
+    )
 
 
 def _keyed_readers() -> set[str]:
     return _keyed_methods() - set(KEYED_WRITERS) - set(READERS_GIVEN_THE_LABEL)
-
-
-async def _readers_ignoring_target_label() -> set[str]:
-    return {reader for reader in _keyed_readers() if not await _reaches_backend_with(reader)}
 
 
 # ============================================================================
@@ -577,20 +576,21 @@ class TestOneKindPerView:
         )
 
     async def test_every_keyed_reader_carries_target_label(self):
-        unlisted = await _readers_ignoring_target_label() - set(READERS_IGNORING_TARGET_LABEL)
+        dropping = {r for r in _keyed_readers() if not (await _reaches_backend_with(r)).label}
 
-        assert not unlisted, (
+        assert not dropping, (
             "These keyed readers do not carry the definition's target_label to the "
-            "backend, so a view that names one kind still lists every kind. Carry it, or "
-            f"list the reader in READERS_IGNORING_TARGET_LABEL: {sorted(unlisted)}"
+            "backend, so a view that names one kind still lists every kind: "
+            f"{sorted(dropping)}"
         )
 
-    async def test_every_listed_reader_ignores_target_label(self):
-        closed = set(READERS_IGNORING_TARGET_LABEL) - await _readers_ignoring_target_label()
+    async def test_every_keyed_reader_carries_the_tier(self):
+        dropping = {r for r in _keyed_readers() if not (await _reaches_backend_with(r)).tier}
 
-        assert not closed, (
-            "READERS_IGNORING_TARGET_LABEL lists readers that carry target_label now, or "
-            f"that are gone — remove: {sorted(closed)}"
+        assert not dropping, (
+            "These keyed readers do not carry the definition's edge-property filter to "
+            "the backend, so a tier view lists every tier: "
+            f"{sorted(dropping)}"
         )
 
     def test_every_registered_keyed_method_exists(self):
@@ -641,7 +641,7 @@ class TestTheInstrument:
         assert len(configs(LABEL_CONFIGS)) == len({id(config) for config in LABEL_CONFIGS.values()})
 
     def test_a_view_declared_at_the_source_only_is_a_missing_end(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         configs = _with_definitions(NeoLabel.TASK, _definition(edge, NeoLabel.CHOICE, "outgoing"))
 
         added = _missing_ends(configs) - _missing_ends(LABEL_CONFIGS)
@@ -651,7 +651,7 @@ class TestTheInstrument:
         }
 
     def test_a_view_declared_at_the_target_only_is_a_missing_end(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         configs = _with_definitions(NeoLabel.GOAL, _definition(edge, NeoLabel.EVENT, "incoming"))
 
         added = _missing_ends(configs) - _missing_ends(LABEL_CONFIGS)
@@ -659,7 +659,7 @@ class TestTheInstrument:
         assert added == {MissingEnd(NeoLabel.EVENT, edge, NeoLabel.GOAL, unread_at=NeoLabel.EVENT)}
 
     def test_a_link_declared_at_both_ends_is_not_missing(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         configs = _with_definitions(
             NeoLabel.GOAL,
             _definition(edge, NeoLabel.TASK, "incoming"),
@@ -686,7 +686,7 @@ class TestTheInstrument:
         }
 
     def test_an_entity_far_end_with_no_counterpart_is_unresolved(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         configs = _with_definitions(NeoLabel.TASK, _definition(edge, NeoLabel.ENTITY, "outgoing"))
 
         added = _unresolved_views(configs) - _unresolved_views(LABEL_CONFIGS)
@@ -694,7 +694,7 @@ class TestTheInstrument:
         assert added == {View(NeoLabel.TASK, edge, "probe")}
 
     def test_an_entity_view_over_several_kinds_of_source_is_mixed(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         sources = _with_definitions(
             NeoLabel.EVENT,
             _definition(edge, NeoLabel.GOAL, "outgoing"),
@@ -711,7 +711,7 @@ class TestTheInstrument:
         assert added == {View(NeoLabel.GOAL, edge, "probe")}
 
     def test_a_view_naming_its_kind_is_not_mixed(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         sources = _with_definitions(
             NeoLabel.EVENT,
             _definition(edge, NeoLabel.GOAL, "outgoing"),
@@ -726,7 +726,7 @@ class TestTheInstrument:
         assert _mixed_views(configs) == _mixed_views(LABEL_CONFIGS)
 
     def test_a_link_read_but_not_headed_at_one_end_is_unshown_there(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         configs_ = _with_definitions(
             NeoLabel.CHOICE,
             _definition(edge, NeoLabel.TASK, "incoming"),
@@ -742,7 +742,7 @@ class TestTheInstrument:
         }
 
     def test_a_link_headed_at_both_ends_is_shown(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         configs_ = _with_definitions(
             NeoLabel.CHOICE,
             _definition(edge, NeoLabel.ENTITY, "incoming", heading="probe"),
@@ -755,7 +755,7 @@ class TestTheInstrument:
         assert _unshown_ends(configs_) == _unshown_ends(LABEL_CONFIGS)
 
     def test_a_headed_tier_view_alone_does_not_show_the_link(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         tier = dataclasses.replace(
             _definition(edge, NeoLabel.ENTITY, "incoming", heading="probe"),
             filter_property="essentiality",
@@ -775,7 +775,7 @@ class TestTheInstrument:
         assert added == {MissingEnd(NeoLabel.HABIT, edge, NeoLabel.GOAL, unread_at=NeoLabel.GOAL)}
 
     def test_two_headed_views_over_overlapping_far_ends_are_a_double_listing(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         configs_ = _with_definitions(
             NeoLabel.HABIT,
             _definition(edge, NeoLabel.TASK, "incoming", "from_tasks", heading="a"),
@@ -792,7 +792,7 @@ class TestTheInstrument:
         }
 
     def test_headed_views_naming_different_far_ends_are_not_a_double_listing(self):
-        edge = _undeclared_edge()
+        edge = undeclared_edge()
         configs_ = _with_definitions(
             NeoLabel.HABIT,
             _definition(edge, NeoLabel.TASK, "incoming", "from_tasks", heading="a"),
@@ -823,7 +823,7 @@ class TestTheInstrument:
     def test_the_probe_does_not_see_a_label_it_was_not_passed(self, value):
         assert not _mentions(value, PROBE_FAR_END)
 
-    async def test_the_probe_tells_a_reader_that_carries_the_label_from_one_that_drops_it(
+    async def test_the_probe_tells_what_a_reader_carries_from_what_it_drops(
         self,
     ):
         class CarriesTheLabel(UnifiedRelationshipService):
@@ -837,6 +837,17 @@ class TestTheInstrument:
                     target_label=spec.target_label,
                 )
 
+        class CarriesTheTier(UnifiedRelationshipService):
+            async def get_related_uids(self, relationship_key, entity_uid):
+                spec = self.config.get_relationship_by_method(relationship_key)
+                assert spec is not None, relationship_key
+                return await self.backend.get_related_uids(
+                    uid=entity_uid,
+                    relationship_type=spec.relationship,
+                    direction=spec.direction,
+                    properties={spec.filter_property: spec.filter_value},
+                )
+
         class DropsTheLabel(UnifiedRelationshipService):
             async def get_related_uids(self, relationship_key, entity_uid):
                 spec = self.config.get_relationship_by_method(relationship_key)
@@ -848,5 +859,12 @@ class TestTheInstrument:
                     config=self.config,
                 )
 
-        assert await _reaches_backend_with("get_related_uids", service_class=CarriesTheLabel)
-        assert not await _reaches_backend_with("get_related_uids", service_class=DropsTheLabel)
+        carries_label = await _reaches_backend_with(
+            "get_related_uids", service_class=CarriesTheLabel
+        )
+        carries_tier = await _reaches_backend_with("get_related_uids", service_class=CarriesTheTier)
+        drops_both = await _reaches_backend_with("get_related_uids", service_class=DropsTheLabel)
+
+        assert (carries_label.label, carries_label.tier) == (True, False)
+        assert (carries_tier.label, carries_tier.tier) == (False, True)
+        assert (drops_both.label, drops_both.tier) == (False, False)

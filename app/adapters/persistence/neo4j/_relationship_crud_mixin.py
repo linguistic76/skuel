@@ -9,13 +9,14 @@ Provides:
     _validate_relationship_pair: Shared registry-validation pipeline (single + batch)
     _build_direction_pattern: Build directional Cypher patterns
     _get_node_labels: Query node labels from database
-    _batch_related: Shared UNWIND core of the batch_* relationship queries
+    _edge_property_filter: An edge-property filter as Cypher predicates
     create_relationship: Create/update a graph relationship (with validation)
     delete_relationship: Delete a relationship
     delete_relationships_batch: Batch relationship deletion
     has_relationship: Check relationship existence
     count_related: Count related entities without loading them
     create_relationships_batch: Batch relationship creation (with validation)
+    batch_get_related_uids: Related UIDs for many anchors in one query
 
 Requires on concrete class:
     driver, logger, label, entity_class, default_filters
@@ -32,6 +33,7 @@ from adapters.persistence.neo4j.endpoint_queries import (
     PUBLISHED_UIDS_BATCH_PARAMS,
     PUBLISHED_UIDS_BATCH_QUERY,
 )
+from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier
 from adapters.persistence.neo4j.query.cypher.crud_queries import (
     build_link_far_node_clause,
     build_owner_uids_expression,
@@ -305,6 +307,24 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             f"WITH {anchor_var}, {build_owner_uids_expression(anchor_var)} AS anchor_owners"
         )
         return owners_line, far_node[0], far_node[1]
+
+    @staticmethod
+    def _edge_property_filter(
+        properties: dict[str, Any] | None, rel_var: str = "r"
+    ) -> tuple[builtins.list[str], dict[str, Any]]:
+        """An edge-property filter as Cypher predicates and their parameters.
+
+        Each key selects only the edges whose property equals its value
+        (``r.essentiality = $prop_essentiality``). A key is interpolated into the
+        statement, so it must be a plain identifier; ``ValueError`` otherwise.
+        """
+        predicates: builtins.list[str] = []
+        params: dict[str, Any] = {}
+        for key, value in (properties or {}).items():
+            validate_identifier(key, "edge property")
+            predicates.append(f"{rel_var}.{key} = $prop_{key}")
+            params[f"prop_{key}"] = value
+        return predicates, params
 
     def _build_direction_pattern(
         self,
@@ -1113,18 +1133,23 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
         properties: dict[str, Any] | None = None,
+        target_label: NeoLabel | None = None,
     ) -> Result[int]:
         """
         Count related entities without loading them.
 
         Efficient for checking relationship counts (e.g., "How many prerequisites?").
         Use this instead of `len(await get_related_uids())` for better performance.
+        A count is arithmetic: it sees every edge, the far ends the far-node scope
+        withholds from ``get_related_uids`` included.
 
         Args:
             uid: Entity UID
             relationship_type: Neo4j relationship type
             direction: "outgoing", "incoming", or "both"
             properties: Optional dict of relationship properties to filter by
+            target_label: Count only far ends carrying this label (``None`` counts
+                every far end)
 
         Returns:
             Result[int] with relationship count
@@ -1136,44 +1161,29 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
                 direction="outgoing"
             )
-            print(f"Task applies {count_result.value} knowledge units")
 
-            # Count prerequisites
-            prereq_count = await backend.count_related(
-                uid="ku:advanced-python",
-                relationship_type=RelationshipName.REQUIRES_KNOWLEDGE,
-                direction="outgoing"
-            )
-
-            # Count a goal's essential habits (incoming SUPPORTS_GOAL, filtered by tier)
+            # Count a goal's essential habits (incoming SUPPORTS_GOAL from Habits,
+            # filtered by tier)
             essential_count = await backend.count_related(
                 uid="goal:fitness",
                 relationship_type=RelationshipName.SUPPORTS_GOAL,
                 direction="incoming",
-                properties={"essentiality": "essential"}
+                properties={"essentiality": "essential"},
+                target_label=NeoLabel.HABIT,
             )
-            print(f"Goal has {essential_count.value} essential habits")
         """
-        # Build Cypher pattern using helper (with named relationship variable for property access)
         pattern_result = self._build_direction_pattern(
             relationship_type=relationship_type,
             direction=direction,
             rel_var="r",
+            target_label=target_label,
         )
         if pattern_result.is_error:
             return Result.fail(pattern_result)
         pattern = pattern_result.value
 
-        # Build WHERE clause for property filtering
-        where_clauses = []
-        params = {"uid": uid}
-
-        if properties:
-            for key, value in properties.items():
-                param_name = f"prop_{key}"
-                where_clauses.append(f"r.{key} = ${param_name}")
-                params[param_name] = value
-
+        where_clauses, property_params = self._edge_property_filter(properties)
+        params: dict[str, Any] = {"uid": uid, **property_params}
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         # NOT :Content — G13 shadow-uid guard (see create_relationship).
@@ -1345,136 +1355,30 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     # CONFIG-DRIVEN BATCH RELATIONSHIP QUERIES
     # ============================================================================
     # Used by UnifiedRelationshipService's BatchOperationsMixin.
-    # Entity label and relationship type come from DomainRelationshipConfig.
-
-    async def _batch_related(
-        self,
-        entity_label: NeoLabel,
-        entity_uids: builtins.list[str],
-        relationship_type: str,
-        direction: str,
-        return_clause: str,
-        *,
-        names_related: bool = False,
-    ) -> builtins.list[dict[str, Any]]:
-        """
-        Shared UNWIND core behind the three batch_* relationship queries.
-
-        The public wrappers (batch_has_relationship / batch_count_related /
-        batch_get_related_uids) differ only in their RETURN line — pass it as
-        ``return_clause``. Exceptions propagate to the wrappers'
-        @safe_backend_operation decorators.
-
-        ``names_related`` is set by the wrapper whose RETURN names the related node
-        (its uid). Under a link-edge anchor label that node is then the entity
-        owner's own or published shared content (``_link_far_node_scope``). The
-        existence and count wrappers name nothing and see every edge: a count a
-        caller decides "blocked" from does not drop when a prerequisite is hidden.
-        """
-        owners_line, far_node, far_node_params = (
-            self._link_far_node_scope(entity_label, relationship_type, "e")
-            if names_related
-            else ("", "", {})
-        )
-        if owners_line:
-            owners_line += ", entity_uid"
-        far_node_filter = f"AND {far_node}" if far_node else ""
-        query = f"""
-        UNWIND $entity_uids AS entity_uid
-        MATCH (e:{entity_label} {{uid: entity_uid}})
-        {owners_line}
-        OPTIONAL MATCH (e){direction_clause(direction)}(related)
-        WHERE type(r) = $relationship_type {far_node_filter}
-        RETURN entity_uid, {return_clause}
-        """
-
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "entity_uids": entity_uids,
-                    "relationship_type": relationship_type,
-                    **far_node_params,
-                },
-            )
-            return [dict(record) async for record in result]
-
-    @safe_backend_operation("batch_has_relationship")
-    async def batch_has_relationship(
-        self,
-        entity_label: NeoLabel,
-        entity_uids: builtins.list[str],
-        relationship_type: str,
-        direction: str,
-    ) -> Result[dict[str, bool]]:
-        """
-        Check relationship existence for multiple entities in a single query.
-
-        Args:
-            entity_label: Label of the source entity nodes
-            entity_uids: List of entity UIDs to check
-            relationship_type: Neo4j relationship type string
-            direction: "outgoing", "incoming", or "both"
-
-        Returns:
-            Result[dict[str, bool]] mapping uid -> has_relationship
-        """
-        if not entity_uids:
-            return Result.ok({})
-
-        records = await self._batch_related(
-            entity_label,
-            entity_uids,
-            relationship_type,
-            direction,
-            "count(related) > 0 AS has_relationship",
-        )
-        return Result.ok({str(r["entity_uid"]): r.get("has_relationship", False) for r in records})
-
-    @safe_backend_operation("batch_count_related")
-    async def batch_count_related(
-        self,
-        entity_label: NeoLabel,
-        entity_uids: builtins.list[str],
-        relationship_type: str,
-        direction: str,
-    ) -> Result[dict[str, int]]:
-        """
-        Count related entities for multiple entities in a single query.
-
-        Args:
-            entity_label: Label of the source entity nodes
-            entity_uids: List of entity UIDs to check
-            relationship_type: Neo4j relationship type string
-            direction: "outgoing", "incoming", or "both"
-
-        Returns:
-            Result[dict[str, int]] mapping uid -> count
-        """
-        if not entity_uids:
-            return Result.ok({})
-
-        records = await self._batch_related(
-            entity_label, entity_uids, relationship_type, direction, "count(related) AS count"
-        )
-        return Result.ok({str(r["entity_uid"]): r.get("count", 0) for r in records})
 
     @safe_backend_operation("batch_get_related_uids")
     async def batch_get_related_uids(
         self,
-        entity_label: NeoLabel,
         entity_uids: builtins.list[str],
-        relationship_type: str,
-        direction: str,
+        relationship_type: RelationshipName,
+        direction: Direction,
+        properties: dict[str, Any] | None = None,
+        target_label: NeoLabel | None = None,
     ) -> Result[dict[str, builtins.list[str]]]:
         """
         Get related entity UIDs for multiple entities in a single query.
 
+        The anchors are this backend's own nodes. Under a link-edge anchor label a
+        related entity is the anchor owner's own or published shared content
+        (``_link_far_node_scope``), as in ``get_related_uids``.
+
         Args:
-            entity_label: Label of the source entity nodes
-            entity_uids: List of entity UIDs to query
-            relationship_type: Neo4j relationship type string
+            entity_uids: UIDs of this backend's entities to query
+            relationship_type: The relationship type
             direction: "outgoing", "incoming", or "both"
+            properties: Optional dict of relationship properties to filter by
+            target_label: Return only far ends carrying this label (``None``
+                returns every far end)
 
         Returns:
             Result[dict[str, list[str]]] mapping entity_uid -> list of related UIDs
@@ -1482,14 +1386,38 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         if not entity_uids:
             return Result.ok({})
 
-        records = await self._batch_related(
-            entity_label,
-            entity_uids,
-            relationship_type,
-            direction,
-            "collect(related.uid) AS related_uids",
-            names_related=True,
+        pattern_result = self._build_direction_pattern(
+            relationship_type=relationship_type,
+            direction=direction,
+            source_var="e",
+            rel_var="r",
+            target_label=target_label,
         )
+        if pattern_result.is_error:
+            return Result.fail(pattern_result)
+
+        where_clauses, params = self._edge_property_filter(properties)
+        owners_line, far_node, far_node_params = self._link_far_node_scope(
+            self.label, relationship_type, "e"
+        )
+        if owners_line:
+            owners_line += ", entity_uid"
+        if far_node:
+            where_clauses.append(far_node)
+            params.update(far_node_params)
+        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+        query = f"""
+        UNWIND $entity_uids AS entity_uid
+        MATCH (e:{self.label} {{uid: entity_uid}})
+        WHERE NOT e:Content
+        {owners_line}
+        OPTIONAL MATCH {pattern_result.value}
+        {where_clause}
+        RETURN entity_uid, collect(related.uid) AS related_uids
+        """
+
+        records = await self._run_records(query, {"entity_uids": entity_uids, **params})
         return Result.ok(
             {
                 str(r["entity_uid"]): [

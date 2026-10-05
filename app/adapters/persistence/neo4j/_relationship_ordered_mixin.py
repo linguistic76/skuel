@@ -7,8 +7,6 @@ convenience wrappers. Split out of `_relationship_query_mixin.py` to keep
 both files under the readability threshold.
 
 Provides:
-    get_ordered_related_uids: Ordered UID fetch via edge property
-    get_related_with_metadata: Related entities plus edge metadata
     reorder_relationships: Bulk sequence-property update
     create_relationship_with_properties: MERGE with edge properties
     get_hierarchical_children_single: 1-level hierarchical traversal
@@ -69,120 +67,11 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         ) -> Result[builtins.list[T]]: ...
 
     # ============================================================================
-    # ORDERED RELATIONSHIP QUERIES
+    # ORDERED RELATIONSHIP WRITES
     # ============================================================================
     # Used by UnifiedRelationshipService's OrderedRelationshipsMixin.
-    # Config-driven: entity_label, relationship type, direction, ordering
+    # Config-driven: entity_label, relationship type, direction, sequence
     # come from DomainRelationshipConfig specs.
-
-    @safe_backend_operation("get_ordered_related_uids")
-    async def get_ordered_related_uids(
-        self,
-        entity_label: NeoLabel,
-        entity_uid: str,
-        relationship_type: str,
-        direction: str,
-        order_by_property: str | None = None,
-        order_direction: str = "ASC",
-    ) -> Result[builtins.list[str]]:
-        """
-        Get related entity UIDs ordered by an edge property.
-
-        Args:
-            entity_label: Label of the source entity node
-            entity_uid: UID of the source entity
-            relationship_type: Neo4j relationship type string
-            direction: "outgoing", "incoming", or "both"
-            order_by_property: Edge property to order by (None = unordered)
-            order_direction: "ASC" or "DESC"
-
-        Returns:
-            Result[list[str]] of related UIDs in order
-        """
-        order_clause = ""
-        if order_by_property:
-            order_clause = f"ORDER BY r.{order_by_property} {order_direction}"
-
-        query = f"""
-        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause(direction)}(related)
-        WHERE type(r) = $relationship_type
-        RETURN related.uid AS uid
-        {order_clause}
-        """
-
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {"entity_uid": entity_uid, "relationship_type": relationship_type},
-            )
-            records = [dict(record) async for record in result]
-
-        return Result.ok([str(r["uid"]) for r in records if r.get("uid")])
-
-    @safe_backend_operation("get_related_with_metadata")
-    async def get_related_with_metadata(
-        self,
-        entity_label: NeoLabel,
-        entity_uid: str,
-        relationship_type: str,
-        direction: str,
-        edge_properties: builtins.list[str] | None = None,
-        order_by_property: str | None = None,
-        order_direction: str = "ASC",
-    ) -> Result[builtins.list[dict[str, Any]]]:
-        """
-        Get related entities WITH edge property metadata.
-
-        Args:
-            entity_label: Label of the source entity node
-            entity_uid: UID of the source entity
-            relationship_type: Neo4j relationship type string
-            direction: "outgoing", "incoming", or "both"
-            edge_properties: Specific edge properties to return (None = all)
-            order_by_property: Edge property to order by (None = unordered)
-            order_direction: "ASC" or "DESC"
-
-        Returns:
-            Result[list[dict]] with structure:
-            [{"uid": "ps:1", "title": "...", "edge": {"sequence": 0, ...}}, ...]
-        """
-        if edge_properties:
-            edge_props_clause = ", ".join(f"{p}: r.{p}" for p in edge_properties)
-            edge_return = f"{{{edge_props_clause}}}"
-        else:
-            edge_return = "properties(r)"
-
-        order_clause = ""
-        if order_by_property:
-            order_clause = f"ORDER BY r.{order_by_property} {order_direction}"
-
-        query = f"""
-        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause(direction)}(related)
-        WHERE type(r) = $relationship_type
-        RETURN related.uid AS uid,
-               related.title AS title,
-               {edge_return} AS edge
-        {order_clause}
-        """
-
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {"entity_uid": entity_uid, "relationship_type": relationship_type},
-            )
-            records = [dict(record) async for record in result]
-
-        return Result.ok(
-            [
-                {
-                    "uid": str(r["uid"]),
-                    "title": r.get("title"),
-                    "edge": dict(r.get("edge", {})) if r.get("edge") else {},
-                }
-                for r in records
-                if r.get("uid")
-            ]
-        )
 
     @safe_backend_operation("reorder_relationships")
     async def reorder_relationships(

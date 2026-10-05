@@ -1,10 +1,10 @@
 ---
 title: "Field-Name Guarding in Cypher — Which Guarantee, and Where"
-updated: 2026-09-29
-status: "ruled 2026-09-22 — one syntactic guard in the persistence layer; no HTTP route publishes a sort key; the named allowlist retired in favour of an enum-typed sort key; the five backend sites stay unguarded, deliberately"
+updated: 2026-10-05
+status: "ruled 2026-09-22 — one syntactic guard in the persistence layer; no HTTP route publishes a sort key; the named allowlist retired in favour of an enum-typed sort key; the four backend sites stay unguarded, deliberately"
 registered: 2026-09-22
 ruled: 2026-09-22
-trigger: "the first caller that hands one of the five listed sites a value it did not author — a route parameter, a form field, or a **kwargs forward from a service whose caller is a route"
+trigger: "the first caller that hands one of the four listed sites a value it did not author — a route parameter, a form field, or a **kwargs forward from a service whose caller is a route"
 check: "grep -rn 'order_by' core/services/ps_service.py core/services/ps/ps_core_service.py adapters/inbound --include='*.py' — a route reaching PsService.list_steps' **kwargs, or any new HTTP handler declaring an order_by/sort parameter, fires this"
 ---
 
@@ -152,15 +152,14 @@ a `getattr`-guarded branch already commented as reaching no surface.
 
 ## What stays unguarded, and why
 
-These five sites interpolate a property name their caller supplies, through none of the three
+These four sites interpolate a property name their caller supplies, through none of the three
 guarantees. Each is deliberate, and the `trigger:` above is what would reopen it.
 
 | Site | Interpolates | Why it stays |
 |---|---|---|
-| `_relationship_ordered_mixin.py:104,157,314,393` | `order_by_property` → `ORDER BY r.{…}` | `RelationshipSpec.order_by_property`, developer-authored: exactly two specs declare it, `"order"` and `"sequence"`, both `order_direction="ASC"` |
-| `_relationship_ordered_mixin.py:~150` | `edge_properties` map projection | `RelationshipSpec.include_edge_properties`, two authored sites. The only request-reachable caller (`habits_ui.py:164,167`) resolves to specs that declare **neither** — so `edge_return` is the literal `properties(r)` and the sort clause is empty: zero interpolation on the live path |
-| `_relationship_ordered_mixin.py:220` | `sequence_property` → `SET r.{…}` | A write, and the sharper of the set. Reached only through `OrderedRelationshipsMixin.reorder_relationships`, whose default is the literal `"sequence"` |
-| `_relationship_ordered_mixin.py:451–459` | `match_pattern`, `return_parts`, `order_expression` | `get_hierarchical_children_deep` takes a whole MATCH pattern. Registered PLANNED and unwired (`_RELATIONSHIPS_HIERARCHY`, `scripts/detect_bloat.py`) — "no caller invokes the service entry point" |
+| `_relationship_ordered_mixin.py:203,270` | `order_by_property` → `ORDER BY r.{…}` | `RelationshipSpec.order_by_property`, developer-authored: exactly two specs declare it, `"order"` and `"sequence"`, both `order_direction="ASC"` |
+| `_relationship_ordered_mixin.py:109` | `sequence_property` → `SET r.{…}` | A write, and the sharper of the set. Reached only through `OrderedRelationshipsMixin.reorder_relationships`, whose default is the literal `"sequence"` |
+| `_relationship_ordered_mixin.py:347` | `match_pattern`, `return_parts`, `order_expression` | `get_hierarchical_children_deep` takes a whole MATCH pattern. Registered PLANNED and unwired (`_RELATIONSHIPS_HIERARCHY`, `scripts/detect_bloat.py`) — "no caller invokes the service entry point" |
 | `curriculum_backends.list_steps_raw` | `order_field` ← `ps_core_service.py:366`'s `f"s.{order_by}"` | No HTTP caller passes `order_by`; every one passes `limit` (and sometimes `path_uid`). **This is the seam that widens** — `PsService.list_steps` forwards `**kwargs`, so a route accepting `?sort=` makes it live in one line |
 
 Out of scope entirely: `exercise_backends.py:107`'s `order_by`. `_exercise_status_tail` is a
@@ -192,8 +191,11 @@ by a factor of 17:
 2. `_ALLOWED_ORDER_BY` holds **12** names, not 13 (stated twice).
 3. The unguarded set omitted the `SET r.{sequence_property}` write, `get_hierarchical_children_deep`'s
    three raw slots, and the `field` interpolation in both array builders' `WHERE` clause.
-4. "The edge-properties site is the live one" is true of the *method* and false of the
-   *interpolation* — see the table above.
+4. "The edge-properties site is the live one" was true of the *method* and false of the
+   *interpolation*: its one request-reachable caller resolved to specs declaring no edge
+   properties. The method (`get_related_with_metadata`) and its `ORDER BY` were deleted with
+   the habit page's Choices fragment, its last caller (Activity links arc PR 1c, 2026-10-04),
+   which took the table from five sites to four.
 5. The duplication was a **pair** plus two constants, not one function.
 6. **Request-reachability existed, at the sites the brief classified as safe.** It looked for it
    among the unguarded five and correctly found none; the live user-controlled sort key was on the

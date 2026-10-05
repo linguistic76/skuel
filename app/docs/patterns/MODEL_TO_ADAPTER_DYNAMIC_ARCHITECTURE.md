@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-10-04
+updated: 2026-10-05
 category: patterns
 related_skills: []
 related_docs:
@@ -885,7 +885,7 @@ Time: 30 seconds
 - `_prereq_progress_mixin.py` — `prerequisite_traversal` (returns typed models), `hierarchy_query_raw`
 - `_context_query_mixin.py` — `context_query_raw`, `basic_context_query_raw`
 - `_relationship_query_mixin.py` — core reads, batch counts, edge metadata, fluent `relate()` entry point
-- `_relationship_ordered_mixin.py` — ordered/hierarchical traversals + lateral-getter convenience wrappers: `get_ordered_related_uids`, `get_related_with_metadata`, `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, `get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`
+- `_relationship_ordered_mixin.py` — ordered writes, hierarchical traversals + lateral-getter convenience wrappers: `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, `get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`
 - `_relationship_crud_mixin.py`
 - `_user_entity_mixin.py`
 - `_traversal_mixin.py`

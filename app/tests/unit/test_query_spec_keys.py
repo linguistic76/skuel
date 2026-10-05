@@ -40,6 +40,7 @@ from core.services.events.event_relationships import EVENT_QUERY_SPECS
 from core.services.goals.goal_relationships import GOAL_QUERY_SPECS
 from core.services.habits.habit_relationships import HABIT_QUERY_SPECS
 from core.services.principles.principle_relationships import PRINCIPLE_QUERY_SPECS
+from core.services.relationships._keyed_read import resolve_keyed_read
 from core.services.tasks.task_relationships import TASK_QUERY_SPECS
 
 # (constant name, specs, owning domain config). The constant name is carried so the
@@ -67,23 +68,33 @@ def test_query_spec_key_resolves_in_domain_config(
     method_key: str,
     config: DomainRelationshipConfig,
 ) -> None:
-    """Every ``*_QUERY_SPECS`` method key must resolve to a real relationship."""
-    assert config.get_relationship_by_method(method_key) is not None, (
-        f"{const} maps field {field_name!r} to method key {method_key!r}, which is not "
-        f"defined in {config.domain} config. get_related_uids would fail closed and "
-        f"generic_fetcher would swallow it into [], making {field_name} empty for every "
-        f"entity. Valid keys: {sorted(config.get_all_relationship_methods())}"
+    """Every ``*_QUERY_SPECS`` method key must resolve to a keyed read.
+
+    ``resolve_keyed_read`` is the lookup ``get_related_uids`` makes: it refuses a key
+    the config does not declare, and a shared-neighbour definition, whose one-hop
+    read would return the shared neighbours rather than the peers it names.
+    """
+    read = resolve_keyed_read(config, method_key)
+    assert read.is_ok, (
+        f"{const} maps field {field_name!r} to method key {method_key!r}, which "
+        f"get_related_uids refuses ({read.expect_error().message}); generic_fetcher "
+        f"would swallow it into [], making {field_name} empty for every entity. "
+        f"Valid keys: {sorted(config.get_all_relationship_methods())}"
     )
 
 
 def test_unknown_method_key_is_actually_rejected() -> None:
-    """Positive control: the assertion above can fail.
+    """Positive controls: the assertion above can fail, both ways it refuses.
 
-    Without this, a ``get_relationship_by_method`` that returned a truthy value for
-    everything would make the whole guard vacuous.
+    Without these, a resolver that accepted everything would make the whole guard
+    vacuous.
     """
-    assert CHOICES_CONFIG.get_relationship_by_method("knowledge") is not None
-    assert CHOICES_CONFIG.get_relationship_by_method("definitely_not_a_method") is None
+    assert resolve_keyed_read(CHOICES_CONFIG, "knowledge").is_ok
+    assert resolve_keyed_read(CHOICES_CONFIG, "definitely_not_a_method").is_error
+    shared_neighbour = EVENTS_CONFIG.get_relationship_by_method("related_events")
+    assert shared_neighbour is not None
+    assert shared_neighbour.shared_neighbor_config is not None
+    assert resolve_keyed_read(EVENTS_CONFIG, "related_events").is_error
 
 
 def test_every_query_specs_constant_in_tree_is_covered() -> None:

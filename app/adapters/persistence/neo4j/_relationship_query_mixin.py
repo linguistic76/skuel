@@ -101,6 +101,11 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             far_var: str = "related",
         ) -> tuple[str, str, dict[str, str]]: ...
 
+        @staticmethod
+        def _edge_property_filter(
+            properties: dict[str, Any] | None, rel_var: str = "r"
+        ) -> tuple[builtins.list[str], dict[str, Any]]: ...
+
     # ============================================================================
     # GRAPH-NATIVE RELATIONSHIP QUERIES
     # ============================================================================
@@ -192,6 +197,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         limit: int = 100,
         properties: dict[str, Any] | None = None,
         include_withheld: bool = False,
+        target_label: NeoLabel | None = None,
     ) -> Result[builtins.list[str]]:
         """
         Get UIDs of related entities via graph edge traversal.
@@ -217,6 +223,8 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             include_withheld: Also return the uids the far-node scope withholds.
                 For arithmetic only — a caller that decides readiness from every
                 edge and names none of the withheld uids in what it returns.
+            target_label: Return only far ends carrying this label (``None``
+                returns every far end)
 
         Returns:
             Result[List[str]] of related entity UIDs from graph traversal. Through an
@@ -275,25 +283,18 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             - For full entities with properties, use get_related_entities()
             - Multi-hop extends via variable-length patterns (pure Cypher)
         """
-        # Build Cypher pattern using helper (with named relationship variable for property access)
         pattern_result = self._build_direction_pattern(
             relationship_type=relationship_type,
             direction=direction,
             rel_var="r",
+            target_label=target_label,
         )
         if pattern_result.is_error:
             return Result.fail(pattern_result)
         pattern = pattern_result.value
 
-        # Build WHERE clause for property filtering
-        where_clauses = []
-        params = {"uid": uid, "limit": limit}
-
-        if properties:
-            for key, value in properties.items():
-                param_name = f"prop_{key}"
-                where_clauses.append(f"r.{key} = ${param_name}")
-                params[param_name] = value
+        where_clauses, property_params = self._edge_property_filter(properties)
+        params: dict[str, Any] = {"uid": uid, "limit": limit, **property_params}
 
         owners_line, far_node, far_node_params = (
             ("", "", {})

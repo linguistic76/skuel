@@ -92,9 +92,9 @@ if not records:
 
 ## Pattern 2: UNWIND — Batch Operations (Avoid N+1)
 
-**Problem**: Creating or checking relationships for multiple entities in one round-trip.
+**Problem**: Creating or reading relationships for multiple entities in one round-trip.
 
-**Context**: Batch-creating registry-validated relationships (e.g. Event→Ku APPLIES_KNOWLEDGE via `link_event_to_knowledge` on the Events service); checking relationship existence across entity lists.
+**Context**: Batch-creating registry-validated relationships (e.g. Event→Ku APPLIES_KNOWLEDGE via `link_event_to_knowledge` on the Events service); reading related uids across entity lists.
 
 **Solution**:
 ```cypher
@@ -108,19 +108,13 @@ MERGE (a)-[r:APPLIES_KNOWLEDGE]->(b)
 SET r += rel.properties
 RETURN count(r) as created_count
 
-// UnifiedRelationshipService — batch check existence
+// UnifiedRelationshipService.batch_get_related_uids("knowledge", habit_uids) on the
+// Habit backend — the far-node clause (build_link_far_node_clause) it adds is omitted
 UNWIND $entity_uids AS entity_uid
-MATCH (e:Task {uid: entity_uid})
-OPTIONAL MATCH (e)-[r]->(related)
-WHERE type(r) = $relationship_type
-RETURN entity_uid, count(related) > 0 AS has_relationship
-
-// Batch count related entities
-UNWIND $entity_uids AS entity_uid
-MATCH (e:Goal {uid: entity_uid})
-OPTIONAL MATCH (e)-[r]->(related)
-WHERE type(r) = $relationship_type
-RETURN entity_uid, count(related) AS count
+MATCH (e:Habit {uid: entity_uid})
+WHERE NOT e:Content
+OPTIONAL MATCH (e)-[r:REINFORCES_KNOWLEDGE]->(related)
+RETURN entity_uid, collect(related.uid) AS related_uids
 ```
 
 **Trade-offs**:
@@ -128,7 +122,7 @@ RETURN entity_uid, count(related) AS count
 - UNWIND on an empty list returns no rows — always handle the empty case
 - OPTIONAL MATCH inside UNWIND prevents failures when entities have no relationships
 
-**Real-world usage**: `UnifiedRelationshipService.batch_has_relationship()`, `BatchCypherBuilder.build_relationship_create_query()` (backs `create_relationships_batch` on the universal backend — how the Events service's `link_event_to_knowledge` facade writes APPLIES_KNOWLEDGE)
+**Real-world usage**: `UnifiedRelationshipService.batch_get_related_uids()`, `BatchCypherBuilder.build_relationship_create_query()` (backs `create_relationships_batch` on the universal backend — how the Events service's `link_event_to_knowledge` facade writes APPLIES_KNOWLEDGE)
 
 ---
 

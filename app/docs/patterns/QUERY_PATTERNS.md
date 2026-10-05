@@ -1,6 +1,6 @@
 ---
 title: Query Patterns
-updated: '2026-09-17'
+updated: '2026-10-05'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -118,9 +118,7 @@ for uids in result.value.values():
 
 | Method | Purpose |
 |--------|---------|
-| `batch_get_related_uids()` | Get related UIDs for multiple entities |
-| `batch_count_related()` | Count relationships for multiple entities |
-| `batch_has_relationship()` | Check relationship existence for multiple entities |
+| `batch_get_related_uids()` | Get related UIDs for multiple entities (the key's tier and far-end kind applied) |
 
 ## N+1 Detection Checklist
 

@@ -384,6 +384,7 @@ class GraphRelationshipOperations(Protocol):
         limit: int = 100,
         properties: Neo4jProperties | None = None,
         include_withheld: bool = False,
+        target_label: NeoLabel | None = None,
     ) -> ResultType[builtins.list[str]]:
         """Get UIDs of related entities via specific relationship type.
 
@@ -397,6 +398,8 @@ class GraphRelationshipOperations(Protocol):
                 shown (another user's, or draft curriculum, across an edge from the
                 caller's own activity). For arithmetic only: a caller that passes it
                 names none of the withheld uids in what it returns.
+            target_label: Return only related entities carrying this label (``None``
+                returns every related entity)
 
         Returns:
             Result[list[str]] - List of related entity UIDs
@@ -409,6 +412,7 @@ class GraphRelationshipOperations(Protocol):
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
         properties: Neo4jProperties | None = None,
+        target_label: NeoLabel | None = None,
     ) -> ResultType[int]:
         """Count related entities via specific relationship type.
 
@@ -1085,6 +1089,7 @@ class RelationshipQueryOperations(Protocol):
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
         properties: Neo4jProperties | None = None,
+        target_label: NeoLabel | None = None,
     ) -> ResultType[int]:
         """Count related entities via relationship pattern."""
         ...
@@ -1097,6 +1102,7 @@ class RelationshipQueryOperations(Protocol):
         limit: int = 100,
         properties: Neo4jProperties | None = None,
         include_withheld: bool = False,
+        target_label: NeoLabel | None = None,
     ) -> ResultType[builtins.list[str]]:
         """Get UIDs of related entities via graph edge traversal."""
         ...
@@ -1121,31 +1127,6 @@ class OrderedRelationshipOperations(Protocol):
 
     See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
     """
-
-    async def get_ordered_related_uids(
-        self,
-        entity_label: NeoLabel,
-        entity_uid: str,
-        relationship_type: str,
-        direction: Direction,
-        order_by_property: str | None = None,
-        order_direction: str = "ASC",
-    ) -> ResultType[builtins.list[str]]:
-        """Related entity UIDs in the order an edge property defines."""
-        ...
-
-    async def get_related_with_metadata(
-        self,
-        entity_label: NeoLabel,
-        entity_uid: str,
-        relationship_type: str,
-        direction: Direction,
-        edge_properties: builtins.list[str] | None = None,
-        order_by_property: str | None = None,
-        order_direction: str = "ASC",
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Related entities together with the requested properties of the edge reaching them."""
-        ...
 
     async def reorder_relationships(
         self,
@@ -1217,41 +1198,26 @@ class BatchRelationshipOperations(Protocol):
     """
     N+1 elimination: one query answers a relationship question for many entities.
 
-    Each method takes a LIST of source UIDs and returns a mapping keyed by UID.
+    It takes a LIST of source UIDs and returns a mapping keyed by UID.
     Implemented by ``_RelationshipCrudMixin``, which every
     ``UniversalNeo4jBackend`` inherits.
 
     Consumer: ``BatchOperationsMixin`` on ``UnifiedRelationshipService``.
     """
 
-    async def batch_has_relationship(
-        self,
-        entity_label: NeoLabel,
-        entity_uids: builtins.list[str],
-        relationship_type: str,
-        direction: Direction,
-    ) -> ResultType[dict[str, bool]]:
-        """Whether each entity has any such relationship (uid -> bool)."""
-        ...
-
-    async def batch_count_related(
-        self,
-        entity_label: NeoLabel,
-        entity_uids: builtins.list[str],
-        relationship_type: str,
-        direction: Direction,
-    ) -> ResultType[dict[str, int]]:
-        """How many entities each one reaches over this relationship (uid -> count)."""
-        ...
-
     async def batch_get_related_uids(
         self,
-        entity_label: NeoLabel,
         entity_uids: builtins.list[str],
-        relationship_type: str,
+        relationship_type: RelationshipName,
         direction: Direction,
+        properties: Neo4jProperties | None = None,
+        target_label: NeoLabel | None = None,
     ) -> ResultType[dict[str, builtins.list[str]]]:
-        """Which entities each one reaches over this relationship (uid -> related uids)."""
+        """Which entities each of this backend's entities reaches over this relationship.
+
+        Maps uid -> related uids. ``properties`` keeps only the edges carrying those
+        values; ``target_label`` only the far ends carrying that label.
+        """
         ...
 
 

@@ -1,7 +1,7 @@
 ---
 title: "Activity Links Arc — Rulings & Contract"
 updated: 2026-10-05
-status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; PR 1 merged #1500; PR 1b merged #1501; O1 and O4 ruled (R10, R11); O2 deferred; PR 1c next"
+status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; PR 1 merged #1500; PR 1b merged #1501; PR 1c merged #1503; O1 and O4 ruled (R10, R11); O2 deferred; PR 2 next"
 registered: 2026-10-02
 ruled: 2026-10-04
 ---
@@ -241,14 +241,15 @@ already writes several of these types:
   writer of that type; the live graph holds one.
 - From PR 4, any goal-side `CONTRIBUTES_TO_GOAL` view, written by tasks and events.
 
-**A definition's `target_label` is not a filter on its own:** no keyed reader on
-`UnifiedRelationshipService` passes it (PR 1's test lists all eight). `get_related_uids`,
-`has_relationship` and `count_related` pass the edge type, the direction and the definition's
-edge-property filter. `get_related_with_metadata`, `get_ordered_related_uids` and the three batch
-readers (`batch_has_relationship`, `batch_count_related`, `batch_get_related_uids`) pass the edge
-type and the direction, plus an ordering or the edge properties to return, but no edge-property
-filter, so a tiered definition read through any of them returns every edge of its type. A view
-that splits by source label, or by tier, needs that filter in the read.
+**A keyed reader reads the definition whole (PR 1c):** the three keyed readers on
+`UnifiedRelationshipService` (`get_related_uids`, `has_relationship`, `batch_get_related_uids`)
+resolve the key through `resolve_keyed_read` and carry the definition's `target_label` (unless it
+is `Entity`) and its edge-property filter to the backend, which labels the far node and filters the
+edge in the statement. A view that splits by source label, or by tier, therefore reads only its
+kind and tier once its definition names them. The five keyed readers with no caller and no PLANNED
+ruling (`count_related`, `get_ordered_related_uids`, `get_related_with_metadata`,
+`batch_has_relationship`, `batch_count_related`) were deleted, with the backend methods behind four
+of them. A shared-neighbour definition is refused by a keyed read.
 
 ### The importance level
 
@@ -305,6 +306,19 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
 - The user-context statement reads a habit's `FULFILLS_GOAL`, which nothing writes — **PR 4**.
 - `Task.fulfills_goal_uid` and its edge diverge at the vault door and the PathStep spawn (O3) —
   **PR 4**.
+- A goal's `supporting_habits` and tier views name `Entity`, so they also return the PathSteps whose
+  `practice_goals` write `SUPPORTS_GOAL`; a published one passes the far-node wall, and
+  `_predictive_mixin.py` then fetches its title with a bare `habits_service.get` — **PR 2** (the
+  goal's views split by source label).
+- The task and event "replace" paths (`TasksService._delete_edges_of_kind`,
+  `EventsService._replace_edge`) find the edges to delete through `get_related_uids`, which the
+  far-node wall scopes: an `APPLIES_KNOWLEDGE` edge to a Ku since reverted to draft is withheld, so
+  it is not deleted when the set is replaced, and comes back beside the new set on republish —
+  outside the arc; registered here by PR 1c's census (the delete needs an untied read,
+  `include_withheld`, which the keyed reader does not expose).
+- `PRINCIPLE_REFLECTION_CONFIG` declares the method key `"trigger"` four times, and
+  `get_relationship_by_method` returns the first, so a keyed read of it would see only goals. No
+  service is built from that config — outside the arc, latent.
 
 ## PR ledger
 
@@ -317,7 +331,7 @@ tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs la
 | 0 | This document, ADR-090, the INDEX rows and the skill back-link; the cells of ADR-057's diagonals table and of the Sibling Signal and Shared Signal patterns that named edges nothing carries (docs only; summon Codex explicitly) | Merged; `./dev docs-links`, the dead-link scan and the skills validator clean | merged #1498, 2026-10-04 |
 | 1 | The invariant as a test, derived from the registry: every edge type joining two different Activity domains is read at BOTH ends (same-type edges are the later pass, R8), and a view over an edge type with several kinds of source filters by source label in the read. Lands with a known-gaps list | Passes with the list; removing any entry turns it red; a one-sided definition added turns it red | merged #1500, 2026-10-04 |
 | 1b | The pages show both ends (R10): the page renders the registry's labelled definitions in both directions and `connection_configs.py` is deleted; the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages and both list cards; the five nonexistent names are gone | merged #1501, 2026-10-04 |
-| 1c | The keyed readers carry `target_label` and the tier filter: the eight `READERS_IGNORING_TARGET_LABEL` entries (re-owned from 1b, which keeps the pages on the walled batched reader), the readers and the backend methods behind them | `READERS_IGNORING_TARGET_LABEL` is empty; real-graph tests: a label-split view returns only its kind and a tier view only its tier, through each reader; red on the old source | — |
+| 1c | The keyed readers carry `target_label` and the tier filter: the eight `READERS_IGNORING_TARGET_LABEL` entries (re-owned from 1b, which keeps the pages on the walled batched reader), the readers and the backend methods behind them | `READERS_IGNORING_TARGET_LABEL` is empty; real-graph tests: a label-split view returns only its kind and a tier view only its tier, through each reader; red on the old source | merged #1503, 2026-10-04 |
 | 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | — |
 | 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | — |
 | 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; cancelling a completed event, or a goal's last contribution, updates the stored tally (to 0/0 for the last); every membership change recomputes (closes the goal-tally case file); the gaps list shrinks | — |
@@ -403,6 +417,24 @@ worth stating in its kickoff.
 
 **Acceptance:** `READERS_IGNORING_TARGET_LABEL` is empty; per reader, a real-graph test shows a
 label-split view returning only its kind and a tier view only its tier; red on the old source.
+
+**Settled in prose before the first edit (founder, 2026-10-04):**
+- The census found two keyed readers with production callers (`get_related_uids`,
+  `batch_get_related_uids`) and one PLANNED (`has_relationship`, ruled 2026-06-13). Those three are
+  fixed; the five with no caller and no ruling are deleted, with the backend methods only they
+  reached. `READERS_IGNORING_TARGET_LABEL` is deleted with them, and the invariant checks label and
+  tier with no gap list.
+- The label is a backend parameter (`target_label: NeoLabel | None = None`, so the direct backend
+  callers are unchanged); the service passes it unless the definition names `Entity`, which names
+  no kind and would drop the non-Entity far nodes. The batch reader gains the tier filter.
+- `batch_get_related_uids` was walled only on paper: the service passed `config.entity_label`
+  (`Entity` for every Activity config), so the far-node wall never applied on the service path.
+  The backend now anchors on its own label and keys the wall on it, as `get_related_uids` does
+  (ADR-085 G12 corrected).
+- A keyed read of a shared-neighbour definition is refused (its one-hop read returns the shared
+  neighbours); `related_events` leaves the event's fetch specs with its readerless field.
+- The goal planner's read of `"habits"` (no such key on `GOALS_CONFIG`) and the blockers it fed,
+  computed and never returned, are deleted.
 
 ### PR 2 — Principle → goal
 
