@@ -238,53 +238,6 @@ def HabitInsightsSection(analysis: PatternAnalysis) -> FT:
     )
 
 
-def _choice_links(choices: list[dict[str, Any]]) -> FT:
-    """Render linked choice titles for one direction of the Habit ↔ Choice lens."""
-    return Div(
-        *[
-            A(
-                str(c.get("title") or c.get("uid", "Untitled choice")),
-                href=f"/choices/detail?uid={c.get('uid', '')}",
-                cls="block hover:underline text-sm",
-            )
-            for c in choices
-        ],
-        cls="space-y-1",
-    )
-
-
-def HabitChoicesSection(
-    informed_choices: list[dict[str, Any]],
-    impacting_choices: list[dict[str, Any]],
-) -> FT:
-    """Habit ↔ Choice lens: choices this habit informed + choices impacting it.
-
-    Graph edges: (Habit)-[:INFORMS_CHOICE]->(Choice) and
-    (Choice)-[:IMPACTS_HABIT]->(Habit). Rendered by the
-    /habits/choices-fragment HTMX endpoint into #habit-choices.
-    Empty state renders nothing visible (matching neighboring optional sections).
-    """
-    if not informed_choices and not impacting_choices:
-        return Div(id="habit-choices")
-
-    columns: list[Any] = []
-    if informed_choices:
-        columns.append(
-            MetadataField("Choices this habit informed", _choice_links(informed_choices))
-        )
-    if impacting_choices:
-        columns.append(
-            MetadataField("Choices impacting this habit", _choice_links(impacting_choices))
-        )
-
-    return Div(
-        section_label("Choices"),
-        Div(*columns, cls="grid grid-cols-1 sm:grid-cols-2 gap-2"),
-        id="habit-choices",
-        cls="my-4",
-    )
-
-
 def HabitDetailView(
     habit: Habit,
     connections: list[EntityConnection],
@@ -428,11 +381,6 @@ def HabitDetailView(
     # Connections
     conn_section = ConnectionsSection(connections)
 
-    # Habit ↔ Choice lens — HTMX-loaded (graph fetch happens in the fragment route)
-    choices_section = content_loading_placeholder(
-        f"/habits/choices-fragment?uid={habit.uid}", "habit-choices"
-    )
-
     # Atomic Habits pattern insights — HTMX-loaded (analyze_patterns runs in the fragment route)
     insights_section = content_loading_placeholder(
         f"/habits/insights-fragment?uid={habit.uid}", "habit-insights"
@@ -466,7 +414,6 @@ def HabitDetailView(
         meta_grid,
         tags_el,
         conn_section,
-        choices_section,
         insights_section,
         dual_track_section,
         relationships,

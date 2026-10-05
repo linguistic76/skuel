@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-10-03'
+updated: '2026-10-05'
 category: patterns
 related_skills:
 - activity-domains
@@ -214,20 +214,22 @@ async def task_edit_page(request: Request) -> Any:
     task = owned.value
 ```
 
-A fragment does the same with its slot:
+A fragment does the same with its slot — the Activity detail fragment every domain
+registers (`adapters/inbound/activity_ui_factory.py`, where `config.get_owned` is the
+domain's `verify_ownership`):
 
 ```python
-@rt("/habits/choices-fragment")
-async def habit_choices_fragment(request: Request) -> Any:
+@rt(f"/{domain}/detail/content")
+async def detail_content_fragment(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
-    slot = partial(render_slot_error, "habit-choices")
+    slot = partial(render_slot_error, f"{singular}-detail-content")
     if not uid:
-        return refuse_not_found(slot("Missing habit UID"))
+        return refuse_not_found(slot(f"Missing {singular} UID"))
 
-    owned = await habits_service.verify_ownership(uid, user_uid)
+    owned = await config.get_owned(uid, user_uid)
     if owned.is_error:
-        return refuse(owned.expect_error(), slot, "Habit")
+        return refuse(owned.expect_error(), slot, singular.capitalize())
     ...
 ```
 

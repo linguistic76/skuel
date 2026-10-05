@@ -2,55 +2,20 @@
 Unit tests for the habit detail page's new HTMX-loaded sections.
 
 Covers:
-- HabitChoicesSection: Habit ↔ Choice lens (informed + impacting), with and
-  without data, links to choice detail pages.
 - HabitInsightsSection: pattern insight rendering + empty state.
-- HabitDetailView: detail page includes the HTMX placeholders for both
-  fragments (/habits/choices-fragment, /habits/insights-fragment).
+- HabitDetailView: the insights fragment's HTMX placeholder; a habit's links to
+  choices are in its Connections section, not a section of their own.
 """
 
 from fasthtml.common import to_xml
 
 from core.models.habit.habit import Habit
+from core.ports.query_types import EntityConnection
 from core.services.habits.habits_pattern_service import PatternAnalysis
 from ui.activities.habits_views import (
-    HabitChoicesSection,
     HabitDetailView,
     HabitInsightsSection,
 )
-
-INFORMED = [{"uid": "choice_career", "title": "Take the new role", "edge": {}}]
-IMPACTING = [{"uid": "choice_move", "title": "Move closer to the gym", "edge": {}}]
-
-
-# ---------------------------------------------------------------------------
-# HabitChoicesSection
-# ---------------------------------------------------------------------------
-
-
-def test_choices_section_renders_both_directions() -> None:
-    html = to_xml(HabitChoicesSection(INFORMED, IMPACTING))
-    assert "Choices" in html
-    assert "Choices this habit informed" in html
-    assert "Choices impacting this habit" in html
-    assert "Take the new role" in html
-    assert "Move closer to the gym" in html
-    assert "/choices/detail?uid=choice_career" in html
-    assert "/choices/detail?uid=choice_move" in html
-
-
-def test_choices_section_renders_one_direction_only() -> None:
-    html = to_xml(HabitChoicesSection(INFORMED, []))
-    assert "Choices this habit informed" in html
-    assert "Choices impacting this habit" not in html
-
-
-def test_choices_section_empty_renders_nothing_visible() -> None:
-    html = to_xml(HabitChoicesSection([], []))
-    # Keeps the swap target id but no section content.
-    assert 'id="habit-choices"' in html
-    assert "Choices" not in html
-
 
 # ---------------------------------------------------------------------------
 # HabitInsightsSection
@@ -103,11 +68,25 @@ def test_insights_section_empty_state() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_detail_view_includes_fragment_placeholders() -> None:
+def test_detail_view_includes_the_insights_placeholder() -> None:
     habit = Habit(uid="habit_detail_test", title="Morning Reading", user_uid="user_test")
     html = to_xml(HabitDetailView(habit, connections=[]))
-    assert "/habits/choices-fragment?uid=habit_detail_test" in html
     assert "/habits/insights-fragment?uid=habit_detail_test" in html
-    # HTMX lazy-load placeholders carry the swap target ids.
-    assert 'id="habit-choices"' in html
+    # The HTMX lazy-load placeholder carries the swap target id.
     assert 'id="habit-insights"' in html
+
+
+def test_the_habits_choices_are_in_its_connections_not_a_section_of_their_own() -> None:
+    habit = Habit(uid="habit_detail_test", title="Morning Reading", user_uid="user_test")
+    informed: EntityConnection = {
+        "heading": "Choices this habit informs",
+        "rel_type": "INFORMS_CHOICE",
+        "connected_uid": "choice_career",
+        "title": "Take the new role",
+        "connected_type": "choice",
+    }
+    html = to_xml(HabitDetailView(habit, connections=[informed]))
+    assert "Choices this habit informs" in html
+    assert "/choices/detail?uid=choice_career" in html
+    assert "choices-fragment" not in html
+    assert 'id="habit-choices"' not in html

@@ -1,6 +1,6 @@
 ---
 title: "Activity Links Arc — Rulings & Contract"
-updated: 2026-10-04
+updated: 2026-10-05
 status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; PR 1 merged #1500; PR 1b merged #1501; O1 and O4 ruled (R10, R11); O2 deferred; PR 1c next"
 registered: 2026-10-02
 ruled: 2026-10-04
@@ -383,6 +383,9 @@ route and the list route, red on the old source.
 - One card for all six domains, one line per heading. The Today page and the card re-render after a
   status or priority change read through the same walled reader.
 - PR 1's eight keyed-reader entries move to a row of their own (1c).
+- The habit page's separate "Choices" section (`/habits/choices-fragment`, footnote 5 of § What
+  each layer shows today), which repeated `INFORMS_CHOICE` and `IMPACTS_HABIT` beside the
+  Connections section through an unwalled keyed reader, is deleted (founder, 2026-10-04).
 - The invariant gains two rules: every end that reads a link between two Activities shows it, and no
   edge is listed twice on a page.
 

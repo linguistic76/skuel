@@ -3,9 +3,9 @@
 Provides the read-focused habit list view at /habits and detail view at /habits/detail.
 Habits enter via YAML upload OR through the create form; this UI shows them with status
 controls, streaks, atomic habits, cross-domain connections, and EntityRelationshipsSection.
-The detail page also HTMX-loads two fragments: /habits/insights-fragment (Atomic Habits
-pattern insights via HabitsPatternService.analyze_patterns) and /habits/choices-fragment
-(Habit ↔ Choice lens via INFORMS_CHOICE / IMPACTS_HABIT edges).
+The detail page also HTMX-loads /habits/insights-fragment (Atomic Habits pattern insights
+via HabitsPatternService.analyze_patterns). A habit's links to choices, both ways, are in its
+Connections section (the registry's page views, ADR-090 §2).
 
 Also registers the create / edit forms (``GET|POST /habits/create``,
 ``GET|POST /habits/edit``) which use ``ui/activities/habits_form.py`` to render
@@ -30,13 +30,11 @@ from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
-from core.models.type_hints import EntityUID, UserUID
 from core.utils.entity_filters import filter_habits
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.habits_form import HabitCreateForm, HabitEditForm
 from ui.activities.habits_views import (
-    HabitChoicesSection,
     HabitDetailView,
     HabitInsightsSection,
     HabitList,
@@ -52,7 +50,6 @@ from ui.patterns.error_banner import render_error_banner, render_slot_error
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.ports import ConnectionFetchOperations
-    from core.ports.service_protocols import OwnershipVerifier
     from core.services.habits_service import HabitsService
 
 logger = get_logger("skuel.routes.habits_ui")
@@ -63,16 +60,8 @@ def create_habits_ui_routes(
     rt: RouteDecorator,
     habits_service: HabitsService,
     connection_fetch_backend: ConnectionFetchOperations,
-    choices_ownership: OwnershipVerifier | None = None,
 ) -> None:
-    """Register Habits UI routes (list/detail + create/edit forms).
-
-    ``choices_ownership`` is an owner-scoped verifier for the Habit ↔ Choice
-    fragment: the INFORMS_CHOICE / IMPACTS_HABIT edges can point at choices
-    owned by *other* users, so each related choice is filtered through
-    ``verify_ownership`` before render (USER_OWNED 404-not-403 invariant —
-    a cross-user choice is invisible, never surfaced as a title + detail link).
-    """
+    """Register Habits UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
         domain_name="habits",
         domain_singular="habit",
@@ -117,62 +106,6 @@ def create_habits_ui_routes(
             return refuse(result.expect_error(), slot, "Habit")
 
         return HabitInsightsSection(result.value)
-
-    async def _owned_choices(
-        choices: list[dict[str, Any]], user_uid: UserUID
-    ) -> list[dict[str, Any]]:
-        """Drop choices the requesting user doesn't own.
-
-        The INFORMS_CHOICE / IMPACTS_HABIT traversal returns choices by edge
-        only (no owner predicate), so a habit edged to another user's choice
-        would otherwise leak that choice's title + detail link. Filter each
-        through ``verify_ownership`` (404-shaped error ⇒ not owned ⇒ hidden).
-        If no verifier is wired (degraded boot), fail closed: surface nothing.
-        """
-        if choices_ownership is None:
-            return []
-        owned: list[dict[str, Any]] = []
-        for choice in choices:
-            choice_uid = str(choice.get("uid", ""))
-            if not choice_uid:
-                continue
-            ownership = await choices_ownership.verify_ownership(choice_uid, user_uid)
-            if ownership.is_ok:
-                owned.append(choice)
-        return owned
-
-    @rt("/habits/choices-fragment")
-    async def habit_choices_fragment(request: Request) -> Any:
-        """HTMX fragment: Habit ↔ Choice lens (informed + impacting choices).
-
-        Resolves choice titles via relationship metadata (registry fields on
-        INFORMS_CHOICE / IMPACTS_HABIT include uid + title). Each related choice
-        is owner-scoped to the requesting user before render — choices are
-        USER_OWNED, and the edge traversal carries no owner predicate, so a
-        cross-user choice must never leak (404-not-403 invariant).
-        """
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        slot = partial(render_slot_error, "habit-choices")
-        if not uid:
-            return refuse_not_found(slot("Missing habit UID"))
-
-        # Ownership: the refusal renders in the slot at the status it earns.
-        owned = await habits_service.verify_ownership(uid, user_uid)
-        if owned.is_error:
-            return refuse(owned.expect_error(), slot, "Habit")
-
-        habit_uid = EntityUID(uid)
-        informed = await habits_service.relationships.get_related_with_metadata(
-            "informed_choices", habit_uid
-        )
-        impacting = await habits_service.relationships.get_related_with_metadata(
-            "impacting_choices", habit_uid
-        )
-        return HabitChoicesSection(
-            await _owned_choices(informed.value, user_uid) if informed.is_ok else [],
-            await _owned_choices(impacting.value, user_uid) if impacting.is_ok else [],
-        )
 
     @rt("/habits/create", methods=["GET"])
     def habit_create_page(request: Request) -> Any:

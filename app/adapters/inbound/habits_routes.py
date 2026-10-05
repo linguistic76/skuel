@@ -40,13 +40,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
         "connection_fetch_backend": "connection_fetch_backend",
         "principles_service": "principles",
     },
-    ui_related_services={
-        "connection_fetch_backend": "connection_fetch_backend",
-        # Owner-scopes the Habit ↔ Choice fragment: INFORMS_CHOICE / IMPACTS_HABIT
-        # edges can cross users, so related choices are filtered through the
-        # choices facade's verify_ownership (USER_OWNED 404-not-403 invariant).
-        "choices_ownership": "choices",
-    },
+    ui_related_services={"connection_fetch_backend": "connection_fetch_backend"},
     prometheus_metrics_attr="prometheus_metrics",
 )
 

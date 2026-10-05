@@ -64,10 +64,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
         "connection_fetch_backend": "connection_fetch_backend",
         "principles_service": "principles",
     },
-    ui_related_services={
-        "connection_fetch_backend": "connection_fetch_backend",
-        "choices_ownership": "choices",  # owner-scopes the Habit ↔ Choice fragment
-    },
+    ui_related_services={"connection_fetch_backend": "connection_fetch_backend"},
     prometheus_metrics_attr="prometheus_metrics",
 )
 
