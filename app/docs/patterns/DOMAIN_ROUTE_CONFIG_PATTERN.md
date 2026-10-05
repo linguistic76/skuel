@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-10-04
+updated: 2026-10-05
 category: patterns
 related_skills:
 - fasthtml
@@ -609,16 +609,13 @@ HABITS_CONFIG = create_activity_domain_route_config(
         "connection_fetch_backend": "connection_fetch_backend",  # the card re-render's page links
         "principles_service": "principles",  # for link_habit_to_principle ownership check
     },
-    ui_related_services={
-        "connection_fetch_backend": "connection_fetch_backend",
-        "choices_ownership": "choices",  # owner-scopes INFORMS_CHOICE / IMPACTS_HABIT fragments
-    },
+    ui_related_services={"connection_fetch_backend": "connection_fetch_backend"},
 )
 ```
 
 **Key features:**
 - API factory receives `connection_fetch_backend` (the card re-rendered after a status or priority change carries its page links, ADR-090 §2) and `principles_service` (for cross-domain `POST /api/habits/link-principle` ownership check on the target principle)
-- UI factory receives `connection_fetch_backend` and `choices_ownership` as named kwargs via `ui_related_services` — same mapping mechanism, UI side
+- UI factory receives `connection_fetch_backend` as a named kwarg via `ui_related_services` — same mapping mechanism, UI side
 
 ### Example 3: Multi-Service with UI Dependencies (Finance)
 
