@@ -68,7 +68,7 @@ class RelationshipName(StrEnum):
     ENABLES_KNOWLEDGE = "ENABLES_KNOWLEDGE"
     ENABLES_GOAL = "ENABLES_GOAL"
     ENABLES_TASK = "ENABLES_TASK"
-    INFORMS_CHOICE = "INFORMS_CHOICE"
+    INFORMS_CHOICE = "INFORMS_CHOICE"  # (principle|habit|path_step)-[:INFORMS_CHOICE]->(choice)
     # NOTE: Task→Habit is REINFORCES_HABIT (matching Event + the field name). The
     # former SUPPORTS_HABIT was removed when consolidating. It was described here
     # as "never written" — that was FALSE: one live edge existed, found by
@@ -182,7 +182,6 @@ class RelationshipName(StrEnum):
     # =========================================================================
     SUPPORTS_PRINCIPLE = "SUPPORTS_PRINCIPLE"
     CONFLICTS_WITH_PRINCIPLE = "CONFLICTS_WITH_PRINCIPLE"
-    GUIDES_CHOICE = "GUIDES_CHOICE"  # (principle)-[:GUIDES_CHOICE]->(choice)
     ALIGNED_WITH_PRINCIPLE = "ALIGNED_WITH_PRINCIPLE"
     DEMONSTRATES_PRINCIPLE = (
         "DEMONSTRATES_PRINCIPLE"  # (event)-[:DEMONSTRATES_PRINCIPLE]->(principle)
@@ -205,7 +204,6 @@ class RelationshipName(StrEnum):
     # CHOICE RELATIONSHIPS
     # Choice influences and outcomes
     # =========================================================================
-    INFORMED_BY_PRINCIPLE = "INFORMED_BY_PRINCIPLE"
     INFORMED_BY_KNOWLEDGE = "INFORMED_BY_KNOWLEDGE"
     INSPIRED_BY_CHOICE = "INSPIRED_BY_CHOICE"
     IMPLEMENTS_CHOICE = "IMPLEMENTS_CHOICE"

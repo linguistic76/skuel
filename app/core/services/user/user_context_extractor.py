@@ -408,7 +408,7 @@ class UserContextExtractor:
         """
         Extract choice relationship data from choices_rich[].graph_context.
 
-        Extracts informing knowledge (INFORMS_CHOICE relationships).
+        Extracts informing knowledge (INFORMED_BY_KNOWLEDGE relationships).
 
         Args:
             choices_rich: List of choice items with graph_context

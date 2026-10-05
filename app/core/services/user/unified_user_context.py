@@ -349,7 +349,7 @@ class UserContext:
     # written by the EXTRACT_ACTIVITIES pipeline — ADR-069)
     entry_knowledge_applied: dict[str, list[str]] = field(default_factory=dict)  # entry -> ku_uids
 
-    # Choice knowledge metadata (from [:INFORMS_CHOICE] relationships)
+    # Choice knowledge metadata (from [:INFORMED_BY_KNOWLEDGE] relationships)
     choice_knowledge_informed: dict[str, list[str]] = field(
         default_factory=dict
     )  # choice -> ku_uids

@@ -21,7 +21,7 @@ CHOICE_QUERY_SPECS: list[tuple[str, str]] = [
     ("informed_by_knowledge_uids", "knowledge"),
     ("opens_learning_path_uids", "learning_paths"),
     ("required_knowledge_uids", "required_knowledge"),
-    ("aligned_principle_uids", "principles"),
+    ("informing_principle_uids", "informing_principles"),
     ("implementing_task_uids", "implementing_tasks"),
     ("serves_life_path_uids", "life_path"),
     ("impacted_habit_uids", "impacted_habits"),
@@ -45,7 +45,7 @@ class ChoiceRelationships:
     informed_by_knowledge_uids: list[str] = field(default_factory=list)
     opens_learning_path_uids: list[str] = field(default_factory=list)
     required_knowledge_uids: list[str] = field(default_factory=list)
-    aligned_principle_uids: list[str] = field(default_factory=list)
+    informing_principle_uids: list[str] = field(default_factory=list)
     implementing_task_uids: list[str] = field(default_factory=list)
     serves_life_path_uids: list[str] = field(default_factory=list)
 
@@ -92,7 +92,7 @@ class ChoiceRelationships:
 
     def is_principle_aligned(self) -> bool:
         """Check if choice aligns with any principles."""
-        return len(self.aligned_principle_uids) > 0
+        return len(self.informing_principle_uids) > 0
 
     def is_informed_decision(self) -> bool:
         """Check if choice was informed by knowledge."""

@@ -179,7 +179,7 @@ def build_domain_context_with_paths(
     Build query for cross-domain context with path-aware intelligence.
 
     Accepts LITERAL relationship type strings instead of SemanticRelationshipType enum.
-    Essential for domain-specific relationships like "INFORMED_BY_PRINCIPLE", "SUPPORTS_GOAL".
+    Essential for domain-specific relationships like "INFORMS_CHOICE", "SUPPORTS_GOAL".
 
     THE single producer for path-aware graph context. Feeds BOTH the bucketed
     cross-domain-context reader (``get_cross_domain_context`` → incident-edge attribution)

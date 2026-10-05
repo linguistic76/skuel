@@ -327,7 +327,7 @@ _CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
 WHERE datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
 
-OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
+OPTIONAL MATCH (p:Entity {{entity_type: 'principle'}})-[:{RelationshipName.INFORMS_CHOICE.value}]->(c)
 
 WITH c,
      collect(DISTINCT p.uid) AS principle_uids,

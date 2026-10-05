@@ -37,8 +37,8 @@ def _union_path_buckets(categorized: dict[str, Any], *keys: str) -> list[dict[st
     ``{"uid", "title", "distance", "path_strength", "via_relationships"}`` dicts.
 
     De-dup by uid serves two purposes:
-    1. A single typed field may aggregate several buckets (e.g. a choice's informing
-       principles span both INFORMED_BY_PRINCIPLE outgoing and GUIDES_CHOICE incoming).
+    1. A single typed field may aggregate several buckets (e.g. a principle's habits span
+       both INSPIRES_HABIT outgoing and EMBODIES_PRINCIPLE incoming).
     2. Even within ONE bucket the same node can recur: the producer Cypher does
        ``collect(DISTINCT {uid, distance, path_strength, ...})`` — DISTINCT over the whole
        path-metadata map, not the uid — so at ``depth>=2`` a node reachable via multiple
@@ -322,8 +322,7 @@ class ChoiceCrossContext:
     Choice decision-making context with path-aware intelligence.
 
     Groups related entities by relationship semantic meaning:
-    - principles: What informs/guides this choice (INFORMED_BY_PRINCIPLE outgoing +
-      GUIDES_CHOICE incoming)
+    - principles: Principles that inform this choice (INFORMS_CHOICE, principle → choice)
     - supporting_goals: Goals this choice affects (AFFECTS_GOAL — polarity-free)
     - conflicting_goals: Always empty. There is NO conflicting-goal edge; the choice↔goal
       link is the single polarity-free AFFECTS_GOAL. Kept as a field (not dropped) to
@@ -348,24 +347,21 @@ class ChoiceCrossContext:
         categorized payload (the CHOICES_CONFIG ``context_field_name`` buckets).
 
         This is the per-domain seam the generic factory delegates to: it SELECTs the
-        choice-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the two
-        principle directions, and DEDUPs each field to its strongest path. One union call
-        per target field (per-field scoping is intentional).
+        choice-relevant buckets, RENAMEs them to the dataclass fields, and DEDUPs each
+        field to its strongest path. One union call per target field (per-field scoping
+        is intentional).
 
         - ``supporting_goals`` ← AFFECTS_GOAL (``affected_goals``); the edge is
           polarity-free (#214), so there is no conflicting-goal bucket — ``conflicting_goals``
           stays empty rather than reading a bucket nothing emits.
-        - ``principles`` ← the union of INFORMED_BY_PRINCIPLE (outgoing,
-          ``aligned_principles``) and GUIDES_CHOICE (incoming, ``guiding_principles``).
+        - ``principles`` ← INFORMS_CHOICE from a principle (``informing_principles``).
         - ``knowledge`` ← INFORMED_BY_KNOWLEDGE (``informed_by_knowledge``).
         """
         return cls(
             choice_uid=source_uid,
             principles=[
                 PathAwarePrinciple.from_dict(p)
-                for p in _union_path_buckets(
-                    categorized_data, "aligned_principles", "guiding_principles"
-                )
+                for p in _union_path_buckets(categorized_data, "informing_principles")
             ],
             supporting_goals=[
                 PathAwareGoal.from_dict(g)
@@ -607,7 +603,7 @@ class PrincipleCrossContext:
 
     Groups related entities by relationship semantic:
     - goals: Goals this principle supports (SUPPORTS_GOAL → ``supported_goals``)
-    - choices: Choices informed by this principle (GUIDES_CHOICE → ``guided_choices``)
+    - choices: Choices informed by this principle (INFORMS_CHOICE → ``informed_choices``)
     - knowledge: Knowledge grounding this principle (GROUNDED_IN_KNOWLEDGE →
       ``grounding_knowledge``)
     - habits: Habits aligned with this principle — union of INSPIRES_HABIT (outgoing,
@@ -635,7 +631,7 @@ class PrincipleCrossContext:
         target field (per-field scoping is intentional).
 
         - ``goals`` ← SUPPORTS_GOAL (``supported_goals``).
-        - ``choices`` ← GUIDES_CHOICE (``guided_choices``).
+        - ``choices`` ← INFORMS_CHOICE (``informed_choices``).
         - ``knowledge`` ← GROUNDED_IN_KNOWLEDGE (``grounding_knowledge``).
         - ``habits`` ← the union of INSPIRES_HABIT (outgoing, ``inspired_habits``) and
           EMBODIES_PRINCIPLE (incoming, ``embodying_habits``).
@@ -651,7 +647,7 @@ class PrincipleCrossContext:
             ],
             choices=[
                 PathAwareChoice.from_dict(c)
-                for c in _union_path_buckets(categorized_data, "guided_choices")
+                for c in _union_path_buckets(categorized_data, "informed_choices")
             ],
             knowledge=[
                 PathAwareKnowledge.from_dict(k)

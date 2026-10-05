@@ -415,7 +415,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### ChoicesService
 
-**Facade-specific public methods:** 41
+**Facade-specific public methods:** 42
 
 | Method | Async |
 |--------|-------|
@@ -456,6 +456,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `remove_subchoice_relationship()` | ✅ |
 | `suggest_learning_aligned_choices()` | ✅ |
 | `track_choice_learning_outcomes()` | ✅ |
+| `unlink_choice_from_principle()` | ✅ |
 | `update()` | ✅ |
 | `update_choice()` | ✅ |
 | `update_for_user()` | ✅ |

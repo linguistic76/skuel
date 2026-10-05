@@ -44,7 +44,7 @@ class TestChoiceRelationships:
         assert rels.informed_by_knowledge_uids == []
         assert rels.opens_learning_path_uids == []
         assert rels.required_knowledge_uids == []
-        assert rels.aligned_principle_uids == []
+        assert rels.informing_principle_uids == []
 
     def test_choice_relationships_helper_methods(self):
         """Test helper methods with empty relationships."""
@@ -63,7 +63,7 @@ class TestChoiceRelationships:
             informed_by_knowledge_uids=["ku.1", "ku.2"],
             opens_learning_path_uids=["lp.1"],
             required_knowledge_uids=["ku.3"],
-            aligned_principle_uids=["principle.1"],
+            informing_principle_uids=["principle.1"],
         )
 
         assert rels.has_any_knowledge()
@@ -97,7 +97,7 @@ class TestChoiceRelationships:
         assert isinstance(rels.informed_by_knowledge_uids, list)
         assert isinstance(rels.opens_learning_path_uids, list)
         assert isinstance(rels.required_knowledge_uids, list)
-        assert isinstance(rels.aligned_principle_uids, list)
+        assert isinstance(rels.informing_principle_uids, list)
 
 
 # ============================================================================

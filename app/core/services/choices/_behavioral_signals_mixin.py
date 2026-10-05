@@ -184,11 +184,10 @@ class _BehavioralSignalsMixin:
         # declares _require_relationships = True, so it cannot be constructed without one.
         principle_aligned_count = 0
         for choice in decided[:10]:  # Sample first 10 for efficiency
-            # Service get_related_uids takes (method_key, uid). "principles" is the
-            # Choice→Principle config key (INFORMED_BY_PRINCIPLE); the previous 3-arg
-            # backend signature with a raw RelationshipName.value never matched.
+            # Service get_related_uids takes (method_key, uid). "informing_principles" is
+            # the choice's view of (Principle)-[:INFORMS_CHOICE]->(Choice).
             rel_result = await self.relationships.get_related_uids(
-                "principles",
+                "informing_principles",
                 choice.uid,
             )
             if rel_result.is_ok and rel_result.value:

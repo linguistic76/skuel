@@ -22,7 +22,7 @@ PRINCIPLE_QUERY_SPECS: list[tuple[str, str]] = [
     ("supported_goal_uids", "supported_goals"),
     ("inspired_habit_uids", "inspired_habits"),
     ("related_principle_uids", "supporting_principles"),
-    ("guided_choice_uids", "guided_choices"),
+    ("informed_choice_uids", "informed_choices"),
     ("guided_task_uids", "aligned_tasks"),
     ("serves_life_path_uids", "life_path"),
     ("demonstrating_event_uids", "demonstrating_events"),
@@ -45,7 +45,7 @@ class PrincipleRelationships:
     supported_goal_uids: list[str] = field(default_factory=list)
     inspired_habit_uids: list[str] = field(default_factory=list)
     related_principle_uids: list[str] = field(default_factory=list)
-    guided_choice_uids: list[str] = field(default_factory=list)
+    informed_choice_uids: list[str] = field(default_factory=list)
     guided_task_uids: list[str] = field(default_factory=list)
     serves_life_path_uids: list[str] = field(default_factory=list)
 
@@ -82,9 +82,9 @@ class PrincipleRelationships:
         """Check if principle inspires any habits."""
         return len(self.inspired_habit_uids) > 0
 
-    def guides_choices(self) -> bool:
-        """Check if principle guides any choices."""
-        return len(self.guided_choice_uids) > 0
+    def informs_choices(self) -> bool:
+        """Check if the principle informs any choice."""
+        return len(self.informed_choice_uids) > 0
 
     def guides_tasks(self) -> bool:
         """Check if principle guides any tasks."""
@@ -95,7 +95,7 @@ class PrincipleRelationships:
         return (
             self.supports_goals()
             or self.inspires_habits()
-            or self.guides_choices()
+            or self.informs_choices()
             or self.guides_tasks()
         )
 
@@ -108,8 +108,8 @@ class PrincipleRelationships:
             score += min(len(self.supported_goal_uids) * 0.10, 0.25)
         if self.inspired_habit_uids:
             score += min(len(self.inspired_habit_uids) * 0.10, 0.20)
-        if self.guided_choice_uids:
-            score += min(len(self.guided_choice_uids) * 0.08, 0.15)
+        if self.informed_choice_uids:
+            score += min(len(self.informed_choice_uids) * 0.08, 0.15)
         if self.guided_task_uids:
             score += min(len(self.guided_task_uids) * 0.08, 0.20)
         return min(score, 1.0)
@@ -119,7 +119,7 @@ class PrincipleRelationships:
         return (
             len(self.supported_goal_uids)
             + len(self.inspired_habit_uids)
-            + len(self.guided_choice_uids)
+            + len(self.informed_choice_uids)
             + len(self.guided_task_uids)
         )
 

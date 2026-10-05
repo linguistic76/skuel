@@ -74,7 +74,6 @@ from .domain_queries import (
     # Time-based queries (January 2026)
     build_active_query,
     # Domain-specific entity-with-context functions (reinstated January 2026)
-    build_choice_with_context,
     # Time-based queries (January 2026)
     build_due_soon_query,
     # Entity with context - generic engine
@@ -153,7 +152,6 @@ __all__ = [
     "build_batch_relationship_exists",
     "build_batch_relationship_exists_with_filters",
     "build_bidirectional_impact_query",
-    "build_choice_with_context",
     "build_count_query",
     "build_cross_domain_bridges",
     # consolidation queries (January 2026)

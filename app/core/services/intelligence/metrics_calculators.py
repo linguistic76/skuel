@@ -480,7 +480,7 @@ def calculate_choice_impact_metrics(
 
     Tasks/habits are not part of the choice cross-domain context, so they are always
     empty; goals come from AFFECTS_GOAL (polarity-free → all in ``supporting_goals``),
-    principles from the INFORMED_BY_PRINCIPLE / GUIDES_CHOICE union, knowledge from
+    principles from INFORMS_CHOICE (principle → choice), knowledge from
     INFORMED_BY_KNOWLEDGE. ``total_entities_affected`` excludes knowledge (count of
     goals+tasks+habits+principles), matching the established contract.
     """

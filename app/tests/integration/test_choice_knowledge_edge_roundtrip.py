@@ -17,7 +17,8 @@ round-trips is to create the edge against a real Neo4j and read it back — whic
 is exactly what this test does. Against the broken code no edge was ever created;
 against the fix it persists.
 
-Reader on the other side: ``PsService.find_choices_informed_by_knowledge``.
+Reader on the other side: the user context's choices statement
+(``choice_knowledge_informed``).
 """
 
 import pytest

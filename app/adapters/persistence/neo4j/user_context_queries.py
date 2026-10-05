@@ -550,7 +550,7 @@ WITH user, core_principle_uids,
        reduce(acc = [], p IN principle_grounded_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      )[0..10] as principle_grounded_knowledge
 
-OPTIONAL MATCH (principle)-[:GUIDES_CHOICE]->(principle_choice:Choice)
+OPTIONAL MATCH (principle)-[:INFORMS_CHOICE]->(principle_choice:Choice)
 WHERE principle IS NOT NULL AND __FAR(principle_choice)__
 WITH user, core_principle_uids,
      principle, principle_grounded_knowledge,
@@ -606,7 +606,7 @@ WITH user, core_principle_uids, principles_rich,
        reduce(acc = [], p IN choice_informing_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      )[0..10] as choice_informing_knowledge
 
-OPTIONAL MATCH (choice)-[:INFORMED_BY_PRINCIPLE]->(choice_principle:Principle)
+OPTIONAL MATCH (choice_principle:Principle)-[:INFORMS_CHOICE]->(choice)
 WHERE choice IS NOT NULL AND __FAR(choice_principle)__
 WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,

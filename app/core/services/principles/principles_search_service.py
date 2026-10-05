@@ -63,7 +63,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     Semantic Types Used:
     - SUPPORTS_GOAL: Principle supports a goal
     - INSPIRES_HABIT: Principle inspires habit formation/maintenance
-    - GUIDES_CHOICE: Principle guides decision-making
+    - INFORMS_CHOICE: Principle informs a choice
     - RELATED_TO: Principle relates to another principle
     """
 

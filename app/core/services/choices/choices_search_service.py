@@ -65,8 +65,8 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
     Semantic Types Used:
     - AFFECTS_GOAL: Choice affects goal progress/direction
-    - ALIGNED_WITH_PRINCIPLE: Choice aligned with guiding principle
-    - REQUIRES_KNOWLEDGE: Choice requires knowledge for informed decision
+    - INFORMS_CHOICE: A principle or habit informs the choice (incoming)
+    - REQUIRES_KNOWLEDGE_FOR_DECISION: Choice requires knowledge for informed decision
     - IMPACTS_HABIT: Choice impacts habit formation/maintenance
     """
 

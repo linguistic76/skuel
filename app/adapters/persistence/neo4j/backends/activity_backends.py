@@ -1726,9 +1726,9 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
     async def get_choice_influence_stats(
         self, principle_uid: str, user_uid: UserUID, period_days: int
     ) -> Result[Neo4jProperties]:
-        """Get stats on how a principle has influenced choices."""
+        """Get stats on the choices a principle informs, whichever page made the link."""
         query = f"""
-        MATCH (p:Principle {{uid: $principle_uid}})-[:{RelationshipName.GUIDES_CHOICE.value}]->(c:Choice)
+        MATCH (p:Principle {{uid: $principle_uid}})-[:{RelationshipName.INFORMS_CHOICE.value}]->(c:Choice)
         WHERE c.user_uid = $user_uid
           AND datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
 

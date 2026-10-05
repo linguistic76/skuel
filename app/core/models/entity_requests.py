@@ -266,11 +266,10 @@ class LinkChoiceToGoalRequest(BaseModel):
 
 
 class LinkChoiceToPrincipleRequest(BaseModel):
-    """Link a choice to the principle it is informed by (INFORMED_BY_PRINCIPLE)."""
+    """Link a choice to a principle that informs it (INFORMS_CHOICE, principle → choice)."""
 
     choice_uid: str = Field(..., min_length=1)
     principle_uid: str = Field(..., min_length=1)
-    alignment_score: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
 class LinkPrincipleToKnowledgeRequest(BaseModel):

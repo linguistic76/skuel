@@ -119,16 +119,9 @@ MISSING_ENDS: dict[MissingEnd, str] = {
     MissingEnd(
         NeoLabel.CHOICE, RelationshipName.AFFECTS_GOAL, NeoLabel.GOAL, unread_at=NeoLabel.GOAL
     ): "PR 5",
-    MissingEnd(
-        NeoLabel.CHOICE,
-        RelationshipName.INFORMED_BY_PRINCIPLE,
-        NeoLabel.PRINCIPLE,
-        unread_at=NeoLabel.PRINCIPLE,
-    ): "PR 3 (retires)",
 }
 
 MIXED_VIEWS: dict[View, str] = {
-    View(NeoLabel.CHOICE, RelationshipName.INFORMS_CHOICE, "informing_habits"): "PR 3",
     View(NeoLabel.HABIT, RelationshipName.REINFORCES_HABIT, "reinforcing_habits"): "PR 5",
     View(NeoLabel.PRINCIPLE, RelationshipName.EMBODIES_PRINCIPLE, "embodying_habits"): "PR 5",
     View(NeoLabel.EVENT, RelationshipName.SCHEDULES_EVENT, "scheduled_by_choices"): "PR 5",

@@ -128,9 +128,7 @@ def create_choices_api_routes(
         )
 
     async def apply_link_principle(req: LinkChoiceToPrincipleRequest) -> Result[bool]:
-        return await choices_service.link_choice_to_principle(
-            req.choice_uid, req.principle_uid, req.alignment_score
-        )
+        return await choices_service.link_choice_to_principle(req.choice_uid, req.principle_uid)
 
     create_activity_link_api_routes(
         rt,
@@ -151,7 +149,7 @@ def create_choices_api_routes(
                 request_model=LinkChoiceToPrincipleRequest,
                 owner_uid_field="choice_uid",
                 apply=apply_link_principle,
-                doc="Link choice to the principle that informs it (INFORMED_BY_PRINCIPLE).",
+                doc="Link choice to a principle that informs it (INFORMS_CHOICE, principle → choice).",
                 target=LinkTargetSpec(
                     service=principles_service, uid_field="principle_uid", singular="principle"
                 ),
