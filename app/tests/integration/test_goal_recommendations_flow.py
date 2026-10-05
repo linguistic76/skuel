@@ -199,7 +199,12 @@ class TestGoalRecommendationsFlow:
                 ("supporting_habits", h.uid, {"essentiality": "supporting"}, HABIT_FAR_END)
                 for h in habits
             ),
-            ("principles", principle.uid, {"alignment_strength": 1.0}, PRINCIPLE_FAR_END),
+            (
+                "supporting_principles",
+                principle.uid,
+                {"weight": 1.0, "essentiality": "supporting"},
+                PRINCIPLE_FAR_END,
+            ),
         ]
         for key, other_uid, properties, far_end in links:
             linked = await relationships.create_relationship(
@@ -419,8 +424,8 @@ class TestGoalRecommendationsFlow:
         # Verify habit reinforcement attributes
         habit_rec = habit_recs[0]
         assert "related_habits" in habit_rec
-        assert len(habit_rec["related_habits"]) >= 1
-        assert all(habit.uid in habit_rec["related_habits"] for habit in habits)
+        # The principle supports the goal over the same edge type and is no habit.
+        assert sorted(habit_rec["related_habits"]) == sorted(habit.uid for habit in habits)
 
     async def test_principle_alignment_recommendation(
         self,
@@ -458,8 +463,7 @@ class TestGoalRecommendationsFlow:
         # Verify principle alignment attributes
         principle_rec = principle_recs[0]
         assert "related_principles" in principle_rec
-        assert len(principle_rec["related_principles"]) >= 1
-        assert all(p.uid in principle_rec["related_principles"] for p in principles)
+        assert principle_rec["related_principles"] == [p.uid for p in principles]
         assert principle_rec["confidence"] >= 0.85  # Principle alignment has highest confidence
 
     async def test_no_recommendations_when_goal_not_found(

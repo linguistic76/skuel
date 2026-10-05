@@ -1,6 +1,6 @@
 ---
 title: Sibling Signal Pattern
-updated: 2026-10-04
+updated: 2026-10-05
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, design]
@@ -65,7 +65,7 @@ Not every useful signal flows both ways. These seven are asymmetric — one doma
 
 | Signal | From | To | Graph edge |
 |--------|------|-----|------------|
-| Values anchor direction | Principles | Goals | `GUIDED_BY_PRINCIPLE` |
+| Values anchor direction | Principles | Goals | `SUPPORTS_GOAL` (principle → goal) |
 | Behavior expresses value | Habits | Principles | `EMBODIES_PRINCIPLE` |
 | Moments force decisions | Events | Choices | `TRIGGERS_CHOICE` |
 | Work advances aspiration | Tasks | Goals | `CONTRIBUTES_TO_GOAL` |

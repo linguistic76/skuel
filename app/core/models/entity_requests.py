@@ -226,11 +226,10 @@ class LinkGoalToKnowledgeRequest(BaseModel):
 
 
 class LinkGoalToPrincipleRequest(BaseModel):
-    """Link a goal to a guiding principle/value (GUIDED_BY_PRINCIPLE)."""
+    """Link a goal to a principle that supports it (SUPPORTS_GOAL, principle → goal)."""
 
     goal_uid: str = Field(..., min_length=1)
     principle_uid: str = Field(..., min_length=1)
-    alignment_strength: float = Field(default=1.0, ge=0.0, le=1.0)
 
 
 class LinkHabitToKnowledgeRequest(BaseModel):

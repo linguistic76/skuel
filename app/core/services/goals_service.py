@@ -690,7 +690,7 @@ class GoalsService(
         )
 
     async def unlink_goal_from_habit(self, uid: str, habit_uid: str) -> Result[bool]:
-        """Unlink a habit from a goal."""
+        """Unlink a habit from a goal. A principle's support of the goal is left alone."""
         return await self.relationships.delete_relationship("supporting_habits", uid, habit_uid)
 
     async def link_goal_to_knowledge(
@@ -710,15 +710,31 @@ class GoalsService(
         )
 
     async def link_goal_to_principle(
-        self, goal_uid: str, principle_uid: str, alignment_strength: float = 1.0
+        self,
+        goal_uid: str,
+        principle_uid: str,
+        weight: float = 1.0,
+        essentiality: str = "supporting",
     ) -> Result[bool]:
-        """Link goal to guiding principle/value (``GUIDED_BY_PRINCIPLE``)."""
+        """Link goal to a principle that supports it, with its importance level.
+
+        Writes ``(Principle)-[:SUPPORTS_GOAL {weight, essentiality}]->(Goal)`` — the
+        edge the principle's own link door writes, so the link shows on both pages
+        whichever door made it.
+        """
+        properties: Neo4jProperties = {"weight": weight, "essentiality": essentiality}
         return await self.relationships.create_relationship(
-            "principles",
+            "supporting_principles",
             goal_uid,
             principle_uid,
-            {"alignment_strength": alignment_strength},
+            properties,
             far_end=PRINCIPLE_FAR_END,
+        )
+
+    async def unlink_goal_from_principle(self, uid: str, principle_uid: str) -> Result[bool]:
+        """Unlink a principle from a goal. A habit's support of the goal is left alone."""
+        return await self.relationships.delete_relationship(
+            "supporting_principles", uid, principle_uid
         )
 
     async def create_semantic_goal_relationship(

@@ -150,7 +150,9 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
         await _link(driver, task, RelationshipName.FULFILLS_GOAL, GOAL)
         await _link(driver, task, RelationshipName.REINFORCES_HABIT, HABIT)
         await _link(driver, habit, RelationshipName.REINFORCES_KNOWLEDGE, KU)
-        await _link(driver, principle, RelationshipName.GUIDES_GOAL, GOAL)
+        # A habit and a principle support the same goal over the one edge type.
+        await _link(driver, habit, RelationshipName.SUPPORTS_GOAL, GOAL)
+        await _link(driver, principle, RelationshipName.SUPPORTS_GOAL, GOAL)
     yield driver
     await _wipe(driver)
 
@@ -203,6 +205,17 @@ async def test_a_reverse_read_route_returns_the_callers_entity_and_not_the_other
     assert OWN_MARK in response.text
     assert FOREIGN_MARK not in response.text
     assert "_r5_foreign" not in response.text
+
+
+async def test_the_goals_principle_read_returns_its_principle_and_not_its_habit(
+    http: httpx.AsyncClient,
+) -> None:
+    """The caller's habit supports the goal over the same edge type the principle does."""
+    response = await http.get(f"/api/principles/goal?goal_uid={GOAL}")
+
+    assert response.status_code == 200, response.text
+    assert OWN_PRINCIPLE in response.text
+    assert OWN_HABIT not in response.text
 
 
 async def test_the_task_readers_return_the_viewers_tasks(

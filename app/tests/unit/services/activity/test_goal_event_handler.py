@@ -271,6 +271,10 @@ class TestHandleGoalAchieved:
         assert insight.insight_type == InsightType.PRINCIPLE_ALIGNMENT
         assert insight.domain == "goals"
         assert insight.related_entities == {"principles": ["principle_test_123"]}
+        # The mock answers any key: the read names the goal's key for its principles.
+        mock_relationships.get_related_uids.assert_awaited_once_with(
+            "supporting_principles", "goal_test_abc"
+        )
 
     @pytest.mark.asyncio
     async def test_fire_and_forget_contract(

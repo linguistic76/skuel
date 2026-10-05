@@ -421,7 +421,7 @@ class GoalEventHandlerService:
         - Goal properties (domain, type, timeframe)
         - Related knowledge units (REQUIRES_KNOWLEDGE)
         - Related habits (SUPPORTS_GOAL)
-        - Related principles (GUIDED_BY_PRINCIPLE)
+        - Related principles (SUPPORTS_GOAL from a principle)
 
         Args:
             goal_uid: Achieved goal UID
@@ -591,10 +591,10 @@ class GoalEventHandlerService:
         if not self.relationships:
             return
 
-        # "principles" is the Goal→Principle config key (GUIDED_BY_PRINCIPLE); the service
-        # takes a method_key, not a raw RelationshipName.value (never matched → empty).
+        # "supporting_principles" is the goal's config key for the principles that
+        # support it; the service takes a method_key, not a raw RelationshipName.value.
         aligned_result = await self.relationships.get_related_uids(
-            "principles", EntityUID(event.goal_uid)
+            "supporting_principles", EntityUID(event.goal_uid)
         )
         if aligned_result.is_ok and aligned_result.value:
             principle_uids = aligned_result.value

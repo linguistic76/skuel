@@ -206,7 +206,7 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 | `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
 | `EVENTS_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
 | `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
-| `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, GUIDES_GOAL, GUIDES_CHOICE |
+| `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, SUPPORTS_GOAL, GUIDES_CHOICE |
 | **Curriculum (3)** |
 | `KU_CONFIG` | KNOWLEDGE | Ku | REQUIRES, ENABLES, ORGANIZES, HAS_NARROWER |
 | `PS_CONFIG` | LEARNING | PathStep | CONTAINS_KNOWLEDGE, TRAINS_KU, REQUIRES_STEP, BUILDS_HABIT, ASSIGNS_TASK |
@@ -258,7 +258,8 @@ knowledge_by_habit = await service.batch_get_related_uids("knowledge", ["habit.1
 
 # Edge-property-FILTERED keys (e.g. essentiality tiers on SUPPORTS_GOAL).
 essential = await service.get_related_uids("essential_habits", "goal.123")    # r.essentiality = "essential"
-all_habits = await service.get_related_uids("supporting_habits", "goal.123")  # no filter → every tier
+all_habits = await service.get_related_uids("supporting_habits", "goal.123")  # no filter → every tier, habits only
+principles = await service.get_related_uids("supporting_principles", "goal.123")  # same edge type, principles only
 ```
 
 > **Filtered method-keys (`filter_property`/`filter_value`).** A
@@ -289,7 +290,9 @@ await service.create_relationships_batch(
     far_ends={"knowledge": KNOWLEDGE_FAR_END},
 )
 
-# Delete relationship
+# Delete relationship. The key's definition is read whole: when it names the far end's
+# kind, only an edge to a node of that kind is deleted — a goal's "supporting_habits"
+# cannot remove a principle's SUPPORTS_GOAL edge into the same goal.
 await service.delete_relationship("knowledge", "task.123", "ku.py")
 
 # Single edge — config-keyed, every-domain-safe (root-fixed PR #197)
@@ -364,7 +367,7 @@ landmine, because the call type-checks but blows up (or, behind a swallowing
   `DomainRelationshipConfig` (see *Domain Configurations*).
 - **Before calling a relationship method, confirm it is actually defined** on
   `UnifiedRelationshipService` (or its mixins) — not merely declared on a protocol.
-  If you need "goals guided by this principle," it is `get_related_uids("guided_goals", uid)`,
+  If you need "goals this principle supports," it is `get_related_uids("supported_goals", uid)`,
   not a bespoke `get_principle_goals`.
 - **Mocked backends/services hide all of this** — an `AsyncMock` resolves any attribute
   and returns success for any key. **Guard relationship reads/writes with a real-Neo4j
@@ -529,11 +532,18 @@ returns one bucket per config `context_field_name`, each entry a
 traversal **always goes both directions**, and each related node is bucketed by the
 edge **incident to it** (its last hop), not by any earlier edge in the path:
 
-- The backend emits `incident_rel_type` (type of the last hop) and
+- The backend emits `incident_rel_type` (type of the last hop),
   `incident_into_related` (`True` when the edge points *into* the node — the node is
-  the relationship's object). A node lands in a mapping's bucket iff its incident
-  edge matches the mapping's `relationship` **and** `direction`
-  (`outgoing ⟺ into_related True`, `incoming ⟺ False`, `both ⟺ either`).
+  the relationship's object) and `incident_other_is_center_kind` (`True` when the
+  node at the other end of the last hop shares a non-`Entity` label with the centre;
+  at distance 1 that node is the centre). A node lands in a mapping's bucket iff its
+  incident edge matches the mapping's `relationship` **and** `direction`
+  (`outgoing ⟺ into_related True`, `incoming ⟺ False`, `both ⟺ either`) **and** the
+  edge's other end is of the centre's kind. Several kinds share an edge type: a goal
+  reached habit → principle → goal has a `SUPPORTS_GOAL` edge pointing into it, from a
+  principle, and is not one of the habit's `supported_goals`. A shared-neighbour
+  mapping is exempt from the kind condition: its node is a peer reached through the
+  shared neighbour.
 - This makes `depth` a real knob: a node *N* hops out is attributed by the edge that
   actually touches it (each entry carries its `distance`, so callers can filter to
   `distance == 1` for direct-only). `depth=2` therefore includes correctly-attributed

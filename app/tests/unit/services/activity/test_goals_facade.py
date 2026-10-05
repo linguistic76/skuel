@@ -6,7 +6,7 @@ Tests focus on explicit orchestration logic (conditional checks, multi-step
 sequencing, cross-sub-service coordination) — NOT pure delegation methods.
 """
 
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
@@ -218,20 +218,35 @@ class TestGoalsServiceRelationships:
         )
 
     @pytest.mark.asyncio
-    async def test_link_goal_to_principle_passes_alignment_strength(
+    async def test_link_goal_to_principle_stores_the_importance_level(
         self, goals_service: GoalsService
     ) -> None:
-        """link_goal_to_principle writes the GUIDED_BY_PRINCIPLE ('principles') edge."""
+        """link_goal_to_principle writes through the goal's ``supporting_principles`` key
+        with the properties a habit's support carries."""
         goals_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
         await goals_service.link_goal_to_principle(
-            "goal_abc", "principle_xyz", alignment_strength=0.9
+            "goal_abc", "principle_xyz", essentiality="essential"
         )
 
         goals_service.relationships.create_relationship.assert_called_once_with(
-            "principles",
+            "supporting_principles",
             "goal_abc",
             "principle_xyz",
-            {"alignment_strength": 0.9},
+            {"weight": 1.0, "essentiality": "essential"},
             far_end=PRINCIPLE_FAR_END,
         )
+
+    @pytest.mark.asyncio
+    async def test_each_unlink_names_its_own_kind(self, goals_service: GoalsService) -> None:
+        """A habit and a principle support a goal through one edge type; each unlink
+        goes through its own kind's key, which the keyed delete carries as a label."""
+        goals_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+
+        await goals_service.unlink_goal_from_habit("goal_abc", "habit_xyz")
+        await goals_service.unlink_goal_from_principle("goal_abc", "principle_xyz")
+
+        assert goals_service.relationships.delete_relationship.call_args_list == [
+            call("supporting_habits", "goal_abc", "habit_xyz"),
+            call("supporting_principles", "goal_abc", "principle_xyz"),
+        ]

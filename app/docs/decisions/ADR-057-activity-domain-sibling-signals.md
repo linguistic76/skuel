@@ -1,6 +1,6 @@
 ---
 title: "ADR-057: Activity-Domain Sibling Signals"
-updated: 2026-10-04
+updated: 2026-10-05
 status: current
 category: decisions
 tags: [adr, decisions, architecture, activity-domains, intelligence, design]
@@ -85,6 +85,11 @@ The 6 domains organize into **3 primary axes** (mutual sharpening — A↔B) plu
 | Aspiration directs work | Goals | Tasks | reverse of `CONTRIBUTES_TO_GOAL` |
 | Values anchor execution | Principles | Tasks | `ALIGNED_WITH_PRINCIPLE` (task → principle) |
 | Aspiration flags time commitment | Goals | Events | reverse of `CONTRIBUTES_TO_GOAL` (event → goal) |
+
+> **2026-10-05 — Amended by [ADR-090](ADR-090-one-link-per-fact-a-view-per-domain.md) (Activity Links arc, PR 2).**
+> The "Values anchor direction" row's edge is `SUPPORTS_GOAL`, stored principle → goal: a principle ↔ goal
+> link is one edge, and no goal writes or reads `GUIDED_BY_PRINCIPLE`, which remains only as a PathStep's
+> guiding-principles edge. The Context paragraph's list of cross-domain edges names it in the retired sense.
 
 ### Vocabulary
 

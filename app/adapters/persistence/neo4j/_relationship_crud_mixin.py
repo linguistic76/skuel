@@ -982,7 +982,13 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("delete_relationship")
     async def delete_relationship(
-        self, from_uid: str, to_uid: str, relationship_type: RelationshipName
+        self,
+        from_uid: str,
+        to_uid: str,
+        relationship_type: RelationshipName,
+        *,
+        from_label: NeoLabel | None = None,
+        to_label: NeoLabel | None = None,
     ) -> Result[bool]:
         """
         Delete a graph relationship between two entities.
@@ -991,6 +997,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             from_uid: Source entity UID
             to_uid: Target entity UID
             relationship_type: Neo4j relationship type
+            from_label: The kind the source must be; an edge from another kind is kept
+            to_label: The kind the target must be; an edge to another kind is kept
 
         Returns:
             Result[bool] indicating success (True even if relationship didn't exist)
@@ -1003,9 +1011,11 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             )
         """
         rel_type = relationship_type.value
+        from_kind = f":{from_label.value}" if from_label else ""
+        to_kind = f":{to_label.value}" if to_label else ""
         # NOT :Content — G13 shadow-uid guard (see create_relationship).
         query = f"""
-        MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        MATCH (a{from_kind} {{uid: $from_uid}})-[r:{rel_type}]->(b{to_kind} {{uid: $to_uid}})
         WHERE NOT a:Content AND NOT b:Content
         DELETE r
         RETURN count(r) as deleted_count

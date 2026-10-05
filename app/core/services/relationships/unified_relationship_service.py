@@ -64,7 +64,7 @@ from core.services.mixins.link_edge_guard import (
 )
 from core.services.relationships._batch_operations_mixin import BatchOperationsMixin
 from core.services.relationships._intelligence_mixin import IntelligenceMixin
-from core.services.relationships._keyed_read import resolve_keyed_read
+from core.services.relationships._keyed_read import far_end_label, resolve_keyed_read
 from core.services.relationships._ordered_relationships_mixin import OrderedRelationshipsMixin
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -440,10 +440,15 @@ class UnifiedRelationshipService[
         """
         Delete a relationship between entities.
 
+        The definition is read whole, as a keyed read reads it: when it names the far
+        end's kind, only an edge to a node of that kind is deleted. Two kinds can share
+        an edge type and a direction (a goal's supporting habits and supporting
+        principles), and a key removes only its own kind's link.
+
         Args:
             relationship_key: Key from config
-            from_uid: Source entity UID
-            to_uid: Target entity UID
+            from_uid: The entity this domain config belongs to
+            to_uid: The related entity — the far end, whatever the edge's direction
 
         Returns:
             Result[bool] indicating success
@@ -457,10 +462,14 @@ class UnifiedRelationshipService[
             )
 
         edge_from, edge_to = self._orient(spec, from_uid, to_uid)
+        far_label = far_end_label(spec)
+        far_is_source = spec.direction == "incoming"
         return await self.backend.delete_relationship(
             from_uid=edge_from,
             to_uid=edge_to,
             relationship_type=spec.relationship,
+            from_label=far_label if far_is_source else None,
+            to_label=None if far_is_source else far_label,
         )
 
     async def create_relationships_batch(

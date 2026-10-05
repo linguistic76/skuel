@@ -26,7 +26,7 @@ GOAL_QUERY_SPECS: list[tuple[str, str]] = [
     ("essential_habit_uids", "essential_habits"),
     ("critical_habit_uids", "critical_habits"),
     ("optional_habit_uids", "optional_habits"),
-    ("guiding_principle_uids", "principles"),
+    ("supporting_principle_uids", "supporting_principles"),
     ("serves_life_path_uids", "life_path"),
 ]
 
@@ -59,7 +59,7 @@ class GoalRelationships:
     optional_habit_uids: list[str] = field(default_factory=list)
 
     # Principle relationships
-    guiding_principle_uids: list[str] = field(default_factory=list)
+    supporting_principle_uids: list[str] = field(default_factory=list)
 
     # Life path alignment
     serves_life_path_uids: list[str] = field(default_factory=list)

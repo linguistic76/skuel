@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-10-05
 ---
 
 # PrinciplesIntelligenceService - Cross-Domain Principle Alignment & Conflict Detection
@@ -411,7 +411,7 @@ async def get_quick_principle_impact(
     "principle_uid": "principle.integrity",
     "relationship_counts": {
         "grounded_knowledge": 2,
-        "guided_goals": 4,
+        "supported_goals": 4,
         "inspired_habits": 3,
         "related_principles": 1
     },
@@ -439,7 +439,7 @@ if result.is_ok:
     counts = impact["relationship_counts"]
     print(f"\nRelationships:")
     print(f"  Knowledge grounded: {counts['grounded_knowledge']}")
-    print(f"  Goals guided: {counts['guided_goals']}")
+    print(f"  Goals supported: {counts['supported_goals']}")
     print(f"  Habits inspired: {counts['inspired_habits']}")
 
     if impact["impact_score"] > 5.0:
@@ -759,7 +759,7 @@ if overlapping:
 
 Uses `PrincipleRelationships.fetch()` for typed relationship access:
 - `grounded_knowledge_uids` - Knowledge grounding the principle
-- `guided_goal_uids` - Goals aligned with principle
+- `supported_goal_uids` - Goals this principle supports
 - `inspired_habit_uids` - Habits embodying principle
 - `related_principle_uids` - Related or supporting principles
 

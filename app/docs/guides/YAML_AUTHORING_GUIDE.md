@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-10-02
+updated: 2026-10-05
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -363,7 +363,8 @@ connections:
 ```yaml
 connections:
   requires_knowledge: [ps.namespace.path-step-slug]      # REQUIRES_KNOWLEDGE → PathStep/Ku
-  aligned_with_principle: [principle.name]            # GUIDED_BY_PRINCIPLE → Principle
+  supporting_habits: [habit.habit-name]               # SUPPORTS_GOAL ← Habit
+  supporting_principles: [principle.name]             # SUPPORTS_GOAL ← Principle
 ```
 
 ### Habit Connections
@@ -401,7 +402,7 @@ connections:
 ```yaml
 connections:
   grounded_in_knowledge: [ps.namespace.path-step-slug]   # GROUNDED_IN_KNOWLEDGE → PathStep/Ku
-  guides_goal: [goal.goal-name]                      # GUIDES_GOAL → Goal
+  supports_goal: [goal.goal-name]                    # SUPPORTS_GOAL → Goal
   inspires_habit: [habit.habit-name]                 # INSPIRES_HABIT → Habit
 ```
 

@@ -12,7 +12,7 @@ goals and habits a principle's strength change cascades to. Both reads were brok
   silently never counted.
 
 The fix routes both through the generic config-keyed reader with the *real* keys:
-``"guided_goals"`` (GUIDES_GOAL) and ``"inspired_habits"`` (INSPIRES_HABIT).
+``"supported_goals"`` (SUPPORTS_GOAL) and ``"inspired_habits"`` (INSPIRES_HABIT).
 
 A mocked relationship service can't catch either (it returns success for any key /
 any attribute). These tests resolve the edges against real Neo4j, with a built-in
@@ -35,14 +35,14 @@ class TestPrincipleCascadeReadsRoundTrip:
     """The principle→goal / principle→habit cascade reads must resolve real edges."""
 
     async def _seed(self, neo4j_driver, principle: str, goal: str, habit: str) -> None:
-        """Create principle + GUIDES_GOAL goal + INSPIRES_HABIT habit."""
+        """Create principle + SUPPORTS_GOAL goal + INSPIRES_HABIT habit."""
         async with neo4j_driver.session() as session:
             await session.run(
                 """
                 MERGE (p:Entity:Principle {uid: $p}) SET p.entity_type='principle', p.title='P'
                 MERGE (g:Entity:Goal {uid: $g}) SET g.entity_type='goal', g.title='G'
                 MERGE (h:Entity:Habit {uid: $h}) SET h.entity_type='habit', h.title='H'
-                MERGE (p)-[:GUIDES_GOAL]->(g)
+                MERGE (p)-[:SUPPORTS_GOAL]->(g)
                 MERGE (p)-[:INSPIRES_HABIT]->(h)
                 """,
                 p=principle,
@@ -51,16 +51,20 @@ class TestPrincipleCascadeReadsRoundTrip:
             )
 
     async def test_cascade_keys_resolve_real_edges(self, services, neo4j_driver, clean_neo4j):
-        """'guided_goals' and 'inspired_habits' resolve; the old 'habits' key is invalid."""
+        """'supported_goals' and 'inspired_habits' resolve; the old 'habits' key is invalid."""
         p, g, h = "principle_cascade_1", "goal_cascade_1", "habit_cascade_1"
         await self._seed(neo4j_driver, p, g, h)
         rels = services.principles.relationships
 
-        goals = await rels.get_related_uids("guided_goals", EntityUID(p))
-        assert goals.is_ok and g in goals.value
+        goals = await rels.get_related_uids("supported_goals", EntityUID(p))
+        assert goals.is_ok and goals.value == [g]
 
         habits = await rels.get_related_uids("inspired_habits", EntityUID(p))
-        assert habits.is_ok and h in habits.value
+        assert habits.is_ok and habits.value == [h]
+
+        # The retired key names no definition, so its read fails closed too.
+        retired = await rels.get_related_uids("guided_goals", EntityUID(p))
+        assert retired.is_error
 
         # Negative control: the pre-fix habit key is not a valid PRINCIPLES_CONFIG
         # method, so the reader fails closed (this is why it silently returned none).
@@ -77,7 +81,7 @@ class TestPrincipleCascadeReadsRoundTrip:
         goals method + invalid 'habits' key) → total 0 → the log never emitted.
         """
         # Real principle node (handler's backend.get must deserialize it) + one
-        # GUIDES_GOAL goal and one INSPIRES_HABIT habit (read by UID only).
+        # SUPPORTS_GOAL goal and one INSPIRES_HABIT habit (read by UID only).
         principle = (
             await services.principles.create_principle(
                 PrincipleCreateRequest(title="Integrity", statement="Act with integrity"),
@@ -90,7 +94,7 @@ class TestPrincipleCascadeReadsRoundTrip:
                 MATCH (p:Entity {uid: $p})
                 MERGE (g:Entity:Goal {uid: 'goal_cascade_2'}) SET g.entity_type='goal', g.title='G'
                 MERGE (h:Entity:Habit {uid: 'habit_cascade_2'}) SET h.entity_type='habit', h.title='H'
-                MERGE (p)-[:GUIDES_GOAL]->(g)
+                MERGE (p)-[:SUPPORTS_GOAL]->(g)
                 MERGE (p)-[:INSPIRES_HABIT]->(h)
                 """,
                 p=principle.uid,

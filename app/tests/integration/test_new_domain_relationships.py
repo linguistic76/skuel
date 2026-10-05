@@ -26,6 +26,9 @@ from core.models.principle.principle_request import PrincipleCreateRequest
 from core.services.choices.choice_relationships import ChoiceRelationships
 from core.services.principles.principle_relationships import PrincipleRelationships
 
+# Every owned entity here belongs to ``test_user``, who must exist before a create.
+pytestmark = pytest.mark.usefixtures("ensure_test_users")
+
 # ============================================================================
 # CHOICE RELATIONSHIPS TESTS
 # ============================================================================
@@ -110,7 +113,7 @@ class TestPrincipleRelationships:
         rels = PrincipleRelationships.empty()
 
         assert rels.grounded_knowledge_uids == []
-        assert rels.guided_goal_uids == []
+        assert rels.supported_goal_uids == []
         assert rels.inspired_habit_uids == []
         assert rels.related_principle_uids == []
 
@@ -119,7 +122,7 @@ class TestPrincipleRelationships:
         rels = PrincipleRelationships.empty()
 
         assert not rels.has_any_knowledge()
-        assert not rels.guides_goals()
+        assert not rels.supports_goals()
         assert not rels.inspires_habits()
         assert not rels.is_integrated()
         assert rels.integration_score() == 0.0
@@ -129,13 +132,13 @@ class TestPrincipleRelationships:
         """Test helper methods with populated relationships."""
         rels = PrincipleRelationships(
             grounded_knowledge_uids=["ku.1"],
-            guided_goal_uids=["goal.1", "goal.2"],
+            supported_goal_uids=["goal.1", "goal.2"],
             inspired_habit_uids=["habit.1"],
             related_principle_uids=["principle.2"],
         )
 
         assert rels.has_any_knowledge()
-        assert rels.guides_goals()
+        assert rels.supports_goals()
         assert rels.inspires_habits()
         assert rels.is_integrated()
         assert rels.integration_score() > 0.0
@@ -168,7 +171,7 @@ class TestPrincipleRelationships:
         # Verify structure
         assert isinstance(rels, PrincipleRelationships)
         assert isinstance(rels.grounded_knowledge_uids, list)
-        assert isinstance(rels.guided_goal_uids, list)
+        assert isinstance(rels.supported_goal_uids, list)
         assert isinstance(rels.inspired_habit_uids, list)
         assert isinstance(rels.related_principle_uids, list)
 
@@ -272,4 +275,4 @@ class TestImmutability:
         rels = PrincipleRelationships.empty()
 
         with pytest.raises(Exception):
-            rels.guided_goal_uids = ["goal.1"]
+            rels.supported_goal_uids = ["goal.1"]

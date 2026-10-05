@@ -31,7 +31,7 @@ Goals
     is a property of the HAS_SUBGOAL edge, which ``create_subgoal_relationship``
     writes and ``POST /api/goals/hierarchy/child`` already accepts.
 
-    ``required_knowledge_uids``, ``guiding_principle_uids`` and
+    ``required_knowledge_uids``, ``supporting_principle_uids`` and
     ``supporting_habit_uids`` were dropped by both doors for the same reason, and
     name read relationships GOALS_CONFIG declares: the MEGA-QUERY collects
     ``required_knowledge`` from ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the habit
@@ -441,10 +441,10 @@ class TestGoalLinkEdgesAreWritten:
                 {"proficiency_required": "intermediate", "priority": 1},
             ),
             (
-                "guiding_principle_uids",
-                RelationshipName.GUIDED_BY_PRINCIPLE,
-                "principles",
-                {"alignment_strength": 1.0},
+                "supporting_principle_uids",
+                RelationshipName.SUPPORTS_GOAL,
+                "supporting_principles",
+                {"weight": 1.0, "essentiality": "supporting"},
             ),
             (
                 "supporting_habit_uids",
@@ -510,7 +510,7 @@ class TestGoalLinkEdgesAreWritten:
         result = await goal_core.create_goal(
             make_goal_request(
                 supporting_habit_uids=["habit:victims"],
-                guiding_principle_uids=["principle:victims"],
+                supporting_principle_uids=["principle:victims"],
             ),
             USER_UID,
         )

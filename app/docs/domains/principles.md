@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-10-02
+updated: 2026-10-05
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -123,7 +123,7 @@ Created via `create_common_sub_services()` factory + domain-specific services in
 | Key | Relationship | Target | Description |
 |-----|--------------|--------|-------------|
 | `knowledge` | `GROUNDED_IN_KNOWLEDGE` | Ku | Knowledge that grounds principle (YAML: `connections.grounded_in_knowledge`) |
-| `guided_goals` | `GUIDES_GOAL` | Goal | Goals this principle guides |
+| `supported_goals` | `SUPPORTS_GOAL` | Goal | Goals this principle supports (YAML: `connections.supports_goal`). One edge per principle ↔ goal link, read from the goal as `supporting_principles` |
 | `guided_choices` | `GUIDES_CHOICE` | Choice | Choices this principle guides |
 
 ### Incoming (Other → Principle)
@@ -145,7 +145,7 @@ Created via `create_common_sub_services()` factory + domain-specific services in
 | Field | Target Label | Relationships |
 |-------|--------------|---------------|
 | `knowledge` | Ku | `GROUNDED_IN_KNOWLEDGE` |
-| `goals` | Goal | `GUIDES_GOAL` |
+| `supported_goals` | Goal | `SUPPORTS_GOAL` |
 | `choices` | Choice | `GUIDES_CHOICE` |
 | `habits` | Habit | `EMBODIES_PRINCIPLE` |
 | `tasks` | Task | `ALIGNED_WITH_PRINCIPLE` |
@@ -211,7 +211,7 @@ The `CONFLICTS_WITH_PRINCIPLE` relationship helps identify when principles may b
 | Method | Description |
 |--------|-------------|
 | `get_by_category(category, user_uid)` | Filter by category |
-| `get_for_goal(goal_uid, user_uid)` | Principles aligned with goal |
+| `get_for_goal(goal_uid, user_uid)` | Principles that support the goal (`SUPPORTS_GOAL` from a principle) |
 | `get_for_habit(habit_uid, user_uid)` | Principles inspiring habit |
 | `get_active(user_uid)` | Override of `TimeQueryMixin.get_active` — filters on the `is_active` flag and sorts by strength |
 | `get_upcoming(days_ahead, user_uid)` | Override — principles approaching the 90-day review threshold |
@@ -275,7 +275,7 @@ Returns `list[ContextualPrinciple]` sorted by attention urgency.
 Finds principles relevant to today's scheduled activities:
 - Linked to today's tasks via `ALIGNED_WITH_PRINCIPLE`
 - Linked to today's events via relationship graph
-- Connected to active goals via `GUIDES_GOAL`
+- Connected to active goals: read from each goal's rich `graph_context` under `aligned_principles`, a key the goals statement does not project, so this arm adds nothing today
 - Boosted if in `core_principle_uids`
 
 Returns `list[ContextualPrinciple]` with connected activity UIDs.
@@ -454,8 +454,13 @@ result = await principles_service.assess_goal_alignment(
     user_uid=user_uid,
 )
 assessment = result.value
-print(f"Aligned principles: {assessment.aligned_principles}")
+print(f"Overall alignment: {assessment.overall_alignment}")
+for alignment in assessment.principle_alignments:
+    ...
 ```
+
+The evidence is the graph: a principle is aligned with a goal it supports
+(`(Principle)-[:SUPPORTS_GOAL]->(Goal)`), whichever page made the link.
 
 ---
 

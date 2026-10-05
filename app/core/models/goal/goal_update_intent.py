@@ -13,7 +13,7 @@ the patch to apply at the backend seam.
 
 Goals have **no edge fields on the update path** (unlike Tasks). The three cross-domain
 UID fields on ``GoalUpdateRequest`` (``required_knowledge_uids``, ``supporting_habit_uids``,
-``guiding_principle_uids``) are graph edges — synced by ``create_goal_with_context`` on the
+``supporting_principle_uids``) are graph edges — synced by ``create_goal_with_context`` on the
 create path, never written as node columns — so they are deliberately absent here and
 ``GoalUpdateRequest.to_intent()`` does not carry them.
 

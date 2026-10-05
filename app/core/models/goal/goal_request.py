@@ -71,7 +71,7 @@ class GoalCreateRequest(BaseModel):
     # Learning Integration
     required_knowledge_uids: list[str] = Field(default_factory=list)
     supporting_habit_uids: list[str] = Field(default_factory=list)
-    guiding_principle_uids: list[str] = Field(default_factory=list)
+    supporting_principle_uids: list[str] = Field(default_factory=list)
 
     # Hierarchical Relationships (2026-01-30 - Hierarchical Pattern)
     parent_goal_uid: str | None = Field(
@@ -181,7 +181,7 @@ class GoalUpdateRequest(BaseModel):
     # Links can be updated
     required_knowledge_uids: list[str] | None = None
     supporting_habit_uids: list[str] | None = None
-    guiding_principle_uids: list[str] | None = None
+    supporting_principle_uids: list[str] | None = None
 
     # Motivation can be refined
     why_important: str | None = Field(default=None, max_length=1000)
@@ -206,7 +206,7 @@ class GoalUpdateRequest(BaseModel):
         value to match the persistence boundary.
 
         The three cross-domain UID fields (``required_knowledge_uids`` /
-        ``supporting_habit_uids`` / ``guiding_principle_uids``) are graph edges, not node
+        ``supporting_habit_uids`` / ``supporting_principle_uids``) are graph edges, not node
         columns, so they are intentionally not carried — writing them as properties would
         leak junk denormalized fields onto the node (the edges are synced on the
         create-with-context path, not this property-update path).

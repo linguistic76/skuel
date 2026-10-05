@@ -14,6 +14,9 @@ from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle_request import PrincipleCreateRequest
 
+# Every owned entity here belongs to ``test_user``, who must exist before a create.
+pytestmark = pytest.mark.usefixtures("ensure_test_users")
+
 
 @pytest.mark.asyncio
 class TestChoicesIntelligenceOptimization:
@@ -133,7 +136,8 @@ class TestPrinciplesIntelligenceOptimization:
         # Verify counts for empty relationships
         counts = impact["relationship_counts"]
         assert counts["grounded_knowledge"] == 0
-        assert counts["guided_goals"] == 0
+        assert counts["supported_goals"] == 0
+        assert "guided_goals" not in counts
         assert counts["inspired_habits"] == 0
         assert counts["related_principles"] == 0
 

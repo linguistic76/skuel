@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
+from adapters.persistence.neo4j.cross_domain_backend import _INTENT_EDGE_SETS, CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
@@ -42,7 +42,8 @@ P = "conv2b_"  # uid prefix for this module's fixture graph
 
 # --- Goals fixture graph ---
 GOAL = P + "goal"
-GOAL_PRINCIPLE = P + "goal_principle"  # via GUIDES_GOAL (registry edge, NOT in GOAL_ACHIEVEMENT)
+GOAL_CHOICE = P + "goal_choice"  # via INSPIRED_BY_CHOICE (registry edge, NOT in GOAL_ACHIEVEMENT)
+GOAL_PRINCIPLE = P + "goal_principle"  # principle -[SUPPORTS_GOAL]-> goal (registry edge)
 GOAL_NOISE = P + "goal_noise"  # via NOISE_LINK (outside the registry → filtered)
 
 # --- Habits fixture graph ---
@@ -133,10 +134,11 @@ def habits_rel(neo4j_driver):
 async def test_goals_registry_sourced_through_get_with_context(
     neo4j_driver, goals_rel, clean_neo4j
 ):
-    """A goal's registry edge (GUIDES_GOAL) surfaces via get_with_context; noise filtered."""
+    """A goal's registry edge (INSPIRED_BY_CHOICE) surfaces via get_with_context; noise filtered."""
     async with neo4j_driver.session() as s:
         for uid, label, etype in [
             (GOAL, "Goal", "goal"),
+            (GOAL_CHOICE, "Choice", "choice"),
             (GOAL_PRINCIPLE, "Principle", "principle"),
             (GOAL_NOISE, "Goal", "goal"),
         ]:
@@ -149,42 +151,46 @@ async def test_goals_registry_sourced_through_get_with_context(
                 t=etype,
             )
         await s.run(
-            "MATCH (g{uid:$g}),(p{uid:$p}) CREATE (g)-[:GUIDES_GOAL]->(p)", g=GOAL, p=GOAL_PRINCIPLE
+            "MATCH (g{uid:$g}),(c{uid:$c}) CREATE (g)-[:INSPIRED_BY_CHOICE]->(c)",
+            g=GOAL,
+            c=GOAL_CHOICE,
+        )
+        await s.run(
+            "MATCH (p{uid:$p}),(g{uid:$g}) CREATE (p)-[:SUPPORTS_GOAL]->(g)",
+            p=GOAL_PRINCIPLE,
+            g=GOAL,
         )
         await s.run(
             "MATCH (g{uid:$g}),(n{uid:$n}) CREATE (g)-[:NOISE_LINK]->(n)", g=GOAL, n=GOAL_NOISE
         )
 
-    # GUIDES_GOAL is a registry edge but is absent from the hard-coded GOAL_ACHIEVEMENT clause.
-    assert "GUIDES_GOAL" in GOALS_CONFIG.cross_domain_relationship_types
-    assert "GUIDES_GOAL" not in {
-        "FULFILLS_GOAL",
-        "SUPPORTS_GOAL",
-        "REQUIRES_KNOWLEDGE",
-        "SUBGOAL_OF",
-        "GUIDED_BY_PRINCIPLE",
-        "CONTRIBUTES_TO_GOAL",
-    }
+    # INSPIRED_BY_CHOICE is a registry edge but is absent from the hard-coded
+    # GOAL_ACHIEVEMENT clause; SUPPORTS_GOAL is in both.
+    assert "INSPIRED_BY_CHOICE" in GOALS_CONFIG.cross_domain_relationship_types
+    assert "SUPPORTS_GOAL" in GOALS_CONFIG.cross_domain_relationship_types
+    assert "INSPIRED_BY_CHOICE" not in _INTENT_EDGE_SETS["goal_achievement"]
+    assert "SUPPORTS_GOAL" in _INTENT_EDGE_SETS["goal_achievement"]
     assert GOALS_CONFIG.default_context_intent.value == "goal_achievement"
 
-    # Mechanism B (intent=None → registry-sourced): the real edge surfaces, noise out.
+    # Mechanism B (intent=None → registry-sourced): the real edges surface, noise out.
     # get_with_context returns (entity, GraphContext) — the context is the second element.
     reg = await goals_rel.get_with_context(GOAL, depth=1)
     assert reg.is_ok, reg
     _goal, reg_ctx = reg.value
     reg_uids = _uids(reg_ctx)
-    assert GOAL_PRINCIPLE in reg_uids, "GUIDES_GOAL neighbour should surface registry-sourced"
+    assert GOAL_CHOICE in reg_uids, "INSPIRED_BY_CHOICE neighbour should surface registry-sourced"
+    assert GOAL_PRINCIPLE in reg_uids, "a principle that supports the goal is its neighbour"
     assert GOAL_NOISE not in reg_uids, "edge outside the registry must be filtered out"
     assert GOAL not in reg_uids, "origin must not leak into its own context"
 
-    # Negative control: the bare GOAL_ACHIEVEMENT clause misses GUIDES_GOAL.
+    # Negative control: the bare GOAL_ACHIEVEMENT clause misses INSPIRED_BY_CHOICE.
     bare = await goals_rel.graph_intel.query_with_intent(
         domain=None, node_uid=GOAL, intent=GOALS_CONFIG.default_context_intent, depth=1
     )
     assert bare.is_ok, bare
-    assert GOAL_PRINCIPLE not in _uids(bare.value), (
-        "GUIDES_GOAL is absent from the hard-coded GOAL_ACHIEVEMENT clause — the bare path "
-        "must miss it, which is exactly what registry-sourcing fixes"
+    assert GOAL_CHOICE not in _uids(bare.value), (
+        "INSPIRED_BY_CHOICE is absent from the hard-coded GOAL_ACHIEVEMENT clause — the bare "
+        "path must miss it, which is exactly what registry-sourcing fixes"
     )
 
 

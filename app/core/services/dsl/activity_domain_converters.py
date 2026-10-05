@@ -232,7 +232,7 @@ def activity_to_goal_request(activity: ParsedActivityLine) -> Result[ConversionR
         "target_date": target_date,
         "priority": map_dsl_priority_to_enum(activity.priority),
         "required_knowledge_uids": activity.get_linked_knowledge(),
-        "guiding_principle_uids": activity.get_linked_principles(),
+        "supporting_principle_uids": activity.get_linked_principles(),
         "tags": activity.energy_states if activity.energy_states else [],
     }
     if target_date is not None and target_date < today_in(current_zone()):

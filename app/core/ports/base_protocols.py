@@ -199,6 +199,9 @@ class GraphContextNode(TypedDict, total=False):
     # Properties of the incident edge — lets categorization route a node to a
     # property-filtered mapping (e.g. SUPPORTS_GOAL {essentiality} habit tiers).
     incident_rel_properties: Neo4jProperties
+    # True when the incident edge's other end is of the center's kind (shares a domain
+    # label with it). False for a node reached through another kind's edge of the type.
+    incident_other_is_center_kind: bool
 
     # Common optional fields (present in most entities)
     title: str
@@ -1030,9 +1033,19 @@ class RelationshipCrudOperations(Protocol):
         ...
 
     async def delete_relationship(
-        self, from_uid: str, to_uid: str, relationship_type: RelationshipName
+        self,
+        from_uid: str,
+        to_uid: str,
+        relationship_type: RelationshipName,
+        *,
+        from_label: NeoLabel | None = None,
+        to_label: NeoLabel | None = None,
     ) -> ResultType[bool]:
-        """Delete a single relationship between two entities."""
+        """Delete a single relationship between two entities.
+
+        A label, when given, is the kind that end must be: an edge whose end is of
+        another kind is kept.
+        """
         ...
 
     async def delete_relationships_batch(

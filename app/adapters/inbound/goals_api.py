@@ -23,7 +23,7 @@ Scheduling-aware creation:
 
 Cross-domain links (via create_activity_link_api_routes):
     POST /api/goals/link-knowledge — Link goal to required knowledge/skill
-    POST /api/goals/link-principle — Link goal to a guiding principle
+    POST /api/goals/link-principle — Link goal to a principle that supports it
 
 Knowledge intelligence:
     GET  /api/goals/knowledge-patterns — Detected learning patterns across user goals
@@ -233,9 +233,7 @@ def create_goals_api_routes(
         )
 
     async def apply_link_principle(req: LinkGoalToPrincipleRequest) -> Result[bool]:
-        return await goals_service.link_goal_to_principle(
-            req.goal_uid, req.principle_uid, req.alignment_strength
-        )
+        return await goals_service.link_goal_to_principle(req.goal_uid, req.principle_uid)
 
     create_activity_link_api_routes(
         rt,
@@ -256,7 +254,7 @@ def create_goals_api_routes(
                 request_model=LinkGoalToPrincipleRequest,
                 owner_uid_field="goal_uid",
                 apply=apply_link_principle,
-                doc="Link goal to a guiding principle/value (GUIDED_BY_PRINCIPLE).",
+                doc="Link goal to a principle that supports it (SUPPORTS_GOAL, principle → goal).",
                 target=LinkTargetSpec(
                     service=principles_service, uid_field="principle_uid", singular="principle"
                 ),

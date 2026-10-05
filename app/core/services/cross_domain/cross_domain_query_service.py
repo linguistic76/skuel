@@ -79,8 +79,8 @@ class CrossDomainQueryService:
     ) -> Result[PrincipleAlignmentEvidence]:
         """
         Find goals and habits the user owns that are connected to ``principle_uid``
-        via explicit alignment edges (``GUIDES_GOAL``, ``GUIDED_BY_PRINCIPLE``,
-        ``INSPIRES_HABIT``, ``EMBODIES_PRINCIPLE``).
+        via explicit alignment edges (``SUPPORTS_GOAL``, ``INSPIRES_HABIT``,
+        ``EMBODIES_PRINCIPLE``).
 
         Returns the connected entities plus a graph-derived alignment score:
         the score is ``min(1.0, total_connections / 5.0)``, with the

@@ -85,7 +85,6 @@ from .domain_queries import (
     build_ku_with_context,
     # Time-based queries (January 2026)
     build_overdue_query,
-    build_principle_with_context,
     # Prerequisite queries
     build_simple_prerequisite_chain,
     build_task_with_context,
@@ -185,7 +184,6 @@ __all__ = [
     "build_overdue_query",
     "build_prerequisite_chain",
     "build_prerequisite_traversal_query",
-    "build_principle_with_context",
     # Intelligence queries - registry
     "build_registry_validated_query",
     # Relationship queries

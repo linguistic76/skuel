@@ -232,29 +232,32 @@ async def test_event_performance_dedupes_multipath_goal_at_depth2(
 
     The Cypher behind get_cross_domain_context does ``collect(DISTINCT {uid, distance,
     path_strength, ...})`` — DISTINCT over the whole path map, not the uid — so at depth=2
-    a goal reached both directly (distance 1) and via an intermediary (distance 2) surfaces
+    a goal reached both directly (distance 1) and via a second event (distance 2) surfaces
     twice in the ``supported_goals`` bucket. _union_path_buckets de-dupes by uid keeping the
-    STRONGEST path, so the goal set is the two DISTINCT goals, not three.
+    STRONGEST path, so the goal is counted once.
     """
     dup_event = EV + "dup_event"
-    dup_mid = EV + "dup_mid_goal"  # event -CONTRIBUTES_TO_GOAL-> mid -CONTRIBUTES_TO_GOAL-> goal
+    dup_mid = EV + "dup_mid_event"  # event -CONFLICTS_WITH-> mid -CONTRIBUTES_TO_GOAL-> goal
     dup_goal = EV + "dup_goal"  # also event -CONTRIBUTES_TO_GOAL-> goal (reached twice)
     async with neo4j_driver.session() as s:
-        await s.run(
-            "CREATE (:Entity:Event {uid:$u, entity_type:'event', title:$u, "
-            "status:'active', created_at:datetime()})",
-            u=dup_event,
-        )
-        for uid in (dup_mid, dup_goal):
+        for uid in (dup_event, dup_mid):
             await s.run(
-                "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+                "CREATE (:Entity:Event {uid:$u, entity_type:'event', title:$u, "
                 "status:'active', created_at:datetime()})",
                 u=uid,
             )
-        for a, b in [(dup_event, dup_goal), (dup_event, dup_mid), (dup_mid, dup_goal)]:
+        await s.run(
+            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=dup_goal,
+        )
+        for a, rel, b in [
+            (dup_event, "CONTRIBUTES_TO_GOAL", dup_goal),
+            (dup_event, "CONFLICTS_WITH", dup_mid),
+            (dup_mid, "CONTRIBUTES_TO_GOAL", dup_goal),
+        ]:
             await s.run(
-                "MATCH (a {uid:$a}),(b {uid:$b}) "
-                "CREATE (a)-[:CONTRIBUTES_TO_GOAL {confidence:0.95}]->(b)",
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
                 a=a,
                 b=b,
             )
@@ -269,5 +272,5 @@ async def test_event_performance_dedupes_multipath_goal_at_depth2(
 
     res = await svc.analyze_event_performance(dup_event)
     assert res.is_ok, res
-    # path-aware context dedupes to the two DISTINCT goals (no inflation).
-    assert res.value["path_aware_context"]["direct_connections_count"] == 2
+    # path-aware context dedupes to the one goal, kept as its direct (distance 1) entry.
+    assert res.value["path_aware_context"]["direct_connections_count"] == 1

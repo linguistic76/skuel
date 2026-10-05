@@ -123,16 +123,16 @@ WITH g, collect(CASE WHEN ku IS NOT NULL THEN {
     title: ku.title
 } END) as required_knowledge
 
-// Guiding principles
-OPTIONAL MATCH (g)-[:GUIDED_BY_PRINCIPLE]->(p:Principle)
+// Supporting principles — SUPPORTS_GOAL has several kinds of source, so label the far end
+OPTIONAL MATCH (p:Principle)-[:SUPPORTS_GOAL]->(g)
 WITH g, required_knowledge, collect(CASE WHEN p IS NOT NULL THEN {
     uid: p.uid,
     title: p.title
-} END) as guiding_principles
+} END) as supporting_principles
 
 // Supporting habits
 OPTIONAL MATCH (h:Habit)-[:SUPPORTS_GOAL]->(g)
-WITH g, required_knowledge, guiding_principles, collect(CASE WHEN h IS NOT NULL THEN {
+WITH g, required_knowledge, supporting_principles, collect(CASE WHEN h IS NOT NULL THEN {
     uid: h.uid,
     title: h.title,
     streak: h.current_streak
@@ -140,7 +140,7 @@ WITH g, required_knowledge, guiding_principles, collect(CASE WHEN h IS NOT NULL 
 
 RETURN g as goal,
        required_knowledge,
-       guiding_principles,
+       supporting_principles,
        supporting_habits
 ```
 
@@ -281,24 +281,24 @@ RETURN h as habit,
 ```cypher
 MATCH (p:Principle {uid: $uid})
 
-// Goals guided by this principle
-OPTIONAL MATCH (p)-[:GUIDES_GOAL]->(goal:Goal)
+// Goals this principle supports
+OPTIONAL MATCH (p)-[:SUPPORTS_GOAL]->(goal:Goal)
 WITH p, collect(CASE WHEN goal IS NOT NULL THEN {
     uid: goal.uid,
     title: goal.title,
     status: goal.status
-} END) as guided_goals
+} END) as supported_goals
 
 // Choices aligned with this principle
 OPTIONAL MATCH (choice:Choice)-[:ALIGNED_WITH_PRINCIPLE]->(p)
-WITH p, guided_goals, collect(CASE WHEN choice IS NOT NULL THEN {
+WITH p, supported_goals, collect(CASE WHEN choice IS NOT NULL THEN {
     uid: choice.uid,
     title: choice.title
 } END) as aligned_choices
 
 // Habits that embody this principle
 OPTIONAL MATCH (habit:Habit)-[:EMBODIES_PRINCIPLE]->(p)
-WITH p, guided_goals, aligned_choices, collect(CASE WHEN habit IS NOT NULL THEN {
+WITH p, supported_goals, aligned_choices, collect(CASE WHEN habit IS NOT NULL THEN {
     uid: habit.uid,
     title: habit.title,
     streak: habit.current_streak
@@ -307,7 +307,7 @@ WITH p, guided_goals, aligned_choices, collect(CASE WHEN habit IS NOT NULL THEN 
 // Grounding knowledge
 OPTIONAL MATCH (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku:Ku)
 RETURN p as principle,
-       guided_goals,
+       supported_goals,
        aligned_choices,
        embodying_habits,
        collect(CASE WHEN ku IS NOT NULL THEN {uid: ku.uid, title: ku.title} END) as grounding_knowledge

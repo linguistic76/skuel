@@ -550,28 +550,22 @@ WITH user, core_principle_uids,
        reduce(acc = [], p IN principle_grounded_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      )[0..10] as principle_grounded_knowledge
 
-OPTIONAL MATCH (principle)-[:GUIDES_GOAL]->(principle_goal:Goal)
-WHERE principle IS NOT NULL AND __FAR(principle_goal)__
-WITH user, core_principle_uids,
-     principle, principle_grounded_knowledge,
-     collect(DISTINCT CASE WHEN principle_goal IS NOT NULL THEN {uid: principle_goal.uid, title: principle_goal.title, status: principle_goal.status} END)[0..10] as principle_guided_goals
-
 OPTIONAL MATCH (principle)-[:GUIDES_CHOICE]->(principle_choice:Choice)
 WHERE principle IS NOT NULL AND __FAR(principle_choice)__
 WITH user, core_principle_uids,
-     principle, principle_grounded_knowledge, principle_guided_goals,
+     principle, principle_grounded_knowledge,
      collect(DISTINCT CASE WHEN principle_choice IS NOT NULL THEN {uid: principle_choice.uid, title: principle_choice.title} END)[0..10] as principle_guided_choices
 
 OPTIONAL MATCH (principle_habit:Habit)-[:EMBODIES_PRINCIPLE]->(principle)
 WHERE principle IS NOT NULL AND __FAR(principle_habit)__
 WITH user, core_principle_uids,
-     principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices,
+     principle, principle_grounded_knowledge, principle_guided_choices,
      collect(DISTINCT CASE WHEN principle_habit IS NOT NULL THEN {uid: principle_habit.uid, title: principle_habit.title} END)[0..10] as principle_embodying_habits
 
 OPTIONAL MATCH (principle_task:Task)-[:ALIGNED_WITH_PRINCIPLE]->(principle)
 WHERE principle IS NOT NULL AND __FAR(principle_task)__
 WITH user, core_principle_uids,
-     principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices, principle_embodying_habits,
+     principle, principle_grounded_knowledge, principle_guided_choices, principle_embodying_habits,
      collect(DISTINCT CASE WHEN principle_task IS NOT NULL THEN {uid: principle_task.uid, title: principle_task.title, status: principle_task.status} END)[0..10] as principle_aligned_tasks
 
 // Aggregate principles into rich format
@@ -580,7 +574,6 @@ WITH user, core_principle_uids,
          entity: properties(principle),
          graph_context: {
              grounded_knowledge: principle_grounded_knowledge,
-             guided_goals: principle_guided_goals,
              guided_choices: principle_guided_choices,
              embodying_habits: principle_embodying_habits,
              aligned_tasks: principle_aligned_tasks

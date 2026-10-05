@@ -214,7 +214,7 @@ DOORS = (
         "REINFORCES_HABIT",
         "Habit",
     ),
-    _principle_link("goal", "GUIDES_GOAL", "Goal"),
+    _principle_link("goal", "SUPPORTS_GOAL", "Goal"),
     _principle_link("habit", "INSPIRES_HABIT", "Habit"),
     _principle_link("knowledge", "GROUNDED_IN_KNOWLEDGE", "Ku"),
     _principle_link("principle", "SUPPORTS_PRINCIPLE", "Principle", incoming=True),

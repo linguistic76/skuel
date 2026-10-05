@@ -224,6 +224,15 @@ class IntelligenceMixin[Ops: BackendOperations]:
         # itself on a cycle, e.g. the canonical INSPIRES_HABIT <-> EMBODIES_PRINCIPLE
         # pair — used to leak into a sibling bucket). The Cypher excludes related == center.
         #
+        # The incident edge's OTHER end must be of the center's kind. A mapping states a
+        # link of this domain ("goals this habit supports"), and several kinds can share
+        # an edge type: a goal reached habit -> principle -[SUPPORTS_GOAL]-> goal has the
+        # right edge pointing into it, from a principle. Without this it would be listed
+        # as a goal the habit supports. At distance 1 the other end is the center itself.
+        # A shared-neighbour mapping is exempt: its node is a peer reached THROUGH the
+        # shared neighbour, so the other end of its incident edge is never the center's
+        # kind.
+        #
         # A node must ALSO satisfy a mapping's optional edge-property filter
         # (`filter_property`/`filter_value`, e.g. SUPPORTS_GOAL {essentiality} habit
         # tiers) — see _filter_matches. Mappings sort property-FILTERED first, then
@@ -243,10 +252,12 @@ class IntelligenceMixin[Ops: BackendOperations]:
             incident_rel_type = entity.get("incident_rel_type")
             incident_into_related = entity.get("incident_into_related")
             incident_rel_properties = entity.get("incident_rel_properties")
+            incident_other_is_center_kind = entity.get("incident_other_is_center_kind", True)
 
             for rel in cross_domain_rels:
                 if (
                     rel.target_label in labels
+                    and (rel.shared_neighbor_config is not None or incident_other_is_center_kind)
                     and _incident_matches(
                         rel.direction,
                         rel.relationship.value,

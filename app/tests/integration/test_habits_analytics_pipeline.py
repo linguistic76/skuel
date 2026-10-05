@@ -312,29 +312,32 @@ async def test_habit_goal_support_dedupes_multipath_goals_at_depth2(
 
     The Cypher behind get_cross_domain_context does ``collect(DISTINCT {uid, distance,
     path_strength, ...})`` — DISTINCT over the whole path map, not the uid — so at depth=2
-    a goal reached both directly (distance 1) and via an intermediary (distance 2) surfaces
+    a goal reached both directly (distance 1) and via a second habit (distance 2) surfaces
     twice in the ``supported_goals`` bucket. _union_path_buckets de-dupes by uid keeping the
-    STRONGEST path, so the goal set is the two DISTINCT goals, not three, and the retained
-    duplicate entry is the direct (distance 1) one.
+    STRONGEST path, so the goal set is the one goal, once.
     """
     dup_habit = HB + "dup_habit"
-    dup_mid = HB + "dup_mid_goal"  # habit -SUPPORTS_GOAL-> mid -SUPPORTS_GOAL-> goal
+    dup_mid = HB + "dup_mid_habit"  # habit -REQUIRES_PREREQUISITE_HABIT-> mid -SUPPORTS_GOAL-> goal
     dup_goal = HB + "dup_goal"  # also habit -SUPPORTS_GOAL-> goal (reached twice)
     async with neo4j_driver.session() as s:
-        await s.run(
-            "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, "
-            "status:'active', created_at:datetime()})",
-            u=dup_habit,
-        )
-        for uid in (dup_mid, dup_goal):
+        for uid in (dup_habit, dup_mid):
             await s.run(
-                "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+                "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, "
                 "status:'active', created_at:datetime()})",
                 u=uid,
             )
-        for a, b in [(dup_habit, dup_goal), (dup_habit, dup_mid), (dup_mid, dup_goal)]:
+        await s.run(
+            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=dup_goal,
+        )
+        for a, rel, b in [
+            (dup_habit, "SUPPORTS_GOAL", dup_goal),
+            (dup_habit, "REQUIRES_PREREQUISITE_HABIT", dup_mid),
+            (dup_mid, "SUPPORTS_GOAL", dup_goal),
+        ]:
             await s.run(
-                "MATCH (a {uid:$a}),(b {uid:$b}) CREATE (a)-[:SUPPORTS_GOAL {confidence:0.95}]->(b)",
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
                 a=a,
                 b=b,
             )
@@ -350,8 +353,8 @@ async def test_habit_goal_support_dedupes_multipath_goals_at_depth2(
     res = await svc.get_habit_goal_support(dup_habit, depth=2, min_confidence=0.7)
     assert res.is_ok, res
     goal_uids = res.value["goal_support"]["supporting_goal_uids"]
-    assert sorted(goal_uids) == [dup_goal, dup_mid]  # each once, no inflation
-    assert res.value["goal_support"]["total_goals_supported"] == 2
+    assert goal_uids == [dup_goal]  # once, no inflation
+    assert res.value["goal_support"]["total_goals_supported"] == 1
 
 
 # ---------------------------------------------------------------------------

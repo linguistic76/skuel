@@ -44,7 +44,8 @@ PR = "prnctx_"  # uid prefix for this module's fixture graph
 PR_USER = PR + "user"  # every seeded activity node is user-owned (Principle.user_uid is required)
 PR_PRIN = PR + "principle"
 PR_PRIN_BARE = PR + "principle_bare"  # negative control: no cross-domain edges
-PR_GOAL = PR + "goal"  # principle -[GUIDES_GOAL]-> goal (guided_goals)
+PR_GOAL = PR + "goal"  # principle -[SUPPORTS_GOAL]-> goal (supported_goals)
+PR_HABIT_GOAL = PR + "habit_goal"  # habit -[SUPPORTS_GOAL]-> goal: the inspired habit's goal only
 PR_CHOICE = PR + "choice"  # principle -[GUIDES_CHOICE]-> choice (guided_choices)
 PR_KU = PR + "ku"  # principle -[GROUNDED_IN_KNOWLEDGE]-> ku (grounding_knowledge)
 PR_HABIT = PR + "habit"  # principle -[INSPIRES_HABIT]-> habit (inspired_habits)
@@ -85,6 +86,7 @@ async def _seed_principle_graph(neo4j_driver) -> None:
         for uid, label, etype in [
             (PR_PRIN, "Principle", "principle"),
             (PR_GOAL, "Goal", "goal"),
+            (PR_HABIT_GOAL, "Goal", "goal"),
             (PR_CHOICE, "Choice", "choice"),
             (PR_HABIT, "Habit", "habit"),
             (PR_HABIT_EMB, "Habit", "habit"),
@@ -100,7 +102,9 @@ async def _seed_principle_graph(neo4j_driver) -> None:
             "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=PR_KU
         )
         for a, rel, b in [
-            (PR_PRIN, "GUIDES_GOAL", PR_GOAL),  # outgoing -> guided_goals
+            (PR_PRIN, "SUPPORTS_GOAL", PR_GOAL),  # outgoing -> supported_goals
+            # Two hops from the principle, over the edge type its own goal link uses.
+            (PR_HABIT, "SUPPORTS_GOAL", PR_HABIT_GOAL),
             (PR_PRIN, "GUIDES_CHOICE", PR_CHOICE),  # outgoing -> guided_choices
             (PR_PRIN, "GROUNDED_IN_KNOWLEDGE", PR_KU),  # outgoing -> grounding_knowledge
             (PR_PRIN, "INSPIRES_HABIT", PR_HABIT),  # outgoing -> inspired_habits
@@ -138,7 +142,7 @@ async def test_principle_alignment_populates_from_graph(neo4j_driver, rel_backen
 
     # Flat metric keys the consumer reads — all present (latent KeyError fixed).
     metrics = analysis["metrics"]
-    assert metrics["guided_goal_count"] == 1
+    assert metrics["supported_goal_count"] == 1
     assert metrics["informed_choice_count"] == 1
     assert metrics["aligned_habit_count"] == 2
     assert metrics["knowledge_grounding_count"] == 1
@@ -193,7 +197,7 @@ async def test_principle_alignment_empty_when_no_edges(neo4j_driver, rel_backend
     assert analysis["activity_counts"]["total"] == 0
 
     metrics = analysis["metrics"]
-    assert metrics["guided_goal_count"] == 0
+    assert metrics["supported_goal_count"] == 0
     assert metrics["total_influence_count"] == 0
     assert metrics["influence_score"] == 0.0
     assert metrics["adherence_score"] == 0.0
@@ -238,31 +242,36 @@ async def test_principle_alignment_dedupes_multipath_habit_at_depth2(
 
     The Cypher behind get_cross_domain_context does ``collect(DISTINCT {uid, distance,
     path_strength, ...})`` — DISTINCT over the whole path map, not the uid — so at depth=2
-    a habit reached both directly (distance 1) and via an intermediary (distance 2) surfaces
-    twice in the ``inspired_habits`` bucket. _union_path_buckets de-dupes by uid keeping the
-    STRONGEST path, so the habit set is the two DISTINCT habits, not three.
+    a habit reached both directly (distance 1) and via a second principle (distance 2)
+    surfaces twice in the ``inspired_habits`` bucket. _union_path_buckets de-dupes by uid
+    keeping the STRONGEST path, so the habit set is the one habit, once.
     """
     dup_prin = PR + "dup_principle"
-    dup_mid = PR + "dup_mid_habit"  # prin -INSPIRES_HABIT-> mid -INSPIRES_HABIT-> habit
+    dup_mid = (
+        PR + "dup_mid_principle"
+    )  # mid -SUPPORTS_PRINCIPLE-> prin; mid -INSPIRES_HABIT-> habit
     dup_habit = PR + "dup_habit"  # also prin -INSPIRES_HABIT-> habit (reached twice)
     async with neo4j_driver.session() as s:
-        await s.run(
-            "CREATE (:Entity:Principle {uid:$u, entity_type:'principle', title:$u, "
-            "user_uid:$user, status:'active', created_at:datetime()})",
-            u=dup_prin,
-            user=PR_USER,
-        )
-        for uid in (dup_mid, dup_habit):
+        for uid in (dup_prin, dup_mid):
             await s.run(
-                "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, "
+                "CREATE (:Entity:Principle {uid:$u, entity_type:'principle', title:$u, "
                 "user_uid:$user, status:'active', created_at:datetime()})",
                 u=uid,
                 user=PR_USER,
             )
-        for a, b in [(dup_prin, dup_habit), (dup_prin, dup_mid), (dup_mid, dup_habit)]:
+        await s.run(
+            "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, "
+            "user_uid:$user, status:'active', created_at:datetime()})",
+            u=dup_habit,
+            user=PR_USER,
+        )
+        for a, rel, b in [
+            (dup_prin, "INSPIRES_HABIT", dup_habit),
+            (dup_mid, "SUPPORTS_PRINCIPLE", dup_prin),
+            (dup_mid, "INSPIRES_HABIT", dup_habit),
+        ]:
             await s.run(
-                "MATCH (a {uid:$a}),(b {uid:$b}) "
-                "CREATE (a)-[:INSPIRES_HABIT {confidence:0.95}]->(b)",
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
                 a=a,
                 b=b,
             )
@@ -278,5 +287,5 @@ async def test_principle_alignment_dedupes_multipath_habit_at_depth2(
     res = await svc.assess_principle_alignment(dup_prin, min_confidence=0.7)
     assert res.is_ok, res
     habit_uids = [h["uid"] for h in res.value["activities_breakdown"]["habits"]]
-    assert sorted(habit_uids) == sorted([dup_habit, dup_mid])  # each once, no inflation
-    assert res.value["metrics"]["aligned_habit_count"] == 2
+    assert habit_uids == [dup_habit]  # once, no inflation
+    assert res.value["metrics"]["aligned_habit_count"] == 1

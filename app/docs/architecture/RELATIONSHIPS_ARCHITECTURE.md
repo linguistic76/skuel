@@ -135,18 +135,18 @@ relationship Cypher. Cypher query strings use f-string interpolation:
 domain family. The families overlap (`ULTIMATE_PATH` is both an ownership and a life-path edge)
 and are a reading convenience, not a partition the code knows about: the classifications the
 code branches on are the trait predicates on the enum (`is_knowledge_relationship`,
-`is_blocking_relationship`, `is_lateral_relationship`, …). They classify 55 of the 172 members
+`is_blocking_relationship`, `is_lateral_relationship`, …). They classify 59 of the 170 members
 between them and are not a cover: the generated contract carries a `traits` key only for a
-relationship at least one predicate matches, so 117 entries have none.
+relationship at least one predicate matches, so 111 entries have none.
 
 | Group | Examples |
 |-------|---------|
 | Knowledge | `REQUIRES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, `ENABLES_KNOWLEDGE` |
 | Task | `HAS_SUBTASK`, `SUBTASK_OF`, `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL`, `FULFILLS_GOAL` |
-| Goal | `HAS_SUBGOAL`, `SUBGOAL_OF`, `GUIDED_BY_PRINCIPLE`, `SUPPORTS_GOAL`, `ALIGNED_WITH_PATH` |
+| Goal | `HAS_SUBGOAL`, `SUBGOAL_OF`, `SUPPORTS_GOAL` (into the goal, from a Habit, a Principle or a PathStep), `ALIGNED_WITH_PATH` |
 | Habit | `HAS_SUBHABIT`, `SUBHABIT_OF`, `REQUIRES_PREREQUISITE_HABIT`, `ENABLES_HABIT`, `EMBODIES_PRINCIPLE`, `UNLOCKED_ACHIEVEMENT`, `EARNED_BADGE` |
 | Event | `HAS_SUBEVENT`, `SUBEVENT_OF`, `CONFLICTS_WITH`, `FUNDS_EVENT`, `ATTENDS` |
-| Principle | `HAS_SUBPRINCIPLE`, `SUBPRINCIPLE_OF`, `SUPPORTS_PRINCIPLE`, `GUIDES_GOAL`, `GUIDES_CHOICE`, `REFLECTS_ON`, `REVEALS_CONFLICT` |
+| Principle | `HAS_SUBPRINCIPLE`, `SUBPRINCIPLE_OF`, `SUPPORTS_PRINCIPLE`, `SUPPORTS_GOAL` (principle → goal), `GUIDES_CHOICE`, `REFLECTS_ON`, `REVEALS_CONFLICT` |
 | Choice | `HAS_SUBCHOICE`, `SUBCHOICE_OF`, `ALIGNED_WITH_PRINCIPLE`, `CONFLICTS_WITH_PRINCIPLE`, `AFFECTS_GOAL`, `INFORMS_CHOICE` |
 | User / Ownership | `OWNS` (THE universal ownership edge, ADR-086), `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |
 | Curriculum | `ORGANIZES`, `REQUIRES_PREREQUISITE`, `HAS_NARROWER`, `HAS_BROADER` |
@@ -198,7 +198,7 @@ Complex relationship Cypher that is domain-specific belongs on the domain backen
 Creation, deletion, validation:
 
 - `create_relationship(from_uid, to_uid, relationship_type, properties)` → `Result[bool]`
-- `delete_relationship(from_uid, to_uid, relationship_type)` → `Result[bool]`
+- `delete_relationship(from_uid, to_uid, relationship_type, *, from_label=None, to_label=None)` → `Result[bool]` — a label, when given, is the kind that end must be; an edge whose end is of another kind is kept
 - `delete_relationships_batch(relationships_list)` → `Result[int]`
 - `create_relationships_batch(relationships_list)` → `Result[int]`
 - `has_relationship(from_uid, to_uid, relationship_type)` → `Result[bool]`

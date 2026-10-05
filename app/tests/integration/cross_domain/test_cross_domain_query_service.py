@@ -10,7 +10,7 @@ Fixture graph
 One user (``user.xdq``) owns:
 
 - principle_1 ("Continuous Learning")
-    - GUIDES_GOAL -> goal_1
+    - SUPPORTS_GOAL -> goal_1
     - INSPIRES_HABIT -> habit_1
 - goal_1 ("Ship v2")
     - goal_1 <-[FULFILLS_GOAL]- task_1 (active)
@@ -216,11 +216,11 @@ async def graph(neo4j_driver, clean_neo4j):
 
         # ── Domain relationships ──
 
-        # Principle -> Goal: GUIDES_GOAL
+        # Principle -> Goal: SUPPORTS_GOAL
         await s.run(
             """
             MATCH (p:Entity {uid: 'principle_cl_xdq'}), (g:Entity {uid: 'goal_ship_xdq'})
-            CREATE (p)-[:GUIDES_GOAL]->(g)
+            CREATE (p)-[:SUPPORTS_GOAL]->(g)
             """,
         )
 
@@ -340,10 +340,10 @@ class TestPrincipleAlignmentEvidence:
         assert ev.user_uid == USER_UID
 
         goal_uids = {g.uid for g in ev.aligned_goals}
-        assert "goal_ship_xdq" in goal_uids
+        assert goal_uids == {"goal_ship_xdq"}
 
         habit_uids = {h.uid for h in ev.aligned_habits}
-        assert "habit_reading_xdq" in habit_uids
+        assert habit_uids == {"habit_reading_xdq"}
 
         # 2 connections -> score = 2/5 = 0.4
         assert ev.score == pytest.approx(0.4)

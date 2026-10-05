@@ -690,7 +690,7 @@ def decision_improvement_opportunities(
 # (get_cross_domain_context_typed → path_aware_types.PrincipleCrossContext).
 # Powers assess_principle_alignment (GET /api/principles/insights) via
 # BaseAnalyticsService._analyze_entity_with_typed_context.
-# Emits the flat principle-influence keys (guided_goal_count / informed_choice_count /
+# Emits the flat principle-influence keys (supported_goal_count / informed_choice_count /
 # aligned_habit_count / knowledge_grounding_count / total_influence_count /
 # influence_score / is_action_guiding / is_knowledge_grounded / is_lived) AND the keys
 # the alignment consumer reads (adherence_score / goal_count / choice_count /
@@ -751,7 +751,7 @@ def calculate_principle_alignment_metrics(
 
     return {
         # Flat principle-influence keys.
-        "guided_goal_count": goal_count,
+        "supported_goal_count": goal_count,
         "informed_choice_count": choice_count,
         "aligned_habit_count": habit_count,
         "knowledge_grounding_count": knowledge_count,
