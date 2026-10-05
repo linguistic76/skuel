@@ -329,6 +329,12 @@ DELETED: dict[str, str] = {
     "EventResponse": "deleted — never wired; the Events API renders through the CRUD factory, not a response model",
     "EventListResponse": "deleted — served only EventResponse",
     # Deleted enum members
+    # A principle ↔ goal link is one edge, written and read as SUPPORTS_GOAL from the
+    # principle (ADR-090). GUIDED_BY_PRINCIPLE is a different, live type (PathStep → Principle).
+    "GUIDES_GOAL": (
+        "deleted — a principle supports a goal: (Principle)-[:SUPPORTS_GOAL]->(Goal), "
+        "read as the principle's supported_goals and the goal's supporting_principles (ADR-090)"
+    ),
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
         "(core/models/enums/pipeline.py, after the Values block)"
@@ -488,6 +494,7 @@ _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
+_links_arc = "the Activity Links arc's record of the principle ↔ goal collapse -- ADR-090, the arc document, ADR-090's INDEX row and ADR-015 (the 2025-12 rich-query record and its amendment note) name the edge type the arc retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
@@ -787,6 +794,32 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # lead (#1255, 2026-09-04). Anchor re-derived from the scanner's report,
         # never by adding the diff's line delta.
         (241, "Pipeline.JOURNAL"): Allow(_sweep_q),
+    },
+    # The Activity Links arc's records of the principle ↔ goal collapse. Anchors are
+    # the scanner's own report (--verbose), re-derived whenever a line above them moves.
+    "docs/INDEX.md": {
+        (315, "GUIDES_GOAL"): Allow(_links_arc),
+    },
+    "docs/decisions/ADR-015-mega-query-rich-queries-completion.md": {
+        (25, "GUIDES_GOAL"): Allow(_links_arc),
+        (82, "GUIDES_GOAL"): Allow(_links_arc),
+    },
+    "docs/decisions/ADR-090-one-link-per-fact-a-view-per-domain.md": {
+        (53, "GUIDES_GOAL"): Allow(_links_arc),
+        (68, "GUIDES_GOAL"): Allow(_links_arc),
+        (170, "GUIDES_GOAL"): Allow(_links_arc),
+        (270, "GUIDES_GOAL"): Allow(_links_arc),
+        (288, "GUIDES_GOAL"): Allow(_links_arc),
+    },
+    "docs/roadmap/activity-links-arc.md": {
+        (64, "GUIDES_GOAL"): Allow(_links_arc),
+        (155, "GUIDES_GOAL"): Allow(_links_arc),
+        (205, "GUIDES_GOAL"): Allow(_links_arc),
+        (222, "GUIDES_GOAL"): Allow(_links_arc),
+        (280, "GUIDES_GOAL"): Allow(_links_arc),
+        (393, "GUIDES_GOAL"): Allow(_links_arc),
+        (507, "GUIDES_GOAL"): Allow(_links_arc),
+        (514, "GUIDES_GOAL"): Allow(_links_arc),
     },
 }
 

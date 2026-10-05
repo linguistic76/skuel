@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 171, with_contract: 95}
+    relationships: {total: 170, with_contract: 94}
     labels: {total: 60, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -293,9 +293,6 @@ relationships:
         roles: [prerequisite]
   GUIDED_BY_PRINCIPLE:
     contract:
-      - config: Goal
-        definitions:
-          - {direction: outgoing, target: Principle, context_field: aligned_principles, method: principles, ingestion_field: connections.aligned_with_principle}
       - config: PathStep
         definitions:
           - {direction: outgoing, target: Principle, context_field: guiding_principles, method: principles, ingestion_field: principle_uids}
@@ -303,13 +300,19 @@ relationships:
     contract:
       - config: Goal
         definitions:
-          - {direction: incoming, target: Entity, context_field: contributing_habits, method: supporting_habits, fields: [uid, title, current_streak], ingestion_field: connections.supporting_habits}
-          - {direction: incoming, target: Entity, context_field: essential_habits, method: essential_habits, filter_property: essentiality, filter_value: essential}
-          - {direction: incoming, target: Entity, context_field: critical_habits, method: critical_habits, filter_property: essentiality, filter_value: critical}
-          - {direction: incoming, target: Entity, context_field: optional_habits, method: optional_habits, filter_property: essentiality, filter_value: optional}
+          - {direction: incoming, target: Habit, context_field: contributing_habits, method: supporting_habits, fields: [uid, title, current_streak], ingestion_field: connections.supporting_habits}
+          - {direction: incoming, target: Principle, context_field: supporting_principles, method: supporting_principles, ingestion_field: connections.supporting_principles}
+          - {direction: incoming, target: Habit, context_field: essential_habits, method: essential_habits, filter_property: essentiality, filter_value: essential}
+          - {direction: incoming, target: Habit, context_field: critical_habits, method: critical_habits, filter_property: essentiality, filter_value: critical}
+          - {direction: incoming, target: Habit, context_field: optional_habits, method: optional_habits, filter_property: essentiality, filter_value: optional}
       - config: Habit
         definitions:
           - {direction: outgoing, target: Goal, context_field: supported_goals, method: supported_goals, fields: [uid, title, progress_percentage], ingestion_field: connections.supports_goal}
+      - config: Principle
+        roles: [enables]
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: supported_goals, method: supported_goals, ingestion_field: connections.supports_goal}
+          - {direction: both, target: Principle, context_field: related_principles_shared, method: related_principles_shared, fields: [uid, title, strength], limit: 5, shared_neighbor: {via: [SUPPORTS_GOAL, GROUNDED_IN_KNOWLEDGE], target: Principle, alias: related_principles_shared}}
       - config: PathStep
         definitions:
           - {direction: outgoing, target: Goal, context_field: supports_goals, method: practice_goals, ingestion_field: goal_uids}
@@ -442,16 +445,6 @@ relationships:
         roles: [bidirectional]
         definitions:
           - {direction: incoming, target: Principle, context_field: conflicting_principles, method: conflicting_principles}
-  GUIDES_GOAL:
-    contract:
-      - config: Goal
-        definitions:
-          - {direction: incoming, target: Principle, context_field: guiding_principles_incoming, method: guided_by_principles}
-      - config: Principle
-        roles: [enables]
-        definitions:
-          - {direction: outgoing, target: Goal, context_field: guided_goals, method: guided_goals, ingestion_field: connections.guides_goal}
-          - {direction: both, target: Principle, context_field: related_principles_shared, method: related_principles_shared, fields: [uid, title, strength], limit: 5, shared_neighbor: {via: [GUIDES_GOAL, GROUNDED_IN_KNOWLEDGE], target: Principle, alias: related_principles_shared}}
   GUIDES_CHOICE:
     contract:
       - config: Choice
@@ -972,14 +965,12 @@ labels:
       domain: goals
       relationships:
         - REQUIRES_KNOWLEDGE
-        - GUIDED_BY_PRINCIPLE
         - ALIGNED_WITH_PATH
         - REQUIRES_PATH_COMPLETION
         - SUBGOAL_OF
         - INSPIRED_BY_CHOICE
         - SUPPORTS_GOAL
         - FULFILLS_GOAL
-        - GUIDES_GOAL
         - SERVES_LIFE_PATH
         - DEPENDS_ON_GOAL
         - ENABLES_GOAL
@@ -1044,7 +1035,7 @@ labels:
       domain: principles
       relationships:
         - GROUNDED_IN_KNOWLEDGE
-        - GUIDES_GOAL
+        - SUPPORTS_GOAL
         - GUIDES_CHOICE
         - INSPIRES_HABIT
         - EMBODIES_PRINCIPLE

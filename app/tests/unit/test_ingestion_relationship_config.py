@@ -39,14 +39,40 @@ _NON_INGESTION_OUTGOING: dict[EntityType, set[str]] = {}
 class TestIngestionRelationshipConfig:
     """Verify ingestion config is derived from the relationship registry."""
 
-    def test_goal_uses_guided_by_principle(self):
-        """Goals use GUIDED_BY_PRINCIPLE for Goal->Principle edges (from registry)."""
-        config = ENTITY_CONFIGS[EntityType.GOAL].relationship_config
-        assert config is not None
-        assert (
-            config["connections.aligned_with_principle"]["rel_type"]
-            == RelationshipName.GUIDED_BY_PRINCIPLE.value
+    def test_a_principle_goal_link_is_one_edge_from_either_file(self):
+        """A goal file and a principle file author the same principle -> goal edge.
+
+        The goal's field is declared incoming (the listed principle is the edge's
+        source) and the principle's outgoing, so both write
+        ``(Principle)-[:SUPPORTS_GOAL]->(Goal)``; each names the far end's kind, so a
+        habit uid in the goal's principle field matches no node.
+        """
+        goal = ENTITY_CONFIGS[EntityType.GOAL].relationship_config
+        principle = ENTITY_CONFIGS[EntityType.PRINCIPLE].relationship_config
+        assert goal is not None and principle is not None
+
+        from_goal = goal["connections.supporting_principles"]
+        from_principle = principle["connections.supports_goal"]
+        assert from_goal["rel_type"] == RelationshipName.SUPPORTS_GOAL.value
+        assert from_principle["rel_type"] == RelationshipName.SUPPORTS_GOAL.value
+        assert (from_goal["direction"], from_goal["target_label"]) == ("incoming", "Principle")
+        assert (from_principle["direction"], from_principle["target_label"]) == (
+            "outgoing",
+            "Goal",
         )
+
+    def test_the_retired_principle_goal_fields_author_nothing(self):
+        goal = ENTITY_CONFIGS[EntityType.GOAL].relationship_config
+        principle = ENTITY_CONFIGS[EntityType.PRINCIPLE].relationship_config
+        assert goal is not None and principle is not None
+        assert "connections.aligned_with_principle" not in goal
+        assert "connections.guides_goal" not in principle
+
+    def test_a_goal_habit_field_names_habits(self):
+        """``connections.supporting_habits`` matches a habit, not any entity."""
+        goal = ENTITY_CONFIGS[EntityType.GOAL].relationship_config
+        assert goal is not None
+        assert goal["connections.supporting_habits"]["target_label"] == "Habit"
 
     def test_choice_uses_informed_by_principle(self):
         """Choices use INFORMED_BY_PRINCIPLE for Choice->Principle edges (from registry).

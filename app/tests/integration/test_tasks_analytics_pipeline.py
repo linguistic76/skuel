@@ -253,29 +253,32 @@ async def test_task_insights_dedupes_multipath_goal_at_depth2(
 
     The Cypher behind get_cross_domain_context does ``collect(DISTINCT {uid, distance,
     path_strength, ...})`` — DISTINCT over the whole path map, not the uid — so at depth=2
-    a goal reached both directly and via an intermediary surfaces twice in the
+    a goal reached both directly and via a second task surfaces twice in the
     ``contributing_goals`` bucket. _union_path_buckets de-dupes by uid keeping the STRONGEST
-    path, so the goal set is the two DISTINCT goals, not three.
+    path, so the goal set is the one goal, once.
     """
     dup_task = TK + "dup_task"
-    dup_mid = TK + "dup_mid_goal"  # task -CONTRIBUTES_TO_GOAL-> mid -CONTRIBUTES_TO_GOAL-> goal
+    dup_mid = TK + "dup_mid_task"  # task -DEPENDS_ON-> mid -CONTRIBUTES_TO_GOAL-> goal
     dup_goal = TK + "dup_goal"  # also task -CONTRIBUTES_TO_GOAL-> goal (reached twice)
     async with neo4j_driver.session() as s:
-        await s.run(
-            "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
-            "status:'active', created_at:datetime()})",
-            u=dup_task,
-        )
-        for uid in (dup_mid, dup_goal):
+        for uid in (dup_task, dup_mid):
             await s.run(
-                "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+                "CREATE (:Entity:Task {uid:$u, entity_type:'task', title:$u, "
                 "status:'active', created_at:datetime()})",
                 u=uid,
             )
-        for a, b in [(dup_task, dup_goal), (dup_task, dup_mid), (dup_mid, dup_goal)]:
+        await s.run(
+            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=dup_goal,
+        )
+        for a, rel, b in [
+            (dup_task, "CONTRIBUTES_TO_GOAL", dup_goal),
+            (dup_task, "DEPENDS_ON", dup_mid),
+            (dup_mid, "CONTRIBUTES_TO_GOAL", dup_goal),
+        ]:
             await s.run(
-                "MATCH (a {uid:$a}),(b {uid:$b}) "
-                "CREATE (a)-[:CONTRIBUTES_TO_GOAL {confidence:0.95}]->(b)",
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
                 a=a,
                 b=b,
             )
@@ -291,6 +294,6 @@ async def test_task_insights_dedupes_multipath_goal_at_depth2(
     res = await svc.get_domain_insights(dup_task)
     assert res.is_ok, res
     cd = res.value["cross_domain"]
-    # path-aware context dedupes to the two DISTINCT goals (no inflation).
-    assert cd["metrics"]["goal_support_count"] == 2
-    assert set(cd["context"]["contributing_goals"]) == {dup_mid, dup_goal}
+    # path-aware context dedupes to the one goal (no inflation).
+    assert cd["metrics"]["goal_support_count"] == 1
+    assert list(cd["context"]["contributing_goals"]) == [dup_goal]

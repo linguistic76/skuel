@@ -238,7 +238,7 @@ class PathAwareHabit:
 
     Example:
         Goal → Habit (direct SUPPORTS_GOAL, distance=1, strength=0.91)
-        Goal → Principle → Habit (indirect GUIDES→ALIGNED_WITH, distance=2, strength=0.79)
+        Goal → Goal → Habit (a sub-goal's supporting habit, distance=2, strength=0.79)
     """
 
     uid: str
@@ -441,9 +441,8 @@ class GoalCrossContext:
     - subgoals: Child goals (SUBGOAL_OF incoming → ``sub_goals``)
     - parent_goal: Parent goal if this is a subgoal (SUBGOAL_OF outgoing →
       ``parent_goal``, single)
-    - principles: Principles guiding this goal — union of GUIDED_BY_PRINCIPLE
-      (outgoing, ``aligned_principles``) and GUIDES_GOAL (incoming,
-      ``guiding_principles_incoming``)
+    - principles: Principles that support this goal (SUPPORTS_GOAL incoming from a
+      principle → ``supporting_principles``)
     - learning_paths: Learning paths aligned with this goal — union of
       ALIGNED_WITH_PATH (``aligned_paths``) and REQUIRES_PATH_COMPLETION
       (``required_paths``)
@@ -480,9 +479,8 @@ class GoalCrossContext:
         - ``subgoals`` ← SUBGOAL_OF incoming (``sub_goals``).
         - ``parent_goal`` ← SUBGOAL_OF outgoing (``parent_goal``, single); the strongest
           of the (typically one) entries, or ``None`` when absent.
-        - ``principles`` ← the union of GUIDED_BY_PRINCIPLE (outgoing,
-          ``aligned_principles``) and GUIDES_GOAL (incoming,
-          ``guiding_principles_incoming``).
+        - ``principles`` ← SUPPORTS_GOAL incoming from a principle
+          (``supporting_principles``).
         - ``learning_paths`` ← the union of ALIGNED_WITH_PATH (``aligned_paths``) and
           REQUIRES_PATH_COMPLETION (``required_paths``). Empty in practice (0 LearningPath
           nodes live) but populated for the consumer contract.
@@ -517,9 +515,7 @@ class GoalCrossContext:
             parent_goal=parents[0] if parents else None,
             principles=[
                 PathAwarePrinciple.from_dict(p)
-                for p in _union_path_buckets(
-                    categorized_data, "aligned_principles", "guiding_principles_incoming"
-                )
+                for p in _union_path_buckets(categorized_data, "supporting_principles")
             ],
             learning_paths=[
                 PathAwareLearningPath.from_dict(lp)
@@ -610,7 +606,7 @@ class PrincipleCrossContext:
     Principle influence context with path-aware intelligence.
 
     Groups related entities by relationship semantic:
-    - goals: Goals guided by this principle (GUIDES_GOAL → ``guided_goals``)
+    - goals: Goals this principle supports (SUPPORTS_GOAL → ``supported_goals``)
     - choices: Choices informed by this principle (GUIDES_CHOICE → ``guided_choices``)
     - knowledge: Knowledge grounding this principle (GROUNDED_IN_KNOWLEDGE →
       ``grounding_knowledge``)
@@ -638,7 +634,7 @@ class PrincipleCrossContext:
         habit directions, and DEDUPs each field to its strongest path. One union call per
         target field (per-field scoping is intentional).
 
-        - ``goals`` ← GUIDES_GOAL (``guided_goals``).
+        - ``goals`` ← SUPPORTS_GOAL (``supported_goals``).
         - ``choices`` ← GUIDES_CHOICE (``guided_choices``).
         - ``knowledge`` ← GROUNDED_IN_KNOWLEDGE (``grounding_knowledge``).
         - ``habits`` ← the union of INSPIRES_HABIT (outgoing, ``inspired_habits``) and
@@ -651,7 +647,7 @@ class PrincipleCrossContext:
             principle_uid=source_uid,
             goals=[
                 PathAwareGoal.from_dict(g)
-                for g in _union_path_buckets(categorized_data, "guided_goals")
+                for g in _union_path_buckets(categorized_data, "supported_goals")
             ],
             choices=[
                 PathAwareChoice.from_dict(c)

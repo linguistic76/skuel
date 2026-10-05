@@ -109,8 +109,8 @@ class PrincipleEventHandlerService:
 
         The handler:
         1. Gets principle details and connected entities
-        2. Queries connected goals (via ALIGNED_WITH_PRINCIPLE)
-        3. Queries connected habits (via GUIDED_BY_PRINCIPLE)
+        2. Queries the goals the principle supports (SUPPORTS_GOAL)
+        3. Queries the habits the principle inspires (INSPIRES_HABIT)
         4. Calculates cascade impact based on new strength
         5. Logs structured insights for alignment tracking
 
@@ -137,14 +137,12 @@ class PrincipleEventHandlerService:
                 )
                 return
 
-            # 2. Query connected goals via the principle's GUIDES_GOAL edge.
-            # ("get_principle_goals" was a phantom — declared on the protocol but
-            # implemented nowhere; the generic reader keyed by config method is the
-            # one real path. See PRINCIPLES_CONFIG: GUIDES_GOAL → "guided_goals".)
+            # 2. Query the goals the principle supports, through the generic reader
+            # keyed by config method (PRINCIPLES_CONFIG: SUPPORTS_GOAL → "supported_goals").
             goal_uids: list[str] = []
             if self.relationships:
                 goal_result = await self.relationships.get_related_uids(
-                    "guided_goals", EntityUID(event.principle_uid)
+                    "supported_goals", EntityUID(event.principle_uid)
                 )
                 if goal_result.is_ok:
                     goal_uids = goal_result.value

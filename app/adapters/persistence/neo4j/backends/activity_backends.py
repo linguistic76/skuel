@@ -551,9 +551,6 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     - get_goal(uid)          → get_or_fail() wrapper (NotFound as error)
     - get_user_goals(uid)    → alias for inherited list_by_user()
     - get_stats_for_user(uid) → goal count stats (total/active/completed)
-    - link_goal_to_habit    → Cypher MERGE
-    - link_goal_to_knowledge → Cypher MERGE
-    - link_goal_to_principle → Cypher MERGE
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -784,7 +781,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         OPTIONAL MATCH (habit:Entity {{entity_type: $habit_type}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
         WITH goal, knowledge_units, collect(DISTINCT {{uid: habit.uid, title: habit.title}}) as habits
 
-        OPTIONAL MATCH (goal)-[:{RelationshipName.GUIDED_BY_PRINCIPLE.value}]->(principle:Entity {{entity_type: $principle_type}})
+        OPTIONAL MATCH (principle:Entity {{entity_type: $principle_type}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
         WITH goal, knowledge_units, habits, collect(DISTINCT {{uid: principle.uid, title: principle.title}}) as principles
 
         RETURN goal.uid as uid,

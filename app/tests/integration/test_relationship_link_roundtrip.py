@@ -404,8 +404,8 @@ class TestRelationshipLinkRoundTrip:
     ):
         """The dual-track alignment read keys resolve and return data on a real Neo4j.
 
-        `_calculate_system_alignment_for_dual_track` reads goals via `"guided_goals"`
-        (GUIDES_GOAL) and habits via `"inspired_habits"` (INSPIRES_HABIT) through the
+        `_calculate_system_alignment_for_dual_track` reads goals via `"supported_goals"`
+        (SUPPORTS_GOAL) and habits via `"inspired_habits"` (INSPIRES_HABIT) through the
         2-arg service `get_related_uids(method_key, uid)`. Pre-fix it called the 3-arg
         *backend* signature (`get_related_uids(uid, REL, "incoming")` → TypeError, swallowed
         by the dual-track try/except) and used the phantom key `"habits"` — so system
@@ -454,7 +454,7 @@ class TestRelationshipLinkRoundTrip:
         rels = services.principles.relationships
         assert (
             await rels.create_relationship(
-                "guided_goals", "principle:align_rt", "goal:align_rt", far_end=GOAL_FAR_END
+                "supported_goals", "principle:align_rt", "goal:align_rt", far_end=GOAL_FAR_END
             )
         ).is_ok
         assert (
@@ -464,8 +464,8 @@ class TestRelationshipLinkRoundTrip:
         ).is_ok
 
         # The exact 2-arg service reads the fixed method performs:
-        goals_read = await rels.get_related_uids("guided_goals", "principle:align_rt")
-        assert goals_read.is_ok, f"guided_goals read failed: {goals_read}"
+        goals_read = await rels.get_related_uids("supported_goals", "principle:align_rt")
+        assert goals_read.is_ok, f"supported_goals read failed: {goals_read}"
         assert goals_read.value == ["goal:align_rt"]
 
         habits_read = await rels.get_related_uids("inspired_habits", "principle:align_rt")

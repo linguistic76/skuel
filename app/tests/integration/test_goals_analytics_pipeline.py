@@ -53,7 +53,7 @@ GL_HABIT = GL + "habit"  # habit -[SUPPORTS_GOAL]-> goal (contributing_habits)
 GL_KU = GL + "ku"  # goal -[REQUIRES_KNOWLEDGE]-> ku (required_knowledge)
 GL_SUBGOAL = GL + "subgoal"  # subgoal -[SUBGOAL_OF]-> goal (sub_goals)
 GL_PARENT = GL + "parent"  # goal -[SUBGOAL_OF]-> parent (parent_goal)
-GL_PRIN = GL + "principle"  # goal -[GUIDED_BY_PRINCIPLE]-> principle (aligned_principles)
+GL_PRIN = GL + "principle"  # principle -[SUPPORTS_GOAL]-> goal (supporting_principles)
 
 
 @pytest.fixture
@@ -147,7 +147,8 @@ async def _seed_goal_graph(neo4j_driver) -> None:
             (GL_GOAL, "REQUIRES_KNOWLEDGE", GL_KU),  # outgoing -> required_knowledge
             (GL_SUBGOAL, "SUBGOAL_OF", GL_GOAL),  # incoming -> sub_goals
             (GL_GOAL, "SUBGOAL_OF", GL_PARENT),  # outgoing -> parent_goal
-            (GL_GOAL, "GUIDED_BY_PRINCIPLE", GL_PRIN),  # outgoing -> aligned_principles
+            # The same edge type as the habit's, from a principle: never a habit figure.
+            (GL_PRIN, "SUPPORTS_GOAL", GL_GOAL),  # incoming -> supporting_principles
         ]:
             await s.run(
                 f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
@@ -443,29 +444,32 @@ async def test_goal_dashboard_dedupes_multipath_knowledge_at_depth2(
 
     The Cypher behind get_cross_domain_context does ``collect(DISTINCT {uid, distance,
     path_strength, ...})`` — DISTINCT over the whole path map, not the uid — so at depth=2
-    a KU reached both directly (distance 1) and via an intermediary (distance 2) surfaces
+    a KU reached both directly (distance 1) and via a sub-goal (distance 2) surfaces
     twice in the ``required_knowledge`` bucket. _union_path_buckets de-dupes by uid keeping
-    the STRONGEST path, so the knowledge set is the two DISTINCT KUs, not three.
+    the STRONGEST path, so the knowledge set is the one KU, once.
     """
     dup_goal = GL + "dup_goal"
-    dup_mid = GL + "dup_mid_ku"  # goal -REQUIRES_KNOWLEDGE-> mid -REQUIRES_KNOWLEDGE-> ku
+    dup_mid = GL + "dup_mid_goal"  # mid -SUBGOAL_OF-> goal; mid -REQUIRES_KNOWLEDGE-> ku
     dup_ku = GL + "dup_ku"  # also goal -REQUIRES_KNOWLEDGE-> ku (reached twice)
     async with neo4j_driver.session() as s:
-        await s.run(
-            "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
-            "user_uid:$owner, status:'active', created_at:datetime()})",
-            u=dup_goal,
-            owner=GL_USER,
-        )
-        for uid in (dup_mid, dup_ku):
+        for uid in (dup_goal, dup_mid):
             await s.run(
-                "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})",
+                "CREATE (:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+                "user_uid:$owner, status:'active', created_at:datetime()})",
                 u=uid,
+                owner=GL_USER,
             )
-        for a, b in [(dup_goal, dup_ku), (dup_goal, dup_mid), (dup_mid, dup_ku)]:
+        await s.run(
+            "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})",
+            u=dup_ku,
+        )
+        for a, rel, b in [
+            (dup_goal, "REQUIRES_KNOWLEDGE", dup_ku),
+            (dup_mid, "SUBGOAL_OF", dup_goal),
+            (dup_mid, "REQUIRES_KNOWLEDGE", dup_ku),
+        ]:
             await s.run(
-                "MATCH (a {uid:$a}),(b {uid:$b}) "
-                "CREATE (a)-[:REQUIRES_KNOWLEDGE {confidence:0.95}]->(b)",
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
                 a=a,
                 b=b,
             )
@@ -481,5 +485,5 @@ async def test_goal_dashboard_dedupes_multipath_knowledge_at_depth2(
     res = await svc.get_goal_learning_requirements(dup_goal, depth=2, min_confidence=0.7)
     assert res.is_ok, res
     ku_uids = [k["uid"] for k in res.value["knowledge_requirements"]["required_knowledge"]]
-    assert sorted(ku_uids) == [dup_ku, dup_mid]  # each once, no inflation
-    assert res.value["metrics"]["knowledge_requirement_count"] == 2
+    assert ku_uids == [dup_ku]  # once, no inflation
+    assert res.value["metrics"]["knowledge_requirement_count"] == 1

@@ -1,6 +1,6 @@
 ---
 title: "ADR-015: MEGA-QUERY Rich Queries Completion for All Activity Domains"
-updated: 2026-09-21
+updated: 2026-10-05
 status: current
 category: decisions
 tags: [adr, decisions, query, mega-query, user-context]
@@ -20,6 +20,11 @@ related: [ADR-001, ADR-007, ADR-030]
 **Related ADRs:**
 - Extends: ADR-001 (Single Complex Query for Unified User Context)
 - Related to: ADR-007 (Graph-Sourced Context Builder Pattern)
+
+> **2026-10-05 — Amended by [ADR-090](ADR-090-one-link-per-fact-a-view-per-domain.md) (Activity Links arc, PR 2).**
+> The Principles rich query no longer traverses `GUIDES_GOAL` and projects no `guided_goals`: the type is
+> retired, a principle ↔ goal link is `(Principle)-[:SUPPORTS_GOAL]->(Goal)`, and the user-context principles
+> statement carries no goal projection (nothing read it). The text below is the 2025-12 record.
 
 ---
 

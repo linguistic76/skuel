@@ -215,7 +215,7 @@ class TestEnablesRelationshipNames:
     def test_principle_enables(self):
         """Verify Principle enables relationship declarations."""
         enables = LABEL_CONFIGS["Principle"].enables_relationship_names
-        assert RelationshipName.GUIDES_GOAL in enables
+        assert RelationshipName.SUPPORTS_GOAL in enables
         assert RelationshipName.INSPIRES_HABIT in enables
         assert RelationshipName.GUIDES_CHOICE in enables
 

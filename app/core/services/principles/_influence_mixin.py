@@ -259,7 +259,7 @@ class _InfluenceMixin:
 
         # Quick impact calculation based on relationship counts
         knowledge_count = len(rels.grounded_knowledge_uids)
-        goal_count = len(rels.guided_goal_uids)
+        goal_count = len(rels.supported_goal_uids)
         habit_count = len(rels.inspired_habit_uids)
         principle_count = len(rels.related_principle_uids)
 
@@ -279,7 +279,7 @@ class _InfluenceMixin:
                 "principle_uid": principle_uid,
                 "relationship_counts": {
                     "grounded_knowledge": knowledge_count,
-                    "guided_goals": goal_count,
+                    "supported_goals": goal_count,
                     "inspired_habits": habit_count,
                     "related_principles": principle_count,
                 },
@@ -317,7 +317,7 @@ class _InfluenceMixin:
         # Calculate quick impact for each
         results = {}
         for principle_uid, rels in zip(principle_uids, all_rels, strict=False):
-            goal_count = len(rels.guided_goal_uids)
+            goal_count = len(rels.supported_goal_uids)
             habit_count = len(rels.inspired_habit_uids)
             total_actions = goal_count + habit_count
 

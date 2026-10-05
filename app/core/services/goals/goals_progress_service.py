@@ -430,7 +430,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             required_knowledge_uids=rich_graph_uids(graph_ctx, "required_knowledge"),
             sub_goal_uids=rich_graph_uids(graph_ctx, "sub_goals"),
             aligned_learning_path_uids=rich_graph_uids(graph_ctx, "aligned_paths"),
-            guiding_principle_uids=rich_graph_uids(graph_ctx, "guiding_principles"),
+            supporting_principle_uids=rich_graph_uids(graph_ctx, "guiding_principles"),
         )
 
     # ========================================================================

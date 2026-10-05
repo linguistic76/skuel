@@ -326,6 +326,8 @@ async def test_get_for_goal_scopes_traversal_to_user(search_service, mock_backen
     in the Cypher via the one composition point.
     """
     from core.models.enums import SearchVisibility
+    from core.models.enums.neo_labels import NeoLabel
+    from core.models.relationship_names import RelationshipName
 
     mock_backend.relationship_traversal_raw = AsyncMock(return_value=Result.ok([]))
 
@@ -335,6 +337,11 @@ async def test_get_for_goal_scopes_traversal_to_user(search_service, mock_backen
     kwargs = mock_backend.relationship_traversal_raw.await_args.kwargs
     assert kwargs["user_uid"] == "user_demo"
     assert kwargs["visibility"] is SearchVisibility.OWNER_ONLY
+    # The principles that support the goal: SUPPORTS_GOAL into it, from principles only.
+    assert kwargs["source_uid"] == "goal:1"
+    assert kwargs["relationship_type"] == RelationshipName.SUPPORTS_GOAL.value
+    assert kwargs["direction"] == "incoming"
+    assert kwargs["target_label"] is NeoLabel.PRINCIPLE
 
 
 @pytest.mark.asyncio

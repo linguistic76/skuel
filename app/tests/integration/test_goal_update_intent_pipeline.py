@@ -143,7 +143,7 @@ class TestGoalUpdateIntentPipeline:
             title="Edges plus a prop",
             supporting_habit_uids=["habit_x"],
             required_knowledge_uids=["ku_y"],
-            guiding_principle_uids=["principle_z"],
+            supporting_principle_uids=["principle_z"],
         )
         intent = request.to_intent()
 

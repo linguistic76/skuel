@@ -96,7 +96,6 @@ _INTENT_EDGE_SETS: dict[str, list[str]] = {
         "SUPPORTS_GOAL",
         "REQUIRES_KNOWLEDGE",
         "SUBGOAL_OF",
-        "GUIDED_BY_PRINCIPLE",
         "CONTRIBUTES_TO_GOAL",
     ],
 }
@@ -111,9 +110,7 @@ MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(p:Entity {{
 
 CALL (p, u) {{
   MATCH (u)-[:{RelationshipName.OWNS.value}]->(g:Entity {{entity_type: 'goal'}})
-  WHERE (p)-[:{RelationshipName.GUIDES_GOAL.value}]->(g)
-     OR (g)-[:{RelationshipName.GUIDED_BY_PRINCIPLE.value}]->(p)
-     OR (g)-[:{RelationshipName.EMBODIES_PRINCIPLE.value}]->(p)
+  WHERE (p)-[:{RelationshipName.SUPPORTS_GOAL.value}]->(g)
   RETURN collect(DISTINCT {{uid: g.uid, title: g.title}}) AS aligned_goals
 }}
 

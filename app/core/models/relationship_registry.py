@@ -713,15 +713,6 @@ GOALS_CONFIG = DomainRelationshipConfig(
             page_heading="Knowledge this goal requires",
         ),
         UnifiedRelationshipDefinition(
-            RelationshipName.GUIDED_BY_PRINCIPLE,
-            "Principle",
-            "outgoing",
-            "aligned_principles",  # Context name: aligned_principles
-            "principles",
-            yaml_field_path="connections.aligned_with_principle",
-            page_heading="Principles that support this goal",
-        ),
-        UnifiedRelationshipDefinition(
             RelationshipName.ALIGNED_WITH_PATH,
             "Entity",
             "outgoing",
@@ -773,9 +764,11 @@ GOALS_CONFIG = DomainRelationshipConfig(
             ),  # Context: include status/progress
             yaml_field_path="connections.sub_goals",
         ),
+        # SUPPORTS_GOAL has three kinds of source — habits, principles and PathSteps
+        # (``practice_goals``) — so every goal view of it names its kind.
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Entity",
+            "Habit",
             "incoming",
             "contributing_habits",  # Context name: contributing_habits
             "supporting_habits",
@@ -797,17 +790,18 @@ GOALS_CONFIG = DomainRelationshipConfig(
         # is no :Milestone label and no HAS_MILESTONE traversal in the context
         # query — milestone progress is derived from the loaded Goal directly.
         UnifiedRelationshipDefinition(
-            RelationshipName.GUIDES_GOAL,
+            RelationshipName.SUPPORTS_GOAL,
             "Principle",
             "incoming",
-            "guiding_principles_incoming",
-            "guided_by_principles",
+            "supporting_principles",
+            "supporting_principles",
+            yaml_field_path="connections.supporting_principles",
             page_heading="Principles that support this goal",
         ),
         # Essentiality-filtered habits
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Entity",
+            "Habit",
             "incoming",
             "essential_habits",
             "essential_habits",
@@ -816,7 +810,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Entity",
+            "Habit",
             "incoming",
             "critical_habits",
             "critical_habits",
@@ -825,7 +819,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
-            "Entity",
+            "Habit",
             "incoming",
             "optional_habits",
             "optional_habits",
@@ -1414,12 +1408,12 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             page_heading="Knowledge this principle is grounded in",
         ),
         UnifiedRelationshipDefinition(
-            RelationshipName.GUIDES_GOAL,
+            RelationshipName.SUPPORTS_GOAL,
             "Goal",
             "outgoing",
-            "guided_goals",
-            "guided_goals",
-            yaml_field_path="connections.guides_goal",
+            "supported_goals",
+            "supported_goals",
+            yaml_field_path="connections.supports_goal",
             page_heading="Goals this principle supports",
         ),
         UnifiedRelationshipDefinition(
@@ -1511,7 +1505,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
         ),
         # Shared-neighbor pattern: Related principles via shared goals or knowledge
         UnifiedRelationshipDefinition(
-            RelationshipName.GUIDES_GOAL,  # Placeholder - uses shared_neighbor_config
+            RelationshipName.SUPPORTS_GOAL,  # Placeholder - uses shared_neighbor_config
             "Principle",
             "both",
             "related_principles_shared",
@@ -1520,7 +1514,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             limit=5,
             shared_neighbor_config=SharedNeighborConfig(
                 intermediate_relationships=(
-                    RelationshipName.GUIDES_GOAL,
+                    RelationshipName.SUPPORTS_GOAL,
                     RelationshipName.GROUNDED_IN_KNOWLEDGE,
                 ),
                 target_label="Principle",
@@ -1532,7 +1526,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
     ),
     prerequisite_relationship_names=(RelationshipName.GROUNDED_IN_KNOWLEDGE,),
     enables_relationship_names=(
-        RelationshipName.GUIDES_GOAL,
+        RelationshipName.SUPPORTS_GOAL,
         RelationshipName.INSPIRES_HABIT,
         RelationshipName.GUIDES_CHOICE,
     ),

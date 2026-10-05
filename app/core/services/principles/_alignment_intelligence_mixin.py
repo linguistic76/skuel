@@ -220,8 +220,10 @@ class _AlignmentIntelligenceMixin:
         # (method_key, entity_uid). The keys below are PRINCIPLES_CONFIG method keys, not
         # raw RelationshipName values + direction (that is the backend signature).
         if self.relationships:
-            # Get goals guided by this principle (GUIDES_GOAL)
-            goals_result = await self.relationships.get_related_uids("guided_goals", principle.uid)
+            # Goals this principle supports (SUPPORTS_GOAL)
+            goals_result = await self.relationships.get_related_uids(
+                "supported_goals", principle.uid
+            )
             if goals_result.is_ok and goals_result.value:
                 for goal_uid in goals_result.value:
                     evidence.append(f"Goal '{goal_uid}' embodies this principle")

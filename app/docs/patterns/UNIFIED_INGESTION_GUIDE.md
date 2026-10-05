@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-02
+updated: 2026-10-05
 category: patterns
 related_skills: []
 related_docs:
@@ -1141,10 +1141,10 @@ move, and is never borrowed.
 | `supports_goal` | SUPPORTS_GOAL | Goal | Habit |
 | `embodies_principle` | EMBODIES_PRINCIPLE | Principle | Habit |
 | `prerequisite_habits` | REQUIRES_PREREQUISITE_HABIT | Entity | Habit |
-| `aligned_with_principle` | GUIDED_BY_PRINCIPLE | Principle | Goal |
+| `supporting_principles` | SUPPORTS_GOAL (incoming) | Principle | Goal |
 | `parent_goal` | SUBGOAL_OF | Goal | Goal |
 | `sub_goals` | SUBGOAL_OF (incoming) | Goal | Goal |
-| `supporting_habits` | SUPPORTS_GOAL (incoming) | Entity | Goal |
+| `supporting_habits` | SUPPORTS_GOAL (incoming) | Habit | Goal |
 | `informed_by_knowledge` | INFORMED_BY_KNOWLEDGE | Entity | Choice |
 | `requires_knowledge_for_decision` | REQUIRES_KNOWLEDGE_FOR_DECISION | Entity | Choice |
 | `guided_by_principle` | INFORMED_BY_PRINCIPLE | Principle | Choice |
@@ -1154,7 +1154,7 @@ move, and is never borrowed.
 | `reinforces_habit` | REINFORCES_HABIT | Entity | Event |
 | `executes_task` | EXECUTES_TASK | Task | Event |
 | `grounded_in_knowledge` | GROUNDED_IN_KNOWLEDGE | Entity | Principle |
-| `guides_goal` | GUIDES_GOAL | Goal | Principle |
+| `supports_goal` | SUPPORTS_GOAL | Goal | Principle |
 | `inspires_habit` | INSPIRES_HABIT | Entity | Principle |
 | `contains_steps` | HAS_STEP | Entity | LP |
 | `organizes` | ORGANIZES | Entity | PathStep |

@@ -167,6 +167,20 @@ class TestOwnership:
 
 
 class TestMutations:
+    def test_link_principle_links_the_pair_and_carries_no_strength(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, goals_service, _principles = _make_client(monkeypatch)
+
+        response = _post_json(
+            client,
+            "/api/goals/link-principle",
+            {"goal_uid": _GOAL_UID, "principle_uid": _PRINCIPLE_UID, "alignment_strength": 0.2},
+        )
+
+        assert response.status_code == 200
+        goals_service.link_goal_to_principle.assert_awaited_once_with(_GOAL_UID, _PRINCIPLE_UID)
+
     def test_link_knowledge_happy_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
         client, goals_service, _principles = _make_client(monkeypatch)
 

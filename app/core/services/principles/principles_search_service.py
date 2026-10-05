@@ -61,7 +61,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     - get_needing_review() - Principles past review threshold
 
     Semantic Types Used:
-    - GUIDES_GOAL: Principle provides guidance for goal setting/achievement
+    - SUPPORTS_GOAL: Principle supports a goal
     - INSPIRES_HABIT: Principle inspires habit formation/maintenance
     - GUIDES_CHOICE: Principle guides decision-making
     - RELATED_TO: Principle relates to another principle
@@ -269,9 +269,10 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         self, goal_uid: str, limit: int = 10, user_uid: UserUID | None = None
     ) -> Result[list[Principle]]:
         """
-        Get principles that guide a specific goal.
+        Get the principles that support a goal, whichever page made the link.
 
-        Query: (Principle)-[:GUIDES_GOAL]->(Goal)
+        Reads SUPPORTS_GOAL into the goal from principles only; a habit or PathStep
+        that supports the same goal is not returned.
 
         Args:
             goal_uid: Goal UID
@@ -279,11 +280,11 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             user_uid: Requesting user — targets scoped per search_visibility (ADR-085 G3)
 
         Returns:
-            Result containing principles guiding this goal
+            Result containing the principles that support this goal
         """
         return await self.get_by_relationship(
             related_uid=goal_uid,
-            relationship_type=RelationshipName.GUIDES_GOAL,
+            relationship_type=RelationshipName.SUPPORTS_GOAL,
             direction="incoming",
             user_uid=user_uid,
         )

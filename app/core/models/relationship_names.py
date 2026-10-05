@@ -182,7 +182,6 @@ class RelationshipName(StrEnum):
     # =========================================================================
     SUPPORTS_PRINCIPLE = "SUPPORTS_PRINCIPLE"
     CONFLICTS_WITH_PRINCIPLE = "CONFLICTS_WITH_PRINCIPLE"
-    GUIDES_GOAL = "GUIDES_GOAL"
     GUIDES_CHOICE = "GUIDES_CHOICE"  # (principle)-[:GUIDES_CHOICE]->(choice)
     ALIGNED_WITH_PRINCIPLE = "ALIGNED_WITH_PRINCIPLE"
     DEMONSTRATES_PRINCIPLE = (

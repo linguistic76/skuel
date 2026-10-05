@@ -148,7 +148,7 @@ class PrinciplesAlignmentService:
         Assess how a goal aligns with user's principles.
 
         Uses graph-based alignment evidence (explicit relationships like
-        GUIDES_GOAL, GUIDED_BY_PRINCIPLE, EMBODIES_PRINCIPLE) rather than
+        SUPPORTS_GOAL from a principle) rather than
         keyword heuristics.
 
         Args:
@@ -211,7 +211,7 @@ class PrinciplesAlignmentService:
 
         For each principle, checks whether ``entity_uid`` appears in the
         principle's connected goals/habits via explicit relationships
-        (GUIDES_GOAL, GUIDED_BY_PRINCIPLE, INSPIRES_HABIT, EMBODIES_PRINCIPLE).
+        (SUPPORTS_GOAL, INSPIRES_HABIT, EMBODIES_PRINCIPLE).
 
         Args:
             entity_uid: Entity to assess.
@@ -474,8 +474,7 @@ class PrinciplesAlignmentService:
 
         Delegates to ``CrossDomainQueryService.get_principle_alignment_evidence``
         — one Cypher query that walks the explicit alignment edges
-        (``GUIDES_GOAL``, ``GUIDED_BY_PRINCIPLE``, ``INSPIRES_HABIT``,
-        ``EMBODIES_PRINCIPLE``) instead of pulling every goal and habit into
+        (``SUPPORTS_GOAL``, ``INSPIRES_HABIT``, ``EMBODIES_PRINCIPLE``) instead of pulling every goal and habit into
         Python and looping with a string-overlap heuristic.
 
         Returns:

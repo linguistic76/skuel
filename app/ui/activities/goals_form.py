@@ -110,7 +110,7 @@ def GoalCreateForm() -> Any:
     """Render the Goal create form with EntityPicker for the parent-goal UID.
 
     List-typed fields (``required_knowledge_uids``, ``supporting_habit_uids``,
-    ``guiding_principle_uids``, ``potential_obstacles``, ``strategies``, ``tags``)
+    ``supporting_principle_uids``, ``potential_obstacles``, ``strategies``, ``tags``)
     are intentionally omitted — UID-list relationships belong on the detail-page
     relationship picker, and free-text list fields hit the FormGenerator list
     bug.

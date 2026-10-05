@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from core.models.enums.principle_enums import PrincipleLinkType
+from core.models.type_hints import Neo4jProperties
 from core.services.mixins.link_edge_guard import (
     CHOICE_FAR_END,
     GOAL_FAR_END,
@@ -42,11 +43,18 @@ class _GravityMixin:
     # (read), so the two cannot drift to different keys. Each value is a method_key in
     # PRINCIPLES_CONFIG — guarded by tests/unit/test_cross_domain_link_keys.py.
     _LINK_TYPE_MAP: ClassVar[dict[PrincipleLinkType, str]] = {
-        PrincipleLinkType.GOAL: "guided_goals",
+        PrincipleLinkType.GOAL: "supported_goals",
         PrincipleLinkType.HABIT: "inspired_habits",
         PrincipleLinkType.KNOWLEDGE: "knowledge",
         PrincipleLinkType.PRINCIPLE: "supporting_principles",
         PrincipleLinkType.CHOICE: "guided_choices",
+    }
+
+    # The properties a link type's edge is written with. Partial by design: a link
+    # type with no entry writes no properties. A principle supports a goal with the
+    # importance level a habit's support carries, at the habit doors' default.
+    _LINK_PROPERTIES: ClassVar[dict[PrincipleLinkType, Neo4jProperties]] = {
+        PrincipleLinkType.GOAL: {"weight": 1.0, "essentiality": "supporting"},
     }
 
     # What each link type links to — the kind the far end must be, and the name a
@@ -98,6 +106,7 @@ class _GravityMixin:
             self._LINK_TYPE_MAP[link_type],
             principle_uid,
             target_uid,
+            self._LINK_PROPERTIES.get(link_type),
             far_end=self._LINK_FAR_ENDS[link_type],
         )
         if result.is_error:

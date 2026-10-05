@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-09-20
+updated: 2026-10-05
 status: current
 category: architecture
 version: 8.1.0
@@ -545,7 +545,7 @@ Natural Text
 (task:Task)-[:DEPENDS_ON]->(task:Task)
 (habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Curriculum)
 (habit:Habit)-[:SUPPORTS_GOAL]->(goal:Goal)
-(goal:Goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+(principle:Principle)-[:SUPPORTS_GOAL]->(goal:Goal)
 (goal:Goal)-[:SUBGOAL_OF]->(goal:Goal)
 
 // Curriculum

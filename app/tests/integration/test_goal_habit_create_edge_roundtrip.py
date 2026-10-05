@@ -46,12 +46,15 @@ from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, 
 from core.models.enums import Domain, MeasurementType, Priority, RecurrencePattern
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.habits.habits_core_service import HabitsCoreService
+from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 
 @pytest_asyncio.fixture
@@ -254,34 +257,58 @@ class TestGoalHierarchyEdgeRoundTrip:
             goal_request(
                 title="Linked goal",
                 required_knowledge_uids=["ku_goal_link_abc"],
-                guiding_principle_uids=["principle_goal_link_abc"],
+                supporting_principle_uids=["principle_goal_link_abc"],
                 supporting_habit_uids=["habit_goal_link_abc"],
             ),
             test_user_uid,
         )
         assert goal.is_ok, f"create_goal failed: {goal.error}"
 
-        for relationship, target in (
-            (RelationshipName.REQUIRES_KNOWLEDGE, "ku_goal_link_abc"),
-            (RelationshipName.GUIDED_BY_PRINCIPLE, "principle_goal_link_abc"),
-        ):
-            edges = await goals_service.backend.get_relationships(
-                goal.value.uid, rel_type=relationship, direction="outgoing"
-            )
-            assert edges.is_ok, f"{relationship.value} read failed: {edges.error}"
-            assert [r["target_uid"] for r in edges.value] == [target], (
-                f"{relationship.value} did not round-trip: {edges.value}"
-            )
+        knowledge = await goals_service.backend.get_relationships(
+            goal.value.uid, rel_type=RelationshipName.REQUIRES_KNOWLEDGE, direction="outgoing"
+        )
+        assert knowledge.is_ok, f"REQUIRES_KNOWLEDGE read failed: {knowledge.error}"
+        assert [r["target_uid"] for r in knowledge.value] == ["ku_goal_link_abc"]
 
-        # SUPPORTS_GOAL is INCOMING: the habit is the source.
-        incoming = await goals_service.backend.get_relationships(
-            goal.value.uid, rel_type=RelationshipName.SUPPORTS_GOAL, direction="incoming"
+        # SUPPORTS_GOAL is INCOMING, from the habit and from the principle: one edge
+        # type, two kinds of source. Every edge touching the goal, by source kind.
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                "MATCH (g:Goal {uid: $uid})-[r]-(other) "
+                "WHERE NOT other:User "
+                "RETURN type(r) AS rel, startNode(r).uid AS source, endNode(r).uid AS target, "
+                "[l IN labels(other) WHERE l <> 'Entity'] AS kinds",
+                uid=goal.value.uid,
+            )
+            edges = sorted(
+                [(row["rel"], row["source"], row["target"], row["kinds"]) async for row in result]
+            )
+        assert edges == sorted(
+            [
+                ("REQUIRES_KNOWLEDGE", goal.value.uid, "ku_goal_link_abc", ["Ku"]),
+                ("SUPPORTS_GOAL", "habit_goal_link_abc", goal.value.uid, ["Habit"]),
+                ("SUPPORTS_GOAL", "principle_goal_link_abc", goal.value.uid, ["Principle"]),
+            ]
+        ), (
+            "the link lists did not produce (habit)-[:SUPPORTS_GOAL]->(goal) and "
+            f"(principle)-[:SUPPORTS_GOAL]->(goal): {edges}"
         )
-        assert incoming.is_ok
-        assert [r["target_uid"] for r in incoming.value] == ["habit_goal_link_abc"], (
-            "supporting_habit_uids did not produce (habit)-[:SUPPORTS_GOAL]->(goal) — "
-            f"an outgoing edge here would be invisible to every tier read: {incoming.value}"
+
+        # Each reader returns its own kind: no habit view carries the principle.
+        relationships = UnifiedRelationshipService[GoalsBackend, Goal, GoalDTO](
+            backend=goals_service.backend, config=GOALS_CONFIG, graph_intel=None
         )
+        for key in ("supporting_habits", "essential_habits", "critical_habits", "optional_habits"):
+            habits = await relationships.get_related_uids(key, goal.value.uid)
+            assert habits.is_ok, f"{key} read failed: {habits.error}"
+            assert "principle_goal_link_abc" not in habits.value, key
+        supporting_habits = await relationships.get_related_uids(
+            "supporting_habits", goal.value.uid
+        )
+        assert supporting_habits.value == ["habit_goal_link_abc"]
+        principles = await relationships.get_related_uids("supporting_principles", goal.value.uid)
+        assert principles.is_ok, f"supporting_principles read failed: {principles.error}"
+        assert principles.value == ["principle_goal_link_abc"]
 
     @pytest.mark.parametrize(
         ("uid", "ownership_clause", "owns_edge"),

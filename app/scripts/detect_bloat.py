@@ -388,6 +388,14 @@ _GOALS_GRAVITY = PlannedEntry(
     "write path); wire link routes/UI or fold into relationship routes",
     since=date(2026, 6, 11),
 )
+# Activity links arc (2026-10): a principle's support of a goal is unlinked at the
+# service; the page controls that call it are the arc after (R8).
+_GOAL_PRINCIPLE_UNLINK = PlannedEntry(
+    Readiness.DELAYED,
+    "service-level unlink of a principle from a goal; waits on the link/unlink page "
+    "controls arc (docs/roadmap/activity-links-arc.md R8)",
+    since=date(2026, 10, 5),
+)
 _GOALS_INSIGHTS = PlannedEntry(
     Readiness.DELAYED,
     "goal analytics/AI insight surface staged (feasibility, what-if scenarios, "
@@ -860,6 +868,7 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Goals: gravity links (inlined from _relationship_mixin into facade) ---
     "core/services/goals_service.py::create_semantic_goal_relationship": _GOALS_GRAVITY,
     "core/services/goals_service.py::unlink_goal_from_habit": _GOALS_GRAVITY,
+    "core/services/goals_service.py::unlink_goal_from_principle": _GOAL_PRINCIPLE_UNLINK,
     # --- Goals: analytics/AI insight surface ---
     "core/services/goals/_orchestration_mixin.py::assess_goal_feasibility": _GOALS_INSIGHTS,
     "core/services/goals/_predictive_mixin.py::run_scenario_analysis": _GOALS_INSIGHTS,

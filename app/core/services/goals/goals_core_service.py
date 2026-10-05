@@ -394,11 +394,10 @@ class GoalsCoreService(
     #
     # Uses registry-driven query generation from RelationshipRegistry.
     # The GOALS_CONFIG config includes:
-    # - contributing_tasks, contributing_habits (supporting activities)
+    # - contributing_tasks, contributing_habits and the habit tiers (supporting activities)
     # - sub_goals, parent_goal (hierarchy)
-    # - required_knowledge, aligned_principles (prerequisites and guidance)
+    # - required_knowledge, supporting_principles (prerequisites and support)
     # - inspired_by_choice (motivation)
-    # - milestones (progress tracking)
     # - related_goals (shared-neighbor pattern via FULFILLS_GOAL|SUPPORTS_GOAL)
     # - milestone_progress (calculated in BaseService._parse_context_result)
     #
@@ -578,12 +577,12 @@ class GoalsCoreService(
         (GOALS_CONFIG in core/models/relationship_registry.py):
 
         - ``required_knowledge_uids``  → REQUIRES_KNOWLEDGE, OUTGOING (``knowledge`` key)
-        - ``guiding_principle_uids``   → GUIDED_BY_PRINCIPLE, OUTGOING (``principles``)
-        - ``supporting_habit_uids``    → SUPPORTS_GOAL, **INCOMING** (``supporting_habits``)
+        - ``supporting_principle_uids`` → SUPPORTS_GOAL, **INCOMING** (``supporting_principles``)
+        - ``supporting_habit_uids``     → SUPPORTS_GOAL, **INCOMING** (``supporting_habits``)
 
         DIRECTION is not uniform here, unlike Habits' four: ``SUPPORTS_GOAL`` is declared
-        incoming, so the HABIT is the source and the goal the target. Writing it the
-        other way round persists an edge that every reader misses.
+        incoming, so the HABIT or PRINCIPLE is the source and the goal the target. Writing
+        it the other way round persists an edge that every reader misses.
 
         Readers: the user-context MEGA-QUERY collects ``required_knowledge`` from
         ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the GOALS_CONFIG habit tiers
@@ -618,15 +617,15 @@ class GoalsCoreService(
         candidates.extend(
             LinkEdge(
                 (
-                    goal.uid,
                     principle_uid,
-                    RelationshipName.GUIDED_BY_PRINCIPLE.value,
-                    {"alignment_strength": 1.0},
+                    goal.uid,
+                    RelationshipName.SUPPORTS_GOAL.value,
+                    {"weight": 1.0, "essentiality": "supporting"},
                 ),
                 other_uid=principle_uid,
                 allowed_labels=frozenset({NeoLabel.PRINCIPLE.value}),
             )
-            for principle_uid in request.guiding_principle_uids
+            for principle_uid in request.supporting_principle_uids
         )
         # INCOMING: (habit)-[:SUPPORTS_GOAL]->(goal) — habit first, per GOALS_CONFIG.
         # The habit is therefore the edge's SOURCE and the checked endpoint.
@@ -746,7 +745,7 @@ class GoalsCoreService(
         ``why_important`` — so the two doors persisted different goals from one request.
 
         ``progress_weight`` and the three edge-typed uid lists (``required_knowledge_uids``,
-        ``guiding_principle_uids``, ``supporting_habit_uids``) are forwarded here because
+        ``supporting_principle_uids``, ``supporting_habit_uids``) are forwarded here because
         only this door has the request: all four are EDGE-shaped, so none rides an entity
         and the entity door cannot carry them. Since the generated route was bound
         here, every external create has them. The HAS_SUBGOAL edge itself, whose parent DOES ride on

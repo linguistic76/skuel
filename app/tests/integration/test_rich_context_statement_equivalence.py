@@ -134,7 +134,7 @@ CREATE (p:Entity:Principle {uid: 'principle.eq.core', entity_type: 'principle', 
                             status: 'active', user_uid: $user_uid})
 CREATE (u)-[:OWNS]->(p)
 CREATE (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku_a)
-CREATE (p)-[:GUIDES_GOAL]->(g_active)
+CREATE (p)-[:SUPPORTS_GOAL]->(g_active)
 CREATE (h_active)-[:EMBODIES_PRINCIPLE]->(p)
 CREATE (t_open)-[:ALIGNED_WITH_PRINCIPLE]->(p)
 CREATE (lp)-[:ALIGNED_WITH_GOAL]->(g_active)
@@ -429,12 +429,14 @@ async def test_every_section_reads_what_the_one_statement_read(
     assert _canon(principles["principle.eq.core"]) == _canon(
         {
             "grounded_knowledge": [{"uid": "ku.eq.a", "title": "Ku A"}],
-            "guided_goals": [{"uid": "goal.eq.active", "title": "Active goal", "status": "active"}],
             "guided_choices": [{"uid": "choice.eq.pending", "title": "Pending choice"}],
             "embodying_habits": [{"uid": "habit.eq.active", "title": "Active habit"}],
             "aligned_tasks": [{"uid": "task.eq.open", "title": "Open task", "status": "active"}],
         }
     )
+    # the principle's goal links are not a context read: the goal it supports is in no row
+    assert "guided_goals" not in principles["principle.eq.core"]
+    assert "supported_goals" not in principles["principle.eq.core"]
     choices = _by_uid(mega["entities"]["choices"])
     assert sorted(choices) == ["choice.eq.pending"]  # the decided one is outside the window
     assert _canon(choices["choice.eq.pending"]) == _canon(

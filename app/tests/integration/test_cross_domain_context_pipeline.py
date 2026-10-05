@@ -30,6 +30,7 @@ from core.models.choice.choice import Choice
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
+    GOALS_CONFIG,
     HABITS_CONFIG,
     PRINCIPLES_CONFIG,
 )
@@ -80,7 +81,7 @@ async def _seed_reciprocal_pair(session: AsyncSession) -> None:
     Edges:
         principle -[INSPIRES_HABIT]->  habit       (principle's outgoing / habit's incoming)
         habit     -[EMBODIES_PRINCIPLE]-> principle (habit's outgoing / principle's incoming)
-        principle -[GUIDES_GOAL]->      goal
+        principle -[SUPPORTS_GOAL]->    goal
         habit     -[SUPPORTS_GOAL]->     goal
     The two cross-domain edges between principle and habit form a 2-cycle, so a
     depth-2 traversal revisits the source — the exact shape that used to leak the
@@ -100,7 +101,7 @@ async def _seed_reciprocal_pair(session: AsyncSession) -> None:
     for a, rel, b in [
         (R_PRINCIPLE, "INSPIRES_HABIT", R_HABIT),
         (R_HABIT, "EMBODIES_PRINCIPLE", R_PRINCIPLE),
-        (R_PRINCIPLE, "GUIDES_GOAL", R_GOAL),
+        (R_PRINCIPLE, "SUPPORTS_GOAL", R_GOAL),
         (R_HABIT, "SUPPORTS_GOAL", R_GOAL),
     ]:
         await session.run(
@@ -140,7 +141,8 @@ async def test_depth2_does_not_self_include_on_reciprocal_cycle(
     assert R_HABIT in aligned_habits
     assert R_PRINCIPLE not in aligned_habits, "source leaked into its own bucket"
     assert aligned_habits == {R_HABIT}, f"over-inclusion: {aligned_habits}"
-    assert R_GOAL in _bucket_uids(raw, "guided_goals")
+    assert _bucket_uids(raw, "supported_goals") == {R_GOAL}
+    assert "guided_goals" not in raw
 
 
 @pytest.mark.asyncio
@@ -174,7 +176,37 @@ async def test_habit_incoming_buckets_populate(neo4j_driver, rel_backend, clean_
     aligned_principles = _bucket_uids(raw, "embodied_principles", "inspiring_principles")
     assert aligned_principles == {R_PRINCIPLE}
     assert R_HABIT not in aligned_principles
-    assert R_GOAL in _bucket_uids(raw, "supported_goals")
+    assert _bucket_uids(raw, "supported_goals") == {R_GOAL}
+
+
+@pytest.mark.asyncio
+async def test_goal_buckets_split_its_supporters_by_kind(neo4j_driver, rel_backend, clean_neo4j):
+    """A habit and a principle support one goal over the same edge type.
+
+    The goal lists the habit under its habits and the principle under its principles:
+    no habit bucket carries the principle, and no principle bucket carries the habit.
+    """
+    async with neo4j_driver.session() as s:
+        await _seed_reciprocal_pair(s)
+
+    goal_rel: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+        backend=rel_backend, config=GOALS_CONFIG, graph_intel=None
+    )
+    res = await goal_rel.get_cross_domain_context(R_GOAL, depth=2, min_confidence=0.7)
+    assert res.is_ok, res
+    raw = res.value
+
+    habit_buckets = (
+        "contributing_habits",
+        "essential_habits",
+        "critical_habits",
+        "optional_habits",
+    )
+    assert _bucket_uids(raw, "contributing_habits") == {R_HABIT}
+    assert _bucket_uids(raw, *habit_buckets) == {R_HABIT}
+    assert _bucket_uids(raw, "supporting_principles") == {R_PRINCIPLE}
+    for retired in ("aligned_principles", "guiding_principles_incoming"):
+        assert retired not in raw
 
 
 # uid prefix for the label-specificity routing graph.
@@ -438,8 +470,8 @@ async def test_choice_intelligence_empty_when_no_edges(neo4j_driver, rel_backend
 
 # Multi-path graph: the choice reaches FB_DUP_GOAL by TWO distinct AFFECTS_GOAL paths.
 FB_DUP_CHOICE = FB + "dup_choice"
-FB_DUP_MID = FB + "dup_mid"  # choice -[AFFECTS_GOAL]-> mid -[AFFECTS_GOAL]-> goal (2-hop)
-FB_DUP_GOAL = FB + "dup_goal"  # also choice -[AFFECTS_GOAL]-> goal (1-hop) → reached twice
+FB_DUP_MID = FB + "dup_mid"  # a second choice: mid -[INSPIRED_BY_CHOICE]-> choice (1-hop)
+FB_DUP_GOAL = FB + "dup_goal"  # choice -[AFFECTS_GOAL]-> goal and mid -[AFFECTS_GOAL]-> goal
 
 
 @pytest.mark.asyncio
@@ -450,29 +482,29 @@ async def test_choice_impact_dedupes_multipath_goals_at_depth2(
 
     The Cypher behind get_cross_domain_context does ``collect(DISTINCT {uid, distance,
     path_strength, ...})`` — DISTINCT over the whole path map, not the uid — so at
-    depth=2 FB_DUP_GOAL surfaces twice (direct AFFECTS_GOAL, distance 1; and via
-    FB_DUP_MID, distance 2). Both entries are incident-AFFECTS_GOAL → both land in the
-    ``affected_goals`` bucket. _union_buckets de-dupes by uid, so the affected set is the
-    two DISTINCT goals (FB_DUP_GOAL once + FB_DUP_MID), not three — otherwise goal count,
-    stake level, impact score and cascade impact all inflate.
+    depth=2 FB_DUP_GOAL surfaces twice (direct AFFECTS_GOAL, distance 1; and via the
+    choice FB_DUP_MID, distance 2). Both entries are incident-AFFECTS_GOAL from a
+    choice → both land in the ``affected_goals`` bucket. _union_buckets de-dupes by
+    uid, so the affected set is the one goal, once — otherwise goal count, stake level,
+    impact score and cascade impact all inflate.
     """
     async with neo4j_driver.session() as s:
         for uid in (FB_DUP_CHOICE, FB_DUP_MID, FB_DUP_GOAL):
-            label = "Choice" if uid == FB_DUP_CHOICE else "Goal"
-            etype = "choice" if uid == FB_DUP_CHOICE else "goal"
+            label = "Goal" if uid == FB_DUP_GOAL else "Choice"
+            etype = "goal" if uid == FB_DUP_GOAL else "choice"
             await s.run(
                 f"CREATE (:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
                 f"status:'active', created_at:datetime()}})",
                 u=uid,
                 t=etype,
             )
-        for a, b in [
-            (FB_DUP_CHOICE, FB_DUP_GOAL),  # 1-hop
-            (FB_DUP_CHOICE, FB_DUP_MID),  # 1-hop (FB_DUP_MID also affected)
-            (FB_DUP_MID, FB_DUP_GOAL),  # 2-hop path to FB_DUP_GOAL
+        for a, rel, b in [
+            (FB_DUP_CHOICE, "AFFECTS_GOAL", FB_DUP_GOAL),  # 1-hop
+            (FB_DUP_MID, "INSPIRED_BY_CHOICE", FB_DUP_CHOICE),  # 1-hop to the second choice
+            (FB_DUP_MID, "AFFECTS_GOAL", FB_DUP_GOAL),  # 2-hop path to FB_DUP_GOAL
         ]:
             await s.run(
-                "MATCH (a {uid:$a}),(b {uid:$b}) CREATE (a)-[:AFFECTS_GOAL {confidence:0.95}]->(b)",
+                f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
                 a=a,
                 b=b,
             )
@@ -494,8 +526,8 @@ async def test_choice_impact_dedupes_multipath_goals_at_depth2(
 
     goals = intel.value.context.goals
     goal_uids = [g.uid for g in goals]
-    assert sorted(goal_uids) == [FB_DUP_GOAL, FB_DUP_MID]  # each once, no inflation
-    assert res.value.domain_impact.goals.count == 2
+    assert goal_uids == [FB_DUP_GOAL]  # once, no inflation
+    assert res.value.domain_impact.goals.count == 1
 
     # The STRONGEST path is kept, not the first raw occurrence: FB_DUP_GOAL is directly
     # reachable (distance 1) AND via FB_DUP_MID (distance 2), so its retained entry must

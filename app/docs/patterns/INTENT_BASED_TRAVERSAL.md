@@ -1,6 +1,6 @@
 ---
 title: Intent-Based Graph Traversal
-updated: 2026-09-17
+updated: 2026-10-05
 category: patterns
 related_skills: []
 related_docs:
@@ -236,34 +236,22 @@ self.relationships = UnifiedRelationshipService(            # Mechanism B (confi
 
 ## Intent clause vocabularies
 
-These are the `type(r) IN [...]` edge lists in `build_context_query_for_intent`, as wired today.
-
-### Reachable clauses
+These are the edge lists of `_INTENT_EDGE_SETS` (`adapters/persistence/neo4j/cross_domain_backend.py`),
+which `query_with_intent` selects from for a non-registry caller. The dict is the authority; re-read
+it before relying on a row.
 
 - **HIERARCHICAL** — `HAS_SUBTASK`, `HAS_SUBGOAL`, `HAS_SUBHABIT`, `HAS_SUBEVENT`,
   `HAS_SUBCHOICE`, `HAS_SUBPRINCIPLE`, `HAS_STEP`, `ORGANIZES`
 - **PREREQUISITE** — `REQUIRES_KNOWLEDGE`, `PREREQUISITE_FOR`, `ENABLES`
 - **PRACTICE** — `REINFORCES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`
 - **GOAL_ACHIEVEMENT** — `FULFILLS_GOAL`, `SUPPORTS_GOAL`, `REQUIRES_KNOWLEDGE`, `SUBGOAL_OF`,
-  `GUIDED_BY_PRINCIPLE`, `CONTRIBUTES_TO_GOAL`
+  `CONTRIBUTES_TO_GOAL`
 - **else** (EXPLORATORY / SPECIFIC / AGGREGATION / RELATIONSHIP) — generic traversal, no edge filter
 
-### Dead clauses (defined but selected by nothing — do not treat as live)
-
-These are *hypotheses* the convergence roadmap may revive against real registry edges — not current
-behavior. They are listed here only so the gap is visible.
-
-- **PRINCIPLE_EMBODIMENT** — `GUIDED_BY_PRINCIPLE`, `ALIGNED_WITH_PRINCIPLE`, `INSPIRES_HABIT`,
-  `GROUNDED_IN_KNOWLEDGE`, `GUIDES_GOAL`, `GUIDES_CHOICE`
-- **PRINCIPLE_ALIGNMENT** — `ALIGNED_WITH_PRINCIPLE`, `INFORMED_BY_KNOWLEDGE`, `SUPPORTS_GOAL`,
-  `CONFLICTS_WITH_GOAL`, `REQUIRES_KNOWLEDGE_FOR_DECISION`, `OPENS_LEARNING_PATH`, `GUIDED_BY_PRINCIPLE`
-- **SCHEDULED_ACTION** — `EXECUTES_TASK`, `REINFORCES_HABIT`,
-  `MILESTONE_FOR_GOAL`, `CONFLICTS_WITH`, `SUPPORTS_GOAL`, `SCHEDULED_FOR`, `DERIVED_FROM_TASK`
-  (the former `PRACTICES_KNOWLEDGE` edge was deleted in #259 — event→knowledge is `APPLIES_KNOWLEDGE`)
-
-> ⚠️ `CONFLICTS_WITH_GOAL` (and several others above) are written **nowhere** by any writer in the
-> codebase — they exist only in this dead clause and the enum. Do not resurrect them; a real lens needs
-> an edge a writer actually produces. See the convergence roadmap's guardrails.
+`QueryIntent` has no other traversal value: the `PRINCIPLE_EMBODIMENT`, `PRINCIPLE_ALIGNMENT` and
+`SCHEDULED_ACTION` intents and their edge lists are deleted
+([convergence roadmap](../roadmap/intent-traversal-registry-convergence.md), Phase 2). A new lens
+needs an edge a writer actually produces.
 
 ## Key Files
 

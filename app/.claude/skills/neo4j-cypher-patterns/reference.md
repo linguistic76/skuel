@@ -99,8 +99,7 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 |--------------|------|-----|---------|
 | `SUBGOAL_OF` / `HAS_SUBGOAL` | Goal | Goal | Hierarchy pair |
 | `DEPENDS_ON_GOAL` | Goal | Goal | Goal depends on another |
-| `GUIDED_BY_PRINCIPLE` | Goal | Principle | Goal guided by principle |
-| `SUPPORTS_GOAL` | Habit | Goal | Habit supports goal (with weight) |
+| `SUPPORTS_GOAL` | Habit, Principle, PathStep | Goal | Supports the goal. Three kinds of source share the type, so a reader labels the far end. Habit and principle edges written by the app doors carry `weight` + `essentiality` |
 | `CELEBRATES_GOAL` | Event | Goal | Event celebrates goal achievement |
 | `ALIGNED_WITH_PATH` | Goal | LifePath | Goal aligned with life path |
 
@@ -132,7 +131,8 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
 | `HAS_SUBPRINCIPLE` / `SUBPRINCIPLE_OF` | Principle | Principle | Hierarchy pair |
-| `GUIDES_GOAL` | Principle | Goal | Principle guides goal |
+| `SUPPORTS_GOAL` | Principle | Goal | Principle supports goal — the one principle ↔ goal edge, whichever page made the link |
+| `GUIDED_BY_PRINCIPLE` | PathStep | Principle | A PathStep's guiding principles (`principle_uids`); no Activity writes or reads it |
 | `GUIDES_CHOICE` | Principle | Choice | Principle guides choice |
 | `CONFLICTS_WITH_PRINCIPLE` | * | Principle | Conflict marker |
 

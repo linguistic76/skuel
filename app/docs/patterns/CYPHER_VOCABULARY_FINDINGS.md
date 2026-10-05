@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-10-05
 ---
 
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
@@ -713,9 +713,10 @@ Surfaced while verifying §3/§4; not vocabulary violations themselves, so they
 carry no baseline pairs — recorded here so they don't get lost.
 
 - **The `*_with_context` family looks caller-less.** `build_entity_with_context`
-  plus the 8 per-domain wrappers (`build_task_with_context` …
-  `build_principle_with_context`, ~840 lines of `domain_queries.py`) have no
-  production callers — only docstring mentions. The registry-driven
+  plus the 6 per-domain wrappers (`build_task_with_context`,
+  `build_goal_with_context`, `build_ku_with_context`, `build_habit_with_context`,
+  `build_event_with_context`, `build_choice_with_context` — ~740 lines of
+  `domain_queries.py`) have no production callers — only docstring mentions. The registry-driven
   `context_query_generator.generate_context_query` (January 2026) appears to be
   the live successor. Needs its own caller sweep + One Path Forward ruling; if
   dead, `domain_queries.py` shrinks to the prerequisite-chain + time-based

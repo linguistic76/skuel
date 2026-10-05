@@ -1,7 +1,7 @@
 ---
 related_skills:
 - skuel-search-architecture
-updated: 2026-10-01
+updated: 2026-10-05
 ---
 # Search Service Method Reference
 *Last updated: 2026-06-11*
@@ -233,9 +233,10 @@ search_fields = ("title", "description")
 category_field = "domain"  # Goals use the 'domain' field for categorization
 date_field = "target_date"
 # graph_enrichment_patterns come from the relationship registry (GOALS_CONFIG):
-# REQUIRES_KNOWLEDGE → required_knowledge, GUIDED_BY_PRINCIPLE → aligned_principles,
-# SUBGOAL_OF → parent_goal / sub_goals, SUPPORTS_GOAL → contributing_habits +
-# essential/critical/optional_habits (essentiality-filtered), FULFILLS_GOAL →
+# REQUIRES_KNOWLEDGE → required_knowledge,
+# SUBGOAL_OF → parent_goal / sub_goals, SUPPORTS_GOAL → contributing_habits (Habit) +
+# supporting_principles (Principle) + essential/critical/optional_habits (Habit; the
+# enrichment match carries no essentiality filter), FULFILLS_GOAL →
 # contributing_tasks / related_goals, SERVES_LIFE_PATH → life_path, ...
 ```
 
@@ -352,7 +353,7 @@ _graph_enrichment_patterns = [
 _search_fields = ["title", "description", "rationale"]
 category_field = "principle_category"  # DomainConfig
 _graph_enrichment_patterns = [
-    ("GUIDES_GOAL", "Goal", "guided_goals", "outgoing"),
+    ("SUPPORTS_GOAL", "Goal", "supported_goals", "outgoing"),
     ("INSPIRES_HABIT", "Habit", "inspired_habits", "outgoing"),
     ("GUIDES_CHOICE", "Choice", "guided_choices", "outgoing"),
     ("RELATED_TO", "Principle", "related_principles", "both"),
@@ -371,7 +372,7 @@ _graph_enrichment_patterns = [
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `get_by_category` | `(category: str, user_uid: UserUID) -> Result[list[Principle]]` | Filter by category |
-| `get_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles aligned with goal |
+| `get_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles that support the goal (`SUPPORTS_GOAL` from a principle; a habit or PathStep supporter is not returned) |
 | `get_for_habit` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles inspiring habit |
 | `get_needing_review` | `(user_uid: UserUID, days: int = 90) -> Result[list[Principle]]` | Principles not reviewed recently (also drives the overridden `get_overdue`) |
 | `get_related_principles` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Related principles |

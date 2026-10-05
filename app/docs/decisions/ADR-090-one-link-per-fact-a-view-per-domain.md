@@ -1,6 +1,6 @@
 ---
 title: "ADR-090: One Link per Fact, a View per Domain"
-updated: 2026-10-04
+updated: 2026-10-05
 status: accepted
 category: decisions
 tags: [adr, decisions, relationships, activity-domains, graph-schema, registry, goals, principles]
@@ -283,3 +283,9 @@ acceptance. This ADR is marked implemented when the arc closes.
   out of the count (R11, §5); the PathStep's `GUIDED_BY_PRINCIPLE` (O2) is deferred (§7).
 - 2026-10-04 — §2 implemented for the pages (Activity Links arc PR 1b): `page_heading` on the
   registry definition; the hand-written page lists are deleted.
+- 2026-10-05 — §4 and §6 implemented for principle → goal (Activity Links arc PR 2): the link is
+  one `SUPPORTS_GOAL` edge from the principle, with `weight` and `essentiality`; the goal's views of
+  the type name their kind. §7 as built: `GUIDES_GOAL` is retired whole and no goal writes or reads
+  `GUIDED_BY_PRINCIPLE`, while the doors that made the link (the principle's link door, the goal's
+  link door, goal create, the DSL's goal → principle link) stay and write the one edge. ADR-057 and
+  ADR-015 carry their notes.

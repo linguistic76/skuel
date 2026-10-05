@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-10-03
+updated: 2026-10-05
 status: current
 category: domains
 tags:
@@ -81,7 +81,7 @@ class GoalsService(
 |-------|------|---------|
 | `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_goal_with_context`, `generate_tasks_for_goal`, `assess_goal_feasibility` |
 
-Graph relationship methods (`link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
+Graph relationship methods (`link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `unlink_goal_from_principle`, `create_semantic_goal_relationship`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
 
 **Sub-services:**
 | Service | Purpose |
@@ -136,7 +136,6 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | Key | Relationship | Target | Description |
 |-----|--------------|--------|-------------|
 | `knowledge` | `REQUIRES_KNOWLEDGE` | Ku | Knowledge required for goal |
-| `principles` | `GUIDED_BY_PRINCIPLE` | Principle | Guiding principles |
 | `aligned_paths` | `ALIGNED_WITH_PATH` | Lp | Aligned learning paths |
 | `required_paths` | `REQUIRES_PATH_COMPLETION` | Lp | Required learning paths |
 | `parent_goal` | `SUBGOAL_OF` | Goal | Parent goal |
@@ -147,10 +146,16 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 |-----|--------------|--------|-------------|
 | `subgoals` | `SUBGOAL_OF` | Goal | Child goals |
 | `supporting_habits` | `SUPPORTS_GOAL` | Habit | Habits that support this goal |
+| `supporting_principles` | `SUPPORTS_GOAL` | Principle | Principles that support this goal (YAML: `connections.supporting_principles`) |
 | `fulfilling_tasks` | `FULFILLS_GOAL` | Task | Tasks that fulfill this goal |
 | `essential_habits` | `SUPPORTS_GOAL` (essentiality=essential) | Habit | Essential habits |
 | `critical_habits` | `SUPPORTS_GOAL` (essentiality=critical) | Habit | Critical habits |
 | `optional_habits` | `SUPPORTS_GOAL` (essentiality=optional) | Habit | Optional habits |
+
+`SUPPORTS_GOAL` has three kinds of source — habits, principles and PathSteps (`goal_uids`) — so each
+goal view names its kind: a keyed read of `supporting_habits` returns habits only, and
+`supporting_principles` principles only. The three tier views are habit-only; a principle's edge
+stores `essentiality` but has no tier view. A PathStep that supports the goal is on no goal view.
 
 ### Bidirectional
 
@@ -164,7 +169,7 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `habits` | Habit | `SUPPORTS_GOAL` |
 | `knowledge` | Ku | `REQUIRES_KNOWLEDGE` |
 | `subgoals` | Goal | `SUBGOAL_OF` |
-| `principles` | Principle | `GUIDED_BY_PRINCIPLE` |
+| `supporting_principles` | Principle | `SUPPORTS_GOAL` (incoming) |
 
 ## Query Intent
 
@@ -231,7 +236,6 @@ Goals track which habits are essential for achievement:
 | `get_overdue(user_uid)` | Goals past `target_date` — inherited |
 | `get_goals_needing_attention(user_uid)` | Stalled or at-risk goals |
 | `get_goals_with_tasks(user_uid)` | Goals with linked tasks |
-| `get_aligned_with_principle(principle_uid, user_uid)` | Goals aligned with principle |
 | `list_milestones(goal_uid, user_uid)` | Get goal milestones |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
@@ -384,13 +388,20 @@ result = await goals_service.update_progress(
 result = await goals_service.link_goal_to_principle(
     goal_uid=goal.uid,
     principle_uid="principle.continuous-learning",
-    alignment_score=0.9,
 )
 ```
+
+Writes `(Principle)-[:SUPPORTS_GOAL {weight: 1.0, essentiality: "supporting"}]->(Goal)` — the one
+principle ↔ goal edge. The principle's own door (`POST /api/principles/link`, `link_type=goal`),
+`POST /api/goals/link-principle`, goal create's `supporting_principle_uids` and the DSL's
+`@context(goal) @link(principle:…)` all write it, so the link shows on both pages whichever door
+made it. `weight` and `essentiality` are optional arguments with those defaults.
+`unlink_goal_from_principle(uid, principle_uid)` removes it and leaves a habit's support of the
+same goal alone; no HTTP route calls it.
 
 ## See Also
 
 - [Tasks Domain](tasks.md) - Tasks fulfill goals
 - [Habits Domain](habits.md) - Habits support goals
-- [Principles Domain](principles.md) - Principles guide goals
+- [Principles Domain](principles.md) - Principles support goals
 - [LifePath Domain](lifepath.md) - Goals serve life path

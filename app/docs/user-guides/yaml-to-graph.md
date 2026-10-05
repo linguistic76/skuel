@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-22
+updated: 2026-10-05
 ---
 
 # YAML to Graph — A Creator's Guide to SKUEL Content
@@ -321,12 +321,12 @@ connections:
   supporting_habits:
     - habit.daily-2min-breath
     - habit.label-wander-daily
-  aligned_with_principle:
+  supporting_principles:
     - principle.small-steps
     - principle.attention-over-intensity
 ```
 
-Each `connections.*` field becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_GOAL` (incoming), `GUIDED_BY_PRINCIPLE`.
+Each `connections.*` field becomes edges: `REQUIRES_KNOWLEDGE` out of the goal, and `SUPPORTS_GOAL` into it — one from each habit and one from each principle.
 
 ### The Mindfulness 101 Graph Fragment
 
@@ -335,8 +335,8 @@ Each `connections.*` field becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_GOAL` 
                     │  goal.mindfulness-   │
                     │      beginner        │
                     └──────┬──┬──┬────────┘
-           REQUIRES_       │  │  │    GUIDED_BY_
-           KNOWLEDGE       │  │  │    PRINCIPLE
+           REQUIRES_       │  │  │    SUPPORTS_
+           KNOWLEDGE       │  │  │    GOAL
           ┌────────────────┘  │  └──────────────┐
           ▼                   │                  ▼
   ┌───────────────┐    SUPPORTS_    ┌─────────────────────┐
@@ -356,7 +356,9 @@ Each `connections.*` field becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_GOAL` 
                     └───────────────────┘
 ```
 
-This is how SKUEL answers "What should I work on today?" — by traversing from the user's goals through supporting habits, required knowledge, and guiding principles to find the most impactful next action.
+Both `SUPPORTS_GOAL` edges are stored pointing into the goal: `(habit)-[:SUPPORTS_GOAL]->(goal)` and `(principle)-[:SUPPORTS_GOAL]->(goal)`.
+
+This is how SKUEL answers "What should I work on today?" — by traversing from the user's goals through supporting habits, required knowledge, and supporting principles to find the most impactful next action.
 
 ### Habits Link Back to Knowledge
 
@@ -489,7 +491,7 @@ Curriculum types use double-newline separators between fields for stronger seman
 Relationships power the most sophisticated discovery. The graph answers questions that keyword and semantic search cannot:
 
 - "What am I ready to learn?" — traverse `REQUIRES_STEP` prerequisite chains against mastery state
-- "What supports my current goal?" — follow `SUPPORTS_GOAL`, `GUIDED_BY_PRINCIPLE` from the goal
+- "What supports my current goal?" — follow `SUPPORTS_GOAL` into the goal, from its habits and its principles
 - "What does this PathStep teach?" — follow `USES_KU` to atomic concepts
 
 ### Discovery Matrix

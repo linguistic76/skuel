@@ -56,7 +56,7 @@ See: docs/decisions/ADR-090-one-link-per-fact-a-view-per-domain.md
 import dataclasses
 import inspect
 from collections.abc import Callable, Coroutine, Mapping
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import pytest
 
@@ -120,12 +120,6 @@ MISSING_ENDS: dict[MissingEnd, str] = {
         NeoLabel.CHOICE, RelationshipName.AFFECTS_GOAL, NeoLabel.GOAL, unread_at=NeoLabel.GOAL
     ): "PR 5",
     MissingEnd(
-        NeoLabel.GOAL,
-        RelationshipName.GUIDED_BY_PRINCIPLE,
-        NeoLabel.PRINCIPLE,
-        unread_at=NeoLabel.PRINCIPLE,
-    ): "PR 2 (the goal's use retires)",
-    MissingEnd(
         NeoLabel.CHOICE,
         RelationshipName.INFORMED_BY_PRINCIPLE,
         NeoLabel.PRINCIPLE,
@@ -134,10 +128,6 @@ MISSING_ENDS: dict[MissingEnd, str] = {
 }
 
 MIXED_VIEWS: dict[View, str] = {
-    View(NeoLabel.GOAL, RelationshipName.SUPPORTS_GOAL, "supporting_habits"): "PR 2",
-    View(NeoLabel.GOAL, RelationshipName.SUPPORTS_GOAL, "essential_habits"): "PR 2",
-    View(NeoLabel.GOAL, RelationshipName.SUPPORTS_GOAL, "critical_habits"): "PR 2",
-    View(NeoLabel.GOAL, RelationshipName.SUPPORTS_GOAL, "optional_habits"): "PR 2",
     View(NeoLabel.CHOICE, RelationshipName.INFORMS_CHOICE, "informing_habits"): "PR 3",
     View(NeoLabel.HABIT, RelationshipName.REINFORCES_HABIT, "reinforcing_habits"): "PR 5",
     View(NeoLabel.PRINCIPLE, RelationshipName.EMBODIES_PRINCIPLE, "embodying_habits"): "PR 5",
@@ -149,12 +139,13 @@ MIXED_VIEWS: dict[View, str] = {
 # Standing registers — not gaps; they do not empty
 # ============================================================================
 
-# Keyed methods that write, not read: a write names both of its uids.
+# Keyed methods that write, not read: a write names both of its uids. The delete also
+# carries the definition's far-end label (TestOneKindPerView probes it).
 KEYED_WRITERS: dict[str, str] = {
     "create_relationship": "the far end's kind is admitted from the door's LinkFarEnd",
     "create_relationships_batch": "the far ends' kind is admitted from the door's LinkFarEnd",
     "create_relationship_with_properties": "names both uids",
-    "delete_relationship": "names both uids",
+    "delete_relationship": "names both uids and carries the far end's label",
     "reorder_relationships": "rewrites the order of edges to named uids",
 }
 
@@ -583,6 +574,29 @@ class TestOneKindPerView:
             "backend, so a view that names one kind still lists every kind: "
             f"{sorted(dropping)}"
         )
+
+    @pytest.mark.parametrize(
+        ("direction", "labelled_end", "open_end"),
+        [("incoming", "from_label", "to_label"), ("outgoing", "to_label", "from_label")],
+    )
+    async def test_the_keyed_delete_carries_the_far_ends_label(
+        self, direction, labelled_end, open_end
+    ):
+        """Two kinds can share an edge type and a direction, so a key deletes only an
+        edge whose far end is of its own kind — the label sits on the far end."""
+        view = _definition(RelationshipName.SUPPORTS_GOAL, PROBE_FAR_END, direction)
+        backend = _RecordingBackend()
+        # boundary: the recording backend stands in for any domain's operations
+        service = UnifiedRelationshipService[Any, Any, Any](
+            backend=backend, config=dataclasses.replace(GOALS_CONFIG, relationships=(view,))
+        )
+
+        await service.delete_relationship(view.method_key, "goal_probe", "far_probe")
+
+        [(name, _args, kwargs)] = backend.calls
+        assert name == "delete_relationship"
+        assert kwargs[labelled_end] == PROBE_FAR_END
+        assert kwargs[open_end] is None
 
     async def test_every_keyed_reader_carries_the_tier(self):
         dropping = {r for r in _keyed_readers() if not (await _reaches_backend_with(r)).tier}

@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-09-11
+updated: 2026-10-05
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -362,7 +362,8 @@ UID ::= the entity's stored uid, verbatim (authored dot form or generated unders
 ```
 goal:       → Task.fulfills_goal_uid + the task's FULFILLS_GOAL edge (dual-written, guarded:
               the goal must exist, be yours, be a Goal — else neither lands) · Habit/Event linked_goal_uids
-principle:  → linked_principle_uids / guiding_principle_uids
+principle:  → Habit linked_principle_uids (EMBODIES_PRINCIPLE) · Goal supporting_principle_uids
+              (the principle's SUPPORTS_GOAL edge into the goal)
 ku:  ps:    → applies_knowledge_uids (+ the entry's APPLIES_KNOWLEDGE edge) — the door
               for Kus beyond the one @ku() a line may carry
 lp:         → the learning-path anchor of a @context(ps) line

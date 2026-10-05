@@ -42,7 +42,7 @@ def _edge_filter(spec: UnifiedRelationshipDefinition) -> Neo4jProperties | None:
     return {spec.filter_property: spec.filter_value}
 
 
-def _far_end_label(spec: UnifiedRelationshipDefinition) -> NeoLabel | None:
+def far_end_label(spec: UnifiedRelationshipDefinition) -> NeoLabel | None:
     """The far end's kind, or ``None`` when the definition reads every kind.
 
     ``Entity`` names no kind: it is every domain node's base label, and labelling the
@@ -75,4 +75,4 @@ def resolve_keyed_read(
                 "through shared neighbours, not by a keyed read"
             )
         )
-    return Result.ok(KeyedRead(spec, _edge_filter(spec), _far_end_label(spec)))
+    return Result.ok(KeyedRead(spec, _edge_filter(spec), far_end_label(spec)))

@@ -113,6 +113,10 @@ class TestPlacement:
             Result.ok(
                 [
                     _row("SUPPORTS_GOAL", outgoing=False, far="Habit", uid="habit_1"),
+                    # The same edge type from a principle: its own view, never the habits'.
+                    _row("SUPPORTS_GOAL", outgoing=False, far="Principle", uid="principle_1"),
+                    # A PathStep supporter has no view on the goal.
+                    _row("SUPPORTS_GOAL", outgoing=False, far="PathStep", uid="ps_1"),
                     _row("FULFILLS_GOAL", outgoing=False, far="Task", uid="task_1"),
                     # OPTIONAL MATCH miss → rel_type None → skipped.
                     {"entity_uid": "goal_2", "rel_type": None},
@@ -123,8 +127,10 @@ class TestPlacement:
 
         assert {(row["heading"], row["connected_uid"]) for row in result["goal_1"]} == {
             ("Habits that support this goal", "habit_1"),
+            ("Principles that support this goal", "principle_1"),
             ("Tasks that contribute to this goal", "task_1"),
         }
+        assert len(result["goal_1"]) == 3
         assert "goal_2" not in result
 
     @pytest.mark.asyncio

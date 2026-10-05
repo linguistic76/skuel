@@ -9,7 +9,7 @@ domain-named aliases were deleted in the tasks bloat campaign.)
 
 These two domains gain the most: their ``default_context_intent`` is HIERARCHICAL
 (``HAS_CHILD`` / ``PARENT_OF`` / ``CHILD_OF``), which surfaces almost nothing — a
-Choice/Principle is rarely a tree node. Their real edges (AFFECTS_GOAL, GUIDES_GOAL,
+Choice/Principle is rarely a tree node. Their real edges (AFFECTS_GOAL, SUPPORTS_GOAL,
 INFORMED_BY_PRINCIPLE, …) live only in the registry, so registry-sourcing is the
 headline win. Two things must hold:
 
@@ -34,7 +34,7 @@ from adapters.persistence.neo4j.backends.activity_backends import (
     ChoicesBackend,
     PrinciplesBackend,
 )
-from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
+from adapters.persistence.neo4j.cross_domain_backend import _INTENT_EDGE_SETS, CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.choice.choice import Choice
 from core.models.enums.neo_labels import NeoLabel
@@ -54,7 +54,9 @@ CHOICE_NOISE = P + "choice_noise"  # via NOISE_LINK (outside the registry → fi
 
 # --- Principles fixture graph ---
 PRINCIPLE = P + "principle"
-PRINCIPLE_GOAL = P + "principle_goal"  # via GUIDES_GOAL (registry edge, NOT in HIERARCHICAL clause)
+PRINCIPLE_GOAL = (
+    P + "principle_goal"
+)  # via SUPPORTS_GOAL (registry edge, NOT in HIERARCHICAL clause)
 PRINCIPLE_NOISE = P + "principle_noise"  # via NOISE_LINK (outside the registry → filtered)
 
 
@@ -205,7 +207,7 @@ async def test_choices_registry_sourced_through_get_with_context(
 async def test_principles_registry_sourced_through_get_with_context(
     neo4j_driver, principles_rel, clean_neo4j
 ):
-    """A principle's registry edge (GUIDES_GOAL) surfaces via get_with_context; noise filtered."""
+    """A principle's registry edge (SUPPORTS_GOAL) surfaces via get_with_context; noise filtered."""
     async with neo4j_driver.session() as s:
         for uid, label, etype in [
             (PRINCIPLE, "Principle", "principle"),
@@ -221,7 +223,7 @@ async def test_principles_registry_sourced_through_get_with_context(
                 t=etype,
             )
         await s.run(
-            "MATCH (p{uid:$p}),(g{uid:$g}) CREATE (p)-[:GUIDES_GOAL]->(g)",
+            "MATCH (p{uid:$p}),(g{uid:$g}) CREATE (p)-[:SUPPORTS_GOAL]->(g)",
             p=PRINCIPLE,
             g=PRINCIPLE_GOAL,
         )
@@ -231,9 +233,9 @@ async def test_principles_registry_sourced_through_get_with_context(
             n=PRINCIPLE_NOISE,
         )
 
-    # GUIDES_GOAL is a registry edge but is absent from the hard-coded HIERARCHICAL clause.
-    assert "GUIDES_GOAL" in PRINCIPLES_CONFIG.cross_domain_relationship_types
-    assert "GUIDES_GOAL" not in {"HAS_CHILD", "PARENT_OF", "CHILD_OF"}
+    # SUPPORTS_GOAL is a registry edge but is absent from the hard-coded HIERARCHICAL clause.
+    assert "SUPPORTS_GOAL" in PRINCIPLES_CONFIG.cross_domain_relationship_types
+    assert "SUPPORTS_GOAL" not in _INTENT_EDGE_SETS["hierarchical"]
     assert PRINCIPLES_CONFIG.default_context_intent.value == "hierarchical"
 
     reg = await principles_rel.get_with_context(PRINCIPLE, depth=1)
@@ -246,7 +248,7 @@ async def test_principles_registry_sourced_through_get_with_context(
         f"mechanism B must preserve the full Principle domain model, got {type(_principle).__name__}"
     )
     reg_uids = _uids(reg_ctx)
-    assert PRINCIPLE_GOAL in reg_uids, "GUIDES_GOAL neighbour should surface registry-sourced"
+    assert PRINCIPLE_GOAL in reg_uids, "SUPPORTS_GOAL neighbour should surface registry-sourced"
     assert PRINCIPLE_NOISE not in reg_uids, "edge outside the registry must be filtered out"
     assert PRINCIPLE not in reg_uids, "origin must not leak into its own context"
 
@@ -255,5 +257,5 @@ async def test_principles_registry_sourced_through_get_with_context(
     )
     assert bare.is_ok, bare
     assert PRINCIPLE_GOAL not in _uids(bare.value), (
-        "GUIDES_GOAL is absent from the hard-coded HIERARCHICAL clause — the bare path must miss it"
+        "SUPPORTS_GOAL is absent from the hard-coded HIERARCHICAL clause — the bare path must miss it"
     )

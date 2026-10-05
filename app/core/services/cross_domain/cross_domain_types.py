@@ -26,8 +26,8 @@ class PrincipleAlignmentEvidence:
     Graph-derived evidence for how a principle is being lived out.
 
     Each item in ``aligned_goals`` / ``aligned_habits`` is connected to the
-    principle by an explicit relationship in the graph (GUIDES_GOAL,
-    GUIDED_BY_PRINCIPLE, INSPIRES_HABIT, EMBODIES_PRINCIPLE). The edge IS
+    principle by an explicit relationship in the graph (SUPPORTS_GOAL,
+    INSPIRES_HABIT, EMBODIES_PRINCIPLE). The edge IS
     the alignment signal — there is no string-overlap heuristic here.
     """
 

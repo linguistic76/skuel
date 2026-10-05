@@ -28,11 +28,14 @@ from typing import TYPE_CHECKING
 
 from core.ingestion.ingestion_types import AuthoredEdge, EdgeDirection
 from core.models.relationship_names import RelationshipName
+from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
     from core.ingestion.ingestion_types import RelationshipConfig
+
+logger = get_logger("skuel.services.ingestion.authored_edges")
 
 _KEY_SEPARATOR = "|"
 _DIRECTIONS: frozenset[str] = frozenset({"incoming", "outgoing"})
@@ -100,13 +103,24 @@ def parse_authored_edge(key: str) -> AuthoredEdge | None:
 
 def retracted_edges(prior: Iterable[str], current: Iterable[str]) -> list[AuthoredEdge]:
     """The edges the previous ingest authored that the current declaration
-    drops — decoded for the delete primitive, in key order."""
+    drops — decoded for the delete primitive, in key order.
+
+    A dropped key that names no edge is skipped with a warning: the edge it once
+    recorded is not retracted, and the caller re-stamps the row without the key, so
+    the warning is the only trace that a stored edge of a retired type may remain.
+    """
     dropped = sorted(set(prior) - set(current))
     edges: list[AuthoredEdge] = []
     for key in dropped:
         edge = parse_authored_edge(key)
-        if edge is not None:
-            edges.append(edge)
+        if edge is None:
+            logger.warning(
+                "Authored-edge key names no edge the ingestion writes; "
+                "the edge it recorded is not retracted",
+                extra={"authored_edge_key": key},
+            )
+            continue
+        edges.append(edge)
     return edges
 
 

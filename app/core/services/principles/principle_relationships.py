@@ -19,7 +19,7 @@ from core.utils.generic_fetcher import fetch_relationships_parallel
 # Keys must match PRINCIPLES_CONFIG exactly — validated by tests/test_cross_domain_link_keys.py.
 PRINCIPLE_QUERY_SPECS: list[tuple[str, str]] = [
     ("grounded_knowledge_uids", "knowledge"),
-    ("guided_goal_uids", "guided_goals"),
+    ("supported_goal_uids", "supported_goals"),
     ("inspired_habit_uids", "inspired_habits"),
     ("related_principle_uids", "supporting_principles"),
     ("guided_choice_uids", "guided_choices"),
@@ -37,12 +37,12 @@ class PrincipleRelationships:
 
     Usage:
         rels = await PrincipleRelationships.fetch(principle_uid, service.relationships)
-        if rels.guided_goal_uids:
-            integration_score += len(rels.guided_goal_uids) * 0.3
+        if rels.supported_goal_uids:
+            integration_score += len(rels.supported_goal_uids) * 0.3
     """
 
     grounded_knowledge_uids: list[str] = field(default_factory=list)
-    guided_goal_uids: list[str] = field(default_factory=list)
+    supported_goal_uids: list[str] = field(default_factory=list)
     inspired_habit_uids: list[str] = field(default_factory=list)
     related_principle_uids: list[str] = field(default_factory=list)
     guided_choice_uids: list[str] = field(default_factory=list)
@@ -74,9 +74,9 @@ class PrincipleRelationships:
         """Check if principle has any knowledge grounding."""
         return len(self.grounded_knowledge_uids) > 0
 
-    def guides_goals(self) -> bool:
-        """Check if principle guides any goals."""
-        return len(self.guided_goal_uids) > 0
+    def supports_goals(self) -> bool:
+        """Check if the principle supports any goal."""
+        return len(self.supported_goal_uids) > 0
 
     def inspires_habits(self) -> bool:
         """Check if principle inspires any habits."""
@@ -93,7 +93,7 @@ class PrincipleRelationships:
     def is_integrated(self) -> bool:
         """Check if principle is integrated into life."""
         return (
-            self.guides_goals()
+            self.supports_goals()
             or self.inspires_habits()
             or self.guides_choices()
             or self.guides_tasks()
@@ -104,8 +104,8 @@ class PrincipleRelationships:
         score = 0.0
         if self.grounded_knowledge_uids:
             score += min(len(self.grounded_knowledge_uids) * 0.08, 0.20)
-        if self.guided_goal_uids:
-            score += min(len(self.guided_goal_uids) * 0.10, 0.25)
+        if self.supported_goal_uids:
+            score += min(len(self.supported_goal_uids) * 0.10, 0.25)
         if self.inspired_habit_uids:
             score += min(len(self.inspired_habit_uids) * 0.10, 0.20)
         if self.guided_choice_uids:
@@ -117,7 +117,7 @@ class PrincipleRelationships:
     def total_influence_count(self) -> int:
         """Get total count of goals, habits, choices, and tasks influenced."""
         return (
-            len(self.guided_goal_uids)
+            len(self.supported_goal_uids)
             + len(self.inspired_habit_uids)
             + len(self.guided_choice_uids)
             + len(self.guided_task_uids)

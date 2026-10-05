@@ -222,6 +222,12 @@ def build_domain_context_with_paths(
       property-filtered mapping (``filter_property``/``filter_value``) — e.g. a goal's
       essential vs critical vs optional supporting habits, which all share the
       SUPPORTS_GOAL relationship and differ only by this edge property.
+    - incident_other_is_center_kind: True when the incident edge's OTHER end (the node
+      before ``related`` on the path; the center itself at distance 1) shares a
+      non-``Entity`` label with the center. Categorization requires it of a direct
+      mapping, so a node reached through another kind's edge of the same type (a goal
+      two hops from a habit through a principle's SUPPORTS_GOAL) is not bucketed as the
+      center's own link.
 
     Args:
         node_uid: Starting node UID
@@ -299,7 +305,11 @@ def build_domain_context_with_paths(
             ],
             incident_rel_type: type(last(rels)),
             incident_into_related: endNode(last(rels)) = related,
-            incident_rel_properties: properties(last(rels))
+            incident_rel_properties: properties(last(rels)),
+            incident_other_is_center_kind: any(
+                l IN labels(path_nodes[-2])
+                WHERE l <> 'Entity' AND l IN labels(center)
+            )
         }} END
     ) as ctx
     RETURN center.uid as center_uid,
