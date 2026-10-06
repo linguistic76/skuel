@@ -69,6 +69,8 @@ from ._validator import _PsValidator
 from .engagement import Engagement
 
 
+# boundary: raw driver rows from ``PsEngagementOperations.delete_instance`` — one
+# ``{"goal_uids": [...]}`` record per deleted node.
 def _goal_uids(rows: list[dict[str, Any]] | None) -> list[str]:
     """The goals a deleted instance contributed to, from ``delete_instance``'s rows."""
     return [str(uid) for row in rows or [] for uid in row.get("goal_uids") or []]
@@ -322,22 +324,27 @@ class PsEngagementService:
         if spawned.is_error:
             return Result.fail(spawned)
 
+        # Each delete commits on its own, so the goals the deleted instances
+        # contributed to are announced on every exit — a later failure must not
+        # strand the ones already deleted (a retry cannot find them again).
         goals_losing: list[str] = []
-        for template_uid, instance_uid, _label in spawned.value:
-            decision = review.get(template_uid, "keep")
-            if decision == "discard":
-                del_res = await self._backend.delete_instance(instance_uid, "discard_instance")
-                if del_res.is_error:
-                    return Result.fail(del_res)
-                goals_losing.extend(_goal_uids(del_res.value))
-            else:
-                upd_res = await self._backend.mark_instance_owned(
-                    instance_uid, datetime.now(UTC).isoformat()
-                )
-                if upd_res.is_error:
-                    return Result.fail(upd_res)
+        try:
+            for template_uid, instance_uid, _label in spawned.value:
+                decision = review.get(template_uid, "keep")
+                if decision == "discard":
+                    del_res = await self._backend.delete_instance(instance_uid, "discard_instance")
+                    if del_res.is_error:
+                        return Result.fail(del_res)
+                    goals_losing.extend(_goal_uids(del_res.value))
+                else:
+                    upd_res = await self._backend.mark_instance_owned(
+                        instance_uid, datetime.now(UTC).isoformat()
+                    )
+                    if upd_res.is_error:
+                        return Result.fail(upd_res)
+        finally:
+            await self._announce_goals(student_uid, goals_losing)
 
-        await self._announce_goals(student_uid, goals_losing)
         return await self._gateway.mark_completed(student_uid, ps_uid)
 
     # ========================================================================
@@ -369,14 +376,17 @@ class PsEngagementService:
         spawned = await self._fetch_engaged_instances(student_uid, ps_uid)
         if spawned.is_error:
             return Result.fail(spawned)
+        # Announced on every exit, as in ``complete_pathstep``.
         goals_losing: list[str] = []
-        for _template_uid, instance_uid, _label in spawned.value:
-            del_res = await self._backend.delete_instance(instance_uid, "abandon_instance")
-            if del_res.is_error:
-                return Result.fail(del_res)
-            goals_losing.extend(_goal_uids(del_res.value))
+        try:
+            for _template_uid, instance_uid, _label in spawned.value:
+                del_res = await self._backend.delete_instance(instance_uid, "abandon_instance")
+                if del_res.is_error:
+                    return Result.fail(del_res)
+                goals_losing.extend(_goal_uids(del_res.value))
+        finally:
+            await self._announce_goals(student_uid, goals_losing)
 
-        await self._announce_goals(student_uid, goals_losing)
         return await self._gateway.mark_abandoned(student_uid, ps_uid)
 
     async def _announce_goals(self, student_uid: str, goal_uids: list[str]) -> None:

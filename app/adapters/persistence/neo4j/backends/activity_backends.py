@@ -181,27 +181,25 @@ def _contribution_tally(row: Mapping[str, Any]) -> ContributionTally:
     )
 
 
-class _GoalContributorMixin:
+async def _contributed_goal_uids(
+    backend: UniversalNeo4jBackend[Any], contributor_uid: str
+) -> Result[list[str]]:
     """A task's or an event's goals — the far ends of its ``CONTRIBUTES_TO_GOAL`` edges.
 
     Read before a delete, so the goals that lose a contribution can still be announced
-    once the node and its edges are gone.
+    once the node and its edges are gone. The shared query behind the task and event
+    backends' ``get_contributed_goal_uids``.
     """
-
-    execute_query: Callable[..., Any]
-
-    async def get_contributed_goal_uids(self, contributor_uid: str) -> Result[list[str]]:
-        """UIDs of the goals ``contributor_uid`` contributes to."""
-        result = await self.execute_query(
-            f"""
-            MATCH (:Entity {{uid: $uid}})-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:{NeoLabel.GOAL.value})
-            RETURN DISTINCT goal.uid AS goal_uid
-            """,
-            {"uid": contributor_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([str(r["goal_uid"]) for r in (result.value or [])])
+    result = await backend.execute_query(
+        f"""
+        MATCH (:Entity {{uid: $uid}})-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:{NeoLabel.GOAL.value})
+        RETURN DISTINCT goal.uid AS goal_uid
+        """,
+        {"uid": contributor_uid},
+    )
+    if result.is_error:
+        return Result.fail(result)
+    return Result.ok([str(r["goal_uid"]) for r in (result.value or [])])
 
 
 class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
@@ -865,7 +863,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         )
 
 
-class TasksBackend(_GoalContributorMixin, _HierarchyMixin, UniversalNeo4jBackend[Task]):
+class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     """
     Domain backend for Task entities.
 
@@ -887,6 +885,10 @@ class TasksBackend(_GoalContributorMixin, _HierarchyMixin, UniversalNeo4jBackend
     async def get_task(self, task_id: str) -> Result[Task]:
         """Get task by ID. Returns error if not found (contrast with get() → None)."""
         return await self.get_or_fail(task_id)
+
+    async def get_contributed_goal_uids(self, contributor_uid: str) -> Result[list[str]]:
+        """UIDs of the goals the task contributes to (``CONTRIBUTES_TO_GOAL``)."""
+        return await _contributed_goal_uids(self, contributor_uid)
 
     async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get all tasks for a user. Alias for list_by_user."""
@@ -1155,7 +1157,7 @@ class TasksBackend(_GoalContributorMixin, _HierarchyMixin, UniversalNeo4jBackend
         return Result.ok(bool(result.value[0]["reachable"]))
 
 
-class EventsBackend(_GoalContributorMixin, _HierarchyMixin, UniversalNeo4jBackend[Event]):
+class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     """
     Domain backend for Event entities.
 
@@ -1180,6 +1182,10 @@ class EventsBackend(_GoalContributorMixin, _HierarchyMixin, UniversalNeo4jBacken
     async def get_event(self, event_id: str) -> Result[Event]:
         """Get event by ID. Returns error if not found (contrast with get() → None)."""
         return await self.get_or_fail(event_id)
+
+    async def get_contributed_goal_uids(self, contributor_uid: str) -> Result[list[str]]:
+        """UIDs of the goals the event contributes to (``CONTRIBUTES_TO_GOAL``)."""
+        return await _contributed_goal_uids(self, contributor_uid)
 
     async def get_user_events(self, user_uid: UserUID) -> Result[list[Event]]:
         """Get all events for a user. Alias for list_by_user."""

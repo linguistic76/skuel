@@ -714,6 +714,53 @@ class TestAbandonPathStep:
         }
         assert spawned_goal in named
 
+    @pytest.mark.asyncio
+    async def test_a_failed_delete_still_announces_the_goals_already_deleted_from(
+        self, engagement_service, ps_backend, template_backends, executor, test_user, event_bus
+    ):
+        """Each instance delete commits on its own: when a delete after the task's fails,
+        the goal the deleted task contributed to is still announced — a retry cannot
+        find the task again."""
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor, cross_refs=True)
+        engaged = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engaged.is_ok
+        goal_res = await executor.execute(
+            query=(
+                "MATCH (goal {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $goal_tpl}) "
+                "RETURN goal.uid AS uid"
+            ),
+            params={"student": test_user, "goal_tpl": uids["goal"]},
+            operation="spawned_goal",
+        )
+        spawned_goal = goal_res.value[0]["uid"]
+
+        real_delete = engagement_service._backend.delete_instance
+        state = {"deleted_a_contributor": False, "failed": False}
+
+        async def delete_then_fail(instance_uid: str, operation: str) -> Any:
+            if state["deleted_a_contributor"]:
+                state["failed"] = True
+                return Result.fail(Errors.database(message="transient", operation=operation))
+            result = await real_delete(instance_uid, operation)
+            if result.is_ok and any(row.get("goal_uids") for row in result.value or []):
+                state["deleted_a_contributor"] = True
+            return result
+
+        engagement_service._backend.delete_instance = delete_then_fail
+        event_bus.clear_event_history()
+
+        result = await engagement_service.abandon_pathstep(test_user, PS_UID)
+
+        assert state["failed"], "the seed must put an instance after the task in the loop"
+        assert result.is_error
+        named = {
+            goal_uid
+            for e in event_bus.get_event_history()
+            if isinstance(e, GoalContributionsChanged)
+            for goal_uid in e.goal_uids
+        }
+        assert spawned_goal in named
+
     async def test_abandon_fails_without_active_engagement(
         self, engagement_service, ps_backend, template_backends, executor, test_user
     ):

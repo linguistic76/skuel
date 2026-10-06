@@ -86,6 +86,7 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
+    from core.models.task.task import Task
     from core.ports import (
         CalendarServiceOperations,
         EventBusOperations,
@@ -2668,7 +2669,7 @@ class SearchRouter:
             enriched_habits = {h.uid: h for h in enriched}
 
         # Enrich tasks with their CONTRIBUTES_TO_GOAL edges, for the same reason.
-        enriched_tasks: dict[str, Any] = {}
+        enriched_tasks: dict[str, Task] = {}
         task_items = [item for item in items if item.entity_type == EntityType.TASK]
         if task_items and self._tasks is not None:
             enriched_t = await self._tasks.search.enrich_with_goal_links(
