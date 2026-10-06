@@ -213,8 +213,8 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     # ========================================================================
     # GRAPH-AWARE FACETED SEARCH
     # ========================================================================
-    # graph_aware_faceted_search() is inherited from BaseService (January 2026)
-    # Configured via _graph_enrichment_patterns class attribute above
+    # graph_aware_faceted_search() is inherited from BaseService. This service sets no
+    # _graph_enrichment_patterns, so its results carry no graph-enrichment context.
     # See: BaseService.graph_aware_faceted_search() for implementation
 
     # ========================================================================

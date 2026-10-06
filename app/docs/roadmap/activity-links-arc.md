@@ -327,11 +327,12 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
 - `cross_domain_backend.py`'s choice-adherence query reads `(choice)-[:ALIGNED_WITH_PRINCIPLE]->`,
   but choices write `INFORMED_BY_PRINCIPLE` — **PR 3** (fixed: it reads
   `(principle)-[:INFORMS_CHOICE]->(choice)`).
-- Search enrichment ignores the choice's shared-neighbour `related_choices` definition and matches its
-  placeholder type directly, so `related_choices` holds principles, not choices — **PR 3** (fixed:
-  `generate_graph_enrichment` leaves out every shared-neighbour definition, so no `related_*` peer
-  view of any domain lists its shared neighbour; `related_choices` is now the choices that affect
-  the same goal, through `AFFECTS_GOAL`).
+- `generate_graph_enrichment` turned the choice's shared-neighbour `related_choices` definition into
+  a one-hop match on its placeholder type, so the patterns it computed put principles under
+  `related_choices` — **PR 3** (fixed: it leaves out every shared-neighbour definition;
+  `related_choices` is now the choices that affect the same goal, through `AFFECTS_GOAL`). PR 3's
+  census found the leak latent: no Activity search service reads those patterns (see the next
+  registered item), so no search result ever carried it.
 - `PrinciplesBackend.get_choice_influence_stats` (`GET /api/principles/choice-effectiveness`) and
   both principle ↔ choice halves of the user-context statement read one of the link's two
   names each — **PR 3** (fixed: each reads the one edge; the choice half keeps its `Principle` far
@@ -364,7 +365,14 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
   definition's type, far label and direction) composes no far-node wall, so a search result's
   `_graph_context` lists the node at the far end of an edge whoever owns it and whether or not it
   is published, and it carries no edge-property filter, so a goal's `essential_habits` / `critical_habits` / `optional_habits`
-  enrichment lists every supporting habit — outside the arc; registered by PR 2's census.
+  enrichment lists every supporting habit — outside the arc; registered by PR 2's census. Latent:
+  PR 3's census found the enrichment never runs for an Activity domain (below).
+- `DomainConfig.graph_enrichment_patterns` is computed from the registry
+  (`generate_graph_enrichment`) for every Activity and curriculum config, and nothing reads it: the
+  faceted search reads the service's own `_graph_enrichment_patterns`, which no Activity search
+  service sets, so an Activity search result carries no `_graph_context` from the registry. Wire it
+  or delete it — outside the arc; registered by PR 3's census (the six "configured via
+  `_graph_enrichment_patterns`" comments that claimed otherwise were corrected).
 - `GoalUpdateRequest` accepts `required_knowledge_uids`, `supporting_habit_uids` and
   `supporting_principle_uids`, and `to_intent()` carries none of them: an update that sends one
   answers 200 and changes no edge — outside the arc; registered by PR 2's census.
@@ -645,7 +653,8 @@ choice-adherence query read the one edge.
 - **`related_choices`.** Kept, as "choices that affect the same goal": its placeholder type is
   `AFFECTS_GOAL` (whose real definition precedes it), walked through `AFFECTS_GOAL` only, far end
   `Choice`. `generate_graph_enrichment` leaves out every shared-neighbour definition, which ends the
-  leak of the shared neighbour into the choice's, habit's and goal's search enrichment.
+  leak of the shared neighbour into the choice's, habit's and goal's search enrichment patterns
+  (a latent leak: nothing reads those patterns, § Defects found by the census).
 - **Migration.** One script (`scripts/migrations/principle_informs_choice_2026_10.py`): a census by
   default, writes under `--confirm` on the founder's go, run before any sync on the new code. Both
   types retire whole: an edge of either type that is not principle ↔ choice stops the run (exit 2),
@@ -687,8 +696,8 @@ link, and changing a task's `completion_updates_goal` all recompute the goals th
 kinds of contribution. The case file moves to `done/` with this PR. Two readers need more than the type's deletion: the goal-cancel guard counts open tasks
 over `FULFILLS_GOAL` only (`cross_domain_backend.py`) and must count open contributions (the kickoff
 decides whether an open contributing event blocks a cancel), and `GOALS_CONFIG`'s shared-neighbour
-`related_goals` definition names `FULFILLS_GOAL` as its placeholder type and as an intermediate edge
-(search enrichment turns the placeholder into a goal ↔ goal arm). Both name the enum member, so
+`related_goals` definition names `FULFILLS_GOAL` as its placeholder type and as an intermediate edge.
+Both name the enum member, so
 missing either breaks the import. The readers that fail silently name the type as a raw string: the
 user-context statements and `cross_domain_backend.py`'s `_INTENT_EDGE_SETS["goal_achievement"]`.
 The field's column-only readers (the goal Gantt, the relevance scorer) go with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), whose check names

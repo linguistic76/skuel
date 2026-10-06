@@ -194,6 +194,12 @@ class GoalsSearchService(BaseService["GoalsOperations", Goal]):
 
 ## Activity Domain Search Services
 
+> **Graph enrichment is not live for these services.** `graph_aware_faceted_search` enriches results
+> from the service's own `_graph_enrichment_patterns`, which no Activity search service sets, so their
+> results carry no `_graph_context`. The pattern lists below are what each `DomainConfig` computes
+> from the relationship registry (`graph_enrichment_patterns`), a field nothing reads today
+> (registered in `docs/roadmap/activity-links-arc.md` § Defects found by the census).
+
 ### TasksSearchService
 
 **File:** `core/services/tasks/tasks_search_service.py`
