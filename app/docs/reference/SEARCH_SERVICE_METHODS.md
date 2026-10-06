@@ -1,7 +1,7 @@
 ---
 related_skills:
 - skuel-search-architecture
-updated: 2026-10-05
+updated: 2026-10-06
 ---
 # Search Service Method Reference
 *Last updated: 2026-06-11*
@@ -186,7 +186,7 @@ class GoalsSearchService(BaseService["GoalsOperations", Goal]):
     # Graph enrichment (relationship_type, target_label, context_key, direction)
     _graph_enrichment_patterns: ClassVar[list[tuple]] = [
         ("FULFILLS_GOAL", "Task", "contributing_tasks", "incoming"),
-        ("ALIGNED_WITH_PRINCIPLE", "Principle", "guiding_principles", "outgoing"),
+        ("SUPPORTS_GOAL", "Principle", "supporting_principles", "incoming"),
     ]
 ```
 
@@ -237,7 +237,8 @@ date_field = "target_date"
 # SUBGOAL_OF → parent_goal / sub_goals, SUPPORTS_GOAL → contributing_habits (Habit) +
 # supporting_principles (Principle) + essential/critical/optional_habits (Habit; the
 # enrichment match carries no essentiality filter), FULFILLS_GOAL →
-# contributing_tasks / related_goals, SERVES_LIFE_PATH → life_path, ...
+# contributing_tasks, SERVES_LIFE_PATH → life_path, ... (the shared-neighbour related_goals
+# definition is left out: enrichment builds one-hop matches only)
 ```
 
 **Domain-Specific Methods:**
@@ -322,15 +323,27 @@ Deleted in the 2026-06 events dead-code campaign: `get_by_type` (superseded by
 
 **File:** `core/services/choices/choices_search_service.py`
 
-**Configuration:**
+**Configuration** (via `create_activity_domain_config("choices", ...)` — registry-derived):
 ```python
-_search_fields = ["title", "description", "context"]
+search_fields = ("title", "description")
 category_field = "category"  # DomainConfig (default)
-_graph_enrichment_patterns = [
+date_field = "decision_deadline"
+# graph_enrichment_patterns = generate_graph_enrichment("Choice"), from CHOICES_CONFIG
+# (relationship_type, target_label, context_key, direction). The shared-neighbour
+# related_choices definition is left out.
+[
+    ("INFORMED_BY_KNOWLEDGE", "Entity", "informed_by_knowledge", "outgoing"),
+    ("REQUIRES_KNOWLEDGE_FOR_DECISION", "Entity", "required_knowledge", "outgoing"),
     ("AFFECTS_GOAL", "Goal", "affected_goals", "outgoing"),
-    ("ALIGNED_WITH_PRINCIPLE", "Principle", "guiding_principles", "outgoing"),
-    ("REQUIRES_KNOWLEDGE", "Ku", "required_knowledge", "outgoing"),
-    ("IMPACTS_HABIT", "Habit", "impacted_habits", "outgoing"),
+    ("OPENS_LEARNING_PATH", "Entity", "opened_paths", "outgoing"),
+    ("INSPIRED_BY_CHOICE", "Entity", "inspired_choices", "incoming"),
+    ("IMPLEMENTS_CHOICE", "Task", "implementing_tasks", "incoming"),
+    ("INFORMS_CHOICE", "Principle", "informing_principles", "incoming"),
+    ("SERVES_LIFE_PATH", "Entity", "life_path", "outgoing"),
+    ("IMPACTS_HABIT", "Entity", "impacted_habits", "outgoing"),
+    ("INFORMS_CHOICE", "Habit", "informing_habits", "incoming"),
+    ("SCHEDULES_EVENT", "Event", "scheduled_events", "outgoing"),
+    ("TRIGGERS_CHOICE", "Event", "triggering_events", "incoming"),
 ]
 ```
 
@@ -348,15 +361,27 @@ _graph_enrichment_patterns = [
 
 **File:** `core/services/principles/principles_search_service.py`
 
-**Configuration:**
+**Configuration** (via `create_activity_domain_config("principles", ...)` — registry-derived):
 ```python
-_search_fields = ["title", "description", "rationale"]
+search_fields = ("title", "statement", "description")
 category_field = "principle_category"  # DomainConfig
-_graph_enrichment_patterns = [
+date_field = "created_at"
+# graph_enrichment_patterns = generate_graph_enrichment("Principle"), from PRINCIPLES_CONFIG
+# (relationship_type, target_label, context_key, direction). The shared-neighbour
+# related_principles_shared definition is left out.
+[
+    ("GROUNDED_IN_KNOWLEDGE", "Entity", "grounding_knowledge", "outgoing"),
     ("SUPPORTS_GOAL", "Goal", "supported_goals", "outgoing"),
-    ("INSPIRES_HABIT", "Habit", "inspired_habits", "outgoing"),
-    ("GUIDES_CHOICE", "Choice", "guided_choices", "outgoing"),
+    ("INFORMS_CHOICE", "Choice", "informed_choices", "outgoing"),
+    ("INSPIRES_HABIT", "Entity", "inspired_habits", "outgoing"),
+    ("EMBODIES_PRINCIPLE", "Entity", "embodying_habits", "incoming"),
+    ("SUPPORTS_PRINCIPLE", "Principle", "supporting_principles", "incoming"),
+    ("CONFLICTS_WITH_PRINCIPLE", "Principle", "conflicting_principles", "incoming"),
+    ("ALIGNED_WITH_PRINCIPLE", "Task", "aligned_tasks", "incoming"),
     ("RELATED_TO", "Principle", "related_principles", "both"),
+    ("DEMONSTRATES_PRINCIPLE", "Event", "demonstrating_events", "incoming"),
+    ("PRACTICED_AT_EVENT", "Event", "practice_events", "outgoing"),
+    ("SERVES_LIFE_PATH", "Entity", "life_path", "outgoing"),
 ]
 ```
 

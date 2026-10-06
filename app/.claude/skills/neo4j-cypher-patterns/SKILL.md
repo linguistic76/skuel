@@ -75,7 +75,8 @@ Finance is a Firefly III sidecar — there is no `:Expense` label.
 // Principles guidance
 (principle:Principle)-[:SUPPORTS_GOAL]->(goal:Goal)
 (ps:PathStep)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
-(choice:Choice)-[:ALIGNED_WITH_PRINCIPLE]->(principle:Principle)
+(principle:Principle)-[:INFORMS_CHOICE]->(choice:Choice)
+(task:Task)-[:ALIGNED_WITH_PRINCIPLE]->(principle:Principle)
 
 // Life path (everything flows toward the life path)
 // The ULTIMATE_PATH edge IS the designation. The node is NOT mutated and gets

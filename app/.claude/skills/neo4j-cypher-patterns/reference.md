@@ -91,6 +91,7 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | `CONTRIBUTES_TO_GOAL` | Task, Event | Goal | Contributes to a goal (not counted in goal progress — that tallies `FULFILLS_GOAL` / `SUPPORTS_GOAL`) |
 | `FULFILLS_GOAL` | Task | Goal | Task directly fulfills goal |
 | `IMPLEMENTS_CHOICE` | Task | Choice | Task implements a decision |
+| `ALIGNED_WITH_PRINCIPLE` | Task | Principle | Task aligned with principle (no choice writes it) |
 | `ASSIGNED_TO` | Task | User | Task assigned to user |
 
 ## Goal Relationships
@@ -133,7 +134,7 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | `HAS_SUBPRINCIPLE` / `SUBPRINCIPLE_OF` | Principle | Principle | Hierarchy pair |
 | `SUPPORTS_GOAL` | Principle | Goal | Principle supports goal — the one principle ↔ goal edge, whichever page made the link |
 | `GUIDED_BY_PRINCIPLE` | PathStep | Principle | A PathStep's guiding principles (`principle_uids`); no Activity writes or reads it |
-| `GUIDES_CHOICE` | Principle | Choice | Principle guides choice |
+| `INFORMS_CHOICE` | Principle | Choice | Principle informs choice — the one principle ↔ choice edge, whichever page made the link; no properties |
 | `CONFLICTS_WITH_PRINCIPLE` | * | Principle | Conflict marker |
 
 ## Choice Relationships
@@ -142,8 +143,7 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 |--------------|------|-----|---------|
 | `HAS_SUBCHOICE` / `SUBCHOICE_OF` | Choice | Choice | Hierarchy pair |
 | `AFFECTS_GOAL` | Choice | Goal | Choice affects goal |
-| `ALIGNED_WITH_PRINCIPLE` | Choice | Principle | Choice aligned with principle |
-| `INFORMED_BY_PRINCIPLE` | Choice | Principle | Choice informed by principle |
+| `INFORMS_CHOICE` | Principle, Habit, PathStep | Choice | Informs the choice. Three kinds of source share the type, so a reader labels the far end |
 | `TRIGGERS_CHOICE` | * | Choice | Something raises a decision |
 
 ## Lateral Relationships (all 9 domains, ADR-037)

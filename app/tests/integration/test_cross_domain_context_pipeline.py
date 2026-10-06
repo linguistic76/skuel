@@ -342,8 +342,10 @@ async def test_depth_surfaces_transitive_node_correctly_attributed(
 FB = "xdctx_fb_"  # uid prefix for the live-mixin graph
 FB_CHOICE = FB + "choice"
 FB_CHOICE_BARE = FB + "choice_bare"
-FB_PRIN_OUT = FB + "principle_out"  # choice -[INFORMED_BY_PRINCIPLE]-> (aligned_principles)
-FB_PRIN_IN = FB + "principle_in"  # (principle) -[GUIDES_CHOICE]-> choice (guiding_principles)
+FB_PRIN_A = FB + "principle_a"  # (principle) -[INFORMS_CHOICE]-> choice (informing_principles)
+FB_PRIN_B = FB + "principle_b"  # a second principle informing the same choice
+FB_HABIT = FB + "habit"  # (habit) -[INFORMS_CHOICE]-> choice — not a principle
+FB_PATH_STEP = FB + "path_step"  # (path step) -[INFORMS_CHOICE]-> choice — not a principle
 FB_GOAL = FB + "goal"
 FB_KU = FB + "ku"
 
@@ -374,8 +376,10 @@ async def _seed_choice_graph(neo4j_driver) -> None:
     async with neo4j_driver.session() as s:
         for uid, label, etype in [
             (FB_CHOICE, "Choice", "choice"),
-            (FB_PRIN_OUT, "Principle", "principle"),
-            (FB_PRIN_IN, "Principle", "principle"),
+            (FB_PRIN_A, "Principle", "principle"),
+            (FB_PRIN_B, "Principle", "principle"),
+            (FB_HABIT, "Habit", "habit"),
+            (FB_PATH_STEP, "PathStep", "path_step"),
             (FB_GOAL, "Goal", "goal"),
         ]:
             await s.run(
@@ -388,8 +392,11 @@ async def _seed_choice_graph(neo4j_driver) -> None:
             "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=FB_KU
         )
         for a, rel, b in [
-            (FB_CHOICE, "INFORMED_BY_PRINCIPLE", FB_PRIN_OUT),
-            (FB_PRIN_IN, "GUIDES_CHOICE", FB_CHOICE),
+            (FB_PRIN_A, "INFORMS_CHOICE", FB_CHOICE),
+            (FB_PRIN_B, "INFORMS_CHOICE", FB_CHOICE),
+            # INFORMS_CHOICE has three kinds of source; only a principle is a principle.
+            (FB_HABIT, "INFORMS_CHOICE", FB_CHOICE),
+            (FB_PATH_STEP, "INFORMS_CHOICE", FB_CHOICE),
             (FB_CHOICE, "AFFECTS_GOAL", FB_GOAL),
             (FB_CHOICE, "INFORMED_BY_KNOWLEDGE", FB_KU),
         ]:
@@ -420,7 +427,7 @@ async def test_analyze_choice_impact_populates_from_graph(neo4j_driver, rel_back
 
     # AFFECTS_GOAL is polarity-free → the single goal lands in the affected set.
     assert analysis.domain_impact.goals.count == 1
-    # Principles union both directions (INFORMED_BY_PRINCIPLE out + GUIDES_CHOICE in).
+    # The two principles informing the choice; the habit and PathStep informers are not.
     assert analysis.domain_impact.principles.count == 2
     assert "goals" in analysis.impact_summary.domains_affected
     assert "principles" in analysis.impact_summary.domains_affected
@@ -440,7 +447,7 @@ async def test_get_decision_intelligence_populates_from_graph(
     intel = res.value
 
     assert [g.uid for g in intel.context.goals] == [FB_GOAL]
-    assert {p.uid for p in intel.context.principles} == {FB_PRIN_OUT, FB_PRIN_IN}
+    assert {p.uid for p in intel.context.principles} == {FB_PRIN_A, FB_PRIN_B}
     assert [k.uid for k in intel.context.knowledge] == [FB_KU]
 
 

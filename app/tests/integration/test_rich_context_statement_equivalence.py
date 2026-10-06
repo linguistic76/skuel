@@ -145,9 +145,11 @@ CREATE (c:Entity:Choice {uid: 'choice.eq.pending', entity_type: 'choice', title:
 CREATE (c_old:Entity:Choice {uid: 'choice.eq.old', entity_type: 'choice', title: 'Old choice', status: 'completed',
                              created_at: $old, decided_at: $old, user_uid: $user_uid})
 CREATE (u)-[:OWNS]->(c) CREATE (u)-[:OWNS]->(c_old)
-CREATE (p)-[:GUIDES_CHOICE]->(c)
+CREATE (p)-[:INFORMS_CHOICE]->(c)
+// a habit and a path step inform the choice too: neither is a principle, in either row
+CREATE (h_active)-[:INFORMS_CHOICE]->(c)
+CREATE (ps1)-[:INFORMS_CHOICE]->(c)
 CREATE (c)-[:INFORMED_BY_KNOWLEDGE]->(ku_a)
-CREATE (c)-[:INFORMED_BY_PRINCIPLE]->(p)
 CREATE (c)-[:AFFECTS_GOAL]->(g_active)
 CREATE (c)-[:OPENS_LEARNING_PATH]->(lp)
 CREATE (t_dep)-[:IMPLEMENTS_CHOICE]->(c)

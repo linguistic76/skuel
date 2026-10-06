@@ -46,7 +46,9 @@ PR_PRIN = PR + "principle"
 PR_PRIN_BARE = PR + "principle_bare"  # negative control: no cross-domain edges
 PR_GOAL = PR + "goal"  # principle -[SUPPORTS_GOAL]-> goal (supported_goals)
 PR_HABIT_GOAL = PR + "habit_goal"  # habit -[SUPPORTS_GOAL]-> goal: the inspired habit's goal only
-PR_CHOICE = PR + "choice"  # principle -[GUIDES_CHOICE]-> choice (guided_choices)
+PR_CHOICE = PR + "choice"  # principle -[INFORMS_CHOICE]-> choice (informed_choices)
+# habit -[INFORMS_CHOICE]-> choice: the inspired habit's choice only
+PR_HABIT_CHOICE = PR + "habit_choice"
 PR_KU = PR + "ku"  # principle -[GROUNDED_IN_KNOWLEDGE]-> ku (grounding_knowledge)
 PR_HABIT = PR + "habit"  # principle -[INSPIRES_HABIT]-> habit (inspired_habits)
 PR_HABIT_EMB = PR + "habit_emb"  # habit -[EMBODIES_PRINCIPLE]-> principle (embodying_habits)
@@ -88,6 +90,7 @@ async def _seed_principle_graph(neo4j_driver) -> None:
             (PR_GOAL, "Goal", "goal"),
             (PR_HABIT_GOAL, "Goal", "goal"),
             (PR_CHOICE, "Choice", "choice"),
+            (PR_HABIT_CHOICE, "Choice", "choice"),
             (PR_HABIT, "Habit", "habit"),
             (PR_HABIT_EMB, "Habit", "habit"),
         ]:
@@ -105,7 +108,9 @@ async def _seed_principle_graph(neo4j_driver) -> None:
             (PR_PRIN, "SUPPORTS_GOAL", PR_GOAL),  # outgoing -> supported_goals
             # Two hops from the principle, over the edge type its own goal link uses.
             (PR_HABIT, "SUPPORTS_GOAL", PR_HABIT_GOAL),
-            (PR_PRIN, "GUIDES_CHOICE", PR_CHOICE),  # outgoing -> guided_choices
+            (PR_PRIN, "INFORMS_CHOICE", PR_CHOICE),  # outgoing -> informed_choices
+            # Two hops from the principle, over the edge type its own choice link uses.
+            (PR_HABIT, "INFORMS_CHOICE", PR_HABIT_CHOICE),
             (PR_PRIN, "GROUNDED_IN_KNOWLEDGE", PR_KU),  # outgoing -> grounding_knowledge
             (PR_PRIN, "INSPIRES_HABIT", PR_HABIT),  # outgoing -> inspired_habits
             (PR_HABIT_EMB, "EMBODIES_PRINCIPLE", PR_PRIN),  # incoming -> embodying_habits

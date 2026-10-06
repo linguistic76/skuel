@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-10-05
+updated: 2026-10-06
 category: patterns
 related_skills:
 - base-analytics-service
@@ -135,7 +135,7 @@ from core.models.relationship_registry import (
     TASKS_CONFIG,              # Named config for Tasks domain
     DOMAIN_CONFIGS,           # Access by Domain enum
     LABEL_CONFIGS,  # Access by Neo4j label
-    generate_graph_enrichment,  # For DomainConfig factories
+    generate_graph_enrichment,  # For DomainConfig factories (one-hop defs; shared-neighbour defs left out)
 )
 
 # Direct named access (preferred)
@@ -205,8 +205,8 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 | `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
 | `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
 | `EVENTS_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
-| `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
-| `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, SUPPORTS_GOAL, GUIDES_CHOICE |
+| `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMS_CHOICE (incoming), AFFECTS_GOAL |
+| `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, SUPPORTS_GOAL, INFORMS_CHOICE |
 | **Curriculum (3)** |
 | `KU_CONFIG` | KNOWLEDGE | Ku | REQUIRES, ENABLES, ORGANIZES, HAS_NARROWER |
 | `PS_CONFIG` | LEARNING | PathStep | CONTAINS_KNOWLEDGE, TRAINS_KU, REQUIRES_STEP, BUILDS_HABIT, ASSIGNS_TASK |
@@ -576,7 +576,7 @@ content around it. Pinned by `tests/integration/test_neighbourhood_owner_scope.p
 > `ORDER BY`**, so first-seen is not the direct/closest path. Keeping the wrong entry
 > misreports `distance`, `path_strength`, direct-connection counts, max path depth, and
 > the direct-vs-indirect cascade split (counts also inflate if you skip de-dup entirely).
-> See `_union_buckets` / `_path_rank` in `choices/_core_intelligence_mixin.py` (PR #218).
+> See `_union_path_buckets` / `_path_rank` in `core/models/graph/path_aware_types.py`.
 
 See: `core/services/relationships/_intelligence_mixin.py` (`get_cross_domain_context`,
 `_incident_matches`, `_generic_label_last`) and `build_domain_context_with_paths` in

@@ -217,7 +217,7 @@ class TestEnablesRelationshipNames:
         enables = LABEL_CONFIGS["Principle"].enables_relationship_names
         assert RelationshipName.SUPPORTS_GOAL in enables
         assert RelationshipName.INSPIRES_HABIT in enables
-        assert RelationshipName.GUIDES_CHOICE in enables
+        assert RelationshipName.INFORMS_CHOICE in enables
 
 
 class TestDomainRelationshipConfigMethods:

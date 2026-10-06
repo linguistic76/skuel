@@ -12,7 +12,9 @@ The doors:
 - ``POST /api/events/update`` and ``POST /events/edit`` — ``milestone_celebration_for_goal``
   is a Goal, ``reinforces_habit_uid`` a Habit;
 - ``POST /api/principles/link?uid=<principle>`` — ``target_uid`` is a goal, habit, Ku,
-  principle or choice, per ``link_type``.
+  principle or choice, per ``link_type``;
+- ``POST /api/choices/link-principle`` — ``principle_uid`` is a Principle, written as
+  ``(Principle)-[:INFORMS_CHOICE]->(Choice)``: the edge the principle's door writes.
 
 The contract, per door:
 
@@ -111,6 +113,9 @@ class Door:
     far_kind: str  # "Ku" or one of _KINDS
     extra: tuple[tuple[str, str], ...] = ()
     incoming: bool = False
+    # Wrong kinds a door must refuse beyond the generic pair: a kind its edge type also
+    # admits from another door (a habit informs a choice too, but is no principle).
+    confusable: tuple[str, ...] = ()
 
     @property
     def source_uid(self) -> str:
@@ -147,7 +152,7 @@ class Door:
         if self.far_kind == "Ku":
             return (OWN["Task"], SHARED_STEP, DRAFT_KU)
         other = "Task" if self.far_kind != "Task" else "Goal"
-        return (OWN[other], SHARED_KU)
+        return (OWN[other], SHARED_KU, *self.confusable)
 
     @property
     def missing(self) -> str:
@@ -218,7 +223,18 @@ DOORS = (
     _principle_link("habit", "INSPIRES_HABIT", "Habit"),
     _principle_link("knowledge", "GROUNDED_IN_KNOWLEDGE", "Ku"),
     _principle_link("principle", "SUPPORTS_PRINCIPLE", "Principle", incoming=True),
-    _principle_link("choice", "GUIDES_CHOICE", "Choice"),
+    _principle_link("choice", "INFORMS_CHOICE", "Choice"),
+    Door(
+        "POST /api/choices/link-principle",
+        "/api/choices/link-principle",
+        "choice_uid",
+        "Choice",
+        "principle_uid",
+        "INFORMS_CHOICE",
+        "Principle",
+        incoming=True,
+        confusable=(OWN["Habit"], SHARED_STEP),
+    ),
 )
 _DOOR_IDS = [door.label for door in DOORS]
 
@@ -358,6 +374,7 @@ async def edges(driver: AsyncDriver) -> EdgeReader:
 def _app(skuel_app):
     from fasthtml.common import fast_app
 
+    from adapters.inbound.choices_routes import create_choices_routes
     from adapters.inbound.events_routes import create_events_routes
     from adapters.inbound.goals_routes import create_goals_routes
     from adapters.inbound.habits_routes import create_habits_routes
@@ -367,6 +384,7 @@ def _app(skuel_app):
     app, rt = fast_app(pico=False, default_hdrs=False, secret_key="nb2b-link-door-test-key")
     services = skuel_app.state.services
     for create_routes in (
+        create_choices_routes,
         create_goals_routes,
         create_habits_routes,
         create_principles_routes,

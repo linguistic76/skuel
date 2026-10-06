@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-02
+updated: 2026-10-06
 ---
 
 # Placeholder Parameter Index
@@ -265,20 +265,21 @@ degrading silently instead of erroring.
 
 **Fixed (#862).** Both counts now come from a batched relationship read
 (`_AnalyticsMixin._fetch_alignment_links`, 258): one `UNWIND` query per edge type over the whole
-window, `principles` (`INFORMED_BY_PRINCIPLE`) and `goals` (`AFFECTS_GOAL`). The same read also
+window, `informing_principles` (`INFORMS_CHOICE` from a principle) and `goals` (`AFFECTS_GOAL`). The same read also
 retired the hardcoded `most_common_principle` (`None  # Would need aggregation`) — it is now a
 `Counter` over the principle UIDs already fetched, so it costs no extra query, and it returns a
 **UID, not a title**. Pinned by `tests/integration/test_choices_alignment_metrics.py`, where six of
 seven assertions are RED against the old code.
 
-Alignment is the **union of both principle directions** — `INFORMED_BY_PRINCIPLE` outgoing and
-`GUIDES_CHOICE` incoming — matching what `CHOICES_INTELLIGENCE.md` and `path_aware_types` already
-mean by a choice's principles. ⚠ **I first shipped the outgoing direction alone, on a published
-claim that `GUIDES_CHOICE` "has no writer anywhere in the tree".** That claim was false, and the way
-it was reached is the reusable part: I grepped for the *edge name* and for its Choice-side method key.
-The writer names neither. `PrinciplesService.create_principle_link` takes a user-supplied
+Alignment reads the one principle ↔ choice edge, `(Principle)-[:INFORMS_CHOICE]->(Choice)`, which
+both the choice's door and the principle's door write ([ADR-090](../decisions/ADR-090-one-link-per-fact-a-view-per-domain.md)).
+The view names `Principle`, so a habit or PathStep that informs the choice is not counted.
+⚠ **When the link was still stored two ways, I first shipped one direction alone, on a published
+claim that the principle-side edge "had no writer anywhere in the tree".** That claim was false, and
+the way it was reached is the reusable part: I grepped for the *edge name* and for its Choice-side
+method key. The writer names neither. `PrinciplesService.create_principle_link` takes a user-supplied
 `link_type` and resolves the edge through `_GravityMixin._LINK_TYPE_MAP` (`"choice"` →
-`guided_choices`), reachable at `POST /api/principles/link`. **A generic, registry-driven writer is
+`informed_choices`), reachable at `POST /api/principles/link`. **A generic, registry-driven writer is
 invisible to a name grep** — to rule out a writer, search the *dispatch table*, not the identifier.
 
 A failed relationship read propagates as an error `Result` rather than degrading to 0.0, and

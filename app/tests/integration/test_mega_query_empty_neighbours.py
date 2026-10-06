@@ -10,7 +10,7 @@ that found nothing yields ``[{uid: null, …}]``: a ONE-element list meaning
 Every consumer that iterates was defensively guarding
 (``if item and item.get("uid")``); every consumer that **counted** was silently
 wrong. The live instance, measured 2026-08-28 on AuraDB before the fix: the
-graph holds **no ``GUIDES_CHOICE`` edges at all**, and
+graph held **no principle → choice edges at all**, and
 ``principle_guided_choice_counts`` reported **1 guided choice for each of the 2
 principles**. Two lines above that count, the same block's loop was correctly
 null-guarded.
@@ -92,7 +92,7 @@ class TestEmptyNeighbourProjections:
                                      user_uid: $user_uid})
             CREATE (user)-[:OWNS]->(p)
             CREATE (user)-[:OWNS]->(c)
-            CREATE (p)-[:GUIDES_CHOICE]->(c)
+            CREATE (p)-[:INFORMS_CHOICE]->(c)
             """,
             {"p_uid": principle, "c_uid": choice, "user_uid": test_user.uid},
         )

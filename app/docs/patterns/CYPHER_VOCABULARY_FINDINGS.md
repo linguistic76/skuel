@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-05
+updated: 2026-10-06
 ---
 
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
@@ -713,9 +713,9 @@ Surfaced while verifying §3/§4; not vocabulary violations themselves, so they
 carry no baseline pairs — recorded here so they don't get lost.
 
 - **The `*_with_context` family looks caller-less.** `build_entity_with_context`
-  plus the 6 per-domain wrappers (`build_task_with_context`,
+  plus the 5 per-domain wrappers (`build_task_with_context`,
   `build_goal_with_context`, `build_ku_with_context`, `build_habit_with_context`,
-  `build_event_with_context`, `build_choice_with_context` — ~740 lines of
+  `build_event_with_context` — ~620 lines of
   `domain_queries.py`) have no production callers — only docstring mentions. The registry-driven
   `context_query_generator.generate_context_query` (January 2026) appears to be
   the live successor. Needs its own caller sweep + One Path Forward ruling; if
@@ -795,8 +795,10 @@ carry no baseline pairs — recorded here so they don't get lost.
   were repointed to the live `n.domain` property.
 - **`_TraversalMixin.get_batch_cross_domain_context` is production-caller-less.**
   Found while removing its `FUNDS_*` arms (§8): only the protocol declaration in
-  `base_protocols.py:961` and the implementation exist. Bloat finding, not a
-  vocabulary one — left standing, wants its own One Path Forward ruling.
+  `core/ports/base_protocols.py` and the implementation exist. Its principle arm and
+  `principles` key went when a principle ↔ choice link became one `INFORMS_CHOICE`
+  edge (Activity Links arc PR 3); the arm read the retired choice-side type. Bloat
+  finding, not a vocabulary one — left standing, wants its own One Path Forward ruling.
 - **The scan was also bounded by the GATE, not just by the membership check
   (2026-07-26).** `scan_names()` returns `[]` outright for any fragment
   `looks_like_cypher()` rejects, so every finding in this document was drawn only

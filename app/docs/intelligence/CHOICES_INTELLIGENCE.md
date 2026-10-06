@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-10-06
 ---
 
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
@@ -653,7 +653,7 @@ async def get_domain_decision_patterns(
 
 ### Method 10: analyze_principle_adherence()
 
-**Purpose:** Analyze how consistently the user's choices align with their stated principles over a time period. Pure Cypher query — counts ALIGNED_WITH_PRINCIPLE relationships on choices created within the window.
+**Purpose:** Analyze how consistently the user's choices align with their stated principles over a time period. Pure Cypher query (`CrossDomainBackend.get_choice_principle_adherence`) — reads the principles that inform each choice created within the window (`(Principle)-[:INFORMS_CHOICE]->(Choice)`, whichever page made the link).
 
 **Signature:**
 ```python
@@ -848,7 +848,7 @@ from core.models.graph.path_aware_types import (
 
 Uses `ChoiceRelationships.fetch()` for typed relationship access:
 - `informed_by_knowledge_uids` - Knowledge informing decision
-- `aligned_principle_uids` - Principles guiding decision
+- `informing_principle_uids` - Principles that inform the decision (`INFORMS_CHOICE`, principles only)
 - `opens_learning_path_uids` - Learning paths enabled by choice
 - `required_knowledge_uids` - Knowledge needed for decision
 
@@ -873,10 +873,10 @@ Uses typed context retrieval with:
 > `analyze_choice_impact` (the `/api/choices/insights` path) and `get_decision_intelligence`
 > build their `PathAwareGoal`/`PathAwarePrinciple`/`PathAwareKnowledge` lists from
 > `get_cross_domain_context`'s `context_field_name` buckets — `affected_goals`,
-> `aligned_principles` ∪ `guiding_principles` (INFORMED_BY_PRINCIPLE out + GUIDES_CHOICE
-> in), `informed_by_knowledge` — NOT generic domain keys (which the config never emits and
+> `informing_principles` (`INFORMS_CHOICE` from a principle — one edge whichever page made the
+> link), `informed_by_knowledge` — NOT generic domain keys (which the config never emits and
 > left these methods silently empty pre-#218). Because the producer query returns one
-> entry per *path* (not per uid), the `_union_buckets`/`_path_rank` helpers de-dup by uid
+> entry per *path* (not per uid), the `_union_path_buckets`/`_path_rank` helpers (`core/models/graph/path_aware_types.py`) de-dup by uid
 > keeping the lowest-`distance`/highest-`path_strength` entry. See the gotcha box in
 > `docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`.
 

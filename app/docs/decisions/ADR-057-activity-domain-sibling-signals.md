@@ -1,6 +1,6 @@
 ---
 title: "ADR-057: Activity-Domain Sibling Signals"
-updated: 2026-10-05
+updated: 2026-10-06
 status: current
 category: decisions
 tags: [adr, decisions, architecture, activity-domains, intelligence, design]
@@ -90,6 +90,10 @@ The 6 domains organize into **3 primary axes** (mutual sharpening — A↔B) plu
 > The "Values anchor direction" row's edge is `SUPPORTS_GOAL`, stored principle → goal: a principle ↔ goal
 > link is one edge, and no goal writes or reads `GUIDED_BY_PRINCIPLE`, which remains only as a PathStep's
 > guiding-principles edge. The Context paragraph's list of cross-domain edges names it in the retired sense.
+>
+> **2026-10-05 — Amended by [ADR-090](ADR-090-one-link-per-fact-a-view-per-domain.md) (Activity Links arc, PR 3).**
+> A principle ↔ choice link is one edge, `INFORMS_CHOICE`, stored principle → choice. The Context paragraph's
+> list names the retired choice-side type in its 2026 sense.
 
 ### Vocabulary
 

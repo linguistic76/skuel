@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-10-05
+updated: 2026-10-06
 category: patterns
 related_skills: []
 related_docs:
@@ -355,7 +355,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `_TraversalMixin` | `get_citation_export` | `KuCoreService` |
 | `_TraversalMixin` | `get_goal_aligned_entities` | `GoalsIntelligenceService` |
 | `_TraversalMixin` | `find_uids_by_semantic_filter` | `GraphIntelligenceService` |
-| `_TraversalMixin` | `get_batch_cross_domain_context` | `GraphIntelligenceService` |
+| `_TraversalMixin` | `get_batch_cross_domain_context` | none — no production caller ([findings §13](CYPHER_VOCABULARY_FINDINGS.md)) |
 | `CrossDomainBackend` | `get_journal_entries_in_range` | `CrossDomainQueryService` |
 
 **Remaining exempted `execute_query` usage (infrastructure, not domain):**

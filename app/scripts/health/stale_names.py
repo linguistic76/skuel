@@ -335,6 +335,16 @@ DELETED: dict[str, str] = {
         "deleted — a principle supports a goal: (Principle)-[:SUPPORTS_GOAL]->(Goal), "
         "read as the principle's supported_goals and the goal's supporting_principles (ADR-090)"
     ),
+    # A principle ↔ choice link is one edge, INFORMS_CHOICE from the principle (ADR-090);
+    # both former types retired whole.
+    "GUIDES_CHOICE": (
+        "deleted — a principle informs a choice: (Principle)-[:INFORMS_CHOICE]->(Choice), "
+        "read as the principle's informed_choices and the choice's informing_principles (ADR-090)"
+    ),
+    "INFORMED_BY_PRINCIPLE": (
+        "deleted — a principle informs a choice: (Principle)-[:INFORMS_CHOICE]->(Choice), "
+        "read as the choice's informing_principles and the principle's informed_choices (ADR-090)"
+    ),
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
         "(core/models/enums/pipeline.py, after the Values block)"
@@ -494,7 +504,7 @@ _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
-_links_arc = "the Activity Links arc's record of the principle ↔ goal collapse -- ADR-090, the arc document, ADR-090's INDEX row and ADR-015 (the 2025-12 rich-query record and its amendment note) name the edge type the arc retired"
+_links_arc = "the Activity Links arc's record of the principle ↔ goal and principle ↔ choice collapses -- ADR-090, the arc document, ADR-090's INDEX row, and the older ADRs that keep the names (ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record) name the edge types the arc retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
@@ -795,31 +805,67 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # never by adding the diff's line delta.
         (241, "Pipeline.JOURNAL"): Allow(_sweep_q),
     },
-    # The Activity Links arc's records of the principle ↔ goal collapse. Anchors are
-    # the scanner's own report (--verbose), re-derived whenever a line above them moves.
+    # The Activity Links arc's records of the principle ↔ goal and principle ↔ choice
+    # collapses. Anchors are the scanner's own report (--verbose), re-derived whenever a
+    # line above them moves.
     "docs/INDEX.md": {
+        (315, "GUIDES_CHOICE"): Allow(_links_arc),
         (315, "GUIDES_GOAL"): Allow(_links_arc),
+        (315, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
     },
     "docs/decisions/ADR-015-mega-query-rich-queries-completion.md": {
         (25, "GUIDES_GOAL"): Allow(_links_arc),
-        (82, "GUIDES_GOAL"): Allow(_links_arc),
+        (87, "GUIDES_GOAL"): Allow(_links_arc),
+        (88, "GUIDES_CHOICE"): Allow(_links_arc),
+        (97, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+    },
+    "docs/decisions/ADR-026-unified-relationship-registry.md": {
+        (348, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (358, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+    },
+    "docs/decisions/ADR-057-activity-domain-sibling-signals.md": {
+        (43, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
     },
     "docs/decisions/ADR-090-one-link-per-fact-a-view-per-domain.md": {
         (53, "GUIDES_GOAL"): Allow(_links_arc),
+        (54, "GUIDES_CHOICE"): Allow(_links_arc),
+        (54, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (68, "GUIDES_GOAL"): Allow(_links_arc),
+        (69, "GUIDES_CHOICE"): Allow(_links_arc),
         (170, "GUIDES_GOAL"): Allow(_links_arc),
+        (171, "GUIDES_CHOICE"): Allow(_links_arc),
+        (171, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (254, "GUIDES_CHOICE"): Allow(_links_arc),
+        (254, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (266, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (270, "GUIDES_CHOICE"): Allow(_links_arc),
         (270, "GUIDES_GOAL"): Allow(_links_arc),
+        (271, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (288, "GUIDES_GOAL"): Allow(_links_arc),
+        (294, "GUIDES_CHOICE"): Allow(_links_arc),
+        (295, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
     },
     "docs/roadmap/activity-links-arc.md": {
+        (17, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (64, "GUIDES_GOAL"): Allow(_links_arc),
-        (155, "GUIDES_GOAL"): Allow(_links_arc),
-        (205, "GUIDES_GOAL"): Allow(_links_arc),
-        (222, "GUIDES_GOAL"): Allow(_links_arc),
-        (280, "GUIDES_GOAL"): Allow(_links_arc),
-        (393, "GUIDES_GOAL"): Allow(_links_arc),
-        (507, "GUIDES_GOAL"): Allow(_links_arc),
-        (514, "GUIDES_GOAL"): Allow(_links_arc),
+        (65, "GUIDES_CHOICE"): Allow(_links_arc),
+        (65, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (156, "GUIDES_GOAL"): Allow(_links_arc),
+        (157, "GUIDES_CHOICE"): Allow(_links_arc),
+        (157, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (183, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (206, "GUIDES_GOAL"): Allow(_links_arc),
+        (228, "GUIDES_GOAL"): Allow(_links_arc),
+        (290, "GUIDES_GOAL"): Allow(_links_arc),
+        (317, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (328, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (441, "GUIDES_GOAL"): Allow(_links_arc),
+        (442, "GUIDES_CHOICE"): Allow(_links_arc),
+        (442, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (555, "GUIDES_GOAL"): Allow(_links_arc),
+        (562, "GUIDES_GOAL"): Allow(_links_arc),
+        (616, "GUIDES_CHOICE"): Allow(_links_arc),
+        (617, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
     },
 }
 

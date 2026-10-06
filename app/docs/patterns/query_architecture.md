@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-10-05
+updated: 2026-10-06
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -582,12 +582,12 @@ All 6 Activity Domains now use intent-based graph traversal via `GraphIntelligen
 
 | Domain | Intent | Focus | Relationships Traversed |
 |--------|--------|-------|------------------------|
-| Tasks | PRACTICE | Task execution and dependencies | EXECUTES_TASK, REQUIRES_KNOWLEDGE, DEPENDS_ON |
+| Tasks | PREREQUISITE | Task readiness | REQUIRES_KNOWLEDGE, PREREQUISITE_FOR, ENABLES |
 | Goals | GOAL_ACHIEVEMENT | Achievement path analysis | FULFILLS_GOAL, SUPPORTS_GOAL, REQUIRES_KNOWLEDGE, SUBGOAL_OF, CONTRIBUTES_TO_GOAL |
 | Principles | HIERARCHICAL (the `PRINCIPLE_EMBODIMENT` intent is deleted) | Principle hierarchy | the `HIERARCHICAL` edge set |
 | Habits | PRACTICE | Practice patterns and streaks | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, PREREQUISITE_HABIT |
-| Choices | PRINCIPLE_ALIGNMENT | Principle-guided decisions | ALIGNED_WITH_PRINCIPLE, INFORMED_BY_KNOWLEDGE, SUPPORTS_GOAL |
-| Events | SCHEDULED_ACTION | Task→Event execution context | EXECUTES_TASK, APPLIES_KNOWLEDGE, REINFORCES_HABIT |
+| Choices | HIERARCHICAL (the `PRINCIPLE_ALIGNMENT` intent is deleted) | Choice hierarchy | the `HIERARCHICAL` edge set |
+| Events | PRACTICE (the `SCHEDULED_ACTION` intent is deleted) | Practice context | REINFORCES_KNOWLEDGE, APPLIES_KNOWLEDGE |
 
 ### Architecture Pattern
 

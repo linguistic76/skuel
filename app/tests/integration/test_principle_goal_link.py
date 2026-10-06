@@ -27,7 +27,7 @@ Unlinking: ``GoalsService.unlink_goal_from_principle`` removes a principle's lin
 it is handed. A principle file that stops declaring ``connections.supports_goal``
 loses the edge on its next sync.
 
-The app runs bootstrapped over its own graph (``tests/integration/_principle_goal_rig.py``).
+The app runs bootstrapped over its own graph (``tests/integration/_activity_link_rig.py``).
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.relationship_names import RelationshipName
 from core.services.goals.goal_relationships import GoalRelationships
-from tests.integration._principle_goal_rig import (
+from tests.integration._activity_link_rig import (
     create,
     edges_between,
     seed_published_path_step,
