@@ -43,7 +43,7 @@ class TaskDTO(UserOwnedDTO):
     Extends UserOwnedDTO with task-specific fields:
     - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
     - Hierarchy (3): parent_uid, project, assignee
-    - Cross-domain links (3): goal, habit, path step references
+    - Cross-domain links (1): path step reference (goals and habits are graph edges)
     - Progress impact (5): goal contribution, knowledge mastery, habit streak
     - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
     """

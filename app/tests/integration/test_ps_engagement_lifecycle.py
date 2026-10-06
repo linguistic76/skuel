@@ -34,9 +34,11 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
+from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.events.goal_events import GoalContributionsChanged
 from core.models.choice.choice import Choice
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
@@ -161,11 +163,17 @@ async def executor(neo4j_driver) -> Neo4jQueryExecutor:
 
 
 @pytest_asyncio.fixture
+async def event_bus() -> InMemoryEventBus:
+    return InMemoryEventBus(capture_history=True)
+
+
+@pytest_asyncio.fixture
 async def engagement_service(
     executor: Neo4jQueryExecutor,
     ps_backend: Any,
     template_backends: dict[str, Any],
     instance_backends: dict[str, Any],
+    event_bus: InMemoryEventBus,
 ) -> PsEngagementService:
     return PsEngagementService(
         backend=PsEngagementBackend(executor),
@@ -182,6 +190,7 @@ async def engagement_service(
         events_backend=instance_backends["events"],
         choices_backend=instance_backends["choices"],
         principles_backend=instance_backends["principles"],
+        event_bus=event_bus,
     )
 
 
@@ -255,7 +264,7 @@ async def _seed_full_bundle(
             title="Practice problem",
             status=EntityStatus.ACTIVE,
             due_offset=RelativeOffset(days=7),
-            fulfills_goal_template_uid=uids["goal"],
+            contributes_to_goal_template_uid=uids["goal"],
             reinforces_habit_template_uid=uids["habit"],
         )
         goal = GoalTemplate(
@@ -379,7 +388,7 @@ class TestPublishPathStep:
             uid="ttpl_bad",
             title="Task with broken ref",
             status=EntityStatus.ACTIVE,
-            fulfills_goal_template_uid="gtpl_does_not_exist",
+            contributes_to_goal_template_uid="gtpl_does_not_exist",
         )
         await template_backends["task"].create(bad_task)
         await _attach_template(executor, PS_UID, "ttpl_bad", "HAS_TASK_TEMPLATE")
@@ -393,7 +402,7 @@ class TestPublishPathStep:
         assert len(violations) == 1
         v = violations[0]
         assert v["violation"] == "target_missing"
-        assert v["field"] == "fulfills_goal_template_uid"
+        assert v["field"] == "contributes_to_goal_template_uid"
         assert v["referenced_uid"] == "gtpl_does_not_exist"
         assert v["template_type"] == "TaskTemplate"
 
@@ -452,21 +461,23 @@ class TestEngagePathStep:
             assert record["tpl"] is not None
 
     async def test_engage_resolves_cross_template_refs(
-        self, engagement_service, ps_backend, template_backends, executor, test_user
+        self, engagement_service, ps_backend, template_backends, executor, test_user, event_bus
     ):
         uids = await _seed_full_bundle(ps_backend, template_backends, executor, cross_refs=True)
 
         result = await engagement_service.engage_pathstep(test_user, PS_UID)
         assert result.is_ok
 
-        # Find the spawned task instance, check its fulfills_goal_uid points
-        # at the spawned goal instance (NOT the template UID).
+        # Task → Goal linkage is a graph edge (CONTRIBUTES_TO_GOAL) to the spawned goal
+        # instance — never to the template, and never a property.
         ref_res = await executor.execute(
             query=(
                 "MATCH (task {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $task_tpl}) "
                 "MATCH (goal {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $goal_tpl}) "
-                "RETURN task.fulfills_goal_uid AS goal_ref, "
-                "       goal.uid AS goal_instance_uid"
+                "OPTIONAL MATCH (task)-[:CONTRIBUTES_TO_GOAL]->(target) "
+                "RETURN collect(target.uid) AS targets, goal.uid AS goal_instance_uid, "
+                "       [k IN keys(task) WHERE k IN ['fulfills_goal_uid', "
+                "        'contributes_to_goal_uid', 'contributes_to_goal_uids']] AS goal_props"
             ),
             params={
                 "student": test_user,
@@ -477,8 +488,18 @@ class TestEngagePathStep:
         )
         assert ref_res.is_ok and ref_res.value
         record = ref_res.value[0]
-        assert record["goal_ref"] == record["goal_instance_uid"]
-        assert record["goal_ref"] != uids["goal"]  # rewritten away from template uid
+        assert record["targets"] == [record["goal_instance_uid"]], (
+            "Spawned Task must have (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal) to the spawned "
+            "goal — see TASK_SPEC.cross_edges in _spawn_orchestrator.py"
+        )
+        assert record["goal_props"] == []
+
+        # The spawned contributions are announced, so the spawned goal's tally counts them.
+        announced = [
+            e for e in event_bus.get_event_history() if isinstance(e, GoalContributionsChanged)
+        ]
+        assert len(announced) == 1
+        assert set(announced[0].contributor_uids) == set(result.value.spawned_instance_uids)
 
         # Task → Habit linkage is a graph edge (REINFORCES_HABIT), not a property.
         task_habit_edge = await executor.execute(
@@ -662,6 +683,36 @@ class TestAbandonPathStep:
 
         # Edge preserved with state='abandoned' for audit.
         assert await _engagement_state(executor, test_user, PS_UID) == "abandoned"
+
+    async def test_abandon_announces_the_goals_that_lost_a_contribution(
+        self, engagement_service, ps_backend, template_backends, executor, test_user, event_bus
+    ):
+        """The spawned task's CONTRIBUTES_TO_GOAL edge goes with it, so its goal is named
+        in the announcement — read before the delete, since nothing finds it afterwards."""
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor, cross_refs=True)
+        engaged = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert engaged.is_ok
+        goal_res = await executor.execute(
+            query=(
+                "MATCH (goal {user_uid: $student})-[:SPAWNED_FROM]->(:Entity {uid: $goal_tpl}) "
+                "RETURN goal.uid AS uid"
+            ),
+            params={"student": test_user, "goal_tpl": uids["goal"]},
+            operation="spawned_goal",
+        )
+        assert goal_res.is_ok and goal_res.value
+        spawned_goal = goal_res.value[0]["uid"]
+
+        result = await engagement_service.abandon_pathstep(test_user, PS_UID)
+
+        assert result.is_ok
+        named = {
+            goal_uid
+            for e in event_bus.get_event_history()
+            if isinstance(e, GoalContributionsChanged)
+            for goal_uid in e.goal_uids
+        }
+        assert spawned_goal in named
 
     async def test_abandon_fails_without_active_engagement(
         self, engagement_service, ps_backend, template_backends, executor, test_user

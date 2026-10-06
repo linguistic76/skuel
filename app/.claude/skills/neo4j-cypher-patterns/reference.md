@@ -88,8 +88,7 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | `DEPENDS_ON` | Task | Task | Task dependency (blocking) |
 | `BLOCKS` / `BLOCKED_BY` | Task | Task | Blocking pair |
 | `HAS_SUBTASK` / `SUBTASK_OF` | Task | Task | Hierarchy pair |
-| `CONTRIBUTES_TO_GOAL` | Task, Event | Goal | Contributes to a goal (not counted in goal progress — that tallies `FULFILLS_GOAL` / `SUPPORTS_GOAL`) |
-| `FULFILLS_GOAL` | Task | Goal | Task directly fulfills goal |
+| `CONTRIBUTES_TO_GOAL` | Task, Event | Goal | Contributes to a goal — a task may contribute to several; a TASK_BASED goal's progress counts its owner's contributing tasks and events (CANCELLED left out; `goal_tally_queries.py`) |
 | `IMPLEMENTS_CHOICE` | Task | Choice | Task implements a decision |
 | `ALIGNED_WITH_PRINCIPLE` | Task | Principle | Task aligned with principle (no choice writes it) |
 | `ASSIGNED_TO` | Task | User | Task assigned to user |

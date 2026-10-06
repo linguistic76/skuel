@@ -1,6 +1,6 @@
 ---
 title: "Cross-Domain UID Patterns: Structural Anchors vs Enrichment Links"
-updated: 2026-10-02
+updated: 2026-10-06
 status: current
 category: architecture
 tags: [architecture, uid-patterns, cross-domain, structural-anchor, enrichment-link]
@@ -40,7 +40,6 @@ Confusing the two produces either stale denormalized data (writing what should b
 
 | Domain | Field | Direction | Why persisted |
 |--------|-------|-----------|---------------|
-| Task | `fulfills_goal_uid` | TASK → GOAL | Hierarchy membership — the task is part of this goal's action system. Dual-written with `(Task)-[:FULFILLS_GOAL]->(Goal)` (property == edge target, every door); the column serves in-hand readers, the edge every goal-side traversal |
 | Task | `source_path_step_uid` | TASK → PS | Spawn-time PS origin; also set by non-template paths (see §below) |
 | Task | `scheduled_event_uid` | TASK → EVENT | Scheduling appointment — the task is pinned to this Event |
 | Goal | `fulfills_goal_uid` | GOAL → GOAL | Sub-goal hierarchy membership (parallel to `Exercise.path_step_uid`) |
@@ -56,6 +55,7 @@ Confusing the two produces either stale denormalized data (writing what should b
 | Domain | Field | Graph edge | Populated by |
 |--------|-------|-----------|-------------|
 | Task | `reinforces_habit_uid` | `(Task)-[:REINFORCES_HABIT]->(Habit)` | `get_habit_links_for_tasks()` |
+| Task | `contributes_to_goal_uid` | `(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)` | `TasksSearchService.enrich_with_goal_links()` |
 | Habit | `supports_goal_uid` | `(Habit)-[:SUPPORTS_GOAL]->(Goal)` | `enrich_habits_with_goal_links()` |
 | Event | `reinforces_habit_uid` | `(Event)-[:REINFORCES_HABIT]->(Habit)` | `enrich_events_with_habit_links()` |
 | Event | `contributes_to_goal_uid` | `(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` | `enrich_events_with_goal_links()` |
@@ -64,7 +64,7 @@ Confusing the two produces either stale denormalized data (writing what should b
 
 ⚠ **Absence from the DTO is NOT what makes a field unpersistable** — that was the stated test here until 2026-08-06, and it was wrong. Only `create_*` paths that persist `to_dto().to_dict()` are covered by it; the generated CRUD route (`CRUDRouteFactory._register_create_route`) converts the request and persists the **ENTITY**, so `to_neo4j_node` reads the dataclass field directly. `reinforces_habit_uid` was landing as a junk node property on every task and event created through `POST /api/{tasks,events}/create`, while no edge was written. The skip-set entry is what actually enforces the rule; the DTO's silence merely hid the gap.
 
-**On Tasks and Events, `reinforces_habit_uid` is derived on READ but is the edge's INPUT on CREATE.** It rides on the entity because the generated route hands the service an entity and no request — a link the entity cannot carry is a link that door can never write — and `TasksCoreService._write_link_edges` / `EventsCoreService._write_link_edges` turn it into the REINFORCES_HABIT edge for both doors. Events' goal link follows the same shape with a split spelling: the read projection is the singular `contributes_to_goal_uid` (one goal, picked by `pick_goal`), and the create input is the plural `contributes_to_goal_uids` — one CONTRIBUTES_TO_GOAL edge per goal, since a habit-scheduled event contributes to every goal its habit supports. Links the entity genuinely cannot carry (`milestone_celebration_for_goal` → CELEBRATES_GOAL) stay request-door-only, written by the same guarded batch when the request is present.
+**On Tasks and Events, `reinforces_habit_uid` is derived on READ but is the edge's INPUT on CREATE.** It rides on the entity because the generated route hands the service an entity and no request — a link the entity cannot carry is a link that door can never write — and `TasksCoreService._write_link_edges` / `EventsCoreService._write_link_edges` turn it into the REINFORCES_HABIT edge for both doors. The goal link of both follows the same shape with a split spelling: the read projection is the singular `contributes_to_goal_uid` (one goal, picked by `pick_goal`), and the create input is the plural `contributes_to_goal_uids` — one CONTRIBUTES_TO_GOAL edge per goal, since a task may contribute to several goals and a habit-scheduled event contributes to every goal its habit supports. Links the entity genuinely cannot carry (`milestone_celebration_for_goal` → CELEBRATES_GOAL) stay request-door-only, written by the same guarded batch when the request is present.
 
 ---
 
@@ -145,6 +145,6 @@ Before adding a field, decide:
 2. **Is this a scoring signal read off a graph edge that already exists?** → enrichment link: add `DERIVED FROM EDGE` comment to the model, add the name to `RELATIONSHIP_SKIP_FIELDS`, populate in the scoring enrich step.
 3. **Does a create REQUEST supply it, and does the graph own it?** → edge carrier: as (2), plus set it on the entity in both `from_request` and the `ConversionServiceV2` converter, and write the edge on the domain's shared `create()` primitive so both doors do it once. Every request-supplied endpoint must pass `keep_permitted_link_edges` (exists / owner / kind) before it becomes an edge.
 4. **Is this a many-to-many relationship with metadata?** → pure graph edge, no UID field at all. A list-typed request field can only take this shape: it reaches no model field, so the generated route cannot carry it and the request door owns it alone.
-5. **Is this a structural anchor (1) that graph readers ALSO traverse?** → dual-write: the property AND the edge, on every door (both create doors, the update path, the vault preparer), the edge admitted through the same guard as (3). State the invariant once at the write site — *property == edge target, wherever both exist* — and clear the property when the edge is refused, so the two halves never disagree. `Exercise.path_step_uid` + `HAS_EXERCISE`; `Task.fulfills_goal_uid` + `FULFILLS_GOAL` (`TasksCoreService._write_link_edges`). Two writers that each land one half is the defect this shape exists to prevent.
+5. **Is this a structural anchor (1) that graph readers ALSO traverse?** → dual-write: the property AND the edge, on every door (both create doors, the update path, the vault preparer), the edge admitted through the same guard as (3). State the invariant once at the write site — *property == edge target, wherever both exist* — and clear the property when the edge is refused, so the two halves never disagree. `Exercise.path_step_uid` + `HAS_EXERCISE`. Two writers that each land one half is the defect this shape exists to prevent.
 
 A field that is "sometimes persisted and sometimes derived" is a design error — pick one. Adding the name to `RELATIONSHIP_SKIP_FIELDS` is what makes (2) and (3) enforceable rather than aspirational, and it is keyed on the NAME — census every dataclass carrying it before adding an entry.

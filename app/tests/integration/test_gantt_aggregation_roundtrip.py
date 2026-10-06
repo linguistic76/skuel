@@ -16,11 +16,9 @@ The fixes route through real methods: ``relationships.get_related_uids("prerequi
 returns the user's Task models. A mocked service can't catch either bug — the only proof is data flowing
 through real Neo4j, which is what these do.
 
-COVERAGE NOTE: ``get_tasks_for_goal`` reads the node column ``Task.fulfills_goal_uid``, not
-the FULFILLS_GOAL edge. The two agree by construction — the app doors dual-write property
-and edge, the vault door stamps the property from ``connections.fulfills_goal`` — so the
-property-writing fixture below covers vault-ingested tasks as well;
-``test_vault_task_goal_link_parity.py`` pins the vault half.
+``get_tasks_for_goal`` traverses ``(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)`` — the one record
+of a task's goals, whichever door wrote it (``test_vault_task_goal_link_parity.py`` pins the
+vault door's edges).
 """
 
 from datetime import date, timedelta
@@ -105,8 +103,10 @@ class TestGanttAggregationRoundTrip:
         assert far_prereq.uid not in deps
         assert far_prereq.uid not in by_id  # not rendered at all
 
-    async def test_goal_gantt_includes_fulfilling_tasks(self, services, neo4j_driver, clean_neo4j):
-        """get_goal_gantt_data returns the goal plus its FULFILLS_GOAL tasks (was a 500)."""
+    async def test_goal_gantt_includes_contributing_tasks(
+        self, services, neo4j_driver, clean_neo4j
+    ):
+        """get_goal_gantt_data returns the goal plus its CONTRIBUTES_TO_GOAL tasks (was a 500)."""
         user = await self._user(neo4j_driver, "user_gantt_goal")
         soon = date.today() + timedelta(days=5)
 
@@ -116,26 +116,35 @@ class TestGanttAggregationRoundTrip:
         task = (
             await services.tasks.create_task(
                 TaskCreateRequest(
-                    title="Implement the feature", due_date=soon, fulfills_goal_uid=goal.uid
+                    title="Implement the feature",
+                    due_date=soon,
+                    contributes_to_goal_uids=[goal.uid],
                 ),
                 user,
             )
         ).value
 
-        # A DIFFERENT user's task linked to the same goal UID must NOT leak into the
-        # response — get_tasks_for_goal returns the viewer's tasks only.
+        # A DIFFERENT user's task joined to the same goal must NOT leak into the response —
+        # get_tasks_for_goal returns the viewer's tasks only. The create door refuses that
+        # edge, so it is written straight into the graph: the read is the guard under test.
         other = await self._user(neo4j_driver, "user_gantt_intruder")
         foreign = (
             await services.tasks.create_task(
-                TaskCreateRequest(title="Foreign task", due_date=soon, fulfills_goal_uid=goal.uid),
-                other,
+                TaskCreateRequest(title="Foreign task", due_date=soon), other
             )
         ).value
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (t:Entity {uid: $t}), (g:Entity {uid: $g}) "
+                "CREATE (t)-[:CONTRIBUTES_TO_GOAL]->(g)",
+                t=foreign.uid,
+                g=goal.uid,
+            )
 
         result = await self._vis(services).get_goal_gantt_data(user_uid=user, goal_uid=goal.uid)
         assert result.is_ok, f"get_goal_gantt_data failed: {result}"
 
         ids = {t["id"] for t in result.value["tasks"]}
         assert goal.uid in ids  # the goal bar itself
-        assert task.uid in ids  # its fulfilling task — absent under the old phantom call
+        assert task.uid in ids  # its contributing task
         assert foreign.uid not in ids  # cross-user leak guard (Codex P1)

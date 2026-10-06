@@ -39,13 +39,13 @@ class TestEmptyBundle:
 class TestTargetMissing:
     """Cross-template ref points to a UID not attached to this PS."""
 
-    def test_task_fulfills_unknown_goal_template(self) -> None:
+    def test_task_contributes_to_unknown_goal_template(self) -> None:
         v = _PsValidator()
         tt = TaskTemplate(
             uid="ttpl_t1",
             title="Practice",
             status=_ACTIVE,
-            fulfills_goal_template_uid="gtpl_does_not_exist",
+            contributes_to_goal_template_uid="gtpl_does_not_exist",
         )
         bundle = TemplateBundle(
             ps_uid="ps_x", tasks=(tt,), goals=(), habits=(), events=(), choices=(), principles=()
@@ -53,7 +53,7 @@ class TestTargetMissing:
         violations = v.validate(bundle)
         assert len(violations) == 1
         assert violations[0]["violation"] == "target_missing"
-        assert violations[0]["field"] == "fulfills_goal_template_uid"
+        assert violations[0]["field"] == "contributes_to_goal_template_uid"
         assert violations[0]["referenced_uid"] == "gtpl_does_not_exist"
         assert violations[0]["template_type"] == "TaskTemplate"
 
@@ -77,14 +77,14 @@ class TestTargetMissing:
 class TestWrongType:
     """Cross-template ref resolves to an attached template of the wrong type."""
 
-    def test_task_fulfills_a_habit_not_a_goal(self) -> None:
+    def test_task_contributes_to_a_habit_not_a_goal(self) -> None:
         v = _PsValidator()
         ht = HabitTemplate(uid="htpl_morning", title="Morning routine", status=_ACTIVE)
         tt = TaskTemplate(
             uid="ttpl_x",
             title="Confused task",
             status=_ACTIVE,
-            fulfills_goal_template_uid="htpl_morning",  # habit, not goal
+            contributes_to_goal_template_uid="htpl_morning",  # habit, not goal
         )
         bundle = TemplateBundle(
             ps_uid="ps_x",
@@ -98,7 +98,7 @@ class TestWrongType:
         violations = v.validate(bundle)
         assert len(violations) == 1
         assert violations[0]["violation"] == "wrong_type"
-        assert violations[0]["field"] == "fulfills_goal_template_uid"
+        assert violations[0]["field"] == "contributes_to_goal_template_uid"
         assert "expected GoalTemplate, got HabitTemplate" in (violations[0]["hint"] or "")
 
     def test_event_milestone_for_a_choice_not_a_goal(self) -> None:
@@ -209,7 +209,7 @@ class TestAllValid:
             uid="ttpl_task",
             title="Task",
             status=_ACTIVE,
-            fulfills_goal_template_uid="gtpl_goal",
+            contributes_to_goal_template_uid="gtpl_goal",
             reinforces_habit_template_uid="htpl_daily",
             scheduled_event_template_uid="etpl_check",
         )
@@ -235,7 +235,7 @@ class TestErrorReportShape:
         tt = TaskTemplate(
             uid="ttpl_broken",
             title="Bad",
-            fulfills_goal_template_uid="gtpl_nope",
+            contributes_to_goal_template_uid="gtpl_nope",
         )
         bundle = TemplateBundle(
             ps_uid="ps_x",

@@ -83,7 +83,7 @@ class TestTaskBuilder:
         tt = TaskTemplate(
             uid="ttpl_x",
             title="Task with refs",
-            fulfills_goal_template_uid="gtpl_y",
+            contributes_to_goal_template_uid="gtpl_y",
             reinforces_habit_template_uid="htpl_z",
             scheduled_event_template_uid="etpl_w",
         )
@@ -94,8 +94,28 @@ class TestTaskBuilder:
             "etpl_w": "event_uid",
         }
         task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, uid_map)
-        assert task.fulfills_goal_uid == "goal_uid"
         assert task.scheduled_event_uid == "event_uid"
+
+    def test_goal_contribution_becomes_a_contributes_to_goal_cross_edge(self) -> None:
+        """The goal ref is a CONTRIBUTES_TO_GOAL edge, not a property.
+
+        ``_build`` sets no goal field on the instance; ``_compute_cross_edges`` resolves
+        the ref into a ``(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)`` edge to the spawned
+        goal, written by ``_persist``.
+        """
+        tt = TaskTemplate(
+            uid="ttpl_x",
+            title="Task with goal",
+            contributes_to_goal_template_uid="gtpl_y",
+        )
+        uid_map = {"ttpl_x": "task_uid", "gtpl_y": "goal_uid"}
+
+        task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, uid_map)
+        assert task.contributes_to_goal_uids == ()
+        assert task.contributes_to_goal_uid is None
+
+        edges = _compute_cross_edges(tt, TASK_SPEC.cross_edges, uid_map)
+        assert edges == [("CONTRIBUTES_TO_GOAL", "goal_uid")]
 
     def test_habit_reinforcement_becomes_reinforces_habit_cross_edge(self) -> None:
         """Habit reinforcement is a REINFORCES_HABIT edge, not a property.

@@ -21,7 +21,7 @@ Pinned:
   files — publishes ZERO. Without prior-status honesty the feature would be
   worse than the gap it closes;
 - a file edited ``completed`` → ``in_progress`` has its completion stamp
-  removed and publishes one ``TaskReopened`` (goal progress recomputes on it) and
+  removed and publishes one ``TaskReopened`` (the user context is invalidated on it) and
   no completion — and re-ingesting the now-open file publishes nothing;
 - a file authored open BESIDE a stamp loses that stamp on its FIRST ingest,
   where no prior status exists and no transition can be read — and a completed
@@ -303,8 +303,8 @@ async def test_force_reingest_of_completed_files_publishes_zero(
     """The pin that matters most: ``--force`` re-processes unchanged files.
 
     Without a real prior status every forced sync would re-announce the entire
-    vault's completion history to goal progress, PS engagement auto-complete and
-    the productivity stamps.
+    vault's completion history to PS engagement auto-complete and the productivity
+    stamps.
     """
     vault = tmp_path / "vault"
     vault.mkdir()

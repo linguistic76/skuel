@@ -135,15 +135,15 @@ relationship Cypher. Cypher query strings use f-string interpolation:
 domain family. The families overlap (`ULTIMATE_PATH` is both an ownership and a life-path edge)
 and are a reading convenience, not a partition the code knows about: the classifications the
 code branches on are the trait predicates on the enum (`is_knowledge_relationship`,
-`is_blocking_relationship`, `is_lateral_relationship`, …). They classify 59 of the 168 members
+`is_blocking_relationship`, `is_lateral_relationship`, …). They classify 59 of the 167 members
 between them and are not a cover: the generated contract carries a `traits` key only for a
-relationship at least one predicate matches, so 109 entries have none.
+relationship at least one predicate matches, so 108 entries have none.
 
 | Group | Examples |
 |-------|---------|
 | Knowledge | `REQUIRES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, `ENABLES_KNOWLEDGE` |
-| Task | `HAS_SUBTASK`, `SUBTASK_OF`, `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL`, `FULFILLS_GOAL` |
-| Goal | `HAS_SUBGOAL`, `SUBGOAL_OF`, `SUPPORTS_GOAL` (into the goal, from a Habit, a Principle or a PathStep), `ALIGNED_WITH_PATH` |
+| Task | `HAS_SUBTASK`, `SUBTASK_OF`, `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL` (task → goal, shared with events) |
+| Goal | `HAS_SUBGOAL`, `SUBGOAL_OF`, `SUPPORTS_GOAL` (into the goal, from a Habit, a Principle or a PathStep), `CONTRIBUTES_TO_GOAL` (into the goal, from a Task or an Event), `ALIGNED_WITH_PATH` |
 | Habit | `HAS_SUBHABIT`, `SUBHABIT_OF`, `REQUIRES_PREREQUISITE_HABIT`, `ENABLES_HABIT`, `EMBODIES_PRINCIPLE`, `UNLOCKED_ACHIEVEMENT`, `EARNED_BADGE` |
 | Event | `HAS_SUBEVENT`, `SUBEVENT_OF`, `CONFLICTS_WITH`, `FUNDS_EVENT`, `ATTENDS` |
 | Principle | `HAS_SUBPRINCIPLE`, `SUBPRINCIPLE_OF`, `SUPPORTS_PRINCIPLE`, `SUPPORTS_GOAL` (principle → goal), `INFORMS_CHOICE` (principle → choice), `REFLECTS_ON`, `REVEALS_CONFLICT` |

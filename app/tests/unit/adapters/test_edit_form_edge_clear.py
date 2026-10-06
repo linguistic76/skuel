@@ -8,7 +8,7 @@ decides whether "off" survives the submit at all.
 Two controls have to post something for "off" to reach the write:
 
 - An **edge picker** clear (``entityPicker.clear()`` in ``static/js/skuel.js``) blanks its
-  hidden input, so the browser posts ``fulfills_goal_uid=""``. ``parse_form_body`` maps an
+  hidden input, so the browser posts ``reinforces_habit_uid=""``. ``parse_form_body`` maps an
   empty string to ``None``, the field lands in ``model_fields_set``, and ``to_intent()``
   carries ``None`` — the ADR-066 explicit-clear signal both facades turn into an edge
   deletion (``TasksService._sync_relationship_edges`` / ``EventsService._replace_edge``).
@@ -17,7 +17,9 @@ Two controls have to post something for "off" to reach the write:
   field stays ``UNSET``, and the box cannot be turned off.
 
 The mirror obligation: a field the edit form does **not** render stays ``UNSET``, so an
-unrendered list field is never blanked into an edge wipe on save.
+unrendered list field is never blanked into an edge wipe on save. The Tasks edit form
+renders no goal picker for that reason: ``contributes_to_goal_uids`` is a full replace of
+a task's goals, and a one-goal picker would wipe the rest.
 
 Picker names are DERIVED from the rendered edit form rather than typed here, so renaming a
 field on only one side of the seam fails the test instead of quietly dropping the value.
@@ -39,9 +41,9 @@ from core.models.event.event import Event
 from core.models.event.event_request import EventUpdateRequest
 from core.models.sentinels import UNSET
 from core.models.task.task import Task
-from core.models.task.task_request import TaskUpdateRequest
+from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from ui.activities.events_form import EventEditForm
-from ui.activities.tasks_form import TaskEditForm
+from ui.activities.tasks_form import TaskCreateForm, TaskEditForm
 
 
 def _now() -> datetime:
@@ -58,7 +60,6 @@ def task() -> Task:
         priority=Priority.HIGH,
         status=EntityStatus.ACTIVE,
         created_at=_now(),
-        fulfills_goal_uid="goal_y",
     )
 
 
@@ -120,10 +121,10 @@ async def _parse[T](body: dict[str, str], schema: type[T]) -> T:
 
 
 class TestTasksEditFormEdgeClear:
-    def test_edit_form_renders_both_pickers(self, task: Task) -> None:
-        """The derivation the clear tests rest on: two pickers, named as the request is."""
+    def test_edit_form_renders_the_habit_picker_only(self, task: Task) -> None:
+        """The derivation the clear tests rest on: one picker, named as the request is."""
         pickers = _picker_names(to_xml(TaskEditForm(task, habit_uid="habit_z")))
-        assert pickers == {"fulfills_goal_uid", "reinforces_habit_uid"}
+        assert pickers == {"reinforces_habit_uid"}
         assert pickers <= set(TaskUpdateRequest.model_fields), (
             "A picker posts a name TaskUpdateRequest does not declare — Pydantic would "
             "drop it and the edge would never change"
@@ -135,36 +136,56 @@ class TestTasksEditFormEdgeClear:
 
         intent = (await _parse(body, TaskUpdateRequest)).to_intent()
 
-        assert intent.fulfills_goal_uid is None, "cleared goal picker must clear the edge"
         assert intent.reinforces_habit_uid is None, "cleared habit picker must clear the edge"
 
     async def test_a_picked_uid_still_reaches_the_intent(self, task: Task) -> None:
         """The clear mapping must not swallow a real selection."""
-        body = {
-            "title": task.title,
-            "fulfills_goal_uid": "goal_y",
-            "reinforces_habit_uid": "habit_z",
-        }
+        body = {"title": task.title, "reinforces_habit_uid": "habit_z"}
 
         intent = (await _parse(body, TaskUpdateRequest)).to_intent()
 
-        assert intent.fulfills_goal_uid == "goal_y"
         assert intent.reinforces_habit_uid == "habit_z"
 
     async def test_fields_the_form_does_not_render_stay_untouched(self, task: Task) -> None:
         """Absent ≠ blank: a field off the form is UNSET, never an accidental clear.
 
-        ``applies_knowledge_uids`` is on ``TaskUpdateRequest`` but on no edit section, so
-        it must never reach ``to_changes()`` — were the form to render it as an empty
-        textarea it would arrive as ``[]`` and wipe every APPLIES_KNOWLEDGE edge on save.
+        ``applies_knowledge_uids`` and ``contributes_to_goal_uids`` are on
+        ``TaskUpdateRequest`` but on no edit section, so neither may reach the intent — were
+        the form to render one as an empty input it would arrive as ``[]`` and wipe every
+        APPLIES_KNOWLEDGE / CONTRIBUTES_TO_GOAL edge on save.
         """
         rendered = _named_fields(to_xml(TaskEditForm(task, habit_uid="habit_z")))
         assert "applies_knowledge_uids" not in rendered
+        assert "contributes_to_goal_uids" not in rendered
 
         intent = (await _parse({"title": task.title}, TaskUpdateRequest)).to_intent()
 
         assert intent.applies_knowledge_uids is UNSET
+        assert intent.contributes_to_goal_uids is UNSET
         assert "applies_knowledge_uids" not in intent.to_changes()
+
+
+class TestTasksCreateFormGoalPicker:
+    """The create form's goal picker posts one uid into a list field."""
+
+    def test_the_picker_posts_the_request_field(self) -> None:
+        pickers = _picker_names(to_xml(TaskCreateForm()))
+        assert "contributes_to_goal_uids" in pickers
+        assert pickers <= set(TaskCreateRequest.model_fields)
+
+    async def test_a_picked_goal_is_a_one_goal_list(self) -> None:
+        body = {"title": "Write tests", "contributes_to_goal_uids": "goal_y"}
+
+        request = await _parse(body, TaskCreateRequest)
+
+        assert request.contributes_to_goal_uids == ["goal_y"]
+
+    async def test_an_empty_picker_is_no_goal(self) -> None:
+        body = {"title": "Write tests", "contributes_to_goal_uids": ""}
+
+        request = await _parse(body, TaskCreateRequest)
+
+        assert request.contributes_to_goal_uids == []
 
 
 # =============================================================================

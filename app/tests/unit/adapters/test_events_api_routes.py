@@ -155,14 +155,14 @@ class TestLinkGoal:
 
         response = client.post(
             "/api/events/link-goal",
-            json={"event_uid": _EVENT_UID, "goal_uid": _GOAL_UID, "contribution_weight": 0.75},
+            json={"event_uid": _EVENT_UID, "goal_uid": _GOAL_UID},
             headers=_csrf_headers(client),
         )
 
         assert response.status_code == 200
         events_service.verify_ownership.assert_awaited_once_with(_EVENT_UID, _USER_UID)
         goals_service.verify_ownership.assert_awaited_once_with(_GOAL_UID, _USER_UID)
-        events_service.link_event_to_goal.assert_awaited_once_with(_EVENT_UID, _GOAL_UID, 0.75)
+        events_service.link_event_to_goal.assert_awaited_once_with(_EVENT_UID, _GOAL_UID)
         assert response.json() == {"linked": True}
 
 

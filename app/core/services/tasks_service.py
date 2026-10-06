@@ -529,9 +529,10 @@ class TasksService(
         ``RelationshipName`` values — NOT ``UnifiedRelationshipService.create_relationship``,
         whose dynamic ``link_task_to_<key>`` backend method does not exist for tasks.
 
-        Returns the goals whose ``CONTRIBUTES_TO_GOAL`` edge was removed — the caller
+        Returns the goals the task contributed to before a goal-set replace — the caller
         announces them, since a goal that lost a contribution cannot be found from the
-        task afterwards.
+        task afterwards. A replace that fails after its deletes began announces them
+        itself before reporting the failure.
         """
         candidates: list[LinkEdge] = []
 
@@ -572,11 +573,21 @@ class TasksService(
         for relationship_key, uids, relationship, allowed_labels in edge_sets:
             if uids is UNSET:
                 continue
+            if relationship is RelationshipName.CONTRIBUTES_TO_GOAL:
+                # Read the goal set before any delete: a delete that fails part-way has
+                # still unlinked some goals, and every goal the task held is announced
+                # (a recount of one it still holds changes nothing).
+                prior = await self.relationships.get_related_uids(
+                    relationship_key, EntityUID(task_uid)
+                )
+                if prior.is_error:
+                    return Result.fail(prior)
+                removed_goals = list(prior.value or [])
             removed = await self._delete_edges_of_kind(relationship_key, task_uid)
             if removed.is_error:
+                if relationship is RelationshipName.CONTRIBUTES_TO_GOAL:
+                    await self._announce_goal_set_change(task_uid, owner_uid, removed_goals)
                 return Result.fail(removed)
-            if relationship is RelationshipName.CONTRIBUTES_TO_GOAL:
-                removed_goals = removed.value
             candidates.extend(
                 LinkEdge(
                     (task_uid, far_uid, relationship.value, None),
@@ -597,8 +608,28 @@ class TasksService(
             if permitted:
                 batch = await self.backend.create_relationships_batch(permitted)
                 if batch.is_error:
+                    # The old goal edges are already gone: announce the goals that lost
+                    # the task before reporting the failure, or their tallies keep
+                    # counting it.
+                    if edges.contributes_to_goal_uids is not UNSET:
+                        await self._announce_goal_set_change(task_uid, owner_uid, removed_goals)
                     return Result.fail(batch)
         return Result.ok(removed_goals)
+
+    async def _announce_goal_set_change(
+        self, task_uid: str, owner_uid: str, removed_goals: list[str]
+    ) -> None:
+        """Announce a replaced goal set: the goals the task left, and the task itself
+        (the handler reads the goals it contributes to now)."""
+        await publish_event(
+            self.event_bus,
+            GoalContributionsChanged(
+                user_uid=UserUID(owner_uid),
+                goal_uids=tuple(removed_goals),
+                contributor_uids=(task_uid,),
+            ),
+            self.logger,
+        )
 
     async def _publish_edge_only_update(
         self,
@@ -652,15 +683,7 @@ class TasksService(
         if sync.is_error:
             return Result.fail(sync)
         if edges.contributes_to_goal_uids is not UNSET:
-            await publish_event(
-                self.event_bus,
-                GoalContributionsChanged(
-                    user_uid=task.user_uid,
-                    goal_uids=tuple(sync.value),
-                    contributor_uids=(task_uid,),
-                ),
-                self.logger,
-            )
+            await self._announce_goal_set_change(task_uid, task.user_uid, sync.value)
         if not wrote_properties:  # edge-only: core.update_task didn't fire TaskUpdated
             await self._publish_edge_only_update(task, edges)
         return Result.ok(task)

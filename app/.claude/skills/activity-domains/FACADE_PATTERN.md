@@ -21,23 +21,17 @@ class TasksService(
     async def get_task(self, task_uid: str) -> Result[Task]:
         return await self.core.get_task(task_uid)
 
-    async def link_task_to_goal(
-        self,
-        task_uid: str,
-        goal_uid: str,
-        contribution_percentage: float = 0.1,
-        milestone_uid: str | None = None,
-    ) -> Result[bool]:
+    async def link_task_to_goal(self, task_uid: str, goal_uid: str) -> Result[bool]:
         # The facade names the explicit registry method_key and what the far end must be;
         # create_relationship validates the key and admits the far end (exists, a Goal, the
-        # task owner's own) before it writes.
-        return await self.relationships.create_relationship(
-            "contributes_to_goal",
-            task_uid,
-            goal_uid,
-            {"contribution_percentage": contribution_percentage, "milestone_uid": milestone_uid},
-            far_end=GOAL_FAR_END,
+        # task owner's own) before it writes. The edge carries no properties; a written link
+        # announces GoalContributionsChanged so the goal's tally counts the task.
+        result = await self.relationships.create_relationship(
+            "contributes_to_goal", task_uid, goal_uid, far_end=GOAL_FAR_END
         )
+        if result.is_ok:
+            await self._announce_goal_contributions(task_uid, (goal_uid,))
+        return result
 ```
 
 ## Common Sub-services (All 6 Domains)

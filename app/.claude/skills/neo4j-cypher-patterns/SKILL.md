@@ -56,7 +56,7 @@ Finance is a Firefly III sidecar — there is no `:Expense` label.
 (habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Ku)
 
 // Goal hierarchy
-(task:Task)-[:FULFILLS_GOAL]->(goal:Goal)
+(task:Task)-[:CONTRIBUTES_TO_GOAL]->(goal:Goal)
 (habit:Habit)-[:SUPPORTS_GOAL]->(goal:Goal)
 (goal:Goal)-[:SUBGOAL_OF]->(parent:Goal)
 
@@ -106,7 +106,7 @@ ORDER BY t.priority DESC, t.due_date ASC
 // Get task with its full neighborhood
 MATCH (t:Task {uid: $uid})
 OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
-OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
+OPTIONAL MATCH (t)-[:CONTRIBUTES_TO_GOAL]->(g:Goal)
 OPTIONAL MATCH (t)-[:DEPENDS_ON]->(dep:Task)
 RETURN t,
        collect(DISTINCT ku) as applied_knowledge,
@@ -227,7 +227,7 @@ end of an edge (`tests/integration/routes/test_link_reader_far_nodes.py`). For a
 | `HIERARCHICAL` | HAS_SUBTASK, HAS_SUBGOAL, HAS_SUBHABIT, HAS_SUBEVENT, HAS_SUBCHOICE, HAS_SUBPRINCIPLE, HAS_STEP, ORGANIZES |
 | `PREREQUISITE` | REQUIRES_KNOWLEDGE, PREREQUISITE_FOR, ENABLES |
 | `PRACTICE` | REINFORCES_KNOWLEDGE, APPLIES_KNOWLEDGE |
-| `GOAL_ACHIEVEMENT` | FULFILLS_GOAL, SUPPORTS_GOAL, REQUIRES_KNOWLEDGE, SUBGOAL_OF, CONTRIBUTES_TO_GOAL |
+| `GOAL_ACHIEVEMENT` | SUPPORTS_GOAL, REQUIRES_KNOWLEDGE, SUBGOAL_OF, CONTRIBUTES_TO_GOAL |
 | else (`EXPLORATORY`/`SPECIFIC`/`AGGREGATION`/`RELATIONSHIP`) | generic traversal, no edge filter |
 
 (The rows are transcribed from `_INTENT_EDGE_SETS`; the dict is the authority — re-read it before relying on a row.)
@@ -335,13 +335,13 @@ MATCH (t:Task {uid: $uid})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 // GOOD - one row per task
 MATCH (t:Task {uid: $uid})
 OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
-OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
+OPTIONAL MATCH (t)-[:CONTRIBUTES_TO_GOAL]->(g:Goal)
 RETURN t, collect(DISTINCT ku) as knowledge, collect(DISTINCT g) as goals
 
 // BAD - cartesian product of knowledge × goals
 MATCH (t:Task {uid: $uid})
 OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
-OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
+OPTIONAL MATCH (t)-[:CONTRIBUTES_TO_GOAL]->(g:Goal)
 RETURN t, ku, g
 ```
 

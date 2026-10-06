@@ -1,23 +1,41 @@
 ---
 title: "Goal Tally Membership Changes Don't Recompute"
-updated: 2026-10-04
-status: "registered — taken on by the Activity links arc, PR 4 (activity-links-arc.md): its trigger fired when the arc ruled that tasks and events both contribute to a goal's tally"
+updated: 2026-10-06
+status: "done — closed by the Activity links arc PR 4: every door that changes a goal's contributions publishes GoalContributionsChanged, the tally's one trigger, and ./dev reconcile-goal-tallies repairs a lost one"
 registered: "2026-09-23 (Codex finding on #1408, round 3)"
 trigger: "a report of a goal whose stored tally disagrees with its linked tasks, OR the next change to how goal progress is triggered"
-check: "a TASK_BASED goal's stored tally (current_value/target_value) equals its live FULFILLS_GOAL tally after each of: linking a task, unlinking one, deleting one, and editing completion_updates_goal — with no linked task changing status"
+check: "a TASK_BASED goal's stored tally (current_value/target_value) equals its live CONTRIBUTES_TO_GOAL tally after each of: linking a task or event, unlinking one, deleting one, and editing completion_updates_goal — with no contribution changing status"
 ---
 
 # Goal Tally Membership Changes Don't Recompute
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+**Closed by the [Activity links arc](../activity-links-arc.md), PR 4** (§ PR 4 — "Contributes").
+A goal's tally is its owner's tasks and events that `CONTRIBUTES_TO_GOAL` the goal, and it has one
+trigger: `GoalContributionsChanged` (`goal_uids`, `contributor_uids`), whose one subscriber,
+`GoalsProgressService.handle_goal_contributions_changed`, recomputes each goal named and each goal a
+named contributor contributes to, under the goal's lock
+(`GoalsBackend.recompute_progress_from_contributions`). Every door that changes the tally publishes
+it:
 
-**Taken on by the [Activity links arc](activity-links-arc.md), PR 4** (§ PR 4 — "Contributes"): the tally widens to contributing tasks and events, and every membership change recomputes.
+- a status write that moves a task or event between done, not done and out (the task and event
+  status chokepoints, bulk completion, the missed-habit-event writer, the vault ingest door);
+- task and event create with goals; the task update's goal list (a full replace) and a change to
+  `completion_updates_goal`; the task and event link doors and their unlink service methods;
+- task and event delete, with the goal uids captured before the edge goes;
+- the vault: a `connections.contributes_to_goal` target added or retracted, a file deleted, a
+  content-vault Edge file; and a PathStep engagement's spawn, discard and abandon.
+
+The trigger is best-effort, so `./dev reconcile-goal-tallies`
+(`GoalsProgressService.reconcile_goal_tallies`) recomputes every TASK_BASED goal whose stored tally
+disagrees with its contributions. A goal whose last contribution leaves is written 0 / 0, 0%. The
+dashboard's tally figures are now `total_contributions` / `completed_contributions`
+(`GoalsBackend.get_contribution_tally`). The record below is the case as registered.
 
 ## What happens
 
 A TASK_BASED goal's progress is recomputed from its linked-task tally under the goal's lock
 (`GoalsBackend.recompute_progress_from_linked_tasks`,
-[done/goal-progress-recompute-lost-update.md](done/goal-progress-recompute-lost-update.md)). The
+[goal-progress-recompute-lost-update.md](goal-progress-recompute-lost-update.md)). The
 recompute runs only when a linked task changes status: on `TaskCompleted` and on `TaskReopened`.
 Four changes alter the tally without a status transition, and none of them recomputes it:
 

@@ -18,8 +18,8 @@ Scope of the cross-domain block is cross-domain ONLY: same-domain task→task de
 were dropped from the path-aware ``TaskCrossContext`` in this migration.
 
 These tests seed a real graph, run the migrated method against it, and assert:
-  * the path-aware cross-domain block populates from the seeded edges, with the two goal-link
-    directions (CONTRIBUTES_TO_GOAL + FULFILLS_GOAL) folded in (positive lock-in);
+  * the path-aware cross-domain block populates from the seeded edges, with every goal the
+    task contributes to (CONTRIBUTES_TO_GOAL, two goals) listed (positive lock-in);
   * the rich metric blocks (cascade_impact / path_aware_context) are non-empty;
   * the existing readiness keys (``knowledge_prerequisites`` / ``has_prerequisites``) and the
     task-field ``insights`` dict are still present (composition, not replacement);
@@ -56,7 +56,7 @@ TK_TASK_BARE = TK + "task_bare"  # negative control: no cross-domain edges
 TK_KU_REQ = TK + "ku_req"  # task -[REQUIRES_KNOWLEDGE]-> ku (required_knowledge)
 TK_KU_APP = TK + "ku_app"  # task -[APPLIES_KNOWLEDGE]-> ku (applied_knowledge)
 TK_GOAL_CONTRIB = TK + "goal_contrib"  # task -[CONTRIBUTES_TO_GOAL]-> goal (contributing_goals)
-TK_GOAL_FULFILL = TK + "goal_fulfill"  # task -[FULFILLS_GOAL]-> goal (goal_context)
+TK_GOAL_SECOND = TK + "goal_second"  # a second CONTRIBUTES_TO_GOAL from the same task
 
 
 @pytest.fixture
@@ -115,7 +115,7 @@ async def _seed_task_graph(neo4j_driver) -> None:
         )
         for uid, label, etype in [
             (TK_GOAL_CONTRIB, "Goal", "goal"),
-            (TK_GOAL_FULFILL, "Goal", "goal"),
+            (TK_GOAL_SECOND, "Goal", "goal"),
         ]:
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
@@ -132,7 +132,7 @@ async def _seed_task_graph(neo4j_driver) -> None:
             (TK_TASK, "REQUIRES_KNOWLEDGE", TK_KU_REQ),  # -> required_knowledge
             (TK_TASK, "APPLIES_KNOWLEDGE", TK_KU_APP),  # -> applied_knowledge
             (TK_TASK, "CONTRIBUTES_TO_GOAL", TK_GOAL_CONTRIB),  # -> contributing_goals
-            (TK_TASK, "FULFILLS_GOAL", TK_GOAL_FULFILL),  # -> goal_context
+            (TK_TASK, "CONTRIBUTES_TO_GOAL", TK_GOAL_SECOND),  # -> contributing_goals
         ]:
             await s.run(
                 f"MATCH (a {{uid:$a}}),(b {{uid:$b}}) CREATE (a)-[:{rel} {{confidence:0.95}}]->(b)",
@@ -146,7 +146,7 @@ async def test_task_insights_compose_readiness_and_cross_domain(
     neo4j_driver, rel_backend, clean_neo4j
 ):
     """get_domain_insights surfaces the readiness keys AND a populated path-aware
-    cross-domain block (knowledge + both goal-link directions) with rich metrics."""
+    cross-domain block (knowledge + every goal the task contributes to) with rich metrics."""
     await _seed_task_graph(neo4j_driver)
     svc = _harness(rel_backend, TK_TASK)
 
@@ -169,7 +169,7 @@ async def test_task_insights_compose_readiness_and_cross_domain(
     assert ctx["total_connections"] == 4  # 2 knowledge + 2 goals
     assert ctx["required_knowledge"] == [TK_KU_REQ]
     assert ctx["applied_knowledge"] == [TK_KU_APP]
-    assert set(ctx["contributing_goals"]) == {TK_GOAL_CONTRIB, TK_GOAL_FULFILL}
+    assert set(ctx["contributing_goals"]) == {TK_GOAL_CONTRIB, TK_GOAL_SECOND}
 
     metrics = cd["metrics"]
     assert metrics["required_knowledge_count"] == 1

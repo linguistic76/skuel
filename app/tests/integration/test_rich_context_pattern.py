@@ -71,7 +71,7 @@ class TestRichContextPattern:
             MATCH (ku:Entity {uid: $ku_uid})
             MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})
             CREATE (task)-[:APPLIES_KNOWLEDGE {confidence: 0.85}]->(ku)
-            CREATE (task)-[:FULFILLS_GOAL]->(goal)
+            CREATE (task)-[:CONTRIBUTES_TO_GOAL]->(goal)
             """,
             {"task_uid": task_dto.uid, "ku_uid": ku_dto.uid, "goal_uid": goal_dto.uid},
         )
@@ -126,7 +126,7 @@ class TestRichContextPattern:
             """
             MATCH (task:Entity {uid: $task_uid, entity_type: 'task'})
             MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})
-            CREATE (task)-[:FULFILLS_GOAL]->(goal)
+            CREATE (task)-[:CONTRIBUTES_TO_GOAL]->(goal)
             """,
             {"task_uid": task_dto.uid, "goal_uid": goal_dto.uid},
         )

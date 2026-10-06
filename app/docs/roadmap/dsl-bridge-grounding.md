@@ -1,6 +1,6 @@
 ---
 title: "DSL-Bridge Grounding — Principles/Recent-Topics"
-updated: 2026-09-05
+updated: 2026-10-06
 status: "registered"
 registered: 2026-08-28
 ruled: 2026-09-02
@@ -19,7 +19,7 @@ deferred in that PR's thread and lived only in memory; one is now retired by rul
 registered.
 
 1. **Goal-LINK persistence — RETIRED 2026-09-02 (Mike): goal links stay user-authored only.**
-   On the extraction path a `FULFILLS_GOAL` edge comes from one source only: an explicit
+   On the extraction path a task's goal edge (`CONTRIBUTES_TO_GOAL`) comes from one source only: an explicit
    `@link(goal:<uid>)` the user wrote (`ActivityDSLParser.get_linked_goals`,
    `core/services/dsl/activity_dsl_parser.py`); `@goal(...)` stays a dropped attribute and the
    bridge never infers a link. (Goal links written elsewhere — the task form, goal→task
@@ -30,7 +30,7 @@ registered.
    (`LLMDSLBridgeService._parse_llm_output` drops any the model emits, and the templates in
    `core/prompts/templates/dsl_*` teach none), so the model has no channel to a goal link. The
    2026-08-28 measurement (56 extracted tasks, 0 with any edge
-   to a Goal; the 2 live `FULFILLS_GOAL` edges hand-authored) is the accepted design, not a
+   to a Goal; the 2 live task → goal edges hand-authored) is the accepted design, not a
    parked cost: an edge the user did not author is a different kind of write. Do not build
    UID-aware grounding, a model-emitted `@link(goal:…)`, or a title→UID resolver on either
    bridge path. The ruling is also recorded at the code site (`grounding.py` module docstring),

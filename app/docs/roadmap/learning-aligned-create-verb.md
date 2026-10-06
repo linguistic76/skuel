@@ -1,6 +1,6 @@
 ---
 title: The learning-aligned create verb — ideas preserved from the deleted bridge create half
-updated: '2026-09-14'
+updated: '2026-10-06'
 category: roadmap
 status: UNSCHEDULED — build when a lived workflow demands it
 related_docs:
@@ -88,8 +88,8 @@ revealed `POST /api/goals/create-with-scheduling` was LIVE on one of them, so
 primitive (the #969 treatment), not the backend:**
 - `GoalTaskGenerator.generate_tasks_for_goal` (#1335) takes the Tasks facade and
   persists through its entity door (`TasksCoreService.create`) — the creation
-  rule, FULFILLS_GOAL / REINFORCES_HABIT (the habit link rides on the entity as
-  `reinforces_habit_uid`), `TaskCreated` and the embedding request all reach
+  rule, CONTRIBUTES_TO_GOAL / REINFORCES_HABIT (both links ride on the entity, as
+  `contributes_to_goal_uids` and `reinforces_habit_uid`), `TaskCreated` and the embedding request all reach
   generated tasks. Surfaced by Codex as the creation rule's last exempt writer.
 - `HabitEventScheduler.schedule_events_for_habit` and
   `schedule_streak_maintenance` (the PR after #1335) take the Events facade and

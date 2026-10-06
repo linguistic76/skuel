@@ -14,7 +14,7 @@ One user (``user.xdq``) owns:
     - INSPIRES_HABIT -> habit_1
     - INFORMS_CHOICE -> choice_1
 - goal_1 ("Ship v2")
-    - goal_1 <-[FULFILLS_GOAL]- task_1 (active)
+    - goal_1 <-[CONTRIBUTES_TO_GOAL]- task_1 (active)
     - goal_1 <-[CONTRIBUTES_TO_GOAL]- task_2 (active)
 - goal_2 ("Stay Healthy") — no task links
 - task_1 ("Write tests") — status: active
@@ -22,7 +22,7 @@ One user (``user.xdq``) owns:
 - task_2 ("Review PR") — status: active
     - REQUIRES_KNOWLEDGE -> ku_1
 - task_3 ("Old cleanup") — status: completed (terminal)
-    - FULFILLS_GOAL -> goal_1
+    - CONTRIBUTES_TO_GOAL -> goal_1
 - habit_1 ("Morning reading") — status: active, streak 12, rate 0.85
     - REINFORCES_KNOWLEDGE -> ku_1
     - REINFORCES_KNOWLEDGE -> ku_2
@@ -234,25 +234,15 @@ async def graph(neo4j_driver, clean_neo4j):
             """,
         )
 
-        # Task -> Goal: FULFILLS_GOAL, CONTRIBUTES_TO_GOAL
-        await s.run(
-            """
-            MATCH (t:Entity {uid: 'task_tests_xdq'}), (g:Entity {uid: 'goal_ship_xdq'})
-            CREATE (t)-[:FULFILLS_GOAL]->(g)
-            """,
-        )
-        await s.run(
-            """
-            MATCH (t:Entity {uid: 'task_review_xdq'}), (g:Entity {uid: 'goal_ship_xdq'})
-            CREATE (t)-[:CONTRIBUTES_TO_GOAL]->(g)
-            """,
-        )
-        await s.run(
-            """
-            MATCH (t:Entity {uid: 'task_cleanup_xdq'}), (g:Entity {uid: 'goal_ship_xdq'})
-            CREATE (t)-[:FULFILLS_GOAL]->(g)
-            """,
-        )
+        # Task -> Goal: CONTRIBUTES_TO_GOAL
+        for task_uid in ("task_tests_xdq", "task_review_xdq", "task_cleanup_xdq"):
+            await s.run(
+                """
+                MATCH (t:Entity {uid: $task_uid}), (g:Entity {uid: 'goal_ship_xdq'})
+                CREATE (t)-[:CONTRIBUTES_TO_GOAL]->(g)
+                """,
+                task_uid=task_uid,
+            )
 
         # Task -> KU: APPLIES_KNOWLEDGE, REQUIRES_KNOWLEDGE
         await s.run(
@@ -414,17 +404,27 @@ class TestTasksApplyingKnowledge:
 
 @pytest.mark.asyncio
 class TestGoalsForTasksBatch:
-    async def test_batch_finds_goals_via_fulfills_and_contributes(self, service, graph):
-        # task_tests_xdq FULFILLS_GOAL goal_ship_xdq
-        # task_review_xdq CONTRIBUTES_TO_GOAL goal_ship_xdq
+    async def test_batch_finds_the_goals_each_task_contributes_to(
+        self, service, graph, neo4j_driver
+    ):
+        # Both tasks CONTRIBUTES_TO_GOAL goal_ship_xdq. A retired FULFILLS_GOAL edge left
+        # on task_tests_xdq (the shape a pre-migration graph holds) is not read.
+        async with neo4j_driver.session() as s:
+            await s.run(
+                """
+                MATCH (t:Entity {uid: 'task_tests_xdq'}), (g:Entity {uid: 'goal_health_xdq'})
+                CREATE (t)-[:FULFILLS_GOAL]->(g)
+                """
+            )
+
         result = await service.get_goals_for_tasks_batch(
             task_uids=["task_tests_xdq", "task_review_xdq"]
         )
 
         assert result.is_ok
         goals_by_task = result.value
-        assert "goal_ship_xdq" in {g.uid for g in goals_by_task["task_tests_xdq"]}
-        assert "goal_ship_xdq" in {g.uid for g in goals_by_task["task_review_xdq"]}
+        assert {g.uid for g in goals_by_task["task_tests_xdq"]} == {"goal_ship_xdq"}
+        assert {g.uid for g in goals_by_task["task_review_xdq"]} == {"goal_ship_xdq"}
 
     async def test_missing_task_absent_from_map(self, service, graph):
         result = await service.get_goals_for_tasks_batch(task_uids=["task_nonexistent"])
@@ -441,18 +441,45 @@ class TestGoalsForTasksBatch:
 
 @pytest.mark.asyncio
 class TestCountActiveTasksForGoal:
-    async def test_counts_only_active_fulfills(self, service, graph):
-        """Only FULFILLS_GOAL edges count, not CONTRIBUTES_TO_GOAL.
+    async def test_counts_open_contributing_tasks_and_no_events(self, service, graph, neo4j_driver):
+        """Open = any status but COMPLETED, CANCELLED and FAILED; only TASKS block.
 
-        goal_ship_xdq has 3 task links:
-        - task_tests (active, FULFILLS_GOAL) -> counted
-        - task_review (active, CONTRIBUTES_TO_GOAL) -> NOT counted
-        - task_cleanup (completed, FULFILLS_GOAL) -> excluded by status
+        goal_ship_xdq's contributors, by ``CONTRIBUTES_TO_GOAL`` unless noted:
+        - task_tests (active), task_review (active) -> counted
+        - task_draft (draft), task_postponed (postponed) -> counted: still part of the plan
+        - task_cleanup (completed), task_failed (failed), task_cancelled (cancelled) -> not
+        - event_open (an active event) -> not: an event does not block cancelling a goal
+        - task_retired (active, a retired FULFILLS_GOAL edge) -> not: the edge is not read
+
+        4 — a rule reading FULFILLS_GOAL counts 1, and one counting only
+        ACTIVE/SCHEDULED/BLOCKED/PAUSED over these edges counts 2.
         """
+        async with neo4j_driver.session() as s:
+            for uid, entity_type, status, edge in [
+                ("task_draft_xdq", "task", "draft", "CONTRIBUTES_TO_GOAL"),
+                ("task_postponed_xdq", "task", "postponed", "CONTRIBUTES_TO_GOAL"),
+                ("task_failed_xdq", "task", "failed", "CONTRIBUTES_TO_GOAL"),
+                ("task_cancelled_xdq", "task", "cancelled", "CONTRIBUTES_TO_GOAL"),
+                ("event_open_xdq", "event", "active", "CONTRIBUTES_TO_GOAL"),
+                ("task_retired_xdq", "task", "active", "FULFILLS_GOAL"),
+            ]:
+                await s.run(
+                    f"""
+                    MATCH (g:Entity {{uid: 'goal_ship_xdq'}})
+                    CREATE (c:Entity {{uid: $uid, entity_type: $entity_type, title: $uid,
+                                       status: $status, user_uid: $user_uid}})
+                    CREATE (c)-[:{edge}]->(g)
+                    """,
+                    uid=uid,
+                    entity_type=entity_type,
+                    status=status,
+                    user_uid=USER_UID,
+                )
+
         result = await service.count_active_tasks_for_goal(goal_uid="goal_ship_xdq")
 
         assert result.is_ok
-        assert result.value.count == 1
+        assert result.value.count == 4
 
     async def test_goal_with_no_tasks(self, service, graph):
         result = await service.count_active_tasks_for_goal(goal_uid="goal_health_xdq")

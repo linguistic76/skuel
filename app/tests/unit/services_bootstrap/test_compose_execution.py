@@ -65,6 +65,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         ChoiceUpdated,
         GoalAbandoned,
         GoalAchieved,
+        GoalContributionsChanged,
         GoalCreated,
         GoalMilestoneReached,
         GoalProgressUpdated,
@@ -134,15 +135,14 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
     counts: dict[type, int] = {
         # Tasks
         TaskCreated: 1,
-        TaskCompleted: 6,  # invalidate + goal progress + PS auto-complete + x-domain + dependents + intelligence
-        TaskReopened: 2,  # invalidate + goal progress recompute
+        TaskCompleted: 5,  # invalidate + PS auto-complete + x-domain + dependents + intelligence
+        TaskReopened: 1,  # invalidate — the vault door's reopen publishes no TaskUpdated
         TaskUpdated: 1,
         TaskDeleted: 1,
         TaskPriorityChanged: 2,
-        # TaskReopened: published by update_task, no subscriber — tasks_completed is
-        # derived at read, so nothing needs to hear about a reopen.
         TasksBulkCompleted: 1,
         # Goals
+        GoalContributionsChanged: 1,  # goal progress — the contribution tally's one trigger
         GoalCreated: 2,
         GoalUpdated: 1,
         GoalAchieved: 4,  # invalidate + event handler + PS auto-complete + analytics report

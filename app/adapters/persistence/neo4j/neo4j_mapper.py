@@ -199,7 +199,7 @@ class Neo4jGenericMapper:
 
             # Keep None as an explicit null. Under ``SET n += $props`` a null
             # REMOVES the property — the channel a cleared field uses to retract
-            # on re-sync (``fulfills_exercise_uid``, the Task goal link); under
+            # on re-sync (``fulfills_exercise_uid``); under
             # ``SET n = $props`` / CREATE it is simply absent. Keys another writer
             # owns are the caller's to drop (``without_embedding_props``).
             if value is None:

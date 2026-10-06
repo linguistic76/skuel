@@ -95,7 +95,8 @@ CREATE (g_active:Entity:Goal {uid: 'goal.eq.active', entity_type: 'goal', title:
 CREATE (g_done:Entity:Goal {uid: 'goal.eq.done', entity_type: 'goal', title: 'Done goal', status: 'completed',
                             progress_percentage: 100.0, updated_at: $old, user_uid: $user_uid})
 CREATE (u)-[:OWNS]->(g_active) CREATE (u)-[:OWNS]->(g_done)
-CREATE (t_open)-[:FULFILLS_GOAL]->(g_active)
+CREATE (t_open)-[:CONTRIBUTES_TO_GOAL]->(g_active)
+CREATE (t_open)-[:CONTRIBUTES_TO_GOAL]->(g_done)
 CREATE (g_active)-[:HAS_SUBGOAL]->(g_done)
 CREATE (g_active)-[:REQUIRES_KNOWLEDGE {confidence: 0.8}]->(ku_a)
 // habits
@@ -333,14 +334,18 @@ async def test_every_section_reads_what_the_one_statement_read(
                 {"uid": "ku.eq.a", "title": "Ku A"},
                 {"uid": "ku.eq.c", "title": "Ku C"},
             ],
-            "goal_context": {"uid": "goal.eq.active", "title": "Active goal", "progress": 0.4},
+            # a task contributes to any number of goals: one row carries them all
+            "contributing_goals": [
+                {"uid": "goal.eq.active", "title": "Active goal", "progress": 0.4},
+                {"uid": "goal.eq.done", "title": "Done goal", "progress": 1.0},
+            ],
         }
     )
     assert tasks["task.eq.dep"] == {
         "subtasks": [],
         "dependencies": [],
         "applied_knowledge": [],
-        "goal_context": None,
+        "contributing_goals": [],
     }
     goals = _by_uid(mega["entities"]["goals"])
     assert sorted(goals) == ["goal.eq.active"]  # the completed goal is outside the window
@@ -646,8 +651,13 @@ async def test_the_rich_context_carries_every_section(
     assert context.task_dependencies == {"task.eq.open": ["task.eq.dep"]}
     assert context.blocked_task_uids == {"task.eq.open"}
     assert context.task_knowledge_applied == {"task.eq.open": ["ku.eq.a", "ku.eq.c"]}
-    assert context.task_goal_associations == {"task.eq.open": "goal.eq.active"}
-    assert context.tasks_by_goal == {"goal.eq.active": ["task.eq.open"]}
+    assert {k: sorted(v) for k, v in context.task_goal_associations.items()} == {
+        "task.eq.open": ["goal.eq.active", "goal.eq.done"]
+    }
+    assert context.tasks_by_goal == {
+        "goal.eq.active": ["task.eq.open"],
+        "goal.eq.done": ["task.eq.open"],
+    }
     assert context.habits_by_goal == {"goal.eq.active": ["habit.eq.active"]}
     assert context.habit_prerequisites == {"habit.eq.active": ["habit.eq.pre"]}
     assert context.goal_knowledge_required == {"goal.eq.active": ["ku.eq.a"]}

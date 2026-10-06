@@ -1,13 +1,15 @@
 """``GoalTaskGenerator`` persists through the Tasks entity door, never a backend.
 
 ``TasksCoreService.create`` is the one create path for Tasks: the creation rule
-(``Task.with_creation_due_date``), the entity-carried link edges (FULFILLS_GOAL,
+(``Task.with_creation_due_date``), the entity-carried link edges (CONTRIBUTES_TO_GOAL,
 REINFORCES_HABIT), ``TaskCreated`` and the ADR-074 embedding request all happen
 there — so a task that reaches the graph any other way reaches it undated (absent
 from Today and the calendar), un-announced and un-embedded. Pinned here with a
 fake Tasks facade:
 
-- every generated task reaches ``tasks_service.create`` as a ``Task``;
+- every generated task reaches ``tasks_service.create`` as a ``Task`` that contributes
+  to the goal it was generated for (``contributes_to_goal_uids`` — the edges' INPUT on
+  create);
 - a habit-reinforcement task carries its habit as ``reinforces_habit_uid`` — the
   edge's INPUT on create — so the primitive writes the edge, not the generator;
 - ``auto_create=False`` persists nothing;
@@ -103,7 +105,7 @@ async def test_every_generated_task_reaches_the_entity_door_as_a_task(rels) -> N
     # exists for — so reaching the door is what puts it on a day.
     knowledge = [t for t in facade.created if t.title == "Learn: ku.python.basics"]
     assert len(knowledge) == 1
-    assert knowledge[0].fulfills_goal_uid == GOAL_UID
+    assert all(t.contributes_to_goal_uids == (GOAL_UID,) for t in facade.created)
     assert [dto.uid for dto in result.value] == [t.uid for t in facade.created]
     assert all(isinstance(dto, TaskDTO) for dto in result.value)
 
@@ -120,7 +122,7 @@ async def test_a_habit_task_carries_its_habit_on_the_entity(rels) -> None:
     habit_tasks = [t for t in facade.created if t.title == "Practice habit: habit_daily_read"]
     assert len(habit_tasks) == 1
     assert habit_tasks[0].reinforces_habit_uid == "habit_daily_read"
-    assert habit_tasks[0].fulfills_goal_uid == GOAL_UID
+    assert habit_tasks[0].contributes_to_goal_uids == (GOAL_UID,)
     # The link rides only on the habit task.
     others = [t for t in facade.created if t is not habit_tasks[0]]
     assert all(t.reinforces_habit_uid is None for t in others)

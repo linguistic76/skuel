@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-10-06
 ---
 
 # TasksIntelligenceService - Behavioral & Performance Intelligence
@@ -214,7 +214,7 @@ typed-reader convergence.
         "total_connections": 4,
         "required_knowledge": ["ku.python-basics"],      # REQUIRES_KNOWLEDGE
         "applied_knowledge": ["ku.fasthtml-intro"],      # APPLIES_KNOWLEDGE
-        "contributing_goals": ["goal_001"],              # CONTRIBUTES_TO_GOAL ∪ FULFILLS_GOAL
+        "contributing_goals": ["goal_001"],              # CONTRIBUTES_TO_GOAL
     },
     "metrics": {
         "required_knowledge_count": 1,
@@ -422,7 +422,7 @@ result = await tasks_service.intelligence.get_behavioral_insights(
 Unique among intelligence services, TasksIntelligenceService provides **semantic categorization** of graph relationships:
 - Distinguishes `->DEPENDS_ON` (prerequisites) from `<-DEPENDS_ON` (dependents)
 - Separates `REQUIRES_KNOWLEDGE` (learning needs) from `APPLIES_KNOWLEDGE` (knowledge application)
-- Groups `FULFILLS_GOAL` and `CONTRIBUTES_TO_GOAL` as contributing goals
+- Reads `CONTRIBUTES_TO_GOAL` as contributing goals (a task may contribute to several)
 
 This categorization enables rich UI experiences without coupling backend logic to domain semantics.
 

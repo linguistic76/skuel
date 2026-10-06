@@ -13,7 +13,8 @@ the ``entity_type`` and the ownership edge the app itself writes.
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+import os
+from contextlib import asynccontextmanager, contextmanager
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 import httpx
@@ -27,11 +28,12 @@ from adapters.persistence.neo4j.ingestion_service_factory import make_unified_in
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Iterator
     from pathlib import Path
 
     from neo4j import AsyncDriver
 
+    from core.ports import EventBusOperations
     from core.services.ingestion.types import IncrementalStats
 
 # The edge types that once stored each link, one set per link. A retired type is no
@@ -171,6 +173,65 @@ async def write_edge(
     assert record is not None and record["written"] == 1, (source, edge_type, target)
 
 
+async def goals_contributed_to(driver: AsyncDriver, contributor_uid: str) -> set[str]:
+    """The goals a task or event contributes to (``CONTRIBUTES_TO_GOAL``)."""
+    async with driver.session() as session:
+        result = await session.run(
+            "MATCH (:Entity {uid: $uid})-[:CONTRIBUTES_TO_GOAL]->(g:Goal) RETURN g.uid AS uid",
+            uid=contributor_uid,
+        )
+        return {row["uid"] async for row in result}
+
+
+async def goal_contributors(driver: AsyncDriver, goal_uid: str) -> set[str]:
+    """The tasks and events contributing to a goal (``CONTRIBUTES_TO_GOAL``)."""
+    async with driver.session() as session:
+        result = await session.run(
+            "MATCH (c:Entity)-[:CONTRIBUTES_TO_GOAL]->(:Goal {uid: $uid}) RETURN c.uid AS uid",
+            uid=goal_uid,
+        )
+        return {row["uid"] async for row in result}
+
+
+async def goal_tally(driver: AsyncDriver, goal_uid: str) -> tuple[float | None, float | None]:
+    """A goal's stored tally: (completed contributions, all counted contributions)."""
+    async with driver.session() as session:
+        record = await (
+            await session.run(
+                "MATCH (g:Goal {uid: $uid}) RETURN g.current_value AS done, g.target_value AS total",
+                uid=goal_uid,
+            )
+        ).single()
+    assert record is not None, goal_uid
+    return record["done"], record["total"]
+
+
+async def store_goal_tally(driver: AsyncDriver, goal_uid: str, done: int, total: int) -> None:
+    """Store a goal's tally as a recompute would have left it — no door, no announcement.
+
+    A test that holds a write to the tally seeds its "before" this way (with the edges
+    from :func:`write_edge`), so the write under test is the one thing that can move the
+    goal. A goal stored at 100% is stored achieved.
+    """
+    progress = done / total * 100 if total else 0.0
+    async with driver.session() as session:
+        await session.run(
+            """
+            MATCH (g:Goal {uid: $uid})
+            SET g.current_value = $done, g.target_value = $total,
+                g.progress_percentage = $progress
+            FOREACH (_ IN CASE WHEN $achieved THEN [1] ELSE [] END |
+                SET g.status = 'completed', g.achieved_date = date())
+            """,
+            uid=goal_uid,
+            done=float(done),
+            total=float(total),
+            progress=progress,
+            achieved=progress >= 100,
+        )
+    assert await goal_tally(driver, goal_uid) == (done, total)
+
+
 async def edges_between(driver: AsyncDriver, one: str, other: str) -> list[Edge]:
     """Every edge joining the two nodes, in either direction."""
     async with driver.session() as session:
@@ -212,16 +273,67 @@ def write_vault_file(
             lines.extend(f"    - {target}" for target in targets)
     path = vault / f"{name}.md"
     path.write_text("---\n" + "\n".join(lines) + "\n---\nBody.\n")
+    touch_forward(path)
     return path
 
 
-async def sync_vault(driver: AsyncDriver, vault: Path, *, force: bool = False) -> IncrementalStats:
+def write_edge_file(vault: Path, name: str, *, source: str, edge_type: str, target: str) -> Path:
+    """One Edge YAML file: ``(source)-[:edge_type]->(target)``."""
+    path = vault / f"{name}.yaml"
+    path.write_text(f"type: Edge\nfrom: {source}\nto: {target}\nrelationship: {edge_type}\n")
+    touch_forward(path)
+    return path
+
+
+def touch_forward(path: Path) -> None:
+    """Move the file's mtime past any earlier write, so a smart sync re-reads it.
+
+    A rewrite inside one test can land within the filesystem's mtime granularity;
+    the explicit bump keeps a changed file from being skipped as unchanged.
+    """
+    future = max(path.stat().st_mtime, _last_touch[0]) + 10
+    _last_touch[0] = future
+    os.utime(path, (future, future))
+
+
+# The last mtime ``touch_forward`` set, so every later write lands after it.
+_last_touch = [0.0]
+
+
+@contextmanager
+def published(bus: EventBusOperations, *event_types: type) -> Iterator[list[Any]]:
+    """Collect every event of ``event_types`` the bus publishes inside the block."""
+    seen: list[Any] = []  # boundary: domain event instances of several classes
+
+    async def collect(event: Any) -> None:  # boundary: any of event_types
+        seen.append(event)
+
+    for event_type in event_types:
+        bus.subscribe(event_type, collect)
+    try:
+        yield seen
+    finally:
+        for event_type in event_types:
+            bus.unsubscribe(event_type, collect)
+
+
+async def sync_vault(
+    driver: AsyncDriver,
+    vault: Path,
+    *,
+    force: bool = False,
+    event_bus: EventBusOperations | None = None,
+) -> IncrementalStats:
     """One smart directory sync of ``vault`` into the graph, with the tracker wired.
 
-    ``force`` re-processes files the tracker holds as unchanged.
+    ``force`` re-processes files the tracker holds as unchanged. ``event_bus`` is the
+    bus the door publishes on — the composed app's, so its subscribers (goal progress
+    among them) hear the sync; with none the door publishes nothing.
     """
     service = make_unified_ingestion_service(
-        driver=driver, ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(driver))
+        driver=driver,
+        ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(driver)),
+        event_bus=event_bus,
     )
     result = await service.ingest_directory(vault, ingestion_mode="smart", force=force)
     assert result.is_ok, f"sync failed: {result}"

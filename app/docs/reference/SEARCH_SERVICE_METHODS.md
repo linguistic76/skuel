@@ -130,10 +130,10 @@ result = await habits_search.list_categories(user_uid="user.123")
 Find entities connected via specific relationship.
 
 ```python
-# Get tasks that fulfill a goal
+# Get tasks that contribute to a goal
 result = await tasks_search.get_by_relationship(
     related_uid="goal.learn-python",
-    relationship=RelationshipName.FULFILLS_GOAL,
+    relationship=RelationshipName.CONTRIBUTES_TO_GOAL,
     direction="outgoing"
 )
 ```
@@ -187,7 +187,7 @@ class ExampleSearchService(BaseService["GoalsOperations", Goal]):
 
     # Graph enrichment (relationship_type, target_label, context_key, direction)
     _graph_enrichment_patterns: ClassVar[list[tuple]] = [
-        ("FULFILLS_GOAL", "Task", "contributing_tasks", "incoming"),
+        ("CONTRIBUTES_TO_GOAL", "Task", "contributing_tasks", "incoming"),
         ("SUPPORTS_GOAL", "Principle", "supporting_principles", "incoming"),
     ]
 ```
@@ -210,11 +210,11 @@ class ExampleSearchService(BaseService["GoalsOperations", Goal]):
 ```python
 _search_fields = ["title", "description"]
 category_field = "category"  # DomainConfig (default)
-_graph_enrichment_patterns = [
-    ("FULFILLS_GOAL", "Goal", "parent_goals", "outgoing"),
-    ("APPLIES_KNOWLEDGE", "Ku", "applied_knowledge", "outgoing"),
-    ("BLOCKED_BY", "Task", "blockers", "outgoing"),
-    ("BLOCKS", "Task", "blocking", "incoming"),
+graph_enrichment_patterns = [  # DomainConfig, from TASKS_CONFIG (excerpt)
+    ("APPLIES_KNOWLEDGE", "Entity", "applied_knowledge", "outgoing"),
+    ("CONTRIBUTES_TO_GOAL", "Goal", "contributing_goals", "outgoing"),
+    ("BLOCKED_BY", "Task", "blocked_by", "outgoing"),
+    ("BLOCKED_BY", "Task", "dependents", "incoming"),
 ]
 ```
 
@@ -226,7 +226,7 @@ _graph_enrichment_patterns = [
 | `get_blocked_tasks` | `(uid: str, user_uid: UserUID) -> Result[list[Task]]` | Tasks blocked by this task |
 | `get_by_priority` | `(priority: Priority, user_uid: UserUID) -> Result[list[Task]]` | Filter by priority level |
 | `get_pending` | `(user_uid: UserUID) -> Result[list[Task]]` | Tasks with pending status |
-| `search_by_parent_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Task]]` | Tasks fulfilling a goal |
+| `get_tasks_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Task]]` | The user's tasks contributing to a goal (`CONTRIBUTES_TO_GOAL`) |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Task]]` | Smart prioritization |
 
 ---
@@ -244,9 +244,8 @@ date_field = "target_date"
 # REQUIRES_KNOWLEDGE → required_knowledge,
 # SUBGOAL_OF → parent_goal / sub_goals, SUPPORTS_GOAL → contributing_habits (Habit) +
 # supporting_principles (Principle) + essential/critical/optional_habits (Habit; the
-# enrichment match carries no essentiality filter), FULFILLS_GOAL →
-# contributing_tasks, SERVES_LIFE_PATH → life_path, ... (the shared-neighbour related_goals
-# definition is left out: enrichment builds one-hop matches only)
+# enrichment match carries no essentiality filter), CONTRIBUTES_TO_GOAL →
+# contributing_tasks (Task) + contributing_events (Event), SERVES_LIFE_PATH → life_path, ...
 ```
 
 **Domain-Specific Methods:**
@@ -316,7 +315,6 @@ category_field = "category"  # DomainConfig (default)
 | `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Event]]` | Smart prioritization (next-2-weeks window) |
 | `get_in_range` | `(start_date: date, end_date: date, user_uid, limit) -> Result[list[Event]]` | Events in date range |
 | `get_recurring` | `(user_uid: UserUID, limit: int = 100) -> Result[list[Event]]` | Recurring events only |
-| `get_for_goal` | `(goal_uid: str, user_uid) -> Result[list[Event]]` | Events supporting a goal |
 | `get_conflicting` | `(event_uid: str) -> Result[list[Event]]` | Time-overlap conflicts (PLANNED — staged conflict surface) |
 | `get_for_habit` | `(habit_uid: str, user_uid) -> Result[list[Event]]` | Events reinforcing a habit |
 | `get_calendar_events` | `(user_uid, start_date, end_date, limit) -> Result[list[Event]]` | Calendar window query |
@@ -493,7 +491,7 @@ content_field = "description"
 
 ```python
 # Get all tasks for a goal, then find blockers
-tasks_result = await tasks_search.search_by_parent_goal("goal.learn-python", "user.123")
+tasks_result = await tasks_search.get_tasks_for_goal("goal.learn-python", "user.123")
 if tasks_result.is_ok:
     for task in tasks_result.value:
         blockers = await tasks_search.get_blocking_tasks(task.uid, "user.123")

@@ -955,7 +955,7 @@ status: pending
 connections:
   applies_knowledge:
     - ku.meditation-basics
-  fulfills_goal:
+  contributes_to_goal:
     - goal.establish-practice
 ```
 
@@ -1092,18 +1092,15 @@ connections:
     - ku.advanced-ml
   applies_knowledge:           # APPLIES_KNOWLEDGE relationship
     - ku.statistics
-  fulfills_goal:               # FULFILLS_GOAL relationship (+ stamps fulfills_goal_uid)
+  contributes_to_goal:         # CONTRIBUTES_TO_GOAL relationship (a Task or an Event)
     - goal.learn-ml
 ```
 
-**A Task's goal link lands twice.** `connections.fulfills_goal` writes the
-`FULFILLS_GOAL` edge AND stamps its first target as the `fulfills_goal_uid` node
-column — the same dual-write the app doors perform, so the in-hand readers (relevance
-scoring, the completion → goal-progress cascade, `get_tasks_for_goal`) see a vault task's
-goal too. A bare `fulfills_goal_uid:` authors the connection (edge + target validation);
-a file naming no goal clears a stale column on re-ingest together with the edge the
-authored-edge diff retracts. Invariant: property == edge target
-(`core/services/ingestion/preparer.py`, `_reconcile_task_goal_link`).
+**A Task's goals are edges only.** `connections.contributes_to_goal` writes one
+`CONTRIBUTES_TO_GOAL` edge per target, as it does for an Event; no node column holds
+them, and every reader of a task's goals traverses the edge. Each target added or retracted,
+a deleted file's edges, and every task and event the batch writes are announced to goal
+progress (`GoalContributionsChanged`), so the goals' tallies follow the file.
 
 **Retraction on re-ingest.** A target dropped from any registered relationship
 field loses its edge on the file's next ingest — both doors (`ingest_file` and
@@ -1136,7 +1133,7 @@ move, and is never borrowed.
 | `applies_knowledge` | APPLIES_KNOWLEDGE | Entity | Task, Event |
 | `requires_knowledge` | REQUIRES_KNOWLEDGE | Entity | Goal |
 | `reinforces_knowledge` | REINFORCES_KNOWLEDGE | Entity | Habit |
-| `fulfills_goal` | FULFILLS_GOAL | Goal | Task |
+| `contributes_to_goal` | CONTRIBUTES_TO_GOAL | Goal | Task |
 | `reinforces_habit` | REINFORCES_HABIT | Entity | Task |
 | `supports_goal` | SUPPORTS_GOAL | Goal | Habit |
 | `embodies_principle` | EMBODIES_PRINCIPLE | Principle | Habit |

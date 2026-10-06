@@ -2,26 +2,26 @@
 Integration Test: Task→Goal Event-Driven Progress Updates
 =============================================================
 
-Verifies that completing a task moves the goal it fulfills:
+Verifies that completing a task moves every goal it contributes to:
 
-1. ``TaskCompleted`` reaches ``GoalsProgressService.handle_task_completed()``
-2. Goal progress is calculated from the goal's linked tasks
+1. ``GoalContributionsChanged`` reaches ``GoalsProgressService.handle_goal_contributions_changed()``
+2. Goal progress is calculated from the goal's contribution tally
 3. ``GoalProgressUpdated`` is published when progress changes
 4. ``GoalAchieved`` is published once when the goal reaches 100%
 5. Only task-based goals move — a MIXED goal is not recomputed from one component
 
 Every link is written by the production writer — ``TasksCoreService.create`` with
-``fulfills_goal_uid``, which dual-writes the stamp and ``(Task)-[:FULFILLS_GOAL]->(Goal)``
-— and every completion goes through the production door, ``update_task``, which
-publishes ``TaskCompleted``. A task fulfills at most one goal (GOALS_CONFIG /
-TASKS_CONFIG declare the link ``single``), so there is no multi-goal case here; the
-habit sibling covers a completion fanning out to several goals.
+``contributes_to_goal_uids``, which writes one ``(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)``
+per goal — and every completion goes through the production door, ``update_task``,
+whose done-class move publishes ``GoalContributionsChanged``. A task contributes to any
+number of goals, so one completion fans out to each of them.
 
 Event Flow:
 -----------
-update_task(status=completed) → TaskCompleted → GoalsProgressService.handle_task_completed()
-    → GoalsBackend.find_linked_goals_for_task → recompute_progress_from_linked_tasks
-      (lock the goal, tally its tasks, plan, guarded write — one transaction)
+update_task(status=completed) → GoalContributionsChanged(contributor_uids=(task,))
+    → GoalsProgressService.handle_goal_contributions_changed()
+    → GoalsBackend.find_contributed_goals → recompute_progress_from_contributions
+      (lock the goal, tally its contributions, plan, guarded write — one transaction)
     → GoalProgressUpdated → (at 100%) GoalAchieved
 """
 
@@ -33,8 +33,7 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, TasksBackend
-from core.events import GoalAchieved, GoalProgressUpdated
-from core.events.task_events import TaskCompleted
+from core.events import GoalAchieved, GoalContributionsChanged, GoalProgressUpdated
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.goal_enums import GoalType, MeasurementType
 from core.models.enums.neo_labels import NeoLabel
@@ -69,7 +68,7 @@ class TestTaskGoalEventFlow:
         service = GoalsProgressService(
             backend=goals_backend, event_bus=event_bus, relationship_service=None
         )
-        event_bus.subscribe(TaskCompleted, service.handle_task_completed)
+        event_bus.subscribe(GoalContributionsChanged, service.handle_goal_contributions_changed)
         return service
 
     async def _create_goal(
@@ -98,9 +97,9 @@ class TestTaskGoalEventFlow:
         return result.value
 
     async def _create_task(
-        self, tasks_service: TasksCoreService, uid: str, goal_uid: str | None
+        self, tasks_service: TasksCoreService, uid: str, *goal_uids: str
     ) -> Task:
-        """Create a task through the production door, linked to ``goal_uid`` if given."""
+        """Create a task through the production door, contributing to ``goal_uids``."""
         result = await tasks_service.create(
             Task(
                 uid=uid,
@@ -108,13 +107,13 @@ class TestTaskGoalEventFlow:
                 title=uid,
                 priority=Priority.MEDIUM,
                 status=EntityStatus.SCHEDULED,
-                fulfills_goal_uid=goal_uid,
+                contributes_to_goal_uids=goal_uids,
             )
         )
         assert result.is_ok, result
-        # The door clears the stamp when it could not write the edge — a surviving
-        # stamp means (Task)-[:FULFILLS_GOAL]->(Goal) exists.
-        assert result.value.fulfills_goal_uid == goal_uid
+        written = await tasks_service.backend.get_contributed_goal_uids(uid)
+        assert written.is_ok, written
+        assert set(written.value) == set(goal_uids), "an edge the test rests on was not written"
         return result.value
 
     async def _complete(self, tasks_service: TasksCoreService, task_uid: str) -> None:
@@ -186,7 +185,7 @@ class TestTaskGoalEventFlow:
         self, event_bus, goals_progress_service, tasks_service
     ):
         """Completing an unlinked task publishes no goal progress."""
-        task = await self._create_task(tasks_service, "task.standalone", None)
+        task = await self._create_task(tasks_service, "task.standalone")
 
         await self._complete(tasks_service, task.uid)
 
@@ -224,16 +223,32 @@ class TestTaskGoalEventFlow:
     # EDGE CASES
     # ========================================================================
 
+    async def test_one_completion_moves_every_goal_the_task_contributes_to(
+        self, event_bus, goals_progress_service, goals_backend, tasks_service
+    ):
+        """One task, two goals: its completion recomputes both."""
+        first = await self._create_goal(goals_backend, "goal.fan_a", MeasurementType.TASK_BASED)
+        second = await self._create_goal(goals_backend, "goal.fan_b", MeasurementType.TASK_BASED)
+        shared = await self._create_task(tasks_service, "task.fan_shared", first.uid, second.uid)
+        await self._create_task(tasks_service, "task.fan_b_only", second.uid)
+
+        await self._complete(tasks_service, shared.uid)
+
+        moved = {e.goal_uid: e.new_progress for e in self._events(event_bus, GoalProgressUpdated)}
+        assert moved == pytest.approx({first.uid: 100.0, second.uid: 50.0})
+        assert [e.goal_uid for e in self._events(event_bus, GoalAchieved)] == [first.uid]
+
     async def test_no_duplicate_achievement_events(
         self, event_bus, goals_progress_service, goals_backend, tasks_service
     ):
-        """A redelivered TaskCompleted does not announce the achievement twice."""
+        """A redelivered GoalContributionsChanged does not announce the achievement twice."""
         goal = await self._create_goal(goals_backend, "goal.single", MeasurementType.TASK_BASED)
         task = await self._create_task(tasks_service, "task.only_one", goal.uid)
 
         await self._complete(tasks_service, task.uid)
-        # Redeliver the event the door published — the door itself never republishes.
-        [completed] = self._events(event_bus, TaskCompleted)
+        # Redeliver the event the completion published — the door itself never republishes.
+        completed = self._events(event_bus, GoalContributionsChanged)[-1]
+        assert completed.contributor_uids == (task.uid,)
         await event_bus.publish_async(completed)
 
         assert len(self._events(event_bus, GoalAchieved)) == 1
@@ -269,8 +284,8 @@ class TestTaskGoalEventFlow:
 class TestTaskGoalRecomputeUnderTheGoalLock:
     """The tally is counted under the goal's write-lock, not before it.
 
-    The race: two tasks of one goal complete together, and each completion's handler
-    recomputes the goal. If a handler counts before it takes the goal's lock, it can
+    The race: two contributions of one goal complete together, and each completion's
+    handler recomputes the goal. If a handler counts before it takes the goal's lock, it can
     count 1/2, wait for the lock while the other handler writes 2/2 and 100%, and then
     land its stale 1/2 and 50% on top.
 
@@ -314,8 +329,8 @@ class TestTaskGoalRecomputeUnderTheGoalLock:
             )
 
             handler = asyncio.create_task(
-                progress.handle_task_completed(
-                    TaskCompleted(task_uid=first.uid, user_uid=_USER_UID)
+                progress.handle_goal_contributions_changed(
+                    GoalContributionsChanged(user_uid=_USER_UID, contributor_uids=(first.uid,))
                 )
             )
             # Long enough for a handler that counts before the lock to have counted.

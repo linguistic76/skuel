@@ -290,7 +290,7 @@ WITH user, ...,
 // Get task with full neighborhood — always returns the task
 MATCH (t:Task {uid: $uid})
 OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
-OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
+OPTIONAL MATCH (t)-[:CONTRIBUTES_TO_GOAL]->(g:Goal)
 OPTIONAL MATCH (t)-[:DEPENDS_ON]->(dep:Task)
 RETURN t,
        collect(DISTINCT ku) AS applied_knowledge,
@@ -320,7 +320,7 @@ RETURN n IS NOT NULL AS entity_exists, count(child) > 0 AS is_organizer
 
 ## Pattern 7: Relationship Metadata Extraction
 
-**Problem**: Relationship properties contain important metadata (order, confidence, contribution_percentage).
+**Problem**: Relationship properties contain important metadata (order, confidence, essentiality).
 
 **Context**: ORGANIZES relationships carry `order` for hierarchy position (no writer sets `importance`, whatever older prose says); REQUIRES_KNOWLEDGE has `confidence`.
 

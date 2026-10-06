@@ -462,78 +462,78 @@ class TestKnowledgeLinksStillWork:
 async def _goal_edge_targets(neo4j_driver, task_uid: str) -> list[str]:
     async with neo4j_driver.session() as session:
         result = await session.run(
-            f"MATCH (t {{uid: $task}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(g) "
-            "RETURN collect(g.uid) AS uids",
+            f"MATCH (t {{uid: $task}})-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(g) "
+            "RETURN g.uid AS uid ORDER BY uid",
             task=task_uid,
         )
-        row = await result.single()
-    return row["uids"]
+        return [record["uid"] async for record in result]
 
 
-async def _goal_property(neo4j_driver, task_uid: str):
+#: The node properties that would name a task's goal link — none may be written.
+_GOAL_LINK_PROPERTIES = frozenset(
+    {"fulfills_goal_uid", "contributes_to_goal_uid", "contributes_to_goal_uids"}
+)
+
+
+async def _goal_named_properties(neo4j_driver, task_uid: str) -> list[str]:
+    """The goal-link property keys on the task node."""
     async with neo4j_driver.session() as session:
-        result = await session.run(
-            "MATCH (t {uid: $uid}) RETURN t.fulfills_goal_uid AS goal", uid=task_uid
-        )
+        result = await session.run("MATCH (t {uid: $uid}) RETURN keys(t) AS keys", uid=task_uid)
         row = await result.single()
     assert row is not None, f"task {task_uid} was not persisted"
-    return row["goal"]
+    return sorted(set(row["keys"]) & _GOAL_LINK_PROPERTIES)
 
 
 @pytest.mark.asyncio
 class TestGoalEdgeRoundTrip:
-    """``fulfills_goal_uid`` is dual-written: the node PROPERTY and the FULFILLS_GOAL EDGE,
-    and the two must name the same goal.
+    """``contributes_to_goal_uids`` becomes one CONTRIBUTES_TO_GOAL EDGE per goal — and
+    nothing else: no node property names a goal.
 
-    The property alone satisfied only the readers that hold the task in hand (relevance
-    scoring, the completion → goal-progress cascade, the picker). Every goal-side reader
-    traverses the edge — the open-task count that gates ``cancel_goal``, the goals-for-tasks
-    batch the daily planner uses, the MEGA-QUERY's ``goal_context`` — so an app-created
-    task was invisible to all of them. Both readers are exercised here directly, not
-    simulated with a hand-written MATCH.
+    Every goal-side reader traverses the edge — the open-task count that gates
+    ``cancel_goal``, the goals-for-tasks batch the daily planner uses, the MEGA-QUERY's
+    per-task goal list, the goal's contribution tally. Both cross-domain readers are
+    exercised here directly, not simulated with a hand-written MATCH.
     """
 
     @pytest_asyncio.fixture
     async def cross_domain(self, neo4j_driver):
         return CrossDomainQueryService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
 
-    async def test_the_edge_and_the_property_name_the_same_goal(
+    async def test_one_edge_per_goal_and_no_property(
         self, tasks_service, neo4j_driver, test_user_uid
     ) -> None:
-        await _create_node(neo4j_driver, "goal:rt", "Goal:Entity", "goal", "Ship v1", test_user_uid)
+        for uid, title in (("goal:rt", "Ship v1"), ("goal:rt-b", "Grow the team")):
+            await _create_node(neo4j_driver, uid, "Goal:Entity", "goal", title, test_user_uid)
 
         task = await tasks_service.create_task(
-            task_request(fulfills_goal_uid="goal:rt"), test_user_uid
+            task_request(contributes_to_goal_uids=["goal:rt", "goal:rt-b"]), test_user_uid
         )
         assert task.is_ok, f"create_task failed: {task.error}"
 
-        assert await _goal_edge_targets(neo4j_driver, task.value.uid) == ["goal:rt"], (
-            "no FULFILLS_GOAL edge — the request door wrote the property and nothing else"
+        assert await _goal_edge_targets(neo4j_driver, task.value.uid) == ["goal:rt", "goal:rt-b"]
+        assert await _goal_named_properties(neo4j_driver, task.value.uid) == [], (
+            "a node property names a goal — the edges are the one record"
         )
-        assert await _goal_property(neo4j_driver, task.value.uid) == "goal:rt"
-        assert task.value.fulfills_goal_uid == "goal:rt"
 
     async def test_the_goal_readers_see_the_task(
         self, tasks_service, cross_domain, neo4j_driver, test_user_uid
     ) -> None:
-        """The two edge readers that were empty for every app-created task: the active
-        open-task count (``GoalsService.cancel_goal``'s abandonment guard) and the
-        goals-for-tasks batch (``TasksPlanningService`` dependency context)."""
+        """The two edge readers: the open-task count (``GoalsService.cancel_goal``'s
+        abandonment guard) and the goals-for-tasks batch (``TasksPlanningService``
+        dependency context)."""
         await _create_node(
             neo4j_driver, "goal:rt2", "Goal:Entity", "goal", "Ship v2", test_user_uid
         )
 
         task = await tasks_service.create_task(
-            task_request(fulfills_goal_uid="goal:rt2", status=EntityStatus.ACTIVE), test_user_uid
+            task_request(contributes_to_goal_uids=["goal:rt2"], status=EntityStatus.ACTIVE),
+            test_user_uid,
         )
         assert task.is_ok, f"create_task failed: {task.error}"
 
         count = await cross_domain.count_active_tasks_for_goal("goal:rt2")
         assert count.is_ok, f"count_active_tasks_for_goal failed: {count.error}"
-        assert count.value.count == 1, (
-            "the goal's open-task count is 0 for a task that names it — the count reads "
-            "FULFILLS_GOAL, and no edge was written"
-        )
+        assert count.value.count == 1
 
         goals = await cross_domain.get_goals_for_tasks_batch([task.value.uid])
         assert goals.is_ok, f"get_goals_for_tasks_batch failed: {goals.error}"
@@ -548,20 +548,21 @@ class TestGoalEdgeRoundTrip:
         )
 
         task = await _route_create(
-            tasks_service, task_request(fulfills_goal_uid="goal:rt3"), "task:rt-goal", test_user_uid
+            tasks_service,
+            task_request(contributes_to_goal_uids=["goal:rt3"]),
+            "task:rt-goal",
+            test_user_uid,
         )
         assert task.is_ok, f"create failed: {task.error}"
 
         assert await _goal_edge_targets(neo4j_driver, "task:rt-goal") == ["goal:rt3"]
-        assert await _goal_property(neo4j_driver, "task:rt-goal") == "goal:rt3"
+        assert await _goal_named_properties(neo4j_driver, "task:rt-goal") == []
 
-    async def test_another_users_goal_is_refused_and_the_stamp_is_cleared(
+    async def test_another_users_goal_is_refused_and_the_own_goal_kept(
         self, tasks_service, cross_domain, neo4j_driver, test_user_uid
     ) -> None:
-        """Goals are OWNER_ONLY, and the goal readers do not filter the task's owner: a
-        cross-user edge would count the attacker's task in the victim's goal progress. The
-        edge is refused — and the property is cleared with it, so neither the node nor the
-        returned task names a goal the graph does not connect."""
+        """Goals are OWNER_ONLY: a cross-user edge would list the attacker's task on the
+        victim's goal page. That edge is refused; the caller's own goal beside it lands."""
         async with neo4j_driver.session() as session:
             await session.run(
                 "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()",
@@ -570,53 +571,51 @@ class TestGoalEdgeRoundTrip:
         await _create_node(
             neo4j_driver, "goal:victims", "Goal:Entity", "goal", "Victim's goal", OTHER_USER
         )
+        await _create_node(
+            neo4j_driver, "goal:mine", "Goal:Entity", "goal", "My goal", test_user_uid
+        )
 
         task = await tasks_service.create_task(
-            task_request(fulfills_goal_uid="goal:victims", status=EntityStatus.ACTIVE),
+            task_request(
+                contributes_to_goal_uids=["goal:victims", "goal:mine"],
+                status=EntityStatus.ACTIVE,
+            ),
             test_user_uid,
         )
         assert task.is_ok, "the attacker's own task is legitimate and is created"
 
-        assert await _goal_edge_targets(neo4j_driver, task.value.uid) == [], (
-            "a cross-user FULFILLS_GOAL edge reached the graph"
+        assert await _goal_edge_targets(neo4j_driver, task.value.uid) == ["goal:mine"], (
+            "a cross-user CONTRIBUTES_TO_GOAL edge reached the graph"
         )
-        assert await _goal_property(neo4j_driver, task.value.uid) is None, (
-            "the refused goal is still stamped on the node — property and edge disagree"
-        )
-        assert task.value.fulfills_goal_uid is None
-
         count = await cross_domain.count_active_tasks_for_goal("goal:victims")
         assert count.is_ok and count.value.count == 0, (
             "the victim's open-task count exposes the attacker's task"
         )
 
-    async def test_a_dangling_goal_uid_is_cleared(
+    async def test_a_dangling_goal_uid_writes_nothing(
         self, tasks_service, neo4j_driver, test_user_uid
     ) -> None:
-        """Not an attack — a goal deleted since the form rendered, or a DSL ``@link`` typo.
-        The property would satisfy no reader anyway; clearing keeps the halves agreeing."""
+        """Not an attack — a goal deleted since the form rendered, or a DSL ``@link`` typo."""
         task = await tasks_service.create_task(
-            task_request(fulfills_goal_uid="goal:gone"), test_user_uid
+            task_request(contributes_to_goal_uids=["goal:gone"]), test_user_uid
         )
         assert task.is_ok
 
         assert await _goal_edge_targets(neo4j_driver, task.value.uid) == []
-        assert await _goal_property(neo4j_driver, task.value.uid) is None
-        assert task.value.fulfills_goal_uid is None
+        assert await _goal_named_properties(neo4j_driver, task.value.uid) == []
 
     async def test_a_non_goal_target_is_refused(
         self, tasks_service, neo4j_driver, test_user_uid
     ) -> None:
-        """The field name declares the kind; a same-user Habit UID must not become the
-        goal the task fulfills."""
+        """The field name declares the kind; a same-user Habit UID must not become a goal
+        the task contributes to."""
         await _create_node(
             neo4j_driver, "habit:not-a-goal", "Habit:Entity", "habit", "A habit", test_user_uid
         )
 
         task = await tasks_service.create_task(
-            task_request(fulfills_goal_uid="habit:not-a-goal"), test_user_uid
+            task_request(contributes_to_goal_uids=["habit:not-a-goal"]), test_user_uid
         )
         assert task.is_ok
 
         assert await _goal_edge_targets(neo4j_driver, task.value.uid) == []
-        assert await _goal_property(neo4j_driver, task.value.uid) is None

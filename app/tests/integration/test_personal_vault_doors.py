@@ -300,10 +300,10 @@ async def test_personal_vault_refuses_edge_files(env, door) -> None:
     _write(env["alice"] / "knowledge" / "agoal.md", _md("goal", "Alice goal", "uid: goal.agoal\n"))
     edges = {
         "edge_a_to_b": ("task.atask", "task.bsecret", "DEPENDS_ON"),
-        "edge_b_to_b": ("task.bsecret", "goal.bgoal", "FULFILLS_GOAL"),
+        "edge_b_to_b": ("task.bsecret", "goal.bgoal", "CONTRIBUTES_TO_GOAL"),
         "edge_owns": (str(ALICE), "task.bsecret", "OWNS"),
         "edge_shares": (str(ALICE), "goal.bgoal", "SHARES_WITH"),
-        "edge_own_pair": ("task.atask", "goal.agoal", "FULFILLS_GOAL"),
+        "edge_own_pair": ("task.atask", "goal.agoal", "CONTRIBUTES_TO_GOAL"),
     }
     for name, (f, t, rel) in edges.items():
         _write(
@@ -577,15 +577,14 @@ async def test_frontmatter_targets_link_only_the_owners_or_shared_content(env, d
     _write(
         env["alice"] / "knowledge" / "atask.md",
         "---\ntype: task\nuid: task.atask\ntitle: Alice task\n"
-        "fulfills_goal_uid: goal.bgoal\n"
-        "connections:\n  fulfills_goal: [goal.bgoal, goal.agoal]\n"
+        "connections:\n  contributes_to_goal: [goal.bgoal, goal.agoal]\n"
         "  depends_on: [task.secret]\n  applies_knowledge: [ku.nb2c.atom]\n"
         "---\n\nbody\n",
     )
     _write(
         env["alice"] / "knowledge" / "other.md",
         "---\ntype: task\nuid: task.other\ntitle: Other\n"
-        "connections:\n  fulfills_goal: [goal.bgoal]\n---\n\nbody\n",
+        "connections:\n  contributes_to_goal: [goal.bgoal]\n---\n\nbody\n",
     )
 
     outcome = await _sync(env, "alice", door)
@@ -594,17 +593,19 @@ async def test_frontmatter_targets_link_only_the_owners_or_shared_content(env, d
     assert await _edge_types(d, "task.atask", "task.secret") == []
     assert await _edge_types(d, "task.other", "goal.bgoal") == []
     # Positive controls: the owner's own goal and shared content still link.
-    assert await _edge_types(d, "task.atask", "goal.agoal") == ["FULFILLS_GOAL"]
+    assert await _edge_types(d, "task.atask", "goal.agoal") == ["CONTRIBUTES_TO_GOAL"]
     assert await _edge_types(d, "task.atask", "ku.nb2c.atom") == ["APPLIES_KNOWLEDGE"]
-    # The goal column is one fact with the edge — never another user's goal.
-    columns = await _q(
+    # A task's goals are edges only: no node property names a goal, the refused one included.
+    keys = await _q(
         d,
         "MATCH (t:Task) WHERE t.uid IN ['task.atask', 'task.other'] "
-        "RETURN t.uid AS uid, t.fulfills_goal_uid AS goal ORDER BY uid",
+        "RETURN t.uid AS uid, [k IN keys(t) WHERE k IN "
+        "['fulfills_goal_uid', 'contributes_to_goal_uid', 'contributes_to_goal_uids']] "
+        "AS goal_keys ORDER BY uid",
     )
-    assert columns == [
-        {"uid": "task.atask", "goal": "goal.agoal"},
-        {"uid": "task.other", "goal": None},
+    assert keys == [
+        {"uid": "task.atask", "goal_keys": []},
+        {"uid": "task.other", "goal_keys": []},
     ]
     # A refused target reads exactly like a missing one.
     for warning in outcome.warnings:
@@ -685,11 +686,11 @@ async def test_refused_target_reads_like_a_missing_one(env) -> None:
     await _sync(env, "bob", "directory")
     _write(
         env["alice"] / "knowledge" / "a.md",
-        "---\ntype: task\nuid: task.a\ntitle: A\nconnections:\n  fulfills_goal: [goal.bgoal]\n---\n\nx\n",
+        "---\ntype: task\nuid: task.a\ntitle: A\nconnections:\n  contributes_to_goal: [goal.bgoal]\n---\n\nx\n",
     )
     _write(
         env["alice"] / "knowledge" / "b.md",
-        "---\ntype: task\nuid: task.b\ntitle: B\nconnections:\n  fulfills_goal: [goal.nowhere]\n---\n\nx\n",
+        "---\ntype: task\nuid: task.b\ntitle: B\nconnections:\n  contributes_to_goal: [goal.nowhere]\n---\n\nx\n",
     )
 
     outcome = await _sync(env, "alice", "reconciler")

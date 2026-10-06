@@ -144,7 +144,7 @@ class TestRichUserContextPattern:
             MATCH (ku:Entity {uid: $ku_uid})
             MATCH (goal:Goal {uid: $goal_uid})
             CREATE (task)-[:APPLIES_KNOWLEDGE {confidence: 0.85}]->(ku)
-            CREATE (task)-[:FULFILLS_GOAL]->(goal)
+            CREATE (task)-[:CONTRIBUTES_TO_GOAL]->(goal)
             """,
             {"task_uid": task_dto.uid, "ku_uid": ku_dto.uid, "goal_uid": goal_dto.uid},
         )
@@ -188,7 +188,7 @@ class TestRichUserContextPattern:
         # Validate task graph context structure
         task_graph = task_rich["graph_context"]
         assert "applied_knowledge" in task_graph
-        assert "goal_context" in task_graph
+        assert "contributing_goals" in task_graph
         assert "subtasks" in task_graph
         assert "dependencies" in task_graph
 
@@ -372,7 +372,7 @@ class TestRichUserContextPattern:
             MATCH (ku:Entity {uid: $ku_uid})
             MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})
             CREATE (task)-[:APPLIES_KNOWLEDGE]->(ku)
-            CREATE (task)-[:FULFILLS_GOAL]->(goal)
+            CREATE (task)-[:CONTRIBUTES_TO_GOAL]->(goal)
             CREATE (goal)-[:REQUIRES_KNOWLEDGE]->(ku)
             """,
             {"task_uid": task_dto.uid, "ku_uid": ku_dto.uid, "goal_uid": goal_dto.uid},

@@ -1104,10 +1104,10 @@ the relationship registry (`graph_enrichment_patterns`), a field nothing reads t
 | Domain | Graph Context Fields |
 |--------|---------------------|
 | KU | prerequisites, enables, supporting_goals |
-| Tasks | applied_knowledge, fulfills_goals, blocked_by |
-| Goals | required_knowledge, contributing_tasks, sub_goals |
-| Habits | reinforced_knowledge, supporting_goals |
-| Events | applied_knowledge, linked_goals |
+| Tasks | applied_knowledge, contributing_goals, blocked_by |
+| Goals | required_knowledge, contributing_tasks, contributing_events, sub_goals |
+| Habits | reinforced_knowledge, supported_goals |
+| Events | applied_knowledge, supported_goals, celebrated_goals |
 | Choices | informed_by_knowledge, informing_principles, informing_habits |
 | Principles | grounding_knowledge, supported_goals, informed_choices |
 | Exercise | required_knowledge, for_groups, submissions (incoming) |

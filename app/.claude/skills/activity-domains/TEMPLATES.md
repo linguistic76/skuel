@@ -159,7 +159,7 @@ The `layer` field encodes which domains must be spawned first:
 Layer 1: Choice, Habit, Principle   — no incoming cross-references within a spawn
 Layer 2: Goal                        — may reference Choice (INSPIRED_BY_CHOICE)
 Layer 3: Event                       — may reference Habit (REINFORCES_HABIT) and Goal (CELEBRATES_GOAL)
-Layer 4: Task                        — may reference Habit (REINFORCES_HABIT), Goal (fulfills_goal_uid), Event (scheduled_event_uid)
+Layer 4: Task                        — may reference Habit (REINFORCES_HABIT), Goal (CONTRIBUTES_TO_GOAL), Event (scheduled_event_uid)
 ```
 
 The orchestrator sorts `SPAWN_REGISTRY` by `layer` before building instances.
@@ -188,7 +188,7 @@ pre-allocated `template_to_instance` UID map:
 
 ```python
 # {template_field: instance_field}
-{"fulfills_goal_template_uid": "fulfills_goal_uid"}
+{"fulfills_goal_template_uid": "fulfills_goal_uid"}   # GoalTemplate: the sub-goal's parent goal
 {"parent_template_uid": "parent_uid"}
 {"scheduled_event_template_uid": "scheduled_event_uid"}
 ```
@@ -204,6 +204,7 @@ field holding the cross-reference is NOT written as an instance property:
 ("inspired_by_choice_template_uid", RelationshipName.INSPIRED_BY_CHOICE)
 ("reinforces_habit_template_uid",   RelationshipName.REINFORCES_HABIT)
 ("milestone_celebration_for_goal_template_uid", RelationshipName.CELEBRATES_GOAL)
+("contributes_to_goal_template_uid", RelationshipName.CONTRIBUTES_TO_GOAL)  # TaskTemplate
 ```
 
 The relationship is the canonical representation; there is no scalar property
@@ -218,7 +219,7 @@ counterpart on the instance for these.
 | `PRINCIPLE_SPEC` | 1 | — | — | — |
 | `GOAL_SPEC` | 2 | `start_offset → start_date`, `target_offset → target_date` | `fulfills_goal_template_uid`, `selected_choice_option_template_uid` | `inspired_by_choice_template_uid → INSPIRED_BY_CHOICE` |
 | `EVENT_SPEC` | 3 | `event_offset → event_date`, `recurrence_end_offset → recurrence_end_date` | — | `milestone_celebration_for_goal_template_uid → CELEBRATES_GOAL`, `reinforces_habit_template_uid → REINFORCES_HABIT` |
-| `TASK_SPEC` | 4 | `due_offset → due_date`, `scheduled_offset → scheduled_date`, `recurrence_end_offset → recurrence_end_date` | `fulfills_goal_template_uid`, `scheduled_event_template_uid`, `parent_template_uid` | `reinforces_habit_template_uid → REINFORCES_HABIT` |
+| `TASK_SPEC` | 4 | `due_offset → due_date`, `scheduled_offset → scheduled_date`, `recurrence_end_offset → recurrence_end_date` | `scheduled_event_template_uid`, `parent_template_uid` | `contributes_to_goal_template_uid → CONTRIBUTES_TO_GOAL`, `reinforces_habit_template_uid → REINFORCES_HABIT` |
 
 ### 4d. Registry Validation at Import
 

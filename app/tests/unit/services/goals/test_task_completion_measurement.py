@@ -1,12 +1,12 @@
-"""What the task- and habit-completion writers put in the measurement fields.
+"""What the contribution-tally and habit-completion writers put in the measurement fields.
 
-For a TASK_BASED goal the measurement *is* the linked-task tally, so this writer owns
+For a TASK_BASED goal the measurement *is* the contribution tally, so this writer owns
 both ends of it. That is unusual — every other progress writer leaves ``target_value``
 alone — and it is bounded by a fact the tests below pin: ``target_value`` has no
 computational consumer for TASK_BASED (``calculate_combined_progress`` returns
 ``task_contribution * 100`` and discards ``milestone_completion``).
 
-MIXED goals are not recomputed by either completion handler: each handler sees one
+MIXED goals are not recomputed by either tally writer: each handler sees one
 component of a four-part weighting (docs/roadmap/mixed-goal-event-progress.md).
 """
 
@@ -54,9 +54,9 @@ def _goal(measurement_type: MeasurementType, **overrides: object) -> Goal:
 
 
 def _service(
-    goal: Goal, *, total_tasks: int, completed_tasks: int
+    goal: Goal, *, total: int, completed: int
 ) -> tuple[GoalsProgressService, StatusGuardedWriteRecorder[Goal]]:
-    """A progress service whose backend reports a fixed linked-task tally.
+    """A progress service whose backend reports a fixed contribution tally.
 
     The write goes through the status-guarded primitive (ADR-087), so the assertions
     below read the RESOLVED patch — base fields plus whichever conditional patch the
@@ -68,8 +68,8 @@ def _service(
         backend,
         recorder,
         goal,
-        method="recompute_progress_from_linked_tasks",
-        tally={"total_tasks": total_tasks, "completed_tasks": completed_tasks},
+        method="recompute_progress_from_contributions",
+        tally={"total_contributions": total, "completed_contributions": completed},
     )
 
     service = GoalsProgressService.__new__(GoalsProgressService)
@@ -81,20 +81,18 @@ def _service(
 
 
 async def _written(
-    goal: Goal, *, total_tasks: int, completed_tasks: int
+    goal: Goal, *, total: int, completed: int
 ) -> dict[str, Any]:  # boundary: pre-serialization patch
-    service, recorder = _service(goal, total_tasks=total_tasks, completed_tasks=completed_tasks)
-    await service._update_goal_from_task_completion(goal.uid, _USER)
+    service, recorder = _service(goal, total=total, completed=completed)
+    await service.recompute_goal_tally(goal.uid)
     assert len(recorder.calls) == 1, "expected exactly one write"
     return recorder.merged_patch()
 
 
 class TestTaskBasedGoalOwnsItsMeasurement:
-    async def test_both_ends_are_written_from_the_linked_task_tally(self):
-        """1 of 5 tasks: the detail page must render "1/5", not "0/5"."""
-        updates = await _written(
-            _goal(MeasurementType.TASK_BASED), total_tasks=5, completed_tasks=1
-        )
+    async def test_both_ends_are_written_from_the_contribution_tally(self):
+        """1 of 5 contributions: the detail page must render "1/5", not "0/5"."""
+        updates = await _written(_goal(MeasurementType.TASK_BASED), total=5, completed=1)
 
         assert updates["current_value"] == 1.0
         assert updates["target_value"] == 5.0
@@ -103,13 +101,11 @@ class TestTaskBasedGoalOwnsItsMeasurement:
     async def test_a_user_typed_target_is_replaced_by_the_real_denominator(self):
         """The case that rules out writing current_value alone.
 
-        ``target_value=5`` was typed by hand; 20 tasks are actually linked, and the
-        percent is computed from those 20. Persisting ``completed_tasks`` against the
-        typed 5 would render "4/5 tasks" beside a 20% bar.
+        ``target_value=5`` was typed by hand; 20 contributions actually count, and the
+        percent is computed from those 20. Persisting ``completed_contributions`` against
+        the typed 5 would render "4/5" beside a 20% bar.
         """
-        updates = await _written(
-            _goal(MeasurementType.TASK_BASED), total_tasks=20, completed_tasks=4
-        )
+        updates = await _written(_goal(MeasurementType.TASK_BASED), total=20, completed=4)
 
         assert updates["current_value"] == 4.0
         assert updates["target_value"] == 20.0
@@ -117,8 +113,8 @@ class TestTaskBasedGoalOwnsItsMeasurement:
 
     async def test_a_changed_tally_at_the_same_percent_still_writes(self):
         """1-of-5 and 2-of-10 are both 20%, so the unchanged-progress guard would
-        return before the tally write and leave the page rendering "1/5 tasks" after
-        five more tasks were linked and one completed. The tally is part of "changed".
+        return before the tally write and leave the page rendering "1/5" after five
+        more contributions were linked and one completed. The tally is part of "changed".
         """
         goal = _goal(
             MeasurementType.TASK_BASED,
@@ -126,7 +122,7 @@ class TestTaskBasedGoalOwnsItsMeasurement:
             target_value=5.0,
             progress_percentage=20.0,
         )
-        updates = await _written(goal, total_tasks=10, completed_tasks=2)
+        updates = await _written(goal, total=10, completed=2)
 
         assert updates["current_value"] == 2.0
         assert updates["target_value"] == 10.0
@@ -140,17 +136,17 @@ class TestTaskBasedGoalOwnsItsMeasurement:
             target_value=5.0,
             progress_percentage=20.0,
         )
-        service, recorder = _service(goal, total_tasks=5, completed_tasks=1)
+        service, recorder = _service(goal, total=5, completed=1)
 
-        await service._update_goal_from_task_completion(goal.uid, _USER)
+        await service.recompute_goal_tally(goal.uid)
 
         assert recorder.calls == []
 
     async def test_a_tally_only_write_publishes_no_progress_event(self):
         """``handle_goal_progress_updated`` reads a near-zero delta on a positive goal
         as a stall and persists an IMBALANCE_DETECTED insight, so announcing a
-        tally-only repair would tell a user who just completed a task that their goal
-        has stalled.
+        tally-only repair would tell a user who just linked a task that their goal has
+        stalled.
         """
         goal = _goal(
             MeasurementType.TASK_BASED,
@@ -158,11 +154,11 @@ class TestTaskBasedGoalOwnsItsMeasurement:
             target_value=5.0,
             progress_percentage=20.0,
         )
-        service, recorder = _service(goal, total_tasks=10, completed_tasks=2)
+        service, recorder = _service(goal, total=10, completed=2)
         published: list[object] = []
         service.event_bus = _RecordingBus(published)
 
-        await service._update_goal_from_task_completion(goal.uid, _USER)
+        await service.recompute_goal_tally(goal.uid)
 
         assert len(recorder.calls) == 1, "the tally repair itself must still happen"
         assert published == []
@@ -175,11 +171,11 @@ class TestTaskBasedGoalOwnsItsMeasurement:
             target_value=5.0,
             progress_percentage=20.0,
         )
-        service, _ = _service(goal, total_tasks=5, completed_tasks=2)
+        service, _ = _service(goal, total=5, completed=2)
         published: list[object] = []
         service.event_bus = _RecordingBus(published)
 
-        await service._update_goal_from_task_completion(goal.uid, _USER)
+        await service.recompute_goal_tally(goal.uid)
 
         assert [type(e).__name__ for e in published] == ["GoalProgressUpdated"]
 
@@ -193,17 +189,29 @@ class TestTaskBasedGoalOwnsItsMeasurement:
             target_value=5.0,
             progress_percentage=100.0,
         )
-        updates = await _written(goal, total_tasks=10, completed_tasks=10)
+        updates = await _written(goal, total=10, completed=10)
 
         assert updates["current_value"] == 10.0
         assert "achieved_date" not in updates
         assert "status" not in updates
 
+    async def test_the_last_contribution_leaving_writes_zero_over_zero(self):
+        """No contribution left: the stored figure must not describe one it no longer has."""
+        goal = _goal(
+            MeasurementType.TASK_BASED,
+            current_value=1.0,
+            target_value=2.0,
+            progress_percentage=50.0,
+        )
+        updates = await _written(goal, total=0, completed=0)
+
+        assert updates["current_value"] == 0.0
+        assert updates["target_value"] == 0.0
+        assert updates["progress_percentage"] == 0.0
+
     async def test_the_three_fields_agree(self):
         """current/target is the percent, by construction rather than by luck."""
-        updates = await _written(
-            _goal(MeasurementType.TASK_BASED), total_tasks=8, completed_tasks=3
-        )
+        updates = await _written(_goal(MeasurementType.TASK_BASED), total=8, completed=3)
 
         ratio = updates["current_value"] / updates["target_value"]
         assert ratio * 100 == pytest.approx(updates["progress_percentage"])
@@ -296,13 +304,13 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
 
 
 class TestMixedGoalsAreNotRecomputedByCompletions:
-    """Neither completion handler writes a MIXED goal — no compounding blend."""
+    """Neither tally writer writes a MIXED goal — no compounding blend."""
 
-    async def test_a_task_completion_writes_nothing(self):
+    async def test_a_contribution_change_writes_nothing(self):
         goal = _goal(MeasurementType.MIXED, target_value=30.0, progress_percentage=15.0)
-        service, recorder = _service(goal, total_tasks=2, completed_tasks=2)
+        service, recorder = _service(goal, total=2, completed=2)
 
-        await service._update_goal_from_task_completion(goal.uid, _USER)
+        await service.recompute_goal_tally(goal.uid)
 
         assert recorder.calls == []
 

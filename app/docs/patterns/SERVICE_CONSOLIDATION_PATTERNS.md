@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-09-21
+updated: 2026-10-06
 category: patterns
 related_skills:
 - base-analytics-service
@@ -371,7 +371,7 @@ Graph enrichment patterns were scattered across services:
 class TasksSearchService(BaseService):
     _graph_enrichment_patterns = [
         ("APPLIES_KNOWLEDGE", "Ku", "applied_knowledge", "outgoing"),
-        ("FULFILLS_GOAL", "Goal", "fulfills_goals", "outgoing"),
+        ("CONTRIBUTES_TO_GOAL", "Goal", "contributing_goals", "outgoing"),
         # ...
     ]
 

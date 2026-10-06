@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-10-05
+updated: 2026-10-06
 status: current
 category: architecture
 version: 8.1.0
@@ -154,7 +154,7 @@ EntityDTO (~18 fields)
 
 Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization.
 
-**Cross-domain UID fields** on model classes are either persisted structural anchors (written at creation, e.g., `source_path_step_uid`, `fulfills_goal_uid`) or enrichment links derived from graph edges at read time (e.g., `reinforces_habit_uid`, `supports_goal_uid`). **See:** `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md`
+**Cross-domain UID fields** on model classes are either persisted structural anchors (written at creation, e.g., `source_path_step_uid`, `Goal.fulfills_goal_uid`) or enrichment links derived from graph edges at read time (e.g., `reinforces_habit_uid`, `supports_goal_uid`). **See:** `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md`
 
 ### Neo4j Multi-Label
 
@@ -541,7 +541,7 @@ Natural Text
 
 // Activity connections to knowledge
 (task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
-(task:Task)-[:FULFILLS_GOAL]->(goal:Goal)
+(task:Task)-[:CONTRIBUTES_TO_GOAL]->(goal:Goal)
 (task:Task)-[:DEPENDS_ON]->(task:Task)
 (habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku:Curriculum)
 (habit:Habit)-[:SUPPORTS_GOAL]->(goal:Goal)

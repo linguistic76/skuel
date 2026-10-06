@@ -26,14 +26,14 @@ def backend() -> AsyncMock:
 @pytest.mark.asyncio
 async def test_delegates_once_with_the_values_given(backend: AsyncMock) -> None:
     result = await (
-        relate(backend, "task.1").via(RelationshipName.FULFILLS_GOAL).to("goal.1").create()
+        relate(backend, "task.1").via(RelationshipName.CONTRIBUTES_TO_GOAL).to("goal.1").create()
     )
 
     assert result.is_ok
     backend.add_relationship.assert_awaited_once_with(
         from_uid="task.1",
         to_uid="goal.1",
-        relationship_type=RelationshipName.FULFILLS_GOAL,
+        relationship_type=RelationshipName.CONTRIBUTES_TO_GOAL,
         properties=None,
     )
 

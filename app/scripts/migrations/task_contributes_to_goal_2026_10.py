@@ -179,6 +179,7 @@ MATCH (t:{_TASK})
 WHERE t.fulfills_goal_uid IS NOT NULL
 MATCH (g:{_GOAL} {{uid: t.fulfills_goal_uid}})
 WHERE g.user_uid = t.user_uid
+  AND NOT EXISTS {{ (t)-[:{_FULFILLS}|{_CONTRIBUTES}]->(g) }}
 MERGE (t)-[:{_CONTRIBUTES}]->(g)
 RETURN count(*) AS linked
 """

@@ -201,8 +201,8 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 | Config | Domain | Entity Label | Key Relationships |
 |--------|--------|--------------|-------------------|
 | **Activity (6)** |
-| `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
-| `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
+| `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, DEPENDS_ON |
+| `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, CONTRIBUTES_TO_GOAL (incoming), SUBGOAL_OF |
 | `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
 | `EVENTS_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
 | `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMS_CHOICE (incoming), AFFECTS_GOAL |
@@ -251,7 +251,7 @@ backend, and a shared-neighbour definition (`related_*`) is refused.
 uids = await service.get_related_uids("knowledge", "task.123")
 
 # Check if relationship exists (PLANNED — no production caller yet)
-has_goal = await service.has_relationship("fulfills_goal", "task.123")
+has_goal = await service.has_relationship("contributes_to_goal", "task.123")
 
 # The same read for many anchors in one query
 knowledge_by_habit = await service.batch_get_related_uids("knowledge", ["habit.1", "habit.2"])
@@ -465,8 +465,7 @@ await service.create_relationship(
     "contributes_to_goal",  # -> CONTRIBUTES_TO_GOAL (Task config)
     "task.123",
     "goal.456",
-    {"contribution_percentage": 0.1},
-    far_end=GOAL_FAR_END,
+    far_end=GOAL_FAR_END,   # the edge carries no properties
 )
 ```
 

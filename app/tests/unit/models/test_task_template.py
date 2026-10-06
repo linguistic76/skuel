@@ -22,7 +22,7 @@ class TestTaskTemplateConstruction:
         assert tt.title == "Practice integration"
         assert tt.entity_type == EntityType.TASK_TEMPLATE
         assert tt.due_offset is None
-        assert tt.fulfills_goal_template_uid is None
+        assert tt.contributes_to_goal_template_uid is None
         assert tt.goal_progress_contribution == 0.0
 
     def test_entity_type_mismatch_raises(self):
@@ -55,12 +55,12 @@ class TestTaskTemplateConstruction:
         tt = TaskTemplate(
             uid="ttpl_xref",
             title="t",
-            fulfills_goal_template_uid="gtpl_x",
+            contributes_to_goal_template_uid="gtpl_x",
             reinforces_habit_template_uid="htpl_y",
             scheduled_event_template_uid="etpl_z",
             parent_template_uid="ttpl_parent",
         )
-        assert tt.fulfills_goal_template_uid == "gtpl_x"
+        assert tt.contributes_to_goal_template_uid == "gtpl_x"
         assert tt.reinforces_habit_template_uid == "htpl_y"
         assert tt.scheduled_event_template_uid == "etpl_z"
         assert tt.parent_template_uid == "ttpl_parent"
@@ -84,7 +84,7 @@ class TestTaskTemplateConversion:
             title="t",
             due_offset=RelativeOffset(days=7),
             duration_minutes=30,
-            fulfills_goal_template_uid="gtpl_x",
+            contributes_to_goal_template_uid="gtpl_x",
             knowledge_mastery_check=True,
         )
         dto = tt.to_dto()
@@ -92,7 +92,7 @@ class TestTaskTemplateConversion:
         assert dto.uid == "ttpl_dto1"
         assert dto.due_offset == RelativeOffset(days=7)
         assert dto.duration_minutes == 30
-        assert dto.fulfills_goal_template_uid == "gtpl_x"
+        assert dto.contributes_to_goal_template_uid == "gtpl_x"
         assert dto.knowledge_mastery_check is True
 
     def test_from_dto(self):

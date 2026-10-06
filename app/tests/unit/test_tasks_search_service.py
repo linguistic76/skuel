@@ -48,6 +48,9 @@ def mock_backend() -> Any:
     # Graph-native habit linkage (REINFORCES_HABIT edge)
     backend.get_tasks_reinforcing_habit = AsyncMock(return_value=Result.ok([]))
     backend.get_habit_links_for_tasks = AsyncMock(return_value=Result.ok({}))
+    # Graph-native goal linkage (CONTRIBUTES_TO_GOAL edge)
+    backend.get_tasks_contributing_to_goal = AsyncMock(return_value=Result.ok([]))
+    backend.get_goal_links_for_tasks = AsyncMock(return_value=Result.ok({}))
     # count_related returns Result[int] for relationship counting
     backend.count_related = AsyncMock(return_value=Result.ok(0))
     # Temporal raw helpers used by TimeQueryMixin (get_upcoming/get_overdue/get_active)
@@ -83,7 +86,6 @@ def sample_tasks() -> list[Any]:
                 title="Complete Python module",
                 priority=Priority.HIGH.value,
                 status=EntityStatus.ACTIVE.value,
-                fulfills_goal_uid="goal:learn_python",
                 goal_progress_contribution=0.2,
                 created_at=now,
             )
@@ -97,7 +99,6 @@ def sample_tasks() -> list[Any]:
                     title="Daily coding practice",
                     priority=Priority.MEDIUM.value,
                     status=EntityStatus.SCHEDULED.value,
-                    fulfills_goal_uid=None,
                     created_at=now,
                 )
             ),
@@ -165,34 +166,27 @@ def test_init_without_backend():
 
 @pytest.mark.asyncio
 async def test_get_tasks_for_goal_success(search_service, mock_backend, sample_tasks):
-    """Test successful retrieval of tasks for a specific goal."""
-    # Setup - filter for goal
-    goal_tasks = [t for t in sample_tasks if t.fulfills_goal_uid == "goal:learn_python"]
-    # Service now uses find_by() instead of list_tasks()
-    mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in goal_tasks])
+    """The goal's contributing tasks come from the edge read, highest contribution first."""
+    low, high = sample_tasks[1], sample_tasks[0]  # 0.0 and 0.2
+    mock_backend.get_tasks_contributing_to_goal.return_value = Result.ok([low, high])
 
-    # Execute
     result = await search_service.get_tasks_for_goal("goal:learn_python", "user.test")
 
-    # Verify — the read is scoped to the viewer
-    assert mock_backend.find_by.await_args.kwargs["user_uid"] == "user.test"
-    assert mock_backend.find_by.await_args.kwargs["fulfills_goal_uid"] == "goal:learn_python"
+    # The read is the CONTRIBUTES_TO_GOAL traversal, scoped to the viewer
+    mock_backend.get_tasks_contributing_to_goal.assert_awaited_once_with(
+        "goal:learn_python", "user.test"
+    )
+    mock_backend.find_by.assert_not_awaited()
     assert result.is_ok
-    tasks = result.value
-    assert len(tasks) == 1
-    assert tasks[0].fulfills_goal_uid == "goal:learn_python"
-    # Verify sorted by contribution (higher first)
-    assert tasks[0].goal_progress_contribution == 0.2
+    assert [t.uid for t in result.value] == [high.uid, low.uid]
+    assert result.value[0].goal_progress_contribution == 0.2
 
 
 @pytest.mark.asyncio
 async def test_get_tasks_for_goal_empty(search_service, mock_backend):
     """Test retrieval when no tasks exist for goal."""
-    # Setup
-    # Service now uses find_by() instead of list_tasks()
-    mock_backend.find_by.return_value = Result.ok([])
+    mock_backend.get_tasks_contributing_to_goal.return_value = Result.ok([])
 
-    # Execute
     result = await search_service.get_tasks_for_goal("goal:nonexistent", "user.test")
 
     # Verify
@@ -329,6 +323,51 @@ async def test_get_prioritized_respects_limit(
     assert len(result.value) == 1
 
 
+@pytest.mark.asyncio
+async def test_get_prioritized_scores_with_the_goal_the_edges_name(
+    search_service, mock_backend, sample_tasks, user_context
+):
+    """The goal-alignment scorer reads ``contributes_to_goal_uid``, derived from the edges."""
+    task_data = [t.to_dto().to_dict() for t in sample_tasks]
+    mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
+    mock_backend.get_goal_links_for_tasks.return_value = Result.ok(
+        {"task:1": ["goal:someday", "goal:learn_python"]}
+    )
+
+    result = await search_service.get_prioritized(user_context, limit=10)
+
+    assert result.is_ok
+    by_uid = {t.uid: t for t in result.value}
+    # Several goals: the active one is carried
+    assert by_uid["task:1"].contributes_to_goal_uid == "goal:learn_python"
+    assert by_uid["task:3"].contributes_to_goal_uid is None
+
+
+@pytest.mark.asyncio
+async def test_enrich_with_goal_links_is_fail_soft(search_service, mock_backend, sample_tasks):
+    mock_backend.get_goal_links_for_tasks.return_value = Result.fail(
+        Errors.database("get_goal_links_for_tasks", "down")
+    )
+
+    enriched = await search_service.enrich_with_goal_links(sample_tasks, ["goal:learn_python"])
+
+    assert enriched == sample_tasks
+
+
+@pytest.mark.asyncio
+async def test_enrich_with_goal_links_takes_the_first_goal_when_none_is_active(
+    search_service, mock_backend, sample_tasks
+):
+    mock_backend.get_goal_links_for_tasks.return_value = Result.ok(
+        {"task:1": ["goal:first", "goal:second"]}
+    )
+
+    enriched = await search_service.enrich_with_goal_links(sample_tasks, None)
+
+    assert enriched[0].contributes_to_goal_uid == "goal:first"
+    assert all(t.contributes_to_goal_uid is None for t in enriched[1:])
+
+
 # ============================================================================
 # LEARNING STEP TASKS TESTS
 # ============================================================================
@@ -363,10 +402,9 @@ async def test_get_tasks_for_path_step(search_service, mock_backend, sample_task
 @pytest.mark.asyncio
 async def test_multiple_search_criteria(search_service, mock_backend, sample_tasks):
     """Test combining multiple search criteria."""
-    # Setup - find_by is used for goal and habit searches
-    goal_tasks = [t for t in sample_tasks if t.fulfills_goal_uid == "goal:learn_python"]
+    # Setup - the goal search reads the edge; the habit search reads the habit edge
     habit_tasks = [t for t in sample_tasks if t.reinforces_habit_uid == "habit:daily_code"]
-    mock_backend.find_by.return_value = Result.ok([t.to_dto().to_dict() for t in goal_tasks])
+    mock_backend.get_tasks_contributing_to_goal.return_value = Result.ok(sample_tasks[:1])
 
     # Execute goal search
     goal_result = await search_service.get_tasks_for_goal("goal:learn_python", "user.test")
@@ -381,9 +419,8 @@ async def test_multiple_search_criteria(search_service, mock_backend, sample_tas
 @pytest.mark.asyncio
 async def test_search_with_backend_error(search_service, mock_backend):
     """Test search operations handle backend errors gracefully."""
-    # Setup - get_tasks_for_goal uses find_by
-    mock_backend.find_by.return_value = Result.fail(
-        Errors.database("find_by", "Database connection error")
+    mock_backend.get_tasks_contributing_to_goal.return_value = Result.fail(
+        Errors.database("get_tasks_contributing_to_goal", "Database connection error")
     )
 
     # Execute

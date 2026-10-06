@@ -86,7 +86,6 @@ class SharedNeighborConfig:
     Shared-neighbor patterns find entities that share intermediate connections,
     enabling "related_*" queries like:
     - Related tasks (share knowledge or goals)
-    - Related goals (share contributing tasks/habits)
     - Related habits (share knowledge or goals)
 
     Two entities are "related" by *how many* intermediates they share, not

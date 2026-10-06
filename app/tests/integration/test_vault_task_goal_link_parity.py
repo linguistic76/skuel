@@ -1,12 +1,10 @@
-"""Vault door: a task file's goal link lands as BOTH the edge and the property.
+"""Vault door: a task file's goals land as CONTRIBUTES_TO_GOAL edges — one per target, nothing else.
 
-Drives the production path (directory sync, smart mode) against a real Neo4j. Before
-this, ``connections.fulfills_goal:`` wrote ``(Task)-[:FULFILLS_GOAL]->(Goal)`` and nothing
-else — the node column ``fulfills_goal_uid`` stayed NULL, so every in-hand reader (the
-relevance scorer, the completion → goal-progress cascade, ``get_tasks_for_goal`` behind
-the goal Gantt) saw a vault task as goal-less while the graph readers saw its goal. The
-invariant pinned here: property == edge target, wherever both exist — and when the link
-is removed from the file, BOTH halves go on the next sync.
+Drives the production path (directory sync, smart mode) against a real Neo4j.
+``connections.contributes_to_goal:`` is the registered field: each target becomes one
+``(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)`` edge, and no node property names a goal — every
+reader of a task's goals traverses the edges. A target dropped from the file loses its
+edge on the next sync (the authored-edge diff), and only that one.
 
 Requires: Docker running with Neo4j testcontainer.
 """
@@ -14,7 +12,7 @@ Requires: Docker running with Neo4j testcontainer.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import pytest
 import pytest_asyncio
@@ -27,26 +25,22 @@ from core.services.ingestion.types import IncrementalStats
 _MARK = "zzzgoalparity"
 _USER = f"user_{_MARK}"
 _GOAL = f"goal.{_MARK}.ship"
+_OTHER_GOAL = f"goal.{_MARK}.grow"
 _TASK = f"task.{_MARK}.one"
 
 
-def _goal_file(vault: Path) -> Path:
-    path = vault / "ship.md"
-    path.write_text(
-        f"---\ntype: goal\nuid: {_GOAL}\ntitle: Ship the parity\nuser_uid: {_USER}\n---\nBody.\n"
-    )
-    return path
+def _goal_files(vault: Path) -> None:
+    for uid, slug in ((_GOAL, "ship"), (_OTHER_GOAL, "grow")):
+        (vault / f"{slug}.md").write_text(
+            f"---\ntype: goal\nuid: {uid}\ntitle: Goal {slug}\nuser_uid: {_USER}\n---\nBody.\n"
+        )
 
 
-def _task_file(
-    vault: Path, *, connection: list[str] | None = None, bare_property: str | None = None
-) -> Path:
+def _task_file(vault: Path, *, connection: list[str] | None = None) -> Path:
     lines = ["type: task", f"uid: {_TASK}", "title: Write the parity test", f"user_uid: {_USER}"]
-    if bare_property:
-        lines.append(f"fulfills_goal_uid: {bare_property}")
     if connection is not None:
         lines.append("connections:")
-        lines.append("  fulfills_goal:")
+        lines.append("  contributes_to_goal:")
         lines.extend(f"    - {uid}" for uid in connection)
     path = vault / "one.md"
     path.write_text("---\n" + "\n".join(lines) + "\n---\nBody.\n")
@@ -56,20 +50,25 @@ def _task_file(
 async def _edge_targets(neo4j_driver) -> list[str]:
     async with neo4j_driver.session() as session:
         res = await session.run(
-            "MATCH (t {uid: $t})-[:FULFILLS_GOAL]->(g) RETURN collect(g.uid) AS uids", {"t": _TASK}
+            "MATCH (t {uid: $t})-[:CONTRIBUTES_TO_GOAL]->(g) RETURN g.uid AS uid ORDER BY uid",
+            {"t": _TASK},
         )
-        record = await res.single()
-        return record["uids"]
+        return [record["uid"] async for record in res]
 
 
-async def _property(neo4j_driver) -> Any:
+#: The node properties that would name a task's goal link — none may be written.
+_GOAL_LINK_PROPERTIES = frozenset(
+    {"fulfills_goal_uid", "contributes_to_goal_uid", "contributes_to_goal_uids"}
+)
+
+
+async def _goal_named_properties(neo4j_driver) -> list[str]:
+    """The goal-link property keys on the task node."""
     async with neo4j_driver.session() as session:
-        res = await session.run(
-            "MATCH (t {uid: $t}) RETURN t.fulfills_goal_uid AS goal", {"t": _TASK}
-        )
+        res = await session.run("MATCH (t {uid: $t}) RETURN keys(t) AS keys", {"t": _TASK})
         record = await res.single()
         assert record is not None, "the task was not ingested"
-        return record["goal"]
+        return sorted(set(record["keys"]) & _GOAL_LINK_PROPERTIES)
 
 
 async def _sync(service, vault: Path) -> IncrementalStats:
@@ -103,54 +102,47 @@ async def parity_service(neo4j_driver):
 
 
 @pytest.mark.integration
-class TestVaultTaskGoalLinkParity:
-    async def test_the_connection_writes_the_edge_and_stamps_the_property(
+class TestVaultTaskGoalLinks:
+    async def test_two_targets_write_two_edges_and_no_column(
         self, parity_service, neo4j_driver, tmp_path: Path
     ):
         vault = tmp_path / "vault"
         vault.mkdir()
-        _goal_file(vault)
-        _task_file(vault, connection=[_GOAL])
+        _goal_files(vault)
+        _task_file(vault, connection=[_GOAL, _OTHER_GOAL])
 
         await _sync(parity_service, vault)
 
-        assert await _edge_targets(neo4j_driver) == [_GOAL]
-        assert await _property(neo4j_driver) == _GOAL, (
-            "the vault door wrote the FULFILLS_GOAL edge and left fulfills_goal_uid NULL — "
-            "every in-hand reader sees this task as goal-less"
+        assert await _edge_targets(neo4j_driver) == sorted([_GOAL, _OTHER_GOAL])
+        assert await _goal_named_properties(neo4j_driver) == [], (
+            "a node property names a goal — the edges are the one record"
         )
 
-    async def test_removing_the_link_clears_both_halves_on_the_next_sync(
+    async def test_a_dropped_target_loses_only_its_edge(
         self, parity_service, neo4j_driver, tmp_path: Path
     ):
         vault = tmp_path / "vault"
         vault.mkdir()
-        _goal_file(vault)
-        _task_file(vault, connection=[_GOAL])
+        _goal_files(vault)
+        _task_file(vault, connection=[_GOAL, _OTHER_GOAL])
         await _sync(parity_service, vault)
-        assert await _property(neo4j_driver) == _GOAL
+
+        _task_file(vault, connection=[_OTHER_GOAL])
+        await _sync(parity_service, vault)
+
+        assert await _edge_targets(neo4j_driver) == [_OTHER_GOAL]
+
+    async def test_removing_every_target_retracts_every_edge(
+        self, parity_service, neo4j_driver, tmp_path: Path
+    ):
+        vault = tmp_path / "vault"
+        vault.mkdir()
+        _goal_files(vault)
+        _task_file(vault, connection=[_GOAL, _OTHER_GOAL])
+        await _sync(parity_service, vault)
 
         _task_file(vault, connection=None)
         await _sync(parity_service, vault)
 
-        assert await _edge_targets(neo4j_driver) == [], "the dropped edge was not retracted"
-        assert await _property(neo4j_driver) is None, (
-            "the edge was retracted but the property still names the goal"
-        )
-
-    async def test_a_bare_property_spelling_still_gets_the_edge(
-        self, parity_service, neo4j_driver, tmp_path: Path
-    ):
-        """A file that authors the link as the column rather than the connection must
-        reach the graph readers too."""
-        vault = tmp_path / "vault"
-        vault.mkdir()
-        _goal_file(vault)
-        _task_file(vault, bare_property=_GOAL)
-
-        await _sync(parity_service, vault)
-
-        assert await _property(neo4j_driver) == _GOAL
-        assert await _edge_targets(neo4j_driver) == [_GOAL], (
-            "fulfills_goal_uid authored as a property wrote no FULFILLS_GOAL edge"
-        )
+        assert await _edge_targets(neo4j_driver) == [], "a dropped edge was not retracted"
+        assert await _goal_named_properties(neo4j_driver) == []

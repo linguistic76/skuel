@@ -1,7 +1,7 @@
 ---
 title: Claude Quick Start Guide
 created: 2025-12-04
-updated: 2026-09-23
+updated: 2026-10-06
 status: current
 category: guides
 tags: [claude, quickstart, onboarding, ai-assistant]
@@ -152,7 +152,7 @@ from core.models.relationship_names import RelationshipName
 
 # All relationships are in this enum
 RelationshipName.APPLIES_KNOWLEDGE
-RelationshipName.FULFILLS_GOAL
+RelationshipName.CONTRIBUTES_TO_GOAL
 ```
 
 ### Run Tests

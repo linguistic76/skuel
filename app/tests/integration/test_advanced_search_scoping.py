@@ -101,7 +101,7 @@ async def _seed_tasks(neo4j_driver, tasks_service) -> dict[str, str]:
         assert result.is_ok, result.expect_error()
         created[key] = task.uid
 
-    # Both tasks fulfill the same goal — the graph strategy must still
+    # Both tasks contribute to the same goal — the graph strategy must still
     # keep each owner's slice separate.
     async with neo4j_driver.session() as session:
         await session.run(
@@ -110,7 +110,7 @@ async def _seed_tasks(neo4j_driver, tasks_service) -> dict[str, str]:
             ON CREATE SET g.entity_type = 'goal', g.title = 'Scope goal'
             WITH g
             MATCH (t:Task) WHERE t.uid IN $task_uids
-            MERGE (t)-[:FULFILLS_GOAL]->(g)
+            MERGE (t)-[:CONTRIBUTES_TO_GOAL]->(g)
             """,
             goal_uid="goal_scope_hub",
             task_uids=list(created.values()),
@@ -214,7 +214,7 @@ async def test_graph_traversal_strategy_is_owner_scoped(
         query_text="Aurora",
         entity_types=[EntityType.TASK],
         connected_to_uid=created["goal"],
-        connected_relationship=RelationshipName.FULFILLS_GOAL,
+        connected_relationship=RelationshipName.CONTRIBUTES_TO_GOAL,
         connected_direction="incoming",
         user_uid=STRANGER,
     )

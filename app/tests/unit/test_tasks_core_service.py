@@ -19,6 +19,7 @@ from unittest.mock import ANY, AsyncMock, Mock
 
 import pytest
 
+from core.events.goal_events import GoalContributionsChanged
 from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
@@ -75,6 +76,8 @@ def mock_backend() -> Any:
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     backend.create_relationship = AsyncMock(return_value=Result.ok(True))
     backend.create_relationships_batch = AsyncMock(return_value=Result.ok(0))
+    # The goals a task contributes to — read before a delete, which takes the edges.
+    backend.get_contributed_goal_uids = AsyncMock(return_value=Result.ok([]))
 
     return backend
 
@@ -788,6 +791,64 @@ async def test_delete_task_success(core_service, mock_backend, sample_task_dto):
     assert result.is_ok
     assert result.value is True
     mock_backend.delete.assert_called_once_with("task:123", cascade=True)
+
+
+@pytest.mark.asyncio
+async def test_delete_task_announces_the_goals_it_contributed_to(
+    mock_backend, mock_ku_inference_service, sample_task_dto
+):
+    """The goals are read before the delete takes the edges, and announced after it."""
+    published: list[object] = []
+
+    class _Bus:
+        async def publish_async(self, event: object) -> None:
+            published.append(event)
+
+    service = TasksCoreService(
+        backend=mock_backend, ku_inference_service=mock_ku_inference_service, event_bus=_Bus()
+    )
+    mock_backend.get.return_value = Result.ok(sample_task_dto.to_dict())
+    order: list[str] = []
+
+    async def _read(uid: str) -> Result[list[str]]:
+        order.append("read")
+        return Result.ok(["goal_a", "goal_b"])
+
+    async def _delete(uid: str, cascade: bool) -> Result[bool]:
+        order.append("delete")
+        return Result.ok(True)
+
+    mock_backend.get_contributed_goal_uids.side_effect = _read
+    mock_backend.delete.side_effect = _delete
+
+    result = await service.delete_task("task:123")
+
+    assert result.is_ok
+    assert order == ["read", "delete"]
+    [changed] = [e for e in published if isinstance(e, GoalContributionsChanged)]
+    assert changed.goal_uids == ("goal_a", "goal_b")
+    assert changed.user_uid == "user_demo"
+
+
+@pytest.mark.asyncio
+async def test_delete_task_of_no_goal_announces_no_contribution_change(
+    mock_backend, mock_ku_inference_service, sample_task_dto
+):
+    published: list[object] = []
+
+    class _Bus:
+        async def publish_async(self, event: object) -> None:
+            published.append(event)
+
+    service = TasksCoreService(
+        backend=mock_backend, ku_inference_service=mock_ku_inference_service, event_bus=_Bus()
+    )
+    mock_backend.get.return_value = Result.ok(sample_task_dto.to_dict())
+
+    result = await service.delete_task("task:123")
+
+    assert result.is_ok
+    assert not [e for e in published if isinstance(e, GoalContributionsChanged)]
 
 
 @pytest.mark.asyncio

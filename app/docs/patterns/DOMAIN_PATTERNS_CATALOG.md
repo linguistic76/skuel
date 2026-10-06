@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-10-01
+updated: 2026-10-06
 category: patterns
 related_skills:
 - python
@@ -230,7 +230,8 @@ class TaskDTO:
     tags: list[str] = field(default_factory=list)
 
     # Single UID fields (stored as properties)
-    fulfills_goal_uid: str | None = None
+    source_path_step_uid: str | None = None
+    # NOT a property: a task's goals are (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal) edges.
     # NOT a property: reinforces_habit_uid is in RELATIONSHIP_SKIP_FIELDS — the
     # (Task)-[:REINFORCES_HABIT]->(Habit) edge owns it. It rides on the entity only
     # so the create path can write that edge. See CROSS_DOMAIN_UID_PATTERNS.md.

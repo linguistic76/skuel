@@ -64,7 +64,6 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
     Event-Specific Methods:
     - get_in_range() - Events within date range
     - get_recurring() - Recurring events only
-    - get_for_goal() - Events supporting a goal
     - get_conflicting() - Events with time conflicts
     - get_by_type() - Filter by event type
     - get_upcoming() - Future events
