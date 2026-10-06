@@ -274,22 +274,25 @@ def wire_locked_recompute[T](
     tally: Mapping[str, Any],
 ) -> None:
     """Stand in for a ``_recompute_with_status_guard`` wrapper (``GoalsBackend``'s
-    ``recompute_progress_from_linked_*``).
+    ``recompute_progress_from_contributions`` / ``recompute_progress_from_linked_habits``).
 
     The real method locks the node, reads the tally, calls the planner with both and
     writes its plan with the guarded statement — so the entity the planner sees IS the
     prior the write resolves against. This fake keeps that identity: the planner gets
     ``locked``, and the plan's write goes through ``recorder`` (whose prior must be the
     same ``locked``), so ``recorder.calls`` / ``merged_patch()`` read as for a plain
-    guarded write. A declining planner writes nothing and answers ``None``.
+    guarded write. A declining planner writes nothing and answers ``None``. The planner
+    is the wrapper's last argument whatever comes between it and the uid (the habit
+    wrapper also takes the owner; the contribution wrapper reads the owner off the goal).
     """
 
     def _call(
         uid: str,
-        user_uid: str,
-        # boundary: the service's planner — any GuardedWritePlan-returning callable
-        plan: Any,
+        # boundary: the wrapper's own arguments, its planner last — any
+        # GuardedWritePlan-returning callable
+        *rest: Any,
     ) -> Result[GuardedRecompute[T, Any] | None]:
+        plan = rest[-1]
         decided = plan(locked, dict(tally))
         if decided is None:
             return Result.ok(None)

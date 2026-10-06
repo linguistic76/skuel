@@ -133,8 +133,8 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
         (CALLER, OWN_MARK, OWN_TASK, OWN_HABIT, OWN_PRINCIPLE),
         (OTHER, FOREIGN_MARK, FOREIGN_TASK, FOREIGN_HABIT, FOREIGN_PRINCIPLE),
     ):
-        # The task names the shared step and the caller's goal the way the doors
-        # store both: a node column, and for the goal the edge beside it.
+        # The task names the shared step the way the doors store it (a node column) and
+        # the caller's goal the way they store that (a CONTRIBUTES_TO_GOAL edge only).
         await _seed_activity(
             driver,
             "Task",
@@ -142,12 +142,11 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
             owner,
             f"{mark} task",
             source_path_step_uid=STEP,
-            fulfills_goal_uid=GOAL,
         )
         await _seed_activity(driver, "Habit", habit, owner, f"{mark} habit")
         await _seed_activity(driver, "Principle", principle, owner, f"{mark} principle")
         await _link(driver, task, RelationshipName.APPLIES_KNOWLEDGE, KU)
-        await _link(driver, task, RelationshipName.FULFILLS_GOAL, GOAL)
+        await _link(driver, task, RelationshipName.CONTRIBUTES_TO_GOAL, GOAL)
         await _link(driver, task, RelationshipName.REINFORCES_HABIT, HABIT)
         await _link(driver, habit, RelationshipName.REINFORCES_KNOWLEDGE, KU)
         # A habit and a principle support the same goal over the one edge type.

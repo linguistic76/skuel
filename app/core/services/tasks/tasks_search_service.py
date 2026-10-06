@@ -21,6 +21,7 @@ Handles advanced task search and discovery operations.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from operator import attrgetter
 from typing import TYPE_CHECKING
 
@@ -38,6 +39,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.goal_links import pick_goal
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
@@ -71,37 +73,51 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
     @with_error_handling("get_tasks_for_goal", error_type="database", uid_param="goal_uid")
     async def get_tasks_for_goal(self, goal_uid: str, user_uid: UserUID) -> Result[list[Task]]:
         """
-        Get the user's tasks that fulfill a specific goal.
+        Get the user's tasks that contribute to a specific goal.
 
-        Reads the ``fulfills_goal_uid`` node column — the property half of the
-        dual-written goal link (property == FULFILLS_GOAL edge target on every door; see
-        ``TasksCoreService._write_link_edges``), so vault-ingested tasks are found too.
+        Graph-native: traverses the (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal) edge, the one
+        record of a task's goals, whichever door wrote it.
 
         Args:
             goal_uid: Goal UID
             user_uid: The viewer — only tasks this user owns are returned
 
         Returns:
-            Result containing the user's tasks fulfilling this goal, sorted by contribution
+            Result containing the user's tasks contributing to this goal, sorted by
+            contribution
         """
-        result = await find_all_by(
-            self.backend,
-            self.logger,
-            "Tasks for a goal",
-            fulfills_goal_uid=goal_uid,
-            user_uid=user_uid,
-        )
-
+        result = await self.backend.get_tasks_contributing_to_goal(goal_uid, user_uid)
         if result.is_error:
-            return result
+            return Result.fail(result)
 
-        tasks = self._to_domain_models(result.value, TaskDTO, Task)
-
-        # Sort by contribution percentage
+        tasks = list(result.value)
         tasks.sort(key=attrgetter("goal_progress_contribution"), reverse=True)
 
         self.logger.debug(f"Found {len(tasks)} tasks for goal {goal_uid}")
         return Result.ok(tasks)
+
+    async def enrich_with_goal_links(  # skuel-lint: disable=SKUEL005 -- fail-soft enrichment by design: a backend error returns the tasks unchanged, never an error
+        self, tasks: list[Task], active_goal_uids: list[str] | None = None
+    ) -> list[Task]:
+        """Populate each task's derived ``contributes_to_goal_uid`` from its CONTRIBUTES_TO_GOAL edges.
+
+        A task contributing to several goals carries an active one when it has one
+        (``pick_goal``). Exposed for callers that score an arbitrary task list
+        (SearchRouter's cross-domain result scoring) beside ``get_prioritized``.
+        Tasks with no edge come back unchanged.
+        """
+        if not tasks:
+            return tasks
+        links = await self.backend.get_goal_links_for_tasks([t.uid for t in tasks])
+        if links.is_error or not links.value:
+            return tasks
+        link_map = links.value
+        return [
+            replace(task, contributes_to_goal_uid=pick_goal(link_map[task.uid], active_goal_uids))
+            if task.uid in link_map
+            else task
+            for task in tasks
+        ]
 
     @with_error_handling("get_tasks_for_habit", error_type="database", uid_param="habit_uid")
     async def get_tasks_for_habit(self, habit_uid: str, user_uid: UserUID) -> Result[list[Task]]:
@@ -221,14 +237,14 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         # source of truth; the field is never persisted).
         links = await self.backend.get_habit_links_for_tasks([t.uid for t in tasks])
         if links.is_ok and links.value:
-            from dataclasses import replace
-
             tasks = [
                 replace(task, reinforces_habit_uid=links.value[task.uid])
                 if task.uid in links.value
                 else task
                 for task in tasks
             ]
+        # And the derived contributes_to_goal_uid, for the goal-alignment scorer.
+        tasks = await self.enrich_with_goal_links(tasks, user_context.active_goal_uids)
 
         scored = [(task, score_task(task, user_context).total) for task in tasks]
         scored.sort(key=get_result_score, reverse=True)

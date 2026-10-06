@@ -1,7 +1,7 @@
 ---
 title: Tasks User Guide
 created: 2026-06-25
-updated: 2026-09-17
+updated: 2026-10-06
 status: current
 category: guides
 tags: [tasks, user-guide, goals, subtasks, obsidian, learning-loop, applied-knowledge]
@@ -52,7 +52,7 @@ You'll be redirected to the task detail page.
 | Description | Context, constraints, or success criteria. |
 | Priority | `low` / `medium` / `high` / `critical` — drives ordering in your task list. |
 | Due Date | Optional. Sets a deadline. |
-| Goal | Optional. Links this task to a goal via `FULFILLS_GOAL`. |
+| Goal | Optional, on create. The task contributes to that goal (`CONTRIBUTES_TO_GOAL`) and counts toward its progress. A task may contribute to several goals — through the API, the vault or the DSL; the edit form does not change them. |
 | Habit | Optional. Links this task to a habit via `REINFORCES_HABIT`. |
 | Parent Task | Optional. Makes this a sub-task of another task. |
 
@@ -76,7 +76,7 @@ tags: [sel, self-awareness, practice]
 connections:
   applies_knowledge:
     - ps.sel.knowing-yourself          # Knowledge substance channel
-  fulfills_goal: [goal.sel.self-awareness-practice]
+  contributes_to_goal: [goal.sel.self-awareness-practice]
   reinforces_habit: [habit.daily-evening-reflection]
 ```
 
@@ -87,7 +87,7 @@ Drop this file in your vault directory (`INGESTION_PATH`) and run the sync. SKUE
 | `connections` field | What it creates | Weight |
 |--------------------|----------------|--------|
 | `applies_knowledge` | `APPLIES_KNOWLEDGE → PathStep/Ku` | 0.05 substance per completion |
-| `fulfills_goal` | `FULFILLS_GOAL → Goal` | Contributes to goal progress |
+| `contributes_to_goal` | `CONTRIBUTES_TO_GOAL → Goal` (any number) | Counts toward each goal's progress |
 | `reinforces_habit` | `REINFORCES_HABIT → Habit` | Links to an existing habit |
 | `depends_on` | `DEPENDS_ON → Task` | Blocks this task until the other is done |
 

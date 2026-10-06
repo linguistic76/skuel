@@ -211,6 +211,14 @@ class DeletionReconciliation:
     # tracking row both survive) and reported here — one message per file —
     # so the anomaly is surfaced instead of another user's data being deleted.
     ownership_mismatches: list[str] = field(default_factory=list)
+    # The goals a deleted task or event, or a deleted CONTRIBUTES_TO_GOAL Edge YAML,
+    # took a contribution from — captured before the delete, announced by the caller.
+    goals_losing_contributions: list[str] = field(default_factory=list)
+    # An Edge-YAML delete that failed after earlier deletes committed: the run stops
+    # there, and the caller reports this as a reconciliation error. Carried on the
+    # outcome rather than as a failed Result so the committed deletes' counts and
+    # goals still reach the caller.
+    failure: str | None = None
 
 
 @dataclass(frozen=True)

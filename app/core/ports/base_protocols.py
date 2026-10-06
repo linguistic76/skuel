@@ -1288,17 +1288,6 @@ class GraphTraversalOperations(Protocol):
         """Batch-retrieve cross-domain relationship context for entities."""
         ...
 
-    async def get_goal_aligned_entities(
-        self,
-        user_uid: str,
-        domain_name: str,
-        entity_label: NeoLabel,
-        goal_uid: str | None,
-        limit: int,
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Get entities aligned with user's goals via goal relationships."""
-        ...
-
     async def get_citation_export(
         self,
         node_uid: str,

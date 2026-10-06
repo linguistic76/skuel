@@ -108,9 +108,7 @@ def create_tasks_api_routes(
     )
 
     async def apply_link_goal(req: LinkTaskToGoalRequest) -> Result[bool]:
-        return await tasks_service.link_task_to_goal(
-            req.task_uid, req.goal_uid, req.contribution_percentage, req.milestone_uid
-        )
+        return await tasks_service.link_task_to_goal(req.task_uid, req.goal_uid)
 
     create_activity_link_api_routes(
         rt,

@@ -1237,6 +1237,7 @@ class IngestionTracker:
             )
 
         entities_deleted = 0
+        goals_losing_contributions: list[str] = []
         if plan.entity_deletions:
             items = [
                 {"file_path": planned.file_path, "entity_uid": planned.entity_uid}
@@ -1246,6 +1247,8 @@ class IngestionTracker:
             if delete_result.is_error:
                 return Result.fail(delete_result)
             entities_deleted = len(delete_result.value or [])
+            for row in delete_result.value or []:
+                goals_losing_contributions.extend(str(uid) for uid in row.get("goal_uids") or [])
             self.logger.info(
                 "Deletion propagation: removed %d entities for vault-deleted files under %s",
                 entities_deleted,
@@ -1253,6 +1256,7 @@ class IngestionTracker:
             )
 
         edges_deleted = 0
+        failure: str | None = None
         for planned_edge in plan.edge_deletions:
             edge_result = await self.backend.delete_edge_with_metadata(
                 planned_edge.file_path,
@@ -1261,8 +1265,14 @@ class IngestionTracker:
                 planned_edge.rel_type,
             )
             if edge_result.is_error:
-                return Result.fail(edge_result)
+                # The entity and edge deletes before this one have committed, with
+                # their tracker rows, so no later sync names their goals again: the
+                # outcome still carries them, beside the failure.
+                failure = str(edge_result.expect_error())
+                break
             edges_deleted += 1
+            if planned_edge.rel_type is RelationshipName.CONTRIBUTES_TO_GOAL:
+                goals_losing_contributions.append(planned_edge.to_uid)
         if edges_deleted:
             self.logger.info(
                 "Deletion propagation: removed %d relationships for vault-deleted "
@@ -1277,6 +1287,8 @@ class IngestionTracker:
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_removed,
                 ownership_mismatches=list(plan.ownership_mismatches),
+                goals_losing_contributions=sorted(set(goals_losing_contributions)),
+                failure=failure,
             )
         )
 

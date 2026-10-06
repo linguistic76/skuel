@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-09-29
+updated: 2026-10-06
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -36,7 +36,7 @@ stamped from.
 |---|---|---|
 | Owner | one user | none — PS-owned curriculum |
 | Dates | absolute (`due_date: 2026-10-01`) | offsets (`due_offset: {days: 7}`) |
-| Cross-refs | `fulfills_goal_uid` | `fulfills_goal_template_uid` |
+| Cross-refs | `scheduled_event_uid` | `scheduled_event_template_uid` |
 | Attached from a PS by | `task_uids:` (`ASSIGNS_TASK`) | `task_template_uids:` (`HAS_TASK_TEMPLATE`) |
 | Per learner | shared — everyone sees the same node | one fresh instance each |
 
@@ -322,11 +322,11 @@ milestones:
 
 A template can point at another template on the same PathStep. At spawn time the
 reference is re-pointed at the *instance* that other template just produced, so the
-learner's Task fulfils the learner's Goal — not a shared one.
+learner's Task contributes to the learner's Goal — not a shared one.
 
 ```yaml
 # tt.mindfulness.log-first-5-sessions
-fulfills_goal_template_uid: gt.mindfulness.beginner-consistency
+contributes_to_goal_template_uid: gt.mindfulness.beginner-consistency
 reinforces_habit_template_uid: ht.mindfulness.daily-2min-breath
 ```
 
@@ -340,7 +340,7 @@ a **graph edge**:
 | GoalTemplate | `inspired_by_choice_template_uid` | ChoiceTemplate | edge `(Goal)-[:INSPIRED_BY_CHOICE]->(Choice)` |
 | EventTemplate | `reinforces_habit_template_uid` | HabitTemplate | edge `(Event)-[:REINFORCES_HABIT]->(Habit)` |
 | EventTemplate | `milestone_celebration_for_goal_template_uid` | GoalTemplate | edge `(Event)-[:CELEBRATES_GOAL]->(Goal)` |
-| TaskTemplate | `fulfills_goal_template_uid` | GoalTemplate | property `fulfills_goal_uid` |
+| TaskTemplate | `contributes_to_goal_template_uid` | GoalTemplate | edge `(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)` |
 | TaskTemplate | `scheduled_event_template_uid` | EventTemplate | property `scheduled_event_uid` |
 | TaskTemplate | `parent_template_uid` | TaskTemplate | property `parent_uid` (spawns as a sub-task) |
 | TaskTemplate | `reinforces_habit_template_uid` | HabitTemplate | edge `(Task)-[:REINFORCES_HABIT]->(Habit)` |
@@ -456,7 +456,7 @@ description: Five separate sessions of any length. One minute counts.
 due_offset: {days: 7}
 duration_minutes: 10
 completion_updates_goal: true
-fulfills_goal_template_uid: gt.mindfulness.beginner-consistency
+contributes_to_goal_template_uid: gt.mindfulness.beginner-consistency
 ---
 ```
 
@@ -469,13 +469,13 @@ fulfills_goal_template_uid: gt.mindfulness.beginner-consistency
 | `recurrence_end_offset` | offset map | When recurrence ends |
 | `parent_template_uid` | `tt.…` | Spawns as a sub-task of that template's instance |
 | `project` | string | Free-text project grouping |
-| `fulfills_goal_template_uid` | `gt.…` | Resolves to the spawned Goal |
+| `contributes_to_goal_template_uid` | `gt.…` | Becomes a `CONTRIBUTES_TO_GOAL` edge to the spawned Goal |
 | `reinforces_habit_template_uid` | `ht.…` | Becomes a `REINFORCES_HABIT` edge to the spawned Habit |
 | `scheduled_event_template_uid` | `et.…` | Resolves to the spawned Event |
 | `goal_progress_contribution` | float 0.0–1.0 | How much completion advances the goal |
 | `knowledge_mastery_check` | bool | Completion marks a mastery checkpoint |
 | `habit_streak_maintainer` | bool | Completion maintains a habit streak |
-| `completion_updates_goal` | bool (default `true`) | Counts toward the spawned Goal's task tally; `false` keeps a goal-linked task out of that goal's progress |
+| `completion_updates_goal` | bool (default `true`) | Counts toward the spawned Goal's contribution tally; `false` keeps a goal-linked task out of that goal's progress |
 
 ### GoalTemplate — `type: goal_template`
 
@@ -783,7 +783,7 @@ dated from its own anchor. Engagement does not de-duplicate across PathSteps; th
 is not an error, it is a second engagement.
 
 Because references are per-PathStep, a shared template's cross-references must resolve on
-*every* step that lists it — a `fulfills_goal_template_uid` pointing at a Goal that only
+*every* step that lists it — a `contributes_to_goal_template_uid` pointing at a Goal that only
 step A carries fails step B with `cross_ps`.
 
 Completing or abandoning one of the two steps leaves the other step's instance alone:

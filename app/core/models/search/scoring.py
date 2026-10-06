@@ -540,7 +540,7 @@ def score_task(task: Task, context: UserContext) -> PriorityScore:
 
     # Goal alignment (weight: 0.15) — Tasks → Goals insight
     goal_alignment = score_goal_alignment(
-        task.fulfills_goal_uid,
+        task.contributes_to_goal_uid,
         context.active_goal_uids,
     )
     if goal_alignment.normalized > 0:

@@ -51,7 +51,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     - list_categories() - Get all unique goal categories
 
     Semantic Types Used:
-    - FULFILLS_GOAL: Task contributes to goal completion
+    - CONTRIBUTES_TO_GOAL: Task or event contributes to goal completion
     - SUPPORTS_GOAL: Habit supports goal achievement
     - PARENT_GOAL: Goal is a sub-goal of another
     - REQUIRES_KNOWLEDGE: Goal requires knowledge prerequisites

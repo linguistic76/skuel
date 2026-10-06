@@ -17,6 +17,7 @@ from core.models.user_entry.user_entry import UserEntry
 from core.services.dsl import (
     ActivityExtractionResult,
     ActivityExtractorService,
+    activity_to_event_request,
     activity_to_task_request,
     parse_journal_text,
 )
@@ -86,7 +87,7 @@ class TestActivityToTaskConversion:
         assert request.applies_knowledge_uids == ["ku.math.algebra", "ku.math.basics"]
 
     def test_convert_task_with_goal(self):
-        """@link(goal:...) maps to fulfills_goal_uid."""
+        """@link(goal:...) maps to a goal the task contributes to."""
         result = parse_journal_text(
             "- [ ] Work out @context(task) @link(goal:goal_health_a1b2c3d4)"
         )
@@ -95,7 +96,49 @@ class TestActivityToTaskConversion:
 
         assert convert_result.is_ok
         request = convert_result.value
-        assert request.fulfills_goal_uid == "goal_health_a1b2c3d4"
+        assert request.contributes_to_goal_uids == ["goal_health_a1b2c3d4"]
+
+    def test_a_task_line_carries_every_goal_it_links(self):
+        """Two goals in one @link(...) list — the task contributes to both, not the first."""
+        result = parse_journal_text(
+            "- [ ] Work out @context(task)"
+            " @link(goal:goal_health_a1b2c3d4, goal:goal_energy_e5f6a7b8)"
+        )
+        task_activity = result.value.get_tasks()[0]
+        convert_result = activity_to_task_request(task_activity)
+
+        assert convert_result.is_ok
+        assert convert_result.value.contributes_to_goal_uids == [
+            "goal_health_a1b2c3d4",
+            "goal_energy_e5f6a7b8",
+        ]
+
+
+class TestActivityToEventConversion:
+    """Test conversion from parsed activities to EventCreateRequest."""
+
+    def test_an_event_line_carries_its_goals(self):
+        """@link(goal:...) on an event line — the event contributes to every goal linked."""
+        result = parse_journal_text(
+            "- [ ] Run club @context(event) @when(2026-10-10T07:00)"
+            " @link(goal:goal_health_a1b2c3d4, goal:goal_energy_e5f6a7b8)"
+        )
+        event_activity = result.value.get_events()[0]
+        convert_result = activity_to_event_request(event_activity)
+
+        assert convert_result.is_ok
+        assert convert_result.value.contributes_to_goal_uids == [
+            "goal_health_a1b2c3d4",
+            "goal_energy_e5f6a7b8",
+        ]
+
+    def test_an_event_line_with_no_goal_carries_none(self):
+        result = parse_journal_text("- [ ] Run club @context(event) @when(2026-10-10T07:00)")
+        event_activity = result.value.get_events()[0]
+        convert_result = activity_to_event_request(event_activity)
+
+        assert convert_result.is_ok
+        assert convert_result.value.contributes_to_goal_uids == []
 
     def test_convert_checked_task(self):
         """Checked tasks [x] become COMPLETED status."""

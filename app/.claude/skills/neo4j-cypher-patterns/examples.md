@@ -58,16 +58,19 @@ WITH t, subtasks, dependencies, collect(DISTINCT CASE WHEN ku IS NOT NULL THEN {
     confidence: app_rel.confidence
 } END) as applied_knowledge
 
-// Get goal context
-OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(goal:Goal)
+// Get the goals the task contributes to (any number)
+OPTIONAL MATCH (t)-[:CONTRIBUTES_TO_GOAL]->(goal:Goal)
+WITH t, subtasks, dependencies, applied_knowledge, collect(DISTINCT CASE WHEN goal IS NOT NULL THEN {
+    uid: goal.uid,
+    title: goal.title,
+    progress: coalesce(goal.progress_percentage, 0.0) / 100.0
+} END) as contributing_goals
 RETURN t as task,
        {
            subtasks: subtasks,
            dependencies: dependencies,
            applied_knowledge: applied_knowledge,
-           goal_context: CASE WHEN goal IS NOT NULL
-               THEN {uid: goal.uid, title: goal.title, progress: coalesce(goal.progress_percentage, 0.0) / 100.0}
-               ELSE null END
+           contributing_goals: contributing_goals
        } as graph_context
 ```
 
@@ -95,7 +98,7 @@ ORDER BY g.priority DESC
 ### Get Goal with Contributing Tasks
 ```cypher
 MATCH (g:Goal {uid: $uid})
-OPTIONAL MATCH (task:Task)-[:FULFILLS_GOAL]->(g)
+OPTIONAL MATCH (task:Task)-[:CONTRIBUTES_TO_GOAL]->(g)
 WITH g, collect(CASE WHEN task IS NOT NULL THEN {
     uid: task.uid,
     title: task.title,
@@ -253,7 +256,7 @@ ORDER BY h.current_streak DESC
 MATCH (h:Habit {uid: $uid})
 
 // Linked goals
-OPTIONAL MATCH (h)-[:SUPPORTS_GOAL|FULFILLS_GOAL]->(goal:Goal)
+OPTIONAL MATCH (h)-[:SUPPORTS_GOAL]->(goal:Goal)
 WITH h, collect(CASE WHEN goal IS NOT NULL THEN {
     uid: goal.uid,
     title: goal.title,
@@ -437,7 +440,7 @@ WHERE t.user_uid = $user_uid
 
 // Get graph context
 OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
-OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
+OPTIONAL MATCH (t)-[:CONTRIBUTES_TO_GOAL]->(g:Goal)
 
 WITH t,
      collect(DISTINCT ku.uid) as knowledge_uids,

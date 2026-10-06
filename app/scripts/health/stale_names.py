@@ -345,6 +345,13 @@ DELETED: dict[str, str] = {
         "deleted — a principle informs a choice: (Principle)-[:INFORMS_CHOICE]->(Choice), "
         "read as the choice's informing_principles and the principle's informed_choices (ADR-090)"
     ),
+    # A task ↔ goal link is one edge, CONTRIBUTES_TO_GOAL from the task — the edge events
+    # use (ADR-090). Task.fulfills_goal_uid went with the type; Goal.fulfills_goal_uid (a
+    # sub-goal's parent) is a different, live field, so the field name has no entry here.
+    "FULFILLS_GOAL": (
+        "deleted — a task contributes to a goal: (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal), "
+        "read as the task's contributing_goals and the goal's contributing_tasks (ADR-090)"
+    ),
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
         "(core/models/enums/pipeline.py, after the Values block)"
@@ -504,7 +511,7 @@ _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
-_links_arc = "the Activity Links arc's record of the principle ↔ goal and principle ↔ choice collapses -- ADR-090, the arc document, ADR-090's INDEX row, and the older ADRs that keep the names (ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record) name the edge types the arc retired"
+_links_arc = "the Activity Links arc's record of the principle ↔ goal, principle ↔ choice and task ↔ goal collapses -- ADR-090, the arc document, ADR-090's INDEX row, the older ADRs that keep the names (ADR-001's 2025 single-query record, ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record), the closed case files in roadmap/done/ and the closed Cypher-vocabulary sweep name the edge types the arc retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
@@ -812,6 +819,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (315, "GUIDES_CHOICE"): Allow(_links_arc),
         (315, "GUIDES_GOAL"): Allow(_links_arc),
         (315, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (315, "FULFILLS_GOAL"): Allow(_links_arc),
     },
     "docs/decisions/ADR-015-mega-query-rich-queries-completion.md": {
         (25, "GUIDES_GOAL"): Allow(_links_arc),
@@ -844,28 +852,76 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (288, "GUIDES_GOAL"): Allow(_links_arc),
         (294, "GUIDES_CHOICE"): Allow(_links_arc),
         (295, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (59, "FULFILLS_GOAL"): Allow(_links_arc),
+        (72, "FULFILLS_GOAL"): Allow(_links_arc),
+        (171, "FULFILLS_GOAL"): Allow(_links_arc),
+        (173, "FULFILLS_GOAL"): Allow(_links_arc),
+    },
+    "docs/decisions/ADR-001-unified-user-context-single-query.md": {
+        (93, "FULFILLS_GOAL"): Allow(_links_arc),
+        (401, "FULFILLS_GOAL"): Allow(_links_arc),
+    },
+    "docs/patterns/CYPHER_VOCABULARY_FINDINGS.md": {
+        (477, "FULFILLS_GOAL"): Allow(_links_arc),
     },
     "docs/roadmap/activity-links-arc.md": {
         (17, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (47, "FULFILLS_GOAL"): Allow(_links_arc),
         (64, "GUIDES_GOAL"): Allow(_links_arc),
         (65, "GUIDES_CHOICE"): Allow(_links_arc),
         (65, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (156, "GUIDES_GOAL"): Allow(_links_arc),
-        (157, "GUIDES_CHOICE"): Allow(_links_arc),
-        (157, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (183, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (206, "GUIDES_GOAL"): Allow(_links_arc),
-        (228, "GUIDES_GOAL"): Allow(_links_arc),
-        (290, "GUIDES_GOAL"): Allow(_links_arc),
-        (317, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (328, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (449, "GUIDES_GOAL"): Allow(_links_arc),
-        (450, "GUIDES_CHOICE"): Allow(_links_arc),
-        (450, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (563, "GUIDES_GOAL"): Allow(_links_arc),
-        (570, "GUIDES_GOAL"): Allow(_links_arc),
-        (624, "GUIDES_CHOICE"): Allow(_links_arc),
-        (625, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (67, "FULFILLS_GOAL"): Allow(_links_arc, hits=2),
+        (115, "FULFILLS_GOAL"): Allow(_links_arc),
+        (158, "GUIDES_GOAL"): Allow(_links_arc),
+        (159, "GUIDES_CHOICE"): Allow(_links_arc),
+        (159, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (163, "FULFILLS_GOAL"): Allow(_links_arc),
+        (184, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (207, "GUIDES_GOAL"): Allow(_links_arc),
+        (211, "FULFILLS_GOAL"): Allow(_links_arc),
+        (225, "FULFILLS_GOAL"): Allow(_links_arc),
+        (229, "FULFILLS_GOAL"): Allow(_links_arc),
+        (237, "FULFILLS_GOAL"): Allow(_links_arc),
+        (239, "GUIDES_GOAL"): Allow(_links_arc),
+        (310, "FULFILLS_GOAL"): Allow(_links_arc),
+        (311, "GUIDES_GOAL"): Allow(_links_arc),
+        (322, "FULFILLS_GOAL"): Allow(_links_arc),
+        (340, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (351, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (366, "FULFILLS_GOAL"): Allow(_links_arc),
+        (456, "FULFILLS_GOAL"): Allow(_links_arc),
+        (463, "FULFILLS_GOAL"): Allow(_links_arc),
+        (499, "GUIDES_GOAL"): Allow(_links_arc),
+        (500, "GUIDES_CHOICE"): Allow(_links_arc),
+        (500, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (501, "FULFILLS_GOAL"): Allow(_links_arc),
+        (613, "GUIDES_GOAL"): Allow(_links_arc),
+        (620, "GUIDES_GOAL"): Allow(_links_arc),
+        (674, "GUIDES_CHOICE"): Allow(_links_arc),
+        (675, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (728, "FULFILLS_GOAL"): Allow(_links_arc),
+        (747, "FULFILLS_GOAL"): Allow(_links_arc),
+        (749, "FULFILLS_GOAL"): Allow(_links_arc),
+        (754, "FULFILLS_GOAL"): Allow(_links_arc),
+        (812, "FULFILLS_GOAL"): Allow(_links_arc),
+        (814, "FULFILLS_GOAL"): Allow(_links_arc),
+    },
+    "docs/roadmap/done/goal-progress-reads-an-unwritten-edge.md": {
+        (29, "FULFILLS_GOAL"): Allow(_links_arc),
+        (32, "FULFILLS_GOAL"): Allow(_links_arc),
+        (65, "FULFILLS_GOAL"): Allow(_links_arc),
+        (82, "FULFILLS_GOAL"): Allow(_links_arc),
+        (123, "FULFILLS_GOAL"): Allow(_links_arc),
+    },
+    "docs/roadmap/done/goal-progress-recompute-lost-update.md": {
+        (57, "FULFILLS_GOAL"): Allow(_links_arc),
+        (85, "FULFILLS_GOAL"): Allow(_links_arc),
+    },
+    "docs/roadmap/done/goal-tally-membership-changes.md": {
+        (72, "FULFILLS_GOAL"): Allow(_links_arc),
+    },
+    "docs/roadmap/done/habit-event-scheduler-dead-goal-stamp.md": {
+        (61, "FULFILLS_GOAL"): Allow(_links_arc),
     },
 }
 

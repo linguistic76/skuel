@@ -438,20 +438,20 @@ class TestHandleGoalProgressUpdated:
             assert len(log_calls) >= 1
 
     @pytest.mark.asyncio
-    async def test_task_trigger_logged(self, service: GoalEventHandlerService):
-        """Task completion trigger is logged."""
+    async def test_contribution_trigger_logged(self, service: GoalEventHandlerService):
+        """A contribution-change trigger is logged."""
         event = GoalProgressUpdated(
             goal_uid="goal_test_abc",
             user_uid="user_mike",
             old_progress=0.30,
             new_progress=0.40,
             occurred_at=datetime.now(),
-            triggered_by_task_completion=True,
+            triggered_by_contribution_change=True,
         )
 
         with patch.object(service.logger, "info") as mock_log:
             await service.handle_goal_progress_updated(event)
-            log_calls = [c for c in mock_log.call_args_list if "task_completion" in str(c)]
+            log_calls = [c for c in mock_log.call_args_list if "contribution_change" in str(c)]
             assert len(log_calls) >= 1
 
     @pytest.mark.asyncio

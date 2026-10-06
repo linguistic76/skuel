@@ -45,6 +45,14 @@ def _row(
     }
 
 
+def _heading_of(label: NeoLabel, method_key: str) -> str:
+    """The page heading of ``label``'s view keyed ``method_key``."""
+    for view in LABEL_CONFIGS[label].page_views():
+        if view.method_key == method_key and view.page_heading is not None:
+            return view.page_heading
+    raise AssertionError(f"{label} has no headed view keyed {method_key}")
+
+
 def _far_label(view: UnifiedRelationshipDefinition) -> str:
     """A far-end label the view reads: its own, or any label for an Entity far end."""
     return view.target_label if view.target_label != NeoLabel.ENTITY else NeoLabel.PRINCIPLE
@@ -117,7 +125,9 @@ class TestPlacement:
                     _row("SUPPORTS_GOAL", outgoing=False, far="Principle", uid="principle_1"),
                     # A PathStep supporter has no view on the goal.
                     _row("SUPPORTS_GOAL", outgoing=False, far="PathStep", uid="ps_1"),
-                    _row("FULFILLS_GOAL", outgoing=False, far="Task", uid="task_1"),
+                    # One edge type from a task and from an event: each under its own view.
+                    _row("CONTRIBUTES_TO_GOAL", outgoing=False, far="Task", uid="task_1"),
+                    _row("CONTRIBUTES_TO_GOAL", outgoing=False, far="Event", uid="event_1"),
                     # OPTIONAL MATCH miss → rel_type None → skipped.
                     {"entity_uid": "goal_2", "rel_type": None},
                 ]
@@ -128,9 +138,13 @@ class TestPlacement:
         assert {(row["heading"], row["connected_uid"]) for row in result["goal_1"]} == {
             ("Habits that support this goal", "habit_1"),
             ("Principles that support this goal", "principle_1"),
-            ("Tasks that contribute to this goal", "task_1"),
+            (_heading_of(NeoLabel.GOAL, "contributing_tasks"), "task_1"),
+            (_heading_of(NeoLabel.GOAL, "contributing_events"), "event_1"),
         }
-        assert len(result["goal_1"]) == 3
+        assert _heading_of(NeoLabel.GOAL, "contributing_tasks") != _heading_of(
+            NeoLabel.GOAL, "contributing_events"
+        )
+        assert len(result["goal_1"]) == 4
         assert "goal_2" not in result
 
     @pytest.mark.asyncio

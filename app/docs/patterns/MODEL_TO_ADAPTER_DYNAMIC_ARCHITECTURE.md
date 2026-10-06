@@ -217,7 +217,7 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 |---------|-------------|
 | `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
 | `LpBackend` | 4 HAS_STEP methods: `get_steps_raw`, `add_step_to_path`, `remove_step_from_path`, `reorder_steps` |
-| `GoalsBackend` | 5 progress-helper methods: `find_linked_goals_for_task`, `recompute_progress_from_linked_tasks`, `get_linked_task_tally`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`; `get_linked_task_tally` is the plain read of the task tally, running the statement the task recompute counts with — `query/cypher/goal_tally_queries.py`) |
+| `GoalsBackend` | 6 progress-helper methods: `find_contributed_goals`, `recompute_progress_from_contributions`, `get_contribution_tally`, `list_task_based_goals`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`; `get_contribution_tally` is the plain read of the contribution tally, running the statement the contribution recompute counts with — `query/cypher/goal_tally_queries.py`; `list_task_based_goals` feeds `./dev reconcile-goal-tallies`) |
 | `KuBackend` | 2 substance methods: `batch_increment_substance`, `increment_substance` |
 
 **Protocols updated:** `EventsOperations`, `ChoicesOperations`, `PrinciplesOperations` now extend `HierarchyOperations`. `PsOperations`, `LpOperations`, `GoalsOperations` gained method signatures for the new backend methods.
@@ -353,7 +353,6 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `SubmissionsBackend` | `create_goal_support_relationships` | `SubmissionsRelationshipService` |
 | `_LpStepMixin` | `get_next_step_sequence` | `PsSearchService` |
 | `_TraversalMixin` | `get_citation_export` | `KuCoreService` |
-| `_TraversalMixin` | `get_goal_aligned_entities` | `GoalsIntelligenceService` |
 | `_TraversalMixin` | `find_uids_by_semantic_filter` | `GraphIntelligenceService` |
 | `_TraversalMixin` | `get_batch_cross_domain_context` | none — no production caller ([findings §13](CYPHER_VOCABULARY_FINDINGS.md)) |
 | `CrossDomainBackend` | `get_journal_entries_in_range` | `CrossDomainQueryService` |
@@ -713,9 +712,9 @@ CREATE INDEX task_due_date IF NOT EXISTS FOR (t:Task) ON (t.due_date)
 # Cross-domain relationships created via UnifiedRelationshipService (not domain backends)
 # Facade delegates: tasks_service.link_task_to_goal()
 #   → self.relationships.create_relationship(
-#         "contributes_to_goal", task_uid, goal_uid, props, far_end=GOAL_FAR_END)
-# (explicit registry method_key — the old candidate-list link_to_goal() wrapper was removed)
-await tasks_service.link_task_to_goal(task_uid, goal_uid, contribution_percentage=0.1)
+#         "contributes_to_goal", task_uid, goal_uid, far_end=GOAL_FAR_END)
+# (explicit registry method_key; the edge carries no properties)
+await tasks_service.link_task_to_goal(task_uid, goal_uid)
 ```
 
 **Status:**

@@ -6,17 +6,20 @@ when tasks are created, completed, etc., and that orchestration methods
 with conditional logic behave correctly.
 """
 
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from core.events.goal_events import GoalContributionsChanged
 from core.models.enums import EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Errors, Result
@@ -506,7 +509,7 @@ class TestUpdateTaskHabitEdge:
 
 
 # ---------------------------------------------------------------------------
-# TestUpdateTaskGoalEdge — fulfills_goal_uid is dual-written on update too
+# TestUpdateTaskGoalEdges — contributes_to_goal_uids replaces the task's goal set
 # ---------------------------------------------------------------------------
 
 
@@ -516,170 +519,227 @@ def _task(**overrides: Any) -> Task:
     return Task(**defaults)
 
 
-class TestUpdateTaskGoalEdge:
-    """``fulfills_goal_uid`` on update: the property is written AND the FULFILLS_GOAL
-    edge is replaced — old edge deleted, new one admitted through the same guard the
-    create path uses. ``None`` clears both; ``UNSET`` touches neither. A refused goal
-    clears the property so the two halves never disagree (the create-path rule)."""
+class _Bus:
+    """Captures what the facade publishes — ``publish_event`` calls ``publish_async``."""
 
-    GOAL_EDGE = ("task_abc", "goal_new", RelationshipName.FULFILLS_GOAL.value, None)
+    def __init__(self) -> None:
+        self.events: list[object] = []
+
+    async def publish_async(self, event: object) -> None:
+        self.events.append(event)
+
+    def goal_changes(self) -> list[GoalContributionsChanged]:
+        return [e for e in self.events if isinstance(e, GoalContributionsChanged)]
+
+
+@dataclass
+class _Wired:
+    """The fakes ``TestUpdateTaskGoalEdges._wire`` installs, kept for assertions."""
+
+    bus: _Bus
+    update_task: AsyncMock
+    update: AsyncMock
+    get_related_uids: AsyncMock
+    delete_relationship: AsyncMock
+    create_relationships_batch: AsyncMock
+
+
+class TestUpdateTaskGoalEdges:
+    """``contributes_to_goal_uids`` on update is a FULL REPLACE of the task's
+    CONTRIBUTES_TO_GOAL edges: every old edge deleted, each new one admitted through the
+    guard the create path uses. ``[]`` clears; ``UNSET`` touches nothing. Edge-only —
+    no node property names a goal. A changed goal set announces the goals it left and
+    the task itself (whose current goals the handler reads), so both are recounted."""
 
     @staticmethod
-    def _related(existing_goal: str | None):
+    def _edge(goal_uid: str) -> tuple[str, str, str, None]:
+        return ("task_abc", goal_uid, RelationshipName.CONTRIBUTES_TO_GOAL.value, None)
+
+    @staticmethod
+    def _related(*existing_goals: str):
         async def related(key: str, uid: str) -> Result[list[str]]:
-            if key == "fulfills_goal":
-                return Result.ok([existing_goal] if existing_goal else [])
+            if key == "contributes_to_goal":
+                return Result.ok(list(existing_goals))
             return Result.ok([])
 
         return related
 
+    def _wire(self, service: TasksService, *existing_goals: str) -> _Wired:
+        w = _Wired(
+            bus=_Bus(),
+            update_task=AsyncMock(return_value=Result.ok(_task())),
+            update=AsyncMock(),
+            get_related_uids=AsyncMock(side_effect=self._related(*existing_goals)),
+            delete_relationship=AsyncMock(return_value=Result.ok(True)),
+            create_relationships_batch=AsyncMock(return_value=Result.ok(2)),
+        )
+        service.event_bus = cast("EventBusOperations", w.bus)
+        service.core.get_task = AsyncMock(return_value=Result.ok(_task()))
+        service.core.update_task = w.update_task
+        service.relationships.get_related_uids = w.get_related_uids
+        service.relationships.delete_relationship = w.delete_relationship
+        service.backend.create_relationships_batch = w.create_relationships_batch
+        service.backend.update = w.update
+        return w
+
     @pytest.mark.asyncio
-    async def test_setting_a_goal_writes_the_property_and_replaces_the_edge(
+    async def test_a_new_goal_set_replaces_the_old_edges(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
         service = tasks_service_with_mocked_subservices
-        service.core.update_task = AsyncMock(
-            return_value=Result.ok(_task(fulfills_goal_uid="goal_new"))
-        )
-        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
-        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
-        service.backend.update = AsyncMock()
+        w = self._wire(service, "goal_old")
 
         result = await service.update_task(
-            "task_abc", TaskUpdateIntent(fulfills_goal_uid="goal_new")
+            "task_abc", TaskUpdateIntent(contributes_to_goal_uids=["goal_a", "goal_b"])
         )
 
         assert result.is_ok
-        # The property is NOT split off: it stays in the patch core writes.
-        service.core.update_task.assert_awaited_once_with(
-            "task_abc", TaskUpdateIntent(fulfills_goal_uid="goal_new")
+        # Edge-only: nothing reaches the node-property write.
+        w.update_task.assert_not_called()
+        w.update.assert_not_called()
+        w.delete_relationship.assert_awaited_once_with(
+            "contributes_to_goal", "task_abc", "goal_old"
         )
-        service.relationships.delete_relationship.assert_awaited_once_with(
-            "fulfills_goal", "task_abc", "goal_old"
+        w.create_relationships_batch.assert_awaited_once_with(
+            [self._edge("goal_a"), self._edge("goal_b")]
         )
-        service.backend.create_relationships_batch.assert_awaited_once_with([self.GOAL_EDGE])
-        service.backend.update.assert_not_called()
-        assert result.value.fulfills_goal_uid == "goal_new"
+        [changed] = w.bus.goal_changes()
+        assert changed.goal_uids == ("goal_old",)
+        assert changed.contributor_uids == ("task_abc",)
+        assert changed.user_uid == "user_x"
 
     @pytest.mark.asyncio
-    async def test_clearing_the_goal_deletes_the_edge_and_creates_none(
+    async def test_the_goal_set_is_split_off_a_property_update(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
         service = tasks_service_with_mocked_subservices
-        service.core.update_task = AsyncMock(return_value=Result.ok(_task()))
-        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
-        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        service.backend.create_relationships_batch = AsyncMock()
+        w = self._wire(service)
 
-        result = await service.update_task("task_abc", TaskUpdateIntent(fulfills_goal_uid=None))
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(title="Renamed", contributes_to_goal_uids=["goal_a"])
+        )
 
         assert result.is_ok
-        service.core.update_task.assert_awaited_once_with(
-            "task_abc", TaskUpdateIntent(fulfills_goal_uid=None)
-        )
-        service.relationships.delete_relationship.assert_awaited_once_with(
-            "fulfills_goal", "task_abc", "goal_old"
-        )
-        service.backend.create_relationships_batch.assert_not_called()
+        w.update_task.assert_awaited_once_with("task_abc", TaskUpdateIntent(title="Renamed"))
+        w.create_relationships_batch.assert_awaited_once_with([self._edge("goal_a")])
 
     @pytest.mark.asyncio
-    async def test_an_unset_goal_touches_no_goal_edge(
+    async def test_an_empty_list_clears_every_goal_edge(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
         service = tasks_service_with_mocked_subservices
-        service.core.update_task = AsyncMock(return_value=Result.ok(_task()))
-        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
-        service.relationships.delete_relationship = AsyncMock()
-        service.backend.create_relationships_batch = AsyncMock()
+        w = self._wire(service, "goal_old", "goal_older")
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(contributes_to_goal_uids=[])
+        )
+
+        assert result.is_ok
+        assert w.delete_relationship.await_count == 2
+        w.create_relationships_batch.assert_not_called()
+        [changed] = w.bus.goal_changes()
+        assert changed.goal_uids == ("goal_old", "goal_older")
+
+    @pytest.mark.asyncio
+    async def test_an_unset_goal_set_touches_no_goal_edge(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        w = self._wire(service, "goal_old")
 
         result = await service.update_task("task_abc", TaskUpdateIntent(title="Renamed"))
 
         assert result.is_ok
-        service.relationships.get_related_uids.assert_not_called()
-        service.relationships.delete_relationship.assert_not_called()
-        service.backend.create_relationships_batch.assert_not_called()
+        w.get_related_uids.assert_not_called()
+        w.delete_relationship.assert_not_called()
+        w.create_relationships_batch.assert_not_called()
+        assert w.bus.goal_changes() == []
 
     @pytest.mark.asyncio
-    async def test_a_refused_goal_clears_the_property(
+    async def test_a_goal_owned_by_another_user_is_refused(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
-        """Another user's goal: the old edge is gone (replace semantics), the new one is
-        refused, and the property core just wrote is cleared — the returned task names no
-        goal, matching the graph."""
+        """Replace semantics: the old edge is gone, the foreign one is never written, and
+        the goal that lost the task is still announced."""
         service = tasks_service_with_mocked_subservices
-        service.core.update_task = AsyncMock(
-            return_value=Result.ok(_task(fulfills_goal_uid="goal_theirs"))
-        )
-        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
-        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        w = self._wire(service, "goal_old")
         service.backend.get_owner_uids_batch = AsyncMock(
             return_value=Result.ok({"goal_theirs": ["user_someone_else"]})
         )
-        service.backend.create_relationships_batch = AsyncMock()
-        service.backend.update = AsyncMock(return_value=Result.ok(_task()))
 
         result = await service.update_task(
-            "task_abc", TaskUpdateIntent(fulfills_goal_uid="goal_theirs")
+            "task_abc", TaskUpdateIntent(contributes_to_goal_uids=["goal_theirs"])
         )
 
         assert result.is_ok
-        service.backend.create_relationships_batch.assert_not_called()
-        service.backend.update.assert_awaited_once_with("task_abc", {"fulfills_goal_uid": None})
-        assert result.value.fulfills_goal_uid is None
-
-    @pytest.mark.asyncio
-    async def test_a_failed_batch_clears_the_stamp_and_still_reports_the_failure(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """Kody on #1260: core has already written the column and the old edge is gone
-        when the batch fails, so an early return strands a stamp with no edge behind it.
-        The invariant is restored FIRST, and the failure is still reported — a silent
-        success here would also swallow a failed habit or knowledge edge in the same
-        batch."""
-        service = tasks_service_with_mocked_subservices
-        service.core.update_task = AsyncMock(
-            return_value=Result.ok(_task(fulfills_goal_uid="goal_new"))
-        )
-        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
-        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        service.backend.create_relationships_batch = AsyncMock(
-            return_value=Result.fail(
-                Errors.database(message="transient Neo4j error", operation="create_batch")
-            )
-        )
-        service.backend.update = AsyncMock(return_value=Result.ok(_task()))
-
-        result = await service.update_task(
-            "task_abc", TaskUpdateIntent(fulfills_goal_uid="goal_new")
-        )
-
-        assert result.is_error, "a failed edge batch is an update failure, not a silent success"
-        service.backend.update.assert_awaited_once_with("task_abc", {"fulfills_goal_uid": None})
+        w.create_relationships_batch.assert_not_called()
+        w.update.assert_not_called()
+        [changed] = w.bus.goal_changes()
+        assert changed.goal_uids == ("goal_old",)
 
     @pytest.mark.asyncio
     async def test_a_goal_of_the_wrong_kind_is_refused(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
         service = tasks_service_with_mocked_subservices
-        service.core.update_task = AsyncMock(
-            return_value=Result.ok(_task(fulfills_goal_uid="habit_not_a_goal"))
-        )
-        service.relationships.get_related_uids = AsyncMock(side_effect=self._related(None))
+        w = self._wire(service)
         service.backend.get_node_labels_batch = AsyncMock(
             return_value=Result.ok({"habit_not_a_goal": ["Entity", "Habit"]})
         )
-        service.backend.create_relationships_batch = AsyncMock()
-        service.backend.update = AsyncMock(return_value=Result.ok(_task()))
 
         result = await service.update_task(
-            "task_abc", TaskUpdateIntent(fulfills_goal_uid="habit_not_a_goal")
+            "task_abc", TaskUpdateIntent(contributes_to_goal_uids=["habit_not_a_goal"])
         )
 
         assert result.is_ok
-        service.backend.create_relationships_batch.assert_not_called()
-        service.backend.update.assert_awaited_once_with("task_abc", {"fulfills_goal_uid": None})
-        assert result.value.fulfills_goal_uid is None
+        w.create_relationships_batch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_failed_batch_is_an_update_failure_that_still_announces_the_removed_goals(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """The old edges are already gone when the batch fails, so the goals that lost the
+        task must still be recounted — or their stored tallies keep counting it until a
+        reconcile. The failure is still reported."""
+        service = tasks_service_with_mocked_subservices
+        w = self._wire(service, "goal_old")
+        service.backend.create_relationships_batch = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(message="transient Neo4j error", operation="create_batch")
+            )
+        )
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(contributes_to_goal_uids=["goal_new"])
+        )
+
+        assert result.is_error, "a failed edge batch is an update failure, not a silent success"
+        [changed] = w.bus.goal_changes()
+        assert changed.goal_uids == ("goal_old",)
+
+    @pytest.mark.asyncio
+    async def test_a_delete_failing_part_way_still_announces_every_prior_goal(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """The second of two goal-edge deletes fails: the first goal is already unlinked,
+        so every goal the task held is announced before the failure is reported."""
+        service = tasks_service_with_mocked_subservices
+        w = self._wire(service, "goal_a", "goal_b")
+        service.relationships.delete_relationship = AsyncMock(
+            side_effect=[
+                Result.ok(True),
+                Result.fail(Errors.database(message="transient", operation="delete")),
+            ]
+        )
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(contributes_to_goal_uids=["goal_new"])
+        )
+
+        assert result.is_error
+        [changed] = w.bus.goal_changes()
+        assert changed.goal_uids == ("goal_a", "goal_b")
+        w.create_relationships_batch.assert_not_called()
 
 
 class TestUpdateTaskEdgesAreGuarded:

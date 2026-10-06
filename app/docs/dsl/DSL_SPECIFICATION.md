@@ -344,7 +344,7 @@ whose uid names no node writes no edge — the sync reports it as a link error.
 
 **Authorship:** `@link(goal:…)` is written by the user, never by the LLM bridge. The bridge
 grounds recognition in active-goal *titles* through a non-extractable prompt slot and emits no
-`@link`; in the DSL a goal edge (`FULFILLS_GOAL`) comes from the user's own
+`@link`; in the DSL a goal edge (`CONTRIBUTES_TO_GOAL`) comes from the user's own
 `@link(goal:<uid>)` and from nothing the bridge adds. Ruled 2026-09-02 (goal links stay
 user-authored only) — see
 `docs/roadmap/deferred-work.md` § DSL-Bridge Grounding.
@@ -360,8 +360,10 @@ UID ::= the entity's stored uid, verbatim (authored dot form or generated unders
 
 **Link types and where they land:**
 ```
-goal:       → Task.fulfills_goal_uid + the task's FULFILLS_GOAL edge (dual-written, guarded:
-              the goal must exist, be yours, be a Goal — else neither lands) · Habit/Event linked_goal_uids
+goal:       → Task contributes_to_goal_uids: one CONTRIBUTES_TO_GOAL edge per linked goal (each
+              guarded: the goal must exist, be yours, be a Goal — else that edge does not land)
+              · Event contributes_to_goal_uids (the same edge, per goal) · Habit linked_goal_uids
+              (SUPPORTS_GOAL)
 principle:  → Habit linked_principle_uids (EMBODIES_PRINCIPLE) · Goal supporting_principle_uids
               (the principle's SUPPORTS_GOAL edge into the goal)
 ku:  ps:    → applies_knowledge_uids (+ the entry's APPLIES_KNOWLEDGE edge) — the door

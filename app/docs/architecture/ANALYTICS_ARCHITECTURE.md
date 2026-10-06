@@ -1,6 +1,6 @@
 ---
 title: Analytics Architecture - Statistical Aggregation Meta-Service
-updated: 2026-10-03
+updated: 2026-10-06
 status: current
 category: architecture
 tags: [architecture, analytics]
@@ -204,7 +204,7 @@ Markdown File (stored in /data/analytics/)
 **Example:**
 ```python
 # TasksService facade (delegates to UnifiedRelationshipService)
-await tasks_service.link_task_to_goal(task_uid, goal_uid, contribution_percentage=0.3)
+await tasks_service.link_task_to_goal(task_uid, goal_uid)
 
 # AnalyticsMetricsService (reads relationships for metrics)
 tasks_for_goal = await tasks_service.get_tasks_for_goal(goal_uid, user_uid)

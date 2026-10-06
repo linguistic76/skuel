@@ -28,8 +28,10 @@ logged daily *occurrence* and ``ChoiceMade`` is the DRAFT→ACTIVE *decide*
 moment, neither of which is the entity retiring. Habit and Choice therefore get
 the stamp-clear and no event — inventing one with no subscribers would be
 staged bloat, not a fix. Of the reopen events only ``TaskReopened`` exists, and it
-has a subscriber: goal progress recomputes on it, so a task reopened in Obsidian
-lowers its goal exactly as one reopened in the app does.
+has a subscriber: context invalidation, so a cached context refreshes after a task
+reopened in Obsidian as after one reopened in the app. (Goal progress hears every
+vault status change through ``GoalContributionsChanged``, which the ingest door
+publishes for each task and event it persists.)
 
 Every value here arrives as parsed YAML, so dates may be native ``date``
 objects, ISO strings, or absent; the coercions are deliberately total (an

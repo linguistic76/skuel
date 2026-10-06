@@ -100,9 +100,7 @@ def create_events_api_routes(
     )
 
     async def apply_link_goal(req: LinkEventToGoalRequest) -> Result[bool]:
-        return await events_service.link_event_to_goal(
-            req.event_uid, req.goal_uid, req.contribution_weight
-        )
+        return await events_service.link_event_to_goal(req.event_uid, req.goal_uid)
 
     create_activity_link_api_routes(
         rt,

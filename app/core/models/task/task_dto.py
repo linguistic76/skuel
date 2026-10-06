@@ -43,7 +43,7 @@ class TaskDTO(UserOwnedDTO):
     Extends UserOwnedDTO with task-specific fields:
     - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
     - Hierarchy (3): parent_uid, project, assignee
-    - Cross-domain links (3): goal, habit, path step references
+    - Cross-domain links (1): path step reference (goals and habits are graph edges)
     - Progress impact (5): goal contribution, knowledge mastery, habit streak
     - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
     """
@@ -78,9 +78,9 @@ class TaskDTO(UserOwnedDTO):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
-    # Task↔Habit linkage is the (Task)-[:REINFORCES_HABIT]->(Habit) graph edge,
-    # not a persisted property — so it is intentionally absent from this DTO.
-    fulfills_goal_uid: str | None = None
+    # Task↔Habit and Task→Goal linkage are graph edges ((Task)-[:REINFORCES_HABIT]->(Habit),
+    # (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)), not persisted properties — so both are
+    # intentionally absent from this DTO.
     source_path_step_uid: str | None = None
 
     # =========================================================================
@@ -225,7 +225,6 @@ class TaskDTO(UserOwnedDTO):
                 "parent_uid",
                 "project",
                 "assignee",
-                "fulfills_goal_uid",
                 "source_path_step_uid",
                 "goal_progress_contribution",
                 "knowledge_mastery_check",

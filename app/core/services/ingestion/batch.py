@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -38,7 +38,11 @@ from core.utils.exception_types import (
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
 
-from .authored_edges import authored_edge_fingerprint, retracted_edges
+from .authored_edges import (
+    authored_edge_fingerprint,
+    goals_losing_contributions,
+    retracted_edges,
+)
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
     DEFAULT_MAX_FILE_SIZE_BYTES,
@@ -627,6 +631,24 @@ async def _ingest_edge_batch(
     )
 
 
+def _reconcile_failure(failure: str) -> dict[str, str]:
+    """A deletion reconciliation that stopped part-way, as a sync error."""
+    return {
+        "message": f"Deletion reconciliation failed: {failure}",
+        "operation": "reconcile_deletions",
+    }
+
+
+async def _announce_goals(
+    goal_contributions_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None,
+    goal_uids: Iterable[str],
+) -> None:
+    """Hand ``goal_contributions_fn`` the goals a sync changed a contribution of, if any."""
+    goals = tuple(sorted(set(goal_uids)))
+    if goal_contributions_fn is not None and goals:
+        await goal_contributions_fn(goals)
+
+
 async def ingest_directory(
     directory: Path,
     write_backend: IngestionWriteOperations | None = None,  # edges, existence checks (ADR-044)
@@ -654,6 +676,7 @@ async def ingest_directory(
         Awaitable[None],
     ]
     | None = None,
+    goal_contributions_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None = None,
     vault_kind: VaultKind | None = None,
 ) -> Result[IngestionStats | IncrementalStats]:
     """
@@ -731,6 +754,12 @@ async def ingest_directory(
             relationship configs author — and phase 1 has written none of them
             yet, so this runs at end-of-sync, after every edge this run writes.
             Never called for failed batches.
+        goal_contributions_fn: Optional end-of-sync callback with the goals this
+            sync took a contribution from or gave one to through a path that leaves
+            the contributor unable to name them: a dropped
+            ``connections.contributes_to_goal`` target, a deleted task or event file,
+            a written or deleted ``CONTRIBUTES_TO_GOAL`` Edge YAML. The contributors a
+            sync re-ingests are announced by ``status_transition_fn``.
         vault_kind: The kind of vault ``directory`` is (the facade resolves it
             from the registry; ``None`` when none governs it). A PERSONAL vault
             refuses the files it may not hold, gives each uid-less Activity or
@@ -812,10 +841,15 @@ async def ingest_directory(
                 entities_deleted = reconcile_result.value.entities_deleted
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+                await _announce_goals(
+                    goal_contributions_fn, reconcile_result.value.goals_losing_contributions
+                )
                 empty_warnings.extend(reconcile_result.value.ownership_mismatches)
                 mass_deletion_refused = reconcile_result.value.mass_deletion_refused
                 if reconcile_result.value.refusal_warning:
                     empty_warnings.append(reconcile_result.value.refusal_warning)
+                if reconcile_result.value.failure:
+                    empty_errors.append(_reconcile_failure(reconcile_result.value.failure))
             else:
                 empty_errors.append(
                     {
@@ -908,10 +942,15 @@ async def ingest_directory(
                 entities_deleted = reconcile_result.value.entities_deleted
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+                await _announce_goals(
+                    goal_contributions_fn, reconcile_result.value.goals_losing_contributions
+                )
                 reconcile_warnings.extend(reconcile_result.value.ownership_mismatches)
                 mass_deletion_refused = reconcile_result.value.mass_deletion_refused
                 if reconcile_result.value.refusal_warning:
                     reconcile_warnings.append(reconcile_result.value.refusal_warning)
+                if reconcile_result.value.failure:
+                    reconcile_errors.append(_reconcile_failure(reconcile_result.value.failure))
             else:
                 # Same error surface as the non-empty processing path — a
                 # silently-skipped reconciliation would report a clean sync
@@ -1151,6 +1190,9 @@ async def ingest_directory(
     status_transition_batches: list[
         tuple[EntityType | NonKuDomain, list[dict[str, Any]], Mapping[str, str | None]]
     ] = []
+    # Goals this sync took a contribution from (or gave one to) that no contributor
+    # can name afterwards — see ``goal_contributions_fn``.
+    touched_goal_uids: set[str] = set()
 
     # Per-file routing — two types whose persistence is more than the bulk
     # upsert, so the batch door hands each file to ingest_file_fn (the
@@ -1552,12 +1594,18 @@ async def ingest_directory(
                 f"Retracted {deleted} frontmatter edge(s) {source_uid} no longer declares "
                 f"({len(dropped)} dropped from its registered fields)"
             )
+            touched_goal_uids.update(goals_losing_contributions(dropped))
 
     # Ingest edge files (after entities, so referenced nodes likely exist)
     edge_outcome = _EdgeBatchOutcome()
     if edge_files and write_backend is not None:
         edge_outcome = await _ingest_edge_batch(write_backend, edge_files)
         errors.extend(edge_outcome.errors)
+        touched_goal_uids.update(
+            success["to_uid"]
+            for success in edge_outcome.successes
+            if success["rel_type"] == RelationshipName.CONTRIBUTES_TO_GOAL.value
+        )
         if edge_outcome.written:
             logger.info(
                 f"Ingested {edge_outcome.written} edges from {len(edge_files)} edge files "
@@ -1640,10 +1688,13 @@ async def ingest_directory(
             entities_deleted = reconcile_result.value.entities_deleted
             edges_deleted = reconcile_result.value.edges_deleted
             stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+            touched_goal_uids.update(reconcile_result.value.goals_losing_contributions)
             validation_warnings.extend(reconcile_result.value.ownership_mismatches)
             mass_deletion_refused = reconcile_result.value.mass_deletion_refused
             if reconcile_result.value.refusal_warning:
                 validation_warnings.append(reconcile_result.value.refusal_warning)
+            if reconcile_result.value.failure:
+                errors.append(_reconcile_failure(reconcile_result.value.failure))
         else:
             errors.append(
                 {
@@ -1694,6 +1745,7 @@ async def ingest_directory(
     if status_transition_fn is not None:
         for st_entity_type, st_entities, st_prior in status_transition_batches:
             await status_transition_fn(st_entity_type, st_entities, st_prior)
+    await _announce_goals(goal_contributions_fn, touched_goal_uids)
 
     duration = (datetime.now() - start_time).total_seconds()
 

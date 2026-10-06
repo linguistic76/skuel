@@ -76,7 +76,6 @@ def task() -> Task:
         priority=Priority.HIGH,
         status=EntityStatus.ACTIVE,
         created_at=_now(),
-        fulfills_goal_uid="goal_y",
         reinforces_habit_uid="habit_z",
     )
 
@@ -323,21 +322,23 @@ class TestEntityPickerWiring:
     def test_tasks_create_picker_hidden_inputs(self) -> None:
         html = to_xml(TaskCreateForm())
         names = _hidden_input_names(html)
-        assert {"parent_uid", "fulfills_goal_uid", "reinforces_habit_uid"} <= names
+        assert {"parent_uid", "contributes_to_goal_uids", "reinforces_habit_uid"} <= names
 
     def test_tasks_edit_picker_carries_entity_uid_values(self, task) -> None:
         # The habit picker value is resolved from the (Task)-[:REINFORCES_HABIT]->(Habit)
         # edge by the route layer and passed in via habit_uid (graph-native; no property).
         html = to_xml(TaskEditForm(task, habit_uid="habit_z"))
-        # Pickers should be wired with the task's linked UIDs as hidden values
-        assert re.search(
-            r'<input[^>]*type="hidden"[^>]*name="fulfills_goal_uid"[^>]*value="goal_y"',
-            html,
-        ), "Goal-picker hidden value not set"
         assert re.search(
             r'<input[^>]*type="hidden"[^>]*name="reinforces_habit_uid"[^>]*value="habit_z"',
             html,
         ), "Habit-picker hidden value not set"
+
+    def test_tasks_edit_has_no_goal_picker(self, task) -> None:
+        """A task contributes to any number of goals and the update field is a full
+        replace, so a one-goal picker on edit would wipe every other goal on save."""
+        names = _hidden_input_names(to_xml(TaskEditForm(task, habit_uid="habit_z")))
+        assert "contributes_to_goal_uids" not in names
+        assert "fulfills_goal_uid" not in names
 
     def test_goals_create_has_parent_picker(self) -> None:
         names = _hidden_input_names(to_xml(GoalCreateForm()))
@@ -358,7 +359,7 @@ class TestEntityPickerWiring:
         """Habit's cross-domain fields are all list-typed — no EntityPicker widgets."""
         names = _hidden_input_names(to_xml(HabitCreateForm()))
         # CSRF or other framework-injected hidden fields may exist, but no domain pickers
-        domain_pickers = {"parent_uid", "fulfills_goal_uid", "reinforces_habit_uid"}
+        domain_pickers = {"parent_uid", "contributes_to_goal_uids", "reinforces_habit_uid"}
         assert not (domain_pickers & names)
 
 

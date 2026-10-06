@@ -44,12 +44,12 @@ class TaskCompleted(BaseEvent):
     Published when a task is marked complete.
 
     This is a high-volume, high-importance event.
-    Triggers context invalidation, analytics, and goal progress updates.
+    Triggers context invalidation and analytics. (Goal progress hears a task's
+    status change through ``GoalContributionsChanged``, published beside it.)
 
     Subscribers:
     - TaskEventHandlerService (duration calibration, overdue detection, principle alignment)
     - UserService (invalidate user context)
-    - GoalAnalyticsService (update goal progress)
     - AnalyticsEngine (track completion patterns)
 
     **Every publisher is transition-gated.** ``TaskCompleted`` is published exactly
@@ -67,7 +67,7 @@ class TaskCompleted(BaseEvent):
     carries a repeat gate: counting and appending subscribers (the duration EMA, the
     overdue and alignment insight appends, the Prometheus ``entities_completed{task}``
     counter, the productivity completion moment) count each genuine completion once,
-    and recompute-shaped ones (goal progress, PS engagement auto-complete, dependent
+    and recompute-shaped ones (PS engagement auto-complete, dependent
     scheduling, knowledge generation, context invalidation) converge on their own.
 
     A task completed away from the app carries its own ``completion_date`` as
@@ -115,16 +115,12 @@ class TaskReopened(BaseEvent):
     - ``UserService`` context invalidation — the vault door publishes no
       ``TaskUpdated``, so this is what refreshes a cached context after an Obsidian
       reopen.
-    - ``GoalsProgressService.handle_task_reopened`` — recomputes the goals the task
-      fulfills from their linked-task tally, lowering progress and un-achieving a
-      goal that falls below 100%. The recompute reads graph state under the goal's
-      lock, so the event is only its trigger: a missed or repeated one leaves the
-      next recompute of that goal correct.
 
     Not subscribers (docs/roadmap/done/reopen-vault-surface.md):
 
     - ``ProductivityAnalytics`` — ``tasks_completed`` is derived at read from the
       tasks currently in ``completed``, so a reopen lowers it with no one listening.
+    - Goal progress — it hears the same move through ``GoalContributionsChanged``.
     - The vault write-back (un-checking the Obsidian line and stripping its ``✅``
       date, ADR-070 Resolved Design Question 2, amended). Its trigger is the
       outbound sync pass's STATE predicate — "not completed AND the line is still

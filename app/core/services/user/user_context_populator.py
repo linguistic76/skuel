@@ -733,11 +733,10 @@ class UserContextPopulator:
             if not task_uid:
                 continue
 
-            # Extract goal association
-            goal_ctx = graph_ctx.get("goal_context")
-            if goal_ctx and goal_ctx.get("uid"):
-                goal_uid = goal_ctx["uid"]
-                tasks_by_goal.setdefault(goal_uid, []).append(task_uid)
+            # Every goal the task contributes to lists it
+            for goal_ctx in graph_ctx.get("contributing_goals") or []:
+                if goal_ctx and goal_ctx.get("uid"):
+                    tasks_by_goal.setdefault(goal_ctx["uid"], []).append(task_uid)
 
             # Extract blocked tasks (tasks that have incomplete dependencies)
             dependencies = graph_ctx.get("dependencies", [])

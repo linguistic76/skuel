@@ -146,7 +146,7 @@ RelationshipCrudOperations — creating graph edges:
             # in core/. Source and target are set at different call sites in a
             # forced order, so they cannot be swapped.
             await relate(self.backend, task_uid).via(
-                RelationshipName.FULFILLS_GOAL
+                RelationshipName.CONTRIBUTES_TO_GOAL
             ).to(goal_uid).create()
 
 
@@ -186,7 +186,7 @@ GraphTraversalOperations — cross-domain intelligence:
             result = await self.backend.get_domain_context_raw(
                 entity_uid=task_uid,
                 entity_label="Task",
-                relationship_types=["APPLIES_KNOWLEDGE", "FULFILLS_GOAL"],
+                relationship_types=["APPLIES_KNOWLEDGE", "CONTRIBUTES_TO_GOAL"],
                 depth=2,
             )
             return result.value if result.is_ok else []

@@ -86,6 +86,7 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
+    from core.models.task.task import Task
     from core.ports import (
         CalendarServiceOperations,
         EventBusOperations,
@@ -402,6 +403,7 @@ class SearchRouter:
         """
         self._ku = ku
         self._ps = ps
+        self._tasks = tasks
         self._habits = habits
         self._user = user
         self._vector_search = vector_search_service
@@ -2666,6 +2668,15 @@ class SearchRouter:
             )
             enriched_habits = {h.uid: h for h in enriched}
 
+        # Enrich tasks with their CONTRIBUTES_TO_GOAL edges, for the same reason.
+        enriched_tasks: dict[str, Task] = {}
+        task_items = [item for item in items if item.entity_type == EntityType.TASK]
+        if task_items and self._tasks is not None:
+            enriched_t = await self._tasks.search.enrich_with_goal_links(
+                [item.entity for item in task_items], user_context.active_goal_uids
+            )
+            enriched_tasks = {t.uid: t for t in enriched_t}
+
         scored_items = []
         for item in items:
             score = 0.0
@@ -2675,6 +2686,7 @@ class SearchRouter:
             try:
                 match item.entity_type:
                     case EntityType.TASK:
+                        entity = enriched_tasks.get(item.uid, item.entity)
                         priority_score = score_task(entity, user_context)
                         score = priority_score.total
                     case EntityType.GOAL:

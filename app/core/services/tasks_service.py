@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from core.services.tasks.tasks_ai_service import TasksAIService
 
 # Domain models
-from core.events import TaskUpdated, publish_event
+from core.events import GoalContributionsChanged, TaskUpdated, publish_event
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
@@ -94,6 +94,30 @@ if TYPE_CHECKING:
     from core.ports.query_types import ListContext
     from core.services.user import UserContext
     from core.services.user.unified_user_context import RichUserContext
+
+
+@dataclasses.dataclass(frozen=True)
+class TaskEdgeIntent:
+    """The edge-typed fields of a task update, split off its ``TaskUpdateIntent``.
+
+    Each keeps the ADR-066 contract: ``UNSET`` = not in this update, ``None`` / ``[]`` =
+    clear, a value = replace.
+    """
+
+    habit_uid: str | Unset | None = UNSET
+    applies_knowledge_uids: list[str] | Unset | None = UNSET
+    contributes_to_goal_uids: list[str] | Unset | None = UNSET
+
+    def any_set(self) -> bool:
+        """Whether this update touches any edge."""
+        return any(
+            value is not UNSET
+            for value in (
+                self.habit_uid,
+                self.applies_knowledge_uids,
+                self.contributes_to_goal_uids,
+            )
+        )
 
 
 # TypedDicts for analytics dashboard structure (fixes MyPy index errors)
@@ -442,27 +466,32 @@ class TasksService(
     @staticmethod
     def _split_relationship_intent(
         intent: TaskUpdateIntent,
-    ) -> tuple[str | Unset | None, list[str] | Unset | None, TaskUpdateIntent]:
+    ) -> tuple[TaskEdgeIntent, TaskUpdateIntent]:
         """Split the edge-typed fields off a ``TaskUpdateIntent``.
 
-        Returns ``(habit_uid, applies_knowledge_uids, prop_intent)`` where ``prop_intent``
-        is the same intent with both edge-only fields reset to ``UNSET`` (so its
-        ``to_changes()`` carries only node properties). The edge values pass through with
-        the canonical ADR-066 contract intact — ``UNSET`` = not in this update (untouched),
-        ``None`` / ``[]`` = explicit clear, value = set — which ``_sync_relationship_edges``
-        consumes.
-
-        ``fulfills_goal_uid`` is deliberately NOT split off: it is dual-written — a real
-        node column AND the FULFILLS_GOAL edge — so it stays in the property patch and is
-        read straight off the intent for the edge sync.
+        Returns ``(edges, prop_intent)`` where ``prop_intent`` is the same intent with
+        every edge-only field reset to ``UNSET`` (so its ``to_changes()`` carries only node
+        properties). The edge values pass through with the canonical ADR-066 contract
+        intact — ``UNSET`` = not in this update (untouched), ``None`` / ``[]`` = explicit
+        clear, value = set — which ``_sync_relationship_edges`` consumes.
         """
         prop_intent = dataclasses.replace(
-            intent, reinforces_habit_uid=UNSET, applies_knowledge_uids=UNSET
+            intent,
+            reinforces_habit_uid=UNSET,
+            applies_knowledge_uids=UNSET,
+            contributes_to_goal_uids=UNSET,
         )
-        return intent.reinforces_habit_uid, intent.applies_knowledge_uids, prop_intent
+        edges = TaskEdgeIntent(
+            habit_uid=intent.reinforces_habit_uid,
+            applies_knowledge_uids=intent.applies_knowledge_uids,
+            contributes_to_goal_uids=intent.contributes_to_goal_uids,
+        )
+        return edges, prop_intent
 
-    async def _delete_edges_of_kind(self, relationship_key: str, task_uid: str) -> Result[None]:
-        """Remove every edge the registry key resolves to for this task.
+    async def _delete_edges_of_kind(
+        self, relationship_key: str, task_uid: str
+    ) -> Result[list[str]]:
+        """Remove every edge the registry key resolves to for this task; return their far ends.
 
         Stale-edge removal must succeed before new edges are created: treating a failed
         fetch as "no old edges", or ignoring a failed delete, would leave stale edges
@@ -478,22 +507,16 @@ class TasksService(
             )
             if deleted.is_error:
                 return Result.fail(deleted)
-        return Result.ok(None)
+        return Result.ok(list(existing.value or []))
 
     async def _sync_relationship_edges(
-        self,
-        task_uid: str,
-        *,
-        owner_uid: str,
-        habit_uid: str | Unset | None,
-        applies_knowledge_uids: list[str] | Unset | None,
-        fulfills_goal_uid: str | Unset | None,
-    ) -> Result[bool]:
+        self, task_uid: str, *, owner_uid: str, edges: TaskEdgeIntent
+    ) -> Result[list[str]]:
         """Replace the task's habit, knowledge and goal edges from the intent values.
 
         ``UNSET`` means "not in this update" (edges of that kind untouched); a value means
         "replace" — clearing every edge of that kind when the value is empty (``None`` for
-        the two single-target edges, ``[]`` for the knowledge set).
+        the habit, ``[]`` for the knowledge and goal sets).
 
         New edges are admitted through ``keep_permitted_link_edges`` — the far end must
         EXIST, be OWNED by ``owner_uid`` or by nobody, and be the KIND the field names —
@@ -506,65 +529,74 @@ class TasksService(
         ``RelationshipName`` values — NOT ``UnifiedRelationshipService.create_relationship``,
         whose dynamic ``link_task_to_<key>`` backend method does not exist for tasks.
 
-        The goal link is dual-written: ``fulfills_goal_uid`` stays in the property patch
-        core writes AND drives the FULFILLS_GOAL edge here. Returns whether that property
-        had to be CLEARED because its edge was refused — the caller reflects it on the
-        task it returns, so property and edge never disagree (the create-path rule, see
-        ``TasksCoreService._reconcile_goal_property``).
+        Returns the goals the task contributed to before a goal-set replace — the caller
+        announces them, since a goal that lost a contribution cannot be found from the
+        task afterwards. A replace that fails after its deletes began announces them
+        itself before reporting the failure.
         """
         candidates: list[LinkEdge] = []
 
-        # The two single-target edges: (Task)-[:REINFORCES_HABIT]->(Habit) and
-        # (Task)-[:FULFILLS_GOAL]->(Goal). A set value replaces whatever was linked.
-        single_target_edges: tuple[
-            tuple[str, str | Unset | None, RelationshipName, frozenset[str]], ...
-        ] = (
-            (
-                "habits",
-                habit_uid,
-                RelationshipName.REINFORCES_HABIT,
-                frozenset({NeoLabel.HABIT.value}),
-            ),
-            (
-                "fulfills_goal",
-                fulfills_goal_uid,
-                RelationshipName.FULFILLS_GOAL,
-                frozenset({NeoLabel.GOAL.value}),
-            ),
-        )
-        for relationship_key, value, relationship, allowed_labels in single_target_edges:
-            if value is UNSET:
-                continue
-            removed = await self._delete_edges_of_kind(relationship_key, task_uid)
+        if edges.habit_uid is not UNSET:
+            # (Task)-[:REINFORCES_HABIT]->(Habit): a set value replaces whatever was linked.
+            removed = await self._delete_edges_of_kind("habits", task_uid)
             if removed.is_error:
                 return Result.fail(removed)
-            if value:  # non-empty → link the new target (None = cleared)
+            if edges.habit_uid:  # non-empty → link the new target (None = cleared)
                 candidates.append(
                     LinkEdge(
-                        (task_uid, value, relationship.value, None),
-                        other_uid=value,
-                        allowed_labels=allowed_labels,
+                        (task_uid, edges.habit_uid, RelationshipName.REINFORCES_HABIT.value, None),
+                        other_uid=edges.habit_uid,
+                        allowed_labels=frozenset({NeoLabel.HABIT.value}),
                     )
                 )
 
-        if applies_knowledge_uids is not UNSET:
-            # (Task)-[:APPLIES_KNOWLEDGE]->(Ku): replace the full applied-knowledge set.
-            # An empty list clears all knowledge edges (mirrors the single-target clear).
-            removed = await self._delete_edges_of_kind("knowledge", task_uid)
+        # The two edge SETS — (Task)-[:APPLIES_KNOWLEDGE]->(Ku) and
+        # (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal): a list replaces the full set; an empty
+        # list clears it.
+        removed_goals: list[str] = []
+        edge_sets: tuple[
+            tuple[str, list[str] | Unset | None, RelationshipName, frozenset[str]], ...
+        ] = (
+            (
+                "knowledge",
+                edges.applies_knowledge_uids,
+                RelationshipName.APPLIES_KNOWLEDGE,
+                KNOWLEDGE_LABELS,
+            ),
+            (
+                "contributes_to_goal",
+                edges.contributes_to_goal_uids,
+                RelationshipName.CONTRIBUTES_TO_GOAL,
+                frozenset({NeoLabel.GOAL.value}),
+            ),
+        )
+        for relationship_key, uids, relationship, allowed_labels in edge_sets:
+            if uids is UNSET:
+                continue
+            if relationship is RelationshipName.CONTRIBUTES_TO_GOAL:
+                # Read the goal set before any delete: a delete that fails part-way has
+                # still unlinked some goals, and every goal the task held is announced
+                # (a recount of one it still holds changes nothing).
+                prior = await self.relationships.get_related_uids(
+                    relationship_key, EntityUID(task_uid)
+                )
+                if prior.is_error:
+                    return Result.fail(prior)
+                removed_goals = list(prior.value or [])
+            removed = await self._delete_edges_of_kind(relationship_key, task_uid)
             if removed.is_error:
+                if relationship is RelationshipName.CONTRIBUTES_TO_GOAL:
+                    await self._announce_goal_set_change(task_uid, owner_uid, removed_goals)
                 return Result.fail(removed)
             candidates.extend(
                 LinkEdge(
-                    (task_uid, ku_uid, RelationshipName.APPLIES_KNOWLEDGE.value, None),
-                    other_uid=ku_uid,
-                    allowed_labels=KNOWLEDGE_LABELS,
+                    (task_uid, far_uid, relationship.value, None),
+                    other_uid=far_uid,
+                    allowed_labels=allowed_labels,
                 )
-                for ku_uid in applies_knowledge_uids or []
+                for far_uid in dict.fromkeys(uids or [])
             )
 
-        goal_requested = fulfills_goal_uid is not UNSET and bool(fulfills_goal_uid)
-
-        permitted: list[tuple[str, str, str, Neo4jProperties | None]] = []
         if candidates:
             permitted = await keep_permitted_link_edges(
                 self.backend,
@@ -576,49 +608,33 @@ class TasksService(
             if permitted:
                 batch = await self.backend.create_relationships_batch(permitted)
                 if batch.is_error:
-                    # All-or-nothing: NOTHING was written — yet core has already stamped
-                    # fulfills_goal_uid and the old goal edge is gone. Restore the
-                    # invariant FIRST, then report the failure: a silent success here
-                    # would also swallow a failed habit or knowledge edge in this batch.
-                    if goal_requested:
-                        await self._clear_goal_stamp(task_uid, "its FULFILLS_GOAL batch failed")
+                    # The old goal edges are already gone: announce the goals that lost
+                    # the task before reporting the failure, or their tallies keep
+                    # counting it.
+                    if edges.contributes_to_goal_uids is not UNSET:
+                        await self._announce_goal_set_change(task_uid, owner_uid, removed_goals)
                     return Result.fail(batch)
+        return Result.ok(removed_goals)
 
-        goal_written = any(
-            rel_type == RelationshipName.FULFILLS_GOAL.value for _s, _t, rel_type, _p in permitted
+    async def _announce_goal_set_change(
+        self, task_uid: str, owner_uid: str, removed_goals: list[str]
+    ) -> None:
+        """Announce a replaced goal set: the goals the task left, and the task itself
+        (the handler reads the goals it contributes to now)."""
+        await publish_event(
+            self.event_bus,
+            GoalContributionsChanged(
+                user_uid=UserUID(owner_uid),
+                goal_uids=tuple(removed_goals),
+                contributor_uids=(task_uid,),
+            ),
+            self.logger,
         )
-        if goal_requested and not goal_written:
-            cleared = await self._clear_goal_stamp(task_uid, "its FULFILLS_GOAL edge was refused")
-            if cleared.is_error:
-                return Result.fail(cleared)
-            return Result.ok(True)
-        return Result.ok(False)
-
-    async def _clear_goal_stamp(self, task_uid: str, why: str) -> Result[Task]:
-        """Remove ``fulfills_goal_uid`` from the node when its FULFILLS_GOAL edge does not exist.
-
-        The property half of the dual-written goal link is cleared so it never names a
-        goal the graph does not connect. A failed clear is logged at ERROR — the stamp is
-        then stranded, and the caller must not report a clean state.
-        """
-        cleared = await self.backend.update(task_uid, {"fulfills_goal_uid": None})
-        if cleared.is_error:
-            self.logger.error(
-                "Task %s keeps fulfills_goal_uid with no FULFILLS_GOAL edge behind it — %s "
-                "and the clearing write failed: %s",
-                task_uid,
-                why,
-                cleared.error,
-            )
-            return cleared
-        self.logger.warning("Cleared fulfills_goal_uid on task %s: %s", task_uid, why)
-        return cleared
 
     async def _publish_edge_only_update(
         self,
         task: Task,
-        habit_uid: str | Unset | None,
-        applies_knowledge_uids: list[str] | Unset | None,
+        edges: TaskEdgeIntent,
     ) -> None:
         """Publish TaskUpdated after an edge-only update so user-context caches invalidate.
 
@@ -630,8 +646,9 @@ class TasksService(
         changed_fields = [
             name
             for name, value in (
-                ("reinforces_habit_uid", habit_uid),
-                ("applies_knowledge_uids", applies_knowledge_uids),
+                ("reinforces_habit_uid", edges.habit_uid),
+                ("applies_knowledge_uids", edges.applies_knowledge_uids),
+                ("contributes_to_goal_uids", edges.contributes_to_goal_uids),
             )
             if value is not UNSET
         ]
@@ -643,17 +660,17 @@ class TasksService(
     async def update_task(self, task_uid: str, intent: TaskUpdateIntent) -> Result[Task]:
         """THE Tasks update path (ADR-066). Splits the edge-only fields off the intent,
         writes node properties via core (events fire), and syncs the habit, knowledge and
-        goal edges — the goal is dual-written, so it is both a property here and an edge
-        there. See `_sync_relationship_edges`."""
-        habit_uid, applies_knowledge_uids, prop_intent = self._split_relationship_intent(intent)
+        goal edges. See `_sync_relationship_edges`.
+
+        A change to the task's goal set announces ``GoalContributionsChanged`` for the
+        goals it left and the ones it now contributes to."""
+        edges, prop_intent = self._split_relationship_intent(intent)
 
         # A relationship-only update (e.g. only applies_knowledge_uids, which
         # TaskUpdateRequest permits) leaves no node properties to write. The backend
         # rejects an empty update dict, so fetch the task to confirm it exists and to
         # have a Task to return. A genuinely empty call keeps the validation error.
-        wrote_properties = bool(prop_intent.to_changes()) or (
-            habit_uid is UNSET and applies_knowledge_uids is UNSET
-        )
+        wrote_properties = bool(prop_intent.to_changes()) or not edges.any_set()
         if wrote_properties:
             result = await self.core.update_task(task_uid, prop_intent)
         else:
@@ -662,19 +679,13 @@ class TasksService(
             return result
 
         task = result.value
-        sync = await self._sync_relationship_edges(
-            task_uid,
-            owner_uid=task.user_uid,
-            habit_uid=habit_uid,
-            applies_knowledge_uids=applies_knowledge_uids,
-            fulfills_goal_uid=intent.fulfills_goal_uid,
-        )
+        sync = await self._sync_relationship_edges(task_uid, owner_uid=task.user_uid, edges=edges)
         if sync.is_error:
             return Result.fail(sync)
-        if sync.value:  # the goal edge was refused and the property cleared with it
-            task = dataclasses.replace(task, fulfills_goal_uid=None)
+        if edges.contributes_to_goal_uids is not UNSET:
+            await self._announce_goal_set_change(task_uid, task.user_uid, sync.value)
         if not wrote_properties:  # edge-only: core.update_task didn't fire TaskUpdated
-            await self._publish_edge_only_update(task, habit_uid, applies_knowledge_uids)
+            await self._publish_edge_only_update(task, edges)
         return Result.ok(task)
 
     async def update(self, uid: str, updates: TaskUpdateIntent) -> Result[Task]:
@@ -714,6 +725,21 @@ class TasksService(
 
     async def delete_task(self, task_uid: str) -> Result[bool]:
         return await self.core.delete_task(task_uid)
+
+    async def delete_for_user(
+        self, uid: str, user_uid: UserUID, cascade: bool = False
+    ) -> Result[bool]:
+        """Override the inherited ownership-verified CRUD delete (generated route).
+
+        Verifies ownership BEFORE the delete, then deletes through the one task delete
+        door (``TasksCoreService.delete_task``), which publishes ``TaskDeleted`` and
+        announces the goals the task contributed to. A task's edges always go with it,
+        so ``cascade`` is not read.
+        """
+        ownership = await self.verify_ownership(uid, user_uid)
+        if ownership.is_error:
+            return Result.fail(ownership)
+        return await self.core.delete_task(uid)
 
     # Search delegations
     async def get_tasks_for_goal(self, goal_uid: str, user_uid: UserUID) -> Result[list[Task]]:
@@ -899,23 +925,52 @@ class TasksService(
             far_end=KNOWLEDGE_FAR_END,
         )
 
-    async def link_task_to_goal(
-        self,
-        task_uid: str,
-        goal_uid: str,
-        contribution_percentage: float = 0.1,
-        milestone_uid: str | None = None,
-    ) -> Result[bool]:
-        """Link task to goal it contributes to (``CONTRIBUTES_TO_GOAL``)."""
-        return await self.relationships.create_relationship(
-            "contributes_to_goal",
-            task_uid,
-            goal_uid,
-            {
-                "contribution_percentage": contribution_percentage,
-                "milestone_uid": milestone_uid,
-            },
-            far_end=GOAL_FAR_END,
+    async def link_task_to_goal(self, task_uid: str, goal_uid: str) -> Result[bool]:
+        """Link a task to a goal it contributes to (``CONTRIBUTES_TO_GOAL``, no properties).
+
+        Announces ``GoalContributionsChanged`` so the goal's tally counts the task.
+        """
+        result = await self.relationships.create_relationship(
+            "contributes_to_goal", task_uid, goal_uid, far_end=GOAL_FAR_END
+        )
+        if result.is_ok:
+            await self._announce_goal_contributions(task_uid, (goal_uid,))
+        return result
+
+    async def unlink_task_from_goal(self, task_uid: str, goal_uid: str) -> Result[bool]:
+        """Remove a task's contribution to a goal.
+
+        The keyed delete names the far end's kind (``Goal``), so it removes only this
+        task's ``CONTRIBUTES_TO_GOAL`` edge. Announces ``GoalContributionsChanged`` for
+        the goal, which can no longer be found from the task.
+        """
+        result = await self.relationships.delete_relationship(
+            "contributes_to_goal", task_uid, goal_uid
+        )
+        if result.is_ok:
+            await self._announce_goal_contributions(task_uid, (goal_uid,))
+        return result
+
+    async def _announce_goal_contributions(
+        self, task_uid: str, goal_uids: tuple[str, ...] = ()
+    ) -> None:
+        """Publish ``GoalContributionsChanged`` for a task, under its owner.
+
+        Best-effort: a task that no longer resolves is logged — its link is already
+        written or removed.
+        """
+        task = await self.core.get_task(task_uid)
+        if task.is_error:
+            self.logger.warning(
+                "Goal contributions of task %s not announced: %s", task_uid, task.error
+            )
+            return
+        await publish_event(
+            self.event_bus,
+            GoalContributionsChanged(
+                user_uid=task.value.user_uid, goal_uids=goal_uids, contributor_uids=(task_uid,)
+            ),
+            self.logger,
         )
 
     async def create_task_dependency(

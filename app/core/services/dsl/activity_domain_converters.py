@@ -133,10 +133,8 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
             "recurrence_pattern": recurrence,
             # Knowledge connections
             "applies_knowledge_uids": activity.get_linked_knowledge(),
-            # Goal connections
-            "fulfills_goal_uid": (
-                activity.get_linked_goals()[0] if activity.get_linked_goals() else None
-            ),
+            # Goal connections — the task contributes to every goal the line links
+            "contributes_to_goal_uids": activity.get_linked_goals(),
             # Tags from energy states (@energy) + obsidian-tasks #tags / period marker
             "tags": list(dict.fromkeys(activity.energy_states + activity.extra_tags)),
         },
@@ -280,6 +278,8 @@ def activity_to_event_request(activity: ParsedActivityLine) -> Result[Conversion
         end_time=end_datetime.time(),
         priority=map_dsl_priority_to_enum(activity.priority),
         practices_knowledge_uids=activity.get_linked_knowledge(),
+        # The event contributes to every goal the line links.
+        contributes_to_goal_uids=activity.get_linked_goals(),
         recurrence_pattern=map_repeat_to_recurrence(activity.repeat_pattern),
         tags=activity.energy_states if activity.energy_states else [],
     )

@@ -187,7 +187,7 @@ class TestSnapshotRecordMapping:
                             "priority": "high",
                             "progress": None,
                         },
-                        "graph_context": {"goal_context": None, "applied_knowledge": []},
+                        "graph_context": {"contributing_goals": [], "applied_knowledge": []},
                     },
                     {
                         "entity": {
@@ -197,7 +197,7 @@ class TestSnapshotRecordMapping:
                             "priority": "medium",
                             "progress": None,
                         },
-                        "graph_context": {"goal_context": None, "applied_knowledge": []},
+                        "graph_context": {"contributing_goals": [], "applied_knowledge": []},
                     },
                     {
                         "entity": {
@@ -206,7 +206,7 @@ class TestSnapshotRecordMapping:
                             "status": "completed",
                             "completion_date": "2020-01-01",
                         },
-                        "graph_context": {"goal_context": None, "applied_knowledge": []},
+                        "graph_context": {"contributing_goals": [], "applied_knowledge": []},
                     },
                 ],
             }

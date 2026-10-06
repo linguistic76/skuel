@@ -41,6 +41,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
+from core.events import GoalContributionsChanged, publish_event
 from core.models.choice.choice import Choice
 from core.models.enums import EntityStatus
 from core.models.event.event import Event
@@ -54,7 +55,9 @@ from core.models.templates.goal_template import GoalTemplate
 from core.models.templates.habit_template import HabitTemplate
 from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.task_template import TaskTemplate
+from core.models.type_hints import UserUID
 from core.ports import CrudOperations, PsEngagementOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -64,6 +67,14 @@ from ._template_bundle import TemplateBundle
 from ._template_loader import _TemplateLoader
 from ._validator import _PsValidator
 from .engagement import Engagement
+
+
+# boundary: raw driver rows from ``PsEngagementOperations.delete_instance`` — one
+# ``{"goal_uids": [...]}`` record per deleted node.
+def _goal_uids(rows: list[dict[str, Any]] | None) -> list[str]:
+    """The goals a deleted instance contributed to, from ``delete_instance``'s rows."""
+    return [str(uid) for row in rows or [] for uid in row.get("goal_uids") or []]
+
 
 if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep
@@ -115,6 +126,7 @@ class PsEngagementService:
         events_backend: CrudOperations[Event],
         choices_backend: CrudOperations[Choice],
         principles_backend: CrudOperations[Principle],
+        event_bus: EventBusOperations,
     ) -> None:
         if backend is None or ps_service is None:
             raise ValueError(
@@ -123,6 +135,9 @@ class PsEngagementService:
             )
 
         self._ps_service = ps_service
+        # Spawning and discarding instances changes goal contributions: a spawned task
+        # contributes to its spawned goal, and a discarded one leaves it.
+        self._event_bus = event_bus
         # All lifecycle Cypher lives in the backend (ADR-044), injected at the
         # composition root behind the PsEngagementOperations port; helpers and
         # this facade keep orchestration + domain reconstruction only.
@@ -262,6 +277,16 @@ class PsEngagementService:
                 )
             return Result.fail(spawn_res)
 
+        # Spawned tasks contribute to their spawned goals: announce them, so each
+        # goal's tally counts its contributions from the start.
+        await publish_event(
+            self._event_bus,
+            GoalContributionsChanged(
+                user_uid=UserUID(student_uid),
+                contributor_uids=tuple(spawn_res.value.instance_uids),
+            ),
+            self.logger,
+        )
         return Result.ok(
             replace(engagement, spawned_instance_uids=tuple(spawn_res.value.instance_uids))
         )
@@ -299,18 +324,26 @@ class PsEngagementService:
         if spawned.is_error:
             return Result.fail(spawned)
 
-        for template_uid, instance_uid, _label in spawned.value:
-            decision = review.get(template_uid, "keep")
-            if decision == "discard":
-                del_res = await self._backend.delete_instance(instance_uid, "discard_instance")
-                if del_res.is_error:
-                    return Result.fail(del_res)
-            else:
-                upd_res = await self._backend.mark_instance_owned(
-                    instance_uid, datetime.now(UTC).isoformat()
-                )
-                if upd_res.is_error:
-                    return Result.fail(upd_res)
+        # Each delete commits on its own, so the goals the deleted instances
+        # contributed to are announced on every exit — a later failure must not
+        # strand the ones already deleted (a retry cannot find them again).
+        goals_losing: list[str] = []
+        try:
+            for template_uid, instance_uid, _label in spawned.value:
+                decision = review.get(template_uid, "keep")
+                if decision == "discard":
+                    del_res = await self._backend.delete_instance(instance_uid, "discard_instance")
+                    if del_res.is_error:
+                        return Result.fail(del_res)
+                    goals_losing.extend(_goal_uids(del_res.value))
+                else:
+                    upd_res = await self._backend.mark_instance_owned(
+                        instance_uid, datetime.now(UTC).isoformat()
+                    )
+                    if upd_res.is_error:
+                        return Result.fail(upd_res)
+        finally:
+            await self._announce_goals(student_uid, goals_losing)
 
         return await self._gateway.mark_completed(student_uid, ps_uid)
 
@@ -343,12 +376,33 @@ class PsEngagementService:
         spawned = await self._fetch_engaged_instances(student_uid, ps_uid)
         if spawned.is_error:
             return Result.fail(spawned)
-        for _template_uid, instance_uid, _label in spawned.value:
-            del_res = await self._backend.delete_instance(instance_uid, "abandon_instance")
-            if del_res.is_error:
-                return Result.fail(del_res)
+        # Announced on every exit, as in ``complete_pathstep``.
+        goals_losing: list[str] = []
+        try:
+            for _template_uid, instance_uid, _label in spawned.value:
+                del_res = await self._backend.delete_instance(instance_uid, "abandon_instance")
+                if del_res.is_error:
+                    return Result.fail(del_res)
+                goals_losing.extend(_goal_uids(del_res.value))
+        finally:
+            await self._announce_goals(student_uid, goals_losing)
 
         return await self._gateway.mark_abandoned(student_uid, ps_uid)
+
+    async def _announce_goals(self, student_uid: str, goal_uids: list[str]) -> None:
+        """Announce the goals deleted instances contributed to — each loses a contribution.
+
+        A goal the same engagement spawned may be gone too; its recompute finds
+        nothing to write.
+        """
+        if goal_uids:
+            await publish_event(
+                self._event_bus,
+                GoalContributionsChanged(
+                    user_uid=UserUID(student_uid), goal_uids=tuple(dict.fromkeys(goal_uids))
+                ),
+                self.logger,
+            )
 
     # ========================================================================
     # T3 (auto) — Auto-complete when all engaged siblings reach terminal

@@ -660,7 +660,7 @@ class UnifiedRelationshipService[
                 score += priority_scores.get(str(priority).lower(), 0.0)
 
             # Goal alignment boost
-            goal_uid = getattr(entity, "fulfills_goal_uid", None) or getattr(
+            goal_uid = getattr(entity, "contributes_to_goal_uid", None) or getattr(
                 entity, "supports_goal_uid", None
             )
             active_goals = set(getattr(context, "active_goal_uids", []) or [])

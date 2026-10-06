@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-10-05
+updated: 2026-10-06
 status: current
 category: domains
 tags:
@@ -147,7 +147,8 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `subgoals` | `SUBGOAL_OF` | Goal | Child goals |
 | `supporting_habits` | `SUPPORTS_GOAL` | Habit | Habits that support this goal |
 | `supporting_principles` | `SUPPORTS_GOAL` | Principle | Principles that support this goal (YAML: `connections.supporting_principles`) |
-| `fulfilling_tasks` | `FULFILLS_GOAL` | Task | Tasks that fulfill this goal |
+| `contributing_tasks` | `CONTRIBUTES_TO_GOAL` | Task | Tasks that contribute to this goal |
+| `contributing_events` | `CONTRIBUTES_TO_GOAL` | Event | Events that contribute to this goal |
 | `essential_habits` | `SUPPORTS_GOAL` (essentiality=essential) | Habit | Essential habits |
 | `critical_habits` | `SUPPORTS_GOAL` (essentiality=critical) | Habit | Critical habits |
 | `optional_habits` | `SUPPORTS_GOAL` (essentiality=optional) | Habit | Optional habits |
@@ -157,6 +158,10 @@ goal view names its kind: a keyed read of `supporting_habits` returns habits onl
 `supporting_principles` principles only. The three tier views are habit-only; a principle's edge
 stores `essentiality` but has no tier view. A PathStep that supports the goal is on no goal view.
 
+`CONTRIBUTES_TO_GOAL` has two kinds of source, tasks and events, so the goal reads each as its own
+view: `contributing_tasks` names `Task`, `contributing_events` names `Event`. A cancelled
+contribution is still listed (its status shown) and is left out of the progress tally.
+
 ### Bidirectional
 
 - `SUBGOAL_OF` - Goal hierarchy
@@ -165,7 +170,7 @@ stores `essentiality` but has no tier view. A PathStep that supports the goal is
 
 | Field | Target Label | Relationships |
 |-------|--------------|---------------|
-| `tasks` | Task | `FULFILLS_GOAL` |
+| `tasks` | Task | `CONTRIBUTES_TO_GOAL` (incoming) |
 | `habits` | Habit | `SUPPORTS_GOAL` |
 | `knowledge` | Ku | `REQUIRES_KNOWLEDGE` |
 | `subgoals` | Goal | `SUBGOAL_OF` |
@@ -305,24 +310,44 @@ Where that gate lives differs by door, and the split is the point:
   `status_transition_guard` packages the stamp as a `patch_if_prior_not_in` and the verdict comes
   from `is_completion_transition(outcome.prior_status, changes)`.
 - The **four progress writers** (`complete_milestone`, `update_goal_from_habit_progress`,
-  `_update_goal_from_task_completion`, `_update_goal_from_habit_completion`) are handed no target
+  `recompute_goal_tally`, `_update_goal_from_habit_completion`) are handed no target
   — they derive one. That derivation stays in Python (`new_progress >= 100 and old_progress < 100`
   for the three progress writers, "every milestone is done" for the milestone writer), because it
   is a statement about the NEW state. Only the *"…and it was not already achieved"* half rides the
   guard, as a `patch_if_prior_not_in` carrying the status/stamp **pair**. So an already-completed
   goal is written no `status` key either — the recompute still lands, the completion pair does not.
-- The **two tally recomputes** (`_update_goal_from_task_completion`,
-  `_update_goal_from_habit_completion`) go further: they read the goal AND its linked-activity
-  tally under the goal's write-lock, in the same transaction as the write
-  (`GoalsBackend.recompute_progress_from_linked_tasks` / `…_habits`, over
-  `_CrudMixin._recompute_with_status_guard`). Two completions of one goal's tasks therefore
-  serialize, and the later recompute counts what the earlier one wrote over — a count taken before
-  the lock could land after a completion it never saw. Their progress is a measurement, so status
-  follows it **both ways** (ruled 2026-09-23): a drop from 100% to below it on a COMPLETED goal
-  un-achieves it — status back to `active`, `achieved_date` removed — via a `patch_if_prior_in`, the
-  mirror of the achievement pair. The task recompute runs on `TaskCompleted` and on `TaskReopened`,
-  which both reopen doors publish (`update_task` and the vault ingest door). It counts the tasks
-  that `FULFILLS_GOAL` the goal with `completion_updates_goal` true (the default).
+- The **two tally recomputes** (`recompute_goal_tally`, `_update_goal_from_habit_completion`) go
+  further: they read the goal AND its tally under the goal's write-lock, in the same transaction as
+  the write (`GoalsBackend.recompute_progress_from_contributions` / `…_from_linked_habits`, over
+  `_CrudMixin._recompute_with_status_guard`). Two recomputes of one goal therefore serialize, and
+  the later one counts what the earlier one wrote over — a count taken before the lock could land
+  after a change it never saw. Their progress is a measurement, so status follows it **both ways**
+  (ruled 2026-09-23): a drop from 100% to below it on a COMPLETED goal un-achieves it — status back
+  to `active`, `achieved_date` removed — via a `patch_if_prior_in`, the mirror of the achievement
+  pair. A goal its owner settled (CANCELLED, ARCHIVED, FAILED) has its figure written and its status
+  left alone: a recompute never achieves or un-achieves it.
+
+**The contribution tally.** A TASK_BASED goal's progress is its owner's tasks and events that
+`CONTRIBUTES_TO_GOAL` the goal, each counted once: COMPLETED is done, CANCELLED is left out, every
+other status (FAILED included) is not done, and a task with `completion_updates_goal` false is left
+out (`core/models/goal/goal_contribution.py`; the statement is
+`goal_tally_queries.build_contribution_tally_query`). A goal whose last contribution leaves is
+written 0 / 0 and 0%. A MIXED goal is not recomputed from it
+([Mixed Goals Get No Event-Driven Progress](../roadmap/mixed-goal-event-progress.md)).
+
+The recompute has one trigger, `GoalContributionsChanged` (`goal_uids`, `contributor_uids`), and
+`GoalsProgressService.handle_goal_contributions_changed` is its one subscriber. Every door that can
+change a tally publishes it: a task or event status write that moves the contribution between done,
+not done and out; task and event create with goals; the task update's goal list (a full replace)
+and a `completion_updates_goal` change; the task and event link doors and the unlink service
+methods; task and event delete (the goals captured before the edge goes); the vault field
+(`connections.contributes_to_goal`) added or retracted, a vault file deleted, a content-vault Edge
+file; and a PathStep engagement's spawn, discard and abandon. The trigger is best-effort, so
+`./dev reconcile-goal-tallies` (`GoalsProgressService.reconcile_goal_tallies`) recomputes every
+TASK_BASED goal whose stored tally disagrees with its contributions.
+
+A goal cannot be cancelled through `GoalsService.cancel_goal` while a contributing task is open
+(not COMPLETED, CANCELLED or FAILED); a contributing event does not block it.
 
 ⚠ The milestone writer's "already achieved" input is the goal's **status**, not "every milestone
 is flagged done": reopening clears `achieved_date` and resets progress but leaves the milestone

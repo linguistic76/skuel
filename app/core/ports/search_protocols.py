@@ -195,7 +195,7 @@ class DomainSearchOperations(Protocol[T]):
 
         Args:
             related_uid: UID of the related entity
-            relationship_type: Type-safe RelationshipName enum (e.g., RelationshipName.FULFILLS_GOAL)
+            relationship_type: Type-safe RelationshipName enum (e.g., RelationshipName.CONTRIBUTES_TO_GOAL)
             direction: "outgoing", "incoming", or "both" (typed as Direction literal)
             user_uid: Requesting user — traversal targets are scoped per the
                 domain's search_visibility declaration (ADR-085 G3)
@@ -207,7 +207,7 @@ class DomainSearchOperations(Protocol[T]):
             # Get goals that a task fulfills
             goals = await goal_search.get_by_relationship(
                 task_uid,
-                RelationshipName.FULFILLS_GOAL,
+                RelationshipName.CONTRIBUTES_TO_GOAL,
                 direction="incoming"
             )
         """
@@ -312,12 +312,6 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
         """Get recurring events."""
         ...
 
-    async def get_for_goal(
-        self, goal_uid: str, user_uid: UserUID | None = None
-    ) -> Result[list[Event]]:
-        """Get events supporting a goal."""
-        ...
-
     async def get_conflicting(self, event_uid: str) -> Result[list[Event]]:
         """Get events that conflict with a given event."""
         ...
@@ -414,6 +408,12 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
     - Prerequisite and blocking detection
     - Curriculum task management
     """
+
+    async def enrich_with_goal_links(
+        self, tasks: list[Task], active_goal_uids: list[str] | None = None
+    ) -> list[Task]:
+        """Populate each task's derived ``contributes_to_goal_uid`` from its goal edges."""
+        ...
 
     # --- Task-specific methods ---
     async def get_tasks_for_goal(self, goal_uid: str, user_uid: UserUID) -> Result[list[Task]]:

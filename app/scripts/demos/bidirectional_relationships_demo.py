@@ -85,7 +85,7 @@ class BiDirectionalDemo:
             duration_minutes=240,
             project="Learning",
             tags=["python", "advanced", "programming"],
-            fulfills_goal_uid="goal_python_mastery",
+            contributes_to_goal_uids=["goal_python_mastery"],
             applies_knowledge_uids=["ku_decorators", "ku_metaclasses", "ku_async"],
             goal_progress_contribution=0.5,
             knowledge_mastery_check=True,
@@ -108,7 +108,6 @@ class BiDirectionalDemo:
             duration_minutes=request.duration_minutes,
             project=request.project,
             tags=request.tags,
-            fulfills_goal_uid=request.fulfills_goal_uid,
             source_path_step_uid="ps.python.advanced-concepts",
             goal_progress_contribution=request.goal_progress_contribution,
             knowledge_mastery_check=request.knowledge_mastery_check,
@@ -134,7 +133,6 @@ class BiDirectionalDemo:
         # Verify integrity
         assert task.title == task_restored.title
         assert task.priority == task_restored.priority
-        assert task.fulfills_goal_uid == task_restored.fulfills_goal_uid
         assert task.source_path_step_uid == task_restored.source_path_step_uid
         assert (
             abs(task.learning_alignment_score() - task_restored.learning_alignment_score()) < 0.01
@@ -252,7 +250,7 @@ class BiDirectionalDemo:
             title="Protocol Demo Task",
             description="Testing protocol interactions",
             priority=Priority.MEDIUM,
-            fulfills_goal_uid="goal_protocol_demo",
+            contributes_to_goal_uids=["goal_protocol_demo"],
             reinforces_habit_uid="habit_daily_code",
             applies_knowledge_uids=["ku_protocols", "ku_dependency_injection"],
             prerequisite_knowledge_uids=["ku_python_basics"],
@@ -265,7 +263,6 @@ class BiDirectionalDemo:
             print(f"   ✓ Task created: {task.uid}")
             print("      - Through protocol interface")
             print("      - With O(1) prerequisite validation from context")
-            print(f"      - Goal: {task.fulfills_goal_uid}")
             print(f"      - GRAPH-NATIVE edges written: {len(backend.edges)}")
             for _from_uid, to_uid, rel_name, _props in backend.edges:
                 print(f"        • -[:{rel_name}]-> {to_uid}")
@@ -307,7 +304,7 @@ class BiDirectionalDemo:
             title="Build REST API",
             description="Create a REST API using FastAPI",
             priority=Priority.HIGH,
-            fulfills_goal_uid="goal_build_app",  # Links to goal (node property)
+            contributes_to_goal_uids=["goal_build_app"],  # Links to goals (graph edges)
             reinforces_habit_uid="habit_daily_code",  # Links to habit (graph edge)
             applies_knowledge_uids=["ku_fastapi", "ku_databases"],  # Graph edges
             prerequisite_knowledge_uids=["ku_python_basics"],  # Graph edges
@@ -316,7 +313,7 @@ class BiDirectionalDemo:
         )
 
         print("   ✓ Task request with cross-domain links created")
-        print(f"      - Goal: {request.fulfills_goal_uid}")
+        print(f"      - Goals: {request.contributes_to_goal_uids}")
         print(f"      - Habit: {request.reinforces_habit_uid}")
         print(f"      - Knowledge: {len(request.applies_knowledge_uids)} units")
         print(f"      - Prerequisites: {request.prerequisite_knowledge_uids}")
@@ -335,13 +332,12 @@ class BiDirectionalDemo:
             ),
             (RelationshipName.APPLIES_KNOWLEDGE.value, list(request.applies_knowledge_uids)),
             (RelationshipName.REQUIRES_KNOWLEDGE.value, list(request.prerequisite_knowledge_uids)),
+            (RelationshipName.CONTRIBUTES_TO_GOAL.value, list(task.contributes_to_goal_uids)),
         ]
 
-        has_goal_link = bool(task.fulfills_goal_uid)
         edge_count = sum(len(targets) for _name, targets in edge_specs)
 
         print("   ✓ Cross-domain validation complete")
-        print(f"      - Goal linkage (node property): {'✓' if has_goal_link else '✗'}")
         print(f"      - GRAPH-NATIVE edges to be written: {edge_count}")
         for rel_name, targets in edge_specs:
             for target in targets:
@@ -387,7 +383,6 @@ class BiDirectionalDemo:
             user_uid="context_demo_user",
             title="Context-Aware Task",
             priority=Priority.MEDIUM,
-            fulfills_goal_uid="goal_primary",
             source_path_step_uid="ps.demo.context-awareness",
         )
 
@@ -414,7 +409,6 @@ class BiDirectionalDemo:
             title="Advanced Algorithm Implementation",
             priority=Priority.HIGH,
             duration_minutes=180,
-            fulfills_goal_uid="goal_algorithm_mastery",
             source_path_step_uid="ps.cs.algorithms",
             goal_progress_contribution=0.4,
             knowledge_mastery_check=True,

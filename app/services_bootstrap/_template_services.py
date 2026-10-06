@@ -24,6 +24,7 @@ from core.models.templates.habit_template import HabitTemplate
 from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.task_template import TaskTemplate
 from core.ports import BackendOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -50,6 +51,7 @@ def _create_template_services(
     events_backend: BackendOperations[Event],
     choices_backend: BackendOperations[Choice],
     principles_backend: BackendOperations[Principle],
+    event_bus: EventBusOperations,
 ) -> dict[str, Any]:
     """Construct the template + engagement layer.
 
@@ -100,6 +102,7 @@ def _create_template_services(
         events_backend=events_backend,
         choices_backend=choices_backend,
         principles_backend=principles_backend,
+        event_bus=event_bus,
     )
     logger.info(
         "✅ Template services created: 6 CRUD facades (Phase 5) + PsEngagementService (Phase 4)"

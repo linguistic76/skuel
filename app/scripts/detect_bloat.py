@@ -193,6 +193,12 @@ EXEMPTED_METHODS: dict[str, str] = {
         "the one-shot that closes a step-mastery gap the best-effort KnowledgeMastered "
         "handler left (every Ku mastered, no step edge) through the same writer"
     ),
+    "core/services/goals/goals_progress_service.py::reconcile_goal_tallies": (
+        "LIVE — called only by scripts/reconcile_goal_tallies.py "
+        "(./dev reconcile-goal-tallies), outside the scanner's production roots: the "
+        "one-shot that recomputes a TASK_BASED goal the best-effort "
+        "GoalContributionsChanged handler left behind, through the same locked recompute"
+    ),
     "core/services/lp/lp_progress_service.py::reconcile_enrollment_progress": (
         "LIVE — called only by scripts/reconcile_learning_progress.py "
         "(./dev reconcile-learning-progress), outside the scanner's production roots: "
@@ -403,6 +409,22 @@ _CHOICE_PRINCIPLE_UNLINK = PlannedEntry(
     "service-level unlink of a principle from a choice; waits on the link/unlink page "
     "controls arc (docs/roadmap/activity-links-arc.md R8)",
     since=date(2026, 10, 5),
+)
+# Activity links arc (2026-10, PR 4): a task's or an event's contribution to a goal is
+# unlinked at the service; the page controls that call it are the arc after (R8).
+_GOAL_CONTRIBUTION_UNLINK = PlannedEntry(
+    Readiness.DELAYED,
+    "service-level unlink of a task's or an event's contribution to a goal; waits on "
+    "the link/unlink page controls arc (docs/roadmap/activity-links-arc.md R8)",
+    since=date(2026, 10, 6),
+)
+# A habit event marked missed (cancelled, out of its goals' tally). The method is the
+# status write and its announcements; no route or scheduler reaches it yet.
+_HABIT_EVENT_MISSED = PlannedEntry(
+    Readiness.DELAYED,
+    "mark a habit-reinforcing event missed (cancelled, with the miss note); waits on a "
+    "door — a route, or a sweep of past scheduled habit events — to call it",
+    since=date(2026, 10, 6),
 )
 _GOALS_INSIGHTS = PlannedEntry(
     Readiness.DELAYED,
@@ -878,6 +900,13 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/goals_service.py::create_semantic_goal_relationship": _GOALS_GRAVITY,
     "core/services/goals_service.py::unlink_goal_from_habit": _GOALS_GRAVITY,
     "core/services/goals_service.py::unlink_goal_from_principle": _GOAL_PRINCIPLE_UNLINK,
+    "core/services/tasks_service.py::unlink_task_from_goal": _GOAL_CONTRIBUTION_UNLINK,
+    "core/services/events/_orchestration_mixin.py::unlink_event_from_goal": (
+        _GOAL_CONTRIBUTION_UNLINK
+    ),
+    "core/services/events/events_habit_integration_service.py::miss_habit_event": (
+        _HABIT_EVENT_MISSED
+    ),
     # --- Goals: analytics/AI insight surface ---
     "core/services/goals/_orchestration_mixin.py::assess_goal_feasibility": _GOALS_INSIGHTS,
     "core/services/goals/_predictive_mixin.py::run_scenario_analysis": _GOALS_INSIGHTS,

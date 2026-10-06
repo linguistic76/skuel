@@ -86,7 +86,6 @@ class SharedNeighborConfig:
     Shared-neighbor patterns find entities that share intermediate connections,
     enabling "related_*" queries like:
     - Related tasks (share knowledge or goals)
-    - Related goals (share contributing tasks/habits)
     - Related habits (share knowledge or goals)
 
     Two entities are "related" by *how many* intermediates they share, not
@@ -110,7 +109,7 @@ class SharedNeighborConfig:
         shared_neighbor_config=SharedNeighborConfig(
             intermediate_relationships=(
                 RelationshipName.APPLIES_KNOWLEDGE,
-                RelationshipName.FULFILLS_GOAL,
+                RelationshipName.CONTRIBUTES_TO_GOAL,
             ),
             target_label="Task",
             result_alias="related_tasks",
@@ -134,7 +133,7 @@ class SharedNeighborConfig:
     limit: int = 5
 
     def get_relationship_pattern(self) -> str:
-        """Generate the Cypher relationship pattern string (e.g., 'APPLIES_KNOWLEDGE|FULFILLS_GOAL')."""
+        """Generate the Cypher relationship pattern string (e.g., 'APPLIES_KNOWLEDGE|CONTRIBUTES_TO_GOAL')."""
         return "|".join(rel.value for rel in self.intermediate_relationships)
 
 
@@ -529,24 +528,16 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "unlocks_knowledge",
             page_heading="Knowledge this task unlocks",
         ),
+        # Task → Goal: a task contributes to any number of goals, each counting it toward
+        # its progress (one edge type, shared with events).
         UnifiedRelationshipDefinition(
             RelationshipName.CONTRIBUTES_TO_GOAL,
             "Goal",
             "outgoing",
             "contributing_goals",
             "contributes_to_goal",
-            page_heading="Goals this task contributes to",
-        ),
-        # Task → Goal: single result for context
-        UnifiedRelationshipDefinition(
-            RelationshipName.FULFILLS_GOAL,
-            "Goal",
-            "outgoing",
-            "goal_context",  # Renamed for context view
-            "fulfills_goal",
-            fields=("uid", "title", "progress_percentage"),  # Context: include progress
-            single=True,  # Context: expect single goal
-            yaml_field_path="connections.fulfills_goal",
+            fields=("uid", "title", "progress_percentage"),
+            yaml_field_path="connections.contributes_to_goal",
             page_heading="Goals this task contributes to",
         ),
         # Task → Habit: (Task)-[:REINFORCES_HABIT]->(Habit), single result for context.
@@ -657,7 +648,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             shared_neighbor_config=SharedNeighborConfig(
                 intermediate_relationships=(
                     RelationshipName.APPLIES_KNOWLEDGE,
-                    RelationshipName.FULFILLS_GOAL,
+                    RelationshipName.CONTRIBUTES_TO_GOAL,
                 ),
                 target_label="Task",
                 result_alias="related_tasks",
@@ -776,14 +767,25 @@ GOALS_CONFIG = DomainRelationshipConfig(
             yaml_field_path="connections.supporting_habits",
             page_heading="Habits that support this goal",
         ),
+        # Tasks and events contribute to a goal through one edge type; each kind is its own
+        # view, so the far end names the kind.
         UnifiedRelationshipDefinition(
-            RelationshipName.FULFILLS_GOAL,
+            RelationshipName.CONTRIBUTES_TO_GOAL,
             "Task",
             "incoming",
-            "contributing_tasks",  # Context name: contributing_tasks
-            "fulfilling_tasks",
+            "contributing_tasks",  # Context name: contributing_tasks (GoalCrossContext.tasks)
+            "contributing_tasks",
             fields=("uid", "title", "status", "priority"),  # Context: include status/priority
             page_heading="Tasks that contribute to this goal",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.CONTRIBUTES_TO_GOAL,
+            "Event",
+            "incoming",
+            "contributing_events",
+            "contributing_events",
+            fields=("uid", "title", "status"),
+            page_heading="Events that contribute to this goal",
         ),
         # NOTE: Milestones are stored as an embedded tuple on the Goal model
         # (`Goal.milestones: tuple[Milestone, ...]`), not as graph nodes. There
@@ -835,26 +837,6 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "life_path",
             fields=("uid", "title"),
             single=True,
-        ),
-        # Shared-neighbor pattern: Related goals via shared contributors (tasks, habits)
-        UnifiedRelationshipDefinition(
-            RelationshipName.FULFILLS_GOAL,  # Placeholder - uses shared_neighbor_config
-            "Goal",
-            "both",
-            "related_goals",
-            "related_goals",
-            fields=("uid", "title", "status"),
-            limit=5,
-            shared_neighbor_config=SharedNeighborConfig(
-                intermediate_relationships=(
-                    RelationshipName.FULFILLS_GOAL,
-                    RelationshipName.SUPPORTS_GOAL,
-                ),
-                target_label="Goal",
-                result_alias="related_goals",
-                result_fields=("uid", "title", "status", "shared_count"),
-                limit=5,
-            ),
         ),
     ),
     prerequisite_relationship_names=(

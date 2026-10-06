@@ -281,10 +281,17 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.activity_backends",
+        "TasksBackend.get_tasks_contributing_to_goal",
+        Disposition.USER_STATE,
+        "The viewer's own tasks that contribute to a goal — the OWNER_ONLY clause on "
+        "the task. A task is never draft curriculum.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.activity_backends",
         "_edge_targets",
         Disposition.GATED,
         "The batched source→target edge maps (task→habit, event→habit, "
-        "habit→goal, event→goal). Targets are user-owned types today; the "
+        "habit→goal, event→goal, task→goal). Targets are user-owned types today; the "
         "far-node predicate is composed whole so a map over a curriculum target "
         "would be gated by construction.",
     ),

@@ -105,7 +105,6 @@ class RelationshipName(StrEnum):
 
     # Task Contributions & Cross-Domain
     CONTRIBUTES_TO_GOAL = "CONTRIBUTES_TO_GOAL"
-    FULFILLS_GOAL = "FULFILLS_GOAL"
     GENERATES_TASK = "GENERATES_TASK"
     EXECUTES_TASK = "EXECUTES_TASK"
     FUNDS_TASK = "FUNDS_TASK"

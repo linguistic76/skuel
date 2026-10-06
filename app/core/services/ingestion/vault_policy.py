@@ -247,12 +247,6 @@ def _targets(value: object) -> list[str]:
     return []
 
 
-# A Task's goal link is one fact held twice — the edge and this column
-# (``preparer._reconcile_task_goal_link``) — so a refused goal target clears both.
-_TASK_GOAL_FIELD: Final = "connections.fulfills_goal"
-_TASK_GOAL_COLUMN: Final = "fulfills_goal_uid"
-
-
 @dataclass(frozen=True)
 class _TargetSite:
     entity: dict[str, Any]  # boundary: a prepared ingestion row — heterogeneous file fields
@@ -275,8 +269,7 @@ async def admit_frontmatter_targets(
     owner's, or nobody's and published. ``pending_labels`` names the uids this same
     sync is about to create (their nodes land after this check). Refused targets are removed
     from the entity in place, BEFORE its node and edges are written, so no foreign
-    uid reaches an edge — or the property a Task keeps beside its goal edge, which
-    is realigned here. Each refusal is warned in the words a missing target is.
+    uid reaches an edge. Each refusal is warned in the words a missing target is.
 
     Fails with the read's error; the caller writes nothing on a failure.
     """
@@ -314,11 +307,6 @@ async def admit_frontmatter_targets(
         remaining = [t for t in _targets(site.entity.get(site.field_name)) if t != site.target_uid]
         site.entity[site.field_name] = remaining
         warnings.append(missing_target_warning(str(site.entity["uid"]), site.target_uid))
-        if (
-            site.field_name == _TASK_GOAL_FIELD
-            and site.entity.get("entity_type") == EntityType.TASK.value
-        ):
-            site.entity[_TASK_GOAL_COLUMN] = remaining[0] if remaining else None
     return Result.ok(warnings)
 
 

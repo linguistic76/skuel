@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 168, with_contract: 92}
+    relationships: {total: 167, with_contract: 91}
     labels: {total: 60, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -95,7 +95,7 @@ relationships:
       - config: Task
         definitions:
           - {direction: outgoing, target: Entity, context_field: applied_knowledge, method: knowledge, use_confidence: true, ingestion_field: connections.applies_knowledge}
-          - {direction: both, target: Task, context_field: related_tasks, method: related_tasks, fields: [uid, title, status], limit: 5, shared_neighbor: {via: [APPLIES_KNOWLEDGE, FULFILLS_GOAL], target: Task, alias: related_tasks}}
+          - {direction: both, target: Task, context_field: related_tasks, method: related_tasks, fields: [uid, title, status], limit: 5, shared_neighbor: {via: [APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL], target: Task, alias: related_tasks}}
       - config: Event
         definitions:
           - {direction: outgoing, target: Entity, context_field: applied_knowledge, method: knowledge, ingestion_field: connections.applies_knowledge}
@@ -236,19 +236,14 @@ relationships:
     contract:
       - config: Task
         definitions:
-          - {direction: outgoing, target: Goal, context_field: contributing_goals, method: contributes_to_goal}
+          - {direction: outgoing, target: Goal, context_field: contributing_goals, method: contributes_to_goal, fields: [uid, title, progress_percentage], ingestion_field: connections.contributes_to_goal}
+      - config: Goal
+        definitions:
+          - {direction: incoming, target: Task, context_field: contributing_tasks, method: contributing_tasks, fields: [uid, title, status, priority]}
+          - {direction: incoming, target: Event, context_field: contributing_events, method: contributing_events, fields: [uid, title, status]}
       - config: Event
         definitions:
           - {direction: outgoing, target: Goal, context_field: supported_goals, method: goals, ingestion_field: connections.contributes_to_goal}
-  FULFILLS_GOAL:
-    contract:
-      - config: Task
-        definitions:
-          - {direction: outgoing, target: Goal, context_field: goal_context, method: fulfills_goal, fields: [uid, title, progress_percentage], single: true, ingestion_field: connections.fulfills_goal}
-      - config: Goal
-        definitions:
-          - {direction: incoming, target: Task, context_field: contributing_tasks, method: fulfilling_tasks, fields: [uid, title, status, priority]}
-          - {direction: both, target: Goal, context_field: related_goals, method: related_goals, fields: [uid, title, status], limit: 5, shared_neighbor: {via: [FULFILLS_GOAL, SUPPORTS_GOAL], target: Goal, alias: related_goals}}
   GENERATES_TASK:
     contract: null
   EXECUTES_TASK:
@@ -938,7 +933,6 @@ labels:
         - TRIGGERS_ON_COMPLETION
         - UNLOCKS_KNOWLEDGE
         - CONTRIBUTES_TO_GOAL
-        - FULFILLS_GOAL
         - REINFORCES_HABIT
         - BLOCKED_BY
         - HAS_CHILD
@@ -961,7 +955,7 @@ labels:
         - SUBGOAL_OF
         - INSPIRED_BY_CHOICE
         - SUPPORTS_GOAL
-        - FULFILLS_GOAL
+        - CONTRIBUTES_TO_GOAL
         - SERVES_LIFE_PATH
         - DEPENDS_ON_GOAL
         - ENABLES_GOAL

@@ -226,6 +226,20 @@ class EventsService(
     async def count_events(self, filters: dict[str, Any] | None = None) -> Result[int]:
         return await self.core.count_events(filters)
 
+    async def delete_for_user(
+        self, uid: str, user_uid: UserUID, cascade: bool = False
+    ) -> Result[bool]:
+        """Override the inherited ownership-verified CRUD delete (generated route).
+
+        Verifies ownership BEFORE the delete, then deletes through the one event delete
+        door (``EventsCoreService.delete``), which publishes ``CalendarEventDeleted`` and
+        announces the goals the event contributed to.
+        """
+        ownership = await self.verify_ownership(uid, user_uid)
+        if ownership.is_error:
+            return Result.fail(ownership)
+        return await self.core.delete(uid, cascade=cascade)
+
     async def create(self, entity: Event) -> Result[Event]:
         """Override the inherited CRUD create — the ENTITY door.
 

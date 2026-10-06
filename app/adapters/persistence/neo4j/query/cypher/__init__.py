@@ -19,7 +19,7 @@ Infrastructure Functions (January 2026):
 
 Usage:
     from adapters.persistence.neo4j.query.cypher import build_search_query, build_text_search_query
-    from adapters.persistence.neo4j.query.cypher import build_task_with_context
+    from adapters.persistence.neo4j.query.cypher import build_ku_with_context
     from adapters.persistence.neo4j.query.cypher import build_relationship_count
     from adapters.persistence.neo4j.query.cypher import build_hybrid_knowledge_search, search, get_by
 
@@ -78,15 +78,11 @@ from .domain_queries import (
     build_due_soon_query,
     # Entity with context - generic engine
     build_entity_with_context,
-    build_event_with_context,
-    build_goal_with_context,
-    build_habit_with_context,
     build_ku_with_context,
     # Time-based queries (January 2026)
     build_overdue_query,
     # Prerequisite queries
     build_simple_prerequisite_chain,
-    build_task_with_context,
     # Meta-service queries
     build_user_activity_query,
 )
@@ -161,12 +157,9 @@ __all__ = [
     "build_due_soon_query",
     # Domain queries - entity with context
     "build_entity_with_context",
-    "build_event_with_context",
     "build_get_by_field_query",
     "build_goal_aligned_hybrid",
-    "build_goal_with_context",
     "build_graph_aware_search_query",
-    "build_habit_with_context",
     "build_hierarchical_context",
     "build_hierarchy_query",
     "build_prerequisite_chain_query",
@@ -208,7 +201,6 @@ __all__ = [
     "build_semantic_traversal",
     # Domain queries - prerequisites
     "build_simple_prerequisite_chain",
-    "build_task_with_context",
     "build_text_search_query",
     # Meta-service queries
     "build_user_activity_query",

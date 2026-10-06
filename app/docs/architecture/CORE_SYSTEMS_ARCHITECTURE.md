@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-10-06
 ---
 
 # Core Systems Architecture
@@ -65,7 +65,7 @@ Neo4j Graph (digital)
 
 **Core Patterns:**
 - **Entity Labels:** multi-label nodes — `:Entity` plus a domain label (`:Task`, `:Goal`, `:Ku`, `:PathStep`, `:LearningPath`, `:LifePath`, …); `:User` and `:Group` are non-Entity labels
-- **Relationship Types:** PREREQUISITE_FOR, USES_KU, APPLIES_KNOWLEDGE, FULFILLS_GOAL, SUPPORTS_GOAL, SERVES_LIFE_PATH, etc.
+- **Relationship Types:** PREREQUISITE_FOR, USES_KU, APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, SUPPORTS_GOAL, SERVES_LIFE_PATH, etc.
 - **Universal Backend:** `UniversalNeo4jBackend[T]` provides generic CRUD for all types
 
 **Graph-Native Principle:**
@@ -80,9 +80,9 @@ Neo4j Graph (digital)
   -[:APPLIES_KNOWLEDGE]->
 (ku:Curriculum {uid: "ku_report-writing_456"})
 
-// Goal fulfillment
+// Goal contribution
 (task:Task {uid: "task_finish-report_123"})
-  -[:FULFILLS_GOAL]->
+  -[:CONTRIBUTES_TO_GOAL]->
 (goal:Goal {uid: "goal_complete-project_789"})
 
 // Life path alignment

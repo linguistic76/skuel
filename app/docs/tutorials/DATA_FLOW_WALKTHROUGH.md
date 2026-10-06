@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-01
+updated: 2026-10-06
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -182,9 +182,7 @@ def task_create_request_to_dto(
         duration_minutes=request.duration_minutes,
         project=request.project,
         tags=request.tags or [],
-        # Single UID fields (stored as properties)
-        fulfills_goal_uid=request.fulfills_goal_uid,
-        # NOT stored as a property — see the note below this block
+        # NOT stored as properties — see the note below this block
         reinforces_habit_uid=request.reinforces_habit_uid,
         # Metadata fields
         goal_progress_contribution=request.goal_progress_contribution,
@@ -198,7 +196,8 @@ def task_create_request_to_dto(
 > `reinforces_habit_uid` is *not* a node property in either shape: it is in
 > `RELATIONSHIP_SKIP_FIELDS`, and `TasksCoreService.create` writes
 > `(Task)-[:REINFORCES_HABIT]->(Habit)` from it. `parent_uid` is the same shape
-> (HAS_SUBTASK). See `docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md § edge carrier`.
+> (HAS_SUBTASK), and so is `contributes_to_goal_uids` (one CONTRIBUTES_TO_GOAL edge
+> per goal). See `docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md § edge carrier`.
 
 **Why convert to DTO?**
 1. **Mutability**: DTOs can be modified during service operations
@@ -219,8 +218,7 @@ task_dto: TaskDTO = TaskDTO(
     status=EntityStatus.DRAFT,
     duration_minutes=60,
     tags=[],
-    # Single UID fields
-    fulfills_goal_uid=None,
+    # Edge carriers (never persisted)
     reinforces_habit_uid=None,
     # Timestamps
     created_at=datetime(2026, 1, 29, 10, 30, 0),  # Now

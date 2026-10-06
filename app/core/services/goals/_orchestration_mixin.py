@@ -146,7 +146,7 @@ class _OrchestrationMixin:
                     task = {
                         "title": f"Complete: {milestone.title}",
                         "description": milestone.description or "",
-                        "fulfills_goal_uid": goal_uid,
+                        "contributes_to_goal_uids": [goal_uid],
                         "goal_progress_contribution": 100.0 / len(goal.milestones),
                         "priority": Priority.HIGH
                         if goal.days_remaining() < 30
@@ -161,7 +161,7 @@ class _OrchestrationMixin:
                 if knowledge_uid not in user_context.mastered_knowledge_uids:
                     task = {
                         "title": f"Learn: {knowledge_uid}",
-                        "fulfills_goal_uid": goal_uid,
+                        "contributes_to_goal_uids": [goal_uid],
                         "applies_knowledge_uids": [knowledge_uid],
                         "knowledge_mastery_check": True,
                         "priority": Priority.HIGH,
@@ -176,7 +176,7 @@ class _OrchestrationMixin:
                     task = {
                         "title": f"Strengthen habit: {habit_uid}",
                         "reinforces_habit_uid": habit_uid,
-                        "fulfills_goal_uid": goal_uid,
+                        "contributes_to_goal_uids": [goal_uid],
                         "habit_streak_maintainer": True,
                         "priority": Priority.MEDIUM,
                         "recurring": True,

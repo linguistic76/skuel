@@ -124,8 +124,23 @@ def retracted_edges(prior: Iterable[str], current: Iterable[str]) -> list[Author
     return edges
 
 
+def goals_losing_contributions(edges: Iterable[AuthoredEdge]) -> list[str]:
+    """The goals a retraction takes a contribution from — its outgoing CONTRIBUTES_TO_GOAL targets.
+
+    Only a task or an event authors that edge outgoing, so every target is a goal
+    whose tally the retraction changes; the caller announces them, since nothing
+    can find them from the contributor once the edge is gone.
+    """
+    return [
+        edge.target_uid
+        for edge in edges
+        if edge.rel_type is RelationshipName.CONTRIBUTES_TO_GOAL and edge.direction == "outgoing"
+    ]
+
+
 __all__ = [
     "authored_edge_fingerprint",
+    "goals_losing_contributions",
     "parse_authored_edge",
     "retracted_edges",
 ]

@@ -16,12 +16,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.neo_labels import NeoLabel
+from core.models.relationship_names import RelationshipName
 from core.ports.query_types import EntityContentRow
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-    from core.models.relationship_names import RelationshipName
 
 
 class IngestionBackend:
@@ -365,13 +366,17 @@ class IngestionBackend:
         lines into the next note, delete the old one) then re-links instead
         of leaving the tasks edge-less; a line that never reappears is judged
         by the end-of-sync sweep.
+
+        Each row also carries ``goal_uids``: the goals a deleted task or event
+        contributed to (``CONTRIBUTES_TO_GOAL``), read before the DETACH takes the
+        edges, so the caller can announce the goals whose tally lost it.
         """
         return await self._executor.execute_query(
-            """
+            f"""
             UNWIND $items AS item
-            MATCH (s:IngestionMetadata {file_path: item.file_path})
-            OPTIONAL MATCH (e:Entity {uid: item.entity_uid})
-            OPTIONAL MATCH (g:Group {uid: item.entity_uid})
+            MATCH (s:IngestionMetadata {{file_path: item.file_path}})
+            OPTIONAL MATCH (e:Entity {{uid: item.entity_uid}})
+            OPTIONAL MATCH (g:Group {{uid: item.entity_uid}})
             OPTIONAL MATCH (e)-[:HAS_CONTENT]->(content:Content)
             OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
             OPTIONAL MATCH (e)-[:HAS_REFERENCE_CHUNK]->(refchunk:ReferenceChunk)
@@ -385,8 +390,12 @@ class IngestionBackend:
                 t.retired_source_line = x.source_line,
                 t.vault_line_retired_at = datetime()
             WITH DISTINCT item, s, e, g
+            WITH item, s, e, g,
+                 CASE WHEN e IS NULL THEN []
+                      ELSE [(e)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:{NeoLabel.GOAL.value}) | goal.uid]
+                 END AS goal_uids
             DETACH DELETE e, g, s
-            RETURN item.file_path AS file_path, item.entity_uid AS entity_uid
+            RETURN item.file_path AS file_path, item.entity_uid AS entity_uid, goal_uids
             """,
             {"items": items},
         )

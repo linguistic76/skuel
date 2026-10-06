@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-10-02
+updated: 2026-10-06
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -119,7 +119,7 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 | Key | Relationship | Target | Description |
 |-----|--------------|--------|-------------|
 | `knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied at event |
-| `goals` | `CONTRIBUTES_TO_GOAL` | Goal | Goals event contributes to |
+| `goals` | `CONTRIBUTES_TO_GOAL` | Goal | Goals event contributes to — counted toward each goal's progress (the goal reads it as `contributing_events`) |
 | `habits` | `REINFORCES_HABIT` | Habit | Habit this event reinforces |
 | `celebrated_goals` | `CELEBRATES_GOAL` | Goal | Goals celebrated by event |
 
@@ -145,7 +145,7 @@ Two fields are populated from graph edges at read time rather than stored as Neo
 
 Both helpers live in `core/services/events/_habit_links.py` and `_goal_links.py` respectively and are called by `EventsSearchService.get_prioritized()` before scoring so the priority scorer can read them.
 
-On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, and the shared create primitive (`EventsCoreService._write_link_edges`) turns it into the `REINFORCES_HABIT` edge for both create doors — the generated CRUD route and `create_event`. `contributes_to_goal_uids` (plural, create-only, never read back) does the same for `CONTRIBUTES_TO_GOAL` — one edge per goal, from both doors; `HabitEventScheduler` sets it to every goal the scheduled event's habit supports. The request-only `milestone_celebration_for_goal` becomes `CELEBRATES_GOAL` in the same batch, and the whole batch is written before `CalendarEventCreated` is published. Every request-supplied UID passes `keep_permitted_link_edges` (exists / owner / kind), and a refused link is logged, never fatal to the event. On UPDATE (`EventsService.update_event` — `POST /api/events/update`, `POST /events/edit`) the same rule is a refusal: `milestone_celebration_for_goal` must be the event owner's Goal and `reinforces_habit_uid` their Habit, both admitted (`UnifiedRelationshipService.admit_far_ends`) before the first write, so a uid that names nothing, another user's entity or the wrong kind fails the update as not found with no property changed and no existing edge removed; each edge is then written on that admission, with no second endpoint read. See `docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md` § edge carrier.
+On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, and the shared create primitive (`EventsCoreService._write_link_edges`) turns it into the `REINFORCES_HABIT` edge for both create doors — the generated CRUD route and `create_event`. `contributes_to_goal_uids` (plural, create-only, never read back) does the same for `CONTRIBUTES_TO_GOAL` — one edge per goal, from both doors; `HabitEventScheduler` sets it to every goal the scheduled event's habit supports. The request-only `milestone_celebration_for_goal` becomes `CELEBRATES_GOAL` in the same batch, and the whole batch is written before `CalendarEventCreated` is published; an event created with goals announces `GoalContributionsChanged` for them, as a status write that moves the event between the goal tally's classes does (`docs/domains/goals.md` § The contribution tally). Every request-supplied UID passes `keep_permitted_link_edges` (exists / owner / kind), and a refused link is logged, never fatal to the event. On UPDATE (`EventsService.update_event` — `POST /api/events/update`, `POST /events/edit`) the same rule is a refusal: `milestone_celebration_for_goal` must be the event owner's Goal and `reinforces_habit_uid` their Habit, both admitted (`UnifiedRelationshipService.admit_far_ends`) before the first write, so a uid that names nothing, another user's entity or the wrong kind fails the update as not found with no property changed and no existing edge removed; each edge is then written on that admission, with no second endpoint read. See `docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md` § edge carrier.
 
 ## Cross-Domain Mappings
 
@@ -202,7 +202,6 @@ On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, 
 | `get_upcoming(days_ahead=7, user_uid, limit)` | Events in next N days (TimeQueryMixin) |
 | `get_in_range(start, end, user_uid)` | Events in date range |
 | `get_recurring(user_uid)` | Recurring events only |
-| `get_for_goal(goal_uid, user_uid)` | Events supporting a goal |
 | `get_for_habit(habit_uid, user_uid)` | Events reinforcing a habit |
 | `get_calendar_events(user_uid, start, end)` | Calendar window query |
 | `get_conflicting(event_uid)` | Time-overlap conflicts (PLANNED surface) |

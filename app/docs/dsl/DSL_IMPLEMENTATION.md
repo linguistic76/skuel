@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Implementation Guide
-updated: 2026-09-15
+updated: 2026-10-06
 status: current
 category: dsl
 tags: [dsl, implementation, parser, architecture, regex]
@@ -514,7 +514,7 @@ Conversion is per-domain standalone functions, not a dispatch class. Each
 - `specialized_domain_converters.py` — Finance, KU, PS, LP, Report, Calendar, LifePath
 
 Graph connections ride the create request: link UIDs from `@ku()` / `@link()`
-are emitted as request fields (`applies_knowledge_uids`, `fulfills_goal_uid`,
+are emitted as request fields (`applies_knowledge_uids`, `contributes_to_goal_uids`,
 `linked_*_uids`) that the graph-aware create paths persist as edges.
 
 ```python
@@ -540,10 +540,8 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
             "recurrence_pattern": map_repeat_to_recurrence(activity.repeat_pattern),
             # Knowledge connections
             "applies_knowledge_uids": activity.get_linked_knowledge(),
-            # Goal connections
-            "fulfills_goal_uid": (
-                activity.get_linked_goals()[0] if activity.get_linked_goals() else None
-            ),
+            # Goal connections — the task contributes to every goal the line links
+            "contributes_to_goal_uids": activity.get_linked_goals(),
             "tags": activity.energy_states if activity.energy_states else [],
         },
         context=INGESTED_NOTE_CONTEXT,
@@ -577,10 +575,10 @@ treatment), then writes one provenance edge back to the source UserEntry
 (t)-[:EXTRACTED_FROM {source_line_hash: "...", vault_id: "sk_…", extracted_at: datetime()}]->(entry:Entity:UserEntry)
 
 // @ku() / @link() ride the create request as fields
-// (applies_knowledge_uids, fulfills_goal_uid, ...) and the graph-aware
+// (applies_knowledge_uids, contributes_to_goal_uids, ...) and the graph-aware
 // create paths persist them as edges:
 (t)-[:APPLIES_KNOWLEDGE]->(ku:Entity:Ku)
-(t)-[:FULFILLS_GOAL]->(g:Entity:Goal)
+(t)-[:CONTRIBUTES_TO_GOAL]->(g:Entity:Goal)   // one edge per linked goal
 ```
 
 ---

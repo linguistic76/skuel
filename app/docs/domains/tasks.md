@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-27
+updated: 2026-10-06
 status: current
 category: domains
 tags:
@@ -114,7 +114,8 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 | `project` | `str?` | Project grouping |
 | `tags` | `tuple[str, ...]` | Tags for categorization |
 | `parent_uid` | `str?` | Parent task UID. NOT a node property — an *edge carrier*: `RELATIONSHIP_SKIP_FIELDS` drops it and `TasksCoreService.create` writes `(parent)-[:HAS_SUBTASK]->(task)` from it, for both create doors |
-| `fulfills_goal_uid` | `str?` | Goal this task fulfills. DUAL-WRITTEN: a real node column AND the `(task)-[:FULFILLS_GOAL]->(goal)` edge — both create doors (`TasksCoreService._write_link_edges`), the update path (`TasksService._sync_relationship_edges`), and the vault door, which stamps the column from `connections.fulfills_goal` (`core/services/ingestion/preparer.py`). Invariant: property == edge target. The edge is admitted like every other link (goal must exist, be the caller's, be a Goal); a refused edge clears the column so the two halves never disagree |
+| `contributes_to_goal_uids` | `tuple[str, ...]` | Create-only input: the goals this task contributes to. Never a node property (`RELATIONSHIP_SKIP_FIELDS`) — the create primitive (`TasksCoreService._write_link_edges`) writes one `(task)-[:CONTRIBUTES_TO_GOAL]->(goal)` edge per uid, each admitted like every other link (goal must exist, be the caller's, be a Goal). The edges are the one record; the update request's `contributes_to_goal_uids` replaces the set (`[]` clears it, absent leaves it), and the vault authors it as `connections.contributes_to_goal` |
+| `contributes_to_goal_uid` | `str?` | Derived at read, never persisted: one of the task's goals (an active one preferred), projected by `enrich_with_goal_links` for the in-memory scorers |
 | `recurrence_pattern` | `RecurrencePattern?` | Daily, Weekly, etc. |
 
 ## Relationships
@@ -129,8 +130,7 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 | `enables` | `ENABLES_TASK` | Task | Tasks this enables |
 | `triggers` | `TRIGGERS_ON_COMPLETION` | Task | Tasks triggered when complete |
 | `unlocks_knowledge` | `UNLOCKS_KNOWLEDGE` | Ku | Knowledge unlocked by completion |
-| `contributes_to_goal` | `CONTRIBUTES_TO_GOAL` | Goal | Goals this contributes to |
-| `fulfills_goal` | `FULFILLS_GOAL` | Goal | Goal this fulfills — dual-written with the `fulfills_goal_uid` column (see Fields) |
+| `contributes_to_goal` | `CONTRIBUTES_TO_GOAL` | Goal | Goals this task contributes to — any number, each counting the task toward its progress (YAML: `connections.contributes_to_goal`) |
 
 **`TRIGGERS_ON_COMPLETION` schedules, it never reopens.** The dependent-scheduling
 subscriber (`TaskEventHandlerService.handle_dependent_scheduling`, its own `TaskCompleted`
@@ -175,7 +175,7 @@ anything else is refused with a message naming the status the write saw
 | `dependents` | Task | `DEPENDS_ON` |
 | `required_knowledge` | Ku | `REQUIRES_KNOWLEDGE` |
 | `applied_knowledge` | Ku | `APPLIES_KNOWLEDGE` |
-| `contributing_goals` | Goal | `CONTRIBUTES_TO_GOAL`, `FULFILLS_GOAL` |
+| `contributing_goals` | Goal | `CONTRIBUTES_TO_GOAL` |
 
 ## Query Intent
 
@@ -239,7 +239,7 @@ task, context = await tasks_rel.get_entity_with_context("task.123", depth=2)
 | `get_overdue(user_uid, limit=100)` | Tasks past due date (inherited) |
 | `get_active(user_uid, limit=100)` | Non-terminal tasks for a user (inherited) |
 | `get_pending(user_uid)` | Tasks with pending status |
-| `search_by_parent_goal(goal_uid, user_uid)` | Tasks fulfilling a goal |
+| `get_tasks_for_goal(goal_uid, user_uid)` | Tasks contributing to a goal (`CONTRIBUTES_TO_GOAL`) |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
 **Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
@@ -273,13 +273,14 @@ The Tasks domain publishes domain events for cross-service communication:
 | `TaskPriorityChanged` | Priority changed | `task_uid`, `user_uid`, `old_priority`, `new_priority` |
 | `TasksBulkCompleted` | Batch completion | `task_uids` (rows actually written), `user_uid`, `count` |
 
-**Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, goal progress updates).
+**Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, PS engagement auto-complete). Goal progress subscribes to none of them: every door that changes a task's goal contributions — a status move between the tally's classes, a goal link or unlink, a create with goals, a delete — also publishes `GoalContributionsChanged`.
 
 **One completion door, and every publish is transition-gated.** `update_task` (the
 ADR-087 status chokepoint behind `POST /api/tasks/{uid}/status` and Today's complete) is
 THE completion door: the stamp, the `TaskCompleted` publish and everything a completion
-cascades into — dependent scheduling, goal progress, calibration, analytics, context
-invalidation — run as that door's subscribers. The other publishers of `TaskCompleted` are
+cascades into — dependent scheduling, calibration, analytics, context invalidation — run as
+that door's subscribers. Goal progress runs from the same write, through the
+`GoalContributionsChanged` the door publishes when the task's class in the goal tally moves. The other publishers of `TaskCompleted` are
 the per-row fan-out from `complete_tasks_bulk`, the create door for a task born `completed`
 (`TasksCoreService._publish_born_completed` — a DSL `- [x]` line or an API create carrying
 the status), and the vault door's post-persist announcement
@@ -303,12 +304,12 @@ task is deleted or reopened — which a tally maintained from completion events 
 
 **`TaskReopened` is the mirror**, published on a transition OUT of completed by both doors that
 can make one: `update_task` (Today's Undo posts the prior status through that chokepoint) and the
-vault ingest door — each from the prior status its own write returned (ADR-087). Two
-subscribers: context invalidation (the vault door publishes no `TaskUpdated`) and goal progress —
-`GoalsProgressService.handle_task_reopened` recomputes the goals the task fulfills from their
-linked-task tally, lowering progress and un-achieving a goal that falls below 100%
-(`docs/roadmap/done/goal-progress-one-way.md`). Productivity does not subscribe — a derived count
-falls on its own.
+vault ingest door — each from the prior status its own write returned (ADR-087). Its subscriber
+is context invalidation (the vault door publishes no `TaskUpdated`). Productivity does not
+subscribe — a derived count falls on its own. Goal progress does not subscribe either: a status
+write that moves a task between the goal tally's classes (done, not done, out) publishes
+`GoalContributionsChanged`, the tally's one trigger, which lowers progress and un-achieves a goal
+that falls below 100% (`docs/domains/goals.md` § The contribution tally).
 
 ✅ **RESOLVED 2026-08-24.** Reopening in SKUEL now un-checks the Obsidian line and strips the
 `✅ date` — checkbox authority runs both directions outbound (ADR-070 Resolved Design Question 2,
@@ -408,8 +409,7 @@ task = result.value
 result = await tasks_service.link_task_to_goal(
     task_uid=task.uid,
     goal_uid="goal.launch-auth-system",
-    contribution_score=0.8,
-)
+)  # writes (task)-[:CONTRIBUTES_TO_GOAL]->(goal); a task may contribute to several goals
 ```
 
 ### Get Tasks with Dependencies
@@ -424,6 +424,6 @@ blocked = await tasks_service.search.get_blocked_tasks(task.uid, user_uid)
 
 ## See Also
 
-- [Goals Domain](goals.md) - Tasks fulfill goals
+- [Goals Domain](goals.md) - Tasks contribute to goals
 - [Knowledge (KU) Domain](ku.md) - Tasks apply/require knowledge
 - [Principles Domain](principles.md) - Tasks align with principles

@@ -598,11 +598,11 @@ class BatchCypherBuilder:
             rels = [
                 ("task:1", "ku:a", "APPLIES_KNOWLEDGE", None),
                 ("task:1", "ku:b", "APPLIES_KNOWLEDGE", {"confidence": 0.9}),
-                ("task:1", "goal:1", "FULFILLS_GOAL", None),
+                ("task:1", "goal:1", "CONTRIBUTES_TO_GOAL", None),
             ]
             grouped = BatchCypherBuilder.group_relationships_by_type(rels)
             # {"APPLIES_KNOWLEDGE": [("task:1", "ku:a", {}), ("task:1", "ku:b", {"confidence": 0.9})],
-            #  "FULFILLS_GOAL": [("task:1", "goal:1", {})]}
+            #  "CONTRIBUTES_TO_GOAL": [("task:1", "goal:1", {})]}
         """
         by_type: dict[str, list[tuple[str, str, dict[str, Any]]]] = {}
         for from_uid, to_uid, rel_type, props in relationships:
@@ -690,7 +690,7 @@ class BatchCypherBuilder:
         Example:
             queries = BatchCypherBuilder.build_relationship_create_queries([
                 ("task:1", "ku:a", "APPLIES_KNOWLEDGE", None),
-                ("task:1", "goal:1", "FULFILLS_GOAL", None),
+                ("task:1", "goal:1", "CONTRIBUTES_TO_GOAL", None),
             ])
 
             # Execute each query

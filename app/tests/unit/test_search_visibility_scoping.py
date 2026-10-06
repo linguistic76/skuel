@@ -398,7 +398,7 @@ class TestQueryBuilderComposition:
             Task,
             query="alpha",
             source_uid="goal_1",
-            relationship_type=RelationshipName.FULFILLS_GOAL.value,
+            relationship_type=RelationshipName.CONTRIBUTES_TO_GOAL.value,
             search_fields=("title",),
             label="Task",
             direction="incoming",
@@ -974,7 +974,7 @@ class TestAdvancedSearchScoping:
             query_text="Alpha",
             entity_types=[EntityType.TASK],
             connected_to_uid="goal_1",
-            connected_relationship=RelationshipName.FULFILLS_GOAL,
+            connected_relationship=RelationshipName.CONTRIBUTES_TO_GOAL,
             connected_direction="incoming",
             user_uid="user_a",
         )

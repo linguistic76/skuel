@@ -79,7 +79,6 @@ Every cross-domain UID field on an Activity Domain model is either a **structura
 
 | Domain | Field | Relationship |
 |--------|-------|-------------|
-| Task | `fulfills_goal_uid` | Task → Goal hierarchy membership (dual-written with the `FULFILLS_GOAL` edge) |
 | Task | `source_path_step_uid` | Spawn-time PS origin (all 6 domains share this) |
 | Task | `scheduled_event_uid` | Scheduling appointment to an Event |
 | Goal | `fulfills_goal_uid` | Sub-goal → parent goal hierarchy |
@@ -90,6 +89,7 @@ Every cross-domain UID field on an Activity Domain model is either a **structura
 | Domain | Field | Edge |
 |--------|-------|------|
 | Task | `reinforces_habit_uid` | `(Task)-[:REINFORCES_HABIT]->(Habit)` |
+| Task | `contributes_to_goal_uid` | `(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)` (one of its goals, for the scorers) |
 | Habit | `supports_goal_uid` | `(Habit)-[:SUPPORTS_GOAL]->(Goal)` |
 | Event | `reinforces_habit_uid` | `(Event)-[:REINFORCES_HABIT]->(Habit)` |
 | Event | `contributes_to_goal_uid` | `(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` |

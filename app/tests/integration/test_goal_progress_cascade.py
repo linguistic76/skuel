@@ -1,28 +1,30 @@
 """
-Goal progress moves when a linked task or habit is completed — through the composed app.
+Goal progress moves when a contributing task, event or habit changes — through the composed app.
 
 Every link in this file is written by a production writer and every completion goes
 through a production door, with the event wiring the app composes at bootstrap:
 
-- Task → Goal: ``TasksService.create`` with ``fulfills_goal_uid`` dual-writes the stamp
-  and ``(Task)-[:FULFILLS_GOAL]->(Goal)``; ``TasksService.update_task`` to ``completed``
-  publishes ``TaskCompleted``.
+- Task / Event → Goal: ``TasksService.create`` / ``EventsService.create_event`` with
+  ``contributes_to_goal_uids`` write one ``(contributor)-[:CONTRIBUTES_TO_GOAL]->(Goal)``
+  per goal and announce ``GoalContributionsChanged``; a status-class move through
+  ``update_task`` / ``update_event`` (done ↔ not done ↔ out) announces it too.
 - Habit → Goal: ``GoalsService.link_goal_to_habit`` writes
   ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``; ``HabitsService.complete_habit_with_quality``
   publishes ``HabitCompleted``.
 
 A task that leaves ``completed`` — through ``update_task`` or through the vault ingest
-door — publishes ``TaskReopened``, and the same recompute lowers its goal and un-achieves
-it (``docs/roadmap/done/goal-progress-one-way.md``).
+door — moves out of the done class, and the same recompute lowers its goal and
+un-achieves it (``docs/roadmap/done/goal-progress-one-way.md``).
 
-``GoalsProgressService`` subscribes to all three events and reads the links back through
-``GoalsBackend``. A reader that matches a shape no writer produces returns no goals, the
-handler logs at DEBUG and returns, and the goal never moves — so these tests assert on the
+``GoalsProgressService`` subscribes to ``GoalContributionsChanged`` and ``HabitCompleted``
+and counts the links back through ``GoalsBackend``. A reader that matches a shape no
+writer produces counts nothing and the goal never moves — so these tests assert on the
 goal the handler writes, not on the handler being called.
 """
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import date, time, timedelta
 from pathlib import Path
 
 import pytest
@@ -35,11 +37,14 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
+from core.models.event.event_request import EventCreateRequest
+from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports import EventBusOperations
+from core.services.events_service import EventsService
 from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
 from core.services.tasks_service import TasksService
@@ -62,6 +67,7 @@ class _Composed:
     """The composed facades these tests drive — ``Services`` fields narrowed from ``| None``."""
 
     tasks: TasksService
+    events: EventsService
     goals: GoalsService
     habits: HabitsService
     event_bus: EventBusOperations
@@ -77,9 +83,10 @@ async def services(skuel_app) -> AsyncIterator[_Composed]:
     """
     composed: Services = skuel_app.state.services
     assert composed.tasks and composed.goals and composed.habits and composed.neo4j_driver
-    assert composed.event_bus
+    assert composed.event_bus and composed.events
     services = _Composed(
         tasks=composed.tasks,
+        events=composed.events,
         goals=composed.goals,
         habits=composed.habits,
         event_bus=composed.event_bus,
@@ -132,37 +139,124 @@ async def _stored_goal(services: _Composed, goal_uid: str) -> Goal:
     return result.value
 
 
+async def _contributing_goals(services: _Composed, contributor_uid: str) -> set[str]:
+    async with services.neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (:Entity {uid: $uid})-[:CONTRIBUTES_TO_GOAL]->(g:Entity) RETURN g.uid AS uid",
+            uid=contributor_uid,
+        )
+        return {record["uid"] async for record in result}
+
+
+async def _create_task(services: _Composed, slug: str, *goal_uids: str) -> str:
+    created = await services.tasks.create(
+        Task(
+            uid=f"{_PREFIX}task_{slug}",
+            user_uid=_USER_UID,
+            title=f"Task {slug}",
+            priority=Priority.MEDIUM,
+            status=EntityStatus.SCHEDULED,
+            contributes_to_goal_uids=goal_uids,
+        )
+    )
+    assert created.is_ok, created
+    assert await _contributing_goals(services, created.value.uid) == set(goal_uids)
+    return created.value.uid
+
+
+async def _set_task_status(services: _Composed, task_uid: str, status: EntityStatus) -> None:
+    updated = await services.tasks.update_task(task_uid, TaskUpdateIntent(status=status.value))
+    assert updated.is_ok, updated
+
+
 @pytest.mark.asyncio(loop_scope="session")
 async def test_completing_a_linked_task_moves_its_goal(services: _Composed) -> None:
-    """One of two linked tasks completed through ``update_task`` → the goal reads 50%."""
+    """One of two contributing tasks completed through ``update_task`` → the goal reads 50%."""
     goal = await _create_goal(services, "task_based", MeasurementType.TASK_BASED)
+    first = await _create_task(services, "1", goal.uid)
+    await _create_task(services, "2", goal.uid)
 
-    task_uids = []
-    for i in (1, 2):
-        created = await services.tasks.create(
-            Task(
-                uid=f"{_PREFIX}task_{i}",
-                user_uid=_USER_UID,
-                title=f"Task {i}",
-                priority=Priority.MEDIUM,
-                status=EntityStatus.SCHEDULED,
-                fulfills_goal_uid=goal.uid,
-            )
-        )
-        assert created.is_ok, created
-        # The create door clears the stamp when it could not write the edge, so a
-        # surviving stamp means (Task)-[:FULFILLS_GOAL]->(Goal) exists.
-        assert created.value.fulfills_goal_uid == goal.uid
-        task_uids.append(created.value.uid)
+    # The create door announces each new contribution: 0 of 2 before anything completes.
+    created = await _stored_goal(services, goal.uid)
+    assert (created.current_value, created.target_value) == (0, 2)
 
-    completed = await services.tasks.update_task(
-        task_uids[0], TaskUpdateIntent(status=EntityStatus.COMPLETED.value)
-    )
-    assert completed.is_ok, completed
+    await _set_task_status(services, first, EntityStatus.COMPLETED)
 
     stored = await _stored_goal(services, goal.uid)
     assert stored.progress_percentage == pytest.approx(50.0)
     assert (stored.current_value, stored.target_value) == (1, 2)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_one_completion_moves_every_goal_the_task_contributes_to(
+    services: _Composed,
+) -> None:
+    """A task contributing to two goals is counted by both."""
+    first = await _create_goal(services, "multi_a", MeasurementType.TASK_BASED)
+    second = await _create_goal(services, "multi_b", MeasurementType.TASK_BASED)
+    shared = await _create_task(services, "multi_shared", first.uid, second.uid)
+    await _create_task(services, "multi_only_b", second.uid)
+
+    await _set_task_status(services, shared, EntityStatus.COMPLETED)
+
+    stored_first = await _stored_goal(services, first.uid)
+    stored_second = await _stored_goal(services, second.uid)
+    assert (stored_first.current_value, stored_first.target_value) == (1, 1)
+    assert stored_first.status == EntityStatus.COMPLETED
+    assert (stored_second.current_value, stored_second.target_value) == (1, 2)
+    assert stored_second.progress_percentage == pytest.approx(50.0)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_a_contributing_event_counts_beside_the_tasks(services: _Composed) -> None:
+    """Tasks and events share the edge and the tally: 1 task + 1 event, the event done → 50%."""
+    goal = await _create_goal(services, "with_event", MeasurementType.TASK_BASED)
+    await _create_task(services, "with_event", goal.uid)
+    event = await services.events.create_event(
+        EventCreateRequest(
+            title="Study block",
+            event_date=date.today() + timedelta(days=1),
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+            contributes_to_goal_uids=[goal.uid],
+        ),
+        _USER_UID,
+    )
+    assert event.is_ok, event
+    assert await _contributing_goals(services, event.value.uid) == {goal.uid}
+    before = await _stored_goal(services, goal.uid)
+    assert (before.current_value, before.target_value) == (0, 2)
+
+    done = await services.events.update_event(
+        event.value.uid, EventUpdateIntent(status=EntityStatus.COMPLETED.value)
+    )
+    assert done.is_ok, done
+
+    stored = await _stored_goal(services, goal.uid)
+    assert (stored.current_value, stored.target_value) == (1, 2)
+    assert stored.progress_percentage == pytest.approx(50.0)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_a_cancelled_contribution_leaves_the_tally_and_a_failed_one_does_not(
+    services: _Composed,
+) -> None:
+    """CANCELLED is out of the count; FAILED stays in it as not done."""
+    goal = await _create_goal(services, "classes", MeasurementType.TASK_BASED)
+    done = await _create_task(services, "classes_done", goal.uid)
+    cancelled = await _create_task(services, "classes_cancelled", goal.uid)
+    failed = await _create_task(services, "classes_failed", goal.uid)
+
+    await _set_task_status(services, done, EntityStatus.COMPLETED)
+    await _set_task_status(services, failed, EntityStatus.FAILED)
+    third = await _stored_goal(services, goal.uid)
+    assert (third.current_value, third.target_value) == (1, 3)
+
+    await _set_task_status(services, cancelled, EntityStatus.CANCELLED)
+
+    stored = await _stored_goal(services, goal.uid)
+    assert (stored.current_value, stored.target_value) == (1, 2)
+    assert stored.progress_percentage == pytest.approx(50.0)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -273,31 +367,14 @@ async def test_reopening_the_only_task_through_update_task_unachieves_its_goal(
 ) -> None:
     """Complete a goal's only task (100%, COMPLETED), then reopen it through ``update_task``."""
     goal = await _create_goal(services, "reopen_app", MeasurementType.TASK_BASED)
-    created = await services.tasks.create(
-        Task(
-            uid=f"{_PREFIX}task_reopen_app",
-            user_uid=_USER_UID,
-            title="Only task",
-            priority=Priority.MEDIUM,
-            status=EntityStatus.SCHEDULED,
-            fulfills_goal_uid=goal.uid,
-        )
-    )
-    assert created.is_ok, created
-    task_uid = created.value.uid
+    task_uid = await _create_task(services, "reopen_app", goal.uid)
 
-    done = await services.tasks.update_task(
-        task_uid, TaskUpdateIntent(status=EntityStatus.COMPLETED.value)
-    )
-    assert done.is_ok, done
+    await _set_task_status(services, task_uid, EntityStatus.COMPLETED)
     achieved = await _stored_goal(services, goal.uid)
     assert achieved.status == EntityStatus.COMPLETED
     assert achieved.progress_percentage == pytest.approx(100.0)
 
-    reopened = await services.tasks.update_task(
-        task_uid, TaskUpdateIntent(status=EntityStatus.SCHEDULED.value)
-    )
-    assert reopened.is_ok, reopened
+    await _set_task_status(services, task_uid, EntityStatus.SCHEDULED)
 
     await _assert_unachieved(services, goal.uid)
 
@@ -307,7 +384,7 @@ def _vault_task_file(directory: Path, goal_uid: str, status_lines: str) -> Path:
     path.write_text(
         f"---\ntype: task\nuid: {_VAULT_TASK_PREFIX}vault-reopen\ntitle: Vault task\n"
         f"user_uid: {_USER_UID}\n{status_lines}"
-        f"connections:\n  fulfills_goal:\n    - {goal_uid}\n---\n\nBody.\n"
+        f"connections:\n  contributes_to_goal:\n    - {goal_uid}\n---\n\nBody.\n"
     )
     return path
 
@@ -319,8 +396,8 @@ async def test_reopening_the_only_task_in_the_vault_unachieves_its_goal(
     """A task file completed, then edited back open, through the vault ingest door.
 
     The door classifies the reopen from the prior status its upsert returned, and
-    publishes ``TaskReopened`` so goal progress hears the vault's reopens as it hears
-    the app's. Built over the COMPOSED event bus, so the subscriber is the one the app
+    announces ``GoalContributionsChanged`` so goal progress hears the vault's reopens as
+    it hears the app's. Built over the COMPOSED event bus, so the subscriber is the one the app
     wires; built here rather than taken from the composition because the composed door
     resolves a file's owner from the vault it sits in, and a temp directory is in none.
     """

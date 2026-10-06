@@ -84,7 +84,6 @@ def sample_task() -> Task:
             title="Test Task",
             priority=Priority.HIGH.value,
             status=EntityStatus.ACTIVE.value,
-            fulfills_goal_uid="goal:learn_python",
             goal_progress_contribution=0.2,
             completion_updates_goal=True,
             knowledge_mastery_check=True,

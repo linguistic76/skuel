@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-03
+updated: 2026-10-06
 ---
 
 # Service Architecture: File Organization & Topology
@@ -525,8 +525,10 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
 4. Core Service — THE completion door (ADR-087)
    TasksCoreService.update_task()
        ├─ Validates the status target, stamps completion_date under the node's lock
-       ├─ Publishes: TaskCompleted (on the transition INTO completed)
-       └─ Subscribers: dependent scheduling, goal progress, calibration, analytics
+       ├─ Publishes: TaskCompleted (on the transition INTO completed), and
+       │  GoalContributionsChanged (the task moved between its goals' tally classes)
+       └─ Subscribers: dependent scheduling, calibration, analytics; goal progress
+          (GoalContributionsChanged)
    │
    ├─────────────────────┐
    │                     │
@@ -550,19 +552,18 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
 ### Example 3: Search Tasks for Goal
 
 ```
-1. GET /api/tasks/search?goal_uid=goal_health-2024_xyz
+1. GET /api/tasks/goal?goal_uid=goal_health-2024_xyz
    │
    ▼
-2. Route → services.tasks.get_tasks_for_goal(goal_uid, user_uid)
+2. Route (CommonQueryRouteFactory, after verifying the caller owns the goal)
+   → services.tasks.get_tasks_for_goal(goal_uid, user_uid)
    │
    ▼
 3. Facade → self.search.get_tasks_for_goal(goal_uid, user_uid)
    │
    ▼
-4. TasksSearchService
-   MATCH (t:Task)-[:FULFILLS_GOAL]->(g:Goal {uid: $goal_uid})
-   WHERE (u:User {uid: $user_uid})-[:OWNS]->(t)
-   RETURN t
+4. TasksSearchService → TasksBackend.get_tasks_contributing_to_goal(goal_uid, user_uid)
+   (the caller's tasks with (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal), OWNER_ONLY scoping)
    │
    ▼
 5. Backend converts Neo4j records → list[Task]

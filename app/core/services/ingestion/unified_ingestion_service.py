@@ -47,6 +47,7 @@ from __future__ import annotations
 
 __version__ = "2.0"
 
+import functools
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -64,9 +65,10 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.vault.vault_descriptor import VaultRegistry
 
-from core.events import publish_event
+from core.events import GoalContributionsChanged, publish_event
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.pipeline import Pipeline
+from core.models.goal.goal_contribution import CONTRIBUTOR_TYPES
 from core.models.ps_content.content_chunks import ChunkingParams
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
@@ -77,7 +79,11 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-from .authored_edges import authored_edge_fingerprint, retracted_edges
+from .authored_edges import (
+    authored_edge_fingerprint,
+    goals_losing_contributions,
+    retracted_edges,
+)
 from .batch import ingest_directory
 from .config import (
     DEFAULT_MAX_FILE_SIZE_BYTES,
@@ -193,8 +199,9 @@ class UnifiedIngestionService:
                        completion events a vault file's status change earns, and the
                        ADR-074 embedding requests (``*EmbeddingRequested`` per persisted
                        embeddable entity, ``ChunkEmbeddingRequested`` for chunks). Wired in
-                       BOTH tiers: the completion cascade (goal progress, PS engagement
-                       auto-complete, context invalidation) is Analog behavior whose
+                       BOTH tiers: the completion cascade (PS engagement auto-complete,
+                       context invalidation) and the goal tally's trigger
+                       (``GoalContributionsChanged``) are Analog behavior whose
                        subscribers are wired unconditionally, and the app's own update
                        chokepoints already publish it at CORE — withholding the bus here
                        would make the vault door the one write path that does not cascade.
@@ -342,6 +349,8 @@ class UnifiedIngestionService:
                 f"{'Created' if was_created else 'Updated'} edge: "
                 f"({from_uid})-[:{rel_type}]->({to_uid})"
             )
+            if rel_type is RelationshipName.CONTRIBUTES_TO_GOAL:
+                await self._announce_goal_contributions(self.default_user_uid, goal_uids=(to_uid,))
 
             return Result.ok(
                 {
@@ -620,9 +629,51 @@ class UnifiedIngestionService:
         end-of-sync, after every edge this run writes — see that parameter's
         doc in ``batch.ingest_directory``) and called directly by the
         single-file door.
+
+        Last, every task and event in the batch is announced to goal progress
+        (``GoalContributionsChanged``): a re-ingested file may have moved its status
+        between the tally's classes, gained a ``connections.contributes_to_goal``
+        target or changed ``completion_updates_goal``, and the recompute counts
+        graph state, so announcing a contributor whose goals did not change costs a
+        recount and changes nothing. (A dropped target cannot be found from the
+        contributor afterwards; the retraction announces it — see
+        ``_announce_goal_contributions``.)
         """
         await self._apply_creation_rules(entity_type, prior_status_by_uid)
         await self._apply_status_transitions(entity_type, entities, prior_status_by_uid)
+        if entity_type in CONTRIBUTOR_TYPES:
+            by_owner: dict[str, list[str]] = {}
+            for entity in entities:
+                if entity.get("uid") and entity.get("user_uid"):
+                    by_owner.setdefault(str(entity["user_uid"]), []).append(str(entity["uid"]))
+            for owner_uid, contributor_uids in by_owner.items():
+                await self._announce_goal_contributions(
+                    UserUID(owner_uid), contributor_uids=tuple(contributor_uids)
+                )
+
+    async def _announce_goal_contributions(
+        self,
+        user_uid: UserUID,
+        *,
+        goal_uids: tuple[str, ...] = (),
+        contributor_uids: tuple[str, ...] = (),
+    ) -> None:
+        """Publish ``GoalContributionsChanged`` — the vault doors' half of the goal tally's trigger.
+
+        ``goal_uids`` are goals a contribution left or joined through a path its
+        contributor cannot name afterwards (a retracted frontmatter target, a deleted
+        file, an Edge YAML); ``contributor_uids`` are tasks and events whose current
+        goals are recounted. Analog: runs in both tiers, like the completion events.
+        """
+        if self.event_bus is None or not (goal_uids or contributor_uids):
+            return
+        await publish_event(
+            self.event_bus,
+            GoalContributionsChanged(
+                user_uid=user_uid, goal_uids=goal_uids, contributor_uids=contributor_uids
+            ),
+            self.logger,
+        )
 
     async def _apply_creation_rules(
         self,
@@ -679,12 +730,12 @@ class UnifiedIngestionService:
         transition):
 
         - a file that arrives ``completed`` when the node was not publishes the
-          domain's completion event, so goal progress, PS engagement
-          auto-complete, productivity analytics and context invalidation see the
-          vault's completions exactly as they see the app's;
+          domain's completion event, so PS engagement auto-complete, productivity
+          analytics and context invalidation see the vault's completions exactly as
+          they see the app's;
         - a file that takes an entity OUT of ``completed`` publishes the domain's
-          reopen event (``TaskReopened``), so goal progress falls with a vault reopen
-          as it does with an app one;
+          reopen event (``TaskReopened``), so a cached context refreshes after a
+          vault reopen as after an app one;
         - an entity the write leaves NOT completed loses its completion stamp, so
           the invariant "the stamp is non-null exactly when the entity is
           completed" survives both an edit made in Obsidian and a file authored
@@ -696,8 +747,8 @@ class UnifiedIngestionService:
         therefore silent.
 
         Both halves are Analog and run in CORE: the clear is a graph write, and the
-        completion event reaches subscribers (goal progress, PS engagement
-        auto-complete, context invalidation) that the composition root wires in
+        completion event reaches subscribers (PS engagement auto-complete, context
+        invalidation) that the composition root wires in
         both tiers — the app's update chokepoints already publish it at CORE, so
         gating the vault door's copy would make it the one write path that does
         not cascade. The tier gate belongs to the EMBEDDING publishes alone
@@ -741,9 +792,11 @@ class UnifiedIngestionService:
         """Announce entities this ingest moved OUT of completed, as the graph now holds them.
 
         The mirror of :meth:`_publish_completions`, for the domains with a reopen
-        event (``REOPEN_EVENT_SOURCE_FIELDS`` — Task). Goal progress recomputes on
-        ``TaskReopened``, so without this a task reopened in Obsidian would leave its
-        goal counting it as done. A read failure loses the announcement, logged at
+        event (``REOPEN_EVENT_SOURCE_FIELDS`` — Task). Its subscriber is context
+        invalidation: the vault door publishes no ``TaskUpdated``, so without this a
+        cached context would keep a task reopened in Obsidian as completed. (Goal
+        progress hears the reopen through ``GoalContributionsChanged``, published by
+        ``_apply_primitive_parity``.) A read failure loses the announcement, logged at
         ERROR, as a completion's does.
 
         Backend: IngestionWriteBackend.read_entity_fields.
@@ -1303,6 +1356,9 @@ class UnifiedIngestionService:
                     f"Retracted {deleted} frontmatter edge(s) {source_uid} no longer declares "
                     f"({len(dropped)} dropped from its registered fields)"
                 )
+                await self._announce_goal_contributions(
+                    effective_user_uid, goal_uids=tuple(goals_losing_contributions(dropped))
+                )
             # A stamp failure is logged by the tracker; the entity write stands
             # and the row keeps its prior fingerprint (a superset — re-diffed on
             # the next ingest, where an already-deleted edge matches nothing).
@@ -1512,7 +1568,14 @@ class UnifiedIngestionService:
             post_persist_fn=self._ingest_post_persist,
             moc_pass_fn=self._apply_moc_links,
             status_transition_fn=self._apply_primitive_parity,
+            goal_contributions_fn=functools.partial(
+                self._announce_goals_of_sync, effective_user_uid
+            ),
         )
+
+    async def _announce_goals_of_sync(self, user_uid: UserUID, goal_uids: tuple[str, ...]) -> None:
+        """The directory door's ``goal_contributions_fn``: announce the goals a sync touched."""
+        await self._announce_goal_contributions(user_uid, goal_uids=goal_uids)
 
     # ========================================================================
     # VALIDATION - Delegate to validator module

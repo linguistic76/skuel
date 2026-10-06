@@ -353,7 +353,7 @@ Activities also connect to other activities:
 ```yaml
 connections:
   applies_knowledge: [ps.namespace.path-step-slug]       # APPLIES_KNOWLEDGE → PathStep/Ku
-  fulfills_goal: [goal.goal-name]                    # FULFILLS_GOAL → Goal (single)
+  contributes_to_goal: [goal.goal-name]              # CONTRIBUTES_TO_GOAL → Goal (any number)
   reinforces_habit: [habit.habit-name]               # REINFORCES_HABIT → Habit (single)
   depends_on: [task.other-task]                      # DEPENDS_ON → Task
 ```
@@ -499,7 +499,7 @@ task_template_uids:
 ```
 
 Every date on a template is engagement-relative (`due_offset: {days: 14}`), and every
-cross-reference points at another *template* (`fulfills_goal_template_uid`) which resolves
+cross-reference points at another *template* (`contributes_to_goal_template_uid`) which resolves
 to the instance spawned alongside it. `status:` is stamped `active` at the ingest door.
 
 **See: [Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md)** — its Part 1

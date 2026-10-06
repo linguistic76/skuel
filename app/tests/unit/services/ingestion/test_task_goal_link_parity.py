@@ -1,15 +1,10 @@
-"""Vault door: a Task's goal link is ONE fact authored two ways, stored two ways.
+"""Vault door: a Task's goals are edges only — no column rides beside them.
 
-``connections.fulfills_goal`` is the registered relationship field — it drives the
-``(Task)-[:FULFILLS_GOAL]->(Goal)`` edge and nothing else. ``fulfills_goal_uid`` is the
-Task's node column, which the app doors set and every in-hand reader consults (the
-relevance scorer, the completion → goal-progress cascade, the edit form's picker). The
-preparer reconciles the two so a vault task satisfies BOTH kinds of reader: the edge
-target is stamped as the property, a bare property authors the connection, and a file
-that names no goal clears a stale stamp on re-ingest (a ``None`` in props REMOVES the
-node property under ``SET n += props``).
-
-The invariant: property == edge target, wherever both exist.
+``connections.contributes_to_goal`` is the registered relationship field; it drives one
+``(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)`` edge per target and nothing else. A task
+contributes to any number of goals, so the preparer passes every target through and
+stamps no node property for any of them. ``Goal.fulfills_goal_uid`` — a sub-goal's
+parent — is a different fact and passes through untouched.
 """
 
 from pathlib import Path
@@ -27,68 +22,26 @@ def _prepare(entity_type: EntityType, data: dict) -> dict:
     return prepare_entity_data(entity_type, dict(data), None, _PATH, _USER)
 
 
-class TestTaskGoalLinkParity:
-    def test_the_connection_stamps_the_property(self) -> None:
-        prepared = _prepare(
-            EntityType.TASK,
-            {"title": "Ship it", "connections": {"fulfills_goal": ["goal.ship.v1"]}},
-        )
-
-        assert prepared["connections.fulfills_goal"] == ["goal.ship.v1"]
-        assert prepared["fulfills_goal_uid"] == "goal.ship.v1"
-
-    def test_a_bare_property_authors_the_connection(self) -> None:
-        """A file that spells the link as the column, not the connection, still gets
-        the edge — otherwise the property-only spelling would be invisible to every
-        graph reader."""
-        prepared = _prepare(EntityType.TASK, {"title": "Ship it", "fulfills_goal_uid": "goal.a"})
-
-        assert prepared["fulfills_goal_uid"] == "goal.a"
-        assert prepared["connections.fulfills_goal"] == ["goal.a"]
-
-    def test_no_goal_clears_a_stale_stamp(self) -> None:
-        """Re-ingesting a file whose goal link was removed retracts the edge (the
-        authored-edge diff) — the property must go with it, which needs an explicit
-        ``None`` in props, not an absent key."""
-        prepared = _prepare(EntityType.TASK, {"title": "Ship it"})
-
-        assert "fulfills_goal_uid" in prepared
-        assert prepared["fulfills_goal_uid"] is None
-        assert "connections.fulfills_goal" not in prepared
-
-    def test_the_edge_target_wins_when_the_two_disagree(self) -> None:
-        """The connection is the registered authoring surface and the half the graph
-        readers see; a property that contradicts it is the stale copy."""
+class TestTaskGoalLinksAreEdgesOnly:
+    def test_every_target_is_carried_and_no_column_is_stamped(self) -> None:
         prepared = _prepare(
             EntityType.TASK,
             {
                 "title": "Ship it",
-                "fulfills_goal_uid": "goal.stale",
-                "connections": {"fulfills_goal": ["goal.current"]},
+                "connections": {"contributes_to_goal": ["goal.one", "goal.two"]},
             },
         )
 
-        assert prepared["fulfills_goal_uid"] == "goal.current"
-        assert prepared["connections.fulfills_goal"] == ["goal.current"]
+        assert prepared["connections.contributes_to_goal"] == ["goal.one", "goal.two"]
+        assert "fulfills_goal_uid" not in prepared
+        assert "contributes_to_goal_uid" not in prepared
+        assert "contributes_to_goal_uids" not in prepared
 
-    def test_a_scalar_connection_is_normalised_to_a_list(self) -> None:
-        prepared = _prepare(
-            EntityType.TASK, {"title": "Ship it", "connections": {"fulfills_goal": "goal.one"}}
-        )
+    def test_a_task_without_goals_gains_no_stamp(self) -> None:
+        prepared = _prepare(EntityType.TASK, {"title": "Ship it"})
 
-        assert prepared["connections.fulfills_goal"] == ["goal.one"]
-        assert prepared["fulfills_goal_uid"] == "goal.one"
-
-    def test_only_the_first_target_is_stamped(self) -> None:
-        """The column is singular; a multi-goal connection writes every edge and the
-        property names the first."""
-        prepared = _prepare(
-            EntityType.TASK,
-            {"title": "Ship it", "connections": {"fulfills_goal": ["goal.one", "goal.two"]}},
-        )
-
-        assert prepared["connections.fulfills_goal"] == ["goal.one", "goal.two"]
-        assert prepared["fulfills_goal_uid"] == "goal.one"
+        assert "fulfills_goal_uid" not in prepared
+        assert "connections.contributes_to_goal" not in prepared
 
     @pytest.mark.parametrize("entity_type", [EntityType.GOAL, EntityType.HABIT])
     def test_other_types_are_untouched(self, entity_type: EntityType) -> None:
@@ -97,7 +50,7 @@ class TestTaskGoalLinkParity:
         prepared = _prepare(entity_type, {"title": "Parented", "fulfills_goal_uid": "goal.parent"})
 
         assert prepared["fulfills_goal_uid"] == "goal.parent"
-        assert "connections.fulfills_goal" not in prepared
+        assert "connections.contributes_to_goal" not in prepared
 
     def test_a_habit_without_the_field_gains_no_stamp(self) -> None:
         prepared = _prepare(EntityType.HABIT, {"title": "Daily pages"})

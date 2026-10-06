@@ -332,9 +332,10 @@ def _locked_rig(
 
     No read/stored split here, unlike ``_rig``: the two tally writers now read the goal
     and its tally INSIDE the locked transaction their write runs in
-    (``GoalsBackend.recompute_progress_from_linked_*``), so the goal they plan from IS
-    the prior the guard resolves against. The race a split rig models is closed by
-    construction; what these tests pin is the verdict each locked state produces.
+    (``GoalsBackend.recompute_progress_from_contributions`` / ``..._linked_habits``), so
+    the goal they plan from IS the prior the guard resolves against. The race a split rig
+    models is closed by construction; what these tests pin is the verdict each locked
+    state produces.
     """
     backend, recorder = guarded_backend(locked, locked)
     wire_locked_recompute(backend, recorder, locked, method=method, tally=tally)
@@ -356,13 +357,13 @@ def _assert_unachieved(recorder: StatusGuardedWriteRecorder[Goal], bus: _Bus) ->
 
 
 @pytest.mark.asyncio
-class TestUpdateGoalFromTaskCompletion:
-    """``_update_goal_from_task_completion`` — the task-tally recompute."""
+class TestRecomputeGoalTally:
+    """``recompute_goal_tally`` — the contribution-tally recompute."""
 
-    _METHOD = "recompute_progress_from_linked_tasks"
+    _METHOD = "recompute_progress_from_contributions"
 
     def _tally(self, total: int, completed: int) -> dict[str, Any]:
-        return {"total_tasks": total, "completed_tasks": completed}
+        return {"total_contributions": total, "completed_contributions": completed}
 
     async def test_an_already_achieved_goal_at_its_tally_writes_nothing(self) -> None:
         """What a racing second completion now finds under the lock: the first one's
@@ -377,7 +378,7 @@ class TestUpdateGoalFromTaskCompletion:
         )
         service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 2))
 
-        await service._update_goal_from_task_completion(_GOAL, _USER)
+        await service.recompute_goal_tally(_GOAL)
 
         assert recorder.calls == []
         assert bus.of(GoalAchieved) == []
@@ -395,7 +396,7 @@ class TestUpdateGoalFromTaskCompletion:
         )
         service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 2))
 
-        await service._update_goal_from_task_completion(_GOAL, _USER)
+        await service.recompute_goal_tally(_GOAL)
 
         _assert_suppressed(recorder, bus)
 
@@ -409,7 +410,7 @@ class TestUpdateGoalFromTaskCompletion:
         )
         service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 2))
 
-        await service._update_goal_from_task_completion(_GOAL, _USER)
+        await service.recompute_goal_tally(_GOAL)
 
         _assert_achieved(recorder, bus)
 
@@ -423,7 +424,7 @@ class TestUpdateGoalFromTaskCompletion:
         )
         service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(4, 1))
 
-        await service._update_goal_from_task_completion(_GOAL, _USER)
+        await service.recompute_goal_tally(_GOAL)
 
         assert recorder.last_guard.has_patches() is False
         assert bus.of(GoalAchieved) == []
@@ -440,13 +441,13 @@ class TestUpdateGoalFromTaskCompletion:
         )
         service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(1, 0))
 
-        await service._update_goal_from_task_completion(_GOAL, _USER)
+        await service.recompute_goal_tally(_GOAL)
 
         _assert_unachieved(recorder, bus)
         assert _merged(recorder)["progress_percentage"] == 0.0
 
     async def test_the_progress_event_names_its_trigger(self) -> None:
-        """A reopen-driven drop is not a task completion — stall/trigger telemetry reads it."""
+        """A rise and a drop are both contribution changes — stall/trigger telemetry reads it."""
         locked = _goal(
             status=EntityStatus.ACTIVE,
             measurement_type=MeasurementType.TASK_BASED,
@@ -454,14 +455,36 @@ class TestUpdateGoalFromTaskCompletion:
             current_value=1.0,
             target_value=2.0,
         )
-        for reopened, tally in ((False, self._tally(2, 2)), (True, self._tally(2, 0))):
+        for tally in (self._tally(2, 2), self._tally(2, 0)):
             service, _recorder, bus = _locked_rig(locked, method=self._METHOD, tally=tally)
 
-            await service._update_goal_from_task_completion(_GOAL, _USER, reopened=reopened)
+            await service.recompute_goal_tally(_GOAL)
 
             [event] = bus.of(GoalProgressUpdated)
-            assert event.triggered_by_task_completion is not reopened
-            assert event.triggered_by_task_reopen is reopened
+            assert event.triggered_by_contribution_change is True
+            assert event.triggered_by_habit_completion is False
+
+    @pytest.mark.parametrize(
+        "settled", [EntityStatus.CANCELLED, EntityStatus.ARCHIVED, EntityStatus.FAILED]
+    )
+    async def test_a_settled_goal_reaching_100_is_not_achieved(self, settled: EntityStatus) -> None:
+        """Its owner settled it: the figure is written, the status and stamp are not."""
+        locked = _goal(
+            status=settled,
+            measurement_type=MeasurementType.TASK_BASED,
+            progress=50.0,
+            current_value=1.0,
+            target_value=2.0,
+        )
+        service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 2))
+
+        await service.recompute_goal_tally(_GOAL)
+
+        merged = _merged(recorder)
+        assert merged["progress_percentage"] == 100.0
+        assert "status" not in merged
+        assert "achieved_date" not in merged
+        assert bus.of(GoalAchieved) == []
 
     async def test_an_open_goal_whose_tally_drops_keeps_its_status(self) -> None:
         """A goal reopened by hand at 100% has no achievement to take back: the
@@ -475,7 +498,7 @@ class TestUpdateGoalFromTaskCompletion:
         )
         service, recorder, _bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 1))
 
-        await service._update_goal_from_task_completion(_GOAL, _USER)
+        await service.recompute_goal_tally(_GOAL)
 
         merged = _merged(recorder)
         assert "status" not in merged
@@ -495,7 +518,7 @@ class TestUpdateGoalFromTaskCompletion:
         )
         service, recorder, _bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(5, 3))
 
-        await service._update_goal_from_task_completion(_GOAL, _USER)
+        await service.recompute_goal_tally(_GOAL)
 
         merged = _merged(recorder)
         assert "status" not in merged

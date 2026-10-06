@@ -67,7 +67,7 @@ query, params = build_graph_aware_search_query(
     Task,
     query="python api testing",
     source_uid="goal.ship-v1",
-    relationship_type=RelationshipName.FULFILLS_GOAL.value,
+    relationship_type=RelationshipName.CONTRIBUTES_TO_GOAL.value,
     search_fields=["title", "description"],
     direction="incoming",
     visibility=SearchVisibility.OWNER_ONLY,

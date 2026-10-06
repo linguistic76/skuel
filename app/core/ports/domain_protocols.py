@@ -86,6 +86,7 @@ from core.ports.query_types import (
     ContextDashboard,
     ContextHealthResult,
     ContextSummary,
+    ContributionTally,
     EventStats,
     FutureContextStateResult,
     GoalsAchievedCount,
@@ -93,7 +94,6 @@ from core.ports.query_types import (
     GraphContextResult,
     HabitStats,
     LinkedHabitTally,
-    LinkedTaskTally,
     NextActionResult,
     ParentProgressResult,
     PrincipleStats,
@@ -158,6 +158,10 @@ class TasksOperations(
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
+    async def get_contributed_goal_uids(self, contributor_uid: str) -> Result[list[str]]:
+        """UIDs of the goals this entity contributes to (``CONTRIBUTES_TO_GOAL``)."""
+        ...
+
     async def create_task(self, data: Metadata) -> Result[EntityUID]:
         """Create task from request data. Use create() if you have a domain model."""
         ...
@@ -205,6 +209,16 @@ class TasksOperations(
         self, habit_uid: str, user_uid: str
     ) -> Result[list[Task]]:
         """Get the user's tasks linked to a habit via REINFORCES_HABIT."""
+        ...
+
+    async def get_tasks_contributing_to_goal(
+        self, goal_uid: str, user_uid: str
+    ) -> Result[list[Task]]:
+        """Get the user's tasks that contribute to a goal via CONTRIBUTES_TO_GOAL."""
+        ...
+
+    async def get_goal_links_for_tasks(self, task_uids: list[str]) -> Result[dict[str, list[str]]]:
+        """Map task_uid → the goal_uids it contributes to (CONTRIBUTES_TO_GOAL, batch)."""
         ...
 
     async def get_habit_links_for_tasks(self, task_uids: list[str]) -> Result[dict[str, str]]:
@@ -337,6 +351,10 @@ class EventsOperations(
 
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
+
+    async def get_contributed_goal_uids(self, contributor_uid: str) -> Result[list[str]]:
+        """UIDs of the goals this entity contributes to (``CONTRIBUTES_TO_GOAL``)."""
+        ...
 
     async def create_event(self, data: Metadata) -> Result[EntityUID]:
         """Create a new event and return its ID. Returns Result[str]."""
@@ -728,19 +746,18 @@ class GoalsOperations(
         """Count goal stats: total, active, completed."""
         ...
 
-    async def find_linked_goals_for_task(
-        self, task_uid: str, user_uid: UserUID
+    async def find_contributed_goals(
+        self, contributor_uid: str, user_uid: UserUID
     ) -> Result[list[str]]:
-        """Find the UIDs of the goals a task fulfills (FULFILLS_GOAL)."""
+        """Find the UIDs of the user's goals a task or event contributes to (CONTRIBUTES_TO_GOAL)."""
         ...
 
-    async def recompute_progress_from_linked_tasks[P: GuardedWritePlan](
+    async def recompute_progress_from_contributions[P: GuardedWritePlan](
         self,
         goal_uid: str,
-        user_uid: UserUID,
-        plan: Callable[[Goal, LinkedTaskTally], P | None],
+        plan: Callable[[Goal, ContributionTally], P | None],
     ) -> Result[GuardedRecompute[Goal, P] | None]:
-        """Recompute a goal from its linked-task tally, counted under the goal's lock.
+        """Recompute a goal from its contribution tally, counted under the goal's lock.
 
         Lock, tally, plan and guarded write in one transaction, so two recomputes of
         one goal serialize and the later one counts what the earlier one wrote over.
@@ -748,15 +765,17 @@ class GoalsOperations(
         """
         ...
 
-    async def get_linked_task_tally(
-        self, goal_uid: str, user_uid: UserUID
-    ) -> Result[LinkedTaskTally]:
-        """Read a goal's linked-task tally as it stands now — no lock, no write.
+    async def get_contribution_tally(self, goal_uid: str) -> Result[ContributionTally]:
+        """Read a goal's contribution tally as it stands now — no lock, no write.
 
-        Counted by the membership rule ``recompute_progress_from_linked_tasks`` writes
+        Counted by the membership rule ``recompute_progress_from_contributions`` writes
         the goal's figure by, so a report and the stored figure cannot disagree on which
-        tasks count. A goal with no counting task reads 0 / 0.
+        contributions count. A goal with no counting contribution reads 0 / 0.
         """
+        ...
+
+    async def list_task_based_goals(self) -> Result[list[tuple[str, UserUID]]]:
+        """Every TASK_BASED goal as ``(goal_uid, owner_uid)`` — the tally reconciler's work list."""
         ...
 
     async def find_linked_goals_for_habit(
@@ -772,7 +791,7 @@ class GoalsOperations(
         plan: Callable[[Goal, LinkedHabitTally], P | None],
     ) -> Result[GuardedRecompute[Goal, P] | None]:
         """Recompute a goal from its supporting habits' average streak, read under the
-        goal's lock — the habit sibling of ``recompute_progress_from_linked_tasks``."""
+        goal's lock — the habit sibling of ``recompute_progress_from_contributions``."""
         ...
 
     async def get_achievement_context(

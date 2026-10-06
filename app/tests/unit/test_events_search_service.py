@@ -390,20 +390,5 @@ async def test_get_for_habit_scopes_traversal_to_user(search_service, mock_backe
     assert kwargs["visibility"] is SearchVisibility.OWNER_ONLY
 
 
-@pytest.mark.asyncio
-async def test_get_for_goal_scopes_traversal_to_user(search_service, mock_backend):
-    """ADR-085 G3 pin — same contract on the goal-side traversal."""
-    from core.models.enums import SearchVisibility
-
-    mock_backend.relationship_traversal_raw = AsyncMock(return_value=Result.ok([]))
-
-    result = await search_service.get_for_goal("goal:1", user_uid="user_demo")
-
-    assert result.is_ok
-    kwargs = mock_backend.relationship_traversal_raw.await_args.kwargs
-    assert kwargs["user_uid"] == "user_demo"
-    assert kwargs["visibility"] is SearchVisibility.OWNER_ONLY
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

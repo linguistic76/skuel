@@ -64,7 +64,6 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
     Event-Specific Methods:
     - get_in_range() - Events within date range
     - get_recurring() - Recurring events only
-    - get_for_goal() - Events supporting a goal
     - get_conflicting() - Events with time conflicts
     - get_by_type() - Filter by event type
     - get_upcoming() - Future events
@@ -230,38 +229,6 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         events = self._to_domain_models(result.value, EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} recurring events")
-        return Result.ok(events)
-
-    @with_error_handling("get_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_for_goal(
-        self, goal_uid: str, user_uid: UserUID | None = None
-    ) -> Result[list[Event]]:
-        """
-        Get events that support a specific goal.
-
-        Query: (Event)-[:SUPPORTS_GOAL]->(Goal)
-
-        Args:
-            goal_uid: Goal UID
-            user_uid: Optional user filter
-
-        Returns:
-            Result containing events supporting the goal
-        """
-        # Ownership scoping rides in the traversal query itself (ADR-085 G3) —
-        # the former Python post-filter is gone with it.
-        events_result = await self.get_by_relationship(
-            related_uid=goal_uid,
-            relationship_type=RelationshipName.SUPPORTS_GOAL,
-            direction="incoming",
-            user_uid=user_uid,
-        )
-        if events_result.is_error:
-            return events_result
-
-        events = events_result.value
-
-        self.logger.debug(f"Found {len(events)} events supporting goal {goal_uid}")
         return Result.ok(events)
 
     @with_error_handling("get_conflicting", error_type="database", uid_param="event_uid")

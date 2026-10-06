@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.services.ingestion.ingestion_tracker import IngestionTracker
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 def _tracker_with_tracked(rows: list[dict]) -> tuple[IngestionTracker, MagicMock]:
@@ -764,3 +764,63 @@ class TestReconcileDeletionsWall:
         assert result.value.entities_deleted == 1
         items = backend.delete_entities_with_metadata.await_args.args[0]
         assert items == [{"file_path": str(narrowed), "entity_uid": "ue_withdrawn"}]
+
+
+class TestGoalsLosingContributions:
+    """A deleted task or event file, or a deleted CONTRIBUTES_TO_GOAL Edge YAML, takes a
+    contribution from a goal; the reconciliation hands those goals to its caller, which
+    announces them — no later sync can, since the tracker rows go with the deletes."""
+
+    @staticmethod
+    def _vault(tmp_path):
+        for name in ("task.alive-1.md", "task.alive-2.md", "task.alive-3.md"):
+            (tmp_path / name).write_text("x")
+        rows = [
+            {"file_path": str(tmp_path / name), "entity_uid": name.removesuffix(".md")}
+            for name in ("task.alive-1.md", "task.alive-2.md", "task.alive-3.md")
+        ]
+        rows.append({"file_path": str(tmp_path / "task.gone.md"), "entity_uid": "task.gone"})
+        rows.append(
+            {
+                "file_path": str(tmp_path / "gone-edge.yaml"),
+                "entity_uid": "edge:event.x|CONTRIBUTES_TO_GOAL|goal.edge",
+            }
+        )
+        return rows
+
+    @pytest.mark.asyncio
+    async def test_deleted_contributors_name_their_goals(self, tmp_path) -> None:
+        tracker, backend = _tracker_with_tracked(self._vault(tmp_path))
+        backend.delete_entities_with_metadata = AsyncMock(
+            return_value=Result.ok(
+                [{"file_path": "x", "entity_uid": "task.gone", "goal_uids": ["goal.task"]}]
+            )
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path)
+
+        assert result.is_ok
+        assert result.value.goals_losing_contributions == ["goal.edge", "goal.task"]
+        assert result.value.failure is None
+
+    @pytest.mark.asyncio
+    async def test_a_failed_edge_delete_keeps_the_goals_already_committed(self, tmp_path) -> None:
+        """The task's delete committed before the Edge YAML's failed: its goal still
+        reaches the caller, beside the failure the caller reports as an error."""
+        tracker, backend = _tracker_with_tracked(self._vault(tmp_path))
+        backend.delete_entities_with_metadata = AsyncMock(
+            return_value=Result.ok(
+                [{"file_path": "x", "entity_uid": "task.gone", "goal_uids": ["goal.task"]}]
+            )
+        )
+        backend.delete_edge_with_metadata = AsyncMock(
+            return_value=Result.fail(Errors.database(message="paused", operation="delete_edge"))
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path)
+
+        assert result.is_ok
+        assert result.value.entities_deleted == 1
+        assert result.value.edges_deleted == 0
+        assert result.value.goals_losing_contributions == ["goal.task"]
+        assert result.value.failure is not None and "paused" in result.value.failure

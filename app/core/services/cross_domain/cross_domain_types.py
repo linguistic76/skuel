@@ -63,7 +63,7 @@ class TasksForKnowledge:
 
 @dataclass(frozen=True)
 class ActiveTaskCount:
-    """Count of non-terminal tasks linked to a goal via FULFILLS_GOAL."""
+    """Count of the open tasks contributing to a goal (CONTRIBUTES_TO_GOAL)."""
 
     goal_uid: EntityUID
     count: int

@@ -108,12 +108,6 @@ class View(NamedTuple):
 
 MISSING_ENDS: dict[MissingEnd, str] = {
     MissingEnd(
-        NeoLabel.TASK, RelationshipName.CONTRIBUTES_TO_GOAL, NeoLabel.GOAL, unread_at=NeoLabel.GOAL
-    ): "PR 4",
-    MissingEnd(
-        NeoLabel.EVENT, RelationshipName.CONTRIBUTES_TO_GOAL, NeoLabel.GOAL, unread_at=NeoLabel.GOAL
-    ): "PR 5",
-    MissingEnd(
         NeoLabel.EVENT, RelationshipName.CELEBRATES_GOAL, NeoLabel.GOAL, unread_at=NeoLabel.GOAL
     ): "PR 5",
     MissingEnd(

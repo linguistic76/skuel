@@ -328,7 +328,7 @@ class UserContext:
     task_dependencies: dict[str, list[str]] = field(default_factory=dict)  # task -> dependencies
     task_blockers: dict[str, list[str]] = field(default_factory=dict)  # task -> blockers
     task_knowledge_applied: dict[str, list[str]] = field(default_factory=dict)  # task -> ku_uids
-    task_goal_associations: dict[str, str] = field(default_factory=dict)  # task -> goal_uid
+    task_goal_associations: dict[str, list[str]] = field(default_factory=dict)  # task -> goal_uids
 
     # Goal progress metadata (from [:REQUIRES_KNOWLEDGE], [:MASTERED] relationships)
     goal_knowledge_required: dict[str, list[str]] = field(default_factory=dict)  # goal -> ku_uids

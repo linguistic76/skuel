@@ -1,6 +1,6 @@
 ---
 title: Graph Access Patterns Guide
-updated: 2026-10-03
+updated: 2026-10-06
 category: patterns
 related_skills:
 - pytest
@@ -96,8 +96,7 @@ class Ku:
 
     # Graph-aware relationship fields
     parent_uid: str | None = None
-    fulfills_goal_uid: str | None = None
-    reinforces_habit_uid: str | None = None
+    scheduled_event_uid: str | None = None
     source_path_step_uid: str | None = None
 ```
 
@@ -128,9 +127,9 @@ class Ku:
 
 ```python
 # No DB query needed - instant check
-def can_start(ku: Ku) -> bool:
-    """Check if entity has no unfulfilled goal dependency."""
-    return ku.fulfills_goal_uid is None or ku.is_completed
+def is_pinned(ku: Ku) -> bool:
+    """Check if the entity is pinned to a scheduled event."""
+    return ku.scheduled_event_uid is not None
 
 # Instant parent check
 if ku.parent_uid:
@@ -143,8 +142,8 @@ if ku.parent_uid:
 # Single query - find all subtasks
 subtasks = await backend.find_by(parent_uid=parent_uid)
 
-# Single query - find entities for a goal
-goal_entities = await backend.find_by(fulfills_goal_uid=goal_uid)
+# Single query - find entities pinned to an event
+pinned = await backend.find_by(scheduled_event_uid=event_uid)
 ```
 
 #### Example 3: Pre-Save Validation
@@ -154,9 +153,13 @@ async def create_task(self, task_request: TaskCreateRequest) -> Result[Ku]:
     """Create task with instant validation."""
 
     # Pattern 1: Instant validation (no DB query)
-    if task_request.parent_uid and task_request.fulfills_goal_uid:
+    if (
+        task_request.due_date
+        and task_request.scheduled_date
+        and task_request.scheduled_date > task_request.due_date
+    ):
         return Result.fail(Errors.validation(
-            "Cannot set both parent and goal", field="parent_uid"
+            "Scheduled after its due date", field="scheduled_date"
         ))
 
     # Create entity
@@ -170,18 +173,13 @@ async def create_task(self, task_request: TaskCreateRequest) -> Result[Ku]:
 @dataclass(frozen=True)
 class Ku:
     parent_uid: str | None = None
-    fulfills_goal_uid: str | None = None
+    scheduled_event_uid: str | None = None
     source_path_step_uid: str | None = None
 
     @property
     def is_from_path_step(self) -> bool:
         """Check if this entity originated from a path step."""
         return self.source_path_step_uid is not None
-
-    @property
-    def parent_goal_uid(self) -> str | None:
-        """Alias for fulfills_goal_uid."""
-        return self.fulfills_goal_uid
 ```
 
 ---
@@ -303,7 +301,7 @@ async def analyze_completion_impact(self, task_uid: str) -> Result[dict]:
     impact = impact_result.value
     return Result.ok({
         'immediate_impact': {
-            'goals': [task.fulfills_goal_uid] if task.fulfills_goal_uid else [],
+            'event': task.scheduled_event_uid,
         },
         'ripple_effects': impact.downstream_impacts,
         'cross_domain_effects': impact.cross_domain_impacts,
@@ -331,7 +329,7 @@ async def get_task_context_for_askesis(
         'task': task.to_dto().to_dict(),
         'direct_relationships': {
             'parent': task.parent_uid,
-            'goal': task.fulfills_goal_uid,
+            'event': task.scheduled_event_uid,
         }
     }
 
@@ -419,9 +417,13 @@ async def create_task_with_validation(
     # ========================================
 
     # Instant check - no DB query
-    if task_request.parent_uid and task_request.fulfills_goal_uid:
+    if (
+        task_request.due_date
+        and task_request.scheduled_date
+        and task_request.scheduled_date > task_request.due_date
+    ):
         return Result.fail(Errors.validation(
-            "Cannot set both parent and goal", field="parent_uid"
+            "Scheduled after its due date", field="scheduled_date"
         ))
 
     # ========================================
@@ -498,7 +500,7 @@ async def get_dependencies(
 
     result = {
         'parent': entity.parent_uid,
-        'goal': entity.fulfills_goal_uid,
+        'event': entity.scheduled_event_uid,
     }
 
     # Shallow: Just direct relationships (Pattern 1 only)
@@ -656,7 +658,7 @@ class Ku:
     ## Graph Access Patterns
 
     **Pattern 1 (Graph-Aware Models)**: Direct relationship UIDs
-    - Fields: parent_uid, fulfills_goal_uid, source_path_step_uid
+    - Fields: parent_uid, scheduled_event_uid, source_path_step_uid
     - Use for: Instant checks, validation, simple queries
 
     **Pattern 2 (Graph-Native Queries)**: Graph intelligence via services
@@ -667,7 +669,7 @@ class Ku:
     uid: str
     title: str
     parent_uid: str | None = None         # Pattern 1 field
-    fulfills_goal_uid: str | None = None   # Pattern 1 field
+    scheduled_event_uid: str | None = None # Pattern 1 field
 ```
 
 ### Code Review Pattern Badges

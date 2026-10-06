@@ -91,7 +91,7 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 | Domain | `default_context_intent` | Config | Clause it hits on mechanism B |
 |--------|--------------------------|--------|-------------------------------|
 | Tasks | `PREREQUISITE` | `TASKS_CONFIG` | `REQUIRES_KNOWLEDGE / PREREQUISITE_FOR / ENABLES` |
-| Goals | `GOAL_ACHIEVEMENT` | `GOALS_CONFIG` | goal-tailored (`FULFILLS_GOAL / SUPPORTS_GOAL / …`) |
+| Goals | `GOAL_ACHIEVEMENT` | `GOALS_CONFIG` | goal-tailored (`SUPPORTS_GOAL / CONTRIBUTES_TO_GOAL / …`) |
 | Habits | `PRACTICE` | `HABITS_CONFIG` | `REINFORCES_KNOWLEDGE / APPLIES_KNOWLEDGE` |
 | Events | `PRACTICE` | `EVENTS_CONFIG` | `REINFORCES_KNOWLEDGE / APPLIES_KNOWLEDGE` |
 | Choices | `HIERARCHICAL` | `CHOICES_CONFIG` | `HAS_SUBTASK / HAS_SUBGOAL / HAS_SUBHABIT / HAS_SUBEVENT / HAS_SUBCHOICE / HAS_SUBPRINCIPLE / HAS_STEP / ORGANIZES` |
@@ -244,8 +244,7 @@ it before relying on a row.
   `HAS_SUBCHOICE`, `HAS_SUBPRINCIPLE`, `HAS_STEP`, `ORGANIZES`
 - **PREREQUISITE** — `REQUIRES_KNOWLEDGE`, `PREREQUISITE_FOR`, `ENABLES`
 - **PRACTICE** — `REINFORCES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`
-- **GOAL_ACHIEVEMENT** — `FULFILLS_GOAL`, `SUPPORTS_GOAL`, `REQUIRES_KNOWLEDGE`, `SUBGOAL_OF`,
-  `CONTRIBUTES_TO_GOAL`
+- **GOAL_ACHIEVEMENT** — `SUPPORTS_GOAL`, `REQUIRES_KNOWLEDGE`, `SUBGOAL_OF`, `CONTRIBUTES_TO_GOAL`
 - **else** (EXPLORATORY / SPECIFIC / AGGREGATION / RELATIONSHIP) — generic traversal, no edge filter
 
 `QueryIntent` has no other traversal value: the `PRINCIPLE_EMBODIMENT`, `PRINCIPLE_ALIGNMENT` and

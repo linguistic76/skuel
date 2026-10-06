@@ -915,7 +915,8 @@ class ProgressReportGenerator:
         the Neo4j property names of each domain model (``progress_percentage``,
         ``current_streak``, ``is_milestone_event``, ``current_alignment``,
         ``principle_category``) and the graph-context aliases that query emits
-        (``goal_context`` — one dict or null —, ``applied_knowledge``,
+        (``contributing_goals`` — the list of goals a task contributes to —,
+        ``applied_knowledge``,
         ``guiding_principles``). A key the row does not carry reads as absent and
         silently zeroes every count, average and recommendation built from it, so
         these names are a contract with the query, pinned by
@@ -988,8 +989,11 @@ class ProgressReportGenerator:
             for item in context.entities_rich.get("tasks", []):
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
-                goal_ctx = graph_ctx.get("goal_context") or {}
-                goal_titles = [goal_ctx["title"]] if goal_ctx.get("title") else []
+                goal_titles = [
+                    goal["title"]
+                    for goal in graph_ctx.get("contributing_goals") or []
+                    if goal and goal.get("title")
+                ]
                 ku_titles = [
                     ref["title"]
                     for ref in graph_ctx.get("applied_knowledge") or []

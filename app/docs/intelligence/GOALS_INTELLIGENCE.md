@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-01
+updated: 2026-10-06
 ---
 
 # GoalsIntelligenceService - Progress Forecasting & Predictive Analytics
@@ -114,12 +114,12 @@ async def get_goal_progress_dashboard(
         "tasks": [{"uid": "task_001"}, ...],
         "habits": [{"uid": "habit_001"}, ...],
         "learning_paths": [{"uid": "lp.python-basics"}, ...],
-        "total_tasks": 8,
-        "completed_tasks": 3,
+        "total_contributions": 8,
+        "completed_contributions": 3,
         "active_habits": 2
     },
     "contributions": {
-        "task_contribution": 37.5,
+        "contribution_progress": 37.5,
         "habit_contribution": 80.0,
         "learning_contribution": 20.0
     },
@@ -144,23 +144,26 @@ async def get_goal_progress_dashboard(
 }
 ```
 
-**Two sets of tasks, two questions.** The payload reports the goal's tasks twice, and the two are
-not the same set:
+**Two sets, two questions.** The payload reports the goal's tasks in a neighbourhood and its
+contributions in a tally, and the two are not the same set:
 
 - `supporting_activities.tasks` and `metrics.task_support_count` (which `insights.needs_more_tasks`
   reads) are the **neighbourhood** — the tasks the path-aware context reaches at `min_confidence`.
-- `supporting_activities.total_tasks` / `completed_tasks` and `contributions.task_contribution` are
-  the **progress tally** — the owner's tasks that `FULFILLS_GOAL` the goal with
-  `completion_updates_goal` true, read by `GoalsBackend.get_linked_task_tally`. It is the statement
-  the task recompute writes a TASK_BASED goal's progress from
-  (`adapters/persistence/neo4j/query/cypher/goal_tally_queries.py`), and `task_contribution` is the
-  same percentage function (`linked_task_progress`): completed over total, `0.0` with no counting
-  task. Both counts come from the one read, so completed never exceeds total.
+- `supporting_activities.total_contributions` / `completed_contributions` and
+  `contributions.contribution_progress` are the **progress tally** — the goal owner's tasks and
+  events that `CONTRIBUTES_TO_GOAL` the goal, CANCELLED ones and tasks with
+  `completion_updates_goal` false left out, read by `GoalsBackend.get_contribution_tally`. It is the
+  statement the recompute writes a TASK_BASED goal's progress from
+  (`adapters/persistence/neo4j/query/cypher/goal_tally_queries.py`), and `contribution_progress` is
+  the same percentage function (`contribution_progress`): completed over total, `0.0` with no
+  counting contribution. Both counts come from the one read, so completed never exceeds total.
 
-A task that opts out of the tally is in the list and in neither count; a task linked below
-`min_confidence` is in both counts and not in the list. The tally is read at call time, so it can
-be ahead of `progress.percentage`, which is the stored figure — see
-[goal-tally-membership-changes.md](../roadmap/goal-tally-membership-changes.md).
+A task that opts out of the tally is in the list and in neither count; a contribution below
+`min_confidence` is in both counts and not in the list. The tally is read at call time; the stored
+`progress.percentage` is written from it by the recompute that `GoalContributionsChanged` triggers
+at every door that changes a contribution (`docs/domains/goals.md` § The contribution tally), and
+`./dev reconcile-goal-tallies` repairs a goal whose trigger was lost. A goal that is not TASK_BASED
+is never written from the tally, so its stored figure and the tally can differ.
 
 **Example:**
 ```python
@@ -771,10 +774,13 @@ Merged from GoalAnalyticsService (November 2025), provides:
 ### Graph-Native Relationships
 
 Uses `GoalRelationships.fetch()` for typed relationship access:
-- `supporting_task_uids` - Tasks fulfilling goal
 - `supporting_habit_uids` - Habits supporting goal
+- `supporting_principle_uids` - Principles supporting goal
 - `required_knowledge_uids` - Knowledge needed for goal
-- `learning_path_uids` - Learning paths aligned with goal
+- `aligned_learning_path_uids` - Learning paths aligned with goal
+
+It carries no task list: a goal's contributing tasks are read through the registry's
+`contributing_tasks` view.
 
 ### Canonical Cross-Domain Reader
 

@@ -35,7 +35,7 @@ The @context() tag values are parsed to `EntityType` or `NonKuDomain` enum value
   (in `activity_domain_converters` / `specialized_domain_converters`)
 
 Graph connections ride the create requests themselves: converters emit link
-UIDs (`applies_knowledge_uids`, `fulfills_goal_uid`, `linked_*_uids`) that the
+UIDs (`applies_knowledge_uids`, `contributes_to_goal_uids`, `linked_*_uids`) that the
 graph-aware create paths persist as edges. There is no separate post-create
 connection step.
 

@@ -154,7 +154,7 @@ class _BehavioralSignalsMixin:
             for event in period_events[:10]:  # Sample first 10 for efficiency
                 context_result = await self.relationships.get_cross_domain_context(event.uid)
                 if context_result.is_ok:
-                    goals = context_result.value.get("goals", [])
+                    goals = context_result.value.get("supported_goals", [])
                     if goals:
                         goal_support_count += 1
 

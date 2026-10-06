@@ -20,8 +20,8 @@ Mirrors test_habits_analytics_pipeline.py (PR1). Mocked unit tests cannot catch 
 key/shape mismatch (a silent empty list); the guard must run against real Cypher.
 
 The harness runs over the real ``GoalsBackend``: the goal the methods analyse is the
-node as stored, and the dashboard's task figures are the linked-task tally read from
-the graph (``GoalsBackend.get_linked_task_tally``).
+node as stored, and the dashboard's contribution figures are the contribution tally read
+from the graph (``GoalsBackend.get_contribution_tally``).
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ GL_USER = GL + "user"  # owner of every seeded goal and activity
 GL_OTHER_USER = GL + "other_user"
 GL_GOAL = GL + "goal"
 GL_GOAL_BARE = GL + "goal_bare"  # negative control: no cross-domain edges
-GL_TASK = GL + "task"  # task -[FULFILLS_GOAL]-> goal (contributing_tasks)
+GL_TASK = GL + "task"  # task -[CONTRIBUTES_TO_GOAL]-> goal (contributing_tasks)
 GL_HABIT = GL + "habit"  # habit -[SUPPORTS_GOAL]-> goal (contributing_habits)
 GL_KU = GL + "ku"  # goal -[REQUIRES_KNOWLEDGE]-> ku (required_knowledge)
 GL_SUBGOAL = GL + "subgoal"  # subgoal -[SUBGOAL_OF]-> goal (sub_goals)
@@ -142,7 +142,7 @@ async def _seed_goal_graph(neo4j_driver) -> None:
             "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=GL_KU
         )
         for a, rel, b in [
-            (GL_TASK, "FULFILLS_GOAL", GL_GOAL),  # incoming -> contributing_tasks
+            (GL_TASK, "CONTRIBUTES_TO_GOAL", GL_GOAL),  # incoming -> contributing_tasks
             (GL_HABIT, "SUPPORTS_GOAL", GL_GOAL),  # incoming -> contributing_habits
             (GL_GOAL, "REQUIRES_KNOWLEDGE", GL_KU),  # outgoing -> required_knowledge
             (GL_SUBGOAL, "SUBGOAL_OF", GL_GOAL),  # incoming -> sub_goals
@@ -171,10 +171,10 @@ async def test_goal_progress_dashboard_populates_from_graph(neo4j_driver, rel_ba
     assert [t["uid"] for t in activities["tasks"]] == [GL_TASK]
     assert [h["uid"] for h in activities["habits"]] == [GL_HABIT]
     assert activities["learning_paths"] == []  # 0 LearningPath nodes live
-    assert activities["total_tasks"] == 1
-    assert activities["completed_tasks"] == 0  # the one linked task is still open
+    assert activities["total_contributions"] == 1
+    assert activities["completed_contributions"] == 0  # the one contributing task is open
     assert activities["active_habits"] == 1
-    assert analysis["contributions"]["task_contribution"] == 0.0
+    assert analysis["contributions"]["contribution_progress"] == 0.0
 
     # Flat metric keys preserved (payload contract).
     metrics = analysis["metrics"]
@@ -196,12 +196,13 @@ async def test_goal_progress_dashboard_populates_from_graph(neo4j_driver, rel_ba
     assert pac["avg_path_strength"] > 0.0
 
 
-async def _seed_tally_goal(neo4j_driver, goal_uid: str, tasks: list[dict[str, Any]]) -> None:
-    """A goal owned by ``GL_USER`` and the tasks linked to it by FULFILLS_GOAL.
+async def _seed_tally_goal(neo4j_driver, goal_uid: str, contributors: list[dict[str, Any]]) -> None:
+    """A goal owned by ``GL_USER`` and the contributors joined to it by CONTRIBUTES_TO_GOAL.
 
-    Each task: ``uid``, ``status``, and optionally ``owner`` (default ``GL_USER``),
-    ``counts`` (``completion_updates_goal``; omitted leaves the property absent) and
-    ``confidence`` (the edge's; default 0.95).
+    Each contributor: ``uid``, ``status``, and optionally ``kind`` (``task`` — the
+    default — or ``event``), ``owner`` (default ``GL_USER``), ``counts``
+    (``completion_updates_goal``; omitted leaves the property absent) and ``confidence``
+    (the edge's; default 0.95).
     """
     async with neo4j_driver.session() as s:
         await s.run(
@@ -210,31 +211,33 @@ async def _seed_tally_goal(neo4j_driver, goal_uid: str, tasks: list[dict[str, An
             u=goal_uid,
             owner=GL_USER,
         )
-        for task in tasks:
+        for contributor in contributors:
+            kind = contributor.get("kind", "task")
+            label = {"task": "Task", "event": "Event"}[kind]
             props: dict[str, Any] = {
-                "uid": task["uid"],
-                "entity_type": "task",
-                "title": task["uid"],
-                "user_uid": task.get("owner", GL_USER),
-                "status": task["status"],
+                "uid": contributor["uid"],
+                "entity_type": kind,
+                "title": contributor["uid"],
+                "user_uid": contributor.get("owner", GL_USER),
+                "status": contributor["status"],
             }
-            if "counts" in task:
-                props["completion_updates_goal"] = task["counts"]
+            if "counts" in contributor:
+                props["completion_updates_goal"] = contributor["counts"]
             await s.run(
                 "MATCH (g:Entity {uid:$g}) "
-                "CREATE (t:Entity:Task)-[:FULFILLS_GOAL {confidence:$c}]->(g) "
-                "SET t = $props, t.created_at = datetime()",
+                f"CREATE (c:Entity:{label})-[:CONTRIBUTES_TO_GOAL {{confidence:$c}}]->(g) "
+                "SET c = $props, c.created_at = datetime()",
                 g=goal_uid,
-                c=task.get("confidence", 0.95),
+                c=contributor.get("confidence", 0.95),
                 props=props,
             )
 
 
 @pytest.mark.asyncio
-async def test_goal_dashboard_task_figures_are_the_linked_task_tally(
+async def test_goal_dashboard_figures_are_the_contribution_tally(
     neo4j_driver, rel_backend, clean_neo4j
 ):
-    """8 of a goal's 10 linked tasks completed reads 8 / 10 / 80.0 — computed, not 0 / 0.0."""
+    """8 of a goal's 10 contributing tasks completed reads 8 / 10 / 80.0 — computed, not 0 / 0.0."""
     goal_uid = GL + "tally_goal"
     await _seed_tally_goal(
         neo4j_driver,
@@ -249,9 +252,9 @@ async def test_goal_dashboard_task_figures_are_the_linked_task_tally(
     assert res.is_ok, res
 
     activities = res.value["supporting_activities"]
-    assert activities["total_tasks"] == 10
-    assert activities["completed_tasks"] == 8
-    assert res.value["contributions"]["task_contribution"] == 80.0
+    assert activities["total_contributions"] == 10
+    assert activities["completed_contributions"] == 8
+    assert res.value["contributions"]["contribution_progress"] == 80.0
 
 
 @pytest.mark.asyncio
@@ -260,14 +263,20 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
 ):
     """Both counts follow the progress tally's membership; the uid list stays the neighbourhood.
 
-    Four linked tasks, all completed, that the two readers disagree on:
-      * ``counted`` — in both;
+    Contributors the two readers, and the tally's classes, disagree on:
+      * ``counted`` — a completed task: in the neighbourhood, done;
       * ``opted_out`` — ``completion_updates_goal = false``: in the neighbourhood, in
         neither count;
       * ``weak`` — an edge below ``min_confidence``: in both counts, not in the
         neighbourhood;
       * ``foreign`` — another user's task: in neither count, and not in the
-        neighbourhood.
+        neighbourhood;
+      * ``open`` — an active task: counted, not done;
+      * ``cancelled`` — out of the tally altogether;
+      * ``failed`` — counted, not done (only COMPLETED is done);
+      * ``event_done`` — a completed event: counted and done, beside the tasks;
+      * ``event_opted`` — an event carrying ``completion_updates_goal = false``: the
+        opt-out is a task's, so the event still counts.
     The counts are the pair a recompute of this goal plans its write from.
     """
     goal_uid = GL + "rule_goal"
@@ -286,6 +295,15 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
             {"uid": weak, "status": "completed", "confidence": 0.3},
             {"uid": foreign, "status": "completed", "owner": GL_OTHER_USER},
             {"uid": GL + "rule_open", "status": "active"},
+            {"uid": GL + "rule_cancelled", "status": "cancelled"},
+            {"uid": GL + "rule_failed", "status": "failed"},
+            {"uid": GL + "rule_event_done", "status": "completed", "kind": "event"},
+            {
+                "uid": GL + "rule_event_opted",
+                "status": "completed",
+                "kind": "event",
+                "counts": False,
+            },
         ],
     )
 
@@ -293,10 +311,11 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
     assert res.is_ok, res
     activities = res.value["supporting_activities"]
 
-    # counted + weak + the open one; opted_out and foreign are in neither number.
-    assert activities["total_tasks"] == 3
-    assert activities["completed_tasks"] == 2
-    assert res.value["contributions"]["task_contribution"] == pytest.approx(200 / 3)
+    # counted, weak, open, failed and the two events; opted_out, foreign and cancelled are
+    # in neither number. Done: counted, weak and the two events.
+    assert activities["total_contributions"] == 6
+    assert activities["completed_contributions"] == 4
+    assert res.value["contributions"]["contribution_progress"] == pytest.approx(400 / 6)
 
     neighbourhood = {t["uid"] for t in activities["tasks"]}
     assert opted_out in neighbourhood
@@ -309,9 +328,30 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
     def capture(_goal: Goal, tally: Any) -> None:
         planned.append(dict(tally))
 
-    recompute = await rel_backend.recompute_progress_from_linked_tasks(goal_uid, GL_USER, capture)
+    recompute = await rel_backend.recompute_progress_from_contributions(goal_uid, capture)
     assert recompute.is_ok, recompute
-    assert planned == [{"total_tasks": 3, "completed_tasks": 2}]
+    assert planned == [{"total_contributions": 6, "completed_contributions": 4}]
+
+
+@pytest.mark.asyncio
+async def test_a_contributor_with_two_edges_to_the_goal_counts_once(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """The tally counts contributors, not edges: a duplicate edge is one contribution."""
+    goal_uid = GL + "dup_goal"
+    task_uid = GL + "dup_task"
+    await _seed_tally_goal(neo4j_driver, goal_uid, [{"uid": task_uid, "status": "completed"}])
+    async with neo4j_driver.session() as s:
+        await s.run(
+            "MATCH (t:Entity {uid:$t}), (g:Entity {uid:$g}) CREATE (t)-[:CONTRIBUTES_TO_GOAL]->(g)",
+            t=task_uid,
+            g=goal_uid,
+        )
+
+    tally = await rel_backend.get_contribution_tally(goal_uid)
+
+    assert tally.is_ok, tally
+    assert tally.value == {"total_contributions": 1, "completed_contributions": 1}
 
 
 @pytest.mark.asyncio
@@ -394,9 +434,9 @@ async def test_goal_intelligence_empty_when_no_edges(neo4j_driver, rel_backend, 
     assert dash.is_ok, dash
     assert dash.value["supporting_activities"]["tasks"] == []
     assert dash.value["supporting_activities"]["habits"] == []
-    assert dash.value["supporting_activities"]["total_tasks"] == 0
-    assert dash.value["supporting_activities"]["completed_tasks"] == 0
-    assert dash.value["contributions"]["task_contribution"] == 0.0
+    assert dash.value["supporting_activities"]["total_contributions"] == 0
+    assert dash.value["supporting_activities"]["completed_contributions"] == 0
+    assert dash.value["contributions"]["contribution_progress"] == 0.0
     assert dash.value["metrics"]["task_support_count"] == 0
     assert dash.value["metrics"]["has_habit_system"] is False
     # Empty context still produces the rich blocks (zeroed), not a crash.

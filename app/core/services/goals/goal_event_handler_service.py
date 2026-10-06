@@ -380,10 +380,8 @@ class GoalEventHandlerService:
 
             # 3. Cross-domain trigger logging
             trigger = "manual"
-            if event.triggered_by_task_completion:
-                trigger = "task_completion"
-            elif event.triggered_by_task_reopen:
-                trigger = "task_reopen"
+            if event.triggered_by_contribution_change:
+                trigger = "contribution_change"
             elif event.triggered_by_habit_completion:
                 trigger = "habit_completion"
 
