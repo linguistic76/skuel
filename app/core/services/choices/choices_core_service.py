@@ -378,8 +378,8 @@ class ChoicesCoreService(
 
         ``informed_by_knowledge_uids`` → INFORMED_BY_KNOWLEDGE, declared ``outgoing``
         from the choice, so the choice is the source of every tuple. Edges live in the
-        graph, never on the Choice or its DTO; read back via
-        ``PsService.find_choices_informed_by_knowledge``.
+        graph, never on the Choice or its DTO; read back by the user context's choices
+        statement (``choice_knowledge_informed``).
 
         ADMISSION: every uid is request input, so each is checked for existence, OWNER
         and KIND before it becomes an edge — ``keep_permitted_link_edges``. The field

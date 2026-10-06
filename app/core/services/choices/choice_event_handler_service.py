@@ -157,7 +157,7 @@ class ChoiceEventHandlerService:
             aligned_principles: list[str] = []
             if self.relationships:
                 rel_result = await self.relationships.get_related_uids(
-                    "principles",
+                    "informing_principles",
                     EntityUID(event.choice_uid),
                 )
                 if rel_result.is_ok:
@@ -258,7 +258,7 @@ class ChoiceEventHandlerService:
             aligned_principles: list[str] = []
             if self.relationships:
                 rel_result = await self.relationships.get_related_uids(
-                    "principles",
+                    "informing_principles",
                     EntityUID(event.choice_uid),
                 )
                 if rel_result.is_ok:

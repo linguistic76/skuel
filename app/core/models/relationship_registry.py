@@ -1004,7 +1004,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Outgoing: Habit informs choices
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
-            "Entity",
+            "Choice",
             "outgoing",
             "informed_choices",
             "informed_choices",
@@ -1243,19 +1243,9 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "required_knowledge",
             # Not "requires_knowledge": that field name is already Goal's, for the
             # different REQUIRES_KNOWLEDGE edge. One authoring name must not mean two
-            # edges (cf. the ALIGNED_WITH_PRINCIPLE/INFORMED_BY_PRINCIPLE divergence
-            # guarded in tests/unit/test_ingestion_relationship_config.py).
+            # edges (guarded in tests/unit/test_ingestion_relationship_config.py).
             yaml_field_path="connections.requires_knowledge_for_decision",
             page_heading="Knowledge this choice requires",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.INFORMED_BY_PRINCIPLE,
-            "Principle",
-            "outgoing",
-            "aligned_principles",
-            "principles",
-            yaml_field_path="connections.guided_by_principle",
-            page_heading="Principles that inform this choice",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.AFFECTS_GOAL,
@@ -1291,12 +1281,15 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "implementing_tasks",
             page_heading="Tasks that carry out this choice",
         ),
+        # INFORMS_CHOICE has three kinds of source — principles, habits and PathSteps
+        # (``choice_uids``) — so every choice view of it names its kind.
         UnifiedRelationshipDefinition(
-            RelationshipName.GUIDES_CHOICE,
+            RelationshipName.INFORMS_CHOICE,
             "Principle",
             "incoming",
-            "guiding_principles",
-            "guided_by_principles",
+            "informing_principles",
+            "informing_principles",
+            yaml_field_path="connections.informing_principles",
             page_heading="Principles that inform this choice",
         ),
         # Outgoing: Choice → LifePath (choice serves user's life path)
@@ -1324,7 +1317,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
         # Incoming: Habit informs choice
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMS_CHOICE,
-            "Entity",
+            "Habit",
             "incoming",
             "informing_habits",
             "informing_habits",
@@ -1352,21 +1345,20 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title", "start_time"),
             page_heading="Events that prompted this choice",
         ),
-        # Shared-neighbor pattern: Related choices via shared principles or goals
+        # Shared-neighbor pattern: Related choices via the goals they affect. The
+        # shared-neighbour walk follows its edges out of the choice, so a principle
+        # (whose INFORMS_CHOICE points into the choice) cannot be a shared neighbour.
         UnifiedRelationshipDefinition(
-            RelationshipName.INFORMED_BY_PRINCIPLE,  # Placeholder - uses shared_neighbor_config
-            "Entity",
+            RelationshipName.AFFECTS_GOAL,  # Placeholder - uses shared_neighbor_config
+            "Choice",
             "both",
             "related_choices",
             "related_choices",
             fields=("uid", "title", "status"),
             limit=5,
             shared_neighbor_config=SharedNeighborConfig(
-                intermediate_relationships=(
-                    RelationshipName.INFORMED_BY_PRINCIPLE,
-                    RelationshipName.AFFECTS_GOAL,
-                ),
-                target_label="Entity",
+                intermediate_relationships=(RelationshipName.AFFECTS_GOAL,),
+                target_label="Choice",
                 result_alias="related_choices",
                 result_fields=("uid", "title", "status", "shared_count"),
                 limit=5,
@@ -1417,11 +1409,12 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             page_heading="Goals this principle supports",
         ),
         UnifiedRelationshipDefinition(
-            RelationshipName.GUIDES_CHOICE,
-            "Entity",
+            RelationshipName.INFORMS_CHOICE,
+            "Choice",
             "outgoing",
-            "guided_choices",
-            "guided_choices",
+            "informed_choices",
+            "informed_choices",
+            yaml_field_path="connections.informs_choice",
             page_heading="Choices this principle informs",
         ),
         UnifiedRelationshipDefinition(
@@ -1528,7 +1521,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
     enables_relationship_names=(
         RelationshipName.SUPPORTS_GOAL,
         RelationshipName.INSPIRES_HABIT,
-        RelationshipName.GUIDES_CHOICE,
+        RelationshipName.INFORMS_CHOICE,
     ),
     bidirectional_relationships=(
         RelationshipName.SUPPORTS_PRINCIPLE,
@@ -2548,6 +2541,10 @@ def generate_graph_enrichment(entity_label: str) -> list[tuple[str, str, str, st
     Args:
         entity_label: Neo4j node label (e.g., "Task", "Entity", "Lp")
 
+    A shared-neighbour definition is left out: its relationship type is a placeholder
+    for a two-hop walk, and enrichment builds one-hop patterns, so the placeholder would
+    list the neighbour itself (a goal, a principle) under a "related" key.
+
     Returns:
         List of tuples: (relationship_type, target_label, context_field, direction)
     """
@@ -2555,7 +2552,11 @@ def generate_graph_enrichment(entity_label: str) -> list[tuple[str, str, str, st
     if not config:
         return []
 
-    return [rel.to_graph_enrichment_tuple() for rel in config.relationships]
+    return [
+        rel.to_graph_enrichment_tuple()
+        for rel in config.relationships
+        if rel.shared_neighbor_config is None
+    ]
 
 
 def generate_prerequisite_relationships(entity_label: str) -> list[RelationshipName]:

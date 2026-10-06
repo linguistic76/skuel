@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-05
+updated: 2026-10-06
 ---
 
 # Intent-Traversal ↔ Registry Convergence
@@ -23,7 +23,7 @@ SKUEL has **two systems that read the graph around an entity**, grown from oppos
 
 The audit found the intent side is **mostly aspirational**: every activity-domain model inherits `Entity`'s default `QueryIntent.EXPLORATORY` (no override), so the real intent is whatever the domain *config* sets (`default_context_intent`); `PRINCIPLE_ALIGNMENT` / `PRINCIPLE_EMBODIMENT` / `SCHEDULED_ACTION` are selected by nothing and their query clauses are unreachable; and 5 of the 6 documented per-domain "analysis methods" don't exist.
 
-**The generative read:** the dead `PRINCIPLE_ALIGNMENT` clause is not garbage — it is a *hypothesis* ("to understand a choice's principle-alignment, traverse these edges") that the registry can now answer **correctly**, because #214/#218 established the real choice edges (`AFFECTS_GOAL`, `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE`, `INFORMED_BY_KNOWLEDGE`). Point the intent traversal at the registry and the lens comes alive *and* becomes drift-proof — by **removing** duplication, not adding code.
+**The generative read:** the dead `PRINCIPLE_ALIGNMENT` clause is not garbage — it is a *hypothesis* ("to understand a choice's principle-alignment, traverse these edges") that the registry can now answer **correctly**, because #214/#218 established the real choice edges (`AFFECTS_GOAL`, `INFORMED_BY_KNOWLEDGE`, and the principle's link — one `INFORMS_CHOICE` edge since ADR-090). Point the intent traversal at the registry and the lens comes alive *and* becomes drift-proof — by **removing** duplication, not adding code.
 
 ## Destination
 

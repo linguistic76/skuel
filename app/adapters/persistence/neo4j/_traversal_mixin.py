@@ -349,13 +349,11 @@ class _TraversalMixin:
         OPTIONAL MATCH (entity)-[:SUPPORTS_GOAL]->(goal:Goal)
         OPTIONAL MATCH (entity)-[:ENABLES_KNOWLEDGE|:APPLIES_KNOWLEDGE]->(ku:Entity)
         OPTIONAL MATCH (entity)-[:ENABLES_TASK]->(task:Task)
-        OPTIONAL MATCH (entity)-[:INFORMED_BY_PRINCIPLE]->(principle:Principle)
         RETURN
             entity_uid,
             collect(DISTINCT goal) as goals,
             collect(DISTINCT ku) as knowledge,
-            collect(DISTINCT task) as tasks,
-            collect(DISTINCT principle) as principles
+            collect(DISTINCT task) as tasks
         """
         # The FUNDS_* arms are gone, and with them the `habits` key. FUNDS_HABIT
         # is not a RelationshipName member; FUNDS_TASK is registered but, like

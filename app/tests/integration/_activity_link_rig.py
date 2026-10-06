@@ -1,10 +1,11 @@
-"""The rig the principle-goal link tests share: a signed-in client, seeds, raw reads.
+"""The rig the Activity link tests share: a signed-in client, seeds, raw reads.
 
-A principle-goal link is one edge, ``(Principle)-[:SUPPORTS_GOAL]->(Goal)``. The tests
-that hold it to that (``routes/test_principle_goal_link_doors.py``,
-``test_principle_goal_link.py``) run over the bootstrapped app: its composed services,
-its routes wired by the bootstrap's own entry point onto a ``fast_app`` with real
-session middleware, and its private graph.
+Each Activity link is one edge read from both of its ends (ADR-090) — a principle-goal
+link is ``(Principle)-[:SUPPORTS_GOAL]->(Goal)``, a principle-choice link
+``(Principle)-[:INFORMS_CHOICE]->(Choice)``. The tests that hold each link to that run
+over the bootstrapped app: its composed services, its routes wired by the bootstrap's
+own entry point onto a ``fast_app`` with real session middleware, and its private
+graph.
 
 Entities are created at the domains' real create doors, so each carries the label,
 the ``entity_type`` and the ownership edge the app itself writes.
@@ -33,9 +34,11 @@ if TYPE_CHECKING:
 
     from core.services.ingestion.types import IncrementalStats
 
-# The two edge types that once stored a principle-goal link. GUIDES_GOAL is no longer a
-# RelationshipName member, so it is named here as a string.
-RETIRED_EDGE_TYPES = frozenset({"GUIDES_GOAL", "GUIDED_BY_PRINCIPLE"})
+# The edge types that once stored each link, one set per link. A retired type is no
+# longer a RelationshipName member (GUIDED_BY_PRINCIPLE stays for the PathStep's use),
+# so each is named here as a string.
+RETIRED_PRINCIPLE_GOAL = frozenset({"GUIDES_GOAL", "GUIDED_BY_PRINCIPLE"})
+RETIRED_PRINCIPLE_CHOICE = frozenset({"GUIDES_CHOICE", "INFORMED_BY_PRINCIPLE"})
 
 
 class Edge(NamedTuple):
@@ -69,7 +72,7 @@ def _app(skuel_app: Any) -> tuple[Any, Any]:  # boundary: fasthtml-app
     from scripts.dev.bootstrap import _wire_all_routes
 
     container = skuel_app.state.container
-    app, rt = fast_app(pico=False, default_hdrs=False, secret_key="principle-goal-link-test-key")
+    app, rt = fast_app(pico=False, default_hdrs=False, secret_key="activity-link-test-key")
 
     @rt("/sign-in/{uid}")
     def sign_in(request: Request, uid: str) -> PlainTextResponse:
@@ -119,8 +122,11 @@ async def create(
 ) -> str:
     """Create one entity at ``POST /api/{segment}/create``; returns its uid."""
     body: dict[str, Any] = {"title": title, **fields}  # boundary: JSON body
+    # The fields a domain's create request requires beyond a title.
     if segment == "principles":
         body.setdefault("statement", f"{title} statement")
+    if segment == "choices":
+        body.setdefault("description", f"{title} description")
     response = await client.post(f"/api/{segment}/create", json=body)
     assert response.status_code == 201, (segment, title, response.text)
     return str(response.json()["uid"])

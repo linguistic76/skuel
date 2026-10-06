@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-10-05
+updated: 2026-10-06
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -124,7 +124,12 @@ Created via `create_common_sub_services()` factory + domain-specific services in
 |-----|--------------|--------|-------------|
 | `knowledge` | `GROUNDED_IN_KNOWLEDGE` | Ku | Knowledge that grounds principle (YAML: `connections.grounded_in_knowledge`) |
 | `supported_goals` | `SUPPORTS_GOAL` | Goal | Goals this principle supports (YAML: `connections.supports_goal`). One edge per principle ↔ goal link, read from the goal as `supporting_principles` |
-| `guided_choices` | `GUIDES_CHOICE` | Choice | Choices this principle guides |
+| `informed_choices` | `INFORMS_CHOICE` | Choice | Choices this principle informs (YAML: `connections.informs_choice`). One edge per principle ↔ choice link, read from the choice as `informing_principles` |
+
+A principle ↔ goal link and a principle ↔ choice link are each one stored edge, whichever door made
+it. `POST /api/principles/link` (`link_type=goal` or `choice`) writes it from this side;
+`POST /api/goals/link-principle` and `POST /api/choices/link-principle` (and the goal's and choice's
+frontmatter fields) write the same edge from the other, so both pages show it.
 
 ### Incoming (Other → Principle)
 
@@ -146,7 +151,7 @@ Created via `create_common_sub_services()` factory + domain-specific services in
 |-------|--------------|---------------|
 | `knowledge` | Ku | `GROUNDED_IN_KNOWLEDGE` |
 | `supported_goals` | Goal | `SUPPORTS_GOAL` |
-| `choices` | Choice | `GUIDES_CHOICE` |
+| `informed_choices` | Choice | `INFORMS_CHOICE` |
 | `habits` | Habit | `EMBODIES_PRINCIPLE` |
 | `tasks` | Task | `ALIGNED_WITH_PRINCIPLE` |
 
@@ -477,7 +482,7 @@ All ownership-verified unless otherwise noted.
 | `/api/principles/links?uid=&link_type=` | GET | Cross-domain links (all, or one `PrincipleLinkType`; any other value is 400) |
 | `/api/principles/impact?uid=` | GET | Quick impact metrics (adoption level, counts) |
 | `/api/principles/batch-impact` | POST | Parallel adoption analysis for N principles |
-| `/api/principles/choice-effectiveness?uid=&period_days=` | GET | How effectively principle guides choices |
+| `/api/principles/choice-effectiveness?uid=&period_days=` | GET | How the choices this principle informs turned out: count, average satisfaction and positive outcomes over the period's choices (`INFORMS_CHOICE`, whichever page made the link) |
 | `/api/principles/reflection` | POST | Record alignment evidence; publishes events |
 | `/api/principles/link-knowledge` | POST | Link principle to a Ku (GROUNDED_IN_KNOWLEDGE); a `knowledge_uid` that is not a Ku is 404 |
 | `/api/principles/children?uid=` | GET | Direct sub-principles |
@@ -504,7 +509,7 @@ Publishes `PrincipleReflectionRecorded`. Supply `conflicting_principle_uid` to a
 ## See Also
 
 - [Goals Domain](goals.md) - Principles guide goals
-- [Choices Domain](choices.md) - Principles guide choices
+- [Choices Domain](choices.md) - Principles inform choices
 - [Habits Domain](habits.md) - Habits embody principles
 - [Knowledge (KU) Domain](ku.md) - Principles grounded in knowledge
 - [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md) - PrinciplesIntelligenceService

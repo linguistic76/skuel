@@ -100,7 +100,6 @@ from .cypher import (
     # Intelligence queries
     build_bidirectional_impact_query,
     # Domain-specific entity-with-context functions (reinstated January 2026)
-    build_choice_with_context,
     # CRUD queries
     build_count_query,
     # Semantic queries
@@ -215,7 +214,6 @@ __all__ = [
     "get_available_relationships",
     "get_relationship_details",
     # Domain queries - entity with context
-    "build_choice_with_context",
     "build_confidence_clause",
     "build_confidence_field",
     # ============================================================================

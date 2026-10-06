@@ -116,7 +116,7 @@ class _AnalyticsMixin:
 
         # Quick complexity calculation based on relationship counts
         knowledge_count = len(rels.informed_by_knowledge_uids)
-        principle_count = len(rels.aligned_principle_uids)
+        principle_count = len(rels.informing_principle_uids)
         path_count = len(rels.opens_learning_path_uids)
         required_count = len(rels.required_knowledge_uids)
 
@@ -203,7 +203,7 @@ class _AnalyticsMixin:
         results = {}
         for choice_uid, rels in zip(choice_uids, all_rels, strict=False):
             knowledge_count = len(rels.informed_by_knowledge_uids)
-            principle_count = len(rels.aligned_principle_uids)
+            principle_count = len(rels.informing_principle_uids)
             total = rels.total_knowledge_count()
 
             quick_complexity = min(10.0, (knowledge_count * 1.5) + (principle_count * 2.0))
@@ -273,48 +273,28 @@ class _AnalyticsMixin:
         ``_BehavioralSignalsMixin._calculate_system_decision_quality_for_dual_track``
         caps at 10 choices to stay affordable, which a percentage over the window cannot do.
 
-        "Principle aligned" is the **union of both directions**, matching what
-        ``path_aware_types`` and ``ChoiceCrossContext`` already mean by a choice's
-        principles:
-
-        - ``principles`` — ``INFORMED_BY_PRINCIPLE``, outgoing, written by
-          ``ChoicesService.link_choice_to_principle`` (``POST /api/choices/link-principle``).
-        - ``guided_by_principles`` — ``GUIDES_CHOICE``, incoming, written from the principle
-          side by ``PrinciplesService.create_principle_link`` with ``link_type="choice"``
-          (``POST /api/principles/links``), which resolves the edge through
-          ``_GravityMixin._LINK_TYPE_MAP`` rather than naming it.
-
-        Both are reachable, so reading only one direction understates the percentage and
-        drops candidates from the most-common aggregation. A principle linked both ways to
-        the same choice is counted once.
+        "Principle aligned" means a principle informs the choice: ``informing_principles``,
+        the one ``(Principle)-[:INFORMS_CHOICE]->(Choice)`` edge, whichever door wrote it
+        (``POST /api/choices/link-principle`` or ``POST /api/principles/link`` with
+        ``link_type="choice"``). The view names ``Principle``, so a habit or PathStep that
+        informs the choice is not counted.
 
         ``goals`` is ``AFFECTS_GOAL``, written by the sibling ``link-goal`` route.
 
         Backend: UniversalNeo4jBackend.batch_get_related_uids
         """
         assert self.relationships is not None  # _require_relationships = True
-        informed_by = await self.relationships.batch_get_related_uids("principles", choice_uids)
+        informed_by = await self.relationships.batch_get_related_uids(
+            "informing_principles", choice_uids
+        )
         if informed_by.is_error:
             return Result.fail(informed_by)
-
-        guided_by = await self.relationships.batch_get_related_uids(
-            "guided_by_principles", choice_uids
-        )
-        if guided_by.is_error:
-            return Result.fail(guided_by)
 
         goals = await self.relationships.batch_get_related_uids("goals", choice_uids)
         if goals.is_error:
             return Result.fail(goals)
 
-        # dict.fromkeys dedupes a principle linked in both directions, so a choice that
-        # carries INFORMED_BY_PRINCIPLE and GUIDES_CHOICE to the same principle counts it
-        # once. Order within a list follows Neo4j's collect() and is not guaranteed — the
-        # aggregation below does not rely on it.
-        principles = {
-            uid: list(dict.fromkeys(informed_by.value.get(uid, []) + guided_by.value.get(uid, [])))
-            for uid in choice_uids
-        }
+        principles = {uid: informed_by.value.get(uid, []) for uid in choice_uids}
         return Result.ok((principles, goals.value))
 
     async def get_decision_patterns(
@@ -422,7 +402,7 @@ class _AnalyticsMixin:
         weeks = days / 7.0
         choices_per_week = total_choices / weeks
 
-        # GRAPH-NATIVE: alignment lives on INFORMED_BY_PRINCIPLE / AFFECTS_GOAL edges, not
+        # GRAPH-NATIVE: alignment lives on INFORMS_CHOICE / AFFECTS_GOAL edges, not
         # on Choice. The previous getattr(c, "aligned_principles") / getattr(c, "related_goals")
         # reads named fields no Choice or ChoiceDTO has ever declared, so both sums — and the
         # percentages, alignment score and strategic/tactical band derived from them — were

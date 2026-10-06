@@ -473,7 +473,7 @@ def build_impact_chain_query(
             "APPLIES_KNOWLEDGE",
             "REINFORCES_HABIT",
             "EMBODIES_PRINCIPLE",
-            "INFORMED_BY_PRINCIPLE",
+            "INFORMS_CHOICE",
             "INSPIRES_HABIT",
             "INSPIRES_GOAL",
             "GENERATES_TASK",

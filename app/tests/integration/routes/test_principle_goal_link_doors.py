@@ -22,7 +22,7 @@ Both pages showing the link under their own heading is held by
 cannot lapse unnoticed.
 
 The app runs bootstrapped over its own graph; the routes are the ones the bootstrap
-wires (``tests/integration/_principle_goal_rig.py``).
+wires (``tests/integration/_activity_link_rig.py``).
 """
 
 from __future__ import annotations
@@ -41,8 +41,8 @@ from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
 from tests.helpers.activity_links import Link, links_read_at_both_ends
-from tests.integration._principle_goal_rig import (
-    RETIRED_EDGE_TYPES,
+from tests.integration._activity_link_rig import (
+    RETIRED_PRINCIPLE_GOAL,
     Edge,
     create,
     edges_between,
@@ -252,7 +252,7 @@ async def test_the_door_leaves_exactly_one_edge_from_the_principle_to_the_goal(
 
     stored = await edges_between(env.driver, principle, goal)
 
-    assert not {edge.type for edge in stored} & RETIRED_EDGE_TYPES, stored
+    assert not {edge.type for edge in stored} & RETIRED_PRINCIPLE_GOAL, stored
     assert [(edge.type, edge.source, edge.target) for edge in stored] == [
         (SUPPORTS_GOAL, principle, goal)
     ]

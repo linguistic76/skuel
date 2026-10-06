@@ -612,6 +612,12 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
         "the same derivation read across all users — the same corpus gap and "
         "the same measurement in test_ps_step_mastery_derived.py"
     ),
+    ("adapters.persistence.neo4j.cross_domain_backend", "<module>:_ADHERENCE_PRINCIPLE_WALL"): (
+        "the far node is a principle and this corpus seeds curriculum only. Measured "
+        "in test_principle_choice_link.py: a draft shared principle informing the "
+        "caller's choice is withheld while a published one on the same choice is "
+        "kept, and another user's principle is withheld beside the caller's own"
+    ),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "_nous_subtopic_pairs_query"): (
         "returns facet vocabulary (nous/subtopic strings), not entity "
         "identities — there is no uid for an identity-based invariant to detect"

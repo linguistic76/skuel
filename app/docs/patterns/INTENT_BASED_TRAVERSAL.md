@@ -1,6 +1,6 @@
 ---
 title: Intent-Based Graph Traversal
-updated: 2026-10-05
+updated: 2026-10-06
 category: patterns
 related_skills: []
 related_docs:
@@ -104,7 +104,7 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 >    the "specialized" per-domain intents reach almost no caller.
 > 2. **Even on mechanism B, Choice/Principle surface ~nothing.** They resolve to `HIERARCHICAL`
 >    (the `HAS_SUB*` composition edges) — tree edges those domains almost never write — so the traversal
->    misses their real neighbors (`AFFECTS_GOAL`, `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE`,
+>    misses their real neighbors (`AFFECTS_GOAL`, `INFORMS_CHOICE`, `SUPPORTS_GOAL`,
 >    `INFORMED_BY_KNOWLEDGE`, …).
 >
 > Phase 1 of the convergence roadmap sources the edge vocabulary from

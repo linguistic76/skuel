@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 170, with_contract: 94}
+    relationships: {total: 168, with_contract: 92}
     labels: {total: 60, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -148,10 +148,15 @@ relationships:
     contract:
       - config: Habit
         definitions:
-          - {direction: outgoing, target: Entity, context_field: informed_choices, method: informed_choices, fields: [uid, title, status]}
+          - {direction: outgoing, target: Choice, context_field: informed_choices, method: informed_choices, fields: [uid, title, status]}
       - config: Choice
         definitions:
-          - {direction: incoming, target: Entity, context_field: informing_habits, method: informing_habits, fields: [uid, title, current_streak]}
+          - {direction: incoming, target: Principle, context_field: informing_principles, method: informing_principles, ingestion_field: connections.informing_principles}
+          - {direction: incoming, target: Habit, context_field: informing_habits, method: informing_habits, fields: [uid, title, current_streak]}
+      - config: Principle
+        roles: [enables]
+        definitions:
+          - {direction: outgoing, target: Choice, context_field: informed_choices, method: informed_choices, ingestion_field: connections.informs_choice}
       - config: PathStep
         definitions:
           - {direction: outgoing, target: Entity, context_field: informed_choices, method: choices, ingestion_field: choice_uids}
@@ -445,15 +450,6 @@ relationships:
         roles: [bidirectional]
         definitions:
           - {direction: incoming, target: Principle, context_field: conflicting_principles, method: conflicting_principles}
-  GUIDES_CHOICE:
-    contract:
-      - config: Choice
-        definitions:
-          - {direction: incoming, target: Principle, context_field: guiding_principles, method: guided_by_principles}
-      - config: Principle
-        roles: [enables]
-        definitions:
-          - {direction: outgoing, target: Entity, context_field: guided_choices, method: guided_choices}
   ALIGNED_WITH_PRINCIPLE:
     contract:
       - config: Task
@@ -496,12 +492,6 @@ relationships:
   SUBCHOICE_OF:
     traits: [parent_child]
     contract: null
-  INFORMED_BY_PRINCIPLE:
-    contract:
-      - config: Choice
-        definitions:
-          - {direction: outgoing, target: Principle, context_field: aligned_principles, method: principles, ingestion_field: connections.guided_by_principle}
-          - {direction: both, target: Entity, context_field: related_choices, method: related_choices, fields: [uid, title, status], limit: 5, shared_neighbor: {via: [INFORMED_BY_PRINCIPLE, AFFECTS_GOAL], target: Entity, alias: related_choices}}
   INFORMED_BY_KNOWLEDGE:
     contract:
       - config: Choice
@@ -545,6 +535,7 @@ relationships:
       - config: Choice
         definitions:
           - {direction: outgoing, target: Goal, context_field: affected_goals, method: goals, ingestion_field: connections.affects_goal}
+          - {direction: both, target: Choice, context_field: related_choices, method: related_choices, fields: [uid, title, status], limit: 5, shared_neighbor: {via: [AFFECTS_GOAL], target: Choice, alias: related_choices}}
   TRIGGERS_CHOICE:
     contract:
       - config: Event
@@ -1017,15 +1008,13 @@ labels:
       relationships:
         - INFORMED_BY_KNOWLEDGE
         - REQUIRES_KNOWLEDGE_FOR_DECISION
-        - INFORMED_BY_PRINCIPLE
         - AFFECTS_GOAL
         - OPENS_LEARNING_PATH
         - INSPIRED_BY_CHOICE
         - IMPLEMENTS_CHOICE
-        - GUIDES_CHOICE
+        - INFORMS_CHOICE
         - SERVES_LIFE_PATH
         - IMPACTS_HABIT
-        - INFORMS_CHOICE
         - SCHEDULES_EVENT
         - TRIGGERS_CHOICE
       semantic_types: ["learn:informed_by_knowledge", "learn:requires_theoretical_understanding"]
@@ -1036,7 +1025,7 @@ labels:
       relationships:
         - GROUNDED_IN_KNOWLEDGE
         - SUPPORTS_GOAL
-        - GUIDES_CHOICE
+        - INFORMS_CHOICE
         - INSPIRES_HABIT
         - EMBODIES_PRINCIPLE
         - SUPPORTS_PRINCIPLE

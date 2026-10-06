@@ -51,7 +51,8 @@ FACADE_LINK_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
     ("link_event_to_knowledge", EVENTS_CONFIG, "knowledge"),
     ("link_choice_to_goal", CHOICES_CONFIG, "goals"),
     ("link_choice_to_habit", CHOICES_CONFIG, "impacted_habits"),
-    ("link_choice_to_principle", CHOICES_CONFIG, "principles"),
+    ("link_choice_to_principle", CHOICES_CONFIG, "informing_principles"),
+    ("unlink_choice_from_principle", CHOICES_CONFIG, "informing_principles"),
     ("link_principle_to_knowledge", PRINCIPLES_CONFIG, "knowledge"),
 ]
 
@@ -63,8 +64,8 @@ FACADE_LINK_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
 # "ALIGNED_WITH_PRINCIPLE") or the 3-arg backend signature silently returns nothing, so
 # these reads need the same coverage guard as the writes above.
 HANDLER_READ_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
-    ("choices behavioral signal: principle alignment", CHOICES_CONFIG, "principles"),
-    ("choice event handler: principles", CHOICES_CONFIG, "principles"),
+    ("choices behavioral signal: principle alignment", CHOICES_CONFIG, "informing_principles"),
+    ("choice event handler: informing_principles", CHOICES_CONFIG, "informing_principles"),
     ("event handler: goal alignment", EVENTS_CONFIG, "goals"),
     ("events_service: celebrated_goals", EVENTS_CONFIG, "celebrated_goals"),
     ("habit event handler: knowledge reinforcement", HABITS_CONFIG, "knowledge"),

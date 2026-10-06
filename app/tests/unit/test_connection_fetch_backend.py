@@ -134,6 +134,75 @@ class TestPlacement:
         assert "goal_2" not in result
 
     @pytest.mark.asyncio
+    async def test_a_choices_informers_are_placed_by_kind(self):
+        # INFORMS_CHOICE points into a choice from a habit, a principle and a PathStep.
+        backend, _ = _backend_returning(
+            Result.ok(
+                [
+                    _row(
+                        "INFORMS_CHOICE",
+                        outgoing=False,
+                        far="Habit",
+                        uid="habit_1",
+                        entity_uid="choice_1",
+                    ),
+                    _row(
+                        "INFORMS_CHOICE",
+                        outgoing=False,
+                        far="Principle",
+                        uid="principle_1",
+                        entity_uid="choice_1",
+                    ),
+                    # A PathStep's choice_uids edge has no view on the choice.
+                    _row(
+                        "INFORMS_CHOICE",
+                        outgoing=False,
+                        far="PathStep",
+                        uid="ps_1",
+                        entity_uid="choice_1",
+                    ),
+                ]
+            )
+        )
+        result = await backend.fetch_entity_connections(NeoLabel.CHOICE, ["choice_1"])
+
+        assert {(row["heading"], row["connected_uid"]) for row in result["choice_1"]} == {
+            ("Habits that inform this choice", "habit_1"),
+            ("Principles that inform this choice", "principle_1"),
+        }
+        assert len(result["choice_1"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_a_principles_informed_choice_is_placed_under_its_heading(self):
+        backend, _ = _backend_returning(
+            Result.ok(
+                [
+                    _row(
+                        "INFORMS_CHOICE",
+                        outgoing=True,
+                        far="Choice",
+                        uid="choice_1",
+                        entity_uid="principle_1",
+                    ),
+                    # The principle reads INFORMS_CHOICE outgoing only: the same edge
+                    # to a choice, pointing into the principle, is placed nowhere.
+                    _row(
+                        "INFORMS_CHOICE",
+                        outgoing=False,
+                        far="Choice",
+                        uid="choice_2",
+                        entity_uid="principle_1",
+                    ),
+                ]
+            )
+        )
+        result = await backend.fetch_entity_connections(NeoLabel.PRINCIPLE, ["principle_1"])
+
+        assert [(row["heading"], row["connected_uid"]) for row in result["principle_1"]] == [
+            ("Choices this principle informs", "choice_1")
+        ]
+
+    @pytest.mark.asyncio
     async def test_an_edge_in_the_direction_no_view_reads_is_left_out(self):
         # The goal reads SUPPORTS_GOAL incoming only; an outgoing one has no view.
         backend, _ = _backend_returning(

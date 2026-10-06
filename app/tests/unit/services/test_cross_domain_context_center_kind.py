@@ -9,7 +9,8 @@ bucket, ``True`` in its mapping's bucket. A row without the field is bucketed.
 
 The backend is a fake returning canned rows in the shape
 ``build_domain_context_with_paths`` returns; the real query is held on a real graph by
-tests/integration/test_principle_goal_link.py.
+tests/integration/test_principle_goal_link.py and
+tests/integration/test_principle_choice_link.py.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from typing import Any
 import pytest
 
 from core.models.relationship_registry import (
+    CHOICES_CONFIG,
     GOALS_CONFIG,
     HABITS_CONFIG,
     PRINCIPLES_CONFIG,
@@ -206,4 +208,105 @@ async def test_a_peer_reached_through_a_shared_goal_is_still_a_related_principle
 
     assert await _context(PRINCIPLES_CONFIG, [peer]) == {
         "related_principles_shared": ["principle_peer"]
+    }
+
+
+# ---------------------------------------------------------------------------
+# INFORMS_CHOICE: a choice is informed by a principle, a habit or a PathStep
+# ---------------------------------------------------------------------------
+
+
+def _informer(uid: str, label: str) -> Row:
+    """A node at distance 1 whose INFORMS_CHOICE points out of it, into the centre."""
+    return _row(
+        uid, label, "INFORMS_CHOICE", into_related=False, distance=1, other_is_center_kind=True
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_choices_informers_land_in_the_bucket_of_their_kind() -> None:
+    rows = [
+        _informer("principle_1", "Principle"),
+        _informer("habit_1", "Habit"),
+        _informer("ps_1", "PathStep"),
+    ]
+
+    assert await _context(CHOICES_CONFIG, rows) == {
+        "informing_principles": ["principle_1"],
+        "informing_habits": ["habit_1"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_choice_reached_through_a_principles_edge_is_in_no_habit_bucket() -> None:
+    """habit -EMBODIES_PRINCIPLE-> principle -INFORMS_CHOICE-> choice."""
+    reached = _row(
+        "choice_reached",
+        "Choice",
+        "INFORMS_CHOICE",
+        into_related=True,
+        distance=2,
+        other_is_center_kind=False,
+    )
+    own = _row(
+        "choice_own",
+        "Choice",
+        "INFORMS_CHOICE",
+        into_related=True,
+        distance=1,
+        other_is_center_kind=True,
+    )
+
+    assert await _context(HABITS_CONFIG, [reached, own]) == {"informed_choices": ["choice_own"]}
+
+
+@pytest.mark.asyncio
+async def test_a_choice_reached_through_a_habits_edge_is_in_no_principle_bucket() -> None:
+    """principle -INSPIRES_HABIT-> habit -INFORMS_CHOICE-> choice."""
+    reached = _row(
+        "choice_reached",
+        "Choice",
+        "INFORMS_CHOICE",
+        into_related=True,
+        distance=2,
+        other_is_center_kind=False,
+    )
+    own = _row(
+        "choice_own",
+        "Choice",
+        "INFORMS_CHOICE",
+        into_related=True,
+        distance=1,
+        other_is_center_kind=True,
+    )
+
+    assert await _context(PRINCIPLES_CONFIG, [reached, own]) == {"informed_choices": ["choice_own"]}
+
+
+@pytest.mark.asyncio
+async def test_a_choice_pointing_out_of_itself_is_in_no_principle_bucket() -> None:
+    """The principle reads INFORMS_CHOICE outgoing only: a choice row whose incident edge
+    points OUT of the choice lands nowhere, while the same row pointing into the choice
+    (the control) is an informed choice. Label and centre kind admit both rows, so the
+    direction alone decides."""
+    reversed_row = _row(
+        "choice_reversed",
+        "Choice",
+        "INFORMS_CHOICE",
+        into_related=False,
+        distance=1,
+        other_is_center_kind=True,
+    )
+    informed = _row(
+        "choice_informed",
+        "Choice",
+        "INFORMS_CHOICE",
+        into_related=True,
+        distance=1,
+        other_is_center_kind=True,
+    )
+
+    assert await _context(PRINCIPLES_CONFIG, [reversed_row]) == {}
+    assert await _context(PRINCIPLES_CONFIG, [reversed_row, informed]) == {
+        "informed_choices": ["choice_informed"]
     }

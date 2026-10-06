@@ -1,6 +1,6 @@
 ---
 title: "Activity Links Arc — Rulings & Contract"
-updated: 2026-10-05
+updated: 2026-10-06
 status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; PR 1 merged #1500; PR 1b merged #1501; PR 1c merged #1503; PR 2 merged #1504; O1 and O4 ruled (R10, R11); O2 deferred; PR 3 next"
 registered: 2026-10-02
 ruled: 2026-10-04
@@ -137,12 +137,13 @@ The Page column records the hand-written lists PR 1b deleted. From PR 1b the pag
 registry's headed views, so the Page column equals the Registry column for every link between two
 Activities. A link the registry reads at one end only (PR 1's `MISSING_ENDS`) shows at that end until its PR
 adds the other: at the goal, the incoming `CONTRIBUTES_TO_GOAL` (PR 4, PR 5), `CELEBRATES_GOAL` and
-`AFFECTS_GOAL` (PR 5); at the principle, the incoming `INFORMED_BY_PRINCIPLE` (retired by PR 3). Two
-of these, the goal's incoming `CONTRIBUTES_TO_GOAL` and the principle's incoming
-`INFORMED_BY_PRINCIPLE`, were shown by the deleted lists and are not shown until their PRs land; the
-live graph holds none of those edges. From PR 2 a principle ↔ goal link is one `SUPPORTS_GOAL` edge
-that both pages show, whichever door made it; the live graph's four edges for its two links
-(§ The live graph) become two when PR 2's stored-edge migration runs. A task spawned from a PathStep carries
+`AFFECTS_GOAL` (PR 5). One of these, the goal's incoming `CONTRIBUTES_TO_GOAL`, was shown by the
+deleted lists and is not shown until its PR lands; the live graph holds none of those edges. From
+PR 2 a principle ↔ goal link is one `SUPPORTS_GOAL` edge that both pages show, whichever door made
+it; the live graph's four edges for its two links (§ The live graph) became two when PR 2's
+stored-edge migration ran (2026-10-05). From PR 3 a principle ↔ choice link is one `INFORMS_CHOICE`
+edge that both pages show, whichever door made it; the principle's one-ended entry left
+`MISSING_ENDS` with the type it named. A task spawned from a PathStep carries
 `fulfills_goal_uid` with no `FULFILLS_GOAL` edge (O3), and the deleted card fallback that drew it
 (a raw goal uid as the title) is not replaced: that task shows no goal until PR 4 settles the field.
 
@@ -153,8 +154,7 @@ card, which reads the same list). ✓ = that end reads the link; ✗ = it does n
 | Edge (from → to) | Registry: from / to | Page: from / to | Writers |
 |------------------|---------------------|-----------------|---------|
 | `SUPPORTS_GOAL` (Principle → Goal; from PR 2) | ✓ / ✓ | ✓ / ✓ | `POST /api/principles/link` (`link_type=goal`), `POST /api/goals/link-principle` and goal create (`supporting_principle_uids`), each `weight: 1.0`, `essentiality: "supporting"`; the DSL's `@context(goal) @link(principle:…)` (through goal create); principle `connections.supports_goal` and goal `connections.supporting_principles` frontmatter (no properties). On 2026-10-04 the link was two edges: `GUIDES_GOAL` from the principle's door and `connections.guides_goal`, read at both ends by the registry and by neither page; `GUIDED_BY_PRINCIPLE` from the goal's doors and `connections.aligned_with_principle`, read at the goal only |
-| `GUIDES_CHOICE` (Principle → Choice) | ✓ / ✓ | ✗ / ✗ | `POST /api/principles/link` (`link_type=choice`); no frontmatter field |
-| `INFORMED_BY_PRINCIPLE` (Choice → Principle) | ✓ / ✗ | ✗ / ✓ | `POST /api/choices/link-principle`; choice frontmatter `connections.guided_by_principle` |
+| `INFORMS_CHOICE` (Principle → Choice; from PR 3) | ✓ / ✓ | ✓ / ✓ | `POST /api/principles/link` (`link_type=choice`) and `POST /api/choices/link-principle`, no properties; principle `connections.informs_choice` and choice `connections.informing_principles` frontmatter. On 2026-10-04 the link was two edges: `GUIDES_CHOICE` from the principle's door (no frontmatter field), read at both ends by the registry and by neither page; `INFORMED_BY_PRINCIPLE` from the choice's door (with `alignment_score`) and `connections.guided_by_principle`, read by the registry at the choice only |
 | `INSPIRES_HABIT` (Principle → Habit) | ✓ / ✓ | ✗ / ✗ | `POST /api/principles/link` (`link_type=habit`); principle frontmatter `connections.inspires_habit` |
 | `EMBODIES_PRINCIPLE` (Habit → Principle) | ✓ / ✓ | ✗ / ✓ | `POST /api/habits/link-principle`; habit create (`linked_principle_uids`); the DSL; habit frontmatter `connections.embodies_principle` |
 | `SUPPORTS_GOAL` (Habit → Goal) | ✓ / ✓ | ✗ / ✓ | habit create (`linked_goal_uids`) and goal create (`supporting_habit_uids`), both `essentiality: "supporting"`; the DSL's `@context(habit) @link(goal:…)` (through habit create); habit `connections.supports_goal` and goal `connections.supporting_habits` frontmatter (no properties) |
@@ -188,11 +188,12 @@ A content-vault Edge file can author any of these types as well.
 5. Through the habit page's choices fragment, not its Connections section.
 
 A few readers union a link's two names by hand: `cross_domain_backend.py`'s goals-for-tasks batch
-query (`CONTRIBUTES_TO_GOAL|FULFILLS_GOAL`); `ChoiceCrossContext` (both principle directions),
-`TaskCrossContext` (contributing goals ∪ the fulfilled goal) and `EventCrossContext` (reinforced ∪
-practiced habits); and the choice-alignment metric. PR 2 took two readers off this list: the
-alignment-evidence query and `GoalCrossContext` each read the one principle → goal edge. This list is
-a hint, not a census: the PR that collapses a link greps for both its names.
+query (`CONTRIBUTES_TO_GOAL|FULFILLS_GOAL`); `TaskCrossContext` (contributing goals ∪ the fulfilled
+goal) and `EventCrossContext` (reinforced ∪ practiced habits). PR 2 took two readers off this list:
+the alignment-evidence query and `GoalCrossContext` each read the one principle → goal edge. PR 3
+took two more: `ChoiceCrossContext` and the choice-alignment metric each read the one principle →
+choice edge. This list is a hint, not a census: the PR that collapses a link greps for both its
+names.
 
 ### The live graph (AuraDB, read-only)
 
@@ -215,6 +216,11 @@ No `CONTRIBUTES_TO_GOAL`, `CELEBRATES_GOAL`, `AFFECTS_GOAL`, `PRACTICED_AT_EVENT
 exists. The two goal ↔ principle links are authored on both sides, so two facts are held as four
 edges — the case the arc collapses.
 
+PR 2's migration ran on 2026-10-05: the four edges are two `SUPPORTS_GOAL` edges from the
+principles, and its census afterwards found no old edge and no tracker key naming one. PR 3's census
+(2026-10-05) found no principle ↔ choice edge of either retired type and no tracker row naming one,
+so its migration has nothing to move.
+
 ### The vaults
 
 - **Content vault:** six files author a retiring type through frontmatter. `FULFILLS_GOAL`
@@ -223,6 +229,8 @@ edges — the case the arc collapses.
   (`connections.guides_goal`): two principle files. No Edge file uses a retiring type.
 - **Personal vault:** no file authors a retiring type. Two userguides show
   `@context(goal) @link(principle:…)`, which writes `GUIDED_BY_PRINCIPLE` through the DSL.
+- **PR 3 (2026-10-05):** neither vault authors the choice's retired field or either retired
+  principle ↔ choice type, so PR 3 edits no vault file.
 
 ### Readers that share an edge type
 
@@ -233,8 +241,11 @@ already writes several of these types:
   (`goal_uids`). Every goal view of it names its kind: `supporting_habits` and the essential /
   critical / optional views name `Habit`, `supporting_principles` names `Principle`. A PathStep's
   edge is on no goal view; the PathStep reads it as `practice_goals`.
-- The choice's `informing_habits` (`INFORMS_CHOICE`) also lists PathSteps (`choice_uids`).
-  Principles join in PR 3.
+- `INFORMS_CHOICE` has three kinds of source: principles (from PR 3), habits and PathSteps
+  (`choice_uids`). Every choice view of it names its kind: `informing_principles` names
+  `Principle`, `informing_habits` names `Habit`. A PathStep's edge is on no choice view; the
+  PathStep reads it as `informed_choices`. The principle's and the habit's `informed_choices` name
+  `Choice`.
 - The principle's `embodying_habits` (`EMBODIES_PRINCIPLE`) also lists learning paths
   (`connections.embodied_principles`).
 - The event's `scheduled_by_choices` (`SCHEDULES_EVENT`) lists PathSteps (`event_uids`), the only
@@ -276,20 +287,22 @@ tiered views (essential, critical, optional) are habit-only and therefore empty 
 - 145 tracked files name one of the six types (`git grep -w`; tests 43, docs and skills 54).
   Every docs mention outside records is swept by the PR that retires the type.
 - Hand-written Cypher names the types directly, so no registry edit reaches it: the user-context
-  statements (`user_context_queries.py`: `FULFILLS_GOAL`, `PRACTICED_AT_EVENT`, `GUIDES_CHOICE`,
-  `INFORMED_BY_PRINCIPLE`; `GUIDES_GOAL` until PR 2 deleted that projection), the goal tally (`goal_tally_queries.py`,
-  `activity_backends.py`, `cross_domain_backend.py`), and `activity_backends.py`'s achievement
-  context and choice-influence stats.
+  statements (`user_context_queries.py`: `FULFILLS_GOAL`, `PRACTICED_AT_EVENT`; `GUIDES_GOAL` until
+  PR 2 deleted that projection; both principle ↔ choice halves read `INFORMS_CHOICE` from PR 3, under
+  their old projection names `guided_choices` and `guiding_principles`), the goal tally
+  (`goal_tally_queries.py`, `activity_backends.py`, `cross_domain_backend.py`), and
+  `activity_backends.py`'s achievement context (its choice-influence stats read `INFORMS_CHOICE`
+  from PR 3).
 - Ingestion writes edges from the registry (`yaml_field_path`), so a type's edges leave ingestion
   with its registry definition. The task's goal field is the exception:
   `preparer._reconcile_task_goal_link` stamps `fulfills_goal_uid` from `connections.fulfills_goal`
   and turns a bare `fulfills_goal_uid` into that field, and `vault_policy`'s `_TASK_GOAL_FIELD` /
   `_TASK_GOAL_COLUMN` realign the column when a goal target is refused. Both name the field and the
-  column, not the type, so `git grep -w FULFILLS_GOAL` misses them; PR 4 settles both with O3. One
-  field name disagrees with the edge it writes today: choice `connections.guided_by_principle`
-  writes `INFORMED_BY_PRINCIPLE` (pinned by `tests/unit/test_ingestion_relationship_config.py`).
-  The goal's `connections.aligned_with_principle`, which wrote `GUIDED_BY_PRINCIPLE`, retired in
-  PR 2.
+  column, not the type, so `git grep -w FULFILLS_GOAL` misses them; PR 4 settles both with O3. The
+  two fields whose names disagreed with the edge they wrote have retired: the goal's
+  `connections.aligned_with_principle` (`GUIDED_BY_PRINCIPLE`) in PR 2, and the choice's
+  `connections.guided_by_principle` in PR 3, replaced by `connections.informing_principles`, which
+  writes `INFORMS_CHOICE` into the choice.
 - **Migrate before the enum member goes.** A content-vault Edge file naming a deleted type becomes a
   validation error, and an `authored_edges` tracker key naming one cannot be decoded: it is skipped
   with a warning (the warning is PR 2's), so the edge it recorded would never be retracted. Convert
@@ -312,9 +325,18 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
   shape nothing writes — **PR 2** (fixed: the goal arm reads `(principle)-[:SUPPORTS_GOAL]->(goal)`
   alone).
 - `cross_domain_backend.py`'s choice-adherence query reads `(choice)-[:ALIGNED_WITH_PRINCIPLE]->`,
-  but choices write `INFORMED_BY_PRINCIPLE` — **PR 3**.
-- Search enrichment ignores the choice's shared-neighbour `related_choices` definition and matches its
-  placeholder type directly, so `related_choices` holds principles, not choices — **PR 3**.
+  but choices write `INFORMED_BY_PRINCIPLE` — **PR 3** (fixed: it reads
+  `(principle)-[:INFORMS_CHOICE]->(choice)`).
+- `generate_graph_enrichment` turned the choice's shared-neighbour `related_choices` definition into
+  a one-hop match on its placeholder type, so the patterns it computed put principles under
+  `related_choices` — **PR 3** (fixed: it leaves out every shared-neighbour definition;
+  `related_choices` is now the choices that affect the same goal, through `AFFECTS_GOAL`). PR 3's
+  census found the leak latent: no Activity search service reads those patterns (see the next
+  registered item), so no search result ever carried it.
+- `PrinciplesBackend.get_choice_influence_stats` (`GET /api/principles/choice-effectiveness`) and
+  both principle ↔ choice halves of the user-context statement read one of the link's two
+  names each — **PR 3** (fixed: each reads the one edge; the choice half keeps its `Principle` far
+  label).
 - `PrinciplesSearchService.get_for_habit` reads `(habit)-[:ALIGNED_WITH_PRINCIPLE]->`, but habits
   write `EMBODIES_PRINCIPLE` (its facade has no caller outside tests) — **PR 5**.
 - A task update stores `aligned_principle_uids` as a node property instead of edges — **PR 5**.
@@ -343,7 +365,14 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
   definition's type, far label and direction) composes no far-node wall, so a search result's
   `_graph_context` lists the node at the far end of an edge whoever owns it and whether or not it
   is published, and it carries no edge-property filter, so a goal's `essential_habits` / `critical_habits` / `optional_habits`
-  enrichment lists every supporting habit — outside the arc; registered by PR 2's census.
+  enrichment lists every supporting habit — outside the arc; registered by PR 2's census. Latent:
+  PR 3's census found the enrichment never runs for an Activity domain (below).
+- `DomainConfig.graph_enrichment_patterns` is computed from the registry
+  (`generate_graph_enrichment`) for every Activity and curriculum config, and nothing reads it: the
+  faceted search reads the service's own `_graph_enrichment_patterns`, which no Activity search
+  service sets, so an Activity search result carries no `_graph_context` from the registry. Wire it
+  or delete it — outside the arc; registered by PR 3's census (the six "configured via
+  `_graph_enrichment_patterns`" comments that claimed otherwise were corrected).
 - `GoalUpdateRequest` accepts `required_knowledge_uids`, `supporting_habit_uids` and
   `supporting_principle_uids`, and `to_intent()` carries none of them: an update that sends one
   answers 200 and changes no edge — outside the arc; registered by PR 2's census.
@@ -372,6 +401,33 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
   (`calculate_goal_progress_with_context`, `update_goal_from_habit_progress`) have no caller of
   their own. `PrinciplesPlanningService` reads `aligned_principles` from the same goal context,
   equally absent — outside the arc; registered by PR 2's census.
+- `principle_integration_score` can exceed 1.0: `user_context_populator.py` divides the choices any
+  principle informs (read through the principles statement, unwindowed) by the choices in the
+  user-context window, and life-path alignment weights the score 30%. PR 3 raises the numerator for
+  everyone, since a link made at the choice's door now counts — outside the arc; registered by
+  PR 3's census.
+- `UserContext.decisions_aligned_with_principles` and `decisions_against_principles` have no
+  writer: the principles stats card always reads 0 / 0, and life-path intelligence reads them too —
+  outside the arc; registered by PR 3's census.
+- `ContextualChoice.aligned_principles` is never passed when the daily plan builds its choices
+  (`choices_service.py`), so the core-principle relevance boost never fires in the plan's choice
+  step — outside the arc; registered by PR 3's census.
+- `ContextualPrinciple.guided_choices` is never written — outside the arc; registered by PR 3's
+  census.
+- `GET /api/choices/aligned-with-principle` (`find_choices_aligned_with_principle`) reads a
+  semantic-relationship filter, not the principle ↔ choice link, so a choice a principle informs is
+  not returned unless a semantic edge also says so — outside the arc; registered by PR 3's census.
+- The principle's dual-track assessment and adherence trends describe choice reads they do not
+  make — outside the arc; registered by PR 3's census.
+- `cross_domain_backend.py`'s `_CHOICE_CONFLICT_COUNT_QUERY` counts
+  `(choice)-[:CONFLICTS_WITH_PRINCIPLE]->(principle)`, an edge no choice writes, so the conflict
+  count is always 0 — outside the arc; registered by PR 3's census.
+- `@context(choice) @link(principle:…)` is parsed and dropped, and choice create has no principle
+  field (no `informing_principle_uids`), so the choice side has two fewer doors than the goal side
+  (founder, 2026-10-05: left unwired) — outside the arc; registered by PR 3's census.
+- The goal's shared-neighbour `related_goals` walks `FULFILLS_GOAL` and `SUPPORTS_GOAL` out of the
+  goal, but both edges point into it, so the view finds nothing — **PR 4** (its placeholder and
+  intermediate edge name `FULFILLS_GOAL`).
 - The cross-domain context still lists a node two hops away when the hop between is of the
   centre's own kind: a goal supported by a principle that a second principle supports
   (`SUPPORTS_PRINCIPLE`) is among the second principle's `supported_goals`, at distance 2. That is
@@ -390,8 +446,8 @@ tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs la
 | 1 | The invariant as a test, derived from the registry: every edge type joining two different Activity domains is read at BOTH ends (same-type edges are the later pass, R8), and a view over an edge type with several kinds of source filters by source label in the read. Lands with a known-gaps list | Passes with the list; removing any entry turns it red; a one-sided definition added turns it red | merged #1500, 2026-10-04 |
 | 1b | The pages show both ends (R10): the page renders the registry's labelled definitions in both directions and `connection_configs.py` is deleted; the page-list defects (§ Defects found by the census) | Every link in § What each layer shows today that the registry reads at both ends shows on both detail pages and both list cards; the five nonexistent names are gone | merged #1501, 2026-10-04 |
 | 1c | The keyed readers carry `target_label` and the tier filter: the eight `READERS_IGNORING_TARGET_LABEL` entries (re-owned from 1b, which keeps the pages on the walled batched reader), the readers and the backend methods behind them | `READERS_IGNORING_TARGET_LABEL` is empty; real-graph tests: a label-split view returns only its kind and a tier view only its tier, through each reader; red on the old source | merged #1503, 2026-10-04 |
-| 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | merged #1504, 2026-10-05; the stored-edge migration and the vault edits (R9) run after the merge |
-| 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | — |
+| 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | merged #1504, 2026-10-05; the stored-edge migration and the vault edits (R9) ran 2026-10-05 (four edges became two) |
+| 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | merged #1505, 2026-10-05; the stored-edge migration (live census: nothing to move) runs after the merge on the founder's go |
 | 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; cancelling a completed event, or a goal's last contribution, updates the stored tally (to 0/0 for the last); every membership change recomputes (closes the goal-tally case file); the gaps list shrinks | — |
 | 5 | The remaining views: the goal sees choices (affects) and events (celebrates, contributes) apart; event ↔ principle is one link (retire `PRACTICED_AT_EVENT` and the event's `practiced_habits`); the habit names `REINFORCES_HABIT` from events "events where this habit is practiced"; the views still sharing an edge type split by source label (the habit's `REINFORCES_HABIT` views, the principle's `embodying_habits`, the event's `scheduled_by_choices`); a task update writes `ALIGNED_WITH_PRINCIPLE` edges instead of a node property | PR 1's known-gaps list is empty | — |
 | close | ADR-090 marked implemented; this document to `done/` (docs only) | Every retired type reads 0 in the live graph and in live code (`GUIDED_BY_PRINCIPLE`: between Activities; wholly only if O2, deferred, moves the PathStep's use) | — |
@@ -571,6 +627,52 @@ choice-adherence query read the one edge.
 
 **Acceptance:** as PR 2.
 
+**Settled in prose before the first edit (founder, 2026-10-05):**
+- **Views.** The choice page lists "Principles that inform this choice" (one list; key and context
+  name `informing_principles`, far end `Principle`) and "Habits that inform this choice"
+  (`informing_habits`, far end `Habit`, habits only). The principle page lists "Choices this
+  principle informs" (`informed_choices`, far end `Choice`). The habit page is unchanged; its
+  `informed_choices` names `Choice`. A PathStep's `choice_uids` edge leaves the choice page. The
+  user-context and report names stay: `guided_choices`, `guiding_principles`,
+  `principle_guided_choice_counts`.
+- **The doors stay, repointed.** `POST /api/principles/link` (`link_type=choice`) and
+  `POST /api/choices/link-principle` write `(Principle)-[:INFORMS_CHOICE]->(Choice)` with no
+  properties; `alignment_score` goes, from the request and from the service. Frontmatter: a choice
+  file authors `connections.informing_principles` (replacing `connections.guided_by_principle`), a
+  principle file `connections.informs_choice` (new). Choice create and the DSL's
+  `@context(choice) @link(principle:…)` stay unwired; both are registered (§ Defects found by the
+  census).
+- **Unlinking.** No HTTP door is added. `ChoicesService.unlink_choice_from_principle` is added and
+  registered PLANNED, like the goal's; the keyed delete carries the `Principle` kind, so it leaves a
+  habit's informing link alone. The vault door retracts a dropped frontmatter line.
+- **Vault files.** None authors a retiring field or type; no edits.
+- **Transitive.** A choice reached habit → principle → choice (`EMBODIES_PRINCIPLE`, then the
+  principle's `INFORMS_CHOICE`) is not one of the habit's informed choices, and one reached
+  principle → habit → choice is not one of the principle's. PR 2's categoriser gate already blocks
+  both; real-graph tests prove it.
+- **`related_choices`.** Kept, as "choices that affect the same goal": its placeholder type is
+  `AFFECTS_GOAL` (whose real definition precedes it), walked through `AFFECTS_GOAL` only, far end
+  `Choice`. `generate_graph_enrichment` leaves out every shared-neighbour definition, which ends the
+  leak of the shared neighbour into the choice's, habit's and goal's search enrichment patterns
+  (a latent leak: nothing reads those patterns, § Defects found by the census).
+- **Migration.** One script (`scripts/migrations/principle_informs_choice_2026_10.py`): a census by
+  default, writes under `--confirm` on the founder's go, run before any sync on the new code. Both
+  types retire whole: an edge of either type that is not principle ↔ choice stops the run (exit 2),
+  and so does an Edge-file tracker row naming either type (its Edge YAML is rewritten by hand, then one sync). Tracker
+  keys are rewritten by four mappings, of which only the choice file's outgoing key to a principle
+  becomes `INFORMS_CHOICE|incoming|…` in practice. `alignment_score` is dropped.
+- **Defects.** Fixed: the choice-adherence query, the choice-effectiveness stats, both
+  user-context halves (the choice half keeps its `Principle` pin), the alignment metric's hand
+  union, the `ChoiceCrossContext` union and the stale docstrings. Deleted: the caller-less
+  `build_choice_with_context` and its re-exports; dropped: the choice-side arm of
+  `_TraversalMixin.get_batch_cross_domain_context` and the retired type's string in
+  `build_impact_chain_query`. Registered: the residuals in § Defects found by the census marked
+  "registered by PR 3's census".
+- **Acceptance.** Real-graph tests, red on the old source: each of the four doors read from both
+  ends under one key each; a choice with a habit, a principle and a PathStep informer through every
+  reader; the transitive cases; unlink by kind; the migration's states, Edge-file rows included; the
+  far-end door test gains the choice door; a placement unit test.
+
 ### PR 4 — "Contributes"
 
 Tasks link to any number of goals through `CONTRIBUTES_TO_GOAL`. `FULFILLS_GOAL` retires, with
@@ -594,8 +696,8 @@ link, and changing a task's `completion_updates_goal` all recompute the goals th
 kinds of contribution. The case file moves to `done/` with this PR. Two readers need more than the type's deletion: the goal-cancel guard counts open tasks
 over `FULFILLS_GOAL` only (`cross_domain_backend.py`) and must count open contributions (the kickoff
 decides whether an open contributing event blocks a cancel), and `GOALS_CONFIG`'s shared-neighbour
-`related_goals` definition names `FULFILLS_GOAL` as its placeholder type and as an intermediate edge
-(search enrichment turns the placeholder into a goal ↔ goal arm). Both name the enum member, so
+`related_goals` definition names `FULFILLS_GOAL` as its placeholder type and as an intermediate edge.
+Both name the enum member, so
 missing either breaks the import. The readers that fail silently name the type as a raw string: the
 user-context statements and `cross_domain_backend.py`'s `_INTENT_EDGE_SETS["goal_achievement"]`.
 The field's column-only readers (the goal Gantt, the relevance scorer) go with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), whose check names

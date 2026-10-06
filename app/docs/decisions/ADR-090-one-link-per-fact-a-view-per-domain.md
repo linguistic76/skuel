@@ -1,6 +1,6 @@
 ---
 title: "ADR-090: One Link per Fact, a View per Domain"
-updated: 2026-10-05
+updated: 2026-10-06
 status: accepted
 category: decisions
 tags: [adr, decisions, relationships, activity-domains, graph-schema, registry, goals, principles]
@@ -289,3 +289,9 @@ acceptance. This ADR is marked implemented when the arc closes.
   `GUIDED_BY_PRINCIPLE`, while the doors that made the link (the principle's link door, the goal's
   link door, goal create, the DSL's goal → principle link) stay and write the one edge. ADR-057 and
   ADR-015 carry their notes.
+- 2026-10-05 — §4 and §6 implemented for principle → choice (Activity Links arc PR 3): the link is
+  one `INFORMS_CHOICE` edge from the principle, with no properties; the choice's views of the type
+  name their kind (`informing_principles`, `informing_habits`). §7 as built: `GUIDES_CHOICE` and
+  `INFORMED_BY_PRINCIPLE` are retired whole, while the doors that made the link (the principle's
+  link door, the choice's link door) stay and write the one edge. ADR-057 and ADR-015 carry their
+  notes.

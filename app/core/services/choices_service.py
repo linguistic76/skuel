@@ -524,16 +524,23 @@ class ChoicesService(
             "impacted_habits", choice_uid, habit_uid, properties, far_end=HABIT_FAR_END
         )
 
-    async def link_choice_to_principle(
-        self, choice_uid: str, principle_uid: str, alignment_score: float = 0.5
-    ) -> Result[bool]:
-        """Link choice to principle it is informed by (``INFORMED_BY_PRINCIPLE``)."""
+    async def link_choice_to_principle(self, choice_uid: str, principle_uid: str) -> Result[bool]:
+        """Link choice to a principle that informs it.
+
+        Writes ``(Principle)-[:INFORMS_CHOICE]->(Choice)`` — the edge the principle's
+        own link door writes, so the link shows on both pages whichever door made it.
+        """
         return await self.relationships.create_relationship(
-            "principles",
+            "informing_principles",
             choice_uid,
             principle_uid,
-            {"alignment_score": alignment_score},
             far_end=PRINCIPLE_FAR_END,
+        )
+
+    async def unlink_choice_from_principle(self, uid: str, principle_uid: str) -> Result[bool]:
+        """Unlink a principle from a choice. A habit's informing link is left alone."""
+        return await self.relationships.delete_relationship(
+            "informing_principles", uid, principle_uid
         )
 
     async def create_semantic_choice_relationship(

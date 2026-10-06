@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.query import build_domain_context_with_paths
 from adapters.persistence.neo4j.query.cypher import (
     CURRICULUM_COMPOSITION_EDGES,
+    build_far_node_clause,
     build_knowledge_read_clause,
     build_publication_clause,
 )
@@ -323,11 +324,16 @@ def _to_habit_analytics_rows(
     ]
 
 
+# A principle informing the user's choice is read only if it is the user's own or published
+# shared content — the far-node wall every reader of the edge composes.
+_ADHERENCE_PRINCIPLE_WALL, _ADHERENCE_PRINCIPLE_WALL_PARAMS = build_far_node_clause("p", "[u.uid]")
+
 _CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
 WHERE datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
 
-OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
+OPTIONAL MATCH (p:Entity {{entity_type: 'principle'}})-[:{RelationshipName.INFORMS_CHOICE.value}]->(c)
+WHERE {_ADHERENCE_PRINCIPLE_WALL}
 
 WITH c,
      collect(DISTINCT p.uid) AS principle_uids,
@@ -905,7 +911,11 @@ class CrossDomainBackend:
         """Get choice-principle adherence data over a period."""
         return await self.executor.execute_query(
             _CHOICE_PRINCIPLE_ADHERENCE_QUERY,
-            {"user_uid": user_uid, "period_days": period_days},
+            {
+                "user_uid": user_uid,
+                "period_days": period_days,
+                **_ADHERENCE_PRINCIPLE_WALL_PARAMS,
+            },
         )
 
     async def get_choice_conflict_count(self, user_uid: str) -> Result[list[dict[str, Any]]]:

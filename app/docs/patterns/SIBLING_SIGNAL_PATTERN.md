@@ -1,6 +1,6 @@
 ---
 title: Sibling Signal Pattern
-updated: 2026-10-05
+updated: 2026-10-06
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, design]
@@ -171,10 +171,10 @@ Each sibling signal rides on graph state that already exists: an edge, or for th
 | Signal | Neo4j edge(s) | Direction in graph |
 |--------|---------------|--------------------|
 | `HabitConsistencySignal` | `(Habit)-[:SUPPORTS_GOAL]->(Goal)` | Habits are located by goal |
-| `PrincipleAlignmentSignal` | `(Choice)-[:INFORMED_BY_PRINCIPLE]->(Principle)`, `(Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle)` | Principles are located by consumer entity |
+| `PrincipleAlignmentSignal` | `(Principle)-[:INFORMS_CHOICE]->(Choice)`, `(Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle)` | Principles are located by consumer entity |
 | `GoalFeasibilitySignal` | `(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)`, `(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` | Goals are located by supporting activity |
 | `EventCollisionSignal` | no edge — the event's `event_date`, `start_time` and `end_time` properties | Events are located by calendar window |
-| `ChoiceAdherenceSignal` | `(Choice)-[:INFORMED_BY_PRINCIPLE]->(Principle)` | Historical adherence count per principle |
+| `ChoiceAdherenceSignal` | `(Principle)-[:INFORMS_CHOICE]->(Choice)` | Historical adherence count per principle |
 | `HabitEmbodimentSignal` | `(Habit)-[:EMBODIES_PRINCIPLE]->(Principle)` | Habits embodying a principle |
 | `EventDecisionTriggerSignal` | `(Event)-[:TRIGGERS_CHOICE]->(Choice)` | Upcoming events triggering choices |
 

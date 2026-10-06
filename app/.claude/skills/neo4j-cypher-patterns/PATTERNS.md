@@ -180,7 +180,7 @@ the map form is the one shape that turns "no neighbours" into a one-element list
 Measured on the engine, not inferred. Iterating consumers usually survive it (they filter on
 `uid`); **counting consumers are silently wrong** — `len()` reads 1 where the truth is 0. The
 live instance: `principle_guided_choice_counts` reported one guided choice per principle on a
-graph with no `GUIDES_CHOICE` edges at all.
+graph with no principle → choice edges at all.
 
 **Always wrap a collected map literal**: `collect(DISTINCT CASE WHEN x IS NOT NULL THEN {…} END)`.
 Guarded by `tests/unit/test_mega_query_null_placeholders.py` for the MEGA-QUERY file.

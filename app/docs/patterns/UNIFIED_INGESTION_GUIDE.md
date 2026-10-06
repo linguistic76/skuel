@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-05
+updated: 2026-10-06
 category: patterns
 related_skills: []
 related_docs:
@@ -1147,7 +1147,7 @@ move, and is never borrowed.
 | `supporting_habits` | SUPPORTS_GOAL (incoming) | Habit | Goal |
 | `informed_by_knowledge` | INFORMED_BY_KNOWLEDGE | Entity | Choice |
 | `requires_knowledge_for_decision` | REQUIRES_KNOWLEDGE_FOR_DECISION | Entity | Choice |
-| `guided_by_principle` | INFORMED_BY_PRINCIPLE | Principle | Choice |
+| `informing_principles` | INFORMS_CHOICE (incoming) | Principle | Choice |
 | `affects_goal` | AFFECTS_GOAL | Goal | Choice |
 | `impacts_habit` | IMPACTS_HABIT | Entity | Choice |
 | `contributes_to_goal` | CONTRIBUTES_TO_GOAL | Goal | Event |
@@ -1155,6 +1155,7 @@ move, and is never borrowed.
 | `executes_task` | EXECUTES_TASK | Task | Event |
 | `grounded_in_knowledge` | GROUNDED_IN_KNOWLEDGE | Entity | Principle |
 | `supports_goal` | SUPPORTS_GOAL | Goal | Principle |
+| `informs_choice` | INFORMS_CHOICE | Choice | Principle |
 | `inspires_habit` | INSPIRES_HABIT | Entity | Principle |
 | `contains_steps` | HAS_STEP | Entity | LP |
 | `organizes` | ORGANIZES | Entity | PathStep |

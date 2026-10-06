@@ -289,16 +289,16 @@ WITH p, collect(CASE WHEN goal IS NOT NULL THEN {
     status: goal.status
 } END) as supported_goals
 
-// Choices aligned with this principle
-OPTIONAL MATCH (choice:Choice)-[:ALIGNED_WITH_PRINCIPLE]->(p)
+// Choices this principle informs
+OPTIONAL MATCH (p)-[:INFORMS_CHOICE]->(choice:Choice)
 WITH p, supported_goals, collect(CASE WHEN choice IS NOT NULL THEN {
     uid: choice.uid,
     title: choice.title
-} END) as aligned_choices
+} END) as informed_choices
 
 // Habits that embody this principle
 OPTIONAL MATCH (habit:Habit)-[:EMBODIES_PRINCIPLE]->(p)
-WITH p, supported_goals, aligned_choices, collect(CASE WHEN habit IS NOT NULL THEN {
+WITH p, supported_goals, informed_choices, collect(CASE WHEN habit IS NOT NULL THEN {
     uid: habit.uid,
     title: habit.title,
     streak: habit.current_streak
@@ -308,7 +308,7 @@ WITH p, supported_goals, aligned_choices, collect(CASE WHEN habit IS NOT NULL TH
 OPTIONAL MATCH (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku:Ku)
 RETURN p as principle,
        supported_goals,
-       aligned_choices,
+       informed_choices,
        embodying_habits,
        collect(CASE WHEN ku IS NOT NULL THEN {uid: ku.uid, title: ku.title} END) as grounding_knowledge
 ```
@@ -319,20 +319,20 @@ RETURN p as principle,
 ```cypher
 MATCH (c:Choice {uid: $uid})
 
-// Guiding principles
-OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Principle)
-WITH c, collect(CASE WHEN p IS NOT NULL THEN {uid: p.uid, title: p.title} END) as guiding_principles
+// Informing principles — INFORMS_CHOICE has several kinds of source, so label the far end
+OPTIONAL MATCH (p:Principle)-[:INFORMS_CHOICE]->(c)
+WITH c, collect(CASE WHEN p IS NOT NULL THEN {uid: p.uid, title: p.title} END) as informing_principles
 
 // Informing knowledge
 OPTIONAL MATCH (c)-[:INFORMED_BY_KNOWLEDGE]->(ku:Ku)
-WITH c, guiding_principles, collect(CASE WHEN ku IS NOT NULL THEN {
+WITH c, informing_principles, collect(CASE WHEN ku IS NOT NULL THEN {
     uid: ku.uid,
     title: ku.title
 } END) as informing_knowledge
 
 // Affected goals
 OPTIONAL MATCH (c)-[:AFFECTS_GOAL]->(goal:Goal)
-WITH c, guiding_principles, informing_knowledge, collect(CASE WHEN goal IS NOT NULL THEN {
+WITH c, informing_principles, informing_knowledge, collect(CASE WHEN goal IS NOT NULL THEN {
     uid: goal.uid,
     title: goal.title
 } END) as affected_goals
@@ -340,7 +340,7 @@ WITH c, guiding_principles, informing_knowledge, collect(CASE WHEN goal IS NOT N
 // Implementing tasks
 OPTIONAL MATCH (task:Task)-[:IMPLEMENTS_CHOICE]->(c)
 RETURN c as choice,
-       guiding_principles,
+       informing_principles,
        informing_knowledge,
        affected_goals,
        collect(CASE WHEN task IS NOT NULL THEN {uid: task.uid, title: task.title} END) as implementing_tasks

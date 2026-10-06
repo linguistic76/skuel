@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-10-05
+updated: 2026-10-06
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -368,7 +368,9 @@ ku:  ps:    → applies_knowledge_uids (+ the entry's APPLIES_KNOWLEDGE edge) �
               for Kus beyond the one @ku() a line may carry
 lp:         → the learning-path anchor of a @context(ps) line
 ```
-Any other prefix parses but reaches no sink.
+Any other prefix parses but reaches no sink, and so does a `principle:` link on a line of any other
+context — `@context(choice) @link(principle:…)` writes no `INFORMS_CHOICE` edge (choice create has
+no principle field; registered in the [Activity Links arc](../roadmap/activity-links-arc.md#defects-found-by-the-census)).
 
 **Examples:**
 ```markdown

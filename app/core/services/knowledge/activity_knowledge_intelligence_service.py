@@ -13,7 +13,7 @@ to Knowledge Units:
     Goals:      REQUIRES_KNOWLEDGE
     Habits:     REINFORCES_KNOWLEDGE
     Events:     APPLIES_KNOWLEDGE, REINFORCES_KNOWLEDGE
-    Choices:    INFORMS_CHOICE (reversed direction)
+    Choices:    INFORMED_BY_KNOWLEDGE, REQUIRES_KNOWLEDGE_FOR_DECISION
     Principles: GROUNDED_IN_KNOWLEDGE
 
 Provides:

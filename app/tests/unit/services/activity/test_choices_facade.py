@@ -124,19 +124,30 @@ class TestChoicesServiceRelationships:
     async def test_link_choice_to_principle_calls_relationships(
         self, choices_service: ChoicesService
     ) -> None:
-        """link_choice_to_principle writes the INFORMED_BY_PRINCIPLE ('principles') edge."""
+        """link_choice_to_principle writes (Principle)-[:INFORMS_CHOICE]->(Choice) through
+        the choice's 'informing_principles' view, with no properties."""
         choices_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 
-        await choices_service.link_choice_to_principle(
-            "choice_abc", "principle_xyz", alignment_score=0.6
-        )
+        await choices_service.link_choice_to_principle("choice_abc", "principle_xyz")
 
         choices_service.relationships.create_relationship.assert_called_once_with(
-            "principles",
+            "informing_principles",
             "choice_abc",
             "principle_xyz",
-            {"alignment_score": 0.6},
             far_end=PRINCIPLE_FAR_END,
+        )
+
+    @pytest.mark.asyncio
+    async def test_unlink_choice_from_principle_calls_relationships(
+        self, choices_service: ChoicesService
+    ) -> None:
+        """unlink_choice_from_principle deletes through the 'informing_principles' view."""
+        choices_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+
+        await choices_service.unlink_choice_from_principle("choice_abc", "principle_xyz")
+
+        choices_service.relationships.delete_relationship.assert_called_once_with(
+            "informing_principles", "choice_abc", "principle_xyz"
         )
 
     @pytest.mark.asyncio

@@ -18,8 +18,8 @@ it reads 1 where the truth is 0.
 
 That is not hypothetical. Before this guard, ``user_context_populator``
 computed ``principle_guided_choice_counts`` as ``len(guided_choices)`` on the
-raw projection, and the live graph — which has **no** ``GUIDES_CHOICE`` edges
-at all — reported **1 guided choice for each of its 2 principles**. Two lines
+raw projection, and the live graph — which then had **no** principle → choice
+edges at all — reported **1 guided choice for each of its 2 principles**. Two lines
 below, the same block's *iteration* was null-guarded
 (``if choice and choice.get("uid")``): a correct loop and an incorrect count,
 touching the same list.

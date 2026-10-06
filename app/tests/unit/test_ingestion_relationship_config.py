@@ -74,18 +74,48 @@ class TestIngestionRelationshipConfig:
         assert goal is not None
         assert goal["connections.supporting_habits"]["target_label"] == "Habit"
 
-    def test_choice_uses_informed_by_principle(self):
-        """Choices use INFORMED_BY_PRINCIPLE for Choice->Principle edges (from registry).
+    def test_a_principle_choice_link_is_one_edge_from_either_file(self):
+        """A choice file and a principle file author the same principle -> choice edge.
 
-        Previously used ALIGNED_WITH_PRINCIPLE — this was a bug where ingested
-        edges were invisible to the runtime relationship service.
+        The choice's field is declared incoming (the listed principle is the edge's
+        source) and the principle's outgoing, so both write
+        ``(Principle)-[:INFORMS_CHOICE]->(Choice)``; each names the far end's kind, so a
+        habit uid in the choice's principle field matches no node.
         """
-        config = ENTITY_CONFIGS[EntityType.CHOICE].relationship_config
-        assert config is not None
-        assert (
-            config["connections.guided_by_principle"]["rel_type"]
-            == RelationshipName.INFORMED_BY_PRINCIPLE.value
+        choice = ENTITY_CONFIGS[EntityType.CHOICE].relationship_config
+        principle = ENTITY_CONFIGS[EntityType.PRINCIPLE].relationship_config
+        assert choice is not None and principle is not None
+
+        from_choice = choice["connections.informing_principles"]
+        from_principle = principle["connections.informs_choice"]
+        assert from_choice["rel_type"] == RelationshipName.INFORMS_CHOICE.value
+        assert from_principle["rel_type"] == RelationshipName.INFORMS_CHOICE.value
+        assert (from_choice["direction"], from_choice["target_label"]) == (
+            "incoming",
+            "Principle",
         )
+        assert (from_principle["direction"], from_principle["target_label"]) == (
+            "outgoing",
+            "Choice",
+        )
+
+    def test_the_retired_principle_choice_field_authors_nothing(self):
+        """``connections.guided_by_principle`` wrote the retired INFORMED_BY_PRINCIPLE."""
+        choice = ENTITY_CONFIGS[EntityType.CHOICE].relationship_config
+        assert choice is not None
+        assert "connections.guided_by_principle" not in choice
+
+    def test_a_choice_file_authors_informers_only_as_principles(self):
+        """The one choice field writing INFORMS_CHOICE names ``Principle``: a habit or
+        PathStep informs a choice from its own side, never from the choice's file."""
+        choice = ENTITY_CONFIGS[EntityType.CHOICE].relationship_config
+        assert choice is not None
+        informing = {
+            field: spec["target_label"]
+            for field, spec in choice.items()
+            if spec["rel_type"] == RelationshipName.INFORMS_CHOICE.value
+        }
+        assert informing == {"connections.informing_principles": "Principle"}
 
     def test_choice_requires_knowledge_for_decision_is_ingestible(self):
         """Choice YAML can author the REQUIRES_KNOWLEDGE_FOR_DECISION prerequisite edge.
@@ -94,8 +124,7 @@ class TestIngestionRelationshipConfig:
         was authorable from frontmatter; #865 gave it a method_key, this gives it a
         yaml_field_path. The field name is deliberately NOT `requires_knowledge` —
         that is Goal's field for the different REQUIRES_KNOWLEDGE edge, and one
-        authoring name meaning two edges is the bug shape this module already guards
-        for principles (see test_choice_uses_informed_by_principle).
+        authoring name must not mean two edges (the Goal assertion below holds it).
         """
         config = ENTITY_CONFIGS[EntityType.CHOICE].relationship_config
         assert config is not None

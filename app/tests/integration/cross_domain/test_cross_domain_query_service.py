@@ -12,6 +12,7 @@ One user (``user.xdq``) owns:
 - principle_1 ("Continuous Learning")
     - SUPPORTS_GOAL -> goal_1
     - INSPIRES_HABIT -> habit_1
+    - INFORMS_CHOICE -> choice_1
 - goal_1 ("Ship v2")
     - goal_1 <-[FULFILLS_GOAL]- task_1 (active)
     - goal_1 <-[CONTRIBUTES_TO_GOAL]- task_2 (active)
@@ -25,11 +26,12 @@ One user (``user.xdq``) owns:
 - habit_1 ("Morning reading") — status: active, streak 12, rate 0.85
     - REINFORCES_KNOWLEDGE -> ku_1
     - REINFORCES_KNOWLEDGE -> ku_2
+    - INFORMS_CHOICE -> choice_2 (a habit informer: not a principle)
 - habit_2 ("Exercise") — status: active, no KU links
 - choice_1 (recent, aligned)
-    - ALIGNED_WITH_PRINCIPLE -> principle_1
+    - principle_1 -[INFORMS_CHOICE]-> it
     - satisfaction_score: 4.5
-- choice_2 (recent, no alignment)
+- choice_2 (recent, no principle — informed by habit_1 only)
 - choice_3 (recent, conflicting)
     - CONFLICTS_WITH_PRINCIPLE -> principle_1
 - ku_1 ("Python Basics")
@@ -296,13 +298,21 @@ async def graph(neo4j_driver, clean_neo4j):
             """,
         )
 
-        # Choice -> Principle: ALIGNED_WITH_PRINCIPLE, CONFLICTS_WITH_PRINCIPLE
+        # Principle -> Choice: INFORMS_CHOICE, the one principle-choice link.
         await s.run(
             """
             MATCH (c:Entity {uid: 'choice_aligned_xdq'}), (p:Entity {uid: 'principle_cl_xdq'})
-            CREATE (c)-[:ALIGNED_WITH_PRINCIPLE]->(p)
+            CREATE (p)-[:INFORMS_CHOICE]->(c)
             """,
         )
+        # A habit informs a choice over the same edge type; it is not a principle.
+        await s.run(
+            """
+            MATCH (c:Entity {uid: 'choice_plain_xdq'}), (h:Entity {uid: 'habit_reading_xdq'})
+            CREATE (h)-[:INFORMS_CHOICE]->(c)
+            """,
+        )
+        # Choice -> Principle: CONFLICTS_WITH_PRINCIPLE
         await s.run(
             """
             MATCH (c:Entity {uid: 'choice_conflict_xdq'}), (p:Entity {uid: 'principle_cl_xdq'})
@@ -493,7 +503,7 @@ class TestChoicePrincipleAdherence:
         assert result.is_ok
         adh = result.value
         assert adh.total_choices == 3
-        assert adh.aligned_count == 1  # only choice_aligned has ALIGNED_WITH_PRINCIPLE
+        assert adh.aligned_count == 1  # only choice_aligned is informed by a principle
 
         # Verify per-choice detail
         detail_map = {d.choice_uid: d for d in adh.choice_details}
@@ -502,7 +512,7 @@ class TestChoicePrincipleAdherence:
         assert "principle_cl_xdq" in aligned.principle_uids
         assert aligned.satisfaction == pytest.approx(4.5)
 
-        # Unaligned choice has empty principle_uids
+        # The habit-informed choice has empty principle_uids
         plain = detail_map["choice_plain_xdq"]
         assert plain.principle_uids == ()
 

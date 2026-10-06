@@ -245,6 +245,11 @@ class TestHandleChoiceOutcomeRecorded:
             await service_full.handle_choice_outcome_recorded(event)
             log_calls = [c for c in mock_log.call_args_list if "positive outcome" in str(c).lower()]
             assert len(log_calls) == 1
+        # The mock answers any key, so pin the one the handler asks: the choice's view of
+        # (Principle)-[:INFORMS_CHOICE]->(Choice).
+        mock_relationships.get_related_uids.assert_awaited_once_with(
+            "informing_principles", "choice_test_abc"
+        )
 
     @pytest.mark.asyncio
     async def test_fire_and_forget_contract(
@@ -319,6 +324,9 @@ class TestHandleChoiceMade:
         mock_insight_store.create_insight.assert_called_once()
         insight = mock_insight_store.create_insight.call_args[0][0]
         assert "Principle-Aligned" in insight.title
+        mock_relationships.get_related_uids.assert_awaited_once_with(
+            "informing_principles", "choice_test_abc"
+        )
 
     @pytest.mark.asyncio
     async def test_complex_unaligned_persists_alignment_insight(

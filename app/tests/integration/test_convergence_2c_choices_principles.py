@@ -10,7 +10,7 @@ domain-named aliases were deleted in the tasks bloat campaign.)
 These two domains gain the most: their ``default_context_intent`` is HIERARCHICAL
 (``HAS_CHILD`` / ``PARENT_OF`` / ``CHILD_OF``), which surfaces almost nothing — a
 Choice/Principle is rarely a tree node. Their real edges (AFFECTS_GOAL, SUPPORTS_GOAL,
-INFORMED_BY_PRINCIPLE, …) live only in the registry, so registry-sourcing is the
+INFORMS_CHOICE, …) live only in the registry, so registry-sourcing is the
 headline win. Two things must hold:
 
 1. **Delegation, no recursion.** The intelligence ``get_with_context`` must route

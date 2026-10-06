@@ -396,6 +396,14 @@ _GOAL_PRINCIPLE_UNLINK = PlannedEntry(
     "controls arc (docs/roadmap/activity-links-arc.md R8)",
     since=date(2026, 10, 5),
 )
+# Activity links arc (2026-10): a principle's informing link to a choice is unlinked at
+# the service; the page controls that call it are the arc after (R8).
+_CHOICE_PRINCIPLE_UNLINK = PlannedEntry(
+    Readiness.DELAYED,
+    "service-level unlink of a principle from a choice; waits on the link/unlink page "
+    "controls arc (docs/roadmap/activity-links-arc.md R8)",
+    since=date(2026, 10, 5),
+)
 _GOALS_INSIGHTS = PlannedEntry(
     Readiness.DELAYED,
     "goal analytics/AI insight surface staged (feasibility, what-if scenarios, "
@@ -856,6 +864,7 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Choices: gravity links (inlined from _relationship_mixin into facade) ---
     "core/services/choices_service.py::link_choice_to_habit": _CHOICES_GRAVITY,
     "core/services/choices_service.py::create_semantic_choice_relationship": _CHOICES_GRAVITY,
+    "core/services/choices_service.py::unlink_choice_from_principle": _CHOICE_PRINCIPLE_UNLINK,
     # --- Choices: fast-path decision screening ---
     "core/services/choices/_analytics_mixin.py::get_quick_decision_metrics": (
         _CHOICES_QUICK_METRICS

@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-10-01
+updated: 2026-10-06
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -66,7 +66,7 @@ class ChoicesService(
 |-------|------|---------|
 | `_OptionManagementMixin` | `_option_management_mixin.py` | `add_option`, `update_option`, `remove_option`, `make_decision` |
 
-Graph relationship methods (`link_choice_to_goal/habit/principle`, `create_semantic_choice_relationship`, `find_choices_aligned_with_principle`) are inline on `ChoicesService` directly — inlined June 2026 per the decomposition floor rule.
+Graph relationship methods (`link_choice_to_goal/habit/principle`, `unlink_choice_from_principle`, `create_semantic_choice_relationship`, `find_choices_aligned_with_principle`) are inline on `ChoicesService` directly — inlined June 2026 per the decomposition floor rule.
 
 **Sub-services:**
 | Service | Purpose |
@@ -129,7 +129,6 @@ Each option in `options` list:
 | Key | Relationship | Target | Description |
 |-----|--------------|--------|-------------|
 | `knowledge` | `INFORMED_BY_KNOWLEDGE` | Ku | Knowledge that informed decision (YAML: `connections.informed_by_knowledge`) |
-| `principles` | `INFORMED_BY_PRINCIPLE` | Principle | Principles that guided decision |
 | `goals` | `AFFECTS_GOAL` | Goal | Goals affected by choice |
 | `learning_paths` | `OPENS_LEARNING_PATH` | Lp | Learning paths opened by choice |
 
@@ -137,8 +136,18 @@ Each option in `options` list:
 
 | Key | Relationship | Source | Description |
 |-----|--------------|--------|-------------|
-| `inspired_choices` | `INSPIRED_BY_CHOICE` | Choice | Choices inspired by this one |
+| `inspired_choices` | `INSPIRED_BY_CHOICE` | Goal | Goals this choice inspired |
 | `implementing_tasks` | `IMPLEMENTS_CHOICE` | Task | Tasks implementing this choice |
+| `informing_principles` | `INFORMS_CHOICE` | Principle | Principles that inform this choice (YAML: `connections.informing_principles`). One edge per principle ↔ choice link, read from the principle as `informed_choices` |
+| `informing_habits` | `INFORMS_CHOICE` | Habit | Habits that inform this choice |
+
+`INFORMS_CHOICE` has three kinds of source — principles, habits and PathSteps (`choice_uids`) — so
+each choice view names its kind: a keyed read of `informing_principles` returns principles only, and
+`informing_habits` habits only. A PathStep that informs the choice is on no choice view.
+
+`related_choices` is a shared-neighbour view: other choices that affect the same goal
+(`AFFECTS_GOAL`). `generate_graph_enrichment` leaves it out of the patterns it computes, as it
+leaves out every shared-neighbour view (no search service reads those patterns today).
 
 ## Events/Publishing
 
@@ -309,12 +318,31 @@ result = await choices_service.add_option(
 )
 ```
 
+### Link a Principle
+
+```python
+result = await choices_service.link_choice_to_principle(
+    choice_uid=choice.uid,
+    principle_uid="principle.continuous-learning",
+)
+```
+
+Writes `(Principle)-[:INFORMS_CHOICE]->(Choice)` — the one principle ↔ choice edge, with no
+properties. The principle's own door (`POST /api/principles/link`, `link_type=choice`) and
+`POST /api/choices/link-principle` both write it, as do a choice file's
+`connections.informing_principles` and a principle file's `connections.informs_choice`, so the link
+shows on both pages whichever door made it. Choice create has no principle field, and the DSL's
+`@context(choice) @link(principle:…)` is parsed and dropped (both registered in the
+[Activity Links arc](../roadmap/activity-links-arc.md#defects-found-by-the-census)).
+`unlink_choice_from_principle(uid, principle_uid)` removes the link and leaves a habit's informing
+link to the same choice alone; no HTTP route calls it.
+
 ## Cross-Domain Mappings
 
 | Field | Target Label | Relationships |
 |-------|--------------|---------------|
 | `knowledge` | Ku | `INFORMED_BY_KNOWLEDGE` |
-| `principles` | Principle | `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE` |
+| `informing_principles` | Principle | `INFORMS_CHOICE` (incoming) |
 | `goals` | Goal | `AFFECTS_GOAL` |
 
 ## Query Intent
@@ -397,7 +425,7 @@ compose their Cypher spelling (`adapters/persistence/neo4j/query/cypher/choice_f
 
 ## See Also
 
-- [Principles Domain](principles.md) - Principles guide choices
+- [Principles Domain](principles.md) - Principles inform choices
 - [Goals Domain](goals.md) - Choices affect goals
 - [Knowledge (KU) Domain](ku.md) - Knowledge informs choices
 - [Tasks Domain](tasks.md) - Tasks implement choices

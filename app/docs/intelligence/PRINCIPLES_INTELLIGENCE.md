@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-05
+updated: 2026-10-06
 ---
 
 # PrinciplesIntelligenceService - Cross-Domain Principle Alignment & Conflict Detection
@@ -761,11 +761,12 @@ Uses `PrincipleRelationships.fetch()` for typed relationship access:
 - `grounded_knowledge_uids` - Knowledge grounding the principle
 - `supported_goal_uids` - Goals this principle supports
 - `inspired_habit_uids` - Habits embodying principle
+- `informed_choice_uids` - Choices this principle informs (`INFORMS_CHOICE`)
 - `related_principle_uids` - Related or supporting principles
 
 **Helper Methods:**
 - `has_any_knowledge()` - Checks if principle has knowledge foundation
-- `is_integrated()` - Checks if principle guides actions (goals or habits)
+- `is_integrated()` - Checks if principle guides actions (it supports a goal, inspires a habit, informs a choice or has an aligned task)
 - `total_influence_count()` - Sum of all guided activities
 
 ### Canonical Cross-Domain Reader
@@ -782,9 +783,9 @@ Uses the single path-aware typed reader
 ```python
 {
     "adherence_score": float,           # 0.0-1.0 alignment score
-    "goal_count": int,                  # Goals guided by principle
+    "goal_count": int,                  # Goals the principle supports
     "habit_count": int,                 # Habits inspired by principle
-    "choice_count": int,                # Choices guided by principle
+    "choice_count": int,                # Choices the principle informs (INFORMS_CHOICE)
     "knowledge_count": int,             # Knowledge grounding principle
     "total_influence_count": int,       # Sum of all activities
     "needs_attention": bool,            # adherence_score < 0.4

@@ -47,7 +47,7 @@ class _GravityMixin:
         PrincipleLinkType.HABIT: "inspired_habits",
         PrincipleLinkType.KNOWLEDGE: "knowledge",
         PrincipleLinkType.PRINCIPLE: "supporting_principles",
-        PrincipleLinkType.CHOICE: "guided_choices",
+        PrincipleLinkType.CHOICE: "informed_choices",
     }
 
     # The properties a link type's edge is written with. Partial by design: a link

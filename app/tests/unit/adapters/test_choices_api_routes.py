@@ -163,7 +163,10 @@ class TestOwnershipVerification:
 
 
 class TestLinkPrincipleHappyPath:
-    def test_link_awaited_with_exact_args(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_link_links_the_pair_and_carries_no_score(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The edge carries no properties: a stray alignment_score in the body is ignored.
         harness = _make_harness(monkeypatch)
 
         response = _post_json(
@@ -179,7 +182,7 @@ class TestLinkPrincipleHappyPath:
         assert response.status_code == 200
         assert response.json() == {"linked": True}
         harness.choices.link_choice_to_principle.assert_awaited_once_with(
-            _CHOICE_UID, _PRINCIPLE_UID, 0.75
+            _CHOICE_UID, _PRINCIPLE_UID
         )
 
 

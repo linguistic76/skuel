@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-10-06
 ---
 
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
@@ -653,7 +653,7 @@ async def get_domain_decision_patterns(
 
 ### Method 10: analyze_principle_adherence()
 
-**Purpose:** Analyze how consistently the user's choices align with their stated principles over a time period. Pure Cypher query — counts ALIGNED_WITH_PRINCIPLE relationships on choices created within the window.
+**Purpose:** Analyze how consistently the user's choices align with their stated principles over a time period. Pure Cypher query (`CrossDomainBackend.get_choice_principle_adherence`) — reads the principles that inform each choice created within the window (`(Principle)-[:INFORMS_CHOICE]->(Choice)`, whichever page made the link).
 
 **Signature:**
 ```python
@@ -666,58 +666,7 @@ async def analyze_principle_adherence(
 
 ---
 
-### Method 11: detect_principle_choice_conflicts()
-
-**Purpose:** Detect direct and implicit conflicts between a specific choice and the user's principles. Checks CONFLICTS_WITH_PRINCIPLE edges and flags high-impact choices with zero principle alignment.
-
-**Signature:**
-```python
-async def detect_principle_choice_conflicts(
-    self, choice_uid: str, user_uid: UserUID
-) -> Result[dict[str, Any]]:
-```
-
-**Returns:** `has_conflicts`, `direct_conflicts` (with severity), `unaligned_warning`, `mitigation_strategies`.
-
----
-
-### Method 12: predict_decision_quality()
-
-**Purpose:** Predict expected decision quality using a 4-factor model before the choice is made.
-
-**Signature:**
-```python
-async def predict_decision_quality(
-    self, choice_uid: str, user_uid: UserUID
-) -> Result[dict[str, Any]]:
-```
-
-**4-Factor Model:**
-- Principle alignment: 35% weight
-- Knowledge-informed: 25% weight
-- Historical correlation (past aligned vs unaligned satisfaction): 25% weight
-- Complexity-guidance ratio: 15% weight
-
-**Returns:** `predicted_quality_score` (0.0–1.0), `confidence`, `quality_factors` breakdown, `historical_correlation`, `recommendations`.
-
----
-
-### Method 13: calculate_life_path_contribution_via_principles()
-
-**Purpose:** Trace the contribution chain `Choice → Principle → LifePath` via graph traversal. Combines direct SERVES_LIFE_PATH (60%) with principle-mediated contribution (40%).
-
-**Signature:**
-```python
-async def calculate_life_path_contribution_via_principles(
-    self, choice_uid: str, user_uid: UserUID
-) -> Result[dict[str, Any]]:
-```
-
-**Returns:** `total_contribution_score`, `direct_contribution`, `principle_mediated_contribution`, `contributing_principles`, `life_path_uid`.
-
----
-
-### Method 14: get_zpd_behavioral_signals() (ZPD Bridge — March 2026)
+### Method 11: get_zpd_behavioral_signals() (ZPD Bridge — March 2026)
 
 **Purpose:** Extract behavioral readiness signals for ZPDService consumption. Aggregates choice history into signals that indicate the user's readiness to engage with new knowledge.
 
@@ -848,7 +797,7 @@ from core.models.graph.path_aware_types import (
 
 Uses `ChoiceRelationships.fetch()` for typed relationship access:
 - `informed_by_knowledge_uids` - Knowledge informing decision
-- `aligned_principle_uids` - Principles guiding decision
+- `informing_principle_uids` - Principles that inform the decision (`INFORMS_CHOICE`, principles only)
 - `opens_learning_path_uids` - Learning paths enabled by choice
 - `required_knowledge_uids` - Knowledge needed for decision
 
@@ -873,10 +822,10 @@ Uses typed context retrieval with:
 > `analyze_choice_impact` (the `/api/choices/insights` path) and `get_decision_intelligence`
 > build their `PathAwareGoal`/`PathAwarePrinciple`/`PathAwareKnowledge` lists from
 > `get_cross_domain_context`'s `context_field_name` buckets — `affected_goals`,
-> `aligned_principles` ∪ `guiding_principles` (INFORMED_BY_PRINCIPLE out + GUIDES_CHOICE
-> in), `informed_by_knowledge` — NOT generic domain keys (which the config never emits and
+> `informing_principles` (`INFORMS_CHOICE` from a principle — one edge whichever page made the
+> link), `informed_by_knowledge` — NOT generic domain keys (which the config never emits and
 > left these methods silently empty pre-#218). Because the producer query returns one
-> entry per *path* (not per uid), the `_union_buckets`/`_path_rank` helpers de-dup by uid
+> entry per *path* (not per uid), the `_union_path_buckets`/`_path_rank` helpers (`core/models/graph/path_aware_types.py`) de-dup by uid
 > keeping the lowest-`distance`/highest-`path_strength` entry. See the gotcha box in
 > `docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`.
 

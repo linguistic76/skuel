@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-10-05
+updated: 2026-10-06
 status: current
 category: architecture
 tags:
@@ -1094,7 +1094,12 @@ Key design: **query text is OPTIONAL** — filter-only search is valid, end to e
 
 ## Domain-Specific Graph Search
 
-`SearchRouter` has handlers for each domain that build the `_graph_context`:
+A search result's `_graph_context` is built by `graph_aware_faceted_search` from the service's
+own `_graph_enrichment_patterns`. Only `ExerciseService` and `RevisedExerciseService` set them; the
+six Activity search services set none, so a Task, Goal, Habit, Event, Choice or Principle result
+carries no `_graph_context`. The Activity rows below are the keys their `DomainConfig` computes from
+the relationship registry (`graph_enrichment_patterns`), a field nothing reads today (registered in
+`docs/roadmap/activity-links-arc.md` § Defects found by the census).
 
 | Domain | Graph Context Fields |
 |--------|---------------------|
@@ -1103,8 +1108,8 @@ Key design: **query text is OPTIONAL** — filter-only search is valid, end to e
 | Goals | required_knowledge, contributing_tasks, sub_goals |
 | Habits | reinforced_knowledge, supporting_goals |
 | Events | applied_knowledge, linked_goals |
-| Choices | informed_by_knowledge, guided_by_principles |
-| Principles | grounding_knowledge, supported_goals |
+| Choices | informed_by_knowledge, informing_principles, informing_habits |
+| Principles | grounding_knowledge, supported_goals, informed_choices |
 | Exercise | required_knowledge, for_groups, submissions (incoming) |
 | RevisedExercise | responds_to_feedback, revises_exercise, submissions (incoming) |
 | Submission | fulfills_exercise, reports_received (incoming) |

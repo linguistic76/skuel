@@ -11,8 +11,8 @@ Neither name is a field on ``Choice`` or ``ChoiceDTO``, so the ``None`` default 
 sums **structurally 0 for every input** — no error, no warning. ``principle_aligned_percentage``,
 ``goal_oriented_percentage``, ``principle_alignment_score`` and the ``strategic_vs_tactical``
 band derived from them were therefore pinned at 0.0 / "tactical" for every user forever.
-The data was never on the row: it lives on edges — ``INFORMED_BY_PRINCIPLE`` and
-``GUIDES_CHOICE`` for principles, ``AFFECTS_GOAL`` for goals — which is what the fix reads.
+The data was never on the row: it lives on edges — ``(Principle)-[:INFORMS_CHOICE]->``
+for principles, ``AFFECTS_GOAL`` for goals — which is what the fix reads.
 
 Most of these are RED before the fix (measured: 0.0 where a fraction is expected,
 ``"tactical"`` where ``"balanced"`` is, ``None`` where a principle UID is), because the
@@ -25,16 +25,18 @@ Two tests are not RED, and both exist to stop the others being satisfied by a co
 ``test_service_refuses_to_construct_without_relationships`` (a 0.0 that is really a
 missing dependency must never be reported as an answer at all).
 
-The seeding carries three controls, one per way a fix can be wrong:
+The seeding carries four controls, one per way a fix can be wrong:
 
 - ``align_c_bare`` — in the window, no edges. Keeps the percentages fractional, so a fix
   that counted every choice reads 1.0 instead of 3/5.
 - ``align_c_old`` — outside the window, fully linked. Fails the counts if the alignment
   read escapes the ``days`` window that #859 established.
-- ``align_c_guided`` — linked *only* by the incoming ``(Principle)-[:GUIDES_CHOICE]->``
-  direction, which ``PrinciplesService.create_principle_link(link_type="choice")`` writes
-  from the principle side via ``POST /api/principles/links``. Reading only the outgoing
-  direction drops it and reads 2/5.
+- ``align_c_informed`` — informed *only* by a habit and a PathStep. ``INFORMS_CHOICE``
+  has three kinds of source, so a read that does not name ``Principle`` counts it as
+  principle-aligned (5/6, not 3/6). The habit and the PathStep each inform four choices
+  — more than any principle — so the same read would also make one of them the most
+  common "principle". ``align_c_mixed`` carries a principle beside them: its informers
+  are that principle alone.
 
 See: tests/integration/test_choices_analytics_window.py (the window half, same fixture shape)
 """
@@ -54,17 +56,20 @@ from core.services.relationships import UnifiedRelationshipService
 
 USER = "user_choice_alignment"
 
-PRINCIPLE_ONLY = "align_c_principle"  # -[:INFORMED_BY_PRINCIPLE]-> p1
+PRINCIPLE_ONLY = "align_c_principle"  # p1 -[:INFORMS_CHOICE]-> it
 GOAL_ONLY = "align_c_goal"  # -[:AFFECTS_GOAL]-> g1
-BOTH = "align_c_both"  # -> p1, p2, g1
+BOTH = "align_c_both"  # informed by p1, p2; -> g1
 BARE = "align_c_bare"  # no edges — keeps the percentages fractional
-GUIDED = "align_c_guided"  # p1 -[:GUIDES_CHOICE]-> it — the incoming direction only
+MIXED = "align_c_mixed"  # informed by p1, a habit and a PathStep
+NON_PRINCIPLE = "align_c_informed"  # informed by a habit and a PathStep only
 OUT_OF_WINDOW = "align_c_old"  # 200 days old, fully linked — window control
 
 P1 = "align_p1"
 P2 = "align_p2"
-P3 = "align_p3"  # only ever linked from the out-of-window choice
+P3 = "align_p3"  # only ever linked to the out-of-window choice
 G1 = "align_g1"
+HABIT = "align_h1"  # informs four in-window choices — more than any principle
+PATH_STEP = "align_s1"  # likewise
 
 
 @pytest.mark.asyncio
@@ -73,7 +78,7 @@ class TestChoicesAlignmentMetrics:
 
     @pytest_asyncio.fixture
     async def intelligence(self, neo4j_driver, clean_neo4j):
-        """Seed six choices with a known edge layout and return the intelligence service."""
+        """Seed seven choices with a known edge layout and return the intelligence service."""
         now = datetime.now(UTC)
         in_window = (now - timedelta(days=10)).isoformat()
         out_window = (now - timedelta(days=200)).isoformat()
@@ -93,42 +98,55 @@ class TestChoicesAlignmentMetrics:
                     {"uid": GOAL_ONLY, "created_at": in_window},
                     {"uid": BOTH, "created_at": in_window},
                     {"uid": BARE, "created_at": in_window},
-                    {"uid": GUIDED, "created_at": in_window},
+                    {"uid": MIXED, "created_at": in_window},
+                    {"uid": NON_PRINCIPLE, "created_at": in_window},
                     {"uid": OUT_OF_WINDOW, "created_at": out_window},
                 ],
             )
             await session.run(
                 """
-                UNWIND $principles AS p CREATE (n:Entity:Principle {uid: p, user_uid: $u})
+                UNWIND $principles AS p
+                CREATE (n:Entity:Principle {uid: p, user_uid: $u, entity_type: 'principle'})
                 """,
                 u=USER,
                 principles=[P1, P2, P3],
             )
             await session.run("CREATE (n:Entity:Goal {uid: $g, user_uid: $u})", g=G1, u=USER)
-            # p1 is linked from two in-window choices, p2 from one — so p1 wins the
-            # most_common aggregation. p3 hangs off the out-of-window choice only.
+            await session.run(
+                "CREATE (n:Entity:Habit {uid: $h, user_uid: $u, entity_type: 'habit'})",
+                h=HABIT,
+                u=USER,
+            )
+            await session.run(
+                """
+                CREATE (n:Entity:PathStep {uid: $s, entity_type: 'path_step',
+                                           publication_state: 'published'})
+                """,
+                s=PATH_STEP,
+            )
+            # One edge per principle-choice link, (Principle)-[:INFORMS_CHOICE]->(Choice),
+            # whichever door wrote it. p1 informs three in-window choices, p2 one — so p1
+            # wins the most_common aggregation. p3 informs the out-of-window choice only.
+            # The habit and the PathStep inform four in-window choices each: more than p1,
+            # so a read that counted them as principles would name one the most common.
             await session.run(
                 """
                 UNWIND $pairs AS e
-                MATCH (c:Entity {uid: e[0]}), (p:Entity {uid: e[1]})
-                CREATE (c)-[:INFORMED_BY_PRINCIPLE]->(p)
+                MATCH (s:Entity {uid: e[0]}), (c:Entity {uid: e[1]})
+                CREATE (s)-[:INFORMS_CHOICE]->(c)
                 """,
                 pairs=[
-                    [PRINCIPLE_ONLY, P1],
-                    [BOTH, P1],
-                    [BOTH, P2],
-                    [OUT_OF_WINDOW, P3],
+                    [P1, PRINCIPLE_ONLY],
+                    [P1, BOTH],
+                    [P2, BOTH],
+                    [P1, MIXED],
+                    [P3, OUT_OF_WINDOW],
+                    *(
+                        [informer, choice]
+                        for informer in (HABIT, PATH_STEP)
+                        for choice in (MIXED, NON_PRINCIPLE, GOAL_ONLY, PRINCIPLE_ONLY)
+                    ),
                 ],
-            )
-            # The other direction: (Principle)-[:GUIDES_CHOICE]->(Choice), written from the
-            # principle side by PrinciplesService.create_principle_link(link_type="choice").
-            await session.run(
-                """
-                UNWIND $pairs AS e
-                MATCH (p:Entity {uid: e[0]}), (c:Entity {uid: e[1]})
-                CREATE (p)-[:GUIDES_CHOICE]->(c)
-                """,
-                pairs=[[P1, GUIDED], [P1, BOTH]],
             )
             await session.run(
                 """
@@ -158,35 +176,35 @@ class TestChoicesAlignmentMetrics:
         )
 
     async def test_principle_alignment_is_read_from_edges(self, intelligence):
-        """3 of the 5 in-window choices carry a principle edge, in either direction."""
+        """3 of the 6 in-window choices are informed by a principle."""
         result = await intelligence.get_decision_patterns(USER, days=30)
         assert result.is_ok, f"get_decision_patterns failed: {result}"
 
         metrics = result.value["decision_metrics"]
-        assert metrics["total_choices"] == 5, "window control: the 200-day-old choice leaked in"
-        assert metrics["principle_aligned_percentage"] == pytest.approx(3 / 5), (
+        assert metrics["total_choices"] == 6, "window control: the 200-day-old choice leaked in"
+        assert metrics["principle_aligned_percentage"] == pytest.approx(3 / 6), (
             "0.0 = still reading the non-existent Choice.aligned_principles field; "
-            "0.4 = only the outgoing INFORMED_BY_PRINCIPLE direction, dropping the "
-            "GUIDES_CHOICE-only choice; 1.0 = counting every choice regardless of links"
+            "5/6 = counting a habit or PathStep informer as a principle; "
+            "1.0 = counting every choice regardless of links"
         )
 
     async def test_goal_orientation_is_read_from_edges(self, intelligence):
-        """2 of the 5 in-window choices carry an AFFECTS_GOAL edge. Pre-fix: 0.0."""
+        """2 of the 6 in-window choices carry an AFFECTS_GOAL edge. Pre-fix: 0.0."""
         result = await intelligence.get_decision_patterns(USER, days=30)
 
-        assert result.value["decision_metrics"]["goal_oriented_percentage"] == pytest.approx(0.4)
+        assert result.value["decision_metrics"]["goal_oriented_percentage"] == pytest.approx(2 / 6)
 
     async def test_principle_alignment_score_tracks_the_percentage(self, intelligence):
         """decision_quality.principle_alignment_score is the same ratio. Pre-fix: 0.0."""
         result = await intelligence.get_decision_patterns(USER, days=30)
 
         quality = result.value["decision_quality"]
-        assert quality["principle_alignment_score"] == pytest.approx(3 / 5)
+        assert quality["principle_alignment_score"] == pytest.approx(3 / 6)
 
     async def test_strategic_band_is_no_longer_pinned_to_tactical(self, intelligence):
         """The band is derived from goal_oriented_percentage, so it was always 'tactical'.
 
-        At 0.5 the band is "balanced" — the assertion that matters is that the band can
+        At 1/3 the band is "balanced" — the assertion that matters is that the band can
         now move off the floor at all.
         """
         result = await intelligence.get_decision_patterns(USER, days=30)
@@ -194,7 +212,11 @@ class TestChoicesAlignmentMetrics:
         assert result.value["patterns"]["strategic_vs_tactical"] == "balanced"
 
     async def test_most_common_principle_is_aggregated(self, intelligence):
-        """p1 is linked from three in-window choices, p2 from one. Pre-fix: hardcoded None."""
+        """p1 informs three in-window choices, p2 one. Pre-fix: hardcoded None.
+
+        The habit and the PathStep inform four each; neither is a principle, so neither
+        may win the tally.
+        """
         result = await intelligence.get_decision_patterns(USER, days=30)
 
         assert result.value["patterns"]["most_common_principle"] == P1
@@ -204,26 +226,27 @@ class TestChoicesAlignmentMetrics:
         wide = await intelligence.get_decision_patterns(USER, days=365)
 
         metrics = wide.value["decision_metrics"]
-        assert metrics["total_choices"] == 6
-        assert metrics["principle_aligned_percentage"] == pytest.approx(4 / 6)
-        assert metrics["goal_oriented_percentage"] == pytest.approx(3 / 6)
+        assert metrics["total_choices"] == 7
+        assert metrics["principle_aligned_percentage"] == pytest.approx(4 / 7)
+        assert metrics["goal_oriented_percentage"] == pytest.approx(3 / 7)
 
-    async def test_both_directions_union_without_double_counting(self, intelligence):
-        """`align_c_both` carries p1 in *both* directions — it must appear once.
+    async def test_only_principles_are_read_as_informers(self, intelligence):
+        """A choice's informing principles are its principle informers and nothing else.
 
-        The public dict only exposes the winner of the aggregation, so this reads the
-        helper directly. Without the dedupe p1 would be counted twice for this one choice,
-        inflating the most-common tally against a principle linked only one way.
+        The public dict only exposes the aggregates, so this reads the helper directly:
+        a habit or PathStep informing the choice is not one of its principles.
         """
         links, _goals = (
-            await intelligence._fetch_alignment_links([BOTH, GUIDED, PRINCIPLE_ONLY, BARE])
+            await intelligence._fetch_alignment_links(
+                [BOTH, MIXED, NON_PRINCIPLE, PRINCIPLE_ONLY, BARE]
+            )
         ).value
 
-        # Compared as sets plus a length check: the dedupe is what is under test, and the
-        # order inside each list comes from Neo4j's collect(), which is not guaranteed.
+        # Compared as a sorted list: the order inside each list comes from Neo4j's
+        # collect(), which is not guaranteed.
         assert sorted(links[BOTH]) == [P1, P2]
-        assert len(links[BOTH]) == 2, "p1 double-counted across the two edge directions"
-        assert links[GUIDED] == [P1], "incoming GUIDES_CHOICE direction not read"
+        assert links[MIXED] == [P1], "a habit or PathStep informer read as a principle"
+        assert links[NON_PRINCIPLE] == [], "a habit or PathStep informer read as a principle"
         assert links[PRINCIPLE_ONLY] == [P1]
         assert links[BARE] == []
 

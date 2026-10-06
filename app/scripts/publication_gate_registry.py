@@ -411,6 +411,15 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.cross_domain_backend",
+        "<module>:_ADHERENCE_PRINCIPLE_WALL",
+        Disposition.GATED,
+        "The ZPD choice-adherence read: the principles that inform the user's "
+        "choices, behind the far-node wall every reader of INFORMS_CHOICE composes "
+        "— another user's principle is left out, and a shared one only when it is "
+        "not a draft. Composed at module level because the statement is.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.cross_domain_backend",
         "CrossDomainBackend.find_knowledge_hubs",
         Disposition.GATED,
         "Ranks the KU corpus by connectivity.",
