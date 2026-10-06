@@ -28,9 +28,10 @@ behind. The run STOPS (exit 2) before any write while the graph holds:
   ``INFORMED_BY_PRINCIPLE`` edge that is not Choice → Principle — it would be
   stranded; a person removes each one;
 - a vault tracker row for an Edge file (``entity_uid`` ``edge:<from>|<TYPE>|<to>``)
-  naming either type — the Edge file must be rewritten by hand to
-  ``INFORMS_CHOICE`` (from the principle, to the choice); a rewritten row would
-  not match the file's next ingest.
+  naming either type — rewrite the Edge file by hand to ``INFORMS_CHOICE`` (from the
+  principle, to the choice) and sync the vault once, so the row takes the file's new
+  identity; then re-run. Only that sync changes the row: the script does not rewrite
+  it, since a rewritten row would not match the file's next ingest.
 
 Edges between other kinds that already carry ``INFORMS_CHOICE`` (a habit's, a
 PathStep's ``choice_uids``) are not touched.
@@ -55,9 +56,20 @@ credentials resolve):
 
 1. Stop the running app.
 2. If a vault file still declares ``connections.guided_by_principle`` (a choice
-   file), rename it to ``connections.informing_principles``. Do NOT sync a file
-   that still declares the retired field: once it is re-ingested it declares no
-   principle link, and the retraction deletes the edge its tracker row records.
+   file), rename it to ``connections.informing_principles`` before that file is
+   synced again. The retired field writes no edge, so a re-ingest of the file reads
+   it as declaring no principle link:
+
+   - synced BEFORE ``--confirm``: the row's old key cannot be decoded, so nothing
+     is retracted (a warning is logged), the row is re-stamped without the key, and
+     the choice node gains a ``connections.guided_by_principle`` property. The
+     migrated edge then has no tracker key, so dropping the link from the vault
+     later never retracts it;
+   - synced AFTER ``--confirm``: the rewritten key decodes, and the retraction
+     deletes the migrated edge.
+
+   An Edge file naming a retired type is the one exception: it is synced once
+   after its hand edit, before the re-run (see above).
 3. Census (no flag), then ``--confirm``.
 4. ``./dev vault-sync --vault content`` if a file was edited; its fingerprint
    equals the rewritten row, so nothing is retracted.
@@ -348,9 +360,10 @@ async def main() -> int:
             print(
                 f"\nSTOP: the graph holds {_GUIDES_CHOICE} / {_INFORMED_BY} that the re-type "
                 "would leave behind. Both types leave the code with this change. Remove each "
-                "stranded edge, and rewrite each Edge file to "
-                f"{_INFORMS} (from the principle, to the choice), then re-run. "
-                "Nothing was written."
+                "stranded edge; rewrite each Edge file to "
+                f"{_INFORMS} (from the principle, to the choice) and run "
+                "`./dev vault-sync --vault content` so its tracker row takes the new identity. "
+                "Then re-run. Nothing was written."
             )
             return 2
         if not args.confirm:

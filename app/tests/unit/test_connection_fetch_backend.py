@@ -184,12 +184,13 @@ class TestPlacement:
                         uid="choice_1",
                         entity_uid="principle_1",
                     ),
-                    # The principle reads INFORMS_CHOICE outgoing only.
+                    # The principle reads INFORMS_CHOICE outgoing only: the same edge
+                    # to a choice, pointing into the principle, is placed nowhere.
                     _row(
                         "INFORMS_CHOICE",
                         outgoing=False,
-                        far="Habit",
-                        uid="habit_1",
+                        far="Choice",
+                        uid="choice_2",
                         entity_uid="principle_1",
                     ),
                 ]

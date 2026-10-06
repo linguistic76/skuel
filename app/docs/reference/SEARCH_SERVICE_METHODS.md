@@ -161,7 +161,9 @@ result = await ku_search.get_enables("ku.python-basics")
 Configure inherited behavior via class attributes:
 
 ```python
-class GoalsSearchService(BaseService["GoalsOperations", Goal]):
+# A hypothetical service showing every attribute; no Activity search service sets
+# _graph_enrichment_patterns (ExerciseService and RevisedExerciseService do).
+class ExampleSearchService(BaseService["GoalsOperations", Goal]):
     # Required
     _dto_class = GoalDTO
     _model_class = Goal

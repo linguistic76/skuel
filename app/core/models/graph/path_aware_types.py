@@ -109,8 +109,8 @@ class PathAwareGoal:
     Goal with path metadata showing HOW it's connected to source entity.
 
     Example:
-        Choice → Goal (direct SUPPORTS_GOAL, distance=1, strength=0.90)
-        Choice → Principle → Goal (indirect INFORMED_BY→GUIDES, distance=2, strength=0.78)
+        Choice → Goal (direct AFFECTS_GOAL, distance=1, strength=0.90)
+        Habit → Principle → Goal (indirect EMBODIES_PRINCIPLE → SUPPORTS_GOAL, distance=2)
     """
 
     uid: str
@@ -141,8 +141,8 @@ class PathAwarePrinciple:
     Principle with path metadata showing HOW it informs/guides source entity.
 
     Example:
-        Choice → Principle (direct INFORMED_BY, distance=1, strength=0.93)
-        Goal → Choice → Principle (indirect, distance=2, strength=0.81)
+        Choice ← Principle (direct, the principle's INFORMS_CHOICE, distance=1, strength=0.93)
+        Goal ← Principle (direct, the principle's SUPPORTS_GOAL, distance=1)
     """
 
     uid: str

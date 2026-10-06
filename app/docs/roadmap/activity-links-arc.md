@@ -658,7 +658,7 @@ choice-adherence query read the one edge.
 - **Migration.** One script (`scripts/migrations/principle_informs_choice_2026_10.py`): a census by
   default, writes under `--confirm` on the founder's go, run before any sync on the new code. Both
   types retire whole: an edge of either type that is not principle ↔ choice stops the run (exit 2),
-  and so does an Edge-file tracker row naming either type (an Edge YAML needs a hand edit). Tracker
+  and so does an Edge-file tracker row naming either type (its Edge YAML is rewritten by hand, then one sync). Tracker
   keys are rewritten by four mappings, of which only the choice file's outgoing key to a principle
   becomes `INFORMS_CHOICE|incoming|…` in practice. `alignment_score` is dropped.
 - **Defects.** Fixed: the choice-adherence query, the choice-effectiveness stats, both

@@ -18,7 +18,8 @@ above the principle. Each read through every path that lists a choice's principl
 - the rich-context statement's choice row (``guiding_principles``) and principle row
   (``guided_choices``);
 - the choice-alignment metric (``_fetch_alignment_links``, ``get_decision_patterns``);
-- the ZPD choice-adherence query (``get_choice_principle_adherence``);
+- the ZPD choice-adherence query (``get_choice_principle_adherence``), which also reads
+  no other user's principle and no draft shared one (its far-node wall);
 - the principle's choice-effectiveness stats (``GET /api/principles/choice-effectiveness``).
 
 Search enrichment emitting no shared-neighbour placeholder (a choice's
@@ -48,6 +49,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from core.models.enums import PublicationState
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.services.choices.choice_relationships import ChoiceRelationships
@@ -397,6 +399,69 @@ async def test_the_adherence_query_reads_the_principle_only(env: Env, informed: 
         assert details[choice] == [informed.principle]
     for choice in informed.non_principle_only:
         assert details[choice] == []
+
+
+async def test_the_adherence_query_reads_no_other_users_principle(env: Env) -> None:
+    """Another user's principle informing the caller's choice is behind the far-node wall.
+
+    The caller's own principle on the same choice is the control: the wall keeps the
+    caller's node and drops only the other user's.
+    """
+    choice = await create(env.client, "choices", f"{MARK} walled choice")
+    own = await create(env.client, "principles", f"{MARK} own principle")
+    foreign = f"principle_{MARK}_foreign"
+    await env.driver.execute_query(
+        """
+        MERGE (other:User {uid: $other})
+        CREATE (other)-[:OWNS]->(:Entity:Principle {
+            uid: $foreign, user_uid: $other, entity_type: 'principle', title: $title
+        })
+        """,
+        {"other": f"user_{MARK}_other", "foreign": foreign, "title": f"{MARK} foreign"},
+    )
+    await write_edge(env.driver, own, INFORMS_CHOICE, choice)
+    await write_edge(env.driver, foreign, INFORMS_CHOICE, choice)
+    backend = CrossDomainBackend(Neo4jQueryExecutor(env.driver))
+
+    adherence = await backend.get_choice_principle_adherence(CALLER, 30)
+
+    assert adherence.is_ok, adherence
+    (row,) = adherence.value
+    details = {detail["choice_uid"]: detail["principles"] for detail in row["choice_details"]}
+    assert details[choice] == [own]
+
+
+async def test_the_adherence_query_withholds_a_draft_shared_principle(env: Env) -> None:
+    """The far-node wall's shared arm: a principle nobody owns is read only if it is not
+    a draft. The published one on the same choice is the control."""
+    choice = await create(env.client, "choices", f"{MARK} shared-informed choice")
+    published = f"principle_{MARK}_shared_published"
+    draft = f"principle_{MARK}_shared_draft"
+    await env.driver.execute_query(
+        """
+        UNWIND [[$published, $published_state], [$draft, $draft_state]] AS shared
+        CREATE (:Entity:Principle {
+            uid: shared[0], entity_type: 'principle', title: shared[0],
+            publication_state: shared[1]
+        })
+        """,
+        {
+            "published": published,
+            "published_state": PublicationState.PUBLISHED.value,
+            "draft": draft,
+            "draft_state": PublicationState.DRAFT.value,
+        },
+    )
+    await write_edge(env.driver, published, INFORMS_CHOICE, choice)
+    await write_edge(env.driver, draft, INFORMS_CHOICE, choice)
+    backend = CrossDomainBackend(Neo4jQueryExecutor(env.driver))
+
+    adherence = await backend.get_choice_principle_adherence(CALLER, 30)
+
+    assert adherence.is_ok, adherence
+    (row,) = adherence.value
+    details = {detail["choice_uid"]: detail["principles"] for detail in row["choice_details"]}
+    assert details[choice] == [published]
 
 
 async def test_the_choice_effectiveness_counts_the_principles_three_choices(

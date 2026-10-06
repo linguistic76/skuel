@@ -1094,7 +1094,12 @@ Key design: **query text is OPTIONAL** — filter-only search is valid, end to e
 
 ## Domain-Specific Graph Search
 
-`SearchRouter` has handlers for each domain that build the `_graph_context`:
+A search result's `_graph_context` is built by `graph_aware_faceted_search` from the service's
+own `_graph_enrichment_patterns`. Only `ExerciseService` and `RevisedExerciseService` set them; the
+six Activity search services set none, so a Task, Goal, Habit, Event, Choice or Principle result
+carries no `_graph_context`. The Activity rows below are the keys their `DomainConfig` computes from
+the relationship registry (`graph_enrichment_patterns`), a field nothing reads today (registered in
+`docs/roadmap/activity-links-arc.md` § Defects found by the census).
 
 | Domain | Graph Context Fields |
 |--------|---------------------|

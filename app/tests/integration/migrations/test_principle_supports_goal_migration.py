@@ -31,6 +31,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from structlog.testing import capture_logs
 
 from core.models.enums.entity_enums import EntityType
 from core.services.ingestion.authored_edges import authored_edge_fingerprint
@@ -552,10 +553,14 @@ class TestRowsARealSyncWrote:
         migrated = _between(await _edges(driver), VAULT_PRINCIPLE, VAULT_GOAL)
         assert migrated == [("SUPPORTS_GOAL", VAULT_PRINCIPLE, VAULT_GOAL, DEFAULTS)]
 
-        await sync_vault(driver, vault, force=True)
+        with capture_logs() as logs:
+            await sync_vault(driver, vault, force=True)
 
         assert _between(await _edges(driver), VAULT_PRINCIPLE, VAULT_GOAL) == migrated
         assert await _authored(driver) == stored
+        # A key the migration left naming a retired type would be dropped here with a
+        # warning instead of being matched; the re-sync must drop none.
+        assert [log for log in logs if "not retracted" in str(log.get("event"))] == []
 
     async def test_dropping_the_field_from_both_files_then_retracts_the_migrated_edge(
         self, synced_then_set_back

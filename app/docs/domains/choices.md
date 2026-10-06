@@ -146,7 +146,8 @@ each choice view names its kind: a keyed read of `informing_principles` returns 
 `informing_habits` habits only. A PathStep that informs the choice is on no choice view.
 
 `related_choices` is a shared-neighbour view: other choices that affect the same goal
-(`AFFECTS_GOAL`). Search enrichment leaves it out, as it leaves out every shared-neighbour view.
+(`AFFECTS_GOAL`). `generate_graph_enrichment` leaves it out of the patterns it computes, as it
+leaves out every shared-neighbour view (no search service reads those patterns today).
 
 ## Events/Publishing
 

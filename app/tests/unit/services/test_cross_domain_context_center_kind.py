@@ -284,16 +284,29 @@ async def test_a_choice_reached_through_a_habits_edge_is_in_no_principle_bucket(
 
 
 @pytest.mark.asyncio
-async def test_a_co_informer_of_the_principles_choice_is_in_no_principle_bucket() -> None:
-    """principle -INFORMS_CHOICE-> choice <-INFORMS_CHOICE- habit: the principle reads
-    INFORMS_CHOICE outgoing only, so the habit pointing out of itself lands nowhere."""
-    co_informer = _row(
-        "habit_co",
-        "Habit",
+async def test_a_choice_pointing_out_of_itself_is_in_no_principle_bucket() -> None:
+    """The principle reads INFORMS_CHOICE outgoing only: a choice row whose incident edge
+    points OUT of the choice lands nowhere, while the same row pointing into the choice
+    (the control) is an informed choice. Label and centre kind admit both rows, so the
+    direction alone decides."""
+    reversed_row = _row(
+        "choice_reversed",
+        "Choice",
         "INFORMS_CHOICE",
         into_related=False,
-        distance=2,
-        other_is_center_kind=False,
+        distance=1,
+        other_is_center_kind=True,
+    )
+    informed = _row(
+        "choice_informed",
+        "Choice",
+        "INFORMS_CHOICE",
+        into_related=True,
+        distance=1,
+        other_is_center_kind=True,
     )
 
-    assert await _context(PRINCIPLES_CONFIG, [co_informer]) == {}
+    assert await _context(PRINCIPLES_CONFIG, [reversed_row]) == {}
+    assert await _context(PRINCIPLES_CONFIG, [reversed_row, informed]) == {
+        "informed_choices": ["choice_informed"]
+    }

@@ -666,58 +666,7 @@ async def analyze_principle_adherence(
 
 ---
 
-### Method 11: detect_principle_choice_conflicts()
-
-**Purpose:** Detect direct and implicit conflicts between a specific choice and the user's principles. Checks CONFLICTS_WITH_PRINCIPLE edges and flags high-impact choices with zero principle alignment.
-
-**Signature:**
-```python
-async def detect_principle_choice_conflicts(
-    self, choice_uid: str, user_uid: UserUID
-) -> Result[dict[str, Any]]:
-```
-
-**Returns:** `has_conflicts`, `direct_conflicts` (with severity), `unaligned_warning`, `mitigation_strategies`.
-
----
-
-### Method 12: predict_decision_quality()
-
-**Purpose:** Predict expected decision quality using a 4-factor model before the choice is made.
-
-**Signature:**
-```python
-async def predict_decision_quality(
-    self, choice_uid: str, user_uid: UserUID
-) -> Result[dict[str, Any]]:
-```
-
-**4-Factor Model:**
-- Principle alignment: 35% weight
-- Knowledge-informed: 25% weight
-- Historical correlation (past aligned vs unaligned satisfaction): 25% weight
-- Complexity-guidance ratio: 15% weight
-
-**Returns:** `predicted_quality_score` (0.0–1.0), `confidence`, `quality_factors` breakdown, `historical_correlation`, `recommendations`.
-
----
-
-### Method 13: calculate_life_path_contribution_via_principles()
-
-**Purpose:** Trace the contribution chain `Choice → Principle → LifePath` via graph traversal. Combines direct SERVES_LIFE_PATH (60%) with principle-mediated contribution (40%).
-
-**Signature:**
-```python
-async def calculate_life_path_contribution_via_principles(
-    self, choice_uid: str, user_uid: UserUID
-) -> Result[dict[str, Any]]:
-```
-
-**Returns:** `total_contribution_score`, `direct_contribution`, `principle_mediated_contribution`, `contributing_principles`, `life_path_uid`.
-
----
-
-### Method 14: get_zpd_behavioral_signals() (ZPD Bridge — March 2026)
+### Method 11: get_zpd_behavioral_signals() (ZPD Bridge — March 2026)
 
 **Purpose:** Extract behavioral readiness signals for ZPDService consumption. Aggregates choice history into signals that indicate the user's readiness to engage with new knowledge.
 
