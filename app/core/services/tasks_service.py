@@ -733,9 +733,8 @@ class TasksService(
 
         Verifies ownership BEFORE the delete, then deletes through the one task delete
         door (``TasksCoreService.delete_task``), which publishes ``TaskDeleted`` and
-        announces the goals the task contributed to. The inherited delete went straight
-        to the backend and announced nothing. A task's edges always go with it, so
-        ``cascade`` is not read.
+        announces the goals the task contributed to. A task's edges always go with it,
+        so ``cascade`` is not read.
         """
         ownership = await self.verify_ownership(uid, user_uid)
         if ownership.is_error:

@@ -233,8 +233,7 @@ class EventsService(
 
         Verifies ownership BEFORE the delete, then deletes through the one event delete
         door (``EventsCoreService.delete``), which publishes ``CalendarEventDeleted`` and
-        announces the goals the event contributed to. The inherited delete went straight
-        to the backend and announced nothing.
+        announces the goals the event contributed to.
         """
         ownership = await self.verify_ownership(uid, user_uid)
         if ownership.is_error:
