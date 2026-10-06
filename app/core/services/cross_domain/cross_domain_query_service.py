@@ -228,8 +228,7 @@ class CrossDomainQueryService:
         self, task_uids: list[str]
     ) -> Result[dict[str, tuple[AlignedEntity, ...]]]:
         """
-        Batch-fetch goals each task contributes to or fulfills via
-        ``CONTRIBUTES_TO_GOAL`` or ``FULFILLS_GOAL`` edges.
+        Batch-fetch the goals each task contributes to (``CONTRIBUTES_TO_GOAL``).
 
         One Cypher round-trip for N tasks — replaces the per-task N+1 pattern
         in ``TasksPlanningService.get_task_dependencies_for_user``. Returns a
@@ -259,12 +258,13 @@ class CrossDomainQueryService:
 
     async def count_active_tasks_for_goal(self, goal_uid: EntityUID) -> Result[ActiveTaskCount]:
         """
-        Count tasks linked to ``goal_uid`` via ``FULFILLS_GOAL`` whose status is
-        non-terminal (ACTIVE / SCHEDULED / BLOCKED / PAUSED).
+        Count the tasks contributing to ``goal_uid`` (``CONTRIBUTES_TO_GOAL``) that
+        are still open — any status but COMPLETED, CANCELLED and FAILED.
 
         One Cypher round-trip. Used by the goal-abandonment guard in
-        ``GoalsCoreService.update`` to block cancelling a goal that still has
-        active tasks underneath it. Empty result → ``count=0``.
+        ``GoalsService.cancel_goal`` to block cancelling a goal that still has open
+        tasks contributing to it. A contributing event does not block. Empty result →
+        ``count=0``.
         """
         result = await self.backend.count_active_tasks_for_goal(goal_uid=goal_uid)
         if result.is_error:

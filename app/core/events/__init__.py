@@ -129,6 +129,7 @@ from core.events.form_events import (
 from core.events.goal_events import (
     GoalAbandoned,
     GoalAchieved,
+    GoalContributionsChanged,
     GoalCreated,
     GoalMilestoneReached,
     GoalProgressUpdated,
@@ -279,6 +280,7 @@ __all__ = [
     "GoalCreated",
     "GoalEmbeddingRequested",
     "GoalMilestoneReached",
+    "GoalContributionsChanged",
     "GoalProgressUpdated",
     "GoalRecommendationsGenerated",
     "GoalUpdated",

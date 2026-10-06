@@ -12,7 +12,7 @@ Inherits common fields from UserOwnedEntity. Adds task-specific fields:
 - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
 
 Task-specific methods: learning_alignment_score, is_overdue,
-days_remaining, get_summary, category, parent_goal_uid.
+days_remaining, get_summary, category.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -102,12 +102,17 @@ class Task(UserOwnedEntity):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
-    # DUAL-WRITTEN: a real node column AND the (Task)-[:FULFILLS_GOAL]->(Goal) edge, on
-    # every door (TasksCoreService._write_link_edges, TasksService._sync_relationship_edges,
-    # the vault preparer). The column serves readers holding the task in hand; the edge
-    # serves every goal-side traversal. Invariant: property == edge target — a refused
-    # edge clears the column.
-    fulfills_goal_uid: str | None = None  # TASK -> GOAL
+    # CREATE-ONLY INPUT for the (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal) edges — never
+    # persisted (RELATIONSHIP_SKIP_FIELDS), never populated on read. A task contributes to
+    # any number of goals; the edges are the single source of truth, and every reader
+    # traverses them. The shared create primitive (TasksCoreService._write_link_edges)
+    # turns each uid into an edge, so it is read off the INPUT entity, never off
+    # backend.create's return.
+    contributes_to_goal_uids: tuple[str, ...] = ()
+    # DERIVED FROM EDGE — never persisted (RELATIONSHIP_SKIP_FIELDS). One of the goals
+    # the task contributes to, projected at fetch time (``enrich_with_goal_links``) for
+    # the in-memory scorers; an active goal is preferred (``pick_goal``).
+    contributes_to_goal_uid: str | None = None
     source_path_step_uid: str | None = None  # TASK -> PS
     # EDGE-BACKED, never a node property. The Task↔Habit link is the graph edge
     # (Task)-[:REINFORCES_HABIT]->(Habit), which is the single source of truth; the
@@ -128,7 +133,7 @@ class Task(UserOwnedEntity):
     goal_progress_contribution: float = 0.0  # Contribution to GOAL (0.0-1.0)
     knowledge_mastery_check: bool = False  # Verify knowledge mastery on completion
     habit_streak_maintainer: bool = False  # Maintains habit streak
-    completion_updates_goal: bool = True  # Counts toward the FULFILLS_GOAL goal's progress tally
+    completion_updates_goal: bool = True  # Counts toward its goals' contribution tallies
     curriculum_practice_type: str | None = None  # Curriculum connection type
 
     # =========================================================================
@@ -297,11 +302,6 @@ class Task(UserOwnedEntity):
         return self.domain.value if self.domain else None
 
     @property
-    def parent_goal_uid(self) -> str | None:
-        """Alias for fulfills_goal_uid."""
-        return self.fulfills_goal_uid
-
-    @property
     def is_from_path_step(self) -> bool:
         """Check if this task originated from a path step."""
         return self.source_path_step_uid is not None
@@ -367,7 +367,7 @@ class Task(UserOwnedEntity):
             parent_uid=request.parent_uid,
             recurrence_pattern=request.recurrence_pattern,
             recurrence_end_date=request.recurrence_end_date,
-            fulfills_goal_uid=request.fulfills_goal_uid,
+            contributes_to_goal_uids=tuple(request.contributes_to_goal_uids),
             reinforces_habit_uid=request.reinforces_habit_uid,
             goal_progress_contribution=request.goal_progress_contribution,
             knowledge_mastery_check=request.knowledge_mastery_check,

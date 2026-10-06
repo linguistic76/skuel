@@ -78,9 +78,9 @@ class TaskDTO(UserOwnedDTO):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
-    # Task↔Habit linkage is the (Task)-[:REINFORCES_HABIT]->(Habit) graph edge,
-    # not a persisted property — so it is intentionally absent from this DTO.
-    fulfills_goal_uid: str | None = None
+    # Task↔Habit and Task→Goal linkage are graph edges ((Task)-[:REINFORCES_HABIT]->(Habit),
+    # (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)), not persisted properties — so both are
+    # intentionally absent from this DTO.
     source_path_step_uid: str | None = None
 
     # =========================================================================
@@ -225,7 +225,6 @@ class TaskDTO(UserOwnedDTO):
                 "parent_uid",
                 "project",
                 "assignee",
-                "fulfills_goal_uid",
                 "source_path_step_uid",
                 "goal_progress_contribution",
                 "knowledge_mastery_check",

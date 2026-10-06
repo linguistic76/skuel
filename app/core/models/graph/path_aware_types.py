@@ -77,7 +77,7 @@ class PathAwareTask:
     Task with path metadata showing HOW it's connected to source entity.
 
     Example:
-        Goal → Task (direct FULFILLS_GOAL, distance=1, strength=0.95)
+        Goal → Task (direct CONTRIBUTES_TO_GOAL, distance=1, strength=0.95)
         Goal → Principle → Task (indirect, distance=2, strength=0.82)
     """
 
@@ -428,7 +428,8 @@ class GoalCrossContext:
     Goal achievement context with path-aware intelligence.
 
     Groups related entities by relationship semantic:
-    - tasks: Tasks fulfilling this goal (FULFILLS_GOAL → ``contributing_tasks``)
+    - tasks: Tasks contributing to this goal (CONTRIBUTES_TO_GOAL from a task →
+      ``contributing_tasks``)
     - habits: Habits supporting this goal — union of the SUPPORTS_GOAL-incoming
       essentiality tiers (``contributing_habits`` + ``essential_habits`` +
       ``critical_habits`` + ``optional_habits``)
@@ -467,7 +468,7 @@ class GoalCrossContext:
         / bidirectional buckets, and DEDUPs each field to its strongest path. One union
         call per target field (per-field scoping is intentional).
 
-        - ``tasks`` ← FULFILLS_GOAL (``contributing_tasks``).
+        - ``tasks`` ← CONTRIBUTES_TO_GOAL from a task (``contributing_tasks``).
         - ``habits`` ← the union of the four SUPPORTS_GOAL-incoming essentiality tiers
           (``contributing_habits`` + ``essential_habits`` + ``critical_habits`` +
           ``optional_habits``).
@@ -719,9 +720,8 @@ class TaskCrossContext:
       ``required_knowledge``)
     - applied_knowledge: Knowledge this task applies (APPLIES_KNOWLEDGE →
       ``applied_knowledge``)
-    - contributing_goals: Goals this task fulfills/contributes to — union of
-      CONTRIBUTES_TO_GOAL (``contributing_goals``) and the single FULFILLS_GOAL
-      (``goal_context``)
+    - contributing_goals: Goals this task contributes to (CONTRIBUTES_TO_GOAL →
+      ``contributing_goals``)
 
     Same-domain task→task dependencies (DEPENDS_ON prerequisites / dependents) are NOT
     part of cross-domain context — they are owned by the lateral-relationships system
@@ -744,14 +744,13 @@ class TaskCrossContext:
         categorized payload (the TASKS_CONFIG ``context_field_name`` buckets).
 
         This is the per-domain seam the generic factory delegates to: it SELECTs the
-        task-relevant cross-domain buckets, RENAMEs them to the dataclass fields, UNIONs the
-        two goal-link directions, and DEDUPs each field to its strongest path. One union call
-        per target field (per-field scoping is intentional).
+        task-relevant cross-domain buckets, RENAMEs them to the dataclass fields, and DEDUPs
+        each field to its strongest path. One union call per target field (per-field scoping
+        is intentional).
 
         - ``required_knowledge`` ← REQUIRES_KNOWLEDGE (``required_knowledge``).
         - ``applied_knowledge`` ← APPLIES_KNOWLEDGE (``applied_knowledge``).
-        - ``contributing_goals`` ← the union of CONTRIBUTES_TO_GOAL (``contributing_goals``)
-          and the single FULFILLS_GOAL (``goal_context``).
+        - ``contributing_goals`` ← CONTRIBUTES_TO_GOAL (``contributing_goals``).
         """
         return cls(
             task_uid=source_uid,
@@ -765,7 +764,7 @@ class TaskCrossContext:
             ],
             contributing_goals=[
                 PathAwareGoal.from_dict(g)
-                for g in _union_path_buckets(categorized_data, "contributing_goals", "goal_context")
+                for g in _union_path_buckets(categorized_data, "contributing_goals")
             ],
         )
 

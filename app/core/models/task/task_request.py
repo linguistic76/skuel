@@ -106,7 +106,9 @@ class TaskCreateRequest(CreateRequestBase):
     recurrence_end_date: date | None = Field(default=None, description="End date for recurrence")
 
     # Learning Integration (OPTIONAL)
-    fulfills_goal_uid: str | None = Field(default=None, description="Goal this task fulfills")
+    contributes_to_goal_uids: list[str] = Field(
+        default_factory=list, description="Goals this task contributes to"
+    )
     reinforces_habit_uid: str | None = Field(default=None, description="Habit this task reinforces")
     applies_knowledge_uids: list[str] = Field(
         default_factory=list, description="Knowledge being applied"
@@ -183,7 +185,8 @@ class TaskUpdateRequest(UpdateRequestBase):
     completion_date: date | None = None
 
     # Learning Integration Updates (OPTIONAL)
-    fulfills_goal_uid: str | None = None
+    # The full set of goals the task contributes to: replaces the current set; [] clears it.
+    contributes_to_goal_uids: list[str] | None = None
     reinforces_habit_uid: str | None = None
     applies_knowledge_uids: list[str] | None = None
     aligned_principle_uids: list[str] | None = None
@@ -263,7 +266,6 @@ class TaskUpdateRequest(UpdateRequestBase):
             tags=when_set("tags", self.tags),
             actual_minutes=when_set("actual_minutes", self.actual_minutes),
             completion_date=when_set("completion_date", self.completion_date),
-            fulfills_goal_uid=when_set("fulfills_goal_uid", self.fulfills_goal_uid),
             aligned_principle_uids=when_set("aligned_principle_uids", self.aligned_principle_uids),
             goal_progress_contribution=when_set(
                 "goal_progress_contribution", self.goal_progress_contribution
@@ -280,6 +282,9 @@ class TaskUpdateRequest(UpdateRequestBase):
             prerequisite_task_uids=when_set("prerequisite_task_uids", self.prerequisite_task_uids),
             reinforces_habit_uid=when_set("reinforces_habit_uid", self.reinforces_habit_uid),
             applies_knowledge_uids=when_set("applies_knowledge_uids", self.applies_knowledge_uids),
+            contributes_to_goal_uids=when_set(
+                "contributes_to_goal_uids", self.contributes_to_goal_uids
+            ),
         )
 
 
@@ -318,7 +323,7 @@ class TaskResponse(ResponseBase):
     recurrence_parent_uid: str | None
 
     # Learning Integration
-    fulfills_goal_uid: str | None
+    contributes_to_goal_uids: list[str]
     reinforces_habit_uid: str | None
     applies_knowledge_uids: list[str]
     aligned_principle_uids: list[str]

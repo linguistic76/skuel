@@ -394,11 +394,11 @@ class GoalsCoreService(
     #
     # Uses registry-driven query generation from RelationshipRegistry.
     # The GOALS_CONFIG config includes:
-    # - contributing_tasks, contributing_habits and the habit tiers (supporting activities)
+    # - contributing_tasks, contributing_events, contributing_habits and the habit
+    #   tiers (supporting activities)
     # - sub_goals, parent_goal (hierarchy)
     # - required_knowledge, supporting_principles (prerequisites and support)
     # - inspired_by_choice (motivation)
-    # - related_goals (shared-neighbor pattern via FULFILLS_GOAL|SUPPORTS_GOAL)
     # - milestone_progress (calculated in BaseService._parse_context_result)
     #
     # See: /core/models/relationship_registry.py - GOALS_CONFIG

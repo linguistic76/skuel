@@ -21,11 +21,12 @@ from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
-from core.events import publish_event
+from core.events import GoalContributionsChanged, publish_event
 from core.models.enums import EventType, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.goal.goal_contribution import moves_contribution_class
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties
 from core.services.completion_stamp import status_transition_guard
@@ -387,6 +388,16 @@ class EventsHabitIntegrationService:
             updated_fields={"status": "cancelled", "notes": updates["notes"]},
         )
         await publish_event(self.event_bus, event_obj, self.logger)
+
+        # A missed event is cancelled: out of its goals' tally, unless it already was.
+        if moves_contribution_class(result.value.prior_status, EntityStatus.CANCELLED.value):
+            await publish_event(
+                self.event_bus,
+                GoalContributionsChanged(
+                    user_uid=user_context.user_uid, contributor_uids=(event_uid,)
+                ),
+                self.logger,
+            )
 
         self.logger.warning(f"Habit event {event_uid} marked as missed")
 

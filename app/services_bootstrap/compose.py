@@ -789,6 +789,7 @@ async def compose_services(
             events_backend=events_backend,
             choices_backend=choices_backend,
             principles_backend=principles_backend,
+            event_bus=event_bus,
         )
 
         # Extract embeddings and vector search services for use by intelligence services and SearchRouter

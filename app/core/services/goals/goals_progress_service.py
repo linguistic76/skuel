@@ -17,8 +17,13 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Final
 
-from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated, publish_event
-from core.events.task_events import TaskCompleted, TaskReopened
+from core.events import (
+    GoalAchieved,
+    GoalContributionsChanged,
+    GoalMilestoneReached,
+    GoalProgressUpdated,
+    publish_event,
+)
 from core.models.enums import Domain, EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
@@ -28,7 +33,7 @@ from core.models.graph_context import GraphContext
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import StatusWriteGuard
 from core.ports.domain_protocols import GoalsOperations
-from core.ports.query_types import LinkedHabitTally, LinkedTaskTally
+from core.ports.query_types import ContributionTally, LinkedHabitTally
 from core.services.base_service import BaseService
 from core.services.completion_stamp import (
     COMPLETION_FIELDS,
@@ -47,7 +52,7 @@ from core.services.user.rich_context import (
 )
 from core.utils.dto_converters import to_domain_model
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 from core.utils.timestamp_helpers import (
     as_stored_clock,
     as_utc,
@@ -116,6 +121,13 @@ def _achievement_write(target_achieved: bool) -> tuple[StatusWriteGuard, Neo4jPr
     return StatusWriteGuard(patch_if_prior_not_in=(_COMPLETED_ONLY, patch)), patch
 
 
+#: Statuses its owner settled a goal in. A recompute writes such a goal's figure, never its
+#: status: reaching 100% does not complete a cancelled, archived or failed goal.
+_SETTLED: Final = frozenset(
+    s.value for s in (EntityStatus.CANCELLED, EntityStatus.ARCHIVED, EntityStatus.FAILED)
+)
+
+
 #: The status a goal returns to when a recompute un-achieves it — the working status a
 #: goal is created in and counted under (``get_stats_for_user``'s ``active``).
 _UNACHIEVED_STATUS: Final = EntityStatus.ACTIVE.value
@@ -138,13 +150,19 @@ def _recompute_status_write(
 
     Both targets are transitions of the figure (old vs new, read under the lock), so a
     goal completed by hand at a lower figure is not un-achieved by a recompute that
-    merely moves within the band below 100.
+    merely moves within the band below 100. A goal its owner settled (cancelled,
+    archived, failed) is never achieved by a recompute: the achievement patch is merged
+    only on a prior outside ``_COMPLETED_ONLY | _SETTLED``.
 
     Returns:
         ``(guard, achievement, unachievement)`` — the guard to write with, and the two
         patches it may merge, for the caller's transition verdicts.
     """
     guard, achievement = _achievement_write(new_progress >= 100 and old_progress < 100)
+    if guard.patch_if_prior_not_in is not None:
+        guard = dataclasses.replace(
+            guard, patch_if_prior_not_in=(_COMPLETED_ONLY | _SETTLED, achievement)
+        )
     if not (new_progress < 100 <= old_progress):
         return guard, achievement, {}
     unachievement: Neo4jProperties = {"status": _UNACHIEVED_STATUS, _ACHIEVED_FIELD: None}
@@ -153,6 +171,16 @@ def _recompute_status_write(
         achievement,
         unachievement,
     )
+
+
+@dataclass(frozen=True)
+class GoalTallyGap:
+    """A TASK_BASED goal whose stored tally disagrees with its contributions."""
+
+    goal_uid: str
+    user_uid: UserUID
+    stored: str
+    live: str
 
 
 @dataclass(frozen=True)
@@ -175,54 +203,53 @@ class _ProgressWrite:
     detail: str
 
 
-def linked_task_progress(tally: LinkedTaskTally) -> float:
-    """A linked-task tally as a percentage: completed over total, 0.0 for no tasks.
+def contribution_progress(tally: ContributionTally) -> float:
+    """A contribution tally as a percentage: completed over total, 0.0 for none.
 
-    The figure a TASK_BASED goal's progress is written as (:func:`_plan_task_progress`)
-    and the one the progress dashboard reports as its task contribution — one function,
+    The figure a TASK_BASED goal's progress is written as (:func:`_plan_contribution_progress`)
+    and the one the progress dashboard reports as its contribution figure — one function,
     so the two cannot round or scale apart.
     """
-    total_tasks = tally["total_tasks"]
-    if total_tasks == 0:
+    total = tally["total_contributions"]
+    if total == 0:
         return 0.0
-    return tally["completed_tasks"] / total_tasks * 100
+    return tally["completed_contributions"] / total * 100
 
 
-def _plan_task_progress(goal: Goal, tally: LinkedTaskTally) -> _ProgressWrite | None:
-    """Plan a TASK_BASED goal's write from its linked-task tally; ``None`` for no write.
+def _plan_contribution_progress(goal: Goal, tally: ContributionTally) -> _ProgressWrite | None:
+    """Plan a TASK_BASED goal's write from its contribution tally; ``None`` for no write.
 
-    Runs under the goal's lock (``GoalsBackend.recompute_progress_from_linked_tasks``),
-    so ``goal`` and ``tally`` are the state the write lands on.
+    Runs under the goal's lock (``GoalsBackend.recompute_progress_from_contributions``),
+    so ``goal`` and ``tally`` are the state the write lands on. A goal whose last
+    contribution left is written 0 / 0 and 0%, so its stored figure never describes a
+    contribution it no longer has.
     """
     # Only TASK_BASED goals are recomputed here. A MIXED goal weights tasks, habits,
-    # knowledge and milestones together, and this handler sees only the task tally;
-    # blending that into the stored figure feeds each result back into the next.
+    # knowledge and milestones together, and this handler sees only the contribution
+    # tally; blending that into the stored figure feeds each result back into the next.
     # See docs/roadmap/mixed-goal-event-progress.md.
     if goal.measurement_type != MeasurementType.TASK_BASED:
         return None
 
-    total_tasks = tally["total_tasks"]
-    completed_tasks = tally["completed_tasks"]
-    if total_tasks == 0:
-        return None
-
-    new_progress = linked_task_progress(tally)
+    total = tally["total_contributions"]
+    completed = tally["completed_contributions"]
+    new_progress = contribution_progress(tally)
     old_progress = goal.progress_percentage or 0.0
 
     # Only write if something changed. The stored tally is part of "something":
     # 1-of-5 and 2-of-10 are both 20%, so a percentage-only guard would leave the
-    # detail page rendering "1/5 tasks" after five more were linked and one completed.
+    # detail page rendering "1/5" after five more were linked and one completed.
     # `!=` rather than a narrowed comparison on purpose — it never raises across types,
     # and a legacy string current_value reads as stale and gets repaired by the write.
-    tally_stale = goal.current_value != completed_tasks or goal.target_value != total_tasks
+    tally_stale = goal.current_value != completed or goal.target_value != total
     progress_changed = abs(new_progress - old_progress) >= 0.1
     if not progress_changed and not tally_stale:
         return None
 
-    # raw-write: system progress propagation from the task tally. Bypasses the
+    # raw-write: system progress propagation from the contribution tally. Bypasses the
     # validated/event-firing service contract (GoalUpdateIntent → update_goal) on
-    # purpose — the handler publishes its own GoalProgressUpdated with the task
-    # provenance the generic update_goal cannot express.
+    # purpose — the handler publishes its own GoalProgressUpdated with the provenance
+    # the generic update_goal cannot express.
     # The stamp records a CHANGE of the figure; a tally repair alone is not one.
     updates: dict[str, Any] = {"progress_percentage": new_progress}
     if progress_changed:
@@ -230,15 +257,15 @@ def _plan_task_progress(goal: Goal, tally: LinkedTaskTally) -> _ProgressWrite | 
         updates["last_progress_update"] = now
         updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
-    # The measurement IS the linked-task tally, so this writer owns both ends of it.
-    # Writing only completed_tasks would pair it with a target_value nothing relates to
-    # it — a user-typed 5 against 20 linked tasks renders "4/5 tasks" beside a 20% bar.
-    # total_tasks is the denominator new_progress was computed from, so all three
-    # fields agree by construction. Nothing else computes on a TASK_BASED goal's
-    # target_value — calculate_combined_progress returns task_contribution * 100 and
-    # discards milestone_completion — which is what makes it this writer's to own.
-    updates["current_value"] = float(completed_tasks)
-    updates["target_value"] = float(total_tasks)
+    # The measurement IS the contribution tally, so this writer owns both ends of it.
+    # Writing only the completed count would pair it with a target_value nothing relates
+    # to it — a user-typed 5 against 20 contributions renders "4/5" beside a 20% bar.
+    # total is the denominator new_progress was computed from, so all three fields agree
+    # by construction. Nothing else computes on a TASK_BASED goal's target_value —
+    # calculate_combined_progress returns task_contribution * 100 and discards
+    # milestone_completion — which is what makes it this writer's to own.
+    updates["current_value"] = float(completed)
+    updates["target_value"] = float(total)
 
     guard, achievement, unachievement = _recompute_status_write(old_progress, new_progress)
     return _ProgressWrite(
@@ -249,7 +276,7 @@ def _plan_task_progress(goal: Goal, tally: LinkedTaskTally) -> _ProgressWrite | 
         old_progress=old_progress,
         new_progress=new_progress,
         progress_changed=progress_changed,
-        detail=f"{completed_tasks}/{total_tasks} tasks",
+        detail=f"{completed}/{total} contributions",
     )
 
 
@@ -258,7 +285,7 @@ def _plan_habit_progress(goal: Goal, tally: LinkedHabitTally) -> _ProgressWrite 
 
     Runs under the goal's lock (``GoalsBackend.recompute_progress_from_linked_habits``).
     """
-    # Only HABIT_BASED goals — MIXED for the reason given in _plan_task_progress.
+    # Only HABIT_BASED goals — MIXED for the reason given in _plan_contribution_progress.
     if goal.measurement_type != MeasurementType.HABIT_BASED:
         return None
 
@@ -282,7 +309,7 @@ def _plan_habit_progress(goal: Goal, tally: LinkedHabitTally) -> _ProgressWrite 
         return None
 
     # raw-write: system progress propagation from the habit streaks — same reasoning as
-    # _plan_task_progress, with the habit provenance.
+    # _plan_contribution_progress, with the habit provenance.
     updates: dict[str, Any] = {"progress_percentage": new_progress}
     if progress_changed:
         now = datetime.now()
@@ -1228,98 +1255,114 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # EVENT HANDLERS
     # ========================================================================
 
-    async def handle_task_completed(self, event: TaskCompleted) -> None:
-        """Recompute the goals a task fulfills after it is completed.
+    async def handle_goal_contributions_changed(self, event: GoalContributionsChanged) -> None:
+        """Recompute every goal whose contributions the event says may have changed.
 
-        Event-driven, so TasksService holds no dependency on GoalsService. Best-effort:
-        a failure is logged, never raised, so a goal update cannot fail the completion.
+        The goals are the ones the event names (a removed contribution, captured before
+        its edge went) and the ones each named contributor contributes to now. The
+        recompute counts graph state, so a doubled or redundant announcement is harmless.
+        Event-driven, so the task, event and ingestion services hold no dependency on
+        GoalsService. Best-effort: a failure is logged, never raised.
 
-        Args:
-            event: TaskCompleted carrying task_uid and user_uid
+        Backend: GoalsBackend.find_contributed_goals.
         """
-        await self._recompute_goals_of_task(event.task_uid, event.user_uid, reopened=False)
-
-    async def handle_task_reopened(self, event: TaskReopened) -> None:
-        """Recompute the goals a task fulfills after it leaves ``completed``.
-
-        The mirror of :meth:`handle_task_completed`: the recompute counts graph state,
-        so the same recompute lowers the tally — and un-achieves a goal it drops below
-        100% (``_recompute_status_write``). Published by both doors that can reopen a
-        task: ``update_task`` and the vault ingest door.
-
-        Args:
-            event: TaskReopened carrying task_uid and user_uid
-        """
-        await self._recompute_goals_of_task(event.task_uid, event.user_uid, reopened=True)
-
-    async def _recompute_goals_of_task(
-        self, task_uid: str, user_uid: UserUID, *, reopened: bool
-    ) -> None:
-        """Recompute every goal ``task_uid`` fulfills — best-effort, per goal.
-
-        ``reopened`` is the trigger's provenance, carried onto ``GoalProgressUpdated``.
-
-        Backend: GoalsBackend.find_linked_goals_for_task.
-        """
-        try:
-            result = await self.backend.find_linked_goals_for_task(task_uid, user_uid)
+        goal_uids: list[str] = list(dict.fromkeys(event.goal_uids))
+        for contributor_uid in event.contributor_uids:
+            result = await self.backend.find_contributed_goals(contributor_uid, event.user_uid)
             if result.is_error:
-                self.logger.error(f"Failed to query goals for task {task_uid}: {result.error}")
-                return
+                self.logger.error(
+                    f"Failed to query goals for contributor {contributor_uid}: {result.error}"
+                )
+                continue
+            goal_uids.extend(g for g in result.value or [] if g not in goal_uids)
 
-            goal_uids = result.value or []
-            if not goal_uids:
-                self.logger.debug(f"Task {task_uid} is not linked to any goals")
-                return
+        for goal_uid in goal_uids:
+            try:
+                await self.recompute_goal_tally(goal_uid)
+            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
+                self.logger.error(f"Failed to update goal {goal_uid} progress: {e}")
 
-            verb = "reopened" if reopened else "completed"
-            self.logger.info(f"Task {task_uid} {verb} - updating {len(goal_uids)} linked goals")
-            for goal_uid in goal_uids:
-                try:
-                    await self._update_goal_from_task_completion(
-                        goal_uid, user_uid, reopened=reopened
-                    )
-                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-                    self.logger.error(f"Failed to update goal {goal_uid} progress: {e}")
-                    # Continue with other goals even if one fails
-
-        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            self.logger.error(f"Error recomputing goals for task {task_uid}: {e}")
-
-    async def _update_goal_from_task_completion(
-        self, goal_uid: str, user_uid: UserUID, *, reopened: bool = False
-    ) -> None:
-        """Recompute one TASK_BASED goal from its linked-task tally, and publish the result.
+    async def recompute_goal_tally(self, goal_uid: str) -> Result[bool]:
+        """Recompute one TASK_BASED goal from its contribution tally, and publish the result.
 
         The tally, the figure and the status verdict are all decided under the goal's
-        write-lock (``GoalsBackend.recompute_progress_from_linked_tasks``), so two
-        recomputes of one goal serialize: the later one counts every task the earlier
-        one's trigger had completed, and a count taken before a concurrent completion
-        can never land after it.
+        write-lock (``GoalsBackend.recompute_progress_from_contributions``), so two
+        recomputes of one goal serialize: the later one counts every contribution the
+        earlier one's trigger had changed, and a count taken before a concurrent change
+        can never land after it. ``Result.ok(True)`` when the goal was written.
+
+        A goal that no longer exists (deleted with the contribution that named it) is
+        nothing to write: ``Result.ok(False)``.
 
         Args:
-            goal_uid: Goal to update
-            user_uid: User who owns the goal and its tasks
-            reopened: Whether a task reopen (not a completion) triggered this
+            goal_uid: Goal to update — counted against its own owner's contributions
         """
-        result = await self.backend.recompute_progress_from_linked_tasks(
-            goal_uid, user_uid, _plan_task_progress
+        result = await self.backend.recompute_progress_from_contributions(
+            goal_uid, _plan_contribution_progress
         )
         if result.is_error:
+            if result.expect_error().category is ErrorCategory.NOT_FOUND:
+                self.logger.debug(f"Goal {goal_uid}: gone, no tally to write")
+                return Result.ok(False)
             self.logger.error(f"Failed to recompute goal {goal_uid}: {result.error}")
-            return
+            return Result.fail(result)
         if result.value is None:
-            self.logger.debug(f"Goal {goal_uid}: no task-based progress change")
-            return
+            self.logger.debug(f"Goal {goal_uid}: no contribution-based progress change")
+            return Result.ok(False)
 
         plan, outcome = result.value.plan, result.value.outcome
+        owner = UserUID(str(outcome.entity.user_uid))
         self.logger.info(
             f"Updated goal {goal_uid}: {plan.old_progress:.1f}% → {plan.new_progress:.1f}% "
             f"({plan.detail})"
         )
         await self._publish_recompute(
-            goal_uid, user_uid, plan, outcome.prior_status, EntityType.TASK, reopened=reopened
+            goal_uid, owner, plan, outcome.prior_status, from_habits=False
         )
+        return Result.ok(True)
+
+    async def reconcile_goal_tallies(self, *, dry_run: bool) -> Result[list[GoalTallyGap]]:
+        """Recompute every TASK_BASED goal whose stored tally disagrees with its contributions.
+
+        The tally's trigger (``GoalContributionsChanged``) is best-effort: a recompute
+        that fails after the change it answers has committed leaves the stored figure
+        behind, and nothing replays the event. This reads every TASK_BASED goal, plans
+        its write under the rule the recompute uses (``_plan_contribution_progress``)
+        and, unless ``dry_run``, closes each gap through the same locked recompute.
+        Idempotent: a second run finds nothing.
+
+        Backend: GoalsBackend.list_task_based_goals / get_contribution_tally.
+        """
+        goals = await self.backend.list_task_based_goals()
+        if goals.is_error:
+            return Result.fail(goals)
+        gaps: list[GoalTallyGap] = []
+        for goal_uid, owner_uid in goals.value:
+            goal_result = await self.backend.get(goal_uid)
+            if goal_result.is_error:
+                return Result.fail(goal_result)
+            if goal_result.value is None:
+                continue
+            goal = to_domain_model(goal_result.value, GoalDTO, Goal)
+            tally = await self.backend.get_contribution_tally(goal_uid)
+            if tally.is_error:
+                return Result.fail(tally)
+            plan = _plan_contribution_progress(goal, tally.value)
+            if plan is None:
+                continue
+            gaps.append(
+                GoalTallyGap(
+                    goal_uid=goal_uid,
+                    user_uid=owner_uid,
+                    stored=f"{goal.current_value}/{goal.target_value}",
+                    live=plan.detail,
+                )
+            )
+            if not dry_run:
+                written = await self.recompute_goal_tally(goal_uid)
+                if written.is_error:
+                    return Result.fail(written)
+        return Result.ok(gaps)
 
     async def handle_habit_completed(self, event: HabitCompleted) -> None:
         """Recompute the goals a habit supports after one of its completions.
@@ -1392,7 +1435,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             f"({plan.detail})"
         )
         await self._publish_recompute(
-            goal_uid, user_uid, plan, outcome.prior_status, EntityType.HABIT
+            goal_uid, user_uid, plan, outcome.prior_status, from_habits=True
         )
 
     async def _publish_recompute(
@@ -1401,9 +1444,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         user_uid: UserUID,
         plan: _ProgressWrite,
         prior_status: str | None,
-        source: EntityType,
         *,
-        reopened: bool = False,
+        from_habits: bool,
     ) -> None:
         """Announce what a recompute wrote, with verdicts from the prior the write saw.
 
@@ -1412,7 +1454,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         on a positive goal as a STALL and persists an IMBALANCE_DETECTED insight, so a
         tally-only repair stays quiet. ``GoalAchieved`` only on the transition INTO
         completed, decided from the prior the write captured, so a goal another writer
-        completed first is not announced twice.
+        completed first is not announced twice, and a settled goal (``_SETTLED``), which
+        the write did not achieve, is not announced at all.
+
+        ``from_habits`` is the trigger's provenance: a habit-based recompute, or a
+        contribution-based one.
         """
         if plan.progress_changed:
             await publish_event(
@@ -1422,15 +1468,16 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                     user_uid=user_uid,
                     old_progress=plan.old_progress,
                     new_progress=plan.new_progress,
-                    triggered_by_task_completion=source is EntityType.TASK and not reopened,
-                    triggered_by_task_reopen=source is EntityType.TASK and reopened,
-                    triggered_by_habit_completion=source is EntityType.HABIT,
+                    triggered_by_contribution_change=not from_habits,
+                    triggered_by_habit_completion=from_habits,
                     triggered_by_manual_update=False,
                 ),
                 self.logger,
             )
 
-        if is_completion_transition(prior_status, plan.achievement):
+        if prior_status not in _SETTLED and is_completion_transition(
+            prior_status, plan.achievement
+        ):
             await publish_event(
                 self.event_bus, GoalAchieved(goal_uid=goal_uid, user_uid=user_uid), self.logger
             )

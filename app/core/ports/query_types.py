@@ -3348,19 +3348,20 @@ class GoalsAchievedCount(TypedDict):
     until: str | None
 
 
-class LinkedTaskTally(TypedDict):
-    """A goal's linked-task tally.
+class ContributionTally(TypedDict):
+    """A goal's contribution tally.
 
-    Counts the user's tasks that fulfill the goal and count toward it
-    (``completion_updates_goal``, absent read as True). Handed to the planner of
-    ``GoalsBackend.recompute_progress_from_linked_tasks`` (read under the goal's lock)
-    and returned by ``GoalsBackend.get_linked_task_tally`` (a plain read) — one
-    membership rule for the figure a goal is written with and the one it is reported
-    with.
+    Counts the user's tasks and events that contribute to the goal and are not left
+    out (``core.models.goal.goal_contribution``: CANCELLED is out, and a task with
+    ``completion_updates_goal`` false does not count), and how many of those are done.
+    Handed to the planner of ``GoalsBackend.recompute_progress_from_contributions`` (read
+    under the goal's lock) and returned by ``GoalsBackend.get_contribution_tally`` (a
+    plain read) — one membership rule for the figure a goal is written with and the one
+    it is reported with.
     """
 
-    total_tasks: int
-    completed_tasks: int
+    total_contributions: int
+    completed_contributions: int
 
 
 class LinkedHabitTally(TypedDict):

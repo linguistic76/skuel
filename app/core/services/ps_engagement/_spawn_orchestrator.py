@@ -306,12 +306,15 @@ TASK_SPEC = DomainSpawnSpec(
         ("recurrence_end_offset", "recurrence_end_date", "date"),
     ),
     field_rewrites={
-        "fulfills_goal_template_uid": "fulfills_goal_uid",
         "scheduled_event_template_uid": "scheduled_event_uid",
         "parent_template_uid": "parent_uid",
     },
-    # reinforces_habit_template_uid → (Task)-[:REINFORCES_HABIT]->(Habit) edge
-    cross_edges=(("reinforces_habit_template_uid", RelationshipName.REINFORCES_HABIT),),
+    # Both refs are written as graph edges, not properties:
+    #   (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal), (Task)-[:REINFORCES_HABIT]->(Habit)
+    cross_edges=(
+        ("contributes_to_goal_template_uid", RelationshipName.CONTRIBUTES_TO_GOAL),
+        ("reinforces_habit_template_uid", RelationshipName.REINFORCES_HABIT),
+    ),
     # A template with neither due nor scheduled offset spawns a task due on the
     # engagement day — the same rule the service create path applies.
     creation_rule=Task.with_creation_due_date,

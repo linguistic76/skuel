@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.activity_enums import EngagementState
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
@@ -199,8 +200,15 @@ class PsEngagementBackend:
     ) -> Result[list[dict[str, Any]]]:
         # :Entity — an unlabeled uid DETACH DELETE could take a :Content
         # shadow node with it (G13); spawned instances are always entities.
+        # The goals the instance contributed to are read before the DETACH takes
+        # the edges, so the caller can announce the goals that lose it.
         return await self._executor.execute_write(
-            query="MATCH (n:Entity {uid: $uid}) DETACH DELETE n",
+            query=f"""
+            MATCH (n:Entity {{uid: $uid}})
+            WITH n, [(n)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:{NeoLabel.GOAL.value}) | goal.uid] AS goal_uids
+            DETACH DELETE n
+            RETURN goal_uids
+            """,
             params={"uid": instance_uid},
             operation=operation,
         )

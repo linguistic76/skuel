@@ -332,11 +332,14 @@ class GoalsService(
         return await self.get_goal(uid)
 
     async def cancel_goal(self, uid: str) -> Result[bool]:
-        """Cancel a goal, rejecting the request if the goal has active tasks.
+        """Cancel a goal, rejecting the request while open tasks contribute to it.
 
-        The abandonment guard is the only valid entry point for CANCELLED status.
-        Placing it here (facade) allows it to coordinate across the task and goal
-        domains without leaking cross-domain dependencies into GoalsCoreService.
+        A task is open unless it is completed, cancelled or failed; a contributing
+        event does not block. Placing the guard here (facade) lets it coordinate
+        across the task and goal domains without leaking cross-domain dependencies
+        into GoalsCoreService. It guards this door only: the goal update request and
+        the edit form can set CANCELLED without it (docs/roadmap/activity-links-arc.md
+        § Defects found by the census).
         """
         count_result = await self.cross_domain_query.count_active_tasks_for_goal(EntityUID(uid))
         if count_result.is_error:

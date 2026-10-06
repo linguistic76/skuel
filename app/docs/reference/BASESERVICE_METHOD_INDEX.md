@@ -137,7 +137,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### TasksService
 
-**Facade-specific public methods:** 52
+**Facade-specific public methods:** 54
 
 | Method | Async |
 |--------|-------|
@@ -155,6 +155,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_task_from_path_step()` | ✅ |
 | `create_task_with_context()` | ✅ |
 | `create_tasks_from_learning_path()` | ✅ |
+| `delete_for_user()` | ✅ |
 | `delete_task()` | ✅ |
 | `delete_task_dependency()` | ✅ |
 | `generate_task_insights()` | ✅ |
@@ -189,6 +190,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `track_knowledge_mastery_progression()` | ✅ |
 | `trigger_manual_knowledge_generation()` | ✅ |
 | `unblock_task_if_ready()` | ✅ |
+| `unlink_task_from_goal()` | ✅ |
 | `update()` | ✅ |
 | `update_for_user()` | ✅ |
 | `update_task()` | ✅ |
@@ -354,7 +356,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### EventsService
 
-**Facade-specific public methods:** 52
+**Facade-specific public methods:** 54
 
 | Method | Async |
 |--------|-------|
@@ -371,6 +373,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_recurring_events_for_habit()` | ✅ |
 | `create_recurring_instances()` | ✅ |
 | `create_subevent_relationship()` | ✅ |
+| `delete_for_user()` | ✅ |
 | `find_events()` | ✅ |
 | `get_active()` | ✅ |
 | `get_at_risk_habit_events()` | ✅ |
@@ -407,6 +410,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `remove_attendee()` | ✅ |
 | `remove_subevent_relationship()` | ✅ |
 | `suggest_spaced_repetition_events()` | ✅ |
+| `unlink_event_from_goal()` | ✅ |
 | `update()` | ✅ |
 | `update_event()` | ✅ |
 | `update_for_user()` | ✅ |

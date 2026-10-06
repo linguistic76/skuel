@@ -93,7 +93,6 @@ _INTENT_EDGE_SETS: dict[str, list[str]] = {
     # task/event→habit links (Codex P2 on #737).
     "practice": ["REINFORCES_KNOWLEDGE", "APPLIES_KNOWLEDGE"],
     "goal_achievement": [
-        "FULFILLS_GOAL",
         "SUPPORTS_GOAL",
         "REQUIRES_KNOWLEDGE",
         "SUBGOAL_OF",
@@ -135,23 +134,25 @@ LIMIT $limit
 _GOALS_FOR_TASKS_BATCH_QUERY = f"""
 UNWIND $task_uids AS task_uid
 MATCH (t:Entity {{uid: task_uid, entity_type: 'task'}})
-OPTIONAL MATCH (t)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}|{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
+OPTIONAL MATCH (t)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
 WITH task_uid, collect(DISTINCT g) AS goal_nodes
 RETURN task_uid AS task_uid,
        [x IN goal_nodes WHERE x IS NOT NULL | {{uid: x.uid, title: x.title}}] AS goals
 """
 
-_ACTIVE_TASK_STATUSES: list[str] = [
-    EntityStatus.ACTIVE.value,
-    EntityStatus.SCHEDULED.value,
-    EntityStatus.BLOCKED.value,
-    EntityStatus.PAUSED.value,
+# A contributing task is open unless it is done, out, or failed — the statuses a task
+# stays in once its work is over. DRAFT and POSTPONED are open: the task is still part
+# of the goal's plan.
+_CLOSED_TASK_STATUSES: list[str] = [
+    EntityStatus.COMPLETED.value,
+    EntityStatus.CANCELLED.value,
+    EntityStatus.FAILED.value,
 ]
 
 _COUNT_ACTIVE_TASKS_FOR_GOAL_QUERY = f"""
-MATCH (t:Entity {{entity_type: 'task'}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{uid: $goal_uid, entity_type: 'goal'}})
-WHERE t.status IN $active_statuses
-RETURN count(t) AS count
+MATCH (t:Entity {{entity_type: 'task'}})-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(g:Entity {{uid: $goal_uid, entity_type: 'goal'}})
+WHERE NOT coalesce(t.status, '') IN $closed_statuses
+RETURN count(DISTINCT t) AS count
 """
 
 # Each active habit's adherence and at-risk inputs — its window completion
@@ -842,17 +843,17 @@ class CrossDomainBackend:
         )
 
     async def get_goals_for_tasks_batch(self, task_uids: list[str]) -> Result[list[dict[str, Any]]]:
-        """Find goals each task contributes to or fulfills — one round-trip for N tasks."""
+        """Find the goals each task contributes to — one round-trip for N tasks."""
         return await self.executor.execute_query(
             _GOALS_FOR_TASKS_BATCH_QUERY,
             {"task_uids": task_uids},
         )
 
     async def count_active_tasks_for_goal(self, goal_uid: str) -> Result[list[dict[str, Any]]]:
-        """Count non-terminal tasks linked to a goal via FULFILLS_GOAL."""
+        """Count the open tasks contributing to a goal (CONTRIBUTES_TO_GOAL)."""
         return await self.executor.execute_query(
             _COUNT_ACTIVE_TASKS_FOR_GOAL_QUERY,
-            {"goal_uid": goal_uid, "active_statuses": _ACTIVE_TASK_STATUSES},
+            {"goal_uid": goal_uid, "closed_statuses": _CLOSED_TASK_STATUSES},
         )
 
     async def get_habit_knowledge_reinforcement(

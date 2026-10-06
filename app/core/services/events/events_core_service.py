@@ -19,7 +19,7 @@ from datetime import date
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
-from core.events import publish_event
+from core.events import GoalContributionsChanged, publish_event
 from core.events.base import BaseEvent
 from core.events.calendar_event_events import (
     CalendarEventCompleted,
@@ -36,6 +36,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.event.event_request import EventCreateRequest
 from core.models.event.event_update_intent import EventUpdateIntent
+from core.models.goal.goal_contribution import moves_contribution_class
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.models.validation_rules import (
@@ -357,12 +358,18 @@ class EventsCoreService(
             return result
 
         event = result.value
-        await self._write_link_edges(
+        goal_uids = await self._write_link_edges(
             event, entity.reinforces_habit_uid, entity.contributes_to_goal_uids, request
         )
 
         # Every edge is written — only now announce the event.
         await self._publish_created(event)
+        if goal_uids:
+            await publish_event(
+                self.event_bus,
+                GoalContributionsChanged(user_uid=event.user_uid, goal_uids=goal_uids),
+                self.logger,
+            )
         return result
 
     async def _create_validated(self, entity: Event) -> Result[Event]:
@@ -382,7 +389,7 @@ class EventsCoreService(
         habit_uid: str | None,
         goal_uids: tuple[str, ...],
         request: EventCreateRequest | None,
-    ) -> None:
+    ) -> tuple[str, ...]:
         """GRAPH-NATIVE: turn the event's cross-domain links into edges, in one batch.
 
         Three registered relationships, from two different sources:
@@ -406,6 +413,9 @@ class EventsCoreService(
         the batch would admit a Goal as a habit. The request door previously wrote both
         edges through ``UnifiedRelationshipService`` with no owner or kind check — the
         cross-tenant defect class #965 recorded.
+
+        Returns the goals a ``CONTRIBUTES_TO_GOAL`` edge was written to (empty when the
+        all-or-nothing batch failed), which the caller announces.
 
         A failure is logged, not propagated — the event itself is legitimate and is
         created either way. This DELIBERATELY changes the request door's contract,
@@ -448,7 +458,7 @@ class EventsCoreService(
             )
 
         if not candidates:
-            return
+            return ()
 
         relationships = await keep_permitted_link_edges(
             self.backend,
@@ -458,7 +468,7 @@ class EventsCoreService(
             logger=self.logger,
         )
         if not relationships:
-            return
+            return ()
 
         batch_result = await self.backend.create_relationships_batch(relationships)
         if batch_result.is_error:
@@ -468,6 +478,13 @@ class EventsCoreService(
                 event.uid,
                 batch_result.error,
             )
+            # All-or-nothing: NOTHING was written.
+            return ()
+        return tuple(
+            target
+            for _source, target, rel_type, _props in relationships
+            if rel_type == RelationshipName.CONTRIBUTES_TO_GOAL.value
+        )
 
     async def _publish_created(self, event: Event) -> None:
         """Announce a newly created event: CalendarEventCreated, CalendarEventCompleted
@@ -616,6 +633,8 @@ class EventsCoreService(
             - CalendarEventCompleted: if status transitions into COMPLETED
             - CalendarEventRescheduled: if event_date changed
             - CalendarEventUpdated: otherwise (cache invalidation contract)
+            - GoalContributionsChanged: when the status moves between the tally's
+              classes (done / not done / out)
         """
         changes = intent.to_changes()
         # Capture the intended fields now: the backend stamps updated_at in place, so
@@ -700,6 +719,18 @@ class EventsCoreService(
             )
         await publish_event(self.event_bus, domain_event, self.logger)
 
+        # A status write that moves the event between its goals' tally classes (done /
+        # not done / out) changes those goals' progress — announced from the prior the
+        # write saw, whichever of the three events above described the update.
+        if "status" in changes and moves_contribution_class(
+            outcome.prior_status, changes["status"]
+        ):
+            await publish_event(
+                self.event_bus,
+                GoalContributionsChanged(user_uid=event.user_uid, contributor_uids=(event.uid,)),
+                self.logger,
+            )
+
         # Post-persist embedding refresh (ADR-074) — only when a text field changed
         await publish_embedding_requested(
             self.event_bus, EntityType.EVENT, event, self.logger, changed_fields=updated_fields
@@ -718,8 +749,12 @@ class EventsCoreService(
         Returns:
             Result indicating success
 
+        The goals the event contributes to are read BEFORE the delete: the edges go
+        with the node, so afterwards nothing could find the goals whose tally lost it.
+
         Events Published:
             - CalendarEventDeleted: When event is successfully deleted
+            - GoalContributionsChanged: for the goals the event contributed to
         """
         # Get event details before deletion for event publishing
         event_result = await self.get(uid)
@@ -727,6 +762,9 @@ class EventsCoreService(
             return Result.fail(event_result)
 
         event = event_result.value
+        goals = await self.backend.get_contributed_goal_uids(uid)
+        if goals.is_error:
+            return Result.fail(goals)
 
         # Call parent delete
         result = await super().delete(uid, cascade=cascade)
@@ -739,6 +777,12 @@ class EventsCoreService(
                 title=event.title,
             )
             await publish_event(self.event_bus, domain_event, self.logger)
+            if goals.value:
+                await publish_event(
+                    self.event_bus,
+                    GoalContributionsChanged(user_uid=event.user_uid, goal_uids=tuple(goals.value)),
+                    self.logger,
+                )
 
         return result
 

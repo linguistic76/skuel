@@ -44,7 +44,7 @@ logger = get_logger(__name__)
 
 # (template_type, [(field_name, expected_target_type), ...])
 TASK_REFS: list[tuple[str, TemplateTypeName]] = [
-    ("fulfills_goal_template_uid", "GoalTemplate"),
+    ("contributes_to_goal_template_uid", "GoalTemplate"),
     ("reinforces_habit_template_uid", "HabitTemplate"),
     ("scheduled_event_template_uid", "EventTemplate"),
     ("parent_template_uid", "TaskTemplate"),

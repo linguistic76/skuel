@@ -223,7 +223,7 @@ def _tie_far_nodes(statement: str) -> str:
 
 
 # Tasks and goals — one statement because progress_counts spans both and each
-# projects the other (a task's goal_context, a goal's contributing_tasks).
+# projects the other (a task's contributing_goals, a goal's contributing_tasks).
 TASKS_AND_GOALS_QUERY: str = _tie_far_nodes(
     """
 MATCH (user:User {uid: $user_uid})
@@ -284,8 +284,13 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      reduce(acc = [], p IN applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) WHERE __FAR(k)__ | {uid: k.uid, title: k.title}])
      as task_knowledge
 
-OPTIONAL MATCH (task)-[:FULFILLS_GOAL]->(goal:Goal)
+// A task contributes to any number of goals: collected per task, so a task with two
+// goals is one row carrying both.
+OPTIONAL MATCH (task)-[:CONTRIBUTES_TO_GOAL]->(goal:Goal)
 WHERE task IS NOT NULL AND __FAR(goal)__
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     task, task_subtasks, task_dependencies, task_knowledge,
+     collect(DISTINCT CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, title: goal.title, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} END) as task_goals
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      collect(CASE WHEN task IS NOT NULL THEN {
          entity: properties(task),
@@ -293,7 +298,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
              subtasks: task_subtasks,
              dependencies: task_dependencies,
              applied_knowledge: task_knowledge,
-             goal_context: CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, title: goal.title, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} ELSE null END
+             contributing_goals: task_goals
          }
      } END) as tasks_rich
 
@@ -315,7 +320,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_goal_uids, completed_goal_uids, goal_progress_data,
      [g IN all_goals_nodes WHERE g.status = $status_active OR datetime(g.updated_at) >= datetime($window_start)] as window_goal_nodes
 UNWIND CASE WHEN size(window_goal_nodes) > 0 THEN window_goal_nodes ELSE [null] END as goal
-OPTIONAL MATCH (contributing_task:Task)-[:FULFILLS_GOAL]->(goal)
+OPTIONAL MATCH (contributing_task:Task)-[:CONTRIBUTES_TO_GOAL]->(goal)
 WHERE goal IS NOT NULL AND __FAR(contributing_task)__
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
@@ -391,7 +396,7 @@ WITH user,
 
 // Filter habits for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_habit_nodes) > 0 THEN all_habit_nodes ELSE [null] END as habit
-OPTIONAL MATCH (habit)-[:FULFILLS_GOAL|SUPPORTS_GOAL|CONTRIBUTES_TO_GOAL]->(linked_goal:Goal)
+OPTIONAL MATCH (habit)-[:SUPPORTS_GOAL]->(linked_goal:Goal)
 WHERE habit IS NOT NULL AND __FAR(linked_goal)__
 WITH user, active_habit_uids, habit_metadata,
      habit, collect(DISTINCT CASE WHEN linked_goal IS NOT NULL THEN {uid: linked_goal.uid, title: linked_goal.title, status: linked_goal.status} END) as habit_linked_goals

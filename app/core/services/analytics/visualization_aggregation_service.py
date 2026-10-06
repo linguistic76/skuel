@@ -263,11 +263,8 @@ class VisualizationAggregationService:
             return Result.fail(goal_result)
 
         # get_tasks_for_goal returns full Task models, which format_goal_gantt needs.
-        # It reads the node column Task.fulfills_goal_uid, not the FULFILLS_GOAL edge —
-        # the two agree by construction: every door lands both halves (the app doors
-        # dual-write property + edge, the vault door stamps the property from
-        # connections.fulfills_goal), so a vault-ingested task is found here too.
-        # See TasksCoreService._write_link_edges for the invariant.
+        # It traverses the CONTRIBUTES_TO_GOAL edge, so a task linked at any door —
+        # vault-ingested ones included — is on the chart.
         tasks: list[Any] = []
         tasks_result = await self.tasks_service.get_tasks_for_goal(goal_uid, user_uid)
         if tasks_result.is_ok:

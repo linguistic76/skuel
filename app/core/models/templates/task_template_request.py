@@ -47,7 +47,7 @@ class TaskTemplateCreateRequest(TemplateCreateRequest):
     project: str | None = Field(default=None, description="Associated project")
 
     # Cross-template references (resolved at spawn)
-    fulfills_goal_template_uid: str | None = None
+    contributes_to_goal_template_uid: str | None = None
     reinforces_habit_template_uid: str | None = None
     scheduled_event_template_uid: str | None = None
 
@@ -76,7 +76,7 @@ class TaskTemplateUpdateRequest(UpdateRequestBase):
     parent_template_uid: str | None = None
     project: str | None = None
 
-    fulfills_goal_template_uid: str | None = None
+    contributes_to_goal_template_uid: str | None = None
     reinforces_habit_template_uid: str | None = None
     scheduled_event_template_uid: str | None = None
 

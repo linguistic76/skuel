@@ -746,7 +746,7 @@ def build_relationship_traversal_query(
 
     Args:
         source_uid: UID of the source entity
-        relationship_type: Relationship type name (e.g., "FULFILLS_GOAL")
+        relationship_type: Relationship type name (e.g., "CONTRIBUTES_TO_GOAL")
         target_label: Neo4j label of target entities (e.g., "Task", "Goal")
         direction: "outgoing", "incoming", or "both" (default "outgoing")
         limit: Maximum results (default 100)
@@ -765,7 +765,7 @@ def build_relationship_traversal_query(
         # Get all tasks that fulfill a specific goal (incoming to goal)
         query, params = build_relationship_traversal_query(
             source_uid="goal:health-2025",
-            relationship_type="FULFILLS_GOAL",
+            relationship_type="CONTRIBUTES_TO_GOAL",
             target_label="Task",
             direction="incoming"
         )
@@ -839,7 +839,7 @@ def build_graph_aware_search_query(
         entity_class: Domain model class (must be dataclass)
         query: Search text (case-insensitive)
         source_uid: UID of the related entity to traverse from
-        relationship_type: Relationship type name (e.g., "ENABLES_KNOWLEDGE", "FULFILLS_GOAL")
+        relationship_type: Relationship type name (e.g., "ENABLES_KNOWLEDGE", "CONTRIBUTES_TO_GOAL")
         search_fields: Fields to search (default: ("title", "description"))
         label: Neo4j label (defaults to class name)
         direction: "outgoing", "incoming", or "both" (default "outgoing")
@@ -866,7 +866,7 @@ def build_graph_aware_search_query(
             Task,
             query="review",
             source_uid="goal:health-2025",
-            relationship_type="FULFILLS_GOAL",
+            relationship_type="CONTRIBUTES_TO_GOAL",
             direction="incoming", # Tasks that fulfill this goal
         )
     """

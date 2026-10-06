@@ -96,6 +96,33 @@ class GoalAchieved(BaseEvent):
 
 
 @dataclass(frozen=True)
+class GoalContributionsChanged(BaseEvent):
+    """
+    Published when a goal's contribution tally may have changed.
+
+    A task or an event contributes to a goal through ``CONTRIBUTES_TO_GOAL``; the tally
+    changes when a contribution moves between done, not done and out
+    (``core.models.goal.goal_contribution``), when a goal gains or loses one, and when a
+    task's ``completion_updates_goal`` changes. Every door that does one of those
+    publishes this event; the goal progress service recomputes the goals it names.
+
+    Attributes:
+        goal_uids: goals named directly — a removed contribution's goals, captured
+            before its edge went.
+        contributor_uids: tasks or events whose current goals are recomputed.
+
+    Subscribers:
+    - GoalsProgressService.handle_goal_contributions_changed (recompute each goal)
+    """
+
+    user_uid: UserUID
+    goal_uids: tuple[str, ...] = ()
+    contributor_uids: tuple[str, ...] = ()
+
+    event_type: ClassVar[str] = "goal.contributions_changed"
+
+
+@dataclass(frozen=True)
 class GoalProgressUpdated(BaseEvent):
     """
     Published when goal progress percentage changes.
@@ -112,8 +139,7 @@ class GoalProgressUpdated(BaseEvent):
     new_progress: float  # 0.0 to 1.0
 
     # Context for what caused the progress update
-    triggered_by_task_completion: bool = False
-    triggered_by_task_reopen: bool = False
+    triggered_by_contribution_change: bool = False
     triggered_by_habit_completion: bool = False
     triggered_by_manual_update: bool = False
 

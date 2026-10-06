@@ -74,7 +74,7 @@ class GoalTaskGenerator:
             tasks_service: The Tasks facade — generated tasks are persisted through
                 its entity door, which is the one create path for Tasks
                 (``TasksCoreService.create``): the creation rule, the link edges
-                (FULFILLS_GOAL, REINFORCES_HABIT), ``TaskCreated`` and the embedding
+                (CONTRIBUTES_TO_GOAL, REINFORCES_HABIT), ``TaskCreated`` and the embedding
                 request all happen there and nowhere else. A backend handle would
                 skip every one of them.
             relationship_service: UnifiedRelationshipService for fetching goal relationships,
@@ -155,14 +155,15 @@ class GoalTaskGenerator:
         generated_tasks = generated_tasks[: self.config.max_tasks_per_goal]
 
         # Create tasks if requested — through the Tasks entity door, the one create
-        # path: the creation rule, the FULFILLS_GOAL / REINFORCES_HABIT edges,
-        # TaskCreated and the embedding request are all its work. The habit link
-        # rides on the entity (``reinforces_habit_uid`` is the edge's INPUT on
-        # create), so the primitive writes that edge too.
+        # path: the creation rule, the CONTRIBUTES_TO_GOAL / REINFORCES_HABIT edges,
+        # TaskCreated, the goal's contribution announcement and the embedding request
+        # are all its work. Every generated task contributes to this goal, and the
+        # links ride on the entity (``contributes_to_goal_uids`` and
+        # ``reinforces_habit_uid`` are the edges' INPUT on create).
         created_tasks = []
         if auto_create:
             for task_template in generated_tasks:
-                task = Task.from_dto(task_template)
+                task = replace(Task.from_dto(task_template), contributes_to_goal_uids=(goal.uid,))
                 habit_uid = habit_links.get(task.uid)
                 if habit_uid is not None:
                     task = replace(task, reinforces_habit_uid=habit_uid)
@@ -292,7 +293,6 @@ class GoalTaskGenerator:
             )
 
             # Add learning integration
-            task.fulfills_goal_uid = goal.uid
             task.goal_progress_contribution = 100.0 / len(goal.milestones)
             # Store milestone index in metadata instead
             task.metadata["milestone_index"] = i
@@ -344,7 +344,6 @@ class GoalTaskGenerator:
             )
 
             # Add learning integration
-            task.fulfills_goal_uid = goal.uid
             # GRAPH-NATIVE: Store knowledge UID in metadata for relationship creation after task creation
             task.metadata["required_knowledge_uid"] = knowledge_uid
             task.metadata["is_learning_opportunity"] = True
@@ -403,9 +402,8 @@ class GoalTaskGenerator:
                         duration_minutes=self.config.habit_task_duration_minutes,
                     )
 
-                    # Add goal/habit integration. Habit link is a graph edge —
+                    # Habit integration. The habit link is a graph edge —
                     # recorded here, set on the entity at create.
-                    task.fulfills_goal_uid = goal.uid
                     habit_links[task.uid] = habit_uid
                     task.habit_streak_maintainer = True
                     task.metadata["recurring"] = True
@@ -439,8 +437,7 @@ class GoalTaskGenerator:
                 duration_minutes=15,
             )
 
-            # Add goal integration
-            task.fulfills_goal_uid = goal.uid
+            # Check-in metadata
             task.metadata["is_check_in"] = True
             task.metadata["check_in_type"] = "progress_review"
 
@@ -464,7 +461,6 @@ class GoalTaskGenerator:
                         duration_minutes=self.config.default_task_duration_minutes * 2,
                     )
 
-                    task.fulfills_goal_uid = goal.uid
                     task.goal_progress_contribution = 100.0 / len(goal.milestones)
                     task.metadata["is_urgent"] = True
 

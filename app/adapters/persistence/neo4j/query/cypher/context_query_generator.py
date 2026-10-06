@@ -5,16 +5,8 @@ Context Query Generator - Registry-Driven Graph Context Queries
 Generates graph context queries from RelationshipRegistry,
 eliminating domain-specific build_*_with_context() functions.
 
-**January 2026 Consolidation:**
-
-Previously, each domain had its own `build_*_with_context()` function:
-- build_task_with_context()
-- build_goal_with_context()
-- build_ku_with_context()
-- ... (7 total, ~590 lines)
-
-This module replaces ALL of them with a single function that reads
-relationship definitions from RelationshipRegistry.
+One function reads the relationship definitions from RelationshipRegistry, so no
+domain carries its own ``build_*_with_context()`` builder.
 
 **Shared-Neighbor Patterns (January 2026):**
 
@@ -23,8 +15,8 @@ entities through shared connections. For example, finding related tasks
 that share the same knowledge or goals:
 
 ```cypher
-OPTIONAL MATCH (entity)-[:APPLIES_KNOWLEDGE|FULFILLS_GOAL]->(shared)
-              <-[:APPLIES_KNOWLEDGE|FULFILLS_GOAL]-(related:Task)
+OPTIONAL MATCH (entity)-[:APPLIES_KNOWLEDGE|CONTRIBUTES_TO_GOAL]->(shared)
+              <-[:APPLIES_KNOWLEDGE|CONTRIBUTES_TO_GOAL]-(related:Task)
 WHERE related <> entity
 WITH entity, ...,
      collect(DISTINCT {uid: related.uid, ...})[0..5] as related_tasks
@@ -168,7 +160,7 @@ def _build_shared_neighbor_clause(
     if not config:
         return "", "", {}
 
-    # Build the relationship pattern (e.g., "APPLIES_KNOWLEDGE|FULFILLS_GOAL")
+    # Build the relationship pattern (e.g., "APPLIES_KNOWLEDGE|CONTRIBUTES_TO_GOAL")
     rel_pattern = config.get_relationship_pattern()
 
     # Check if shared_count is requested

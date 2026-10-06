@@ -18,8 +18,8 @@ from adapters.persistence.neo4j.query.cypher.choice_fragments import (
     build_choice_pending_predicate,
 )
 from adapters.persistence.neo4j.query.cypher.goal_tally_queries import (
-    build_linked_task_tally_query,
-    linked_task_tally_params,
+    build_contribution_tally_query,
+    contribution_tally_params,
 )
 from adapters.persistence.neo4j.query.cypher.habit_fragments import (
     build_habit_window_completion_stamps,
@@ -29,9 +29,11 @@ from core.constants import QueryLimit
 from core.models.choice.choice import Choice
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.goal_enums import MeasurementType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
+from core.models.goal.goal_contribution import CONTRIBUTOR_TYPES
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
@@ -41,12 +43,12 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import GuardedRecompute, GuardedWritePlan
 from core.ports.query_types import (
     ChoiceStats,
+    ContributionTally,
     EventStats,
     GoalsAchievedCount,
     GoalStats,
     HabitStats,
     LinkedHabitTally,
-    LinkedTaskTally,
     ParentProgressResult,
     PrincipleStats,
     TaskStats,
@@ -109,7 +111,7 @@ async def _edge_targets(
     Batch-fetch (source_uid, target_uid) pairs for one edge type.
 
     THE shared query behind the label-swapped link-map clones
-    (task→habit, event→habit, habit→goal, event→goal enrichment lookups).
+    (task→habit, event→habit, habit→goal, event→goal, task→goal enrichment lookups).
     ``rel_type`` is a RelationshipName value; entity types are parameterized.
     A target is the source owner's own or published shared content
     (``build_far_node_clause``).
@@ -171,12 +173,35 @@ async def _edge_map_multi(
 
 # boundary: the tally statement's row — a driver record under the lock, a plain dict
 # from ``execute_query``; narrowed here to the TypedDict both callers hand on.
-def _linked_task_tally(row: Mapping[str, Any]) -> LinkedTaskTally:
-    """The linked-task tally statement's row (``{}`` for none) as a ``LinkedTaskTally``."""
-    return LinkedTaskTally(
-        total_tasks=int(row.get("total_tasks") or 0),
-        completed_tasks=int(row.get("completed_tasks") or 0),
+def _contribution_tally(row: Mapping[str, Any]) -> ContributionTally:
+    """The contribution tally statement's row (``{}`` for none) as a ``ContributionTally``."""
+    return ContributionTally(
+        total_contributions=int(row.get("total_contributions") or 0),
+        completed_contributions=int(row.get("completed_contributions") or 0),
     )
+
+
+class _GoalContributorMixin:
+    """A task's or an event's goals — the far ends of its ``CONTRIBUTES_TO_GOAL`` edges.
+
+    Read before a delete, so the goals that lose a contribution can still be announced
+    once the node and its edges are gone.
+    """
+
+    execute_query: Callable[..., Any]
+
+    async def get_contributed_goal_uids(self, contributor_uid: str) -> Result[list[str]]:
+        """UIDs of the goals ``contributor_uid`` contributes to."""
+        result = await self.execute_query(
+            f"""
+            MATCH (:Entity {{uid: $uid}})-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:{NeoLabel.GOAL.value})
+            RETURN DISTINCT goal.uid AS goal_uid
+            """,
+            {"uid": contributor_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([str(r["goal_uid"]) for r in (result.value or [])])
 
 
 class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
@@ -663,58 +688,92 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             return Result.fail(result)
         return Result.ok([record["goal_uid"] for record in (result.value or [])])
 
-    async def find_linked_goals_for_task(
-        self, task_uid: str, user_uid: UserUID
+    async def find_contributed_goals(
+        self, contributor_uid: str, user_uid: UserUID
     ) -> Result[list[str]]:
-        """Goal UIDs a task fulfills — ``(Task)-[:FULFILLS_GOAL]->(Goal)``."""
-        return await self._find_linked_goals(
-            task_uid, user_uid, EntityType.TASK, RelationshipName.FULFILLS_GOAL
-        )
+        """UIDs of the user's goals a task or event contributes to.
 
-    async def recompute_progress_from_linked_tasks[P: GuardedWritePlan](
+        ``(contributor)-[:CONTRIBUTES_TO_GOAL]->(Goal)``, where the contributor is a task
+        or an event (``CONTRIBUTOR_TYPES``) — the edges a goal's tally counts.
+        """
+        query = f"""
+        MATCH (c:Entity {{uid: $contributor_uid}})-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(goal:Entity {{entity_type: $goal_type}})
+        WHERE c.entity_type IN $contributor_types AND goal.user_uid = $user_uid
+        RETURN DISTINCT goal.uid AS goal_uid
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "contributor_uid": contributor_uid,
+                "user_uid": user_uid,
+                "contributor_types": [t.value for t in CONTRIBUTOR_TYPES],
+                "goal_type": EntityType.GOAL.value,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["goal_uid"] for record in (result.value or [])])
+
+    async def recompute_progress_from_contributions[P: GuardedWritePlan](
         self,
         goal_uid: str,
-        user_uid: UserUID,
-        plan: Callable[[Goal, LinkedTaskTally], P | None],
+        plan: Callable[[Goal, ContributionTally], P | None],
     ) -> Result[GuardedRecompute[Goal, P] | None]:
-        """Recompute a goal from the tasks that fulfill it, tallied under the goal's lock.
+        """Recompute a goal from the tasks and events that contribute to it, under its lock.
 
-        The tally is ``(Task)-[:FULFILLS_GOAL]->(Goal)`` over the user's tasks that count
-        toward the goal — ``completion_updates_goal``, absent read as True
-        (``build_linked_task_tally_query``, the statement :meth:`get_linked_task_tally`
-        also runs). Lock, tally, plan and write are one transaction
-        (``_recompute_with_status_guard``), so a second recompute of this goal counts
-        after this one commits.
+        The tally is the goal owner's ``CONTRIBUTES_TO_GOAL`` contributors less the ones
+        left out (``build_contribution_tally_query``, the statement
+        :meth:`get_contribution_tally` also runs). Lock, tally, plan and write are one
+        transaction (``_recompute_with_status_guard``), so a second recompute of this
+        goal counts after this one commits.
         """
 
         def plan_from_row(goal: Goal, row: Mapping[str, Any]) -> P | None:
-            return plan(goal, _linked_task_tally(row))
+            return plan(goal, _contribution_tally(row))
 
         return await self._recompute_with_status_guard(
             goal_uid,
-            build_linked_task_tally_query(),
-            linked_task_tally_params(user_uid),
+            build_contribution_tally_query(),
+            contribution_tally_params(),
             plan_from_row,
         )
 
-    async def get_linked_task_tally(
-        self, goal_uid: str, user_uid: UserUID
-    ) -> Result[LinkedTaskTally]:
-        """A goal's linked-task tally as it stands now — a read; no lock, no write.
+    async def get_contribution_tally(self, goal_uid: str) -> Result[ContributionTally]:
+        """A goal's contribution tally as it stands now — a read; no lock, no write.
 
-        The statement :meth:`recompute_progress_from_linked_tasks` counts with
-        (``build_linked_task_tally_query``), so a reader reports by the membership rule
-        the goal's stored figure was written by: the user's tasks that fulfill the goal
-        and count toward it. A goal with no such task — or no goal — reads 0 / 0.
+        The statement :meth:`recompute_progress_from_contributions` counts with
+        (``build_contribution_tally_query``), so a reader reports by the membership rule
+        the goal's stored figure was written by. A goal with no counting contribution —
+        or no goal — reads 0 / 0.
         """
         result = await self.execute_query(
-            build_linked_task_tally_query(),
-            {**linked_task_tally_params(user_uid), "uid": goal_uid},
+            build_contribution_tally_query(),
+            {**contribution_tally_params(), "uid": goal_uid},
         )
         if result.is_error:
             return Result.fail(result)
         rows = result.value or []
-        return Result.ok(_linked_task_tally(rows[0] if rows else {}))
+        return Result.ok(_contribution_tally(rows[0] if rows else {}))
+
+    async def list_task_based_goals(self) -> Result[list[tuple[str, UserUID]]]:
+        """Every TASK_BASED goal as ``(goal_uid, owner_uid)`` — the reconciler's work list."""
+        result = await self.execute_query(
+            """
+            MATCH (goal:Entity {entity_type: $goal_type, measurement_type: $task_based})
+            WHERE goal.user_uid IS NOT NULL
+            RETURN goal.uid AS goal_uid, goal.user_uid AS user_uid
+            ORDER BY goal_uid
+            """,
+            {
+                "goal_type": EntityType.GOAL.value,
+                "task_based": MeasurementType.TASK_BASED.value,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [(str(r["goal_uid"]), UserUID(str(r["user_uid"]))) for r in (result.value or [])]
+        )
 
     async def find_linked_goals_for_habit(
         self, habit_uid: str, user_uid: UserUID
@@ -806,13 +865,14 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         )
 
 
-class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
+class TasksBackend(_GoalContributorMixin, _HierarchyMixin, UniversalNeo4jBackend[Task]):
     """
     Domain backend for Task entities.
 
     Extends UniversalNeo4jBackend[Task] with:
     - _HierarchyMixin: subtask hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_task(uid)              → get_or_fail() wrapper (NotFound as error)
+    - get_contributed_goal_uids(uid) → the goals the task contributes to
     - get_stats_for_user(…)      → task count stats (total/completed/overdue)
     - calculate_parent_progress(…) → weighted subtask completion percentage
     """
@@ -858,6 +918,45 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             return Result.fail(result)
         return Result.ok(
             [from_neo4j_node(dict(row["t"]), self.entity_class) for row in (result.value or [])]
+        )
+
+    async def get_tasks_contributing_to_goal(
+        self, goal_uid: str, user_uid: str
+    ) -> Result[list[Task]]:
+        """Return the user's tasks that contribute to a goal (CONTRIBUTES_TO_GOAL).
+
+        Graph-native reverse traversal of ``(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)``,
+        anchored at the goal; the tasks returned are ``user_uid``'s own
+        (``build_search_visibility_clause``, OWNER_ONLY).
+        """
+        owned = build_search_visibility_clause(
+            SearchVisibility.OWNER_ONLY, entity_alias="t", has_user=True
+        )
+        assert owned is not None  # OWNER_ONLY always emits a predicate under has_user
+        owner_clause, owner_params = owned
+        query = f"""
+        MATCH (g:Entity {{uid: $goal_uid}})<-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]-(t:Entity {{entity_type: 'task'}})
+        WHERE {owner_clause}
+        RETURN DISTINCT t
+        """
+        result = await self.execute_query(
+            query, {"goal_uid": goal_uid, "user_uid": user_uid, **owner_params}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [from_neo4j_node(dict(row["t"]), self.entity_class) for row in (result.value or [])]
+        )
+
+    async def get_goal_links_for_tasks(self, task_uids: list[str]) -> Result[dict[str, list[str]]]:
+        """Map task_uid → the goal_uids it contributes to, for the given tasks (batch).
+
+        Batch-lookup of the CONTRIBUTES_TO_GOAL edge, used to populate the derived
+        ``Task.contributes_to_goal_uid`` field for the in-memory scorers. Returns all
+        linked goals per task so the enricher can prefer an active one.
+        """
+        return await _edge_map_multi(
+            self, "task", RelationshipName.CONTRIBUTES_TO_GOAL.value, task_uids
         )
 
     async def get_habit_links_for_tasks(self, task_uids: list[str]) -> Result[dict[str, str]]:
@@ -1056,13 +1155,14 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         return Result.ok(bool(result.value[0]["reachable"]))
 
 
-class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
+class EventsBackend(_GoalContributorMixin, _HierarchyMixin, UniversalNeo4jBackend[Event]):
     """
     Domain backend for Event entities.
 
     Extends UniversalNeo4jBackend[Event] with:
     - _HierarchyMixin: subevent hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_event(uid)             → get_or_fail() wrapper (NotFound as error)
+    - get_contributed_goal_uids(uid) → the goals the event contributes to
     - get_user_events(uid)       → alias for inherited list_by_user()
     - get_stats_for_user(uid)    → event count stats (total/scheduled/today)
     - get_goal_links_for_events(…)    → batch map event_uid → contributed goal_uid

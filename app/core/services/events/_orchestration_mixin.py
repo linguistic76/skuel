@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.events import publish_event
+from core.events import GoalContributionsChanged, publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
 from core.models.enums import AttendanceStatus, EventType, RecurrencePattern
 from core.models.event.event import Event
@@ -65,16 +65,50 @@ class _OrchestrationMixin:
     # GRAPH RELATIONSHIPS — Cross-domain linking
     # ========================================================================
 
-    async def link_event_to_goal(
-        self, event_uid: str, goal_uid: str, contribution_weight: float = 1.0
-    ) -> Result[bool]:
-        """Link event to goal it contributes to (``CONTRIBUTES_TO_GOAL``)."""
-        return await self.relationships.create_relationship(
-            "goals",
-            event_uid,
-            goal_uid,
-            {"contribution_weight": contribution_weight},
-            far_end=GOAL_FAR_END,
+    async def link_event_to_goal(self, event_uid: str, goal_uid: str) -> Result[bool]:
+        """Link an event to a goal it contributes to (``CONTRIBUTES_TO_GOAL``, no properties).
+
+        Announces ``GoalContributionsChanged`` so the goal's tally counts the event.
+        """
+        result = await self.relationships.create_relationship(
+            "goals", event_uid, goal_uid, far_end=GOAL_FAR_END
+        )
+        if result.is_ok:
+            await self._announce_goal_contributions(event_uid, (goal_uid,))
+        return result
+
+    async def unlink_event_from_goal(self, event_uid: str, goal_uid: str) -> Result[bool]:
+        """Remove an event's contribution to a goal.
+
+        The keyed delete names the far end's kind (``Goal``), so it removes only this
+        event's ``CONTRIBUTES_TO_GOAL`` edge. Announces ``GoalContributionsChanged`` for
+        the goal, which can no longer be found from the event.
+        """
+        result = await self.relationships.delete_relationship("goals", event_uid, goal_uid)
+        if result.is_ok:
+            await self._announce_goal_contributions(event_uid, (goal_uid,))
+        return result
+
+    async def _announce_goal_contributions(
+        self, event_uid: str, goal_uids: tuple[str, ...] = ()
+    ) -> None:
+        """Publish ``GoalContributionsChanged`` for an event, under its owner.
+
+        Best-effort: an event that no longer resolves is logged — its link is already
+        written or removed.
+        """
+        event = await self.core.get_event(event_uid)
+        if event.is_error:
+            self.logger.warning(
+                "Goal contributions of event %s not announced: %s", event_uid, event.error
+            )
+            return
+        await publish_event(
+            self.event_bus,
+            GoalContributionsChanged(
+                user_uid=event.value.user_uid, goal_uids=goal_uids, contributor_uids=(event_uid,)
+            ),
+            self.logger,
         )
 
     async def link_event_to_habit(self, event_uid: str, habit_uid: str) -> Result[bool]:

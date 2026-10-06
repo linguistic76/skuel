@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
 from core.events import (
+    GoalContributionsChanged,
     TaskCompleted,
     TaskCreated,
     TaskDeleted,
@@ -43,6 +44,7 @@ from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.goal.goal_contribution import moves_contribution_class
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
@@ -74,37 +76,36 @@ from core.utils.result_simplified import Errors, Result
 class WrittenLinks:
     """What ``_write_link_edges`` actually put in the graph.
 
-    Everything downstream of the batch is derived from these — the substance
-    announcements and the goal-property reconciliation — never from what the request
-    asked for, so a refused or dangling link cannot claim an edge that does not exist.
+    Everything downstream of the batch is derived from these — the substance and
+    goal-contribution announcements — never from what the request asked for, so a
+    refused or dangling link cannot claim an edge that does not exist.
 
     Attributes:
         applied_knowledge_uids: APPLIES_KNOWLEDGE targets written, deduplicated in order.
-        goal_uid: the FULFILLS_GOAL target written, or ``None`` when no goal edge exists.
+        goal_uids: CONTRIBUTES_TO_GOAL targets written, deduplicated in order.
     """
 
     applied_knowledge_uids: tuple[str, ...] = ()
-    goal_uid: str | None = None
+    goal_uids: tuple[str, ...] = ()
 
     @classmethod
     def from_edges(cls, relationships: list[EdgeTuple]) -> WrittenLinks:
         # DEDUPED: the batch MERGEs, so a UID repeated in the request yields ONE edge —
         # but the bulk substance event UNWINDs what it is given, crediting the knowledge
         # once per row. dict.fromkeys keeps the order.
-        applied = dict.fromkeys(
-            target
-            for _source, target, rel_type, _props in relationships
-            if rel_type == RelationshipName.APPLIES_KNOWLEDGE.value
+        def targets(relationship: RelationshipName) -> tuple[str, ...]:
+            return tuple(
+                dict.fromkeys(
+                    target
+                    for _source, target, rel_type, _props in relationships
+                    if rel_type == relationship.value
+                )
+            )
+
+        return cls(
+            applied_knowledge_uids=targets(RelationshipName.APPLIES_KNOWLEDGE),
+            goal_uids=targets(RelationshipName.CONTRIBUTES_TO_GOAL),
         )
-        goal_uid = next(
-            (
-                target
-                for _source, target, rel_type, _props in relationships
-                if rel_type == RelationshipName.FULFILLS_GOAL.value
-            ),
-            None,
-        )
-        return cls(applied_knowledge_uids=tuple(applied), goal_uid=goal_uid)
 
 
 # The HAS_SUBTASK edge's weight when the caller cannot supply one. It is a property of
@@ -285,8 +286,8 @@ class TasksCoreService(
     # The TASKS_CONFIG config includes:
     # - subtasks, dependencies, dependents (task hierarchy)
     # - applied_knowledge, required_knowledge (knowledge context)
-    # - goal_context, habit_context (single related entities)
-    # - related_tasks (shared-neighbor pattern via APPLIES_KNOWLEDGE|FULFILLS_GOAL)
+    # - contributing_goals, habit_context (related entities)
+    # - related_tasks (shared-neighbor pattern via APPLIES_KNOWLEDGE|CONTRIBUTES_TO_GOAL)
     #
     # See: /core/models/relationship_registry.py - TASKS_CONFIG
     # See: /core/services/base_service.py - get_with_context()
@@ -337,12 +338,11 @@ class TasksCoreService(
         validation to reach here. What this primitive reconciles is the EVENT half and
         the three ENTITY-CARRIED links.
 
-        ``parent_uid``, ``reinforces_habit_uid`` and ``fulfills_goal_uid`` are written
-        here rather than in ``create_task`` because all three ride on the Task, so both
-        doors can write them. A link left on the request door alone is a link the entity
-        door never writes (``POST /api/tasks/create`` hands the service an entity and no
-        request). The first two are edge-only — the mapper keeps them off the node; the
-        goal is dual-written, property AND edge (see ``_write_link_edges``).
+        ``parent_uid``, ``reinforces_habit_uid`` and ``contributes_to_goal_uids`` are
+        written here rather than in ``create_task`` because all three ride on the Task, so
+        both doors can write them. A link left on the request door alone is a link the
+        entity door never writes (``POST /api/tasks/create`` hands the service an entity
+        and no request). All three are edge-only — the mapper keeps them off the node.
 
         Args:
             entity: Task to create
@@ -352,6 +352,7 @@ class TasksCoreService(
 
         Events Published:
             - TaskCreated: when the task is successfully created
+            - GoalContributionsChanged: when the task contributes to a goal
             - TaskEmbeddingRequested (ADR-074): post-persist embedding refresh
         """
         return await self._create_with_links(entity, progress_weight=DEFAULT_PROGRESS_WEIGHT)
@@ -374,13 +375,12 @@ class TasksCoreService(
         and no list edges written).
 
         Mirrors ``GoalsCoreService._create_with_hierarchy``, with one difference that
-        cost a RED test: two of Tasks' entity-carried links (``parent_uid``,
-        ``reinforces_habit_uid``) are RELATIONSHIP_SKIP_FIELDS, so they DO NOT SURVIVE THE
-        ROUND-TRIP. ``backend.create`` returns ``from_neo4j_node(props, Task)`` over the
-        properties it wrote, and the mapper dropped these two on the way in — so
-        ``result.value.parent_uid`` is always None. They are read off the INPUT entity and
-        passed down explicitly. ``fulfills_goal_uid`` is the third link and a real node
-        column, so the persisted task carries it and ``_write_link_edges`` reads it there.
+        cost a RED test: Tasks' entity-carried links (``parent_uid``,
+        ``reinforces_habit_uid``, ``contributes_to_goal_uids``) are
+        RELATIONSHIP_SKIP_FIELDS, so they DO NOT SURVIVE THE ROUND-TRIP.
+        ``backend.create`` returns ``from_neo4j_node(props, Task)`` over the properties it
+        wrote, and the mapper dropped these on the way in — so ``result.value.parent_uid``
+        is always None. They are read off the INPUT entity and passed down explicitly.
 
         The creation rule runs first, on the entity, so it holds for both doors: a
         task created with neither ``due_date`` nor ``scheduled_date`` is due the day it
@@ -394,52 +394,20 @@ class TasksCoreService(
 
         task: Task = result.value
         await self._write_hierarchy_edge(task, entity.parent_uid, progress_weight)
-        written = await self._write_link_edges(task, entity.reinforces_habit_uid, request)
-        task = await self._reconcile_goal_property(task, written.goal_uid)
+        written = await self._write_link_edges(
+            task, entity.reinforces_habit_uid, entity.contributes_to_goal_uids, request
+        )
 
-        # Every edge is written and the goal stamp agrees with the graph — only now
-        # announce the task.
+        # Every edge is written — only now announce the task.
         await self._publish_created(task)
         await self._publish_knowledge_substance(task, list(written.applied_knowledge_uids))
-        return Result.ok(task)
-
-    async def _reconcile_goal_property(self, task: Task, written_goal_uid: str | None) -> Task:
-        """Keep ``fulfills_goal_uid`` equal to the FULFILLS_GOAL edge target.
-
-        The goal link is dual-written — see ``_write_link_edges``. When the edge was
-        refused (missing, another user's, not a Goal) or the batch failed, the property the
-        create just persisted names a goal the graph does not connect, so it is CLEARED and
-        the returned task says so. A dangling stamp would satisfy no reader anyway: the
-        relevance scorer checks it against the user's active goals and the goal-progress
-        cascade addresses the goal by it. Runs BEFORE ``_publish_created`` — the
-        ``TaskCreated`` rebuild caches the task for 300s.
-
-        A failed clear is logged at ERROR and the task is returned as persisted: the stamp
-        is still on the node, and the caller must not be told otherwise.
-
-        ``backend.update`` bypasses ``_validate_update`` by design: that hook reads
-        ``priority`` and ``due_date``, neither of which this one-field patch touches.
-        """
-        if not task.fulfills_goal_uid or written_goal_uid == task.fulfills_goal_uid:
-            return task
-
-        cleared = await self.backend.update(task.uid, {"fulfills_goal_uid": None})
-        if cleared.is_error:
-            self.logger.error(
-                "Task %s keeps fulfills_goal_uid=%s with no FULFILLS_GOAL edge behind it — "
-                "the clearing write failed: %s",
-                task.uid,
-                task.fulfills_goal_uid,
-                cleared.error,
+        if written.goal_uids:
+            await publish_event(
+                self.event_bus,
+                GoalContributionsChanged(user_uid=task.user_uid, goal_uids=written.goal_uids),
+                self.logger,
             )
-            return task
-
-        self.logger.warning(
-            "Cleared fulfills_goal_uid=%s on task %s: its FULFILLS_GOAL edge was not written",
-            task.fulfills_goal_uid,
-            task.uid,
-        )
-        return dataclasses.replace(task, fulfills_goal_uid=None)
+        return Result.ok(task)
 
     async def _create_validated(self, entity: Task) -> Result[Task]:
         """Persist, publishing NOTHING.
@@ -518,7 +486,11 @@ class TasksCoreService(
             )
 
     async def _write_link_edges(
-        self, task: Task, habit_uid: str | None, request: TaskCreateRequest | None
+        self,
+        task: Task,
+        habit_uid: str | None,
+        goal_uids: tuple[str, ...],
+        request: TaskCreateRequest | None,
     ) -> WrittenLinks:
         """GRAPH-NATIVE: turn the task's cross-domain links into edges, in one batch.
 
@@ -529,17 +501,9 @@ class TasksCoreService(
           cannot carry it once persisted (see ``_create_with_links``). Edge-only: the
           mapper's RELATIONSHIP_SKIP_FIELDS keeps the uid off the node, and every reader
           resolves the habit from the edge.
-        - ``Task.fulfills_goal_uid`` → FULFILLS_GOAL — from the ENTITY, both doors, read
-          off the persisted ``task`` (it is a real node column). DUAL-WRITTEN: the property
-          stays, and this edge is written beside it — the same shape as
-          ``Exercise.path_step_uid`` + HAS_EXERCISE, and ADR-086's ``user_uid`` + ``:OWNS``.
-          The property serves the readers that hold the task in hand (the relevance
-          scorer, the completion → goal-progress cascade, the edit form's picker); the
-          edge serves every graph reader — the goal's open-task count that gates
-          ``cancel_goal``, the goals-for-tasks batch behind daily planning, the
-          MEGA-QUERY's ``goal_context`` and ``goal_tasks``, goal-aligned traversals. The
-          invariant, held by ``_reconcile_goal_property``: property == edge target,
-          wherever both exist — a refused edge clears the property.
+        - ``Task.contributes_to_goal_uids`` → one CONTRIBUTES_TO_GOAL per goal — from the
+          ENTITY too, passed in as ``goal_uids`` for the same reason. Edge-only: every
+          reader of a task's goals traverses the edge.
         - ``applies_knowledge_uids``   → APPLIES_KNOWLEDGE  (request only)
         - ``prerequisite_knowledge_uids`` → REQUIRES_KNOWLEDGE (request only)
         - ``aligned_principle_uids``   → ALIGNED_WITH_PRINCIPLE (request only)
@@ -558,7 +522,7 @@ class TasksCoreService(
         ADMISSION: every one of these UIDs is request input, so each is checked for
         existence, OWNER and KIND before it becomes an edge — ``keep_permitted_link_edges``.
         The declared kinds come from the field names: ``reinforces_habit_uid`` means a
-        Habit, ``fulfills_goal_uid`` a Goal (goals are OWNER_ONLY, and the goal readers do
+        Habit, ``contributes_to_goal_uids`` Goals (goals are OWNER_ONLY, and the goal readers do
         not filter the task's owner — a cross-user edge would count the caller's task in
         another user's goal progress), the knowledge lists mean Kus (KNOWLEDGE_LABELS —
         see there for why the atom and not the PathStep), ``aligned_principle_uids``
@@ -566,10 +530,9 @@ class TasksCoreService(
 
         Returns:
             The edges actually WRITTEN, as ``WrittenLinks`` — the caller announces
-            substance and reconciles the goal stamp from these, never from what was
-            requested, so a refused or dangling link cannot claim an edge that does not
-            exist. Empty when the batch failed: it is all-or-nothing, so NOTHING was
-            written.
+            substance and goal contributions from these, never from what was requested,
+            so a refused or dangling link cannot claim an edge that does not exist. Empty
+            when the batch failed: it is all-or-nothing, so NOTHING was written.
 
         A failure is logged, not propagated — the task itself is created.
         """
@@ -589,19 +552,15 @@ class TasksCoreService(
                 )
             )
 
-        if task.fulfills_goal_uid:
-            candidates.append(
-                LinkEdge(
-                    (
-                        task.uid,
-                        task.fulfills_goal_uid,
-                        RelationshipName.FULFILLS_GOAL.value,
-                        None,
-                    ),
-                    other_uid=task.fulfills_goal_uid,
-                    allowed_labels=frozenset({NeoLabel.GOAL.value}),
-                )
+        # dict.fromkeys: a repeated uid is one edge, not two candidates for one MERGE.
+        candidates.extend(
+            LinkEdge(
+                (task.uid, goal_uid, RelationshipName.CONTRIBUTES_TO_GOAL.value, None),
+                other_uid=goal_uid,
+                allowed_labels=frozenset({NeoLabel.GOAL.value}),
             )
+            for goal_uid in dict.fromkeys(goal_uids)
+        )
 
         if request is not None:
             candidates.extend(
@@ -701,7 +660,7 @@ class TasksCoreService(
 
         A DSL ``- [x]`` line and an API create carrying ``status=completed`` both persist
         a task that never passes through ``update_task``, so every ``TaskCompleted``
-        subscriber — goal progress, PS engagement auto-complete, duration calibration,
+        subscriber — PS engagement auto-complete, duration calibration,
         productivity analytics, context invalidation — used to be skipped for it. A
         create has no prior status, so this is unambiguously a transition INTO completed,
         and no prior-status machinery is needed.
@@ -784,7 +743,7 @@ class TasksCoreService(
         are forwarded because only this door has the request: all five are EDGE-shaped,
         so none rides an entity and the entity door cannot carry them. Since the
         generated route was bound here, every external create comes through this door.
-        The HAS_SUBTASK, REINFORCES_HABIT and FULFILLS_GOAL edges, whose endpoints DO ride
+        The HAS_SUBTASK, REINFORCES_HABIT and CONTRIBUTES_TO_GOAL edges, whose endpoints DO ride
         on the entity, are written by the shared path for both doors — writing them here
         as well would double-write them.
 
@@ -1016,7 +975,7 @@ class TasksCoreService(
         # Publish TaskCompleted when this update is a genuine transition INTO
         # completed. The status chokepoint (POST /api/tasks/{uid}/status) is a
         # real completion door and used to publish TaskUpdated only, so every
-        # TaskCompleted subscriber — goal progress, PS engagement auto-complete,
+        # TaskCompleted subscriber — PS engagement auto-complete,
         # duration calibration, analytics, context invalidation — was silently
         # skipped for tasks completed from a status control.
         #
@@ -1048,6 +1007,18 @@ class TasksCoreService(
             await publish_event(
                 self.event_bus,
                 TaskReopened(task_uid=task.uid, user_uid=task.user_uid),
+                self.logger,
+            )
+
+        # A status write that moves the task between its goals' tally classes (done /
+        # not done / out) changes those goals' progress — announced from the prior the
+        # write saw, so a re-post of the same class announces nothing.
+        if "status" in changes and moves_contribution_class(
+            outcome.prior_status, changes["status"]
+        ):
+            await publish_event(
+                self.event_bus,
+                GoalContributionsChanged(user_uid=task.user_uid, contributor_uids=(task.uid,)),
                 self.logger,
             )
 
@@ -1154,6 +1125,17 @@ class TasksCoreService(
         for completion_event in completion_events:
             await publish_event(self.event_bus, completion_event, self.logger)
 
+        # Every transition INTO completed moves the task into its goals' "done" class.
+        if completion_events:
+            await publish_event(
+                self.event_bus,
+                GoalContributionsChanged(
+                    user_uid=user_uid,
+                    contributor_uids=tuple(e.task_uid for e in completion_events),
+                ),
+                self.logger,
+            )
+
         # Publish TasksBulkCompleted event. The uids are the rows that were
         # actually written — the former ``task_uids[:completed_count]`` slice
         # named the wrong rows whenever a row in the middle was skipped.
@@ -1175,13 +1157,21 @@ class TasksCoreService(
     @with_error_handling("delete_task", error_type="database", uid_param="task_uid")
     async def delete_task(self, task_uid: str) -> Result[bool]:
         """
-        Delete a task.
+        Delete a task — THE task delete door (the CRUD route reaches it through
+        ``TasksService.delete_for_user``).
+
+        The goals the task contributes to are read BEFORE the delete: the edges go with
+        the node, so afterwards nothing could find the goals whose tally lost it.
 
         Args:
             task_uid: Task UID
 
         Returns:
             Result indicating success
+
+        Events Published:
+            - TaskDeleted
+            - GoalContributionsChanged: for the goals the task contributed to
         """
         # Get task details before deletion for event publishing
         task_result = await self.backend.get(task_uid)
@@ -1194,13 +1184,23 @@ class TasksCoreService(
             if isinstance(task_data, dict)
             else getattr(task_data, "user_uid", None)
         )
+        goals = await self.backend.get_contributed_goal_uids(task_uid)
+        if goals.is_error:
+            return Result.fail(goals)
 
         result = await self.backend.delete(task_uid, cascade=True)
 
         # Publish TaskDeleted event if deletion succeeded
         if result.is_ok:
-            event = TaskDeleted(task_uid=task_uid, user_uid=UserUID(str(user_uid or "")))
+            owner = UserUID(str(user_uid or ""))
+            event = TaskDeleted(task_uid=task_uid, user_uid=owner)
             await publish_event(self.event_bus, event, self.logger)
+            if goals.value:
+                await publish_event(
+                    self.event_bus,
+                    GoalContributionsChanged(user_uid=owner, goal_uids=tuple(goals.value)),
+                    self.logger,
+                )
 
         return result
 

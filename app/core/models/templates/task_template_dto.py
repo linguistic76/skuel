@@ -51,7 +51,7 @@ class TaskTemplateDTO(EntityDTO):
     project: str | None = None
 
     # Cross-template refs
-    fulfills_goal_template_uid: str | None = None
+    contributes_to_goal_template_uid: str | None = None
     reinforces_habit_template_uid: str | None = None
     scheduled_event_template_uid: str | None = None
 
@@ -133,7 +133,7 @@ class TaskTemplateDTO(EntityDTO):
                 "recurrence_end_offset",
                 "parent_template_uid",
                 "project",
-                "fulfills_goal_template_uid",
+                "contributes_to_goal_template_uid",
                 "reinforces_habit_template_uid",
                 "scheduled_event_template_uid",
                 "goal_progress_contribution",

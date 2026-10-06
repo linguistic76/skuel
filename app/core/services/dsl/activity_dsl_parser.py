@@ -1223,7 +1223,7 @@ class ActivityDSLParser:
         such as ``lp``); it is never prepended and nothing resolves a title
         or a path to a uid. Every sink existence-checks the id against the
         graph (the entry's APPLIES_KNOWLEDGE write, the create doors' link
-        guard, ``fulfills_goal_uid``), so only a stored uid ever lands.
+        guard), so only a stored uid ever lands.
 
         Returns list of dicts: [{"type": "goal", "id": "goal_3f9a2b1c"}, ...]
         """

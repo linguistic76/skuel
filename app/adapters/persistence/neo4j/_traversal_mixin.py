@@ -363,35 +363,6 @@ class _TraversalMixin:
         # it rather than being left as a permanent empty list.
         return await self.execute_query(query, {"entity_uids": entity_uids})
 
-    async def get_goal_aligned_entities(
-        self,
-        user_uid: str,
-        domain_name: str,
-        entity_label: NeoLabel,
-        goal_uid: str | None,
-        limit: int,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get entities aligned with user's goals via goal relationships."""
-        goal_rels = [
-            RelationshipName.FULFILLS_GOAL.value,
-            RelationshipName.SUPPORTS_GOAL.value,
-            RelationshipName.CONTRIBUTES_TO_GOAL.value,
-        ]
-        rel_pattern = "|".join(goal_rels)
-        goal_filter = "WHERE g.uid = $goal_uid" if goal_uid else ""
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:HAS_{domain_name.upper()}]->(e:{entity_label})
-        MATCH (e)-[:{rel_pattern}]->(g:Goal)
-        {goal_filter}
-        RETURN DISTINCT e, collect(g.uid) as goal_uids
-        ORDER BY size(collect(g.uid)) DESC
-        LIMIT $limit
-        """
-        params: dict[str, Any] = {"user_uid": user_uid, "limit": limit}
-        if goal_uid:
-            params["goal_uid"] = goal_uid
-        return await self.execute_query(query, params)
-
     async def get_citation_export(
         self,
         node_uid: str,

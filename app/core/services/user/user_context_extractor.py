@@ -34,7 +34,7 @@ class TaskRelationshipData:
     dependencies: dict[str, list[str]] = field(default_factory=dict)
     blockers: dict[str, list[str]] = field(default_factory=dict)
     knowledge_applied: dict[str, list[str]] = field(default_factory=dict)
-    goal_associations: dict[str, str] = field(default_factory=dict)
+    goal_associations: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -205,7 +205,7 @@ class UserContextExtractor:
         - Task dependencies (DEPENDS_ON relationships)
         - Task blockers (inverse of dependencies, deduplicated)
         - Applied knowledge (APPLIES_KNOWLEDGE relationships)
-        - Goal associations (FULFILLS_GOAL relationships)
+        - Goal associations (CONTRIBUTES_TO_GOAL relationships — several per task)
 
         Args:
             tasks_rich: List of task items with graph_context
@@ -217,7 +217,7 @@ class UserContextExtractor:
         dependencies: dict[str, list[str]] = {}
         blockers_sets: dict[str, set[str]] = {}  # Use sets to prevent duplicates
         knowledge_applied: dict[str, list[str]] = {}
-        goal_associations: dict[str, str] = {}
+        goal_associations: dict[str, list[str]] = {}
 
         for task_item in tasks_rich:
             if not task_item:
@@ -243,10 +243,10 @@ class UserContextExtractor:
             if ku_uids:
                 knowledge_applied[task_uid] = ku_uids
 
-            # Extract goal association
-            goal_ctx = graph_ctx.get("goal_context")
-            if goal_ctx and goal_ctx.get("uid"):
-                goal_associations[task_uid] = goal_ctx["uid"]
+            # Extract the goals the task contributes to
+            goal_uids = self._uids(graph_ctx.get("contributing_goals"))
+            if goal_uids:
+                goal_associations[task_uid] = goal_uids
 
         # Convert blocker sets to sorted lists for stable output
         blockers = {k: sorted(v) for k, v in blockers_sets.items()}
@@ -268,7 +268,7 @@ class UserContextExtractor:
         - Required knowledge (REQUIRES_KNOWLEDGE relationships)
         - Mastered knowledge (subset of required that user has mastered)
         - Completion percentage (computed from graph state)
-        - Supporting tasks (FULFILLS_GOAL relationships)
+        - Supporting tasks (CONTRIBUTES_TO_GOAL relationships from tasks)
 
         Args:
             goals_rich: List of goal items with graph_context

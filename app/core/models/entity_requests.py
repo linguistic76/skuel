@@ -212,8 +212,6 @@ class LinkTaskToGoalRequest(BaseModel):
 
     task_uid: str = Field(..., min_length=1)
     goal_uid: str = Field(..., min_length=1)
-    contribution_percentage: float = Field(default=0.1, ge=0.0, le=1.0)
-    milestone_uid: str | None = None
 
 
 class LinkGoalToKnowledgeRequest(BaseModel):
@@ -254,7 +252,6 @@ class LinkEventToGoalRequest(BaseModel):
 
     event_uid: str = Field(..., min_length=1)
     goal_uid: str = Field(..., min_length=1)
-    contribution_weight: float = Field(default=1.0, ge=0.0, le=1.0)
 
 
 class LinkChoiceToGoalRequest(BaseModel):

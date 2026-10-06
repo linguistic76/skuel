@@ -45,6 +45,7 @@ def _wire_event_subscribers(
         ChoiceUpdated,
         GoalAbandoned,
         GoalAchieved,
+        GoalContributionsChanged,
         GoalCreated,
         GoalMilestoneReached,
         GoalProgressUpdated,
@@ -355,15 +356,14 @@ def _wire_event_subscribers(
     # ── Cross-domain event subscriptions ────────────────────────────────────
     # "Events over dependencies" - Eliminate service-to-service coupling
 
-    # Task completion → Goal progress update
+    # A goal's contributions changed (a task or event moved between done / not done /
+    # out, or a goal gained or lost one) → recompute each goal named. The one trigger of
+    # a TASK_BASED goal's progress; every door that changes a contribution publishes it.
     goals_service = activity_services["goals"]  # Use unified activity service
-    event_bus.subscribe(TaskCompleted, goals_service.progress.handle_task_completed)
-    logger.info("✅ GoalsProgressService subscribed to TaskCompleted (automatic progress updates)")
-
-    # Task reopen → the same recompute, which lowers the tally (and un-achieves a goal
-    # it drops below 100%). Published by update_task and by the vault ingest door.
-    event_bus.subscribe(TaskReopened, goals_service.progress.handle_task_reopened)
-    logger.info("✅ GoalsProgressService subscribed to TaskReopened (progress follows reopens)")
+    event_bus.subscribe(
+        GoalContributionsChanged, goals_service.progress.handle_goal_contributions_changed
+    )
+    logger.info("✅ GoalsProgressService subscribed to GoalContributionsChanged (goal tally)")
 
     # Habit completion → Goal progress update
     event_bus.subscribe(HabitCompleted, goals_service.progress.handle_habit_completed)

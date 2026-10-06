@@ -80,7 +80,7 @@ class TaskTemplate(Entity):
     # =========================================================================
     # CROSS-TEMPLATE REFERENCES (resolved at spawn via instance map)
     # =========================================================================
-    fulfills_goal_template_uid: str | None = None
+    contributes_to_goal_template_uid: str | None = None
     reinforces_habit_template_uid: str | None = None
     scheduled_event_template_uid: str | None = None
 
