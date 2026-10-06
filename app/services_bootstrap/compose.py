@@ -669,9 +669,10 @@ async def compose_services(
         # what embeddings_enabled turns off, so no publish is a
         # queue-with-no-listener. The other kind is the ADR-087 completion
         # cascade a vault file's status change earns (TaskCompleted /
-        # GoalAchieved / CalendarEventCompleted), which is Analog: its
-        # subscribers — goal progress, PS engagement auto-complete, context
-        # invalidation — are wired unconditionally, and every activity service
+        # GoalAchieved / CalendarEventCompleted) and the goal tally's trigger
+        # (GoalContributionsChanged), which are Analog: their subscribers — PS
+        # engagement auto-complete, context invalidation, goal progress — are
+        # wired unconditionally, and every activity service
         # here holds the real bus at CORE too. Withholding it from ingestion
         # alone would make the vault door the single write path that does not
         # cascade at $0 (Codex #1290).

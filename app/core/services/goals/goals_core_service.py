@@ -10,8 +10,7 @@ Responsibilities:
 - Publishes domain events (GoalCreated, GoalUpdated, GoalAchieved, GoalAbandoned).
   GoalProgressUpdated is owned by GoalsProgressService (progress-propagation provenance).
 
-  RelationshipRegistry (GOALS_CONFIG). Shared-neighbor pattern for
-  related_goals is now defined in the registry.
+  RelationshipRegistry (GOALS_CONFIG).
   See: /core/models/relationship_registry.py
 - v2.1.0 (2025-11-28): Eliminated APOC dependency.
 - v2.0.0 (2025-11-05): Initial facade pattern implementation

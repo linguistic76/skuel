@@ -792,9 +792,11 @@ class UnifiedIngestionService:
         """Announce entities this ingest moved OUT of completed, as the graph now holds them.
 
         The mirror of :meth:`_publish_completions`, for the domains with a reopen
-        event (``REOPEN_EVENT_SOURCE_FIELDS`` — Task). Goal progress recomputes on
-        ``TaskReopened``, so without this a task reopened in Obsidian would leave its
-        goal counting it as done. A read failure loses the announcement, logged at
+        event (``REOPEN_EVENT_SOURCE_FIELDS`` — Task). Its subscriber is context
+        invalidation: the vault door publishes no ``TaskUpdated``, so without this a
+        cached context would keep a task reopened in Obsidian as completed. (Goal
+        progress hears the reopen through ``GoalContributionsChanged``, published by
+        ``_apply_primitive_parity``.) A read failure loses the announcement, logged at
         ERROR, as a completion's does.
 
         Backend: IngestionWriteBackend.read_entity_fields.

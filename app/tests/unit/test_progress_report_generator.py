@@ -570,7 +570,10 @@ class TestCompletionsFromContext:
                             "completion_date": date(2026, 9, 3),
                         },
                         {
-                            "goal_context": {"uid": "g1", "title": "Ship v1", "progress": 0.4},
+                            "contributing_goals": [
+                                {"uid": "g1", "title": "Ship v1", "progress": 0.4},
+                                {"uid": "g2", "title": "Learn Cypher", "progress": 0.1},
+                            ],
                             "applied_knowledge": [{"uid": "ku1", "title": "Cypher basics"}],
                         },
                     ),
@@ -581,15 +584,15 @@ class TestCompletionsFromContext:
                             "status": "completed",
                             "completion_date": "2026-09-08",
                         },
-                        {"goal_context": None, "applied_knowledge": []},
+                        {"contributing_goals": [], "applied_knowledge": []},
                     ),
                 ]
             },
         )
         assert completions["tasks_completed"] == 2
-        assert completions["goal_alignments"] == ["Ship v1"]
+        assert completions["goal_alignments"] == ["Ship v1", "Learn Cypher"]
         assert completions["knowledge_applications"] == ["Cypher basics"]
-        assert completions["tasks_details"][0]["goals"] == ["Ship v1"]
+        assert completions["tasks_details"][0]["goals"] == ["Ship v1", "Learn Cypher"]
         assert completions["tasks_details"][0]["kus"] == ["Cypher basics"]
         assert completions["tasks_details"][1]["goals"] == []
 
@@ -925,7 +928,7 @@ class TestCompletionsFromContext:
                             "status": "completed",
                             "completion_date": date(2026, 7, 14),
                         },
-                        {"goal_context": {"uid": "g1", "title": "Ship v1"}},
+                        {"contributing_goals": [{"uid": "g1", "title": "Ship v1"}]},
                     ),
                     _row({"uid": "t2", "title": "Completed, no stamp", "status": "completed"}),
                     _row({"uid": "t3", "title": "Still open", "status": "active"}),

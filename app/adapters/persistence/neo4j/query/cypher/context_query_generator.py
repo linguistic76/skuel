@@ -34,7 +34,7 @@ query, params = generate_context_query("Task")
 # Generate with filtered relationships
 query, params = generate_context_query(
     "Task",
-    include_relationships=["applied_knowledge", "goal_context"],
+    include_relationships=["applied_knowledge", "contributing_goals"],
 )
 ```
 
@@ -310,7 +310,7 @@ def get_available_relationships(entity_label: NeoLabel) -> list[str]:
         entity_label: Neo4j label (e.g., "Task", "Goal")
 
     Returns:
-        List of context_field_names (e.g., ["applied_knowledge", "goal_context", ...])
+        List of context_field_names (e.g., ["applied_knowledge", "contributing_goals", ...])
     """
     config = _get_registry().get(entity_label)
     if not config:

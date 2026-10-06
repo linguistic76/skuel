@@ -793,7 +793,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
 
         The tally is ``(Habit)-[:SUPPORTS_GOAL]->(Goal)`` over the user's habits, with
         their average ``current_streak`` (absent read as 0). The habit sibling of
-        :meth:`recompute_progress_from_linked_tasks`.
+        :meth:`recompute_progress_from_contributions`.
         """
         query = f"""
         MATCH (goal:Entity {{uid: $uid}})

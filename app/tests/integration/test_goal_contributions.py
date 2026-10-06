@@ -584,16 +584,23 @@ async def test_the_engagement_assessment_counts_an_event_that_supports_a_goal(
 async def test_an_event_executing_a_contributing_task_does_not_support_its_goal(
     env: Env,
 ) -> None:
-    """The event supports only the goal it links itself; the task's goal is the task's."""
+    """The event supports only the goal it links itself; the task's goal is the task's.
+
+    The event executes the task (``EXECUTES_TASK``, written straight into the graph —
+    the create door writes no such edge), so the context walk does reach the task: the
+    task is among the event's executed tasks, and its goal is two hops from the event.
+    It is still not one of the event's supported goals."""
     tasks_goal = await _goal(env, "K task goal")
     events_goal = await _goal(env, "K event goal")
     task = await _task(env, "K task", tasks_goal)
-    event = await _event(env, "K event", events_goal, executes_tasks=[task])
+    event = await _event(env, "K event", events_goal)
+    await write_edge(env.driver, event, "EXECUTES_TASK", task)
     assert await goals_contributed_to(env.driver, event) == {events_goal}
 
     event_context = await env.services.events.relationships.get_cross_domain_context(event)
     task_context = await env.services.tasks.relationships.get_cross_domain_context(task)
 
     assert event_context.is_ok and task_context.is_ok
+    assert {t["uid"] for t in event_context.value["executed_tasks"]} == {task}
     assert {g["uid"] for g in event_context.value["supported_goals"]} == {events_goal}
     assert {g["uid"] for g in task_context.value["contributing_goals"]} == {tasks_goal}

@@ -791,7 +791,7 @@ class GoalsOperations(
         plan: Callable[[Goal, LinkedHabitTally], P | None],
     ) -> Result[GuardedRecompute[Goal, P] | None]:
         """Recompute a goal from its supporting habits' average streak, read under the
-        goal's lock — the habit sibling of ``recompute_progress_from_linked_tasks``."""
+        goal's lock — the habit sibling of ``recompute_progress_from_contributions``."""
         ...
 
     async def get_achievement_context(

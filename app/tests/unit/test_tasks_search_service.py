@@ -344,6 +344,35 @@ async def test_get_prioritized_scores_with_the_goal_the_edges_name(
 
 
 @pytest.mark.asyncio
+async def test_a_task_contributing_to_an_active_goal_ranks_above_its_twin(
+    search_service, mock_backend, user_context
+):
+    """Two tasks alike in every field the scorer reads but their goal link: only the
+    edge-derived goal can order them, so the enrichment must feed the scorer."""
+    now = datetime.now()
+    twins = [
+        TaskDTO(
+            uid=uid,
+            user_uid="user_demo",
+            title="Twin",
+            priority=Priority.MEDIUM.value,
+            status=EntityStatus.ACTIVE.value,
+            created_at=now,
+        ).to_dict()
+        for uid in ("task:goalless", "task:aligned")
+    ]
+    mock_backend.get_user_entities.return_value = Result.ok((twins, len(twins)))
+    mock_backend.get_goal_links_for_tasks.return_value = Result.ok(
+        {"task:aligned": ["goal:learn_python"]}
+    )
+
+    result = await search_service.get_prioritized(user_context, limit=1)
+
+    assert result.is_ok
+    assert [t.uid for t in result.value] == ["task:aligned"]
+
+
+@pytest.mark.asyncio
 async def test_enrich_with_goal_links_is_fail_soft(search_service, mock_backend, sample_tasks):
     mock_backend.get_goal_links_for_tasks.return_value = Result.fail(
         Errors.database("get_goal_links_for_tasks", "down")

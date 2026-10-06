@@ -525,8 +525,10 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
 4. Core Service — THE completion door (ADR-087)
    TasksCoreService.update_task()
        ├─ Validates the status target, stamps completion_date under the node's lock
-       ├─ Publishes: TaskCompleted (on the transition INTO completed)
-       └─ Subscribers: dependent scheduling, goal progress, calibration, analytics
+       ├─ Publishes: TaskCompleted (on the transition INTO completed), and
+       │  GoalContributionsChanged (the task moved between its goals' tally classes)
+       └─ Subscribers: dependent scheduling, calibration, analytics; goal progress
+          (GoalContributionsChanged)
    │
    ├─────────────────────┐
    │                     │

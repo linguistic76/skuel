@@ -1256,6 +1256,7 @@ class IngestionTracker:
             )
 
         edges_deleted = 0
+        failure: str | None = None
         for planned_edge in plan.edge_deletions:
             edge_result = await self.backend.delete_edge_with_metadata(
                 planned_edge.file_path,
@@ -1264,7 +1265,11 @@ class IngestionTracker:
                 planned_edge.rel_type,
             )
             if edge_result.is_error:
-                return Result.fail(edge_result)
+                # The entity and edge deletes before this one have committed, with
+                # their tracker rows, so no later sync names their goals again: the
+                # outcome still carries them, beside the failure.
+                failure = str(edge_result.expect_error())
+                break
             edges_deleted += 1
             if planned_edge.rel_type is RelationshipName.CONTRIBUTES_TO_GOAL:
                 goals_losing_contributions.append(planned_edge.to_uid)
@@ -1283,6 +1288,7 @@ class IngestionTracker:
                 stale_metadata_removed=stale_removed,
                 ownership_mismatches=list(plan.ownership_mismatches),
                 goals_losing_contributions=sorted(set(goals_losing_contributions)),
+                failure=failure,
             )
         )
 

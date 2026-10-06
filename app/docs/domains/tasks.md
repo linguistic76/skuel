@@ -273,7 +273,7 @@ The Tasks domain publishes domain events for cross-service communication:
 | `TaskPriorityChanged` | Priority changed | `task_uid`, `user_uid`, `old_priority`, `new_priority` |
 | `TasksBulkCompleted` | Batch completion | `task_uids` (rows actually written), `user_uid`, `count` |
 
-**Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, goal progress updates).
+**Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, PS engagement auto-complete). Goal progress subscribes to none of them: every door that changes a task's goal contributions — a status move between the tally's classes, a goal link or unlink, a create with goals, a delete — also publishes `GoalContributionsChanged`.
 
 **One completion door, and every publish is transition-gated.** `update_task` (the
 ADR-087 status chokepoint behind `POST /api/tasks/{uid}/status` and Today's complete) is

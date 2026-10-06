@@ -631,6 +631,14 @@ async def _ingest_edge_batch(
     )
 
 
+def _reconcile_failure(failure: str) -> dict[str, str]:
+    """A deletion reconciliation that stopped part-way, as a sync error."""
+    return {
+        "message": f"Deletion reconciliation failed: {failure}",
+        "operation": "reconcile_deletions",
+    }
+
+
 async def _announce_goals(
     goal_contributions_fn: Callable[[tuple[str, ...]], Awaitable[None]] | None,
     goal_uids: Iterable[str],
@@ -840,6 +848,8 @@ async def ingest_directory(
                 mass_deletion_refused = reconcile_result.value.mass_deletion_refused
                 if reconcile_result.value.refusal_warning:
                     empty_warnings.append(reconcile_result.value.refusal_warning)
+                if reconcile_result.value.failure:
+                    empty_errors.append(_reconcile_failure(reconcile_result.value.failure))
             else:
                 empty_errors.append(
                     {
@@ -939,6 +949,8 @@ async def ingest_directory(
                 mass_deletion_refused = reconcile_result.value.mass_deletion_refused
                 if reconcile_result.value.refusal_warning:
                     reconcile_warnings.append(reconcile_result.value.refusal_warning)
+                if reconcile_result.value.failure:
+                    reconcile_errors.append(_reconcile_failure(reconcile_result.value.failure))
             else:
                 # Same error surface as the non-empty processing path — a
                 # silently-skipped reconciliation would report a clean sync
@@ -1681,6 +1693,8 @@ async def ingest_directory(
             mass_deletion_refused = reconcile_result.value.mass_deletion_refused
             if reconcile_result.value.refusal_warning:
                 validation_warnings.append(reconcile_result.value.refusal_warning)
+            if reconcile_result.value.failure:
+                errors.append(_reconcile_failure(reconcile_result.value.failure))
         else:
             errors.append(
                 {

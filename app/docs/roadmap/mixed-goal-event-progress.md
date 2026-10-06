@@ -20,9 +20,10 @@ when someone edits it.
 
 **The trigger's second half fired on 2026-10-06** — the Activity links arc's PR 4 rewrote the
 task half: one event, `GoalContributionsChanged`, replaced the task completion and reopen
-subscriptions, and the tally counts contributing tasks and events. MIXED stayed out by the PR's
-ruling (its decision 5a): this case file still waits on its own ruling, below, and the next
-change to either handler is still the moment to take it up.
+subscriptions, and the tally counts contributing tasks and events. MIXED stayed out by the
+founder's ruling for that PR (only TASK_BASED goals have a contribution tally;
+[activity-links-arc.md § PR 4](activity-links-arc.md#pr-4--contributes)): this case file waits on
+its own ruling, below.
 
 ## Why MIXED was taken out
 
