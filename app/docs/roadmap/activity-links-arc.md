@@ -322,7 +322,8 @@ tiered views (essential, critical, optional) are habit-only and therefore empty 
 - 145 tracked files name one of the six types (`git grep -w`; tests 43, docs and skills 54).
   Every docs mention outside records is swept by the PR that retires the type.
 - Hand-written Cypher names the types directly, so no registry edit reaches it: the user-context
-  statements (`user_context_queries.py`: `PRACTICED_AT_EVENT`; `FULFILLS_GOAL` until PR 4 re-pointed
+  statements (`user_context_queries.py`: `PRACTICED_AT_EVENT` until PR 5 deleted the event row's
+  habit → event read; `FULFILLS_GOAL` until PR 4 re-pointed
   the task and goal rows to `CONTRIBUTES_TO_GOAL` and deleted the habit's arm; `GUIDES_GOAL` until
   PR 2 deleted that projection; both principle ↔ choice halves read `INFORMS_CHOICE` from PR 3, under
   their old projection names `guided_choices` and `guiding_principles`), the goal tally

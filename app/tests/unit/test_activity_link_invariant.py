@@ -824,6 +824,24 @@ class TestTheInstrument:
             (View(NeoLabel.HABIT, edge, "from_tasks"), View(NeoLabel.HABIT, edge, "from_events"))
         }
 
+    def test_two_edge_types_under_one_heading_share_it(self):
+        # One link is one stored fact, so two edge types never share a name either.
+        first, second = undeclared_edge(0), undeclared_edge(1)
+        configs_ = _with_definitions(
+            NeoLabel.HABIT,
+            _definition(first, NeoLabel.TASK, "incoming", "from_tasks", heading="a"),
+            _definition(second, NeoLabel.TASK, "incoming", "also_from_tasks", heading="a"),
+        )
+
+        added = _shared_headings(configs_) - _shared_headings(LABEL_CONFIGS)
+
+        assert added == {
+            (
+                View(NeoLabel.HABIT, first, "from_tasks"),
+                View(NeoLabel.HABIT, second, "also_from_tasks"),
+            )
+        }
+
     def test_views_under_different_headings_do_not_share_one(self):
         configs_ = _with_definitions(
             NeoLabel.HABIT,

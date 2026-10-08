@@ -408,11 +408,9 @@ class EventsCoreService(
 
         ADMISSION: every UID is request input, so each is checked for existence, OWNER
         and KIND before it becomes an edge — see ``keep_permitted_link_edges``. The
-        declared kinds come from the field names, because the registry cannot check
-        them: Events' REINFORCES_HABIT spec declares its target label as ``Entity``, so
-        the batch would admit a Goal as a habit. The request door previously wrote both
-        edges through ``UnifiedRelationshipService`` with no owner or kind check — the
-        cross-tenant defect class #965 recorded.
+        declared kinds come from the field names and agree with the registry's far ends
+        (REINFORCES_HABIT names Habit); the guard also decides existence and owner,
+        which the registry cannot.
 
         Returns the goals a ``CONTRIBUTES_TO_GOAL`` edge was written to (empty when the
         all-or-nothing batch failed), which the caller announces.

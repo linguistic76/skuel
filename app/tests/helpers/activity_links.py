@@ -173,15 +173,18 @@ def heading_at(
     raise AssertionError(f"{at} shows no {direction} {edge} toward {far_end}")
 
 
-def undeclared_edge() -> RelationshipName:
-    """An edge type no config declares — a control built on it cannot be moved by a later PR."""
+def undeclared_edge(index: int = 0) -> RelationshipName:
+    """An edge type no config declares — a control built on it cannot be moved by a later PR.
+
+    ``index`` picks another such type, for a control that needs two different ones.
+    """
     declared = {
         definition.relationship
         for config in LABEL_CONFIGS.values()
         for definition in config.relationships
     }
-    return next(
+    return [
         edge
         for edge in RelationshipName
         if edge not in declared and not edge.is_lateral_relationship()
-    )
+    ][index]

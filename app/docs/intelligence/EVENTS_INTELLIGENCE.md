@@ -491,9 +491,10 @@ Typed multi-edge access goes through the canonical path-aware reader:
 (consumed by `_core_intelligence_mixin.py`). Single-edge reads use the
 relationship registry (`get_related_uids`, e.g. the facade's
 `get_celebrated_goal` / `get_reinforced_habit`). The fetch-dataclass
-`EventRelationships` (`core/services/events/event_relationships.py`) reads every
-EVENTS_CONFIG key for one event in parallel; the learning-pattern analysis fetches
-it per event.
+`EventRelationships` (`core/services/events/event_relationships.py`) reads the
+event's list-valued link keys (`EVENT_QUERY_SPECS`; `life_path` is fetched
+separately, and the shared-neighbour `related_events` is not read) for one event in
+parallel; the learning-pattern analysis fetches it per event.
 
 Key edges: `APPLIES_KNOWLEDGE` (knowledge practiced; the shadow
 `PRACTICES_KNOWLEDGE` edge was collapsed in #259), `CONTRIBUTES_TO_GOAL`
