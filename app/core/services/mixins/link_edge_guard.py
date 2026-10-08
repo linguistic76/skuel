@@ -419,15 +419,31 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
             partition.error,
         )
         return []
+    return permitted_link_edges(
+        partition.value, subject_uid=subject_uid, owner_uid=owner_uid, logger=logger
+    )
 
+
+def permitted_link_edges(
+    partition: LinkPartition,
+    *,
+    subject_uid: str,
+    owner_uid: str,
+    logger: Any,  # boundary: structlog BoundLogger, typed loosely as services do
+) -> list[EdgeTuple]:
+    """The kept edges of a ``partition_link_edges`` result, each refusal logged.
+
+    For a caller that must know the endpoint lookup succeeded before it acts — a
+    replace that deletes the current edges only once the new ones are admitted.
+    """
     # Counted apart so the log says which it was: "you named something that is
     # gone" and "you named the wrong kind of thing" are different fixes.
-    reasons = [reason for _, reason in partition.value.refused]
+    reasons = [reason for _, reason in partition.refused]
     missing = reasons.count("missing")
     cross_user = reasons.count("cross_user")
     wrong_kind = reasons.count("wrong_kind")
     draft = reasons.count("draft")
-    kept = [candidate.edge for candidate in partition.value.kept]
+    kept = [candidate.edge for candidate in partition.kept]
 
     if missing:
         logger.warning(

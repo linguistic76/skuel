@@ -793,6 +793,39 @@ class TestUpdateTaskEdgesAreGuarded:
             [("task_abc", "ku.shared", RelationshipName.APPLIES_KNOWLEDGE.value, None)]
         )
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "intent",
+        [
+            TaskUpdateIntent(aligned_principle_uids=["principle_new"]),
+            TaskUpdateIntent(contributes_to_goal_uids=["goal_new"]),
+            TaskUpdateIntent(applies_knowledge_uids=["ku_new"]),
+            TaskUpdateIntent(reinforces_habit_uid="habit_new"),
+        ],
+        ids=["principles", "goals", "knowledge", "habit"],
+    )
+    async def test_a_failed_admission_deletes_nothing(
+        self, tasks_service_with_mocked_subservices: TasksService, intent: TaskUpdateIntent
+    ) -> None:
+        """A replace admits its new far ends before it deletes the current edges: when
+        the endpoint lookup fails, the update fails with every current edge in place."""
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(_task()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["old_far_end"]))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.backend.get_owner_uids_batch = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(message="transient Neo4j error", operation="owners")
+            )
+        )
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
+
+        result = await service.update_task("task_abc", intent)
+
+        assert result.is_error
+        service.relationships.delete_relationship.assert_not_called()
+        service.backend.create_relationships_batch.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # TestUpdateTaskPrincipleEdges — aligned_principle_uids replaces the task's principles

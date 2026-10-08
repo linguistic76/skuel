@@ -25,6 +25,7 @@ _SERVICES = Path(__file__).resolve().parents[3] / "core" / "services"
 _WRITERS = {"create_relationship", "create_relationships_batch"}
 _GUARDS = {
     "keep_permitted_link_edges",
+    "partition_link_edges",
     "admit_far_ends_for_owner",
     "admit_far_ends_for_source",
 }

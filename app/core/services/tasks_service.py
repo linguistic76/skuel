@@ -60,7 +60,8 @@ from core.services.mixins.link_edge_guard import (
     KNOWLEDGE_FAR_END,
     KNOWLEDGE_LABELS,
     LinkEdge,
-    keep_permitted_link_edges,
+    partition_link_edges,
+    permitted_link_edges,
 )
 
 # Unified relationship service
@@ -522,12 +523,14 @@ class TasksService(
         "replace" — clearing every edge of that kind when the value is empty (``None`` for
         the habit, ``[]`` for the knowledge, goal and principle sets).
 
-        New edges are admitted through ``keep_permitted_link_edges`` — the far end must
+        New edges are admitted through ``partition_link_edges`` — the far end must
         EXIST, be OWNED by ``owner_uid`` or by nobody, and be the KIND the field names —
         exactly as the create path admits them (``TasksCoreService._write_link_edges``).
         A refused edge is logged and dropped, never written. ``update_for_user`` verifies
         the TASK's owner and nothing about the far end, so this guard is what stands
         between a crafted update and another user's habit, knowledge, goal or principle.
+        Admission runs before any current edge is deleted: when the endpoint lookup
+        fails, the update fails with every current edge in place.
 
         New edges go through ``backend.create_relationships_batch`` with explicit
         ``RelationshipName`` values — NOT ``UnifiedRelationshipService.create_relationship``,
@@ -538,29 +541,21 @@ class TasksService(
         task afterwards. A replace that fails after its deletes began announces them
         itself before reporting the failure.
         """
-        candidates: list[LinkEdge] = []
-
-        if edges.habit_uid is not UNSET:
-            # (Task)-[:REINFORCES_HABIT]->(Habit): a set value replaces whatever was linked.
-            removed = await self._delete_edges_of_kind("habits", task_uid)
-            if removed.is_error:
-                return Result.fail(removed)
-            if edges.habit_uid:  # non-empty → link the new target (None = cleared)
-                candidates.append(
-                    LinkEdge(
-                        (task_uid, edges.habit_uid, RelationshipName.REINFORCES_HABIT.value, None),
-                        other_uid=edges.habit_uid,
-                        allowed_labels=frozenset({NeoLabel.HABIT.value}),
-                    )
-                )
-
-        # The edge SETS — (Task)-[:APPLIES_KNOWLEDGE]->(Ku),
-        # (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal) and (Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle):
-        # a list replaces the full set; an empty list clears it.
-        removed_goals: list[str] = []
-        edge_sets: tuple[
+        # (Task)-[:REINFORCES_HABIT]->(Habit) is single-valued; the edge SETS —
+        # APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL and ALIGNED_WITH_PRINCIPLE — take a list
+        # that replaces the full set (an empty list clears it).
+        habit_uids: list[str] | Unset = (
+            UNSET if edges.habit_uid is UNSET else [edges.habit_uid] if edges.habit_uid else []
+        )
+        kinds: tuple[
             tuple[str, list[str] | Unset | None, RelationshipName, frozenset[str]], ...
         ] = (
+            (
+                "habits",
+                habit_uids,
+                RelationshipName.REINFORCES_HABIT,
+                frozenset({NeoLabel.HABIT.value}),
+            ),
             (
                 "knowledge",
                 edges.applies_knowledge_uids,
@@ -580,9 +575,30 @@ class TasksService(
                 frozenset({NeoLabel.PRINCIPLE.value}),
             ),
         )
-        for relationship_key, uids, relationship, allowed_labels in edge_sets:
-            if uids is UNSET:
-                continue
+        replaced: list[tuple[str, list[str], RelationshipName, frozenset[str]]] = []
+        for key, uids, relationship, allowed_labels in kinds:
+            if uids is not UNSET:
+                replaced.append((key, uids or [], relationship, allowed_labels))
+        candidates = [
+            LinkEdge(
+                (task_uid, far_uid, relationship.value, None),
+                other_uid=far_uid,
+                allowed_labels=allowed_labels,
+            )
+            for _, uids, relationship, allowed_labels in replaced
+            for far_uid in dict.fromkeys(uids)
+        ]
+        partition = await partition_link_edges(
+            self.backend, candidates=candidates, owner_uid=owner_uid
+        )
+        if partition.is_error:
+            return Result.fail(partition)
+        permitted = permitted_link_edges(
+            partition.value, subject_uid=task_uid, owner_uid=owner_uid, logger=self.logger
+        )
+
+        removed_goals: list[str] = []
+        for relationship_key, _, relationship, _ in replaced:
             if relationship is RelationshipName.CONTRIBUTES_TO_GOAL:
                 # Read the goal set before any delete: a delete that fails part-way has
                 # still unlinked some goals, and every goal the task held is announced
@@ -598,32 +614,16 @@ class TasksService(
                 if relationship is RelationshipName.CONTRIBUTES_TO_GOAL:
                     await self._announce_goal_set_change(task_uid, owner_uid, removed_goals)
                 return Result.fail(removed)
-            candidates.extend(
-                LinkEdge(
-                    (task_uid, far_uid, relationship.value, None),
-                    other_uid=far_uid,
-                    allowed_labels=allowed_labels,
-                )
-                for far_uid in dict.fromkeys(uids or [])
-            )
 
-        if candidates:
-            permitted = await keep_permitted_link_edges(
-                self.backend,
-                candidates=candidates,
-                subject_uid=task_uid,
-                owner_uid=owner_uid,
-                logger=self.logger,
-            )
-            if permitted:
-                batch = await self.backend.create_relationships_batch(permitted)
-                if batch.is_error:
-                    # The old goal edges are already gone: announce the goals that lost
-                    # the task before reporting the failure, or their tallies keep
-                    # counting it.
-                    if edges.contributes_to_goal_uids is not UNSET:
-                        await self._announce_goal_set_change(task_uid, owner_uid, removed_goals)
-                    return Result.fail(batch)
+        if permitted:
+            batch = await self.backend.create_relationships_batch(permitted)
+            if batch.is_error:
+                # The old goal edges are already gone: announce the goals that lost
+                # the task before reporting the failure, or their tallies keep
+                # counting it.
+                if edges.contributes_to_goal_uids is not UNSET:
+                    await self._announce_goal_set_change(task_uid, owner_uid, removed_goals)
+                return Result.fail(batch)
         return Result.ok(removed_goals)
 
     async def _announce_goal_set_change(
