@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -333,7 +333,7 @@ properties. The principle's own door (`POST /api/principles/link`, `link_type=ch
 `connections.informing_principles` and a principle file's `connections.informs_choice`, so the link
 shows on both pages whichever door made it. Choice create has no principle field, and the DSL's
 `@context(choice) @link(principle:…)` is parsed and dropped (both registered in the
-[Activity Links arc](../roadmap/activity-links-arc.md#defects-found-by-the-census)).
+[Activity Links registered residuals](../roadmap/activity-links-registered-residuals.md#1-link-doors-and-the-dsl), item 18).
 `unlink_choice_from_principle(uid, principle_uid)` removes the link and leaves a habit's informing
 link to the same choice alone; no HTTP route calls it.
 

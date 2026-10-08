@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -372,7 +372,7 @@ lp:         → the learning-path anchor of a @context(ps) line
 ```
 Any other prefix parses but reaches no sink, and so does a `principle:` link on a line of any other
 context — `@context(choice) @link(principle:…)` writes no `INFORMS_CHOICE` edge (choice create has
-no principle field; registered in the [Activity Links arc](../roadmap/activity-links-arc.md#defects-found-by-the-census)).
+no principle field; registered in the [Activity Links registered residuals](../roadmap/activity-links-registered-residuals.md#1-link-doors-and-the-dsl), item 18).
 
 **Examples:**
 ```markdown

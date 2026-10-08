@@ -4,7 +4,7 @@ A task contributes to a goal — FULFILLS_GOAL → CONTRIBUTES_TO_GOAL
 ===================================================================
 
 Re-types the task's old goal edge onto the one edge the code now writes and reads
-(ADR-090, ``docs/roadmap/activity-links-arc.md`` PR 4):
+(ADR-090, ``docs/roadmap/done/activity-links-arc.md`` PR 4):
 
     (Task)-[:FULFILLS_GOAL]->(Goal)  →  (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)
 

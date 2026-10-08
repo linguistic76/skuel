@@ -1,6 +1,6 @@
 ---
 title: "Goal Tally Membership Changes Don't Recompute"
-updated: 2026-10-06
+updated: 2026-10-08
 status: "done — closed by the Activity links arc PR 4: every door that changes a goal's contributions publishes GoalContributionsChanged, the tally's one trigger, and ./dev reconcile-goal-tallies repairs a lost one"
 registered: "2026-09-23 (Codex finding on #1408, round 3)"
 trigger: "a report of a goal whose stored tally disagrees with its linked tasks, OR the next change to how goal progress is triggered"
@@ -9,7 +9,7 @@ check: "a TASK_BASED goal's stored tally (current_value/target_value) equals its
 
 # Goal Tally Membership Changes Don't Recompute
 
-**Closed by the [Activity links arc](../activity-links-arc.md), PR 4** (§ PR 4 — "Contributes").
+**Closed by the [Activity links arc](activity-links-arc.md), PR 4** (§ PR 4 — "Contributes").
 A goal's tally is its owner's tasks and events that `CONTRIBUTES_TO_GOAL` the goal, and it has one
 trigger: `GoalContributionsChanged` (`goal_uids`, `contributor_uids`), whose one subscriber,
 `GoalsProgressService.handle_goal_contributions_changed`, recomputes each goal named and each goal a

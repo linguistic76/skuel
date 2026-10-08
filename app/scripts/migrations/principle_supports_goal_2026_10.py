@@ -4,7 +4,7 @@ A principle supports a goal — GUIDES_GOAL and goal → principle GUIDED_BY_PRI
 ====================================================================================================
 
 Re-types the two stored shapes of one fact onto the one edge the code now
-writes and reads (ADR-090, ``docs/roadmap/activity-links-arc.md`` PR 2):
+writes and reads (ADR-090, ``docs/roadmap/done/activity-links-arc.md`` PR 2):
 
     (Principle)-[:GUIDES_GOAL]->(Goal)             written at the principle
     (Goal)-[:GUIDED_BY_PRINCIPLE]->(Principle)     written at the goal

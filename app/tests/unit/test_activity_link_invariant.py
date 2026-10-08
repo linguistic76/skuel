@@ -38,7 +38,7 @@ by type, direction and far-end label, never by its properties.
 link is one stored fact (ADR-090 §1), so a heading names exactly one view of it.
 
 The two gap lists (``MISSING_ENDS``, ``MIXED_VIEWS``) are empty: the arc closed every
-entry (docs/roadmap/activity-links-arc.md § PR ledger). Each still fails both ways: a new
+entry (docs/roadmap/done/activity-links-arc.md § PR ledger). Each still fails both ways: a new
 gap is red until it is closed or listed with the work that closes it, and a listed gap
 that is closed or gone is red until its entry is removed.
 
@@ -52,7 +52,7 @@ What the registry cannot show, and how the test answers it:
   here: the registry is the test's only source. Writers are each PR's own census.
 
 See: docs/decisions/ADR-090-one-link-per-fact-a-view-per-domain.md
-     docs/roadmap/activity-links-arc.md
+     docs/roadmap/done/activity-links-arc.md
 """
 
 import dataclasses

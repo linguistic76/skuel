@@ -1,26 +1,33 @@
 ---
 title: "Activity Links Arc — Rulings & Contract"
 updated: 2026-10-08
-status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; PR 1 merged #1500; PR 1b merged #1501; PR 1c merged #1503; PR 2 merged #1504; PR 3 merged #1505; PR 4 merged #1507; PR 5 merged #1508; O1, O3 and O4 ruled (R10, R11, § PR 4); O2 deferred; close next"
+status: "done"
 registered: 2026-10-02
 ruled: 2026-10-04
 ---
 
 # Activity Links Arc — Rulings & Contract
 
-**Status:** ACTIVE — ruled 2026-10-04 (founder rulings R1–R11, five rounds). Every PR runs in a
-**fresh local session**, one row of the [PR ledger](#pr-ledger) each. This document is the single
-source of truth for the arc, and the ledger's **Status** column is its progress record.
-**Decision record:** [ADR-090 — One Link per Fact, a View per Domain](../decisions/ADR-090-one-link-per-fact-a-view-per-domain.md).
+**Status:** CLOSED 2026-10-08 — ruled 2026-10-04 (founder rulings R1–R11, five rounds). Eight
+PRs (#1498–#1508), each run in a **fresh local session**, one row of the [PR ledger](#pr-ledger)
+each, every one merged; the close row verified every retired type at 0 in the live graph and in
+live code on 2026-10-08. This document was the single source of truth for the arc, and the
+ledger's **Status** column its progress record. What it left open has moved to the live roadmap:
+[The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](../pathstep-guided-by-principle.md),
+[Activity Links Follow-ons](../activity-links-follow-ons.md) (the R8 next arcs) and
+[Activity Links Arc — Registered Residuals](../activity-links-registered-residuals.md) (the 27
+"outside the arc; registered" defects, re-verified at the close).
+**Decision record:** [ADR-090 — One Link per Fact, a View per Domain](../../decisions/ADR-090-one-link-per-fact-a-view-per-domain.md)
+(status: implemented).
 **Grew out of:** PE-1, a skills-review follow-up registered 2026-10-02 when NB-2b removed
 `PrincipleLinkRequest.bidirectional`. No principle registry definition read a principle link made on
 the goal or the choice; the principle's page showed the choice-side link (`INFORMED_BY_PRINCIPLE`)
 but not the goal-side one (`GUIDED_BY_PRINCIPLE`).
-**Related:** [ADR-026](../decisions/ADR-026-unified-relationship-registry.md) (the registry that
-declares each domain's view of its links); [ADR-087](../decisions/ADR-087-status-guarded-conditional-writes.md)
-(a goal's tally is recomputed under its lock); [Goal Tally Membership Changes Don't Recompute](done/goal-tally-membership-changes.md)
-(closed by PR 4) and [Mixed Goals Get No Event-Driven Progress](mixed-goal-event-progress.md) (both
-touch the tally PR 4 widens); [Relationships Architecture](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
+**Related:** [ADR-026](../../decisions/ADR-026-unified-relationship-registry.md) (the registry that
+declares each domain's view of its links); [ADR-087](../../decisions/ADR-087-status-guarded-conditional-writes.md)
+(a goal's tally is recomputed under its lock); [Goal Tally Membership Changes Don't Recompute](goal-tally-membership-changes.md)
+(closed by PR 4) and [Mixed Goals Get No Event-Driven Progress](../mixed-goal-event-progress.md) (both
+touch the tally PR 4 widens); [Relationships Architecture](../../architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 
@@ -86,7 +93,8 @@ Sub-tasks section reads through the hierarchy backend.
 ## Open items (not ruled)
 
 Each is settled in prose before the first edit of the PR named. O1 and O4 were answered in round 5
-(R10, R11) and O1's remainder and O3 before PR 4's first edit; O2 is deferred.
+(R10, R11) and O1's remainder and O3 before PR 4's first edit; O2 is deferred — at the close it
+moved to its own case file, [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](../pathstep-guided-by-principle.md).
 
 - **O1 — How a contribution counts (PR 4). RULED — cancelled left out for tasks and events alike
   (R11); the rest settled before PR 4's first edit (§ PR 4, settled list items 5 and 6).** What
@@ -351,7 +359,10 @@ tiered views (essential, critical, optional) are habit-only and therefore empty 
 
 ### Defects found by the census
 
-Each is fixed by the PR named, or registered there if it falls outside the arc:
+Each is fixed by the PR named, or registered there if it falls outside the arc. At the close every
+bullet marked "outside the arc; registered" (27, all re-verified live 2026-10-08) moved to
+[Activity Links Arc — Registered Residuals](../activity-links-registered-residuals.md), each at
+its file and line; this list is the record of where each was found.
 
 - The page lists' five nonexistent edge names; the task page's `INFORMED_BY_PRINCIPLE`; the habit
   page's `APPLIES_KNOWLEDGE` (habits write `REINFORCES_KNOWLEDGE`); the choice page's
@@ -547,7 +558,7 @@ tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs la
 | 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | merged #1505, 2026-10-05; the stored-edge migration ran 2026-10-05 on the founder's go (nothing to re-type) |
 | 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; cancelling a completed event, or a goal's last contribution, updates the stored tally (to 0/0 for the last); every membership change recomputes (closes the goal-tally case file); the gaps list shrinks | merged #1507, 2026-10-06; the stored-edge migration and the vault edits (R9) ran 2026-10-06 on the founder's go (two edges re-typed, two columns and one template field moved, two tracker rows rewritten) |
 | 5 | The remaining views: the goal sees choices (affects) and events (celebrates) apart (contributing events shipped in PR 4); event ↔ principle is one link (retire `PRACTICED_AT_EVENT` and the event's `practiced_habits`); the habit names `REINFORCES_HABIT` from events "events where this habit is practiced"; the views still sharing an edge type split by source label (the habit's `REINFORCES_HABIT` views, the principle's `embodying_habits`, the event's `scheduled_by_choices`); a task update writes `ALIGNED_WITH_PRINCIPLE` edges instead of a node property | PR 1's known-gaps list is empty | merged #1508, 2026-10-08; nothing stored to migrate (the read-only guard ran live 2026-10-08: no edge, tracker row or property of either retired shape); no vault edit needed |
-| close | ADR-090 marked implemented; this document to `done/` (docs only) | Every retired type reads 0 in the live graph and in live code (`GUIDED_BY_PRINCIPLE`: between Activities; wholly only if O2, deferred, moves the PathStep's use) | — |
+| close | ADR-090 marked implemented; this document to `done/` (docs only) | Every retired type reads 0 in the live graph and in live code (`GUIDED_BY_PRINCIPLE`: between Activities; wholly only if O2, deferred, moves the PathStep's use) | merged 2026-10-08; verified live 2026-10-08: 0 edges of the five retired types (none left in the type catalog), 0 `Task.fulfills_goal_uid` / `aligned_principle_uids` / `TaskTemplate.fulfills_goal_template_uid`, 0 tracker keys or Edge-file rows; `GUIDED_BY_PRINCIPLE` one PathStep edge; both vaults 0 hits; live code: only `stale_names.py` and the migration scripts. O2, the R8 follow-ons and the 27 registered residuals each got a live case file |
 
 ## Choices — per PR
 
@@ -787,7 +798,7 @@ event leaving COMPLETED, or a completed event's cancellation, publishes only `Ca
 today. When the last contribution leaves the count the recompute still writes:
 today `_plan_task_progress` writes nothing for a 0/0 tally, which would leave the stored progress
 describing the removed contribution. This PR changes how goal progress is triggered, which is the
-trigger of [Goal Tally Membership Changes Don't Recompute](done/goal-tally-membership-changes.md), so it
+trigger of [Goal Tally Membership Changes Don't Recompute](goal-tally-membership-changes.md), so it
 closes that case file too: linking or unlinking a task or event, creating or deleting one with a goal
 link, and changing a task's `completion_updates_goal` all recompute the goals they touch, for both
 kinds of contribution. The case file moves to `done/` with this PR. Two readers need more than the type's deletion: the goal-cancel guard counts open tasks
@@ -797,7 +808,7 @@ decides whether an open contributing event blocks a cancel), and `GOALS_CONFIG`'
 Both name the enum member, so
 missing either breaks the import. The readers that fail silently name the type as a raw string: the
 user-context statements and `cross_domain_backend.py`'s `_INTENT_EDGE_SETS["goal_achievement"]`.
-The field's column-only readers (the goal Gantt, the relevance scorer) go with O3. Update the [goal-tally case file](done/goal-tally-membership-changes.md), whose check names
+The field's column-only readers (the goal Gantt, the relevance scorer) go with O3. Update the [goal-tally case file](goal-tally-membership-changes.md), whose check names
 `FULFILLS_GOAL`.
 
 **Acceptance:** a task linked to two goals counts toward both; a completed contributing event
@@ -923,6 +934,8 @@ pages already show the link from PR 1b.
   cases with positive controls; the task update door; the guard script; red on the old source.
 
 ## Non-goals (this arc)
+
+All three are held by one live case file, [Activity Links Follow-ons](../activity-links-follow-ons.md).
 
 - Page controls for making a link from either side — the next arc.
 - Creating the links nothing writes today (`IMPLEMENTS_CHOICE`, `INFORMS_CHOICE` from a habit,

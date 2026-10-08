@@ -200,7 +200,7 @@ class ExampleSearchService(BaseService["GoalsOperations", Goal]):
 > from the service's own `_graph_enrichment_patterns`, which no Activity search service sets, so their
 > results carry no `_graph_context`. The pattern lists below are what each `DomainConfig` computes
 > from the relationship registry (`graph_enrichment_patterns`), a field nothing reads today
-> (registered in `docs/roadmap/activity-links-arc.md` § Defects found by the census).
+> (registered in [Activity Links Arc — Registered Residuals](../roadmap/activity-links-registered-residuals.md) § Search enrichment).
 
 ### TasksSearchService
 

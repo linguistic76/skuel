@@ -4,7 +4,7 @@ A principle informs a choice — GUIDES_CHOICE and INFORMED_BY_PRINCIPLE → INF
 ========================================================================================
 
 Re-types the two stored shapes of one fact onto the one edge the code now
-writes and reads (ADR-090, ``docs/roadmap/activity-links-arc.md`` PR 3):
+writes and reads (ADR-090, ``docs/roadmap/done/activity-links-arc.md`` PR 3):
 
     (Principle)-[:GUIDES_CHOICE]->(Choice)             written at the principle
     (Choice)-[:INFORMED_BY_PRINCIPLE]->(Principle)     written at the choice

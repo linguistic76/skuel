@@ -17,7 +17,7 @@ these sets, and a status write that moves a contribution from one class to anoth
 announces ``GoalContributionsChanged`` (:func:`moves_contribution_class`) — one
 definition for the count and for its trigger.
 
-See: /docs/roadmap/activity-links-arc.md (R5, R6, R11)
+See: /docs/roadmap/done/activity-links-arc.md (R5, R6, R11)
 """
 
 from __future__ import annotations

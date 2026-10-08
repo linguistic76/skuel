@@ -1,6 +1,6 @@
 ---
 title: "Mixed Goals Get No Event-Driven Progress"
-updated: 2026-10-06
+updated: 2026-10-08
 status: "registered"
 registered: "2026-09-23 (Codex finding on #1407)"
 trigger: "a MIXED goal in real use, or the founder's ruling on the habit half (the handler touch fired 2026-10-06 with the Activity links arc PR 4; MIXED stayed out)"
@@ -22,7 +22,7 @@ when someone edits it.
 task half: one event, `GoalContributionsChanged`, replaced the task completion and reopen
 subscriptions, and the tally counts contributing tasks and events. MIXED stayed out by the
 founder's ruling for that PR (only TASK_BASED goals have a contribution tally;
-[activity-links-arc.md § PR 4](activity-links-arc.md#pr-4--contributes)): this case file waits on
+[activity-links-arc.md § PR 4](done/activity-links-arc.md#pr-4--contributes)): this case file waits on
 its own ruling, below.
 
 ## Why MIXED was taken out

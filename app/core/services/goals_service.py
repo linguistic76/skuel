@@ -338,8 +338,8 @@ class GoalsService(
         event does not block. Placing the guard here (facade) lets it coordinate
         across the task and goal domains without leaking cross-domain dependencies
         into GoalsCoreService. It guards this door only: the goal update request and
-        the edit form can set CANCELLED without it (docs/roadmap/activity-links-arc.md
-        § Defects found by the census).
+        the edit form can set CANCELLED without it (docs/roadmap/activity-links-registered-residuals.md
+        § Goal progress and cancel, item 19).
         """
         count_result = await self.cross_domain_query.count_active_tasks_for_goal(EntityUID(uid))
         if count_result.is_error:
