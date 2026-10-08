@@ -58,11 +58,15 @@ PRINCIPLE = f"principle.{MARK}.principle"
 TASK = f"task.{MARK}.task"
 
 
+# One driver record, keyed by RETURN alias; the values are heterogeneous Neo4j scalars.
+type Row = dict[str, Any]  # boundary: raw neo4j records
+
+
 async def _run(
     driver: AsyncDriver,
     query: str,
     **params: Any,  # boundary: neo4j query parameters
-) -> list[dict[str, Any]]:  # boundary: raw neo4j records
+) -> list[Row]:
     async with driver.session() as session:
         return [dict(row) async for row in await session.run(query, **params)]
 
@@ -82,7 +86,7 @@ async def _seed_nodes(driver: AsyncDriver) -> None:
     )
 
 
-async def _snapshot(driver: AsyncDriver) -> tuple[list[Any], list[Any]]:
+async def _snapshot(driver: AsyncDriver) -> tuple[list[Row], list[Row]]:
     """Every node's labels and properties, and every edge — what a write would change."""
     nodes = await _run(
         driver,

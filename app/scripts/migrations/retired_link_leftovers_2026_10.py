@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
 """
-Retired link leftovers — the guard for the Activity links arc PR 5
-==================================================================
+Retired link leftovers — a read-only guard (Activity links arc PR 5)
+====================================================================
 
-PR 5 (ADR-090, ``docs/roadmap/activity-links-arc.md``) retires two stored shapes:
+Two stored shapes are retired (ADR-090 §7, ``docs/roadmap/activity-links-arc.md``):
 
-- ``PRACTICED_AT_EVENT`` leaves the enum. An event demonstrating a principle is the
-  event's ``(Event)-[:DEMONSTRATES_PRINCIPLE]->(Principle)``; an event reinforcing a habit
-  is ``(Event)-[:REINFORCES_HABIT]->(Habit)``.
-- ``Task.aligned_principle_uids`` is no longer a node property. A task update writes
-  ``(Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle)`` edges, as task create does.
+- ``PRACTICED_AT_EVENT`` is not a ``RelationshipName``. An event demonstrating a principle
+  is ``(Event)-[:DEMONSTRATES_PRINCIPLE]->(Principle)``; an event reinforcing a habit is
+  ``(Event)-[:REINFORCES_HABIT]->(Habit)``.
+- A task's principles are ``(Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle)`` edges, written
+  by task create and update; ``aligned_principle_uids`` is never a node property.
 
-Nothing writes either shape, and the live graph held neither when PR 5 was built, so this
-script converts nothing: it checks. It reads, and exits 2 while the graph holds any of
+No code writes or reads either shape, so this script converts nothing: it reads, and exits
+2 while the graph holds any of
 
 - a ``PRACTICED_AT_EVENT`` edge, of any shape;
 - a vault tracker row for an Edge file naming the type
-  (``entity_uid`` ``edge:<from>|PRACTICED_AT_EVENT|<to>``) — once the enum member is gone
-  the row cannot be decoded, so deleting the file would leave its edge behind;
+  (``entity_uid`` ``edge:<from>|PRACTICED_AT_EVENT|<to>``) — the row cannot be decoded, so
+  deleting the file would leave its edge behind;
 - a tracker row whose ``authored_edges`` holds a ``PRACTICED_AT_EVENT|…`` key — it cannot
   be decoded either, so the edge it records would never be retracted;
 - a node carrying ``aligned_principle_uids``.
 
-Each is listed. A person decides what each should become, before the new code runs
-against that graph. Exit 0 means nothing of either shape is stored. It never writes.
+Each is listed, for a person to decide what it becomes. Exit 0 means nothing of either
+shape is stored. It never writes.
 
 Run under ``direnv exec .`` so the credentials resolve:
 
