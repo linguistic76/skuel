@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: architecture
 version: 2.0.0
@@ -135,17 +135,17 @@ relationship Cypher. Cypher query strings use f-string interpolation:
 domain family. The families overlap (`ULTIMATE_PATH` is both an ownership and a life-path edge)
 and are a reading convenience, not a partition the code knows about: the classifications the
 code branches on are the trait predicates on the enum (`is_knowledge_relationship`,
-`is_blocking_relationship`, `is_lateral_relationship`, …). They classify 59 of the 167 members
+`is_blocking_relationship`, `is_lateral_relationship`, …). They classify 59 of the 166 members
 between them and are not a cover: the generated contract carries a `traits` key only for a
-relationship at least one predicate matches, so 108 entries have none.
+relationship at least one predicate matches, so 107 entries have none.
 
 | Group | Examples |
 |-------|---------|
 | Knowledge | `REQUIRES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, `ENABLES_KNOWLEDGE` |
 | Task | `HAS_SUBTASK`, `SUBTASK_OF`, `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL` (task → goal, shared with events) |
-| Goal | `HAS_SUBGOAL`, `SUBGOAL_OF`, `SUPPORTS_GOAL` (into the goal, from a Habit, a Principle or a PathStep), `CONTRIBUTES_TO_GOAL` (into the goal, from a Task or an Event), `ALIGNED_WITH_PATH` |
+| Goal | `HAS_SUBGOAL`, `SUBGOAL_OF`, `SUPPORTS_GOAL` (into the goal, from a Habit, a Principle or a PathStep), `CONTRIBUTES_TO_GOAL` (into the goal, from a Task or an Event), `CELEBRATES_GOAL` (event → goal, never counted), `AFFECTS_GOAL` (choice → goal), `ALIGNED_WITH_PATH` |
 | Habit | `HAS_SUBHABIT`, `SUBHABIT_OF`, `REQUIRES_PREREQUISITE_HABIT`, `ENABLES_HABIT`, `EMBODIES_PRINCIPLE`, `UNLOCKED_ACHIEVEMENT`, `EARNED_BADGE` |
-| Event | `HAS_SUBEVENT`, `SUBEVENT_OF`, `CONFLICTS_WITH`, `FUNDS_EVENT`, `ATTENDS` |
+| Event | `HAS_SUBEVENT`, `SUBEVENT_OF`, `CONFLICTS_WITH`, `FUNDS_EVENT`, `ATTENDS`, `DEMONSTRATES_PRINCIPLE` (event → principle), `REINFORCES_HABIT` (into the habit, from a Task or an Event) |
 | Principle | `HAS_SUBPRINCIPLE`, `SUBPRINCIPLE_OF`, `SUPPORTS_PRINCIPLE`, `SUPPORTS_GOAL` (principle → goal), `INFORMS_CHOICE` (principle → choice), `REFLECTS_ON`, `REVEALS_CONFLICT` |
 | Choice | `HAS_SUBCHOICE`, `SUBCHOICE_OF`, `INFORMED_BY_KNOWLEDGE`, `AFFECTS_GOAL`, `IMPACTS_HABIT`, `INFORMS_CHOICE` (into the choice, from a Principle, a Habit or a PathStep) |
 | User / Ownership | `OWNS` (THE universal ownership edge, ADR-086), `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |

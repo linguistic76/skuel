@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-10-06
+updated: 2026-10-08
 category: patterns
 related_skills:
 - base-analytics-service
@@ -202,7 +202,7 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 |--------|--------|--------------|-------------------|
 | **Activity (6)** |
 | `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, DEPENDS_ON |
-| `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, CONTRIBUTES_TO_GOAL (incoming), SUBGOAL_OF |
+| `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, CONTRIBUTES_TO_GOAL / CELEBRATES_GOAL / AFFECTS_GOAL (incoming), SUBGOAL_OF |
 | `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
 | `EVENTS_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
 | `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMS_CHOICE (incoming), AFFECTS_GOAL |
@@ -551,8 +551,8 @@ edge **incident to it** (its last hop), not by any earlier edge in the path:
 - The per-config `bidirectional_relationships` field is **not** the direction signal
   here — direction is decided per-mapping by the incident edge. Mappings that share a
   relationship but differ by `target_label` are tried specific-label-first (the generic
-  `Entity` bucket is the catch-all), so e.g. a Task reinforcing a habit lands in
-  `reinforcing_tasks`, not the catch-all `reinforcing_habits`.
+  `Entity` bucket is the catch-all), so e.g. a Goal that requires a PathStep (`REQUIRES_KNOWLEDGE`)
+  lands in the PathStep's `required_by_goals`, not the catch-all `dependents`.
 
 **The context is the owner's.** Every node on a path past the source is the source's
 owner's or shared content — the producer reads the owner from the source node (all three

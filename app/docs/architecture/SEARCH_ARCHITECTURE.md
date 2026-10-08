@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: architecture
 tags:
@@ -1105,7 +1105,7 @@ the relationship registry (`graph_enrichment_patterns`), a field nothing reads t
 |--------|---------------------|
 | KU | prerequisites, enables, supporting_goals |
 | Tasks | applied_knowledge, contributing_goals, blocked_by |
-| Goals | required_knowledge, contributing_tasks, contributing_events, sub_goals |
+| Goals | required_knowledge, contributing_tasks, contributing_events, celebrating_events, affecting_choices, sub_goals |
 | Habits | reinforced_knowledge, supported_goals |
 | Events | applied_knowledge, supported_goals, celebrated_goals |
 | Choices | informed_by_knowledge, informing_principles, informing_habits |

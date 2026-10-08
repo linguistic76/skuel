@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: domains
 tags:
@@ -126,7 +126,7 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 |-----|--------------|--------|-------------|
 | `knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied in this task |
 | `prerequisite_knowledge` | `REQUIRES_KNOWLEDGE` | Ku | Knowledge required before starting |
-| `principles` | `ALIGNED_WITH_PRINCIPLE` | Principle | Guiding principles |
+| `principles` | `ALIGNED_WITH_PRINCIPLE` | Principle | Principles this task is aligned with. Task create's `aligned_principle_uids` writes one edge per uid; the update request's `aligned_principle_uids` replaces the set (`[]` clears it, absent leaves it), each new edge admitted as at create (the principle must exist, be owned by the task's owner or by nobody, and be a Principle). Never a node property (`RELATIONSHIP_SKIP_FIELDS`); the principle reads the edge as `aligned_tasks` |
 | `enables` | `ENABLES_TASK` | Task | Tasks this enables |
 | `triggers` | `TRIGGERS_ON_COMPLETION` | Task | Tasks triggered when complete |
 | `unlocks_knowledge` | `UNLOCKS_KNOWLEDGE` | Ku | Knowledge unlocked by completion |

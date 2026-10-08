@@ -127,7 +127,6 @@ CREATE (e_past:Entity:Event {uid: 'event.eq.past', entity_type: 'event', title: 
 CREATE (u)-[:OWNS]->(e_today) CREATE (u)-[:OWNS]->(e_next) CREATE (u)-[:OWNS]->(e_past)
 CREATE (e_today)-[:APPLIES_KNOWLEDGE]->(ku_a)
 CREATE (e_today)-[:CONTRIBUTES_TO_GOAL]->(g_active)
-CREATE (h_active)-[:PRACTICED_AT_EVENT]->(e_today)
 CREATE (e_today)-[:CONFLICTS_WITH]->(e_next)
 CREATE (e_today)-[:REINFORCES_HABIT]->(h_active)
 // principles
@@ -420,7 +419,6 @@ async def test_every_section_reads_what_the_one_statement_read(
         {
             "applied_knowledge": [{"uid": "ku.eq.a", "title": "Ku A"}],
             "linked_goals": [{"uid": "goal.eq.active", "title": "Active goal", "status": "active"}],
-            "practiced_habits": [{"uid": "habit.eq.active", "title": "Active habit"}],
             "conflicting_events": [{"uid": "event.eq.next", "title": "Tomorrow event"}],
             "reinforced_habits": [{"uid": "habit.eq.active", "title": "Active habit"}],
         }

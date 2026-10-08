@@ -223,7 +223,7 @@ async def test_both_list_cards_show_the_link_under_their_own_heading(
 
 
 async def test_the_pairs_are_the_registry_census() -> None:
-    """The parametrization is the invariant's census, not a hand list (18 on the day)."""
+    """The parametrization is the invariant's census, never a hand-counted list."""
     assert PAIRS
     assert links_read_at_both_ends() == PAIRS
     assert {link.source for link in PAIRS} | {link.target for link in PAIRS} <= set(DOMAINS)

@@ -18,8 +18,9 @@ Two controls have to post something for "off" to reach the write:
 
 The mirror obligation: a field the edit form does **not** render stays ``UNSET``, so an
 unrendered list field is never blanked into an edge wipe on save. The Tasks edit form
-renders no goal picker for that reason: ``contributes_to_goal_uids`` is a full replace of
-a task's goals, and a one-goal picker would wipe the rest.
+renders no goal or principle picker for that reason: ``contributes_to_goal_uids`` and
+``aligned_principle_uids`` are each a full replace of a task's goals / principles, and a
+one-uid picker would wipe the rest.
 
 Picker names are DERIVED from the rendered edit form rather than typed here, so renaming a
 field on only one side of the seam fails the test instead of quietly dropping the value.
@@ -149,20 +150,23 @@ class TestTasksEditFormEdgeClear:
     async def test_fields_the_form_does_not_render_stay_untouched(self, task: Task) -> None:
         """Absent ≠ blank: a field off the form is UNSET, never an accidental clear.
 
-        ``applies_knowledge_uids`` and ``contributes_to_goal_uids`` are on
-        ``TaskUpdateRequest`` but on no edit section, so neither may reach the intent — were
-        the form to render one as an empty input it would arrive as ``[]`` and wipe every
-        APPLIES_KNOWLEDGE / CONTRIBUTES_TO_GOAL edge on save.
+        ``applies_knowledge_uids``, ``contributes_to_goal_uids`` and ``aligned_principle_uids``
+        are on ``TaskUpdateRequest`` but on no edit section, so none may reach the intent —
+        were the form to render one as an empty input it would arrive as ``[]`` and wipe every
+        APPLIES_KNOWLEDGE / CONTRIBUTES_TO_GOAL / ALIGNED_WITH_PRINCIPLE edge on save.
         """
         rendered = _named_fields(to_xml(TaskEditForm(task, habit_uid="habit_z")))
         assert "applies_knowledge_uids" not in rendered
         assert "contributes_to_goal_uids" not in rendered
+        assert "aligned_principle_uids" not in rendered
 
         intent = (await _parse({"title": task.title}, TaskUpdateRequest)).to_intent()
 
         assert intent.applies_knowledge_uids is UNSET
         assert intent.contributes_to_goal_uids is UNSET
+        assert intent.aligned_principle_uids is UNSET
         assert "applies_knowledge_uids" not in intent.to_changes()
+        assert "aligned_principle_uids" not in intent.to_changes()
 
 
 class TestTasksCreateFormGoalPicker:

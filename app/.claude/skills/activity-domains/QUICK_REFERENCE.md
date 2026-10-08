@@ -50,6 +50,7 @@ chrome. There is no hub page; `/today` is the landing.
 - `DEPENDS_ON` relationship for task dependencies
 - `scheduled_date` vs `due_date` distinction; a task created with neither is due the day it is created (`Task.with_creation_due_date()`), and an update may not clear the last of the two
 - A task contributes to any number of goals through `(Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)` edges (the edge events use too); no node property holds them — create takes `contributes_to_goal_uids`, update replaces the set
+- A task's principles are `(Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle)` edges, never a node property — create takes `aligned_principle_uids`, update replaces the set (`[]` clears it)
 
 ### Goals
 - Has `GoalTimeframe` enum (DAILY → MULTI_YEAR)

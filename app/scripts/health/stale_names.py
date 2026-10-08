@@ -352,6 +352,19 @@ DELETED: dict[str, str] = {
         "deleted — a task contributes to a goal: (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal), "
         "read as the task's contributing_goals and the goal's contributing_tasks (ADR-090)"
     ),
+    # An event ↔ principle link is one edge, DEMONSTRATES_PRINCIPLE from the event; an
+    # event that reinforces a habit is REINFORCES_HABIT (ADR-090). The event's
+    # practiced_habits view and user-context key went with the type. practice_events is
+    # the PathStep's live method key for SCHEDULES_EVENT, so it has no entry here.
+    "PRACTICED_AT_EVENT": (
+        "deleted — an event demonstrates a principle: (Event)-[:DEMONSTRATES_PRINCIPLE]->(Principle), "
+        "read as the event's demonstrated_principles and the principle's demonstrating_events; "
+        "an event reinforcing a habit is (Event)-[:REINFORCES_HABIT]->(Habit) (ADR-090)"
+    ),
+    "practiced_habits": (
+        "retired — an event's habits are the ones it reinforces, (Event)-[:REINFORCES_HABIT]->(Habit), "
+        "read as the event's reinforced_habits and the habit's reinforcing_events (ADR-090)"
+    ),
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
         "(core/models/enums/pipeline.py, after the Values block)"
@@ -511,7 +524,7 @@ _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
-_links_arc = "the Activity Links arc's record of the principle ↔ goal, principle ↔ choice and task ↔ goal collapses -- ADR-090, the arc document, ADR-090's INDEX row, the older ADRs that keep the names (ADR-001's 2025 single-query record, ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record), the closed case files in roadmap/done/ and the closed Cypher-vocabulary sweep name the edge types the arc retired"
+_links_arc = "the Activity Links arc's record of the principle ↔ goal, principle ↔ choice, task ↔ goal and event ↔ principle collapses -- ADR-090, the arc document, ADR-090's INDEX row, the older ADRs that keep the names (ADR-001's 2025 single-query record, ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record), the closed case files in roadmap/done/ and the closed Cypher-vocabulary sweep name the edge types the arc retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
@@ -812,20 +825,22 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # never by adding the diff's line delta.
         (241, "Pipeline.JOURNAL"): Allow(_sweep_q),
     },
-    # The Activity Links arc's records of the principle ↔ goal and principle ↔ choice
-    # collapses. Anchors are the scanner's own report (--verbose), re-derived whenever a
+    # The Activity Links arc's records of the principle ↔ goal, principle ↔ choice,
+    # task ↔ goal and event ↔ principle collapses. Anchors are the scanner's own report (--verbose), re-derived whenever a
     # line above them moves.
     "docs/INDEX.md": {
+        (315, "FULFILLS_GOAL"): Allow(_links_arc),
         (315, "GUIDES_CHOICE"): Allow(_links_arc),
         (315, "GUIDES_GOAL"): Allow(_links_arc),
         (315, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (315, "FULFILLS_GOAL"): Allow(_links_arc),
+        (315, "PRACTICED_AT_EVENT"): Allow(_links_arc),
     },
     "docs/decisions/ADR-015-mega-query-rich-queries-completion.md": {
         (25, "GUIDES_GOAL"): Allow(_links_arc),
         (87, "GUIDES_GOAL"): Allow(_links_arc),
         (88, "GUIDES_CHOICE"): Allow(_links_arc),
         (97, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (81, "PRACTICED_AT_EVENT"): Allow(_links_arc),
     },
     "docs/decisions/ADR-026-unified-relationship-registry.md": {
         (348, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
@@ -838,11 +853,15 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (53, "GUIDES_GOAL"): Allow(_links_arc),
         (54, "GUIDES_CHOICE"): Allow(_links_arc),
         (54, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (59, "FULFILLS_GOAL"): Allow(_links_arc),
         (68, "GUIDES_GOAL"): Allow(_links_arc),
         (69, "GUIDES_CHOICE"): Allow(_links_arc),
+        (72, "FULFILLS_GOAL"): Allow(_links_arc),
         (170, "GUIDES_GOAL"): Allow(_links_arc),
+        (171, "FULFILLS_GOAL"): Allow(_links_arc),
         (171, "GUIDES_CHOICE"): Allow(_links_arc),
         (171, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (173, "FULFILLS_GOAL"): Allow(_links_arc),
         (254, "GUIDES_CHOICE"): Allow(_links_arc),
         (254, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (266, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
@@ -852,10 +871,14 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (288, "GUIDES_GOAL"): Allow(_links_arc),
         (294, "GUIDES_CHOICE"): Allow(_links_arc),
         (295, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (59, "FULFILLS_GOAL"): Allow(_links_arc),
-        (72, "FULFILLS_GOAL"): Allow(_links_arc),
-        (171, "FULFILLS_GOAL"): Allow(_links_arc),
-        (173, "FULFILLS_GOAL"): Allow(_links_arc),
+        (62, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (71, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (171, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (255, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (271, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (64, "practiced_habits"): Allow(_links_arc),
+        (173, "practiced_habits"): Allow(_links_arc),
+        (272, "practiced_habits"): Allow(_links_arc),
     },
     "docs/decisions/ADR-001-unified-user-context-single-query.md": {
         (93, "FULFILLS_GOAL"): Allow(_links_arc),
@@ -872,39 +895,60 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (65, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
         (67, "FULFILLS_GOAL"): Allow(_links_arc, hits=2),
         (115, "FULFILLS_GOAL"): Allow(_links_arc),
-        (158, "GUIDES_GOAL"): Allow(_links_arc),
-        (159, "GUIDES_CHOICE"): Allow(_links_arc),
-        (159, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (163, "FULFILLS_GOAL"): Allow(_links_arc),
-        (184, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (207, "GUIDES_GOAL"): Allow(_links_arc),
-        (211, "FULFILLS_GOAL"): Allow(_links_arc),
-        (225, "FULFILLS_GOAL"): Allow(_links_arc),
-        (229, "FULFILLS_GOAL"): Allow(_links_arc),
-        (237, "FULFILLS_GOAL"): Allow(_links_arc),
-        (239, "GUIDES_GOAL"): Allow(_links_arc),
-        (310, "FULFILLS_GOAL"): Allow(_links_arc),
-        (311, "GUIDES_GOAL"): Allow(_links_arc),
-        (322, "FULFILLS_GOAL"): Allow(_links_arc),
-        (340, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (351, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (366, "FULFILLS_GOAL"): Allow(_links_arc),
-        (456, "FULFILLS_GOAL"): Allow(_links_arc),
-        (463, "FULFILLS_GOAL"): Allow(_links_arc),
-        (499, "GUIDES_GOAL"): Allow(_links_arc),
-        (500, "GUIDES_CHOICE"): Allow(_links_arc),
-        (500, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (501, "FULFILLS_GOAL"): Allow(_links_arc),
-        (613, "GUIDES_GOAL"): Allow(_links_arc),
-        (620, "GUIDES_GOAL"): Allow(_links_arc),
-        (674, "GUIDES_CHOICE"): Allow(_links_arc),
-        (675, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
-        (728, "FULFILLS_GOAL"): Allow(_links_arc),
-        (747, "FULFILLS_GOAL"): Allow(_links_arc),
-        (749, "FULFILLS_GOAL"): Allow(_links_arc),
-        (754, "FULFILLS_GOAL"): Allow(_links_arc),
-        (812, "FULFILLS_GOAL"): Allow(_links_arc),
-        (814, "FULFILLS_GOAL"): Allow(_links_arc),
+        (163, "GUIDES_GOAL"): Allow(_links_arc),
+        (164, "GUIDES_CHOICE"): Allow(_links_arc),
+        (164, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (168, "FULFILLS_GOAL"): Allow(_links_arc),
+        (189, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (216, "GUIDES_GOAL"): Allow(_links_arc),
+        (220, "FULFILLS_GOAL"): Allow(_links_arc),
+        (234, "FULFILLS_GOAL"): Allow(_links_arc),
+        (238, "FULFILLS_GOAL"): Allow(_links_arc),
+        (246, "FULFILLS_GOAL"): Allow(_links_arc),
+        (248, "GUIDES_GOAL"): Allow(_links_arc),
+        (325, "FULFILLS_GOAL"): Allow(_links_arc),
+        (326, "GUIDES_GOAL"): Allow(_links_arc),
+        (337, "FULFILLS_GOAL"): Allow(_links_arc),
+        (355, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (366, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (387, "FULFILLS_GOAL"): Allow(_links_arc),
+        (477, "FULFILLS_GOAL"): Allow(_links_arc),
+        (484, "FULFILLS_GOAL"): Allow(_links_arc),
+        (545, "GUIDES_GOAL"): Allow(_links_arc),
+        (546, "GUIDES_CHOICE"): Allow(_links_arc),
+        (546, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (547, "FULFILLS_GOAL"): Allow(_links_arc),
+        (659, "GUIDES_GOAL"): Allow(_links_arc),
+        (666, "GUIDES_GOAL"): Allow(_links_arc),
+        (720, "GUIDES_CHOICE"): Allow(_links_arc),
+        (721, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),
+        (774, "FULFILLS_GOAL"): Allow(_links_arc),
+        (793, "FULFILLS_GOAL"): Allow(_links_arc),
+        (795, "FULFILLS_GOAL"): Allow(_links_arc),
+        (800, "FULFILLS_GOAL"): Allow(_links_arc),
+        (858, "FULFILLS_GOAL"): Allow(_links_arc),
+        (860, "FULFILLS_GOAL"): Allow(_links_arc),
+        (49, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (71, "PRACTICED_AT_EVENT"): Allow(_links_arc, hits=2),
+        (72, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (153, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (175, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (225, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (325, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (548, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (870, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (889, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (905, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (909, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (910, "PRACTICED_AT_EVENT"): Allow(_links_arc),
+        (71, "practiced_habits"): Allow(_links_arc),
+        (72, "practiced_habits"): Allow(_links_arc),
+        (194, "practiced_habits"): Allow(_links_arc),
+        (196, "practiced_habits"): Allow(_links_arc),
+        (548, "practiced_habits"): Allow(_links_arc),
+        (871, "practiced_habits"): Allow(_links_arc),
+        (890, "practiced_habits"): Allow(_links_arc),
+        (891, "practiced_habits"): Allow(_links_arc),
     },
     "docs/roadmap/done/goal-progress-reads-an-unwritten-edge.md": {
         (29, "FULFILLS_GOAL"): Allow(_links_arc),

@@ -100,7 +100,7 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | `SUBGOAL_OF` / `HAS_SUBGOAL` | Goal | Goal | Hierarchy pair |
 | `DEPENDS_ON_GOAL` | Goal | Goal | Goal depends on another |
 | `SUPPORTS_GOAL` | Habit, Principle, PathStep | Goal | Supports the goal. Three kinds of source share the type, so a reader labels the far end. Habit and principle edges written by the app doors carry `weight` + `essentiality` |
-| `CELEBRATES_GOAL` | Event | Goal | Event celebrates goal achievement |
+| `CELEBRATES_GOAL` | Event | Goal | Event celebrates a milestone of the goal — listed on the goal page apart from contributing events, and never counted toward progress |
 | `ALIGNED_WITH_PATH` | Goal | LifePath | Goal aligned with life path |
 
 ## Habit Relationships
@@ -124,7 +124,8 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | `CONFLICTS_WITH` | Event | Event | Schedule conflict |
 | `EXECUTES_TASK` | Event | Task | Event executes task |
 | `ATTENDS` | User | Event | User attends event |
-| `PRACTICED_AT_EVENT` | Habit | Event | Habit practiced at event |
+| `REINFORCES_HABIT` | Task, Event | Habit | Reinforces the habit — the habit page lists tasks and events apart, each view labelling its far end |
+| `DEMONSTRATES_PRINCIPLE` | Event | Principle | Event demonstrates principle — the one event ↔ principle edge; the principle page lists it as "events where this principle is practiced" |
 
 ## Principle Relationships
 

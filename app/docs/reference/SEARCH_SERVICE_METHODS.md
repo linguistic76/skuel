@@ -1,7 +1,7 @@
 ---
 related_skills:
 - skuel-search-architecture
-updated: 2026-10-06
+updated: 2026-10-08
 ---
 # Search Service Method Reference
 *Last updated: 2026-06-11*
@@ -245,7 +245,9 @@ date_field = "target_date"
 # SUBGOAL_OF → parent_goal / sub_goals, SUPPORTS_GOAL → contributing_habits (Habit) +
 # supporting_principles (Principle) + essential/critical/optional_habits (Habit; the
 # enrichment match carries no essentiality filter), CONTRIBUTES_TO_GOAL →
-# contributing_tasks (Task) + contributing_events (Event), SERVES_LIFE_PATH → life_path, ...
+# contributing_tasks (Task) + contributing_events (Event), CELEBRATES_GOAL →
+# celebrating_events (Event), AFFECTS_GOAL → affecting_choices (Choice),
+# INSPIRED_BY_CHOICE → inspired_by_choice, SERVES_LIFE_PATH → life_path, ...
 ```
 
 **Domain-Specific Methods:**
@@ -269,15 +271,15 @@ and the core-service hierarchy methods.
 
 **File:** `core/services/habits/habits_search_service.py`
 
-**Configuration:**
+**Configuration** (via `create_activity_domain_config("habits", ...)` — registry-derived):
 ```python
-_search_fields = ["title", "description", "cue", "routine", "reward"]
+search_fields = ("title", "description")  # DomainConfig (default)
 category_field = "habit_category"  # DomainConfig
-_graph_enrichment_patterns = [
-    ("SUPPORTS_GOAL", "Goal", "supported_goals", "outgoing"),
-    ("REINFORCES_KNOWLEDGE", "Ku", "reinforced_knowledge", "outgoing"),
-    ("INSPIRED_BY_PRINCIPLE", "Principle", "inspiring_principles", "outgoing"),
-]
+date_field = "created_at"
+# graph_enrichment_patterns generated from HABITS_CONFIG — key edges:
+#   REINFORCES_KNOWLEDGE → reinforced_knowledge, EMBODIES_PRINCIPLE → embodied_principles,
+#   SUPPORTS_GOAL → supported_goals, INSPIRES_HABIT → inspiring_principles (Principle),
+#   REINFORCES_HABIT → reinforcing_tasks (Task) + reinforcing_events (Event), ...
 ```
 
 **Domain-Specific Methods:**
@@ -305,7 +307,9 @@ category_field = "category"  # DomainConfig (default)
 # graph_enrichment_patterns generated from EVENTS_CONFIG — key edges:
 #   APPLIES_KNOWLEDGE → applied_knowledge, CONTRIBUTES_TO_GOAL → supported_goals,
 #   REINFORCES_HABIT → reinforced_habits, CELEBRATES_GOAL → celebrated_goals,
-#   EXECUTES_TASK → executed_tasks, CONFLICTS_WITH → conflicting_events, ...
+#   EXECUTES_TASK → executed_tasks, CONFLICTS_WITH → conflicting_events,
+#   SCHEDULES_EVENT → scheduled_by_choices (Choice),
+#   DEMONSTRATES_PRINCIPLE → demonstrated_principles, ...
 ```
 
 **Domain-Specific Methods:**
@@ -380,13 +384,12 @@ date_field = "created_at"
     ("SUPPORTS_GOAL", "Goal", "supported_goals", "outgoing"),
     ("INFORMS_CHOICE", "Choice", "informed_choices", "outgoing"),
     ("INSPIRES_HABIT", "Entity", "inspired_habits", "outgoing"),
-    ("EMBODIES_PRINCIPLE", "Entity", "embodying_habits", "incoming"),
+    ("EMBODIES_PRINCIPLE", "Habit", "embodying_habits", "incoming"),
     ("SUPPORTS_PRINCIPLE", "Principle", "supporting_principles", "incoming"),
     ("CONFLICTS_WITH_PRINCIPLE", "Principle", "conflicting_principles", "incoming"),
     ("ALIGNED_WITH_PRINCIPLE", "Task", "aligned_tasks", "incoming"),
     ("RELATED_TO", "Principle", "related_principles", "both"),
     ("DEMONSTRATES_PRINCIPLE", "Event", "demonstrating_events", "incoming"),
-    ("PRACTICED_AT_EVENT", "Event", "practice_events", "outgoing"),
     ("SERVES_LIFE_PATH", "Entity", "life_path", "outgoing"),
 ]
 ```
@@ -404,7 +407,6 @@ date_field = "created_at"
 |--------|-----------|-------------|
 | `get_by_category` | `(category: str, user_uid: UserUID) -> Result[list[Principle]]` | Filter by category |
 | `get_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles that support the goal (`SUPPORTS_GOAL` from a principle; a habit or PathStep supporter is not returned) |
-| `get_for_habit` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles inspiring habit |
 | `get_needing_review` | `(user_uid: UserUID, days: int = 90) -> Result[list[Principle]]` | Principles not reviewed recently (also drives the overridden `get_overdue`) |
 | `get_related_principles` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Related principles |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Principle]]` | Smart prioritization |
