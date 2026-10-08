@@ -105,8 +105,8 @@ class ConnectionFetchBackend:
 
         Returns ``entity_uid -> rows`` (``heading``, ``rel_type``, ``connected_uid``,
         ``title``, ``connected_type``), ordered by the domain's page views and then
-        by title. A far end shown under two views that share a heading (one link
-        stored under two names) is listed once under it.
+        by title. A far end is listed once under its view's heading, however many edges
+        of the view reach it.
 
         A connected entity is the entity owner's own or published shared content
         (``build_far_node_clause``): another user's node, or a draft, at the far end
@@ -147,7 +147,7 @@ class ConnectionFetchBackend:
         if result.is_error:
             return {}
 
-        # A heading's place is its first view's — two views sharing it list as one.
+        # A heading's place is its view's (no two views of a config share one).
         rank: dict[str, int] = {}
         for index, page_view in enumerate(views):
             rank.setdefault(page_view.page_heading or "", index)

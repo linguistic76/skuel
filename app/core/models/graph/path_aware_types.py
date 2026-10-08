@@ -930,9 +930,9 @@ class EventCrossContext:
     Event context with path-aware intelligence.
 
     Groups related entities by relationship semantic:
-    - goals: Goals this event supports (SUPPORTS_GOAL)
+    - goals: Goals this event contributes to or celebrates (CONTRIBUTES_TO_GOAL, CELEBRATES_GOAL)
     - habits: Habits this event reinforces (REINFORCES_HABIT)
-    - knowledge: Knowledge this event practices (REINFORCES_KNOWLEDGE)
+    - knowledge: Knowledge this event applies (APPLIES_KNOWLEDGE)
     """
 
     event_uid: str
@@ -949,13 +949,12 @@ class EventCrossContext:
 
         This is the per-domain seam the generic factory delegates to: it SELECTs the
         event-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the two
-        goal/habit directions, and DEDUPs each field to its strongest path. One union call
+        goal links, and DEDUPs each field to its strongest path. One union call
         per target field (per-field scoping is intentional).
 
         - ``goals`` ← union of CONTRIBUTES_TO_GOAL (``supported_goals``) and the milestone
           CELEBRATES_GOAL (``celebrated_goals``).
-        - ``habits`` ← union of the outgoing REINFORCES_HABIT (``reinforced_habits``) and the
-          incoming PRACTICED_AT_EVENT (``practiced_habits``).
+        - ``habits`` ← REINFORCES_HABIT (``reinforced_habits``).
         - ``knowledge`` ← APPLIES_KNOWLEDGE (``applied_knowledge``).
         """
         return cls(
@@ -968,9 +967,7 @@ class EventCrossContext:
             ],
             habits=[
                 PathAwareHabit.from_dict(h)
-                for h in _union_path_buckets(
-                    categorized_data, "reinforced_habits", "practiced_habits"
-                )
+                for h in _union_path_buckets(categorized_data, "reinforced_habits")
             ],
             knowledge=[
                 PathAwareKnowledge.from_dict(k)

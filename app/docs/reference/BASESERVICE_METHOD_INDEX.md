@@ -470,7 +470,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### PrinciplesService
 
-**Facade-specific public methods:** 50
+**Facade-specific public methods:** 49
 
 | Method | Async |
 |--------|-------|
@@ -505,7 +505,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `get_principle_practice_opportunities_for_user()` | ✅ |
 | `get_principles_by_category()` | ✅ |
 | `get_principles_for_goal()` | ✅ |
-| `get_principles_for_habit()` | ✅ |
 | `get_principles_needing_attention_for_user()` | ✅ |
 | `get_principles_needing_review()` | ✅ |
 | `get_quick_principle_impact()` | ✅ |

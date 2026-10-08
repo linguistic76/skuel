@@ -189,6 +189,7 @@ class TaskUpdateRequest(UpdateRequestBase):
     contributes_to_goal_uids: list[str] | None = None
     reinforces_habit_uid: str | None = None
     applies_knowledge_uids: list[str] | None = None
+    # The full set of principles the task is aligned with: replaces the current set; [] clears it.
     aligned_principle_uids: list[str] | None = None
     goal_progress_contribution: float | None = Field(default=None, ge=0.0, le=1.0)
     knowledge_mastery_check: bool | None = None

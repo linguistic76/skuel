@@ -102,6 +102,10 @@ RELATIONSHIP_SKIP_FIELDS = {
     # EventsCoreService._write_link_edges. Skipped so the uids never land as a node
     # property no reader consults.
     "contributes_to_goal_uids",
+    # A task's principles — (Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle), written by
+    # task create and update; any other door (a vault frontmatter key) must not land
+    # the uids as a node property no reader consults.
+    "aligned_principle_uids",
     # Carried by Habit only and DERIVED AT READ, not from an edge: the habit's
     # adherence now (core.models.habit.adherence), hydrated after the read by
     # enrich_habits_with_adherence. A stored number goes stale the first day

@@ -4,7 +4,7 @@ The reader reads, in one statement, every edge of the domain's page-view types i
 both directions (the registry's ``page_heading`` definitions, ADR-090 §2), and places
 each row under the view that reads it. These tests mock the QueryExecutor and assert
 the statement's shape and parameters, the placement by edge type / direction /
-far-end label, the one-listing-per-heading rule, and the page-resilient
+far-end label, one listing per far end and heading, and the page-resilient
 empty-on-error safety-net. The real-graph half is
 tests/integration/routes/test_activity_page_links.py.
 """
@@ -15,7 +15,7 @@ import pytest
 
 from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 from core.models.enums.neo_labels import NeoLabel
-from core.models.relationship_registry import LABEL_CONFIGS, UnifiedRelationshipDefinition
+from core.models.relationship_registry import LABEL_CONFIGS
 from core.utils.result_simplified import Errors, Result
 
 
@@ -51,24 +51,6 @@ def _heading_of(label: NeoLabel, method_key: str) -> str:
         if view.method_key == method_key and view.page_heading is not None:
             return view.page_heading
     raise AssertionError(f"{label} has no headed view keyed {method_key}")
-
-
-def _far_label(view: UnifiedRelationshipDefinition) -> str:
-    """A far-end label the view reads: its own, or any label for an Entity far end."""
-    return view.target_label if view.target_label != NeoLabel.ENTITY else NeoLabel.PRINCIPLE
-
-
-def _views_sharing_a_heading() -> tuple[
-    str, UnifiedRelationshipDefinition, UnifiedRelationshipDefinition
-]:
-    for label, config in LABEL_CONFIGS.items():
-        seen: dict[str, UnifiedRelationshipDefinition] = {}
-        for view in config.page_views():
-            heading = view.page_heading or ""
-            if heading in seen:
-                return label, seen[heading], view
-            seen[heading] = view
-    raise AssertionError("no config has two page views sharing a heading")
 
 
 class TestTheStatement:
@@ -254,29 +236,16 @@ class TestPlacement:
         ]
 
     @pytest.mark.asyncio
-    async def test_one_link_under_two_names_is_listed_once(self):
-        # Any two page views on one config that share a heading — derived, so a later
-        # PR that retires one pair leaves the test on another.
-        label, first, second = _views_sharing_a_heading()
-        far_uid = "shared_far_end"
-        backend, _ = _backend_returning(
-            Result.ok(
-                [
-                    _row(
-                        view.relationship.value,
-                        outgoing=view.direction == "outgoing",
-                        far=_far_label(view),
-                        uid=far_uid,
-                        entity_uid="anchor",
-                    )
-                    for view in (first, second)
-                ]
-            )
-        )
-        result = await backend.fetch_entity_connections(NeoLabel(label), ["anchor"])
+    async def test_a_far_end_reached_twice_is_listed_once(self):
+        # Two edges of one view into the same far end (a duplicate edge, or a link
+        # stored both ways) are one row under the view's heading.
+        row = _row("CONTRIBUTES_TO_GOAL", outgoing=False, far="Task", uid="task_1")
+        backend, _ = _backend_returning(Result.ok([row, dict(row)]))
 
-        assert [(row["heading"], row["connected_uid"]) for row in result["anchor"]] == [
-            (first.page_heading, far_uid)
+        result = await backend.fetch_entity_connections(NeoLabel.GOAL, ["goal_1"])
+
+        assert [(row["heading"], row["connected_uid"]) for row in result["goal_1"]] == [
+            (_heading_of(NeoLabel.GOAL, "contributing_tasks"), "task_1")
         ]
 
     @pytest.mark.asyncio

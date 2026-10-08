@@ -107,6 +107,7 @@ class TaskEdgeIntent:
     habit_uid: str | Unset | None = UNSET
     applies_knowledge_uids: list[str] | Unset | None = UNSET
     contributes_to_goal_uids: list[str] | Unset | None = UNSET
+    aligned_principle_uids: list[str] | Unset | None = UNSET
 
     def any_set(self) -> bool:
         """Whether this update touches any edge."""
@@ -116,6 +117,7 @@ class TaskEdgeIntent:
                 self.habit_uid,
                 self.applies_knowledge_uids,
                 self.contributes_to_goal_uids,
+                self.aligned_principle_uids,
             )
         )
 
@@ -480,11 +482,13 @@ class TasksService(
             reinforces_habit_uid=UNSET,
             applies_knowledge_uids=UNSET,
             contributes_to_goal_uids=UNSET,
+            aligned_principle_uids=UNSET,
         )
         edges = TaskEdgeIntent(
             habit_uid=intent.reinforces_habit_uid,
             applies_knowledge_uids=intent.applies_knowledge_uids,
             contributes_to_goal_uids=intent.contributes_to_goal_uids,
+            aligned_principle_uids=intent.aligned_principle_uids,
         )
         return edges, prop_intent
 
@@ -512,18 +516,18 @@ class TasksService(
     async def _sync_relationship_edges(
         self, task_uid: str, *, owner_uid: str, edges: TaskEdgeIntent
     ) -> Result[list[str]]:
-        """Replace the task's habit, knowledge and goal edges from the intent values.
+        """Replace the task's habit, knowledge, goal and principle edges from the intent values.
 
         ``UNSET`` means "not in this update" (edges of that kind untouched); a value means
         "replace" — clearing every edge of that kind when the value is empty (``None`` for
-        the habit, ``[]`` for the knowledge and goal sets).
+        the habit, ``[]`` for the knowledge, goal and principle sets).
 
         New edges are admitted through ``keep_permitted_link_edges`` — the far end must
         EXIST, be OWNED by ``owner_uid`` or by nobody, and be the KIND the field names —
         exactly as the create path admits them (``TasksCoreService._write_link_edges``).
         A refused edge is logged and dropped, never written. ``update_for_user`` verifies
         the TASK's owner and nothing about the far end, so this guard is what stands
-        between a crafted update and another user's habit, knowledge or goal.
+        between a crafted update and another user's habit, knowledge, goal or principle.
 
         New edges go through ``backend.create_relationships_batch`` with explicit
         ``RelationshipName`` values — NOT ``UnifiedRelationshipService.create_relationship``,
@@ -550,9 +554,9 @@ class TasksService(
                     )
                 )
 
-        # The two edge SETS — (Task)-[:APPLIES_KNOWLEDGE]->(Ku) and
-        # (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal): a list replaces the full set; an empty
-        # list clears it.
+        # The edge SETS — (Task)-[:APPLIES_KNOWLEDGE]->(Ku),
+        # (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal) and (Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle):
+        # a list replaces the full set; an empty list clears it.
         removed_goals: list[str] = []
         edge_sets: tuple[
             tuple[str, list[str] | Unset | None, RelationshipName, frozenset[str]], ...
@@ -568,6 +572,12 @@ class TasksService(
                 edges.contributes_to_goal_uids,
                 RelationshipName.CONTRIBUTES_TO_GOAL,
                 frozenset({NeoLabel.GOAL.value}),
+            ),
+            (
+                "principles",
+                edges.aligned_principle_uids,
+                RelationshipName.ALIGNED_WITH_PRINCIPLE,
+                frozenset({NeoLabel.PRINCIPLE.value}),
             ),
         )
         for relationship_key, uids, relationship, allowed_labels in edge_sets:
@@ -649,6 +659,7 @@ class TasksService(
                 ("reinforces_habit_uid", edges.habit_uid),
                 ("applies_knowledge_uids", edges.applies_knowledge_uids),
                 ("contributes_to_goal_uids", edges.contributes_to_goal_uids),
+                ("aligned_principle_uids", edges.aligned_principle_uids),
             )
             if value is not UNSET
         ]
@@ -659,8 +670,8 @@ class TasksService(
 
     async def update_task(self, task_uid: str, intent: TaskUpdateIntent) -> Result[Task]:
         """THE Tasks update path (ADR-066). Splits the edge-only fields off the intent,
-        writes node properties via core (events fire), and syncs the habit, knowledge and
-        goal edges. See `_sync_relationship_edges`.
+        writes node properties via core (events fire), and syncs the habit, knowledge, goal
+        and principle edges. See `_sync_relationship_edges`.
 
         A change to the task's goal set announces ``GoalContributionsChanged`` for the
         goals it left and the ones it now contributes to."""

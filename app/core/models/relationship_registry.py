@@ -268,8 +268,7 @@ class UnifiedRelationshipDefinition:
     # The Activity page (ADR-090 §2): this domain's name for the link, written from
     # its own side ("Goals this habit supports"). A definition with a heading is
     # shown in the detail page's Connections section and on the list card; one
-    # without is not. Two definitions on one config share a heading only when they
-    # are one link stored under two names — the page lists each far end once.
+    # without is not. No two definitions on one config share a heading.
     page_heading: str | None = None
 
     def to_graph_enrichment_tuple(self) -> tuple[str, str, str, str]:
@@ -540,15 +539,12 @@ TASKS_CONFIG = DomainRelationshipConfig(
             yaml_field_path="connections.contributes_to_goal",
             page_heading="Goals this task contributes to",
         ),
-        # Task → Habit: (Task)-[:REINFORCES_HABIT]->(Habit), single result for context.
-        # Consolidated from the former SUPPORTS_HABIT, which disagreed with the
-        # field name, connection config, and context query — all of which use
-        # REINFORCES_HABIT, matching Event's identical concept. This comment used
-        # to add "which was never written"; that was FALSE (one live edge, found
-        # by scripts/audit_graph_vocabulary.py and migrated in #1010).
+        # Task → Habit: (Task)-[:REINFORCES_HABIT]->(Habit), single result for context. Events
+        # reinforce habits through the same type; the far end names the habit, so a vault
+        # field naming another kind writes no edge.
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
-            "Entity",
+            "Habit",
             "outgoing",
             "habit_context",  # Renamed for context view
             "habits",
@@ -740,6 +736,17 @@ GOALS_CONFIG = DomainRelationshipConfig(
             single=True,  # Single choice
             page_heading="Choices that inspired this goal",
         ),
+        # A choice that affects this goal — a second fact beside the choice that inspired it
+        # (R3): the inspiring choice is the goal's origin, an affecting choice weighs on it.
+        UnifiedRelationshipDefinition(
+            RelationshipName.AFFECTS_GOAL,
+            "Choice",
+            "incoming",
+            "affecting_choices",
+            "affecting_choices",
+            fields=("uid", "title", "status"),
+            page_heading="Choices that affect this goal",
+        ),
         # Incoming: Other → Goal (with context-specific fields)
         UnifiedRelationshipDefinition(
             RelationshipName.SUBGOAL_OF,
@@ -786,6 +793,17 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "contributing_events",
             fields=("uid", "title", "status"),
             page_heading="Events that contribute to this goal",
+        ),
+        # An event that celebrates a milestone of this goal. Listed apart from the events
+        # that contribute: a celebration marks the goal, it does not count toward progress.
+        UnifiedRelationshipDefinition(
+            RelationshipName.CELEBRATES_GOAL,
+            "Event",
+            "incoming",
+            "celebrating_events",
+            "celebrating_events",
+            fields=("uid", "title", "status"),
+            page_heading="Events that celebrate this goal",
         ),
         # NOTE: Milestones are stored as an embedded tuple on the Goal model
         # (`Goal.milestones: tuple[Milestone, ...]`), not as graph nodes. There
@@ -922,13 +940,6 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "prerequisite_habits",
             "prerequisite_habits",
             yaml_field_path="connections.prerequisite_habits",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.REINFORCES_HABIT,
-            "Entity",
-            "incoming",
-            "reinforcing_habits",
-            "reinforcing_habits",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ENABLES_HABIT,
@@ -1071,7 +1082,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
-            "Entity",
+            "Habit",
             "outgoing",
             "reinforced_habits",
             "habits",
@@ -1097,15 +1108,6 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title", "status", "priority"),
             yaml_field_path="connections.executes_task",
             page_heading="Tasks carried out at this event",
-        ),
-        # Incoming: Other → Event
-        UnifiedRelationshipDefinition(
-            RelationshipName.PRACTICED_AT_EVENT,
-            "Entity",
-            "incoming",
-            "practiced_habits",
-            "practiced_habits",
-            page_heading="Principles this event demonstrates",
         ),
         # Bidirectional
         UnifiedRelationshipDefinition(
@@ -1136,18 +1138,19 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title", "status"),
             page_heading="Choices this event prompts",
         ),
-        # Incoming: Choice schedules event
+        # Incoming: Choice schedules event. PathSteps write SCHEDULES_EVENT too
+        # (``event_uids``); the PathStep reads its own as ``scheduled_events``.
         UnifiedRelationshipDefinition(
             RelationshipName.SCHEDULES_EVENT,
-            "Entity",
+            "Choice",
             "incoming",
             "scheduled_by_choices",
             "scheduled_by_choices",
             fields=("uid", "title", "status"),
             page_heading="Choices that scheduled this event",
         ),
-        # Event ↔ Principle bidirectional relationships (January 2026)
-        # Outgoing: Event demonstrates principle
+        # Event → Principle: one fact, read on both pages — the principle names it "events
+        # where this principle is practiced" (R7).
         UnifiedRelationshipDefinition(
             RelationshipName.DEMONSTRATES_PRINCIPLE,
             "Principle",
@@ -1409,9 +1412,11 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             page_heading="Habits this principle inspires",
         ),
         # Incoming: Other → Principle
+        # Learning paths write EMBODIES_PRINCIPLE too (``connections.embodied_principles``);
+        # the principle's view names the habit.
         UnifiedRelationshipDefinition(
             RelationshipName.EMBODIES_PRINCIPLE,
-            "Entity",
+            "Habit",
             "incoming",
             "embodying_habits",
             "embodying_habits",
@@ -1447,24 +1452,13 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "related_principles",
             "related_principles",
         ),
-        # Principle ↔ Event bidirectional relationships (January 2026)
-        # Incoming: Event demonstrates principle
+        # Event → Principle: the event's DEMONSTRATES_PRINCIPLE, read from this side (R7).
         UnifiedRelationshipDefinition(
             RelationshipName.DEMONSTRATES_PRINCIPLE,
             "Event",
             "incoming",
             "demonstrating_events",
             "demonstrating_events",
-            fields=("uid", "title", "start_time"),
-            page_heading="Events where this principle is practiced",
-        ),
-        # Outgoing: Principle practiced at event
-        UnifiedRelationshipDefinition(
-            RelationshipName.PRACTICED_AT_EVENT,
-            "Event",
-            "outgoing",
-            "practice_events",
-            "practice_events",
             fields=("uid", "title", "start_time"),
             page_heading="Events where this principle is practiced",
         ),

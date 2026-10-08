@@ -35,8 +35,8 @@ class ConnectionFetchOperations(Protocol):
         """Batch-fetch the page links of ``label`` entities, both directions.
 
         Returns ``entity_uid -> rows``, each row under the heading of the page view
-        that reads it, in the order of the domain's page views; a far end shown under
-        two definitions that share a heading is listed once. Empty dict on no input
+        that reads it, in the order of the domain's page views; a far end is listed once
+        under its heading. Empty dict on no input
         or query failure (page-resilient).
         """
         ...

@@ -321,7 +321,7 @@ async def test_get_related_principles_skips_category_fallback_when_category_is_n
 async def test_get_for_goal_scopes_traversal_to_user(search_service, mock_backend):
     """ADR-085 G3 pin — the traversal read carries user + visibility.
 
-    get_for_goal/get_for_habit had NO user parameter at all; the traversal
+    get_for_goal had NO user parameter at all; the traversal
     returned every user's principles guiding the goal. The scoping now rides
     in the Cypher via the one composition point.
     """
@@ -342,21 +342,6 @@ async def test_get_for_goal_scopes_traversal_to_user(search_service, mock_backen
     assert kwargs["relationship_type"] == RelationshipName.SUPPORTS_GOAL.value
     assert kwargs["direction"] == "incoming"
     assert kwargs["target_label"] is NeoLabel.PRINCIPLE
-
-
-@pytest.mark.asyncio
-async def test_get_for_habit_scopes_traversal_to_user(search_service, mock_backend):
-    """ADR-085 G3 pin — same contract on the habit-side traversal."""
-    from core.models.enums import SearchVisibility
-
-    mock_backend.relationship_traversal_raw = AsyncMock(return_value=Result.ok([]))
-
-    result = await search_service.get_for_habit("habit:1", user_uid="user_demo")
-
-    assert result.is_ok
-    kwargs = mock_backend.relationship_traversal_raw.await_args.kwargs
-    assert kwargs["user_uid"] == "user_demo"
-    assert kwargs["visibility"] is SearchVisibility.OWNER_ONLY
 
 
 if __name__ == "__main__":

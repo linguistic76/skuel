@@ -31,14 +31,16 @@ one end only (``MISSING_ENDS``) is shown at the end that reads it.
 
 **Rule 4 — no link listed twice.** No two headed views on one config share an edge type
 and a direction while their far ends overlap (an ``Entity`` far end overlaps every
-label). Two different edge types may share a heading: one link stored under two names,
-which the page lists once. A view filtered on an edge property carries no heading: the
-page places an edge by type, direction and far-end label, never by its properties.
+label). A view filtered on an edge property carries no heading: the page places an edge
+by type, direction and far-end label, never by its properties.
 
-The two gap lists (``MISSING_ENDS``, ``MIXED_VIEWS``)
-name the ledger row that closes each entry (docs/roadmap/activity-links-arc.md § PR
-ledger). Every list fails both ways: a new item is red until it is closed or listed, and a
-listed item that is closed or gone is red until its entry is removed.
+**Rule 5 — one heading, one view.** No two headed views on one config share a heading. A
+link is one stored fact (ADR-090 §1), so a heading names exactly one view of it.
+
+The two gap lists (``MISSING_ENDS``, ``MIXED_VIEWS``) are empty: the arc closed every
+entry (docs/roadmap/activity-links-arc.md § PR ledger). Each still fails both ways: a new
+gap is red until it is closed or listed with the work that closes it, and a listed gap
+that is closed or gone is red until its entry is removed.
 
 What the registry cannot show, and how the test answers it:
 
@@ -106,20 +108,9 @@ class View(NamedTuple):
 # The known gaps — each names the ledger row that removes it
 # ============================================================================
 
-MISSING_ENDS: dict[MissingEnd, str] = {
-    MissingEnd(
-        NeoLabel.EVENT, RelationshipName.CELEBRATES_GOAL, NeoLabel.GOAL, unread_at=NeoLabel.GOAL
-    ): "PR 5",
-    MissingEnd(
-        NeoLabel.CHOICE, RelationshipName.AFFECTS_GOAL, NeoLabel.GOAL, unread_at=NeoLabel.GOAL
-    ): "PR 5",
-}
+MISSING_ENDS: dict[MissingEnd, str] = {}
 
-MIXED_VIEWS: dict[View, str] = {
-    View(NeoLabel.HABIT, RelationshipName.REINFORCES_HABIT, "reinforcing_habits"): "PR 5",
-    View(NeoLabel.PRINCIPLE, RelationshipName.EMBODIES_PRINCIPLE, "embodying_habits"): "PR 5",
-    View(NeoLabel.EVENT, RelationshipName.SCHEDULES_EVENT, "scheduled_by_choices"): "PR 5",
-}
+MIXED_VIEWS: dict[View, str] = {}
 
 
 # ============================================================================
@@ -228,6 +219,25 @@ def _double_listings(
                         )
                     )
     return doubled
+
+
+def _shared_headings(
+    label_configs: Mapping[str, DomainRelationshipConfig],
+) -> set[tuple[View, View]]:
+    """Rule 5: two headed views on one config under the same heading."""
+    shared: set[tuple[View, View]] = set()
+    for label, config in configs(label_configs).items():
+        headed = [definition for definition in config.relationships if definition.page_heading]
+        for index, first in enumerate(headed):
+            for second in headed[index + 1 :]:
+                if first.page_heading == second.page_heading:
+                    shared.add(
+                        (
+                            View(label, first.relationship, first.method_key),
+                            View(label, second.relationship, second.method_key),
+                        )
+                    )
+    return shared
 
 
 def _entity_views(
@@ -506,6 +516,14 @@ class TestThePageShowsWhatItReads:
             "These headed views share an edge type and a direction with overlapping far "
             "ends, so the page would list the same edge under both. Keep the heading on "
             f"one of them: {sorted(doubled)}"
+        )
+
+    def test_no_two_views_share_a_heading(self):
+        shared = _shared_headings(LABEL_CONFIGS)
+
+        assert not shared, (
+            "These headed views on one config share a heading, so the page lists two "
+            f"views of a link as one. Give each view its own name: {sorted(shared)}"
         )
 
     def test_no_tier_view_carries_a_heading(self):
@@ -791,6 +809,29 @@ class TestTheInstrument:
                 View(NeoLabel.HABIT, edge, "from_anything"),
             )
         }
+
+    def test_two_views_under_one_heading_share_it(self):
+        edge = undeclared_edge()
+        configs_ = _with_definitions(
+            NeoLabel.HABIT,
+            _definition(edge, NeoLabel.TASK, "incoming", "from_tasks", heading="a"),
+            _definition(edge, NeoLabel.EVENT, "incoming", "from_events", heading="a"),
+        )
+
+        added = _shared_headings(configs_) - _shared_headings(LABEL_CONFIGS)
+
+        assert added == {
+            (View(NeoLabel.HABIT, edge, "from_tasks"), View(NeoLabel.HABIT, edge, "from_events"))
+        }
+
+    def test_views_under_different_headings_do_not_share_one(self):
+        configs_ = _with_definitions(
+            NeoLabel.HABIT,
+            _definition(undeclared_edge(), NeoLabel.TASK, "incoming", "from_tasks", heading="a"),
+            _definition(undeclared_edge(), NeoLabel.EVENT, "incoming", "from_events", heading="b"),
+        )
+
+        assert _shared_headings(configs_) == _shared_headings(LABEL_CONFIGS)
 
     def test_headed_views_naming_different_far_ends_are_not_a_double_listing(self):
         edge = undeclared_edge()

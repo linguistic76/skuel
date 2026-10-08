@@ -15,9 +15,10 @@ Two field groups:
 - **Node properties** (title, status, …) — materialized via ``to_changes()`` and written
   with a single ``backend.update`` at the service↔backend seam.
 - **Relationship-typed fields** (``reinforces_habit_uid``, ``applies_knowledge_uids``,
-  ``contributes_to_goal_uids``) — graph edges, NOT node columns. The Tasks facade splits
-  these off the intent and syncs them as ``REINFORCES_HABIT`` / ``APPLIES_KNOWLEDGE`` /
-  ``CONTRIBUTES_TO_GOAL`` edges; they never reach
+  ``contributes_to_goal_uids``, ``aligned_principle_uids``) — graph edges, NOT node
+  columns. The Tasks facade splits these off the intent and syncs them as
+  ``REINFORCES_HABIT`` / ``APPLIES_KNOWLEDGE`` / ``CONTRIBUTES_TO_GOAL`` /
+  ``ALIGNED_WITH_PRINCIPLE`` edges; they never reach
   ``backend.update`` as properties. They live on the intent so the typed
   ``TaskUpdateRequest.to_intent()`` path can carry them end to end.
 
@@ -57,7 +58,6 @@ class TaskUpdateIntent:
     tags: list[str] | Unset | None = UNSET
     actual_minutes: int | Unset | None = UNSET
     completion_date: date | Unset | None = UNSET
-    aligned_principle_uids: list[str] | Unset | None = UNSET
     goal_progress_contribution: float | Unset | None = UNSET
     knowledge_mastery_check: bool | Unset | None = UNSET
     habit_streak_maintainer: bool | Unset | None = UNSET
@@ -68,6 +68,7 @@ class TaskUpdateIntent:
     reinforces_habit_uid: str | Unset | None = UNSET
     applies_knowledge_uids: list[str] | Unset | None = UNSET
     contributes_to_goal_uids: list[str] | Unset | None = UNSET
+    aligned_principle_uids: list[str] | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

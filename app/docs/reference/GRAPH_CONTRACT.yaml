@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 167, with_contract: 91}
+    relationships: {total: 166, with_contract: 90}
     labels: {total: 60, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -320,6 +320,9 @@ relationships:
     contract: null
   CELEBRATES_GOAL:
     contract:
+      - config: Goal
+        definitions:
+          - {direction: incoming, target: Event, context_field: celebrating_events, method: celebrating_events, fields: [uid, title, status]}
       - config: Event
         definitions:
           - {direction: outgoing, target: Goal, context_field: celebrated_goals, method: celebrated_goals}
@@ -360,15 +363,14 @@ relationships:
     contract:
       - config: Task
         definitions:
-          - {direction: outgoing, target: Entity, context_field: habit_context, method: habits, fields: [uid, title, current_streak], single: true, ingestion_field: connections.reinforces_habit}
+          - {direction: outgoing, target: Habit, context_field: habit_context, method: habits, fields: [uid, title, current_streak], single: true, ingestion_field: connections.reinforces_habit}
       - config: Habit
         definitions:
-          - {direction: incoming, target: Entity, context_field: reinforcing_habits, method: reinforcing_habits}
           - {direction: incoming, target: Event, context_field: reinforcing_events, method: reinforcing_events}
           - {direction: incoming, target: Task, context_field: reinforcing_tasks, method: reinforcing_tasks, fields: [uid, title, status]}
       - config: Event
         definitions:
-          - {direction: outgoing, target: Entity, context_field: reinforced_habits, method: habits, ingestion_field: connections.reinforces_habit}
+          - {direction: outgoing, target: Habit, context_field: reinforced_habits, method: habits, ingestion_field: connections.reinforces_habit}
   INSPIRES_HABIT:
     contract:
       - config: Habit
@@ -395,18 +397,10 @@ relationships:
           - {direction: outgoing, target: Principle, context_field: embodied_principles, method: principles, ingestion_field: connections.embodies_principle}
       - config: Principle
         definitions:
-          - {direction: incoming, target: Entity, context_field: embodying_habits, method: embodying_habits}
+          - {direction: incoming, target: Habit, context_field: embodying_habits, method: embodying_habits}
       - config: LearningPath
         definitions:
           - {direction: outgoing, target: Principle, context_field: embodied_principles, method: principles, ingestion_field: connections.embodied_principles}
-  PRACTICED_AT_EVENT:
-    contract:
-      - config: Event
-        definitions:
-          - {direction: incoming, target: Entity, context_field: practiced_habits, method: practiced_habits}
-      - config: Principle
-        definitions:
-          - {direction: outgoing, target: Event, context_field: practice_events, method: practice_events, fields: [uid, title, start_time]}
   HAS_SUBEVENT:
     traits: [parent_child]
     contract: null
@@ -527,6 +521,9 @@ relationships:
           - {direction: incoming, target: Entity, context_field: opened_by_choices, method: opened_by}
   AFFECTS_GOAL:
     contract:
+      - config: Goal
+        definitions:
+          - {direction: incoming, target: Choice, context_field: affecting_choices, method: affecting_choices, fields: [uid, title, status]}
       - config: Choice
         definitions:
           - {direction: outgoing, target: Goal, context_field: affected_goals, method: goals, ingestion_field: connections.affects_goal}
@@ -652,7 +649,7 @@ relationships:
     contract:
       - config: Event
         definitions:
-          - {direction: incoming, target: Entity, context_field: scheduled_by_choices, method: scheduled_by_choices, fields: [uid, title, status]}
+          - {direction: incoming, target: Choice, context_field: scheduled_by_choices, method: scheduled_by_choices, fields: [uid, title, status]}
       - config: Choice
         definitions:
           - {direction: outgoing, target: Event, context_field: scheduled_events, method: scheduled_events, fields: [uid, title, start_time]}
@@ -954,8 +951,10 @@ labels:
         - REQUIRES_PATH_COMPLETION
         - SUBGOAL_OF
         - INSPIRED_BY_CHOICE
+        - AFFECTS_GOAL
         - SUPPORTS_GOAL
         - CONTRIBUTES_TO_GOAL
+        - CELEBRATES_GOAL
         - SERVES_LIFE_PATH
         - DEPENDS_ON_GOAL
         - ENABLES_GOAL
@@ -969,9 +968,9 @@ labels:
         - EMBODIES_PRINCIPLE
         - SUPPORTS_GOAL
         - REQUIRES_PREREQUISITE_HABIT
-        - REINFORCES_HABIT
         - ENABLES_HABIT
         - INSPIRES_HABIT
+        - REINFORCES_HABIT
         - RELATED_TO
         - SERVES_LIFE_PATH
         - INFORMS_CHOICE
@@ -987,7 +986,6 @@ labels:
         - REINFORCES_HABIT
         - CELEBRATES_GOAL
         - EXECUTES_TASK
-        - PRACTICED_AT_EVENT
         - CONFLICTS_WITH
         - SERVES_LIFE_PATH
         - TRIGGERS_CHOICE
@@ -1027,7 +1025,6 @@ labels:
         - ALIGNED_WITH_PRINCIPLE
         - RELATED_TO
         - DEMONSTRATES_PRINCIPLE
-        - PRACTICED_AT_EVENT
         - SERVES_LIFE_PATH
       semantic_types: ["learn:builds_on_foundation", "learn:requires_theoretical_understanding"]
   TaskTemplate:

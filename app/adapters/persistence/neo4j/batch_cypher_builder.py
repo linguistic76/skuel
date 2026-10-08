@@ -768,9 +768,9 @@ class BatchCypherBuilder:
                 relationship_specs=[
                     (applies_knowledge_uids, "APPLIES_KNOWLEDGE", None),
                     (prerequisite_knowledge_uids, "REQUIRES_KNOWLEDGE", None),
-                    (prerequisite_task_uids, "REQUIRES_PREREQUISITE", None),
+                    (prerequisite_task_uids, "BLOCKED_BY", None),
                     (aligned_principle_uids, "ALIGNED_WITH_PRINCIPLE", None),
-                    (subtask_uids, "HAS_CHILD", None),
+                    (subtask_uids, "HAS_SUBTASK", None),
                     (enables_task_uids, "ENABLES_TASK", None),
                     (completion_triggers_tasks, "TRIGGERS_ON_COMPLETION", None),
                     (completion_unlocks_knowledge, "UNLOCKS_KNOWLEDGE", None),

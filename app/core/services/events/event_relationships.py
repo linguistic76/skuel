@@ -23,7 +23,6 @@ EVENT_QUERY_SPECS: list[tuple[str, str]] = [
     ("reinforces_habit_uids", "habits"),
     ("celebrated_goal_uids", "celebrated_goals"),
     ("executed_task_uids", "tasks"),
-    ("practiced_habit_uids", "practiced_habits"),
     ("conflicting_event_uids", "conflicting_events"),
     ("triggered_choice_uids", "triggered_choices"),
     ("scheduled_by_choice_uids", "scheduled_by_choices"),
@@ -59,9 +58,6 @@ class EventRelationships:
 
     # Outgoing: Event → Task (EXECUTES_TASK)
     executed_task_uids: list[str] = field(default_factory=list)
-
-    # Incoming: Habit → Event (PRACTICED_AT_EVENT)
-    practiced_habit_uids: list[str] = field(default_factory=list)
 
     # Bidirectional: Event ↔ Event (CONFLICTS_WITH)
     conflicting_event_uids: list[str] = field(default_factory=list)
