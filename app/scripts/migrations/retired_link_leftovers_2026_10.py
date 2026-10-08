@@ -3,7 +3,7 @@
 Retired link leftovers — a read-only guard (Activity links arc PR 5)
 ====================================================================
 
-Two stored shapes are retired (ADR-090 §7, ``docs/roadmap/activity-links-arc.md``):
+Two stored shapes are retired (ADR-090 §7, ``docs/roadmap/done/activity-links-arc.md``):
 
 - ``PRACTICED_AT_EVENT`` is not a ``RelationshipName``. An event demonstrating a principle
   is ``(Event)-[:DEMONSTRATES_PRINCIPLE]->(Principle)``; an event reinforcing a habit is

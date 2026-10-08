@@ -1099,7 +1099,7 @@ own `_graph_enrichment_patterns`. Only `ExerciseService` and `RevisedExerciseSer
 six Activity search services set none, so a Task, Goal, Habit, Event, Choice or Principle result
 carries no `_graph_context`. The Activity rows below are the keys their `DomainConfig` computes from
 the relationship registry (`graph_enrichment_patterns`), a field nothing reads today (registered in
-`docs/roadmap/activity-links-arc.md` § Defects found by the census).
+[Activity Links Arc — Registered Residuals](../roadmap/activity-links-registered-residuals.md) § Search enrichment).
 
 | Domain | Graph Context Fields |
 |--------|---------------------|

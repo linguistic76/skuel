@@ -399,24 +399,27 @@ _GOALS_GRAVITY = PlannedEntry(
 _GOAL_PRINCIPLE_UNLINK = PlannedEntry(
     Readiness.DELAYED,
     "service-level unlink of a principle from a goal; waits on the link/unlink page "
-    "controls arc (docs/roadmap/activity-links-arc.md R8)",
+    "controls arc (docs/roadmap/activity-links-follow-ons.md § 1)",
     since=date(2026, 10, 5),
+    blocked_by="Activity Links Follow-ons — Link Doors, Unwritten Links, Same-Type Pairs",
 )
 # Activity links arc (2026-10): a principle's informing link to a choice is unlinked at
 # the service; the page controls that call it are the arc after (R8).
 _CHOICE_PRINCIPLE_UNLINK = PlannedEntry(
     Readiness.DELAYED,
     "service-level unlink of a principle from a choice; waits on the link/unlink page "
-    "controls arc (docs/roadmap/activity-links-arc.md R8)",
+    "controls arc (docs/roadmap/activity-links-follow-ons.md § 1)",
     since=date(2026, 10, 5),
+    blocked_by="Activity Links Follow-ons — Link Doors, Unwritten Links, Same-Type Pairs",
 )
 # Activity links arc (2026-10, PR 4): a task's or an event's contribution to a goal is
 # unlinked at the service; the page controls that call it are the arc after (R8).
 _GOAL_CONTRIBUTION_UNLINK = PlannedEntry(
     Readiness.DELAYED,
     "service-level unlink of a task's or an event's contribution to a goal; waits on "
-    "the link/unlink page controls arc (docs/roadmap/activity-links-arc.md R8)",
+    "the link/unlink page controls arc (docs/roadmap/activity-links-follow-ons.md § 1)",
     since=date(2026, 10, 6),
+    blocked_by="Activity Links Follow-ons — Link Doors, Unwritten Links, Same-Type Pairs",
 )
 # A habit event marked missed (cancelled, out of its goals' tally). The method is the
 # status write and its announcements; no route or scheduler reaches it yet.

@@ -278,7 +278,7 @@ Returns `list[ContextualPrinciple]` sorted by attention urgency.
 ### get_contextual_principles_for_user()
 
 Finds principles relevant to today's scheduled activities:
-- Linked to today's tasks and events: read from each task's and event's rich `graph_context` under `guiding_principles`, a key the task and event statements do not project, so these arms add nothing today (the task's `ALIGNED_WITH_PRINCIPLE` and the event's `DEMONSTRATES_PRINCIPLE` edges are not read here; registered in `docs/roadmap/activity-links-arc.md` § Defects found by the census)
+- Linked to today's tasks and events: read from each task's and event's rich `graph_context` under `guiding_principles`, a key the task and event statements do not project, so these arms add nothing today (the task's `ALIGNED_WITH_PRINCIPLE` and the event's `DEMONSTRATES_PRINCIPLE` edges are not read here; registered in `docs/roadmap/activity-links-registered-residuals.md` § Readers of keys nothing projects or writes, item 26)
 - Connected to active goals: read from each goal's rich `graph_context` under `aligned_principles`, a key the goals statement does not project, so this arm adds nothing today
 - Boosted if in `core_principle_uids`
 

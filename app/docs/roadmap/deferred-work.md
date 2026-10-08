@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-08
 ---
 
 # Deferred Work
@@ -202,6 +202,18 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Vault-Authored LifePath and the Designation Model
 
 [How a Vault-Authored LifePath Meets the Designation Model](vault-life-path-designation.md) — A personal vault syncs `life_path` files, owned by the vault's owner (ADR-070 Decision 11); how such a node relates to the app's designated LearningPath (`ULTIMATE_PATH`) is deferred by ruling (2026-10-01), and until then nothing reads it.
+
+## The PathStep's `GUIDED_BY_PRINCIPLE` (O2)
+
+[The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](pathstep-guided-by-principle.md) — The one edge type the Activity Links arc (closed 2026-10-08) retired between Activities but not from the curriculum: a PathStep's guiding principles still write it (one live edge); keep it for that source or move it is deferred by ruling (2026-10-04).
+
+## Activity Links Follow-ons — Link Doors, Unwritten Links, Same-Type Pairs
+
+[Activity Links Follow-ons — Link Doors, Unwritten Links, Same-Type Pairs](activity-links-follow-ons.md) — What the Activity Links arc left outside itself by ruling R8: the link/unlink page controls (the arc after — four service-level unlink methods wait on it in the PLANNED tier), creating the five links nothing writes (which arc takes it is unruled), and the same-type pairs pass (task dependencies, principle ↔ principle, habit prerequisites).
+
+## Activity Links Arc — Registered Residuals
+
+[Activity Links Arc — Registered Residuals](activity-links-registered-residuals.md) — The 27 defects the arc's censuses found outside its scope and registered, each at its file and line (readers of keys nothing projects, doors that drop a link they were given, the goal-cancel guard's two bypasses, the progress event's 0–1 / 0–100 scale mismatch, a search-enrichment field nothing reads); all 27 re-verified live at the arc's close.
 
 ## Review Schedule
 

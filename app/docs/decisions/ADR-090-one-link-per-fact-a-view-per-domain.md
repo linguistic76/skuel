@@ -1,7 +1,7 @@
 ---
 title: "ADR-090: One Link per Fact, a View per Domain"
 updated: 2026-10-08
-status: accepted
+status: implemented
 category: decisions
 tags: [adr, decisions, relationships, activity-domains, graph-schema, registry, goals, principles]
 related: [ADR-026, ADR-057, ADR-087]
@@ -10,13 +10,15 @@ related_skills: [activity-domains]
 
 # ADR-090: One Link per Fact, a View per Domain
 
-**Status:** Accepted — founder-ratified 2026-10-04 (four rounds). **Implementation pending:** the
-Activity Links arc builds it; the Status column of its [PR ledger](../roadmap/activity-links-arc.md#pr-ledger)
-is the ledger.
+**Status:** Accepted — founder-ratified 2026-10-04 (four rounds). **Implemented:** built by the
+Activity Links arc, PRs 0–5 (#1498–#1508, the last merged 2026-10-08); the arc's close row verified
+every retired type at 0 in the live graph and in live code on 2026-10-08 (the arc document's
+[PR ledger](../roadmap/done/activity-links-arc.md#pr-ledger) is the record). One item stays open by
+ruling: the PathStep's `GUIDED_BY_PRINCIPLE` (§7, O2).
 **Date:** 2026-10-04
 **Deciders:** MCF
 **Decision Type:** ☑ Graph Schema  ☑ Pattern/Practice
-**Arc:** [Activity Links — rulings & contract](../roadmap/activity-links-arc.md) (rulings R1–R11).
+**Arc:** [Activity Links — rulings & contract](../roadmap/done/activity-links-arc.md) (rulings R1–R11; closed 2026-10-08).
 **Related ADRs:**
 - [ADR-026](ADR-026-unified-relationship-registry.md) — the registry where each domain declares
   its view of a link (one `UnifiedRelationshipDefinition` per side). This ADR decides what those
@@ -40,7 +42,7 @@ The six Activity domains (Task, Goal, Habit, Event, Choice, Principle) link to e
 edges. Each domain declares its view of those links twice. Its relationship-registry definitions
 (`core/models/relationship_registry.py`) feed the context API and the services' relationship reads.
 Its detail page's Connections section reads a separate hand-written list of edge types
-(`core/utils/connection_configs.py`), with one direction per domain.
+(`core/utils/connection_configs.py`), with one direction per domain. <!-- historical -->
 
 The links were added one domain at a time. A census of the registry (2026-10-04) found four
 patterns where there should be one:
@@ -180,9 +182,10 @@ stored edges (migrated), and the vault files that declare it. No alias remains.
 
 Five of the six retire outright. `GUIDED_BY_PRINCIPLE` also has a source outside the Activities: a
 PathStep's guiding principles. The rulings cover links between Activities only, so whether that
-curriculum link keeps the type or moves is open (arc document, O2), deferred by the founder. Until
-it is settled, `GUIDED_BY_PRINCIPLE` stays in the enum with that one source and the goal's use
-retires alone; if the PathStep's use later moves, all six types go.
+curriculum link keeps the type or moves is open (arc document, O2), deferred by the founder and
+now its own case file, [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](../roadmap/pathstep-guided-by-principle.md).
+Until it is settled, `GUIDED_BY_PRINCIPLE` stays in the enum with that one source and the goal's
+use retires alone; if the PathStep's use later moves, all six types go.
 
 ### 8. Scope (R8)
 
@@ -191,7 +194,8 @@ are the next arc. Creating the links nothing writes today (a task implements a c
 informs a choice, an event triggers a choice, a choice schedules an event, an event demonstrates a
 principle) is neither storage nor visibility, so it is outside this decision; which later arc takes
 it was not ruled. Links between two entities of the same kind (task dependencies, principle ↔
-principle, habit prerequisites) are a later pass.
+principle, habit prerequisites) are a later pass. All three are held by one case file,
+[Activity Links Follow-ons](../roadmap/activity-links-follow-ons.md).
 
 ## Alternatives Considered
 
@@ -274,8 +278,17 @@ patterns that named edges nothing carries — a task's `GUIDED_BY_PRINCIPLE`, `A
 
 ## Implementation Details
 
-The arc document carries the rulings, the verified census, the open items and the per-PR scope and
-acceptance. This ADR is marked implemented when the arc closes.
+The [arc document](../roadmap/done/activity-links-arc.md) (closed 2026-10-08) carries the rulings,
+the verified census, the per-PR scope, the decisions settled in prose before each PR and the PR
+ledger. What the arc left open lives in three case files on the live roadmap: the PathStep's
+`GUIDED_BY_PRINCIPLE` ([O2](../roadmap/pathstep-guided-by-principle.md)), the work R8 put after the
+arc ([follow-ons](../roadmap/activity-links-follow-ons.md)) and the 27 defects its censuses
+registered ([residuals](../roadmap/activity-links-registered-residuals.md)).
+
+The stored-edge migrations that ran (`scripts/migrations/principle_supports_goal_2026_10.py`,
+`principle_informs_choice_2026_10.py`, `task_contributes_to_goal_2026_10.py`) and the read-only
+guard (`retired_link_leftovers_2026_10.py`) stay in the tree as the record of what ran; each has an
+integration test and a census mode that re-verifies the live graph.
 
 ## Changelog
 
@@ -302,3 +315,6 @@ acceptance. This ADR is marked implemented when the arc closes.
   whole (§7); every view over an edge type with several kinds of source names its kind; a task
   update writes its `ALIGNED_WITH_PRINCIPLE` edges. §2 tightened: no two definitions on one config
   share a heading (the invariant's Rule 5).
+- 2026-10-08 — Implemented (Activity Links arc close): every retired type reads 0 in the live
+  graph and in live code; the arc document moved to `done/`; O2, the R8 follow-ons and the
+  registered residuals each have a live case file.
