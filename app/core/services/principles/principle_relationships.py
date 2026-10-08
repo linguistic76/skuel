@@ -16,7 +16,7 @@ from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
 # Query specifications: (field_name, PRINCIPLES_CONFIG relationship method key).
-# Keys must match PRINCIPLES_CONFIG exactly — validated by tests/test_cross_domain_link_keys.py.
+# Keys must match PRINCIPLES_CONFIG exactly — validated by tests/unit/test_query_spec_keys.py.
 PRINCIPLE_QUERY_SPECS: list[tuple[str, str]] = [
     ("grounded_knowledge_uids", "knowledge"),
     ("supported_goal_uids", "supported_goals"),
@@ -26,7 +26,6 @@ PRINCIPLE_QUERY_SPECS: list[tuple[str, str]] = [
     ("guided_task_uids", "aligned_tasks"),
     ("serves_life_path_uids", "life_path"),
     ("demonstrating_event_uids", "demonstrating_events"),
-    ("practice_event_uids", "practice_events"),
 ]
 
 
@@ -51,7 +50,6 @@ class PrincipleRelationships:
 
     # Event relationships
     demonstrating_event_uids: list[str] = field(default_factory=list)
-    practice_event_uids: list[str] = field(default_factory=list)
 
     @classmethod
     async def fetch(

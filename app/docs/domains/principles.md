@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -135,10 +135,11 @@ frontmatter fields) write the same edge from the other, so both pages show it.
 
 | Key | Relationship | Source | Description |
 |-----|--------------|--------|-------------|
-| `embodying_habits` | `EMBODIES_PRINCIPLE` | Habit | Habits that embody this principle |
+| `embodying_habits` | `EMBODIES_PRINCIPLE` | Habit | Habits that embody this principle. Learning paths write `EMBODIES_PRINCIPLE` too (`connections.embodied_principles`); this view lists habits only |
 | `supporting_principles` | `SUPPORTS_PRINCIPLE` | Principle | Related principles that support |
 | `conflicting_principles` | `CONFLICTS_WITH_PRINCIPLE` | Principle | Potentially conflicting principles |
 | `aligned_tasks` | `ALIGNED_WITH_PRINCIPLE` | Task | Tasks aligned with principle |
+| `demonstrating_events` | `DEMONSTRATES_PRINCIPLE` | Event | Events where this principle is practiced — the one event ↔ principle link, read from the event as `demonstrated_principles` |
 
 ### Bidirectional
 
@@ -217,7 +218,6 @@ The `CONFLICTS_WITH_PRINCIPLE` relationship helps identify when principles may b
 |--------|-------------|
 | `get_by_category(category, user_uid)` | Filter by category |
 | `get_for_goal(goal_uid, user_uid)` | Principles that support the goal (`SUPPORTS_GOAL` from a principle) |
-| `get_for_habit(habit_uid, user_uid)` | Principles inspiring habit |
 | `get_active(user_uid)` | Override of `TimeQueryMixin.get_active` — filters on the `is_active` flag and sorts by strength |
 | `get_upcoming(days_ahead, user_uid)` | Override — principles approaching the 90-day review threshold |
 | `get_overdue(user_uid)` | Override — thin delegation to `get_needing_review(days_threshold=90)` |
@@ -278,8 +278,7 @@ Returns `list[ContextualPrinciple]` sorted by attention urgency.
 ### get_contextual_principles_for_user()
 
 Finds principles relevant to today's scheduled activities:
-- Linked to today's tasks via `ALIGNED_WITH_PRINCIPLE`
-- Linked to today's events via relationship graph
+- Linked to today's tasks and events: read from each task's and event's rich `graph_context` under `guiding_principles`, a key the task and event statements do not project, so these arms add nothing today (the task's `ALIGNED_WITH_PRINCIPLE` and the event's `DEMONSTRATES_PRINCIPLE` edges are not read here; registered in `docs/roadmap/activity-links-arc.md` § Defects found by the census)
 - Connected to active goals: read from each goal's rich `graph_context` under `aligned_principles`, a key the goals statement does not project, so this arm adds nothing today
 - Boosted if in `core_principle_uids`
 
@@ -288,8 +287,7 @@ Returns `list[ContextualPrinciple]` with connected activity UIDs.
 ### get_principle_practice_opportunities_for_user()
 
 Identifies activities that could strengthen principle alignment:
-- Today's tasks aligned with principles
-- Today's events connected to principles
+- Today's tasks aligned with principles and today's events connected to principles — read through the same `guiding_principles` key as above, so neither arm finds an activity today
 - Prioritizes principles with low alignment (practice what you need)
 
 Returns `list[PracticeOpportunity]` with guidance text.

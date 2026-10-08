@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -121,14 +121,16 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 | `knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied at event |
 | `goals` | `CONTRIBUTES_TO_GOAL` | Goal | Goals event contributes to — counted toward each goal's progress (the goal reads it as `contributing_events`) |
 | `habits` | `REINFORCES_HABIT` | Habit | Habit this event reinforces |
-| `celebrated_goals` | `CELEBRATES_GOAL` | Goal | Goals celebrated by event |
+| `celebrated_goals` | `CELEBRATES_GOAL` | Goal | Goals celebrated by event — the goal lists it apart from contributing events (`celebrating_events`), and it does not count toward progress |
+| `tasks` | `EXECUTES_TASK` | Task | Tasks carried out at this event |
+| `demonstrated_principles` | `DEMONSTRATES_PRINCIPLE` | Principle | Principles this event demonstrates — the one event ↔ principle link; the principle reads it as `demonstrating_events` ("events where this principle is practiced") |
 
 ### Incoming (Other → Event)
 
 | Key | Relationship | Source | Description |
 |-----|--------------|--------|-------------|
 | `conflicting_events` | `CONFLICTS_WITH` | Event | Events that conflict |
-| — | `PRACTICED_AT_EVENT` | Habit | Habits recorded as practiced at event |
+| `scheduled_by_choices` | `SCHEDULES_EVENT` | Choice | Choices that scheduled this event. PathSteps write `SCHEDULES_EVENT` too (`event_uids`); the PathStep reads its own edge, and this view lists choices only |
 
 ### Bidirectional
 
@@ -152,8 +154,8 @@ On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, 
 | Field | Target Label | Relationships |
 |-------|--------------|---------------|
 | `knowledge` | Ku | `APPLIES_KNOWLEDGE` |
-| `goals` | Goal | `CONTRIBUTES_TO_GOAL` |
-| `habits` | Habit | `PRACTICED_AT_EVENT` |
+| `goals` | Goal | `CONTRIBUTES_TO_GOAL`, `CELEBRATES_GOAL` |
+| `habits` | Habit | `REINFORCES_HABIT` |
 | `conflicts` | Event | `CONFLICTS_WITH` |
 
 ## Query Intent

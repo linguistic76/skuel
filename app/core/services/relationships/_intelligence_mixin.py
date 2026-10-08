@@ -76,10 +76,10 @@ def _generic_label_last(rel: UnifiedRelationshipDefinition) -> bool:
 
     The categorization loop takes the FIRST matching mapping per entity (``break``).
     When several mappings share a relationship + direction but differ by target label
-    — e.g. HABITS' incoming REINFORCES_HABIT splits into ``reinforcing_tasks`` (Task),
-    ``reinforcing_events`` (Event), ``reinforcing_habits`` (Entity) — the generic
-    ``Entity`` bucket matches every node (all nodes are ``:Entity``) and would swallow
-    a Task/Event before its specific bucket is reached. Trying specific labels first
+    — e.g. PathStep's incoming REQUIRES_KNOWLEDGE splits into ``required_by_goals``
+    (Goal) and ``dependents`` (Entity) — the generic ``Entity`` bucket matches every
+    node (all nodes are ``:Entity``) and would swallow a Goal before its specific
+    bucket is reached. Trying specific labels first
     (this key is ``False`` for them, ``True`` for ``Entity``; stable sort preserves
     config order within each group) routes each node to its most precise bucket.
     """

@@ -67,11 +67,11 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     - get_by_category() - Filter by category string
     - list_categories() - Get all unique habit categories
 
-    Semantic Types Used:
+    Edges read (HABITS_CONFIG):
     - SUPPORTS_GOAL: Habit supports goal achievement
     - REINFORCES_KNOWLEDGE: Habit reinforces knowledge retention
-    - INSPIRED_BY_PRINCIPLE: Habit inspired by guiding principle
-    - TRACKED_BY: Habit tracked by user
+    - EMBODIES_PRINCIPLE: Habit embodies a principle
+    - INSPIRES_HABIT: a principle inspires the habit
     """
 
     # DomainConfig consolidation (January 2026)

@@ -219,14 +219,13 @@ S_OTHER_HABIT = S + "other_habit"
 
 @pytest.mark.asyncio
 async def test_incoming_buckets_route_by_specific_label(neo4j_driver, rel_backend, clean_neo4j):
-    """A shared relationship must route to the label-SPECIFIC bucket, not generic Entity.
+    """A shared relationship routes to the bucket whose view names the source kind.
 
-    HABITS' incoming REINFORCES_HABIT splits into reinforcing_tasks (Task),
-    reinforcing_events (Event), and reinforcing_habits (Entity). Every node carries the
-    :Entity label, so the generic bucket matched first under config order and swallowed
-    Task/Event before their specific buckets — a latent bug the always-bidirectional
-    fetch newly activated (these incoming buckets were dead under outgoing-only
-    traversal). Specific-label-first sorting must send each node to its precise bucket.
+    HABITS' incoming REINFORCES_HABIT splits into reinforcing_tasks (Task) and
+    reinforcing_events (Event); no view reads a habit reinforcing a habit. Every node
+    carries the :Entity label, so a view naming the kind is what keeps a Task out of the
+    Event bucket and a Habit out of both — a REINFORCES_HABIT edge from another Habit
+    lands in no bucket at all.
     """
     async with neo4j_driver.session() as s:
         for uid, label, etype in [
@@ -260,7 +259,10 @@ async def test_incoming_buckets_route_by_specific_label(neo4j_driver, rel_backen
     # Each node lands in its own label-specific bucket — and ONLY there.
     assert _bucket_uids(raw, "reinforcing_tasks") == {S_TASK}
     assert _bucket_uids(raw, "reinforcing_events") == {S_EVENT}
-    assert _bucket_uids(raw, "reinforcing_habits") == {S_OTHER_HABIT}  # generic Entity bucket
+    # The habit that reinforces S_HABIT is in no bucket: no view reads that link.
+    assert "reinforcing_habits" not in raw
+    every_bucket = [name for name, value in raw.items() if isinstance(value, list)]
+    assert S_OTHER_HABIT not in _bucket_uids(raw, *every_bucket)
 
 
 # uid prefix for the transitive-depth graph.

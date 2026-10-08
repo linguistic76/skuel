@@ -41,6 +41,8 @@ if TYPE_CHECKING:
 # so each is named here as a string.
 RETIRED_PRINCIPLE_GOAL = frozenset({"GUIDES_GOAL", "GUIDED_BY_PRINCIPLE"})
 RETIRED_PRINCIPLE_CHOICE = frozenset({"GUIDES_CHOICE", "INFORMED_BY_PRINCIPLE"})
+# Event ↔ principle is the event's DEMONSTRATES_PRINCIPLE; event ↔ habit its REINFORCES_HABIT.
+RETIRED_PRACTICED = frozenset({"PRACTICED_AT_EVENT"})
 
 
 class Edge(NamedTuple):
@@ -142,6 +144,20 @@ async def seed_published_path_step(driver: AsyncDriver, uid: str, title: str) ->
             MERGE (s:Entity:PathStep {uid: $uid})
             SET s.title = $title, s.entity_type = 'path_step', s.status = 'active',
                 s.publication_state = 'published'
+            """,
+            uid=uid,
+            title=title,
+        )
+
+
+async def seed_published_learning_path(driver: AsyncDriver, uid: str, title: str) -> None:
+    """A shared LearningPath any learner may read: ``publication_state: published``."""
+    async with driver.session() as session:
+        await session.run(
+            """
+            MERGE (p:Entity:LearningPath {uid: $uid})
+            SET p.title = $title, p.entity_type = 'learning_path', p.status = 'active',
+                p.publication_state = 'published'
             """,
             uid=uid,
             title=title,

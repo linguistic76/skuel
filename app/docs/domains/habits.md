@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-10-03
+updated: 2026-10-08
 status: current
 category: domains
 tags:
@@ -166,7 +166,8 @@ Design and the write-side work it leaves open:
 | Key | Relationship | Source | Description |
 |-----|--------------|--------|-------------|
 | `prerequisite_habits` | `REQUIRES_PREREQUISITE_HABIT` | Habit | Required prerequisite habits |
-| `reinforcing_habits` | `REINFORCES_HABIT` | Habit | Habits that reinforce this one |
+| `reinforcing_tasks` | `REINFORCES_HABIT` | Task | Tasks that reinforce this habit |
+| `reinforcing_events` | `REINFORCES_HABIT` | Event | Events where this habit is practiced |
 | `enabling_habits` | `ENABLES_HABIT` | Habit | Habits that enable this one |
 
 ### Derived fields (populated at fetch time, never persisted)

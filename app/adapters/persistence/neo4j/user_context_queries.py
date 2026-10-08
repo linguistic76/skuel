@@ -379,8 +379,8 @@ RETURN {
 """.replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
 )
 
-# Habits and events — the practice pair: an event's practiced_habits and
-# reinforced_habits are the same Habit rows the habits section projects.
+# Habits and events — the practice pair: an event's reinforced_habits are the same
+# Habit rows the habits section projects.
 HABITS_AND_EVENTS_QUERY: str = _tie_far_nodes(
     """
 MATCH (user:User {uid: $user_uid})
@@ -476,28 +476,19 @@ WITH user, active_habit_uids, habit_metadata, habits_rich,
      event, event_applied_knowledge,
      collect(DISTINCT CASE WHEN event_goal IS NOT NULL THEN {uid: event_goal.uid, title: event_goal.title, status: event_goal.status} END)[0..10] as event_linked_goals
 
-OPTIONAL MATCH (event_habit:Habit)-[:PRACTICED_AT_EVENT]->(event)
-WHERE event IS NOT NULL AND __FAR(event_habit)__
-WITH user, active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids,
-     event, event_applied_knowledge, event_linked_goals,
-     collect(DISTINCT CASE WHEN event_habit IS NOT NULL THEN {uid: event_habit.uid, title: event_habit.title} END)[0..10] as event_practiced_habits
-
 OPTIONAL MATCH (event)-[:CONFLICTS_WITH]-(conflicting_event:Event)
 WHERE event IS NOT NULL AND conflicting_event.uid <> event.uid AND __FAR(conflicting_event)__
 WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
-     event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
+     event, event_applied_knowledge, event_linked_goals,
      collect(DISTINCT CASE WHEN conflicting_event IS NOT NULL THEN {uid: conflicting_event.uid, title: conflicting_event.title} END)[0..5] as event_conflicting_events
 
-// Event → Habit reinforcement edge (graph-native; replaces the former
-// reinforces_habit_uid property). Loaded into graph_context.reinforced_habits.
+// Event → Habit reinforcement edge. Loaded into graph_context.reinforced_habits.
 OPTIONAL MATCH (event)-[:REINFORCES_HABIT]->(event_reinforced_habit:Habit)
 WHERE event IS NOT NULL AND __FAR(event_reinforced_habit)__
 WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
-     event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
-     event_conflicting_events,
+     event, event_applied_knowledge, event_linked_goals, event_conflicting_events,
      collect(DISTINCT CASE WHEN event_reinforced_habit IS NOT NULL THEN {uid: event_reinforced_habit.uid, title: event_reinforced_habit.title} END)[0..10] as event_reinforced_habits
 
 // Aggregate events into rich format
@@ -508,7 +499,6 @@ WITH user, active_habit_uids, habit_metadata, habits_rich,
          graph_context: {
              applied_knowledge: event_applied_knowledge,
              linked_goals: event_linked_goals,
-             practiced_habits: event_practiced_habits,
              conflicting_events: event_conflicting_events,
              reinforced_habits: event_reinforced_habits
          }

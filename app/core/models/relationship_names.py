@@ -155,7 +155,6 @@ class RelationshipName(StrEnum):
     IMPACTS_HABIT = "IMPACTS_HABIT"  # (choice)-[:IMPACTS_HABIT]->(habit)
     REINFORCES_STEP = "REINFORCES_STEP"
     EMBODIES_PRINCIPLE = "EMBODIES_PRINCIPLE"
-    PRACTICED_AT_EVENT = "PRACTICED_AT_EVENT"
 
     # Parent-Child Composition
     HAS_SUBEVENT = "HAS_SUBEVENT"  # (parent)-[:HAS_SUBEVENT {order}]->(child)

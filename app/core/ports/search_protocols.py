@@ -526,7 +526,7 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
 
     Adds principle-specific methods:
     - Category filtering
-    - Goal/habit guidance relationships
+    - Goal guidance relationships
     - Review scheduling
     """
 
@@ -535,12 +535,6 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Principle]]:
         """Get principles by category."""
-        ...
-
-    async def get_for_habit(
-        self, habit_uid: str, limit: int = 10, user_uid: UserUID | None = None
-    ) -> Result[list[Principle]]:
-        """Get principles relevant to a habit, scoped to the requesting user (ADR-085 G3)."""
         ...
 
     async def get_for_goal(

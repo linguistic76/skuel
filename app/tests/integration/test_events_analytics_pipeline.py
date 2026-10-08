@@ -9,8 +9,8 @@ direct per-helper construction (``get_cross_domain_context`` / ``get_related_uid
 ``get_habit_links_for_events``).
 
 These tests seed a real graph, run the migrated method against it, and assert:
-  * the path-aware context populates from the seeded edges, with the two-direction
-    goal/habit unions folded in (positive lock-in);
+  * the path-aware context populates from the seeded edges, with the two goal links
+    (contributes + celebrates) folded into one ``goals`` field (positive lock-in);
   * the legacy nested payload shape (goal_support / habit_reinforcement /
     knowledge_reinforcement + overall_impact_score) is preserved;
   * the rich metric blocks (cascade_impact / path_aware_context) are non-empty;
@@ -47,7 +47,6 @@ EV_EVENT_BARE = EV + "event_bare"  # negative control: no cross-domain edges
 EV_GOAL = EV + "goal"  # event -[CONTRIBUTES_TO_GOAL]-> goal (supported_goals)
 EV_GOAL_CELEB = EV + "goal_celeb"  # event -[CELEBRATES_GOAL]-> goal (celebrated_goals)
 EV_HABIT = EV + "habit"  # event -[REINFORCES_HABIT]-> habit (reinforced_habits)
-EV_HABIT_PRAC = EV + "habit_prac"  # habit -[PRACTICED_AT_EVENT]-> event (practiced_habits)
 EV_KU = EV + "ku"  # event -[APPLIES_KNOWLEDGE]-> ku (applied_knowledge)
 
 
@@ -102,7 +101,6 @@ async def _seed_event_graph(neo4j_driver) -> None:
             (EV_GOAL, "Goal", "goal"),
             (EV_GOAL_CELEB, "Goal", "goal"),
             (EV_HABIT, "Habit", "habit"),
-            (EV_HABIT_PRAC, "Habit", "habit"),
         ]:
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
@@ -117,7 +115,6 @@ async def _seed_event_graph(neo4j_driver) -> None:
             (EV_EVENT, "CONTRIBUTES_TO_GOAL", EV_GOAL),  # outgoing -> supported_goals
             (EV_EVENT, "CELEBRATES_GOAL", EV_GOAL_CELEB),  # outgoing -> celebrated_goals
             (EV_EVENT, "REINFORCES_HABIT", EV_HABIT),  # outgoing -> reinforced_habits
-            (EV_HABIT_PRAC, "PRACTICED_AT_EVENT", EV_EVENT),  # incoming -> practiced_habits
             (EV_EVENT, "APPLIES_KNOWLEDGE", EV_KU),  # outgoing -> applied_knowledge
         ]:
             await s.run(
@@ -130,8 +127,8 @@ async def _seed_event_graph(neo4j_driver) -> None:
 @pytest.mark.asyncio
 async def test_event_performance_populates_from_graph(neo4j_driver, rel_backend, clean_neo4j):
     """analyze_event_performance surfaces seeded goals/habits/knowledge + rich path-aware metrics,
-    folding both goal directions (supported + celebrated) and both habit directions
-    (reinforced + practiced) into the path-aware context."""
+    folding both goal links (supported + celebrated) into the path-aware context; habits are
+    the ones the event reinforces."""
     await _seed_event_graph(neo4j_driver)
     svc = _harness(rel_backend, EV_EVENT)
 
@@ -150,7 +147,7 @@ async def test_event_performance_populates_from_graph(neo4j_driver, rel_backend,
 
     hr = analysis["habit_reinforcement"]
     assert hr["reinforces_habit"] is True
-    assert hr["habit_uid"] in {EV_HABIT, EV_HABIT_PRAC}  # single-habit lens (habits[0])
+    assert hr["habit_uid"] == EV_HABIT  # single-habit lens (habits[0])
     assert hr["quality_score"] == 4
 
     kr = analysis["knowledge_reinforcement"]
@@ -162,14 +159,14 @@ async def test_event_performance_populates_from_graph(neo4j_driver, rel_backend,
     # overall_impact_score: goal 1.0 + habit (1.0 + 4/5=0.8) + knowledge (1*0.5) = 3.3
     assert analysis["overall_impact_score"] == pytest.approx(3.3)
 
-    # graph_context_depth = total cross-domain connections (2 goals + 2 habits + 1 ku).
-    assert analysis["graph_context_depth"] == 5
+    # graph_context_depth = total cross-domain connections (2 goals + 1 habit + 1 ku).
+    assert analysis["graph_context_depth"] == 4
 
     # Rich path-aware additions are non-empty.
     assert analysis["cascade_impact"]["total_impact"] > 0.0
     pac = analysis["path_aware_context"]
-    assert pac["total_strong_connections"] == 5  # all 5 edges at confidence 0.95
-    assert pac["direct_connections_count"] == 5  # all distance=1
+    assert pac["total_strong_connections"] == 4  # all 4 edges at confidence 0.95
+    assert pac["direct_connections_count"] == 4  # all distance=1
     assert pac["max_path_depth"] == 1
     assert pac["avg_path_strength"] > 0.0
 

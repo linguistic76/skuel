@@ -1,6 +1,6 @@
 ---
 title: "ADR-015: MEGA-QUERY Rich Queries Completion for All Activity Domains"
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: decisions
 tags: [adr, decisions, query, mega-query, user-context]
@@ -30,6 +30,11 @@ related: [ADR-001, ADR-007, ADR-030]
 > A principle ↔ choice link is one edge, `(Principle)-[:INFORMS_CHOICE]->(Choice)`. The Principles rich query's
 > choice traversal and the Choices rich query's principle traversal both read it, under their old projection
 > names (`guided_choices`, `guiding_principles`); the two types the record below names for them are retired.
+>
+> **2026-10-08 — Amended by [ADR-090](ADR-090-one-link-per-fact-a-view-per-domain.md) (Activity Links arc, PR 5).**
+> The Events rich query no longer traverses `PRACTICED_AT_EVENT` and projects no `practiced_habits`: the type is
+> retired; an event's habits are its `REINFORCES_HABIT` edges (`reinforced_habits`), and an event demonstrating a
+> principle is `(Event)-[:DEMONSTRATES_PRINCIPLE]->(Principle)`.
 
 ---
 

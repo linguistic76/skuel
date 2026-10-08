@@ -316,8 +316,9 @@ class TestEventHabitEdgeIsWritten:
     ) -> None:
         """Direction comes from EVENTS_CONFIG, not from a hand-copied table — a rename
         or a direction flip on the READ side must break this test instead of silently
-        orphaning the write (#965's lesson). The spec's target label being ``Entity`` is
-        also exactly why the KIND check cannot be delegated to the registry."""
+        orphaning the write (#965's lesson). The spec names the habit, as the guard's
+        KIND check does; the guard also decides existence and owner, which the
+        registry cannot."""
         spec = EVENTS_CONFIG.get_relationship_by_method("habits")
         assert spec is not None, "EVENTS_CONFIG has no 'habits' relationship"
         assert spec.relationship == RelationshipName.REINFORCES_HABIT
@@ -325,9 +326,8 @@ class TestEventHabitEdgeIsWritten:
             "the create path writes the event as the edge SOURCE; a non-outgoing spec "
             "means the write and the read now point opposite ways"
         )
-        assert spec.target_label == "Entity", (
-            "the registry now declares a specific target label for this edge — "
-            "revisit whether the guard's kind check is still the only one"
+        assert spec.target_label == "Habit", (
+            "the registry's far end and the guard's kind check must name the same kind"
         )
 
         result = await core.create(route_entity(make_request(reinforces_habit_uid=HABIT_UID)))

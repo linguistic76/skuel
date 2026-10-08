@@ -1,7 +1,7 @@
 ---
 title: "Activity Links Arc — Rulings & Contract"
-updated: 2026-10-06
-status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; PR 1 merged #1500; PR 1b merged #1501; PR 1c merged #1503; PR 2 merged #1504; PR 3 merged #1505; PR 4 merged #1507; O1, O3 and O4 ruled (R10, R11, § PR 4); O2 deferred; PR 5 next"
+updated: 2026-10-08
+status: "active — ruled 2026-10-04 (five rounds); PR 0 merged #1498; PR 1 merged #1500; PR 1b merged #1501; PR 1c merged #1503; PR 2 merged #1504; PR 3 merged #1505; PR 4 merged #1507; PR 5 merged #1508; O1, O3 and O4 ruled (R10, R11, § PR 4); O2 deferred; close next"
 registered: 2026-10-02
 ruled: 2026-10-04
 ---
@@ -137,8 +137,10 @@ claim before the first edit.
 
 The Page column records the hand-written lists PR 1b deleted. From PR 1b the page shows exactly the
 registry's headed views, so the Page column equals the Registry column for every link between two
-Activities. A link the registry reads at one end only (PR 1's `MISSING_ENDS`) shows at that end until its PR
-adds the other: at the goal, `CELEBRATES_GOAL` and `AFFECTS_GOAL` (PR 5). From
+Activities. A link the registry read at one end only (PR 1's `MISSING_ENDS`) showed at that end until its PR
+added the other; from PR 5 the list is empty: the goal reads `CELEBRATES_GOAL` ("Events that
+celebrate this goal") and `AFFECTS_GOAL` ("Choices that affect this goal"), neither counted toward
+progress. From
 PR 2 a principle ↔ goal link is one `SUPPORTS_GOAL` edge that both pages show, whichever door made
 it; the live graph's four edges for its two links (§ The live graph) became two when PR 2's
 stored-edge migration ran (2026-10-05). From PR 3 a principle ↔ choice link is one `INFORMS_CHOICE`
@@ -147,7 +149,10 @@ edge that both pages show, whichever door made it; the principle's one-ended ent
 one `CONTRIBUTES_TO_GOAL` edge that both pages show, whichever door made it: the goal lists
 contributing tasks and contributing events apart, and the event's goal-side entry left
 `MISSING_ENDS`. A task spawned from a PathStep gets the edge from its template
-(`contributes_to_goal_template_uid`), so it shows its goal like any other task.
+(`contributes_to_goal_template_uid`), so it shows its goal like any other task. From PR 5 an
+event ↔ principle link is one `DEMONSTRATES_PRINCIPLE` edge (`PRACTICED_AT_EVENT` retired), every
+view over a type that several kinds of source write names its kind, and a task update writes its
+`ALIGNED_WITH_PRINCIPLE` edges as task create does.
 
 "Registry" is the domain's relationship-registry definition, which the context API and the
 services' relationship reads use. "Page" is the detail page's Connections section (and the list
@@ -162,13 +167,13 @@ card, which reads the same list). ✓ = that end reads the link; ✗ = it does n
 | `SUPPORTS_GOAL` (Habit → Goal) | ✓ / ✓ | ✗ / ✓ | habit create (`linked_goal_uids`) and goal create (`supporting_habit_uids`), both `essentiality: "supporting"`; the DSL's `@context(habit) @link(goal:…)` (through habit create); habit `connections.supports_goal` and goal `connections.supporting_habits` frontmatter (no properties) |
 | `CONTRIBUTES_TO_GOAL` (Task → Goal; from PR 4) | ✓ / ✓ | ✓ / ✓ | task create (`contributes_to_goal_uids`; the create form's goal picker), the task update's `contributes_to_goal_uids` (a full replace), `POST /api/tasks/link-goal`, task frontmatter `connections.contributes_to_goal`, the DSL's `@context(task) @link(goal:…)` (every goal the line names), the goal task generator, the PathStep engagement spawn (`contributes_to_goal_template_uid`); no properties. On 2026-10-04 the link was two edges: `FULFILLS_GOAL` from create and update (`fulfills_goal_uid`), the vault (`connections.fulfills_goal`), the DSL and the generator, read at both ends and counted; and `CONTRIBUTES_TO_GOAL` from the link door alone, read at the task only and never counted |
 | `CONTRIBUTES_TO_GOAL` (Event → Goal) | ✓ / ✓ | ✓ / ✓ | `POST /api/events/link-goal` (no properties from PR 4); event create (`contributes_to_goal_uids`, API only); the DSL's `@context(event) @link(goal:…)` (from PR 4); the habit event scheduler; event frontmatter `connections.contributes_to_goal`. Read at the event only until PR 4 |
-| `CELEBRATES_GOAL` (Event → Goal) | ✓ / ✗ | ✓ / ✗ | the event form's "Milestone for goal" picker (create and edit); the PathStep engagement spawn |
-| `AFFECTS_GOAL` (Choice → Goal) | ✓ / ✗ | ✗ / ✗ | `POST /api/choices/link-goal`; choice frontmatter `connections.affects_goal` |
+| `CELEBRATES_GOAL` (Event → Goal) | ✓ / ✓ | ✓ / ✓ | the event form's "Milestone for goal" picker (create and edit); the PathStep engagement spawn. Read at the event only until PR 5; the goal lists it apart from contributing events and never counts it |
+| `AFFECTS_GOAL` (Choice → Goal) | ✓ / ✓ | ✓ / ✓ | `POST /api/choices/link-goal`; choice frontmatter `connections.affects_goal`. Read at the choice only until PR 5 |
 | `INSPIRED_BY_CHOICE` (Goal → Choice) | ✓ / ✓ | ✗ / ✗ | the PathStep engagement spawn |
-| `ALIGNED_WITH_PRINCIPLE` (Task → Principle) | ✓ / ✓ | ✗ ² / ✓ | task create only ³ |
-| `DEMONSTRATES_PRINCIPLE` (Event → Principle) | ✓ / ✓ | ✓ / ✓ | none |
-| `PRACTICED_AT_EVENT` (Principle → Event) | ✓ / ✓ ⁴ | ✗ / ✗ | none |
-| `REINFORCES_HABIT` (Task or Event → Habit) | ✓ / ✓ | ✓ / ✗ | task create, update and frontmatter; event create and update (the event form's habit picker), the habit event scheduler and event frontmatter; the PathStep engagement spawn |
+| `ALIGNED_WITH_PRINCIPLE` (Task → Principle) | ✓ / ✓ | ✗ ² / ✓ | task create and, from PR 5, task update (`aligned_principle_uids`, a full replace) ³ |
+| `DEMONSTRATES_PRINCIPLE` (Event → Principle) | ✓ / ✓ | ✓ / ✓ | none. From PR 5 the one event ↔ principle link: the event names it "Principles this event demonstrates", the principle "Events where this principle is practiced" |
+| `PRACTICED_AT_EVENT` (Principle → Event; retired by PR 5) | ✓ / ✓ ⁴ | ✗ / ✗ | none; the live graph held no edge of the type |
+| `REINFORCES_HABIT` (Task or Event → Habit) | ✓ / ✓ | ✓ / ✗ | task create, update and frontmatter; event create and update (the event form's habit picker), the habit event scheduler and event frontmatter; the PathStep engagement spawn. From PR 5 every view of it names its kind: the task's and the event's `habits` name `Habit` (so a vault field naming another kind writes no edge), and the habit lists "Tasks that reinforce this habit" and "Events where this habit is practiced" apart; the unheaded `reinforcing_habits` (`Entity`) retired |
 | `EXECUTES_TASK` (Event → Task) | ✓ / ✓ | ✗ / ✗ | event frontmatter `connections.executes_task` |
 | `IMPLEMENTS_CHOICE` (Task → Choice) | ✓ / ✓ | ✗ / ✗ | none |
 | `INFORMS_CHOICE` (Habit → Choice) | ✓ / ✓ | ✓ ⁵ / ✗ | none from a habit |
@@ -183,18 +188,22 @@ A content-vault Edge file can author any of these types as well.
    a link to `#` (PR 1b removed both; PR 4 added the registry's two goal views).
 2. The task page's list names `INFORMED_BY_PRINCIPLE`, a type no task writes, instead of
    `ALIGNED_WITH_PRINCIPLE`.
-3. A task update stores `aligned_principle_uids` as a node property instead of writing edges.
-4. Declared principle → event on the principle and as incoming `practiced_habits` on the event;
-   the user-context statement reads it as habit → event.
+3. On 2026-10-04 a task update stored `aligned_principle_uids` as a node property instead of
+   writing edges; from PR 5 it replaces the task's `ALIGNED_WITH_PRINCIPLE` edges, and the field is
+   in the mapper's `RELATIONSHIP_SKIP_FIELDS`.
+4. On 2026-10-04 declared principle → event on the principle and as incoming `practiced_habits` on
+   the event, and the user-context statement read it as habit → event. PR 5 retired the type with
+   both views, the event row's `practiced_habits` and the `EventCrossContext` union.
 5. Through the habit page's choices fragment, not its Connections section.
 
-One reader still unions a link's two names by hand: `EventCrossContext` (reinforced ∪ practiced
-habits, PR 5). PR 2 took two readers off this list: the alignment-evidence query and
+No reader unions a link's two names by hand. PR 2 took two readers off this list: the alignment-evidence query and
 `GoalCrossContext` each read the one principle → goal edge. PR 3 took two more:
 `ChoiceCrossContext` and the choice-alignment metric each read the one principle → choice edge.
 PR 4 took two more: `cross_domain_backend.py`'s goals-for-tasks batch query and `TaskCrossContext`
-each read the one task → goal edge. This list is a hint, not a census: the PR that collapses a link greps for both its
-names.
+each read the one task → goal edge. PR 5 took the last: `EventCrossContext`'s habits are the
+event's `REINFORCES_HABIT` alone (its goals still join contributing and celebrated goals, two
+facts, not two names). This list is a hint, not a census: the PR that collapses a link greps for
+both its names.
 
 ### The live graph (AuraDB, read-only)
 
@@ -263,10 +272,16 @@ already writes several of these types:
   `Principle`, `informing_habits` names `Habit`. A PathStep's edge is on no choice view; the
   PathStep reads it as `informed_choices`. The principle's and the habit's `informed_choices` name
   `Choice`.
-- The principle's `embodying_habits` (`EMBODIES_PRINCIPLE`) also lists learning paths
-  (`connections.embodied_principles`).
-- The event's `scheduled_by_choices` (`SCHEDULES_EVENT`) lists PathSteps (`event_uids`), the only
-  writer of that type; the live graph holds one.
+- `EMBODIES_PRINCIPLE` has two kinds of source, habits and learning paths
+  (`connections.embodied_principles`). From PR 5 the principle's `embodying_habits` names `Habit`;
+  a learning path's edge is on no principle view, and the learning path reads it as
+  `embodied_principles`.
+- `SCHEDULES_EVENT` has two kinds of source, choices and PathSteps (`event_uids`, the only writer
+  of that type; the live graph holds one). From PR 5 the event's `scheduled_by_choices` names
+  `Choice`; a PathStep's edge is on no event view, and the PathStep reads it as `scheduled_events`.
+- `REINFORCES_HABIT` has two kinds of source, tasks and events. From PR 5 each habit view names its
+  kind (`reinforcing_tasks` names `Task`, `reinforcing_events` names `Event`), and the task's and
+  the event's `habits` name `Habit`.
 - `CONTRIBUTES_TO_GOAL` has two kinds of source, tasks and events, and from PR 4 the goal's tally
   counts both. Each goal view of it names its kind: `contributing_tasks` names `Task`,
   `contributing_events` names `Event`. The task's `contributing_goals` and the event's
@@ -307,7 +322,8 @@ tiered views (essential, critical, optional) are habit-only and therefore empty 
 - 145 tracked files name one of the six types (`git grep -w`; tests 43, docs and skills 54).
   Every docs mention outside records is swept by the PR that retires the type.
 - Hand-written Cypher names the types directly, so no registry edit reaches it: the user-context
-  statements (`user_context_queries.py`: `PRACTICED_AT_EVENT`; `FULFILLS_GOAL` until PR 4 re-pointed
+  statements (`user_context_queries.py`: `PRACTICED_AT_EVENT` until PR 5 deleted the event row's
+  habit → event read; `FULFILLS_GOAL` until PR 4 re-pointed
   the task and goal rows to `CONTRIBUTES_TO_GOAL` and deleted the habit's arm; `GUIDES_GOAL` until
   PR 2 deleted that projection; both principle ↔ choice halves read `INFORMS_CHOICE` from PR 3, under
   their old projection names `guided_choices` and `guiding_principles`), the goal tally
@@ -361,8 +377,14 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
   names each — **PR 3** (fixed: each reads the one edge; the choice half keeps its `Principle` far
   label).
 - `PrinciplesSearchService.get_for_habit` reads `(habit)-[:ALIGNED_WITH_PRINCIPLE]->`, but habits
-  write `EMBODIES_PRINCIPLE` (its facade has no caller outside tests) — **PR 5**.
-- A task update stores `aligned_principle_uids` as a node property instead of edges — **PR 5**.
+  write `EMBODIES_PRINCIPLE` (its facade has no caller outside tests) — **PR 5** (fixed: deleted,
+  with the facade's `get_principles_for_habit` and its protocol member; the principle page's
+  `inspired_habits` and `embodying_habits` read the habit links).
+- A task update stores `aligned_principle_uids` as a node property instead of edges — **PR 5**
+  (fixed: the update replaces the task's `ALIGNED_WITH_PRINCIPLE` edges, `[]` clearing them and an
+  absent field leaving them, each new edge admitted as at create; an edge-only update publishes
+  `TaskUpdated`; the field is in the mapper's `RELATIONSHIP_SKIP_FIELDS`, so it never lands as a
+  property).
 - The user-context statement reads a habit's `FULFILLS_GOAL`, which nothing writes — **PR 4**
   (fixed: the habit arm reads `SUPPORTS_GOAL` alone; the task row carries every goal a task
   contributes to, one row per task, where a task with two goals had been two rows).
@@ -478,6 +500,31 @@ Each is fixed by the PR named, or registered there if it falls outside the arc:
   publish percentages (0–100), and `GoalEventHandlerService.handle_goal_progress_updated` reads them
   on the 0–1 scale: its stall check's `< 0.01` delta and `:.0%` formatting are a hundredfold off —
   outside the arc; registered by PR 4's census.
+- A task's and an event's `connections.reinforces_habit` vault field named `Entity`, so the
+  frontmatter guard admitted any owned kind and a goal uid there wrote a Task → Goal
+  `REINFORCES_HABIT` edge — **PR 5** (fixed: the task's and the event's `habits` views name `Habit`,
+  so a field naming another kind writes no edge).
+- `TaskUpdateIntent.prerequisite_knowledge_uids` and `prerequisite_task_uids` are stored as node
+  properties on update, while task create writes them as `REQUIRES_KNOWLEDGE` and `BLOCKED_BY`
+  edges — the shape PR 5 fixed for `aligned_principle_uids` — outside the arc; registered by PR 5's
+  census.
+- `TaskRelationships.prerequisite_task_uids` reads the key `prerequisite_tasks`, which is
+  `DEPENDS_ON`, while the create field of the same name writes `BLOCKED_BY`, so a prerequisite set
+  at create never reaches that reader — outside the arc (the same-type pass, R8); registered by
+  PR 5's census.
+- The DSL's task converter (`activity_to_task_request` in
+  `core/services/dsl/activity_domain_converters.py`) drops `@link(principle:…)`, while the habit
+  and goal converters keep it — outside the arc; registered by PR 5's census.
+- `PrinciplesPlanningService._extract_principles_for_activities` reads a task's and an event's
+  `graph_context["guiding_principles"]`, a key neither user-context statement projects (the goal's
+  `aligned_principles` is PR 2's entry above), so `get_contextual_principles_for_user` and
+  `get_principle_practice_opportunities_for_user` never see a task or an event linked to a
+  principle, though PR 5 makes the task's `ALIGNED_WITH_PRINCIPLE` writable on update. Reading it
+  there is a new read, a new registry statement under the MEGA-QUERY rule — outside the arc;
+  registered by PR 5's census.
+- `assess_principle_alignment` hard-codes no recent tasks and a task count of 0 ("Principles don't
+  directly relate to tasks") and ignores the `aligned_tasks` bucket `PRINCIPLES_CONFIG` emits —
+  outside the arc; registered by PR 5's census.
 - The cross-domain context still lists a node two hops away when the hop between is of the
   centre's own kind: a goal supported by a principle that a second principle supports
   (`SUPPORTS_PRINCIPLE`) is among the second principle's `supported_goals`, at distance 2. That is
@@ -499,7 +546,7 @@ tally, so it runs after PR 2 to keep the goal page's changes apart. PR 5 runs la
 | 2 | Principle → goal: `SUPPORTS_GOAL` with the importance level; label-split goal views; retire `GUIDES_GOAL`, and `GUIDED_BY_PRINCIPLE` between Activities (its enum member stays with the PathStep's use while O2 is deferred) | A link made at any door shows on both pages; the live pairs migrated (four edges become two) and shown from both ends; the gaps list shrinks | merged #1504, 2026-10-05; the stored-edge migration and the vault edits (R9) ran 2026-10-05 (four edges became two) |
 | 3 | Principle → choice: `INFORMS_CHOICE`; label-split choice views; retire `GUIDES_CHOICE` / `INFORMED_BY_PRINCIPLE` | As PR 2, for choices | merged #1505, 2026-10-05; the stored-edge migration ran 2026-10-05 on the founder's go (nothing to re-type) |
 | 4 | "Contributes": tasks serve several goals through `CONTRIBUTES_TO_GOAL`; retire `FULFILLS_GOAL` and settle `Task.fulfills_goal_uid` (O3); the task form's goal picker; the goal's progress counts contributing tasks AND events, cancelled ones left out (R11; the rest of O1 first) | A task linked to two goals counts toward both; a completed contributing event moves the goal's progress; cancelling a completed event, or a goal's last contribution, updates the stored tally (to 0/0 for the last); every membership change recomputes (closes the goal-tally case file); the gaps list shrinks | merged #1507, 2026-10-06; the stored-edge migration and the vault edits (R9) ran 2026-10-06 on the founder's go (two edges re-typed, two columns and one template field moved, two tracker rows rewritten) |
-| 5 | The remaining views: the goal sees choices (affects) and events (celebrates, contributes) apart; event ↔ principle is one link (retire `PRACTICED_AT_EVENT` and the event's `practiced_habits`); the habit names `REINFORCES_HABIT` from events "events where this habit is practiced"; the views still sharing an edge type split by source label (the habit's `REINFORCES_HABIT` views, the principle's `embodying_habits`, the event's `scheduled_by_choices`); a task update writes `ALIGNED_WITH_PRINCIPLE` edges instead of a node property | PR 1's known-gaps list is empty | — |
+| 5 | The remaining views: the goal sees choices (affects) and events (celebrates) apart (contributing events shipped in PR 4); event ↔ principle is one link (retire `PRACTICED_AT_EVENT` and the event's `practiced_habits`); the habit names `REINFORCES_HABIT` from events "events where this habit is practiced"; the views still sharing an edge type split by source label (the habit's `REINFORCES_HABIT` views, the principle's `embodying_habits`, the event's `scheduled_by_choices`); a task update writes `ALIGNED_WITH_PRINCIPLE` edges instead of a node property | PR 1's known-gaps list is empty | merged #1508, 2026-10-08; nothing stored to migrate (the read-only guard ran live 2026-10-08: no edge, tracker row or property of either retired shape); no vault edit needed |
 | close | ADR-090 marked implemented; this document to `done/` (docs only) | Every retired type reads 0 in the live graph and in live code (`GUIDED_BY_PRINCIPLE`: between Activities; wholly only if O2, deferred, moves the PathStep's use) | — |
 
 ## Choices — per PR
@@ -820,8 +867,8 @@ the one edge; red on the old source.
 
 ### PR 5 — The remaining views
 
-The goal page reads `AFFECTS_GOAL`, and `CELEBRATES_GOAL` and `CONTRIBUTES_TO_GOAL` from events, as
-separate lists. Event ↔ principle is `DEMONSTRATES_PRINCIPLE` alone: `PRACTICED_AT_EVENT` and the
+The goal page reads `AFFECTS_GOAL` and `CELEBRATES_GOAL` from events as separate lists, beside the
+contributing events PR 4 added. Event ↔ principle is `DEMONSTRATES_PRINCIPLE` alone: `PRACTICED_AT_EVENT` and the
 event's `practiced_habits` retire, and the principle names the edge "events where this principle is
 practiced". The habit names `REINFORCES_HABIT` from events "events where this habit is practiced".
 The views PRs 2–4 leave sharing an edge type filter by source label in the read: the habit's
@@ -832,6 +879,48 @@ edges, as task create does, instead of storing `aligned_principle_uids` as a nod
 pages already show the link from PR 1b.
 
 **Acceptance:** PR 1's known-gaps list is empty.
+
+**Settled in prose before the first edit (founder, 2026-10-08):**
+- **Goal views.** The goal page gains "Choices that affect this goal" (`affecting_choices`, far
+  end `Choice`, `AFFECTS_GOAL`) after "Choices that inspired this goal", and "Events that celebrate
+  this goal" (`celebrating_events`, far end `Event`, `CELEBRATES_GOAL`) after the contributing
+  events. A celebrating event does not count toward progress. `GoalCrossContext` is unchanged, as
+  PR 4 left contributing events; no new door and no vault field. PR 4 already shipped
+  `contributing_events`, so this section's "`CONTRIBUTES_TO_GOAL` from events" was PR 4's.
+- **Event ↔ principle is one `DEMONSTRATES_PRINCIPLE`.** `PRACTICED_AT_EVENT` retires whole: the
+  enum member, both registry views (the event's `practiced_habits`, the principle's view of it),
+  the user-context event row's `practiced_habits` (a habit → event read), `EventCrossContext`'s
+  union (its habits are the reinforced habits alone), and the dead spec rows and fields.
+- **Habit.** Its lists are already split ("Tasks that reinforce this habit", "Events where this
+  habit is practiced"); the unheaded catch-all `reinforcing_habits` (far end `Entity`) retires — it
+  had no production reader.
+- **`embodying_habits` names `Habit`.** Learning paths leave the principle page and the principle
+  insights' habit count; there is no learning-path list on the principle page.
+- **`scheduled_by_choices` names `Choice`.** The live PathStep → Event edge stops showing under
+  "Choices that scheduled this event" and shows only on the PathStep; there is no PathStep list
+  on the event.
+- **Task update.** `aligned_principle_uids` is a full replace of `ALIGNED_WITH_PRINCIPLE` edges
+  (`[]` clears, absent leaves), admitted as at create; an edge-only update publishes `TaskUpdated`;
+  the field is in the mapper's `RELATIONSHIP_SKIP_FIELDS`, so it never lands as a property. Forms
+  unchanged.
+- **Migration.** The live graph has nothing to convert (no `PRACTICED_AT_EVENT` edge, no node
+  holding `aligned_principle_uids`, no tracker row naming the type), and neither vault authors a
+  retiring field, so PR 5 edits no vault file. In place of a converter,
+  `scripts/migrations/retired_link_leftovers_2026_10.py` is a read-only guard: it exits 2 on any
+  `PRACTICED_AT_EVENT` edge, Edge-file tracker row naming it, `authored_edges` key starting
+  `PRACTICED_AT_EVENT|`, or node carrying `aligned_principle_uids`, and 0 otherwise.
+- **Defects.** Fixed: `PrinciplesSearchService.get_for_habit` (deleted, with the facade method and
+  the protocol member); the task's and the event's `habits` views name `Habit` (the vault field no
+  longer admits a goal as a habit); the stale prose on touched lines (`EventCrossContext`'s
+  docstring, the events intelligence doc's claim that `EventRelationships` was deleted). The
+  allowance for two views sharing a heading ("one link stored under two names") has no instance
+  after PR 5, so the invariant gains Rule 5 — no two headed views on one config share a heading —
+  and the page test now shows a far end reached twice by one view listed once. Registered (§ Defects found by the census): the
+  task update's prerequisite fields stored as properties, the prerequisite key mismatch, the DSL
+  task converter dropping principle links, the planning service's unprojected keys, and
+  `assess_principle_alignment`'s task count of 0.
+- **Acceptance:** both invariant gap lists empty; real-graph tests per view, and the transitive
+  cases with positive controls; the task update door; the guard script; red on the old source.
 
 ## Non-goals (this arc)
 
@@ -849,6 +938,7 @@ pages already show the link from PR 1b.
   stored edges, vault files, docs. A door that made the link stays when the link does, and writes
   the replacing edge (PR 2). `git grep -w <TYPE>` then finds it only in records (ADRs,
   `done/`, this document, ADR-090's row in `docs/INDEX.md`), in `scripts/health/stale_names.py` (its
-  table entry and allowances), and in the stored-edge migration and its test.
+  table entry and allowances), in the stored-edge migration (or, with nothing stored, the guard)
+  and its test, and in the tests that seed a leftover edge to prove nothing reads it.
 - Vault edits (R9) are made in the same session, re-synced, and the live edges checked after.
 - The ledger row is the PR's last commit.

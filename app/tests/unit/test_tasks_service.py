@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events.goal_events import GoalContributionsChanged
+from core.events.task_events import TaskUpdated
 from core.models.enums import EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
@@ -21,7 +22,7 @@ from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END
-from core.services.tasks_service import TasksService
+from core.services.tasks_service import TaskEdgeIntent, TasksService
 from core.utils.result_simplified import Errors, Result
 
 
@@ -791,3 +792,144 @@ class TestUpdateTaskEdgesAreGuarded:
         service.backend.create_relationships_batch.assert_awaited_once_with(
             [("task_abc", "ku.shared", RelationshipName.APPLIES_KNOWLEDGE.value, None)]
         )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "intent",
+        [
+            TaskUpdateIntent(aligned_principle_uids=["principle_new"]),
+            TaskUpdateIntent(contributes_to_goal_uids=["goal_new"]),
+            TaskUpdateIntent(applies_knowledge_uids=["ku_new"]),
+            TaskUpdateIntent(reinforces_habit_uid="habit_new"),
+        ],
+        ids=["principles", "goals", "knowledge", "habit"],
+    )
+    async def test_a_failed_admission_deletes_nothing(
+        self, tasks_service_with_mocked_subservices: TasksService, intent: TaskUpdateIntent
+    ) -> None:
+        """A replace admits its new far ends before it deletes the current edges: when
+        the endpoint lookup fails, the update fails with every current edge in place."""
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(_task()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok(["old_far_end"]))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.backend.get_owner_uids_batch = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(message="transient Neo4j error", operation="owners")
+            )
+        )
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
+
+        result = await service.update_task("task_abc", intent)
+
+        assert result.is_error
+        service.relationships.delete_relationship.assert_not_called()
+        service.backend.create_relationships_batch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TestUpdateTaskPrincipleEdges — aligned_principle_uids replaces the task's principles
+# ---------------------------------------------------------------------------
+
+
+async def _principles_only(uids: list[str]) -> Result[dict[str, list[str]]]:
+    return Result.ok({uid: ["Entity", "Principle"] for uid in uids})
+
+
+class TestUpdateTaskPrincipleEdges:
+    """``aligned_principle_uids`` on update is a FULL REPLACE of the task's
+    ALIGNED_WITH_PRINCIPLE edges — split off the property patch like the goal set, so the
+    uids never reach ``backend.update``; ``[]`` clears, ``UNSET`` touches nothing."""
+
+    @staticmethod
+    def _edge(principle_uid: str) -> tuple[str, str, str, None]:
+        return ("task_abc", principle_uid, RelationshipName.ALIGNED_WITH_PRINCIPLE.value, None)
+
+    @staticmethod
+    def _wire(service: TasksService, *existing: str) -> _Wired:
+        async def related(key: str, uid: str) -> Result[list[str]]:
+            return Result.ok(list(existing) if key == "principles" else [])
+
+        w = _Wired(
+            bus=_Bus(),
+            update_task=AsyncMock(return_value=Result.ok(_task())),
+            update=AsyncMock(),
+            get_related_uids=AsyncMock(side_effect=related),
+            delete_relationship=AsyncMock(return_value=Result.ok(True)),
+            create_relationships_batch=AsyncMock(return_value=Result.ok(2)),
+        )
+        service.event_bus = cast("EventBusOperations", w.bus)
+        service.core.get_task = AsyncMock(return_value=Result.ok(_task()))
+        service.core.update_task = w.update_task
+        service.relationships.get_related_uids = w.get_related_uids
+        service.relationships.delete_relationship = w.delete_relationship
+        service.backend.create_relationships_batch = w.create_relationships_batch
+        service.backend.get_node_labels_batch = AsyncMock(side_effect=_principles_only)
+        service.backend.update = w.update
+        return w
+
+    def test_the_principle_set_is_split_off_the_property_patch(self) -> None:
+        edges, prop_intent = TasksService._split_relationship_intent(
+            TaskUpdateIntent(title="Renamed", aligned_principle_uids=["p_one"])
+        )
+
+        assert edges.aligned_principle_uids == ["p_one"]
+        assert prop_intent == TaskUpdateIntent(title="Renamed")
+        assert "aligned_principle_uids" not in prop_intent.to_changes()
+
+    def test_a_principle_set_counts_as_an_edge_change(self) -> None:
+        """``any_set`` decides the edge-only path: an update carrying only principles
+        (even ``[]``) must not reach the property write with an empty patch."""
+        assert TaskEdgeIntent(aligned_principle_uids=["p_one"]).any_set()
+        assert TaskEdgeIntent(aligned_principle_uids=[]).any_set()
+        assert not TaskEdgeIntent().any_set()
+
+    @pytest.mark.asyncio
+    async def test_a_new_principle_set_replaces_the_old_edges_edge_only(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        w = self._wire(service, "p_old")
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(aligned_principle_uids=["p_one", "p_two"])
+        )
+
+        assert result.is_ok
+        w.update_task.assert_not_called()
+        w.update.assert_not_called()
+        w.delete_relationship.assert_awaited_once_with("principles", "task_abc", "p_old")
+        w.create_relationships_batch.assert_awaited_once_with(
+            [self._edge("p_one"), self._edge("p_two")]
+        )
+        [updated] = [e for e in w.bus.events if isinstance(e, TaskUpdated)]
+        assert updated.updated_fields == ["aligned_principle_uids"]
+        assert w.bus.goal_changes() == [], "a principle change is no goal-set change"
+
+    @pytest.mark.asyncio
+    async def test_an_empty_list_clears_every_principle_edge(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        w = self._wire(service, "p_old", "p_older")
+
+        result = await service.update_task("task_abc", TaskUpdateIntent(aligned_principle_uids=[]))
+
+        assert result.is_ok
+        assert w.delete_relationship.await_count == 2
+        w.create_relationships_batch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_an_unset_principle_set_touches_no_principle_edge(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        w = self._wire(service, "p_old")
+
+        result = await service.update_task("task_abc", TaskUpdateIntent(title="Renamed"))
+
+        assert result.is_ok
+        w.update_task.assert_awaited_once_with("task_abc", TaskUpdateIntent(title="Renamed"))
+        w.get_related_uids.assert_not_called()
+        w.delete_relationship.assert_not_called()
+        w.create_relationships_batch.assert_not_called()

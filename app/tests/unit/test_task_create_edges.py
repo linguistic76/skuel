@@ -1019,13 +1019,13 @@ class TestTaskKnowledgeLinks:
 
 @pytest.mark.asyncio
 class TestTaskPrincipleAndPrerequisiteTaskLinks:
-    """The request's last two link lists, which DOOR B had been dropping entirely.
+    """The request's principle and prerequisite-task link lists.
 
-    ``aligned_principle_uids`` and ``prerequisite_task_uids`` are request fields the
-    update path already treats as edges, yet ``create_task`` wrote neither. Their one
-    writer was ``create_task_with_context`` — unguarded, and spelling the principle
-    edge ``"ALIGNED_WITH"``, which no registry entry and no reader knows. They join
-    the shared batch here with the same admission checks as the rest.
+    ``create_task`` writes ``aligned_principle_uids`` as ALIGNED_WITH_PRINCIPLE edges and
+    ``prerequisite_task_uids`` as BLOCKED_BY edges, in the shared batch with the same
+    admission checks as the rest. On update only the principle list is an edge set
+    (``TasksService._sync_relationship_edges`` replaces it); ``prerequisite_task_uids``
+    stays in the update's property patch.
     """
 
     async def test_a_principle_owned_by_another_user_is_refused(

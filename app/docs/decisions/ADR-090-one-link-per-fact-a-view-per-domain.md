@@ -1,6 +1,6 @@
 ---
 title: "ADR-090: One Link per Fact, a View per Domain"
-updated: 2026-10-06
+updated: 2026-10-08
 status: accepted
 category: decisions
 tags: [adr, decisions, relationships, activity-domains, graph-schema, registry, goals, principles]
@@ -105,9 +105,10 @@ goal's "supporting habits" lists habits only, and its "supporting principles" li
 The rule binds every declaration of a view, and a domain declares its views once (R10): the page
 reads the registry. Each registry definition the page shows carries that domain's name for the link
 (`page_heading`), and the detail page and the list card render the domain's definitions in both
-directions, grouped by that name. Two definitions share a name only when they are one link stored
-under two names, and the page lists each far end once under it. The invariant test holds the page to
-it: every end that reads a link between two Activities shows it, and no edge is listed twice.
+directions, grouped by that name. No two definitions on one config share a name, and a far end
+reached by more than one edge of a view is listed once under it. The invariant test holds the page
+to it: every end that reads a link between two Activities shows it, no edge is listed twice, and no
+heading names two views.
 
 ### 3. Two links between a pair only when the two directions say different things (R3)
 
@@ -295,3 +296,9 @@ acceptance. This ADR is marked implemented when the arc closes.
   `INFORMED_BY_PRINCIPLE` are retired whole, while the doors that made the link (the principle's
   link door, the choice's link door) stay and write the one edge. ADR-057 and ADR-015 carry their
   notes.
+- 2026-10-08 — §1, §2 and §6 implemented for the remaining views (Activity Links arc PR 5): the goal
+  lists choices that affect it and events that celebrate it, apart (a celebration is not counted,
+  §5); event ↔ principle is one `DEMONSTRATES_PRINCIPLE` edge, and `PRACTICED_AT_EVENT` is retired
+  whole (§7); every view over an edge type with several kinds of source names its kind; a task
+  update writes its `ALIGNED_WITH_PRINCIPLE` edges. §2 tightened: no two definitions on one config
+  share a heading (the invariant's Rule 5).

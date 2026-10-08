@@ -289,30 +289,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             user_uid=user_uid,
         )
 
-    @with_error_handling("get_for_habit", error_type="database")
-    async def get_for_habit(
-        self, habit_uid: str, limit: int = 10, user_uid: UserUID | None = None
-    ) -> Result[list[Principle]]:
-        """
-        Get principles aligned with a specific habit.
-
-        Query: (Habit)-[:ALIGNED_WITH_PRINCIPLE]->(Principle)
-
-        Args:
-            habit_uid: Habit UID
-            limit: Maximum results to return
-            user_uid: Requesting user — targets scoped per search_visibility (ADR-085 G3)
-
-        Returns:
-            Result containing principles aligned with this habit
-        """
-        return await self.get_by_relationship(
-            related_uid=habit_uid,
-            relationship_type=RelationshipName.ALIGNED_WITH_PRINCIPLE,
-            direction="outgoing",
-            user_uid=user_uid,
-        )
-
     @with_error_handling("get_active", error_type="database")
     async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Principle]]:
         """

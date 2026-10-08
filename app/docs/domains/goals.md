@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-10-06
+updated: 2026-10-08
 status: current
 category: domains
 tags:
@@ -139,6 +139,7 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `aligned_paths` | `ALIGNED_WITH_PATH` | Lp | Aligned learning paths |
 | `required_paths` | `REQUIRES_PATH_COMPLETION` | Lp | Required learning paths |
 | `parent_goal` | `SUBGOAL_OF` | Goal | Parent goal |
+| `inspired_by_choice` | `INSPIRED_BY_CHOICE` | Choice | The choice that inspired this goal |
 
 ### Incoming (Other → Goal)
 
@@ -149,6 +150,8 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `supporting_principles` | `SUPPORTS_GOAL` | Principle | Principles that support this goal (YAML: `connections.supporting_principles`) |
 | `contributing_tasks` | `CONTRIBUTES_TO_GOAL` | Task | Tasks that contribute to this goal |
 | `contributing_events` | `CONTRIBUTES_TO_GOAL` | Event | Events that contribute to this goal |
+| `celebrating_events` | `CELEBRATES_GOAL` | Event | Events that celebrate this goal |
+| `affecting_choices` | `AFFECTS_GOAL` | Choice | Choices that affect this goal |
 | `essential_habits` | `SUPPORTS_GOAL` (essentiality=essential) | Habit | Essential habits |
 | `critical_habits` | `SUPPORTS_GOAL` (essentiality=critical) | Habit | Critical habits |
 | `optional_habits` | `SUPPORTS_GOAL` (essentiality=optional) | Habit | Optional habits |
@@ -161,6 +164,13 @@ stores `essentiality` but has no tier view. A PathStep that supports the goal is
 `CONTRIBUTES_TO_GOAL` has two kinds of source, tasks and events, so the goal reads each as its own
 view: `contributing_tasks` names `Task`, `contributing_events` names `Event`. A cancelled
 contribution is still listed (its status shown) and is left out of the progress tally.
+
+An event that celebrates the goal (`CELEBRATES_GOAL`, the event form's "Milestone for goal"
+picker) is listed under `celebrating_events`, apart from the events that contribute, and never
+counts toward progress: a celebration marks the goal, a contribution moves it. A choice is linked
+two ways: the goal names the choice that inspired it (`INSPIRED_BY_CHOICE`, written at the goal),
+and lists the choices that affect it (`AFFECTS_GOAL`, written at the choice —
+`POST /api/choices/link-goal` or the choice's `connections.affects_goal`).
 
 ### Bidirectional
 
