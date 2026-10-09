@@ -16,7 +16,7 @@ See: /docs/roadmap/askesis-intelligence-doors.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import H3, A, Div, Li, P, Span, Ul
 
@@ -101,7 +101,7 @@ def render_hub_section() -> FT:
     )
 
 
-def _card(question: HubQuestion, *body: Any, footer: Any = None) -> FT:
+def _card(question: HubQuestion, *body: FT | None, footer: FT | None = None) -> FT:
     """The card shell every answer shares; its id is the mount the fragment swaps into."""
     return Card(
         CardHeader(
@@ -120,7 +120,7 @@ def _card(question: HubQuestion, *body: Any, footer: Any = None) -> FT:
 
 def _empty(message: str, *, href: str | None = None, action: str | None = None) -> FT:
     """A truthful empty state: what the method found nothing of, and the door that feeds it."""
-    children: list[Any] = [P(message, cls="text-sm text-muted-foreground")]
+    children: list[FT] = [P(message, cls="text-sm text-muted-foreground")]
     if href and action:
         children.append(Div(ButtonLink(action, href=href, size="sm"), cls="mt-2"))
     return Div(*children)
@@ -154,7 +154,7 @@ def _score_badge(score: float, label: str | None = None) -> FT:
     return Badge(label or f"{score:.0%}", variant=variant, cls="shrink-0 whitespace-nowrap")
 
 
-def _rows(items: Sequence[Any]) -> FT:
+def _rows(items: Sequence[FT]) -> FT:
     return Ul(*items, cls="space-y-3 list-none p-0 m-0")
 
 
@@ -183,9 +183,9 @@ def render_learn_next_card(steps: Sequence[PathStep], titles: Mapping[str, str])
                 action="Explore knowledge",
             ),
         )
-    rows = []
+    rows: list[FT] = []
     for step in steps:
-        badges: list[Any] = [Badge(f"~{step.estimated_time_minutes} min", variant=BadgeT.ghost)]
+        badges: list[FT] = [Badge(f"~{step.estimated_time_minutes} min", variant=BadgeT.ghost)]
         if step.unlocks_count:
             badges.append(Badge(f"unlocks {step.unlocks_count}", variant=BadgeT.info))
         if not step.prerequisites_met:
@@ -265,7 +265,7 @@ def render_synergies_card(synergies: Sequence[CrossDomainSynergy], titles: Mappi
                 action="Open your goals",
             ),
         )
-    rows = []
+    rows: list[FT] = []
     for synergy in synergies:
         rows.append(
             Li(
@@ -329,7 +329,7 @@ def render_alignment_card(alignment: LifePathAlignment, titles: Mapping[str, str
                 action="Designate your life path",
             ),
         )
-    named: list[Any] = []
+    named: list[FT] = []
     if alignment.aligned_goals:
         named.append(
             P(
@@ -384,8 +384,8 @@ def _level_variant(score: float) -> BadgeT:
     return BadgeT.neutral
 
 
-def _joined_links(domain: str, uids: Sequence[str], titles: Mapping[str, str]) -> list[Any]:
-    parts: list[Any] = []
+def _joined_links(domain: str, uids: Sequence[str], titles: Mapping[str, str]) -> list[FT | str]:
+    parts: list[FT | str] = []
     for index, uid in enumerate(uids):
         if index:
             parts.append(", ")
@@ -409,7 +409,7 @@ def render_right_now_card(
                 "knowledge and your primary goal are the candidates."
             ),
         )
-    rows = []
+    rows: list[FT] = []
     for rec in recommendations:
         if rec.recommendation_type == "rest":
             rows.append(
@@ -423,7 +423,7 @@ def render_right_now_card(
                 )
             )
             continue
-        flags: list[Any] = [
+        flags: list[FT] = [
             Badge(rec.recommendation_type, variant=BadgeT.neutral),
             Badge(f"~{rec.estimated_duration_minutes} min", variant=BadgeT.ghost),
             Badge(
@@ -465,7 +465,7 @@ def render_perception_card(analysis: PerceptionAnalysis) -> FT:
             ),
             footer=checkin_link,
         )
-    rows = []
+    rows: list[FT] = []
     for rollup in analysis["per_domain"].values():
         direction = rollup["dominant_direction"]
         if not rollup["assessed_count"] or direction is None:

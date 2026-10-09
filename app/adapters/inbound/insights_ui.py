@@ -22,6 +22,7 @@ from adapters.inbound.route_factories import parse_int_query_param
 from core.models.enums import EntityType, HubQuestion
 from core.services.user.rich_context import rich_entity_titles
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 from ui.components import ButtonT
 from ui.insights.components import (
     InsightsFilters,
@@ -154,12 +155,20 @@ async def _resolve_titles(
     return titles
 
 
+def _error_card(question: HubQuestion, failed: Result[Any]) -> FT:
+    """The question's error card: the client-safe message is shown, the developer
+    message (which may carry raw exception text) goes to the server log only."""
+    error = failed.expect_error()
+    logger.error("Insights hub %s: %s", question.value, error.message)
+    return render_hub_card_error(question, error.display_message)
+
+
 async def _answer_learn_next(
     hub: UserContextIntelligence, context: RichUserContext, ku_service: KuService
 ) -> FT:
     result = await hub.get_optimal_next_path_steps()
     if result.is_error:
-        return render_hub_card_error(HubQuestion.LEARN_NEXT, result.expect_error().message)
+        return _error_card(HubQuestion.LEARN_NEXT, result)
     steps = result.value
     titles = await _resolve_titles(context, (step.ku_uid for step in steps), ku_service)
     return render_learn_next_card(steps, titles)
@@ -170,7 +179,7 @@ async def _answer_unblock_first(
 ) -> FT:
     result = await hub.get_unblocking_priority_order()
     if result.is_error:
-        return render_hub_card_error(HubQuestion.UNBLOCK_FIRST, result.expect_error().message)
+        return _error_card(HubQuestion.UNBLOCK_FIRST, result)
     blockers = result.value
     titles = await _resolve_titles(context, (uid for uid, _ in blockers), ku_service)
     return render_unblock_first_card(blockers, titles)
@@ -181,7 +190,7 @@ async def _answer_synergies(
 ) -> FT:
     result = await hub.get_cross_domain_synergies()
     if result.is_error:
-        return render_hub_card_error(HubQuestion.SYNERGIES, result.expect_error().message)
+        return _error_card(HubQuestion.SYNERGIES, result)
     synergies = result.value
     ku_uids: list[str] = []
     for synergy in synergies:
@@ -198,7 +207,7 @@ async def _answer_alignment(
 ) -> FT:
     result = await hub.calculate_life_path_alignment()
     if result.is_error:
-        return render_hub_card_error(HubQuestion.ALIGNMENT, result.expect_error().message)
+        return _error_card(HubQuestion.ALIGNMENT, result)
     alignment = result.value
     titles = await _resolve_titles(context, alignment.knowledge_gaps, ku_service)
     return render_alignment_card(alignment, titles)
@@ -209,7 +218,7 @@ async def _answer_right_now(
 ) -> FT:
     result = await hub.get_schedule_aware_recommendations()
     if result.is_error:
-        return render_hub_card_error(HubQuestion.RIGHT_NOW, result.expect_error().message)
+        return _error_card(HubQuestion.RIGHT_NOW, result)
     recommendations = result.value
     titles = await _resolve_titles(
         context,
@@ -224,7 +233,7 @@ async def _answer_perception(
 ) -> FT:
     result = await hub.get_cross_domain_perception_analysis()
     if result.is_error:
-        return render_hub_card_error(HubQuestion.PERCEPTION, result.expect_error().message)
+        return _error_card(HubQuestion.PERCEPTION, result)
     return render_perception_card(result.value)
 
 
@@ -477,12 +486,7 @@ def create_insights_ui_routes(
 
         context_result = await user_service.get_rich_unified_context(user_uid)
         if context_result.is_error:
-            logger.error(
-                "Insights hub %s: rich context failed: %s",
-                asked.value,
-                context_result.expect_error().message,
-            )
-            return render_hub_card_error(asked, context_result.expect_error().message)
+            return _error_card(asked, context_result)
         context = context_result.value
         hub = context_intelligence.create(context)
         return await _ANSWERS[asked](hub, context, ku_service)

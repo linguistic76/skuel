@@ -247,7 +247,7 @@ class LifePathAlignment:
 @dataclass(frozen=True)
 class CrossDomainSynergy:
     source_uid: str
-    source_domain: str  # habit | knowledge | principle | pathstep
+    source_domain: str  # habit | knowledge | principle | path_step (EntityType values; "knowledge" is the Ku alias)
     target_uids: tuple[str, ...] = ()
     target_domain: str = ""  # goal | task | multi
     synergy_type: str = ""  # supports | builds | enables | informs | spawns

@@ -244,13 +244,17 @@ class TestTheDoor:
     def test_a_failed_context_read_is_the_error_card_not_a_500(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        harness = _make_harness(
-            monkeypatch, context=Result.fail(Errors.system(message="graph away"))
+        failed: Result[RichUserContext] = Result.fail(
+            Errors.system(message="Traceback: bolt handshake refused at 10.0.0.7")
         )
+        harness = _make_harness(monkeypatch, context=failed)
         response = harness.client.get("/insights/hub/synergies")
         assert response.status_code == 200
         assert 'id="hub-synergies"' in response.text
-        assert "couldn't be answered" in response.text and "graph away" in response.text
+        assert "couldn't be answered" in response.text
+        # The client-safe message, never the developer one.
+        assert failed.expect_error().display_message in response.text
+        assert "bolt handshake" not in response.text
         harness.factory.create.assert_not_called()
 
     def test_a_failed_hub_answer_is_the_error_card(self, monkeypatch: pytest.MonkeyPatch) -> None:
