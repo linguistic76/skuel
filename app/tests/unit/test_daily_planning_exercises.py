@@ -109,6 +109,8 @@ def make_no_op_service() -> AsyncMock:
     # Exercise service methods — default to empty.
     mock.get_actionable_exercises_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_pending_revisions_for_user = AsyncMock(return_value=Result.ok([]))
+    # Report service method — nothing awaiting a report.
+    mock.get_pending_submissions = AsyncMock(return_value=Result.ok([]))
     return mock
 
 

@@ -437,7 +437,7 @@ Hardened 3 backend methods against Cypher injection and migrated 17 inline Cyphe
 | Service File | Queries | Backend |
 |---|---|---|
 | `choices/_behavioral_signals_mixin.py` | 0 | Cross-domain reads migrated to `CrossDomainQueryService`; 3 dead methods deleted |
-| `report/report_relationship_service.py` | 5 | SubmissionsBackend (+5 methods: `get_pending_submissions_raw`, `get_unsubmitted_exercises_raw`, `get_report_summary_raw`, `get_learning_loop_chain_raw`, `get_submission_chain_raw`) |
+| `report/report_relationship_service.py` | 5 | UserEntryBackend (`_UserEntryReportQueryMixin`: `get_pending_entries_raw`, `get_entry_report_summary_raw`, `get_learning_loop_chain_raw`, `get_entry_chain_raw`, `get_exchange_thread_raw`, `get_student_exchange_summaries_raw`, `get_entry_review_standing_raw`) |
 | `ku/ku_relationships.py` | 6 | KuBackend (+7 methods: `get_related_knowledge_uids`, `get_broader_concept_uids`, `get_narrower_concept_uids`, `get_learning_path_uids`, `get_applying_task_uids`, `get_practicing_event_uids`, `get_reinforcing_habit_uids`) |
 | `submissions/submissions_relationship_service.py` | 1 | SubmissionsBackend (+1 method: `get_supported_goal_uids`) |
 

@@ -1464,11 +1464,13 @@ class NextActionResult(TypedDict, total=False):
     """Return shape for UserContextService.get_next_action().
 
     AI-recommended next action based on current priorities, overdue items,
-    and at-risk habits.
+    and at-risk habits. ``awaiting_report`` carries the plan's
+    ``DailyWorkPlan.awaiting_report`` — the turn-ins out of the user's hands.
     """
 
     user_uid: str
     recommended_action: TopPriorities
+    awaiting_report: list[str]
     insights: ContextInsights
     alerts: list[ContextAlert]
     rationale: str

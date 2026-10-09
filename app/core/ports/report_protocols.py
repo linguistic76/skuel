@@ -68,6 +68,7 @@ from core.ports.query_types import (
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.enums.pipeline import Pipeline
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
@@ -498,10 +499,9 @@ class ReportRelationshipOperations(Protocol):
     Implementation: ReportRelationshipService
     """
 
-    async def get_pending_submissions(self, user_uid: UserUID) -> Result[list[str]]: ...
-    async def get_unsubmitted_exercises(
-        self, user_uid: UserUID, limit: int = 5
-    ) -> Result[list[dict[str, str | None]]]: ...
+    async def get_pending_submissions(
+        self, user_uid: UserUID, pipelines: list[Pipeline] | None = None
+    ) -> Result[list[str]]: ...
     async def get_report_summary(self, user_uid: UserUID) -> Result[ReportSummary]: ...
     async def get_learning_loop_chain(self, exercise_uid: str) -> Result[LearningLoopChain]: ...
     async def get_submission_chain(self, submission_uid: str) -> Result[SubmissionChain]: ...

@@ -92,6 +92,24 @@ class Pipeline(StrEnum):
             Pipeline.REFERENCE,
         )
 
+    def awaits_report(self) -> bool:
+        """Whether an entry on this pipeline waits on someone else for its report.
+
+        Only `TEACHER_REVIEW`: the turn-in is filed as a feedback request
+        (`SUBMITTED_TO_GROUP`), and the report comes back from the teacher's
+        queue or from the AI reviewer the owner asks for — until one is written
+        (`REPORT_FOR`), the entry is awaiting a report and the daily plan says
+        so (`DailyWorkPlan.awaiting_report`). A journal entry's reflective
+        response is the owner's own request, so a journal pipeline never
+        "awaits"; `NONE` is a plain entry nobody reports on.
+        """
+        return self is Pipeline.TEACHER_REVIEW
+
+    @classmethod
+    def awaiting_report(cls) -> list[Pipeline]:
+        """The pipelines whose report-less entries count as awaiting a report."""
+        return [pipeline for pipeline in cls if pipeline.awaits_report()]
+
 
 class JeUse(StrEnum):
     """
