@@ -15,6 +15,7 @@ to provide personalized, filtered, and ranked principle queries.
 - get_principle_practice_opportunities_for_user: Activities that strengthen alignment
 
 **Static Helpers:**
+- _alignment_trend: Rise / fall / hold across the last two dated assessments
 - _calculate_attention_score: Check reflection frequency and alignment trends
 - _identify_attention_reasons: Why principle needs attention
 - _suggest_attention_action: Actionable recommendation
@@ -22,10 +23,11 @@ to provide personalized, filtered, and ranked principle queries.
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.principle_enums import AlignmentLevel
+from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_planning_service import BasePlanningService
@@ -66,7 +68,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         """
         Extract principle data from entities_rich["principles"].
 
-        Returns dict of principle_uid -> {name, alignment, last_reflection, etc.}
+        Returns dict of principle_uid -> {title, alignment, last_reflection, etc.}
         """
         data: dict[str, dict[str, Any]] = {}
 
@@ -79,11 +81,12 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                 continue
 
             data[uid] = {
-                "name": principle_dict.get("name", "Unknown"),
+                "title": principle_dict.get("title", "Unknown"),
                 "statement": principle_dict.get("statement", ""),
                 "strength": principle_dict.get("strength", "MODERATE"),
                 "current_alignment": principle_dict.get("current_alignment", "UNKNOWN"),
                 "last_review_date": principle_dict.get("last_review_date"),
+                "alignment_history": principle_dict.get("alignment_history"),
                 "graph_context": graph_ctx,
             }
 
@@ -207,7 +210,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         # Process each core principle
         for principle_uid in context.core_principle_uids:
             data = principle_data.get(principle_uid, {})
-            name = data.get("name", "Unknown")
+            title = data.get("title", "Unknown")
 
             # Calculate days since last review
             last_review = data.get("last_review_date")
@@ -223,13 +226,15 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
             alignment_str = data.get("current_alignment", "UNKNOWN")
             alignment_score = self._alignment_level_to_score(alignment_str)
 
-            # Determine trend from priorities (higher priority with low alignment = needs attention)
-            priority = context.principle_priorities.get(principle_uid, 0.5)
-            alignment_trend = "stable"
-            if priority > 0.7 and alignment_score < 0.5:
-                alignment_trend = "declining"  # High priority but low alignment
-            elif alignment_score > 0.7:
-                alignment_trend = "improving"
+            # The trend is read off the user's own dated assessments; how deeply the
+            # principle is held is its own reason, never a trend.
+            alignment_trend = self._alignment_trend(data.get("alignment_history"))
+            deeply_held = (
+                context.principle_priorities.get(
+                    principle_uid, PrincipleStrength.MODERATE.importance()
+                )
+                > 0.7
+            )
 
             # Calculate attention score
             attention_score = self._calculate_attention_score(
@@ -248,12 +253,13 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                 days_since_reflection=days_since_reflection,
                 alignment_score=alignment_score,
                 alignment_trend=alignment_trend,
+                deeply_held=deeply_held,
                 attention_threshold_days=attention_threshold_days,
             )
 
             contextual = ContextualPrinciple.from_entity_and_context(
                 uid=principle_uid,
-                title=name,
+                title=title,
                 context=context,
                 alignment_score=alignment_score,
                 days_since_reflection=days_since_reflection,
@@ -318,8 +324,8 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         relevant_principles: dict[str, float] = {}
 
         # Get today's UIDs
-        todays_task_uids = set(getattr(context, "todays_task_uids", []))
-        todays_event_uids = set(getattr(context, "todays_event_uids", []))
+        todays_task_uids = set(context.today_task_uids)
+        todays_event_uids = set(context.today_event_uids)
         active_goal_uids = set(context.active_goal_uids)
 
         # Check principles linked to today's tasks
@@ -375,10 +381,9 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                 connected_tasks, connected_events
             )
 
-            principle_name = data.get("name", "Unknown")
             contextual = ContextualPrinciple.from_entity_and_context(
                 uid=principle_uid,
-                title=principle_name,
+                title=data.get("title", "Unknown"),
                 context=context,
                 connected_task_uids=connected_tasks,
                 connected_event_uids=connected_events,
@@ -430,12 +435,12 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         target_principles = [principle_uid] if principle_uid else list(context.core_principle_uids)
 
         # Get today's UIDs
-        todays_task_uids = set(getattr(context, "todays_task_uids", []))
-        todays_event_uids = set(getattr(context, "todays_event_uids", []))
+        todays_task_uids = set(context.today_task_uids)
+        todays_event_uids = set(context.today_event_uids)
 
         for p_uid in target_principles:
             data = principle_data.get(p_uid, {})
-            p_name = data.get("name", "Unknown")
+            p_name = data.get("title", "Unknown")
 
             # Find tasks that align with this principle
             for task_uid in todays_task_uids:
@@ -498,6 +503,42 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         return level.to_score()
 
     @staticmethod
+    def _alignment_trend(raw_history: object) -> str:
+        """Whether the user's last two dated assessments rose, fell or held.
+
+        ``alignment_history`` is one JSON string on the node (``properties(n)``);
+        an unreadable value, fewer than two assessed levels, or an equal pair is
+        "stable".
+        """
+        if isinstance(raw_history, str):
+            try:
+                raw_history = json.loads(raw_history)
+            except json.JSONDecodeError:
+                return "stable"
+        if not isinstance(raw_history, list):
+            return "stable"
+        scored: list[tuple[str, float]] = []
+        for entry in raw_history:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                level = AlignmentLevel(str(entry.get("alignment_level", "")).lower())
+            except ValueError:
+                continue
+            if level is AlignmentLevel.UNKNOWN:
+                continue
+            scored.append((str(entry.get("assessed_date", "")), level.to_score()))
+        if len(scored) < 2:
+            return "stable"
+        scored.sort()
+        earlier, latest = scored[-2][1], scored[-1][1]
+        if latest > earlier:
+            return "improving"
+        if latest < earlier:
+            return "declining"
+        return "stable"
+
+    @staticmethod
     def _calculate_attention_score(
         days_since_reflection: int,
         alignment_score: float,
@@ -533,6 +574,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         days_since_reflection: int,
         alignment_score: float,
         alignment_trend: str,
+        deeply_held: bool = False,
         attention_threshold_days: int = 14,
         max_reasons: int = 3,
     ) -> list[str]:
@@ -543,7 +585,10 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
             reasons.append(f"No reflection in {days_since_reflection} days")
 
         if alignment_score < 0.5:
-            reasons.append(f"Low alignment score ({alignment_score:.0%})")
+            if deeply_held:
+                reasons.append(f"Deeply held, but low alignment ({alignment_score:.0%})")
+            else:
+                reasons.append(f"Low alignment score ({alignment_score:.0%})")
 
         if alignment_trend == "declining":
             reasons.append("Alignment trend is declining")

@@ -9,8 +9,7 @@ Method 6 of UserContextIntelligence:
 1. Habit->Goal: Habits supporting multiple goals (high leverage)
 2. Task->Habit: Tasks that build habits (behavior change)
 3. Knowledge->Task: Knowledge enabling tasks (skill application)
-4. Principle->Goal: Principles guiding goal pursuit (none yet — the context does not
-   read a principle's SUPPORTS_GOAL edges)
+4. Principle->Goal: Principles guiding the active goals they support
 5. Goal->Learning: Goals requiring specific knowledge (learning gaps)
 6. PS->Multi: Active engagements scored by completion ratio of spawned items
 """
@@ -18,6 +17,7 @@ Method 6 of UserContextIntelligence:
 from __future__ import annotations
 
 from core.models.context_types import CrossDomainSynergy
+from core.models.enums.principle_enums import PrincipleStrength
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
@@ -275,15 +275,49 @@ class SynergyIntelligenceMixin(IntelligenceMixinBase):
 
     def _detect_principle_goal_synergies(self) -> list[CrossDomainSynergy]:
         """
-        Detect principles guiding multiple goals.
+        Detect principles guiding the active goals they support.
 
         Example: "Growth mindset" principle -> guides Learning goal, Career goal, Health goal
 
-        Answers none: a principle guides a goal through ``SUPPORTS_GOAL``, and the
-        context does not read that edge — no principle is paired with a goal it
-        was never linked to.
+        A principle is paired only with the goals it is linked to
+        (``principle_supported_goals``, the ``SUPPORTS_GOAL`` edge) that are still
+        active; its weight is how deeply the user holds it (``principle_priorities``).
         """
-        return []
+        synergies: list[CrossDomainSynergy] = []
+        active_goal_uids = set(self.context.active_goal_uids)
+
+        for principle_uid, goal_uids in self.context.principle_supported_goals.items():
+            guided_goals = [g for g in goal_uids if g in active_goal_uids]
+            if not guided_goals:
+                continue
+
+            importance = self.context.principle_priorities.get(
+                principle_uid, PrincipleStrength.MODERATE.importance()
+            )
+            synergy_score = min(0.9, 0.3 + (len(guided_goals) * 0.15) + (importance * 0.2))
+
+            recommendations = []
+            if importance > 0.7:
+                recommendations.append("Deeply held principle - ensure daily actions align")
+            if len(guided_goals) >= 2:
+                recommendations.append("This principle guides multiple goals")
+
+            synergies.append(
+                CrossDomainSynergy(
+                    source_uid=principle_uid,
+                    source_domain="principle",
+                    target_uids=tuple(guided_goals),
+                    target_domain="goal",
+                    synergy_type="informs",
+                    synergy_score=synergy_score,
+                    rationale=(
+                        f"Guides {len(guided_goals)} active goals with {importance:.0%} importance"
+                    ),
+                    recommendations=tuple(recommendations),
+                )
+            )
+
+        return synergies
 
     def _detect_goal_learning_synergies(self) -> list[CrossDomainSynergy]:
         """

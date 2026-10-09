@@ -358,7 +358,10 @@ class UserContext:
     # =========================================================================
     core_principle_uids: list[str] = field(default_factory=list)
     current_principle_focus: str | None = None
-    principle_priorities: dict[str, float] = field(default_factory=dict)  # uid -> importance
+    # uid -> importance (PrincipleStrength.importance()); written by the rich build
+    principle_priorities: dict[str, float] = field(default_factory=dict)
+    # active principle uid -> the goals it SUPPORTS_GOAL, any status; written by the rich build
+    principle_supported_goals: dict[str, list[str]] = field(default_factory=dict)
     principle_conflicts: list[tuple[str, str]] = field(default_factory=list)
 
     # Principle alignment scores

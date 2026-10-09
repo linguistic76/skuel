@@ -71,6 +71,14 @@ class PrincipleStrength(StrEnum):
         """Sort position for lists (CORE first = 0, EXPLORING last = 4)."""
         return _PRINCIPLE_STRENGTH_SORT_ORDERS[self]
 
+    def importance(self) -> float:
+        """How much the principle weighs against the user's others (CORE=1.0 ... EXPLORING=0.2).
+
+        The user's own declaration of how deeply the principle is held, as a share of
+        CORE's rank — the value ``UserContext.principle_priorities`` carries.
+        """
+        return self.rank() / PrincipleStrength.CORE.rank()
+
     @classmethod
     def from_value(cls, value: object) -> PrincipleStrength:
         """Normalize enum/string inputs to a principle strength, defaulting to MODERATE."""

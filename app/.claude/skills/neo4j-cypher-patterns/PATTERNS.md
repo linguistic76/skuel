@@ -586,7 +586,7 @@ the same instant differing only in storage type and asserts the bounded `find_by
 | Domain-specific relationships | Domain backend in `backends/` | `RevisedExerciseBackend.link_to_exercise()` |
 | Atomic multi-entity creation | Domain backend in `backends/` | `EntryReportBackend.create_report_and_revised_exercise()` — single Cypher creates EntryReport + RevisedExercise + all relationships |
 | PS-specific Cypher | 5 PsBackend mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
-| Cross-domain aggregation | `adapters/persistence/neo4j/user_context_queries.py` (`RICH_CONTEXT_STATEMENTS`, seven plan-cached statements), `CrossDomainBackend` | The MEGA-QUERY; `CrossDomainQueryService`'s targeted reads |
+| Cross-domain aggregation | `adapters/persistence/neo4j/user_context_queries.py` (`RICH_CONTEXT_STATEMENTS`, one plan-cached statement per read family), `CrossDomainBackend` | The MEGA-QUERY; `CrossDomainQueryService`'s targeted reads |
 | Vector index calls | `VectorSearchBackend` in `vector_search_backend.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
 | Fulltext index creation | `neo4j_schema_manager.py` (bootstrap, always) | `sync_fulltext_indexes()` — 14 domains, names from `NeoLabel.fulltext_index_name()` |
 | Fulltext index calls | `VectorSearchBackend` in `vector_search_backend.py` (publication-gated, like its vector twin) | `db.index.fulltext.queryNodes()` |

@@ -1,5 +1,5 @@
 """
-The seven rich-context statements, merged, read every section of a learner's graph.
+The rich-context statements, merged, read every section of a learner's graph.
 
 ``RICH_CONTEXT_STATEMENTS`` carries each read family in a statement of its own,
 and each statement's ``WITH`` lists carry only its own names. That is where a
@@ -240,7 +240,7 @@ async def every_section_seeded(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
 async def test_the_merged_map_has_the_shape_the_populator_reads(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
-    """The seven partials merge into the one map, every section and every key present."""
+    """The partials merge into the one map, every section and every key present."""
     executor = UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver))
 
     result = await executor.execute_mega_query(_USER_UID)
@@ -289,7 +289,12 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
         "principles",
         "tasks",
     ]
-    assert sorted(mega["rich"]) == ["knowledge", "learning_paths", "path_steps"]
+    assert sorted(mega["rich"]) == [
+        "knowledge",
+        "learning_paths",
+        "path_steps",
+        "principle_goal_support",
+    ]
 
 
 @pytest.mark.asyncio
@@ -439,9 +444,12 @@ async def test_every_section_reads_what_the_one_statement_read(
             "aligned_tasks": [{"uid": "task.eq.open", "title": "Open task", "status": "active"}],
         }
     )
-    # the principle's goal links are not a context read: the goal it supports is in no row
+    # the principle's goal links are their own statement's, never this row's
     assert "guided_goals" not in principles["principle.eq.core"]
     assert "supported_goals" not in principles["principle.eq.core"]
+    assert mega["rich"]["principle_goal_support"] == [
+        {"uid": "principle.eq.core", "goal_uids": ["goal.eq.active"]}
+    ]
     choices = _by_uid(mega["entities"]["choices"])
     assert sorted(choices) == ["choice.eq.pending"]  # the decided one is outside the window
     assert _canon(choices["choice.eq.pending"]) == _canon(

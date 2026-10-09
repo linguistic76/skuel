@@ -1,6 +1,6 @@
 ---
 title: "ADR-001: Single Complex Query for Unified User Context"
-updated: 2026-10-02
+updated: 2026-10-09
 status: current
 category: decisions
 tags: [001, adr, context, decisions, query]
@@ -233,7 +233,7 @@ Development/operational complexity too high. We want to stay within Python ecosy
 `graph_sourced_context_builder.py:128-246` citation predates the builder <!-- historical -->
 consolidation and the ADR-044 boundary move)
 - Primary file: `/adapters/persistence/neo4j/user_context_queries.py`
-  (`RICH_CONTEXT_STATEMENTS` — seven plan-cached statements, one per read family —
+  (`RICH_CONTEXT_STATEMENTS` — one plan-cached statement per read family —
   merged by `execute_mega_query`; Cypher lives below the boundary per ADR-044)
 - Related files:
   - `/core/services/user/user_context_builder.py` (orchestrates the query via

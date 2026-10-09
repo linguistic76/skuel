@@ -227,6 +227,7 @@ def test_the_rich_context_composition_token_is_actually_substituted() -> None:
         "habits_and_events": 2,
         "habit_adherence": 0,
         "principles_and_choices": 2,
+        "principle_goal_support": 0,
         "knowledge": 0,
         "curriculum": 0,
         "learner_state": 0,

@@ -24,6 +24,7 @@ from core.models.enums import (
     TimeOfDay,
 )
 from core.models.enums.goal_enums import GoalType
+from core.models.enums.principle_enums import PrincipleStrength
 from core.models.habit.adherence import (
     completion_days,
     habit_adherence,
@@ -246,6 +247,10 @@ class UserContextPopulator:
         domains use shape: [{"entity": {all properties}, "graph_context": {...}}, ...]
         Status is on every entity — consumers filter as needed.
 
+        Two fields are read off the entities here: the goal kinds (``goal_type``)
+        and ``principle_priorities`` (each principle's ``strength`` as
+        ``PrincipleStrength.importance()``; an unset strength reads as MODERATE).
+
         Args:
             context: UserContext to populate
             entities_data: The "entities" section from MEGA-QUERY results
@@ -261,6 +266,12 @@ class UserContextPopulator:
                 for item in context.entities_rich.get("goals", [])
             },
         )
+        context.principle_priorities = {
+            item["entity"]["uid"]: PrincipleStrength.from_value(
+                item["entity"].get("strength")
+            ).importance()
+            for item in context.entities_rich.get("principles", [])
+        }
 
     def populate_goal_kinds(self, context: UserContext, goal_types: dict[str, str | None]) -> None:
         """
@@ -411,6 +422,7 @@ class UserContextPopulator:
 
         # Principle relationships
         context.principle_knowledge_grounded = graph_data.principles.knowledge_grounded
+        context.principle_supported_goals = graph_data.principles.supported_goals
 
         # Knowledge relationships
         context.prerequisite_counts = graph_data.knowledge.prerequisite_counts
