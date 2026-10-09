@@ -46,7 +46,6 @@ There is no `KuAIService`. The KU facade has no `.ai` slot.
 ```python
 class BaseAIService(Generic[B, T]):
     _service_name: ClassVar[str | None] = None
-    _event_handlers: ClassVar[dict[type, str]] = {}
 
     def __init__(
         self,
@@ -124,8 +123,8 @@ ps_ai = PsAIService(..., vector_search=vector_search_service)
   FULL or raises (`compose.py`, `_learning_services.py`) and none in CORE, so the guard
   separates the tiers rather than a partial FULL.
 - The AI service shares the backend of the facade's core service.
-- No event bus is passed, so an `_event_handlers` declaration on an AI service would register
-  nothing. No AI service declares any.
+- No event bus is passed to any AI service, and the base class offers no declarative
+  subscription: a subscriber is wired in `services_bootstrap/_event_wiring.py`.
 
 `INTELLIGENCE_TIER=core` builds neither an LLM service nor an embeddings service, so `.ai` is
 `None` on every facade (ADR-043).

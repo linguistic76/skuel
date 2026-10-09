@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-08
+updated: 2026-10-09
 ---
 
 # Deferred Work
@@ -214,6 +214,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Activity Links Arc — Registered Residuals
 
 [Activity Links Arc — Registered Residuals](activity-links-registered-residuals.md) — The 27 defects the arc's censuses found outside its scope and registered, each at its file and line (readers of keys nothing projects, doors that drop a link they were given, the goal-cancel guard's two bypasses, the progress event's 0–1 / 0–100 scale mismatch, a search-enrichment field nothing reads); all 27 re-verified live at the arc's close.
+
+## Askesis Intelligence Doors — the Hub Methods' Second Door
+
+[Askesis Intelligence Doors — the Hub Methods' Second Door](askesis-intelligence-doors.md) — The nine hub methods (`UserContextIntelligence`) get the Insights cards as their first door; Askesis' eight wrappers onto them, and the zoom lens's filter / sort / metadata half, stay staged as the second door — the Askesis conversation reaching a hub method by tool-selection (ruled 2026-10-08).
 
 ## Review Schedule
 

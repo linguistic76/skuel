@@ -93,16 +93,16 @@ class BaseAnalyticsService(Generic[B, T]):
 
     _service_name: ClassVar[str | None] = None
     _require_relationships: ClassVar[bool] = False
-    _require_graph_intel: ClassVar[bool] = False
-    _event_handlers: ClassVar[dict[type, str]] = {}
 ```
 
 | Attribute | Purpose | In use |
 |-----------|---------|--------|
 | `_service_name` | Logger name: `skuel.analytics.{_service_name}`; falls back to the class name | All eleven. The nine per-domain values are `"{domain}.intelligence"` (`"tasks.intelligence"`, `"ku.intelligence"`); the shared two are `"knowledge.activity_intelligence"` and `"knowledge_health"`. |
 | `_require_relationships` | `True` makes `__init__` raise `ValueError` without a relationship service | Goals, Habits, Choices |
-| `_require_graph_intel` | `True` makes `__init__` raise `ValueError` without `graph_intel` | No service sets it |
-| `_event_handlers` | `{EventClass: "handler_method_name"}`, subscribed on `__init__` when an `event_bus` is passed | No service declares any |
+
+There is no `_require_graph_intel` and no `_event_handlers` ClassVar. A service that
+subscribes to an event does so in `services_bootstrap/_event_wiring.py`, like every other
+subscriber.
 
 A subclass that declares no `__slots__` has a `__dict__`, so it may set its own attributes
 (`self.cross_domain_query`, `self._knowledge_analyzer`). The `__setattr__` guard still applies

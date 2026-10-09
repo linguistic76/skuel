@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-08
+updated: 2026-10-09
 ---
 
 # Shared Intelligence Utilities
@@ -174,26 +174,12 @@ result = DualTrackResult[AlignmentLevel](
 )
 ```
 
-### Event Handling System
+### Event Handling
 
-**Purpose:** Declarative event handler registration via ClassVar.
-
-```python
-# Declared on any BaseAnalyticsService subclass:
-
-class GoalsIntelligenceService(BaseAnalyticsService):
-    # Declare event handlers at class level
-    _event_handlers: ClassVar[dict[type, str]] = {
-        GoalCompleted: "on_goal_completed",
-        GoalAbandoned: "on_goal_abandoned",
-    }
-
-    async def on_goal_completed(self, event: GoalCompleted) -> None:
-        """Handle goal completion - recalculate achievement rate."""
-        # React to event
-```
-
-BaseAnalyticsService `__init__` auto-registers handlers from `_event_handlers`.
+An analytics service publishes through `_publish_event` (the shared `publish_event`
+helper over its optional `event_bus`). It does not subscribe: every subscriber in the
+tree is wired in `services_bootstrap/_event_wiring.py`; the base class has no
+declarative subscription of its own.
 
 ---
 
@@ -226,7 +212,6 @@ This led to:
 ├── base_analytics_service.py         # Foundation for all intelligence services
 │   ├── __slots__ guard               # Prevent AI dependencies
 │   ├── _dual_track_assessment()      # Template: vision vs action gap
-│   ├── _event_handlers ClassVar      # Declarative event subscription
 │   └── _analyze_entity_with_typed_context() # Template: fetch + typed analyze
 
 /core/services/intelligence/

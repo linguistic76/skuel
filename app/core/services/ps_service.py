@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth, QueryLimit
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.curriculum_dto import CurriculumDTO
+from core.models.enums import EntityStatus
+from core.models.enums.curriculum_enums import PublicationState
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges
@@ -98,36 +100,30 @@ _VALID_SUBSTANCE_TIMESTAMP_FIELDS: frozenset[str] = frozenset(
 
 
 def _compute_ps_stats(all_steps: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full path step set."""
-    from core.models.enums import EntityStatus
-    from core.models.enums.learning_enums import KnowledgeStatus
+    """Compute pre-filter stats from the full path step set.
 
-    published = sum(
-        bool(getattr(s, "status", None) == KnowledgeStatus.PUBLISHED) for s in all_steps
-    )
+    Published and draft are the authoring gate, ``publication_state``
+    (``PublicationState``) — never ``status``, which is lifecycle and has no
+    published value. ``active`` is the published count.
+    """
+    published = sum(bool(_is_ps_published(s)) for s in all_steps)
     return {
         "total": len(all_steps),
         "active": published,
         "published": published,
-        "draft": sum(bool(getattr(s, "status", None) == EntityStatus.DRAFT) for s in all_steps),
+        "draft": sum(bool(_is_ps_draft(s)) for s in all_steps),
     }
 
 
 def _is_ps_published(step: Any) -> bool:
-    from core.models.enums.learning_enums import KnowledgeStatus
-
-    return getattr(step, "status", None) == KnowledgeStatus.PUBLISHED
+    return getattr(step, "publication_state", None) == PublicationState.PUBLISHED
 
 
 def _is_ps_draft(step: Any) -> bool:
-    from core.models.enums import EntityStatus
-
-    return getattr(step, "status", None) == EntityStatus.DRAFT
+    return getattr(step, "publication_state", None) == PublicationState.DRAFT
 
 
 def _is_ps_archived(step: Any) -> bool:
-    from core.models.enums import EntityStatus
-
     return getattr(step, "status", None) == EntityStatus.ARCHIVED
 
 

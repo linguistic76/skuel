@@ -71,8 +71,6 @@ from core.utils.result_simplified import Errors, Result
 class BaseAnalyticsService(Generic[B, T]):
     _service_name: ClassVar[str | None] = None
     _require_relationships: ClassVar[bool] = False
-    _require_graph_intel: ClassVar[bool] = False
-    _event_handlers: ClassVar[dict[type, str]] = {}
 
     def __init__(
         self,

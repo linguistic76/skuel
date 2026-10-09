@@ -61,7 +61,6 @@ class BaseAnalyticsService(Generic[B, T]):
     Class Attributes:
         _service_name: Override for hierarchical logger name (e.g., "tasks.analytics")
         _require_relationships: If True, fail if relationships not provided (default: False)
-        _require_graph_intel: If True, fail if graph_intel not provided (default: False)
 
     Instance Attributes:
         backend: Domain operations protocol (REQUIRED)
@@ -91,13 +90,6 @@ class BaseAnalyticsService(Generic[B, T]):
 
     # Set to True if relationships service is required for this domain
     _require_relationships: ClassVar[bool] = False
-
-    # Set to True if graph intelligence service is required for this domain
-    _require_graph_intel: ClassVar[bool] = False
-
-    # Event handlers to auto-register
-    # Format: {EventClass: "handler_method_name"}
-    _event_handlers: ClassVar[dict[type, str]] = {}
 
     def __setattr__(self, name: str, value: Any) -> None:
         """
@@ -135,7 +127,6 @@ class BaseAnalyticsService(Generic[B, T]):
         Raises:
             ValueError: If backend is None (FAIL-FAST architecture)
             ValueError: If _require_relationships is True but service not provided
-            ValueError: If _require_graph_intel is True but service not provided
 
         NOTE: No embeddings_service or llm_service parameters - this is intentional.
         Analytics services work without AI.
@@ -167,31 +158,9 @@ class BaseAnalyticsService(Generic[B, T]):
                 "Set _require_relationships = False to make it optional."
             )
 
-        if self._require_graph_intel and not self.graph_intel:
-            raise ValueError(
-                f"{self.__class__.__name__} requires graph_intel. "
-                "Set _require_graph_intel = False to make it optional."
-            )
-
-        # Auto-register event handlers
-        self._register_event_handlers()
-
     # ========================================================================
     # EVENT HANDLING
     # ========================================================================
-
-    def _register_event_handlers(self) -> None:
-        """Auto-register event handlers from _event_handlers class attribute."""
-        if not self.event_bus or not self._event_handlers:
-            return
-
-        for event_type, handler_name in self._event_handlers.items():
-            handler = getattr(self, handler_name, None)
-            if handler:
-                self.event_bus.subscribe(event_type, handler)
-                self.logger.debug(f"Registered handler {handler_name} for {event_type.__name__}")
-            else:
-                self.logger.warning(f"Handler {handler_name} for {event_type.__name__} not found")
 
     async def _publish_event(self, event: Any) -> None:
         """Publish an event to the event bus if available."""
