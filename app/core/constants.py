@@ -925,6 +925,38 @@ class NextStepRanking:
 
 
 # ============================================================================
+# GOAL PROGRESS DASHBOARD (GoalsIntelligenceService.get_goal_progress_dashboard)
+# ============================================================================
+
+
+class GoalDashboard:
+    """The thresholds and weights behind the goal progress dashboard's figures.
+
+    See: core/services/goals/dashboard_figures.py
+    """
+
+    # A goal with fewer counting contributions than this in its tally reads
+    # ``needs_more_tasks``.
+    MIN_COUNTING_CONTRIBUTIONS: Final = 3
+
+
+class HabitEssentialityWeight:
+    """How much each ``HabitEssentiality`` tier of a goal's supporting habit weighs.
+
+    The weights of the essentiality-weighted mean adherence the dashboard reports
+    as ``habit_contribution``: an essential habit's adherence counts four times an
+    optional one's. Read through ``HabitEssentiality.get_weight()``.
+
+    See: core/models/enums/goal_enums.py
+    """
+
+    ESSENTIAL: Final = 1.0
+    CRITICAL: Final = 0.75
+    SUPPORTING: Final = 0.5
+    OPTIONAL: Final = 0.25
+
+
+# ============================================================================
 # EXERCISE TIME ESTIMATES (daily planning)
 # ============================================================================
 

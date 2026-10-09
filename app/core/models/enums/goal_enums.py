@@ -8,6 +8,8 @@ and habit essentiality to goal achievement.
 
 from enum import StrEnum
 
+from core.constants import HabitEssentialityWeight
+
 
 class GoalType(StrEnum):
     """
@@ -87,3 +89,28 @@ class HabitEssentiality(StrEnum):
             HabitEssentiality.SUPPORTING: ("\U0001f7e1", "border-yellow-500", "bg-yellow-50"),
             HabitEssentiality.OPTIONAL: ("\U0001f7e2", "border-green-500", "bg-green-50"),
         }.get(self, ("\u26aa", "border-border", "bg-muted"))
+
+    def get_weight(self) -> float:
+        """How much this tier weighs in a goal's essentiality-weighted habit figure.
+
+        The values are :class:`core.constants.HabitEssentialityWeight`.
+        """
+        return {
+            HabitEssentiality.ESSENTIAL: HabitEssentialityWeight.ESSENTIAL,
+            HabitEssentiality.CRITICAL: HabitEssentialityWeight.CRITICAL,
+            HabitEssentiality.SUPPORTING: HabitEssentialityWeight.SUPPORTING,
+            HabitEssentiality.OPTIONAL: HabitEssentialityWeight.OPTIONAL,
+        }[self]
+
+    @classmethod
+    def from_stored(cls, value: str | None) -> HabitEssentiality:
+        """The tier a ``SUPPORTS_GOAL`` edge's ``essentiality`` property names.
+
+        Every link door writes ``supporting`` unless told otherwise, so an absent
+        or unknown value reads as :attr:`SUPPORTING` — the tier it would have been
+        written with.
+        """
+        try:
+            return cls(value) if value is not None else cls.SUPPORTING
+        except ValueError:
+            return cls.SUPPORTING

@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
     from core.models.enums import ContextHealthScore
+    from core.models.habit.habit import Habit
 
 # ============================================================================
 # CYPHER QUERY PARAMETERS
@@ -3372,6 +3373,34 @@ class LinkedHabitTally(TypedDict):
 
     total_habits: int
     avg_streak: float
+
+
+class SupportingHabitWindow(TypedDict):
+    """One habit that supports a goal, with what its adherence is counted from.
+
+    A row of ``GoalsBackend.get_supporting_habit_windows``: the habit as stored, the
+    ``essentiality`` its ``SUPPORTS_GOAL`` edge carries (``None`` when the edge has
+    none), and the ``completed_at`` stamps of its completions inside the adherence
+    window — the same stamps ``HabitsBackend.get_habit_window_completions`` reads, so
+    the goal's habit figure and the habit's own rate count the same completions.
+    """
+
+    habit: Habit
+    essentiality: str | None
+    completion_stamps: list[object]
+
+
+class RequiredKnowledgeTally(TypedDict):
+    """How much of a goal's required knowledge its owner has mastered.
+
+    A row of ``GoalsBackend.get_required_knowledge_tally``: the Kus the goal
+    ``REQUIRES_KNOWLEDGE`` and how many of those the owner has ``MASTERED`` — the
+    per-goal pair the user context's ``goal_completion_from_graph`` divides, read for
+    one goal. A goal that requires nothing — or no goal — reads 0 / 0.
+    """
+
+    required_knowledge: int
+    mastered_knowledge: int
 
 
 class HabitStats(TypedDict, total=False):

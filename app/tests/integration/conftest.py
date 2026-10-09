@@ -296,6 +296,10 @@ async def ensure_test_users(neo4j_driver):
         # The Goal complete → reopen → complete cycle (ADR-087 PR-3): the stamp clear
         # and the progress reset ride one write-time condition, proven on real goals.
         "user_goal_cycle",
+        # The goal progress dashboard's habit and knowledge figures (F8-4): the
+        # supporting habit's completions hang off this owner via :OWNS and its
+        # mastery is the owner's :MASTERED edge.
+        "user_goal_dashboard",
         # The Askesis aggregation tool's backend count (tool-selection first
         # slice): OWNS-scoped achieved-goal counts, plus a second owner to prove
         # cross-tenant isolation in the query itself.

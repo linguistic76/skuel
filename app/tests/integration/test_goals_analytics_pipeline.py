@@ -27,25 +27,33 @@ from the graph (``GoalsBackend.get_contribution_tally``).
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
 
-from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
+from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, HabitsBackend
+from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.enums import RecurrencePattern
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
+from core.models.habit.completion import HabitCompletion
+from core.models.habit.habit import Habit
 from core.models.relationship_registry import GOALS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
+from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 GL = "glctx_"  # uid prefix for this module's fixture graph
 GL_USER = GL + "user"  # owner of every seeded goal and activity
 GL_OTHER_USER = GL + "other_user"
+GL_OWNER = (
+    "user_goal_dashboard"  # a real User node (ensure_test_users): OWNS and MASTERED hang off it
+)
 GL_GOAL = GL + "goal"
 GL_GOAL_BARE = GL + "goal_bare"  # negative control: no cross-domain edges
 GL_TASK = GL + "task"  # task -[CONTRIBUTES_TO_GOAL]-> goal (contributing_tasks)
@@ -334,6 +342,187 @@ async def test_goal_dashboard_counts_by_the_tally_rule_not_the_neighbourhood(
 
 
 @pytest.mark.asyncio
+async def test_needs_more_tasks_reads_the_tally_not_the_neighbourhood(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """Three tasks that opt out of counting are three neighbours and zero contributions.
+
+    The insight follows the tally (``GoalDashboard.MIN_COUNTING_CONTRIBUTIONS``): the goal
+    with three opted-out tasks needs more tasks, the one with three counting tasks does not.
+    """
+    opted_goal, counting_goal = GL + "needs_goal", GL + "enough_goal"
+    await _seed_tally_goal(
+        neo4j_driver,
+        opted_goal,
+        [{"uid": f"{GL}needs_task_{i}", "status": "active", "counts": False} for i in range(3)],
+    )
+    await _seed_tally_goal(
+        neo4j_driver,
+        counting_goal,
+        [{"uid": f"{GL}enough_task_{i}", "status": "active"} for i in range(3)],
+    )
+    svc = _harness(rel_backend)
+
+    opted = await svc.get_goal_progress_dashboard(opted_goal, min_confidence=0.7)
+    assert opted.is_ok, opted
+    assert opted.value["metrics"]["task_support_count"] == 3  # the neighbourhood sees three
+    assert opted.value["supporting_activities"]["total_contributions"] == 0
+    assert opted.value["insights"]["needs_more_tasks"] is True
+
+    counting = await svc.get_goal_progress_dashboard(counting_goal, min_confidence=0.7)
+    assert counting.is_ok, counting
+    assert counting.value["supporting_activities"]["total_contributions"] == 3
+    assert counting.value["insights"]["needs_more_tasks"] is False
+
+
+async def _seed_owned_goal(neo4j_driver, goal_uid: str) -> None:
+    """A goal owned by ``GL_OWNER`` — the real User node the habit and knowledge figures read under."""
+    async with neo4j_driver.session() as s:
+        await s.run(
+            "MATCH (owner:User {uid:$owner}) "
+            "CREATE (owner)-[:OWNS]->(:Entity:Goal {uid:$u, entity_type:'goal', title:$u, "
+            "user_uid:$owner, status:'active', created_at:datetime()})",
+            u=goal_uid,
+            owner=GL_OWNER,
+        )
+
+
+async def _seed_supporting_habit(
+    neo4j_driver,
+    habit_uid: str,
+    goal_uid: str,
+    *,
+    essentiality: str,
+    kept_days: int,
+    age_days: int = 3,
+) -> None:
+    """A daily habit of ``GL_OWNER``'s, started ``age_days`` ago, supporting the goal at
+    ``essentiality``, kept on each of the last ``kept_days`` days through the real
+    completion writer (so its completions hang off the owner via ``OWNS``)."""
+    habits_backend = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
+    created = await habits_backend.create(
+        Habit(
+            uid=habit_uid,
+            user_uid=GL_OWNER,
+            title=habit_uid,
+            recurrence_pattern=RecurrencePattern.DAILY,
+        )
+    )
+    assert created.is_ok, created
+    async with neo4j_driver.session() as s:
+        await s.run(
+            "MATCH (h:Entity {uid:$h}), (g:Entity {uid:$g}) "
+            "SET h.created_at = datetime() - duration({days:$age}) "
+            "CREATE (h)-[:SUPPORTS_GOAL {confidence:0.95, essentiality:$e}]->(g)",
+            h=habit_uid,
+            g=goal_uid,
+            age=age_days,
+            e=essentiality,
+        )
+    completions = HabitsCompletionService(
+        habits_backend,
+        UniversalNeo4jBackend[HabitCompletion](
+            neo4j_driver, NeoLabel.HABIT_COMPLETION, HabitCompletion
+        ),
+    )
+    for n in range(kept_days):
+        recorded = await completions.record_completion(
+            habit_uid, GL_OWNER, completed_at=datetime.now() - timedelta(days=n)
+        )
+        assert recorded.is_ok, recorded
+
+
+@pytest.mark.asyncio
+async def test_habit_contribution_is_the_weighted_adherence_of_the_supporting_habits(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """One essential habit kept two of its four days reads 50 — its adherence, not the
+    neighbourhood's coverage.
+
+    Beside it an optional habit never kept, and another user's habit joined by the same
+    edge: the essential one's 0.5 at weight 1 and the optional one's 0.0 at weight 0.25
+    make 40; the foreign habit is not the owner's and counts for nothing (it would read
+    the pair as 22 if it did; an unweighted mean would read 25).
+    """
+    goal_uid = GL + "habit_figure_goal"
+    await _seed_owned_goal(neo4j_driver, goal_uid)
+    await _seed_supporting_habit(
+        neo4j_driver, GL + "essential_habit", goal_uid, essentiality="essential", kept_days=2
+    )
+    svc = _harness(rel_backend)
+
+    alone = await svc.get_goal_progress_dashboard(goal_uid, min_confidence=0.7)
+    assert alone.is_ok, alone
+    assert alone.value["contributions"]["habit_contribution"] == pytest.approx(50.0)
+
+    await _seed_supporting_habit(
+        neo4j_driver, GL + "optional_habit", goal_uid, essentiality="optional", kept_days=0
+    )
+    async with neo4j_driver.session() as s:
+        await s.run(
+            "MATCH (g:Entity {uid:$g}) "
+            "CREATE (:Entity:Habit {uid:$h, entity_type:'habit', title:$h, user_uid:$other, "
+            "recurrence_pattern:'daily', status:'active', "
+            "created_at:datetime() - duration({days:3})})"
+            "-[:SUPPORTS_GOAL {confidence:0.95, essentiality:'essential'}]->(g)",
+            g=goal_uid,
+            h=GL + "foreign_habit",
+            other=GL_OTHER_USER,
+        )
+
+    weighted = await svc.get_goal_progress_dashboard(goal_uid, min_confidence=0.7)
+    assert weighted.is_ok, weighted
+    assert weighted.value["contributions"]["habit_contribution"] == pytest.approx(40.0)
+
+
+@pytest.mark.asyncio
+async def test_learning_contribution_is_the_share_of_required_knowledge_mastered(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """Two required Kus, one of them mastered by the owner, reads 50 — not a count of
+    learning paths. A Ku another user mastered is not the owner's mastery."""
+    goal_uid = GL + "knowledge_figure_goal"
+    mastered_ku, open_ku = GL + "mastered_ku", GL + "open_ku"
+    await _seed_owned_goal(neo4j_driver, goal_uid)
+    async with neo4j_driver.session() as s:
+        for ku in (mastered_ku, open_ku):
+            await s.run(
+                "MATCH (g:Entity {uid:$g}) "
+                "CREATE (g)-[:REQUIRES_KNOWLEDGE {confidence:0.95}]->"
+                "(:Entity:Ku {uid:$k, entity_type:'ku', title:$k, created_at:datetime()})",
+                g=goal_uid,
+                k=ku,
+            )
+        await s.run(
+            "MATCH (owner:User {uid:$owner}), (k:Entity {uid:$k}) "
+            "CREATE (owner)-[:MASTERED {mastery_score:1.0}]->(k)",
+            owner=GL_OWNER,
+            k=mastered_ku,
+        )
+        # Another user's mastery of the open Ku: a MASTERED edge, not the owner's.
+        await s.run(
+            "MATCH (k:Entity {uid:$k}) "
+            "CREATE (:User {uid:$other})-[:MASTERED {mastery_score:1.0}]->(k)",
+            other=GL + "mastery_other_user",
+            k=open_ku,
+        )
+    svc = _harness(rel_backend)
+
+    res = await svc.get_goal_progress_dashboard(goal_uid, min_confidence=0.7)
+    assert res.is_ok, res
+    assert res.value["supporting_activities"]["learning_paths"] == []
+    assert res.value["contributions"]["learning_contribution"] == pytest.approx(50.0)
+
+    tally = await rel_backend.get_required_knowledge_tally(goal_uid)
+    assert tally.is_ok, tally
+    assert tally.value == {"required_knowledge": 2, "mastered_knowledge": 1}
+
+    # ``clean_neo4j`` keeps User nodes; the other user was this test's alone.
+    async with neo4j_driver.session() as s:
+        await s.run("MATCH (u:User {uid:$u}) DETACH DELETE u", u=GL + "mastery_other_user")
+
+
+@pytest.mark.asyncio
 async def test_a_contributor_with_two_edges_to_the_goal_counts_once(
     neo4j_driver, rel_backend, clean_neo4j
 ):
@@ -437,6 +626,9 @@ async def test_goal_intelligence_empty_when_no_edges(neo4j_driver, rel_backend, 
     assert dash.value["supporting_activities"]["total_contributions"] == 0
     assert dash.value["supporting_activities"]["completed_contributions"] == 0
     assert dash.value["contributions"]["contribution_progress"] == 0.0
+    assert dash.value["contributions"]["habit_contribution"] == 0.0
+    assert dash.value["contributions"]["learning_contribution"] == 0.0
+    assert dash.value["insights"]["needs_more_tasks"] is True
     assert dash.value["metrics"]["task_support_count"] == 0
     assert dash.value["metrics"]["has_habit_system"] is False
     # Empty context still produces the rich blocks (zeroed), not a crash.

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-09
 ---
 
 # GoalsIntelligenceService - Progress Forecasting & Predictive Analytics
@@ -121,7 +121,7 @@ async def get_goal_progress_dashboard(
     "contributions": {
         "contribution_progress": 37.5,
         "habit_contribution": 80.0,
-        "learning_contribution": 20.0
+        "learning_contribution": 33.3
     },
     "insights": {
         "needs_more_tasks": False,
@@ -147,8 +147,8 @@ async def get_goal_progress_dashboard(
 **Two sets, two questions.** The payload reports the goal's tasks in a neighbourhood and its
 contributions in a tally, and the two are not the same set:
 
-- `supporting_activities.tasks` and `metrics.task_support_count` (which `insights.needs_more_tasks`
-  reads) are the **neighbourhood** — the tasks the path-aware context reaches at `min_confidence`.
+- `supporting_activities.tasks` / `habits` and `metrics.task_support_count` / `habit_support_count`
+  are the **neighbourhood** — the entities the path-aware context reaches at `min_confidence`.
 - `supporting_activities.total_contributions` / `completed_contributions` and
   `contributions.contribution_progress` are the **progress tally** — the goal owner's tasks and
   events that `CONTRIBUTES_TO_GOAL` the goal, CANCELLED ones and tasks with
@@ -164,6 +164,25 @@ A task that opts out of the tally is in the list and in neither count; a contrib
 at every door that changes a contribution (`docs/domains/goals.md` § The contribution tally), and
 `./dev reconcile-goal-tallies` repairs a goal whose trigger was lost. A goal that is not TASK_BASED
 is never written from the tally, so its stored figure and the tally can differ.
+
+**The derived figures** (`core/services/goals/dashboard_figures.py`) are what the owner has done,
+never the neighbourhood's size — each over one read the backend makes for the goal:
+
+- `insights.needs_more_tasks` — the tally holds fewer counting contributions than
+  `GoalDashboard.MIN_COUNTING_CONTRIBUTIONS` (`core/constants.py`). Three tasks that opt out of
+  counting are three neighbours and zero contributions, so the goal still needs tasks.
+- `contributions.habit_contribution` — the essentiality-weighted mean adherence of the owner's habits
+  that `SUPPORTS_GOAL` the goal, as a percentage. Each habit's adherence is the one read-time
+  definition (`habit_adherence`, `core/models/habit/adherence.py`) over the trailing window, from
+  the stamps `GoalsBackend.get_supporting_habit_windows` reads under the owner's `OWNS` edge — the
+  same stamps the habit's own `success_rate` is derived from. The weight is the edge's
+  `essentiality` tier (`HabitEssentiality.get_weight()`, values in `HabitEssentialityWeight`; an
+  untagged edge weighs as `supporting`, the tier every link door writes by default). A habit with
+  no rate yet is left out of both sides of the mean; `0.0` when no supporting habit has one.
+- `contributions.learning_contribution` — the share of the Kus the goal `REQUIRES_KNOWLEDGE` that
+  the owner has `MASTERED`, as a percentage (`GoalsBackend.get_required_knowledge_tally`) — the
+  per-goal figure the user context carries as `goal_completion_from_graph`, read for one goal.
+  `0.0` when the goal requires nothing.
 
 **Example:**
 ```python
