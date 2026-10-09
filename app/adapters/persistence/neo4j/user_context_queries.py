@@ -997,18 +997,23 @@ RETURN {
 # Principle support — the goals each of the user's principles supports, read off
 # ``(Principle)-[:SUPPORTS_GOAL]->(Goal)``, the one edge both link doors write
 # (the goal's and the principle's — ADR-090). Its own statement: no other family
-# reads a principle's goal links. Every status of goal is carried, as
-# ``habits_by_goal`` carries a habit's; a reader keeps the active ones. A habit
-# and a PathStep write SUPPORTS_GOAL too, so the near end is the owned
-# ``:Principle``; another user's goal is left out by ``__FAR(goal)__``.
+# reads a principle's goal links. Only an active principle guides (the standard
+# build's ``core_principle_uids`` holds the same line); every status of goal is
+# carried, as ``habits_by_goal`` carries a habit's, and a reader keeps the active
+# ones. A habit and a PathStep write SUPPORTS_GOAL too, so the near end is the
+# owned ``:Principle``; another user's goal is left out by ``__FAR(goal)__``.
 PRINCIPLE_GOAL_SUPPORT_QUERY: str = _tie_far_nodes(
     """
 MATCH (user:User {uid: $user_uid})
-OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)-[:SUPPORTS_GOAL]->(goal:Goal)
+// Two hops, the principle bound first: the goal hop expands from the user's own
+// principles (one pattern lets the planner scan every SUPPORTS_GOAL edge instead).
+OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
+WHERE principle.status = $status_active
+OPTIONAL MATCH (principle)-[:SUPPORTS_GOAL]->(goal:Goal)
 WHERE __FAR(goal)__
 WITH user, principle, collect(DISTINCT goal.uid) as goal_uids
 WITH user,
-     collect(CASE WHEN principle IS NOT NULL THEN {uid: principle.uid, goal_uids: goal_uids} END) as principle_goal_support
+     collect(CASE WHEN principle IS NOT NULL AND size(goal_uids) > 0 THEN {uid: principle.uid, goal_uids: goal_uids} END) as principle_goal_support
 RETURN {
     rich: {
         principle_goal_support: principle_goal_support

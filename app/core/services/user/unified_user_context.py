@@ -360,7 +360,7 @@ class UserContext:
     current_principle_focus: str | None = None
     # uid -> importance (PrincipleStrength.importance()); written by the rich build
     principle_priorities: dict[str, float] = field(default_factory=dict)
-    # principle uid -> the goals it SUPPORTS_GOAL, any status; written by the rich build
+    # active principle uid -> the goals it SUPPORTS_GOAL, any status; written by the rich build
     principle_supported_goals: dict[str, list[str]] = field(default_factory=dict)
     principle_conflicts: list[tuple[str, str]] = field(default_factory=list)
 

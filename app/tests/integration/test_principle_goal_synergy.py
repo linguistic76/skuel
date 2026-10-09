@@ -13,6 +13,7 @@ The learner:
                                       G_DONE (linked, then completed)
     P_NONE     strength exploring  -> nothing
     P_FOREIGN  strength moderate   -> another user's goal (seeded raw)
+    P_ARCHIVED strength core       -> G_LEARN, then archived: an archived principle guides nothing
     G_UNLINKED an active learning goal no principle supports
 
 The app runs bootstrapped over its own graph (``tests/integration/_activity_link_rig.py``).
@@ -86,6 +87,7 @@ async def env(
             "p_linked": await create(client, "principles", f"{MARK} linked", strength="core"),
             "p_none": await create(client, "principles", f"{MARK} none", strength="exploring"),
             "p_foreign": await create(client, "principles", f"{MARK} foreign", strength="moderate"),
+            "p_archived": await create(client, "principles", f"{MARK} archived", strength="core"),
         }
         for goal in ("g_learn", "g_done"):
             linked = await client.post(
@@ -98,6 +100,16 @@ async def env(
             json={"link_type": "goal", "target_uid": uids["g_outcome"]},
         )
         assert linked.status_code == 200, linked.text
+        linked = await client.post(
+            "/api/goals/link-principle",
+            json={"goal_uid": uids["g_learn"], "principle_uid": uids["p_archived"]},
+        )
+        assert linked.status_code == 200, linked.text
+        archived = await client.post(
+            f"/api/principles/{uids['p_archived']}/status", data={"status": "archived"}
+        )
+        assert archived.status_code == 200, archived.text
+        assert "Missing status" not in archived.text and "Invalid status" not in archived.text
         done = await client.post(
             f"/api/goals/{uids['g_done']}/status", data={"status": "completed"}
         )
@@ -127,7 +139,7 @@ async def test_the_rich_build_reads_the_goals_each_principle_supports(env: Env) 
     context = await _rich(env)
     u = env.uids
 
-    # Every status of goal; another user's goal is no goal of the learner's principle.
+    # Every status of goal; an archived principle, and another user's goal, are absent.
     assert context.principle_supported_goals == {
         u["p_linked"]: sorted([u["g_learn"], u["g_outcome"], u["g_done"]])
     }
@@ -141,6 +153,7 @@ async def test_the_rich_build_weighs_each_principle_by_its_strength(env: Env) ->
         u["p_linked"]: 1.0,
         u["p_none"]: 0.2,
         u["p_foreign"]: 0.6,
+        u["p_archived"]: 1.0,
     }
 
 
@@ -173,7 +186,7 @@ async def test_unlinked_principles_and_goals_appear_in_no_synergy(env: Env) -> N
     named = {s.source_uid for s in result.value} | {
         uid for s in result.value for uid in s.target_uids
     }
-    for absent in ("p_none", "p_foreign", "g_unlinked", "g_done"):
+    for absent in ("p_none", "p_foreign", "p_archived", "g_unlinked", "g_done"):
         assert u[absent] not in named, absent
     assert FOREIGN_GOAL not in named
 
