@@ -779,7 +779,7 @@ async def get_schedule_aware_recommendations(
     max_recommendations: int = 5,
     time_horizon_hours: int = 8,
     respect_energy: bool = True,
-) -> list[ScheduleAwareRecommendation]:
+) -> Result[list[ScheduleAwareRecommendation]]:
 ```
 
 **Parameters:**

@@ -12,6 +12,7 @@ the ``/insights`` page mounting the section only when the hub is wired.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -143,7 +144,6 @@ def _make_harness(
     monkeypatch: pytest.MonkeyPatch,
     *,
     authenticated: bool = True,
-    hub_wired: bool = True,
     context: Result[RichUserContext] | None = None,
 ) -> _Harness:
     app, rt = fast_app(pico=False, default_hdrs=False)
@@ -177,11 +177,26 @@ def _make_harness(
         None,
         rt,
         store,
-        user_service=user_service if hub_wired else None,
-        context_intelligence=factory if hub_wired else None,
+        user_service=user_service,
+        context_intelligence=factory,
         ku_service=ku_service,
     )
     return _Harness(TestClient(app), user_service, factory, hub, ku_service)
+
+
+class TestRegistration:
+    @pytest.mark.parametrize("absent", ["user_service", "context_intelligence", "ku_service"])
+    def test_a_missing_hub_service_refuses_registration(self, absent: str) -> None:
+        """The hub is wired in both tiers; a page without its cards is not a mode."""
+        _app, rt = fast_app(pico=False, default_hdrs=False)
+        services: dict[str, Any] = {
+            "user_service": MagicMock(),
+            "context_intelligence": MagicMock(),
+            "ku_service": MagicMock(),
+        }
+        services[absent] = None
+        with pytest.raises(ValueError, match=absent):
+            create_insights_ui_routes(None, rt, MagicMock(), **services)
 
 
 class TestTheDoor:
@@ -247,12 +262,6 @@ class TestTheDoor:
         assert response.status_code == 200
         assert 'id="hub-learn-next"' in response.text and "couldn't be answered" in response.text
 
-    def test_an_unwired_hub_answers_the_error_card(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        harness = _make_harness(monkeypatch, hub_wired=False)
-        response = harness.client.get("/insights/hub/right-now")
-        assert response.status_code == 200
-        assert "not wired" in response.text
-
 
 class TestTitles:
     def test_context_titles_first_and_one_ku_batch_for_the_rest(
@@ -264,6 +273,25 @@ class TestTitles:
         assert "Unseen concept" in response.text
         assert "Knowledge Unit" not in response.text
         # Only the uid the context lacked went to the graph.
+        harness.ku_service.get_kus_batch.assert_awaited_once_with([KU_OUTSIDE])
+
+    def test_a_record_saying_ku_instead_of_knowledge_resolves_too(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+        harness.hub.get_schedule_aware_recommendations.return_value = Result.ok(
+            [
+                ScheduleAwareRecommendation(
+                    uid=KU_OUTSIDE,
+                    entity_type="ku",
+                    recommendation_type="learn",
+                    title=KU_OUTSIDE,
+                    rationale="ready",
+                )
+            ]
+        )
+        response = harness.client.get("/insights/hub/right-now")
+        assert "Unseen concept" in response.text
         harness.ku_service.get_kus_batch.assert_awaited_once_with([KU_OUTSIDE])
 
     def test_no_missing_title_means_no_ku_read(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -301,20 +329,10 @@ class TestTitles:
 
 
 class TestThePage:
-    def test_the_page_mounts_the_section_when_the_hub_is_wired(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_the_page_mounts_the_section(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
         response = harness.client.get("/insights")
         assert response.status_code == 200
         assert 'id="insights-hub"' in response.text
         for question in HubQuestion:
             assert f'hx-get="{question.fragment_url()}"' in response.text, question
-
-    def test_the_page_omits_the_section_when_the_hub_is_not_wired(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        harness = _make_harness(monkeypatch, hub_wired=False)
-        response = harness.client.get("/insights")
-        assert response.status_code == 200
-        assert 'id="insights-hub"' not in response.text

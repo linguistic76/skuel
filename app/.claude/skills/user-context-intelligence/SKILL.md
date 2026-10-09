@@ -53,8 +53,8 @@ factory's `_required_services` dict.
 | 5 | **`get_ready_to_work_on_today(prioritize_life_path=True, respect_capacity=True)`** | DailyPlanning | `Result[DailyWorkPlan]` | six Activity facades, `ps`, `exercises`, `vector_search`, `filtered_providers`, context |
 | 6 | `get_cross_domain_synergies(min_synergy_score=0.3, include_types=None)` | Synergy | `Result[list[CrossDomainSynergy]]` | context only |
 | 7 | `calculate_life_path_alignment()` | LifePath | `Result[LifePathAlignment]` | context only |
-| 8 | `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8, respect_energy=True)` | Schedule | `list[ScheduleAwareRecommendation]` — **a bare list, not a `Result`** | context only |
-| 9 | `get_cross_domain_perception_analysis()` | Perception | `Result[dict[str, Any]]` | `goals` / `habits` / `principles` backends, context |
+| 8 | `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8, respect_energy=True)` | Schedule | `Result[list[ScheduleAwareRecommendation]]` — always ok (fail-soft: fewer candidates, never an error) | context only |
+| 9 | `get_cross_domain_perception_analysis()` | Perception | `Result[PerceptionAnalysis]` | `goals` / `habits` / `principles` backends, context |
 
 The flags on method 1 mean one thing whichever of its four sources answers: `consider_goals`
 adds a goal weight to a step's score, `consider_capacity` keeps the steps that fit the day

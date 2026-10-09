@@ -19,7 +19,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import parse_int_query_param
-from core.models.enums import HubQuestion
+from core.models.enums import EntityType, HubQuestion
 from core.services.user.rich_context import rich_entity_titles
 from core.utils.logging import get_logger
 from ui.components import ButtonT
@@ -58,14 +58,25 @@ if TYPE_CHECKING:
 
     from core.models.insight.persisted_insight import PersistedInsight
     from core.services.insight import InsightStore
-    from core.services.user.intelligence import UserContextIntelligence
+    from core.services.ku_service import KuService
+    from core.services.user.intelligence import (
+        UserContextIntelligence,
+        UserContextIntelligenceFactory,
+    )
     from core.services.user.unified_user_context import RichUserContext
+    from core.services.user_service import UserService
 
 logger = get_logger("skuel.routes.insights.ui")
 
-# The record domains whose uids are Kus — the one kind the rich context may hold
-# no title for (a Ku the user has not engaged), so the card reads them in one batch.
-_KNOWLEDGE_DOMAIN = "knowledge"
+
+def _names_a_ku(domain: str) -> bool:
+    """Whether a record's domain word is the Ku kind — the one kind the rich context
+    may hold no title for (a Ku the user has not engaged), read in one batch.
+
+    The records speak ``"knowledge"``; ``EntityType.from_string`` resolves that alias
+    and the canonical ``"ku"`` alike, so a record emitting either is a Ku here.
+    """
+    return EntityType.from_string(domain) is EntityType.KU
 
 
 def _parse_insights_filters(request: Request) -> InsightsFilters:
@@ -117,7 +128,7 @@ def _build_filter_query_string(filters: InsightsFilters) -> str:
 
 
 async def _resolve_titles(
-    context: RichUserContext, ku_uids: Iterable[str], ku_service: Any
+    context: RichUserContext, ku_uids: Iterable[str], ku_service: KuService
 ) -> dict[str, str]:
     """Titles for the uids a card names: the rich context's, plus one Ku batch for the rest.
 
@@ -127,7 +138,7 @@ async def _resolve_titles(
     """
     titles = rich_entity_titles(context)
     missing = sorted({uid for uid in ku_uids if uid and uid not in titles})
-    if not missing or ku_service is None:
+    if not missing:
         return titles
     batch = await ku_service.get_kus_batch(missing)
     if batch.is_error:
@@ -144,7 +155,7 @@ async def _resolve_titles(
 
 
 async def _answer_learn_next(
-    hub: UserContextIntelligence, context: RichUserContext, ku_service: Any
+    hub: UserContextIntelligence, context: RichUserContext, ku_service: KuService
 ) -> FT:
     result = await hub.get_optimal_next_path_steps()
     if result.is_error:
@@ -155,7 +166,7 @@ async def _answer_learn_next(
 
 
 async def _answer_unblock_first(
-    hub: UserContextIntelligence, context: RichUserContext, ku_service: Any
+    hub: UserContextIntelligence, context: RichUserContext, ku_service: KuService
 ) -> FT:
     result = await hub.get_unblocking_priority_order()
     if result.is_error:
@@ -166,7 +177,7 @@ async def _answer_unblock_first(
 
 
 async def _answer_synergies(
-    hub: UserContextIntelligence, context: RichUserContext, ku_service: Any
+    hub: UserContextIntelligence, context: RichUserContext, ku_service: KuService
 ) -> FT:
     result = await hub.get_cross_domain_synergies()
     if result.is_error:
@@ -174,16 +185,16 @@ async def _answer_synergies(
     synergies = result.value
     ku_uids: list[str] = []
     for synergy in synergies:
-        if synergy.source_domain == _KNOWLEDGE_DOMAIN:
+        if _names_a_ku(synergy.source_domain):
             ku_uids.append(synergy.source_uid)
-        if synergy.target_domain == _KNOWLEDGE_DOMAIN:
+        if _names_a_ku(synergy.target_domain):
             ku_uids.extend(synergy.target_uids)
     titles = await _resolve_titles(context, ku_uids, ku_service)
     return render_synergies_card(synergies, titles)
 
 
 async def _answer_alignment(
-    hub: UserContextIntelligence, context: RichUserContext, ku_service: Any
+    hub: UserContextIntelligence, context: RichUserContext, ku_service: KuService
 ) -> FT:
     result = await hub.calculate_life_path_alignment()
     if result.is_error:
@@ -194,7 +205,7 @@ async def _answer_alignment(
 
 
 async def _answer_right_now(
-    hub: UserContextIntelligence, context: RichUserContext, ku_service: Any
+    hub: UserContextIntelligence, context: RichUserContext, ku_service: KuService
 ) -> FT:
     result = await hub.get_schedule_aware_recommendations()
     if result.is_error:
@@ -202,14 +213,14 @@ async def _answer_right_now(
     recommendations = result.value
     titles = await _resolve_titles(
         context,
-        (rec.uid for rec in recommendations if rec.entity_type == _KNOWLEDGE_DOMAIN),
+        (rec.uid for rec in recommendations if _names_a_ku(rec.entity_type)),
         ku_service,
     )
     return render_right_now_card(recommendations, titles)
 
 
 async def _answer_perception(
-    hub: UserContextIntelligence, _context: RichUserContext, _ku_service: Any
+    hub: UserContextIntelligence, _context: RichUserContext, _ku_service: KuService
 ) -> FT:
     result = await hub.get_cross_domain_perception_analysis()
     if result.is_error:
@@ -221,7 +232,7 @@ async def _answer_perception(
 # a question without an answer is a KeyError at import time in the test, not a 500.
 _ANSWERS: dict[
     HubQuestion,
-    Callable[[UserContextIntelligence, RichUserContext, Any], Awaitable[FT]],
+    Callable[[UserContextIntelligence, RichUserContext, KuService], Awaitable[FT]],
 ] = {
     HubQuestion.LEARN_NEXT: _answer_learn_next,
     HubQuestion.UNBLOCK_FIRST: _answer_unblock_first,
@@ -236,11 +247,14 @@ def create_insights_ui_routes(
     app: Any,
     rt: Any,
     insight_store: Any,
-    user_service: Any = None,
-    context_intelligence: Any = None,
-    ku_service: Any = None,
+    user_service: UserService,
+    context_intelligence: UserContextIntelligenceFactory,
+    ku_service: KuService,
 ) -> None:
     """Create insights UI routes.
+
+    The three hub services are REQUIRED — the hub is wired in both tiers, and a
+    page that silently dropped its cards would be a second, degraded path.
 
     Args:
         app: FastHTML app instance
@@ -249,15 +263,23 @@ def create_insights_ui_routes(
         user_service: UserService — ``get_rich_unified_context`` builds the context the
             hub answers from (cached, 5-minute TTL)
         context_intelligence: ``UserContextIntelligenceFactory`` — creates the hub for a
-            context. With ``user_service`` it enables the "Your intelligence" section and
-            the ``/insights/hub/{question}`` fragments; absent, the section is not mounted.
+            context; its answers are the "Your intelligence" section's cards
         ku_service: KuService — one batched read for the Ku titles the context lacks
+
+    Raises:
+        ValueError: when a hub service is missing — at registration, not at click time
     """
-    hub_wired = user_service is not None and context_intelligence is not None
-    if not hub_wired:
-        logger.warning(
-            "Insights hub cards not mounted: user_service or context_intelligence absent"
+    missing = [
+        name
+        for name, service in (
+            ("user_service", user_service),
+            ("context_intelligence", context_intelligence),
+            ("ku_service", ku_service),
         )
+        if service is None
+    ]
+    if missing:
+        raise ValueError(f"Insights UI routes require the hub services; missing: {missing}")
 
     @rt("/insights")
     async def insights_dashboard(request):
@@ -360,7 +382,7 @@ def create_insights_ui_routes(
                 ),
                 cls="mb-4",
             ),
-            render_hub_section() if hub_wired else Div(),
+            render_hub_section(),
             filter_form,
             charts_section if charts_section else Div(),
             bulk_action_bar,
@@ -452,8 +474,6 @@ def create_insights_ui_routes(
             asked = HubQuestion(question)
         except ValueError:
             return Response("Unknown question", status_code=404, media_type="text/plain")
-        if not hub_wired:
-            return render_hub_card_error(asked, "The intelligence hub is not wired.")
 
         context_result = await user_service.get_rich_unified_context(user_uid)
         if context_result.is_error:

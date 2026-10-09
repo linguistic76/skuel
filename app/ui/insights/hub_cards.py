@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, A, Div, Li, P, Span, Ul
 
-from core.models.enums import HubQuestion
+from core.models.enums import EntityType, HubQuestion
 from ui.components import Card, CardBody, CardHeader
 from ui.feedback import Badge, BadgeT
 from ui.layout import Grid
@@ -49,10 +49,9 @@ STAGED_CRITICAL_PATH_NOTE = (
     "learning-path walk lands."
 )
 
-# Record domains → the entity kind a detail href is resolved from. The synergy
-# and schedule records say "knowledge" where the Ku page is the destination.
+# Record domains ``EntityType.from_string`` cannot resolve → the entity kind a
+# detail href is resolved from (the engagement synergy says "pathstep").
 _RECORD_DOMAIN_TO_ENTITY_TYPE: dict[str, str] = {
-    "knowledge": "ku",
     "pathstep": "path_step",
 }
 
@@ -138,10 +137,19 @@ def _entity_link(
 ) -> FT:
     """The entity's title, linked to its detail page when it has one."""
     text = titles.get(uid) or fallback or uid
-    href = entity_detail_href(_RECORD_DOMAIN_TO_ENTITY_TYPE.get(domain, domain), uid)
+    href = entity_detail_href(_entity_type_of(domain), uid)
     if href is None:
         return Span(text, cls="font-medium text-foreground")
     return A(text, href=href, cls="font-medium text-foreground hover:underline")
+
+
+def _entity_type_of(domain: str) -> str:
+    """The canonical entity kind a record's domain word names — the records say
+    "knowledge" where the Ku page is the destination; aliases resolve at this boundary."""
+    resolved = EntityType.from_string(domain)
+    if resolved is not None:
+        return resolved.value
+    return _RECORD_DOMAIN_TO_ENTITY_TYPE.get(domain, domain)
 
 
 def _score_badge(score: float, label: str | None = None) -> FT:

@@ -117,6 +117,7 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         self.activity = UserActivityService(
             user_repo, event_bus=event_bus, metrics_cache=metrics_cache
         )
+        self._rich_context_builds = {}
 
         # Context builder requires the injected query executor.
         #

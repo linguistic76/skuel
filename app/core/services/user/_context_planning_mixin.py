@@ -12,6 +12,8 @@ See: /docs/patterns/SERVICE_DECOMPOSITION_RULE.md
 
 from __future__ import annotations
 
+import asyncio
+import functools
 from typing import TYPE_CHECKING
 
 from core.utils.logging import get_logger
@@ -46,6 +48,9 @@ class _ContextPlanningMixin:
     context_builder: UserContextBuilder | None
     activity: UserActivityService
     intelligence_factory: UserContextIntelligenceFactory | None
+    # The rich builds in flight, by (user, min_confidence): concurrent readers of one
+    # user's context on a cold cache await the one MEGA-QUERY instead of each running it.
+    _rich_context_builds: dict[tuple[UserUID, float], asyncio.Task[Result[RichUserContext]]]
     # Delegation method defined on the facade — typed so calls stay checked
     get_user: Callable[[UserUID], Awaitable[Result[User | None]]]
 
@@ -209,13 +214,23 @@ class _ContextPlanningMixin:
             )
 
         # ========================================================================
-        # STEP 2: Cache miss - build from database (the MEGA-QUERY)
+        # STEP 2: Cache miss - build from database (the MEGA-QUERY), single-flight
         # ========================================================================
         # Use builder-owned user resolution to avoid duplicating lookup/error handling
-        # and keep MEGA-QUERY orchestration in a single place.
-        context_result = await self.context_builder.build_rich(
-            user_uid, min_confidence=min_confidence
-        )
+        # and keep MEGA-QUERY orchestration in a single place. Readers that miss
+        # together — the six Insights cards loading one page, the Today surface
+        # beside the sidebar — share one build: the first starts it, the rest await
+        # it. ``shield`` keeps one reader's cancellation from cancelling the build
+        # under the others; the task removes itself when it settles.
+        key = (user_uid, min_confidence)
+        in_flight = self._rich_context_builds.get(key)
+        if in_flight is None:
+            in_flight = asyncio.create_task(
+                self.context_builder.build_rich(user_uid, min_confidence=min_confidence)
+            )
+            self._rich_context_builds[key] = in_flight
+            in_flight.add_done_callback(functools.partial(self._forget_rich_build, key))
+        context_result = await asyncio.shield(in_flight)
 
         if context_result.is_error:
             return context_result
@@ -232,6 +247,12 @@ class _ContextPlanningMixin:
             )
 
         return Result.ok(context)
+
+    def _forget_rich_build(
+        self, key: tuple[UserUID, float], _task: asyncio.Task[Result[RichUserContext]]
+    ) -> None:
+        """Drop a settled build so the next miss starts a fresh one."""
+        self._rich_context_builds.pop(key, None)
 
     async def get_daily_work_plan(
         self,
