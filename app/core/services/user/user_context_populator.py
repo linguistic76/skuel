@@ -619,14 +619,19 @@ class UserContextPopulator:
         rich_data: dict[str, Any],
     ) -> None:
         """
-        Populate the life path's knowledge and the goals that serve it.
+        Populate the life path's knowledge, its prerequisites and the goals that serve it.
 
         Args:
             context: UserContext to populate
             rich_data: The "rich" section, carrying the life-path knowledge statement's
-                ``life_path_knowledge_uids`` / ``life_path_goal_uids``
+                ``life_path_knowledge`` (``{uid, prerequisite_uids}`` per Ku) and
+                ``life_path_goal_uids``
         """
-        context.life_path_knowledge_uids = set(rich_data.get("life_path_knowledge_uids") or [])
+        context.life_path_prerequisites = {
+            item["uid"]: set(item.get("prerequisite_uids") or [])
+            for item in rich_data.get("life_path_knowledge") or []
+        }
+        context.life_path_knowledge_uids = set(context.life_path_prerequisites)
         context.life_path_goal_uids = set(rich_data.get("life_path_goal_uids") or [])
 
     def populate_group_awareness(self, context: UserContext, data: dict[str, Any]) -> None:

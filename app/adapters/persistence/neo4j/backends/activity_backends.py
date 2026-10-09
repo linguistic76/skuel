@@ -671,6 +671,24 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         rows = result.value or []
         return Result.ok(rows[0]["life_path_uid"] if rows else None)
 
+    async def remove_other_life_path_links(self, goal_uid: str, keep_uid: str) -> Result[int]:
+        """Delete the goal's ``SERVES_LIFE_PATH`` edges to any path but ``keep_uid``.
+
+        A goal serves one life path; this is what makes a new link replace an old one.
+        Returns how many edges were deleted.
+        """
+        cypher = f"""
+        MATCH (goal:{NeoLabel.GOAL.value} {{uid: $goal_uid}})-[link:{RelationshipName.SERVES_LIFE_PATH.value}]->(path)
+        WHERE path.uid <> $keep_uid
+        DELETE link
+        RETURN count(link) AS removed
+        """
+        result = await self.execute_query(cypher, {"goal_uid": goal_uid, "keep_uid": keep_uid})
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(int(rows[0]["removed"]) if rows else 0)
+
     async def _find_linked_goals(
         self,
         target_uid: str,

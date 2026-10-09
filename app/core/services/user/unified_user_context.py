@@ -257,10 +257,11 @@ class UserContext:
     life_path_uid: str | None = None  # The user's life path (ultimate convergence)
     life_path_milestones: list[str] = field(default_factory=list)  # Major life milestones
     life_path_alignment_score: float = 0.0  # 0.0-1.0: How aligned are activities?
-    # The Kus the life path's steps compose, and the user's goals (every status) that
-    # SERVES_LIFE_PATH it; written by the rich build — read the goals through
-    # get_life_path_goal_uids()
+    # The Kus the life path's steps compose, each one's prerequisites (started or not),
+    # and the user's goals (every status) that SERVES_LIFE_PATH it; written by the rich
+    # build — read the goals through get_life_path_goal_uids()
     life_path_knowledge_uids: set[str] = field(default_factory=set)
+    life_path_prerequisites: dict[str, set[str]] = field(default_factory=dict)
     life_path_goal_uids: set[str] = field(default_factory=set)
 
     # Knowledge mastery

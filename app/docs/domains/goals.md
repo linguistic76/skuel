@@ -445,7 +445,8 @@ result = await goals_service.link_goal_to_life_path(
 
 Writes `(Goal)-[:SERVES_LIFE_PATH]->(LearningPath)`; `POST /api/goals/link-life-path` is its door.
 The far end is admitted only when it is the life path the goal's owner has designated
-(`(User)-[:ULTIMATE_PATH]->`); any other path is refused as not found. The goal page lists it under
+(`(User)-[:ULTIMATE_PATH]->`); any other path is refused as not found. A goal serves one life path:
+writing the link removes the goal's links to any other path. The goal page lists it under
 "The life path this goal serves", and the rich context reads it into `life_path_goal_uids` — the
 goals method 7 and the schedule recommendations count as serving the life path.
 

@@ -1046,22 +1046,30 @@ RETURN {
 # the edge that IS the designation) asks the learner to know, and which of the
 # learner's goals serve it. The knowledge is every Ku a step of the path composes
 # (``HAS_STEP``, then the canonical composition triple — the same definition
-# ``LifePathBackend`` counts alignment by); the goals are the learner's own that
-# carry ``SERVES_LIFE_PATH`` to that path, every status. A goal linked to any other
-# path reads as serving none. A draft step or Ku is left out by
-# ``__FAR(...)__``, as everywhere in the context.
+# ``LifePathBackend`` counts alignment by), each with its prerequisites read as the
+# knowledge statement reads a started Ku's (``REQUIRES_KNOWLEDGE`` at or above
+# ``$min_confidence``), so a Ku the learner has not started is ordered too. The goals
+# are the learner's own that carry ``SERVES_LIFE_PATH`` to that path, every status; a
+# goal linked to any other path reads as serving none. A draft step, Ku or
+# prerequisite is left out by ``__FAR(...)__``, as everywhere in the context.
 LIFE_PATH_KNOWLEDGE_QUERY: str = _tie_far_nodes(
     """
 MATCH (user:User {uid: $user_uid})
 OPTIONAL MATCH (user)-[:ULTIMATE_PATH]->(life_path:Entity)
 OPTIONAL MATCH (life_path)-[:HAS_STEP]->(step:PathStep)-[:__COMPOSITION_EDGES__]->(ku:Ku)
 WHERE __FAR(step)__ AND __FAR(ku)__
-WITH user, life_path, collect(DISTINCT ku.uid) as knowledge_uids
+WITH user, life_path, collect(DISTINCT ku) as kus
+UNWIND CASE WHEN size(kus) > 0 THEN kus ELSE [null] END as ku
+OPTIONAL MATCH (ku)-[prereq_rel:REQUIRES_KNOWLEDGE]->(prereq:Entity)
+WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence AND __FAR(prereq)__
+WITH user, life_path, ku, collect(DISTINCT prereq.uid) as prerequisite_uids
+WITH user, life_path,
+     collect(CASE WHEN ku IS NOT NULL THEN {uid: ku.uid, prerequisite_uids: prerequisite_uids} END) as knowledge
 OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)-[:SERVES_LIFE_PATH]->(life_path)
-WITH knowledge_uids, collect(DISTINCT goal.uid) as goal_uids
+WITH knowledge, collect(DISTINCT goal.uid) as goal_uids
 RETURN {
     rich: {
-        life_path_knowledge_uids: knowledge_uids,
+        life_path_knowledge: knowledge,
         life_path_goal_uids: goal_uids
     }
 } as result

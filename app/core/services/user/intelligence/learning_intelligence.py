@@ -486,9 +486,9 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
         Reads the context only: the life path's knowledge the user has not mastered
         (``life_path_knowledge_uids`` less ``mastered_knowledge_uids``), ordered so each
-        Ku follows its prerequisites (``ku_prerequisites``, known for the Kus the user
-        has started), the one unlocking the most first and a tie by uid. A Ku whose
-        unmet prerequisite lies outside that set is left off. The path's step order and
+        Ku follows its prerequisites (``life_path_prerequisites``, started or not), the
+        one unlocking the most first and a tie by uid. A Ku whose unmet prerequisite lies
+        outside that set is left off. The path's step order and
         the LP backend's critical path are not read; see
         ``/docs/roadmap/lp-backend-recommendation-methods.md``.
 
@@ -503,7 +503,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         while remaining:
             ready = []
             for ku_uid in sorted(remaining):
-                prereqs = self.context.ku_prerequisites.get(ku_uid, set())
+                prereqs = self.context.life_path_prerequisites.get(ku_uid, set())
                 unmet_prereqs = [p for p in prereqs if p not in completed]
                 if not unmet_prereqs:
                     ready.append(ku_uid)

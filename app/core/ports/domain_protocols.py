@@ -759,6 +759,13 @@ class GoalsOperations(
         """
         ...
 
+    async def remove_other_life_path_links(self, goal_uid: str, keep_uid: str) -> Result[int]:
+        """Unlink the goal from every life path but ``keep_uid``; returns how many links went.
+
+        Backend: GoalsBackend.remove_other_life_path_links
+        """
+        ...
+
     async def recompute_progress_from_contributions[P: GuardedWritePlan](
         self,
         goal_uid: str,

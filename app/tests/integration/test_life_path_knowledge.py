@@ -13,11 +13,13 @@ knowledge the path holds.
 The learner:
 
     LIFE        designated (the designate door) -> S1 -> KU_M (mastered), KU_P (in progress 0.5)
-                                                -> S2 -> KU_U (not started)
+                                                -> S2 -> KU_U, KU_W (neither started;
+                                                         KU_U requires KU_W)
     KU_OFF      in progress 0.2, on no step of the life path
     G_LEARN     a learning goal requiring KU_OFF
     G_REQUIRES  an outcome goal requiring KU_M
-    G_LINKED    an outcome goal requiring nothing — linked to LIFE after the first build
+    G_LINKED    an outcome goal requiring nothing — linked to SPARE (a stale link, written
+                raw), then to LIFE through the door after the first build
 
     OTHER_LIFE  another user's designated life path
     SPARE       a published learning path nobody designated
@@ -70,6 +72,7 @@ S2 = f"ps.{MARK}.two"
 KU_M = f"ku.{MARK}.a-mastered"
 KU_P = f"ku.{MARK}.b-in-progress"
 KU_U = f"ku.{MARK}.c-not-started"
+KU_W = f"ku.{MARK}.d-needed-by-c"
 KU_OFF = f"ku.{MARK}.off-path"
 
 
@@ -100,13 +103,15 @@ async def _seed_curriculum(driver: AsyncDriver) -> None:
         await seed_published_learning_path(driver, path, path)
     for step in (S1, S2):
         await seed_published_path_step(driver, step, step)
-    for ku in (KU_M, KU_P, KU_U, KU_OFF):
+    for ku in (KU_M, KU_P, KU_U, KU_W, KU_OFF):
         await _seed_ku(driver, ku)
     await write_edge(driver, LIFE, "HAS_STEP", S1, {"sequence": 1})
     await write_edge(driver, LIFE, "HAS_STEP", S2, {"sequence": 2})
     await write_edge(driver, S1, "USES_KU", KU_M)
     await write_edge(driver, S1, "USES_KU", KU_P)
     await write_edge(driver, S2, "TRAINS_KU", KU_U)
+    await write_edge(driver, S2, "USES_KU", KU_W)
+    await write_edge(driver, KU_U, "REQUIRES_KNOWLEDGE", KU_W, {"confidence": 0.9})
     await write_edge(driver, USER, "MASTERED", KU_M, {"mastery_score": 1.0})
     await write_edge(driver, USER, "IN_PROGRESS", KU_P, {"progress": 0.5})
     await write_edge(driver, USER, "IN_PROGRESS", KU_OFF, {"progress": 0.2})
@@ -148,6 +153,7 @@ async def env(
         }
         await _link_knowledge(client, uids["g_learn"], KU_OFF)
         await _link_knowledge(client, uids["g_requires"], KU_M)
+        await write_edge(driver, uids["g_linked"], "SERVES_LIFE_PATH", SPARE)
 
         before = await services.context.context_builder.build_rich(USER)
         assert before.is_ok, before
@@ -183,17 +189,20 @@ async def test_the_life_path_knowledge_is_what_its_steps_compose(env: Env) -> No
     context = await _rich(env)
 
     assert context.life_path_uid == LIFE
-    assert context.life_path_knowledge_uids == {KU_M, KU_P, KU_U}
+    assert context.life_path_knowledge_uids == {KU_M, KU_P, KU_U, KU_W}
+    # every Ku's prerequisites, a Ku the learner has not started included
+    assert context.life_path_prerequisites == {KU_M: set(), KU_P: set(), KU_U: {KU_W}, KU_W: set()}
 
 
 async def test_a_gap_is_life_path_knowledge_not_mastered(env: Env) -> None:
     """Not every weak Ku the learner has started: KU_OFF is on no step."""
     context = await _rich(env)
 
-    assert context.get_life_path_gaps() == [KU_P, KU_U]
+    assert context.get_life_path_gaps() == [KU_P, KU_U, KU_W]
 
 
 async def test_the_link_door_writes_one_edge_to_the_designated_path(env: Env) -> None:
+    """The goal's stale link to SPARE went when the link to LIFE was written."""
     assert await _serves_life_path(env) == {(env.uids["g_linked"], LIFE)}
     context = await _rich(env)
     assert context.life_path_goal_uids == {env.uids["g_linked"]}
@@ -218,7 +227,10 @@ async def test_the_link_door_refuses_a_path_nobody_designated(env: Env) -> None:
 async def test_until_a_goal_carries_the_link_a_goal_requiring_its_knowledge_serves(
     env: Env,
 ) -> None:
-    """Before the link: the goal requiring KU_M; G_LEARN requires knowledge off the path."""
+    """Before the link: the goal requiring KU_M; G_LEARN requires knowledge off the path.
+
+    G_LINKED's link to SPARE, a path the learner has not designated, serves nothing.
+    """
     assert env.before_link.life_path_goal_uids == set()
     assert env.before_link.get_life_path_goal_uids() == [env.uids["g_requires"]]
 
@@ -230,27 +242,28 @@ async def test_once_a_goal_carries_the_link_the_link_decides(env: Env) -> None:
     intel = env.services.context_intelligence.create(context)
     alignment = (await intel.calculate_life_path_alignment()).value
     assert alignment.aligned_goals == (env.uids["g_linked"],)
-    assert alignment.knowledge_gaps == (KU_P, KU_U)
+    assert alignment.knowledge_gaps == (KU_P, KU_U, KU_W)
 
 
 async def test_method_7_scores_knowledge_over_the_life_path(env: Env) -> None:
-    """Mean mastery over KU_M (1.0), KU_P (0.5) and KU_U (not started, 0)."""
+    """Mean mastery over KU_M (1.0), KU_P (0.5), KU_U and KU_W (not started, 0)."""
     context = await _rich(env)
     intel = env.services.context_intelligence.create(context)
 
     alignment = (await intel.calculate_life_path_alignment()).value
 
-    assert alignment.knowledge_score == pytest.approx(0.5)
+    assert alignment.knowledge_score == pytest.approx(0.375)
 
 
 async def test_method_2_orders_the_unmastered_life_path_knowledge(env: Env) -> None:
+    """KU_W before KU_U, which requires it — neither started; the rest by uid."""
     context = await _rich(env)
     intel = env.services.context_intelligence.create(context)
 
     critical_path = await intel.get_learning_path_critical_path()
 
     assert critical_path.is_ok, critical_path
-    assert critical_path.value == [KU_P, KU_U]
+    assert critical_path.value == [KU_P, KU_W, KU_U]
 
 
 async def test_the_context_ranking_lifts_life_path_knowledge(env: Env) -> None:

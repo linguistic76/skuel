@@ -485,7 +485,7 @@ class UserContextBuilder:
         #     "entities": {tasks, goals, habits, events, choices, principles,
         #                  learning_paths, path_steps},  <- LP/PS normalized here
         #     "rich": {knowledge, learning_paths, path_steps, principle_support,
-        #              life_path_knowledge_uids, life_path_goal_uids},
+        #              life_path_knowledge, life_path_goal_uids},
         #     "life_path": {uid, alignment_score, dimensions},
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,

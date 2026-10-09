@@ -740,7 +740,8 @@ class GoalsService(
 
         The far end is admitted only when it is the life path the goal's owner has
         designated, and then as every link's far end is (a LearningPath, published).
-        Any other path is refused as not found, as the shared admission refuses.
+        Any other path is refused as not found, as the shared admission refuses. A goal
+        serves one life path: once the link is written, its links to any other path go.
         """
         designated = await self.backend.get_owner_life_path_uid(goal_uid)
         if designated.is_error:
@@ -753,9 +754,15 @@ class GoalsService(
                     reason="not the life path the goal's owner has designated",
                 )
             )
-        return await self.relationships.create_relationship(
+        linked = await self.relationships.create_relationship(
             "life_path", goal_uid, life_path_uid, far_end=LIFE_PATH_FAR_END
         )
+        if linked.is_error:
+            return linked
+        removed = await self.backend.remove_other_life_path_links(goal_uid, life_path_uid)
+        if removed.is_error:
+            return Result.fail(removed)
+        return linked
 
     async def unlink_goal_from_principle(self, uid: str, principle_uid: str) -> Result[bool]:
         """Unlink a principle from a goal. A habit's support of the goal is left alone."""

@@ -310,7 +310,7 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
         "knowledge",
         "learning_paths",
         "life_path_goal_uids",
-        "life_path_knowledge_uids",
+        "life_path_knowledge",
         "path_steps",
         "principle_support",
     ]
@@ -596,7 +596,13 @@ async def test_every_section_reads_what_the_one_statement_read(
     assert uids["moc_metadata"] == [{"uid": "moc.eq.one", "updated": _SEEDED_AT.isoformat()}]
 
     # life-path knowledge
-    assert sorted(mega["rich"]["life_path_knowledge_uids"]) == ["ku.eq.a", "ku.eq.life"]
+    # each Ku with its prerequisites, as the knowledge section reads a started Ku's
+    assert _canon(mega["rich"]["life_path_knowledge"]) == _canon(
+        [
+            {"uid": "ku.eq.a", "prerequisite_uids": ["ku.eq.pre", "ku.eq.c"]},
+            {"uid": "ku.eq.life", "prerequisite_uids": []},
+        ]
+    )
     assert sorted(mega["rich"]["life_path_goal_uids"]) == ["goal.eq.active", "goal.eq.done"]
 
     # learner state
@@ -716,6 +722,10 @@ async def test_the_rich_context_carries_every_section(
     assert context.life_path_uid == "lp.eq.life"
     assert context.life_path_alignment_score == 0.7
     assert context.life_path_knowledge_uids == {"ku.eq.a", "ku.eq.life"}
+    assert context.life_path_prerequisites == {
+        "ku.eq.a": {"ku.eq.pre", "ku.eq.c"},
+        "ku.eq.life": set(),
+    }
     assert context.life_path_goal_uids == {"goal.eq.active", "goal.eq.done"}
     assert context.get_life_path_goal_uids() == ["goal.eq.active"]  # the active one
     assert context.get_life_path_gaps() == ["ku.eq.life"]  # ku.eq.a is mastered

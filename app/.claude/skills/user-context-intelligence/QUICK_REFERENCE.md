@@ -376,6 +376,7 @@ test needs the fields listed against the mixin it exercises.
 | `life_path_goal_uids` | `set[str]` | life path, schedule (through `get_life_path_goal_uids()`) |
 | `life_path_knowledge_uids` | `set[str]` | learning, life path, schedule |
 | `life_path_milestones` | `list[str]` | life path |
+| `life_path_prerequisites` | `dict[str, set[str]]` | learning |
 | `life_path_uid` | `str` or `None` | daily plan, learning, life path |
 | `mastered_knowledge_uids` | `set[str]` | learning, life path, synergy |
 | `next_recommended_knowledge` | `list[str]` | learning |
