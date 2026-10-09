@@ -49,12 +49,6 @@ STAGED_CRITICAL_PATH_NOTE = (
     "learning-path walk lands."
 )
 
-# Record domains ``EntityType.from_string`` cannot resolve → the entity kind a
-# detail href is resolved from (the engagement synergy says "pathstep").
-_RECORD_DOMAIN_TO_ENTITY_TYPE: dict[str, str] = {
-    "pathstep": "path_step",
-}
-
 _SCORE_BADGE_THRESHOLDS: tuple[tuple[float, BadgeT], ...] = (
     (0.7, BadgeT.success),
     (0.4, BadgeT.warning),
@@ -145,11 +139,10 @@ def _entity_link(
 
 def _entity_type_of(domain: str) -> str:
     """The canonical entity kind a record's domain word names — the records say
-    "knowledge" where the Ku page is the destination; aliases resolve at this boundary."""
+    "knowledge" where the Ku page is the destination; aliases resolve at this boundary.
+    A word naming no kind ("meta", "multi") has no detail page and stays as it is."""
     resolved = EntityType.from_string(domain)
-    if resolved is not None:
-        return resolved.value
-    return _RECORD_DOMAIN_TO_ENTITY_TYPE.get(domain, domain)
+    return resolved.value if resolved is not None else domain
 
 
 def _score_badge(score: float, label: str | None = None) -> FT:

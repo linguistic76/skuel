@@ -28,6 +28,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from core.models.enums import EntityType
 from core.services.ps_engagement.engagement import Engagement
 from core.services.user.intelligence.synergy_intelligence import SynergyIntelligenceMixin
 
@@ -116,7 +117,7 @@ def test_completed_engagement_scores_max() -> None:
     assert len(synergies) == 1
     s = synergies[0]
     assert s.source_uid == "ps:algebra"
-    assert s.source_domain == "pathstep"
+    assert s.source_domain == EntityType.PATH_STEP.value
     assert s.target_domain == "multi"
     assert s.synergy_type == "spawns"
     assert s.synergy_score == 1.0
