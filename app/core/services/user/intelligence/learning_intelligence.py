@@ -486,33 +486,32 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
         Reads the context only: the life path's knowledge the user has not mastered
         (``life_path_knowledge_uids`` less ``mastered_knowledge_uids``), ordered so each
-        Ku follows its prerequisites (``life_path_prerequisites``, started or not), the
-        one unlocking the most first and a tie by uid. A Ku whose unmet prerequisite lies
-        outside that set is left off. The path's step order and
+        Ku follows its prerequisites (``life_path_prerequisites``, started or not). Of the
+        Kus ready at each step, the one that unlocks the most of the rest comes first — a
+        Ku whose one unmet prerequisite it is — and a tie goes by uid. A Ku whose unmet
+        prerequisite lies outside that set is left off. The path's step order and
         the LP backend's critical path are not read; see
         ``/docs/roadmap/lp-backend-recommendation-methods.md``.
 
         Returns:
             Result containing ordered list of KU UIDs representing critical path
         """
-        # Build dependency graph and find critical path
         critical_path = []
         remaining = self.context.life_path_knowledge_uids - self.context.mastered_knowledge_uids
         completed = set(self.context.mastered_knowledge_uids)
 
-        while remaining:
-            ready = []
-            for ku_uid in sorted(remaining):
-                prereqs = self.context.life_path_prerequisites.get(ku_uid, set())
-                unmet_prereqs = [p for p in prereqs if p not in completed]
-                if not unmet_prereqs:
-                    ready.append(ku_uid)
+        def unmet(ku_uid: str) -> set[str]:
+            return self.context.life_path_prerequisites.get(ku_uid, set()) - completed
 
+        def unlocks(ku_uid: str) -> int:
+            return sum(1 for other in remaining if unmet(other) == {ku_uid})
+
+        while remaining:
+            ready = [ku_uid for ku_uid in sorted(remaining) if not unmet(ku_uid)]
             if not ready:
                 break
 
-            # Choose the one that unlocks the most other items
-            best_ku = max(ready, key=self._count_items_unlocked_by)
+            best_ku = max(ready, key=unlocks)
             critical_path.append(best_ku)
             remaining.remove(best_ku)
             completed.add(best_ku)

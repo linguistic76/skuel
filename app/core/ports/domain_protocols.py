@@ -752,17 +752,12 @@ class GoalsOperations(
         """Find the UIDs of the user's goals a task or event contributes to (CONTRIBUTES_TO_GOAL)."""
         ...
 
-    async def get_owner_life_path_uid(self, goal_uid: str) -> Result[str | None]:
-        """The life path the goal's owner has designated, or ``None``.
+    async def link_to_designated_life_path(self, goal_uid: str, life_path_uid: str) -> Result[bool]:
+        """Link the goal to its owner's designated life path, replacing any other link.
 
-        Backend: GoalsBackend.get_owner_life_path_uid
-        """
-        ...
+        False, with nothing written, when ``life_path_uid`` is not that path.
 
-    async def remove_other_life_path_links(self, goal_uid: str, keep_uid: str) -> Result[int]:
-        """Unlink the goal from every life path but ``keep_uid``; returns how many links went.
-
-        Backend: GoalsBackend.remove_other_life_path_links
+        Backend: GoalsBackend.link_to_designated_life_path
         """
         ...
 

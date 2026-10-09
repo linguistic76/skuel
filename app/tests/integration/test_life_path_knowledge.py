@@ -256,14 +256,14 @@ async def test_method_7_scores_knowledge_over_the_life_path(env: Env) -> None:
 
 
 async def test_method_2_orders_the_unmastered_life_path_knowledge(env: Env) -> None:
-    """KU_W before KU_U, which requires it — neither started; the rest by uid."""
+    """KU_W first: it unlocks KU_U, which requires it (neither started); then by uid."""
     context = await _rich(env)
     intel = env.services.context_intelligence.create(context)
 
     critical_path = await intel.get_learning_path_critical_path()
 
     assert critical_path.is_ok, critical_path
-    assert critical_path.value == [KU_P, KU_W, KU_U]
+    assert critical_path.value == [KU_W, KU_P, KU_U]
 
 
 async def test_the_context_ranking_lifts_life_path_knowledge(env: Env) -> None:

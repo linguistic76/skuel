@@ -128,8 +128,8 @@ GOAL_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.GOAL.value}), "Goal")
 HABIT_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.HABIT.value}), "Habit")
 PRINCIPLE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.PRINCIPLE.value}), "Principle")
 CHOICE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.CHOICE.value}), "Choice")
-# A life path is a LearningPath the user has designated; which one is the link
-# door's own check (GoalsService.link_goal_to_life_path), beside this kind check.
+# A life path is a LearningPath the user has designated; which one is checked by
+# the statement that writes the link (GoalsService.link_goal_to_life_path).
 LIFE_PATH_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.LEARNING_PATH.value}), "Life path")
 
 

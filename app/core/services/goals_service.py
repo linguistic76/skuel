@@ -738,15 +738,21 @@ class GoalsService(
     async def link_goal_to_life_path(self, goal_uid: str, life_path_uid: str) -> Result[bool]:
         """Link a goal to the life path it serves (``SERVES_LIFE_PATH``).
 
-        The far end is admitted only when it is the life path the goal's owner has
-        designated, and then as every link's far end is (a LearningPath, published).
-        Any other path is refused as not found, as the shared admission refuses. A goal
-        serves one life path: once the link is written, its links to any other path go.
+        The far end is admitted as every link's far end is (a LearningPath, published),
+        then written only when it is the life path the goal's owner has designated —
+        the designation is read in the statement that writes the link, which also
+        removes the goal's links to any other path: a goal serves one life path. Any
+        other path is refused as not found, as the admission refuses.
         """
-        designated = await self.backend.get_owner_life_path_uid(goal_uid)
-        if designated.is_error:
-            return Result.fail(designated)
-        if designated.value != life_path_uid:
+        admitted = await self.relationships.admit_far_ends(
+            goal_uid, [life_path_uid], LIFE_PATH_FAR_END
+        )
+        if admitted.is_error:
+            return Result.fail(admitted)
+        linked = await self.backend.link_to_designated_life_path(goal_uid, life_path_uid)
+        if linked.is_error:
+            return Result.fail(linked)
+        if not linked.value:
             return Result.fail(
                 Errors.not_found(
                     LIFE_PATH_FAR_END.resource,
@@ -754,15 +760,7 @@ class GoalsService(
                     reason="not the life path the goal's owner has designated",
                 )
             )
-        linked = await self.relationships.create_relationship(
-            "life_path", goal_uid, life_path_uid, far_end=LIFE_PATH_FAR_END
-        )
-        if linked.is_error:
-            return linked
-        removed = await self.backend.remove_other_life_path_links(goal_uid, life_path_uid)
-        if removed.is_error:
-            return Result.fail(removed)
-        return linked
+        return Result.ok(True)
 
     async def unlink_goal_from_principle(self, uid: str, principle_uid: str) -> Result[bool]:
         """Unlink a principle from a goal. A habit's support of the goal is left alone."""
