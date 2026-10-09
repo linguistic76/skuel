@@ -255,7 +255,9 @@ class UserContext:
 
     # Life Path - THE ONE ultimate learning path (converges all learning)
     life_path_uid: str | None = None  # The user's life path (ultimate convergence)
-    life_path_milestones: list[str] = field(default_factory=list)  # Major life milestones
+    # Major milestones on the life path. STAGED: nothing writes it yet, so method 7 reports
+    # 0 of 0 — see /docs/roadmap/life-path-milestones.md
+    life_path_milestones: list[str] = field(default_factory=list)
     life_path_alignment_score: float = 0.0  # 0.0-1.0: How aligned are activities?
     # The Kus the life path's steps compose, each one's prerequisites (started or not),
     # and the user's goals (every status) that SERVES_LIFE_PATH it; written by the rich

@@ -450,7 +450,11 @@ class LifePathIntelligenceMixin(IntelligenceMixinBase):
         return 1.0 + (spawned_share * 0.20)
 
     def _count_completed_milestones(self) -> int:
-        """Count completed life path milestones."""
+        """Count completed life path milestones.
+
+        ``life_path_milestones`` is staged (no writer yet), so this counts 0 — see
+        /docs/roadmap/life-path-milestones.md.
+        """
         completed = 0
         for milestone_uid in self.context.life_path_milestones:
             # Check if milestone is in completed goals or mastered knowledge
