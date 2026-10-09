@@ -219,6 +219,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Askesis Intelligence Doors — the Hub Methods' Second Door](askesis-intelligence-doors.md) — The nine hub methods (`UserContextIntelligence`) get the Insights cards as their first door; Askesis' eight wrappers onto them, and the zoom lens's filter / sort / metadata half, stay staged as the second door — the Askesis conversation reaching a hub method by tool-selection (ruled 2026-10-08).
 
+## Life-Path Milestones — the Context Field Nothing Writes
+
+[Life-Path Milestones — the Context Field Nothing Writes](life-path-milestones.md) — `UserContext.life_path_milestones` is read by method 7's milestone count and written by nothing, so every user reads 0 of 0; staged for future development (ruled 2026-10-09), waiting on what a life-path milestone is: the path's milestone events, milestone goals serving it, or chosen Kus of it.
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. The sections ARE the checklist:
