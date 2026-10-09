@@ -326,7 +326,7 @@ def from_entity_and_context(
 **Call sites (4):**
 - `goals_planning_service.get_advancing_goals_for_user()` — default 4D weights
 - `goals_planning_service.get_stalled_goals_for_user()` — `readiness_override=_calculate_readiness_score_static(knowledge_uids, [], ctx), priority_override=0.7*(1-progress)`
-- `goals_planning_service.get_achievable_goals_for_user()` — `readiness_override=1.0, relevance_override=_calculate_relevance_score_static([goal_uid], [], ctx), priority_override=min(1.0, progress*1.2)`
+- `goals_planning_service.get_achievable_goals_for_user()` — `readiness_override=1.0, priority_override=min(1.0, progress*1.2)` (relevance: the factory's own — 1.0 for an active goal)
 - `planning_mixin.get_advancing_goals_for_user()` — standard with at-risk check
 
 ### `ContextualHabit.from_entity_and_context()`
