@@ -278,18 +278,18 @@ Returns `list[ContextualPrinciple]` sorted by attention urgency.
 ### get_contextual_principles_for_user()
 
 Finds the user's active principles relevant to today — the daily plan's principle slot (method 1, via `get_aligned_principles_for_user`):
-- Linked to a task due today (`ALIGNED_WITH_PRINCIPLE`, through `principles_by_task`): +0.3 per task
+- Linked to an open task due today (`ALIGNED_WITH_PRINCIPLE`, through `principles_by_task`): +0.3 per task
 - Supporting an active goal (`SUPPORTS_GOAL`, through `principles_by_goal`): +0.2 per goal
-- Weighted by how deeply each is held: × (0.5 + `principle_priorities`) — CORE ×1.5 … EXPLORING ×0.7
+- Weighted by how deeply each is held: × (0.5 + `principle_priorities`) — CORE ×1.5 … EXPLORING ×0.7; a tie goes to the lower uid
 
-Events are not read: nothing writes `DEMONSTRATES_PRINCIPLE` (no link door on either end, no ingestion field), so the event leg is deleted until a door exists (ruling Q11, 2026-10-09).
+Events are not read: `DEMONSTRATES_PRINCIPLE` has no writer (no link door on either end, no ingestion field).
 
 Returns `list[ContextualPrinciple]` with connected activity UIDs.
 
 ### get_principle_practice_opportunities_for_user()
 
 Identifies activities that could strengthen principle alignment:
-- Today's tasks aligned with each principle (`principles_by_task`)
+- Today's open tasks aligned with each principle (`principles_by_task`)
 - Prioritizes principles with low alignment (practice what you need)
 
 Returns `list[PracticeOpportunity]` with guidance text.
