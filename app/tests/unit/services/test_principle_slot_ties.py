@@ -23,6 +23,7 @@ def _context(today_task_uids: list[str]) -> UserContext:
     return UserContext(
         user_uid="user_ties",
         today_task_uids=today_task_uids,
+        active_task_uids=list(today_task_uids),
         principles_by_task={f"task_{p[-1]}": [p] for p in PRINCIPLES},
         principle_priorities=dict.fromkeys(PRINCIPLES, 0.6),
     )

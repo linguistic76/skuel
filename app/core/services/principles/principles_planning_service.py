@@ -258,8 +258,9 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
 
         relevant_principles: dict[str, float] = {}
 
-        # Sorted, so the ranking and its ties never depend on set order
-        todays_task_uids = sorted(set(context.today_task_uids))
+        # Today's open tasks (a finished task keeps its due date), sorted so the
+        # ranking and its ties never depend on set order
+        todays_task_uids = self._todays_open_task_uids(context)
         active_goal_uids = sorted(set(context.active_goal_uids))
 
         # Check principles linked to today's tasks
@@ -348,7 +349,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         opportunities: list[PracticeOpportunity] = []
         target_principles = [principle_uid] if principle_uid else list(context.core_principle_uids)
 
-        todays_task_uids = sorted(set(context.today_task_uids))
+        todays_task_uids = self._todays_open_task_uids(context)
 
         for p_uid in target_principles:
             data = principle_data.get(p_uid, {})
@@ -508,6 +509,11 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
             return "Review recent choices - what's pulling you away from this principle?"
 
         return "Consider how this principle applies to today's activities"
+
+    @staticmethod
+    def _todays_open_task_uids(context: UserContext) -> list[str]:
+        """Tasks due today that are still open, uid-sorted."""
+        return sorted(set(context.today_task_uids) & set(context.active_task_uids))
 
     @staticmethod
     def _describe_practice_opportunity(connected_tasks: list[str]) -> str:

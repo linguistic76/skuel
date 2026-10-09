@@ -17,6 +17,7 @@ The learner (the T_ tasks below due today, no goals, no prerequisites — otherw
     P_CORE      core       <- T_CORE (task create door), H_CORE (habit link door)
     P_EXPL      exploring  <- T_EXPL (task create door), -> H_EXPL (principle link door, INSPIRES_HABIT)
     P_GOAL      moderate   -> G (goal link door); 11 more tasks aligned, due next week
+    P_DONE      core       <- T_DONE, due today and completed: a finished task guides nothing today
     P_ARCHIVED  core       <- T_ARCH, H_ARCH, -> G, then archived: guides nothing
     P_FOREIGN   another user's principle, linked raw to T_FOREIGN, H_FOREIGN and G
     T_NONE, H_NONE         linked to nothing
@@ -111,6 +112,7 @@ async def env(
             "p_expl": "exploring",
             "p_goal": "moderate",
             "p_archived": "core",
+            "p_done": "core",
         }
         uids = {
             name: await create(client, "principles", f"{MARK} {name}", strength=strength)
@@ -132,6 +134,7 @@ async def env(
         uids["t_expl"] = await task("t_expl", uids["p_expl"])
         uids["t_arch"] = await task("t_arch", uids["p_archived"])
         uids["t_foreign"] = await task("t_foreign")
+        uids["t_done"] = await task("t_done", uids["p_done"])
         for i in range(MANY):
             uids[f"t_many_{i}"] = await task(f"t_many_{i}", uids["p_goal"], due=later)
 
@@ -155,6 +158,7 @@ async def env(
                 {"goal_uid": uids["g"], "principle_uid": uids[principle]},
             )
         await _set_status(client, "principles", uids["p_archived"], "archived")
+        await _set_status(client, "tasks", uids["t_done"], "completed")
 
         services = skuel_app.state.services
         driver = services.neo4j_driver
@@ -186,6 +190,7 @@ async def test_the_rich_build_carries_every_link_of_every_active_principle(env: 
     assert context.principles_by_task == {
         u["t_core"]: [u["p_core"]],
         u["t_expl"]: [u["p_expl"]],
+        u["t_done"]: [u["p_done"]],  # every status of task
         # every aligned task, past the principles row's display slice of ten
         **{u[f"t_many_{i}"]: [u["p_goal"]] for i in range(MANY)},
     }
@@ -195,7 +200,7 @@ async def test_the_rich_build_carries_every_link_of_every_active_principle(env: 
     }
     # an archived principle is no core principle — the standard build's line
     assert u["p_archived"] not in context.core_principle_uids
-    assert set(context.core_principle_uids) == {u["p_core"], u["p_expl"], u["p_goal"]}
+    assert set(context.core_principle_uids) == {u["p_core"], u["p_expl"], u["p_goal"], u["p_done"]}
 
 
 async def test_the_standard_build_carries_no_principle_lookups(env: Env) -> None:
@@ -216,7 +221,8 @@ async def test_the_daily_plan_names_the_principles_linked_to_today(env: Env) -> 
 
     assert plan.is_ok, plan
     # today's task, weighted core (0.3 x 1.5) > the active goal, moderate (0.2 x 1.1)
-    # > today's task, exploring (0.3 x 0.7); archived and foreign principles never
+    # > today's task, exploring (0.3 x 0.7); archived and foreign principles never, nor
+    # a principle whose only task due today is completed
     assert plan.value.principles == (u["p_core"], u["p_goal"], u["p_expl"])
 
 
@@ -234,6 +240,20 @@ async def test_the_principle_slot_names_its_connected_activities(env: Env) -> No
     assert by_uid[u["p_core"]].relevance_score == pytest.approx(0.45)
     assert by_uid[u["p_goal"]].relevance_score == pytest.approx(0.22)
     assert by_uid[u["p_expl"]].relevance_score == pytest.approx(0.21)
+
+
+async def test_practice_opportunities_are_todays_open_aligned_tasks(env: Env) -> None:
+    u = env.uids
+
+    result = await env.services.principles.get_principle_practice_opportunities_for_user(
+        await _rich(env), limit=50
+    )
+
+    assert result.is_ok, result
+    assert {(o.principle_uid, o.activity_uid) for o in result.value} == {
+        (u["p_core"], u["t_core"]),
+        (u["p_expl"], u["t_expl"]),
+    }  # not the completed T_DONE, nor P_GOAL's tasks due next week
 
 
 async def test_a_task_ranks_by_how_deeply_its_principle_is_held(env: Env) -> None:
