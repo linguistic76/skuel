@@ -52,7 +52,6 @@ Models and backend protocols are imported from their own modules — for Tasks,
 ```python
 class BaseAIService(Generic[B, T]):
     _service_name: ClassVar[str | None] = None
-    _event_handlers: ClassVar[dict[type, str]] = {}
 
     def __init__(
         self,

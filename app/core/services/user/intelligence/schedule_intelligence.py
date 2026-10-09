@@ -17,9 +17,17 @@ from __future__ import annotations
 
 from core.models.context_types import ScheduleAwareRecommendation
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.scheduling_enums import TimeOfDay
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.timestamp_helpers import now_in
 from core.utils.zone_context import current_zone
+
+# The slots in which focused work and learning fit best. ``TimeOfDay`` is the
+# one vocabulary of habitual time; these name the slots, never the hours.
+_FOCUS_SLOTS: frozenset[TimeOfDay] = frozenset(
+    {TimeOfDay.EARLY_MORNING, TimeOfDay.MORNING, TimeOfDay.AFTERNOON}
+)
+_LEARNING_SLOTS: frozenset[TimeOfDay] = frozenset({TimeOfDay.EARLY_MORNING, TimeOfDay.MORNING})
 
 
 class ScheduleIntelligenceMixin(IntelligenceMixinBase):
@@ -130,21 +138,18 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
             return "low"
         return "medium"
 
-    def _get_current_time_slot(self) -> str:
-        """Get current time slot based on preferred_time or actual time."""
-        if self.context.preferred_time:
-            return self.context.preferred_time.value
+    def _get_current_time_slot(self) -> TimeOfDay:
+        """The slot recommendations are scored for: the user's preferred slot, else the clock's.
 
-        hour = now_in(current_zone()).hour
-
-        if 5 <= hour < 12:
-            return "morning"
-        elif 12 <= hour < 17:
-            return "afternoon"
-        elif 17 <= hour < 21:
-            return "evening"
-        else:
-            return "night"
+        ``ANYTIME`` is the default preference and means "no preference", so it
+        falls through to the clock; the hour becomes a slot through
+        ``TimeOfDay.from_hour``, the one hour↔slot mapping. The result is never
+        ``ANYTIME``.
+        """
+        preferred = self.context.preferred_time
+        if preferred is not TimeOfDay.ANYTIME:
+            return preferred
+        return TimeOfDay.from_hour(now_in(current_zone()).hour)
 
     def _create_rest_recommendation(self, rationale: str) -> ScheduleAwareRecommendation:
         """Create a rest recommendation when capacity is exceeded."""
@@ -167,7 +172,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         self,
         available_minutes: int,
         current_energy: str,
-        current_time_slot: str,
+        current_time_slot: TimeOfDay,
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware task recommendations."""
@@ -222,7 +227,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                         recommendation_type="task",
                         title=f"Today's Task: {task_uid}",
                         rationale="Scheduled for today",
-                        suggested_time_slot=current_time_slot,
+                        suggested_time_slot=current_time_slot.value,
                         estimated_duration_minutes=30,
                         fits_available_time=available_minutes >= 30,
                         schedule_fit_score=score["schedule_fit"],
@@ -238,7 +243,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         self,
         available_minutes: int,
         current_energy: str,
-        current_time_slot: str,
+        current_time_slot: TimeOfDay,
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware habit recommendations."""
@@ -298,7 +303,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                         recommendation_type="habit",
                         title=f"Daily Habit: {habit_uid}",
                         rationale=f"Maintain your {streak}-day streak",
-                        suggested_time_slot=current_time_slot,
+                        suggested_time_slot=current_time_slot.value,
                         estimated_duration_minutes=15,
                         fits_available_time=available_minutes >= 15,
                         schedule_fit_score=score["schedule_fit"],
@@ -314,7 +319,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         self,
         available_minutes: int,
         current_energy: str,
-        current_time_slot: str,
+        current_time_slot: TimeOfDay,
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware learning recommendations."""
@@ -324,8 +329,8 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         ready_to_learn = self.context.get_ready_to_learn()[:3]
 
         for ku_uid in ready_to_learn:
-            # Learning requires more energy
-            energy_required = "high" if current_time_slot in ["morning", "afternoon"] else "medium"
+            # Learning asks the most of the focus slots
+            energy_required = "high" if current_time_slot in _FOCUS_SLOTS else "medium"
 
             # Higher priority if aligned with life path
             is_life_path = ku_uid in self.context.life_path_milestones
@@ -346,7 +351,9 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                     recommendation_type="learn",
                     title=f"Learn: {ku_uid}",
                     rationale="Prerequisites met, ready to learn",
-                    suggested_time_slot="morning" if current_energy != "low" else "later",
+                    suggested_time_slot=(
+                        TimeOfDay.MORNING.value if current_energy != "low" else "later"
+                    ),
                     estimated_duration_minutes=45,
                     fits_available_time=available_minutes >= 45,
                     schedule_fit_score=score["schedule_fit"],
@@ -364,7 +371,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         self,
         available_minutes: int,
         current_energy: str,
-        current_time_slot: str,
+        current_time_slot: TimeOfDay,
         respect_energy: bool,
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware goal advancement recommendations."""
@@ -393,7 +400,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                     recommendation_type="goal",
                     title=f"Primary Goal: {goal_uid}",
                     rationale=f"Currently at {int(progress * 100)}% - advance toward completion",
-                    suggested_time_slot=current_time_slot,
+                    suggested_time_slot=current_time_slot.value,
                     estimated_duration_minutes=60,
                     fits_available_time=available_minutes >= 60,
                     schedule_fit_score=score["schedule_fit"],
@@ -412,11 +419,17 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         priority: float,
         energy_required: str,
         current_energy: str,
-        time_slot: str,
+        time_slot: TimeOfDay,
         respect_energy: bool,
     ) -> dict[str, float]:
         """
         Calculate schedule-aware scoring for a recommendation.
+
+        ``time_slot`` is any slot ``TimeOfDay`` has except ``ANYTIME`` (which
+        ``_get_current_time_slot`` resolves to the clock). Every slot has a
+        verdict: the focus slots lift tasks, the learning slots lift
+        knowledge, late night lowers everything but a habit, and the rest
+        score the default.
 
         Returns dict with:
         - schedule_fit: How well it fits the current schedule (0.0-1.0)
@@ -424,17 +437,16 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         - priority: Priority score (0.0-1.0)
         - overall: Weighted combination (0.0-1.0)
         """
-        # Schedule fit based on time slot appropriateness
+        is_learning = entity_type in ("knowledge", EntityType.PATH_STEP.value, EntityType.KU.value)
         schedule_fit = 0.7  # Default
-        if entity_type == EntityType.TASK.value and time_slot in ["morning", "afternoon"]:
+        if entity_type == EntityType.HABIT.value:
+            schedule_fit = 0.85  # Habits are flexible, whatever the hour
+        elif time_slot is TimeOfDay.LATE_NIGHT:
+            schedule_fit = 0.5  # 0:00-5:00 is a signal against focused work
+        elif entity_type == EntityType.TASK.value and time_slot in _FOCUS_SLOTS:
             schedule_fit = 0.9
-        elif entity_type == EntityType.HABIT.value:
-            schedule_fit = 0.85  # Habits are flexible
-        elif (
-            entity_type in ("knowledge", EntityType.PATH_STEP.value, EntityType.KU.value)
-            and time_slot == "morning"
-        ):
-            schedule_fit = 0.95  # Learning best in morning
+        elif is_learning and time_slot in _LEARNING_SLOTS:
+            schedule_fit = 0.95  # Learning best before noon
         elif entity_type == EntityType.GOAL.value:
             schedule_fit = 0.75  # Goals need focused time
 

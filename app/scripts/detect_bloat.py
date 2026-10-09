@@ -358,6 +358,36 @@ _USER_PERCEPTION = PlannedEntry(
     "wire a perception-insights panel (profile or Self Check-In page) consuming it",
     since=date(2026, 6, 11),
 )
+_HUB_CRITICAL_PATH = PlannedEntry(
+    Readiness.DELAYED,
+    "hub method 2 (the critical path to the life path) reads the context only — the "
+    "walk through the LP structure (steps in order, prerequisite chains back from the "
+    "life path's terminal knowledge) waits on the two LP backend methods ruled build, "
+    "not now; wire the walk when they land",
+    since=date(2026, 10, 8),
+    blocked_by="LP Recommendation Backend Methods — Ruled *Build, Not Now*",
+)
+_ASKESIS_HUB_DOOR = PlannedEntry(
+    Readiness.DELAYED,
+    "Askesis' door onto a hub method: builds the hub from a RichUserContext and asks "
+    "the method of the same name; no route calls it. The Insights cards are the hub "
+    "methods' first door; this wrapper becomes live when the Askesis conversation "
+    "reaches the method by tool-selection (a catalog entry in "
+    "core/services/askesis/query_tools.py that calls it)",
+    since=date(2026, 10, 8),
+    blocked_by="Askesis Intelligence Doors — the Hub Methods' Second Door",
+)
+_ZOOM_LENS_FILTER_HALF = PlannedEntry(
+    Readiness.DELAYED,
+    "the zoom lens's filter / sort / metadata half: the apply_filters, apply_sort and "
+    "compute_metadata parameters the nine get_filtered_context facades pass. The one "
+    "caller (daily_planning) passes status_filter='all', never sort_by, and reads stats "
+    "only — the stats half is live; the rest is the typed, vetted per-domain read an "
+    "Askesis tool-selection entry would call ('my overdue tasks by due date'); ruled "
+    "keep, 2026-10-08",
+    since=date(2026, 10, 8),
+    blocked_by="Askesis Intelligence Doors — the Hub Methods' Second Door",
+)
 _USER_PRINCIPLE_INTEGRATION = PlannedEntry(
     Readiness.DELAYED,
     "staged rich-context principle-integration read surface — the populator fills "
@@ -879,6 +909,21 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/user/intelligence/perception_intelligence.py::get_cross_domain_perception_analysis": (
         _USER_PERCEPTION
     ),
+    # --- The hub methods (UserContextIntelligence): the staged half ---
+    "core/services/user/intelligence/learning_intelligence.py::get_learning_path_critical_path": (
+        _HUB_CRITICAL_PATH
+    ),
+    # --- Askesis: the eight wrappers, its door onto the hub methods ---
+    "core/services/askesis_service.py::get_daily_work_plan": _ASKESIS_HUB_DOOR,
+    "core/services/askesis_service.py::get_optimal_next_path_steps": _ASKESIS_HUB_DOOR,
+    "core/services/askesis_service.py::get_learning_path_critical_path": _ASKESIS_HUB_DOOR,
+    "core/services/askesis_service.py::get_knowledge_application_opportunities": _ASKESIS_HUB_DOOR,
+    "core/services/askesis_service.py::get_unblocking_priority_order": _ASKESIS_HUB_DOOR,
+    "core/services/askesis_service.py::get_cross_domain_synergies": _ASKESIS_HUB_DOOR,
+    "core/services/askesis_service.py::calculate_life_path_alignment": _ASKESIS_HUB_DOOR,
+    "core/services/askesis_service.py::get_schedule_aware_recommendations": _ASKESIS_HUB_DOOR,
+    # --- The zoom lens: its filter / sort / metadata half ---
+    "core/services/filtered_context.py::build_filtered_context": _ZOOM_LENS_FILTER_HALF,
     # --- User: rich-context principle-integration read surface ---
     "core/services/user/unified_user_context.py::principle_guided_choice_counts_or_empty": (
         _USER_PRINCIPLE_INTEGRATION

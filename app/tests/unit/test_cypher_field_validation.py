@@ -353,7 +353,6 @@ class TestActivitySortKeyIsTheAllowlist:
         from core.utils.result_simplified import Result
 
         repo = MagicMock()
-        repo.get = AsyncMock(return_value=Result.ok({"uid": "ps.x.y"}))
         repo.find_connected_activities = AsyncMock(return_value=Result.ok([]))
         service = PsApplicationDiscoveryService(repo=repo)
 

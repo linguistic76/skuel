@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-10-08
+updated: 2026-10-09
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -445,6 +445,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [The PathStep's `GUIDED_BY_PRINCIPLE` (O2)](roadmap/pathstep-guided-by-principle.md) | The one edge type the Activity Links arc retired between Activities but not from the curriculum — a PathStep's guiding principles still write it; keep or move deferred by ruling (2026-10-04) |
 | [Activity Links Follow-ons — Link Doors, Unwritten Links, Same-Type Pairs](roadmap/activity-links-follow-ons.md) | What the Activity Links arc left outside itself by ruling R8: the link/unlink page controls (the arc after), creating the five links nothing writes, the same-type pairs pass |
 | [Activity Links Arc — Registered Residuals](roadmap/activity-links-registered-residuals.md) | The 27 defects the arc's censuses registered outside its scope, each at its file and line, grouped by subject; all re-verified live at the close |
+| [Askesis Intelligence Doors — the Hub Methods' Second Door](roadmap/askesis-intelligence-doors.md) | The nine hub methods (`UserContextIntelligence`) and their two doors: the Insights cards (first, being built) and the Askesis conversation reaching a method by tool-selection (second, staged) — the eight Askesis wrappers and the zoom lens's filter / sort / metadata half registered PLANNED behind it; rulings of 2026-10-08 |
 | [Naive-Local Timestamps Read as UTC](roadmap/naive-local-timestamps-read-as-utc.md) | Writers stamp naive local time that Neo4j reads as UTC — on a host west of UTC the activity-report generation cooldown never fires and share times read hours off; registered at the Submit & Share arc close, ruled 2026-09-27 and taken on as the UTC Instants arc |
 | [AI Tier Consumer](roadmap/ai-tier-consumer.md) | The eight `BaseAIService` subclasses and their 34 `POST /api/{domain}/ai/*` routes are repaired, gated and tested, and nothing in `ui/` or `static/` calls one — ruled staged 2026-09-29, waiting on the first UI surface that does; holds the residuals (a draft uid as an AI source, the similarity pools ranked in Python) |
 | [Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval](roadmap/per-domain-chunking-knobs.md) | Chunking v2 and the eval instrument shipped; knob tuning, `chunk_type_weights` and the Askesis intent filter wait on a measured miss and a content-typing classifier |

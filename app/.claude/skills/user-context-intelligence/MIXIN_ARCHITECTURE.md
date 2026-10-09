@@ -109,10 +109,12 @@ What a caller must not assume:
 - **The goal weight re-ranks the candidates a source returned.** A source hands over at most
   twice `max_steps` candidates, chosen by its own score; a goal-aligned step outside that cut
   is not weighed.
-- **It can raise.** Steps from the first three sources are enriched by
-  `_get_application_opportunities_for_ku`, which raises `RuntimeError` when its habits or
-  events read fails — the one place in the package that raises on a service failure rather than
-  returning `Result.fail`.
+- **A failed application read fails the answer.** Steps from the first three sources are
+  enriched by `_get_application_opportunities_for_ku`, which returns `Result`; a failed tasks,
+  habits or events read propagates as `Result.fail`, never a raise. The reads take the uid the
+  source handed over — a Ku uid (ZPD, vector) or a PathStep uid (`ps`) — and
+  `PsApplicationDiscoveryService` matches it as an `:Entity` without verifying it first, so an
+  unknown uid is an empty answer.
 - A step's `title` is the entity's title only on the vector and `ps` sources. The ZPD and
   context sources build it from the uid.
 
@@ -161,10 +163,11 @@ respect_energy=True)` returns a **bare list**, at most `max_recommendations` lon
 
 - It reads the context and calls no service — `self.calendar` is not read.
 - It always reaches a strict accessor, so it needs a rich context.
-- The time slot is `context.preferred_time.value`. The field is a `TimeOfDay` that defaults to
-  `TimeOfDay.ANYTIME`, and every member is truthy, so for a user with no preference the slot is
-  `"anytime"`. The method's clock fallback sits behind `if self.context.preferred_time:` and is
-  not reached by a context built the normal way.
+- The time slot is a `TimeOfDay`: `context.preferred_time` when it is a stated slot, else the
+  clock's hour through `TimeOfDay.from_hour` (`ANYTIME`, the default, means no preference). The
+  scorer has a verdict for every slot — early morning, morning and afternoon lift a task (0.9),
+  early morning and morning lift learning (0.95), late night lowers everything but a habit
+  (0.5), the rest score the 0.7 default; a habit is 0.85 whatever the hour.
 - A `rest` recommendation (`uid="rest"`, `entity_type="meta"`) may be in the list.
 
 ### TemporalMomentumMixin

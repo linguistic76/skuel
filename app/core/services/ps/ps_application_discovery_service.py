@@ -11,6 +11,12 @@ domains. Thin wrappers preserve the existing API for callers.
 2 curriculum methods (Learning Steps, Learning Paths) remain separate as they
 don't follow the same user-owned activity pattern.
 
+The knowledge end of every read is an ``:Entity`` by uid — a Ku or a PathStep,
+whichever the caller holds (the hub's method 1 hands Ku uids from the ZPD and
+vector sources, PathStep uids from the ready-to-learn read). No read verifies
+that end first: the backend's match yields no row for an unknown uid, so an
+unknown uid is an empty answer, not a refusal.
+
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
@@ -20,22 +26,23 @@ from core.models.enums.activity_enums import ActivitySortKey
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.ports.curriculum_protocols import PsOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
 
 class PsApplicationDiscoveryService:
     """
-    Reverse relationship queries for path step application discovery.
+    Reverse relationship queries for knowledge application discovery.
 
-    These methods answer "where is this path step being used?" by traversing
-    graph relationships from activity domains back to path steps.
+    These methods answer "where is this knowledge being used?" by traversing
+    graph relationships from activity domains back to the Ku or PathStep.
     """
 
-    def __init__(self, repo: Any = None) -> None:
+    def __init__(self, repo: PsOperations) -> None:
         """
         Initialize with backend.
 
@@ -47,13 +54,6 @@ class PsApplicationDiscoveryService:
 
         self.repo = repo
         self.logger = get_logger("skuel.services.ps.application_discovery")
-
-    async def _verify_ku_exists(self, ku_uid: str) -> Result[None]:
-        """Verify path step exists, returning NotFound error if not."""
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found("PathStep", ku_uid))
-        return Result.ok(None)
 
     # ========================================================================
     # GENERIC ACTIVITY DISCOVERY
@@ -74,12 +74,12 @@ class PsApplicationDiscoveryService:
         reverse_direction: bool = False,
     ) -> Result[list[str]]:
         """
-        Find activity entities connected to a path step via graph relationships.
+        Find activity entities connected to a Ku or PathStep via graph relationships.
 
         Generic method that replaces 6 structurally identical per-domain methods.
 
         Args:
-            ku_uid: Path step UID
+            ku_uid: UID of the knowledge end — a Ku or a PathStep
             user_uid: User UID to filter activities
             node_label: Neo4j node label (e.g., "Task", "Goal", "Habit")
             relationship_types: Relationship types to traverse (e.g., ["APPLIES_KNOWLEDGE"])
@@ -92,12 +92,8 @@ class PsApplicationDiscoveryService:
         Returns:
             Result containing list of entity UIDs
         """
-        verify = await self._verify_ku_exists(ku_uid)
-        if verify.is_error:
-            return Result.fail(verify)
-
         self.logger.debug(
-            f"Finding {node_label} entities connected to path step {ku_uid} "
+            f"Finding {node_label} entities connected to knowledge {ku_uid} "
             f"via {'|'.join(relationship_types)} (user={user_uid})"
         )
 
@@ -118,7 +114,7 @@ class PsApplicationDiscoveryService:
         entity_uids = [record["entity_uid"] for record in results.value if record.get("entity_uid")]
 
         self.logger.debug(
-            f"Found {len(entity_uids)} {node_label} entities connected to path step {ku_uid}"
+            f"Found {len(entity_uids)} {node_label} entities connected to knowledge {ku_uid}"
         )
         return Result.ok(entity_uids)
 
@@ -246,10 +242,6 @@ class PsApplicationDiscoveryService:
 
         Graph Pattern: (Ls)-[:CONTAINS_KNOWLEDGE]->(Ku)
         """
-        verify = await self._verify_ku_exists(ku_uid)
-        if verify.is_error:
-            return Result.fail(verify)
-
         self.logger.debug(f"Finding path steps containing path step {ku_uid} (limit={limit})")
 
         results = await self.repo.find_path_steps_containing_ku(ku_uid, limit)
@@ -269,10 +261,6 @@ class PsApplicationDiscoveryService:
 
         Graph Pattern: (Lp)-[:HAS_STEP]->(Ls)-[:CONTAINS_KNOWLEDGE]->(Ku)
         """
-        verify = await self._verify_ku_exists(ku_uid)
-        if verify.is_error:
-            return Result.fail(verify)
-
         self.logger.debug(f"Finding learning paths teaching path step {ku_uid} (limit={limit})")
 
         results = await self.repo.find_learning_paths_teaching_ku(ku_uid, limit)

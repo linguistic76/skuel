@@ -307,6 +307,7 @@ async def ensure_test_users(neo4j_driver):
         "user_insight_native",
         "user_embodiment_window",
         "user_event_calendar_days",
+        "user_ku_application_discovery",
         # The ingestion fallback owner. A file that names no owner is stamped with
         # DEFAULT_USER_UID (SKUEL_DEFAULT_USER_UID, else SYSTEM_USER_UID), so the
         # bulk door's unknown-owner refusal (ADR-086) makes it REQUIRED — and it is

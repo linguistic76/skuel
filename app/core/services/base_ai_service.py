@@ -86,9 +86,6 @@ class BaseAIService(Generic[B, T]):
     # Service name for hierarchical logging
     _service_name: ClassVar[str | None] = None
 
-    # Event handlers to auto-register
-    _event_handlers: ClassVar[dict[type, str]] = {}
-
     def __init__(
         self,
         backend: B,
@@ -151,25 +148,9 @@ class BaseAIService(Generic[B, T]):
                 f"{self.__class__.__name__}: Embeddings service unavailable - semantic search disabled"
             )
 
-        # Auto-register event handlers
-        self._register_event_handlers()
-
     # ========================================================================
     # EVENT HANDLING
     # ========================================================================
-
-    def _register_event_handlers(self) -> None:
-        """Auto-register event handlers from _event_handlers class attribute."""
-        if not self.event_bus or not self._event_handlers:
-            return
-
-        for event_type, handler_name in self._event_handlers.items():
-            handler = getattr(self, handler_name, None)
-            if handler:
-                self.event_bus.subscribe(event_type, handler)
-                self.logger.debug(f"Registered handler {handler_name} for {event_type.__name__}")
-            else:
-                self.logger.warning(f"Handler {handler_name} for {event_type.__name__} not found")
 
     async def _publish_event(self, event: Any) -> None:
         """Publish an event to the event bus if available."""

@@ -120,7 +120,10 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                 path_steps = []
                 for action in learn_actions[: max_steps * 2]:
                     ku_uid: str = action.entity_uid
-                    applications = await self._get_application_opportunities_for_ku(ku_uid)
+                    applications_result = await self._get_application_opportunities_for_ku(ku_uid)
+                    if applications_result.is_error:
+                        return Result.fail(applications_result)
+                    applications = applications_result.value
                     unlocks_count = self._count_items_unlocked_by(ku_uid)
                     aligned_goals = self._find_aligned_goals(ku_uid)
                     readiness_score = assessment.readiness_scores.get(ku_uid, 0.0)
@@ -149,9 +152,6 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             # ZPD produced an assessment but proximal zone is empty — use activity path
             return await self._rank_by_activity(max_steps, consider_goals, consider_capacity)
 
-        # Confirmed KUs in current zone get higher confidence base
-        confirmed_uids = set(assessment.confirmed_zone_uids())
-
         path_steps = []
         for ku_uid in proximal_uids:
             readiness_score = assessment.readiness_scores.get(ku_uid, 0.0)
@@ -163,17 +163,18 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                 3,
             )
 
-            # Boost KUs whose prerequisites are confirmed (compound evidence)
+            # Compound evidence on THIS unit (2+ signal types) lifts its priority.
+            # Its prerequisites' confirmation is already in readiness_score — the
+            # ZPD computes readiness from the prerequisite DAG — so no second
+            # prerequisite term is added here.
             evidence = assessment.zone_evidence.get(ku_uid)
             if evidence and evidence.is_confirmed:
                 priority_score = min(1.0, priority_score + 0.05)
 
-            # Check if any prerequisite is confirmed — gives extra confidence
-            prereq_confirmed = any(uid in confirmed_uids for uid in proximal_uids)
-            if prereq_confirmed:
-                priority_score = min(1.0, priority_score + 0.02)
-
-            applications = await self._get_application_opportunities_for_ku(ku_uid)
+            applications_result = await self._get_application_opportunities_for_ku(ku_uid)
+            if applications_result.is_error:
+                return Result.fail(applications_result)
+            applications = applications_result.value
             unlocks_count = self._count_items_unlocked_by(ku_uid)
             aligned_goals = self._find_aligned_goals(ku_uid)
 
@@ -241,8 +242,12 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         contextual_knowledge_list: list[ContextualKnowledge] = ready_result.value
 
         for contextual_ku in contextual_knowledge_list:
-            # Get application opportunities
-            applications = await self._get_application_opportunities_for_ku(contextual_ku.uid)
+            applications_result = await self._get_application_opportunities_for_ku(
+                contextual_ku.uid
+            )
+            if applications_result.is_error:
+                return Result.fail(applications_result)
+            applications = applications_result.value
 
             # Count unlocks
             unlocks_count = self._count_items_unlocked_by(contextual_ku.uid)
@@ -410,17 +415,20 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
         return unblocked_count
 
-    async def _get_application_opportunities_for_ku(self, ku_uid: str) -> dict[str, list[str]]:
+    async def _get_application_opportunities_for_ku(
+        self, ku_uid: str
+    ) -> Result[dict[str, list[str]]]:
         """
-        Get application opportunities using DIRECT graph queries.
+        Where this knowledge is applied — tasks, habits, events from the graph, goals from context.
 
-        Uses PsService reverse relationship queries to find where
-        knowledge is being applied across all activity domains.
-
-        Fail-fast: All queries are REQUIRED. No graceful degradation.
+        The three graph reads are REQUIRED: a failed read fails the answer, so a
+        ranking never carries an opportunity list that is silently empty
+        because the graph could not be asked. ``ku_uid`` is whatever the source
+        handed over — a Ku uid (ZPD, vector search) or a PathStep uid (the
+        ready-to-learn read); the reads take either.
 
         Returns:
-            Dict with keys: tasks, habits, goals, events (all list[str])
+            Result of a dict with keys: tasks, habits, goals, events (all list[str])
         """
         opportunities: dict[str, list[str]] = {
             "tasks": [],
@@ -429,41 +437,31 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             "events": [],
         }
 
-        # Get tasks that apply this knowledge (EXISTING - keep as is)
         tasks_result = await self.tasks.get_learning_tasks_for_user(
             self.context, knowledge_focus=[ku_uid]
         )
-        if tasks_result.is_ok and tasks_result.value:
-            opportunities["tasks"] = [t.uid for t in tasks_result.value[:5]]
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+        opportunities["tasks"] = [t.uid for t in (tasks_result.value or [])[:5]]
 
-        # Get habits reinforcing this knowledge (NEW - graph query via PsService)
         habits_result = await self.ps.find_habits_reinforcing_knowledge(
             ku_uid, self.context.user_uid, only_active=True
         )
-        if habits_result.is_ok:
-            opportunities["habits"] = habits_result.value[:5]
-        elif habits_result.is_error:
-            # Fail-fast: propagate error
-            raise RuntimeError(
-                f"Failed to find habits for KU {ku_uid}: {habits_result.expect_error()}"
-            )
+        if habits_result.is_error:
+            return Result.fail(habits_result)
+        opportunities["habits"] = habits_result.value[:5]
 
-        # Get events applying this knowledge (NEW - graph query via PsService)
         events_result = await self.ps.find_events_applying_knowledge(
             ku_uid, self.context.user_uid, upcoming_only=True
         )
-        if events_result.is_ok:
-            opportunities["events"] = events_result.value[:5]
-        elif events_result.is_error:
-            # Fail-fast: propagate error
-            raise RuntimeError(
-                f"Failed to find events for KU {ku_uid}: {events_result.expect_error()}"
-            )
+        if events_result.is_error:
+            return Result.fail(events_result)
+        opportunities["events"] = events_result.value[:5]
 
-        # Goals aligned with this knowledge (EXISTING - context-based is acceptable)
+        # Goals aligned with this knowledge come from the context, not a read.
         opportunities["goals"] = self._find_aligned_goals(ku_uid)
 
-        return opportunities
+        return Result.ok(opportunities)
 
     def _filter_by_capacity(self, steps: list[PathStep]) -> list[PathStep]:
         """Keep, in order, each step that fits in what is left of the day's minutes.
@@ -697,8 +695,10 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             ku_uid = node["uid"]
             score = result.get("score", 0.0)
 
-            # Get application opportunities
-            applications = await self._get_application_opportunities_for_ku(ku_uid)
+            applications_result = await self._get_application_opportunities_for_ku(ku_uid)
+            if applications_result.is_error:
+                return Result.fail(applications_result)
+            applications = applications_result.value
 
             # Count unlocks
             unlocks_count = self._count_items_unlocked_by(ku_uid)
