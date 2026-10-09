@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-10-01
+updated: 2026-10-09
 ---
 # UserContextIntelligence - Central Intelligence Hub
 ## Related Skills
@@ -623,7 +623,7 @@ async def get_cross_domain_synergies(
 1. **Habit→Goal**: Habits supporting multiple goals (high leverage)
 2. **Task→Habit**: Tasks that build habits (behavior change)
 3. **Knowledge→Task**: Knowledge enabling tasks (skill application)
-4. **Principle→Goal**: Principles guiding goal pursuit (value alignment)
+4. **Principle→Goal**: Principles guiding the active goals they `SUPPORTS_GOAL` (`principle_supported_goals`), weighted by `strength` (`principle_priorities`)
 5. **Goal→Learning**: Goals requiring specific knowledge (learning gaps)
 
 **Returns:**

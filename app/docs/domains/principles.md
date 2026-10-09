@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-10-08
+updated: 2026-10-09
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -364,7 +364,7 @@ The attention score (0-1) determines how urgently a principle needs attention:
 |--------|--------|-------------|
 | Reflection gap | 0.4 | Days since reflection / (threshold × 2) |
 | Alignment weakness | 0.35 | 1.0 - alignment_score |
-| Trend decline | 0.25 | 1.0 if declining, 0.3 if stable, 0.0 if improving |
+| Trend decline | 0.25 | 1.0 if declining, 0.3 if stable, 0.0 if improving — the trend compares the last two dated `alignment_history` entries |
 
 **Threshold:** Principles with attention_score < 0.3 are considered healthy.
 
@@ -376,13 +376,11 @@ The planning service extracts data from `UserContext`:
 |-------|-------|
 | `core_principle_uids` | Target principles for analysis |
 | `entities_rich["principles"]` | Rich data with graph context |
-| `principle_priorities` | Importance weighting |
-| `todays_task_uids` | Today's scheduled tasks |
-| `todays_event_uids` | Today's scheduled events |
+| `principle_priorities` | How deeply each principle is held (`strength` → `PrincipleStrength.importance()`, rich build) — a "deeply held, but low alignment" reason |
+| `today_task_uids` | Today's scheduled tasks |
+| `today_event_uids` | Today's scheduled events |
 | `active_goal_uids` | Current active goals |
-| `entities_rich["tasks"]` | Task data with principle relationships |
-| `entities_rich["events"]` | Event data with principle relationships |
-| `entities_rich["goals"]` | Goal data with principle relationships |
+| `entities_rich["tasks"]` / `["events"]` / `["goals"]` | Read for `guiding_principles` / `aligned_principles` — keys no context statement projects, so the principle↔activity maps are empty today |
 
 ## Events/Publishing
 
