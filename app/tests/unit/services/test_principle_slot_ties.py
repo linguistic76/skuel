@@ -27,7 +27,11 @@ def _context(today_task_uids: list[str]) -> UserContext:
 
 @pytest.mark.parametrize(
     "today_task_uids",
-    [["task_a", "task_b", "task_c"], ["task_c", "task_b", "task_a"], ["task_b", "task_c", "task_a"]],
+    [
+        ["task_a", "task_b", "task_c"],
+        ["task_c", "task_b", "task_a"],
+        ["task_b", "task_c", "task_a"],
+    ],
 )
 async def test_tied_principles_fill_the_slot_in_uid_order(today_task_uids: list[str]) -> None:
     planning = PrinciplesPlanningService(backend=cast("Any", object()))
