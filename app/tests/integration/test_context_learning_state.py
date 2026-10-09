@@ -2,18 +2,11 @@
 The learning state a built UserContext carries — goal kinds, Ku prerequisites, readiness.
 =========================================================================================
 
-Five ``UserContext`` fields were declared, read in 65 places and written by nothing:
-the goal-kind lists, ``prerequisites_needed``, ``prerequisites_completed``,
-``next_recommended_knowledge`` and the minutes map. Every reader saw the default. The
-data was in the context all along — each goal's ``goal_type`` rides its properties, the
-extractor built the per-Ku prerequisite map and dropped it — so the kinds are now written
-from ``goal_type``, the map is kept as ``ku_prerequisites``, and readiness is read off the
-built ``ready_to_learn_uids``.
-
-A unit test over a hand-built context proves nothing here: the old fields were hand-fed
-in every test and empty in every build. So each test reads a context the builder made,
-over goals created at the real door and Ku edges as the learner's progress writers
-leave them, and through the two ``/api/context`` routes that report them.
+The builder sorts the active goals into ``learning_goals`` / ``outcome_goals`` /
+``process_goals`` by ``goal_type`` in both builds, keeps each started Ku's prerequisites
+as ``ku_prerequisites``, and reads readiness off ``ready_to_learn_uids``. Each test reads a
+context the builder made — over goals created at the real door and Ku edges as the
+learner's progress writers leave them — or the ``/api/context`` route that reports it.
 
 The learner's knowledge:
 
