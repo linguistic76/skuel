@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-10-06
+updated: 2026-10-09
 category: patterns
 related_skills: []
 related_docs:
@@ -217,7 +217,7 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 |---------|-------------|
 | `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
 | `LpBackend` | 4 HAS_STEP methods: `get_steps_raw`, `add_step_to_path`, `remove_step_from_path`, `reorder_steps` |
-| `GoalsBackend` | 6 progress-helper methods: `find_contributed_goals`, `recompute_progress_from_contributions`, `get_contribution_tally`, `list_task_based_goals`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`; `get_contribution_tally` is the plain read of the contribution tally, running the statement the contribution recompute counts with — `query/cypher/goal_tally_queries.py`; `list_task_based_goals` feeds `./dev reconcile-goal-tallies`) |
+| `GoalsBackend` | 8 progress-helper methods: `find_contributed_goals`, `recompute_progress_from_contributions`, `get_contribution_tally`, `list_task_based_goals`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits`, `get_supporting_habit_windows`, `get_required_knowledge_tally` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`; `get_contribution_tally` is the plain read of the contribution tally, running the statement the contribution recompute counts with — `query/cypher/goal_tally_queries.py`; `list_task_based_goals` feeds `./dev reconcile-goal-tallies`; the last two are the progress dashboard's habit-adherence and required-knowledge reads — `core/services/goals/dashboard_figures.py`) |
 | `KuBackend` | 2 substance methods: `batch_increment_substance`, `increment_substance` |
 
 **Protocols updated:** `EventsOperations`, `ChoicesOperations`, `PrinciplesOperations` now extend `HierarchyOperations`. `PsOperations`, `LpOperations`, `GoalsOperations` gained method signatures for the new backend methods.

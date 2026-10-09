@@ -55,7 +55,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | `GoalType` | `core.models.enums` | OUTCOME, PROCESS, LEARNING, PROJECT, MILESTONE, MASTERY | `goal_type` |
 | `GoalTimeframe` | `core.models.enums` | DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY, MULTI_YEAR | `timeframe` |
 | `MeasurementType` | `core.models.enums` | BINARY, PERCENTAGE, NUMERIC, MILESTONE, HABIT_BASED, KNOWLEDGE_BASED, TASK_BASED, MIXED | `measurement_type` |
-| `HabitEssentiality` | `core.models.enums` | ESSENTIAL, CRITICAL, SUPPORTING, OPTIONAL | — (goal-habit link weight) |
+| `HabitEssentiality` | `core.models.enums` | ESSENTIAL, CRITICAL, SUPPORTING, OPTIONAL | `get_weight()` (1 / .75 / .5 / .25, `HabitEssentialityWeight`) — the `SUPPORTS_GOAL` edge's tier, weighing the dashboard's `habit_contribution`; `from_stored()` reads an untagged edge as SUPPORTING |
 | `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH | `priority` |
 
 **See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
