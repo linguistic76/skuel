@@ -95,3 +95,39 @@ def get_model_from_rich_context[D: DTOProtocol, M: DomainModelProtocol](
 def rich_graph_uids(graph_ctx: dict[str, Any], key: str) -> list[str]:
     """Extract non-empty ``uid`` values from a graph_context neighbor list."""
     return [n["uid"] for n in graph_ctx.get(key, []) if n and n.get("uid")]
+
+
+def rich_entity_titles(user_context: UserContext | None) -> dict[str, str]:
+    """Every title the rich context carries, by uid.
+
+    Reads the rich items of every domain in ``entities_rich`` (the engaged-Ku
+    window included), the learner's knowledge units (``knowledge_units_rich``) and
+    the path steps the context names — the active engagements
+    (``active_path_steps_rich``), the steps in progress (``current_path_steps``) and
+    the mastered ones (``mastered_path_steps``). An item without a title contributes
+    nothing, so a reader falls back to its own text for that uid. A uid outside the
+    context — a Ku the user has not engaged — is absent, and the caller reads it
+    from the graph.
+    """
+    titles: dict[str, str] = {}
+    if user_context is None:
+        return titles
+
+    def _take(uid: object, title: object) -> None:
+        if uid and title:
+            titles[str(uid)] = str(title)
+
+    for items in user_context.entities_rich.values():
+        for item in items:
+            entity = item.get("entity", {})
+            _take(entity.get("uid"), entity.get("title"))
+    for uid, ku_item in user_context.knowledge_units_rich.items():
+        _take(uid, (ku_item.get("ku") or {}).get("title"))
+    for step_item in user_context.active_path_steps_rich:
+        step = step_item.get("step") or {}
+        _take(step.get("uid"), step.get("title"))
+    for current in user_context.current_path_steps:
+        _take(current.get("uid"), current.get("title"))
+    for mastered in user_context.mastered_path_steps:
+        _take(mastered.get("uid"), mastered.get("title"))
+    return titles

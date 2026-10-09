@@ -860,10 +860,8 @@ class AskesisService:
         intelligence = self.intelligence_factory.create(user_context)
 
         # Get schedule-aware recommendations
-        recommendations = await intelligence.get_schedule_aware_recommendations(
+        return await intelligence.get_schedule_aware_recommendations(
             max_recommendations=max_recommendations,
             time_horizon_hours=time_horizon_hours,
             respect_energy=respect_energy,
         )
-
-        return Result.ok(recommendations)

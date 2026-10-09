@@ -17,6 +17,7 @@ Method 6 of UserContextIntelligence:
 from __future__ import annotations
 
 from core.models.context_types import CrossDomainSynergy
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import PrincipleStrength
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
@@ -441,7 +442,7 @@ class SynergyIntelligenceMixin(IntelligenceMixinBase):
             synergies.append(
                 CrossDomainSynergy(
                     source_uid=engagement.ps_uid,
-                    source_domain="pathstep",
+                    source_domain=EntityType.PATH_STEP.value,
                     target_uids=tuple(spawned[:6]),
                     target_domain="multi",
                     synergy_type="spawns",

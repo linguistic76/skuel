@@ -15,12 +15,19 @@ Schedule-aware recommendations take into account:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from core.models.context_types import ScheduleAwareRecommendation
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import TimeOfDay
 from core.services.user.intelligence._base import IntelligenceMixinBase
+from core.services.user.rich_context import rich_entity_titles
+from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import now_in
 from core.utils.zone_context import current_zone
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 # The slots in which focused work and learning fit best. ``TimeOfDay`` is the
 # one vocabulary of habitual time; these name the slots, never the hours.
@@ -41,14 +48,18 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 8: Schedule-Aware Recommendations
     # =========================================================================
 
-    async def get_schedule_aware_recommendations(  # skuel-lint: disable=SKUEL005 -- fail-soft intelligence read: degrades to fewer/no recommendations, not an error  # skuel-lint: disable=SKUEL029 -- facade-delegated (askesis_service awaits via intelligence)
+    async def get_schedule_aware_recommendations(  # skuel-lint: disable=SKUEL029 -- askesis_protocols protocol method + facade-delegated
         self,
         max_recommendations: int = 5,
         time_horizon_hours: int = 8,
         respect_energy: bool = True,
-    ) -> list[ScheduleAwareRecommendation]:
+    ) -> Result[list[ScheduleAwareRecommendation]]:
         """
         Get recommendations that consider the user's schedule and capacity.
+
+        Every recommendation names its entity by the title the rich context carries
+        for it (``rich_entity_titles``); a uid the context has no title for — a Ku
+        the user has not engaged — stands as itself and the reader resolves it.
 
         This method synthesizes:
         - Current events and scheduled activities (Calendar domain)
@@ -71,7 +82,10 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
             respect_energy: Whether to consider current energy level
 
         Returns:
-            List of ScheduleAwareRecommendation sorted by overall score
+            Result[list[ScheduleAwareRecommendation]] sorted by overall score. The read
+            is fail-soft — fewer candidates, never an error — so the Result is always ok;
+            it is a Result because the Askesis wrapper and the Insights card read it
+            as one, like every other hub method.
         """
         # Rich context is compile-time enforced via `context: RichUserContext`.
         recommendations: list[ScheduleAwareRecommendation] = []
@@ -80,6 +94,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         available_minutes = self._calculate_available_minutes(time_horizon_hours)
         current_energy = self._assess_current_energy()
         current_time_slot = self._get_current_time_slot()
+        titles = rich_entity_titles(self.context)
 
         # Check if user is at capacity (recommend rest)
         if self.context.current_workload_score >= 0.9:
@@ -91,16 +106,16 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
 
         # Gather candidates from each domain and score them
         task_recs = self._get_task_schedule_recommendations(
-            available_minutes, current_energy, current_time_slot, respect_energy
+            available_minutes, current_energy, current_time_slot, respect_energy, titles
         )
         habit_recs = self._get_habit_schedule_recommendations(
-            available_minutes, current_energy, current_time_slot, respect_energy
+            available_minutes, current_energy, current_time_slot, respect_energy, titles
         )
         learning_recs = self._get_learning_schedule_recommendations(
-            available_minutes, current_energy, current_time_slot, respect_energy
+            available_minutes, current_energy, current_time_slot, respect_energy, titles
         )
         goal_recs = self._get_goal_schedule_recommendations(
-            available_minutes, current_energy, current_time_slot, respect_energy
+            available_minutes, current_energy, current_time_slot, respect_energy, titles
         )
 
         # Combine all recommendations
@@ -112,7 +127,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
 
         recommendations.sort(key=get_schedule_recommendation_score, reverse=True)
 
-        return recommendations[:max_recommendations]
+        return Result.ok(recommendations[:max_recommendations])
 
     def _calculate_available_minutes(self, time_horizon_hours: int) -> int:
         """Calculate available minutes based on events and capacity."""
@@ -174,6 +189,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         current_energy: str,
         current_time_slot: TimeOfDay,
         respect_energy: bool,
+        titles: Mapping[str, str],
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware task recommendations."""
         blocked_task_uids = self.context.get_blocked_tasks()
@@ -194,7 +210,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                     uid=task_uid,
                     entity_type="task",
                     recommendation_type="task",
-                    title=f"Overdue Task: {task_uid}",
+                    title=titles.get(task_uid, task_uid),
                     rationale="This task is overdue and needs attention",
                     suggested_time_slot="now",
                     estimated_duration_minutes=30,
@@ -225,7 +241,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                         uid=task_uid,
                         entity_type="task",
                         recommendation_type="task",
-                        title=f"Today's Task: {task_uid}",
+                        title=titles.get(task_uid, task_uid),
                         rationale="Scheduled for today",
                         suggested_time_slot=current_time_slot.value,
                         estimated_duration_minutes=30,
@@ -245,6 +261,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         current_energy: str,
         current_time_slot: TimeOfDay,
         respect_energy: bool,
+        titles: Mapping[str, str],
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware habit recommendations."""
         at_risk_habits = self.context.get_habits_needing_reinforcement()
@@ -269,7 +286,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                     uid=habit_uid,
                     entity_type="habit",
                     recommendation_type="habit",
-                    title=f"At-Risk Habit: {habit_uid}",
+                    title=titles.get(habit_uid, habit_uid),
                     rationale=f"Protect your {streak}-day streak!",
                     suggested_time_slot="now",
                     estimated_duration_minutes=15,
@@ -301,7 +318,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                         uid=habit_uid,
                         entity_type="habit",
                         recommendation_type="habit",
-                        title=f"Daily Habit: {habit_uid}",
+                        title=titles.get(habit_uid, habit_uid),
                         rationale=f"Maintain your {streak}-day streak",
                         suggested_time_slot=current_time_slot.value,
                         estimated_duration_minutes=15,
@@ -321,6 +338,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         current_energy: str,
         current_time_slot: TimeOfDay,
         respect_energy: bool,
+        titles: Mapping[str, str],
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware learning recommendations."""
         recommendations = []
@@ -349,7 +367,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                     uid=ku_uid,
                     entity_type="knowledge",
                     recommendation_type="learn",
-                    title=f"Learn: {ku_uid}",
+                    title=titles.get(ku_uid, ku_uid),
                     rationale="Prerequisites met, ready to learn",
                     suggested_time_slot=(
                         TimeOfDay.MORNING.value if current_energy != "low" else "later"
@@ -373,6 +391,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         current_energy: str,
         current_time_slot: TimeOfDay,
         respect_energy: bool,
+        titles: Mapping[str, str],
     ) -> list[ScheduleAwareRecommendation]:
         """Get schedule-aware goal advancement recommendations."""
         recommendations = []
@@ -398,7 +417,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                     uid=goal_uid,
                     entity_type="goal",
                     recommendation_type="goal",
-                    title=f"Primary Goal: {goal_uid}",
+                    title=titles.get(goal_uid, goal_uid),
                     rationale=f"Currently at {int(progress * 100)}% - advance toward completion",
                     suggested_time_slot=current_time_slot.value,
                     estimated_duration_minutes=60,

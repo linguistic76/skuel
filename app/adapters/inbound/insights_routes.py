@@ -8,6 +8,7 @@ Insight dashboard with dismiss/action functionality and action-tracking history 
 Routes:
 - GET /insights - Insights dashboard with filtering
 - GET /insights/stats - Insight statistics
+- GET /insights/hub/{question} - HTMX fragment: one Insights card (a hub method's answer)
 - GET /insights/history - Action history page
 - POST /api/insights/{uid}/dismiss - Dismiss insight (with optional notes)
 - POST /api/insights/{uid}/action - Mark insight as actioned (with optional notes)
@@ -32,7 +33,13 @@ INSIGHTS_CONFIG = DomainRouteConfig(
     api_factory=create_insights_api_routes,
     ui_factory=create_insights_ui_routes,
     api_related_services={},
-    ui_related_services={},
+    # The Insights cards build the hub from the caller's rich context and read
+    # the Ku titles the context lacks in one batch.
+    ui_related_services={
+        "user_service": "user",
+        "context_intelligence": "context_intelligence",
+        "ku_service": "ku",
+    },
 )
 
 

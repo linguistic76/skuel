@@ -131,13 +131,13 @@ async def get_cross_domain_synergies(
 # 7
 async def calculate_life_path_alignment(self) -> Result[LifePathAlignment]: ...
 
-# 8 — returns a bare list
+# 8 — a Result like the others; always ok (fail-soft)
 async def get_schedule_aware_recommendations(
     self,
     max_recommendations: int = 5,
     time_horizon_hours: int = 8,
     respect_energy: bool = True,
-) -> list[ScheduleAwareRecommendation]: ...
+) -> Result[list[ScheduleAwareRecommendation]]: ...
 
 # 9
 async def get_cross_domain_perception_analysis(
@@ -247,7 +247,7 @@ class LifePathAlignment:
 @dataclass(frozen=True)
 class CrossDomainSynergy:
     source_uid: str
-    source_domain: str  # habit | knowledge | principle | pathstep
+    source_domain: str  # habit | knowledge | principle | path_step (EntityType values; "knowledge" is the Ku alias)
     target_uids: tuple[str, ...] = ()
     target_domain: str = ""  # goal | task | multi
     synergy_type: str = ""  # supports | builds | enables | informs | spawns

@@ -158,8 +158,9 @@ engagement or one that spawned nothing, and scores the rest by branch. Read the 
 ### ScheduleIntelligenceMixin — method 8
 
 `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8,
-respect_energy=True)` returns a **bare list**, at most `max_recommendations` long, highest
-`overall_score` first.
+respect_energy=True)` returns `Result[list[ScheduleAwareRecommendation]]` — always ok, at most
+`max_recommendations` long, highest `overall_score` first; each recommendation carries the
+entity's title from the rich context (`rich_entity_titles`), or its uid when the context has none.
 
 - It reads the context and calls no service — `self.calendar` is not read.
 - It always reaches a strict accessor, so it needs a rich context.

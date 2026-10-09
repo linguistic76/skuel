@@ -53,17 +53,17 @@ factory's `_required_services` dict.
 | 5 | **`get_ready_to_work_on_today(prioritize_life_path=True, respect_capacity=True)`** | DailyPlanning | `Result[DailyWorkPlan]` | six Activity facades, `ps`, `exercises`, `vector_search`, `filtered_providers`, context |
 | 6 | `get_cross_domain_synergies(min_synergy_score=0.3, include_types=None)` | Synergy | `Result[list[CrossDomainSynergy]]` | context only |
 | 7 | `calculate_life_path_alignment()` | LifePath | `Result[LifePathAlignment]` | context only |
-| 8 | `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8, respect_energy=True)` | Schedule | `list[ScheduleAwareRecommendation]` — **a bare list, not a `Result`** | context only |
-| 9 | `get_cross_domain_perception_analysis()` | Perception | `Result[dict[str, Any]]` | `goals` / `habits` / `principles` backends, context |
+| 8 | `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8, respect_energy=True)` | Schedule | `Result[list[ScheduleAwareRecommendation]]` — always ok (fail-soft: fewer candidates, never an error) | context only |
+| 9 | `get_cross_domain_perception_analysis()` | Perception | `Result[PerceptionAnalysis]` | `goals` / `habits` / `principles` backends, context |
 
 The flags on method 1 mean one thing whichever of its four sources answers: `consider_goals`
 adds a goal weight to a step's score, `consider_capacity` keeps the steps that fit the day
 together. The context fields they act on have no writer — see
 [MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md).
 
-Method 8 is the one method that does not return `Result[T]`: it is a fail-soft read that
-degrades to fewer recommendations, and `AskesisService.get_schedule_aware_recommendations` wraps
-the list into a `Result`.
+Every hub method returns `Result[T]`. Method 8 is a fail-soft read that degrades to fewer
+recommendations, so its `Result` is always ok; `AskesisService.get_schedule_aware_recommendations`
+passes it through unchanged.
 
 `PathStep` here is `core.models.context_types.PathStep` — a frozen recommendation record keyed
 by `ku_uid`. It shares its name with the curriculum entity
@@ -74,8 +74,9 @@ by `ku_uid`. It shares its name with the curriculum entity
 | Method | Production caller |
 |--------|-------------------|
 | 5 | `/api/context/next-action` → `UserContextService.get_next_action` → `UserService.get_daily_work_plan` → `factory.create(context).get_ready_to_work_on_today()` |
-| 1–8 | `AskesisService` wraps each one — the `AskesisOperations` protocol (`core/ports/askesis_protocols.py`). Method 5's wrapper is `get_daily_work_plan`; the other seven carry the hub method's own name. No route calls any of the eight wrappers — the Askesis API registers one route, `/api/askesis/ask`. |
-| 9 | None, and no Askesis wrapper. Registered in `PLANNED_METHODS` (`scripts/detect_bloat.py`) as built and waiting on a perception-insights panel. |
+| 1, 4, 6, 7, 8, 9 | The Insights cards — `GET /insights/hub/{question}` (`adapters/inbound/insights_ui.py`), one `HubQuestion` per method (`learn-next`, `unblock-first`, `synergies`, `alignment`, `right-now`, `perception`), rendered by `ui/insights/hub_cards.py` from the caller's cached rich context. |
+| 1–8 | `AskesisService` wraps each one — the `AskesisOperations` protocol (`core/ports/askesis_protocols.py`). Method 5's wrapper is `get_daily_work_plan`; the other seven carry the hub method's own name. No route calls any of the eight wrappers — the Askesis API registers one route, `/api/askesis/ask`; they are the staged second door (`/docs/roadmap/askesis-intelligence-doors.md`). |
+| 2, 3 | No route yet: the critical path waits on the learning-path walk (`_HUB_CRITICAL_PATH`); method 3's door is the Ku detail page (next F8-6 PR). |
 
 So method 5 has two call paths into the hub — `UserService.get_daily_work_plan` and
 `AskesisService.get_daily_work_plan` — and the first is the one a request reaches today. A
