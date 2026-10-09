@@ -195,12 +195,12 @@ that is `None`.
 | `ps` | `PsService` facade | DailyPlanning, Learning |
 | `exercises` | `ExerciseService` facade | DailyPlanning |
 | `lp` | `LpService.relationships` (`UnifiedRelationshipService`) | no mixin |
-| `report` | `ReportRelationshipService` | no mixin |
+| `report` | `ReportRelationshipService` | DailyPlanning (`get_pending_submissions` → `DailyWorkPlan.awaiting_report`, Priority 2.7) |
 | `calendar` | `CalendarService` | no mixin |
 
-`lp`, `report` and `calendar` are required at construction and stored, and no mixin method reads
-them. Schedule-aware recommendations and life-path alignment are computed from context fields.
-Do not document a method as "using the calendar service" because the attribute exists.
+`lp` and `calendar` are required at construction and stored, and no mixin method reads them.
+Schedule-aware recommendations and life-path alignment are computed from context fields. Do
+not document a method as "using the calendar service" because the attribute exists.
 
 The Activity facades are passed whole — **not** `.relationships`. The planning methods the
 mixins call (`get_actionable_tasks_for_user`, `get_at_risk_habits_for_user`, …) are facade

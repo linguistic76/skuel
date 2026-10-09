@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-10-09
 related_skills: [learning-loop, prompt-templates, zpd]
 ---
 
@@ -372,7 +372,7 @@ no `GET /api/privacy/audit`, nor any privacy route, anywhere in `adapters/inboun
 |---|---|---|---|
 | 1 | `report_relationship_service.get_pending_submissions` | **PLANNED — claimed by this design** | The §2.5 response-trigger query ("owned entries with no REPORT_FOR"), needs a pipeline filter. Completes in PR-3. |
 | 2 | `get_submission_chain` | **PLANNED — claimed by this design** | Student view "what happened after my entry" — the entry detail page's response chain in PR-3. |
-| 3 | `get_unsubmitted_exercises` | **PLANNED (Mike, 2026-06-12)** | Assigned-work nag for daily planning — staged under the daily-plan phantom-dispatch repair thread. |
+| 3 | `get_unsubmitted_exercises` | **PLANNED (Mike, 2026-06-12) → RETIRED as superseded (2026-10-09, F8-5)** | *Original ruling:* assigned-work nag for daily planning — staged under the daily-plan phantom-dispatch repair thread. *Amendment:* the daily plan's slot 2.5 took the "assigned via group, not yet submitted" read from the context (`SUBMISSION_STATS_QUERY` → `unsubmitted_exercises`, through `ExerciseService.get_actionable_exercises_for_user`) — the same `MEMBER_OF` → `SHARED_WITH_GROUP` ← `NOT FULFILLS_EXERCISE` pattern, with prerequisite readiness the staged method never had. A populated improved means: method, backend read and protocol member deleted. The `report` dependency's live slot is `get_pending_submissions` — entries awaiting a report (F8-5, ruling Q2). |
 | 4 | `get_report_summary` | **PLANNED (Mike, 2026-06-12)** | Completion-rate read surface over REPORT_FOR; wire a progress/dashboard consumer. |
 | 5 | `get_learning_loop_chain` | **PLANNED (Mike, 2026-06-12)** | Exercise-rooted loop traversal; awaits a teaching-UI exercise detail view (the entry-rooted twin is design-claimed). |
 | 6–8 | `progress_schedule_service.create_schedule` / `get_user_schedule` / `deactivate_schedule` | **PLANNED (2026-06-12) → RETIRED with the worker (2026-09-13)** | *Original ruling:* the worker runs at every bootstrap; these are the missing *producer* surface (a settings route/UI); deleting them alone strands a running loop — incoherent. *Amendment 2026-09-13 (calendar-priority-lens arc, ruling 7):* row 10's all-or-nothing rule applied symmetrically — the loop retired WITH its producer. The schedule was a second period vocabulary (trailing windows + a weekday cadence) beside the calendar periods reports now speak, nothing consumed an unrequested report, and the table stayed empty from the day it was built. A calendar-period report is generated on request — the request form (`POST /api/reports/progress/generate`) or the detail page's "Regenerate" (`POST /activity-reports/for`, `docs/architecture/REPORT_ARCHITECTURE.md`); periodic ActivityReports as this design's §2.1 aggregate lens are those calendar-period reports, generated when a person asks for the period. |

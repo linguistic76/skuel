@@ -421,12 +421,6 @@ class UserEntryReportQueryOperations(Protocol):
         """
         ...
 
-    async def get_unsubmitted_exercises_raw(
-        self, user_uid: UserUID, limit: int
-    ) -> Result[list[Neo4jProperties]]:
-        """Group-assigned exercises with no entry yet from this user."""
-        ...
-
     async def get_entry_report_summary_raw(
         self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:

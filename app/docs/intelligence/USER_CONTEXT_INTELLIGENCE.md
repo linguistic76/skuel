@@ -141,7 +141,7 @@ UserContextIntelligence requires ALL 12 domain services because each contributes
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
-| **reports** | Submissions + Journals (EntityType.JOURNAL_SUBMISSION) | SubmissionsRelationshipService |
+| **report** | Entries turned in and still awaiting a report (the daily plan's `awaiting_report` slot, P2.7) | ReportRelationshipService (`get_pending_submissions`, `Pipeline.awaiting_report()`) |
 
 ### Temporal Domain (1)
 
@@ -538,6 +538,17 @@ Priority 1: At-risk habits (maintain streaks - highest priority)
 Priority 2: Today's events (can't reschedule)
   └─ events.get_upcoming_events_for_user() → Events today
      Cost: Event duration
+
+Priority 2.3 / 2.5: Pending revisions, then unsubmitted exercises
+  └─ exercises.get_pending_revisions_for_user() / get_actionable_exercises_for_user()
+     Cost: the exercise's estimate; capacity-checked
+
+Priority 2.7: Entries awaiting a report (DailyWorkPlan.awaiting_report)
+  └─ report.get_pending_submissions(pipelines=Pipeline.awaiting_report())
+     → turn-ins (teacher_review) with no REPORT_FOR yet, newest first
+     Cost: none — out of the user's hands, not capacity-checked;
+     named in the rationale ("N entries awaiting a report")
+
 
 Priority 3: High-priority tasks (urgent/important)
   └─ tasks.get_actionable_tasks_for_user() → Priority > HIGH

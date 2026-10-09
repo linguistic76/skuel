@@ -256,8 +256,8 @@ PLANNED_EVENTS: dict[str, PlannedEntry] = {
         "teacher-assignment notification + calendar-integration hook staged "
         "(ADR-040) — publish side (notify group members + calendar due-date on "
         "exercise assignment) never built and no subscriber wired; same staged "
-        "assignment-notification family as report.get_unsubmitted_exercises / "
-        "review_queue.request_review — wire when the assignment-notification / "
+        "assignment-notification family as review_queue.request_review — wire "
+        "when the assignment-notification / "
         "Messaging surface lands, or delete the chain",
         since=date(2026, 6, 13),
     ),
@@ -565,14 +565,6 @@ _LIFEPATH_WORD_ACTION = PlannedEntry(
     "no live equivalent (the live 5-dimension alignment measures graph edges, not "
     "theme overlap); wire as the words-vs-actions panel on the /lifepath alignment "
     "dashboard next to the live dimension breakdown",
-    since=date(2026, 6, 12),
-)
-_REPORT_DAILY_PLANNING = PlannedEntry(
-    Readiness.DELAYED,
-    "assigned-work nag staged — 'exercises assigned via group with no submission yet, by due "
-    "date' is a daily-planning signal; the daily-plan phantom-dispatch repair it once waited on "
-    "landed (campaign 14, 2026-06-13 — get_ready_to_work_on_today is live), so what remains is "
-    "the consumer: wire it into the daily plan / dashboard (Mike ruled PLANNED 2026-06-12)",
     since=date(2026, 6, 12),
 )
 _REPORT_COMPLETION_STATS = PlannedEntry(
@@ -1012,12 +1004,7 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     ),
     "core/services/lifepath/lifepath_types.py::biggest_gap": _LIFEPATH_WORD_ACTION,
     "core/services/lifepath/lifepath_types.py::get_gap_summary": _LIFEPATH_WORD_ACTION,
-    # NOTE: get_pending_submissions + get_submission_chain were wired live in
-    # ADR-069 PR-3 (journal responses) — removed from PLANNED_METHODS.
     # --- Reports: staged intelligence lenses ---
-    "core/services/report/report_relationship_service.py::get_unsubmitted_exercises": (
-        _REPORT_DAILY_PLANNING
-    ),
     "core/services/report/report_relationship_service.py::get_report_summary": (
         _REPORT_COMPLETION_STATS
     ),

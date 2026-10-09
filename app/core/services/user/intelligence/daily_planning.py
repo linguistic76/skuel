@@ -10,9 +10,10 @@ This is the core value proposition: "What should I work on next?"
 Two data sources, kept distinct so callers don't confuse "service queried at
 plan time" with "context field already resolved by the MEGA-QUERY":
 
-**Domain service queries (8 required + 1 optional):**
+**Domain service queries (9 required + 1 optional):**
 - Activity (6): tasks, habits, goals, events, choices, principles
 - Curriculum (2): ps (P5 learning), exercises (P2.3 revisions + P2.5 assignments)
+- Report (1): report (P2.7 entries awaiting a report)
 - Optional: vector_search (semantic enhancement of P5 learning recommendations)
 
 Each query returns enriched Contextual* objects with readiness signals —
@@ -34,6 +35,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import LearningTimeEstimate
 from core.models.context_types import ContextualExercise, DailyWorkPlan, EngagedPsGroup
+from core.models.enums.pipeline import Pipeline
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
 
@@ -53,17 +55,18 @@ class DailyPlanningMixin(IntelligenceMixinBase):
     """
     Mixin providing daily planning methods.
 
-    Requires self.context (RichUserContext) and 8 domain services that
+    Requires self.context (RichUserContext) and 9 domain services that
     get_ready_to_work_on_today() actually queries:
     - Activity: self.tasks, self.habits, self.goals, self.events,
       self.choices, self.principles
     - Curriculum: self.ps (learning readiness), self.exercises (actionable
       exercises + pending revisions with prerequisite-mastery enrichment)
+    - Report: self.report (entries turned in and still awaiting a report)
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic
     enhancement of the P5 learning block.
 
-    Other services on UserContextIntelligence (lp, report, calendar,
-    zpd_service) are used by sibling mixins — this mixin does not call them.
+    Other services on UserContextIntelligence (lp, calendar, zpd_service)
+    are used by sibling mixins — this mixin does not call them.
     """
 
     # Forward declarations of TemporalMomentumMixin methods used here. These
@@ -105,6 +108,9 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         - ls: Learning step sequencing
         - lp: Life path alignment
 
+        Report Domain (1):
+        - report.get_pending_submissions() - Turn-ins still awaiting a report
+
         **Respects:**
         - context.available_minutes_daily (capacity)
         - context.current_energy_level (cognitive load)
@@ -134,6 +140,7 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         contextual_goals_list: list[ContextualGoal] = []
         choices_uids: list[str] = []
         principles_uids: list[str] = []
+        awaiting_report_uids: list[str] = []
         warnings_list: list[str] = []
         estimated_time = 0
 
@@ -210,6 +217,18 @@ class DailyPlanningMixin(IntelligenceMixinBase):
                 warnings_list.append(
                     f"{blocked_assignments} exercise{'s' if blocked_assignments > 1 else ''} blocked by unmastered prerequisites"
                 )
+
+        # =====================================================================
+        # PRIORITY 2.7: Entries awaiting a report
+        # Turn-ins filed for review (Pipeline.awaits_report) with no REPORT_FOR
+        # yet. Out of the user's hands: no minutes, no capacity check — the
+        # plan names them so the user knows what is still open.
+        # =====================================================================
+        awaiting_result = await self.report.get_pending_submissions(
+            self.context.user_uid, pipelines=Pipeline.awaiting_report()
+        )
+        if awaiting_result.is_ok:
+            awaiting_report_uids.extend(awaiting_result.value)
 
         # =====================================================================
         # PRIORITY 3: Overdue and actionable tasks
@@ -351,6 +370,7 @@ class DailyPlanningMixin(IntelligenceMixinBase):
             choices=tuple(choices_uids),
             principles=tuple(principles_uids),
             exercises=tuple(exercises_uids),
+            awaiting_report=tuple(awaiting_report_uids),
             contextual_tasks=tuple(contextual_tasks_list),
             contextual_habits=tuple(contextual_habits_list),
             contextual_goals=tuple(contextual_goals_list),
@@ -454,6 +474,13 @@ class DailyPlanningMixin(IntelligenceMixinBase):
                 rationale_parts.append("Teacher revision feedback to address")
             else:
                 rationale_parts.append("Teacher assignment submissions due")
+
+        # Turn-ins out of the user's hands
+        if plan.awaiting_report:
+            count = len(plan.awaiting_report)
+            rationale_parts.append(
+                f"{count} {'entry' if count == 1 else 'entries'} awaiting a report"
+            )
 
         # Task focus
         if plan.tasks:

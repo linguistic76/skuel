@@ -64,6 +64,7 @@ class ReportRelationshipService:
 
     Used by UserContextIntelligence to answer:
     - "Does this user have submissions that haven't been reviewed yet?"
+      (the daily plan's ``awaiting_report`` slot, ``DailyPlanningMixin``)
     - "What's the overall report completion rate for this user?"
 
     See: /docs/architecture/REPORT_ARCHITECTURE.md
@@ -91,11 +92,13 @@ class ReportRelationshipService:
         Args:
             user_uid: User identifier
             pipelines: Optional pipeline filter — when given, only entries whose
-                ``pipeline`` is in this set are returned (e.g. journal pipelines
-                for the "entries awaiting a response" surface, ADR-069).
+                ``pipeline`` is in this set are returned: the journal pipelines
+                for the "entries awaiting a response" surface (ADR-069), or
+                ``Pipeline.awaiting_report()`` for the daily plan's slot.
 
         Returns:
-            Result containing list of submission UIDs awaiting report (most recent first)
+            Result containing list of submission UIDs awaiting report (most
+            recent first, the backend's page of 20)
         """
         result = await self.backend.get_pending_entries_raw(
             user_uid,
@@ -105,38 +108,6 @@ class ReportRelationshipService:
             return Result.fail(result)
 
         return Result.ok([str(r["uid"]) for r in (result.value or []) if r["uid"]])
-
-    async def get_unsubmitted_exercises(
-        self, user_uid: UserUID, limit: int = 5
-    ) -> Result[list[dict[str, str | None]]]:
-        """
-        Exercises assigned to this user (via group) with no submission yet.
-
-        Graph traversal:
-        (User)-[:MEMBER_OF]->(Group)<-[:SHARED_WITH_GROUP]-(Exercise)
-        WHERE NOT (User)-[:OWNS]->(:Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-
-        Args:
-            user_uid: User identifier
-            limit: Maximum exercises to return (default 5, ordered by due_date ASC)
-
-        Returns:
-            Result containing list of dicts with: uid, title, due_date (ISO string or None)
-        """
-        result = await self.backend.get_unsubmitted_exercises_raw(user_uid, limit)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(
-            [
-                {
-                    "uid": str(r["uid"]),
-                    "title": str(r["title"]) if r["title"] else "Untitled Exercise",
-                    "due_date": str(r["due_date"]) if r["due_date"] else None,
-                }
-                for r in (result.value or [])
-                if r["uid"]
-            ]
-        )
 
     async def get_report_summary(self, user_uid: UserUID) -> Result[ReportSummary]:
         """

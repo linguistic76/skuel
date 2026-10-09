@@ -352,6 +352,7 @@ class UserContextService:
         next_action: NextActionResult = {
             "user_uid": user_uid,
             "recommended_action": recommended_action,
+            "awaiting_report": list(plan.awaiting_report),
             "insights": insights,
             "alerts": alerts,
             "rationale": plan.rationale

@@ -3,8 +3,7 @@ UserEntry Report Query Mixin
 =============================
 
 Cross-joins to EntryReport and learning-loop chain queries.
-Covers pending entries, unsubmitted exercises, report summaries,
-and learning-loop chain reads.
+Covers pending entries, report summaries, and learning-loop chain reads.
 
 Consolidated from the legacy ``_SubmissionReportQueryMixin`` into a single
 standalone mixin (ADR-054).
@@ -91,22 +90,6 @@ class _UserEntryReportQueryMixin:
             submission_types=[_USER_ENTRY],
             pipelines=pipelines,
         )
-
-    async def get_unsubmitted_exercises_raw(
-        self, user_uid: UserUID, limit: int
-    ) -> Result[list[Neo4jProperties]]:
-        """Get exercises assigned via group with no entry yet."""
-        query = f"""
-        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(group:Group)
-        MATCH (exercise:Entity {{entity_type: 'exercise', scope: 'assigned'}})-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(group)
-        WHERE NOT (:Entity {{user_uid: $user_uid}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
-        RETURN exercise.uid AS uid,
-               exercise.title AS title,
-               exercise.due_date AS due_date
-        ORDER BY exercise.due_date ASC
-        LIMIT $limit
-        """
-        return await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
 
     async def get_report_summary_raw(
         self, user_uid: UserUID, submission_types: list[str]

@@ -1504,6 +1504,7 @@ class DailyWorkPlan:
     - Activity Domains (6): tasks, habits, goals, events, choices, principles
     - Curriculum Domains (3): ku, ls, lp
     - Submissions Domain (1): exercises assigned but not yet submitted
+    - Report Domain (1): entries turned in and still awaiting a report
 
     **Respects:**
     - User's available time (capacity)
@@ -1520,6 +1521,10 @@ class DailyWorkPlan:
     choices: tuple[str, ...] = ()  # Choice UIDs to consider
     principles: tuple[str, ...] = ()  # Principle UIDs to embody
     exercises: tuple[str, ...] = ()  # Exercise UIDs assigned but not submitted
+    # UserEntry UIDs turned in for review with no REPORT_FOR yet (newest first,
+    # the read's page of 20). Nothing to do today, so no minutes and no capacity
+    # check: the slot tells the user what is out of their hands.
+    awaiting_report: tuple[str, ...] = ()
 
     # Contextual items (enriched with user context)
     contextual_tasks: tuple[ContextualTask, ...] = ()

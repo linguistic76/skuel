@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-26
+updated: 2026-10-09
 status: current
 category: architecture
 version: 3.2.0
@@ -330,7 +330,7 @@ sharing incomplete/failed work).
 |---------|----------|---------------|
 | `ReportRelationshipService` | `ReportRelationshipOperations` | Pending submissions, report summary, learning loop chain traversal (delegates Cypher to `UserEntryBackend`) |
 
-Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report_summary()`, `get_learning_loop_chain(exercise_uid)`, `get_submission_chain(submission_uid)`. All 5 methods delegate to named `UserEntryBackend` methods (zero inline Cypher). Used by `UserContextIntelligenceFactory`.
+Methods: `get_pending_submissions(user_uid, pipelines=None)` (the daily plan's `awaiting_report` slot reads it with `Pipeline.awaiting_report()`; the journal "Respond" surface with the journal pipelines), `get_report_summary()`, `get_learning_loop_chain(exercise_uid)`, `get_submission_chain(submission_uid)`, `get_exchange_thread()`, `get_student_exchange_summaries()`, `get_entry_review_standing()`. Every method delegates to a named `UserEntryBackend` method (zero inline Cypher). Reached through `UserContextIntelligence.report` and `UserEntryOrchestrator`.
 
 **Protocols:** `core/ports/report_protocols.py`
 
