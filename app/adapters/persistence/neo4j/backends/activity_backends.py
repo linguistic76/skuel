@@ -51,6 +51,8 @@ from core.ports.query_types import (
     LinkedHabitTally,
     ParentProgressResult,
     PrincipleStats,
+    RequiredKnowledgeTally,
+    SupportingHabitWindow,
     TaskStats,
 )
 from core.utils.result_simplified import Errors, Result
@@ -778,6 +780,94 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             return Result.fail(result)
         rows = result.value or []
         return Result.ok(_contribution_tally(rows[0] if rows else {}))
+
+    async def get_supporting_habit_windows(
+        self, goal_uid: str, window_start: str, window_end: str
+    ) -> Result[list[SupportingHabitWindow]]:
+        """The goal owner's habits that support the goal, with each edge's
+        ``essentiality`` and the habit's completions in the adherence window.
+
+        ``(Habit)-[:SUPPORTS_GOAL]->(Goal)`` over the owner's habits — the owner is
+        read off the goal, as the contribution tally's is, so another user's habit
+        never counts toward this goal. The stamps are the same list expression
+        :meth:`HabitsBackend.get_habit_window_completions` projects
+        (``build_habit_window_completion_stamps``) over the same ``[start, end)``
+        stored-clock bounds, read under the owner's ``OWNS`` edge (ADR-086): one
+        definition of "a completion in the window" for the habit's own rate and
+        for its share of the goal's figure. ``window_start`` / ``window_end`` are
+        inclusive ISO ``YYYY-MM-DD`` dates (``adherence_window_days``).
+
+        One row per supporting habit, however many edges join it; a goal with no
+        supporting habit — or no goal — reads an empty list.
+        """
+        start_bound, end_bound = stored_day_bounds(
+            date.fromisoformat(window_start), date.fromisoformat(window_end), current_zone()
+        )
+        stamps = build_habit_window_completion_stamps(
+            "owner", "habit", start_param="start_bound", end_param="end_bound"
+        )
+        result = await self.execute_query(
+            f"""
+            MATCH (goal:{NeoLabel.ENTITY.value} {{uid: $uid}})
+            WITH goal, goal.user_uid AS owner_uid
+            MATCH (habit:{NeoLabel.ENTITY.value}:{NeoLabel.HABIT.value} {{user_uid: owner_uid}})-[edge:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
+            OPTIONAL MATCH (owner:{NeoLabel.USER.value} {{uid: owner_uid}})
+            WITH habit, owner, head(collect(edge.essentiality)) AS essentiality
+            RETURN habit, essentiality, {stamps} AS completion_stamps
+            ORDER BY habit.uid
+            """,
+            {
+                "uid": goal_uid,
+                "start_bound": start_bound.isoformat(),
+                "end_bound": end_bound.isoformat(),
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                SupportingHabitWindow(
+                    habit=from_neo4j_node(dict(row["habit"]), Habit),
+                    essentiality=(
+                        str(row["essentiality"]) if row.get("essentiality") is not None else None
+                    ),
+                    completion_stamps=list(row.get("completion_stamps") or []),
+                )
+                for row in (result.value or [])
+            ]
+        )
+
+    async def get_required_knowledge_tally(self, goal_uid: str) -> Result[RequiredKnowledgeTally]:
+        """How many Kus the goal ``REQUIRES_KNOWLEDGE`` and how many its owner has ``MASTERED``.
+
+        Mastery is the owner's ``(User)-[:MASTERED]->(Ku)`` edge — the edge the
+        user context's ``mastered_knowledge_uids`` is read from — and the owner is
+        the goal's ``user_uid``. A Ku is counted once however many edges require it.
+        An aggregate over no match is a row of zeros, so a goal that requires
+        nothing (or no goal) reads 0 / 0.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (goal:{NeoLabel.ENTITY.value} {{uid: $uid}})
+            OPTIONAL MATCH (goal)-[:{RelationshipName.REQUIRES_KNOWLEDGE.value}]->(ku:{NeoLabel.ENTITY.value} {{entity_type: $ku_type}})
+            WITH goal, collect(DISTINCT ku) AS required
+            RETURN size(required) AS required_knowledge,
+                   size([ku IN required WHERE EXISTS {{
+                       MATCH (:{NeoLabel.USER.value} {{uid: goal.user_uid}})-[:{RelationshipName.MASTERED.value}]->(ku)
+                   }}]) AS mastered_knowledge
+            """,
+            {"uid": goal_uid, "ku_type": EntityType.KU.value},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        row = rows[0] if rows else {}
+        return Result.ok(
+            RequiredKnowledgeTally(
+                required_knowledge=int(row.get("required_knowledge") or 0),
+                mastered_knowledge=int(row.get("mastered_knowledge") or 0),
+            )
+        )
 
     async def list_task_based_goals(self) -> Result[list[tuple[str, UserUID]]]:
         """Every TASK_BASED goal as ``(goal_uid, owner_uid)`` — the reconciler's work list."""

@@ -15,7 +15,13 @@ from typing import TYPE_CHECKING, Any
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.graph.path_aware_types import GoalCrossContext
+from core.models.habit.adherence import adherence_window_days
 from core.ports.domain_protocols import GoalsOperations
+from core.services.goals.dashboard_figures import (
+    habit_support_contribution,
+    knowledge_mastery_contribution,
+    needs_more_tasks,
+)
 from core.services.goals.goals_progress_service import contribution_progress
 from core.services.infrastructure.prerequisite_checker import build_learning_requirements
 from core.services.intelligence import (
@@ -64,9 +70,9 @@ class _AnalyticsMixin:
 
         Two different sets are reported, and they answer different questions:
 
-        - ``supporting_activities.tasks`` (and ``metrics.task_support_count``, which
-          ``insights.needs_more_tasks`` reads) is the goal's NEIGHBOURHOOD — the tasks
-          the path-aware context reaches at ``min_confidence``.
+        - ``supporting_activities.tasks`` / ``habits`` (and ``metrics.task_support_count``
+          / ``habit_support_count``) are the goal's NEIGHBOURHOOD — the entities the
+          path-aware context reaches at ``min_confidence``.
         - ``supporting_activities.total_contributions`` / ``completed_contributions``
           and ``contributions.contribution_progress`` are the goal's PROGRESS TALLY —
           the owner's tasks and events that contribute to the goal and count toward
@@ -79,7 +85,24 @@ class _AnalyticsMixin:
         ``current_value`` / ``target_value``: those hold it only for a goal a recompute
         chose to write.
 
-        Backend: GoalsBackend.get_contribution_tally
+        The other figures are derived from what the owner has done, never from the
+        neighbourhood's size (``core.services.goals.dashboard_figures``):
+
+        - ``insights.needs_more_tasks`` — the tally holds fewer counting contributions
+          than ``GoalDashboard.MIN_COUNTING_CONTRIBUTIONS``.
+        - ``contributions.habit_contribution`` — the essentiality-weighted mean
+          adherence of the owner's habits that ``SUPPORTS_GOAL`` the goal, as a
+          percentage; each habit's adherence is the one read-time definition
+          (``habit_adherence``) over the trailing window, and a habit with no rate yet
+          is left out. 0.0 with no measurable supporting habit.
+        - ``contributions.learning_contribution`` — the share of the Kus the goal
+          ``REQUIRES_KNOWLEDGE`` that the owner has ``MASTERED``, as a percentage; the
+          figure the user context carries as ``goal_completion_from_graph``. 0.0 when
+          the goal requires nothing.
+
+        Backend: GoalsBackend.get_contribution_tally,
+        GoalsBackend.get_supporting_habit_windows,
+        GoalsBackend.get_required_knowledge_tally
         """
         # Use base class template over the CANONICAL typed (path-aware) reader.
         analysis_result = await self._analyze_entity_with_typed_context(
@@ -108,9 +131,10 @@ class _AnalyticsMixin:
         learning_paths = [{"uid": lp.uid} for lp in context.learning_paths]
 
         # Calculate timeline
+        zone = current_zone()
         days_remaining = None
         if goal.target_date:
-            days_remaining = (goal.target_date - today_in(current_zone())).days
+            days_remaining = (goal.target_date - today_in(zone)).days
 
         # The contribution figures are the progress tally, not the neighbourhood above.
         tally_result = await self.backend.get_contribution_tally(uid)
@@ -118,13 +142,25 @@ class _AnalyticsMixin:
             return Result.fail(tally_result)
         tally = tally_result.value
         contribution_figure = contribution_progress(tally)
-        habit_contribution = metrics["support_coverage"] * 100 if metrics["has_habit_system"] else 0
-        learning_contribution = (len(learning_paths) * 10.0) if learning_paths else 0
+
+        # The habit and knowledge figures are what the owner has done with the goal's
+        # supporting habits and required knowledge — read for this goal, derived here.
+        window_start, window_end = adherence_window_days(zone)
+        habit_windows = await self.backend.get_supporting_habit_windows(
+            uid, window_start.isoformat(), window_end.isoformat()
+        )
+        if habit_windows.is_error:
+            return Result.fail(habit_windows)
+        habit_contribution = habit_support_contribution(habit_windows.value, zone)
+        knowledge_tally = await self.backend.get_required_knowledge_tally(uid)
+        if knowledge_tally.is_error:
+            return Result.fail(knowledge_tally)
+        learning_contribution = knowledge_mastery_contribution(knowledge_tally.value)
 
         # Generate insights
         has_knowledge_requirements = rels and rels.required_knowledge_uids
         insights = {
-            "needs_more_tasks": metrics["task_support_count"] < 3,
+            "needs_more_tasks": needs_more_tasks(tally),
             "needs_habit_support": not metrics["has_habit_system"],
             "has_learning_gaps": not metrics["has_curriculum_alignment"]
             and has_knowledge_requirements,

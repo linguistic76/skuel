@@ -97,6 +97,8 @@ from core.ports.query_types import (
     NextActionResult,
     ParentProgressResult,
     PrincipleStats,
+    RequiredKnowledgeTally,
+    SupportingHabitWindow,
     TaskStats,
 )
 
@@ -780,6 +782,33 @@ class GoalsOperations(
         Counted by the membership rule ``recompute_progress_from_contributions`` writes
         the goal's figure by, so a report and the stored figure cannot disagree on which
         contributions count. A goal with no counting contribution reads 0 / 0.
+        """
+        ...
+
+    async def get_supporting_habit_windows(
+        self, goal_uid: str, window_start: str, window_end: str
+    ) -> Result[list[SupportingHabitWindow]]:
+        """The goal owner's habits that support the goal, each with its edge's
+        essentiality and its completions in the adherence window.
+
+        The inputs of the dashboard's ``habit_contribution``: the stamps are the
+        ones ``HabitsOperations.get_habit_window_completions`` reads for the same
+        inclusive ISO date bounds, so a habit's share of the goal's figure is
+        counted from the completions its own rate is. A habit another user owns
+        never appears, whatever edge joins it to the goal.
+
+        Backend: GoalsBackend.get_supporting_habit_windows
+        """
+        ...
+
+    async def get_required_knowledge_tally(self, goal_uid: str) -> Result[RequiredKnowledgeTally]:
+        """How many Kus the goal requires and how many of them its owner has mastered.
+
+        The pair the dashboard's ``learning_contribution`` divides; mastery is the
+        owner's ``MASTERED`` edge, the one the user context's ``mastered_knowledge_uids``
+        reads. A goal that requires nothing reads 0 / 0.
+
+        Backend: GoalsBackend.get_required_knowledge_tally
         """
         ...
 
