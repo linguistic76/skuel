@@ -362,6 +362,12 @@ class UserContext:
     principle_priorities: dict[str, float] = field(default_factory=dict)
     # active principle uid -> the goals it SUPPORTS_GOAL, any status; written by the rich build
     principle_supported_goals: dict[str, list[str]] = field(default_factory=dict)
+    # goal / task / habit uid -> the active principles it is linked to (SUPPORTS_GOAL;
+    # ALIGNED_WITH_PRINCIPLE; EMBODIES_PRINCIPLE and INSPIRES_HABIT), every link — the
+    # lookups the daily plan and the relevance score read; written by the rich build
+    principles_by_goal: dict[str, list[str]] = field(default_factory=dict)
+    principles_by_task: dict[str, list[str]] = field(default_factory=dict)
+    principles_by_habit: dict[str, list[str]] = field(default_factory=dict)
     principle_conflicts: list[tuple[str, str]] = field(default_factory=list)
 
     # Principle alignment scores

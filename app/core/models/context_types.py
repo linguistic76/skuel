@@ -61,6 +61,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.principle_enums import PrincipleStrength
 from core.models.type_hints import EntityUID
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -81,47 +82,42 @@ def _compute_relevance(
     principle_uids: list[str],
     active_goal_uids: set[str] | list[str],
     primary_goal_focus: str | None,
-    core_principle_uids: set[str] | list[str],
     principle_priorities: dict[str, float],
 ) -> float:
     """
     Calculate relevance score based on goal and principle alignment.
 
+    The goal term is the share of the entity's goals still active (+0.2 when the
+    user's primary goal is among them); with no goals the base is the neutral 0.5.
+    The principle term lifts that base toward 1.0 by the importance of the most
+    deeply held principle the entity is linked to: a link never lowers the score,
+    and a second principle never dilutes or compounds the first.
+
     Args:
         goal_uids: Goals this entity contributes to
-        principle_uids: Principles this entity aligns with
+        principle_uids: The user's active principles this entity is linked to
+            (``UserContext.principles_by_task`` / ``principles_by_habit``)
         active_goal_uids: User's active goals
         primary_goal_focus: User's primary goal UID (None if unset)
-        core_principle_uids: User's core principles
-        principle_priorities: Map of principle_uid -> priority weight
+        principle_priorities: Map of principle_uid -> importance
+            (``PrincipleStrength.importance()``)
 
     Returns:
         Score from 0.0 (not relevant) to 1.0 (highly relevant)
     """
-    goal_score = 0.0
-    principle_score = 0.0
-
+    relevance = 0.5
     if goal_uids:
         aligned = len([g for g in goal_uids if g in active_goal_uids])
-        goal_score = aligned / len(goal_uids)
+        relevance = aligned / len(goal_uids)
         if primary_goal_focus in goal_uids:
-            goal_score = min(1.0, goal_score + 0.2)
+            relevance = min(1.0, relevance + 0.2)
 
     if principle_uids:
-        aligned_principles = [p for p in principle_uids if p in core_principle_uids]
-        principle_score = len(aligned_principles) / len(principle_uids)
-        for p_uid in aligned_principles:
-            priority = principle_priorities.get(p_uid, 0.5)
-            principle_score *= 0.5 + priority * 0.5
+        unset = PrincipleStrength.MODERATE.importance()
+        held = max(principle_priorities.get(p, unset) for p in principle_uids)
+        relevance += (1.0 - relevance) * held
 
-    if goal_uids and principle_uids:
-        return (goal_score * 0.6) + (principle_score * 0.4)
-    elif goal_uids:
-        return goal_score
-    elif principle_uids:
-        return principle_score
-    else:
-        return 0.5
+    return relevance
 
 
 def _compute_urgency(
@@ -361,10 +357,9 @@ class ContextualTask(ContextualEntity):
             if relevance_override is not None
             else _compute_relevance(
                 goals,
-                [],
+                context.principles_by_task.get(uid, []),
                 context.active_goal_uids,
                 context.primary_goal_focus,
-                context.core_principle_uids,
                 context.principle_priorities,
             )
         )
@@ -804,10 +799,9 @@ class ContextualHabit(ContextualEntity):
         else:
             goal_relevance = _compute_relevance(
                 goals,
-                [],
+                context.principles_by_habit.get(uid, []),
                 context.active_goal_uids,
                 context.primary_goal_focus,
-                context.core_principle_uids,
                 context.principle_priorities,
             )
             streak_relevance = min(1.0, streak / 30)
@@ -985,7 +979,6 @@ class ContextualPrinciple(ContextualEntity):
     - attention_reasons: Why does this principle need attention?
     - suggested_action: Actionable recommendation
     - connected_task_uids: Today's tasks connected to this principle
-    - connected_event_uids: Today's events connected to this principle
     - connected_goal_uids: Active goals connected to this principle
     - practice_opportunity: Description of today's practice opportunity
     """
@@ -1006,7 +999,6 @@ class ContextualPrinciple(ContextualEntity):
     attention_reasons: tuple[str, ...] = field(default_factory=tuple)
     suggested_action: str = ""
     connected_task_uids: tuple[str, ...] = field(default_factory=tuple)
-    connected_event_uids: tuple[str, ...] = field(default_factory=tuple)
     connected_goal_uids: tuple[str, ...] = field(default_factory=tuple)
     practice_opportunity: str = ""
 
@@ -1023,7 +1015,6 @@ class ContextualPrinciple(ContextualEntity):
         attention_reasons: list[str] | None = None,
         suggested_action: str = "",
         connected_task_uids: list[str] | None = None,
-        connected_event_uids: list[str] | None = None,
         connected_goal_uids: list[str] | None = None,
         practice_opportunity: str = "",
         priority_override: float | None = None,
@@ -1075,7 +1066,6 @@ class ContextualPrinciple(ContextualEntity):
             attention_reasons=tuple(attention_reasons or []),
             suggested_action=suggested_action,
             connected_task_uids=tuple(connected_task_uids or []),
-            connected_event_uids=tuple(connected_event_uids or []),
             connected_goal_uids=tuple(connected_goal_uids or []),
             practice_opportunity=practice_opportunity,
         )
@@ -1090,9 +1080,7 @@ class ContextualPrinciple(ContextualEntity):
 
     def has_practice_opportunity(self) -> bool:
         """Check if there are connected activities for practice."""
-        return bool(
-            self.connected_task_uids or self.connected_event_uids or self.connected_goal_uids
-        )
+        return bool(self.connected_task_uids or self.connected_goal_uids)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -1111,7 +1099,6 @@ class ContextualPrinciple(ContextualEntity):
                 "attention_reasons": list(self.attention_reasons),
                 "suggested_action": self.suggested_action,
                 "connected_task_uids": list(self.connected_task_uids),
-                "connected_event_uids": list(self.connected_event_uids),
                 "connected_goal_uids": list(self.connected_goal_uids),
                 "practice_opportunity": self.practice_opportunity,
                 "needs_attention": self.needs_attention(),

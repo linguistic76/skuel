@@ -528,9 +528,11 @@ MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // PRINCIPLES - Fetch UIDs AND rich data with graph neighborhoods
 // ====================================================================
+// Every owned principle is projected; only an active one is a core principle (the
+// standard build's line).
 OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
 WITH user,
-     collect(principle.uid) as core_principle_uids,
+     collect(CASE WHEN principle.status = $status_active THEN principle.uid END) as core_principle_uids,
      collect(principle) as all_principle_nodes
 
 // Filter principles for rich data (with graph neighborhoods)
@@ -994,29 +996,47 @@ RETURN {
 } as result
 """.replace(_HABIT_ADHERENCE_FIELDS_TOKEN, _HABIT_ADHERENCE_FIELDS)
 
-# Principle support — the goals each of the user's principles supports, read off
-# ``(Principle)-[:SUPPORTS_GOAL]->(Goal)``, the one edge both link doors write
-# (the goal's and the principle's — ADR-090). Its own statement: no other family
-# reads a principle's goal links. Only an active principle guides (the standard
-# build's ``core_principle_uids`` holds the same line); every status of goal is
-# carried, as ``habits_by_goal`` carries a habit's, and a reader keeps the active
-# ones. A habit and a PathStep write SUPPORTS_GOAL too, so the near end is the
-# owned ``:Principle``; another user's goal is left out by ``__FAR(goal)__``.
-PRINCIPLE_GOAL_SUPPORT_QUERY: str = _tie_far_nodes(
+# Principle support — what each of the user's active principles is linked to: the
+# goals it supports (``(Principle)-[:SUPPORTS_GOAL]->(Goal)``, the one edge both
+# link doors write, ADR-090), the tasks aligned with it
+# (``(Task)-[:ALIGNED_WITH_PRINCIPLE]->(Principle)``) and the habits that carry it,
+# both facts of the pair (``(Habit)-[:EMBODIES_PRINCIPLE]->(Principle)``,
+# ``(Principle)-[:INSPIRES_HABIT]->(Habit)``, ADR-090 §3). Its own statement, the
+# links unsliced: the ranking lookups built from it must see every link, where the
+# principles row's display projections stop at ten. Only an active principle guides
+# (the standard build's ``core_principle_uids`` holds the same line); every status
+# of goal, task and habit is carried and a reader keeps the ones it ranks. A habit
+# and a PathStep write SUPPORTS_GOAL too, so the near end is the owned
+# ``:Principle``; another user's node is left out by ``__FAR(...)__``.
+PRINCIPLE_SUPPORT_QUERY: str = _tie_far_nodes(
     """
 MATCH (user:User {uid: $user_uid})
-// Two hops, the principle bound first: the goal hop expands from the user's own
-// principles (one pattern lets the planner scan every SUPPORTS_GOAL edge instead).
+// One hop per link, each from the bound principle: a pattern the planner could start
+// from the edge lets it scan every edge of that type instead.
 OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
 WHERE principle.status = $status_active
 OPTIONAL MATCH (principle)-[:SUPPORTS_GOAL]->(goal:Goal)
 WHERE __FAR(goal)__
 WITH user, principle, collect(DISTINCT goal.uid) as goal_uids
+OPTIONAL MATCH (task:Task)-[:ALIGNED_WITH_PRINCIPLE]->(principle)
+WHERE __FAR(task)__
+WITH user, principle, goal_uids, collect(DISTINCT task.uid) as task_uids
+OPTIONAL MATCH (embodying:Habit)-[:EMBODIES_PRINCIPLE]->(principle)
+WHERE __FAR(embodying)__
+WITH user, principle, goal_uids, task_uids, collect(DISTINCT embodying.uid) as embodying_uids
+OPTIONAL MATCH (principle)-[:INSPIRES_HABIT]->(inspired:Habit)
+WHERE __FAR(inspired)__
+WITH user, principle, goal_uids, task_uids, embodying_uids,
+     collect(DISTINCT inspired.uid) as inspired_uids
+WITH user, principle, goal_uids, task_uids, embodying_uids + inspired_uids as habit_uids
 WITH user,
-     collect(CASE WHEN principle IS NOT NULL AND size(goal_uids) > 0 THEN {uid: principle.uid, goal_uids: goal_uids} END) as principle_goal_support
+     collect(CASE WHEN principle IS NOT NULL
+                   AND size(goal_uids) + size(task_uids) + size(habit_uids) > 0
+              THEN {uid: principle.uid, goal_uids: goal_uids, task_uids: task_uids, habit_uids: habit_uids}
+              END) as principle_support
 RETURN {
     rich: {
-        principle_goal_support: principle_goal_support
+        principle_support: principle_support
     }
 } as result
 """
@@ -1035,7 +1055,7 @@ RICH_CONTEXT_STATEMENTS: tuple[tuple[str, str], ...] = (
     ("habits_and_events", HABITS_AND_EVENTS_QUERY),
     ("habit_adherence", HABIT_ADHERENCE_QUERY),
     ("principles_and_choices", PRINCIPLES_AND_CHOICES_QUERY),
-    ("principle_goal_support", PRINCIPLE_GOAL_SUPPORT_QUERY),
+    ("principle_support", PRINCIPLE_SUPPORT_QUERY),
     ("knowledge", KNOWLEDGE_QUERY),
     ("curriculum", CURRICULUM_QUERY),
     ("learner_state", LEARNER_STATE_QUERY),

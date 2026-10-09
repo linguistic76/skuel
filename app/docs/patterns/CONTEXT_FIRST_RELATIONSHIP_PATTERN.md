@@ -1,6 +1,6 @@
 ---
 title: Context-First Relationship Pattern
-updated: 2026-09-17
+updated: 2026-10-09
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -101,26 +101,26 @@ straight through. This consolidation (#255) deleted the former inline `_compute_
 `_compute_blocking_reasons` helpers so the same mastery split drives readiness, gaps, *and* the rich
 `learning_requirements` display payload. **See:** [PREREQUISITE_CHECKER_PATTERN.md](PREREQUISITE_CHECKER_PATTERN.md).
 
-### `_compute_relevance(goal_uids, principle_uids, active_goal_uids, primary_goal_focus, core_principle_uids, principle_priorities) -> float`
+### `_compute_relevance(goal_uids, principle_uids, active_goal_uids, primary_goal_focus, principle_priorities) -> float`
 
 Calculates alignment with user's goals and principles.
 
 ```python
 def _compute_relevance(
     goal_uids: list[str],           # Goals this entity contributes to
-    principle_uids: list[str],      # Principles this entity aligns with
+    principle_uids: list[str],      # The user's active principles this entity is linked to
     active_goal_uids: set[str],     # User's active goals (from UserContext)
     primary_goal_focus: str,        # User's primary goal UID
-    core_principle_uids: set[str],  # User's core principles
-    principle_priorities: dict[str, float],  # Principle priority weights
+    principle_priorities: dict[str, float],  # PrincipleStrength.importance() per principle
 ) -> float:
 ```
 
 **Scoring logic:**
-- **Goal score:** Ratio of entity's goals that are in user's active goals, +0.2 bonus if primary goal focus matches
-- **Principle score:** Ratio of aligned principles, weighted by principle priority
-- **Combination:** If both present: `(goal * 0.6) + (principle * 0.4)`. If only one, use that score.
+- **Base:** with goals, the ratio of the entity's goals that are active, +0.2 if the primary goal focus is among them; with none, the neutral 0.5
+- **Principle lift:** `base + (1 - base) * held`, where `held` is the importance of the most deeply held linked principle (CORE 1.0 … EXPLORING 0.2) — a principle link never lowers the score, and a second principle neither dilutes nor compounds the first
 - **Default (neither):** 0.5
+
+`ContextualTask` and `ContextualHabit` read `principle_uids` off the rich build's `principles_by_task` / `principles_by_habit` (empty at standard depth, so the lift is absent there).
 
 ### `_compute_urgency(deadline, is_at_risk, streak_at_risk) -> float`
 
@@ -326,7 +326,7 @@ def from_entity_and_context(
 **Call sites (4):**
 - `goals_planning_service.get_advancing_goals_for_user()` — default 4D weights
 - `goals_planning_service.get_stalled_goals_for_user()` — `readiness_override=_calculate_readiness_score_static(knowledge_uids, [], ctx), priority_override=0.7*(1-progress)`
-- `goals_planning_service.get_achievable_goals_for_user()` — `readiness_override=1.0, relevance_override=_calculate_relevance_score_static([goal_uid], [], ctx), priority_override=min(1.0, progress*1.2)`
+- `goals_planning_service.get_achievable_goals_for_user()` — `readiness_override=1.0, priority_override=min(1.0, progress*1.2)` (relevance: the factory's own — 1.0 for an active goal)
 - `planning_mixin.get_advancing_goals_for_user()` — standard with at-risk check
 
 ### `ContextualHabit.from_entity_and_context()`

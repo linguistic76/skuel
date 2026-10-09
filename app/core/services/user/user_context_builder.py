@@ -338,16 +338,16 @@ class UserContextBuilder:
 
         **ARCHITECTURE:** The MEGA-QUERY — the name, throughout ``core/``, for the
         rich context's graph read — fetches BOTH standard context (UIDs) AND
-        rich context (full entities with graph neighborhoods). It is six
-        statements, one per read family (``RICH_CONTEXT_STATEMENTS`` — tasks &
-        goals, habits & events, principles & choices, knowledge, curriculum,
-        learner state), run concurrently by ``execute_mega_query`` and merged
-        into one map. The reads beside it — current and mastered
-        path steps, engagements, groups, the submission & feedback stats, the
-        entry→Ku applied-knowledge rows — go out in the same ``asyncio.gather``,
-        so the wall cost is the slowest statement, not the sum. Every statement
-        is far under the size past which the server re-plans it on every
-        execution, and a new read is a statement of its own (a registry entry),
+        rich context (full entities with graph neighborhoods). It is one
+        statement per read family (``RICH_CONTEXT_STATEMENTS`` — tasks & goals,
+        habits & events, habit adherence, principles & choices, principle
+        support, knowledge, curriculum, learner state), run concurrently by
+        ``execute_mega_query`` and merged into one map. The reads beside it —
+        current and mastered path steps, engagements, groups, the submission &
+        feedback stats, the entry→Ku applied-knowledge rows — go out in the same
+        ``asyncio.gather``, so the wall cost is the slowest statement, not the
+        sum. Every statement is far under the size past which the server
+        re-plans it on every execution, and a new read is a statement of its own (a registry entry),
         never a section appended to an existing one.
 
         The MEGA-QUERY fetches:
@@ -484,7 +484,7 @@ class UserContextBuilder:
         #     "uids": {active_task_uids, completed_task_uids, goal_progress, knowledge_mastery, ...},
         #     "entities": {tasks, goals, habits, events, choices, principles,
         #                  learning_paths, path_steps},  <- LP/PS normalized here
-        #     "rich": {knowledge, learning_paths, path_steps},  <- curriculum only (backward compat)
+        #     "rich": {knowledge, learning_paths, path_steps, principle_support},
         #     "life_path": {uid, alignment_score, dimensions},
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,

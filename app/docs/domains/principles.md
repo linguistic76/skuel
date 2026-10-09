@@ -277,17 +277,19 @@ Returns `list[ContextualPrinciple]` sorted by attention urgency.
 
 ### get_contextual_principles_for_user()
 
-Finds principles relevant to today's scheduled activities:
-- Linked to today's tasks and events: read from each task's and event's rich `graph_context` under `guiding_principles`, a key the task and event statements do not project, so these arms add nothing today (the task's `ALIGNED_WITH_PRINCIPLE` and the event's `DEMONSTRATES_PRINCIPLE` edges are not read here; registered in `docs/roadmap/activity-links-registered-residuals.md` § Readers of keys nothing projects or writes, item 26)
-- Connected to active goals: read from each goal's rich `graph_context` under `aligned_principles`, a key the goals statement does not project, so this arm adds nothing today
-- Boosted if in `core_principle_uids`
+Finds the user's active principles relevant to today — the daily plan's principle slot (method 1, via `get_aligned_principles_for_user`):
+- Linked to an open task due today (`ALIGNED_WITH_PRINCIPLE`, through `principles_by_task`): +0.3 per task
+- Supporting an active goal (`SUPPORTS_GOAL`, through `principles_by_goal`): +0.2 per goal
+- Weighted by how deeply each is held: × (0.5 + `principle_priorities`) — CORE ×1.5 … EXPLORING ×0.7; a tie goes to the lower uid
+
+Events are not read: `DEMONSTRATES_PRINCIPLE` has no writer (no link door on either end, no ingestion field).
 
 Returns `list[ContextualPrinciple]` with connected activity UIDs.
 
 ### get_principle_practice_opportunities_for_user()
 
 Identifies activities that could strengthen principle alignment:
-- Today's tasks aligned with principles and today's events connected to principles — read through the same `guiding_principles` key as above, so neither arm finds an activity today
+- Today's open tasks aligned with each principle (`principles_by_task`)
 - Prioritizes principles with low alignment (practice what you need)
 
 Returns `list[PracticeOpportunity]` with guidance text.
@@ -299,7 +301,7 @@ Returns `list[PracticeOpportunity]` with guidance text.
 | Field | Type | Description |
 |-------|------|-------------|
 | `uid` | `str` | Principle UID |
-| `name` | `str` | Principle name |
+| `title` | `str` | Principle title |
 | `attention_score` | `float` | How urgently needs attention (0-1) |
 | `relevance_score` | `float` | Relevance to today's activities (0-1) |
 | `alignment_score` | `float` | Current alignment level (0-1) |
@@ -308,7 +310,6 @@ Returns `list[PracticeOpportunity]` with guidance text.
 | `attention_reasons` | `tuple[str, ...]` | Why principle needs attention |
 | `suggested_action` | `str` | Actionable recommendation |
 | `connected_task_uids` | `tuple[str, ...]` | Today's tasks connected to principle |
-| `connected_event_uids` | `tuple[str, ...]` | Today's events connected to principle |
 | `connected_goal_uids` | `tuple[str, ...]` | Active goals connected to principle |
 | `practice_opportunity` | `str` | Description of practice opportunity |
 
@@ -378,9 +379,9 @@ The planning service extracts data from `UserContext`:
 | `entities_rich["principles"]` | Rich data with graph context |
 | `principle_priorities` | How deeply each principle is held (`strength` → `PrincipleStrength.importance()`, rich build) — a "deeply held, but low alignment" reason |
 | `today_task_uids` | Today's scheduled tasks |
-| `today_event_uids` | Today's scheduled events |
 | `active_goal_uids` | Current active goals |
-| `entities_rich["tasks"]` / `["events"]` / `["goals"]` | Read for `guiding_principles` / `aligned_principles` — keys no context statement projects, so the principle↔activity maps are empty today |
+| `principles_by_task` / `principles_by_goal` | Each task / goal → the active principles it is linked to (rich build, the `principle_support` statement; every link, unsliced) |
+| `entities_rich["tasks"]` | Today's task titles for practice opportunities |
 
 ## Events/Publishing
 

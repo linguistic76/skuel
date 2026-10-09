@@ -1,6 +1,6 @@
 ---
 title: "Activity Links Arc — Registered Residuals"
-updated: 2026-10-08
+updated: 2026-10-09
 status: "registered"
 registered: "2026-10-04 to 2026-10-08 (the censuses of Activity Links arc PRs 1c–5)"
 trigger: "the next touch of the subsystem an item names (each item carries its file and line), or the quarterly review walk"
@@ -18,7 +18,7 @@ the arc's close (2026-10-08): all 27 still hold. Each item keeps the census's nu
 line are where the defect is, not where the fix goes. Items whose nearest home is another live
 case file say so.
 
-Two kinds recur. **A reader of a key nothing writes** (items 6, 10, 12, 13, 14, 16, 26, 27): a
+Two kinds recur. **A reader of a key nothing writes** (items 6, 10, 12, 13, 14, 16, 27): a
 bucket, context field or projection name that no statement emits, so the reader is dead and its
 feature silently returns nothing — the shape the arc fixed for the goal page, `/self-checkin` and
 `EventCrossContext`. **A door that drops what it was given** (items 5, 7, 18, 25): a request field
@@ -58,9 +58,9 @@ or DSL link parsed and discarded, answering 200 and writing no edge.
    so the relationships it builds hold no habit, path or principle; its two callers
    (`calculate_goal_progress_with_context`, `update_goal_from_habit_progress`) are reached only
    through facade delegators nothing calls — `core/services/goals/goals_progress_service.py:456`,
-   `adapters/persistence/neo4j/user_context_queries.py:351-355`. `PrinciplesPlanningService` reads
-   `aligned_principles` from the same goal context, equally absent —
-   `core/services/principles/principles_planning_service.py:136`. Registered by PR 2.
+   `adapters/persistence/neo4j/user_context_queries.py:351-355`. Registered by PR 2. (Its
+   `PrinciplesPlanningService` half — `aligned_principles` read off the same goal context — is
+   struck by F8-2c, which reads `principles_by_goal`.)
 12. `UserContext.decisions_aligned_with_principles` and `decisions_against_principles` have no
    writer: the principles stats card always reads 0 / 0, and life-path intelligence reads them
    too — `core/services/user/unified_user_context.py:372`;
@@ -74,14 +74,10 @@ or DSL link parsed and discarded, answering 200 and writing no edge.
    reads `supported_goals` and `inspired_habits`), and the adherence trends read the nonexistent
    buckets `choices` and `habits` — `core/services/principles/_alignment_intelligence_mixin.py:204`
    and ~385. Registered by PR 3.
-26. `PrinciplesPlanningService._extract_principles_for_activities` reads a task's and an event's
-   `graph_context["guiding_principles"]`, a key neither user-context statement projects, so
-   `get_contextual_principles_for_user` and `get_principle_practice_opportunities_for_user` never
-   see a task or an event linked to a principle, though the task's `ALIGNED_WITH_PRINCIPLE` is
-   writable on create and update. Reading it there is a new read — a new registry statement under
-   the MEGA-QUERY rule — `adapters/persistence/neo4j/user_context_queries.py:297-302` (task) and
-   499–504 (event); `core/services/principles/principles_planning_service.py:112,124`. Registered
-   by PR 5. (`docs/domains/principles.md` records the same under the planning service.)
+26. ~~`PrinciplesPlanningService` read a task's and an event's `guiding_principles`, a key no
+   statement projects.~~ Struck by F8-2c: the planning service reads the rich build's
+   `principles_by_task` / `principles_by_goal` (the `principle_support` statement), and the event
+   leg is deleted — nothing writes `DEMONSTRATES_PRINCIPLE` (ruling Q11, 2026-10-09).
 27. `assess_principle_alignment` hard-codes no recent tasks and a task count of 0 ("Principles
    don't directly relate to tasks") and ignores the `aligned_tasks` bucket `PRINCIPLES_CONFIG`
    emits — `core/services/principles/_alignment_intelligence_mixin.py:98`. Registered by PR 5.

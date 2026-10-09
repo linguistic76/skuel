@@ -26,7 +26,6 @@ filtered, and ranked goal queries for users.
 
 **Static Helpers:**
 - _calculate_readiness_score_static: Prerequisites met calculation
-- _calculate_relevance_score_static: Goal/principle alignment calculation
 """
 
 from __future__ import annotations
@@ -321,9 +320,6 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             # Get title safely
             title = getattr(goal, "title", str(goal_uid))
 
-            relevance = GoalsPlanningService._calculate_relevance_score_static(
-                [goal_uid], [], context
-            )
             contextual = ContextualGoal.from_entity_and_context(
                 uid=goal_uid,
                 title=title,
@@ -332,7 +328,6 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                 contributing_habit_uids=contributing_habits,
                 required_knowledge_uids=knowledge_uids,
                 readiness_override=1.0,
-                relevance_override=relevance,
                 priority_override=min(1.0, progress * 1.2),
             )
             achievable_goals.append(contextual)
@@ -370,35 +365,6 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                 met += 1
 
         return met / total
-
-    @staticmethod
-    def _calculate_relevance_score_static(
-        entity_goal_uids: list[str],
-        entity_principle_uids: list[str],
-        context: UserContext,
-    ) -> float:
-        """Calculate relevance score based on goal and principle alignment."""
-        if not entity_goal_uids and not entity_principle_uids:
-            return 0.5
-
-        goal_score = 0.0
-        if entity_goal_uids:
-            aligned = len([g for g in entity_goal_uids if g in context.active_goal_uids])
-            goal_score = aligned / len(entity_goal_uids) if entity_goal_uids else 0
-            if context.primary_goal_focus in entity_goal_uids:
-                goal_score = min(1.0, goal_score + 0.2)
-
-        principle_score = 0.0
-        if entity_principle_uids:
-            aligned = len([p for p in entity_principle_uids if p in context.core_principle_uids])
-            principle_score = aligned / len(entity_principle_uids) if entity_principle_uids else 0
-
-        if entity_goal_uids and entity_principle_uids:
-            return (goal_score * 0.6) + (principle_score * 0.4)
-        elif entity_goal_uids:
-            return goal_score
-        else:
-            return principle_score
 
     @staticmethod
     def _get_priority_score(goal: ContextualGoal) -> float:

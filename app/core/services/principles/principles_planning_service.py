@@ -92,77 +92,15 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
 
         return data
 
-    def _extract_principles_for_activities(
-        self, context: UserContext
-    ) -> tuple[dict[str, list[str]], dict[str, list[str]], dict[str, list[str]]]:
-        """
-        Extract principle-activity mappings from rich context.
-
-        Returns:
-            (principles_for_task, principles_for_event, principles_for_goal)
-        """
-        principles_for_task: dict[str, list[str]] = {}
-        principles_for_event: dict[str, list[str]] = {}
-        principles_for_goal: dict[str, list[str]] = {}
-
-        # Extract from entities_rich["tasks"]
-        for task_data in context.entities_rich.get("tasks", []):
-            task_dict = task_data.get("entity", {})
-            graph_ctx = task_data.get("graph_context", {})
-            task_uid = task_dict.get("uid")
-
-            if task_uid:
-                guiding_principles = graph_ctx.get("guiding_principles", [])
-                principle_uids = [p.get("uid") for p in guiding_principles if p.get("uid")]
-                if principle_uids:
-                    principles_for_task[task_uid] = principle_uids
-
-        # Extract from entities_rich["events"]
-        for event_data in context.entities_rich.get("events", []):
-            event_dict = event_data.get("entity", {})
-            graph_ctx = event_data.get("graph_context", {})
-            event_uid = event_dict.get("uid")
-
-            if event_uid:
-                guiding_principles = graph_ctx.get("guiding_principles", [])
-                principle_uids = [p.get("uid") for p in guiding_principles if p.get("uid")]
-                if principle_uids:
-                    principles_for_event[event_uid] = principle_uids
-
-        # Extract from entities_rich["goals"]
-        for goal_data in context.entities_rich.get("goals", []):
-            goal_dict = goal_data.get("entity", {})
-            graph_ctx = goal_data.get("graph_context", {})
-            goal_uid = goal_dict.get("uid")
-
-            if goal_uid:
-                aligned_principles = graph_ctx.get("aligned_principles", [])
-                principle_uids = [p.get("uid") for p in aligned_principles if p.get("uid")]
-                if principle_uids:
-                    principles_for_goal[goal_uid] = principle_uids
-
-        return principles_for_task, principles_for_event, principles_for_goal
-
-    def _get_activity_titles(self, context: UserContext) -> tuple[dict[str, str], dict[str, str]]:
-        """Extract task and event titles from rich context."""
+    def _get_task_titles(self, context: UserContext) -> dict[str, str]:
+        """Extract task titles from rich context."""
         task_titles: dict[str, str] = {}
-        event_titles: dict[str, str] = {}
-
         for task_data in context.entities_rich.get("tasks", []):
             task_dict = task_data.get("entity", {})
             uid = task_dict.get("uid")
-            title = task_dict.get("title", "Unknown Task")
             if uid:
-                task_titles[uid] = title
-
-        for event_data in context.entities_rich.get("events", []):
-            event_dict = event_data.get("entity", {})
-            uid = event_dict.get("uid")
-            title = event_dict.get("title", "Unknown Event")
-            if uid:
-                event_titles[uid] = title
-
-        return task_titles, event_titles
+                task_titles[uid] = task_dict.get("title", "Unknown Task")
+        return task_titles
 
     # ========================================================================
     # CONTEXT-FIRST METHODS
@@ -295,16 +233,15 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
 
         **Philosophy:** "Connect daily actions to core values"
 
-        Returns principles that:
-        1. Are linked to today's tasks/goals/events
-        2. Could guide today's planned activities
-        3. Have alignment opportunities in scheduled activities
+        Returns the user's active principles linked to today's tasks or to an
+        active goal, weighted by how deeply the user holds each one.
 
-        **Context Fields Used:**
-        - todays_task_uids: Tasks scheduled for today
-        - todays_event_uids: Events scheduled for today
+        **Context Fields Used (rich build):**
+        - principles_by_task / principles_by_goal: each task / goal -> its active
+          principles (``ALIGNED_WITH_PRINCIPLE`` / ``SUPPORTS_GOAL``)
+        - today_task_uids: Tasks due today
         - active_goal_uids: Current active goals
-        - Rich context for relationship extraction
+        - principle_priorities: How deeply each principle is held
 
         Args:
             context: User's complete context
@@ -315,18 +252,16 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         """
         from core.models.context_types import ContextualPrinciple
 
-        # Extract mappings from rich context
-        principles_for_task, principles_for_event, principles_for_goal = (
-            self._extract_principles_for_activities(context)
-        )
+        principles_for_task = context.principles_by_task
+        principles_for_goal = context.principles_by_goal
         principle_data = self._extract_principle_data_from_rich_context(context)
 
         relevant_principles: dict[str, float] = {}
 
-        # Get today's UIDs
-        todays_task_uids = set(context.today_task_uids)
-        todays_event_uids = set(context.today_event_uids)
-        active_goal_uids = set(context.active_goal_uids)
+        # Today's open tasks (a finished task keeps its due date), sorted so the
+        # ranking and its ties never depend on set order
+        todays_task_uids = self._todays_open_task_uids(context)
+        active_goal_uids = sorted(set(context.active_goal_uids))
 
         # Check principles linked to today's tasks
         for task_uid in todays_task_uids:
@@ -334,33 +269,27 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                 relevance = relevant_principles.get(principle_uid, 0.0)
                 relevant_principles[principle_uid] = relevance + 0.3
 
-        # Check principles linked to today's events
-        for event_uid in todays_event_uids:
-            for principle_uid in principles_for_event.get(event_uid, []):
-                relevance = relevant_principles.get(principle_uid, 0.0)
-                relevant_principles[principle_uid] = relevance + 0.25
-
         # Check principles linked to active goals
         for goal_uid in active_goal_uids:
             for principle_uid in principles_for_goal.get(goal_uid, []):
                 relevance = relevant_principles.get(principle_uid, 0.0)
                 relevant_principles[principle_uid] = relevance + 0.2
 
-        # Boost core principles
-        for principle_uid in context.core_principle_uids:
-            if principle_uid in relevant_principles:
-                relevant_principles[principle_uid] *= 1.5
+        # Weigh each by how deeply it is held (CORE x1.5 ... EXPLORING x0.7)
+        unset = PrincipleStrength.MODERATE.importance()
+        for principle_uid in relevant_principles:
+            relevant_principles[principle_uid] *= 0.5 + context.principle_priorities.get(
+                principle_uid, unset
+            )
 
         # Build result list
         result: list[ContextualPrinciple] = []
 
-        def get_relevance_value(item: tuple[str, float]) -> float:
-            """Get relevance value for sorting principle items."""
-            return item[1]
+        def by_relevance_then_uid(item: tuple[str, float]) -> tuple[float, str]:
+            """Highest relevance first; a tie goes to the lower uid."""
+            return (-item[1], item[0])
 
-        sorted_principles = sorted(
-            relevant_principles.items(), key=get_relevance_value, reverse=True
-        )
+        sorted_principles = sorted(relevant_principles.items(), key=by_relevance_then_uid)
 
         for principle_uid, relevance in sorted_principles[:limit]:
             data = principle_data.get(principle_uid, {})
@@ -369,26 +298,17 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
             connected_tasks = [
                 t for t in todays_task_uids if principle_uid in principles_for_task.get(t, [])
             ]
-            connected_events = [
-                e for e in todays_event_uids if principle_uid in principles_for_event.get(e, [])
-            ]
             connected_goals = [
                 g for g in active_goal_uids if principle_uid in principles_for_goal.get(g, [])
             ]
-
-            # Build practice opportunity description
-            practice_opportunity = self._describe_practice_opportunity(
-                connected_tasks, connected_events
-            )
 
             contextual = ContextualPrinciple.from_entity_and_context(
                 uid=principle_uid,
                 title=data.get("title", "Unknown"),
                 context=context,
                 connected_task_uids=connected_tasks,
-                connected_event_uids=connected_events,
                 connected_goal_uids=connected_goals,
-                practice_opportunity=practice_opportunity,
+                practice_opportunity=self._describe_practice_opportunity(connected_tasks),
                 relevance_override=min(1.0, relevance),
             )
             result.append(contextual)
@@ -409,10 +329,8 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
 
         **Philosophy:** "Every activity is a chance to live your principles"
 
-        For a specific principle (or all if none specified), finds:
-        1. Tasks that could embody this principle
-        2. Upcoming events with principle practice potential
-        3. Goals that align with principle values
+        For a specific principle (or every active principle if none specified),
+        finds today's tasks aligned with it (``principles_by_task``).
 
         Args:
             context: User's complete context
@@ -424,19 +342,14 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         """
         from core.models.context_types import PracticeOpportunity
 
-        # Extract mappings
-        principles_for_task, principles_for_event, _ = self._extract_principles_for_activities(
-            context
-        )
+        principles_for_task = context.principles_by_task
         principle_data = self._extract_principle_data_from_rich_context(context)
-        task_titles, event_titles = self._get_activity_titles(context)
+        task_titles = self._get_task_titles(context)
 
         opportunities: list[PracticeOpportunity] = []
         target_principles = [principle_uid] if principle_uid else list(context.core_principle_uids)
 
-        # Get today's UIDs
-        todays_task_uids = set(context.today_task_uids)
-        todays_event_uids = set(context.today_event_uids)
+        todays_task_uids = self._todays_open_task_uids(context)
 
         for p_uid in target_principles:
             data = principle_data.get(p_uid, {})
@@ -457,30 +370,15 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                     )
                     opportunities.append(opportunity)
 
-            # Find events that align with this principle
-            for event_uid in todays_event_uids:
-                event_principles = principles_for_event.get(event_uid, [])
-                if p_uid in event_principles:
-                    opportunity = PracticeOpportunity(
-                        principle_uid=p_uid,
-                        principle_name=p_name,
-                        activity_type="event",
-                        activity_uid=event_uid,
-                        activity_title=event_titles.get(event_uid, "Unknown Event"),
-                        opportunity_type="direct_alignment",
-                        guidance="This event offers a chance to practice your principle in action.",
-                    )
-                    opportunities.append(opportunity)
-
         # Sort by alignment weakness (lower alignment = higher priority for practice)
-        def get_alignment_priority(opp: PracticeOpportunity) -> float:
-            """Lower alignment = higher priority for practice."""
+        def get_alignment_priority(opp: PracticeOpportunity) -> tuple[float, str, str]:
+            """Lower alignment = higher priority for practice; ties by principle, then task."""
             data = principle_data.get(opp.principle_uid, {})
             alignment_str = data.get("current_alignment", "UNKNOWN")
             alignment_score = self._alignment_level_to_score(alignment_str)
-            return 1.0 - alignment_score
+            return (alignment_score, opp.principle_uid, opp.activity_uid)
 
-        opportunities.sort(key=get_alignment_priority, reverse=True)
+        opportunities.sort(key=get_alignment_priority)
 
         self.logger.info(f"Found {len(opportunities)} practice opportunities")
 
@@ -613,22 +511,14 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         return "Consider how this principle applies to today's activities"
 
     @staticmethod
-    def _describe_practice_opportunity(
-        connected_tasks: list[str],
-        connected_events: list[str],
-    ) -> str:
-        """Generate a description of the practice opportunity."""
-        parts = []
+    def _todays_open_task_uids(context: UserContext) -> list[str]:
+        """Tasks due today that are still open, uid-sorted."""
+        return sorted(set(context.today_task_uids) & set(context.active_task_uids))
 
+    @staticmethod
+    def _describe_practice_opportunity(connected_tasks: list[str]) -> str:
+        """Generate a description of the practice opportunity."""
         if connected_tasks:
             task_count = len(connected_tasks)
-            parts.append(f"{task_count} task{'s' if task_count > 1 else ''} today")
-
-        if connected_events:
-            event_count = len(connected_events)
-            parts.append(f"{event_count} event{'s' if event_count > 1 else ''} today")
-
-        if parts:
-            return f"Connected to {' and '.join(parts)}"
-
-        return "No direct connections to today's activities"
+            return f"Connected to {task_count} task{'s' if task_count > 1 else ''} today"
+        return "No direct connections to today's tasks"

@@ -136,6 +136,7 @@ CREATE (u)-[:OWNS]->(p)
 CREATE (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku_a)
 CREATE (p)-[:SUPPORTS_GOAL]->(g_active)
 CREATE (h_active)-[:EMBODIES_PRINCIPLE]->(p)
+CREATE (p)-[:INSPIRES_HABIT]->(h_pre)
 CREATE (t_open)-[:ALIGNED_WITH_PRINCIPLE]->(p)
 CREATE (lp)-[:ALIGNED_WITH_GOAL]->(g_active)
 CREATE (lp)-[:EMBODIES_PRINCIPLE]->(p)
@@ -293,7 +294,7 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
         "knowledge",
         "learning_paths",
         "path_steps",
-        "principle_goal_support",
+        "principle_support",
     ]
 
 
@@ -447,9 +448,16 @@ async def test_every_section_reads_what_the_one_statement_read(
     # the principle's goal links are their own statement's, never this row's
     assert "guided_goals" not in principles["principle.eq.core"]
     assert "supported_goals" not in principles["principle.eq.core"]
-    assert mega["rich"]["principle_goal_support"] == [
-        {"uid": "principle.eq.core", "goal_uids": ["goal.eq.active"]}
-    ]
+    # every link, both habit facts; the path step's EMBODIES_PRINCIPLE is no habit's
+    [support] = mega["rich"]["principle_support"]
+    assert _canon(support) == _canon(
+        {
+            "uid": "principle.eq.core",
+            "goal_uids": ["goal.eq.active"],
+            "task_uids": ["task.eq.open"],
+            "habit_uids": ["habit.eq.active", "habit.eq.pre"],
+        }
+    )
     choices = _by_uid(mega["entities"]["choices"])
     assert sorted(choices) == ["choice.eq.pending"]  # the decided one is outside the window
     assert _canon(choices["choice.eq.pending"]) == _canon(
@@ -670,6 +678,13 @@ async def test_the_rich_context_carries_every_section(
     assert context.goal_knowledge_mastered == {"goal.eq.active": ["ku.eq.a"]}
     assert context.event_knowledge_applied == {"event.eq.today": ["ku.eq.a"]}
     assert context.principle_knowledge_grounded == {"principle.eq.core": ["ku.eq.a"]}
+    assert context.principle_supported_goals == {"principle.eq.core": ["goal.eq.active"]}
+    assert context.principles_by_goal == {"goal.eq.active": ["principle.eq.core"]}
+    assert context.principles_by_task == {"task.eq.open": ["principle.eq.core"]}
+    assert context.principles_by_habit == {
+        "habit.eq.active": ["principle.eq.core"],
+        "habit.eq.pre": ["principle.eq.core"],
+    }
     assert context.choice_knowledge_informed == {"choice.eq.pending": ["ku.eq.a"]}
     assert context.principle_guided_choice_counts == {"principle.eq.core": 1}
     assert context.prerequisite_counts == {"ku.eq.a": 2, "ku.eq.b": 0}

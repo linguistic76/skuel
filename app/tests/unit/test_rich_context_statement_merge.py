@@ -75,8 +75,12 @@ _PARTIALS: dict[str, dict[str, Any]] = {
         "uids": {"core_principle_uids": [], "pending_choice_uids": []},
         "entities": {"principles": [], "choices": []},
     },
-    "principle_goal_support": {
-        "rich": {"principle_goal_support": [{"uid": "p1", "goal_uids": ["g1"]}]},
+    "principle_support": {
+        "rich": {
+            "principle_support": [
+                {"uid": "p1", "goal_uids": ["g1"], "task_uids": [], "habit_uids": []}
+            ]
+        },
     },
     "knowledge": {
         "uids": {"knowledge_mastery": [{"uid": "ku1", "score": 0.9}], "ku_view_data": []},
@@ -137,7 +141,7 @@ def test_merge_folds_shared_sections_and_takes_owned_ones_whole() -> None:
         "knowledge",
         "learning_paths",
         "path_steps",
-        "principle_goal_support",
+        "principle_support",
     ]
     # a section one statement owns arrives as is — including a null
     assert merged["life_path"] == {"uid": "lp.life", "alignment_score": 0.5}
