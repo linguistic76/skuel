@@ -131,7 +131,7 @@ async def get_cross_domain_synergies(
 # 7
 async def calculate_life_path_alignment(self) -> Result[LifePathAlignment]: ...
 
-# 8 — returns a bare list
+# 8 — a Result like the others; always ok (fail-soft)
 async def get_schedule_aware_recommendations(
     self,
     max_recommendations: int = 5,

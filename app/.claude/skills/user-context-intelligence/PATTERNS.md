@@ -14,4 +14,5 @@ The rules in one place:
    construct `UserContextIntelligence` directly, and do not build a second factory.
 3. Create an instance per request. The context cache is the reuse mechanism.
 4. Check each method's `Result` and propagate a failure with `Result.fail(result)`.
-   `get_schedule_aware_recommendations` is the exception — it returns a list.
+   Every hub method returns one; method 8's is always ok (fail-soft: fewer candidates,
+   never an error), but it is read like the others.
