@@ -146,10 +146,10 @@ At standard depth it is an empty dict.
 
 One concurrent round-trip under a single `asyncio.gather`:
 
-- **The MEGA-QUERY** — seven plan-cached statements, one per read family
+- **The MEGA-QUERY** — one plan-cached statement per read family
   (`RICH_CONTEXT_STATEMENTS` in `adapters/persistence/neo4j/user_context_queries.py`: tasks &
-  goals, habits & events, habit adherence, principles & choices, knowledge, curriculum, learner
-  state), run by
+  goals, habits & events, habit adherence, principles & choices, principle support, knowledge,
+  curriculum, learner state), run by
   `execute_mega_query` and merged by top-level key.
 - **Five reads beside it** — current path steps, PS engagements, groups,
   `SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`.

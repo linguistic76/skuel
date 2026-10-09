@@ -84,7 +84,7 @@ async def create_task_for_goal(self, task: Task, goal_uid: str) -> Result[bool]:
 # Concurrent - when operations are independent: the three reads in
 # "Awaiting Multiple Operations" above don't depend on each other, so they
 # share one asyncio.gather. UserContextBuilder's MEGA-QUERY is the same idea
-# at scale — seven statements plus their neighbours under one gather.
+# at scale — one statement per read family plus their neighbours under one gather.
 ```
 
 ## Error Handling with Gather

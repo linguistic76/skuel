@@ -212,7 +212,7 @@ class UserContextBuilder:
 
         This is the simplified API for build_rich_user_context(). It encapsulates:
         1. User resolution (fetching User from UserService)
-        2. Rich context building (the MEGA-QUERY — seven statements, graph neighborhoods)
+        2. Rich context building (the MEGA-QUERY — one statement per read family, graph neighborhoods)
         3. Error handling (returns Result[UserContext])
 
         Use this when you need full entities + graph neighborhoods, not just UIDs.

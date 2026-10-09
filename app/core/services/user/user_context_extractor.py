@@ -74,6 +74,7 @@ class PrincipleRelationshipData:
     """Extracted principle relationship data from MEGA-QUERY."""
 
     knowledge_grounded: dict[str, list[str]] = field(default_factory=dict)
+    supported_goals: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -194,7 +195,10 @@ class UserContextExtractor:
             habits=self.extract_habit_relationships(habits_data),
             events=self.extract_event_relationships(events_data),
             choices=self.extract_choice_relationships(choices_data),
-            principles=self.extract_principle_relationships(principles_data),
+            principles=self.extract_principle_relationships(
+                principles_data,
+                self._as_list(rich_data.get("principle_goal_support"), "principle_goal_support"),
+            ),
             knowledge=self.extract_knowledge_relationships(knowledge_data, mastered_uids),
         )
 
@@ -438,19 +442,25 @@ class UserContextExtractor:
         return ChoiceRelationshipData(knowledge_informed=knowledge_informed)
 
     def extract_principle_relationships(
-        self, principles_rich: list[dict[str, Any]]
+        self,
+        principles_rich: list[dict[str, Any]],
+        goal_support: list[dict[str, Any]] | None = None,
     ) -> PrincipleRelationshipData:
         """
-        Extract principle relationship data from principles_rich[].graph_context.
+        Extract principle relationship data from principles_rich[].graph_context
+        and the principle-support rows.
 
-        Extracts grounded knowledge (GROUNDED_IN_KNOWLEDGE relationships).
+        Extracts grounded knowledge (GROUNDED_IN_KNOWLEDGE relationships) and the
+        goals each principle supports (SUPPORTS_GOAL), uid-sorted.
 
         Args:
             principles_rich: List of principle items with graph_context
                             Shape: [{"entity": {...}, "graph_context": {...}}, ...]
+            goal_support: The principle-support rows
+                          Shape: [{"uid": "...", "goal_uids": [...]}, ...]
 
         Returns:
-            PrincipleRelationshipData with knowledge grounded mappings
+            PrincipleRelationshipData with knowledge grounded and supported-goal mappings
         """
         knowledge_grounded: dict[str, list[str]] = {}
 
@@ -469,7 +479,14 @@ class UserContextExtractor:
             if ku_uids:
                 knowledge_grounded[principle_uid] = ku_uids
 
-        return PrincipleRelationshipData(knowledge_grounded=knowledge_grounded)
+        supported_goals: dict[str, list[str]] = {}
+        for row in goal_support or []:
+            if row and row.get("uid") and row.get("goal_uids"):
+                supported_goals[row["uid"]] = sorted(set(row["goal_uids"]))
+
+        return PrincipleRelationshipData(
+            knowledge_grounded=knowledge_grounded, supported_goals=supported_goals
+        )
 
     def extract_knowledge_relationships(
         self, knowledge_rich: list[dict[str, Any]], mastered_uids: set[str]

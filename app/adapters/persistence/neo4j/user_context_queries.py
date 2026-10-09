@@ -5,15 +5,16 @@ User Context Queries - Cypher Query Definitions and Execution
 **EXTRACTED (December 2025):** From user_context_builder.py for separation of concerns.
 
 This module contains:
-- RICH_CONTEXT_STATEMENTS: the rich context's graph reads — seven statements, one per
-  read family (tasks & goals, habits & events, habit adherence, principles & choices,
-  knowledge, curriculum, learner state), run concurrently and merged into one map
+- RICH_CONTEXT_STATEMENTS: the rich context's graph reads — one statement per read
+  family (tasks & goals, habits & events, habit adherence, principles & choices,
+  principle support, knowledge, curriculum, learner state), run concurrently and
+  merged into one map
 - SUBMISSION_STATS_QUERY: the learning-loop tail (submission & feedback stats), its own statement
 - ENTRY_KNOWLEDGE_APPLIED_QUERY: the entry→Ku applied-knowledge rows, its own statement
 - CONSOLIDATED_QUERY: Standard context query (UIDs only)
 - UserContextQueryExecutor: Query execution with error handling
 
-Why seven statements and not one: a Cypher statement is served from the server's
+Why one statement per family and not one: a Cypher statement is served from the server's
 plan cache only up to a size — cumulative across MATCHes, WITHs and the RETURN
 map — past which it is re-planned on every execution (~0.5 s self-hosted, ~1 s
 on AuraDB Free, against ~40 ms of execution), and the planner's cost grows
@@ -993,6 +994,29 @@ RETURN {
 } as result
 """.replace(_HABIT_ADHERENCE_FIELDS_TOKEN, _HABIT_ADHERENCE_FIELDS)
 
+# Principle support — the goals each of the user's principles supports, read off
+# ``(Principle)-[:SUPPORTS_GOAL]->(Goal)``, the one edge both link doors write
+# (the goal's and the principle's — ADR-090). Its own statement: no other family
+# reads a principle's goal links. Every status of goal is carried, as
+# ``habits_by_goal`` carries a habit's; a reader keeps the active ones. A habit
+# and a PathStep write SUPPORTS_GOAL too, so the near end is the owned
+# ``:Principle``; another user's goal is left out by ``__FAR(goal)__``.
+PRINCIPLE_GOAL_SUPPORT_QUERY: str = _tie_far_nodes(
+    """
+MATCH (user:User {uid: $user_uid})
+OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)-[:SUPPORTS_GOAL]->(goal:Goal)
+WHERE __FAR(goal)__
+WITH user, principle, collect(DISTINCT goal.uid) as goal_uids
+WITH user,
+     collect(CASE WHEN principle IS NOT NULL THEN {uid: principle.uid, goal_uids: goal_uids} END) as principle_goal_support
+RETURN {
+    rich: {
+        principle_goal_support: principle_goal_support
+    }
+} as result
+"""
+)
+
 # The rich context's graph reads, one statement per read family, in ONE tuple:
 # ``execute_mega_query`` runs every entry concurrently and merges the partial maps
 # into the one ``mega_data`` map the populator reads, and
@@ -1006,6 +1030,7 @@ RICH_CONTEXT_STATEMENTS: tuple[tuple[str, str], ...] = (
     ("habits_and_events", HABITS_AND_EVENTS_QUERY),
     ("habit_adherence", HABIT_ADHERENCE_QUERY),
     ("principles_and_choices", PRINCIPLES_AND_CHOICES_QUERY),
+    ("principle_goal_support", PRINCIPLE_GOAL_SUPPORT_QUERY),
     ("knowledge", KNOWLEDGE_QUERY),
     ("curriculum", CURRICULUM_QUERY),
     ("learner_state", LEARNER_STATE_QUERY),
@@ -1384,9 +1409,8 @@ def merge_partial_context(
     """Fold one statement's ``RETURN`` partial into the merged ``mega_data`` map.
 
     The top-level keys are the map's sections; a section several statements
-    contribute to (``uids`` is split across six of them, ``entities`` across
-    four, ``rich`` across two) is merged key by key, and a section one statement
-    owns outright (``progress_counts``, ``life_path``, ``activity_report``,
+    contribute to (``uids``, ``entities``, ``rich``) is merged key by key, and a
+    section one statement owns outright (``progress_counts``, ``life_path``, ``activity_report``,
     ``active_insights_raw``) is taken as is.
     """
     for key, value in partial.items():

@@ -386,6 +386,7 @@ test needs the fields listed against the mixin it exercises.
 | `primary_goal_focus` | `str` or `None` | daily plan, schedule |
 | `principle_alignment_by_domain` | `dict[Domain, float]` | life path |
 | `principle_priorities` | `dict[str, float]` | synergy |
+| `principle_supported_goals` | `dict[str, list[str]]` | synergy |
 | `recently_mastered_uids` | `set[str]` | life path |
 | `resolved_choice_uids` | `set[str]` | synergy |
 | `spawned_uid_to_ps_uid` | `dict[str, str]` | life path |
