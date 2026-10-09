@@ -638,10 +638,8 @@ class AskesisService:
         """
         What should I learn first to unlock the most items?
 
-        **Synthesizes:**
-        - Context: prerequisites_needed mapping
-        - KU service: Readiness status
-        - Tasks service: Blocked task counts
+        Reads the context's per-Ku prerequisite map (``ku_prerequisites``): each
+        unmastered prerequisite scores the number of blocked Kus it holds back.
 
         Args:
             user_context: Complete UserContext snapshot

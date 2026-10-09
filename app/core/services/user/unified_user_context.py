@@ -218,7 +218,9 @@ class UserContext:
     goal_deadlines: dict[str, date] = field(default_factory=dict)
     completed_goal_uids: set[str] = field(default_factory=set)
 
-    # Goal categorization
+    # Active goals by kind — each lists the active goals whose `goal_type` is
+    # LEARNING / OUTCOME / PROCESS; the other kinds (project, milestone, mastery)
+    # join none of the three.
     learning_goals: list[str] = field(default_factory=list)
     outcome_goals: list[str] = field(default_factory=list)
     process_goals: list[str] = field(default_factory=list)
@@ -290,11 +292,6 @@ class UserContext:
     ku_marked_as_read_uids: set[str] = field(default_factory=set)  # KUs marked as read
     ku_bookmarked_uids: set[str] = field(default_factory=set)  # Bookmarked KUs
 
-    # Learning recommendations
-    next_recommended_knowledge: list[str] = field(default_factory=list)
-    prerequisites_completed: set[str] = field(default_factory=set)
-    prerequisites_needed: dict[str, list[str]] = field(default_factory=dict)
-
     # Learning path tracking
     learning_path_step_uids: list[str] = field(default_factory=list)  # Active path step UIDs
     recently_mastered_uids: set[str] = field(
@@ -303,12 +300,6 @@ class UserContext:
 
     # Learning velocity
     learning_velocity_by_domain: dict[Domain, float] = field(default_factory=dict)
-    estimated_time_to_mastery: dict[str, int] = field(default_factory=dict)  # uid -> hours
-
-    # Learning focus tracking (aligns with other domain focus fields)
-    current_learning_focus: str | None = (
-        None  # Current learning/curriculum focus (KU, PS, or LP UID)
-    )
 
     # =========================================================================
     # GRAPH-SOURCED RELATIONSHIP METADATA - Data FROM graph edges
@@ -323,6 +314,9 @@ class UserContext:
     mastery_confidence_scores: dict[str, float] = field(default_factory=dict)  # uid -> confidence
     ready_to_learn_uids: set[str] = field(default_factory=set)  # Computed from graph pattern
     prerequisite_counts: dict[str, int] = field(default_factory=dict)  # uid -> prereq count
+    # Ku -> the knowledge it REQUIRES_KNOWLEDGE, for each Ku the user has mastered or
+    # has in progress (the knowledge statement's reach); rich build only.
+    ku_prerequisites: dict[str, set[str]] = field(default_factory=dict)
 
     # Task relationship metadata (from [:DEPENDS_ON], [:BLOCKS] relationships)
     task_dependencies: dict[str, list[str]] = field(default_factory=dict)  # task -> dependencies
@@ -698,13 +692,47 @@ class UserContext:
     # =========================================================================
 
     def get_ready_to_learn(self) -> list[str]:
-        """Get knowledge where prerequisites are met"""
-        ready = []
-        for knowledge_uid in self.next_recommended_knowledge:
-            prereqs = self.prerequisites_needed.get(knowledge_uid, [])
-            if all(p in self.prerequisites_completed for p in prereqs):
-                ready.append(knowledge_uid)
-        return ready
+        """Unmastered knowledge whose prerequisites are all mastered, in uid order.
+
+        Read from ``ready_to_learn_uids``, which the rich build derives over the
+        knowledge the user has mastered or has in progress — empty at standard depth.
+        """
+        return sorted(self.ready_to_learn_uids)
+
+    def unmet_prerequisites(self, ku_uid: str) -> set[str]:
+        """The prerequisites of ``ku_uid`` the user has not mastered (empty if none known)."""
+        return self.ku_prerequisites.get(ku_uid, set()) - self.mastered_knowledge_uids
+
+    def unmet_prerequisites_by_ku(self) -> dict[str, set[str]]:
+        """Each blocked Ku -> its unmastered prerequisites; a Ku with none is absent."""
+        unmet_by_ku: dict[str, set[str]] = {}
+        for ku_uid in self.ku_prerequisites:
+            unmet = self.unmet_prerequisites(ku_uid)
+            if unmet:
+                unmet_by_ku[ku_uid] = unmet
+        return unmet_by_ku
+
+    def active_goals_requiring(self, ku_uid: str) -> list[str]:
+        """Active goals that REQUIRE_KNOWLEDGE ``ku_uid``, in active-goal order."""
+        return [
+            goal_uid
+            for goal_uid in self.active_goal_uids
+            if ku_uid in self.goal_knowledge_required.get(goal_uid, [])
+        ]
+
+    def estimated_minutes(self, uid: str, default: int) -> int:
+        """The time a learning candidate is expected to take, in minutes.
+
+        A path step the user has in progress answers with its own
+        ``estimated_time_minutes``; anything else — a Ku carries no time estimate —
+        answers ``default``, which each caller states.
+        """
+        for item in self.active_path_steps_rich:
+            step = item.get("step") or {}
+            if step.get("uid") == uid:
+                minutes = step.get("estimated_time_minutes")
+                return int(minutes) if minutes else default
+        return default
 
     def known_or_engaged_ku_uids(self) -> set[str]:
         """All KUs the user has any relationship with (mastered, in-progress, or blocked).
@@ -866,13 +894,8 @@ class UserContext:
 
     @property
     def blocked_knowledge_uids(self) -> set[str]:
-        """
-        Get knowledge units blocked by missing prerequisites.
-
-        Convenience: Derives from prerequisites_needed keys (4 call sites).
-        Provides set semantics for membership testing.
-        """
-        return set(self.prerequisites_needed.keys())
+        """Knowledge units with at least one unmastered prerequisite."""
+        return set(self.unmet_prerequisites_by_ku())
 
     def calculate_learning_velocity(self) -> float:
         """

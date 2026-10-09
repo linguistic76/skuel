@@ -64,8 +64,7 @@ def create_mock_user_context(
     # Knowledge data
     context.mastered_knowledge_uids = {f"ku_{i}" for i in range(mastered_knowledge)}
     context.blocked_knowledge_uids = [f"blocked_ku_{i}" for i in range(blocked_knowledge)]
-    context.prerequisites_needed = {}
-    context.prerequisites_completed = set()
+    context.unmet_prerequisites_by_ku = Mock(return_value={})
     context.is_blocked = is_blocked
 
     # MOC data
@@ -137,10 +136,12 @@ def critical_context():
 def blocked_context():
     """Context with blocked knowledge."""
     context = create_mock_user_context(blocked_knowledge=5, is_blocked=True)
-    context.prerequisites_needed = {
-        "blocked_ku_0": ["ku.prereq_a"],
-        "blocked_ku_1": ["ku.prereq_a", "ku.prereq_b"],
-    }
+    context.unmet_prerequisites_by_ku = Mock(
+        return_value={
+            "blocked_ku_0": {"ku.prereq_a"},
+            "blocked_ku_1": {"ku.prereq_a", "ku.prereq_b"},
+        }
+    )
     return context
 
 

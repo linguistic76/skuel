@@ -121,7 +121,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         every_task, shown_tasks = tasks.value
 
         unmet_knowledge = [
-            k for k in every_knowledge if k not in user_context.prerequisites_completed
+            k for k in every_knowledge if k not in user_context.mastered_knowledge_uids
         ]
         unmet_tasks = [t for t in every_task if t not in user_context.completed_task_uids]
         can_start = not unmet_knowledge and not unmet_tasks

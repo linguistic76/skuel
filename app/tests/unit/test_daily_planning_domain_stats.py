@@ -51,7 +51,6 @@ class _StubContext:
     primary_goal_focus: Any = None
     learning_goals: list[Any] = field(default_factory=list)
     life_path_uid: str | None = None
-    estimated_time_to_mastery: dict[str, Any] = field(default_factory=dict)
     knowledge_mastery: dict[str, Any] = field(default_factory=dict)
     current_workload_score: float = 0.5
     current_energy_level: str = "moderate"
@@ -63,6 +62,9 @@ class _StubContext:
     pending_revised_exercises: list[Any] = field(default_factory=list)
     zpd_assessment: Any = None
     active_ps_engagements: Any = None
+
+    def estimated_minutes(self, uid: str, default: int) -> int:
+        return default
 
 
 # =============================================================================

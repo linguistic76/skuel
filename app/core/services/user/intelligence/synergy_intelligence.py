@@ -9,7 +9,8 @@ Method 6 of UserContextIntelligence:
 1. Habit->Goal: Habits supporting multiple goals (high leverage)
 2. Task->Habit: Tasks that build habits (behavior change)
 3. Knowledge->Task: Knowledge enabling tasks (skill application)
-4. Principle->Goal: Principles guiding goal pursuit (value alignment)
+4. Principle->Goal: Principles guiding goal pursuit (none yet — the context does not
+   read a principle's SUPPORTS_GOAL edges)
 5. Goal->Learning: Goals requiring specific knowledge (learning gaps)
 6. PS->Multi: Active engagements scored by completion ratio of spawned items
 """
@@ -232,20 +233,10 @@ class SynergyIntelligenceMixin(IntelligenceMixinBase):
         """
         synergies: list[CrossDomainSynergy] = []
 
-        # Use context's knowledge_task_applications if available
-        # Otherwise infer from prerequisites_needed
         for ku_uid in self.context.mastered_knowledge_uids:
             enabled_tasks: list[str] = []
 
-            # Check which tasks require this knowledge
-            for task_uid in self.context.active_task_uids:
-                # Check if task is in blocked list and needs this knowledge
-                prereqs = self.context.prerequisites_needed.get(task_uid, [])
-                if ku_uid in prereqs:
-                    enabled_tasks.append(task_uid)
-
-            # Also check tasks where this knowledge could be applied
-            # (tasks associated with goals that require this knowledge)
+            # Tasks contributing to the active goals that require this knowledge
             aligned_goals = self._find_aligned_goals_for_ku(ku_uid)
             for goal_uid in aligned_goals:
                 for task_uid in self.context.get_tasks_for_goal(goal_uid):
@@ -279,55 +270,20 @@ class SynergyIntelligenceMixin(IntelligenceMixinBase):
         return synergies
 
     def _find_aligned_goals_for_ku(self, ku_uid: str) -> list[str]:
-        """Find goals that would benefit from this knowledge."""
-        return [
-            goal_uid
-            for goal_uid in self.context.learning_goals
-            if ku_uid in self.context.prerequisites_needed.get(goal_uid, [])
-        ]
+        """Find active goals that require this knowledge."""
+        return self.context.active_goals_requiring(ku_uid)
 
     def _detect_principle_goal_synergies(self) -> list[CrossDomainSynergy]:
         """
         Detect principles guiding multiple goals.
 
         Example: "Growth mindset" principle -> guides Learning goal, Career goal, Health goal
+
+        Answers none: a principle guides a goal through ``SUPPORTS_GOAL``, and the
+        context does not read that edge — no principle is paired with a goal it
+        was never linked to.
         """
-        synergies: list[CrossDomainSynergy] = []
-
-        # Use principle_priorities and learning_goals to find connections
-        for principle_uid in self.context.core_principle_uids:
-            aligned_goals: list[str] = []
-
-            # Check which goals align with this principle
-            # (In full implementation, would query UnifiedRelationshipService)
-            # For now, use learning_goals as proxy
-            for goal_uid in self.context.learning_goals:
-                # Assume principles align with learning goals
-                aligned_goals.append(goal_uid)
-
-            if aligned_goals:
-                importance = self.context.principle_priorities.get(principle_uid, 0.5)
-                synergy_score = min(0.9, 0.3 + (len(aligned_goals) * 0.15) + (importance * 0.2))
-
-                recommendations = []
-                if importance > 0.7:
-                    recommendations.append("Core principle - ensure daily actions align")
-                if len(aligned_goals) >= 2:
-                    recommendations.append("This principle guides multiple goals")
-
-                synergy = CrossDomainSynergy(
-                    source_uid=principle_uid,
-                    source_domain="principle",
-                    target_uids=tuple(aligned_goals[:5]),
-                    target_domain="goal",
-                    synergy_type="informs",
-                    synergy_score=synergy_score,
-                    rationale=f"Guides {len(aligned_goals)} goals with {importance:.0%} importance",
-                    recommendations=tuple(recommendations),
-                )
-                synergies.append(synergy)
-
-        return synergies
+        return []
 
     def _detect_goal_learning_synergies(self) -> list[CrossDomainSynergy]:
         """
@@ -337,11 +293,10 @@ class SynergyIntelligenceMixin(IntelligenceMixinBase):
         """
         synergies: list[CrossDomainSynergy] = []
 
-        # Build knowledge -> goals mapping
+        # Build knowledge -> active goals mapping
         knowledge_to_goals: dict[str, list[str]] = {}
-        for goal_uid in self.context.learning_goals:
-            prereqs = self.context.prerequisites_needed.get(goal_uid, [])
-            for ku_uid in prereqs:
+        for goal_uid in self.context.active_goal_uids:
+            for ku_uid in self.context.goal_knowledge_required.get(goal_uid, []):
                 if ku_uid not in knowledge_to_goals:
                     knowledge_to_goals[ku_uid] = []
                 if goal_uid not in knowledge_to_goals[ku_uid]:

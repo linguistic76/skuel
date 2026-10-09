@@ -173,61 +173,65 @@ class TestCacheValidity:
 class TestIntelligenceMethods:
     """Test intelligence and recommendation methods"""
 
-    def test_get_ready_to_learn_no_prerequisites(self):
-        """Should return knowledge with no prerequisites"""
+    def test_get_ready_to_learn_reads_the_built_set_in_uid_order(self):
+        """get_ready_to_learn() answers the builder's ready_to_learn_uids, sorted."""
         context = UserContext(
             user_uid="user_test",
             username="testuser",
-            next_recommended_knowledge=["ku:python", "ku:testing"],
-            prerequisites_needed={},  # No prerequisites
-            prerequisites_completed=set(),
+            ready_to_learn_uids={"ku.web_dev", "ku.advanced_python"},
         )
 
-        ready = context.get_ready_to_learn()
+        assert context.get_ready_to_learn() == ["ku.advanced_python", "ku.web_dev"]
 
-        assert len(ready) == 2
-        assert "ku:python" in ready
-        assert "ku:testing" in ready
-
-    def test_get_ready_to_learn_with_prerequisites_met(self):
-        """Should return knowledge where all prerequisites are completed"""
+    def test_unmet_prerequisites_are_the_prerequisites_not_mastered(self):
+        """A Ku is blocked while one of its prerequisites is unmastered."""
         context = UserContext(
             user_uid="user_test",
             username="testuser",
-            next_recommended_knowledge=["ku:advanced_python", "ku:web_dev"],
-            prerequisites_needed={
-                "ku:advanced_python": ["ku:python"],
-                "ku:web_dev": ["ku:python", "ku:html"],
+            ku_prerequisites={
+                "ku.advanced_python": {"ku.python"},
+                "ku.web_dev": {"ku.python", "ku.html"},
+                "ku.python": set(),
             },
-            prerequisites_completed={"ku:python", "ku:html"},
+            mastered_knowledge_uids={"ku.python"},
         )
 
-        ready = context.get_ready_to_learn()
+        assert context.unmet_prerequisites("ku.web_dev") == {"ku.html"}
+        assert context.unmet_prerequisites("ku.advanced_python") == set()
+        assert context.unmet_prerequisites("ku.unknown") == set()
+        assert context.unmet_prerequisites_by_ku() == {"ku.web_dev": {"ku.html"}}
+        assert context.blocked_knowledge_uids == {"ku.web_dev"}
 
-        # Both prerequisites met - both should be ready
-        assert len(ready) == 2
-        assert "ku:advanced_python" in ready
-        assert "ku:web_dev" in ready
-
-    def test_get_ready_to_learn_with_prerequisites_missing(self):
-        """Should exclude knowledge with missing prerequisites"""
+    def test_active_goals_requiring_reads_goal_knowledge_required(self):
+        """Only active goals that require the Ku answer, in active-goal order."""
         context = UserContext(
             user_uid="user_test",
             username="testuser",
-            next_recommended_knowledge=["ku:advanced_python", "ku:web_dev"],
-            prerequisites_needed={
-                "ku:advanced_python": ["ku:python"],
-                "ku:web_dev": ["ku:python", "ku:html"],
+            active_goal_uids=["goal_b", "goal_a"],
+            goal_knowledge_required={
+                "goal_a": ["ku.python"],
+                "goal_b": ["ku.python", "ku.html"],
+                "goal_done": ["ku.python"],
             },
-            prerequisites_completed={"ku:python"},  # Missing ku:html
         )
 
-        ready = context.get_ready_to_learn()
+        assert context.active_goals_requiring("ku.python") == ["goal_b", "goal_a"]
+        assert context.active_goals_requiring("ku.html") == ["goal_b"]
 
-        # Only advanced_python has prerequisites met
-        assert len(ready) == 1
-        assert "ku:advanced_python" in ready
-        assert "ku:web_dev" not in ready  # Missing ku:html
+    def test_estimated_minutes_reads_an_in_progress_step_else_the_default(self):
+        """A step the user has in progress answers its own minutes; a Ku the default."""
+        context = UserContext(
+            user_uid="user_test",
+            username="testuser",
+            active_path_steps_rich=[
+                {"step": {"uid": "ps.test.timed", "estimated_time_minutes": 25}},
+                {"step": {"uid": "ps.test.untimed"}},
+            ],
+        )
+
+        assert context.estimated_minutes("ps.test.timed", 60) == 25
+        assert context.estimated_minutes("ps.test.untimed", 60) == 60
+        assert context.estimated_minutes("ku.test.atom", 30) == 30
 
     def test_is_life_aligned_default_threshold(self):
         """Should check alignment against default threshold (0.7)"""

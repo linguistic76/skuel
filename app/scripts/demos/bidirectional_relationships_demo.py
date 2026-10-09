@@ -243,7 +243,7 @@ class BiDirectionalDemo:
             email="demo@example.com",
             display_name="Demo User",
         )
-        context.prerequisites_completed = {"ku_python_basics"}
+        context.mastered_knowledge_uids = {"ku_python_basics"}
 
         # Create task through service — relationship-typed fields become edges
         request = TaskCreateRequest(
@@ -289,13 +289,13 @@ class BiDirectionalDemo:
         # Populate with cross-domain data
         context.active_goal_uids = ["goal_learn_python", "goal_build_app"]
         context.active_habit_uids = ["habit_daily_code", "habit_read_docs"]
-        context.prerequisites_completed = {"ku_python_basics", "ku_git_basics"}
+        context.mastered_knowledge_uids = {"ku_python_basics", "ku_git_basics"}
         context.completed_task_uids = {"task_setup_env", "task_hello_world"}
 
         print("   ✓ Context populated with cross-domain data")
         print(f"      - {len(context.active_goal_uids)} active goals")
         print(f"      - {len(context.active_habit_uids)} active habits")
-        print(f"      - {len(context.prerequisites_completed)} knowledge prerequisites")
+        print(f"      - {len(context.mastered_knowledge_uids)} knowledge units mastered")
         print(f"      - {len(context.completed_task_uids)} completed tasks")
 
         print("2. Creating task with cross-domain dependencies")
@@ -366,7 +366,7 @@ class BiDirectionalDemo:
         context.goal_progress = {"goal_primary": 0.6, "goal_secondary": 0.3}
         context.active_habit_uids = ["habit_exercise", "habit_read"]
         context.habit_streaks = {"habit_exercise": 15, "habit_read": 8}
-        context.prerequisites_completed = {"ku_basics", "ku_intermediate"}
+        context.mastered_knowledge_uids = {"ku_basics", "ku_intermediate"}
         context.knowledge_mastery = {"ku_basics": 0.9, "ku_intermediate": 0.7}
 
         print("   ✓ Rich context created")

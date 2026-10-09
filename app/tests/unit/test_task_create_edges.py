@@ -320,7 +320,7 @@ def make_context(**overrides: Any) -> UserContext:
     """A user context that PASSES DOOR C's prerequisite gate for these fixtures."""
     defaults: dict[str, Any] = {
         "user_uid": USER_UID,
-        "prerequisites_completed": {KU_ONE, KU_TWO},
+        "mastered_knowledge_uids": {KU_ONE, KU_TWO},
         "completed_task_uids": {PREREQ_TASK},
     }
     defaults.update(overrides)
@@ -1389,7 +1389,7 @@ class TestContextDoorReachesThePrimitive:
         it must refuse BEFORE anything persists or publishes."""
         result = await scheduling.create_task_with_context(
             make_request(prerequisite_knowledge_uids=[KU_ONE]),
-            make_context(prerequisites_completed=set()),
+            make_context(mastered_knowledge_uids=set()),
         )
 
         assert result.is_error

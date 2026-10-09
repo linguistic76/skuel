@@ -278,11 +278,10 @@ class ContextRetriever:
 
         # For prerequisite questions, analyze knowledge gaps
         if intent == QueryIntent.PREREQUISITE:
-            if user_context.prerequisites_needed:
-                context["prerequisites_needed"] = len(user_context.prerequisites_needed)
-                context["blocked_knowledge"] = len(
-                    [uid for uid, prereqs in user_context.prerequisites_needed.items() if prereqs]
-                )
+            unmet_by_ku = user_context.unmet_prerequisites_by_ku()
+            if unmet_by_ku:
+                context["unmet_prerequisites"] = len(set().union(*unmet_by_ku.values()))
+                context["blocked_knowledge"] = len(unmet_by_ku)
 
         # For practice/apply questions, get tasks
         elif intent == QueryIntent.PRACTICE:

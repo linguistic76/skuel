@@ -54,7 +54,7 @@ def user_context() -> UserContext:
     return UserContext(
         user_uid="user_123",
         username="test_user",
-        prerequisites_completed={"ku.python.basics", "ku.git.basics"},
+        mastered_knowledge_uids={"ku.python.basics", "ku.git.basics"},
         completed_task_uids={"task:completed_1"},
         active_goal_uids={"goal:learn_python"},
         active_habit_uids={"habit:daily_code"},

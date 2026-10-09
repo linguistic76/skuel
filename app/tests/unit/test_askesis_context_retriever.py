@@ -629,7 +629,7 @@ class TestFindSimilarChunksRouting:
 
         ctx = MagicMock()
         ctx.user_uid = "user_1"
-        ctx.prerequisites_needed = {}
+        ctx.unmet_prerequisites_by_ku = MagicMock(return_value={})
         ctx.active_moc_uids = []
         ctx.overdue_task_uids = []
         ctx.at_risk_habits_or_empty = MagicMock(return_value=[])

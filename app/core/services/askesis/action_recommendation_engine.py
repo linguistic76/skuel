@@ -387,12 +387,9 @@ class ActionRecommendationEngine:
 
         # Predict knowledge readiness
         ready_soon = []
-        for blocked_uid in user_context.blocked_knowledge_uids:
-            if blocked_uid in user_context.prerequisites_needed:
-                prereqs = user_context.prerequisites_needed[blocked_uid]
-                completed = [p for p in prereqs if p in user_context.prerequisites_completed]
-                if len(completed) >= len(prereqs) - 1:
-                    ready_soon.append(blocked_uid)
+        for blocked_uid, unmet in user_context.unmet_prerequisites_by_ku().items():
+            if len(unmet) == 1:
+                ready_soon.append(blocked_uid)
 
         predictions["knowledge_ready"] = ready_soon
 
@@ -543,8 +540,8 @@ class ActionRecommendationEngine:
         """
         # Count how many items each prerequisite unlocks
         unlock_counts: dict[str, int] = {}
-        for prereqs in user_context.prerequisites_needed.values():
-            for prereq in prereqs:
+        for unmet in user_context.unmet_prerequisites_by_ku().values():
+            for prereq in unmet:
                 unlock_counts[prereq] = unlock_counts.get(prereq, 0) + 1
 
         # Return top prerequisites by unlock count

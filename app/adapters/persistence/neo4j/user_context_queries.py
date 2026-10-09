@@ -1172,7 +1172,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_data,
      collect(CASE WHEN goal.status = $status_active THEN goal.uid END) as active_goal_uids,
      collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
-     collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} END) as goal_data
+     collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress_percentage, 0.0) / 100.0, goal_type: goal.goal_type} END) as goal_data
 
 // Knowledge - parallel collection with mastery scores (:Ku — a mastered
 // PathStep carries the same edge and is not a knowledge unit)
@@ -1341,7 +1341,12 @@ def empty_context_data() -> dict[str, Any]:
             "today_uids": [],
         },
         "habits": {"active_uids": [], "habit_streaks": {}, "adherence": []},
-        "goals": {"active_uids": [], "completed_uids": set(), "goal_progress": {}},
+        "goals": {
+            "active_uids": [],
+            "completed_uids": set(),
+            "goal_progress": {},
+            "goal_types": {},
+        },
         "knowledge": {
             "mastered_uids": set(),
             "enrolled_path_uids": [],
@@ -1791,6 +1796,11 @@ class UserContextQueryExecutor:
                     "completed_uids": {uid for uid in (record["completed_goal_uids"] or []) if uid},
                     "goal_progress": {
                         item["uid"]: item["progress"]
+                        for item in (record["goal_data"] or [])
+                        if item and item.get("uid") is not None
+                    },
+                    "goal_types": {
+                        item["uid"]: item.get("goal_type")
                         for item in (record["goal_data"] or [])
                         if item and item.get("uid") is not None
                     },

@@ -943,6 +943,19 @@ class ExerciseTimeEstimate:
     REVISION_MINUTES: Final = 45
 
 
+class LearningTimeEstimate:
+    """How long a learning candidate is budgeted when it carries no estimate.
+
+    A path step the user has in progress answers with its own
+    ``estimated_time_minutes`` (``UserContext.estimated_minutes``); a Ku has no
+    time estimate, so these defaults stand in for it. A next step is a whole
+    sitting; a daily-plan learning slot is one session inside a fuller day.
+    """
+
+    NEXT_STEP_MINUTES: Final = 60
+    DAILY_PLAN_MINUTES: Final = 30
+
+
 # ============================================================================
 # HABIT BLOCK (habit-rhythm arc M3)
 # ============================================================================
