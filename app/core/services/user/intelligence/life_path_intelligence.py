@@ -144,50 +144,40 @@ class LifePathIntelligenceMixin(IntelligenceMixinBase):
         """
         Calculate knowledge alignment score (0.0-1.0).
 
-        Based on mastery of life path knowledge.
+        The mean mastery over the life path's knowledge (``life_path_knowledge_uids``),
+        a Ku the user has not started counting 0. A life path whose steps compose no
+        knowledge scores by the stored alignment score.
         """
-        # Get all knowledge related to life path goals
-        life_path_knowledge_uids: list[str] = []
-        for goal_uid in self.context.learning_goals:
-            life_path_knowledge_uids.extend(self.context.goal_knowledge_required.get(goal_uid, []))
-
-        # Remove duplicates
-        life_path_knowledge_uids = list(set(life_path_knowledge_uids))
-
-        if not life_path_knowledge_uids:
-            # Use context's life path alignment calculation
+        life_path_knowledge = self.context.life_path_knowledge_uids
+        if not life_path_knowledge:
             return self.context.life_path_alignment_score
 
-        # Calculate average mastery
-        total_mastery = 0.0
-        for ku_uid in life_path_knowledge_uids:
-            mastery = self.context.knowledge_mastery.get(ku_uid, 0.0)
-            total_mastery += mastery
-
-        return total_mastery / len(life_path_knowledge_uids) if life_path_knowledge_uids else 0.0
+        total_mastery = sum(
+            self.context.knowledge_mastery.get(ku_uid, 0.0) for ku_uid in life_path_knowledge
+        )
+        return total_mastery / len(life_path_knowledge)
 
     def _calculate_activity_alignment(self) -> float:
         """
         Calculate activity alignment score (0.0-1.0).
 
-        Based on tasks and habits supporting life path goals.
+        Based on tasks and habits supporting life-path goals (``get_life_path_goal_uids``).
         """
         if not self.context.active_task_uids and not self.context.active_habit_uids:
             return 0.0
 
         aligned_activities = 0
         total_activities = len(self.context.active_task_uids) + len(self.context.active_habit_uids)
+        life_path_goals = self.context.get_life_path_goal_uids()
 
-        # Count tasks aligned with learning goals (life path proxy)
         for task_uid in self.context.active_task_uids:
-            for goal_uid in self.context.learning_goals:
+            for goal_uid in life_path_goals:
                 if task_uid in self.context.get_tasks_for_goal(goal_uid):
                     aligned_activities += 1
                     break
 
-        # Count habits aligned with learning goals
         for habit_uid in self.context.active_habit_uids:
-            for goal_uid in self.context.learning_goals:
+            for goal_uid in life_path_goals:
                 if habit_uid in self.context.get_habits_for_goal(goal_uid):
                     aligned_activities += 1
                     break
@@ -198,13 +188,12 @@ class LifePathIntelligenceMixin(IntelligenceMixinBase):
         """
         Calculate goal alignment score (0.0-1.0).
 
-        Based on active goals contributing to life path.
+        Based on active goals serving the life path (``get_life_path_goal_uids``).
         """
         if not self.context.active_goal_uids:
             return 0.0
 
-        # Learning goals are directly aligned with life path
-        aligned_count = len(set(self.context.learning_goals) & set(self.context.active_goal_uids))
+        aligned_count = len(self.context.get_life_path_goal_uids())
         total_goals = len(self.context.active_goal_uids)
 
         # Also consider goal progress
@@ -418,18 +407,15 @@ class LifePathIntelligenceMixin(IntelligenceMixinBase):
         return recommendations[:5]  # Limit to 5 recommendations
 
     def _get_life_path_aligned_goals(self) -> list[str]:
-        """Get goals aligned with life path."""
-        aligned = []
-        for goal_uid in self.context.active_goal_uids:
-            if goal_uid in self.context.learning_goals:
-                aligned.append(goal_uid)
-        return aligned
+        """Get the active goals that serve the life path."""
+        return self.context.get_life_path_goal_uids()
 
     def _get_life_path_supporting_habits(self) -> list[str]:
         """Get habits supporting life path goals."""
         supporting = []
+        life_path_goals = self.context.get_life_path_goal_uids()
         for habit_uid in self.context.active_habit_uids:
-            for goal_uid in self.context.learning_goals:
+            for goal_uid in life_path_goals:
                 if habit_uid in self.context.get_habits_for_goal(goal_uid):
                     supporting.append(habit_uid)
                     break

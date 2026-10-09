@@ -230,6 +230,13 @@ class LinkGoalToPrincipleRequest(BaseModel):
     principle_uid: str = Field(..., min_length=1)
 
 
+class LinkGoalToLifePathRequest(BaseModel):
+    """Link a goal to the life path it serves (SERVES_LIFE_PATH, goal → the designated path)."""
+
+    goal_uid: str = Field(..., min_length=1)
+    life_path_uid: str = Field(..., min_length=1)
+
+
 class LinkHabitToKnowledgeRequest(BaseModel):
     """Link a habit to the knowledge/skill it develops (REINFORCES_KNOWLEDGE)."""
 

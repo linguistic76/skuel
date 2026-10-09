@@ -654,6 +654,23 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             )
         )
 
+    async def get_owner_life_path_uid(self, goal_uid: str) -> Result[str | None]:
+        """The life path the goal's owner has designated, or ``None``.
+
+        The designation is the owner's ``ULTIMATE_PATH`` edge. A goal that names no
+        node, a goal nobody owns and an owner with no life path all read ``None``.
+        """
+        cypher = f"""
+        MATCH (owner:{NeoLabel.USER.value})-[:{RelationshipName.OWNS.value}]->(goal:{NeoLabel.GOAL.value} {{uid: $goal_uid}})
+        MATCH (owner)-[:{RelationshipName.ULTIMATE_PATH.value}]->(life_path:{NeoLabel.ENTITY.value})
+        RETURN life_path.uid AS life_path_uid
+        """
+        result = await self.execute_query(cypher, {"goal_uid": goal_uid})
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(rows[0]["life_path_uid"] if rows else None)
+
     async def _find_linked_goals(
         self,
         target_uid: str,

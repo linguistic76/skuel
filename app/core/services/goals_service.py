@@ -54,6 +54,7 @@ from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 from core.services.mixins.link_edge_guard import (
     HABIT_FAR_END,
     KNOWLEDGE_FAR_END,
+    LIFE_PATH_FAR_END,
     PRINCIPLE_FAR_END,
 )
 
@@ -732,6 +733,28 @@ class GoalsService(
             principle_uid,
             properties,
             far_end=PRINCIPLE_FAR_END,
+        )
+
+    async def link_goal_to_life_path(self, goal_uid: str, life_path_uid: str) -> Result[bool]:
+        """Link a goal to the life path it serves (``SERVES_LIFE_PATH``).
+
+        The far end is admitted only when it is the life path the goal's owner has
+        designated, and then as every link's far end is (a LearningPath, published).
+        Any other path is refused as not found, as the shared admission refuses.
+        """
+        designated = await self.backend.get_owner_life_path_uid(goal_uid)
+        if designated.is_error:
+            return Result.fail(designated)
+        if designated.value != life_path_uid:
+            return Result.fail(
+                Errors.not_found(
+                    LIFE_PATH_FAR_END.resource,
+                    life_path_uid,
+                    reason="not the life path the goal's owner has designated",
+                )
+            )
+        return await self.relationships.create_relationship(
+            "life_path", goal_uid, life_path_uid, far_end=LIFE_PATH_FAR_END
         )
 
     async def unlink_goal_from_principle(self, uid: str, principle_uid: str) -> Result[bool]:

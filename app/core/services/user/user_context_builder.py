@@ -484,7 +484,8 @@ class UserContextBuilder:
         #     "uids": {active_task_uids, completed_task_uids, goal_progress, knowledge_mastery, ...},
         #     "entities": {tasks, goals, habits, events, choices, principles,
         #                  learning_paths, path_steps},  <- LP/PS normalized here
-        #     "rich": {knowledge, learning_paths, path_steps, principle_support},
+        #     "rich": {knowledge, learning_paths, path_steps, principle_support,
+        #              life_path_knowledge_uids, life_path_goal_uids},
         #     "life_path": {uid, alignment_score, dimensions},
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
@@ -548,6 +549,7 @@ class UserContextBuilder:
 
         # Populate life path fields (Priority 2)
         self._populator.populate_life_path(context, mega_data.get("life_path", {}))
+        self._populator.populate_life_path_knowledge(context, rich_data)
 
         # Populate activity report + insights from the learner-state statement
         self._populator.populate_activity_report(context, mega_data.get("activity_report"))

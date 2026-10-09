@@ -332,8 +332,8 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
             # Learning asks the most of the focus slots
             energy_required = "high" if current_time_slot in _FOCUS_SLOTS else "medium"
 
-            # Higher priority if aligned with life path
-            is_life_path = ku_uid in self.context.life_path_milestones
+            # Higher priority for knowledge the life path holds
+            is_life_path = ku_uid in self.context.life_path_knowledge_uids
             priority = 0.7 if is_life_path else 0.5
 
             score = self._calculate_schedule_score(
@@ -407,7 +407,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
                     energy_match_score=score["energy_match"],
                     priority_score=score["priority"],
                     overall_score=score["overall"],
-                    life_path_aligned=goal_uid in self.context.learning_goals,
+                    life_path_aligned=goal_uid in self.context.get_life_path_goal_uids(),
                 )
             )
 

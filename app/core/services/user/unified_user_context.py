@@ -257,6 +257,11 @@ class UserContext:
     life_path_uid: str | None = None  # The user's life path (ultimate convergence)
     life_path_milestones: list[str] = field(default_factory=list)  # Major life milestones
     life_path_alignment_score: float = 0.0  # 0.0-1.0: How aligned are activities?
+    # The Kus the life path's steps compose, and the user's goals (every status) that
+    # SERVES_LIFE_PATH it; written by the rich build — read the goals through
+    # get_life_path_goal_uids()
+    life_path_knowledge_uids: set[str] = field(default_factory=set)
+    life_path_goal_uids: set[str] = field(default_factory=set)
 
     # Knowledge mastery
     knowledge_mastery: dict[str, float] = field(default_factory=dict)  # uid -> mastery %
@@ -769,22 +774,39 @@ class UserContext:
 
     def get_life_path_gaps(self) -> list[str]:
         """
-        Get life path knowledge that needs more real-world application.
+        The life path's knowledge the user has not mastered.
+
+        The ZPD assessment's blocking gaps that fall in the life path come first, in
+        the assessment's order (FULL tier); the rest follow by uid.
 
         Returns:
-            List of knowledge UIDs with low substance (<0.5)
+            Ku uids from ``life_path_knowledge_uids`` outside ``mastered_knowledge_uids``
         """
-        if not self.life_path_uid:
-            return []
+        gaps = self.life_path_knowledge_uids - self.mastered_knowledge_uids
+        head = (
+            list(dict.fromkeys(uid for uid in self.zpd_assessment.blocking_gaps if uid in gaps))
+            if self.zpd_assessment is not None
+            else []
+        )
+        return head + sorted(gaps.difference(head))
 
-        gaps = []
-        for ku_uid, mastery in self.knowledge_mastery.items():
-            # In real implementation, would check if ku_uid is in life path
-            # and check actual substance_score, not mastery
-            if mastery < 0.5:  # Low substance
-                gaps.append(ku_uid)
+    def get_life_path_goal_uids(self) -> list[str]:
+        """
+        The active goals that serve the life path, in ``active_goal_uids`` order.
 
-        return gaps
+        A goal serves it through ``SERVES_LIFE_PATH`` to the designated path. While
+        none of the user's goals carries that link, an active goal serves it when it
+        requires knowledge the life path holds.
+        """
+        if self.life_path_goal_uids:
+            return [uid for uid in self.active_goal_uids if uid in self.life_path_goal_uids]
+        return [
+            uid
+            for uid in self.active_goal_uids
+            if not self.life_path_knowledge_uids.isdisjoint(
+                self.goal_knowledge_required.get(uid, ())
+            )
+        ]
 
     # =========================================================================
     # PRINCIPLE QUERY METHODS

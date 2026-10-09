@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-10-08
+updated: 2026-10-09
 status: current
 category: domains
 tags:
@@ -81,7 +81,7 @@ class GoalsService(
 |-------|------|---------|
 | `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_goal_with_context`, `generate_tasks_for_goal`, `assess_goal_feasibility` |
 
-Graph relationship methods (`link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `unlink_goal_from_principle`, `create_semantic_goal_relationship`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
+Graph relationship methods (`link_goal_to_habit/knowledge/principle/life_path`, `unlink_goal_from_habit`, `unlink_goal_from_principle`, `create_semantic_goal_relationship`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
 
 **Sub-services:**
 | Service | Purpose |
@@ -433,6 +433,21 @@ principle ↔ goal edge. The principle's own door (`POST /api/principles/link`, 
 made it. `weight` and `essentiality` are optional arguments with those defaults.
 `unlink_goal_from_principle(uid, principle_uid)` removes it and leaves a habit's support of the
 same goal alone; no HTTP route calls it.
+
+### Link Goal to the Life Path
+
+```python
+result = await goals_service.link_goal_to_life_path(
+    goal_uid=goal.uid,
+    life_path_uid="lp.mindfulness-101",
+)
+```
+
+Writes `(Goal)-[:SERVES_LIFE_PATH]->(LearningPath)`; `POST /api/goals/link-life-path` is its door.
+The far end is admitted only when it is the life path the goal's owner has designated
+(`(User)-[:ULTIMATE_PATH]->`); any other path is refused as not found. The goal page lists it under
+"The life path this goal serves", and the rich context reads it into `life_path_goal_uids` — the
+goals method 7 and the schedule recommendations count as serving the life path.
 
 ## See Also
 

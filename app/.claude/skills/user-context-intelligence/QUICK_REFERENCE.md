@@ -371,9 +371,11 @@ test needs the fields listed against the mixin it exercises.
 | `knowledge_mastery` | `dict[str, float]` | learning, life path, synergy |
 | `latest_activity_report_period` | `str` or `None` | daily plan |
 | `latest_activity_report_uid` | `str` or `None` | daily plan |
-| `learning_goals` | `list[str]` | daily plan, learning, life path, synergy, schedule |
+| `learning_goals` | `list[str]` | daily plan, learning |
 | `life_path_alignment_score` | `float` | life path |
-| `life_path_milestones` | `list[str]` | life path, schedule |
+| `life_path_goal_uids` | `set[str]` | life path, schedule (through `get_life_path_goal_uids()`) |
+| `life_path_knowledge_uids` | `set[str]` | learning, life path, schedule |
+| `life_path_milestones` | `list[str]` | life path |
 | `life_path_uid` | `str` or `None` | daily plan, learning, life path |
 | `mastered_knowledge_uids` | `set[str]` | learning, life path, synergy |
 | `next_recommended_knowledge` | `list[str]` | learning |
@@ -432,6 +434,7 @@ decay. `/api/habits/analytics` and the ZPD knowledge signals call the same funct
 | `get_habits_for_goal()` | learning, life path | yes |
 | `get_habits_needing_reinforcement()` | life path, synergy, schedule | yes |
 | `get_life_path_gaps()` | life path | no |
+| `get_life_path_goal_uids()` | life path, schedule | no |
 | `get_principle_integration_score()` | life path | yes |
 | `get_ready_to_learn()` | learning, schedule | no |
 | `get_tasks_for_goal()` | life path, synergy | yes |
@@ -441,4 +444,5 @@ A strict method raises `RichContextRequiredError` on a standard context.
 | Method | Returns |
 |--------|---------|
 | `get_ready_to_learn()` | the UIDs in `next_recommended_knowledge` whose prerequisites are all in `prerequisites_completed` |
-| `get_life_path_gaps()` | every UID in `knowledge_mastery` below 0.5, or `[]` without a life path. It does not filter to the life path's own knowledge. |
+| `get_life_path_gaps()` | the UIDs in `life_path_knowledge_uids` outside `mastered_knowledge_uids`: the ZPD assessment's `blocking_gaps` among them first, in its order, then the rest by uid. `[]` on a standard context. |
+| `get_life_path_goal_uids()` | the active goals in `life_path_goal_uids`; while that set is empty, the active goals whose `goal_knowledge_required` meets `life_path_knowledge_uids`. |

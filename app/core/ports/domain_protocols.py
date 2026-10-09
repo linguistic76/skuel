@@ -752,6 +752,13 @@ class GoalsOperations(
         """Find the UIDs of the user's goals a task or event contributes to (CONTRIBUTES_TO_GOAL)."""
         ...
 
+    async def get_owner_life_path_uid(self, goal_uid: str) -> Result[str | None]:
+        """The life path the goal's owner has designated, or ``None``.
+
+        Backend: GoalsBackend.get_owner_life_path_uid
+        """
+        ...
+
     async def recompute_progress_from_contributions[P: GuardedWritePlan](
         self,
         goal_uid: str,
