@@ -258,8 +258,9 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
 
         relevant_principles: dict[str, float] = {}
 
-        todays_task_uids = set(context.today_task_uids)
-        active_goal_uids = set(context.active_goal_uids)
+        # Sorted, so the ranking and its ties never depend on set order
+        todays_task_uids = sorted(set(context.today_task_uids))
+        active_goal_uids = sorted(set(context.active_goal_uids))
 
         # Check principles linked to today's tasks
         for task_uid in todays_task_uids:
@@ -283,13 +284,11 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         # Build result list
         result: list[ContextualPrinciple] = []
 
-        def get_relevance_value(item: tuple[str, float]) -> float:
-            """Get relevance value for sorting principle items."""
-            return item[1]
+        def by_relevance_then_uid(item: tuple[str, float]) -> tuple[float, str]:
+            """Highest relevance first; a tie goes to the lower uid."""
+            return (-item[1], item[0])
 
-        sorted_principles = sorted(
-            relevant_principles.items(), key=get_relevance_value, reverse=True
-        )
+        sorted_principles = sorted(relevant_principles.items(), key=by_relevance_then_uid)
 
         for principle_uid, relevance in sorted_principles[:limit]:
             data = principle_data.get(principle_uid, {})
@@ -349,7 +348,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         opportunities: list[PracticeOpportunity] = []
         target_principles = [principle_uid] if principle_uid else list(context.core_principle_uids)
 
-        todays_task_uids = set(context.today_task_uids)
+        todays_task_uids = sorted(set(context.today_task_uids))
 
         for p_uid in target_principles:
             data = principle_data.get(p_uid, {})
@@ -371,14 +370,14 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
                     opportunities.append(opportunity)
 
         # Sort by alignment weakness (lower alignment = higher priority for practice)
-        def get_alignment_priority(opp: PracticeOpportunity) -> float:
-            """Lower alignment = higher priority for practice."""
+        def get_alignment_priority(opp: PracticeOpportunity) -> tuple[float, str, str]:
+            """Lower alignment = higher priority for practice; ties by principle, then task."""
             data = principle_data.get(opp.principle_uid, {})
             alignment_str = data.get("current_alignment", "UNKNOWN")
             alignment_score = self._alignment_level_to_score(alignment_str)
-            return 1.0 - alignment_score
+            return (alignment_score, opp.principle_uid, opp.activity_uid)
 
-        opportunities.sort(key=get_alignment_priority, reverse=True)
+        opportunities.sort(key=get_alignment_priority)
 
         self.logger.info(f"Found {len(opportunities)} practice opportunities")
 
