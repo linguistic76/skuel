@@ -28,7 +28,6 @@ Architecture:
 from __future__ import annotations
 
 from datetime import datetime
-from itertools import islice
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
@@ -299,7 +298,7 @@ class UserStateAnalyzer:
             "mastery_average": round(user_context.mastery_average, 2),
             "mastered": len(user_context.mastered_knowledge_uids),
             "in_progress": len(user_context.in_progress_knowledge_uids),
-            "ready_to_learn": len(user_context.next_recommended_knowledge),
+            "ready_to_learn": len(user_context.ready_to_learn_uids),
             "learning_velocity": round(user_context.calculate_learning_velocity(), 2),
         }
         if user_context.current_learning_path_uid:
@@ -406,7 +405,9 @@ class UserStateAnalyzer:
                     domains_affected=[Domain.KNOWLEDGE, Domain.BUSINESS],
                     entities_involved={
                         "blocked": list(user_context.blocked_task_uids_or_empty())[:5],
-                        "prerequisites": list(islice(user_context.prerequisites_needed, 5)),
+                        "prerequisites": sorted(
+                            set().union(*user_context.unmet_prerequisites_by_ku().values())
+                        )[:5],
                     },
                     recommended_actions=[
                         {"action": "Complete key prerequisites", "benefit": "Unblock progress"}

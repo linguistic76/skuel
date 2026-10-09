@@ -79,13 +79,10 @@ def find_key_blocker(user_context: UserContext) -> str | None:
     Returns:
         UID of key blocker (prerequisite that blocks the most items), or None if no blockers
     """
-    if not user_context.prerequisites_needed:
-        return None
-
-    # Count how many items each prerequisite blocks
+    # Count how many blocked Kus each unmastered prerequisite blocks
     blocker_counts: dict[str, int] = {}
-    for prereqs in user_context.prerequisites_needed.values():
-        for prereq in prereqs:
+    for unmet in user_context.unmet_prerequisites_by_ku().values():
+        for prereq in unmet:
             blocker_counts[prereq] = blocker_counts.get(prereq, 0) + 1
 
     # Return the prerequisite that blocks the most items

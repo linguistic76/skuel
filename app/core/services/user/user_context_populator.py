@@ -23,6 +23,7 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
+from core.models.enums.goal_enums import GoalType
 from core.models.habit.adherence import (
     completion_days,
     habit_adherence,
@@ -253,6 +254,35 @@ class UserContextPopulator:
             domain: [item for item in items if item is not None]
             for domain, items in entities_data.items()
         }
+        self.populate_goal_kinds(
+            context,
+            {
+                item["entity"]["uid"]: item["entity"].get("goal_type")
+                for item in context.entities_rich.get("goals", [])
+            },
+        )
+
+    def populate_goal_kinds(self, context: UserContext, goal_types: dict[str, str | None]) -> None:
+        """
+        Sort the active goals into ``learning_goals`` / ``outcome_goals`` / ``process_goals``.
+
+        Args:
+            context: UserContext whose ``active_goal_uids`` are already populated
+            goal_types: goal uid -> its stored ``goal_type`` (absent or another kind
+                joins none of the three)
+        """
+        kinds: dict[str, list[str]] = {
+            GoalType.LEARNING: [],
+            GoalType.OUTCOME: [],
+            GoalType.PROCESS: [],
+        }
+        for goal_uid in context.active_goal_uids:
+            kind = goal_types.get(goal_uid)
+            if kind in kinds:
+                kinds[kind].append(goal_uid)
+        context.learning_goals = kinds[GoalType.LEARNING]
+        context.outcome_goals = kinds[GoalType.OUTCOME]
+        context.process_goals = kinds[GoalType.PROCESS]
 
     def populate_curriculum_rich(self, context: UserContext, rich_data: dict[str, Any]) -> None:
         """
@@ -385,6 +415,7 @@ class UserContextPopulator:
         # Knowledge relationships
         context.prerequisite_counts = graph_data.knowledge.prerequisite_counts
         context.ready_to_learn_uids = graph_data.knowledge.ready_to_learn_uids
+        context.ku_prerequisites = graph_data.knowledge.ku_prerequisites
 
     def populate_entry_knowledge_applied(
         self, context: UserContext, raw: list[EntryKnowledgeAppliedRow] | None
@@ -442,6 +473,7 @@ class UserContextPopulator:
         context.active_goal_uids = goals_data.get("active_uids", [])
         context.completed_goal_uids = goals_data.get("completed_uids", set())
         context.goal_progress = goals_data.get("goal_progress", {})
+        self.populate_goal_kinds(context, goals_data.get("goal_types", {}))
 
         # Knowledge
         knowledge_data = data.get("knowledge", {})

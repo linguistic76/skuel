@@ -52,15 +52,16 @@ EXPECTED_GOAL_WEIGHT = min(
 
 
 def _context() -> RichUserContext:
-    """Three goals need THIRD; FIRST and SECOND are the last thing blocking other items."""
+    """Three goals need THIRD; FIRST and SECOND are the last thing blocking other units."""
     context = RichUserContext(user_uid="user_test")
-    context.learning_goals = list(GOALS)
-    # Each goal waits on THIRD and on one more unit, so no goal counts as unlocked by THIRD.
-    context.prerequisites_needed = {goal: [THIRD, "ku.test.elsewhere"] for goal in GOALS}
-    context.prerequisites_needed["item_1"] = [FIRST]
-    context.prerequisites_needed["item_2"] = [FIRST]
-    context.prerequisites_needed["item_3"] = [SECOND]
-    context.next_recommended_knowledge = list(CANDIDATES)
+    context.active_goal_uids = list(GOALS)
+    context.goal_knowledge_required = {goal: [THIRD, "ku.test.elsewhere"] for goal in GOALS}
+    context.ku_prerequisites = {
+        "ku.test.item_1": {FIRST},
+        "ku.test.item_2": {FIRST},
+        "ku.test.item_3": {SECOND},
+    }
+    context.ready_to_learn_uids = set(CANDIDATES)
     return context
 
 
@@ -256,9 +257,9 @@ async def test_goals_flag_changes_nothing_but_score_and_order(arrange: Arrange) 
 async def test_goal_weight_stops_at_its_maximum() -> None:
     context = _context()
     many_goals = [f"goal_{n}" for n in range(8)]
-    context.learning_goals = many_goals
+    context.active_goal_uids = many_goals
     for goal in many_goals:
-        context.prerequisites_needed[goal] = [THIRD, "ku.test.elsewhere"]
+        context.goal_knowledge_required[goal] = [THIRD, "ku.test.elsewhere"]
 
     off = await _steps(_ps(context), consider_goals=False, consider_capacity=False)
     on = await _steps(_ps(context), consider_goals=True, consider_capacity=False)
@@ -357,10 +358,16 @@ async def test_learn_actions_are_taken_by_priority_not_by_position() -> None:
 
 
 def _timed_context() -> RichUserContext:
-    """60 minutes in the day; FIRST and SECOND take 40 each, THIRD takes 20."""
+    """60 minutes in the day; FIRST and SECOND take 40 each, THIRD takes 20.
+
+    The times are the in-progress steps' own ``estimated_time_minutes``.
+    """
     context = _context()
     context.available_minutes_daily = 60
-    context.estimated_time_to_mastery = {FIRST: 40, SECOND: 40, THIRD: 20}
+    context.active_path_steps_rich = [
+        {"step": {"uid": uid, "estimated_time_minutes": minutes}, "graph_context": {}}
+        for uid, minutes in ((FIRST, 40), (SECOND, 40), (THIRD, 20))
+    ]
     return context
 
 

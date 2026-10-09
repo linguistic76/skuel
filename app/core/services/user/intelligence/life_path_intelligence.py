@@ -149,8 +149,7 @@ class LifePathIntelligenceMixin(IntelligenceMixinBase):
         # Get all knowledge related to life path goals
         life_path_knowledge_uids: list[str] = []
         for goal_uid in self.context.learning_goals:
-            prereqs = self.context.prerequisites_needed.get(goal_uid, [])
-            life_path_knowledge_uids.extend(prereqs)
+            life_path_knowledge_uids.extend(self.context.goal_knowledge_required.get(goal_uid, []))
 
         # Remove duplicates
         life_path_knowledge_uids = list(set(life_path_knowledge_uids))

@@ -113,7 +113,7 @@ def user_context() -> UserContext:
     return UserContext(
         user_uid="user_123",
         username="test_user",
-        prerequisites_completed={"ku.python.basics"},
+        mastered_knowledge_uids={"ku.python.basics"},
         completed_task_uids={"task:completed_1"},
         active_goal_uids={"goal:learn_python"},
         active_habit_uids={"habit:daily_code"},
@@ -211,7 +211,7 @@ async def test_a_withheld_prerequisite_blocks_and_is_not_named(
         return Result.ok([])
 
     mock_backend.get_related_uids = AsyncMock(side_effect=mock_get_related)
-    user_context.prerequisites_completed = {"ku.shown"}
+    user_context.mastered_knowledge_uids = {"ku.shown"}
 
     result = await progress_service.check_prerequisites("task:blocked", user_context)
 
@@ -297,7 +297,7 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
         context = UserContext(
             user_uid="user_123",
             username="test_user",
-            prerequisites_completed=set(),
+            mastered_knowledge_uids=set(),
             completed_task_uids=set(),
         )
 
@@ -345,7 +345,7 @@ async def test_unblock_refuses_to_resurrect_a_finished_task(progress_service, mo
         context = UserContext(
             user_uid="user_123",
             username="test_user",
-            prerequisites_completed=set(),
+            mastered_knowledge_uids=set(),
             completed_task_uids=set(),
         )
 
@@ -384,7 +384,7 @@ async def test_unblock_task_still_blocked(progress_service, mock_backend, blocke
         context = UserContext(
             user_uid="user_123",
             username="test_user",
-            prerequisites_completed=set(),
+            mastered_knowledge_uids=set(),
             completed_task_uids=set(),
         )
 

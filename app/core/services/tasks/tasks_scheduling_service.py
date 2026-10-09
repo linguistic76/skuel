@@ -84,7 +84,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         Create a task after checking its prerequisites against the user's context.
 
         Pattern 1 (Graph-Aware Models): prerequisite validation using context fields —
-        set membership against ``prerequisites_completed`` / ``completed_task_uids``,
+        set membership against ``mastered_knowledge_uids`` / ``completed_task_uids``,
         O(1) per UID with no graph round-trip. That gate is ALL this door adds; the
         create itself is ``TasksCoreService.create_task``, THE create primitive's
         request door, so the task gets the same guarded link edges, write-then-announce
@@ -101,7 +101,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         # Check knowledge prerequisites
         if task_data.prerequisite_knowledge_uids:
             missing_prereqs = (
-                set(task_data.prerequisite_knowledge_uids) - user_context.prerequisites_completed
+                set(task_data.prerequisite_knowledge_uids) - user_context.mastered_knowledge_uids
             )
             if missing_prereqs:
                 return Result.fail(

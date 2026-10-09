@@ -38,7 +38,7 @@ def create_mock_user_context(
     is_blocked: bool = False,
     learning_velocity: float = 1.0,
     current_workload_score: float = 0.5,
-    prerequisites_needed: dict | None = None,
+    unmet_prerequisites: dict | None = None,
     domain_progress: dict | None = None,
 ) -> Mock:
     """Create mock UserContext for state scoring tests.
@@ -52,7 +52,7 @@ def create_mock_user_context(
     - is_blocked: property indicating if user is blocked
     - current_workload_score: float 0.0-1.0
     - has_overdue_items: property based on overdue_task_uids
-    - prerequisites_needed: dict mapping blocked_uid to list of prereq_uids
+    - unmet_prerequisites_by_ku(): blocked Ku uid -> its unmastered prerequisites
     - domain_progress: dict mapping domain to progress float
     - calculate_learning_velocity(): method returning float
     """
@@ -82,8 +82,10 @@ def create_mock_user_context(
     # Learning velocity method
     context.calculate_learning_velocity = Mock(return_value=learning_velocity)
 
-    # Prerequisites (for find_key_blocker)
-    context.prerequisites_needed = prerequisites_needed or {}
+    # Unmet prerequisites (for find_key_blocker)
+    context.unmet_prerequisites_by_ku = Mock(
+        return_value={uid: set(prereqs) for uid, prereqs in (unmet_prerequisites or {}).items()}
+    )
 
     # Domain progress (for calculate_domain_balance)
     context.domain_progress = domain_progress or {"tech": 0.5, "personal": 0.5}
@@ -133,7 +135,7 @@ def blocked_context():
     return create_mock_user_context(
         is_blocked=True,
         blocked_tasks=5,
-        prerequisites_needed={
+        unmet_prerequisites={
             "ku.blocked_0": ["ku.prereq_a"],
             "ku.blocked_1": ["ku.prereq_a", "ku.prereq_b"],
             "ku.blocked_2": ["ku.prereq_a"],

@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from core.constants import NextStepRanking
+from core.constants import LearningTimeEstimate, NextStepRanking
 from core.models.context_types import PathStep
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
@@ -135,8 +135,8 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                         prerequisites_met=readiness_score >= 1.0,
                         aligns_with_goals=tuple(aligned_goals),
                         unlocks_count=unlocks_count,
-                        estimated_time_minutes=self.context.estimated_time_to_mastery.get(
-                            ku_uid, 60
+                        estimated_time_minutes=self.context.estimated_minutes(
+                            ku_uid, LearningTimeEstimate.NEXT_STEP_MINUTES
                         ),
                         priority_score=action.priority,
                         application_opportunities={k: tuple(v) for k, v in applications.items()},
@@ -187,7 +187,9 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                 prerequisites_met=readiness_score >= 1.0,
                 aligns_with_goals=tuple(aligned_goals),
                 unlocks_count=unlocks_count,
-                estimated_time_minutes=self.context.estimated_time_to_mastery.get(ku_uid, 60),
+                estimated_time_minutes=self.context.estimated_minutes(
+                    ku_uid, LearningTimeEstimate.NEXT_STEP_MINUTES
+                ),
                 priority_score=priority_score,
                 application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
@@ -264,8 +266,8 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                 prerequisites_met=contextual_ku.prerequisites_met,
                 aligns_with_goals=tuple(aligned_goals),
                 unlocks_count=unlocks_count,
-                estimated_time_minutes=self.context.estimated_time_to_mastery.get(
-                    contextual_ku.uid, 60
+                estimated_time_minutes=self.context.estimated_minutes(
+                    contextual_ku.uid, LearningTimeEstimate.NEXT_STEP_MINUTES
                 ),
                 priority_score=contextual_ku.priority_score,
                 application_opportunities={k: tuple(v) for k, v in applications.items()},
@@ -307,7 +309,9 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                 prerequisites_met=True,
                 aligns_with_goals=tuple(aligned_goals),
                 unlocks_count=unlocks_count,
-                estimated_time_minutes=self.context.estimated_time_to_mastery.get(ku_uid, 60),
+                estimated_time_minutes=self.context.estimated_minutes(
+                    ku_uid, LearningTimeEstimate.NEXT_STEP_MINUTES
+                ),
                 priority_score=priority_score,
                 application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
@@ -325,10 +329,6 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         if unlocks_count > 0:
             unblocking_weight = min(0.25, unlocks_count * 0.05)
             score += unblocking_weight
-
-        # Life path alignment (25% weight)
-        if self.context.life_path_uid and ku_uid in self.context.next_recommended_knowledge:
-            score += 0.25
 
         return min(1.0, score)
 
@@ -394,26 +394,14 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         return "; ".join(reasons) if reasons else "Ready to learn"
 
     def _find_aligned_goals(self, ku_uid: str) -> list[str]:
-        """Find goals that would benefit from this knowledge."""
-        return [
-            goal_uid
-            for goal_uid in self.context.learning_goals
-            if ku_uid in self.context.prerequisites_needed.get(goal_uid, [])
-        ]
+        """Find active goals that require this knowledge."""
+        return self.context.active_goals_requiring(ku_uid)
 
     def _count_items_unlocked_by(self, ku_uid: str) -> int:
-        """Count how many blocked items would be unblocked by mastering this KU."""
-        unblocked_count = 0
-
-        for prereqs in self.context.prerequisites_needed.values():
-            if ku_uid in prereqs:
-                missing_prereqs = [
-                    p for p in prereqs if p not in self.context.prerequisites_completed
-                ]
-                if len(missing_prereqs) == 1:
-                    unblocked_count += 1
-
-        return unblocked_count
+        """Count the blocked Kus whose one remaining unmet prerequisite is this KU."""
+        return sum(
+            1 for unmet in self.context.unmet_prerequisites_by_ku().values() if unmet == {ku_uid}
+        )
 
     async def _get_application_opportunities_for_ku(
         self, ku_uid: str
@@ -492,10 +480,11 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         """
         What's the fastest route to life path alignment?
 
-        **Synthesizes:**
-        - LP service: Learning path structure
-        - KU service: Prerequisite chains
-        - Context: Current mastery levels
+        Reads the context only: the unmastered knowledge the user has started,
+        ordered so each Ku follows its prerequisites (``ku_prerequisites``), the one
+        unlocking the most first. A Ku whose unmet prerequisite lies outside that set
+        is left off. The life path's own structure — its steps and their knowledge —
+        is not read yet; see ``/docs/roadmap/lp-backend-recommendation-methods.md``.
 
         Returns:
             Result containing ordered list of KU UIDs representing critical path
@@ -503,7 +492,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         if not self.context.life_path_uid:
             return Result.ok([])
 
-        # Get all knowledge in life path
+        # The knowledge the user has started (mastered or in progress)
         life_path_knowledge = list(self.context.knowledge_mastery.keys())
 
         if not life_path_knowledge:
@@ -519,12 +508,12 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         # Build dependency graph and find critical path
         critical_path = []
         remaining = set(unmastered)
-        completed = set(self.context.prerequisites_completed)
+        completed = set(self.context.mastered_knowledge_uids)
 
         while remaining:
             ready = []
             for ku_uid in remaining:
-                prereqs = self.context.prerequisites_needed.get(ku_uid, [])
+                prereqs = self.context.ku_prerequisites.get(ku_uid, set())
                 unmet_prereqs = [p for p in prereqs if p not in completed]
                 if not unmet_prereqs:
                     ready.append(ku_uid)
@@ -616,20 +605,17 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         """
         What should I learn first to unlock the most items?
 
-        **Synthesizes:**
-        - Context: prerequisites_needed mapping
-        - KU service: Readiness status
-        - Tasks service: Blocked task counts
+        Reads the context's per-Ku prerequisite map (``ku_prerequisites``): each
+        unmastered prerequisite scores the number of blocked Kus it holds back.
 
         Returns:
             Result containing list of (ku_uid, blocked_count) sorted by impact (highest first)
         """
         blocker_counts: dict[str, int] = {}
 
-        for prereqs in self.context.prerequisites_needed.values():
-            for prereq in prereqs:
-                if prereq not in self.context.prerequisites_completed:
-                    blocker_counts[prereq] = blocker_counts.get(prereq, 0) + 1
+        for unmet in self.context.unmet_prerequisites_by_ku().values():
+            for prereq in unmet:
+                blocker_counts[prereq] = blocker_counts.get(prereq, 0) + 1
 
         from core.utils.sort_functions import get_second_item
 
@@ -659,9 +645,10 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         if self.context.learning_goals:
             query_parts.append("goal-aligned learning")
 
-        # Include current learning focus
-        if self.context.current_learning_focus:
-            query_parts.append(self.context.current_learning_focus)
+        # Include the path steps the user is studying
+        query_parts.extend(
+            step["title"] for step in self.context.current_path_steps if step.get("title")
+        )
 
         # Default if no context
         if not query_parts:
@@ -706,12 +693,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             # Find aligned goals
             aligned_goals = self._find_aligned_goals(ku_uid)
 
-            # Check prerequisites met
-            prereqs_needed = self.context.prerequisites_needed.get(ku_uid, [])
-            unmet_prereqs = [
-                p for p in prereqs_needed if p not in self.context.prerequisites_completed
-            ]
-            prerequisites_met = len(unmet_prereqs) == 0
+            prerequisites_met = not self.context.unmet_prerequisites(ku_uid)
 
             step = PathStep(
                 ku_uid=ku_uid,
@@ -722,7 +704,9 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                 prerequisites_met=prerequisites_met,
                 aligns_with_goals=tuple(aligned_goals),
                 unlocks_count=unlocks_count,
-                estimated_time_minutes=self.context.estimated_time_to_mastery.get(ku_uid, 60),
+                estimated_time_minutes=self.context.estimated_minutes(
+                    ku_uid, LearningTimeEstimate.NEXT_STEP_MINUTES
+                ),
                 priority_score=score,  # Use vector search score
                 application_opportunities={k: tuple(v) for k, v in applications.items()},
             )

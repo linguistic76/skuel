@@ -82,6 +82,7 @@ class KnowledgeRelationshipData:
 
     prerequisite_counts: dict[str, int] = field(default_factory=dict)
     ready_to_learn_uids: set[str] = field(default_factory=set)
+    ku_prerequisites: dict[str, set[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -477,6 +478,7 @@ class UserContextExtractor:
         Extract knowledge relationship data from knowledge_rich[].graph_context.
 
         Extracts:
+        - Prerequisite sets (the knowledge each KU requires)
         - Prerequisite counts (number of prerequisites per KU)
         - Ready-to-learn UIDs (KUs where all prerequisites are mastered)
 
@@ -487,7 +489,7 @@ class UserContextExtractor:
             mastered_uids: Set of UIDs the user has mastered
 
         Returns:
-            KnowledgeRelationshipData with prerequisite counts and ready-to-learn
+            KnowledgeRelationshipData with prerequisite sets, counts and ready-to-learn
 
         Note:
             Ready-to-learn computation distinguishes between:
@@ -497,7 +499,6 @@ class UserContextExtractor:
         prerequisite_counts: dict[str, int] = {}
         ready_to_learn_uids: set[str] = set()
 
-        # Build prerequisite map for ready-to-learn computation
         # Track KUs with valid graph_context vs those missing it
         ku_prerequisites: dict[str, set[str]] = {}
         kus_with_valid_context: set[str] = set()
@@ -544,4 +545,5 @@ class UserContextExtractor:
         return KnowledgeRelationshipData(
             prerequisite_counts=prerequisite_counts,
             ready_to_learn_uids=ready_to_learn_uids,
+            ku_prerequisites=ku_prerequisites,
         )

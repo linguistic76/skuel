@@ -64,10 +64,10 @@ def create_mock_user_context(
     # Knowledge data
     context.mastered_knowledge_uids = {f"ku_{i}" for i in range(mastered_knowledge)}
     context.in_progress_knowledge_uids = set()
-    context.next_recommended_knowledge = [f"ku.ready_{i}" for i in range(ready_to_learn_count)]
+    context.ready_to_learn_uids = {f"ku.ready_{i}" for i in range(ready_to_learn_count)}
     context.mastery_average = 0.5
     context.current_learning_path_uid = None
-    context.prerequisites_needed = {}
+    context.unmet_prerequisites_by_ku = Mock(return_value={})
     context.is_blocked = is_blocked
 
     # Events

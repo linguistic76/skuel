@@ -10,7 +10,9 @@ into the view-shaped TypedDicts that routes return.
 1. **View shaping over UserContext** — dashboard, summary, health, at-risk
    habits, adaptive learning path: read pre-computed fields off ``UserContext``
    and project them into route-friendly dicts. No intelligence work happens
-   here; the MEGA-QUERY in ``UserContextBuilder`` already did it.
+   here; the MEGA-QUERY in ``UserContextBuilder`` already did it. Each of these
+   builds the rich context — readiness, blocked tasks and at-risk habits exist
+   only there.
 2. **Intelligence delegation** — ``get_next_action`` is the only intelligence
    entry point. It delegates to ``UserService.get_daily_work_plan`` (which
    in turn calls ``UserContextIntelligence.get_ready_to_work_on_today``)
@@ -61,6 +63,14 @@ if TYPE_CHECKING:
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
+
+
+def _next_recommended(context: UserContext) -> list[str]:
+    """Knowledge to learn next: the ZPD proximal zone when assessed, else ready-to-learn."""
+    zpd = context.zpd_assessment
+    if zpd is not None and not zpd.is_empty():
+        return zpd.top_proximal_ku_uids()
+    return context.get_ready_to_learn()
 
 
 class UserContextService:
@@ -129,7 +139,7 @@ class UserContextService:
             Result containing dashboard data
         """
         # Build context - builder owns user resolution (Option A architecture)
-        context_result = await self.context_builder.build(user_uid)
+        context_result = await self.context_builder.build_rich(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)
 
@@ -147,7 +157,7 @@ class UserContextService:
                 "overdue_count": len(context.overdue_task_uids),
                 "today_count": len(context.today_task_uids),
                 "current_focus": context.current_task_focus or "",
-                "blocked_count": len(context.blocked_task_uids_or_empty()),
+                "blocked_count": len(context.get_blocked_tasks()),
             },
             # Goal overview
             "goals": {
@@ -160,7 +170,7 @@ class UserContextService:
             # Habit overview
             "habits": {
                 "active_count": len(context.active_habit_uids),
-                "at_risk_count": len(context.at_risk_habits_or_empty()),
+                "at_risk_count": len(context.get_habits_needing_reinforcement()),
                 "keystone_count": len(context.keystone_habits),
                 "daily_count": len(context.daily_habits),
                 "weekly_count": len(context.weekly_habits),
@@ -231,7 +241,7 @@ class UserContextService:
             Result containing context summary
         """
         # Build context - builder owns user resolution (Option A architecture)
-        context_result = await self.context_builder.build(user_uid)
+        context_result = await self.context_builder.build_rich(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)
 
@@ -246,7 +256,7 @@ class UserContextService:
                 "task_focus": context.current_task_focus or "",
                 "goal_focus": context.primary_goal_focus or "",
                 "overdue_tasks": context.overdue_task_uids[:3],  # Top 3
-                "at_risk_habits": context.at_risk_habits_or_empty()[:3],
+                "at_risk_habits": context.get_habits_needing_reinforcement()[:3],
             },
             # Key metrics
             "key_metrics": {
@@ -267,7 +277,7 @@ class UserContextService:
 
             summary["insights"] = {
                 "ready_to_learn_count": len(ready_to_learn),
-                "blocked_items_count": len(context.blocked_task_uids_or_empty()),
+                "blocked_items_count": len(context.get_blocked_tasks()),
                 "capacity_utilization": context.current_workload_score,  # Already 0-1 score
             }
 
@@ -360,14 +370,13 @@ class UserContextService:
         Returns:
             Result[AtRiskHabitsResult] with at-risk habits, streaks, and completion rates
         """
-        context_result = await self.context_builder.build(user_uid)
+        context_result = await self.context_builder.build_rich(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)
 
         context = context_result.value
 
-        # at_risk_habits is rich-context only; empty at standard build depth
-        at_risk = context.at_risk_habits_or_empty()
+        at_risk = context.get_habits_needing_reinforcement()
         at_risk_data: AtRiskHabitsResult = {
             "user_uid": user_uid,
             "at_risk_habits": at_risk,
@@ -394,7 +403,7 @@ class UserContextService:
         Returns:
             Result[AdaptiveLearningPathResult] with path, alignment, and recommendations
         """
-        context_result = await self.context_builder.build(user_uid)
+        context_result = await self.context_builder.build_rich(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)
 
@@ -406,7 +415,7 @@ class UserContextService:
             "life_path": context.life_path_uid,
             "life_path_alignment": context.life_path_alignment_score,
             "ready_to_learn": context.get_ready_to_learn(),
-            "next_recommended": context.next_recommended_knowledge,
+            "next_recommended": _next_recommended(context),
             "mastered_knowledge": list(context.mastered_knowledge_uids),
             "mastered_count": len(context.mastered_knowledge_uids),
         }
@@ -541,7 +550,7 @@ class UserContextService:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
         # Build user context - builder owns user resolution (Option A architecture)
-        context_result = await self.context_builder.build(user_uid)
+        context_result = await self.context_builder.build_rich(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)
 

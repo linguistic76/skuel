@@ -328,13 +328,8 @@ class GoalTaskGenerator:
                 continue
 
             # Check if prerequisites are met
-            prereqs_met = True
-            if knowledge_uid in user_context.prerequisites_needed:
-                missing = (
-                    set(user_context.prerequisites_needed[knowledge_uid])
-                    - user_context.prerequisites_completed
-                )
-                prereqs_met = len(missing) == 0
+            missing = user_context.unmet_prerequisites(knowledge_uid)
+            prereqs_met = not missing
 
             task = TaskDTO.create_task(
                 user_uid=goal.user_uid,
@@ -350,12 +345,8 @@ class GoalTaskGenerator:
             task.knowledge_mastery_check = True
 
             # Store prerequisites if any
-            if not prereqs_met and knowledge_uid in user_context.prerequisites_needed:
-                missing = (
-                    set(user_context.prerequisites_needed[knowledge_uid])
-                    - user_context.prerequisites_completed
-                )
-                task.metadata["prerequisite_knowledge_uids"] = list(missing)
+            if not prereqs_met:
+                task.metadata["prerequisite_knowledge_uids"] = sorted(missing)
 
             # Block task if prerequisites not met
             if not prereqs_met:

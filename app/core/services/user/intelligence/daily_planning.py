@@ -20,7 +20,7 @@ prerequisite mastery, blocking dependencies, urgency math.
 
 **Already-resolved context fields (read directly, no query):**
 - available_minutes_daily, daily_habits, zpd_assessment,
-  estimated_time_to_mastery, learning_goals, primary_goal_focus,
+  active_path_steps_rich (estimated_minutes), learning_goals, primary_goal_focus,
   life_path_uid, latest_activity_report_*, active_ps_engagements
 
 These are pre-computed by UserContextBuilder.MEGA-QUERY. The mixin reads
@@ -32,6 +32,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
+from core.constants import LearningTimeEstimate
 from core.models.context_types import ContextualExercise, DailyWorkPlan, EngagedPsGroup
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
@@ -246,7 +247,9 @@ class DailyPlanningMixin(IntelligenceMixinBase):
                 # ZPD gravity well path: use recommended actions
                 for action in zpd.top_recommended_actions(3):
                     if action.action_type == "learn":
-                        est_time = self.context.estimated_time_to_mastery.get(action.entity_uid, 30)
+                        est_time = self.context.estimated_minutes(
+                            action.entity_uid, LearningTimeEstimate.DAILY_PLAN_MINUTES
+                        )
                         if not respect_capacity or estimated_time + est_time <= available_time:
                             learning_uids.append(action.entity_uid)
                             estimated_time += est_time
@@ -265,7 +268,9 @@ class DailyPlanningMixin(IntelligenceMixinBase):
                     for result in vector_result.value:
                         node = result["node"]
                         ku_uid = node["uid"]
-                        est_time = self.context.estimated_time_to_mastery.get(ku_uid, 30)
+                        est_time = self.context.estimated_minutes(
+                            ku_uid, LearningTimeEstimate.DAILY_PLAN_MINUTES
+                        )
                         if not respect_capacity or estimated_time + est_time <= available_time:
                             learning_uids.append(ku_uid)
                             estimated_time += est_time
@@ -505,7 +510,9 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         learning_result = await self.ps.get_ready_to_learn_for_user(self.context, limit=limit)
         if learning_result.is_ok and learning_result.value:
             for contextual_ku in learning_result.value:
-                est_time = self.context.estimated_time_to_mastery.get(contextual_ku.uid, 30)
+                est_time = self.context.estimated_minutes(
+                    contextual_ku.uid, LearningTimeEstimate.DAILY_PLAN_MINUTES
+                )
                 if not respect_capacity or estimated_time + est_time <= available_time:
                     learning_uids.append(contextual_ku.uid)
                     contextual_knowledge_list.append(contextual_ku)
