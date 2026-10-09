@@ -96,6 +96,12 @@ _PARTIALS: dict[str, dict[str, Any]] = {
         "activity_report": None,
         "active_insights_raw": [],
     },
+    "life_path_knowledge": {
+        "rich": {
+            "life_path_knowledge": [{"uid": "ku1", "prerequisite_uids": []}],
+            "life_path_goal_uids": ["g1"],
+        },
+    },
 }
 
 
@@ -140,6 +146,8 @@ def test_merge_folds_shared_sections_and_takes_owned_ones_whole() -> None:
     assert sorted(merged["rich"]) == [
         "knowledge",
         "learning_paths",
+        "life_path_goal_uids",
+        "life_path_knowledge",
         "path_steps",
         "principle_support",
     ]

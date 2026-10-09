@@ -654,6 +654,32 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             )
         )
 
+    async def link_to_designated_life_path(self, goal_uid: str, life_path_uid: str) -> Result[bool]:
+        """Link the goal to ``life_path_uid`` when that is its owner's designated life path.
+
+        One statement: the designation (the owner's ``ULTIMATE_PATH`` edge) is read
+        under the write, the ``SERVES_LIFE_PATH`` edge is merged, and the goal's links to
+        any other path are deleted — a goal serves one life path. Returns False, writing
+        nothing, when the path is not the owner's designated one or the goal is nobody's.
+        """
+        cypher = f"""
+        MATCH (owner:{NeoLabel.USER.value})-[:{RelationshipName.OWNS.value}]->(goal:{NeoLabel.GOAL.value} {{uid: $goal_uid}})
+        MATCH (owner)-[:{RelationshipName.ULTIMATE_PATH.value}]->(path:{NeoLabel.ENTITY.value} {{uid: $life_path_uid}})
+        MERGE (goal)-[:{RelationshipName.SERVES_LIFE_PATH.value}]->(path)
+        WITH goal, path
+        OPTIONAL MATCH (goal)-[other_link:{RelationshipName.SERVES_LIFE_PATH.value}]->(other_path)
+        WHERE other_path <> path
+        DELETE other_link
+        RETURN count(DISTINCT path) AS linked
+        """
+        result = await self.execute_query(
+            cypher, {"goal_uid": goal_uid, "life_path_uid": life_path_uid}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(bool(rows) and int(rows[0]["linked"]) > 0)
+
     async def _find_linked_goals(
         self,
         target_uid: str,

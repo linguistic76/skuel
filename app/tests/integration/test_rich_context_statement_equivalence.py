@@ -9,7 +9,8 @@ learner with at least one node in EVERY section — a task with a subtask, a
 dependency and applied knowledge (direct and through a PathStep), a goal with a
 subgoal, a mastered and an in-progress Ku, a viewed / read / bookmarked Ku, a
 habit with a prerequisite and 24 completions in the adherence window, an event with a conflict, a principle, a choice, an
-enrolled path with an in-progress step, a life path, an organizer, two activity
+enrolled path with an in-progress step, a life path with a step and the goals serving
+it, an organizer, two activity
 reports, a live and a dismissed insight — and pins every field group of the
 merged map and of the built context. The pinned values are the contract; the
 measurement behind the split and the record of how they were captured is
@@ -157,6 +158,21 @@ CREATE (t_dep)-[:IMPLEMENTS_CHOICE]->(c)
 // life path, organizer, activity reports, insights
 CREATE (life:Entity:LearningPath {uid: 'lp.eq.life', entity_type: 'learning_path', title: 'Life path'})
 CREATE (u)-[:ULTIMATE_PATH {designated_at: $iso, alignment_score: 0.7}]->(life)
+// the life path's knowledge: what its step composes, the draft left out
+CREATE (ps_life:Entity:PathStep {uid: 'ps.eq.life', entity_type: 'path_step', title: 'Life step'})
+CREATE (ku_life:Entity:Ku {uid: 'ku.eq.life', entity_type: 'ku', title: 'Ku Life'})
+CREATE (ku_draft:Entity:Ku {uid: 'ku.eq.draft', entity_type: 'ku', title: 'Ku Draft',
+                            publication_state: 'draft'})
+CREATE (life)-[:HAS_STEP {sequence: 1}]->(ps_life)
+CREATE (ps_life)-[:USES_KU]->(ku_a)
+CREATE (ps_life)-[:TRAINS_KU]->(ku_life)
+CREATE (ps_life)-[:USES_KU]->(ku_draft)
+// the goals serving it: the learner's own, of any status — not another user's
+CREATE (g_active)-[:SERVES_LIFE_PATH]->(life)
+CREATE (g_done)-[:SERVES_LIFE_PATH]->(life)
+CREATE (g_other:Entity:Goal {uid: 'goal.eq.other', entity_type: 'goal', title: 'Other user goal',
+                             status: 'active', user_uid: 'user_other'})
+CREATE (g_other)-[:SERVES_LIFE_PATH]->(life)
 CREATE (moc:Entity {uid: 'moc.eq.one', entity_type: 'ku', title: 'MOC', updated_at: $iso})
 CREATE (u)-[:OWNS]->(moc)
 CREATE (moc)-[:ORGANIZES {order: 1}]->(ku_a)
@@ -293,6 +309,8 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
     assert sorted(mega["rich"]) == [
         "knowledge",
         "learning_paths",
+        "life_path_goal_uids",
+        "life_path_knowledge",
         "path_steps",
         "principle_support",
     ]
@@ -577,6 +595,16 @@ async def test_every_section_reads_what_the_one_statement_read(
     assert uids["active_moc_uids"] == ["moc.eq.one"]
     assert uids["moc_metadata"] == [{"uid": "moc.eq.one", "updated": _SEEDED_AT.isoformat()}]
 
+    # life-path knowledge
+    # each Ku with its prerequisites, as the knowledge section reads a started Ku's
+    assert _canon(mega["rich"]["life_path_knowledge"]) == _canon(
+        [
+            {"uid": "ku.eq.a", "prerequisite_uids": ["ku.eq.pre", "ku.eq.c"]},
+            {"uid": "ku.eq.life", "prerequisite_uids": []},
+        ]
+    )
+    assert sorted(mega["rich"]["life_path_goal_uids"]) == ["goal.eq.active", "goal.eq.done"]
+
     # learner state
     assert mega["life_path"] == {
         "uid": "lp.eq.life",
@@ -693,6 +721,14 @@ async def test_the_rich_context_carries_every_section(
     # learner state
     assert context.life_path_uid == "lp.eq.life"
     assert context.life_path_alignment_score == 0.7
+    assert context.life_path_knowledge_uids == {"ku.eq.a", "ku.eq.life"}
+    assert context.life_path_prerequisites == {
+        "ku.eq.a": {"ku.eq.pre", "ku.eq.c"},
+        "ku.eq.life": set(),
+    }
+    assert context.life_path_goal_uids == {"goal.eq.active", "goal.eq.done"}
+    assert context.get_life_path_goal_uids() == ["goal.eq.active"]  # the active one
+    assert context.get_life_path_gaps() == ["ku.eq.life"]  # ku.eq.a is mastered
     assert context.latest_activity_report_uid == "ar.eq.new"  # not the admin's ar.eq.admin
     assert context.latest_activity_report_period == "2026-W36"
     assert context.latest_activity_report_content == "Latest"

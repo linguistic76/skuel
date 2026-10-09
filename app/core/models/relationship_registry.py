@@ -855,6 +855,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "life_path",
             fields=("uid", "title"),
             single=True,
+            page_heading="The life path this goal serves",
         ),
     ),
     prerequisite_relationship_names=(

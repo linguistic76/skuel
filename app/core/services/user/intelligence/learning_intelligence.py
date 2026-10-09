@@ -330,6 +330,10 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             unblocking_weight = min(0.25, unlocks_count * 0.05)
             score += unblocking_weight
 
+        # Knowledge the life path holds (25% weight)
+        if ku_uid in self.context.life_path_knowledge_uids:
+            score += 0.25
+
         return min(1.0, score)
 
     def _rank_steps(
@@ -388,8 +392,8 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         if total_apps > 0:
             reasons.append(f"{total_apps} opportunities to apply this knowledge")
 
-        if self.context.life_path_uid:
-            reasons.append("Aligns with your life path")
+        if ku_uid in self.context.life_path_knowledge_uids:
+            reasons.append("Part of your life path")
 
         return "; ".join(reasons) if reasons else "Ready to learn"
 
@@ -480,49 +484,34 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         """
         What's the fastest route to life path alignment?
 
-        Reads the context only: the unmastered knowledge the user has started,
-        ordered so each Ku follows its prerequisites (``ku_prerequisites``), the one
-        unlocking the most first. A Ku whose unmet prerequisite lies outside that set
-        is left off. The life path's own structure — its steps and their knowledge —
-        is not read yet; see ``/docs/roadmap/lp-backend-recommendation-methods.md``.
+        Reads the context only: the life path's knowledge the user has not mastered
+        (``life_path_knowledge_uids`` less ``mastered_knowledge_uids``), ordered so each
+        Ku follows its prerequisites (``life_path_prerequisites``, started or not). Of the
+        Kus ready at each step, the one that unlocks the most of the rest comes first — a
+        Ku whose one unmet prerequisite it is — and a tie goes by uid. A Ku whose unmet
+        prerequisite lies outside that set is left off. The path's step order and
+        the LP backend's critical path are not read; see
+        ``/docs/roadmap/lp-backend-recommendation-methods.md``.
 
         Returns:
             Result containing ordered list of KU UIDs representing critical path
         """
-        if not self.context.life_path_uid:
-            return Result.ok([])
-
-        # The knowledge the user has started (mastered or in progress)
-        life_path_knowledge = list(self.context.knowledge_mastery.keys())
-
-        if not life_path_knowledge:
-            return Result.ok([])
-
-        # Filter to unmastered knowledge
-        unmastered = [
-            ku_uid
-            for ku_uid in life_path_knowledge
-            if ku_uid not in self.context.mastered_knowledge_uids
-        ]
-
-        # Build dependency graph and find critical path
         critical_path = []
-        remaining = set(unmastered)
+        remaining = self.context.life_path_knowledge_uids - self.context.mastered_knowledge_uids
         completed = set(self.context.mastered_knowledge_uids)
 
-        while remaining:
-            ready = []
-            for ku_uid in remaining:
-                prereqs = self.context.ku_prerequisites.get(ku_uid, set())
-                unmet_prereqs = [p for p in prereqs if p not in completed]
-                if not unmet_prereqs:
-                    ready.append(ku_uid)
+        def unmet(ku_uid: str) -> set[str]:
+            return self.context.life_path_prerequisites.get(ku_uid, set()) - completed
 
+        def unlocks(ku_uid: str) -> int:
+            return sum(1 for other in remaining if unmet(other) == {ku_uid})
+
+        while remaining:
+            ready = [ku_uid for ku_uid in sorted(remaining) if not unmet(ku_uid)]
             if not ready:
                 break
 
-            # Choose the one that unlocks the most other items
-            best_ku = max(ready, key=self._count_items_unlocked_by)
+            best_ku = max(ready, key=unlocks)
             critical_path.append(best_ku)
             remaining.remove(best_ku)
             completed.add(best_ku)

@@ -231,6 +231,7 @@ def test_the_rich_context_composition_token_is_actually_substituted() -> None:
         "knowledge": 0,
         "curriculum": 0,
         "learner_state": 0,
+        "life_path_knowledge": 0,
     }
 
     assert [name for name, _ in user_context_queries.RICH_CONTEXT_STATEMENTS] == list(

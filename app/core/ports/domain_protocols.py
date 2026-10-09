@@ -752,6 +752,15 @@ class GoalsOperations(
         """Find the UIDs of the user's goals a task or event contributes to (CONTRIBUTES_TO_GOAL)."""
         ...
 
+    async def link_to_designated_life_path(self, goal_uid: str, life_path_uid: str) -> Result[bool]:
+        """Link the goal to its owner's designated life path, replacing any other link.
+
+        False, with nothing written, when ``life_path_uid`` is not that path.
+
+        Backend: GoalsBackend.link_to_designated_life_path
+        """
+        ...
+
     async def recompute_progress_from_contributions[P: GuardedWritePlan](
         self,
         goal_uid: str,

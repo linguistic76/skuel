@@ -24,6 +24,7 @@ Scheduling-aware creation:
 Cross-domain links (via create_activity_link_api_routes):
     POST /api/goals/link-knowledge — Link goal to required knowledge/skill
     POST /api/goals/link-principle — Link goal to a principle that supports it
+    POST /api/goals/link-life-path — Link goal to the life path it serves
 
 Knowledge intelligence:
     GET  /api/goals/knowledge-patterns — Detected learning patterns across user goals
@@ -57,6 +58,7 @@ from core.models.context_types import ContextualGoal
 from core.models.entity_requests import (
     AddHierarchyChildRequest,
     LinkGoalToKnowledgeRequest,
+    LinkGoalToLifePathRequest,
     LinkGoalToPrincipleRequest,
 )
 from core.models.enums.neo_labels import NeoLabel
@@ -235,6 +237,9 @@ def create_goals_api_routes(
     async def apply_link_principle(req: LinkGoalToPrincipleRequest) -> Result[bool]:
         return await goals_service.link_goal_to_principle(req.goal_uid, req.principle_uid)
 
+    async def apply_link_life_path(req: LinkGoalToLifePathRequest) -> Result[bool]:
+        return await goals_service.link_goal_to_life_path(req.goal_uid, req.life_path_uid)
+
     create_activity_link_api_routes(
         rt,
         domain_name="goals",
@@ -258,6 +263,14 @@ def create_goals_api_routes(
                 target=LinkTargetSpec(
                     service=principles_service, uid_field="principle_uid", singular="principle"
                 ),
+            ),
+            CrossDomainLinkSpec(
+                action="link-life-path",
+                request_model=LinkGoalToLifePathRequest,
+                owner_uid_field="goal_uid",
+                apply=apply_link_life_path,
+                doc="Link goal to the life path it serves (SERVES_LIFE_PATH). "
+                "The service admits the far end: the caller's designated life path only.",
             ),
         ),
     )

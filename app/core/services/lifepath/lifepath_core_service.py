@@ -11,8 +11,8 @@ This service manages the user's life path designation:
 
 Note: LifePath is NOT a stored entity - it's a designation on an LP.
 Vision data is stored on the User node. Alignment scores are stored
-on the ULTIMATE_PATH relationship. The designated Ku gets its
-entity_type changed from 'learning_path' to 'life_path'.
+on the ULTIMATE_PATH relationship. The designation is that edge alone: the
+designated LearningPath node is not changed.
 """
 
 from __future__ import annotations
@@ -185,8 +185,8 @@ class LifePathCoreService:
         """
         Designate a Learning Path as the user's life path.
 
-        Creates the ULTIMATE_PATH relationship and sets the target
-        Ku's entity_type from 'learning_path' to 'life_path'.
+        Creates the ULTIMATE_PATH relationship; the LearningPath node itself is
+        not changed.
 
         Args:
             user_uid: User identifier
@@ -256,8 +256,8 @@ class LifePathCoreService:
         """
         Remove user's life path designation.
 
-        Removes the ULTIMATE_PATH relationship, reverts the Ku's entity_type
-        back to 'learning_path', but keeps vision data on the User node.
+        Removes the ULTIMATE_PATH relationship and keeps vision data on the
+        User node.
 
         STAGED (2026-06-12, bloat campaign 10): no route/UI consumes this yet —
         the forward direction is a "release this path" action on the /lifepath

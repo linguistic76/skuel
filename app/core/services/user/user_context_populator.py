@@ -611,6 +611,29 @@ class UserContextPopulator:
         if alignment_score := life_path_data.get("alignment_score"):
             context.life_path_alignment_score = float(alignment_score)
 
+    def populate_life_path_knowledge(
+        self,
+        context: UserContext,
+        # boundary: the merged map's "rich" section — the tier-C ruling on
+        # execute_mega_query's return (see merge_partial_context)
+        rich_data: dict[str, Any],
+    ) -> None:
+        """
+        Populate the life path's knowledge, its prerequisites and the goals that serve it.
+
+        Args:
+            context: UserContext to populate
+            rich_data: The "rich" section, carrying the life-path knowledge statement's
+                ``life_path_knowledge`` (``{uid, prerequisite_uids}`` per Ku) and
+                ``life_path_goal_uids``
+        """
+        context.life_path_prerequisites = {
+            item["uid"]: set(item.get("prerequisite_uids") or [])
+            for item in rich_data.get("life_path_knowledge") or []
+        }
+        context.life_path_knowledge_uids = set(context.life_path_prerequisites)
+        context.life_path_goal_uids = set(rich_data.get("life_path_goal_uids") or [])
+
     def populate_group_awareness(self, context: UserContext, data: dict[str, Any]) -> None:
         """Populate group membership, ownership, and group-assigned curriculum fields.
 

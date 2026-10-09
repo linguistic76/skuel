@@ -18,6 +18,7 @@ from datetime import date, timedelta
 
 import pytest
 
+from core.models.zpd.zpd_assessment import ZPDAssessment
 from core.services.user.unified_user_context import RichUserContext, UserContext
 
 
@@ -182,40 +183,49 @@ class TestLifePathQueryMethods:
     """Test life path and knowledge query methods"""
 
     def test_get_life_path_gaps(self):
-        """Should return life path knowledge with low substance"""
+        """The life path's knowledge outside the mastered set, by uid"""
         context = UserContext(
             user_uid="user_test",
             username="testuser",
-            life_path_uid="lp:wellness",
-            knowledge_mastery={
-                "ku:meditation": 0.3,  # Low substance (gap)
-                "ku:yoga": 0.4,  # Low substance (gap)
-                "ku:nutrition": 0.7,  # Well practiced
-                "ku:mindfulness": 0.9,  # Lifestyle integrated
-            },
+            life_path_uid="lp.wellness",
+            life_path_knowledge_uids={"ku.yoga", "ku.meditation", "ku.mindfulness"},
+            mastered_knowledge_uids={"ku.mindfulness", "ku.nutrition"},
+            # a weak Ku outside the life path is no gap of it
+            knowledge_mastery={"ku.cooking": 0.2, "ku.mindfulness": 0.9},
         )
 
-        gaps = context.get_life_path_gaps()
+        assert context.get_life_path_gaps() == ["ku.meditation", "ku.yoga"]
 
-        # Should return knowledge with <0.5 substance
-        assert len(gaps) == 2
-        assert "ku:meditation" in gaps
-        assert "ku:yoga" in gaps
-        assert "ku:nutrition" not in gaps
-        assert "ku:mindfulness" not in gaps
+    def test_get_life_path_gaps_puts_the_zpd_blocking_gaps_first(self):
+        """The assessment's blocking gaps inside the life path lead, in its order"""
+        context = UserContext(
+            user_uid="user_test",
+            username="testuser",
+            life_path_uid="lp.wellness",
+            life_path_knowledge_uids={"ku.a", "ku.b", "ku.c"},
+            zpd_assessment=ZPDAssessment(
+                current_zone=[],
+                proximal_zone=[],
+                engaged_paths=[],
+                readiness_scores={},
+                # ku.elsewhere is outside the life path
+                blocking_gaps=["ku.c", "ku.elsewhere", "ku.b"],
+                behavioral_readiness=0.5,
+            ),
+        )
+
+        assert context.get_life_path_gaps() == ["ku.c", "ku.b", "ku.a"]
 
     def test_get_life_path_gaps_no_life_path(self):
-        """Should return empty list when no life path set"""
+        """No life path holds no knowledge, so no gap"""
         context = UserContext(
             user_uid="user_test",
             username="testuser",
             life_path_uid=None,
-            knowledge_mastery={"ku:something": 0.2},
+            knowledge_mastery={"ku.something": 0.2},
         )
 
-        gaps = context.get_life_path_gaps()
-
-        assert len(gaps) == 0
+        assert context.get_life_path_gaps() == []
 
 
 class TestWorkloadQueryMethods:
