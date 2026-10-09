@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     import httpx
+    from neo4j import AsyncDriver
 
     from core.services.user import UserContext
 
@@ -61,13 +62,18 @@ MANY = 11  # one past the principles row's display slice
 
 
 class Env:
-    def __init__(self, client: httpx.AsyncClient, services: Any, uids: dict[str, str]) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        services: Any,  # boundary: the composed Services container
+        uids: dict[str, str],
+    ) -> None:
         self.client = client
-        self.services = services  # boundary: the composed Services container
+        self.services = services
         self.uids = uids
 
 
-async def _seed_foreign_principle(driver: Any) -> None:  # boundary: neo4j AsyncDriver
+async def _seed_foreign_principle(driver: AsyncDriver) -> None:
     async with driver.session() as session:
         await session.run(
             """
@@ -82,8 +88,8 @@ async def _seed_foreign_principle(driver: Any) -> None:  # boundary: neo4j Async
         )
 
 
-async def _post_ok(client: httpx.AsyncClient, url: str, **kwargs: Any) -> None:
-    response = await client.post(url, **kwargs)
+async def _post_ok(client: httpx.AsyncClient, url: str, body: dict[str, str]) -> None:
+    response = await client.post(url, json=body)
     assert response.status_code == 200, (url, response.text)
 
 
@@ -135,18 +141,18 @@ async def env(
             await _post_ok(
                 client,
                 "/api/habits/link-principle",
-                json={"habit_uid": uids[habit], "principle_uid": uids[principle]},
+                {"habit_uid": uids[habit], "principle_uid": uids[principle]},
             )
         await _post_ok(
             client,
             f"/api/principles/link?uid={uids['p_expl']}",
-            json={"link_type": "habit", "target_uid": uids["h_expl"]},
+            {"link_type": "habit", "target_uid": uids["h_expl"]},
         )
         for principle in ("p_goal", "p_archived"):
             await _post_ok(
                 client,
                 "/api/goals/link-principle",
-                json={"goal_uid": uids["g"], "principle_uid": uids[principle]},
+                {"goal_uid": uids["g"], "principle_uid": uids[principle]},
             )
         await _set_status(client, "principles", uids["p_archived"], "archived")
 

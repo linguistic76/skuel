@@ -6,12 +6,15 @@ them fills a ``limit`` must not depend on the order the context's sets iterate i
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
 from core.services.principles.principles_planning_service import PrinciplesPlanningService
 from core.services.user.unified_user_context import UserContext
+
+if TYPE_CHECKING:
+    from core.ports.domain_protocols import PrinciplesOperations
 
 PRINCIPLES = ["principle_c", "principle_a", "principle_b"]
 
@@ -34,7 +37,8 @@ def _context(today_task_uids: list[str]) -> UserContext:
     ],
 )
 async def test_tied_principles_fill_the_slot_in_uid_order(today_task_uids: list[str]) -> None:
-    planning = PrinciplesPlanningService(backend=cast("Any", object()))
+    # The slot reads only the context; the backend is never called.
+    planning = PrinciplesPlanningService(backend=cast("PrinciplesOperations", object()))
 
     result = await planning.get_contextual_principles_for_user(_context(today_task_uids), limit=2)
 
