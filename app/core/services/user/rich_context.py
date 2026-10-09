@@ -95,3 +95,28 @@ def get_model_from_rich_context[D: DTOProtocol, M: DomainModelProtocol](
 def rich_graph_uids(graph_ctx: dict[str, Any], key: str) -> list[str]:
     """Extract non-empty ``uid`` values from a graph_context neighbor list."""
     return [n["uid"] for n in graph_ctx.get(key, []) if n and n.get("uid")]
+
+
+def rich_entity_titles(user_context: UserContext | None) -> dict[str, str]:
+    """Every title the rich context carries, by uid.
+
+    Reads the rich items of every domain in ``entities_rich`` (the engaged-Ku
+    window included) and the learner's knowledge units (``knowledge_units_rich``).
+    An item without a title contributes nothing, so a reader falls back to its own
+    text for that uid. A uid outside the context — a Ku the user has not engaged —
+    is absent, and the caller reads it from the graph.
+    """
+    titles: dict[str, str] = {}
+    if user_context is None:
+        return titles
+    for items in user_context.entities_rich.values():
+        for item in items:
+            entity = item.get("entity", {})
+            uid, title = entity.get("uid"), entity.get("title")
+            if uid and title:
+                titles[str(uid)] = str(title)
+    for uid, ku_item in user_context.knowledge_units_rich.items():
+        title = (ku_item.get("ku") or {}).get("title")
+        if uid and title:
+            titles[str(uid)] = str(title)
+    return titles

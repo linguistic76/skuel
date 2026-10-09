@@ -108,6 +108,7 @@ class TestTheRecommendationCarriesTheSlot:
         with _at(9):
             recommendations = await schedule.get_schedule_aware_recommendations()
 
-        (task,) = [r for r in recommendations if r.uid == "task.test.today"]
+        assert recommendations.is_ok
+        (task,) = [r for r in recommendations.value if r.uid == "task.test.today"]
         assert task.schedule_fit_score == 0.9
         assert task.suggested_time_slot == TimeOfDay.MORNING.value

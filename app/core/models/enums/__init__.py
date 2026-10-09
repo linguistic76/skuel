@@ -25,6 +25,7 @@ Module Organization:
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - notification_enums: NotificationType
 - askesis_enums: QueryComplexity, IntegrationSuccess, AggregationPeriod
+- intelligence_enums: HubQuestion
 - transcription_enums: TranscriptionStatus
 - interaction_enums: InteractionType, InteractionResult
 - relationship_enums: ProficiencyLevel, KnowledgeRelevance
@@ -79,6 +80,9 @@ from .goal_enums import GoalTimeframe, GoalType, HabitEssentiality, MeasurementT
 
 # Habit enums
 from .habit_enums import CompletionStatus, HabitCategory, HabitDifficulty, HabitPolarity
+
+# Intelligence enums - the hub methods' questions (the Insights cards)
+from .intelligence_enums import HubQuestion
 
 # Interaction enums - learning-loop event records
 from .interaction_enums import InteractionResult, InteractionType
@@ -222,6 +226,7 @@ __all__ = [
     "HealthStatus",
     "IntegrationSuccess",
     "Intent",
+    "HubQuestion",
     "InteractionResult",
     "InteractionType",
     "JournalMode",

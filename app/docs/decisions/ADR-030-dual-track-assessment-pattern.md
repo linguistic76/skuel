@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-10-09
 related_skills: [base-analytics-service, user-context-intelligence]
 ---
 
@@ -108,6 +108,9 @@ The remaining pieces shipped:
   (new `PerceptionIntelligenceMixin`) loads the user's Goals/Habits/Principles, reads each
   entity's latest check-in, buckets `gap_direction` per domain, and synthesizes natural-language
   insights ("You tend to rate yourself higher than your tracked actions on Goals and Habits").
+  Its rollup is the `PerceptionAnalysis` row (`core/ports/query_types.py`); its door is the
+  perception card on `/insights` (`GET /insights/hub/perception`, `ui/insights/hub_cards.py`),
+  which links the Self Check-In page.
   Analytics-tier (no AI) — available at `INTELLIGENCE_TIER=core`.
 
 ### Surfacing (v3, June 2026) — user-level persistence + aggregator fold-in
@@ -447,7 +450,7 @@ user-level dimensions (Productivity/Engagement/Decision Quality, read off
 
 ```python
 # core/services/user/intelligence/perception_intelligence.py
-async def get_cross_domain_perception_analysis(self) -> Result[dict[str, Any]]:
+async def get_cross_domain_perception_analysis(self) -> Result[PerceptionAnalysis]:
     """
     Synthesize perception gaps across all six assessable domains/dimensions.
 

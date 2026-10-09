@@ -350,14 +350,6 @@ _HABIT_EVENT_AUTOMATION = PlannedEntry(
     "routine/template routes or a scheduler cron",
     since=date(2026, 6, 11),
 )
-# User dead-code campaign (2026-06): staged user-context capabilities kept by
-# deliberate decision — each reason names the wiring that completes it.
-_USER_PERCEPTION = PlannedEntry(
-    Readiness.DELAYED,
-    "ADR-030 cross-domain perception aggregator built (#262–#265) but never wired; "
-    "wire a perception-insights panel (profile or Self Check-In page) consuming it",
-    since=date(2026, 6, 11),
-)
 _HUB_CRITICAL_PATH = PlannedEntry(
     Readiness.DELAYED,
     "hub method 2 (the critical path to the life path) reads the context only — the "
@@ -388,6 +380,8 @@ _ZOOM_LENS_FILTER_HALF = PlannedEntry(
     since=date(2026, 10, 8),
     blocked_by="Askesis Intelligence Doors — the Hub Methods' Second Door",
 )
+# User dead-code campaign (2026-06): staged user-context capabilities kept by
+# deliberate decision — each reason names the wiring that completes it.
 _USER_PRINCIPLE_INTEGRATION = PlannedEntry(
     Readiness.DELAYED,
     "staged rich-context principle-integration read surface — the populator fills "
@@ -897,10 +891,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     ),
     "core/services/habit_event_scheduler.py::create_habit_routine": _HABIT_EVENT_AUTOMATION,
     "core/services/habit_event_scheduler.py::get_event_templates": _HABIT_EVENT_AUTOMATION,
-    # --- User: cross-domain perception aggregator (ADR-030) ---
-    "core/services/user/intelligence/perception_intelligence.py::get_cross_domain_perception_analysis": (
-        _USER_PERCEPTION
-    ),
     # --- The hub methods (UserContextIntelligence): the staged half ---
     "core/services/user/intelligence/learning_intelligence.py::get_learning_path_critical_path": (
         _HUB_CRITICAL_PATH

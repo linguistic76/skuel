@@ -25,6 +25,7 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.models.enums import DualTrackDimension
+from core.ports.query_types import PerceptionAnalysis, PerceptionDomainRollup
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -61,7 +62,7 @@ def _join_labels(labels: list[str]) -> str:
 class PerceptionIntelligenceMixin(IntelligenceMixinBase):
     """Cross-domain perception-gap synthesis for UserContextIntelligence."""
 
-    async def get_cross_domain_perception_analysis(self) -> Result[dict[str, Any]]:
+    async def get_cross_domain_perception_analysis(self) -> Result[PerceptionAnalysis]:
         """
         Synthesize dual-track perception gaps across all assessable domains.
 
@@ -82,15 +83,10 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
         data), under-rated (doing better than they think), or accurate.
 
         Returns:
-            Result[dict] with:
-            - per_domain: {key: {label, assessed_count, direction_counts,
-              avg_gap, dominant_direction}} — keys are domain names (goals/habits/
-              principles), DualTrackDimension values (productivity/engagement/
-              decision_quality), and "knowledge"
-            - over_rated_domains / under_rated_domains / accurate_domains: labels
-            - total_assessed_entities: int
-            - insights: list[str] — natural-language cross-domain synthesis
-            - has_data: bool — False when no check-ins exist yet
+            Result[PerceptionAnalysis] — ``per_domain`` keyed by domain name
+            (goals/habits/principles), ``DualTrackDimension`` value and ``"knowledge"``;
+            the three ``*_domains`` lists carry labels; ``has_data`` is False when no
+            check-in exists yet. The Insights perception card renders it.
         """
         user_uid = self.context.user_uid
         services: dict[str, Any] = {
@@ -99,7 +95,7 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
             "principles": self.principles,
         }
 
-        per_domain: dict[str, dict[str, Any]] = {}
+        per_domain: dict[str, PerceptionDomainRollup] = {}
         over_rated: list[str] = []
         under_rated: list[str] = []
         accurate: list[str] = []
@@ -150,13 +146,13 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
                 else:
                     accurate.append(label)
 
-            per_domain[domain] = {
-                "label": label,
-                "assessed_count": assessed,
-                "direction_counts": direction_counts,
-                "avg_gap": round(sum(gaps) / len(gaps), 3) if gaps else 0.0,
-                "dominant_direction": dominant,
-            }
+            per_domain[domain] = PerceptionDomainRollup(
+                label=label,
+                assessed_count=assessed,
+                direction_counts=direction_counts,
+                avg_gap=round(sum(gaps) / len(gaps), 3) if gaps else 0.0,
+                dominant_direction=dominant,
+            )
 
         # User-level dimensions (Tasks/Events/Choices) — one latest check-in per
         # dimension off the :User node (context.dual_track_checkins). Only emitted
@@ -182,13 +178,13 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
             else:
                 accurate.append(label)
 
-            per_domain[dimension.value] = {
-                "label": label,
-                "assessed_count": 1,
-                "direction_counts": {d: (1 if d == direction else 0) for d in _DIRECTIONS},
-                "avg_gap": avg_gap,
-                "dominant_direction": direction,
-            }
+            per_domain[dimension.value] = PerceptionDomainRollup(
+                label=label,
+                assessed_count=1,
+                direction_counts={d: (1 if d == direction else 0) for d in _DIRECTIONS},
+                avg_gap=avg_gap,
+                dominant_direction=direction,
+            )
 
         # Knowledge dimension (per-Ku mastery, ADR-030) — aggregate the latest
         # check-in per Ku into one "Knowledge" bucket (analogous to a per-entity
@@ -220,26 +216,26 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
                 under_rated.append("Knowledge")
             else:
                 accurate.append("Knowledge")
-            per_domain["knowledge"] = {
-                "label": "Knowledge",
-                "assessed_count": k_assessed,
-                "direction_counts": k_direction_counts,
-                "avg_gap": round(sum(k_gaps) / len(k_gaps), 3) if k_gaps else 0.0,
-                "dominant_direction": k_dominant,
-            }
+            per_domain["knowledge"] = PerceptionDomainRollup(
+                label="Knowledge",
+                assessed_count=k_assessed,
+                direction_counts=k_direction_counts,
+                avg_gap=round(sum(k_gaps) / len(k_gaps), 3) if k_gaps else 0.0,
+                dominant_direction=k_dominant,
+            )
 
         insights = self._synthesize_perception_insights(over_rated, under_rated, accurate)
 
         return Result.ok(
-            {
-                "per_domain": per_domain,
-                "over_rated_domains": over_rated,
-                "under_rated_domains": under_rated,
-                "accurate_domains": accurate,
-                "total_assessed_entities": total_assessed,
-                "insights": insights,
-                "has_data": total_assessed > 0,
-            }
+            PerceptionAnalysis(
+                per_domain=per_domain,
+                over_rated_domains=over_rated,
+                under_rated_domains=under_rated,
+                accurate_domains=accurate,
+                total_assessed_entities=total_assessed,
+                insights=insights,
+                has_data=total_assessed > 0,
+            )
         )
 
     @staticmethod

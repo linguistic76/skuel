@@ -1476,6 +1476,38 @@ class NextActionResult(TypedDict, total=False):
     rationale: str
 
 
+class PerceptionDomainRollup(TypedDict):
+    """One domain or dimension in the cross-domain perception analysis.
+
+    ``direction_counts`` buckets the latest check-in per entity by its
+    ``gap_direction`` (``user_higher`` / ``system_higher`` / ``aligned``);
+    ``dominant_direction`` is the fullest bucket, or ``None`` when nothing was assessed.
+    """
+
+    label: str
+    assessed_count: int
+    direction_counts: dict[str, int]
+    avg_gap: float
+    dominant_direction: str | None
+
+
+class PerceptionAnalysis(TypedDict):
+    """Return shape for ``UserContextIntelligence.get_cross_domain_perception_analysis()``.
+
+    Keys of ``per_domain`` are the per-entity domains (goals / habits / principles),
+    the ``DualTrackDimension`` values and ``"knowledge"``. The three ``*_domains``
+    lists carry labels, not keys. ``has_data`` is False when no check-in exists yet.
+    """
+
+    per_domain: dict[str, PerceptionDomainRollup]
+    over_rated_domains: list[str]
+    under_rated_domains: list[str]
+    accurate_domains: list[str]
+    total_assessed_entities: int
+    insights: list[str]
+    has_data: bool
+
+
 class AtRiskHabitsResult(TypedDict, total=False):
     """Return shape for UserContextService.get_at_risk_habits().
 
