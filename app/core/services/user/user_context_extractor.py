@@ -75,6 +75,10 @@ class PrincipleRelationshipData:
 
     knowledge_grounded: dict[str, list[str]] = field(default_factory=dict)
     supported_goals: dict[str, list[str]] = field(default_factory=dict)
+    # The lookups the rankers read: goal / task / habit uid -> its active principles.
+    by_goal: dict[str, list[str]] = field(default_factory=dict)
+    by_task: dict[str, list[str]] = field(default_factory=dict)
+    by_habit: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -197,7 +201,7 @@ class UserContextExtractor:
             choices=self.extract_choice_relationships(choices_data),
             principles=self.extract_principle_relationships(
                 principles_data,
-                self._as_list(rich_data.get("principle_goal_support"), "principle_goal_support"),
+                self._as_list(rich_data.get("principle_support"), "principle_support"),
             ),
             knowledge=self.extract_knowledge_relationships(knowledge_data, mastered_uids),
         )
@@ -444,23 +448,27 @@ class UserContextExtractor:
     def extract_principle_relationships(
         self,
         principles_rich: list[dict[str, Any]],
-        goal_support: list[dict[str, Any]] | None = None,
+        support: list[dict[str, Any]] | None = None,
     ) -> PrincipleRelationshipData:
         """
         Extract principle relationship data from principles_rich[].graph_context
         and the principle-support rows.
 
-        Extracts grounded knowledge (GROUNDED_IN_KNOWLEDGE relationships) and the
-        goals each principle supports (SUPPORTS_GOAL), uid-sorted.
+        Extracts grounded knowledge (GROUNDED_IN_KNOWLEDGE relationships), the goals
+        each active principle supports (SUPPORTS_GOAL), and the three lookups the
+        rankers read — each goal, task and habit to the active principles it is
+        linked to — all uid-sorted.
 
         Args:
             principles_rich: List of principle items with graph_context
                             Shape: [{"entity": {...}, "graph_context": {...}}, ...]
-            goal_support: The principle-support rows
-                          Shape: [{"uid": "...", "goal_uids": [...]}, ...]
+            support: The principle-support rows (active principles only)
+                     Shape: [{"uid": "...", "goal_uids": [...], "task_uids": [...],
+                              "habit_uids": [...]}, ...]
 
         Returns:
-            PrincipleRelationshipData with knowledge grounded and supported-goal mappings
+            PrincipleRelationshipData with knowledge grounded, supported goals and
+            the goal / task / habit -> principles lookups
         """
         knowledge_grounded: dict[str, list[str]] = {}
 
@@ -480,13 +488,36 @@ class UserContextExtractor:
                 knowledge_grounded[principle_uid] = ku_uids
 
         supported_goals: dict[str, list[str]] = {}
-        for row in goal_support or []:
-            if row and row.get("uid") and row.get("goal_uids"):
-                supported_goals[row["uid"]] = sorted(set(row["goal_uids"]))
+        by_goal: dict[str, set[str]] = {}
+        by_task: dict[str, set[str]] = {}
+        by_habit: dict[str, set[str]] = {}
+        for row in support or []:
+            principle_uid = row.get("uid") if row else None
+            if not principle_uid:
+                continue
+            goal_uids = {uid for uid in row.get("goal_uids") or [] if uid}
+            if goal_uids:
+                supported_goals[principle_uid] = sorted(goal_uids)
+            for lookup, key in (
+                (by_goal, "goal_uids"),
+                (by_task, "task_uids"),
+                (by_habit, "habit_uids"),
+            ):
+                for uid in row.get(key) or []:
+                    if uid:
+                        lookup.setdefault(uid, set()).add(principle_uid)
 
         return PrincipleRelationshipData(
-            knowledge_grounded=knowledge_grounded, supported_goals=supported_goals
+            knowledge_grounded=knowledge_grounded,
+            supported_goals=supported_goals,
+            by_goal=self._sorted_lookup(by_goal),
+            by_task=self._sorted_lookup(by_task),
+            by_habit=self._sorted_lookup(by_habit),
         )
+
+    @staticmethod
+    def _sorted_lookup(lookup: dict[str, set[str]]) -> dict[str, list[str]]:
+        return {uid: sorted(principle_uids) for uid, principle_uids in lookup.items()}
 
     def extract_knowledge_relationships(
         self, knowledge_rich: list[dict[str, Any]], mastered_uids: set[str]

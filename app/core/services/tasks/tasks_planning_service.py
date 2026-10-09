@@ -22,7 +22,6 @@ to provide personalized, filtered, and ranked task queries.
 
 **Static Helpers:**
 - _calculate_readiness_score: Check prerequisites met
-- _calculate_relevance_score: Check goal alignment
 - _identify_blocking_reasons: What's preventing engagement
 """
 
@@ -460,35 +459,6 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
             context=context,
             mastery_threshold=mastery_threshold,
         )
-
-    @staticmethod
-    def _calculate_relevance_score(
-        entity_goal_uids: list[str],
-        entity_principle_uids: list[str],
-        context: UserContext,
-    ) -> float:
-        """Calculate relevance score based on goal alignment."""
-        if not entity_goal_uids and not entity_principle_uids:
-            return 0.5
-
-        goal_score = 0.0
-        if entity_goal_uids:
-            aligned = len([g for g in entity_goal_uids if g in context.active_goal_uids])
-            goal_score = aligned / len(entity_goal_uids)
-            if context.primary_goal_focus in entity_goal_uids:
-                goal_score = min(1.0, goal_score + 0.2)
-
-        principle_score = 0.0
-        if entity_principle_uids:
-            aligned = len([p for p in entity_principle_uids if p in context.core_principle_uids])
-            principle_score = aligned / len(entity_principle_uids)
-
-        if entity_goal_uids and entity_principle_uids:
-            return (goal_score * 0.6) + (principle_score * 0.4)
-        elif entity_goal_uids:
-            return goal_score
-        else:
-            return principle_score
 
     @staticmethod
     def _identify_blocking_reasons(

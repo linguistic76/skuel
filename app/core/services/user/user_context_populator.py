@@ -423,6 +423,9 @@ class UserContextPopulator:
         # Principle relationships
         context.principle_knowledge_grounded = graph_data.principles.knowledge_grounded
         context.principle_supported_goals = graph_data.principles.supported_goals
+        context.principles_by_goal = graph_data.principles.by_goal
+        context.principles_by_task = graph_data.principles.by_task
+        context.principles_by_habit = graph_data.principles.by_habit
 
         # Knowledge relationships
         context.prerequisite_counts = graph_data.knowledge.prerequisite_counts

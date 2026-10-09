@@ -140,14 +140,14 @@ class TestContextualPrincipleTitle:
             title="Mindfulness",
             context=context,
             connected_task_uids=["task_meditation", "task_journaling"],
-            connected_event_uids=["event_yoga"],
+            connected_goal_uids=["goal_calm"],
             practice_opportunity="Practice mindfulness during 3 activities today",
         )
 
         assert principle.title == "Mindfulness"
         assert principle.has_practice_opportunity()
         assert len(principle.connected_task_uids) == 2
-        assert len(principle.connected_event_uids) == 1
+        assert len(principle.connected_goal_uids) == 1
         assert "3 activities" in principle.practice_opportunity
 
 
