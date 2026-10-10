@@ -760,6 +760,7 @@ class GoalsService(
                     reason="not the life path the goal's owner has designated",
                 )
             )
+        await self.relationships.links_changed(admitted.value)
         return Result.ok(True)
 
     async def unlink_goal_from_principle(self, uid: str, principle_uid: str) -> Result[bool]:

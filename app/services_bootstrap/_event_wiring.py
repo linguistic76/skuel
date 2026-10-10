@@ -107,6 +107,7 @@ def _wire_event_subscribers(
         UserEntryApproved,
         UserEntryRevisionRequested,
     )
+    from core.events.link_events import EntityLinksChanged
     from core.events.principle_events import (
         PrincipleConflictRevealed,
         PrincipleReflectionRecorded,
@@ -184,6 +185,9 @@ def _wire_event_subscribers(
         UserEntryProcessingStarted,
         UserEntryProcessingCompleted,
         UserEntryProcessingFailed,
+        # A link written or removed through any link door (UnifiedRelationshipService) —
+        # every link-derived context field reads those edges.
+        EntityLinksChanged,
     ]
     for event_type in activity_context_events:
         event_bus.subscribe(event_type, invalidate_context)

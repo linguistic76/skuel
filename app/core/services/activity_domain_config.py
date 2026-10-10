@@ -340,6 +340,7 @@ def create_common_sub_services(
             backend=backend,
             config=config.relationship_config,
             graph_intel=graph_intel,
+            event_bus=event_bus,
         )
 
     # intelligence — built here only for the domains whose service takes exactly these

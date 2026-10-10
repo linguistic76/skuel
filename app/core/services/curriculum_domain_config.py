@@ -112,6 +112,7 @@ def create_curriculum_sub_services(
         backend=backend,
         config=KU_CONFIG,
         graph_intel=graph_intel,
+        event_bus=event_bus,
     )
 
     intelligence = KuIntelligenceService(
@@ -176,6 +177,7 @@ def create_ps_sub_services(
         backend=backend,
         config=PS_CONFIG,
         graph_intel=graph_intel,
+        event_bus=event_bus,
     )
 
     # Step 2: Create intelligence BEFORE core (circular dependency)
@@ -306,6 +308,7 @@ def create_lp_sub_services(
         backend=backend,
         config=LP_CONFIG,
         graph_intel=graph_intel,
+        event_bus=event_bus,
     )
 
     # Step 3: Create core (requires ps_service)

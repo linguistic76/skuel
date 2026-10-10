@@ -47,12 +47,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from core.events import EntityLinksChanged, publish_event
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_registry import (
     DomainRelationshipConfig,
     UnifiedRelationshipDefinition,
 )
-from core.models.type_hints import EntityUID, Neo4jProperties
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.infrastructure import SemanticRelationshipLinker
@@ -70,8 +71,9 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext
 
 # Type variables
@@ -120,6 +122,7 @@ class UnifiedRelationshipService[
         backend: Ops,
         config: DomainRelationshipConfig,
         graph_intel: Any | None = None,
+        event_bus: EventBusOperations | None = None,
     ) -> None:
         """
         Initialize unified relationship service with configuration.
@@ -128,6 +131,9 @@ class UnifiedRelationshipService[
             backend: Protocol-based backend for operations (REQUIRED)
             config: DomainRelationshipConfig from relationship registry (REQUIRED)
             graph_intel: GraphIntelligenceService for intent-based queries (optional)
+            event_bus: Carries ``EntityLinksChanged`` after every link write and
+                removal — the owner's cached context reads those edges. Without one
+                the event is dropped with a warning (``publish_event``).
         """
         if not backend:
             raise ValueError(f"{config.entity_label} backend is required")
@@ -141,6 +147,7 @@ class UnifiedRelationshipService[
 
         # Store graph_intel
         self.graph_intel = graph_intel
+        self.event_bus = event_bus
 
         # Store commonly accessed config values for convenience
         self._domain = config.domain
@@ -308,16 +315,41 @@ class UnifiedRelationshipService[
 
         See: core/services/mixins/link_edge_guard.py
         """
-        admitted = await admit_far_ends_for_source(
+        owners = await admit_far_ends_for_source(
             self.backend,
             source_uid=from_uid,
             source_resource=self.config.entity_label,
             far_uids=to_uids,
             far_end=far_end,
         )
-        if admitted.is_error:
-            return Result.fail(admitted)
-        return Result.ok(AdmittedFarEnds(source_uid=from_uid, far_uids=frozenset(to_uids)))
+        if owners.is_error:
+            return Result.fail(owners)
+        return Result.ok(
+            AdmittedFarEnds(
+                source_uid=from_uid, far_uids=frozenset(to_uids), owner_uids=owners.value
+            )
+        )
+
+    async def links_changed(
+        self, admitted: AdmittedFarEnds
+    ) -> None:  # skuel-lint: disable=SKUEL005 -- an announcement after the write landed; publish_event cannot fail the write
+        """Announce a link written on ``admitted`` by a door that wrote it itself.
+
+        ``create_relationship``, ``create_relationships_batch`` and
+        ``delete_relationship`` announce their own writes; a door that admits here and
+        writes the edge through its own backend statement (the life-path link) calls
+        this once the write lands.
+        """
+        await self._publish_links_changed(admitted.owner_uids, admitted.source_uid)
+
+    async def _publish_links_changed(self, owner_uids: Iterable[str], entity_uid: str) -> None:
+        """One ``EntityLinksChanged`` per owner of the entity the link starts from."""
+        for owner_uid in sorted(owner_uids):
+            await publish_event(
+                self.event_bus,
+                EntityLinksChanged(user_uid=UserUID(owner_uid), entity_uid=entity_uid),
+                self.logger,
+            )
 
     async def create_relationship(
         self,
@@ -362,16 +394,19 @@ class UnifiedRelationshipService[
                         "The admission handed to create_relationship is for another link"
                     )
                 )
+            admission = far_end
         else:
             admitted = await self.admit_far_ends(from_uid, [to_uid], far_end)
             if admitted.is_error:
                 return Result.fail(admitted)
+            admission = admitted.value
 
         result = await self.backend.create_relationships_batch(
             [self._orient_edge(spec, from_uid, to_uid, properties)]
         )
         if result.is_error:
             return Result.fail(result)
+        await self.links_changed(admission)
         return Result.ok(result.value > 0)
 
     @staticmethod
@@ -461,16 +496,26 @@ class UnifiedRelationshipService[
                 )
             )
 
+        # Whose context the removal changes, read before anything is deleted: a
+        # failed read leaves the link in place rather than a stale context behind.
+        owners = await self.backend.get_owner_uids_batch([from_uid])
+        if owners.is_error:
+            return Result.fail(owners)
+
         edge_from, edge_to = self._orient(spec, from_uid, to_uid)
         far_label = far_end_label(spec)
         far_is_source = spec.direction == "incoming"
-        return await self.backend.delete_relationship(
+        deleted = await self.backend.delete_relationship(
             from_uid=edge_from,
             to_uid=edge_to,
             relationship_type=spec.relationship,
             from_label=far_label if far_is_source else None,
             to_label=None if far_is_source else far_label,
         )
+        if deleted.is_error:
+            return Result.fail(deleted)
+        await self._publish_links_changed(owners.value.get(from_uid, ()), from_uid)
+        return deleted
 
     async def create_relationships_batch(
         self,
@@ -496,6 +541,7 @@ class UnifiedRelationshipService[
             Result[int] with count of relationships created
         """
         batches: list[list[EdgeTuple]] = []
+        owner_uids: set[str] = set()
 
         for relationship_key, target_uids in relationships.items():
             if not target_uids:
@@ -516,6 +562,7 @@ class UnifiedRelationshipService[
             admitted = await self.admit_far_ends(entity_uid, target_uids, far_end)
             if admitted.is_error:
                 return Result.fail(admitted)
+            owner_uids |= admitted.value.owner_uids
 
             # Orient each edge per the registry direction so incoming specs are not
             # written backwards (see _orient_edge).
@@ -527,6 +574,8 @@ class UnifiedRelationshipService[
             if result.is_ok:
                 total_created += result.value
 
+        if batches:
+            await self._publish_links_changed(owner_uids, entity_uid)
         return Result.ok(total_created)
 
     # =========================================================================
