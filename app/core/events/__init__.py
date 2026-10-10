@@ -190,6 +190,9 @@ from core.events.learning_loop_events import (
     UserEntryRevisionRequested,
 )
 
+# Link events (a link door wrote or removed an edge)
+from core.events.link_events import EntityLinksChanged
+
 # Principle events
 from core.events.principle_events import (
     PrincipleAlignmentAssessed,
@@ -263,6 +266,7 @@ __all__ = [
     "ChunkEmbeddingRequested",
     "DomainEvent",
     "EmbeddingRequested",
+    "EntityLinksChanged",
     "EntryReportGenerated",
     "EventAttendeeAdded",
     "EventAttendeeRemoved",

@@ -112,11 +112,13 @@ class AdmittedFarEnds:
     ``UnifiedRelationshipService.admit_far_ends`` returns one; handing it back as a
     write's ``far_end`` writes the edge on that admission, with no second read. A door
     that admits before its first write and links after it uses this, so the link cannot
-    fail on an endpoint read once the door has started writing.
+    fail on an endpoint read once the door has started writing. ``owner_uids`` is who
+    owns the source, as the admission read it — whose context the link changes.
     """
 
     source_uid: str
     far_uids: frozenset[str]
+    owner_uids: frozenset[str]
 
     def covers(self, source_uid: str, far_uid: str) -> bool:
         """Whether this admission is for exactly this link."""
@@ -280,7 +282,7 @@ async def admit_far_ends_for_source(
     source_resource: str,
     far_uids: Sequence[str],
     far_end: LinkFarEnd,
-) -> Result[None]:
+) -> Result[frozenset[str]]:
     """Admit the far ends an existing entity is linked to, its owner read from the node.
 
     The owner is whoever owns ``source_uid`` in the graph — no caller passes a user, so
@@ -288,9 +290,12 @@ async def admit_far_ends_for_source(
     Refusals answer as in ``admit_far_ends_for_owner``; a source that resolves to no
     node is ``not_found(source_resource)``, and a link from an entity to itself is a
     validation error.
+
+    Returns the source's owner uids on admission — empty for shared content, and for
+    an empty ``far_uids``, which admits nothing and reads nothing.
     """
     if not far_uids:
-        return Result.ok(None)
+        return Result.ok(frozenset())
     if source_uid in far_uids:
         return Result.fail(
             Errors.validation("An entity cannot be linked to itself", field="target_uid")
@@ -301,12 +306,16 @@ async def admit_far_ends_for_source(
         return Result.fail(endpoints)
     if source_uid not in endpoints.value.labels:
         return Result.fail(Errors.not_found(source_resource, source_uid))
-    return _admit(
-        owner_uids=frozenset(endpoints.value.owners.get(source_uid, ())),
+    owner_uids = frozenset(endpoints.value.owners.get(source_uid, ()))
+    admitted = _admit(
+        owner_uids=owner_uids,
         endpoints=endpoints.value,
         far_uids=far_uids,
         far_end=far_end,
     )
+    if admitted.is_error:
+        return Result.fail(admitted)
+    return Result.ok(owner_uids)
 
 
 @dataclass(frozen=True)

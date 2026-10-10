@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-10-08
+updated: 2026-10-10
 category: patterns
 related_skills:
 - base-analytics-service
@@ -320,6 +320,15 @@ await service.create_relationship(
 > that one admission with no second endpoint read (`EventsService.update_event`); a proof
 > covers its own `(from_uid, to_uid)` only. `tests/unit/services/test_link_writer_census.py` holds
 > every edge-writer call site under `core/services/` to an admission.
+>
+> **Every write and removal is announced.** The admission returns the source's owners
+> (`AdmittedFarEnds.owner_uids`); `create_relationship`, `create_relationships_batch` and
+> `delete_relationship` publish one `EntityLinksChanged` per owner once the write lands (a
+> removal reads the owner before it deletes), and the bootstrap subscribes it to an
+> immediate (undebounced) context invalidation — the owner's cached context reads these
+> edges, and the page that made the link reads it right back. A door that admits here and
+> writes on its own statement announces through `links_changed(admitted)` (the life-path
+> link). Shared content has no owner and announces nothing.
 
 > **`create_relationship(key, from_uid, to_uid, properties, *, far_end)` is safe** (root-fixed
 > PR #197). It looks up the registry `spec` for `key`, admits the far end, orients direction via

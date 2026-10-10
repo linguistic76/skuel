@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-03
+updated: 2026-10-10
 ---
 
 # Sub-Service Responsibility Catalog
@@ -148,6 +148,7 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 - `create_relationship(method_key, from_uid, to_uid, properties, *, far_end)` - The single cross-domain link write path (registry-validated key, fails closed). `far_end` is required: the far end is admitted before the write — it exists, is one of `far_end.labels`, and is owned by `from_uid`'s owner or is published shared content
 - `admit_far_ends(from_uid, to_uids, far_end)` → `Result[AdmittedFarEnds]` - The admission alone, for a door that must refuse before its first write; the returned proof is a valid `far_end` for writing that same link without a second read
 - `delete_relationship(method_key, from_uid, to_uid)` - Remove a link
+- `links_changed(admitted)` - Announce a link a door wrote on its own statement after admitting here; the three writes above announce their own (`EntityLinksChanged`, one per owner — the owner's cached context is dropped)
 - `get_related_uids(method_key, entity_uid)` - Query relationships
 - `get_with_context()` - Get entity with graph context
 - `create_semantic_relationship()` - Create semantic links

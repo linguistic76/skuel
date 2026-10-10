@@ -107,6 +107,7 @@ def _wire_event_subscribers(
         UserEntryApproved,
         UserEntryRevisionRequested,
     )
+    from core.events.link_events import EntityLinksChanged
     from core.events.principle_events import (
         PrincipleConflictRevealed,
         PrincipleReflectionRecorded,
@@ -187,6 +188,18 @@ def _wire_event_subscribers(
     ]
     for event_type in activity_context_events:
         event_bus.subscribe(event_type, invalidate_context)
+
+    async def invalidate_context_now(event: EntityLinksChanged) -> None:
+        """Invalidate the owner's context before the link door answers.
+
+        A link is made from a page that reads the context right back (a card, a list),
+        so the debounce would let that read serve the context from before the link.
+        """
+        await user_service.invalidate_context(event.user_uid, immediate=True)
+
+    # A link written or removed through any link door (UnifiedRelationshipService) —
+    # every link-derived context field reads those edges.
+    event_bus.subscribe(EntityLinksChanged, invalidate_context_now)
     logger.info(
         f"✅ UserService subscribed to {len(activity_context_events)} activity/domain context events"
     )

@@ -153,7 +153,9 @@ class TestUpdateEventEdges:
         )
         events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
         events_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
-        admission = AdmittedFarEnds(source_uid="event_abc", far_uids=frozenset({"goal_new"}))
+        admission = AdmittedFarEnds(
+            source_uid="event_abc", far_uids=frozenset({"goal_new"}), owner_uids=frozenset()
+        )
         events_service.relationships.admit_far_ends = AsyncMock(return_value=Result.ok(admission))
 
         result = await events_service.update_event(

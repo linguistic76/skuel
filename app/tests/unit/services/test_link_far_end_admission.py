@@ -104,7 +104,7 @@ class WritingEndpoints(Endpoints):
 
 async def _from_source(
     source_uid: str, far_uid: str, far_end: LinkFarEnd = HABIT_FAR_END
-) -> Result[None]:
+) -> Result[frozenset[str]]:
     return await admit_far_ends_for_source(
         Endpoints(),
         source_uid=source_uid,

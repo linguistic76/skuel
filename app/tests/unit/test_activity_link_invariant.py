@@ -354,18 +354,24 @@ PROBE_ARGUMENTS: dict[str, str | list[str]] = {
 
 
 class _RecordingBackend:
-    """Answers every backend call with an empty success and records its arguments."""
+    """Answers every backend call with an empty success and records its arguments.
+
+    The owner read is the one call whose empty success is a mapping (nobody owns the
+    probe), so a link write can go on to its own call.
+    """
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[object, ...], dict[str, object]]] = []
 
-    def __getattr__(self, name: str) -> Callable[..., Coroutine[object, object, Result[int]]]:
+    def __getattr__(
+        self, name: str
+    ) -> Callable[..., Coroutine[object, object, Result[dict[str, list[str]] | int]]]:
         if name.startswith("__"):
             raise AttributeError(name)
 
-        async def record(*args: object, **kwargs: object) -> Result[int]:
+        async def record(*args: object, **kwargs: object) -> Result[dict[str, list[str]] | int]:
             self.calls.append((name, args, kwargs))
-            return Result.ok(0)
+            return Result.ok({} if name == "get_owner_uids_batch" else 0)
 
         return record
 
@@ -598,8 +604,9 @@ class TestOneKindPerView:
 
         await service.delete_relationship(view.method_key, "goal_probe", "far_probe")
 
-        [(name, _args, kwargs)] = backend.calls
-        assert name == "delete_relationship"
+        [(_args, kwargs)] = [
+            (args, kwargs) for name, args, kwargs in backend.calls if name == "delete_relationship"
+        ]
         assert kwargs[labelled_end] == PROBE_FAR_END
         assert kwargs[open_end] is None
 
