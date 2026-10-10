@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-10-05
+updated: 2026-10-10
 category: patterns
 related_skills: []
 related_docs:
@@ -24,7 +24,7 @@ related_docs:
 
 ```
 BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
-    ├── CrudOperations[T]                  (8 methods)
+    ├── CrudOperations[T]                  (9 methods)
     ├── EntitySearchOperations[T]          (20 methods)
     ├── RelationshipCrudOperations         (13 methods)
     ├── RelationshipMetadataOperations     (3 methods)
@@ -42,7 +42,7 @@ shape, not every member. The census is the authority when the two differ.
 
 ## Sub-Protocol Details
 
-### CrudOperations[T] (8 methods)
+### CrudOperations[T] (9 methods)
 Core CRUD operations for domain entities. The fundamental operations every backend must support.
 
 ``update_with_status_guard`` is ``update``'s write-side peer (ADR-087): the statement
@@ -55,6 +55,7 @@ It is the one way a status-bearing write is done.
 class CrudOperations[T: DomainModelProtocol](Protocol):
     async def create(self, entity: T) -> Result[T]: ...
     async def get(self, uid: str) -> Result[T | None]: ...
+    async def entity_exists(self, uid: str) -> Result[bool]: ...  # an :Entity on the uid, any label — never a :Content shadow
     async def get_visible_to_user(self, uid: str, user_uid: UserUID, visibility: SearchVisibility | None) -> Result[T | None]: ...
     async def get_many(self, uids: list[str]) -> Result[list[T | None]]: ...
     async def update(self, uid: str, updates: Neo4jProperties) -> Result[T]: ...
