@@ -121,7 +121,11 @@ What a caller must not assume:
 How the assessment is computed belongs to the [zpd](../zpd/SKILL.md) skill.
 
 **Method 3** returns six keys — `tasks`, `habits`, `goals`, `events`, `choices`, `principles` —
-and fills the first four. `choices` and `principles` are always `[]`.
+all from the context's links but `tasks` (`get_learning_tasks_for_user`, whose failure fails the
+answer): active goals requiring the Ku; active habits applying it, then those supporting those
+goals; upcoming events applying it, then those reinforcing those habits (`events_by_habit`);
+pending choices it informs; active principles grounded in it. Its door is
+`/explore/ku/{uid}/apply`, "Where you can apply this" on the Ku reading page.
 
 ### LifePathIntelligenceMixin — method 7
 
@@ -158,11 +162,14 @@ engagement or one that spawned nothing, and scores the rest by branch. Read the 
 ### ScheduleIntelligenceMixin — method 8
 
 `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8,
-respect_energy=True)` returns `Result[list[ScheduleAwareRecommendation]]` — always ok, at most
+respect_energy=True)` returns `Result[list[ScheduleAwareRecommendation]]` — at most
 `max_recommendations` long, highest `overall_score` first; each recommendation carries the
 entity's title from the rich context (`rich_entity_titles`), or its uid when the context has none.
 
-- It reads the context and calls no service — `self.calendar` is not read.
+- It reads one service: `self.calendar.event_items_in_range` — the user's events in the horizon
+  (every priority, not done), which take the minutes they overlap it, an overlap counted once.
+  A failed calendar read is the one error it answers with. Habits take no time there: they are
+  candidates it recommends.
 - It always reaches a strict accessor, so it needs a rich context.
 - The time slot is a `TimeOfDay`: `context.preferred_time` when it is a stated slot, else the
   clock's hour through `TimeOfDay.from_hour` (`ANYTIME`, the default, means no preference). The

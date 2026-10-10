@@ -22,11 +22,15 @@ from fasthtml.common import (
     Button,
     Div,
     Header,
+    Li,
     NotStr,
+    P,
     Section,
     Span,
+    Ul,
 )
 
+from core.models.enums import EntityType
 from core.models.type_hints import EntityUID
 from ui.components import Icon
 from ui.explore.ku_mastery import render_ku_mastery_section
@@ -36,10 +40,13 @@ from ui.patterns.detail_nav import (
     detail_footer_nav,
     render_entity_not_found,
 )
+from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
     from fasthtml.common import FT
 
     from ui.page_contexts import RelatedConceptChip
@@ -110,6 +117,7 @@ def render_ku_detail_content(
     post_read: list[FT] = (
         [
             render_ku_mastery_section(uid, mastery_checkins or []),
+            _application_placeholder(uid),
             _relationships_section(uid),
         ]
         if user_uid
@@ -265,6 +273,96 @@ def _resources_section(resources: list[dict]) -> FT:
 
 
 # ---------------------------------------------------------------------------
+# Where you can apply this (hub method 3 — signed-in readers only)
+# ---------------------------------------------------------------------------
+
+# The kinds method 3 answers with, in reading order: its key, the kind, the label.
+_APPLICATION_KINDS: tuple[tuple[str, EntityType, str], ...] = (
+    ("tasks", EntityType.TASK, "Tasks"),
+    ("goals", EntityType.GOAL, "Goals"),
+    ("habits", EntityType.HABIT, "Habits"),
+    ("events", EntityType.EVENT, "Events"),
+    ("choices", EntityType.CHOICE, "Choices"),
+    ("principles", EntityType.PRINCIPLE, "Principles"),
+)
+
+_APPLICATION_ID = "ku-apply-fragment"
+_SECTION_LABEL_CLS = (
+    "font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5"
+)
+
+
+def _application_placeholder(uid: str) -> FT:
+    """Lazy HTMX mount for "Where you can apply this"; the fragment replaces it whole."""
+    return Div(
+        id=_APPLICATION_ID,
+        **{
+            "hx-get": f"/explore/ku/{uid}/apply",
+            "hx-trigger": "load",
+            "hx-swap": "outerHTML",
+        },
+    )
+
+
+def _application_section(*body: FT) -> FT:
+    return Section(
+        Div("Where you can apply this", id="ku-apply-heading", cls=_SECTION_LABEL_CLS),
+        *body,
+        id=_APPLICATION_ID,
+        cls="mb-9",
+        role="region",
+        **{"aria-labelledby": "ku-apply-heading"},
+    )
+
+
+def render_ku_application_opportunities(
+    opportunities: Mapping[str, Sequence[str]], titles: Mapping[str, str]
+) -> FT:
+    """The reader's activities linked to this Ku, grouped by kind, each linked to its page.
+
+    ``opportunities`` is method 3's answer (``{"tasks": [uid, ...], ...}``); a kind
+    with nothing is left out, and nothing at all says so. ``titles`` names each uid;
+    a uid without one stands as itself.
+    """
+    groups = [
+        Div(
+            Div(label, cls="text-13 font-semibold text-foreground mb-1.5"),
+            Ul(
+                *[
+                    Li(_application_link(entity_type, uid, titles), cls="text-sm")
+                    for uid in opportunities[key]
+                ],
+                cls="space-y-1",
+            ),
+        )
+        for key, entity_type, label in _APPLICATION_KINDS
+        if opportunities.get(key)
+    ]
+    if not groups:
+        return _application_section(
+            P(
+                "Nothing you track is linked to this concept yet — link a task, habit, "
+                "goal, choice or principle to it and it shows here.",
+                cls="text-sm text-muted-foreground",
+            )
+        )
+    return _application_section(Div(*groups, cls="grid gap-4 sm:grid-cols-2"))
+
+
+def render_ku_application_error(message: str) -> FT:
+    """The section with its client-safe error line, in place of the answer."""
+    return _application_section(P(message, cls="text-sm text-muted-foreground"))
+
+
+def _application_link(entity_type: EntityType, uid: str, titles: Mapping[str, str]) -> FT:
+    text = titles.get(uid) or uid
+    href = entity_detail_href(entity_type.value, uid)
+    if href is None:
+        return Span(text, cls="text-foreground")
+    return A(text, href=href, cls="text-foreground hover:underline")
+
+
+# ---------------------------------------------------------------------------
 # Related concepts section (vector similarity — read-time lens)
 # ---------------------------------------------------------------------------
 
@@ -324,4 +422,10 @@ def render_ku_related_concepts(related: list[RelatedConceptChip]) -> FT:
     )
 
 
-__all__ = ["render_ku_detail_content", "render_ku_not_found", "render_ku_related_concepts"]
+__all__ = [
+    "render_ku_application_error",
+    "render_ku_application_opportunities",
+    "render_ku_detail_content",
+    "render_ku_not_found",
+    "render_ku_related_concepts",
+]

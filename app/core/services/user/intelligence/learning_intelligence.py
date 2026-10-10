@@ -528,13 +528,16 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         """
         Where can I apply this knowledge in my life?
 
-        **Synthesizes ALL 6 activity domains:**
-        - Tasks: Tasks that require this knowledge
-        - Habits: Habits that would benefit from this understanding
-        - Goals: Goals that align with this knowledge
-        - Events: Events where I could practice
-        - Choices: Decisions informed by this knowledge
-        - Principles: Values this knowledge supports
+        Every activity linked to the Ku, from the context's own links (a link to a
+        PathStep counts for each Ku it composes):
+        - Tasks: the tasks that apply it (``get_learning_tasks_for_user``)
+        - Goals: the active goals that require it
+        - Habits: the active habits that apply or reinforce it, then the active
+          habits supporting those goals
+        - Events: the upcoming events that apply it, then the upcoming events
+          reinforcing those habits
+        - Choices: the pending choices it informs
+        - Principles: the active principles grounded in it
 
         Args:
             ku_uid: Knowledge unit UID
@@ -542,43 +545,55 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         Returns:
             Result containing dict of {domain: [uid_list]} showing application opportunities
         """
-        # Rich context is compile-time enforced via `context: RichUserContext`.
-        opportunities: dict[str, list[str]] = {
-            "tasks": [],
-            "habits": [],
-            "goals": [],
-            "events": [],
-            "choices": [],
-            "principles": [],
-        }
+        context = self.context
+        opportunities: dict[str, list[str]] = {}
 
-        # Tasks that apply this knowledge
         tasks_result = await self.tasks.get_learning_tasks_for_user(
-            self.context, knowledge_focus=[ku_uid]
+            context, knowledge_focus=[ku_uid]
         )
-        if tasks_result.is_ok and tasks_result.value:
-            opportunities["tasks"] = [t.uid for t in tasks_result.value]
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+        opportunities["tasks"] = [t.uid for t in tasks_result.value or []]
 
-        # Goals aligned with this knowledge
-        opportunities["goals"] = self._find_aligned_goals(ku_uid)
+        goals = self._find_aligned_goals(ku_uid)
+        opportunities["goals"] = goals
 
-        # Habits that reinforce this knowledge (from context)
-        for habit_uid in self.context.active_habit_uids:
-            for goal_uid in opportunities["goals"]:
-                if (
-                    habit_uid in self.context.get_habits_for_goal(goal_uid)
-                    and habit_uid not in opportunities["habits"]
-                ):
-                    opportunities["habits"].append(habit_uid)
+        habits = [
+            uid
+            for uid in context.active_habit_uids
+            if ku_uid in context.habit_knowledge_applied.get(uid, ())
+        ]
+        habits += [
+            uid
+            for uid in context.active_habit_uids
+            if uid not in habits
+            and any(uid in context.get_habits_for_goal(goal_uid) for goal_uid in goals)
+        ]
+        opportunities["habits"] = habits
 
-        # Events where this could be practiced
-        for event_uid in self.context.upcoming_event_uids:
-            for habit_uid in opportunities["habits"]:
-                if (
-                    event_uid in self.context.events_by_habit.get(habit_uid, [])
-                    and event_uid not in opportunities["events"]
-                ):
-                    opportunities["events"].append(event_uid)
+        events = [
+            uid
+            for uid in context.upcoming_event_uids
+            if ku_uid in context.event_knowledge_applied.get(uid, ())
+        ]
+        events += [
+            uid
+            for uid in context.upcoming_event_uids
+            if uid not in events
+            and any(uid in context.events_by_habit.get(habit_uid, ()) for habit_uid in habits)
+        ]
+        opportunities["events"] = events
+
+        opportunities["choices"] = [
+            uid
+            for uid in context.pending_choice_uids
+            if ku_uid in context.choice_knowledge_informed.get(uid, ())
+        ]
+        opportunities["principles"] = [
+            uid
+            for uid in context.core_principle_uids
+            if ku_uid in context.principle_knowledge_grounded.get(uid, ())
+        ]
 
         return Result.ok(opportunities)
 

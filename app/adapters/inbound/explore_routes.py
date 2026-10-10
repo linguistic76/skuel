@@ -35,6 +35,11 @@ def create_explore_routes(
     if services.explore_orchestrator is None:
         raise RuntimeError("ExploreOrchestrator is required — check bootstrap wiring")
 
+    if services.user is None or services.context_intelligence is None:
+        raise RuntimeError(
+            "UserService and the intelligence hub are required — check bootstrap wiring"
+        )
+
     orchestrator = services.explore_orchestrator
     # Library catalog queries flow through SearchRouter (One Path Forward);
     # the orchestrator supplies only per-user card decorations.
@@ -48,6 +53,8 @@ def create_explore_routes(
         orchestrator=orchestrator,
         ps_engagement_service=services.ps_engagement,
         user_service=services.user,
+        # Builds the hub that answers "Where you can apply this" on the Ku page
+        context_intelligence=services.context_intelligence,
         form_submission_service=services.form_submissions,
         # None on CORE tier — the "Related concepts" sections are simply absent
         vector_search_service=services.vector_search_service,

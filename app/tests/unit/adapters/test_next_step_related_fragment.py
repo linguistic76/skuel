@@ -155,6 +155,8 @@ def _handler(
         MagicMock(),
         recorder,  # type: ignore[arg-type]  # boundary: test double for RouteDecorator
         orchestrator=orchestrator or MagicMock(),
+        user_service=MagicMock(),
+        context_intelligence=MagicMock(),
         vector_search_service=vector_search_service,
         zpd_service=zpd_service,
     )
