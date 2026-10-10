@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-10
 ---
 
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
@@ -450,10 +450,9 @@ happen to be fixing.**
 The `CHILD_OF`/`PARENT_OF` fix could not be "keep the registered arm". `HAS_CHILD`
 is a `RelationshipName` member and `TASKS_CONFIG` declares it Task→Task
 "subtasks", but **nothing writes it anywhere in the repo, and nothing ever has**
-(checked across the full history). Its only apparent writer is a *docstring
-example* in `BatchCypherBuilder.build_relationships_list`. The live parent→child
-vocabulary is `_HierarchyMixin`'s six `HAS_SUB*` edges, so the hierarchy sites
-took the same list as §5.
+(checked across the full history) — no writer, not even a docstring example. The
+live parent→child vocabulary is `_HierarchyMixin`'s six `HAS_SUB*` edges, so the
+hierarchy sites took the same list as §5.
 
 This is a class SKUEL030 cannot see: the rule checks membership, not liveness, so
 a registered-but-writer-less name reads as clean.

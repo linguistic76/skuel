@@ -888,7 +888,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (401, "FULFILLS_GOAL"): Allow(_links_arc),
     },
     "docs/patterns/CYPHER_VOCABULARY_FINDINGS.md": {
-        (477, "FULFILLS_GOAL"): Allow(_links_arc),
+        (476, "FULFILLS_GOAL"): Allow(_links_arc),
     },
     "docs/roadmap/done/activity-links-arc.md": {
         (24, "INFORMED_BY_PRINCIPLE"): Allow(_links_arc),

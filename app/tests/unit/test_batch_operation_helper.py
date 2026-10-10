@@ -5,10 +5,9 @@ Tests cover:
 1. build_relationship_properties_query() - Relationship property retrieval
 2. build_relationship_delete_query() - Batch delete queries
 3. build_multi_direction_count_queries() - Multi-direction count optimization
-4. build_relationships_list() - Flattening UID lists into tuples
-5. group_relationships_by_type() - Group by type for pure Cypher batch
-6. build_relationship_create_query() - Pure Cypher UNWIND query per type
-7. build_relationship_create_queries() - Full batch query builder
+4. group_relationships_by_type() - Group by type for pure Cypher batch
+5. build_relationship_create_query() - Pure Cypher UNWIND query per type
+6. build_relationship_create_queries() - Full batch query builder
 """
 
 import pytest
@@ -92,97 +91,6 @@ class TestBuildMultiDirectionCountQueries:
 
         # Should only have outgoing
         assert "outgoing" in results
-
-
-class TestBuildRelationshipsList:
-    """Tests for build_relationships_list()."""
-
-    def test_basic_relationships(self):
-        """Test building relationships list from UID lists."""
-        relationships = BatchCypherBuilder.build_relationships_list(
-            source_uid="task:123",
-            relationship_specs=[
-                (["ku:1", "ku:2"], "APPLIES_KNOWLEDGE", None),
-                (["ku:3"], "REQUIRES_KNOWLEDGE", None),
-            ],
-        )
-
-        assert len(relationships) == 3
-        assert ("task:123", "ku:1", "APPLIES_KNOWLEDGE", None) in relationships
-        assert ("task:123", "ku:2", "APPLIES_KNOWLEDGE", None) in relationships
-        assert ("task:123", "ku:3", "REQUIRES_KNOWLEDGE", None) in relationships
-
-    def test_with_properties(self):
-        """Test building relationships with properties."""
-        relationships = BatchCypherBuilder.build_relationships_list(
-            source_uid="goal:456",
-            relationship_specs=[
-                (["habit:1"], "REQUIRES_HABIT", {"essentiality": "essential"}),
-                (["habit:2"], "REQUIRES_HABIT", {"essentiality": "critical"}),
-            ],
-        )
-
-        assert len(relationships) == 2
-        assert (
-            "goal:456",
-            "habit:1",
-            "REQUIRES_HABIT",
-            {"essentiality": "essential"},
-        ) in relationships
-        assert (
-            "goal:456",
-            "habit:2",
-            "REQUIRES_HABIT",
-            {"essentiality": "critical"},
-        ) in relationships
-
-    def test_empty_lists_ignored(self):
-        """Test that empty or None lists are ignored."""
-        relationships = BatchCypherBuilder.build_relationships_list(
-            source_uid="task:789",
-            relationship_specs=[
-                (None, "APPLIES_KNOWLEDGE", None),
-                ([], "REQUIRES_KNOWLEDGE", None),
-                (["ku:1"], "RELATED_TO", None),
-            ],
-        )
-
-        assert len(relationships) == 1
-        assert ("task:789", "ku:1", "RELATED_TO", None) in relationships
-
-    def test_all_empty_returns_empty(self):
-        """Test that all empty specs returns empty list."""
-        relationships = BatchCypherBuilder.build_relationships_list(
-            source_uid="task:000",
-            relationship_specs=[
-                (None, "APPLIES_KNOWLEDGE", None),
-                ([], "REQUIRES_KNOWLEDGE", None),
-            ],
-        )
-
-        assert relationships == []
-
-    def test_mixed_with_and_without_properties(self):
-        """Test mixing relationships with and without properties."""
-        relationships = BatchCypherBuilder.build_relationships_list(
-            source_uid="goal:abc",
-            relationship_specs=[
-                (["ku:1", "ku:2"], "REQUIRES_KNOWLEDGE", None),
-                (["habit:1"], "REQUIRES_HABIT", {"essentiality": "essential"}),
-                (["lp:1"], "ALIGNED_WITH_PATH", None),
-            ],
-        )
-
-        assert len(relationships) == 4
-        # Check None properties
-        assert ("goal:abc", "ku:1", "REQUIRES_KNOWLEDGE", None) in relationships
-        # Check dict properties
-        assert (
-            "goal:abc",
-            "habit:1",
-            "REQUIRES_HABIT",
-            {"essentiality": "essential"},
-        ) in relationships
 
 
 class TestGroupRelationshipsByType:
