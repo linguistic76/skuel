@@ -158,6 +158,28 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             identifier=f"{path_step_uid} -> {exercise_uid}",
         )
 
+    async def get_exercise_owners(self, exercise_uid: str) -> Result[list[UserUID] | None]:
+        """The users who ``OWNS`` the exercise, or ``None`` when the uid names no exercise.
+
+        An ownerless exercise (CURRICULUM scope) answers an empty list. Ownership is
+        read from the ``OWNS`` edge alone, the canonical ownership edge (ADR-086).
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (exercise:Entity:Exercise {{uid: $exercise_uid}})
+            RETURN [(owner:User)-[:{RelationshipName.OWNS.value}]->(exercise) | owner.uid]
+                   AS owners
+            LIMIT 1
+            """,
+            {"exercise_uid": exercise_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows:
+            return Result.ok(None)
+        return Result.ok([UserUID(uid) for uid in rows[0]["owners"]])
+
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """
         Create REQUIRES_KNOWLEDGE relationship from exercise to curriculum KU.

@@ -23,6 +23,7 @@ from core.models.exercises.exercise_request import (
     ExerciseKnowledgeRequest,
     ReportGenerateRequest,
 )
+from core.models.type_hints import UserUID
 from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
 from core.services.exercises.exercise_service import ExerciseService
 from core.services.intelligence_tier_service import get_user_intelligence_tier
@@ -180,20 +181,30 @@ def create_exercises_api_routes(
         """
         Link an exercise to a curriculum KU via REQUIRES_KNOWLEDGE.
 
+        Access: the exercise's owner, or an ADMIN on any exercise — an ownerless
+        CURRICULUM exercise is an ADMIN's only
+        (``ExerciseService.admit_requirement_change``).
+
         Body (JSON):
         - exercise_uid: Exercise UID (required)
         - curriculum_uid: Curriculum KU UID (required)
 
         Returns:
         - 200: Relationship created
-        - 404: Exercise or curriculum KU not found
+        - 404: Exercise or curriculum KU not found — also an exercise the caller
+          may not change
         """
         result = await parse_json_body(request, ExerciseKnowledgeRequest)
         if result.is_error:
             return Result.fail(result)
         req = result.value
 
-        return await exercises_service.link_to_curriculum(req.exercise_uid, req.curriculum_uid)
+        admitted = await exercises_service.admit_requirement_change(
+            req.exercise_uid, UserUID(current_user.uid), current_user.role
+        )
+        if admitted.is_error:
+            return Result.fail(admitted)
+        return await exercises_service.link_to_curriculum(admitted.value, req.curriculum_uid)
 
     @rt("/api/exercises/unrequire-knowledge", methods=["POST"])
     @csrf_protected
@@ -203,20 +214,27 @@ def create_exercises_api_routes(
         """
         Remove REQUIRES_KNOWLEDGE relationship between exercise and curriculum KU.
 
+        Access: as for ``require-knowledge`` — the exercise's owner, or an ADMIN.
+
         Body (JSON):
         - exercise_uid: Exercise UID (required)
         - curriculum_uid: Curriculum KU UID (required)
 
         Returns:
         - 200: Relationship removed
-        - 404: Relationship not found
+        - 404: Relationship not found — also an exercise the caller may not change
         """
         result = await parse_json_body(request, ExerciseKnowledgeRequest)
         if result.is_error:
             return Result.fail(result)
         req = result.value
 
-        return await exercises_service.unlink_from_curriculum(req.exercise_uid, req.curriculum_uid)
+        admitted = await exercises_service.admit_requirement_change(
+            req.exercise_uid, UserUID(current_user.uid), current_user.role
+        )
+        if admitted.is_error:
+            return Result.fail(admitted)
+        return await exercises_service.unlink_from_curriculum(admitted.value, req.curriculum_uid)
 
     @rt("/api/exercises/required-knowledge", methods=["GET"])
     @require_teacher(get_user_service)

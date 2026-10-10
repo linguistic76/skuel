@@ -144,6 +144,7 @@ if TYPE_CHECKING:
     from core.models.enums import Domain
     from core.models.enums.neo_labels import NeoLabel
     from core.models.enums.user_entry_enums import ExerciseScope
+    from core.models.enums.user_enums import UserRole
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.ku.ku import Ku
@@ -151,6 +152,7 @@ if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
+    from core.services.exercises.exercise_service import AdmittedRequirementChange
     from core.utils.result_simplified import Result
 
 
@@ -1843,6 +1845,10 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
         """
         ...
 
+    async def get_exercise_owners(self, exercise_uid: str) -> Result[list[UserUID] | None]:
+        """The users who ``OWNS`` the exercise; ``None`` when the uid names no exercise."""
+        ...
+
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """Attach an exercise to a curriculum entity. Idempotent (MERGE)."""
         ...
@@ -1958,12 +1964,22 @@ class ExerciseOperations(Protocol):
         ...
 
     # Curriculum linking
-    async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
-        """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
+    async def admit_requirement_change(
+        self, exercise_uid: str, caller_uid: UserUID, caller_role: UserRole
+    ) -> Result[AdmittedRequirementChange]:
+        """Admit the exercise's owner or an ADMIN; any other caller is not-found."""
         ...
 
-    async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
-        """Remove REQUIRES_KNOWLEDGE relationship."""
+    async def link_to_curriculum(
+        self, admitted: AdmittedRequirementChange, curriculum_uid: str
+    ) -> Result[bool]:
+        """Link an admitted exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
+        ...
+
+    async def unlink_from_curriculum(
+        self, admitted: AdmittedRequirementChange, curriculum_uid: str
+    ) -> Result[bool]:
+        """Remove an admitted exercise's REQUIRES_KNOWLEDGE relationship."""
         ...
 
     async def get_required_knowledge(
