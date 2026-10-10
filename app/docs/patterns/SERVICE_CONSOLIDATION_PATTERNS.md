@@ -736,19 +736,19 @@ class LpSubServices:
 
 **Problem:** Cross-domain reads were scattered across domain backends and services. Each domain had its own N+1 pattern: fetch all entities of one type, then fan-out queries for related entities in another type, then join in Python. This is the relational-brain pattern — treating the graph like SQL tables you join in application code. Cross-domain Cypher lived on the wrong domain's backend (e.g., `ChoicesBackend` knew about Principles, `GoalsBackend` knew about Tasks).
 
-**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a frozen typed dataclass from `cross_domain_types.py`.
+**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a frozen typed dataclass from `cross_domain_types.py` (one exception: `get_embodiment_rates_7d` returns a plain `dict[str, float]` keyed by principle uid).
 
 **Rules (enforced at the top of the file):**
 - Methods MUST touch 2+ domain labels
 - Takes only a `CrossDomainBackendOperations` backend, never per-domain backends
 - One Cypher per call, no N+1
-- Returns typed dataclass (not `dict[str, Any]`)
+- Returns a typed dataclass (not `dict[str, Any]`) — `get_embodiment_rates_7d`'s `dict[str, float]` map is the one method that does not
 
 **Methods:**
 | Method | Domains Crossed |
 |--------|----------------|
 | `get_principle_alignment_evidence` | Principle + Goal + Habit |
-| `get_embodiment_rates_7d` | Principle + Habit (+ completions) |
+| `get_embodiment_rates_7d` | Principle + Habit (+ completions) — returns `dict[str, float]`, not a dataclass |
 | `get_tasks_applying_knowledge` | Task + Ku |
 | `get_goals_for_tasks_batch` | Task + Goal |
 | `count_active_tasks_for_goal` | Goal + Task |
