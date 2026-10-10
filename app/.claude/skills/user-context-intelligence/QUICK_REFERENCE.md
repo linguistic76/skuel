@@ -131,7 +131,7 @@ async def get_cross_domain_synergies(
 # 7
 async def calculate_life_path_alignment(self) -> Result[LifePathAlignment]: ...
 
-# 8 — a Result like the others; always ok (fail-soft)
+# 8 — a Result like the others; fails only on a failed calendar read (fail-soft on candidates)
 async def get_schedule_aware_recommendations(
     self,
     max_recommendations: int = 5,
@@ -172,6 +172,7 @@ class DailyWorkPlan:
     choices: tuple[str, ...] = ()
     principles: tuple[str, ...] = ()
     exercises: tuple[str, ...] = ()
+    awaiting_report: tuple[str, ...] = ()  # turned-in entries still awaiting a report (slot 2.7)
 
     # Enriched items
     contextual_tasks: tuple[ContextualTask, ...] = ()
@@ -197,7 +198,8 @@ class DailyWorkPlan:
 
 `habits` holds both the at-risk habits (slot 1) and the daily habits (slot 4);
 `contextual_habits` holds only the at-risk ones. `exercises` holds revisions and assignments —
-tell them apart by `ContextualExercise.subtype` (`"revision"` / `"assignment"`).
+tell them apart by `ContextualExercise.subtype` (`"revision"` / `"assignment"`). `awaiting_report`
+holds the UserEntry uids turned in for review with no report yet (slot 2.7, no minutes).
 
 ### PathStep
 

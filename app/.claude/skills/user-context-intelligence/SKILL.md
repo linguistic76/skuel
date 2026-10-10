@@ -346,7 +346,7 @@ dict key.
 
 | Type | Key fields |
 |------|------------|
-| `DailyWorkPlan` | per-domain UID tuples (`learning`, `tasks`, `habits`, `events`, `goals`, `choices`, `principles`, `exercises`), `contextual_*` tuples, `engaged_ps_groups`, `available_to_start`, `estimated_time_minutes`, `workload_utilization`, `rationale`, `priorities`, `warnings` |
+| `DailyWorkPlan` | per-domain UID tuples (`learning`, `tasks`, `habits`, `events`, `goals`, `choices`, `principles`, `exercises`, `awaiting_report`), `contextual_*` tuples, `engaged_ps_groups`, `available_to_start`, `estimated_time_minutes`, `workload_utilization`, `rationale`, `priorities`, `warnings` |
 | `PathStep` | `ku_uid`, `title`, `rationale`, `prerequisites_met`, `aligns_with_goals`, `unlocks_count`, `priority_score`, `application_opportunities` |
 | `LifePathAlignment` | `overall_score`, `alignment_level`, five dimension scores, `strengths`, `gaps`, `recommendations` |
 | `CrossDomainSynergy` | `source_uid`, `source_domain`, `target_uids`, `synergy_type`, `synergy_score` |
