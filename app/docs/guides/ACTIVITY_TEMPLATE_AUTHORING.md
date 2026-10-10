@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-10-06
+updated: 2026-10-10
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -426,8 +426,11 @@ rewrites the tracker row instead.
 
 A JSON API exists too — one route file per kind, `POST /api/pathstep-{domain}-templates/`
 to create and `POST /api/pathstep-{domain}-templates/attach?ps_uid=…&template_uid=…` to
-attach, TEACHER+. It works, but the vault is the door to use: it is the one with a diff,
-a history and a preview.
+attach, TEACHER+. `ps_uid` must name a PathStep and `template_uid` a template of that
+route's own kind (a GoalTemplate at `pathstep-goal-templates`); anything else answers
+404, exactly as a uid that names nothing does, and `/detach` refuses the same pairs. It
+works, but the vault is the door to use: it is the one with a diff, a history and a
+preview.
 
 ---
 

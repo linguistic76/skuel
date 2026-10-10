@@ -14,6 +14,9 @@ three endpoints under ``/api/{domain}``:
     POST /detach?ps_uid=...&template_uid=...     → DELETE the edge
     GET  /list-by-ps?ps_uid=...                  → templates attached to a PS
 
+The service admits both ends: ``ps_uid`` must be a PathStep and ``template_uid`` a
+template of the route's own kind, or the attach / detach answers not-found.
+
 CRUD (create/get/update/delete/list) is registered separately by
 :class:`CRUDRouteFactory` via :class:`CRUDRouteConfig`.
 """
