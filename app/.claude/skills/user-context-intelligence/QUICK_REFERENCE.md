@@ -85,7 +85,7 @@ from core.services.user.intelligence.perception_intelligence import PerceptionIn
 | 8 | `lp` | `LpService.relationships` | no |
 | 9 | `exercises` | `ExerciseService` | yes |
 | 10 | `report` | `ReportRelationshipService` | yes |
-| 11 | `calendar` | `CalendarService` | no |
+| 11 | `calendar` | `CalendarService` | yes |
 
 Optional: `vector_search_service`, `zpd_service`, `filtered_providers` — see
 [FACTORY_PATTERN.md](FACTORY_PATTERN.md).

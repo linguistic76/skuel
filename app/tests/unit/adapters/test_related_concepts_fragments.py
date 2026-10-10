@@ -194,6 +194,8 @@ def _related_handlers(vector_search_service: Any) -> tuple[Any, Any]:
         MagicMock(),
         recorder,  # type: ignore[arg-type]  # boundary: test double for RouteDecorator
         orchestrator=MagicMock(),
+        user_service=MagicMock(),
+        context_intelligence=MagicMock(),
         vector_search_service=vector_search_service,
     )
     return (

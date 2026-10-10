@@ -14,6 +14,7 @@ Routes:
 - GET  /explore/ku/{uid}          — Ku reading page (reading-first, no sidebar)
 - GET  /explore/ku/{uid}/content  — HTMX fragment: Ku reading content
 - GET  /explore/ku/{uid}/related  — HTMX fragment: Related concepts (Ku→Ku vector similarity)
+- GET  /explore/ku/{uid}/apply    — HTMX fragment: Where you can apply this (hub method 3)
 - GET  /explore/ps/{uid}          — PathStep detail page (reading-first, no sidebar)
 - GET  /explore/ps/{uid}/content  — HTMX fragment: PathStep detail content
 - GET  /explore/ps/{uid}/related  — HTMX fragment: Related concepts (PS→PS vector similarity)
@@ -32,10 +33,14 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
+from core.models.type_hints import UserUID
 from core.ports.query_types import UsedKuRow
+from core.services.user.rich_context import rich_entity_titles
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.explore.ku_detail import (
+    render_ku_application_error,
+    render_ku_application_opportunities,
     render_ku_detail_content,
     render_ku_not_found,
     render_ku_related_concepts,
@@ -68,6 +73,9 @@ if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.ps_engagement.ps_engagement_service import PsEngagementService
+    from core.services.user.intelligence import UserContextIntelligenceFactory
+    from core.services.user_service import UserService
+    from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.routes.learning_loop")
 
@@ -89,7 +97,7 @@ def _parse_mastery_level(raw: str) -> MasteryLevel | None:
 
 
 async def _load_ku_mastery_checkins(
-    user_service: Any, user_uid: str, ku_uid: str
+    user_service: UserService, user_uid: UserUID, ku_uid: str
 ) -> list[dict[str, Any]]:
     """Read the user's stored Knowledge dual-track check-ins for a Ku.
 
@@ -97,8 +105,6 @@ async def _load_ku_mastery_checkins(
     ``knowledge_checkins`` log (a Ku is SHARED, so its mastery check-ins can't live
     on the shared :Ku node). Returns the log for this Ku, newest last.
     """
-    if user_service is None:
-        return []
     user_result = await user_service.get_user(user_uid)
     if user_result.is_ok and user_result.value:
         log: list[dict[str, Any]] = (user_result.value.knowledge_checkins or {}).get(ku_uid, [])
@@ -107,7 +113,7 @@ async def _load_ku_mastery_checkins(
 
 
 def _make_ku_mastery_store(
-    user_service: Any, user_uid: str
+    user_service: UserService, user_uid: UserUID
 ) -> Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]]:
     """Build the dual-track ``store_callback(ku_uid, result)`` for the Knowledge
     dimension, with ``user_uid`` bound — persists per-(user, Ku) on the :User node."""
@@ -127,8 +133,10 @@ def create_learning_loop_detail_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: ExploreOrchestrator,
+    *,
+    user_service: UserService,
+    context_intelligence: UserContextIntelligenceFactory,
     ps_engagement_service: PsEngagementService | None = None,
-    user_service: Any = None,
     vector_search_service: Neo4jVectorSearchService | None = None,
     zpd_service: ZPDOperations | None = None,
 ) -> None:
@@ -141,12 +149,14 @@ def create_learning_loop_detail_routes(
         _app: FastHTML application instance.
         rt: Route decorator.
         orchestrator: ExploreOrchestrator for cross-service reads.
+        user_service: The viewer's mastery check-ins and role (the teacher
+            publish button on /explore/ps/{uid}), and the rich context the
+            Knowledge check-in and "Where you can apply this" read (cached).
+        context_intelligence: Creates the hub for a rich context — its method 3
+            answers "Where you can apply this" on /explore/ku/{uid}.
         ps_engagement_service: Read-only access for the active engagement
             edge on PS detail page load. Optional — engagement actions in
             the rendered detail collapse to "Engage" when this is None.
-        user_service: Used to resolve the viewer's role for the teacher
-            publish button on /explore/ps/{uid}. Optional — when absent,
-            the publish state collapses to the empty-wrapper variant.
         vector_search_service: Powers the "Related concepts" section
             (node→node vector similarity, read-time lens). None on CORE
             tier — the section is simply absent.
@@ -268,6 +278,35 @@ def create_learning_loop_detail_routes(
         return render_ku_related_concepts(related)
 
     # -----------------------------------------------------------------
+    # GET /explore/ku/{uid}/apply — Where you can apply this (hub method 3)
+    # -----------------------------------------------------------------
+
+    @rt("/explore/ku/{uid}/apply")
+    async def explore_ku_apply_fragment(request: Request, uid: str) -> FT:
+        """HTMX fragment: the caller's activities linked to this Ku, by kind.
+
+        Builds the hub from the caller's rich context (cached) and asks method 3,
+        ``get_knowledge_application_opportunities``. A failed context read or answer
+        renders the section's error line (200); the developer message goes to the log.
+        """
+        user_uid = require_authenticated_user(request)
+        context_result = await user_service.get_rich_unified_context(user_uid)
+        if context_result.is_error:
+            return _application_error(uid, context_result)
+        context = context_result.value
+        answer = await context_intelligence.create(context).get_knowledge_application_opportunities(
+            uid
+        )
+        if answer.is_error:
+            return _application_error(uid, answer)
+        return render_ku_application_opportunities(answer.value, rich_entity_titles(context))
+
+    def _application_error[T](uid: str, failed: Result[T]) -> FT:
+        error = failed.expect_error()
+        logger.error("Where you can apply %s: %s", uid, error.message)
+        return render_ku_application_error(error.display_message)
+
+    # -----------------------------------------------------------------
     # POST /explore/ku/{uid}/mastery-checkin — Knowledge dual-track (ADR-030)
     # -----------------------------------------------------------------
 
@@ -283,8 +322,6 @@ def create_learning_loop_detail_routes(
         (the activity→Ku channels), so we build it here.
         """
         user_uid = require_authenticated_user(request)
-        if user_service is None:
-            return render_inline_error("Mastery check-in is unavailable")
 
         form = await request.form()
         level = _parse_mastery_level(str(form.get("level", "")))
@@ -361,7 +398,7 @@ def create_learning_loop_detail_routes(
         is_mastered = False
         engagement = None
         user_role = None
-        if user_uid and user_service is not None:
+        if user_uid:
             user_role = await get_user_role(request, user_service)
         if user_uid:
             await orchestrator.record_ps_view(user_uid, uid)
@@ -593,8 +630,10 @@ def create_learning_loop_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: ExploreOrchestrator,
+    *,
+    user_service: UserService,
+    context_intelligence: UserContextIntelligenceFactory,
     ps_engagement_service: PsEngagementService | None = None,
-    user_service: Any = None,
     form_submission_service: FormSubmissionOperations | None = None,
     vector_search_service: Neo4jVectorSearchService | None = None,
     zpd_service: ZPDOperations | None = None,
@@ -607,8 +646,9 @@ def create_learning_loop_routes(
         app,
         rt,
         orchestrator,
-        ps_engagement_service,
         user_service=user_service,
+        context_intelligence=context_intelligence,
+        ps_engagement_service=ps_engagement_service,
         vector_search_service=vector_search_service,
         zpd_service=zpd_service,
     )

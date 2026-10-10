@@ -416,6 +416,7 @@ class UserContextPopulator:
 
         # Event relationships
         context.event_knowledge_applied = graph_data.events.knowledge_applied
+        context.events_by_habit = graph_data.events.by_habit
 
         # Choice relationships
         context.choice_knowledge_informed = graph_data.choices.knowledge_informed

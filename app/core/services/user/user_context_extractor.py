@@ -60,6 +60,8 @@ class EventRelationshipData:
     """Extracted event relationship data from MEGA-QUERY."""
 
     knowledge_applied: dict[str, list[str]] = field(default_factory=dict)
+    # habit -> the events reinforcing it (REINFORCES_HABIT), in event order
+    by_habit: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -383,16 +385,18 @@ class UserContextExtractor:
         """
         Extract event relationship data from events_rich[].graph_context.
 
-        Extracts applied knowledge (APPLIES_KNOWLEDGE relationships).
+        Extracts applied knowledge (APPLIES_KNOWLEDGE relationships) and, per habit,
+        the events that reinforce it (REINFORCES_HABIT relationships).
 
         Args:
             events_rich: List of event items with graph_context
                         Shape: [{"entity": {...}, "graph_context": {...}}, ...]
 
         Returns:
-            EventRelationshipData with knowledge applied mappings
+            EventRelationshipData with knowledge applied and events-by-habit mappings
         """
         knowledge_applied: dict[str, list[str]] = {}
+        by_habit: dict[str, list[str]] = {}
 
         for event_item in events_rich:
             if not event_item:
@@ -409,7 +413,10 @@ class UserContextExtractor:
             if ku_uids:
                 knowledge_applied[event_uid] = ku_uids
 
-        return EventRelationshipData(knowledge_applied=knowledge_applied)
+            for habit_uid in self._uids(graph_ctx.get("reinforced_habits")):
+                by_habit.setdefault(habit_uid, []).append(event_uid)
+
+        return EventRelationshipData(knowledge_applied=knowledge_applied, by_habit=by_habit)
 
     def extract_choice_relationships(
         self, choices_rich: list[dict[str, Any]]

@@ -293,6 +293,30 @@ class CalendarService:
         items.sort(key=_item_start)
         return Result.ok(items)
 
+    @with_error_handling("event_items_in_range", error_type="system", uid_param="user_uid")
+    async def event_items_in_range(
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
+    ) -> Result[list[CalendarItem]]:
+        """The user's events dated from ``start_date`` to ``end_date``, as calendar items.
+
+        Every priority: a view's membership floor (``VIEW_SPECS``) is applied by the
+        view, and a reader asking how the time is taken — the schedule-aware
+        recommendations — needs the low-priority meeting too. A failed read propagates.
+        """
+        result = await self.events_service.get_user_items_in_range(
+            user_uid=user_uid,
+            start_date=start_date,
+            end_date=end_date,
+            include_completed=include_completed,
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([self._event_to_calendar_item(event) for event in result.value])
+
     @with_error_handling("get_item", error_type="system", uid_param="item_uid")
     async def get_item(
         self, user_uid: UserUID, item_uid: str, on_date: date | None = None
@@ -617,25 +641,18 @@ class CalendarService:
     async def _fetch_events(
         self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool
     ) -> list[CalendarItem]:
-        """Fetch the range's events (date-filtered by the events query) as calendar items."""
-        items: list[CalendarItem] = []
-
+        """The range's events as calendar items; a failed read renders no events."""
         try:
-            result = await self.events_service.get_user_items_in_range(
-                user_uid=user_uid,
-                start_date=start_date,
-                end_date=end_date,
-                include_completed=include_completed,
+            result = await self.event_items_in_range(
+                user_uid, start_date, end_date, include_completed=include_completed
             )
-
-            if result.is_ok:
-                events = result.value
-                items = [self._event_to_calendar_item(event) for event in events]
-
         except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to fetch events: {e}")
-
-        return items
+            return []
+        if result.is_error:
+            logger.warning("Calendar: events read failed: %s", result.expect_error().message)
+            return []
+        return result.value
 
     async def _fetch_goals(
         self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool

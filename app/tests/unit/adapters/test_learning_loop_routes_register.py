@@ -26,6 +26,8 @@ def test_detail_and_fragment_routes_register_on_real_fasthtml() -> None:
         app,
         rt,
         orchestrator=MagicMock(),
+        user_service=MagicMock(),
+        context_intelligence=MagicMock(),
         vector_search_service=MagicMock(),
         zpd_service=MagicMock(),
     )
@@ -34,4 +36,5 @@ def test_detail_and_fragment_routes_register_on_real_fasthtml() -> None:
     registered = {getattr(r, "path", None) for r in app.routes}
     assert "/explore/next-step/related" in registered
     assert "/explore/ku/{uid}/related" in registered
+    assert "/explore/ku/{uid}/apply" in registered
     assert "/explore/ps/{uid}/related" in registered

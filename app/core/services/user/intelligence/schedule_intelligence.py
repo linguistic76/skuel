@@ -15,6 +15,7 @@ Schedule-aware recommendations take into account:
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.context_types import ScheduleAwareRecommendation
@@ -23,11 +24,13 @@ from core.models.enums.scheduling_enums import TimeOfDay
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.services.user.rich_context import rich_entity_titles
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import now_in
+from core.utils.timestamp_helpers import now_in, wall_clock_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Mapping
+
+    from core.models.event.calendar_models import CalendarItem
 
 # The slots in which focused work and learning fit best. ``TimeOfDay`` is the
 # one vocabulary of habitual time; these name the slots, never the hours.
@@ -35,6 +38,29 @@ _FOCUS_SLOTS: frozenset[TimeOfDay] = frozenset(
     {TimeOfDay.EARLY_MORNING, TimeOfDay.MORNING, TimeOfDay.AFTERNOON}
 )
 _LEARNING_SLOTS: frozenset[TimeOfDay] = frozenset({TimeOfDay.EARLY_MORNING, TimeOfDay.MORNING})
+
+
+def _minutes_taken(items: Iterable[CalendarItem], start: datetime, end: datetime) -> int:
+    """The minutes of ``start``..``end`` the items occupy, an overlap counted once.
+
+    Calendar items carry wall-clock times, as ``start`` and ``end`` do. A cancelled,
+    completed or failed item takes no time.
+    """
+    spans = sorted(
+        (max(item.start_time, start), min(item.end_time, end))
+        for item in items
+        if item.start_time < end
+        and item.end_time > start
+        and not (item.status is not None and item.status.is_terminal())
+    )
+    taken = timedelta()
+    covered_until = start
+    for span_start, span_end in spans:
+        span_start = max(span_start, covered_until)
+        if span_end > span_start:
+            taken += span_end - span_start
+            covered_until = span_end
+    return int(taken.total_seconds() // 60)
 
 
 class ScheduleIntelligenceMixin(IntelligenceMixinBase):
@@ -48,7 +74,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 8: Schedule-Aware Recommendations
     # =========================================================================
 
-    async def get_schedule_aware_recommendations(  # skuel-lint: disable=SKUEL029 -- askesis_protocols protocol method + facade-delegated
+    async def get_schedule_aware_recommendations(
         self,
         max_recommendations: int = 5,
         time_horizon_hours: int = 8,
@@ -62,14 +88,14 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         the user has not engaged — stands as itself and the reader resolves it.
 
         This method synthesizes:
-        - Current events and scheduled activities (Calendar domain)
-        - Available time slots and capacity
+        - The events in the horizon and their real durations (the calendar)
+        - Available time and capacity
         - Energy levels and preferred times
         - Priority and urgency across all domains
         - Conflict detection and avoidance
 
         **Synthesis Algorithm:**
-        1. Calculate available time slots from events
+        1. Calculate the free minutes in the horizon from the calendar's events
         2. Assess current energy and capacity
         3. Gather candidates from all domains (tasks, habits, learning, goals)
         4. Score each candidate by schedule fit, energy match, and priority
@@ -82,16 +108,18 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
             respect_energy: Whether to consider current energy level
 
         Returns:
-            Result[list[ScheduleAwareRecommendation]] sorted by overall score. The read
-            is fail-soft — fewer candidates, never an error — so the Result is always ok;
-            it is a Result because the Askesis wrapper and the Insights card read it
-            as one, like every other hub method.
+            Result[list[ScheduleAwareRecommendation]] sorted by overall score. It is an
+            error only when the calendar cannot be read: the free time is the answer's
+            premise, and a guess would rank every candidate against a capacity nobody has.
         """
         # Rich context is compile-time enforced via `context: RichUserContext`.
         recommendations: list[ScheduleAwareRecommendation] = []
 
         # Calculate available capacity
-        available_minutes = self._calculate_available_minutes(time_horizon_hours)
+        available = await self._calculate_available_minutes(time_horizon_hours)
+        if available.is_error:
+            return Result.fail(available)
+        available_minutes = available.value
         current_energy = self._assess_current_energy()
         current_time_slot = self._get_current_time_slot()
         titles = rich_entity_titles(self.context)
@@ -129,20 +157,30 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
 
         return Result.ok(recommendations[:max_recommendations])
 
-    def _calculate_available_minutes(self, time_horizon_hours: int) -> int:
-        """Calculate available minutes based on events and capacity."""
+    async def _calculate_available_minutes(self, time_horizon_hours: int) -> Result[int]:
+        """The minutes free in the next ``time_horizon_hours``, capped at the daily budget.
+
+        The horizon starts now on the wall clock. The user's events in it — every
+        priority, none cancelled, completed or failed, read from the calendar — take the
+        minutes they overlap it, overlapping events counted once; the workload score takes its share of the
+        horizon. Habits take nothing here: they are candidates this method recommends,
+        not commitments. A failed calendar read fails the answer.
+        """
         total_minutes = time_horizon_hours * 60
+        start = wall_clock_in(current_zone())
+        end = start + timedelta(minutes=total_minutes)
 
-        # Subtract time for today's events
-        event_count = len(self.context.today_event_uids)
-        # Assume average event is 60 minutes
-        event_minutes = event_count * 60
+        events = await self.calendar.event_items_in_range(
+            self.context.user_uid, start.date(), end.date()
+        )
+        if events.is_error:
+            return Result.fail(events)
+        event_minutes = _minutes_taken(events.value, start, end)
 
-        # Account for existing workload
         committed_minutes = int(total_minutes * self.context.current_workload_score)
 
         available = total_minutes - event_minutes - committed_minutes
-        return max(0, min(available, self.context.available_minutes_daily))
+        return Result.ok(max(0, min(available, self.context.available_minutes_daily)))
 
     def _assess_current_energy(self) -> str:
         """Assess current energy level as a category."""
