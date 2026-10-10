@@ -155,7 +155,7 @@ there before deletion):
   the edge that carries ownership.
 
 Explicitly **untouched**: `create_user_relationships` (plural) was a different method, left
-alone here and later deleted as caller-less (the G13 dead-builders PR); the
+alone here and later deleted as caller-less (the G13 dead-builders PR, #1524); the
 `HAS_TASK_TEMPLATE`-family template edges are a distinct, live family; and the service-layer
 `DomainConfig.user_ownership_relationship` (`core/services/domain_config.py:161`) is a
 **different field** from the registry's — `get_search_visibility()` (`:238-252`) tests only

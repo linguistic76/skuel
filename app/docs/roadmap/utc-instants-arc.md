@@ -1158,7 +1158,7 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
     `$zone`.
   - **Dead:** `_semantic_similarity_queries.build_related_topics_timeline_query` compares a
     string `valid_from` with `datetime()` raw. Nothing calls `SemanticSimilarityQueries`
-    (the module was deleted after the arc, in the G13 dead-builders PR).
+    (the module was deleted after the arc, in the G13 dead-builders PR, #1524).
   - **Checked and fine:** native-only columns compared raw (Insight, Session, AuthEvent,
     SearchEvent, VIEWED, IN_PROGRESS, MEMBER_OF, MASTERED, Notification…), and
     `embedding_updated_at < datetime(n.updated_at)` (the embedding backstop).
@@ -1268,7 +1268,7 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
     reaching a living entry or a knowledge note.
   - Two dead query modules were coerced here, not deleted: `SemanticSimilarityQueries` and
     `_progressive_learning_queries`. Neither was in the PLANNED tier; both were deleted after
-    the arc in the G13 dead-builders PR. (`intelligence_queries`, the third in this census,
+    the arc in the G13 dead-builders PR (#1524). (`intelligence_queries`, the third in this census,
     was deleted on the batch-6 ruling.)
   - A correction to 6a's census: `EntryReport.created_at` is native-only by writer (both
     writers are `datetime($now)`).

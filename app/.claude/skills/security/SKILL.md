@@ -56,8 +56,9 @@ Neo4j cannot parameterize labels, property names, or relationship types — thes
 | **Sort directions** | *derived literals — no validator* | Every `ORDER BY` direction resolves to `"ASC"`/`"DESC"` before interpolation: from a bool (`"DESC" if order_desc else "ASC"`), from the developer-authored `RelationshipSpec.order_direction` (`relationship_registry.py`), or from a literal at the call site. The sort *property* beside it is a separate question — see the three field-name rows above, and the caveat below them. |
 
 ```python
-# Shared guards — used by crud_queries, domain_queries, relationship_queries,
-# semantic_queries, and neo4j_schema_manager's DDL
+# Shared guards — used by crud_queries, domain_queries, semantic_queries,
+# and neo4j_schema_manager's DDL (relationship_queries interpolates nothing:
+# its batch builders pass relationship types as a $relationship_types parameter)
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label, validate_identifier
 
 # These raise ValueError for an unsafe label / field / relationship type.

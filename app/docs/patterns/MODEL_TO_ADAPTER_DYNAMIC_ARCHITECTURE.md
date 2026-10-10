@@ -430,7 +430,7 @@ Hardened 3 backend methods against Cypher injection and migrated 17 inline Cyphe
 *Query builders (`_helpers.py` — shared by the query builder modules):*
 - `validate_label()` — checks against `NeoLabel` enum allowlist before label interpolation
 - `validate_identifier()` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$` before field/relationship/property interpolation
-- Applied across `crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`
+- Applied across `crud_queries.py`, `domain_queries.py`, `semantic_queries.py` (`relationship_queries.py` interpolates nothing — its batch builders pass relationship types as a `$relationship_types` parameter)
 
 **Service → Backend migrations:**
 

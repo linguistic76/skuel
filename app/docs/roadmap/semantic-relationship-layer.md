@@ -171,7 +171,7 @@ no production caller by design (ruled 2026-10-10) as Phase 4's readers; unit-tes
 (functions, not methods). The single-entity builders beside them in `relationship_queries.py`,
 the `SemanticSimilarityQueries` / `ProgressiveLearningQueries` modules (ranking by
 `semantic_distance` / `difficulty_gap`, which no door writes), `find_path` and
-`create_user_relationships` were deleted as caller-less in the G13 dead-builders PR.
+`create_user_relationships` were deleted as caller-less in the G13 dead-builders PR (#1524).
 
 **The data gate (measured against the running graph, 2026-07-21):**
 - **0 live edges carry `semantic_type`.** The whole semantic write path is live-but-unexercised.

@@ -218,7 +218,7 @@ never an interpolated string. Relationship *types* are validated against the enu
 they reach the pattern (SKUEL030), which is why they may be inlined while every value
 stays a `$parameter`.
 
-**The 54 are not uniform — 8 do not fit that shape.** Check the signature before
+**The 46 (`def build_*` at module level, measured 2026-10-10) are not uniform — the ones below do not fit that shape.** Check the signature before
 unpacking:
 
 | Function | Returns | Why it differs |
@@ -229,7 +229,7 @@ unpacking:
 | `build_knowledge_read_clause` | `tuple[str, Neo4jProperties]` | Clause builder |
 | the 4 `build_batch_*` in `relationship_queries.py` | `tuple[str, dict[str, Any]]` | Heterogeneous batch payloads |
 
-The remaining 46 return `tuple[str, dict[str, Neo4jValue]]`. The clause and fragment
+The others return `tuple[str, dict[str, Neo4jValue]]`. The clause and fragment
 builders are *composition helpers*: they produce a piece of a query, and calling one
 where a full query is expected yields Cypher that does not parse.
 
