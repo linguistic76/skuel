@@ -1,7 +1,7 @@
 ---
 title: KU (Knowledge Unit) Domain
 created: 2025-12-04
-updated: 2026-10-01
+updated: 2026-10-10
 status: current
 category: domains
 tags:
@@ -155,7 +155,7 @@ and is read on its page. What is registered:
 - `POST /api/ku/{uid}/mark-understood` — `(User)-[:MASTERED]->(Ku)`
 
 ### Pages (`adapters/inbound/learning_loop_routes.py`, `library_ui.py`)
-- `GET /explore/ku/{uid}` — the Ku page (shell; body via `GET /explore/ku/{uid}/content`, related via `GET /explore/ku/{uid}/related`)
+- `GET /explore/ku/{uid}` — the Ku page (shell; body via `GET /explore/ku/{uid}/content`, related via `GET /explore/ku/{uid}/related`, the reader's linked activities via `GET /explore/ku/{uid}/apply`)
 - `POST /explore/ku/{uid}/mastery-checkin` — the dual-track mastery check-in (`assess_mastery_dual_track`, which reads `calculate_user_substance`)
 - `GET /explore/library` — the full knowledge catalog (Ku + PathStep, search + bento grid)
 - `GET /library/ku` — the signed-in user's bookmarked Kus (`PINNED`); anonymous callers get a sign-in empty state
