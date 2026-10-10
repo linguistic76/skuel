@@ -8,7 +8,6 @@ Modules:
 - crud_queries: Dynamic CRUD and search operations
 - semantic_queries: Semantic relationship traversal
 - domain_queries: Entity-with-context and prerequisite chains
-- relationship_queries: Batch relationship existence checks and counts
 
 Infrastructure Functions (January 2026):
 - build_distinct_values_query: Get distinct field values (categories)
@@ -19,7 +18,6 @@ Infrastructure Functions (January 2026):
 Usage:
     from adapters.persistence.neo4j.query.cypher import build_search_query, build_text_search_query
     from adapters.persistence.neo4j.query.cypher import build_ku_with_context
-    from adapters.persistence.neo4j.query.cypher import build_batch_relationship_count
 
     # consolidation functions
     from adapters.persistence.neo4j.query.cypher import (
@@ -88,14 +86,6 @@ from .domain_queries import (
 # Relationship filter fragments - graph-aware faceted search WHERE clauses
 from .relationship_filter_fragments import build_relationship_filter_fragments
 
-# Relationship queries - batch existence checks and counts
-from .relationship_queries import (
-    build_batch_get_related_with_filters,
-    build_batch_relationship_count,
-    build_batch_relationship_exists,
-    build_batch_relationship_exists_with_filters,
-)
-
 # Semantic queries - knowledge graph traversal
 from .semantic_queries import (
     build_cross_domain_bridges,
@@ -117,10 +107,6 @@ __all__ = [
     "build_array_any_match_query",
     "build_array_contains_query",
     "build_audience_fragment",
-    "build_batch_get_related_with_filters",
-    "build_batch_relationship_count",
-    "build_batch_relationship_exists",
-    "build_batch_relationship_exists_with_filters",
     "build_count_query",
     "build_cross_domain_bridges",
     # consolidation queries (January 2026)
@@ -141,7 +127,6 @@ __all__ = [
     "build_overdue_query",
     "build_prerequisite_chain",
     "build_prerequisite_traversal_query",
-    # Relationship queries
     # Relationship filter fragments (graph-aware faceted search)
     "build_relationship_filter_fragments",
     "build_relationship_traversal_query",

@@ -34,7 +34,7 @@ For implementation guidance, see:
 >
 > What shipped instead is a **package of module-level functions**:
 > `adapters/persistence/neo4j/query/cypher/` — `build_*` functions across
-> `crud_queries.py`, `domain_queries.py`, `semantic_queries.py`, `relationship_queries.py`
+> `crud_queries.py`, `domain_queries.py`, `semantic_queries.py`
 > and the fragment modules beside them. Import and call them directly; there is no object
 > to construct.
 >
@@ -218,7 +218,7 @@ never an interpolated string. Relationship *types* are validated against the enu
 they reach the pattern (SKUEL030), which is why they may be inlined while every value
 stays a `$parameter`.
 
-**The 46 (`def build_*` at module level, measured 2026-10-10) are not uniform — the ones below do not fit that shape.** Check the signature before
+**The 42 (`def build_*` at module level, measured 2026-10-10) are not uniform — the ones below do not fit that shape.** Check the signature before
 unpacking:
 
 | Function | Returns | Why it differs |
@@ -227,7 +227,6 @@ unpacking:
 | `build_search_visibility_clause` | `tuple[str, dict[str, str]] \| None` | **Returns `None`** when no scoping applies; `query, params = ...` raises `TypeError` |
 | `build_publication_clause` | `tuple[str, dict[str, str]]` | Clause builder — composes *into* a query |
 | `build_knowledge_read_clause` | `tuple[str, Neo4jProperties]` | Clause builder |
-| the 4 `build_batch_*` in `relationship_queries.py` | `tuple[str, dict[str, Any]]` | Heterogeneous batch payloads |
 
 The others return `tuple[str, dict[str, Neo4jValue]]`. The clause and fragment
 builders are *composition helpers*: they produce a piece of a query, and calling one

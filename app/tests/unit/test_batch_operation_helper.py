@@ -2,96 +2,18 @@
 Tests for BatchCypherBuilder - centralized batch operation utilities.
 
 Tests cover:
-1. build_relationship_exists_query() - UNWIND existence checks
-2. build_relationship_count_query() - UNWIND count queries
-3. build_relationship_properties_query() - Relationship property retrieval
-4. build_relationship_delete_query() - Batch delete queries
-5. build_multi_direction_count_queries() - Multi-direction count optimization
-6. build_relationships_list() - Flattening UID lists into tuples
-7. group_relationships_by_type() - Group by type for pure Cypher batch
-8. build_relationship_create_query() - Pure Cypher UNWIND query per type
-9. build_relationship_create_queries() - Full batch query builder
+1. build_relationship_properties_query() - Relationship property retrieval
+2. build_relationship_delete_query() - Batch delete queries
+3. build_multi_direction_count_queries() - Multi-direction count optimization
+4. build_relationships_list() - Flattening UID lists into tuples
+5. group_relationships_by_type() - Group by type for pure Cypher batch
+6. build_relationship_create_query() - Pure Cypher UNWIND query per type
+7. build_relationship_create_queries() - Full batch query builder
 """
 
 import pytest
 
 from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder, BatchQueryResult
-
-
-class TestBuildRelationshipExistsQuery:
-    """Tests for build_relationship_exists_query()."""
-
-    def test_outgoing_direction(self):
-        """Test building exists query for outgoing relationships."""
-        result = BatchCypherBuilder.build_relationship_exists_query(
-            node_label="Task",
-            relationship_types=["APPLIES_KNOWLEDGE", "REQUIRES_KNOWLEDGE"],
-            direction="outgoing",
-        )
-
-        assert isinstance(result, BatchQueryResult)
-        assert "UNWIND $uids as uid" in result.query
-        assert "(n)-[r]->(related)" in result.query
-        assert "relationship_types" in result.params
-        assert result.params["relationship_types"] == [
-            "APPLIES_KNOWLEDGE",
-            "REQUIRES_KNOWLEDGE",
-        ]
-
-    def test_incoming_direction(self):
-        """Test building exists query for incoming relationships."""
-        result = BatchCypherBuilder.build_relationship_exists_query(
-            node_label="Goal",
-            relationship_types=["SUPPORTS_GOAL"],
-            direction="incoming",
-        )
-
-        assert "(n)<-[r]-(related)" in result.query
-
-    def test_both_direction(self):
-        """Test building exists query for both directions."""
-        result = BatchCypherBuilder.build_relationship_exists_query(
-            node_label="Entity",
-            relationship_types=["RELATED_TO"],
-            direction="both",
-        )
-
-        assert "(n)-[r]-(related)" in result.query
-
-
-class TestBuildRelationshipCountQuery:
-    """Tests for build_relationship_count_query()."""
-
-    def test_outgoing_count(self):
-        """Test building count query for outgoing relationships."""
-        result = BatchCypherBuilder.build_relationship_count_query(
-            node_label="Task",
-            relationship_types=["APPLIES_KNOWLEDGE"],
-            direction="outgoing",
-        )
-
-        assert "count" in result.query.lower()
-        assert "(n)-[r]->(related)" in result.query
-
-    def test_incoming_count(self):
-        """Test building count query for incoming relationships."""
-        result = BatchCypherBuilder.build_relationship_count_query(
-            node_label="Goal",
-            relationship_types=["FULFILLS_GOAL"],
-            direction="incoming",
-        )
-
-        assert "(n)<-[r]-(related)" in result.query
-
-    def test_both_direction_count(self):
-        """Test building count query for both directions."""
-        result = BatchCypherBuilder.build_relationship_count_query(
-            node_label="Principle",
-            relationship_types=["RELATED_TO"],
-            direction="both",
-        )
-
-        assert "(n)-[r]-(related)" in result.query
 
 
 class TestBuildRelationshipPropertiesQuery:

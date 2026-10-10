@@ -28,7 +28,7 @@ Supporting infrastructure (leaf-level utilities, NOT alternative query paths):
   Complements Pydantic (HTTP boundary), does NOT duplicate it.
 
 Key Components:
-- cypher package: Modular Cypher query building (crud, semantic, domain, relationship)
+- cypher package: Modular Cypher query building (crud, semantic, domain)
 - QueryIntent: Semantic query understanding
 - QueryOptimizationStrategy: Schema-aware optimization vocabulary
 
@@ -90,11 +90,6 @@ from .confidence_filter import (
 
 # Cypher query functions - modular package (January 2026)
 from .cypher import (
-    # Relationship queries
-    build_batch_get_related_with_filters,
-    build_batch_relationship_count,
-    build_batch_relationship_exists,
-    build_batch_relationship_exists_with_filters,
     # Domain-specific entity-with-context functions (reinstated January 2026)
     # CRUD queries
     build_count_query,
@@ -177,11 +172,6 @@ __all__ = [
     # UNIFIED QUERY BUILDER - THE SINGLE ENTRY POINT
     # ============================================================================
     "UnifiedQueryBuilder",
-    # Relationship queries
-    "build_batch_get_related_with_filters",
-    "build_batch_relationship_count",
-    "build_batch_relationship_exists",
-    "build_batch_relationship_exists_with_filters",
     # Context query generator (January 2026)
     "generate_context_query",
     "get_available_relationships",

@@ -1,55 +1,49 @@
 """
-BatchCypherBuilder - DRY Batch Operations for Neo4j
-=====================================================
+BatchCypherBuilder - UNWIND Batch Operations for Neo4j
+======================================================
 
-Consolidates UNWIND-based batch patterns used across:
-- UniversalNeo4jBackend (4 patterns)
-- query/cypher/ build_* functions (2 patterns)
-- 12 relationship services (batch creation)
+One builder for the UNWIND-based batch Cypher the relationship mixins run.
 
 Core Principle: "One query builder, many consumers"
-
-This module implements the DRY principle for batch operations, eliminating
-~120-150 lines of duplicated UNWIND query patterns across the codebase.
 
 Pattern Categories:
 ==================
 
-1. **Batch Existence Checks** - Check if relationships exist for multiple entities
-   - Used by: batch_has_prerequisites(), batch_is_blocked(), etc.
-   - Query: UNWIND $uids → check relationship existence → return boolean map
-
-2. **Batch Counts** - Count relationships for multiple entities
-   - Used by: batch_prerequisite_count(), batch_dependency_count(), etc.
-   - Query: UNWIND $uids → count relationships → return count map
-
-3. **Batch Properties Fetch** - Get relationship properties for multiple edges
-   - Used by: get_relationships_batch_metadata()
+1. **Batch Properties Fetch** - Get relationship properties for multiple edges
+   - Used by: ``_RelationshipQueryMixin.get_relationships_batch``
    - Query: UNWIND $rels → fetch properties → return properties list
 
-4. **Batch Deletion** - Delete multiple relationships in single transaction
-   - Used by: delete_relationships_batch()
+2. **Batch Deletion** - Delete multiple relationships in single transaction
+   - Used by: ``_RelationshipCrudMixin.delete_relationships_batch``
    - Query: UNWIND $rels → delete matches → return deleted count
 
-5. **Batch Relationship Building** - Build relationship tuples from UID lists
-   - Used by: create_*_relationships() in all 12 relationship services
-   - Pure Python: Flatten UID lists into (from, to, type, props) tuples
+3. **Multi-Direction Counts** - Count relationships per (uid, type) in each direction
+   - Used by: ``_RelationshipQueryMixin.count_relationships_batch``
+   - Query: one UNWIND $pairs statement per direction → count map
+
+4. **Batch Relationship Creation** - One UNWIND MERGE statement per relationship type
+   - Used by: ``_RelationshipCrudMixin.create_relationships_batch``,
+     ``Neo4jQueryExecutor.create_relationships_batch``
+   - Query: group by type → UNWIND $rels → MERGE → return created count
+
+5. **Batch Relationship Building** - Flatten UID lists into the
+   (from, to, type, props) tuples ``create_relationships_batch`` takes
+   - Pure Python; unit-tested, no production call site
+
+Existence checks and counts over a list of uids are backend reads, not builders
+here: ``batch_get_related_uids`` (``_RelationshipCrudMixin``, under the owner
+far-node scope) and ``count_relationships_batch`` (``_RelationshipQueryMixin``,
+one count per (uid, type, direction) request).
 
 Performance Impact:
 ==================
 - Before: N queries x 15-60ms = N x 15-60ms (1.5-6 seconds for 100 items)
 - After: 1 query x 50-200ms = 50-200ms
 - Improvement: 10-100x faster for bulk operations
-
-See Also:
-- /docs/patterns/BATCH_OPERATIONS_IMPLEMENTATION.md
-- /docs/optimizations/N_PLUS_1_BATCH_OPTIMIZATION.md
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal
-
-from adapters.persistence.neo4j._backend_helpers import direction_clause
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -62,7 +56,7 @@ class BatchQueryResult:
         params: Dictionary of query parameters
 
     Usage:
-        result = BatchCypherBuilder.build_relationship_exists_query(...)
+        result = BatchCypherBuilder.build_relationship_delete_query(relationships)
         records = await backend.execute_query(result.query, result.params)
     """
 
@@ -85,19 +79,14 @@ class BatchCypherBuilder:
     Usage Examples:
     ==============
 
-    **Batch Existence Check:**
+    **Batch Properties Fetch:**
     ```python
     from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 
-    # Generate batch existence check query
-    result = BatchCypherBuilder.build_relationship_exists_query(
-        node_label="Task",
-        relationship_types=["REQUIRES_KNOWLEDGE", "DEPENDS_ON"],
-        direction="outgoing",
-        uids=task_uids,
+    result = BatchCypherBuilder.build_relationship_properties_query(
+        [("task_1", "ku.python.basics", "APPLIES_KNOWLEDGE")],
     )
     records = await backend.execute_query(result.query, result.params)
-    prereq_map = {r["uid"]: r["has_relationships"] for r in records}
     ```
 
     **Batch Relationship Building:**
@@ -116,116 +105,6 @@ class BatchCypherBuilder:
     # ========================================================================
     # BATCH QUERY BUILDERS
     # ========================================================================
-
-    @staticmethod
-    def build_relationship_exists_query(
-        node_label: str,
-        relationship_types: list[str],
-        direction: Literal["incoming", "outgoing", "both"] = "outgoing",
-        uids: list[str] | None = None,
-    ) -> BatchQueryResult:
-        """
-        Generate UNWIND query to check relationship existence for multiple entities.
-
-        **PERFORMANCE OPTIMIZATION:**
-        Eliminates N sequential existence checks by processing multiple entities
-        in a single database round trip using UNWIND.
-
-        Args:
-            node_label: Neo4j node label (e.g., "Task", "Goal", "Habit")
-            relationship_types: List of relationship types to check
-            direction: Traversal direction ("outgoing", "incoming", or "both")
-            uids: Optional list of UIDs to check (passed as parameter at runtime)
-
-        Returns:
-            BatchQueryResult with query and params ready for execution
-
-        Result Format:
-            [{"uid": "task:1", "has_relationships": True}, ...]
-
-        Examples:
-            # Batch check prerequisites for 100 tasks
-            result = BatchCypherBuilder.build_relationship_exists_query(
-                node_label="Task",
-                relationship_types=["REQUIRES_KNOWLEDGE", "REQUIRES_PREREQUISITE"],
-                direction="outgoing"
-            )
-            records = await backend.execute_query(result.query, {"uids": task_uids})
-            # Returns: [{"uid": "task:1", "has_relationships": True}, ...]
-
-            # Batch check if goals have habit support
-            result = BatchCypherBuilder.build_relationship_exists_query(
-                node_label="Goal",
-                relationship_types=["REQUIRES_HABIT"],
-                direction="outgoing"
-            )
-        """
-        pattern = _build_match_pattern(direction)
-
-        query = f"""
-        UNWIND $uids as uid
-        MATCH (n:{node_label} {{uid: uid}})
-        OPTIONAL MATCH {pattern}
-        WHERE type(r) IN $relationship_types
-        WITH uid, count(r) as rel_count
-        RETURN uid, rel_count > 0 as has_relationships
-        """
-
-        return BatchQueryResult(
-            query=query.strip(),
-            params={"uids": uids or [], "relationship_types": relationship_types},
-        )
-
-    @staticmethod
-    def build_relationship_count_query(
-        node_label: str,
-        relationship_types: list[str],
-        direction: Literal["incoming", "outgoing", "both"] = "outgoing",
-        uids: list[str] | None = None,
-    ) -> BatchQueryResult:
-        """
-        Generate UNWIND query to count relationships for multiple entities.
-
-        Similar to build_relationship_exists_query() but returns actual counts
-        instead of boolean existence.
-
-        Args:
-            node_label: Neo4j node label (e.g., "Task", "Goal", "Habit")
-            relationship_types: List of relationship types to count
-            direction: Traversal direction ("outgoing", "incoming", or "both")
-            uids: Optional list of UIDs to check (passed as parameter at runtime)
-
-        Returns:
-            BatchQueryResult with query and params ready for execution
-
-        Result Format:
-            [{"uid": "task:1", "count": 5}, ...]
-
-        Examples:
-            # Batch count prerequisites for 100 tasks
-            result = BatchCypherBuilder.build_relationship_count_query(
-                node_label="Task",
-                relationship_types=["REQUIRES_KNOWLEDGE", "DEPENDS_ON"],
-                direction="outgoing"
-            )
-            records = await backend.execute_query(result.query, {"uids": task_uids})
-            count_map = {r["uid"]: r["count"] for r in records}
-        """
-        pattern = _build_match_pattern(direction)
-
-        query = f"""
-        UNWIND $uids as uid
-        MATCH (n:{node_label} {{uid: uid}})
-        OPTIONAL MATCH {pattern}
-        WHERE type(r) IN $relationship_types
-        WITH uid, count(r) as rel_count
-        RETURN uid, rel_count as count
-        """
-
-        return BatchQueryResult(
-            query=query.strip(),
-            params={"uids": uids or [], "relationship_types": relationship_types},
-        )
 
     @staticmethod
     def build_relationship_properties_query(
@@ -395,184 +274,6 @@ class BatchCypherBuilder:
             results["both"] = BatchQueryResult(query=query.strip(), params={"pairs": pairs_data})
 
         return results
-
-    # ========================================================================
-    # BATCH QUERY BUILDERS WITH PROPERTY FILTERS
-    # ========================================================================
-
-    @staticmethod
-    def build_relationship_exists_with_filters_query(
-        node_label: str,
-        relationship_types: list[str],
-        direction: Literal["incoming", "outgoing", "both"] = "outgoing",
-        property_filters: dict[str, Any] | None = None,
-        uids: list[str] | None = None,
-    ) -> BatchQueryResult:
-        """
-        Generate UNWIND query to check relationship existence with property filtering.
-
-        Enhanced version of build_relationship_exists_query() that supports
-        filtering relationships by their properties (e.g., confidence, strength).
-
-        Args:
-            node_label: Neo4j node label (e.g., "Entity", "Task")
-            relationship_types: List of relationship types to check
-            direction: Traversal direction ("outgoing", "incoming", or "both")
-            property_filters: Optional filters for relationship properties
-                            Format: {"property_name__operator": value}
-                            Operators: gte, lte, gt, lt, eq, ne
-                            Example: {"strength__gte": 0.8, "confidence__gt": 0.7}
-            uids: Optional list of UIDs to check (passed as parameter at runtime)
-
-        Returns:
-            BatchQueryResult with query and params ready for execution
-
-        Result Format:
-            [{"uid": "ku:1", "has_relationships": True}, ...]
-
-        Examples:
-            # Find knowledge units with high-confidence prerequisites
-            result = BatchCypherBuilder.build_relationship_exists_with_filters_query(
-                node_label="Entity",
-                relationship_types=["REQUIRES_KNOWLEDGE"],
-                direction="outgoing",
-                property_filters={"strength__gte": 0.8}
-            )
-            records = await backend.execute_query(result.query, {"uids": ku_uids})
-
-            # Find tasks with critical knowledge requirements
-            result = BatchCypherBuilder.build_relationship_exists_with_filters_query(
-                node_label="Task",
-                relationship_types=["REQUIRES_KNOWLEDGE"],
-                direction="outgoing",
-                property_filters={"knowledge_score_required__gte": 0.7}
-            )
-
-        Use Cases:
-            - Knowledge graphs: Filter by relationship confidence/strength
-            - Task prioritization: Find tasks requiring high mastery
-            - Learning paths: Filter by prerequisite strength
-            - Quality control: Only consider high-confidence relationships
-        """
-        # Validate direction
-        if direction not in ("outgoing", "incoming", "both"):
-            raise ValueError(
-                f"Invalid direction: {direction}. Valid options: outgoing, incoming, both"
-            )
-
-        pattern = _build_match_pattern(direction)
-
-        # Build WHERE clause with type and property filters
-        where_clauses = ["type(r) IN $relationship_types"]
-        params: dict[str, Any] = {
-            "uids": uids or [],
-            "relationship_types": relationship_types,
-        }
-
-        # Parse and add property filters
-        filter_clauses, filter_params = _parse_property_filters(property_filters)
-        where_clauses.extend(filter_clauses)
-        params.update(filter_params)
-
-        where_clause = " AND ".join(where_clauses)
-
-        query = f"""
-        UNWIND $uids as uid
-        MATCH (n:{node_label} {{uid: uid}})
-        OPTIONAL MATCH {pattern}
-        WHERE {where_clause}
-        WITH uid, count(r) as rel_count
-        RETURN uid, rel_count > 0 as has_relationships
-        """
-
-        return BatchQueryResult(query=query.strip(), params=params)
-
-    @staticmethod
-    def build_get_related_with_filters_query(
-        node_label: str,
-        relationship_types: list[str],
-        direction: Literal["incoming", "outgoing", "both"] = "outgoing",
-        property_filters: dict[str, Any] | None = None,
-        limit_per_node: int = 100,
-        uids: list[str] | None = None,
-    ) -> BatchQueryResult:
-        """
-        Generate UNWIND query to get related entity UIDs with property filtering.
-
-        Batch query that returns lists of related entity UIDs for multiple source nodes,
-        with optional filtering by relationship properties.
-
-        Args:
-            node_label: Neo4j node label (e.g., "Entity", "Task")
-            relationship_types: List of relationship types to traverse
-            direction: Traversal direction ("outgoing", "incoming", or "both")
-            property_filters: Optional filters for relationship properties
-            limit_per_node: Maximum related entities to return per source node
-            uids: Optional list of UIDs to query (passed as parameter at runtime)
-
-        Returns:
-            BatchQueryResult with query and params ready for execution
-
-        Result Format:
-            [{"uid": "ku:python", "related_uids": ["ku:basics", "ku:functions"]}, ...]
-
-        Examples:
-            # Get high-strength prerequisites for multiple knowledge units
-            result = BatchCypherBuilder.build_get_related_with_filters_query(
-                node_label="Entity",
-                relationship_types=["REQUIRES_KNOWLEDGE"],
-                direction="outgoing",
-                property_filters={"strength__gte": 0.8},
-                limit_per_node=50
-            )
-            records = await backend.execute_query(result.query, {"uids": ku_uids})
-
-            # Get tasks with high knowledge requirements
-            result = BatchCypherBuilder.build_get_related_with_filters_query(
-                node_label="Task",
-                relationship_types=["REQUIRES_KNOWLEDGE"],
-                direction="outgoing",
-                property_filters={"knowledge_score_required__gte": 0.7}
-            )
-
-        Use Cases:
-            - Knowledge graphs: Get strong prerequisites for learning paths
-            - Dependency analysis: Find critical dependencies
-            - Recommendation systems: Filter by relationship quality
-        """
-        # Validate direction
-        if direction not in ("outgoing", "incoming", "both"):
-            raise ValueError(
-                f"Invalid direction: {direction}. Valid options: outgoing, incoming, both"
-            )
-
-        pattern = _build_match_pattern(direction)
-
-        # Build WHERE clause
-        where_clauses = ["type(r) IN $relationship_types"]
-        params: dict[str, Any] = {
-            "uids": uids or [],
-            "relationship_types": relationship_types,
-            "limit_per_node": limit_per_node,
-        }
-
-        # Parse and add property filters
-        filter_clauses, filter_params = _parse_property_filters(property_filters)
-        where_clauses.extend(filter_clauses)
-        params.update(filter_params)
-
-        where_clause = " AND ".join(where_clauses)
-
-        query = f"""
-        UNWIND $uids as uid
-        MATCH (n:{node_label} {{uid: uid}})
-        OPTIONAL MATCH {pattern}
-        WHERE {where_clause}
-        WITH uid, collect(related.uid)[0..$limit_per_node] as related_uids
-        RETURN uid, related_uids
-        """
-
-        return BatchQueryResult(query=query.strip(), params=params)
 
     # ========================================================================
     # BATCH RELATIONSHIP CREATION (Pure Cypher)
@@ -787,80 +488,3 @@ class BatchCypherBuilder:
                 )
 
         return relationships
-
-
-# ============================================================================
-# PRIVATE HELPER FUNCTIONS
-# ============================================================================
-
-
-def _build_match_pattern(direction: str) -> str:
-    """
-    Build Neo4j OPTIONAL MATCH pattern for direction.
-
-    Used in batch queries where we match nodes with uid variable.
-
-    Args:
-        direction: "incoming", "outgoing", or "both"
-
-    Returns:
-        Full OPTIONAL MATCH pattern like "(n)-[r]->(related)"
-    """
-    return f"(n){direction_clause(direction)}(related)"
-
-
-# Operator mapping for property filters
-_FILTER_OP_MAP = {
-    "gte": ">=",
-    "lte": "<=",
-    "gt": ">",
-    "lt": "<",
-    "eq": "=",
-    "ne": "<>",
-}
-
-
-def _parse_property_filters(
-    property_filters: dict[str, Any] | None,
-) -> tuple[list[str], dict[str, Any]]:
-    """
-    Parse property filters into WHERE clauses and parameters.
-
-    Args:
-        property_filters: Dict of {property__operator: value} filters
-            Operators: gte, lte, gt, lt, eq, ne
-
-    Returns:
-        Tuple of (where_clauses, params)
-        - where_clauses: List of SQL-like conditions (e.g., "r.strength >= $filter_strength")
-        - params: Dict of parameter values (e.g., {"filter_strength": 0.8})
-
-    Example:
-        filters = {"strength__gte": 0.8, "confidence__gt": 0.7}
-        clauses, params = _parse_property_filters(filters)
-        # clauses = ["r.strength >= $filter_strength", "r.confidence > $filter_confidence"]
-        # params = {"filter_strength": 0.8, "filter_confidence": 0.7}
-    """
-    where_clauses: list[str] = []
-    params: dict[str, Any] = {}
-
-    if not property_filters:
-        return where_clauses, params
-
-    for filter_expr, value in property_filters.items():
-        # Parse filter expression (e.g., "strength__gte" -> property="strength", op="gte")
-        if "__" in filter_expr:
-            property_name, operator = filter_expr.rsplit("__", 1)
-        else:
-            property_name = filter_expr
-            operator = "eq"
-
-        if operator not in _FILTER_OP_MAP:
-            raise ValueError(f"Invalid operator: {operator}. Valid: {list(_FILTER_OP_MAP.keys())}")
-
-        # Add property filter to WHERE clause
-        param_name = f"filter_{property_name}"
-        where_clauses.append(f"r.{property_name} {_FILTER_OP_MAP[operator]} ${param_name}")
-        params[param_name] = value
-
-    return where_clauses, params

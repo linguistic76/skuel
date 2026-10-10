@@ -1259,8 +1259,9 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
   - `list_steps_raw`'s `order_field` is an expression composed in core (`s.{order_by}`),
     under the field-name ruling (`field-name-guarding-in-cypher.md`). Only `s.sequence`
     reaches it. A caller that passed an instant field would order raw.
-  - `batch_cypher_builder`'s `_FILTER_OP_MAP` has no caller, and a relationship property
-    has no model for the type rule. (`intelligence_queries`' relationship-property filter,
+  - `batch_cypher_builder`'s `_FILTER_OP_MAP` had no caller (since deleted with its
+    builders in the G13 batch-builders PR), and a relationship property has no model for
+    the type rule. (`intelligence_queries`' relationship-property filter,
     censused beside it, was deleted with its module on the batch-6 ruling.)
   - The two `UserEntry.updated_at` readers (`_exercise_status_tail`'s living entry and
     `get_vault_notes_for_context`) are coerced, but have no mixed-shape test. The column's
