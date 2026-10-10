@@ -168,7 +168,8 @@ The staged **read** side is the trio in `query/cypher/semantic_queries.py` —
 `build_prerequisite_chain`, `build_semantic_traversal`, `build_hierarchical_context` — kept with
 no production caller by design (ruled 2026-10-10) as Phase 4's readers; unit-tested
 (`test_cypher_builders.py`, `test_semantic_neo4j_name_drift.py`) and invisible to `./dev bloat`
-(functions, not methods). The single-entity builders beside them in `relationship_queries.py`,
+(functions, not methods). The single-entity builders of the former `relationship_queries.py`
+(the module itself left with its four `build_batch_*` wrappers in the G13 batch-builders PR),
 the `SemanticSimilarityQueries` / `ProgressiveLearningQueries` modules (ranking by
 `semantic_distance` / `difficulty_gap`, which no door writes), `find_path` and
 `create_user_relationships` were deleted as caller-less in the G13 dead-builders PR (#1524).
