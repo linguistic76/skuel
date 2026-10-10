@@ -31,6 +31,8 @@ services.context_intelligence = factory
 
 # At runtime (UserService) — the hub needs the RICH context
 context_result = await user_service.get_rich_unified_context(user_uid)
+if context_result.is_error:
+    return Result.fail(context_result)
 intelligence = factory.create(context_result.value)
 plan = await intelligence.get_ready_to_work_on_today()
 ```
@@ -89,6 +91,8 @@ class UserContextIntelligenceFactory:
 
     # At runtime (UserService) — the hub needs the RICH context
     context_result = await user_service.get_rich_unified_context(user_uid)
+    if context_result.is_error:
+        return Result.fail(context_result)
     intelligence = factory.create(context_result.value)
     plan = await intelligence.get_ready_to_work_on_today()
     ```
