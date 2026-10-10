@@ -82,7 +82,8 @@ class TestCreateWithSemanticRelationships:
         # Mock repo.get to return refreshed KU
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
 
-        # Mock backend method
+        # Mock backend methods
+        service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
         service.repo.create_semantic_relationship = AsyncMock(
             return_value=Result.ok([{"semantic_type": "learn:requires_theoretical_understanding"}])
         )
@@ -124,8 +125,35 @@ class TestCreateWithSemanticRelationships:
         assert not result.is_ok
 
     @pytest.mark.asyncio
-    async def test_create_refuses_a_triple_whose_endpoint_is_absent(self, service):
-        """The backend returns no row when an endpoint names nothing; that is not found."""
+    async def test_create_refuses_before_writing_when_an_endpoint_is_absent(self, service):
+        """An absent object endpoint is refused before the step is created — nothing commits."""
+        service.repo.entity_exists = AsyncMock(return_value=Result.ok(False))
+        service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
+        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
+
+        result = await service.create_with_semantic_relationships(
+            ku_data={"title": "New Unit", "content": "Test content", "domain": "tech"},
+            relationships=[
+                SemanticTriple(
+                    subject="ku.placeholder",
+                    predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
+                    object="ku.absent",
+                    metadata=RelationshipMetadata(confidence=0.9),
+                )
+            ],
+        )
+
+        error = result.expect_error()
+        assert error.category == ErrorCategory.NOT_FOUND
+        assert error.details["identifier"] == "ku.absent"
+        service.repo.entity_exists.assert_awaited_once_with("ku.absent")
+        service.repo.create.assert_not_called()
+        service.repo.create_semantic_relationship.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_create_refuses_a_triple_whose_endpoint_vanished_after_the_check(self, service):
+        """The writer's empty row (an endpoint gone since the check) is still a refusal."""
+        service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
         service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
         service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
@@ -250,7 +278,8 @@ class TestRelationshipManagement:
         # Mock both units exist
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto()))
 
-        # Mock backend method
+        # Mock backend methods
+        service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
         service.repo.create_semantic_relationship = AsyncMock(
             return_value=Result.ok([{"semantic_type": "learn:requires_theoretical_understanding"}])
         )

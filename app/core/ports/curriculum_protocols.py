@@ -1516,10 +1516,6 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
         """Persist a path node (+ User edge), its step nodes, and PS→KU edges."""
         ...
 
-    async def entity_exists(self, uid: str) -> Result[bool]:
-        """Check whether an :Entity node with the given UID exists."""
-        ...
-
     # =========================================================================
     # STEP NAVIGATION
     # =========================================================================

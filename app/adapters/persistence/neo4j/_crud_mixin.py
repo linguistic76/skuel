@@ -255,6 +255,20 @@ class _CrudMixin[T: DomainModelProtocol]:
             failure_message=f"Failed to create {self.label} or locate template {template_uid}",
         )
 
+    @safe_backend_operation("entity_exists")
+    async def entity_exists(self, uid: str) -> Result[bool]:
+        """Whether an ``:Entity`` node carries this uid, whatever its domain label.
+
+        The universal base label is the anchor, so a Ku's ``:Content`` shadow
+        never answers for it (G13), and a uid of another domain than this
+        backend's still counts — the far end of a cross-domain link is checked
+        through whichever backend holds the writer.
+        """
+        record = await self._run_single(
+            "MATCH (e:Entity {uid: $uid}) RETURN e.uid AS uid LIMIT 1", {"uid": uid}
+        )
+        return Result.ok(record is not None)
+
     @safe_backend_operation("get")
     async def get(self, uid: str) -> Result[T | None]:
         """

@@ -99,7 +99,7 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | `update_path_properties(set_clauses, params)` | Dynamic SET update |
 | `delete_path_cascade(uid)` | Cascade delete LP + step nodes |
 | `persist_path_with_steps(user_uid, path_params, steps_params)` | Create LP node (`:Entity:LearningPath`) + User relationship + step nodes (`:Entity:PathStep`) + PS→KU `USES_KU` edges from each step's `knowledge_uids` |
-| `entity_exists(uid)` | Simple existence check |
+| `entity_exists(uid)` | An `:Entity` carries the uid — the universal CRUD primitive (`_CrudMixin`, every backend), the step check reads it here |
 | `get_steps_raw(path_uid, depth)` | Ordered steps as raw dicts |
 | `add_step_to_path(path_uid, step_uid, sequence, order)` | HAS_STEP creation (idempotent) |
 | `remove_step_from_path(path_uid, step_uid)` | HAS_STEP removal + reorder |

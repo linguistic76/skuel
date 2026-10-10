@@ -70,7 +70,19 @@ class PsSemanticService:
         Returns:
             Result containing created CurriculumDTO with relationships
         """
-        # First, create the path step
+        # Every object endpoint must exist BEFORE the step is written: the step
+        # and its triples are separate statements, so a refusal after the create
+        # would leave the step committed without the link it was created with.
+        for object_uid in dict.fromkeys(triple.object for triple in relationships):
+            exists = await self.repo.entity_exists(object_uid)
+            if exists.is_error:
+                return Result.fail(exists)
+            if not exists.value:
+                return Result.fail(
+                    Errors.not_found("Entity", object_uid, reason="semantic triple endpoint absent")
+                )
+
+        # Then create the path step
         create_result = await self.repo.create(ku_data)
         if not create_result.is_ok or not create_result.value:
             return Result.fail(
@@ -118,6 +130,8 @@ class PsSemanticService:
         The backend merges only the edge, between two endpoints it binds as
         entities; it returns no row when either endpoint names nothing. That
         empty result is a not-found here — the triple is never half-written.
+        The caller checks every endpoint before the step is created; this is
+        the backstop for an endpoint deleted between that check and the write.
 
         Args:
             triple: Semantic triple to create
