@@ -287,10 +287,11 @@ Activity Domain Facades (6 total)
 │      event_handler, intelligence, knowledge_intelligence, ai, patterns
 │   └─ mixins: _AdherenceReadsMixin, _CompletionMixin, _EnrichmentMixin, _OrchestrationMixin
 │
-├─ EventsService     (10 sub-services)
-│   └─ core, search, progress, scheduling, learning, habit_integration, event_handler, intelligence, knowledge_intelligence, ai
+├─ EventsService     (10 sub-services + 2 facade mixins)
+│   └─ core, search, progress, scheduling, learning, habits, event_handler, intelligence, knowledge_intelligence, ai
+│   └─ mixins: _OrchestrationMixin, _SchedulingMixin
 │
-├─ ChoicesService    (7 sub-services + 2 facade mixins)
+├─ ChoicesService    (7 sub-services + 1 facade mixin)
 │   └─ core, search, learning, intelligence, event_handler, knowledge_intelligence, ai
 │   └─ mixins: _OptionManagementMixin
 │

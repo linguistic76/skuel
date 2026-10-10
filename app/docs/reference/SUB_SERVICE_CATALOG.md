@@ -618,23 +618,23 @@ config includes a learning class; singleton is passed in).
 
 | Domain | Sub-services | Facade Mixins | Common (factory) | Domain-Specific |
 |--------|-------------|---------------|-----------------|-----------------|
-| Tasks | 10 | 2 | 7 (core, search, rels, intel, event_handler, learning, knowledge_intelligence) | progress, scheduling, planning |
-| Goals | 10 | 2 | 7 | progress, scheduling, planning |
-| Habits | 12 | 3 | 7 | progress, scheduling, planning, completions, patterns |
-| Events | 10 | 0 | 7 | progress, scheduling, habit_integration |
-| Choices | 7 | 3 | 7 | — |
-| Principles | 10 | 3 | 7 | alignment, planning, reflection |
+| Tasks | 10 | 1 | 7 (core, search, rels, intel, event_handler, learning, knowledge_intelligence) | progress, scheduling, planning |
+| Goals | 10 | 1 | 7 | progress, scheduling, planning |
+| Habits | 12 | 4 | 7 | progress, scheduling, planning, completions, patterns |
+| Events | 10 | 2 | 7 | progress, scheduling, habits |
+| Choices | 7 | 1 | 7 | — |
+| Principles | 10 | 3 | 7 | alignment, planning |
 
 **Facade Mixins:** Tasks (1: `_OrchestrationMixin`), Goals (1: `_OrchestrationMixin`), Habits (4: `_AdherenceReadsMixin`, `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Events (2: `_OrchestrationMixin`, `_SchedulingMixin`), Choices (1: `_OptionManagementMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). `_RelationshipMixin` was inlined back into Goals, Tasks, and Choices — it was a thin single-consumer delegation slice. Graph link methods now live directly on the facade.
 
-**Common (all 6 domains, uniform):** core, search, relationships, intelligence, event_handler, learning, knowledge_intelligence — factory-created, always the same seven. The shared shape is the contract for interconnectivity (see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization").
+**Common (all 6 domains, uniform):** core, search, relationships, intelligence, event_handler, learning, knowledge_intelligence — always the same seven slots; `create_common_sub_services()` fills `search`, `relationships`, `event_handler` and `learning` for every domain, `core` for all but Tasks, and `intelligence` for Principles alone (the others build theirs in the facade — `SERVICE_CONSOLIDATION_PATTERNS.md` § Foundational). The shared shape is the contract for interconnectivity (see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization").
 
 Habits has one event service: `HabitEventHandlerService` (reactive fire-and-forget, auto-wired by
 factory as `self.event_handler`). Event scheduling intelligence (recurrence logic, UserContext lookups)
 lives on `HabitsIntelligenceService` as `get_event_uids_for_habit()` and `schedule_events_for_habit()`.
 
-**Most Complex:** Habits (13 sub-services + 3 facade mixins)
-**Simplest:** Choices (7 sub-services + 3 facade mixins)
+**Most Complex:** Habits (13 sub-services + 4 facade mixins)
+**Simplest:** Choices (7 sub-services + 1 facade mixin)
 
 ---
 
