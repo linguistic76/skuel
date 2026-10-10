@@ -301,7 +301,7 @@ def create_learning_loop_detail_routes(
             return _application_error(uid, answer)
         return render_ku_application_opportunities(answer.value, rich_entity_titles(context))
 
-    def _application_error(uid: str, failed: Result[Any]) -> FT:
+    def _application_error[T](uid: str, failed: Result[T]) -> FT:
         error = failed.expect_error()
         logger.error("Where you can apply %s: %s", uid, error.message)
         return render_ku_application_error(error.display_message)
