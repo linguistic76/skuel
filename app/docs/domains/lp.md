@@ -63,7 +63,7 @@ await lp_service.search.search(query)
 await lp_service.relationships.get_related_uids("steps", path_uid)
 await lp_service.intelligence.analyze_learning_state(user_context)
 await lp_service.intelligence.validate_path_prerequisites(path_uid)
-await lp_service.intelligence.get_next_adaptive_step(path_uid, user_uid)
+await lp_service.intelligence.get_next_adaptive_step(step_uid, user_uid)  # staged
 ```
 
 ## BaseService Inheritance
@@ -228,9 +228,13 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 | **Analysis** | `identify_practice_gaps(path_uid)` | `Result[LpPracticeGapAnalysis]` | Per-step practice completeness via `PsIntelligenceService`; the path-level mean feeds `practice_coverage` into the scope summary |
 | **Adaptive** | `find_learning_sequence(start_uid, goal_uid)` | `Result[list[str]]` | Optimal step sequence (→ LpBackend) |
 | **Adaptive** | `get_next_adaptive_step(step_uid, user_uid)` | `Result[str\|None]` | Best next step (→ LpBackend) |
-| **Adaptive** | `get_recommended_path_steps(user_uid)` | `Result[list[LpRecommendedStep]]` | Daily "what to learn" (→ LpBackend) |
+| **Adaptive** | `get_recommended_path_steps(user_uid)` | `Result[list[LpRecommendedStep]]` | Recommended next steps by progress (→ LpBackend) |
 | **State** | `analyze_learning_state(context)` | `Result[LearningAnalysis]` | Comprehensive state analysis |
 | **Content** | `recommend_content(context, pool)` | `Result[list]` | Content recommendations |
+
+The three **Adaptive** reads are staged: no surface calls them, and they rank by
+`ENABLES_KNOWLEDGE` / `REQUIRES_KNOWLEDGE` edge weights that no live edge carries, so every
+weight is a constant default today. See [LP Adaptive Reads Await an Edge-Weight Writer](../roadmap/lp-adaptive-reads.md).
 
 ## MEGA-QUERY Sections
 

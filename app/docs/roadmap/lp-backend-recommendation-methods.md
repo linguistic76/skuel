@@ -1,6 +1,6 @@
 ---
 title: "LP intelligence: two backend methods that were never built"
-updated: 2026-09-05
+updated: 2026-10-10
 status: "ruled build, not now"
 registered: 2026-08-20
 ruled: 2026-08-20
@@ -97,8 +97,10 @@ ZPD never names a LearningPath:
   guaranteed by completion.
 - Step-grain, state-keyed recommendation is live and real:
   `UserContextIntelligence.get_optimal_next_path_steps()` (ZPD as primary
-  signal) and `LpIntelligenceService.get_recommended_path_steps()`
-  (backend-implemented with typed rows — NOT a phantom).
+  signal, the Insights hub card). `LpIntelligenceService.get_recommended_path_steps()` is
+  backend-implemented with typed rows — NOT a phantom — but no surface calls it
+  and its edge weights are constant defaults: staged, see
+  [lp-adaptive-reads.md](lp-adaptive-reads.md).
 - Whole-LP ranking exists, live, on a different key:
   `LifePathVisionService.recommend_learning_paths(themes)` — reachable via
   `POST /api/lifepath/vision` → `LifePathService.capture_and_recommend` —

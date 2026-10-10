@@ -231,6 +231,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Priority Scoring — the Ranking No Route Asks For](priority-scoring-consumer.md) — The six Activity scorers, the eight `get_prioritized` methods and `PsSearchService.get_standalone_steps` are reached by no production path — no search route hands the router the `user_context` that would score its results; staged 2026-10-10, waiting on the first surface that ranks a user's activities for them.
 
+## LP Adaptive Reads Await an Edge-Weight Writer
+
+[LP Adaptive Reads Await an Edge-Weight Writer](lp-adaptive-reads.md) — The three LP intelligence reads that rank knowledge by `ENABLES_KNOWLEDGE` / `REQUIRES_KNOWLEDGE` edge weights (learning sequence, next adaptive step, recommended steps) reach no production surface and weigh fields no live edge carries (three of the five have no writer at all), so every weight is its `coalesce` default; staged 2026-10-10, waiting on a writer for the edge fields.
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. The sections ARE the checklist:

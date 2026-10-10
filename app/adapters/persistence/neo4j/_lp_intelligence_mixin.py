@@ -380,7 +380,14 @@ class _LpIntelligenceMixin:
     async def find_learning_sequence(
         self, start_uid: str, goal_uid: str
     ) -> Result[list[dict[str, Any]]]:
-        """Find optimal learning path from start to goal using graph traversal."""
+        """Find optimal learning path from start to goal using graph traversal.
+
+        The ``coalesce(r.typical_learning_order, 999)`` default is a constant on
+        today's graph — no door writes the field. The ``ORDER BY`` would not
+        reorder the result even with one: it sorts one row per edge of a single
+        shortest path, and every row returns the same node list. Staged; see
+        docs/roadmap/lp-adaptive-reads.md.
+        """
         query = """
         MATCH path = shortestPath(
             (start:Entity {uid: $start_uid})-[:ENABLES_KNOWLEDGE|REQUIRES_KNOWLEDGE*]-(goal:Entity {uid: $goal_uid})
@@ -404,6 +411,12 @@ class _LpIntelligenceMixin:
         A prerequisite counts as complete when the user has MASTERED it. See
         UserProgressBackend.calculate_knowledge_coverage for why this is edge
         existence rather than ADR-002's never-built `mastery_level >= 0.7`.
+
+        The ``coalesce`` defaults on ``r.confidence`` (1.0), ``r.strength`` (1.0)
+        and ``r.difficulty_gap`` (0.3) are constants on today's graph — no live
+        ``ENABLES_KNOWLEDGE`` edge carries the fields — so every candidate scores
+        the same and ``LIMIT 1`` breaks the tie. Staged; see
+        docs/roadmap/lp-adaptive-reads.md.
         """
         query = """
         MATCH (current:Entity {uid: $current_uid})-[r:ENABLES_KNOWLEDGE]->(next:Entity)
@@ -452,7 +465,16 @@ class _LpIntelligenceMixin:
     async def get_recommended_path_steps(
         self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
     ) -> Result[list[dict[str, Any]]]:
-        """Get recommended path steps for a user based on their progress."""
+        """Get recommended path steps for a user based on their progress.
+
+        The ``coalesce`` defaults on ``r.confidence`` (1.0), ``r.strength`` (1.0),
+        ``r.difficulty_gap`` (0.3) and ``r.semantic_distance`` (0.5) are
+        constants on today's graph — no live ``ENABLES_KNOWLEDGE`` edge carries
+        the fields — so every returned weight is its default, and the
+        difficulty filter excludes no candidate at ``max_difficulty`` >= 0.3
+        and every candidate below it.
+        Staged; see docs/roadmap/lp-adaptive-reads.md.
+        """
         # Discovery: forward enablement from mastered knowledge to steps the
         # user has NOT started — a recommendation, so draft steps are withheld.
         # Same ruling as the ZPD proximal zone. NULL-tolerant (#1006).

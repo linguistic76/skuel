@@ -240,7 +240,7 @@ ku_service.intelligence.get_usage_summary(ku_uid)
 
 # LP — 5 sub-services + optional ai (specialized Cypher on LpBackend)
 lp_service.intelligence.validate_path_prerequisites(lp_uid)
-lp_service.intelligence.get_next_adaptive_step(step_uid, user_uid)
+lp_service.intelligence.get_next_adaptive_step(step_uid, user_uid)  # staged: docs/roadmap/lp-adaptive-reads.md
 
 # LP Facade aggregation
 lp_service.get_dashboard_summary(user_uid, user_progress)
