@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-10-04
+updated: 2026-10-10
 status: current
 category: domains
 tags:
@@ -47,7 +47,7 @@ LpService coordinates 5 sub-services:
 ```python
 from core.services.lp_service import LpService
 
-# In services_bootstrap.py
+# In services_bootstrap/compose.py
 lp_service = LpService(
     backend=lp_backend,
     ps_service=ps_service,           # REQUIRED - for step operations

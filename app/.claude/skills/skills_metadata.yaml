@@ -537,7 +537,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-10-02"
+    last_reviewed: "2026-10-09"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library

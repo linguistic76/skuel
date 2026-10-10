@@ -48,22 +48,22 @@ factory's `_required_services` dict.
 |---|--------|-------|---------|-------|
 | 1 | `get_optimal_next_path_steps(max_steps=5, consider_goals=True, consider_capacity=True)` | Learning | `Result[list[PathStep]]` | `zpd_service`, `vector_search`, `ps`, `tasks`, context |
 | 2 | `get_learning_path_critical_path()` | Learning | `Result[list[str]]` | context only |
-| 3 | `get_knowledge_application_opportunities(ku_uid)` | Learning | `Result[dict[str, list[str]]]` | `tasks`, context |
+| 3 | `get_knowledge_application_opportunities(ku_uid)` | Learning | `Result[dict[str, list[str]]]` | context only (the context's own link maps) |
 | 4 | `get_unblocking_priority_order()` | Learning | `Result[list[tuple[str, int]]]` | context only |
-| 5 | **`get_ready_to_work_on_today(prioritize_life_path=True, respect_capacity=True)`** | DailyPlanning | `Result[DailyWorkPlan]` | six Activity facades, `ps`, `exercises`, `vector_search`, `filtered_providers`, context |
+| 5 | **`get_ready_to_work_on_today(prioritize_life_path=True, respect_capacity=True)`** | DailyPlanning | `Result[DailyWorkPlan]` | six Activity facades, `ps`, `exercises`, `report`, `vector_search`, `filtered_providers`, context |
 | 6 | `get_cross_domain_synergies(min_synergy_score=0.3, include_types=None)` | Synergy | `Result[list[CrossDomainSynergy]]` | context only |
 | 7 | `calculate_life_path_alignment()` | LifePath | `Result[LifePathAlignment]` | context only |
-| 8 | `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8, respect_energy=True)` | Schedule | `Result[list[ScheduleAwareRecommendation]]` — always ok (fail-soft: fewer candidates, never an error) | context only |
+| 8 | `get_schedule_aware_recommendations(max_recommendations=5, time_horizon_hours=8, respect_energy=True)` | Schedule | `Result[list[ScheduleAwareRecommendation]]` — fail-soft on candidates; a failed calendar read is its one error | `calendar` (`event_items_in_range`), context |
 | 9 | `get_cross_domain_perception_analysis()` | Perception | `Result[PerceptionAnalysis]` | `goals` / `habits` / `principles` backends, context |
 
 The flags on method 1 mean one thing whichever of its four sources answers: `consider_goals`
-adds a goal weight to a step's score, `consider_capacity` keeps the steps that fit the day
-together. The context fields they act on have no writer — see
-[MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md).
+adds a goal weight to a step's score (`learning_goals`, written from `goal_type`),
+`consider_capacity` keeps the steps that fit the day together (`context.estimated_minutes`) —
+see [MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md).
 
-Every hub method returns `Result[T]`. Method 8 is a fail-soft read that degrades to fewer
-recommendations, so its `Result` is always ok; `AskesisService.get_schedule_aware_recommendations`
-passes it through unchanged.
+Every hub method returns `Result[T]`. Method 8 degrades to fewer recommendations when a
+candidate source is thin; only a failed calendar read fails it.
+`AskesisService.get_schedule_aware_recommendations` passes the `Result` through unchanged.
 
 `PathStep` here is `core.models.context_types.PathStep` — a frozen recommendation record keyed
 by `ku_uid`. It shares its name with the curriculum entity
@@ -75,14 +75,16 @@ by `ku_uid`. It shares its name with the curriculum entity
 |--------|-------------------|
 | 5 | `/api/context/next-action` → `UserContextService.get_next_action` → `UserService.get_daily_work_plan` → `factory.create(context).get_ready_to_work_on_today()` |
 | 1, 4, 6, 7, 8, 9 | The Insights cards — `GET /insights/hub/{question}` (`adapters/inbound/insights_ui.py`), one `HubQuestion` per method (`learn-next`, `unblock-first`, `synergies`, `alignment`, `right-now`, `perception`), rendered by `ui/insights/hub_cards.py` from the caller's cached rich context. |
-| 1–8 | `AskesisService` wraps each one — the `AskesisOperations` protocol (`core/ports/askesis_protocols.py`). Method 5's wrapper is `get_daily_work_plan`; the other seven carry the hub method's own name. No route calls any of the eight wrappers — the Askesis API registers one route, `/api/askesis/ask`; they are the staged second door (`/docs/roadmap/askesis-intelligence-doors.md`). |
-| 2, 3 | No route yet: the critical path waits on the learning-path walk (`_HUB_CRITICAL_PATH`); method 3's door is the Ku detail page (next F8-6 PR). |
+| 3 | The Ku reading page — `GET /explore/ku/{uid}/apply` (`learning_loop_routes.py`), "Where you can apply this", the same shape as a card: the caller's cached rich context, the hub, one method. |
+| 1–8 | `AskesisService` wraps each one — the `AskesisOperations` protocol (`core/ports/askesis_protocols.py`). Method 5's wrapper is `get_daily_work_plan`; the other seven carry the hub method's own name. No route calls any of the eight wrappers — the Askesis API registers one route, `/api/askesis/ask`; they are the staged second door (`/docs/roadmap/askesis-intelligence-doors.md`, `_ASKESIS_HUB_DOOR`). |
+| 2 | No door: the critical path reads the context only and waits on the learning-path walk (`_HUB_CRITICAL_PATH`, `/docs/roadmap/lp-backend-recommendation-methods.md`). |
 
 So method 5 has two call paths into the hub — `UserService.get_daily_work_plan` and
 `AskesisService.get_daily_work_plan` — and the first is the one a request reaches today. A
-change to a hub method's signature updates its Askesis wrapper and the protocol with it. Treat
-methods 1–4 and 6–9 as a library surface: read the method before building on a claim about what
-it returns.
+change to a hub method's signature updates its Askesis wrapper and the protocol with it. Every
+door makes the same read, `UserService.get_rich_unified_context` (cached five minutes), and
+renders a failed read or answer as the fragment's error line (200, never a 500). Read the method
+before building on a claim about what it returns.
 
 ---
 
@@ -131,7 +133,7 @@ Measured on a standard `UserContext` with a few fields set:
 | Method 6, default `include_types` | Raises at `get_habits_by_goal()` |
 | Method 6, `include_types` limited to `knowledge_task`, `principle_goal`, `goal_learning` or `engagement_completion` | Returns `Result.ok([])` |
 | Method 7, with a life path | Raises — it always reaches a strict accessor; which one comes first depends on the data |
-| Method 8 | Raises at `get_blocked_tasks()` |
+| Method 8 | Raises at `get_blocked_tasks()` (after the calendar read) |
 | Methods 2 and 4 | Return a `Result` |
 
 So a wrong-depth context can produce a plausible answer instead of an error. The type is the
@@ -195,13 +197,13 @@ that is `None`.
 | `principles` | `PrinciplesService` facade | DailyPlanning, Perception |
 | `ps` | `PsService` facade | DailyPlanning, Learning |
 | `exercises` | `ExerciseService` facade | DailyPlanning |
-| `lp` | `LpService.relationships` (`UnifiedRelationshipService`) | no mixin |
+| `lp` | `LpService.relationships` (`UnifiedRelationshipService`) | no mixin — held for method 2's LP walk (`_HUB_CRITICAL_PATH`) |
 | `report` | `ReportRelationshipService` | DailyPlanning (`get_pending_submissions` → `DailyWorkPlan.awaiting_report`, Priority 2.7) |
-| `calendar` | `CalendarService` | no mixin |
+| `calendar` | `CalendarService` | Schedule (`event_items_in_range` — the horizon's committed minutes) |
 
-`lp` and `calendar` are required at construction and stored, and no mixin method reads them.
-Schedule-aware recommendations and life-path alignment are computed from context fields. Do
-not document a method as "using the calendar service" because the attribute exists.
+`lp` is required at construction and stored, and no mixin method reads it yet. Life-path
+alignment (method 7) is computed from context fields alone. Document a service as read by a
+method only when the mixin calls it — the attribute's existence proves nothing.
 
 The Activity facades are passed whole — **not** `.relationships`. The planning methods the
 mixins call (`get_actionable_tasks_for_user`, `get_at_risk_habits_for_user`, …) are facade
@@ -236,9 +238,10 @@ past `context.available_minutes_daily`.
 | 2 Today's events | `events.get_upcoming_events_for_user(context)` | all returned (`limit` defaults to 5) | 30 | no |
 | 2.3 Pending revisions | `exercises.get_pending_revisions_for_user(context)` | all returned (the service's `limit` defaults to 3) | `est_time_minutes` | yes |
 | 2.5 Unsubmitted exercises | `exercises.get_actionable_exercises_for_user(context)` | all returned (same default) | `est_time_minutes` | yes |
+| 2.7 Entries awaiting a report | `report.get_pending_submissions(user_uid, pipelines=Pipeline.awaiting_report())` → `awaiting_report` | all returned | 0 (out of the user's hands) | no |
 | 3 Tasks | `tasks.get_actionable_tasks_for_user(context, limit=5)` | 2 overdue + 3 others | 30 | yes |
 | 4 Daily habits | `context.daily_habits` not already in slot 1 | first 3 | 15 | yes |
-| 5 Learning | see below | up to 3 | `estimated_time_to_mastery`, default 30 | yes |
+| 5 Learning | see below | up to 3 | `context.estimated_minutes(uid, 30)` — a path step in progress answers with its own estimate | yes |
 | 6 Goals | `goals.get_advancing_goals_for_user(context, limit=2)` | all returned | 0 | no |
 | 7 Decisions | `choices.get_pending_decisions_for_user(context)` | 2 with `priority_score >= 0.7` | 0 | no |
 | 8 Principles | `principles.get_aligned_principles_for_user(context)` | first 3 | 0 | no |
@@ -436,6 +439,9 @@ narrower "awareness" protocol over `UserContext`.
 | `core/services/user/intelligence/perception_intelligence.py` | Method 9 |
 | `core/services/user/intelligence/temporal_momentum.py` | Momentum signals |
 | `core/models/context_types.py` | Return types and the `Contextual*` items |
+| `core/models/enums/intelligence_enums.py` | `HubQuestion` — card segment → method number |
+| `adapters/inbound/insights_ui.py`, `ui/insights/hub_cards.py` | The Insights cards — the first door |
+| `adapters/inbound/learning_loop_routes.py` | Method 3's door (`/explore/ku/{uid}/apply`) |
 | `core/services/user/unified_user_context.py` | `UserContext`, `RichUserContext`, `is_rich` |
 | `core/services/user/user_context_builder.py` | `build()` / `build_rich()` |
 | `core/services/user/_context_planning_mixin.py` | `UserService.get_rich_unified_context`, `get_daily_work_plan` |

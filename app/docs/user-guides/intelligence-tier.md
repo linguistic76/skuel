@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-16
+updated: 2026-10-10
 ---
 
 # Intelligence Tier Guide
@@ -32,7 +32,7 @@ If unset, the tier defaults to `full` — existing deployments with API keys kee
 |---------|--------|
 | Create, read, update, delete entities (all entity types) | Yes |
 | 13 analytics intelligence services (BaseAnalyticsService) | Yes |
-| UserContext (~240 fields, MEGA-QUERY) | Yes |
+| UserContext (the MEGA-QUERY snapshot) | Yes |
 | Daily planning ("What should I work on today?") | Yes |
 | Life path alignment scoring | Yes |
 | Keyword search across all domains | Yes |

@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-09-29
+updated: 2026-10-10
 status: current
 category: architecture
 tags:
@@ -422,7 +422,7 @@ direction and the header all describe the stored user after one request.
 The admin user detail page uses `AdminStatsService` (cross-domain aggregation queries) rather than `UserContext` because:
 - **UserContext** is designed for the logged-in user's intelligence ("What should I work on?")
 - **Admin inspection** needs simple counts ("What has this user done?")
-- Dedicated queries are lighter (14 fields vs ~240 in UserContext)
+- Dedicated queries are lighter (14 fields against the whole UserContext snapshot)
 - Queries span User, Activity, Learning, and Session nodes — no single domain backend covers them
 
 ---

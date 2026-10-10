@@ -278,7 +278,7 @@ ZPD is the **capstone computation** of `build_rich()`:
 
 ```python
 # In UserContextBuilder.build_rich():
-# ... all other context fields populated first (~250 fields) ...
+# ... all other context fields populated first ...
 # ZPD runs LAST — it synthesizes everything above
 if zpd_service is not None:
     assessment = await zpd_service.assess_zone(user_uid, context=context)

@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-10-01
+updated: 2026-10-10
 category: intelligence
 status: current
 related_skills:
@@ -497,7 +497,7 @@ from core.services.intelligence import (
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
-| **Askesis** | [ASKESIS_INTELLIGENCE.md](./ASKESIS_INTELLIGENCE.md) | ~1,180 (facade + 5 sub-services) | Life context synthesis, 13-domain recommendations (flagship: `get_daily_work_plan()`) |
+| **Askesis** | [ASKESIS_INTELLIGENCE.md](./ASKESIS_INTELLIGENCE.md) | ~1,180 (facade + 5 sub-services) | Life context synthesis; wraps the hub methods (flagship: `get_daily_work_plan()`) |
 
 **Note:** Askesis uses a custom facade pattern (not `BaseAnalyticsService`) because it synthesizes across all entity types rather than managing a single domain's entities.
 
@@ -684,12 +684,11 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 ### Meta Intelligence
 
 **UserContext:**
-- Central intelligence hub answering "What should I work on next?"
-- 8 flagship methods across 5 mixins
-- **Flagship method:** `get_ready_to_work_on_today()` - Daily planning based on goals, habits, knowledge, schedule
-- Requires 12 domain services (6 Activity + 2 Curriculum + 3 Processing + 1 Temporal)
-- Optional: `filtered_providers` dict (11 `FilteredContextProvider` facades) — consumed by daily planning for domain health warnings (all 6 Activity domains + cross-domain balance checks)
-- Modular package architecture (~3,124 lines)
+- Central intelligence hub answering "What should I work on next?" — the nine hub methods across seven mixins
+- **Flagship method:** `get_ready_to_work_on_today()` - Daily planning based on goals, habits, knowledge, exercises, schedule
+- Requires eleven domain services (6 Activity + 3 Curriculum + 1 Processing + 1 Temporal)
+- Optional: `filtered_providers` dict (the nine `FilteredContextProvider` facades) — consumed by daily planning for domain health warnings (the 6 Activity keys + cross-domain balance checks)
+- Doors: the Insights cards (`GET /insights/hub/{question}`), the Ku page (method 3), `/api/context/next-action` (method 5); Askesis' wrappers are the staged second door
 
 ---
 

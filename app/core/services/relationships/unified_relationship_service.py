@@ -581,7 +581,7 @@ class UnifiedRelationshipService[
     # =========================================================================
     # USER CONTEXT PLANNING METHODS
     # =========================================================================
-    # These methods leverage UserContext (~240 fields) for personalized queries.
+    # These methods leverage UserContext for personalized queries.
 
     @with_error_handling("get_blocked_for_user", error_type="database")
     async def get_blocked_for_user(

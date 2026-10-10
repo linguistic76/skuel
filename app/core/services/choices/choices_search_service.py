@@ -109,7 +109,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         - Impact potential
 
         Args:
-            user_context: User's current context (~240 fields)
+            user_context: User's current context
             limit: Maximum results to return
 
         Returns:

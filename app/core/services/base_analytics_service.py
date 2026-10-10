@@ -5,7 +5,7 @@ Base Analytics Service
 Base class for domain analytics services (graph-based intelligence, no AI dependencies).
 
 Created: January 2026
-Purpose: Separate graph-based analytics from AI-powered features (ADR-030)
+Purpose: Separate graph-based analytics from AI-powered features (ADR-024)
 
 Analytics services contain:
 - Graph context retrieval (get_with_context)
@@ -59,7 +59,7 @@ class BaseAnalyticsService(Generic[B, T]):
     The app can run with just core + analytics (no LLM required).
 
     Class Attributes:
-        _service_name: Override for hierarchical logger name (e.g., "tasks.analytics")
+        _service_name: Override for hierarchical logger name (e.g., "tasks.intelligence")
         _require_relationships: If True, fail if relationships not provided (default: False)
 
     Instance Attributes:
@@ -68,10 +68,11 @@ class BaseAnalyticsService(Generic[B, T]):
         relationships: UnifiedRelationshipService for relationships (optional)
         logger: Logger instance
 
-    Architectural Invariant (enforced via __slots__):
+    Architectural Invariant (enforced by ``__setattr__``; ``__slots__`` names the
+    attributes the base itself holds):
         Analytics services CANNOT have llm or embeddings attributes.
         This prevents accidental AI coupling and ensures the app runs without LLM dependencies.
-        Attempts to set these attributes will raise AttributeError.
+        Attempts to set these attributes raise AttributeError, on subclasses too.
     """
 
     # Architectural constraint: Restrict attributes to prevent AI coupling

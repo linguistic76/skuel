@@ -4,7 +4,7 @@ Tasks Planning Service - Context-First User Planning
 
 Extracted from the former TasksRelationshipService. Now uses UnifiedRelationshipService.
 
-**Purpose:** Context-aware planning methods that leverage UserContext (~240 fields)
+**Purpose:** Context-aware planning methods that leverage UserContext
 to provide personalized, filtered, and ranked task queries.
 
 **Pattern:** Context-First - "Filter by readiness, rank by relevance, enrich with insights"
@@ -51,7 +51,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     Context-aware task planning service.
 
     Provides personalized task recommendations based on user context.
-    All methods use UserContext (~240 fields) for filtering and ranking.
+    All methods use UserContext for filtering and ranking.
 
     **Naming Convention:** *_for_user() suffix indicates context-awareness
 
@@ -164,7 +164,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
 
         Args:
             task_uid: Task to get dependencies for
-            context: User's complete context (~240 fields)
+            context: User's complete context
             include_transitive: Include transitive dependencies (dependencies of dependencies)
             max_depth: Maximum traversal depth for transitive queries (1..10, default 2)
 

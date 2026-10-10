@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-10-06
+updated: 2026-10-10
 status: current
 category: architecture
 version: 8.1.0
@@ -490,7 +490,7 @@ The destination toward which everything flows. Inherits `UserOwnedEntity(Entity)
 
 | System | Purpose | Status |
 |--------|---------|--------|
-| **UserContext** | ~240 fields of cross-domain state, built by one MEGA-QUERY | Active |
+| **UserContext** | The user's cross-domain state, built by one MEGA-QUERY | Active |
 | **Search** | Unified search across all entity types | Active |
 | **Calendar** | Aggregates Tasks, Events, Habits, Goals | Active |
 | **Askesis** | Life context synthesis + LLM integration | Active |
@@ -608,7 +608,7 @@ Full taxonomy: 70+ typed relationship names in `RelationshipName` enum (`core/mo
 
 | Document | What it covers |
 |----------|---------------|
-| [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | User model, auth, roles, UserContext (~240 fields) |
+| [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | User model, auth, roles, UserContext |
 | [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) | ActivityReport, EntryReport, all report types |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | UnifiedRelationshipService, relationship taxonomy |
 | [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/PS/LP/MOC patterns |

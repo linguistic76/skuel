@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-10-01
+updated: 2026-10-10
 status: current
 category: domains
 tags:
@@ -44,7 +44,7 @@ PsService coordinates 4 common sub-services via factory:
 ```python
 from core.services.ps_service import PsService
 
-# In services_bootstrap.py
+# In services_bootstrap/compose.py
 ps_service = PsService(
     driver=driver,
     graph_intel=graph_intelligence,  # REQUIRED

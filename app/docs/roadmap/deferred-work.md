@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # Deferred Work
@@ -218,6 +218,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Askesis Intelligence Doors — the Hub Methods' Second Door
 
 [Askesis Intelligence Doors — the Hub Methods' Second Door](askesis-intelligence-doors.md) — The nine hub methods (`UserContextIntelligence`) get the Insights cards as their first door; Askesis' eight wrappers onto them, and the zoom lens's filter / sort / metadata half, stay staged as the second door — the Askesis conversation reaching a hub method by tool-selection (ruled 2026-10-08).
+
+## Hub Methods Build — Registered Residuals
+
+[Hub Methods Build — Registered Residuals](hub-methods-residuals.md) — The five defects the F8 rows (the hub methods, realized) found beside the hub and registered, each at its file and line: a ready-to-learn read that treats every Ku with a mastery level as mastered, an application read that turns a failed backend into an empty list, an event hydration that cannot succeed, the two link writers that publish no `EntityLinksChanged`, and a next-action figure that is a constant 0; all five re-verified live at the docs close.
 
 ## Life-Path Milestones — the Context Field Nothing Writes
 

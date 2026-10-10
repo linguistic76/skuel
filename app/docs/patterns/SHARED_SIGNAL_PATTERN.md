@@ -1,6 +1,6 @@
 ---
 title: Shared Signal Pattern
-updated: 2026-10-04
+updated: 2026-10-10
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, cross-cutting, design]
@@ -27,7 +27,7 @@ SKUEL's CLAUDE.md names **5 cross-cutting systems** — infrastructure orthogona
 
 | System | Purpose |
 |--------|---------|
-| UserContext | ~250 fields of cross-domain state |
+| UserContext | The user's cross-domain state snapshot |
 | Search | Unified search across all domains |
 | Calendar | Aggregates Tasks, Events, Habits, Goals |
 | Askesis | Pedagogical guide — ZPD-aware Socratic companion |

@@ -17,7 +17,7 @@ Benefits: Better separation of concerns, easier testing, reduced cognitive load.
 
 Core Components:
 ----------------
-- UserContext: The master user state aggregate (~240 fields)
+- UserContext: The master user state aggregate
 - UserContextBuilder: Orchestrates context building (composes query/extract/populate)
 - UserContextQueryExecutor: Executes MEGA-QUERY and consolidated queries
 - UserContextExtractor: Parses query results into typed structures

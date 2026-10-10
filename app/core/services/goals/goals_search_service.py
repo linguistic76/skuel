@@ -95,7 +95,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         consistent with the other Activity Domains.
 
         Args:
-            user_context: User's current context (~240 fields)
+            user_context: User's current context
             limit: Maximum results to return
 
         Returns:

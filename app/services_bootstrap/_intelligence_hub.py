@@ -232,8 +232,6 @@ def _create_intelligence_hub(
             citation_service=citation_service,
             canon_service=canon_service,
         )
-        logger.info(
-            "✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)"
-        )
+        logger.info("✅ Askesis service created with intelligence_factory (the hub methods + ZPD)")
     else:
         logger.info("⏭️ Askesis service skipped (intelligence tier: CORE)")

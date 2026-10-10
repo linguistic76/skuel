@@ -4,7 +4,7 @@ Principles Planning Service - Context-First User Planning
 
 Follows TasksPlanningService pattern (December 2025).
 
-**Purpose:** Context-aware planning methods that leverage UserContext (~240 fields)
+**Purpose:** Context-aware planning methods that leverage UserContext
 to provide personalized, filtered, and ranked principle queries.
 
 **Pattern:** Context-First - "Filter by attention needed, rank by relevance, enrich with insights"
@@ -46,7 +46,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
     Context-aware principle planning service.
 
     Provides personalized principle recommendations based on user context.
-    All methods use UserContext (~240 fields) for filtering and ranking.
+    All methods use UserContext for filtering and ranking.
 
     **Naming Convention:** *_for_user() suffix indicates context-awareness
 
@@ -127,7 +127,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         - entities_rich["principles"]: Rich principle data with graph context
 
         Args:
-            context: User's complete context (~240 fields)
+            context: User's complete context
             limit: Maximum principles to return
 
         Returns:

@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-10-08
+updated: 2026-10-10
 status: current
 category: architecture
 tags:
@@ -42,7 +42,7 @@ SKUEL's search architecture consists of **three complementary systems** that wor
 │           ▼                                ▼                   │
 │  ┌─────────────────────┐         ┌────────────────────────┐   │
 │  │ Graph-Aware Search  │◄───────►│   UserContext          │   │
-│  │ (Relationship-based)│         │   (~240 fields)        │   │
+│  │ (Relationship-based)│         │   (cross-domain state) │   │
 │  └─────────────────────┘         └────────────────────────┘   │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
@@ -419,7 +419,7 @@ response = await search_router.faceted_search(request, user_uid)
 
 **How it Works:**
 1. Single comprehensive Cypher query
-2. Fetches ~240 fields of user state across all entity types
+2. Fetches the user's state across all entity types
 3. Powers the intelligence services (daily plan, ZPD, alignment)
 
 **Relationship to Search:**

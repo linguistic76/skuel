@@ -65,7 +65,7 @@ class PlanningMethodSpec:
     Specification for a UserContext-aware planning method.
 
     Defines methods like get_actionable_tasks_for_user() that
-    leverage UserContext (~240 fields) for filtering and ranking.
+    leverage UserContext for filtering and ranking.
     """
 
     method_name: str  # e.g., "get_actionable_for_user"

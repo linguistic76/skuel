@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-10-09
+updated: 2026-10-10
 status: current
 category: architecture
 tags:
@@ -25,7 +25,7 @@ SKUEL's user system has two distinct objects that serve different purposes:
 | Object | Location | Purpose |
 |--------|----------|---------|
 | `User` | `core/models/user/user.py` | Frozen domain model — identity, preferences, role |
-| `UserContext` | `core/services/user/unified_user_context.py` | Runtime state — everything a user has done (~250 fields) |
+| `UserContext` | `core/services/user/unified_user_context.py` | Runtime state — everything a user has done |
 
 `User` is what a user *is*. `UserContext` is what they *have* — all their entities, relationships, and graph neighbourhoods in one object, built by the MEGA-QUERY. `UserContext` carries core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) from the `User` model — only fetch `User` directly when you need `user.preferences` (the full `UserPreferences` object).
 
@@ -164,7 +164,7 @@ async def admin_only_route(request: Request, current_user: Any = None):
 
 **The problem:** Understanding a user without `UserContext` requires 15+ separate queries across all domains. Stats are disconnected from UIDs. Intelligence services can't see across domain boundaries.
 
-**The solution:** One object (~250 fields), built by one concurrent round-trip — the MEGA-QUERY plus the statements that run beside it — and consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift. Core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) are populated from the `User` model during context building — callers should use `UserContext` directly instead of fetching `User` separately (the builder already resolves the user internally).
+**The solution:** One object, built by one concurrent round-trip — the MEGA-QUERY plus the statements that run beside it — and consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift. Core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) are populated from the `User` model during context building — callers should use `UserContext` directly instead of fetching `User` separately (the builder already resolves the user internally).
 
 ```
 Graph (Neo4j) → MEGA-QUERY (one statement per read family, merged) + its side statements → UserContext → UserContextIntelligence → Recommendations
@@ -178,8 +178,8 @@ Graph (Neo4j) → MEGA-QUERY (one statement per read family, merged) + its side 
 
 | Depth | Method | Fields | When to use |
 |-------|--------|--------|-------------|
-| **Standard** | `build(user_uid)` | UIDs only (~150) | API responses, ownership checks |
-| **Rich** | `build_rich(user_uid, window="30d")` | UIDs + full entities + graph (~250) | Intelligence, daily planning |
+| **Standard** | `build(user_uid)` | UIDs and stats; the seven `RICH_ONLY_FIELDS` stay `None` | API responses, ownership checks |
+| **Rich** | `build_rich(user_uid, window="30d")` | The same fields plus the seven rich-only ones, `entities_rich`, the derived knowledge maps and the ZPD capstone | Intelligence, daily planning |
 
 `window` controls how far back the six activity sections look (`"7d"`, `"14d"`, `"30d"`, `"90d"`, or a calendar period such as `"2026-W37"` / `"2026-09"`): an entity is admitted if it is open or touched since the window's start.
 
@@ -250,7 +250,7 @@ UserContext (state)                  UserContextIntelligence (synthesis)
 ├── knowledge_mastery           →    get_optimal_next_path_steps()
 ├── in_progress_knowledge_uids  →    include_learning boost in planning
 ├── active_path_step_uids       →    path steps user is actively studying
-└── ~234 more fields            →    get_schedule_aware_recommendations()
+└── (the rest of the snapshot) →    get_schedule_aware_recommendations()
 ```
 
 Domain intelligence services (`TasksIntelligenceService`, etc.) analyse single domains. `UserContextIntelligence` synthesises across all domains.
@@ -436,7 +436,7 @@ There is no parallel layer of ISP "awareness slice" protocols. `UserContext` is 
 **Why not narrower protocols.** An earlier design (retired 2026-05-11, commit `a82faaba`, [ADR-060](../decisions/ADR-060-userctx-single-source-of-truth.md)) defined 11 awareness protocols — `TaskAwareness`, `KnowledgeAwareness`, `CrossDomainAwareness`, `FullAwareness`, etc. — so callees could declare a minimum dependency surface. In practice the protocols re-declared ~25 fields that already lived on `UserContext`, creating two sources of truth that drifted by hand. Adding a field to `UserContext` did not widen the protocol surface, and the MyPy-enforced "this service only reads task state" guarantee was theoretical — anyone needing a new field could just widen the slice. The two-file maintenance burden outweighed the type-level minimization benefit, so the slices were collapsed into `UserContext`.
 
 **What this means in practice.**
-- A service taking `UserContext` can in principle reach into any of ~250 fields. Trust the function's docstring (or its body) for what it actually reads — not the parameter type.
+- A service taking `UserContext` can in principle reach into any of its fields. Trust the function's docstring (or its body) for what it actually reads — not the parameter type.
 - Don't reintroduce slice protocols. If a service needs only one field, take that field as a primitive parameter instead of a wrapping protocol.
 - Adding a new context field is a one-file change: `unified_user_context.py`.
 

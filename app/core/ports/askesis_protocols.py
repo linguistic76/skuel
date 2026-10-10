@@ -29,7 +29,7 @@ Architecture Note (January 2026)
 --------------------------------
 AskesisOperations is intentionally different from domain protocols:
 - Does NOT inherit from BackendOperations (no entity CRUD)
-- REQUIRES UserContextIntelligenceFactory (13-domain synthesis)
+- REQUIRES UserContextIntelligenceFactory (the hub methods)
 - Returns complex analysis/recommendation types (not entities)
 
 See Also:
@@ -82,7 +82,7 @@ class AskesisStateAnalysisOperations(Protocol):
         """Perform comprehensive analysis of user's state across all domains.
 
         Args:
-            user_context: Complete user context (~240 fields)
+            user_context: Complete user context
             focus_areas: Optional specific areas to focus on
 
         Returns:
@@ -281,7 +281,7 @@ class AskesisDomainSynthesisOperations(Protocol):
         - Principle alignment (value-guided)
 
         Args:
-            user_context: Complete user context (~240 fields)
+            user_context: Complete user context
             prioritize_life_path: Weight life path alignment (default: True)
             respect_capacity: Limit recommendations to capacity (default: True)
 

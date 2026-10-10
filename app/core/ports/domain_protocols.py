@@ -35,7 +35,7 @@ THE 4 CROSS-CUTTING SYSTEMS
 ---------------------------
 
 **Foundation & Infrastructure Protocols:**
-    1. (UserContextBuilder)   - ~240 fields cross-domain state (no protocol)
+    1. (UserContextBuilder)   - the cross-domain state snapshot (no protocol)
     2. SearchOperations       - Unified search across all domains
     3. (AskesisService)       - Life context synthesis (no protocol)
     4. (Conversation)         - Turn-based chat interface (models only)

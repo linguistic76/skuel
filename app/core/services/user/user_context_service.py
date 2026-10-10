@@ -294,7 +294,9 @@ class UserContextService:
         under capacity and energy constraints. The ``DailyWorkPlan`` is then
         projected into the route-facing ``NextActionResult`` shape.
 
-        Fails if the intelligence tier is not configured (``INTELLIGENCE_TIER=core``).
+        Fails only when ``UserService`` holds no intelligence factory; the factory is
+        built in both tiers and ``compose_services`` refuses to finish without it, so a
+        composed app never takes that branch.
 
         Args:
             user_uid: User identifier

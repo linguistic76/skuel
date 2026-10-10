@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-30
+updated: 2026-10-10
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -98,7 +98,7 @@ Review before deleting — some may be loaded by convention.
 **What is excluded from the dead list (but still scanned for imports):**
 - `__init__.py` files — re-exports count, but `__init__.py` itself isn't flagged
 - `scripts/` directory — `scripts/dev/bootstrap.py` loads routes; those imports count
-- Entry points: `main.py`, `services_bootstrap.py`
+- Entry points: `main.py`, `services_bootstrap/compose.py`
 
 #### The orphan-package pass
 

@@ -122,7 +122,7 @@ class _ContextPlanningMixin:
             user: User entity
 
         Returns:
-            Result[UserContext] with complete domain awareness (~240 fields)
+            Result[UserContext] with complete domain awareness
         """
         if not self.context_builder:
             return Result.fail(Errors.system(message="Context building requires Neo4j driver"))
@@ -147,11 +147,12 @@ class _ContextPlanningMixin:
         """
         Get COMPLETE UserContext with BOTH standard AND rich fields.
 
-        **PERFORMANCE OPTIMIZATION (February 6, 2026):**
-        Now uses UserContextCache (5-minute TTL) with event-driven invalidation.
-        - Cache hit (~80% of requests): Returns instantly without database query
-        - Cache miss: Builds context with MEGA-QUERY and caches result
-        - Auto-invalidation: Domain events (TaskCompleted, GoalAchieved, etc.) clear cache
+        **CACHE:** served from ``UserContextCache`` (5-minute TTL) with event-driven
+        invalidation.
+        - Cache hit: returns the cached context without a database query
+        - Cache miss: builds the context with the MEGA-QUERY and caches the result
+        - Invalidation: domain events (TaskCompleted, GoalAchieved, EntityLinksChanged, …)
+          clear the owner's entry
 
         **ARCHITECTURE:** the MEGA-QUERY (``UserContextBuilder.build_rich``) is
         one concurrent round-trip — one plan-cached statement per read family, merged into one
@@ -170,7 +171,7 @@ class _ContextPlanningMixin:
             min_confidence: Minimum relationship confidence (default 0.7)
 
         Returns:
-            Result[UserContext] with ALL ~240 fields populated
+            Result[UserContext] with the rich fields populated
 
         Performance:
             - Cache hit: ~1-5ms (no database query)

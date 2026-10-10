@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-10-10
 ---
 
 # The Learning Loop
@@ -254,7 +254,7 @@ The base. Exercise → UserEntry → EntryReport → RevisedExercise, anchored b
 
 ### Layer 2: ZPD + UserContext (intelligence)
 
-The intelligence that makes the loop *adaptive*. ZPD reads the curriculum graph to know what you're ready for. UserContext aggregates ~250 fields of cross-domain state. Together, they answer: "Where is this learner right now, and what should happen next?" Without this layer, the loop still works — but it's mechanical, not personalized.
+The intelligence that makes the loop *adaptive*. ZPD reads the curriculum graph to know what you're ready for. UserContext aggregates your cross-domain state. Together, they answer: "Where is this learner right now, and what should happen next?" Without this layer, the loop still works — but it's mechanical, not personalized.
 
 See: [ZPD guide](zpd.md)
 

@@ -1,7 +1,7 @@
 ---
 title: Protocol Implementation Guide
 created: 2026-01-03
-updated: 2026-10-01
+updated: 2026-10-10
 status: active
 audience: developers
 tags: [guide, protocols, implementation]
@@ -297,7 +297,7 @@ class TasksService:
 **Step 3**: Wire concrete implementation during bootstrap
 
 ```python
-# File: services_bootstrap.py
+# File: services_bootstrap/compose.py
 async def compose_services(driver) -> Services:
     """Bootstrap all services."""
 

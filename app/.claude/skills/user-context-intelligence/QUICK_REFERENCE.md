@@ -142,7 +142,7 @@ async def get_schedule_aware_recommendations(
 # 9
 async def get_cross_domain_perception_analysis(
     self,
-) -> Result[dict[str, Any]]: ...  # boundary: heterogeneous rollup map
+) -> Result[PerceptionAnalysis]: ...  # TypedDict, core/ports/query_types.py
 
 # TemporalMomentumMixin — synchronous
 def compute_momentum_signals(self) -> MomentumSignals: ...  # TypedDict, core/ports/query_types.py
@@ -348,27 +348,32 @@ test needs the fields listed against the mixin it exercises.
 |-------|------|---------|
 | `active_goal_uids` | `list[str]` | life path, synergy |
 | `active_habit_uids` | `list[str]` | learning, life path, synergy |
-| `active_path_steps_rich` | `list[RichPathStepItem]` | daily plan |
+| `active_path_steps_rich` | `list[RichPathStepItem]` | daily plan, learning (learning through `estimated_minutes()`) |
 | `active_ps_engagements` | `dict[str, Engagement]` or `None` | daily plan, synergy |
-| `active_task_uids` | `list[str]` | life path, synergy |
+| `active_task_uids` | `list[str]` | learning, life path, synergy |
 | `available_minutes_daily` | `int` | daily plan, learning, schedule |
+| `choice_knowledge_informed` | `dict[str, list[str]]` | learning |
 | `completed_goal_uids` | `set[str]` | synergy |
 | `completed_task_uids` | `set[str]` | synergy |
-| `core_principle_uids` | `list[str]` | life path, synergy |
-| `current_energy_level` | `EnergyLevel` or `None` | schedule |
-| `current_learning_focus` | `str` or `None` | learning |
-| `current_workload_score` | `float` | life path, schedule |
+| `core_principle_uids` | `list[str]` | learning, life path |
+| `current_energy_level` | `EnergyLevel` or `None` | daily plan, schedule |
+| `current_path_steps` | `list[CurrentPathStepItem]` | learning |
+| `current_workload_score` | `float` | daily plan, life path, schedule |
 | `daily_habits` | `list[str]` | daily plan, schedule |
 | `decisions_against_principles` | `int` | life path |
 | `decisions_aligned_with_principles` | `int` | life path |
 | `dual_track_checkins` | `dict[str, list[dict[str, Any]]]` | perception |
 | `entities_rich` | `dict[str, list[RichEntityItem]]` | momentum |
-| `estimated_time_to_mastery` | `dict[str, int]` | daily plan, learning |
+| `event_knowledge_applied` | `dict[str, list[str]]` | learning |
 | `events_by_habit` | `dict[str, list[str]]` | learning |
+| `goal_knowledge_required` | `dict[str, list[str]]` | learning, synergy (learning through `active_goals_requiring()`) |
 | `goal_progress` | `dict[str, float]` | life path, schedule |
+| `habit_completion_rates` | `dict[str, float]` | momentum |
+| `habit_knowledge_applied` | `dict[str, list[str]]` | learning |
 | `habit_streaks` | `dict[str, int]` | life path, synergy, schedule |
 | `knowledge_checkins` | `dict[str, list[dict[str, Any]]]` | perception |
-| `knowledge_mastery` | `dict[str, float]` | learning, life path, synergy |
+| `knowledge_mastery` | `dict[str, float]` | life path, synergy |
+| `ku_prerequisites` | `dict[str, set[str]]` | learning (through `unmet_prerequisites()` / `unmet_prerequisites_by_ku()`) |
 | `latest_activity_report_period` | `str` or `None` | daily plan |
 | `latest_activity_report_uid` | `str` or `None` | daily plan |
 | `learning_goals` | `list[str]` | daily plan, learning |
@@ -379,25 +384,24 @@ test needs the fields listed against the mixin it exercises.
 | `life_path_prerequisites` | `dict[str, set[str]]` | learning |
 | `life_path_uid` | `str` or `None` | daily plan, learning, life path |
 | `mastered_knowledge_uids` | `set[str]` | learning, life path, synergy |
-| `next_recommended_knowledge` | `list[str]` | learning |
 | `overdue_task_uids` | `list[str]` | schedule |
-| `pending_choice_uids` | `list[str]` | synergy |
+| `pending_choice_uids` | `list[str]` | learning, synergy |
 | `pending_revised_exercises` | `list[PendingRevisedExerciseItem]` | daily plan |
 | `preferred_time` | `TimeOfDay` | schedule |
-| `prerequisites_completed` | `set[str]` | learning |
-| `prerequisites_needed` | `dict[str, list[str]]` | learning, life path, synergy |
 | `primary_goal_focus` | `str` or `None` | daily plan, schedule |
 | `principle_alignment_by_domain` | `dict[Domain, float]` | life path |
+| `principle_knowledge_grounded` | `dict[str, list[str]]` | learning |
 | `principle_priorities` | `dict[str, float]` | synergy |
 | `principle_supported_goals` | `dict[str, list[str]]` | synergy |
+| `ready_to_learn_uids` | `set[str]` | learning, schedule (through `get_ready_to_learn()`) |
 | `recently_mastered_uids` | `set[str]` | life path |
 | `resolved_choice_uids` | `set[str]` | synergy |
 | `spawned_uid_to_ps_uid` | `dict[str, str]` | life path |
+| `task_knowledge_applied` | `dict[str, list[str]]` | learning |
 | `task_priorities` | `dict[str, float]` | schedule |
-| `today_event_uids` | `list[str]` | schedule |
 | `today_task_uids` | `list[str]` | schedule |
 | `upcoming_event_uids` | `list[str]` | learning |
-| `user_uid` | `UserUID` | daily plan, learning, perception |
+| `user_uid` | `UserUID` | daily plan, learning, schedule, perception |
 | `zpd_assessment` | `ZPDAssessment` or `None` | daily plan |
 
 Read through a service, for the daily plan: `unsubmitted_exercises` and
@@ -439,11 +443,14 @@ decay. `/api/habits/analytics` and the ZPD knowledge signals call the same funct
 | `get_principle_integration_score()` | life path | yes |
 | `get_ready_to_learn()` | learning, schedule | no |
 | `get_tasks_for_goal()` | life path, synergy | yes |
+| `active_goals_requiring(ku_uid)` | learning, synergy | no |
+| `unmet_prerequisites(ku_uid)` / `unmet_prerequisites_by_ku()` | learning | no |
+| `estimated_minutes(uid, default)` | learning, daily plan | no |
 
 A strict method raises `RichContextRequiredError` on a standard context.
 
 | Method | Returns |
 |--------|---------|
-| `get_ready_to_learn()` | the UIDs in `next_recommended_knowledge` whose prerequisites are all in `prerequisites_completed` |
+| `get_ready_to_learn()` | `ready_to_learn_uids` sorted — unmastered knowledge whose prerequisites are all mastered, derived by the rich build; `[]` at standard depth |
 | `get_life_path_gaps()` | the UIDs in `life_path_knowledge_uids` outside `mastered_knowledge_uids`: the ZPD assessment's `blocking_gaps` among them first, in its order, then the rest by uid. `[]` on a standard context. |
 | `get_life_path_goal_uids()` | the active goals in `life_path_goal_uids`; while that set is empty, the active goals whose `goal_knowledge_required` meets `life_path_knowledge_uids`. |

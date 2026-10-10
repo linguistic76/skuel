@@ -1,7 +1,7 @@
 """Askesis grounding projection — the named curated rendering of UserContext (ADR-082 D2).
 
-Askesis grounds every turn on the real ``build_rich()`` UserContext (~250
-fields), but what reaches the prompt is THIS projection — a legible, tunable
+Askesis grounds every turn on the real ``build_rich()`` UserContext (the
+whole snapshot), but what reaches the prompt is THIS projection — a legible, tunable
 rendering, never an open-ended dump. ``ASKESIS_GROUNDING_FIELDS`` is the
 explicit list of UserContext fields the projection may read; the recording
 test in ``tests/unit/services/test_askesis_grounding_projection.py`` fails if

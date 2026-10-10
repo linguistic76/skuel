@@ -118,7 +118,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         - Learning path support
 
         Args:
-            user_context: User's current context (~240 fields)
+            user_context: User's current context
             limit: Maximum results to return
 
         Returns:

@@ -74,7 +74,7 @@ number.
 |--------|-------|---------|
 | 1 `get_optimal_next_path_steps` | `zpd_service`, `vector_search`, `ps`, `tasks`, context | `Result[list[PathStep]]`, at most `max_steps` |
 | 2 `get_learning_path_critical_path` | context | `Result[list[str]]` — `[]` without a `life_path_uid` |
-| 3 `get_knowledge_application_opportunities` | `tasks`, context | `Result[dict[str, list[str]]]` |
+| 3 `get_knowledge_application_opportunities` | context | `Result[dict[str, list[str]]]` — six keys, never fails |
 | 4 `get_unblocking_priority_order` | context | `Result[list[tuple[str, int]]]`, highest count first |
 
 **Method 1 has four candidate sources, tried in this order:** the ZPD assessment (its learn
@@ -97,14 +97,13 @@ source's order.
 
 What a caller must not assume:
 
-- **A built context gives the flags little to act on.** `learning_goals`,
-  `prerequisites_needed` and `estimated_time_to_mastery` are declared on `UserContext` and
-  `UserContextBuilder` writes none of them. On a built context no step aligns with a goal, so
-  `consider_goals` changes nothing, and a step's estimate is the 60-minute default, so
-  `consider_capacity` keeps at most `available_minutes_daily // 60` steps — one at the default
-  60, none below it. `next_recommended_knowledge` is unwritten too, so the context source has
-  no candidates. Method 1 has no production caller; these fields need writers before it gets
-  one.
+- **What a built context gives the flags.** `learning_goals` is written from `goal_type`
+  (`GoalType.LEARNING`), so `consider_goals` weighs a step by the learning goals that require
+  it (`active_goals_requiring`). A step's minutes come from `context.estimated_minutes(uid, 60)`:
+  a path step the user has in progress answers with its own `estimated_time_minutes`, any other
+  candidate the 60-minute default, so `consider_capacity` keeps at most
+  `available_minutes_daily // 60` of those. The context source reads `ready_to_learn_uids`
+  (unmastered, every prerequisite mastered), derived by the rich build.
 - **The goal weight re-ranks the candidates a source returned.** A source hands over at most
   twice `max_steps` candidates, chosen by its own score; a goal-aligned step outside that cut
   is not weighed.
@@ -214,10 +213,12 @@ module-level functions in `daily_planning.py`.
 | Knowledge — per-Ku mastery | `context.knowledge_checkins` |
 
 A failed per-entity read is logged and counted as empty; the others still contribute. The result
-dict carries `per_domain`, `over_rated_domains`, `under_rated_domains`, `accurate_domains`,
-`total_assessed_entities`, `insights` and `has_data`.
+is the `PerceptionAnalysis` TypedDict (`core/ports/query_types.py`): `per_domain`,
+`over_rated_domains`, `under_rated_domains`, `accurate_domains`, `total_assessed_entities`,
+`insights` and `has_data`.
 
-No LLM. No production caller — see [SKILL.md](SKILL.md) § Who calls them.
+No LLM. Its door is the `perception` Insights card, linked to `/self-checkin` — see
+[SKILL.md](SKILL.md) § Who calls them.
 
 ---
 

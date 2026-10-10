@@ -101,8 +101,7 @@ class DomainModelConvertible(Protocol):
     Implementations:
         - PathStep (ls.py) - from_dto(), to_dto()
         - KnowledgeUnit (ku.py) - from_dto(), to_dto()
-        - Task, Goal, Habit, Event, etc.
-        - Total: 13 domain models across all domains
+        - Task, Goal, Habit, Event, etc. — every domain model
 
     Note: Domain models are frozen dataclasses - immutable by design.
     Use to_dto() to get mutable version for updates.

@@ -24,7 +24,7 @@ See: `/docs/decisions/ADR-030-usercontext-file-consolidation.md`
 
 UserContext Layers (Mental Map)
 -------------------------------
-Navigation guide for this ~250-field read model. Each entry points at the
+Navigation guide for this read model. Each entry points at the
 section banner ("# CORE IDENTITY", etc.) used in the class body below —
 grep for the banner to jump. Line numbers are deliberately omitted; they
 drift as fields are added.
