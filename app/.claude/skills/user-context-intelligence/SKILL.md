@@ -57,9 +57,10 @@ factory's `_required_services` dict.
 | 9 | `get_cross_domain_perception_analysis()` | Perception | `Result[PerceptionAnalysis]` | `goals` / `habits` / `principles` backends, context |
 
 The flags on method 1 mean one thing whichever of its four sources answers: `consider_goals`
-adds a goal weight to a step's score (`learning_goals`, written from `goal_type`),
-`consider_capacity` keeps the steps that fit the day together (`context.estimated_minutes`) —
-see [MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md).
+adds a goal weight for every active goal that requires the step's Ku
+(`context.active_goals_requiring`, over `goal_knowledge_required` — any `goal_type`, not
+only learning goals), `consider_capacity` keeps the steps that fit the day together
+(`context.estimated_minutes`) — see [MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md).
 
 Every hub method returns `Result[T]`. Method 8 degrades to fewer recommendations when a
 candidate source is thin; only a failed calendar read fails it.
@@ -81,10 +82,13 @@ by `ku_uid`. It shares its name with the curriculum entity
 
 So method 5 has two call paths into the hub — `UserService.get_daily_work_plan` and
 `AskesisService.get_daily_work_plan` — and the first is the one a request reaches today. A
-change to a hub method's signature updates its Askesis wrapper and the protocol with it. Every
-door makes the same read, `UserService.get_rich_unified_context` (cached five minutes), and
-renders a failed read or answer as the fragment's error line (200, never a 500). Read the method
-before building on a claim about what it returns.
+change to a hub method's signature updates its Askesis wrapper and the protocol with it. The two
+HTMX doors (the cards, the Ku page) make the same read, `UserService.get_rich_unified_context`
+(cached five minutes), and render a failed read or answer as the fragment's error line (200,
+never a 500); `/api/context/next-action` runs under `boundary_handler`, so a failed `Result`
+becomes an error-status JSON response; an Askesis wrapper takes the `RichUserContext` its caller
+hands it and makes no read of its own. Read the method before building on a claim about what it
+returns.
 
 ---
 

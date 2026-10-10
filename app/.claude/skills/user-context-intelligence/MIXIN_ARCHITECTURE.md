@@ -97,9 +97,12 @@ source's order.
 
 What a caller must not assume:
 
-- **What a built context gives the flags.** `learning_goals` is written from `goal_type`
-  (`GoalType.LEARNING`), so `consider_goals` weighs a step by the learning goals that require
-  it (`active_goals_requiring`). A step's minutes come from `context.estimated_minutes(uid, 60)`:
+- **What a built context gives the flags.** `consider_goals` weighs a step by every active goal
+  that requires its Ku — `_find_aligned_goals` is `context.active_goals_requiring(ku_uid)`, a
+  walk over `active_goal_uids` against `goal_knowledge_required`, with no `goal_type` test, so
+  outcome and process goals count as much as learning ones. `learning_goals` (written from
+  `goal_type`) shapes only the vector-search query text. A step's minutes come from
+  `context.estimated_minutes(uid, 60)`:
   a path step the user has in progress answers with its own `estimated_time_minutes`, any other
   candidate the 60-minute default, so `consider_capacity` keeps at most
   `available_minutes_daily // 60` of those. The context source reads `ready_to_learn_uids`
