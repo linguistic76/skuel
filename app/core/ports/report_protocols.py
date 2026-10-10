@@ -69,11 +69,10 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.enums.pipeline import Pipeline
-    from core.models.exercises.exercise import Exercise
+    from core.models.enums.user_enums import UserRole
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
     from core.models.report.entry_report import EntryReport
-    from core.models.user_entry.user_entry import UserEntry
     from core.ports.query_types import (
         AnnotationResult,
         AnnotationState,
@@ -82,6 +81,7 @@ if TYPE_CHECKING:
         SubmissionDetailResult,
         TeacherDashboardStats,
     )
+    from core.services.report.entry_report_service import AdmittedReport
     from core.services.user.unified_user_context import UserContext
 
 
@@ -124,15 +124,25 @@ class EntryReportOperations(Protocol):
     # AI FEEDBACK — LLM-generated via Exercise instructions
     # ------------------------------------------------------------------
 
+    async def admit_report(
+        self,
+        submission_uid: str,
+        exercise_uid: str,
+        caller_uid: UserUID,
+        caller_role: UserRole,
+    ) -> Result[AdmittedReport]:
+        """Admit a request for an AI report — the entry's owner, or a teacher the
+        entry was submitted to for feedback, and only with the exercise the
+        entry fulfils. Every refusal is not-found."""
+        ...
+
     async def generate_report(
         self,
-        entry: UserEntry,
-        exercise: Exercise,
-        user_uid: UserUID,
+        admitted: AdmittedReport,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[EntryReport]:
-        """Generate AI report for a submission using exercise instructions.
+        """Generate AI report for an admitted entry using the exercise it fulfils.
 
         Creates ENTRY_REPORT entity (processor_type=LLM) in Neo4j, linked
         to the submission via REPORT_FOR. The typed read path
@@ -140,9 +150,7 @@ class EntryReportOperations(Protocol):
         source for report content.
 
         Args:
-            entry: Submission to evaluate (uses content or processed_content)
-            exercise: Exercise with instructions and model selection
-            user_uid: UID of user triggering report (owns the entity)
+            admitted: The ``admit_report`` proof (entry, exercise, caller)
             temperature: LLM sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
 

@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-10-09
+updated: 2026-10-10
 status: current
 category: reference
 tags: [protocol, reference]
@@ -467,7 +467,7 @@ ENTRY_REPORT entities are produced two ways, behind **separate route-facing prot
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `EntryReportOperations` (service) | `entry_report` | generate_report(`UserEntry`, `Exercise`) → `EntryReport` `LLM`, list_for_submission → `list[EntryReport]` (both HUMAN + LLM, discriminated by `processor_type`) | `exercises_api.py`, `teaching_api.py`, `teaching_ui.py`, `user_entry_ui.py` |
+| `EntryReportOperations` (service) | `entry_report` | admit_report(submission, exercise, caller, role) → `AdmittedReport`, generate_report(`AdmittedReport`) → `EntryReport` `LLM`, list_for_submission → `list[EntryReport]` (both HUMAN + LLM, discriminated by `processor_type`) | `exercises_api.py`, `teaching_api.py`, `teaching_ui.py`, `user_entry_ui.py` |
 | `EntryReportBackendOperations` (backend) | `EntryReportService.backend` (typed `self.backend`) | get_for_owner (the owner read — OWNER_ONLY clause on the typed fetch, ADR-088 §3), list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[EntryReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ActivityReportOperations` | `activity_report` | 8 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, latest_for_period, find_by_period (the period's reusable report — the generator's previous-period comparison), annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary` — its `shares_granted` is the wall's read, `SharingOperations.get_shared_by_me`) | `progress_report_api.py` |
@@ -476,7 +476,7 @@ ENTRY_REPORT entities are produced two ways, behind **separate route-facing prot
 | `TeacherReviewOperations` | `teacher_review` | 13 (review queue → `list[ReviewQueueItem]`, submission detail → `SubmissionDetailResult`, feedback history, submit/request/approve, exercises, students, dashboard → `TeacherDashboardStats`, classes → `list[GroupMemberProgress]`) | `teaching_api.py` |
 
 **Why HUMAN and AI reports are SEPARATE protocols (PR #128):**
-`EntryReportService.generate_report()` creates AI (`processor_type=LLM`) `ENTRY_REPORT` entities; teacher-authored HUMAN reports are created by `TeacherReviewService.submit_report()` — both linked to the submission via `REPORT_FOR`, but **no single class implements both**. `EntryReportOperations` holds exactly the AI + read methods its single implementing service has — a protocol that bundled methods no injected service implemented would let mypy pass a reachable `AttributeError`, so the conformance is checked by mypy `arg-type` at the wiring root. Received feedback is read through `get_student_exchange_summaries` (the GradeBook); there is no separate assessment service or protocol. `generate_report` accepts typed params: `entry: UserEntry`, `exercise: Exercise` (not `Any`); `list_for_submission` remains the unified typed read for both sources.
+`EntryReportService.generate_report()` creates AI (`processor_type=LLM`) `ENTRY_REPORT` entities; teacher-authored HUMAN reports are created by `TeacherReviewService.submit_report()` — both linked to the submission via `REPORT_FOR`, but **no single class implements both**. `EntryReportOperations` holds exactly the AI + read methods its single implementing service has — a protocol that bundled methods no injected service implemented would let mypy pass a reachable `AttributeError`, so the conformance is checked by mypy `arg-type` at the wiring root. Received feedback is read through `get_student_exchange_summaries` (the GradeBook); there is no separate assessment service or protocol. `generate_report` accepts only the `AdmittedReport` proof `admit_report` returns (the admitted `UserEntry` and `Exercise`, and the caller), so no door reaches the reviewer unadmitted; `list_for_submission` remains the unified typed read for both sources.
 
 **Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not reports.
 

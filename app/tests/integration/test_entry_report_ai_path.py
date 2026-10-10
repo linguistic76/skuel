@@ -28,7 +28,7 @@ from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
 from core.models.report.entry_report import EntryReport
 from core.models.user_entry.user_entry import UserEntry
-from core.services.report.entry_report_service import EntryReportService
+from core.services.report.entry_report_service import AdmittedReport, EntryReportService
 from core.utils.result_simplified import Result
 
 STUDENT_UID = "user_ai_report_student"
@@ -147,9 +147,7 @@ async def test_ai_report_is_owned_by_the_student_with_no_self_share(
     )
 
     result = await service.generate_report(
-        entry=_make_submission(),
-        exercise=_make_exercise(),
-        user_uid=AUTHOR_UID,
+        AdmittedReport(entry=_make_submission(), exercise=_make_exercise(), caller_uid=AUTHOR_UID),
     )
 
     assert not result.is_error, result.error if result.is_error else None
@@ -231,9 +229,7 @@ async def test_ai_report_title_composed_from_fulfilled_exercise(
         backend=entry_report_backend,
     )
     result = await service.generate_report(
-        entry=_make_submission(),
-        exercise=_make_exercise(),
-        user_uid=AUTHOR_UID,
+        AdmittedReport(entry=_make_submission(), exercise=_make_exercise(), caller_uid=AUTHOR_UID),
     )
     assert not result.is_error, result.error if result.is_error else None
     # The service-side entity echoes the backend-composed title.
@@ -266,9 +262,7 @@ async def test_ai_report_is_discoverable_via_typed_read(
     )
 
     result = await service.generate_report(
-        entry=_make_submission(),
-        exercise=_make_exercise(),
-        user_uid=AUTHOR_UID,
+        AdmittedReport(entry=_make_submission(), exercise=_make_exercise(), caller_uid=AUTHOR_UID),
     )
     assert not result.is_error
 

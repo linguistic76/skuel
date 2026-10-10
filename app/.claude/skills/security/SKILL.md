@@ -106,8 +106,10 @@ strategy, and by-UID reads through `BaseService.get_visible_to_user(uid, user_ui
 the domain's `read_visibility`), or route-mediated `verify_ownership`. Bare `get()` is
 internal mechanics only. **Never add a third mechanism** — a `get()` followed by an inline
 `entity.user_uid != user_uid` compare is the ad-hoc check ADR-085 §4 forbids even when its
-logic is right. The two sanctioned inline compares (owner-or-teacher in `exercises_api.py`,
-student-or-owner in `revised_exercises_api.py`) express rules no service verifier can.
+logic is right. The one sanctioned inline compare (student-or-owner in
+`revised_exercises_api.py`) expresses a rule no service verifier can. A rule a writing
+service can hold lives there instead — the AI reviewer's owner-or-teacher admission is
+`EntryReportService.admit_report`.
 
 **Teacher reads (ADR-088).** A teacher reads a student's entry only through the entry's own
 feedback request — `SUBMITTED_TO_GROUP` an active group the teacher `OWNS`. A `SHARES_WITH`

@@ -77,7 +77,7 @@ For implementation guidance, see:
 
 | Track | Entry Point | Report Entity | Who Responds |
 |-------|------------|-----------------|--------------|
-| **Curriculum** | Student uploads a file against an Exercise | `ENTRY_REPORT` | Teacher or AI (via Exercise instructions); the AI report is triggered by the submission owner (self-serve, `POST /api/exercises/report`, ADR-043 tier-gated) or a teacher |
+| **Curriculum** | Student uploads a file against an Exercise | `ENTRY_REPORT` | Teacher or AI (via Exercise instructions); the AI report is triggered by the submission owner (self-serve, `POST /api/exercises/report`, ADR-043 tier-gated) or a teacher the entry was submitted to (ADR-088 §2), each with the exercise the entry fulfils |
 | **Activity** | User's lived practice over a time window | `ACTIVITY_REPORT` | AI (scheduled or on-demand) or Admin |
 
 Activity Domains are **equal** entry points — not secondary. A user's Tasks, Goals, Habits,
@@ -465,7 +465,10 @@ Both say "here is what your work means."
 `EntryReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
 via the Exercise's `instructions` field (`LLM`). The LLM report is triggered
 by the submission OWNER (self-serve — `POST /api/exercises/report`, per-user
-ADR-043 FULL-tier gate) or by a teacher.
+ADR-043 FULL-tier gate) or by a teacher the entry was `SUBMITTED_TO_GROUP` to
+(ADR-088 §2). `EntryReportService.admit_report` decides, pins both callers to
+the exercise the entry fulfils, and returns the `AdmittedReport` proof
+`generate_report` requires; every refusal is a 404.
 
 **EntityType:** `EntityType.ENTRY_REPORT`
 **Self-describing outcome:** Each report records its `assessment_outcome` (`AssessmentOutcome` enum):

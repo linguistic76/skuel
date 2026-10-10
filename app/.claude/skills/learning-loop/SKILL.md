@@ -213,9 +213,11 @@ The full mechanics of each loop phase live in **[reference.md](reference.md)**:
 - **The Binding Graph Relationships**, **Service Architecture Summary**, and **API Routes Per Phase**.
 
 **Who triggers Phase 3:** a teacher (review queue), or the submission OWNER
-self-serving an AI review — `POST /api/exercises/report` (owner-or-teacher
-guard + per-user ADR-043 FULL-tier gate; surfaced as the "Request AI feedback"
-button on `/gradebook/{uid}`).
+self-serving an AI review — `POST /api/exercises/report` (per-user ADR-043
+FULL-tier gate, then `EntryReportService.admit_report`: the owner, or a teacher
+the entry was `SUBMITTED_TO_GROUP` to, each pinned to the exercise the entry
+fulfils — refusals are 404; surfaced as the "Request AI feedback" button on
+`/gradebook/{uid}`).
 
 **Teacher transition:** students auto-join the default teacher group
 (`group_default_{admin_uid}`, oldest HUMAN admin — `@skuel.local` service

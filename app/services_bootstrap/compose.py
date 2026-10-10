@@ -941,6 +941,16 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
 
+        exercise_backend = ExerciseBackend(
+            driver=driver,
+            label=NeoLabel.EXERCISE,
+            entity_class=Exercise,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+
+        exercise_service = ExerciseService(backend=exercise_backend, event_bus=event_bus)
+
         # EntryReportService: always created so typed reads (get,
         # list_for_submission) work in both CORE and FULL tiers. AI report
         # *generation* still requires llm_caller — returns a system error
@@ -951,17 +961,8 @@ async def compose_services(
             ku_interaction_service=learning_services["ps"].mastery,  # closes mastery loop
             report_mastery_service=report_mastery_service,
             event_bus=event_bus,  # EntryReportGenerated → ADR-051 result transition
+            exercise_service=exercise_service,  # the fulfilled-exercise pin in admit_report
         )
-
-        exercise_backend = ExerciseBackend(
-            driver=driver,
-            label=NeoLabel.EXERCISE,
-            entity_class=Exercise,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
-        )
-
-        exercise_service = ExerciseService(backend=exercise_backend, event_bus=event_bus)
 
         # ResourceService: curated content (books, talks, films, podcasts)
         from adapters.persistence.neo4j.backends.misc_backends import ResourceBackend
