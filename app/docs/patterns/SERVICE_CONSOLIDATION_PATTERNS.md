@@ -736,7 +736,7 @@ class LpSubServices:
 
 **Problem:** Cross-domain reads were scattered across domain backends and services. Each domain had its own N+1 pattern: fetch all entities of one type, then fan-out queries for related entities in another type, then join in Python. This is the relational-brain pattern — treating the graph like SQL tables you join in application code. Cross-domain Cypher lived on the wrong domain's backend (e.g., `ChoicesBackend` knew about Principles, `GoalsBackend` knew about Tasks).
 
-**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a typed result built from `cross_domain_types.py`: a frozen dataclass (five methods), a tuple of them (`get_habit_knowledge_reinforcement`), or a `dict` keyed by uid (`get_embodiment_rates_7d` → `dict[str, float]`; `get_goals_for_tasks_batch` → `dict[str, tuple[AlignedEntity, ...]]`).
+**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a typed result built from `cross_domain_types.py`: a frozen dataclass (six methods), a tuple of them (`get_habit_knowledge_reinforcement`), or a `dict` keyed by uid (`get_embodiment_rates_7d` → `dict[str, float]`; `get_goals_for_tasks_batch` → `dict[str, tuple[AlignedEntity, ...]]`).
 
 **Rules (enforced at the top of the file):**
 - Methods MUST touch 2+ domain labels
