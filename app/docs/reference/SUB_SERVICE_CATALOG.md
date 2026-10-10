@@ -623,7 +623,7 @@ config includes a learning class; singleton is passed in).
 | Habits | 12 | 4 | 7 | progress, scheduling, planning, completions, patterns |
 | Events | 10 | 2 | 7 | progress, scheduling, habits |
 | Choices | 7 | 1 | 7 | — |
-| Principles | 10 | 3 | 7 | alignment, planning |
+| Principles | 9 | 3 | 7 | alignment, planning |
 
 **Facade Mixins:** Tasks (1: `_OrchestrationMixin`), Goals (1: `_OrchestrationMixin`), Habits (4: `_AdherenceReadsMixin`, `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Events (2: `_OrchestrationMixin`, `_SchedulingMixin`), Choices (1: `_OptionManagementMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). `_RelationshipMixin` was inlined back into Goals, Tasks, and Choices — it was a thin single-consumer delegation slice. Graph link methods now live directly on the facade.
 
@@ -633,8 +633,8 @@ Habits has one event service: `HabitEventHandlerService` (reactive fire-and-forg
 factory as `self.event_handler`). Event scheduling intelligence (recurrence logic, UserContext lookups)
 lives on `HabitsIntelligenceService` as `get_event_uids_for_habit()` and `schedule_events_for_habit()`.
 
-**Most Complex:** Habits (13 sub-services + 4 facade mixins)
-**Simplest:** Choices (7 sub-services + 1 facade mixin)
+**Most Complex:** Habits (12 sub-services + the optional `ai` slot + 4 facade mixins)
+**Simplest:** Choices (7 sub-services + the optional `ai` slot + 1 facade mixin)
 
 ---
 

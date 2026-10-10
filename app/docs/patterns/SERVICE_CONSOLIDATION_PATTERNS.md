@@ -736,21 +736,21 @@ class LpSubServices:
 
 **Problem:** Cross-domain reads were scattered across domain backends and services. Each domain had its own N+1 pattern: fetch all entities of one type, then fan-out queries for related entities in another type, then join in Python. This is the relational-brain pattern — treating the graph like SQL tables you join in application code. Cross-domain Cypher lived on the wrong domain's backend (e.g., `ChoicesBackend` knew about Principles, `GoalsBackend` knew about Tasks).
 
-**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a frozen typed dataclass from `cross_domain_types.py` (one exception: `get_embodiment_rates_7d` returns a plain `dict[str, float]` keyed by principle uid).
+**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a typed result built from `cross_domain_types.py`: a frozen dataclass (five methods), a tuple of them (`get_habit_knowledge_reinforcement`), or a `dict` keyed by uid (`get_embodiment_rates_7d` → `dict[str, float]`; `get_goals_for_tasks_batch` → `dict[str, tuple[AlignedEntity, ...]]`).
 
 **Rules (enforced at the top of the file):**
 - Methods MUST touch 2+ domain labels
 - Takes only a `CrossDomainBackendOperations` backend, never per-domain backends
 - One Cypher per call, no N+1
-- Returns a typed dataclass (not `dict[str, Any]`) — `get_embodiment_rates_7d`'s `dict[str, float]` map is the one method that does not
+- Returns a typed result (never `dict[str, Any]`): a frozen dataclass or tuple of them, or — for the two batch/keyed reads — a `dict` keyed by uid with typed values
 
 **Methods:**
 | Method | Domains Crossed |
 |--------|----------------|
 | `get_principle_alignment_evidence` | Principle + Goal + Habit |
-| `get_embodiment_rates_7d` | Principle + Habit (+ completions) — returns `dict[str, float]`, not a dataclass |
+| `get_embodiment_rates_7d` | Principle + Habit (+ completions) — returns `dict[str, float]` keyed by principle uid |
 | `get_tasks_applying_knowledge` | Task + Ku |
-| `get_goals_for_tasks_batch` | Task + Goal |
+| `get_goals_for_tasks_batch` | Task + Goal — returns `dict[str, tuple[AlignedEntity, ...]]` keyed by task uid |
 | `count_active_tasks_for_goal` | Goal + Task |
 | `get_habit_knowledge_reinforcement` | Habit + Ku |
 | `get_choice_principle_adherence` | Choice + Principle |

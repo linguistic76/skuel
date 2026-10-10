@@ -273,13 +273,14 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService     (9 sub-services + 1 facade mixin)
-│   └─ core, search, progress, scheduling, planning, learning, intelligence,
-│      event_handler, knowledge_intelligence
+├─ TasksService     (11 sub-services + 1 facade mixin)
+│   └─ core, search, relationships, progress, scheduling, planning, learning, intelligence,
+│      event_handler, knowledge_intelligence, ai
 │   └─ mixins: _OrchestrationMixin
 │
-├─ GoalsService      (10 sub-services + 1 facade mixin)
-│   └─ core, search, progress, scheduling, learning, planning, intelligence, event_handler, knowledge_intelligence, ai
+├─ GoalsService      (11 sub-services + 1 facade mixin)
+│   └─ core, search, relationships, progress, scheduling, planning, learning, intelligence,
+│      event_handler, knowledge_intelligence, ai
 │   └─ mixins: _OrchestrationMixin
 │
 ├─ HabitsService    (13 sub-services + 4 facade mixins)  ← Most complex
@@ -287,16 +288,18 @@ Activity Domain Facades (6 total)
 │      event_handler, intelligence, knowledge_intelligence, ai, patterns
 │   └─ mixins: _AdherenceReadsMixin, _CompletionMixin, _EnrichmentMixin, _OrchestrationMixin
 │
-├─ EventsService     (10 sub-services + 2 facade mixins)
-│   └─ core, search, progress, scheduling, learning, habits, event_handler, intelligence, knowledge_intelligence, ai
+├─ EventsService     (11 sub-services + 2 facade mixins)
+│   └─ core, search, relationships, progress, scheduling, habits, learning, intelligence,
+│      event_handler, knowledge_intelligence, ai
 │   └─ mixins: _OrchestrationMixin, _SchedulingMixin
 │
-├─ ChoicesService    (7 sub-services + 1 facade mixin)
-│   └─ core, search, learning, intelligence, event_handler, knowledge_intelligence, ai
+├─ ChoicesService    (8 sub-services + 1 facade mixin)
+│   └─ core, search, relationships, learning, intelligence, event_handler, knowledge_intelligence, ai
 │   └─ mixins: _OptionManagementMixin
 │
 └─ PrinciplesService (10 sub-services + 3 facade mixins)
-    └─ core, search, alignment, learning, planning, reflection, intelligence, knowledge_intelligence, ai, event_handler
+    └─ core, search, relationships, alignment, learning, planning, intelligence,
+       event_handler, knowledge_intelligence, ai
     └─ mixins: _EmbodimentMixin, _GravityMixin, _EnrichmentMixin
 ```
 
