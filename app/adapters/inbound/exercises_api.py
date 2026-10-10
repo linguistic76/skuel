@@ -19,14 +19,11 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from core.config.intelligence_tier import IntelligenceTier
-from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import (
     ExerciseKnowledgeRequest,
     ReportGenerateRequest,
 )
-from core.models.user_entry.user_entry import UserEntry
 from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
-from core.services.content_enrichment_service import ContentEnrichmentService
 from core.services.exercises.exercise_service import ExerciseService
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.services.report.entry_report_service import EntryReportService
@@ -40,7 +37,6 @@ def create_exercises_api_routes(
     app: Any,
     rt: Any,
     exercises_service: ExerciseService,
-    transcript_service: ContentEnrichmentService | None,
     entry_report_service: EntryReportService | None,
     user_service: Any = None,
     intelligence_tier: IntelligenceTier | None = None,
@@ -52,7 +48,6 @@ def create_exercises_api_routes(
         app: FastHTML application instance
         rt: Route decorator
         exercises_service: ExerciseService instance
-        transcript_service: ContentEnrichmentService for entry lookup
         entry_report_service: EntryReportService for AI reports
         user_service: UserService for role checks
         intelligence_tier: System tier for the ADR-043 per-user AI gate
@@ -74,10 +69,12 @@ def create_exercises_api_routes(
         Creates a EntryReport entity (processor_type=LLM) linked to the
         submission via REPORT_FOR — symmetric with human teacher reports.
 
-        Access (ruled 2026-07-03, systems review R1): the submission OWNER may
-        summon the LLM reviewer for their own entry — the self-serve half of
-        the learning loop. Teachers may generate reports for entries they
-        review. Gated per-user by the ADR-043 intelligence tier (LLM = FULL).
+        Access: the submission OWNER may summon the LLM reviewer for their own
+        entry — the self-serve half of the learning loop — and a teacher may
+        for an entry submitted to an active group they own (ADR-088 §2). Both
+        are pinned to the exercise the entry fulfils
+        (``EntryReportService.admit_report``). Gated per-user by the ADR-043
+        intelligence tier (LLM = FULL).
 
         Body (JSON):
         - submission_uid: Submission UID (required)
@@ -88,20 +85,13 @@ def create_exercises_api_routes(
         Returns:
         - 200: EntryReport entity created {report_uid, submission_uid, exercise_uid, content}
         - 400: Invalid input
-        - 404: Entry or exercise not found (or not the caller's entry, non-teacher)
+        - 404: Entry or exercise not found — also an entry the caller may not
+          request a report on, or an exercise the entry does not fulfil
         - 503: Service not available
         """
         if not entry_report_service:
             return Result.fail(
                 Errors.system("Report service not available", service="EntryReportService")
-            )
-
-        if not transcript_service:
-            return Result.fail(
-                Errors.system(
-                    "Transcript service not available",
-                    service="ContentEnrichmentService",
-                )
             )
 
         user_uid = require_authenticated_user(request)
@@ -139,55 +129,26 @@ def create_exercises_api_routes(
             return Result.fail(parsed)
         report_request = parsed.value
 
-        # Get submission and exercise
-        entry_result = await transcript_service.get(report_request.submission_uid)
-        if entry_result.is_error:
-            return Result.fail(Errors.not_found("Submission", report_request.submission_uid))
+        # Admission: the entry's owner, or a teacher the entry was submitted to
+        # for feedback — each pinned to the exercise the entry fulfils. The
+        # service that writes the report decides; every refusal is not-found.
+        admitted = await entry_report_service.admit_report(
+            report_request.submission_uid,
+            report_request.exercise_uid,
+            caller_uid=user_uid,
+            caller_role=caller.role,
+        )
+        if admitted.is_error:
+            return Result.fail(admitted)
 
-        exercise_result = await exercises_service.get_exercise(report_request.exercise_uid)
-        if exercise_result.is_error:
-            return Result.fail(Errors.not_found("Exercise", report_request.exercise_uid))
-
-        entry = entry_result.value
-        exercise = exercise_result.value
-        # transcript_service.get() returns Result[Entity]; narrow to UserEntry
-        # which is what generate_report requires. Wrong-type entries hit a 404.
-        if not isinstance(entry, UserEntry):
-            return Result.fail(Errors.not_found("UserEntry", report_request.submission_uid))
-
-        # Owner-or-teacher: a non-teacher may only summon the reviewer for
-        # their OWN entry. Not-found (not 403) so entry UIDs don't leak
-        # (OWNERSHIP_VERIFICATION pattern).
-        is_teacher = caller.role.has_permission(UserRole.TEACHER)
-        if entry.user_uid != user_uid and not is_teacher:
-            return Result.fail(Errors.not_found("UserEntry", report_request.submission_uid))
-
-        # Non-teachers are further pinned to the exercise their entry FULFILLS —
-        # the claim that was already access-validated at submission time
-        # (AudienceResolver.validate_references). Without this, any student
-        # could run an arbitrary (e.g. another user's PERSONAL) exercise's
-        # instructions against their own entry and read them back out of the
-        # generated report (Kody security finding, PR #497).
-        if not is_teacher:
-            fulfilled = await exercises_service.get_exercise_for_submission(
-                report_request.submission_uid
-            )
-            if fulfilled.is_error:
-                return Result.fail(fulfilled)
-            fulfilled_uid = (fulfilled.value or {}).get("exercise_uid")
-            if fulfilled_uid != report_request.exercise_uid:
-                return Result.fail(Errors.not_found("Exercise", report_request.exercise_uid))
-
-        # Daily LLM quota — after every access check, immediately before the
-        # paid reviewer call, so a rejected request never burns a unit.
+        # Daily LLM quota — after admission, immediately before the paid
+        # reviewer call, so a refused request never burns a unit.
         if not llm_quota_allowed(user_uid):
             return Result.fail(llm_quota_exceeded_error())
 
         # Generate report — creates EntryReport entity + REPORT_FOR relationship
         report_result = await entry_report_service.generate_report(
-            entry=entry,
-            exercise=exercise,
-            user_uid=user_uid,
+            admitted.value,
             temperature=report_request.temperature,
             max_tokens=report_request.max_tokens,
         )

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-23
+updated: 2026-10-10
 ---
 
 # Any Usage Policy
@@ -28,7 +28,7 @@ They provide no value and actively undermine type safety.
 - `bookmark_knowledge` `tags` param — Was `list | None`, now `list[str] | None`
 - `SubmissionOperations.list_submissions()` params — Were `entity_type: Any`, `status: Any`, now `EntityType`, `EntityStatus`
 - `SubmissionOperations.set_visibility()` — Was `visibility: Any`, now `Visibility`
-- `EntryReportOperations.generate_report()` — Were `entry: Any`, `exercise: Any`, now `Submission`, `Exercise`
+- `EntryReportOperations.generate_report()` — Were `entry: Any`, `exercise: Any`, now the typed `AdmittedReport` proof (`UserEntry`, `Exercise`)
 - `TeacherReviewService.__init__()` — Was `ku_interaction_service: Any`, now `LessonMasteryService`
 - `ReviewQueueOperations.request_review()` — Was `Result[dict[str, Any]]`, now `Result[ReviewRequestResult]`
 - `ReviewQueueOperations.get_pending_reviews()` — Was `Result[list[dict[str, Any]]]`, now `Result[list[PendingReviewItem]]`

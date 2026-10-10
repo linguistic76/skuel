@@ -940,12 +940,28 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         group cannot distinguish between "entry does not exist" and "entry
         belongs to another teacher's student."
         """
-        access = await self.backend.verify_teacher_has_group_access(uid, teacher_uid)
+        access = await self.teacher_has_feedback_authority(uid, teacher_uid)
         if access.is_error:
             return Result.fail(access)
         if not access.value:
             return Result.fail(Errors.not_found("UserEntry", uid))
         return await self.backend.delete(uid, cascade=True)
+
+    async def teacher_has_feedback_authority(self, uid: str, teacher_uid: str) -> Result[bool]:
+        """Whether the entry asks this teacher for feedback.
+
+        True when the entry is ``SUBMITTED_TO_GROUP`` an active group the teacher
+        owns (ADR-088 §2) — the authority the review queue and every
+        teacher-side reader and writer carry. Never true for the teacher's own
+        entry, and never true for a uid that names no entry, so a caller that
+        answers ``False`` with not-found cannot tell the two apart.
+
+        Backend: ``UserEntryBackend.verify_teacher_has_group_access``
+        """
+        access = await self.backend.verify_teacher_has_group_access(uid, teacher_uid)
+        if access.is_error:
+            return Result.fail(access)
+        return Result.ok(bool(access.value))
 
     # =========================================================================
     # PRIVATE HELPERS

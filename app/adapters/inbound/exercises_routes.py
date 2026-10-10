@@ -32,7 +32,6 @@ EXERCISES_CONFIG = DomainRouteConfig(
     api_factory=create_exercises_api_routes,
     ui_factory=create_exercises_ui_routes,
     api_related_services={
-        "transcript_service": "content_enrichment",
         "entry_report_service": "entry_report",
         "user_service": "user",
         "intelligence_tier": "intelligence_tier",

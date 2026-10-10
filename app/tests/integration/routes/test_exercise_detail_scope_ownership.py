@@ -107,7 +107,6 @@ def handlers(exercise_service: ExerciseService) -> dict[str, Any]:
         app,
         rt,
         exercises_service=exercise_service,
-        transcript_service=None,
         entry_report_service=None,
     )
     return registered

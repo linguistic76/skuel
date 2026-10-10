@@ -494,7 +494,7 @@ When `openai_service` is available, the generator:
 | `/activity-reports/md?uid=` | GET | User | Download own report as `.md` (owner-scoped; foreign uid → 404) |
 | `/activity-review/queue`, `/activity-review/new`, `/activity-review/snapshot-fragment` | GET | Admin | The admin review track is HTMX pages, no JSON API (the "Activity report track" table above) |
 | `/activity-review/submit-feedback` | POST | Admin | Submit written activity feedback |
-| `/api/exercises/report` | POST | Owner or Teacher (per-user FULL tier, ADR-043) | Generate LLM `ENTRY_REPORT` (`REPORT_FOR`) for a submission |
+| `/api/exercises/report` | POST | Owner, or a teacher the entry was `SUBMITTED_TO_GROUP` to (ADR-088 §2) — both pinned to the exercise the entry fulfils (`EntryReportService.admit_report`); per-user FULL tier, ADR-043 | Generate LLM `ENTRY_REPORT` (`REPORT_FOR`) for a submission |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | POST | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |

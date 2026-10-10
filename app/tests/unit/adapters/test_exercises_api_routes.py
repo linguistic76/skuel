@@ -4,11 +4,14 @@ Testing-gap roadmap item 6 (tranche 2, learning-loop cluster): the
 domain-specific exercise routes had zero TestClient coverage. These are PIN
 tests, not exhaustive coverage: real ``fast_app`` + TestClient against mocked
 services, pinning the auth gate (401), CSRF enforcement (403), the ADR-043
-per-user AI tier gate on report generation (fail-secure), the owner-or-teacher
-entry access rule (404, never 403 — UIDs must not leak), the PR #497
-fulfilled-exercise pin for non-teachers, exact service kwargs on the happy
-path, and the teacher-role gate on curriculum linking. Harness mirrors
-``test_choices_api_routes.py``.
+per-user AI tier gate on report generation (fail-secure), the report's
+admission (``EntryReportService.admit_report`` decides who may have the
+reviewer read an entry; the route asks it, answers its refusal, and hands the
+writer only what it admitted), exact service args on the happy path, and the
+teacher-role gate on curriculum linking. Who admission admits is pinned in
+``tests/unit/services/test_entry_report_service.py`` and, through the real
+route, in ``tests/integration/routes/test_ai_report_admission.py``. Harness
+mirrors ``test_choices_api_routes.py``.
 """
 
 from __future__ import annotations
@@ -27,8 +30,8 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.constants import LLMQuota
 from core.models.enums import EntityType, ExerciseScope, UserRole
 from core.models.exercises.exercise import Exercise
-from core.models.user_entry.user_entry import UserEntry
-from core.utils.result_simplified import Result
+from core.services.report.entry_report_service import AdmittedReport
+from core.utils.result_simplified import Errors, Result
 
 _USER_UID = "user_owner"
 _SUBMISSION_UID = "entry_1"
@@ -59,19 +62,12 @@ def _caller(role: UserRole) -> MagicMock:
     return user
 
 
-def _make_entry(owner_uid: str = _USER_UID) -> MagicMock:
-    # spec=UserEntry so the route's isinstance narrowing accepts it.
-    entry = MagicMock(spec=UserEntry)
-    entry.user_uid = owner_uid
-    return entry
-
-
 @dataclass(frozen=True)
 class _Harness:
     client: TestClient
     exercises: MagicMock
-    transcripts: MagicMock
     reports: MagicMock
+    admitted: AdmittedReport
     users: MagicMock
 
 
@@ -80,7 +76,7 @@ def _make_harness(
     *,
     authenticated: bool = True,
     role: UserRole = UserRole.MEMBER,
-    entry_owner: str = _USER_UID,
+    admitted: bool = True,
     intelligence_tier: IntelligenceTier | None = IntelligenceTier.FULL,
 ) -> _Harness:
     app, rt = fast_app(pico=False, default_hdrs=False)
@@ -100,13 +96,16 @@ def _make_harness(
     exercises_service.get_required_knowledge = AsyncMock(return_value=Result.ok([]))
     exercises_service.get_exercises_for_curriculum = AsyncMock(return_value=Result.ok([]))
 
-    transcript_service = MagicMock()
-    transcript_service.get = AsyncMock(return_value=Result.ok(_make_entry(entry_owner)))
-
     report_entity = MagicMock()
     report_entity.uid = "report_1"
     report_entity.content = "feedback"
+    admission = AdmittedReport(entry=MagicMock(), exercise=exercise, caller_uid=_USER_UID)
     entry_report_service = MagicMock()
+    entry_report_service.admit_report = AsyncMock(
+        return_value=Result.ok(admission)
+        if admitted
+        else Result.fail(Errors.not_found("UserEntry", _SUBMISSION_UID))
+    )
     entry_report_service.generate_report = AsyncMock(return_value=Result.ok(report_entity))
 
     user_service = MagicMock()
@@ -121,7 +120,6 @@ def _make_harness(
         app,
         rt,
         exercises_service,
-        transcript_service,
         entry_report_service,
         user_service=user_service,
         intelligence_tier=intelligence_tier,
@@ -129,8 +127,8 @@ def _make_harness(
     return _Harness(
         client=TestClient(app),
         exercises=exercises_service,
-        transcripts=transcript_service,
         reports=entry_report_service,
+        admitted=admission,
         users=user_service,
     )
 
@@ -161,9 +159,9 @@ class TestLlmQuotaGate:
         harness.reports.generate_report.assert_not_awaited()
 
     def test_access_denial_burns_no_quota(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # The unit is recorded after the owner-or-teacher check — a non-owner's
-        # 404 must not consume the caller's last unit.
-        harness = _make_harness(monkeypatch, entry_owner="user_other")
+        # The unit is recorded after admission — a refused request's 404 must
+        # not consume the caller's last unit.
+        harness = _make_harness(monkeypatch, admitted=False)
         for _ in range(LLMQuota.DAILY_LIMIT - 1):
             assert llm_quota_allowed(_USER_UID)
 
@@ -239,33 +237,30 @@ class TestAiTierGate:
         harness.reports.generate_report.assert_not_awaited()
 
 
-class TestReportEntryAccess:
-    def test_non_teacher_cannot_report_on_foreign_entry(
+class TestReportAdmission:
+    def test_the_route_asks_admission_with_the_caller_and_both_uids(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.TEACHER)
+
+        _post_json(harness.client, "/api/exercises/report", _REPORT_BODY)
+
+        harness.reports.admit_report.assert_awaited_once_with(
+            _SUBMISSION_UID, _EXERCISE_UID, caller_uid=_USER_UID, caller_role=UserRole.TEACHER
+        )
+
+    def test_a_refused_admission_is_404_and_reaches_no_reviewer(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # Not-found (never 403) so entry UIDs don't leak (OWNERSHIP_VERIFICATION).
-        harness = _make_harness(monkeypatch, entry_owner="user_other")
+        harness = _make_harness(monkeypatch, admitted=False)
 
         response = _post_json(harness.client, "/api/exercises/report", _REPORT_BODY)
 
         assert response.status_code == 404
         harness.reports.generate_report.assert_not_awaited()
 
-    def test_non_teacher_pinned_to_fulfilled_exercise(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        # PR #497: a student may only run the exercise their entry FULFILLS.
-        harness = _make_harness(monkeypatch)
-        harness.exercises.get_exercise_for_submission.return_value = Result.ok(
-            {"exercise_uid": "exercise_other"}
-        )
-
-        response = _post_json(harness.client, "/api/exercises/report", _REPORT_BODY)
-
-        assert response.status_code == 404
-        harness.reports.generate_report.assert_not_awaited()
-
-    def test_owner_happy_path_generates_with_exact_kwargs(
+    def test_happy_path_generates_on_the_admission_with_exact_args(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         harness = _make_harness(monkeypatch)
@@ -277,12 +272,9 @@ class TestReportEntryAccess:
         assert payload["report_uid"] == "report_1"
         assert payload["submission_uid"] == _SUBMISSION_UID
         assert payload["exercise_uid"] == _EXERCISE_UID
-        kwargs = harness.reports.generate_report.await_args.kwargs
-        assert kwargs["user_uid"] == _USER_UID
-        assert kwargs["temperature"] == 0.7
-        assert kwargs["max_tokens"] == 4000
-        assert kwargs["entry"].user_uid == _USER_UID
-        assert kwargs["exercise"].uid == _EXERCISE_UID
+        harness.reports.generate_report.assert_awaited_once_with(
+            harness.admitted, temperature=0.7, max_tokens=4000
+        )
 
 
 class TestCurriculumLinkingRoleGate:

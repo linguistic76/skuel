@@ -17,6 +17,7 @@ Following SKUEL principles:
 - Atomic: Entity creation + OWNS + REPORT_FOR in one transaction
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -25,6 +26,7 @@ from core.events.learning_loop_events import EntryReportGenerated
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.enums.pipeline import Pipeline, ReportSource
+from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
 from core.models.report.entry_report import EntryReport
@@ -40,11 +42,27 @@ from core.utils.uid_generator import UIDGenerator
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.report_protocols import EntryReportBackendOperations
+    from core.services.exercises.exercise_service import ExerciseService
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
     from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class AdmittedReport:
+    """Proof that a request for an AI report passed admission.
+
+    ``EntryReportService.admit_report`` returns one, holding the entry and the
+    exercise as that admission read them; ``generate_report`` accepts nothing
+    else, so no door reaches the reviewer without the check, and the reviewer
+    runs on exactly what was checked.
+    """
+
+    entry: UserEntry
+    exercise: Exercise
+    caller_uid: UserUID
 
 
 class EntryReportService:
@@ -66,6 +84,7 @@ class EntryReportService:
         report_mastery_service: ReportMasteryService | None = None,
         entry_service: UserEntryService | None = None,
         event_bus: EventBusOperations | None = None,
+        exercise_service: ExerciseService | None = None,
     ) -> None:
         """
         Initialize with LLM caller and domain backends.
@@ -91,6 +110,8 @@ class EntryReportService:
                 AI report persists (drives the ADR-051 InteractionResult
                 transition; the teacher path publishes ``ReportSubmitted``
                 from TeacherReviewService instead).
+            exercise_service: Optional — resolves the exercise an entry fulfils
+                for ``admit_report``; without it no report is admitted.
         """
         self.llm_caller = llm_caller
         self.backend = backend
@@ -98,6 +119,7 @@ class EntryReportService:
         self.report_mastery_service = report_mastery_service
         self.entry_service = entry_service
         self.event_bus = event_bus
+        self.exercise_service = exercise_service
         self.logger = logger
 
         available = []
@@ -354,31 +376,95 @@ class EntryReportService:
                 )
             )
 
+    async def admit_report(
+        self,
+        submission_uid: str,
+        exercise_uid: str,
+        caller_uid: UserUID,
+        caller_role: UserRole,
+    ) -> Result[AdmittedReport]:
+        """Decide whether the caller may have the AI reviewer read this entry with this exercise.
+
+        Two callers may, and each only with the exercise the entry FULFILLS —
+        the claim checked when the entry was submitted:
+
+        - the entry's owner, summoning feedback on their own work;
+        - a teacher the entry asks for feedback — it was ``SUBMITTED_TO_GROUP``
+          an active group the teacher owns (ADR-088 §2).
+
+        The pin is what keeps the reviewer from running another user's exercise
+        instructions against an entry and handing them back in the report.
+
+        Every refusal is not-found of the entry or of the exercise, and the
+        exercise is looked at only once the entry is admitted: a uid that names
+        nothing, another user's entry, a non-entry uid and an exercise the
+        entry does not fulfil each answer the same as missing, so no refusal
+        confirms that anything exists.
+        """
+        if self.entry_service is None or self.exercise_service is None:
+            return Result.fail(
+                Errors.system(
+                    "EntryReportService is not wired for report admission",
+                    operation="admit_report",
+                )
+            )
+
+        owned = await self.entry_service.get_entry(submission_uid, caller_uid)
+        if owned.is_error:
+            return Result.fail(owned)
+        entry = owned.value
+        if entry is None and caller_role.has_permission(UserRole.TEACHER):
+            authority = await self.entry_service.teacher_has_feedback_authority(
+                submission_uid, caller_uid
+            )
+            if authority.is_error:
+                return Result.fail(authority)
+            if authority.value:
+                read = await self.entry_service.get(submission_uid)
+                if read.is_error:
+                    return Result.fail(read)
+                entry = read.value
+        if entry is None:
+            return Result.fail(Errors.not_found("UserEntry", submission_uid))
+
+        fulfilled = await self.exercise_service.get_exercise_for_submission(submission_uid)
+        if fulfilled.is_error:
+            return Result.fail(fulfilled)
+        if (fulfilled.value or {}).get("exercise_uid") != exercise_uid:
+            return Result.fail(Errors.not_found("Exercise", exercise_uid))
+        exercise = await self.exercise_service.get_exercise(exercise_uid)
+        if exercise.is_error:
+            return Result.fail(exercise)
+
+        return Result.ok(
+            AdmittedReport(entry=entry, exercise=exercise.value, caller_uid=caller_uid)
+        )
+
     async def generate_report(
         self,
-        entry: UserEntry,
-        exercise: Exercise,
-        user_uid: UserUID,
+        admitted: AdmittedReport,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[EntryReport]:
         """
-        Generate AI report for a submission entry using exercise instructions.
+        Generate AI report for an admitted entry using the exercise it fulfils.
 
         Creates an ENTRY_REPORT entity (ReportSource.LLM) in Neo4j, linked
         to the submission via REPORT_FOR. The typed read path
         (list_for_submission) is the authoritative source for report content.
 
         Args:
-            entry: Submission to analyze (uses content or processed_content)
-            exercise: Exercise with instructions and model selection
-            user_uid: UID of user triggering report (teacher/admin — owns the entity)
+            admitted: The ``admit_report`` proof — the entry, the exercise, and
+                the caller who triggered the report
             temperature: Sampling temperature (0-1, default 0.7)
             max_tokens: Maximum tokens to generate (default 4000)
 
         Returns:
             Result[EntryReport] containing the created ENTRY_REPORT entity
         """
+        entry = admitted.entry
+        exercise = admitted.exercise
+        user_uid = admitted.caller_uid
         try:
             if not self.llm_caller:
                 return Result.fail(

@@ -16,10 +16,11 @@ from core.events.learning_loop_events import EntryReportGenerated
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.enums.pipeline import ReportSource
+from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise import Exercise
 from core.models.report.entry_report import EntryReport
 from core.models.user_entry.user_entry import UserEntry
-from core.services.report.entry_report_service import EntryReportService
+from core.services.report.entry_report_service import AdmittedReport, EntryReportService
 from core.utils.result_simplified import Errors, Result
 
 STUDENT_UID = "user_student_xyz"
@@ -105,9 +106,9 @@ class TestGenerateReportHappyPath:
         service = _make_service()
 
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         assert not result.is_error, result.error if result.is_error else None
@@ -130,9 +131,7 @@ class TestGenerateReportHappyPath:
         exercise = _make_exercise(instructions="Grade this harshly.")
 
         await service.generate_report(
-            entry=submission,
-            exercise=exercise,
-            user_uid=TEACHER_UID,
+            AdmittedReport(entry=submission, exercise=exercise, caller_uid=TEACHER_UID),
         )
 
         llm.generate.assert_awaited_once()
@@ -162,9 +161,9 @@ class TestEntryReportGeneratedEvent:
         )
 
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         assert result.is_ok
@@ -180,9 +179,9 @@ class TestEntryReportGeneratedEvent:
     async def test_no_event_bus_is_fine(self):
         service = _make_service()  # event_bus omitted
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
         assert result.is_ok
 
@@ -203,9 +202,9 @@ class TestGenerateReportBackendDelegation:
         service = _make_service(backend=backend)
 
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         backend.create_report_node.assert_awaited_once()
@@ -218,9 +217,9 @@ class TestGenerateReportBackendDelegation:
         service = _make_service(backend=backend)
 
         await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         (params,), _ = backend.create_report_node.await_args
@@ -237,9 +236,9 @@ class TestGenerateReportBackendDelegation:
         service = _make_service(backend=backend)
 
         await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         (params,), _ = backend.create_report_node.await_args
@@ -253,9 +252,9 @@ class TestGenerateReportBackendDelegation:
         service = _make_service(backend=backend)
 
         await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         (params,), _ = backend.create_report_node.await_args
@@ -269,9 +268,11 @@ class TestGenerateReportBackendDelegation:
         service = _make_service(llm_caller=llm, backend=backend)
 
         await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(title="Reflection #3"),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(),
+                exercise=_make_exercise(title="Reflection #3"),
+                caller_uid=TEACHER_UID,
+            ),
         )
 
         (params,), _ = backend.create_report_node.await_args
@@ -306,9 +307,9 @@ class TestGenerateReportValidation:
         )
 
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=invalid_exercise,
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=invalid_exercise, caller_uid=TEACHER_UID
+            ),
         )
 
         assert result.is_error
@@ -329,9 +330,9 @@ class TestGenerateReportValidation:
         )
 
         result = await service.generate_report(
-            entry=empty_submission,
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=empty_submission, exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         assert result.is_error
@@ -355,9 +356,9 @@ class TestGenerateReportErrorPropagation:
         service = _make_service(llm_caller=llm, backend=backend)
 
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         assert result.is_error
@@ -372,9 +373,9 @@ class TestGenerateReportErrorPropagation:
         service = _make_service(backend=backend)
 
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         assert result.is_error
@@ -386,9 +387,9 @@ class TestGenerateReportErrorPropagation:
         service = _make_service(backend=backend)
 
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         assert result.is_error
@@ -562,10 +563,139 @@ class TestGenerateReportWithoutBackend:
         )
 
         result = await service.generate_report(
-            entry=_make_submission(),
-            exercise=_make_exercise(),
-            user_uid=TEACHER_UID,
+            AdmittedReport(
+                entry=_make_submission(), exercise=_make_exercise(), caller_uid=TEACHER_UID
+            ),
         )
 
         assert result.is_error
         assert "backend" in str(result.error).lower()
+
+
+# ============================================================================
+# TestAdmitReport — who may have the reviewer read an entry
+# ============================================================================
+
+OTHER_EXERCISE_UID = "ex_exercise_other"
+
+
+def _admission_service(
+    *,
+    owned: bool = False,
+    authority: bool = False,
+    fulfilled: str | None = EXERCISE_UID,
+) -> tuple[EntryReportService, MagicMock, MagicMock]:
+    entry_service = MagicMock()
+    entry_service.get_entry = AsyncMock(
+        return_value=Result.ok(_make_submission() if owned else None)
+    )
+    entry_service.teacher_has_feedback_authority = AsyncMock(return_value=Result.ok(authority))
+    entry_service.get = AsyncMock(return_value=Result.ok(_make_submission()))
+    exercise_service = MagicMock()
+    exercise_service.get_exercise_for_submission = AsyncMock(
+        return_value=Result.ok({"exercise_uid": fulfilled} if fulfilled else None)
+    )
+    exercise_service.get_exercise = AsyncMock(return_value=Result.ok(_make_exercise()))
+    service = EntryReportService(
+        llm_caller=_make_llm_caller(),
+        backend=_make_ext_backend(),
+        entry_service=entry_service,
+        exercise_service=exercise_service,
+    )
+    return service, entry_service, exercise_service
+
+
+class TestAdmitReport:
+    @pytest.mark.asyncio
+    async def test_the_owner_is_admitted_with_the_fulfilled_exercise(self):
+        service, entry_service, _ = _admission_service(owned=True)
+
+        result = await service.admit_report(
+            SUBMISSION_UID, EXERCISE_UID, caller_uid=STUDENT_UID, caller_role=UserRole.MEMBER
+        )
+
+        assert result.is_ok, result
+        assert result.value.entry.uid == SUBMISSION_UID
+        assert result.value.exercise.uid == EXERCISE_UID
+        assert result.value.caller_uid == STUDENT_UID
+        entry_service.teacher_has_feedback_authority.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_teacher_the_entry_was_submitted_to_is_admitted(self):
+        service, entry_service, _ = _admission_service(authority=True)
+
+        result = await service.admit_report(
+            SUBMISSION_UID, EXERCISE_UID, caller_uid=TEACHER_UID, caller_role=UserRole.TEACHER
+        )
+
+        assert result.is_ok, result
+        assert result.value.caller_uid == TEACHER_UID
+        entry_service.teacher_has_feedback_authority.assert_awaited_once_with(
+            SUBMISSION_UID, TEACHER_UID
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("role", [UserRole.TEACHER, UserRole.ADMIN])
+    async def test_a_teacher_without_authority_is_refused_as_missing(self, role: UserRole):
+        service, entry_service, exercise_service = _admission_service(authority=False)
+
+        result = await service.admit_report(
+            SUBMISSION_UID, EXERCISE_UID, caller_uid=TEACHER_UID, caller_role=role
+        )
+
+        assert result.is_error
+        assert result.expect_error().category == Errors.not_found("UserEntry", "x").category
+        assert "UserEntry" in result.expect_error().message
+        entry_service.get.assert_not_awaited()
+        exercise_service.get_exercise_for_submission.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_non_teacher_is_never_asked_about_authority(self):
+        service, entry_service, _ = _admission_service(authority=True)
+
+        result = await service.admit_report(
+            SUBMISSION_UID, EXERCISE_UID, caller_uid=STUDENT_UID, caller_role=UserRole.MEMBER
+        )
+
+        assert result.is_error
+        entry_service.teacher_has_feedback_authority.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("owned", "authority", "role"),
+        [(True, False, UserRole.MEMBER), (False, True, UserRole.TEACHER)],
+        ids=["owner", "teacher"],
+    )
+    async def test_an_exercise_the_entry_does_not_fulfil_is_refused(
+        self, owned: bool, authority: bool, role: UserRole
+    ):
+        service, _, exercise_service = _admission_service(owned=owned, authority=authority)
+
+        result = await service.admit_report(
+            SUBMISSION_UID, OTHER_EXERCISE_UID, caller_uid=TEACHER_UID, caller_role=role
+        )
+
+        assert result.is_error
+        assert "Exercise" in result.expect_error().message
+        exercise_service.get_exercise.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_an_entry_that_fulfils_no_exercise_admits_none(self):
+        service, _, exercise_service = _admission_service(owned=True, fulfilled=None)
+
+        result = await service.admit_report(
+            SUBMISSION_UID, EXERCISE_UID, caller_uid=STUDENT_UID, caller_role=UserRole.MEMBER
+        )
+
+        assert result.is_error
+        exercise_service.get_exercise.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_unwired_admission_fails_closed(self):
+        service = EntryReportService(llm_caller=_make_llm_caller(), backend=_make_ext_backend())
+
+        result = await service.admit_report(
+            SUBMISSION_UID, EXERCISE_UID, caller_uid=STUDENT_UID, caller_role=UserRole.MEMBER
+        )
+
+        assert result.is_error
