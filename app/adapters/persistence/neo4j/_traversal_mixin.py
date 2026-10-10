@@ -199,7 +199,7 @@ class _TraversalMixin:
 
         if include_properties:
             cypher = f"""
-            MATCH path = (start {{uid: $start_uid}})-[{rel_filter}*1..{max_depth}]-(node)
+            MATCH path = (start:Entity {{uid: $start_uid}})-[{rel_filter}*1..{max_depth}]-(node)
             UNWIND range(1, length(path)) as depth
             WITH node, depth, labels(node) as node_labels, properties(node) as props
             RETURN DISTINCT node.uid as uid, node_labels as labels,
@@ -208,7 +208,7 @@ class _TraversalMixin:
             """
         else:
             cypher = f"""
-            MATCH path = (start {{uid: $start_uid}})-[{rel_filter}*1..{max_depth}]-(node)
+            MATCH path = (start:Entity {{uid: $start_uid}})-[{rel_filter}*1..{max_depth}]-(node)
             UNWIND range(1, length(path)) as depth
             WITH node, depth, labels(node) as node_labels
             RETURN DISTINCT node.uid as uid, node_labels as labels, min(depth) as depth
@@ -268,7 +268,7 @@ class _TraversalMixin:
 
         cypher = f"""
         MATCH path = shortestPath(
-            (start {{uid: $from_uid}})-[{rel_clause}*..{max_depth}]-(end {{uid: $to_uid}})
+            (start:Entity {{uid: $from_uid}})-[{rel_clause}*..{max_depth}]-(end:Entity {{uid: $to_uid}})
         )
         UNWIND nodes(path) as node
         RETURN node.uid as uid, labels(node) as labels

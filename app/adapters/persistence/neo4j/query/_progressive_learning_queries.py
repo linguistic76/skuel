@@ -79,7 +79,7 @@ class ProgressiveLearningQueries:
         """
         cypher = f"""
         MATCH path = shortestPath(
-            (start {{uid: $start_uid}})-[rs:{relationship_type}*1..{max_depth}]->(end {{uid: $end_uid}})
+            (start:Entity {{uid: $start_uid}})-[rs:{relationship_type}*1..{max_depth}]->(end:Entity {{uid: $end_uid}})
         )
 
         // Filter: ALL steps must have gradual difficulty increase
@@ -164,7 +164,7 @@ class ProgressiveLearningQueries:
         unordered_filter = "" if include_unordered else "AND r.typical_learning_order IS NOT NULL"
 
         cypher = f"""
-        MATCH path = (target {{uid: $target_uid}})<-[r:{relationship_type}*1..{depth}]-(prereq)
+        MATCH path = (target:Entity {{uid: $target_uid}})<-[r:{relationship_type}*1..{depth}]-(prereq)
         WHERE NOT (prereq)<-[:{relationship_type}]-()  // Leaf prerequisites only
           {unordered_filter}
 

@@ -273,11 +273,14 @@ All DDL is idempotent (`IF NOT EXISTS`) — safe on every startup.
 The chunk store's `:Content` node (`neo4j_content_adapter.py` — `MERGE (c:Content {uid: $uid})`,
 the Ku / PathStep whose body it holds) shares its entity's uid, so an unlabeled
 `MATCH (n {uid: $uid})` binds BOTH nodes — duplicated rows, doubled MERGE
-edges, misread labels. The relationship mixins and `_TraversalMixin` carry the
-guard; a census (`grep -E 'MATCH \([a-z_]* \{\{?uid: \$' adapters/persistence`)
-still finds unguarded sites — the lateral writer in `collab_backends.py`, the
-`semantic_queries.py` builders, `ps_engagement_backend.py` among them — so treat
-the rule as a rule, not as a finished sweep. Two sanctioned forms:
+edges, misread labels. Every uid-anchored pattern under `adapters/persistence/`
+carries the guard, and `tests/unit/test_g13_shadow_uid_census.py` fails on a new
+one without it. The census reads each Cypher string on its own, so a pattern
+composed across two strings (a `match_pattern` built in Python and spliced in)
+is yours to guard where the variable is introduced. A `MERGE` on an unlabeled
+uid is worse than a double bind: it CREATES a bare node for a uid that names
+nothing — `MATCH` the endpoints with the guard, then `MERGE` only the edge
+(`build_semantic_merge`). Two sanctioned forms:
 
 ```cypher
 // Entity-only paths — bind the universal base label

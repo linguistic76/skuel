@@ -183,7 +183,7 @@ class TestCypherBuildersSemantic:
             min_confidence=0.8,
         )
 
-        assert "MATCH (center {uid: $uid})" in query
+        assert "MATCH (center:Entity {uid: $uid})" in query
         # _coarse_alternation dedupes + sorts for deterministic output (Phase 1).
         assert "BUILDS_MENTAL_MODEL|REQUIRES_THEORETICAL_UNDERSTANDING" in query
         assert "c >= $min_confidence" in query
@@ -201,7 +201,7 @@ class TestCypherBuildersSemantic:
             node_uid="ku.advanced_python", semantic_types=[mock_type], depth=5
         )
 
-        assert "MATCH (target {uid: $uid})" in query
+        assert "MATCH (target:Entity {uid: $uid})" in query
         assert "REQUIRES_PRACTICAL_APPLICATION" in query
         assert "*1..5" in query
         assert params["uid"] == "ku.advanced_python"
@@ -237,8 +237,8 @@ class TestCypherBuildersSemantic:
             max_depth=5,
         )
 
-        assert "MATCH (start {uid: $start_uid})" in query
-        assert "MATCH (end {uid: $end_uid})" in query
+        assert "MATCH (start:Entity {uid: $start_uid})" in query
+        assert "MATCH (end:Entity {uid: $end_uid})" in query
         assert "shortestPath" in query
         assert "PROVIDES_FOUNDATION_FOR" in query
         assert params["start_uid"] == "ku.python_basics"
@@ -261,7 +261,7 @@ class TestCypherBuildersSemantic:
             depth=2,
         )
 
-        assert "MATCH (center {uid: $uid})" in query
+        assert "MATCH (center:Entity {uid: $uid})" in query
         assert "REQUIRES_CONCEPTUAL_FOUNDATION" in query
         assert "DEMONSTRATES_IN_PROJECT" in query
         assert "direction: 'parent'" in query
@@ -418,7 +418,7 @@ class TestEdgeCases:
         )
 
         # Should generate valid query even with depth=0
-        assert "MATCH (center {uid: $uid})" in query
+        assert "MATCH (center:Entity {uid: $uid})" in query
 
     def test_multiple_semantic_types(self):
         """Test with many semantic relationship types."""

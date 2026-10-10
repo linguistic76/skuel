@@ -326,7 +326,7 @@ class IngestionWriteBackend:
         records, _, _ = await self._driver.execute_query(
             """
             UNWIND $edges AS edge
-            MATCH (s:Entity {uid: $source_uid})-[r]-(t {uid: edge.target_uid})
+            MATCH (s:Entity {uid: $source_uid})-[r]-(t:Entity {uid: edge.target_uid})
             WHERE type(r) = edge.rel_type
               AND (
                 (edge.direction = 'outgoing' AND startNode(r) = s)

@@ -93,8 +93,11 @@ class PsSemanticService:
                 metadata=triple.metadata,
             )
 
-            # Create relationship in Neo4j
-            await self._create_semantic_relationship(triple_to_create)
+            # Create relationship in Neo4j. The path step already exists; a
+            # refused link names the endpoint the triple could not reach.
+            link_result = await self._create_semantic_relationship(triple_to_create)
+            if link_result.is_error:
+                return Result.fail(link_result)
 
         self.logger.info(
             f"Created path step {uid} with {len(relationships)} semantic relationships"
@@ -112,13 +115,23 @@ class PsSemanticService:
         """
         Internal method to create a single semantic relationship.
 
+        The backend merges only the edge, between two endpoints it binds as
+        entities; it returns no row when either endpoint names nothing. That
+        empty result is a not-found here — the triple is never half-written.
+
         Args:
             triple: Semantic triple to create
 
         Returns:
-            Result indicating success
+            Result indicating success, or not-found naming the absent object
         """
-        await self.repo.create_semantic_relationship(triple)
+        result = await self.repo.create_semantic_relationship(triple)
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(
+                Errors.not_found("Entity", triple.object, reason="semantic triple endpoint absent")
+            )
 
         self.logger.debug(f"Created semantic relationship: {triple}")
         return Result.ok(True)

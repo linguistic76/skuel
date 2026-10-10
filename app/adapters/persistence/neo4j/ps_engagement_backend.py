@@ -29,6 +29,9 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 _ENGAGED_WITH = RelationshipName.ENGAGED_WITH.value
+# Every uid-anchored PathStep or instance binds :Entity — a PathStep with a
+# body has a :Content shadow on the same uid, and an unlabeled anchor would
+# open, read and close the engagement against both nodes (G13).
 _OWNS = RelationshipName.OWNS.value
 # An instance's engagement_state — the spawn orchestrator writes it through
 # EngagementState, so every read and write here binds it from the enum too.
@@ -64,7 +67,7 @@ class PsEngagementBackend:
         self, student_uid: str, ps_uid: str
     ) -> Result[list[dict[str, Any]]]:
         query = f"""
-        MATCH (u:User {{uid: $student_uid}})-[r:{_ENGAGED_WITH}]->(ps {{uid: $ps_uid}})
+        MATCH (u:User {{uid: $student_uid}})-[r:{_ENGAGED_WITH}]->(ps:Entity {{uid: $ps_uid}})
         WHERE r.state = 'engaged'
         RETURN r.uid AS uid,
                r.since AS since,
@@ -100,7 +103,7 @@ class PsEngagementBackend:
         self, student_uid: str, ps_uid: str, engagement_uid: str, since: str
     ) -> Result[list[dict[str, Any]]]:
         query = f"""
-        MATCH (u:User {{uid: $student_uid}}), (ps {{uid: $ps_uid}})
+        MATCH (u:User {{uid: $student_uid}}), (ps:Entity {{uid: $ps_uid}})
         CREATE (u)-[r:{_ENGAGED_WITH} {{
             uid: $engagement_uid,
             since: $since,
@@ -131,7 +134,7 @@ class PsEngagementBackend:
         # timestamp_field is validated against a whitelist by the caller
         # (_EngagementGateway) — never user input.
         query = f"""
-        MATCH (u:User {{uid: $student_uid}})-[r:{_ENGAGED_WITH}]->(ps {{uid: $ps_uid}})
+        MATCH (u:User {{uid: $student_uid}})-[r:{_ENGAGED_WITH}]->(ps:Entity {{uid: $ps_uid}})
         WHERE r.state = 'engaged'
         SET r.state = $new_state,
             r.{timestamp_field} = $ts
@@ -161,7 +164,7 @@ class PsEngagementBackend:
     ) -> Result[list[dict[str, Any]]]:
         # rel_value is a RelationshipName enum value, not user input.
         query = f"""
-        MATCH (ps {{uid: $ps_uid}})-[:{rel_value}]->(t)
+        MATCH (ps:Entity {{uid: $ps_uid}})-[:{rel_value}]->(t)
         RETURN t.uid AS uid
         ORDER BY t.uid
         """
@@ -244,7 +247,7 @@ class PsEngagementBackend:
         self, student_uid: str, instance_uid: str
     ) -> Result[list[dict[str, Any]]]:
         query = f"""
-        MATCH (n {{uid: $instance_uid, user_uid: $student_uid}})-[sf:SPAWNED_FROM]->()
+        MATCH (n:Entity {{uid: $instance_uid, user_uid: $student_uid}})-[sf:SPAWNED_FROM]->()
         WHERE n.engagement_state = $engaged_state
         MATCH (u:User {{uid: $student_uid}})-[e:{_ENGAGED_WITH}]->(ps)
         WHERE e.state = 'engaged' AND e.uid = sf.engagement_uid

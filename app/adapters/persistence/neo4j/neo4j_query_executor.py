@@ -23,7 +23,7 @@ Usage:
 
         async def get_items(self, uid: str) -> Result[list[str]]:
             result = await self.executor.execute_query(
-                "MATCH (n {uid: $uid})-[:REL]->(m) RETURN m.uid as uid",
+                "MATCH (n:Entity {uid: $uid})-[:REL]->(m) RETURN m.uid as uid",
                 {"uid": uid},
             )
             if result.is_error:

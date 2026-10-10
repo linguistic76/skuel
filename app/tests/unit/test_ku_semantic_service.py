@@ -18,7 +18,7 @@ from core.infrastructure.relationships.semantic_relationships import (
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityType
 from core.services.ps.ps_semantic_service import PsSemanticService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import ErrorCategory, Result
 
 
 def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
@@ -83,7 +83,9 @@ class TestCreateWithSemanticRelationships:
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
 
         # Mock backend method
-        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
+        service.repo.create_semantic_relationship = AsyncMock(
+            return_value=Result.ok([{"semantic_type": "learn:requires_theoretical_understanding"}])
+        )
 
         # Create relationships
         metadata = RelationshipMetadata(confidence=0.9)
@@ -120,6 +122,29 @@ class TestCreateWithSemanticRelationships:
         )
 
         assert not result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_create_refuses_a_triple_whose_endpoint_is_absent(self, service):
+        """The backend returns no row when an endpoint names nothing; that is not found."""
+        service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
+        service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
+        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
+
+        result = await service.create_with_semantic_relationships(
+            ku_data={"title": "New Unit", "content": "Test content", "domain": "tech"},
+            relationships=[
+                SemanticTriple(
+                    subject="ku.placeholder",
+                    predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
+                    object="ku.absent",
+                    metadata=RelationshipMetadata(confidence=0.9),
+                )
+            ],
+        )
+
+        error = result.expect_error()
+        assert error.category == ErrorCategory.NOT_FOUND
+        assert error.details["identifier"] == "ku.absent"
 
 
 class TestSemanticNeighborhood:
@@ -226,7 +251,9 @@ class TestRelationshipManagement:
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto()))
 
         # Mock backend method
-        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
+        service.repo.create_semantic_relationship = AsyncMock(
+            return_value=Result.ok([{"semantic_type": "learn:requires_theoretical_understanding"}])
+        )
 
         result = await service.add_semantic_relationship(
             subject_uid="ku.test.1",

@@ -780,7 +780,7 @@ def build_relationship_traversal_query(
 
     # Build direction pattern
     arrow = direction_clause(direction, None, relationship_type)
-    pattern = f"(source {{uid: $source_uid}}){arrow}(target:{target_label})"
+    pattern = f"(source:Entity {{uid: $source_uid}}){arrow}(target:{target_label})"
 
     params: dict[str, Neo4jValue] = {"source_uid": source_uid, "limit": limit}
     where_line = ""
@@ -902,7 +902,7 @@ def build_graph_aware_search_query(
 
     # Build direction pattern for relationship
     arrow = direction_clause(direction, None, relationship_type)
-    rel_pattern = f"(source {{uid: $source_uid}}){arrow}(target:{label})"
+    rel_pattern = f"(source:Entity {{uid: $source_uid}}){arrow}(target:{label})"
 
     # Build OR clauses for text search on target. Parenthesized so the
     # visibility clause can be ANDed safely (AND binds tighter than OR).

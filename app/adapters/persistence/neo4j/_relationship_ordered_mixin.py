@@ -104,7 +104,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
 
         query = f"""
         UNWIND $ordering AS item
-        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause(direction)}(target {{uid: item.uid}})
+        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause(direction)}(target:Entity {{uid: item.uid}})
         WHERE type(r) = $relationship_type
         SET r.{sequence_property} = item.seq
         RETURN count(*) AS updated_count

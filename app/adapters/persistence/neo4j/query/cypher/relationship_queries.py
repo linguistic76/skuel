@@ -82,7 +82,7 @@ def build_relationship_count(
 
     # Build query
     cypher = f"""
-    MATCH (n {{uid: $uid}})
+    MATCH (n:Entity {{uid: $uid}})
     MATCH {pattern}
     {where_clause}
     RETURN count(related) as count
@@ -150,7 +150,7 @@ def build_relationship_uids_query(
 
     # Build query
     cypher = f"""
-    MATCH (n {{uid: $uid}})
+    MATCH (n:Entity {{uid: $uid}})
     MATCH {pattern}
     {where_clause}
     RETURN related.uid as uid
@@ -197,7 +197,7 @@ def build_multi_relationship_count(
 
     # Build query - filter by relationship type in WHERE clause
     cypher = f"""
-    MATCH (n {{uid: $uid}})
+    MATCH (n:Entity {{uid: $uid}})
     MATCH {pattern}
     WHERE type(r) IN $relationship_types
     RETURN count(r) as count

@@ -245,7 +245,8 @@ class _CrudMixin[T: DomainModelProtocol]:
         return await self._create_node(
             entity,
             "create_with_spawned_from",
-            match_clause="MATCH (t {uid: $template_uid})",
+            # :Entity — an unlabeled uid would also bind a :Content shadow (G13).
+            match_clause="MATCH (t:Entity {uid: $template_uid})",
             extra_cypher=(
                 "CREATE (n)-[r:SPAWNED_FROM]->(t)\n"
                 "        SET r.spawned_at = datetime(), r.engagement_uid = $engagement_uid"
