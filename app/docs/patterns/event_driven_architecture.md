@@ -1,6 +1,6 @@
 ---
 title: Event-Driven Architecture
-updated: 2026-09-23
+updated: 2026-10-10
 category: patterns
 related_skills:
 - python
@@ -286,7 +286,9 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 
 UserContext invalidation is wired by subscribing two arrays of event types to a single
 handler in `services_bootstrap/_event_wiring.py` — `activity_context_events` and
-`learning_context_events`. **Read those arrays**; they are the coverage.
+`learning_context_events` — plus `EntityLinksChanged`, the one event invalidated
+immediately rather than debounced (a link door's page reads the context right back).
+**Read those arrays and that subscription**; they are the coverage.
 
 A table used to be reproduced here, claiming "52 events". It had drifted into naming a whole
 Finance row (`ExpenseCreated`, `ExpensePaid`, …) after ADR-052 removed the native expense
