@@ -26,10 +26,6 @@ Pattern Categories:
      ``Neo4jQueryExecutor.create_relationships_batch``
    - Query: group by type → UNWIND $rels → MERGE → return created count
 
-5. **Batch Relationship Building** - Flatten UID lists into the
-   (from, to, type, props) tuples ``create_relationships_batch`` takes
-   - Pure Python; unit-tested, no production call site
-
 Existence checks and counts over a list of uids are backend reads, not builders
 here: ``batch_get_related_uids`` (``_RelationshipCrudMixin``, under the owner
 far-node scope) and ``count_relationships_batch`` (``_RelationshipQueryMixin``,
@@ -87,18 +83,6 @@ class BatchCypherBuilder:
         [("task_1", "ku.python.basics", "APPLIES_KNOWLEDGE")],
     )
     records = await backend.execute_query(result.query, result.params)
-    ```
-
-    **Batch Relationship Building:**
-    ```python
-    relationships = BatchCypherBuilder.build_relationships_list(
-        source_uid=task_uid,
-        relationship_specs=[
-            (applies_knowledge_uids, "APPLIES_KNOWLEDGE", None),
-            (prerequisite_uids, "REQUIRES_KNOWLEDGE", None),
-        ],
-    )
-    await backend.create_relationships_batch(relationships)
     ```
     """
 
@@ -416,75 +400,3 @@ class BatchCypherBuilder:
             queries.append((query, rels_data))
 
         return queries
-
-    # ========================================================================
-    # RELATIONSHIP LIST BUILDERS (Pure Python)
-    # ========================================================================
-
-    @staticmethod
-    def build_relationships_list(
-        source_uid: str,
-        relationship_specs: list[tuple[list[str] | None, str, dict[str, Any] | None]],
-    ) -> list[tuple[str, str, str, dict[str, Any] | None]]:
-        """
-        Build flattened relationship list for batch creation.
-
-        This replaces the repeated pattern in all 12 relationship services:
-            if applies_knowledge_uids:
-                relationships.extend(...)
-            if prerequisite_knowledge_uids:
-                relationships.extend(...)
-
-        **DRY Benefit:** Reduces ~10-15 lines per service method to 1 line.
-
-        Args:
-            source_uid: The source entity UID (e.g., task_uid, goal_uid)
-            relationship_specs: List of (target_uids, rel_type, properties) tuples
-                - target_uids: List of target UIDs (can be None/empty - will be skipped)
-                - rel_type: Relationship type string (e.g., "APPLIES_KNOWLEDGE")
-                - properties: Optional dict of relationship properties
-
-        Returns:
-            Flattened list of (from_uid, to_uid, rel_type, properties) tuples
-            ready for backend.create_relationships_batch()
-
-        Example:
-            # Before (per-domain relationship service - 15+ lines)
-            relationships = []
-            if applies_knowledge_uids:
-                relationships.extend(
-                    (task_uid, ku_uid, "APPLIES_KNOWLEDGE", None)
-                    for ku_uid in applies_knowledge_uids
-                )
-            if prerequisite_knowledge_uids:
-                relationships.extend(
-                    (task_uid, ku_uid, "REQUIRES_KNOWLEDGE", None)
-                    for ku_uid in prerequisite_knowledge_uids
-                )
-            # ... 7 more similar blocks
-
-            # After (1 line)
-            relationships = BatchCypherBuilder.build_relationships_list(
-                source_uid=task_uid,
-                relationship_specs=[
-                    (applies_knowledge_uids, "APPLIES_KNOWLEDGE", None),
-                    (prerequisite_knowledge_uids, "REQUIRES_KNOWLEDGE", None),
-                    (prerequisite_task_uids, "BLOCKED_BY", None),
-                    (aligned_principle_uids, "ALIGNED_WITH_PRINCIPLE", None),
-                    (subtask_uids, "HAS_SUBTASK", None),
-                    (enables_task_uids, "ENABLES_TASK", None),
-                    (completion_triggers_tasks, "TRIGGERS_ON_COMPLETION", None),
-                    (completion_unlocks_knowledge, "UNLOCKS_KNOWLEDGE", None),
-                    (inferred_knowledge_uids, "INFERRED_KNOWLEDGE", None),
-                ]
-            )
-        """
-        relationships: list[tuple[str, str, str, dict[str, Any] | None]] = []
-
-        for target_uids, rel_type, properties in relationship_specs:
-            if target_uids:
-                relationships.extend(
-                    (source_uid, target_uid, rel_type, properties) for target_uid in target_uids
-                )
-
-        return relationships

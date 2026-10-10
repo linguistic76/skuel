@@ -58,8 +58,7 @@ _INTENT_EDGE_SETS: dict[str, list[str]] = {
     # "hierarchical" used to read ["HAS_CHILD", "PARENT_OF", "CHILD_OF"]. None of
     # the three is a live edge: PARENT_OF and CHILD_OF are not RelationshipName
     # members at all, and HAS_CHILD — though registered, and declared Task→Task
-    # in TASKS_CONFIG — has no writer anywhere. Its only apparent one is a
-    # docstring EXAMPLE in batch_cypher_builder.build_relationships_list. The
+    # in TASKS_CONFIG — has no writer anywhere, not even a docstring example. The
     # live parent→child vocabulary is the six HAS_SUB* edges written by
     # _HierarchyMixin.create_hierarchy_relationship, plus HAS_STEP and ORGANIZES
     # (findings §8; same list as CollabBackend.get_siblings).
