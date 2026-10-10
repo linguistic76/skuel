@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
@@ -27,35 +28,46 @@ class TemplateAttachmentOperations(Protocol):
 
     The 6 Activity Template services delegate their attach/detach/list Cypher
     here so it lives below the hexagonal boundary (ADR-044). ``edge_name`` is a
-    typed ``RelationshipName`` (one of the ``HAS_*_TEMPLATE`` members) supplied by
-    the service — the enum, not caller discipline, is what keeps the interpolation
-    injection-safe. Implemented by
+    typed ``RelationshipName`` (one of the ``HAS_*_TEMPLATE`` members) and
+    ``template_label`` the matching template ``NeoLabel``, both supplied by the
+    service — the enums, not caller discipline, keep the interpolation
+    injection-safe. Every member binds both ends by kind: the source is a PathStep
+    and the far end carries ``template_label``. Implemented by
     ``adapters/persistence/neo4j/template_attachment_backend.py``.
     """
 
     async def attach(
-        self, ps_uid: str, template_uid: str, edge_name: RelationshipName
+        self,
+        ps_uid: str,
+        template_uid: str,
+        edge_name: RelationshipName,
+        template_label: NeoLabel,
     ) -> Result[list[dict[str, Any]]]:
         """Attach a template to a PathStep under ``edge_name``; idempotent.
 
-        One row per attached pair — empty when either endpoint is missing, which
-        is how the caller tells "attached" apart from "no such node".
+        One row per attached pair — empty when either end is missing or not its
+        kind, which is how the caller tells "attached" apart from "no such node".
         """
         ...
 
     async def detach(
-        self, ps_uid: str, template_uid: str, edge_name: RelationshipName
+        self,
+        ps_uid: str,
+        template_uid: str,
+        edge_name: RelationshipName,
+        template_label: NeoLabel,
     ) -> Result[list[dict[str, Any]]]:
-        """Detach a template from a PathStep; return a ``removed`` count row.
+        """Detach a template from a PathStep; return one ``removed`` count row.
 
-        Idempotent — detaching an unattached pair reports zero removed.
+        Empty when either end is missing or not its kind. Idempotent — detaching an
+        unattached right-kind pair reports zero removed.
         """
         ...
 
     async def list_for_pathstep(
-        self, ps_uid: str, edge_name: RelationshipName
+        self, ps_uid: str, edge_name: RelationshipName, template_label: NeoLabel
     ) -> Result[list[dict[str, Any]]]:
-        """Return ``props`` rows for templates attached to ``ps_uid`` via ``edge_name``."""
+        """Return ``props`` rows for the ``template_label`` nodes ``ps_uid`` attaches."""
         ...
 
 

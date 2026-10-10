@@ -17,14 +17,19 @@ route file's api_factory:
     detach_from_pathstep(ps_uid, template_uid)  → DELETE the edge
     list_for_pathstep(ps_uid)                   → templates attached to a PS
 
-These methods delegate to the shared executor used by ``PsEngagementService``
-so the engagement service and the route layer see the same edges.
+The service admits both ends by kind: ``ps_uid`` must name a PathStep and
+``template_uid`` a template of this service's own kind. Each service declares its
+edge and its template label; the attachment statements bind both, so an attach or
+detach naming anything else matches nothing and answers not-found — whatever the
+uid is, another user's Goal included — and the list never reads a node of another
+kind.
 """
 
 from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.templates.choice_template import ChoiceTemplate
@@ -54,12 +59,14 @@ logger = get_logger(__name__)
 class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations[T], T]):
     """Common CRUD + PS-attachment surface for all 6 Activity Template services.
 
-    Subclasses set ``_config``, ``_edge_name``, and ``_service_name``. The edge
-    name is the ``HAS_*_TEMPLATE`` ``RelationshipName`` the engagement service
-    walks at spawn time; the enum typing makes it a compile-time-safe seam.
+    Subclasses set ``_config``, ``_edge_name``, ``_template_label`` and
+    ``_service_name``. The edge name is the ``HAS_*_TEMPLATE`` ``RelationshipName``
+    the engagement service walks at spawn time; the template label is the kind the
+    edge's far end must carry. The enum typing makes both a compile-time-safe seam.
     """
 
     _edge_name: ClassVar[RelationshipName | None] = None
+    _template_label: ClassVar[NeoLabel | None] = None
 
     def __init__(
         self,
@@ -71,74 +78,80 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
         self._attachment = attachment
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
 
-    async def attach_to_pathstep(self, ps_uid: str, template_uid: str) -> Result[bool]:
-        """Attach this template to the PathStep ``ps_uid``.
-
-        Idempotent: re-attaching is a no-op. Both nodes must already exist;
-        otherwise a NotFound is returned.
-        """
-        if self._edge_name is None:
+    def _attachment_kind(self, operation: str) -> Result[tuple[RelationshipName, NeoLabel]]:
+        """The edge and far-end label this service attaches by, or a system error."""
+        if self._edge_name is None or self._template_label is None:
             return Result.fail(
                 Errors.system(
                     message=(
-                        f"{self.__class__.__name__} did not set _edge_name — "
-                        "PS attachment cannot be performed."
+                        f"{self.__class__.__name__} did not set _edge_name and "
+                        "_template_label — PS attachment cannot be performed."
                     ),
-                    operation="attach_to_pathstep",
+                    operation=operation,
                 )
             )
-        result = await self._attachment.attach(ps_uid, template_uid, self._edge_name)
+        return Result.ok((self._edge_name, self._template_label))
+
+    @staticmethod
+    def _not_found(ps_uid: str, template_uid: str) -> Result[bool]:
+        # One answer for a missing uid and a node of the wrong kind, at either end.
+        return Result.fail(
+            Errors.not_found("PathStep or Template", f"ps={ps_uid} template={template_uid}")
+        )
+
+    async def attach_to_pathstep(self, ps_uid: str, template_uid: str) -> Result[bool]:
+        """Attach this template to the PathStep ``ps_uid``.
+
+        Idempotent: re-attaching is a no-op. ``ps_uid`` must name a PathStep and
+        ``template_uid`` a template of this service's kind; otherwise nothing is
+        written and a NotFound is returned, alike for a missing uid and the wrong
+        kind. Backend: ``TemplateAttachmentBackend.attach``.
+        """
+        kind = self._attachment_kind("attach_to_pathstep")
+        if kind.is_error:
+            return Result.fail(kind)
+        edge_name, template_label = kind.value
+        result = await self._attachment.attach(ps_uid, template_uid, edge_name, template_label)
         if result.is_error:
             return Result.fail(result)
         if not result.value:
-            return Result.fail(
-                Errors.not_found(
-                    "PathStep or Template",
-                    f"ps={ps_uid} template={template_uid}",
-                )
-            )
+            return self._not_found(ps_uid, template_uid)
         return Result.ok(True)
 
     async def detach_from_pathstep(self, ps_uid: str, template_uid: str) -> Result[bool]:
         """Detach this template from the PathStep ``ps_uid``.
 
-        Idempotent: detaching an already-detached pair returns ``Result.ok(False)``.
+        Admits both ends as ``attach_to_pathstep`` does — a pair that is not a
+        PathStep and a template of this kind is a NotFound. Idempotent: detaching
+        an already-detached right-kind pair returns ``Result.ok(False)``.
+        Backend: ``TemplateAttachmentBackend.detach``.
         """
-        if self._edge_name is None:
-            return Result.fail(
-                Errors.system(
-                    message=(
-                        f"{self.__class__.__name__} did not set _edge_name — "
-                        "PS detachment cannot be performed."
-                    ),
-                    operation="detach_from_pathstep",
-                )
-            )
-        result = await self._attachment.detach(ps_uid, template_uid, self._edge_name)
+        kind = self._attachment_kind("detach_from_pathstep")
+        if kind.is_error:
+            return Result.fail(kind)
+        edge_name, template_label = kind.value
+        result = await self._attachment.detach(ps_uid, template_uid, edge_name, template_label)
         if result.is_error:
             return Result.fail(result)
-        removed = bool(result.value and result.value[0].get("removed", 0))
-        return Result.ok(removed)
+        if not result.value:
+            return self._not_found(ps_uid, template_uid)
+        return Result.ok(bool(result.value[0].get("removed", 0)))
 
     async def list_for_pathstep(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
-        """List template properties attached to ``ps_uid`` via this edge type.
+        """List the properties of this kind's templates attached to ``ps_uid``.
 
-        Returns raw property dicts (uid, title, status, ...) rather than
-        domain models — the route layer JSON-serializes the dicts directly,
-        and adding model rehydration here would just round-trip through DTO
-        for no gain in the API surface.
+        Only a PathStep's edges to a template of this service's kind are read, so
+        an edge to any other node is never returned. Returns raw property dicts
+        (uid, title, status, ...) rather than domain models — the route layer
+        JSON-serializes the dicts directly, and adding model rehydration here
+        would just round-trip through DTO for no gain in the API surface.
+        Backend: ``TemplateAttachmentBackend.list_for_pathstep``.
         """
-        if self._edge_name is None:
-            return Result.fail(
-                Errors.system(
-                    message=(
-                        f"{self.__class__.__name__} did not set _edge_name — "
-                        "list_for_pathstep cannot be performed."
-                    ),
-                    operation="list_for_pathstep",
-                )
-            )
-        result = await self._attachment.list_for_pathstep(ps_uid, self._edge_name)
+        kind = self._attachment_kind("list_for_pathstep")
+        if kind.is_error:
+            return Result.fail(kind)
+        edge_name, template_label = kind.value
+        result = await self._attachment.list_for_pathstep(ps_uid, edge_name, template_label)
         if result.is_error:
             return Result.fail(result)
         return Result.ok([record["props"] for record in result.value])
@@ -147,6 +160,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
 class TaskTemplateService(_BaseTemplateService[TaskTemplate]):
     _service_name: ClassVar[str | None] = "task_templates"
     _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_TASK_TEMPLATE
+    _template_label: ClassVar[NeoLabel] = NeoLabel.TASK_TEMPLATE
     _config = DomainConfig(
         dto_class=TaskTemplateDTO,
         model_class=TaskTemplate,
@@ -160,6 +174,7 @@ class TaskTemplateService(_BaseTemplateService[TaskTemplate]):
 class GoalTemplateService(_BaseTemplateService[GoalTemplate]):
     _service_name: ClassVar[str | None] = "goal_templates"
     _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_GOAL_TEMPLATE
+    _template_label: ClassVar[NeoLabel] = NeoLabel.GOAL_TEMPLATE
     _config = DomainConfig(
         dto_class=GoalTemplateDTO,
         model_class=GoalTemplate,
@@ -173,6 +188,7 @@ class GoalTemplateService(_BaseTemplateService[GoalTemplate]):
 class HabitTemplateService(_BaseTemplateService[HabitTemplate]):
     _service_name: ClassVar[str | None] = "habit_templates"
     _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_HABIT_TEMPLATE
+    _template_label: ClassVar[NeoLabel] = NeoLabel.HABIT_TEMPLATE
     _config = DomainConfig(
         dto_class=HabitTemplateDTO,
         model_class=HabitTemplate,
@@ -186,6 +202,7 @@ class HabitTemplateService(_BaseTemplateService[HabitTemplate]):
 class EventTemplateService(_BaseTemplateService[EventTemplate]):
     _service_name: ClassVar[str | None] = "event_templates"
     _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_EVENT_TEMPLATE
+    _template_label: ClassVar[NeoLabel] = NeoLabel.EVENT_TEMPLATE
     _config = DomainConfig(
         dto_class=EventTemplateDTO,
         model_class=EventTemplate,
@@ -212,6 +229,7 @@ class EventTemplateService(_BaseTemplateService[EventTemplate]):
 class ChoiceTemplateService(_BaseTemplateService[ChoiceTemplate]):
     _service_name: ClassVar[str | None] = "choice_templates"
     _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_CHOICE_TEMPLATE
+    _template_label: ClassVar[NeoLabel] = NeoLabel.CHOICE_TEMPLATE
     _config = DomainConfig(
         dto_class=ChoiceTemplateDTO,
         model_class=ChoiceTemplate,
@@ -225,6 +243,7 @@ class ChoiceTemplateService(_BaseTemplateService[ChoiceTemplate]):
 class PrincipleTemplateService(_BaseTemplateService[PrincipleTemplate]):
     _service_name: ClassVar[str | None] = "principle_templates"
     _edge_name: ClassVar[RelationshipName] = RelationshipName.HAS_PRINCIPLE_TEMPLATE
+    _template_label: ClassVar[NeoLabel] = NeoLabel.PRINCIPLE_TEMPLATE
     _config = DomainConfig(
         dto_class=PrincipleTemplateDTO,
         model_class=PrincipleTemplate,
