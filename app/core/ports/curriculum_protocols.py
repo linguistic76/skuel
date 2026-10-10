@@ -698,9 +698,10 @@ class PsOperations(
 
     Despite the ``*Operations`` suffix, this is a backend protocol, not the
     route-facing kind CLAUDE.md's naming table describes. So are its siblings
-    ``KuOperations`` and ``LpOperations``: all three extend
-    ``CurriculumOperations[T]`` → ``BackendOperations[T]``, and all three are
-    satisfied by their ``*Backend`` adapter and by no service. Renaming the
+    ``KuOperations`` and ``LpOperations``: this one and ``LpOperations`` extend
+    ``CurriculumOperations[T]`` → ``BackendOperations[T]``, ``KuOperations``
+    extends ``BackendOperations["Ku"]`` directly, and all three are satisfied
+    by their ``*Backend`` adapter and by no service. Renaming the
     trio to ``*BackendOperations`` is a live naming question, deliberately not
     taken here (Mike's ruling, 2026-08-20: state the layer, don't rename).
 

@@ -323,7 +323,7 @@ RETURN n IS NOT NULL AS entity_exists, count(child) > 0 AS is_organizer
 
 **Problem**: Relationship properties contain important metadata (order, confidence, essentiality).
 
-**Context**: ORGANIZES relationships carry `order` for hierarchy position (no writer sets `importance`, whatever older prose says); REQUIRES_KNOWLEDGE has `confidence`.
+**Context**: ORGANIZES relationships carry `order` for hierarchy position (no writer sets `importance`); REQUIRES_KNOWLEDGE has `confidence`.
 
 **Solution**:
 ```cypher

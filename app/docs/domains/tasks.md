@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-10-08
+updated: 2026-10-10
 status: current
 category: domains
 tags:
@@ -288,8 +288,9 @@ the status), and the vault door's post-persist announcement
 write moved the task INTO completed and stay silent otherwise — the status chokepoint, the
 bulk fan-out and the vault door read the prior under the node's write-lock (which is what
 makes a `--force` re-ingest of already-completed files silent), and the create door has no
-prior status at all. Re-posting `completed` on a completed task writes nothing and announces
-nothing, so no subscriber carries a repeat gate.
+prior status at all. Re-posting `completed` on a completed task is an ordinary update (the
+patch lands and `TaskUpdated` is published) but not a transition, so no `TaskCompleted`
+and no fresh stamp follow — which is why no subscriber carries a repeat gate.
 **`TasksBulkCompleted` is published alongside the per-row events, not instead of them** — it
 carries the shape of the *batch* (size, time of day) for pattern classification. A consumer
 that merely counts completions must read the per-row `TaskCompleted`, or it double-counts a

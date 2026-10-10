@@ -71,7 +71,7 @@ For implementation guidance, see:
 
 ## Architecture Pattern
 
-All domain intelligence services follow the `BaseAnalyticsService` pattern (ADR-024, updated January 2026) — 11 subclasses in total (see Overview). Services >350 lines are decomposed into focused mixins (April 2026):
+All domain intelligence services follow the `BaseAnalyticsService` pattern (ADR-024) — 11 subclasses in total (see Overview). Services >350 lines are decomposed into focused mixins:
 
 ```python
 # Compact service (≤350 lines) — single inheritance
@@ -102,7 +102,7 @@ See `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md` for decomposition thresholds 
 
 **Exception:** UserContextIntelligence uses a modular package architecture (ADR-021) with mixin composition instead of BaseAnalyticsService inheritance.
 
-**Two-Tier Design (January 2026):**
+**Two-Tier Design:**
 | Layer | Base Class | Dependencies | Purpose |
 |-------|------------|--------------|---------|
 | **Analytics** | `BaseAnalyticsService` | Graph queries + Python | Works without LLM |
@@ -182,7 +182,7 @@ The factory's contract is a pair of protocols. All **9** domain intelligence ser
 - `GET /api/{domain}/insights?uid=...&min_confidence=0.7`
 - `GET /api/{domain}/analytics?period_days=30` (user_uid from session) — the 6 Activity domains only
 
-**IntelligenceRouteFactory Security (January 2026):**
+**IntelligenceRouteFactory Security:**
 - **Content scope** via `scope` parameter (default: `ContentScope.USER_OWNED`)
 - Activity Domains verify entity ownership before returning context/insights
 - Shared curriculum content uses `scope=ContentScope.SHARED` — of the curriculum domains only **PS and LP** actually register the factory at this scope (KU is protocol-conformant but unwired, so no KU factory bypasses ownership; see above)
@@ -373,7 +373,7 @@ class ProductivityLevel(StrEnum):
 # User provides self-assessment (user-level dim — accessed via .intelligence)
 result = await tasks_service.intelligence.assess_productivity_dual_track(
     user_uid="user_mike",
-    user_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
+    user_productivity_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
     user_evidence="I complete all my tasks on time",
     store_callback=store_callback,  # optional: persists the snapshot
 )
@@ -415,7 +415,7 @@ trend), `ui/self_checkin.py`, `ui/explore/ku_mastery.py`.
 
 **Guide:** [SHARED_INTELLIGENCE_UTILITIES.md](./SHARED_INTELLIGENCE_UTILITIES.md)
 
-The 6 Activity Domain intelligence services share common patterns consolidated into 4 shared utilities + 1 template method (January 2026):
+The 6 Activity Domain intelligence services share common patterns consolidated into 4 shared utilities + 1 template method:
 
 | Utility | Location | Purpose |
 |---------|----------|---------|
@@ -509,12 +509,13 @@ from core.services.intelligence import (
 
 All domain intelligence services (except UserContext) inherit from `BaseAnalyticsService`:
 
-**Dependency Checks** (inline guards — no helper methods):
+**Dependency Checks:** the constructor raises `ValueError` only for a missing `backend`
+(and for a missing `relationship_service` when the subclass sets `_require_relationships = True`).
+A method that needs an optional collaborator guards inline and returns a failure, never raises
+(`_CoreIntelligenceMixin.get_with_context` is the shared shape):
 ```python
-if not self.graph_intel:
-    raise ValueError(f"{self.__class__.__name__}.method_name() requires graph_intel")
-if not self.relationships:
-    raise ValueError(f"{self.__class__.__name__}.method_name() requires relationship_service")
+if self.relationships is None:
+    return Result.fail(Errors.system(message="relationship_service required for get_with_context"))
 ```
 
 **Standard Attributes:**
@@ -629,7 +630,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Behavioral insights (completion time, procrastination, peak productivity)
 - Performance analytics (completion rates, trends, duration calibration via ADR-048)
 - Cross-domain context categorization (unique semantic grouping)
-- Knowledge intelligence extracted to shared `ActivityKnowledgeIntelligenceService` and wired back via `self.knowledge_intelligence` (March 2026)
+- Knowledge intelligence extracted to shared `ActivityKnowledgeIntelligenceService` and wired back via `self.knowledge_intelligence`
 
 **Goals:**
 - Progress forecasting with velocity metrics

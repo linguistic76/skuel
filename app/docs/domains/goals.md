@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-10-09
+updated: 2026-10-10
 status: current
 category: domains
 tags:
@@ -93,10 +93,10 @@ Graph relationship methods (`link_goal_to_habit/knowledge/principle/life_path`, 
 | `planning` | Context-first planning methods |
 | `scheduling` | Capacity management, timeline optimization (January 2026) |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
-| `intelligence` | Analytics, predictions, dual-track assessment (decomposed into 5 mixins — see below) |
+| `intelligence` | Analytics, predictions, dual-track assessment (decomposed into 4 mixins — see below) |
 | `event_handler` | Event-driven reactive handlers (achievements, abandonment, progress) |
 
-Created via `create_common_sub_services()` factory in facade `__init__` (core, intelligence, planning, and scheduling skipped — built manually with extra dependencies).
+`core`, `search`, `relationships`, `learning`, `event_handler` and `knowledge_intelligence` come from `create_common_sub_services()` (Goals passes no `skip`); `intelligence`, `progress`, `planning` and `scheduling` are built in the facade `__init__` with sibling sub-services as dependencies (`progress`, `core`, `relationships`).
 
 ## Event Handler — Insight Persistence (March 2026)
 

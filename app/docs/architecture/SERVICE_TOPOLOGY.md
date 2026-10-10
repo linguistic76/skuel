@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-10
 ---
 
 # Service Architecture: File Organization & Topology
@@ -86,7 +86,7 @@ Infrastructure modules with no root-level facade.
 | `analytics/` | Domain analytics |
 | `background/` | Background task workers |
 | `notifications/` | Notification services |
-| `cross_domain/` | `CrossDomainQueryService` — 9 single-Cypher cross-domain read methods returning frozen typed dataclasses. Takes only `QueryExecutor`. |
+| `cross_domain/` | `CrossDomainQueryService` — 9 single-Cypher cross-domain read methods returning frozen typed dataclasses. Takes only a `CrossDomainBackendOperations` backend. |
 
 ---
 
@@ -282,10 +282,10 @@ Activity Domain Facades (6 total)
 │   └─ core, search, progress, scheduling, learning, planning, intelligence, event_handler, knowledge_intelligence, ai
 │   └─ mixins: _OrchestrationMixin
 │
-├─ HabitsService    (13 sub-services + 3 facade mixins)  ← Most complex
-│   └─ core, search, progress, scheduling, planning, learning, completions,
-│      event_integration, event_handler, intelligence, knowledge_intelligence, ai, patterns
-│   └─ mixins: _CompletionMixin, _EnrichmentMixin, _OrchestrationMixin
+├─ HabitsService    (13 sub-services + 4 facade mixins)  ← Most complex
+│   └─ core, search, relationships, progress, scheduling, planning, learning, completions,
+│      event_handler, intelligence, knowledge_intelligence, ai, patterns
+│   └─ mixins: _AdherenceReadsMixin, _CompletionMixin, _EnrichmentMixin, _OrchestrationMixin
 │
 ├─ EventsService     (10 sub-services)
 │   └─ core, search, progress, scheduling, learning, habit_integration, event_handler, intelligence, knowledge_intelligence, ai

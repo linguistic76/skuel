@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-09-20
+updated: 2026-10-10
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -223,7 +223,7 @@ came out of the graph is.
 
 **What it is:** A unit for learning that composes Kus into coherent content and sits within LearningPaths.
 
-**Note on "lesson":** there is no `Lesson` entity type — PathStep IS the curriculum content entity. `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`); use `"ps"` or `"pathstep"` for DSL/`from_string()` parsing.
+**Note on "lesson":** there is no `Lesson` entity type — PathStep IS the curriculum content entity. `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`); use `"ps"`, `"step"` or `"path_step"` for DSL/`from_string()` parsing (`"pathstep"` is not an alias — `from_string("pathstep")` is `None`).
 
 **Characteristics:**
 - Composes atomic Kus into a coherent learning narrative
@@ -236,7 +236,7 @@ came out of the graph is.
 uid: ps.python.understanding-functions
 title: Understanding Functions
 order: 3
-kus:
+uses_kus:
   - ku.python.functions
   - ku.python.parameters
 mastery_threshold: 0.8

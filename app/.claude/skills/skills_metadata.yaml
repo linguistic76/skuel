@@ -39,7 +39,7 @@ skills:
 
   - name: docs-skills-evolution
     description: How SKUEL's documentation and skills evolve in rhythm with the ecosystem
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-10-10"
     foundation: []
     dependencies: []
     library_package: null  # Meta-skill, not tied to specific library
@@ -58,7 +58,7 @@ skills:
 
   - name: python
     description: Python development patterns in SKUEL
-    last_reviewed: "2026-10-02"
+    last_reviewed: "2026-10-10"
     foundation: []
     dependencies: []
     library_package: null  # Language, not a package
@@ -85,7 +85,7 @@ skills:
 
   - name: pydantic
     description: Pydantic V2 validation models
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: []
     dependencies: []
     library_package: pydantic
@@ -102,7 +102,7 @@ skills:
 
   - name: ui-css
     description: SKUEL CSS layer — Tailwind + ui.components (SKUEL-owned pure-Tailwind layer, ADR-071)
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: []
     dependencies: []
     library_package: null  # CDN/static, not PyPI package
@@ -131,7 +131,7 @@ skills:
 
   - name: vis-network
     description: Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: []
     dependencies: []
     library_package: null  # Self-hosted vendor library
@@ -151,7 +151,7 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
@@ -172,7 +172,7 @@ skills:
 
   - name: domain-route-config
     description: Configuration-driven route registration for *_routes.py files using DomainRouteConfig
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: [fasthtml, python]
     dependencies: [fasthtml, python]
     library_package: null  # SKUEL pattern, not external library
@@ -191,7 +191,7 @@ skills:
 
   - name: ui-browser
     description: SKUEL browser interactivity — HTMX for server communication + Alpine.js for client-side state
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: [fasthtml]
     dependencies: [fasthtml]
     library_package: null  # Vendored static files
@@ -214,7 +214,7 @@ skills:
 
   - name: accessibility-guide
     description: Expert guide for building accessible web applications following WCAG standards
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: [ui-browser, ui-css]
     dependencies: [ui-browser, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -228,7 +228,7 @@ skills:
 
   - name: skuel-ui
     description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: [fasthtml, ui-css, ui-browser, pydantic]
     dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library
@@ -282,7 +282,7 @@ skills:
 
   - name: neo4j-cypher-patterns
     description: Neo4j Cypher queries and SKUEL's graph patterns
-    last_reviewed: "2026-10-02"
+    last_reviewed: "2026-10-10"
     foundation: []
     dependencies: []
     library_package: neo4j
@@ -373,7 +373,7 @@ skills:
 
   - name: security
     description: Security posture, route checklist, and code review security checks
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: []
     dependencies: [python]
     library_package: null  # Cross-cutting concern, not a single library
@@ -417,7 +417,7 @@ skills:
 
   - name: base-analytics-service
     description: BaseAnalyticsService for domain analytics
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -439,7 +439,7 @@ skills:
 
   - name: base-ai-service
     description: BaseAIService for AI/LLM features (optional)
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern]
     library_package: openai
@@ -473,7 +473,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-10-02"
+    last_reviewed: "2026-10-10"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library
@@ -498,7 +498,7 @@ skills:
 
   - name: curriculum-domains
     description: Curriculum domain patterns (KU, PS, LP)
-    last_reviewed: "2026-10-01"
+    last_reviewed: "2026-10-10"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -537,7 +537,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-10-09"
+    last_reviewed: "2026-10-10"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library
@@ -623,7 +623,7 @@ skills:
 
   - name: pytest
     description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
-    last_reviewed: "2026-09-30"
+    last_reviewed: "2026-10-10"
     foundation: [python, result-pattern]
     dependencies: [python, result-pattern]
     library_package: pytest

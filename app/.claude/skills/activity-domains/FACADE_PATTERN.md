@@ -58,7 +58,7 @@ authoritative list.
 |--------|-------------------|---------------|
 | **Tasks** | `progress`, `scheduling`, `planning` | `_OrchestrationMixin` |
 | **Goals** | `progress`, `scheduling`, `planning` | `_OrchestrationMixin` |
-| **Habits** | `completions`, `progress`, `planning`, `scheduling`, `patterns` (+ post-wired `goals_service`) | `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin` |
+| **Habits** | `completions`, `progress`, `planning`, `scheduling`, `patterns` (+ post-wired `goals_service`) | `_AdherenceReadsMixin`, `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin` |
 | **Events** | `habits` (`EventsHabitIntegrationService`), `progress`, `scheduling` | `_OrchestrationMixin`, `_SchedulingMixin` |
 | **Choices** | — | `_OptionManagementMixin` |
 | **Principles** | `alignment`, `planning` | `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin` |

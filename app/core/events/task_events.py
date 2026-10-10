@@ -63,8 +63,9 @@ class TaskCompleted(BaseEvent):
     (``TasksCoreService._publish_born_completed``, for a task born ``completed`` — a
     DSL ``- [x]`` line or an API create carrying the status) has no prior status at
     all, so its publish is a transition by construction. Re-posting ``completed`` on
-    a completed task writes nothing and announces nothing, which is why no subscriber
-    carries a repeat gate: counting and appending subscribers (the duration EMA, the
+    a completed task is an ordinary update (the patch lands and ``TaskUpdated`` is
+    published) but not a transition, so neither this event nor a fresh stamp
+    follows — which is why no subscriber carries a repeat gate: counting and appending subscribers (the duration EMA, the
     overdue and alignment insight appends, the Prometheus ``entities_completed{task}``
     counter, the productivity completion moment) count each genuine completion once,
     and recompute-shaped ones (PS engagement auto-complete, dependent

@@ -540,8 +540,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (446, "ActivityReviewService"): Allow(_askesis_arch),
     },
     "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
-        (412, "ProcessorType"): Allow(_entity_arch),
-        (421, "ProcessorType"): Allow(_entity_arch),
+        (415, "ProcessorType"): Allow(_entity_arch),
+        (424, "ProcessorType"): Allow(_entity_arch),
     },
     "docs/decisions/ADR-028-ku-moc-unified-relationship-migration.md": {
         (140, "KuType"): Allow(_adr028),

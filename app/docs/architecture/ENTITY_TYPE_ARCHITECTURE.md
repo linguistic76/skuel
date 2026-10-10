@@ -209,7 +209,7 @@ Both conditions must hold to justify a new EntityType. Passing only test 1 means
 
 **`UserEntry` — correctly a unified type (ADR-054).** The former `ExerciseSubmission` / `JeInput` / `JeOutput` types all passed test 1 (each was a noun compound) but *failed* test 2: same hierarchy (`UserOwnedEntity`), same ownership, same file/processing field set. The three collapsed into one `UserEntry` discriminated by `pipeline: Pipeline`. The variants (exercise submission, journal raw input, journal processed output) now live on an enum field, not on separate types.
 
-**`EntryReport` — correctly one type with two enums.** There is no `RevisedEntryReport` class. Whether a report came from a teacher, an LLM, a hybrid workflow, or an automatic process is recorded on `report_source: ReportSource`; whether the outcome is approval, a revision request, or AI-evaluated is recorded on `assessment_outcome: AssessmentOutcome`. Each variant has a different *history* but the same *shape* — an enum, not a type.
+**`EntryReport` — correctly one type with two enums.** There is no `RevisedEntryReport` class. Whether a report came from a teacher, an LLM, a hybrid workflow, or an automatic process is recorded on `processor_type: ReportSource`; whether the outcome is approval, a revision request, or AI-evaluated is recorded on `assessment_outcome: AssessmentOutcome`. Each variant has a different *history* but the same *shape* — an enum, not a type.
 
 **`RevisedExercise` — correctly a distinct type.** Passes both tests. *Test 1:* the name is a past-participle + noun — "a revised exercise" denoting a kind of thing, parallel to `FrozenDataclass`, `CompiledQuery`, `DerivedAttribute`. It is not the verb phrase "revising an exercise" (which would be process-language). *Test 2:* different base class (`UserOwnedEntity` vs. `Exercise`'s `Curriculum`), different ownership (teacher-owned vs. shared), different `ContentOrigin` tier (`USER_CREATED` vs. `CURRICULUM`), different targeting (individual `student_uid` vs. group or curriculum), and typed `FeedbackPoint[]` feedback instead of plain `instructions` text. The verb lives on the edge `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`, not in the type name.
 
@@ -264,7 +264,7 @@ Common sub-services created via `create_common_sub_services()` factory (`core/se
 
 ### Finance — Admin-Only Bookkeeping
 
-Standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice). No intelligence service, no relationship configuration. All Finance routes require ADMIN role. Does NOT use `BaseService` or `BaseAnalyticsService`.
+Standalone, invoice-only facade with one sub-service (`invoice`: `FinanceInvoiceService`). No intelligence service, no relationship configuration. All Finance routes require ADMIN role. Does NOT use `BaseService` or `BaseAnalyticsService`.
 
 ### Ku, PathStep, LearningPath, Exercise — Curriculum
 
@@ -311,11 +311,14 @@ KuService (facade) — 4 sub-services via create_curriculum_sub_services()
 ├── relationships: UnifiedRelationshipService
 └── intelligence: KuIntelligenceService
 
-PsService (facade) — 4 sub-services via create_curriculum_sub_services()
+PsService (facade) — 12 factory slots via create_ps_sub_services() + progress + optional ai
 ├── core: PsCoreService
 ├── search: PsSearchService
+├── graph / semantic / practice / mastery / adaptive: Ps*Service
 ├── relationships: UnifiedRelationshipService
-└── intelligence: PsIntelligenceService
+├── intelligence: PsIntelligenceService
+├── application_discovery / context_service / organization: Ps*Service
+└── progress: PsProgressService (built in the facade)
 
 LpService (facade) — 5 sub-services via create_lp_sub_services()
 ├── core: LpCoreService
@@ -389,13 +392,13 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> EntryReport -> Revis
 
 | EntityType | Inherits | Pipeline / ReportSource | Description |
 |------------|---------|------------------------|-------------|
-| `USER_ENTRY` | `UserOwnedEntity` | `Pipeline` (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES`) | Unified user-authored content — exercise submissions, journal audio, uploads |
+| `USER_ENTRY` | `UserOwnedEntity` | `Pipeline` (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES`, `REFERENCE`, `KNOWLEDGE`) | Unified user-authored content — exercise submissions, journal audio, uploads |
 | `ENTRY_REPORT` | `UserOwnedEntity` | `ReportSource` (`HUMAN`, `LLM`) | Assessment tied to a `UserEntry` via `subject_uid` |
 | `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `ReportSource` (`AUTOMATIC`, `LLM`, `HUMAN`) | Activity-level feedback (no file fields; covers a time window) |
 
 **Revision lives on the edge, not the node.** The `revision_number` field that used to sit on `ExerciseSubmission` now lives on `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Re-submitting the same exercise creates a new `UserEntry` node carrying its own `FULFILLS_EXERCISE {revision: N+1}` edge.
 
-**Key structural note:** `EntryReport` has 6 report-specific fields (`report_generated_at`, `subject_uid`, `report_source`, `assessment_outcome`, `report_file_path`, `assessment_score`) but no file/processing fields. The report body lives on the inherited `Entity.content` field. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text. `assessment_score` (0.0-1.0) carries the numeric result for ASSESSMENT-scope exercises. `report_source` (`ReportSource` enum) replaces the former `processor_type`.
+**Key structural note:** `EntryReport` has 7 report-specific fields (`processed_content`, `report_generated_at`, `subject_uid`, `processor_type`, `assessment_outcome`, `report_file_path`, `assessment_score`) plus `author_uid`, but no file/processing fields. The report body lives on `processed_content` (written by `create_report_node`); the inherited `Entity.content` is reserved for user-drafted text. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text. `assessment_score` (0.0-1.0) carries the numeric result for ASSESSMENT-scope exercises.
 
 `ACTIVITY_REPORT` also inherits `UserOwnedEntity` directly — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 
@@ -413,8 +416,8 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> EntryReport -> Revis
 
 | Enum | Applies to | Values | Purpose |
 |------|-----------|--------|---------|
-| `Pipeline` | `UserEntry` nodes | `NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES` | How a user entry is processed after creation. Drives `UserEntryProcessingService` dispatch. |
-| `ReportSource` | `EntryReport`, `ActivityReport` | `HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC` | Who or what produced the report. Stored as `report_source` on the report node. |
+| `Pipeline` | `UserEntry` nodes | `NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES`, `REFERENCE`, `KNOWLEDGE` | How a user entry is processed after creation. Drives `UserEntryProcessingService` dispatch. |
+| `ReportSource` | `EntryReport`, `ActivityReport` | `HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC` | Who or what produced the report. Stored as `processor_type` on the report node. |
 
 Both `Pipeline` and `ReportSource` live in `core/models/enums/pipeline.py`. `SubmissionModality` and `EnrichmentMode` live in `core/models/enums/user_entry_enums.py` (formerly `submissions_enums.py`) — both still load-bearing.
 
@@ -444,7 +447,7 @@ Groups mediate ALL teacher-student relationships. Teacher creates group -> adds 
 ```cypher
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
-(exercise:Exercise)-[:FOR_GROUP]->(group:Group)
+(exercise:Exercise)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(group:Group)
 (entry:UserEntry)-[:FULFILLS_EXERCISE {revision}]->(exercise:Exercise)
 ```
 
@@ -513,7 +516,7 @@ The Activity DSL enables natural language parsing into entity types:
 - [ ] Choose tech stack          @context(choice)    @link(goal:goal.startup.mvp-launch)
 - [ ] AWS hosting $150           @context(finance)   @category(skuel)
 - [ ] Python async/await         @context(ku)        @energy(focus)
-- [ ] Complete async exercises   @context(ls)        @ku(ku.python.async)
+- [ ] Complete async exercises   @context(ps)        @ku(ku.python.async)
 - [ ] Master async programming   @context(lp)        @link(goal:goal.python.expert)
 - [ ] Embody wisdom and service  @context(lifepath)  @link(principle:principle.sel.service)
 ```
@@ -558,10 +561,10 @@ Natural Text
 // MOC organization
 (entity:Entity)-[:ORGANIZES {order: int}]->(entity:Entity)
 
-// Groups + exercises (ADR-040 + ADR-054)
+// Groups + exercises (ADR-053 + ADR-054)
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
-(exercise:Exercise)-[:FOR_GROUP]->(group:Group)
+(exercise:Exercise)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(group:Group)
 (entry:UserEntry)-[:FULFILLS_EXERCISE {revision}]->(exercise:Exercise)
 (structured:UserEntry)-[:TRANSFORMS]->(source:UserEntry)  // journal pipeline
 

@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-10-08
+updated: 2026-10-10
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -270,7 +270,7 @@ The Events domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-Read-focused UI at `/events` is planned. API routes remain active.
+`adapters/inbound/events_ui.py` registers the list page (`/events`, with `/events/content` and `/events/list-fragment` HTMX fragments), the detail page (`/events/detail?uid=`) through `create_activity_ui_routes` (Events registers no dual-track route), plus the `/events/create` and `/events/edit` forms (GET + POST). API routes live in `events_api.py`.
 
 ## Code Examples
 

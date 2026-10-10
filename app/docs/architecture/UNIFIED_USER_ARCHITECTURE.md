@@ -285,16 +285,17 @@ class UserContextBuilder:
 
 **`user_service` wiring:** `build()` and `build_rich()` resolve the `User` internally via `_resolve_user()`, which requires `user_service` to be set. `UserService.__init__` wires `user_service=self` automatically.
 
-**ONE builder in production (July 2026):** the builder `UserService.__init__` constructs is THE single app-wide instance — `services_bootstrap/compose.py` reuses `user_service.context_builder` for every consumer, and `_intelligence_hub` post-wires `zpd_service` + `ps_engagement_service` onto it. Never construct a second builder in production: a compose-level duplicate once received the ZPD/engagement post-wiring while `UserService.get_rich_unified_context` (the daily-plan path) kept using the internal one — `zpd_assessment` was silently None in production. Guarded by `tests/unit/services/test_user_context_builder_wiring.py` (including a source-level check that compose.py constructs no builder).
+**ONE builder in production:** the builder `UserService.__init__` constructs is THE single app-wide instance — `services_bootstrap/compose.py` reuses `user_service.context_builder` for every consumer, and `_intelligence_hub` post-wires `zpd_service` + `ps_engagement_service` onto it. Never construct a second builder in production: a compose-level duplicate once received the ZPD/engagement post-wiring while `UserService.get_rich_unified_context` (the daily-plan path) kept using the internal one — `zpd_assessment` was silently None in production. Guarded by `tests/unit/services/test_user_context_builder_wiring.py` (including a source-level check that compose.py constructs no builder).
 
 **Queries:**
 ```python
 class UserContextQueryExecutor:
     async def execute_mega_query(self, user_uid, min_confidence) -> Result[dict]:
-        """Single query: UIDs AND rich entity data with graph neighbourhoods."""
+        """The MEGA-QUERY: one plan-cached statement per read family
+        (RICH_CONTEXT_STATEMENTS), merged into one map."""
 
-    async def fetch_active_path_step_uids(self, user_uid) -> Result[list[str]]:
-        """Lightweight secondary query: path steps the user is actively studying."""
+    async def fetch_current_path_steps(self, user_uid) -> Result[list[CurrentPathStepItem]]:
+        """Path steps the user is actively studying (IN_PROGRESS)."""
 
     async def execute_consolidated_query(self, user_uid) -> Result[dict]:
         """Optimised standard context (UIDs only)."""
@@ -357,7 +358,7 @@ collect(DISTINCT CASE WHEN x IS NOT NULL THEN {uid: x.uid, title: x.title} END) 
 
 `collect(x)`, `collect(x.uid)` and `collect(CASE WHEN … END)` need no guard — measured: all three yield `[]`. A new sub-collection that collects a bare map literal is rejected by `tests/unit/test_mega_query_null_placeholders.py`, and the runtime consequence is pinned on a real graph by `tests/integration/test_mega_query_empty_neighbours.py`.
 
-`enrolled_paths_rich: list[RichLearningPathItem]`, `active_path_steps_rich: list[RichPathStepItem]`, and `knowledge_units_rich: dict[str, RichKnowledgeUnitItem]` are typed with their own TypedDicts. All 9 formerly-untyped `dict[str, Any]` UserContext fields now have TypedDict annotations (March 2026).
+`enrolled_paths_rich: list[RichLearningPathItem]`, `active_path_steps_rich: list[RichPathStepItem]`, and `knowledge_units_rich: dict[str, RichKnowledgeUnitItem]` are typed with their own TypedDicts.
 
 ### ActivityReport Fields — Both Paths
 
@@ -433,18 +434,18 @@ async def get_ready_to_work_on_today(self, context: UserContext) -> Result[Daily
 
 There is no parallel layer of ISP "awareness slice" protocols. `UserContext` is the contract.
 
-**Why not narrower protocols.** An earlier design (retired 2026-05-11, commit `a82faaba`, [ADR-060](../decisions/ADR-060-userctx-single-source-of-truth.md)) defined 11 awareness protocols — `TaskAwareness`, `KnowledgeAwareness`, `CrossDomainAwareness`, `FullAwareness`, etc. — so callees could declare a minimum dependency surface. In practice the protocols re-declared ~25 fields that already lived on `UserContext`, creating two sources of truth that drifted by hand. Adding a field to `UserContext` did not widen the protocol surface, and the MyPy-enforced "this service only reads task state" guarantee was theoretical — anyone needing a new field could just widen the slice. The two-file maintenance burden outweighed the type-level minimization benefit, so the slices were collapsed into `UserContext`.
+**Why not narrower protocols.** An earlier design ([ADR-060](../decisions/ADR-060-userctx-single-source-of-truth.md)) defined 11 awareness protocols — `TaskAwareness`, `KnowledgeAwareness`, `CrossDomainAwareness`, `FullAwareness`, etc. — so callees could declare a minimum dependency surface. In practice the protocols re-declared ~25 fields that already lived on `UserContext`, creating two sources of truth that drifted by hand. Adding a field to `UserContext` did not widen the protocol surface, and the MyPy-enforced "this service only reads task state" guarantee was theoretical — anyone needing a new field could just widen the slice. The two-file maintenance burden outweighed the type-level minimization benefit, so the slices were collapsed into `UserContext`.
 
 **What this means in practice.**
 - A service taking `UserContext` can in principle reach into any of its fields. Trust the function's docstring (or its body) for what it actually reads — not the parameter type.
 - Don't reintroduce slice protocols. If a service needs only one field, take that field as a primitive parameter instead of a wrapping protocol.
 - Adding a new context field is a one-file change: `unified_user_context.py`.
 
-**Cross-cutting fields used by `DomainPlanningMixin`:**
-- `is_rich_context: bool` — `True` only when built via `build_rich()`. Domain planning methods return `Result.fail()` immediately if `False`.
+**Cross-cutting fields:**
+- `is_rich_context: bool` — `True` only on `RichUserContext` (pinned by its class default, which `build_rich()` returns). Richness is enforced at the type level: the hub and the domain planning services take `context: RichUserContext` in their signatures rather than checking the flag at runtime.
 - `entities_rich[domain]` — planning services read the rich entity lists directly (`context.entities_rich.get("tasks", [])`); `entities_rich` is not a SKUEL018 rich-only field, so direct reads are the canonical path.
 
-**Testing.** `UserContext` is a frozen dataclass with `default_factory` defaults on almost every field, so a minimal fixture is one line:
+**Testing.** `UserContext` is a mutable `@dataclass` (see Mutation Rules below) with `default_factory` defaults on almost every field, so a minimal fixture is one line:
 
 ```python
 ctx = UserContext(user_uid="user_alice", username="alice")
