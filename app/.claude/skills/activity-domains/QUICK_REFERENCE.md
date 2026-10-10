@@ -59,7 +59,7 @@ chrome. There is no hub page; `/today` is the landing.
 - `GoalAchieved` fires on the transition into completed, decided by the guarded write
 
 ### Habits
-- Tracks full habit loop: `cue`, `craving`, `response`, `reward`
+- Tracks the habit loop: `cue`, `routine`, `reward`
 - `HabitCompletion` entities for daily tracking — user-owned (`user_uid` + `:OWNS`)
 - `current_streak` and `best_streak` fields
 - Due/overdue come from backwards-looking frequency windows, not a due-date column

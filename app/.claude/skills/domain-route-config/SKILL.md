@@ -84,7 +84,7 @@ api_factory(
 - Shared services use bare names: `services.user`, `services.system`
 - Infrastructure: `services.event_bus`, `services.prometheus_metrics`, `services.connection_fetch_backend`
 
-**What these service attributes are:** `services.tasks`, `services.goals`, etc. are `TasksService`/`GoalsService` facade instances. Their `.relationships` attribute is a `UnifiedRelationshipService` (URS) — a shell + 6 focused mixins (`PlanningMixin`, `DomainPlanningMixin`, `LifePathMixin`, `IntelligenceMixin`, `OrderedRelationshipsMixin`, `BatchOperationsMixin`). DomainRouteConfig wires the facade; the URS methods are used by intelligence services internally. Public API unchanged across the decomposition.
+**What these service attributes are:** `services.tasks`, `services.goals`, etc. are `TasksService`/`GoalsService` facade instances. Their `.relationships` attribute is a `UnifiedRelationshipService` (URS) — a shell + 3 focused mixins (`IntelligenceMixin`, `OrderedRelationshipsMixin`, `BatchOperationsMixin` in `core/services/relationships/`). DomainRouteConfig wires the facade; the URS methods are used by intelligence services internally. Public API unchanged across the decomposition.
 
 **None is valid.** If the attribute exists on the container but its value is `None` (e.g. tier-dependent services like `submission_report` in CORE tier), the `None` is passed through silently. The factory must handle optional dependencies with default parameters:
 

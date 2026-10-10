@@ -50,7 +50,7 @@ All 6 share the facade shape above; the table lists what each adds:
 |--------|---------|------------|------------------|
 | **Tasks** | Work items with dependencies | `task_{slug}_{random}` | Progress tracking, scheduling |
 | **Goals** | Desired outcomes | `goal_{slug}_{random}` | Milestones, progress percentage |
-| **Habits** | Recurring behaviors | `habit_{slug}_{random}` | Streak tracking, habit loop (cue/craving/response/reward) |
+| **Habits** | Recurring behaviors | `habit_{slug}_{random}` | Streak tracking, habit loop (`cue` / `routine` / `reward`) |
 | **Events** | Time commitments | `event_{slug}_{random}` | Habit integration, learning bridge, calendar polymorphism |
 | **Choices** | Decisions | `choice_{slug}_{random}` | Options at creation, outcome tracking |
 | **Principles** | Core values | `principle_{slug}_{random}` | Reflections, alignment tracking |

@@ -17,7 +17,7 @@ related_skills:
 # PS (Path Step) Domain
 
 **Type:** Curriculum Domain (2 of 4)
-**UID Prefix:** `ps:`
+**UID Prefix:** `ps.`
 **Entity Label:** `PathStep`
 **Topology:** Content Unit (composes Kus into a coherent learning experience)
 
@@ -29,26 +29,42 @@ PathStep is THE curriculum content entity in SKUEL. It composes atomic Kus into 
 
 ## Service Architecture (ADR-030)
 
-PsService coordinates 4 common sub-services via factory:
+PsService coordinates 12 factory-built sub-services plus `progress` (built in the facade) and an optional `.ai` slot (FULL tier):
 
 | Sub-service | Class | Purpose |
 |-------------|-------|---------|
 | `.core` | PsCoreService | CRUD operations |
 | `.search` | PsSearchService | Discovery operations |
+| `.graph` | PsGraphService | Graph navigation and relationship reads |
+| `.semantic` | PsSemanticService | Semantic relationships (takes `intelligence`) |
+| `.practice` | PsPracticeService | Practice integration (habits, tasks, events) |
+| `.mastery` | PsMasteryService | Mastery tracking |
 | `.relationships` | UnifiedRelationshipService | Step-path associations |
 | `.intelligence` | PsIntelligenceService | Readiness, practice analysis |
+| `.adaptive` | PsAdaptiveService | Personalized curriculum delivery |
+| `.application_discovery` | PsApplicationDiscoveryService | Reverse queries: where a step's knowledge is applied |
+| `.context_service` | PsContextService | Context-first recommendations from UserContext |
+| `.organization` | PsOrganizationService | ORGANIZES hierarchy (takes `core`) |
+| `.progress` | PsProgressService | Event-driven progress (facade-built) |
 
-**Initialization:** Uses `create_curriculum_sub_services()` factory (standard signatures)
+**Initialization:** `create_ps_sub_services()` in `core/services/curriculum_domain_config.py` (`PsSubServices` dataclass, fixed creation order — see `SERVICE_CONSOLIDATION_PATTERNS.md` § 6)
 **graph_intel:** REQUIRED (fail-fast validation)
 
 ```python
 from core.services.ps_service import PsService
 
-# In services_bootstrap/compose.py
+# In services_bootstrap/_learning_services.py
 ps_service = PsService(
-    driver=driver,
+    backend=knowledge_backend,
+    executor=query_executor,
     graph_intel=graph_intelligence,  # REQUIRED
     event_bus=event_bus,
+    ku_backend=atomic_ku_backend,
+    chunking_service=chunking_service,
+    user_service=user_service,
+    vector_search_service=vector_search_service,
+    embeddings_service=embeddings_service,
+    ps_intelligence_backend=PsIntelligenceBackend(query_executor),
 )
 
 # Access sub-services

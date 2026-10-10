@@ -106,12 +106,11 @@ class HabitsService(
 | `scheduling` | Smart scheduling and capacity management (January 2026) |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
 | `intelligence` | Pattern analysis, habit stacking recommendations |
-| `event_integration` | Cross-domain event scheduling integration |
 | `event_handler` | Event-driven reactive logic (streak + aggregate badges, difficulty) |
 | `patterns` | Atomic Habits pattern recognition with confidence scoring |
 | `knowledge_intelligence` | Shared singleton — domain-agnostic knowledge intelligence |
 
-Common sub-services created via `create_common_sub_services()` factory (with `skip={"intelligence"}` — Habits intelligence is created manually to receive `cross_domain_query`).
+Common sub-services created via `create_common_sub_services()` factory (Habits passes no `skip`; `intelligence` is not a skippable slot — the factory builds it only for a domain whose config declares an `intelligence_class`, and Habits declares none, so the facade constructs `HabitsIntelligenceService` itself to pass `cross_domain_query`).
 
 ### Cross-Domain Wiring
 
@@ -210,13 +209,12 @@ The helper lives in `core/services/habits/_goal_links.py` and is called by `Habi
 
 ## Habit Loop (Atomic Habits)
 
-The habit model tracks all four components of the habit loop:
+The habit model carries three fields of the habit loop (`Habit.cue` / `routine` / `reward`; there is no craving field):
 
 | Component | Field | Description |
 |-----------|-------|-------------|
 | **Cue** | `cue` | The trigger that initiates the behavior |
-| **Craving** | `craving` | The motivation behind the habit |
-| **Response** | `response` | The actual behavior/action |
+| **Routine** | `routine` | The actual behavior/action |
 | **Reward** | `reward` | The benefit received |
 
 ## Scoring Weights
@@ -379,7 +377,7 @@ The Habits domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-Read-focused UI at `/habits` is planned. API routes remain active.
+`adapters/inbound/habits_ui.py` registers the list page (`/habits`, with `/habits/content` and `/habits/list-fragment` HTMX fragments), the detail page (`/habits/detail?uid=`) and the dual-track self-rate POST through `create_activity_ui_routes`; `create_habits_ui_routes` then registers the `/habits/insights-fragment` card and the `/habits/create` and `/habits/edit` forms (GET + POST) itself. API routes live in `habits_api.py`.
 
 ## Code Examples
 
@@ -393,11 +391,9 @@ result = await habits_service.create_habit(
     HabitCreateRequest(
         title="Morning Reading",
         description="Read for 30 minutes each morning",
-        frequency=RecurrencePattern.DAILY,
-        target_count=1,
+        recurrence_pattern=RecurrencePattern.DAILY,
         cue="After morning coffee",
-        craving="Knowledge and calm start",
-        response="Read current book",
+        routine="Read current book",
         reward="Check off habit, feel accomplished",
     ),
     user_uid=user_uid,

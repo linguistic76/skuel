@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-10-09
+updated: 2026-10-10
 status: current
 category: architecture
 version: 3.2.0
@@ -138,7 +138,7 @@ Each status guard is enforced atomically in Cypher via `WHERE status IN $allowed
 ```cypher
 // The exercise directive
 (teacher:User)-[:OWNS]->(exercise:Exercise {scope: "assigned"})
-(exercise)-[:FOR_GROUP]->(group:Group)
+(exercise)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(group:Group)
 (student:User)-[:MEMBER_OF]->(group)
 
 // The submission (a UserEntry — entity_type is always 'user_entry', guaranteed by

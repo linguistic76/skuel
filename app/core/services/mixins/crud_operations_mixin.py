@@ -39,7 +39,7 @@ the persistence boundary via ``self.backend.update(uid, updates.to_changes())``.
 Activity Domains override ``U`` with their frozen ``*UpdateIntent``; the ~53 non-activity
 services inherit ``U = RawChanges`` (a ``dict`` subclass) and pass plain patches.
 
-    await service.update_task(uid, TaskUpdateIntent(status="completed", progress=1.0))
+    await service.update_task(uid, TaskUpdateIntent(status="completed", actual_minutes=45))
 """
 
 from __future__ import annotations

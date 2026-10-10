@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-10-06
+updated: 2026-10-10
 category: patterns
 related_skills:
 - base-analytics-service
@@ -35,11 +35,11 @@ For hands-on implementation:
 
 ## Foundational Principle: Harmony Without Over-Generalization
 
-The tactical patterns below (DomainConfig, explicit delegation, factory-created sub-services, etc.) exist in service of one design decision: **all 6 Activity Domains share the same seven common sub-services, and no domain opts out.** `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence` — every facade has all seven, produced by `create_common_sub_services()`.
+The tactical patterns below (DomainConfig, explicit delegation, factory-created sub-services, etc.) exist in service of one design decision: **all 6 Activity Domains share the same seven common sub-services, and no domain opts out.** `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence` — every facade fills all seven. `create_common_sub_services()` builds `search`, `relationships`, `event_handler` and `learning` for all six (`event_handler` and `learning` are not skippable), `core` for all but Tasks (`skip={"core"}` — its core takes `ku_inference_service`), and `intelligence` only for the domain whose config declares an `intelligence_class` (Principles) — the other five construct theirs in the facade to pass `cross_domain_query` or a sibling sub-service. Tasks also discards the factory's `event_handler` and installs one wired with `ku_generation_service`.
 
 **The shared shape is a contract for interconnectivity, not a cage.** Unified search, user context aggregation, cross-domain relationship queries, the knowledge substance pipeline, ZPD assessment — these all work because every domain exposes the same surface in the same place. When the system asks "what is this user working on today," the answer doesn't care whether it comes from Tasks, Habits, or Events.
 
-**Inside the shape, each domain keeps its voice.** Habits's `completions`/`patterns`, Events's `habit_integration`, Principles's `alignment`, Tasks's `progress`/`scheduling`/`planning` are specific to their domain and belong nowhere else. Facade mixins (`_OrchestrationMixin`, `_GravityMixin`, etc.) organize domain-specific delegation methods by concern without leaking them into the shared layer.
+**Inside the shape, each domain keeps its voice.** Habits's `completions`/`patterns`, Events's `habits`, Principles's `alignment`, Tasks's `progress`/`scheduling`/`planning` are specific to their domain and belong nowhere else. Facade mixins (`_OrchestrationMixin`, `_GravityMixin`, etc.) organize domain-specific delegation methods by concern without leaking them into the shared layer.
 
 **The harmony enables the uniqueness.** Without the shared shape, every cross-domain operation fragments into a case statement. Without the domain-specific sub-services, the model collapses into a generic "thing with a status" — exactly the over-generalization to avoid. One shape for what a domain owes the system, total freedom for what it owes itself.
 
@@ -577,7 +577,7 @@ Specialized factory functions for curriculum domains with complex initialization
 
 Activity domains use `create_common_sub_services()` with standard signatures. Some curriculum domains have non-standard requirements:
 
-- **PS**: 12+ sub-services + circular dependency (intelligence must be created before core)
+- **PS**: 12 factory slots (`PsSubServices`) built in a fixed order — `semantic` takes `intelligence`, `organization` takes `core` — plus `progress`, built in the facade
 - **LP**: 5 sub-services + cross-domain dependency (requires `ps_service`)
 - **KU**: Uses generic `create_curriculum_sub_services()` factory (4 sub-services)
 
@@ -601,17 +601,20 @@ from core.services.curriculum_domain_config import (
 from core.services.curriculum_domain_config import create_ps_sub_services
 
 subs = create_ps_sub_services(
-    backend=repo,
+    backend=backend,
     _chunking_service=chunking_service,
     graph_intel=graph_intel,
-    _query_builder=query_builder,
     event_bus=event_bus,
     _executor=executor,
+    user_service=user_service,
+    _vector_search_service=vector_search_service,
+    _embeddings_service=embeddings_service,
+    ps_intelligence_backend=ps_intelligence_backend,
 )
 
 # Assign sub-services from factory result
 self.core = subs.core
-self.search_service = subs.search
+self.search = subs.search
 self.graph = subs.graph
 self.semantic = subs.semantic
 self.practice = subs.practice
@@ -619,13 +622,19 @@ self.mastery = subs.mastery
 self.relationships = subs.relationships
 self.intelligence = subs.intelligence
 self.adaptive = subs.adaptive
+self.application_discovery = subs.application_discovery
+self.context_service = subs.context_service
+self.organization = subs.organization
+
+# Built in the facade, outside the factory
+self.progress = PsProgressService(backend=backend, event_bus=event_bus)
 ```
 
-**Creation Order (handles circular dependency):**
+**Creation Order (the factory's fixed sequence):**
 1. `UnifiedRelationshipService` (needed by intelligence)
-2. `PsIntelligenceService` (BEFORE core — core depends on intelligence)
-3. `PsCoreService` (requires intelligence)
-4. `PsSearchService`, `PsSemanticService`, `PsPracticeService`, `PsMasteryService`, `PsAdaptiveService`, `PsKnowledgeContextService`
+2. `PsIntelligenceService` (takes `relationships`)
+3. `PsCoreService` (backend + event bus only)
+4. `PsSearchService`, `PsGraphService`, `PsSemanticService` (takes `intelligence`), `PsPracticeService`, `PsMasteryService`, `PsAdaptiveService`, `PsApplicationDiscoveryService`, `PsContextService`, `PsOrganizationService` (takes `core`)
 
 ### KU — Generic Factory
 
@@ -633,16 +642,18 @@ KU uses `create_curriculum_sub_services()` for 4 standard sub-services:
 
 ```python
 # In KuService.__init__
-from core.services.curriculum_domain_config import create_curriculum_sub_services
+from core.services.curriculum_domain_config import (
+    CurriculumCommonSubServices,
+    create_curriculum_sub_services,
+)
 
-common = create_curriculum_sub_services(
-    domain="ku",
+common: CurriculumCommonSubServices[KuIntelligenceService] = create_curriculum_sub_services(
     backend=backend,
     graph_intel=graph_intel,
     event_bus=event_bus,
 )
 self.core = common.core
-self.search_service = common.search
+self.search = common.search  # sub-service ATTRIBUTE — what SearchRouter resolves
 self.relationships = common.relationships
 self.intelligence = common.intelligence
 ```
@@ -683,13 +694,16 @@ self.progress = subs.progress
 class PsSubServices:
     core: PsCoreService
     search: PsSearchService
+    graph: PsGraphService
     semantic: PsSemanticService
     practice: PsPracticeService
     mastery: PsMasteryService
     relationships: UnifiedRelationshipService
     intelligence: PsIntelligenceService
     adaptive: PsAdaptiveService
-    knowledge_context: PsKnowledgeContextService
+    application_discovery: PsApplicationDiscoveryService
+    context_service: PsContextService
+    organization: PsOrganizationService
 
 @dataclass
 class LpSubServices:
@@ -704,8 +718,8 @@ class LpSubServices:
 
 | Domain | Factory | Reason |
 |--------|---------|--------|
-| **KU** | `create_curriculum_sub_services("ku", ...)` | Standard 4-service pattern |
-| **PS** | `create_ps_sub_services()` | 12+ services + non-standard wiring (PathStep IS curriculum content) |
+| **KU** | `create_curriculum_sub_services(backend, graph_intel, event_bus)` | Standard 4-service pattern |
+| **PS** | `create_ps_sub_services()` | 12 factory slots + non-standard wiring (PathStep IS curriculum content) |
 | **LP** | `create_lp_sub_services()` | 5 services + cross-domain dependency |
 
 ### Benefits
@@ -722,28 +736,30 @@ class LpSubServices:
 
 **Problem:** Cross-domain reads were scattered across domain backends and services. Each domain had its own N+1 pattern: fetch all entities of one type, then fan-out queries for related entities in another type, then join in Python. This is the relational-brain pattern — treating the graph like SQL tables you join in application code. Cross-domain Cypher lived on the wrong domain's backend (e.g., `ChoicesBackend` knew about Principles, `GoalsBackend` knew about Tasks).
 
-**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a frozen typed dataclass from `cross_domain_types.py`.
+**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a typed result built from `cross_domain_types.py`: a frozen dataclass (six methods), a tuple of them (`get_habit_knowledge_reinforcement`), or a `dict` keyed by uid (`get_embodiment_rates_7d` → `dict[str, float]`; `get_goals_for_tasks_batch` → `dict[str, tuple[AlignedEntity, ...]]`).
 
 **Rules (enforced at the top of the file):**
 - Methods MUST touch 2+ domain labels
-- Takes only `QueryExecutor`, never per-domain backends
+- Takes only a `CrossDomainBackendOperations` backend, never per-domain backends
 - One Cypher per call, no N+1
-- Returns typed dataclass (not `dict[str, Any]`)
+- Returns a typed result (never `dict[str, Any]`): a frozen dataclass or tuple of them, or — for the two batch/keyed reads — a `dict` keyed by uid with typed values
 
 **Methods:**
 | Method | Domains Crossed |
 |--------|----------------|
 | `get_principle_alignment_evidence` | Principle + Goal + Habit |
+| `get_embodiment_rates_7d` | Principle + Habit (+ completions) — returns `dict[str, float]` keyed by principle uid |
 | `get_tasks_applying_knowledge` | Task + Ku |
-| `get_goals_for_tasks_batch` | Task + Goal |
+| `get_goals_for_tasks_batch` | Task + Goal — returns `dict[str, tuple[AlignedEntity, ...]]` keyed by task uid |
 | `count_active_tasks_for_goal` | Goal + Task |
 | `get_habit_knowledge_reinforcement` | Habit + Ku |
 | `get_choice_principle_adherence` | Choice + Principle |
 | `get_choice_conflict_count` | Choice + Principle |
+| `get_event_impact_batch` | Event + Goal + Ku |
 
 **What it replaced:** ~790 lines of N+1 queries, fan-out loops, and misplaced cross-domain Cypher from 6 Activity Domain backends and services (174 lines from activity domain backends, 375 lines from Choices `_behavioral_signals_mixin.py`, 86 lines from `events_intelligence_service.py`, 84 lines from `goals_search_service.py`, etc.).
 
-**Bootstrap:** Wired in `services_bootstrap/compose.py` before activity services — `CrossDomainQueryService(query_executor)`.
+**Bootstrap:** Wired in `services_bootstrap/compose.py` before activity services — `CrossDomainQueryService(cross_domain_backend)`.
 
 ---
 
@@ -767,7 +783,7 @@ class LpSubServices:
 
 **Problem:** Facade files (500-900 lines) mix delegation methods with domain-specific logic (option management, relationship linking, analytics enrichment). Hard to navigate and inconsistent across domains.
 
-**Solution:** Extract related groups of facade methods into `_*_mixin.py` files within the domain package. The facade inherits from the mixins — public API is unchanged, but methods are organized by concern. Mixins declare `Any`-typed class attributes for the sub-services they use (populated by the facade `__init__`).
+**Solution:** Extract related groups of facade methods into `_*_mixin.py` files within the domain package. The facade inherits from the mixins — public API is unchanged, but methods are organized by concern. Mixins declare class-level attributes for the facade members they read (populated by the facade `__init__`) — `backend` and `core` typed against their protocol or class where SKUEL023 reaches them, the rest `Any`.
 
 **Pattern:**
 ```python
@@ -782,26 +798,26 @@ class _OptionManagementMixin:
 class ChoicesService(
     _OptionManagementMixin,
     KnowledgeIntelligenceDelegationMixin,
-    BaseService["ChoicesOperations", Choice],
+    BaseService["ChoicesOperations", Choice, ChoiceUpdateIntent],
 ): ...
 ```
 
 **Note (June 2026):** `_RelationshipMixin` was inlined back into Goals, Tasks, and Choices — it was a thin (<130 lines) single-consumer delegation slice with methods that just forwarded to `self.relationships`. The floor rule in `SERVICE_DECOMPOSITION_RULE.md` now codifies when to inline vs. extract.
 
-**Adoption (updated June 2026):**
+**Adoption** (the bases of each `{Domain}Service` and `{Domain}IntelligenceService` class):
 
 | Domain | Facade Mixins | Intelligence Mixins |
 |--------|--------------|-------------------|
-| Goals | 1 (`_OrchestrationMixin`) | 5 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_PredictiveMixin`, `_DualTrackMixin`, `_LearningRequirementsMixin`) |
-| Habits | 3 (`_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_DualTrackMixin`) |
-| Choices | 2 (`_OptionManagementMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
-| Principles | 3 (`_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_AlignmentMixin`) |
-| Tasks | 1 (`_OrchestrationMixin`) | 0 |
-| Events | 0 (no facade mixins) | 0; `get_with_context` inherited from `_CoreIntelligenceMixin` |
+| Tasks | 1 (`_OrchestrationMixin`) | 4 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_ProductivityMixin`, `_DualTrackMixin`) |
+| Goals | 1 (`_OrchestrationMixin`) | 4 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_PredictiveMixin`, `_DualTrackMixin`) |
+| Habits | 4 (`_AdherenceReadsMixin`, `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`) | 3 (`_CoreIntelligenceMixin`, `_BehavioralSignalsMixin`, `_DualTrackMixin`) |
+| Events | 2 (`_OrchestrationMixin`, `_SchedulingMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
+| Choices | 1 (`_OptionManagementMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
+| Principles | 3 (`_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AlignmentIntelligenceMixin`, `_InfluenceMixin`) |
 
 **Key rules:**
 - Mixin files are prefixed with `_` (private, not exported from `__init__.py`)
-- Each mixin declares `Any`-typed attributes for sub-services it touches
+- Each mixin declares the facade attributes it reads (`backend` / `core` typed where SKUEL023 reaches them, the rest `Any`)
 - The facade's `__init__` populates those attributes — no `__init__` in mixins
 - Public API unchanged — callers don't know about the decomposition
 - **Shared `_CoreIntelligenceMixin[T]`:** `core/services/intelligence/_core_intelligence_mixin.py` owns the `get_with_context()` delegation, routing through `self.relationships.get_with_context` (mechanism B — edge vocabulary from `DomainRelationshipConfig.cross_domain_relationship_types`; the `GraphContextLoader`/`self.context_loader` path was deleted in #241). Generic in the domain model so subclasses get `Result[tuple[T, GraphContext]]` for free. Tasks, Goals, Habits, PS, LP, and KU intelligence services inherit it directly; Events, Choices, and Principles keep a per-package wrapper only because they add real domain methods (performance/decision/alignment lenses). The domain-named aliases (`get_goal_with_context`, etc.) were deleted in the tasks bloat campaign — generic `get_with_context` is the one path.
