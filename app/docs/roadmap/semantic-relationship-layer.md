@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-03
+updated: 2026-10-10
 ---
 
 # Semantic Relationship Layer — Development Roadmap
@@ -63,7 +63,7 @@ It is the Digital-layer enrichment of the Analog relationship vocabulary.
 
 ## Development plan
 
-### Phase 1 — Reconcile the vocabularies (foundation) — ✅ DONE (2026-07-20, PR #TBD)
+### Phase 1 — Reconcile the vocabularies (foundation) — ✅ DONE (2026-07-20, PR #740)
 
 The precondition for everything else: one edge name, one owner. **Shipped.**
 
@@ -94,14 +94,14 @@ the natural key for the registry work in Phase 2 and the confidence-weighted tra
 Phase 4 — both should key on it, not on the coarse `RelationshipName`. Sequence 2→3→4 still
 holds.
 
-### Phase 2 — Register semantic edges declaratively
+### Phase 2 — Register semantic edges declaratively — ✅ DONE (2026-07-21, PR #744)
 
 - Add semantic edge definitions to `relationship_registry.py` (or a
   registry section generated from the semantic enum) so enrichment/search see them.
 - Surface `RelationshipMetadata` fields (confidence, evidence, valid_from/until) as
   sanctioned edge properties in the registry definitions.
 
-### Phase 3 — Learning-loop semantic annotation — ⚠️ RESOLVED, mostly deferred (2026-07-21, PR #TBD)
+### Phase 3 — Learning-loop semantic annotation — ⚠️ RESOLVED, mostly deferred (2026-07-21, PR #745)
 
 Step Zero (the Phase-2 lesson applied: *register/annotate a name only with a verified
 consumer*) re-derived both parts from the live code + graph and found the roadmap's
@@ -149,7 +149,7 @@ curated map + its first reader together. `is_blocking` stays unwired unless a *n
 genuinely wants blocking-detection over the coarse `{REQUIRES_KNOWLEDGE, BLOCKS, PRECEDES}`
 edges (a different question from ZPD's prerequisite gate).
 
-### Phase 4 — Intelligence consumption (Digital layer) — ⚠️ RE-SCOPED, consumption deferred (2026-07-21, PR #TBD)
+### Phase 4 — Intelligence consumption (Digital layer) — ⚠️ RE-SCOPED, consumption deferred (2026-07-21, PR #746)
 
 Step Zero (the Phase-2/3 lesson applied: *build a reader only with a verified consumer
 AND verified data*) re-derived all three bullets from the **live code + running graph**.
@@ -164,6 +164,14 @@ are future features with **no code yet**, so there is nothing to register in the
 What *is* staged-and-registered is the semantic **write path** — `create_semantic_*_relationship`
 (the four domain facades), `remove_semantic_relationship`, and `infer_relationships` all sit in
 `scripts/detect_bloat.py` PLANNED tiers, and `./dev bloat` reports no structurally-dead findings.
+The staged **read** side is the trio in `query/cypher/semantic_queries.py` —
+`build_prerequisite_chain`, `build_semantic_traversal`, `build_hierarchical_context` — kept with
+no production caller by design (ruled 2026-10-10) as Phase 4's readers; unit-tested
+(`test_cypher_builders.py`, `test_semantic_neo4j_name_drift.py`) and invisible to `./dev bloat`
+(functions, not methods). The single-entity builders beside them in `relationship_queries.py`,
+the `SemanticSimilarityQueries` / `ProgressiveLearningQueries` modules (ranking by
+`semantic_distance` / `difficulty_gap`, which no door writes), `find_path` and
+`create_user_relationships` were deleted as caller-less in the G13 dead-builders PR (#1524).
 
 **The data gate (measured against the running graph, 2026-07-21):**
 - **0 live edges carry `semantic_type`.** The whole semantic write path is live-but-unexercised.

@@ -443,7 +443,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 | `_relationship_ordered_mixin.py` | Ordered writes / hierarchical queries | `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, lateral-getter wrappers (`get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`) |
 | `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `batch_get_related_uids`, `_build_direction_pattern`, helpers |
 | `_user_entity_mixin.py` | Generic user-entity ops | `get_user_entities`*, `count_user_entities`*, `update_relationship_access` |
-| `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse`, `find_path` |
+| `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse` |
 
 \* **Security hardened (March 2026):** Methods marked with `*` validate interpolated field names via `validate_field_name()` from `core/utils/validation_helpers.py` to prevent Cypher injection. Invalid field names are rejected with a logged warning and safe fallback values. Domain backends additionally use `_validate_rel_name()` (rejects non-`[A-Z0-9_]` characters in relationship names) to prevent injection in domain-specific Cypher queries; a caller-chosen `ORDER BY` property is typed instead of checked (`ActivitySortKey`).
 | `universal_backend.py` (shell) | Coordination | `__init__`, `_track_db_metrics`, `_default_filter_*`, `_inject_default_filters`, `__getattr__` |

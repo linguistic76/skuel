@@ -8,7 +8,6 @@ Provides:
     add_relationship: Protocol-compliant wrapper around create_relationship()
     get_relationships: Get all relationships for an entity
     traverse: Multi-hop graph traversal from a start node
-    find_path: Shortest path between two entities
 
 Requires on concrete class:
     driver, logger, create_relationship
@@ -22,7 +21,6 @@ from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums import SearchVisibility
 from core.models.relationship_names import RelationshipName
 from core.utils.error_boundary import safe_backend_operation
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -221,71 +219,6 @@ class _TraversalMixin:
         # what fix the keys, and `properties` is the one conditional column
         # (hence TraversalNodeRow's total=False).
         return Result.ok(cast("builtins.list[TraversalNodeRow]", records))
-
-    @safe_backend_operation("find_path")
-    async def find_path(
-        self,
-        from_uid: str,
-        to_uid: str,
-        rel_types: builtins.list[str],
-        max_depth: int = 5,
-    ) -> Result[builtins.list[dict[str, Any]] | None]:
-        """
-        Find a path between two entities.
-
-        Protocol: none — backend-only method, declared by no port
-
-        Args:
-            from_uid: Source entity UID
-            to_uid: Target entity UID
-            rel_types: Allowed relationship types for path
-            max_depth: Maximum path length (default: 5)
-
-        Returns:
-            Result[list[dict] | None]: Path as list of nodes, or None if no path exists.
-                Each node dict contains:
-                - uid: Node UID
-                - labels: Node labels
-        """
-        # Validate rel_types before Cypher interpolation
-        if rel_types:
-            from core.utils.validation_helpers import validate_relationship_type
-
-            for rel_type in rel_types:
-                if not validate_relationship_type(rel_type):
-                    from core.utils.result_simplified import Errors
-
-                    return Result.fail(
-                        Errors.validation(
-                            message=f"Invalid relationship type: {rel_type}",
-                            field="rel_types",
-                        )
-                    )
-
-        # Build relationship filter
-        rel_filter = "|".join(rel_types) if rel_types else ""
-        rel_clause = f":{rel_filter}" if rel_filter else ""
-
-        cypher = f"""
-        MATCH path = shortestPath(
-            (start:Entity {{uid: $from_uid}})-[{rel_clause}*..{max_depth}]-(end:Entity {{uid: $to_uid}})
-        )
-        UNWIND nodes(path) as node
-        RETURN node.uid as uid, labels(node) as labels
-        """
-
-        try:
-            records = await self._run_records(cypher, {"from_uid": from_uid, "to_uid": to_uid})
-        except NEO4J_EXCEPTIONS as e:
-            # Neo4j returns error if no path exists in some versions
-            if "no path" in str(e).lower():
-                return Result.ok(None)
-            raise  # Let @safe_backend_operation handle other errors
-
-        if not records:
-            return Result.ok(None)
-
-        return Result.ok(records)
 
     # ========================================================================
     # SEMANTIC & CROSS-DOMAIN TRAVERSAL QUERIES

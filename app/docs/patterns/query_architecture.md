@@ -32,7 +32,7 @@ SKUEL's query infrastructure is a **fluent facade over a package of Cypher-build
 UnifiedQueryBuilder  ← fluent facade (filter/limit/offset/order state)
 └── ModelQueryBuilder  → cypher/ build_* functions (list/search/count)
 
-query/cypher/  ← 54 module-level build_* functions, callable directly
+query/cypher/  ← 46 module-level build_* functions, callable directly
 ```
 
 These are not two ways to do the same thing. The facade renders a *declarative
@@ -299,7 +299,7 @@ Record→model conversion happens below the hexagonal boundary — backends retu
 
 <a id="no-cyphergenerator-class"></a>
 > **Naming — there is no `CypherGenerator` class.** The infrastructure layer is a
-> *package of module-level functions* (`query/cypher/`, 54 `build_*` functions), not a
+> *package of module-level functions* (`query/cypher/`, 46 `build_*` functions), not a
 > type. `CypherGenerator` was a proposed class in a 2025 design note that was never
 > built; the functions it proposed shipped as plain functions instead. The name is not
 > importable — `from ...query.cypher import CypherGenerator` raises `ImportError`.

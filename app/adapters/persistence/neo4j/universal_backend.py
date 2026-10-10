@@ -93,7 +93,7 @@ _relationship_query_mixin.py:
     increment_traversal_count, get_depends_on, get_blocks
 
 _traversal_mixin.py:
-    add_relationship, get_relationships, traverse, find_path
+    add_relationship, get_relationships, traverse
 
 _user_entity_mixin.py:
     get_user_entities, count_user_entities, update_relationship_access

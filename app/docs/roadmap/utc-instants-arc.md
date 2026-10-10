@@ -1157,7 +1157,8 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
     `toString(mastered_at)` (an instant). Compare instants: a day as its first instant in
     `$zone`.
   - **Dead:** `_semantic_similarity_queries.build_related_topics_timeline_query` compares a
-    string `valid_from` with `datetime()` raw. Nothing calls `SemanticSimilarityQueries`.
+    string `valid_from` with `datetime()` raw. Nothing calls `SemanticSimilarityQueries`
+    (the module was deleted after the arc, in the G13 dead-builders PR, #1524).
   - **Checked and fine:** native-only columns compared raw (Insight, Session, AuthEvent,
     SearchEvent, VIEWED, IN_PROGRESS, MEMBER_OF, MASTERED, Notification…), and
     `embedding_updated_at < datetime(n.updated_at)` (the embedding backstop).
@@ -1265,10 +1266,10 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
     `get_vault_notes_for_context`) are coerced, but have no mixed-shape test. The column's
     natives come from the report and approval writers, and the census did not show one
     reaching a living entry or a knowledge note.
-  - Two dead query modules are coerced, not deleted: `SemanticSimilarityQueries` and
-    `_progressive_learning_queries`. Neither is in the PLANNED tier, so deleting them is a PR
-    of its own. (`intelligence_queries`, the third in this census, was deleted on the batch-6
-    ruling.)
+  - Two dead query modules were coerced here, not deleted: `SemanticSimilarityQueries` and
+    `_progressive_learning_queries`. Neither was in the PLANNED tier; both were deleted after
+    the arc in the G13 dead-builders PR (#1524). (`intelligence_queries`, the third in this census,
+    was deleted on the batch-6 ruling.)
   - A correction to 6a's census: `EntryReport.created_at` is native-only by writer (both
     writers are `datetime($now)`).
 - **Oldest or newest deciding a write, in Cypher (6a's round-2 sibling rule).** No Cypher

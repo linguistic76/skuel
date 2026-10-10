@@ -47,7 +47,7 @@ Neo4j cannot parameterize labels, property names, or relationship types — thes
 
 | What | Validator | Location |
 |------|-----------|----------|
-| **Relationship types** | `validate_identifier()` + `validate_relationship_type()` | The query builder modules via `_helpers.py`; `_build_direction_pattern()` in `_relationship_crud_mixin.py` (choke point for mixin Cypher); `traverse()` and `find_path()` in `_traversal_mixin.py` |
+| **Relationship types** | `validate_identifier()` + `validate_relationship_type()` | The query builder modules via `_helpers.py`; `_build_direction_pattern()` in `_relationship_crud_mixin.py` (choke point for mixin Cypher); `traverse()` in `_traversal_mixin.py` |
 | **Neo4j labels** | `validate_label()` | The query builder modules via `_helpers.py` — checks against `NeoLabel` enum allowlist |
 | **Field/property names — syntactic** | `validate_identifier()` (raises) / `validate_field_name()` (returns bool, ≤64 chars) | One regex `^[a-zA-Z_][a-zA-Z0-9_]*$`, two contracts. The query builder modules **and** `neo4j_schema_manager`'s DDL share `validate_identifier` from `_helpers.py`; `_search_mixin.py`, `_user_entity_mixin.py`, `unified_query_builder.py` use `validate_field_name()`. **`ModelQueryBuilder.filter(**kwargs)` silently drops unsafe keys** (mirrors the `order_by` policy — operator suffixes like `__gte`/`__contains` still validate since the regex allows underscores throughout) |
 | **Field/property names — model-derived** | membership in `fields(entity_class)` | Every `crud_queries` builder. A **sort key** warns and drops on a miss; an interpolated **property name in a pattern** raises, because dropping it would change which rows match rather than only their order |
@@ -56,8 +56,9 @@ Neo4j cannot parameterize labels, property names, or relationship types — thes
 | **Sort directions** | *derived literals — no validator* | Every `ORDER BY` direction resolves to `"ASC"`/`"DESC"` before interpolation: from a bool (`"DESC" if order_desc else "ASC"`), from the developer-authored `RelationshipSpec.order_direction` (`relationship_registry.py`), or from a literal at the call site. The sort *property* beside it is a separate question — see the three field-name rows above, and the caveat below them. |
 
 ```python
-# Shared guards — used by crud_queries, domain_queries, relationship_queries,
-# semantic_queries, and neo4j_schema_manager's DDL
+# Shared guards — used by crud_queries, domain_queries, semantic_queries,
+# and neo4j_schema_manager's DDL (relationship_queries interpolates nothing:
+# its batch builders pass relationship types as a $relationship_types parameter)
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label, validate_identifier
 
 # These raise ValueError for an unsafe label / field / relationship type.
