@@ -86,7 +86,7 @@ This is the computation `ZPDService.assess_zone()` performs (see
 ```python
 async def assess_zone(
     self, user_uid: UserUID, context: UserContext | None = None
-) -> ZPDAssessment:
+) -> Result[ZPDAssessment]:
     """Mastery, prerequisites and path position come from the ZPD backend's own
     graph reads; the context, when given, adds life-path alignment and evidence."""
     life_path_alignment = getattr(context, "life_path_alignment_score", 0.0) or 0.0

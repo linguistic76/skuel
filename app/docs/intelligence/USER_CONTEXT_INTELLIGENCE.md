@@ -15,8 +15,8 @@ For implementation guidance, see:
 
 **The hub methods** are the nine questions `UserContextIntelligence` answers for one user from
 their `RichUserContext` plus the domain services. **Askesis** is the pedagogical companion that
-asks them; its wrappers are its door onto them, not a separate capability (ruled 2026-10-08,
-[askesis-intelligence-doors.md](../roadmap/askesis-intelligence-doors.md)).
+asks them; its wrappers are its door onto them, not a separate capability (the ruling and its
+date: [askesis-intelligence-doors.md](../roadmap/askesis-intelligence-doors.md)).
 
 **Location:** `core/services/user/intelligence/` (package)
 **Not a `BaseAnalyticsService`:** a class composed from seven mixins (ADR-021), constructed per
