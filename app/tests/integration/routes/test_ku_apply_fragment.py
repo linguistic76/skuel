@@ -4,8 +4,9 @@ The Ku reading page mounts ``/explore/ku/{uid}/apply`` for a signed-in reader; t
 fragment builds the hub from the reader's rich context (the MEGA-QUERY over this
 graph) and answers with method 3. Seeded for one user, every kind it answers with:
 a goal requiring the Ku, a habit applying it, a habit supporting that goal, an
-upcoming event reinforcing that habit (read through ``events_by_habit``), a pending
-choice and a made one informed by it, a principle grounded in it.
+upcoming event reinforcing that habit (read through ``events_by_habit``) and a
+cancelled one, an event dated today that ended at midnight, a pending choice and a made one informed by it, a principle grounded in
+it, and a task applying it.
 
 The calendar half: ``CalendarService.event_items_in_range`` reads a low-priority
 event with its real duration — the week view's membership floor would hide it.
@@ -28,6 +29,8 @@ from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.event.calendar_models import CalendarView
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -48,6 +51,9 @@ GOAL = "goal_kuapply_requires"
 HABIT_APPLIES = "habit_kuapply_applies"
 HABIT_SUPPORTS = "habit_kuapply_supports"
 EVENT = "event_kuapply_reinforces"
+EVENT_CANCELLED = "event_kuapply_cancelled"
+EVENT_OVER = "event_kuapply_over"
+TASK = "task_kuapply_applies"
 CHOICE_PENDING = "choice_kuapply_pending"
 CHOICE_MADE = "choice_kuapply_made"
 PRINCIPLE = "principle_kuapply_held"
@@ -60,6 +66,9 @@ UIDS = (
     HABIT_APPLIES,
     HABIT_SUPPORTS,
     EVENT,
+    EVENT_CANCELLED,
+    EVENT_OVER,
+    TASK,
     CHOICE_PENDING,
     CHOICE_MADE,
     PRINCIPLE,
@@ -99,6 +108,9 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
             (HABIT_APPLIES, "kuapply applying habit", "Habit", "active"),
             (HABIT_SUPPORTS, "kuapply supporting habit", "Habit", "active"),
             (EVENT, "kuapply reinforcing event", "Event", "scheduled"),
+            (EVENT_CANCELLED, "kuapply cancelled event", "Event", "cancelled"),
+            (EVENT_OVER, "kuapply ended event", "Event", "scheduled"),
+            (TASK, "kuapply applying task", "Task", "active"),
             (CHOICE_PENDING, "kuapply pending choice", "Choice", "active"),
             (CHOICE_MADE, "kuapply made choice", "Choice", "completed"),
             (PRINCIPLE, "kuapply held principle", "Principle", "active"),
@@ -122,13 +134,21 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
             """
             MATCH (k:Ku {uid: $ku}), (g:Goal {uid: $goal}), (ha:Habit {uid: $ha}),
                   (hs:Habit {uid: $hs}), (e:Event {uid: $event}), (cp:Choice {uid: $cp}),
-                  (cm:Choice {uid: $cm}), (p:Principle {uid: $p})
+                  (cm:Choice {uid: $cm}), (p:Principle {uid: $p}),
+                  (ec:Event {uid: $ec}), (eo:Event {uid: $eo}), (t:Task {uid: $task})
             SET e.event_date = $upcoming, e.start_time = localtime('10:00'),
-                e.end_time = localtime('11:00'), cm.decided_at = $stamp
+                e.end_time = localtime('11:00'), cm.decided_at = $stamp,
+                ec.event_date = $upcoming, ec.start_time = localtime('10:00'),
+                ec.end_time = localtime('11:00'),
+                eo.event_date = $today, eo.start_time = localtime('00:00'),
+                eo.end_time = localtime('00:00')
             MERGE (g)-[:REQUIRES_KNOWLEDGE]->(k)
             MERGE (ha)-[:APPLIES_KNOWLEDGE]->(k)
             MERGE (hs)-[:SUPPORTS_GOAL]->(g)
             MERGE (e)-[:REINFORCES_HABIT]->(hs)
+            MERGE (ec)-[:REINFORCES_HABIT]->(hs)
+            MERGE (t)-[:APPLIES_KNOWLEDGE]->(k)
+            MERGE (eo)-[:APPLIES_KNOWLEDGE]->(k)
             MERGE (cp)-[:INFORMED_BY_KNOWLEDGE]->(k)
             MERGE (cm)-[:INFORMED_BY_KNOWLEDGE]->(k)
             MERGE (p)-[:GROUNDED_IN_KNOWLEDGE]->(k)
@@ -141,6 +161,10 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:
             cp=CHOICE_PENDING,
             cm=CHOICE_MADE,
             p=PRINCIPLE,
+            ec=EVENT_CANCELLED,
+            eo=EVENT_OVER,
+            today=today_in(current_zone()).isoformat(),
+            task=TASK,
             upcoming=UPCOMING.isoformat(),
             stamp=_STAMP,
         )
@@ -217,6 +241,7 @@ async def test_every_kind_linked_to_the_ku_is_named_and_linked(
     assert fragment.status_code == 200, fragment.text[:300]
     assert "Where you can apply this" in fragment.text
     for title, href in (
+        ("kuapply applying task", f"/tasks/detail?uid={TASK}"),
         ("kuapply goal", f"/goals/detail?uid={GOAL}"),
         ("kuapply applying habit", f"/habits/detail?uid={HABIT_APPLIES}"),
         ("kuapply supporting habit", f"/habits/detail?uid={HABIT_SUPPORTS}"),
@@ -226,8 +251,19 @@ async def test_every_kind_linked_to_the_ku_is_named_and_linked(
     ):
         assert title in fragment.text, title
         assert f'href="{href}"' in fragment.text, href
-    # A choice already made is not an opportunity.
+    # A choice already made, a cancelled event and one already over are not
+    # opportunities.
     assert "kuapply made choice" not in fragment.text
+    assert "kuapply cancelled event" not in fragment.text
+    assert "kuapply ended event" not in fragment.text
+
+
+async def test_the_ended_event_is_upcoming_by_its_date(skuel_app: Any, graph: AsyncDriver) -> None:
+    """The premise of the ended event's absence: the context counts it as upcoming."""
+    context = await skuel_app.state.services.user.get_rich_unified_context(UserUID(USER))
+
+    assert context.is_ok, context
+    assert EVENT_OVER in context.value.upcoming_event_uids
 
 
 async def test_a_ku_nothing_links_to_says_so(reader: httpx.AsyncClient) -> None:

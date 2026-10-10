@@ -15,13 +15,19 @@ optimal learning priorities.
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import LearningTimeEstimate, NextStepRanking
 from core.models.context_types import PathStep
+from core.models.enums.entity_enums import EntityStatus
 from core.services.user.intelligence._base import IntelligenceMixinBase
+from core.services.user.rich_context import find_rich_entity_item
+from core.utils.neo4j_temporal import convert_neo4j_time
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_priority_score
+from core.utils.timestamp_helpers import day_of, parse_stamp, wall_clock_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
@@ -522,20 +528,21 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 3: Knowledge Application Opportunities
     # =========================================================================
 
-    async def get_knowledge_application_opportunities(
+    async def get_knowledge_application_opportunities(  # skuel-lint: disable=SKUEL029 -- askesis_protocols protocol method + facade-delegated
         self, ku_uid: str
     ) -> Result[dict[str, list[str]]]:
         """
         Where can I apply this knowledge in my life?
 
         Every activity linked to the Ku, from the context's own links (a link to a
-        PathStep counts for each Ku it composes):
-        - Tasks: the tasks that apply it (``get_learning_tasks_for_user``)
+        PathStep counts for each Ku it composes) — no graph read, so no read can fail:
+        - Tasks: the active tasks that apply it
         - Goals: the active goals that require it
         - Habits: the active habits that apply or reinforce it, then the active
           habits supporting those goals
         - Events: the upcoming events that apply it, then the upcoming events
-          reinforcing those habits
+          reinforcing those habits — an event still to end, never a cancelled,
+          completed or failed one (``_is_still_ahead``)
         - Choices: the pending choices it informs
         - Principles: the active principles grounded in it
 
@@ -548,12 +555,11 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         context = self.context
         opportunities: dict[str, list[str]] = {}
 
-        tasks_result = await self.tasks.get_learning_tasks_for_user(
-            context, knowledge_focus=[ku_uid]
-        )
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-        opportunities["tasks"] = [t.uid for t in tasks_result.value or []]
+        opportunities["tasks"] = [
+            uid
+            for uid in context.active_task_uids
+            if ku_uid in context.task_knowledge_applied.get(uid, ())
+        ]
 
         goals = self._find_aligned_goals(ku_uid)
         opportunities["goals"] = goals
@@ -571,14 +577,11 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         ]
         opportunities["habits"] = habits
 
-        events = [
-            uid
-            for uid in context.upcoming_event_uids
-            if ku_uid in context.event_knowledge_applied.get(uid, ())
-        ]
+        upcoming = [uid for uid in context.upcoming_event_uids if self._is_still_ahead(uid)]
+        events = [uid for uid in upcoming if ku_uid in context.event_knowledge_applied.get(uid, ())]
         events += [
             uid
-            for uid in context.upcoming_event_uids
+            for uid in upcoming
             if uid not in events
             and any(uid in context.events_by_habit.get(habit_uid, ()) for habit_uid in habits)
         ]
@@ -596,6 +599,29 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         ]
 
         return Result.ok(opportunities)
+
+    def _is_still_ahead(self, event_uid: str) -> bool:
+        """Whether an upcoming event can still be attended: not ended, not terminal.
+
+        ``upcoming_event_uids`` is every event dated today or later; this reads the
+        event's rich record for its status and its end on the wall clock (its day and
+        end time, as the calendar places it). An event the context holds no record
+        for, or whose end it cannot place, is kept, as dated.
+        """
+        item = find_rich_entity_item(self.context, "events", event_uid)
+        if item is None:
+            return True
+        entity = item.get("entity", {})
+        status = EntityStatus.from_string(str(entity.get("status") or ""))
+        if status is not None and status.is_terminal():
+            return False
+        zone = current_zone()
+        stamp = parse_stamp(entity.get("event_date"))
+        day = day_of(stamp, zone) if isinstance(stamp, datetime) else stamp
+        end_time = convert_neo4j_time(entity.get("end_time"))
+        if day is None or end_time is None:
+            return True
+        return datetime.combine(day, end_time) > wall_clock_in(zone)
 
     # =========================================================================
     # METHOD 4: Unblocking Priority Order

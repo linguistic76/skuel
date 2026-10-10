@@ -43,12 +43,15 @@ _LEARNING_SLOTS: frozenset[TimeOfDay] = frozenset({TimeOfDay.EARLY_MORNING, Time
 def _minutes_taken(items: Iterable[CalendarItem], start: datetime, end: datetime) -> int:
     """The minutes of ``start``..``end`` the items occupy, an overlap counted once.
 
-    Calendar items carry wall-clock times, as ``start`` and ``end`` do.
+    Calendar items carry wall-clock times, as ``start`` and ``end`` do. A cancelled,
+    completed or failed item takes no time.
     """
     spans = sorted(
         (max(item.start_time, start), min(item.end_time, end))
         for item in items
-        if item.start_time < end and item.end_time > start
+        if item.start_time < end
+        and item.end_time > start
+        and not (item.status is not None and item.status.is_terminal())
     )
     taken = timedelta()
     covered_until = start
@@ -158,8 +161,8 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         """The minutes free in the next ``time_horizon_hours``, capped at the daily budget.
 
         The horizon starts now on the wall clock. The user's events in it — every
-        priority, not yet done, read from the calendar — take the minutes they overlap
-        it, overlapping events counted once; the workload score takes its share of the
+        priority, none cancelled, completed or failed, read from the calendar — take the
+        minutes they overlap it, overlapping events counted once; the workload score takes its share of the
         horizon. Habits take nothing here: they are candidates this method recommends,
         not commitments. A failed calendar read fails the answer.
         """

@@ -14,8 +14,7 @@ class UserContextIntelligence(
     TemporalMomentumMixin,
     DailyPlanningMixin,
     PerceptionIntelligenceMixin,
-):
-    ...
+): ...
 ```
 
 All files are in `core/services/user/intelligence/`.
@@ -121,10 +120,10 @@ What a caller must not assume:
 How the assessment is computed belongs to the [zpd](../zpd/SKILL.md) skill.
 
 **Method 3** returns six keys — `tasks`, `habits`, `goals`, `events`, `choices`, `principles` —
-all from the context's links but `tasks` (`get_learning_tasks_for_user`, whose failure fails the
-answer): active goals requiring the Ku; active habits applying it, then those supporting those
-goals; upcoming events applying it, then those reinforcing those habits (`events_by_habit`);
-pending choices it informs; active principles grounded in it. Its door is
+all from the context's links, so it reads no service and cannot fail: active tasks applying the
+Ku; active goals requiring it; active habits applying it, then those supporting those goals;
+upcoming events applying it, then those reinforcing those habits (`events_by_habit`) — none
+cancelled, completed or already over; pending choices it informs; active principles grounded in it. Its door is
 `/explore/ku/{uid}/apply`, "Where you can apply this" on the Ku reading page.
 
 ### LifePathIntelligenceMixin — method 7
@@ -183,8 +182,7 @@ entity's title from the rich context (`rich_entity_titles`), or its uid when the
 Synchronous; no I/O.
 
 ```python
-def compute_momentum_signals(self) -> MomentumSignals:
-    ...
+def compute_momentum_signals(self) -> MomentumSignals: ...
 ```
 
 `MomentumSignals` is a TypedDict in `core/ports/query_types.py`. The keys are `velocities`,

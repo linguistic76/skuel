@@ -16,6 +16,7 @@ from datetime import date, datetime, time, timedelta
 import pytest
 import time_machine
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
 from core.services.user.intelligence.schedule_intelligence import ScheduleIntelligenceMixin
@@ -51,7 +52,9 @@ class _Schedule(ScheduleIntelligenceMixin):
         self.calendar = calendar or _Calendar()  # type: ignore[assignment]
 
 
-def _event(start_hour: float, minutes: int) -> CalendarItem:
+def _event(
+    start_hour: float, minutes: int, status: EntityStatus = EntityStatus.SCHEDULED
+) -> CalendarItem:
     start = datetime.combine(DAY, time()) + timedelta(hours=start_hour)
     return CalendarItem(
         uid=f"event-{start_hour}",
@@ -60,6 +63,7 @@ def _event(start_hour: float, minutes: int) -> CalendarItem:
         title="An event",
         start_time=start,
         end_time=start + timedelta(minutes=minutes),
+        status=status,
     )
 
 
@@ -182,6 +186,20 @@ class TestTheFreeTimeComesFromTheCalendar:
         available = await self._available(_Calendar([_event(10, 60), _event(10.5, 60)]))
 
         assert available.value == 240 - 90
+
+    @pytest.mark.asyncio
+    async def test_a_cancelled_or_completed_event_takes_no_time(self) -> None:
+        available = await self._available(
+            _Calendar(
+                [
+                    _event(10, 60, EntityStatus.CANCELLED),
+                    _event(11, 60, EntityStatus.COMPLETED),
+                    _event(12, 30),
+                ]
+            )
+        )
+
+        assert available.value == 240 - 30
 
     @pytest.mark.asyncio
     async def test_no_events_leave_the_whole_horizon(self) -> None:
