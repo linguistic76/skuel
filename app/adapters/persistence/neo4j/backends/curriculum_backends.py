@@ -1148,7 +1148,7 @@ class LpBackend(
     """Domain backend for LearningPath entities.
 
     Extends UniversalNeo4jBackend[LearningPath] with:
-    - ``_LpStepMixin`` — step management CRUD + path CRUD + exercise traversal (15 methods)
+    - ``_LpStepMixin`` — step management CRUD + path CRUD + exercise traversal (12 methods)
     - ``_LpProgressMixin`` — KU mastery progress + search queries (6 methods)
     - ``_LpIntelligenceMixin`` — intelligence + adaptive learning + knowledge scope (10 methods)
     """

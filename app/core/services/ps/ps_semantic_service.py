@@ -63,14 +63,33 @@ class PsSemanticService:
         """
         Create a path step with semantic relationships.
 
+        Every object endpoint is checked before the step is written, and a link
+        refused after the write (an endpoint gone since the check, or a failed
+        write) deletes the step again — the graph holds either the step with all
+        its links or nothing.
+
         Args:
             ku_data: Path step data (title, content, domain, etc.),
             relationships: List of semantic triples to create
 
         Returns:
-            Result containing created CurriculumDTO with relationships
+            Result containing created CurriculumDTO with relationships, or the
+            refusal (not-found naming the absent endpoint; a database error when
+            the rollback itself failed)
         """
-        # First, create the path step
+        # Every object endpoint must exist BEFORE the step is written: the step
+        # and its triples are separate statements, so a refusal after the create
+        # would leave the step committed without the link it was created with.
+        for object_uid in dict.fromkeys(triple.object for triple in relationships):
+            exists = await self.repo.entity_exists(object_uid)
+            if exists.is_error:
+                return Result.fail(exists)
+            if not exists.value:
+                return Result.fail(
+                    Errors.not_found("Entity", object_uid, reason="semantic triple endpoint absent")
+                )
+
+        # Then create the path step
         create_result = await self.repo.create(ku_data)
         if not create_result.is_ok or not create_result.value:
             return Result.fail(
@@ -93,8 +112,21 @@ class PsSemanticService:
                 metadata=triple.metadata,
             )
 
-            # Create relationship in Neo4j
-            await self._create_semantic_relationship(triple_to_create)
+            # Create relationship in Neo4j. The step committed in its own
+            # statement, so a refused link (an endpoint gone since the check, or
+            # a failed write) takes the step back with it — nothing half-made
+            # stays behind, and the refusal names the endpoint the triple could
+            # not reach.
+            link_result = await self._create_semantic_relationship(triple_to_create)
+            if link_result.is_error:
+                rollback = await self.repo.delete(uid, cascade=True)
+                if rollback.is_error:
+                    self.logger.error(
+                        f"Path step {uid} kept after a refused semantic link "
+                        f"({link_result.error}): rollback failed ({rollback.error})"
+                    )
+                    return Result.fail(rollback)
+                return Result.fail(link_result)
 
         self.logger.info(
             f"Created path step {uid} with {len(relationships)} semantic relationships"
@@ -112,13 +144,25 @@ class PsSemanticService:
         """
         Internal method to create a single semantic relationship.
 
+        The backend merges only the edge, between two endpoints it binds as
+        entities; it returns no row when either endpoint names nothing. That
+        empty result is a not-found here — the triple is never half-written.
+        The caller checks every endpoint before the step is created; this is
+        the backstop for an endpoint deleted between that check and the write.
+
         Args:
             triple: Semantic triple to create
 
         Returns:
-            Result indicating success
+            Result indicating success, or not-found naming the absent object
         """
-        await self.repo.create_semantic_relationship(triple)
+        result = await self.repo.create_semantic_relationship(triple)
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(
+                Errors.not_found("Entity", triple.object, reason="semantic triple endpoint absent")
+            )
 
         self.logger.debug(f"Created semantic relationship: {triple}")
         return Result.ok(True)

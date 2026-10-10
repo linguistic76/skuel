@@ -70,7 +70,7 @@ class SemanticSimilarityQueries:
         rel_pattern = "|".join(rel_types)
 
         cypher = f"""
-        MATCH (source {{uid: $source_uid}})-[r:{rel_pattern}]-(similar)
+        MATCH (source:Entity {{uid: $source_uid}})-[r:{rel_pattern}]-(similar)
 
         // Filter by semantic distance and confidence
         WHERE r.semantic_distance IS NOT NULL

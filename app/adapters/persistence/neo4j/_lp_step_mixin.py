@@ -444,14 +444,6 @@ class _LpStepMixin:
             return Result.ok(0)
         return Result.ok(result.value[0].get("next_sequence", 0))
 
-    async def entity_exists(self, uid: str) -> Result[bool]:
-        """Check whether an Entity node with the given UID exists."""
-        query = "MATCH (e:Entity {uid: $uid}) RETURN e.uid LIMIT 1"
-        result = await self.execute_query(query, {"uid": uid})
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(bool(result.value))
-
     async def get_exercises_for_lp(self, lp_uid: str) -> Result[list[Neo4jProperties]]:
         """Get all Exercises reachable from an LP via HAS_STEP → HAS_EXERCISE traversal.
 

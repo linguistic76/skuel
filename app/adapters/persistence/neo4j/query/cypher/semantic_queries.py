@@ -87,7 +87,7 @@ def build_semantic_context(
     rel_pattern = _coarse_alternation(semantic_types)
 
     cypher = f"""
-    MATCH (center {{uid: $uid}})
+    MATCH (center:Entity {{uid: $uid}})
     OPTIONAL MATCH path = (center)-[r:{rel_pattern}*1..{depth}]-(related)
     WITH center, related, path, relationships(path) as rels,
          [rel in relationships(path) | rel.confidence] as confidences,
@@ -121,6 +121,13 @@ def build_semantic_merge(
     """
     Build the MERGE query + params that persist a single semantic triple.
 
+    Only the edge is merged. Both endpoints are ``MATCH``ed as ``:Entity`` —
+    an unlabeled ``MERGE`` on a uid would bind a Ku's ``:Content`` shadow
+    beside the Ku (two edges, G13) and would CREATE a bare node for a uid
+    that names nothing. A triple whose endpoint is absent therefore writes
+    nothing and returns no row; the caller reads the empty result as not
+    found.
+
     The relationship label is sourced from the ``SemanticRelationshipType``
     enum (a closed vocabulary) and validated as a safe identifier before
     interpolation; the triple's metadata is written as edge properties.
@@ -153,11 +160,12 @@ def build_semantic_merge(
     props_str = ", ".join(f"{k}: ${k}" for k in props)
 
     cypher = f"""
-    MERGE (s {{uid: $subject}})
-    MERGE (o {{uid: $object}})
+    MATCH (s:Entity {{uid: $subject}})
+    MATCH (o:Entity {{uid: $object}})
     MERGE (s)-[r:{rel_label} {{semantic_type: $semantic_type}}]->(o)
     ON CREATE SET r = {{{props_str}}}
     ON MATCH SET r += {{{props_str}}}
+    RETURN r.semantic_type AS semantic_type
     """
 
     parameters: dict[str, Neo4jValue] = {"subject": triple.subject, "object": triple.object}
@@ -255,9 +263,11 @@ def build_domain_context_with_paths(
     # Build direction pattern
     direction_pattern = "" if bidirectional else ">"
 
-    # Match on label when supplied (index-friendly); else on uid alone.
+    # Match on the domain label when supplied (index-friendly); else on the
+    # universal :Entity label — never on uid alone, which would also bind a
+    # :Content shadow (G13).
     center_pattern = (
-        f"(center:{node_label} {{uid: $uid}})" if node_label else "(center {uid: $uid})"
+        f"(center:{node_label} {{uid: $uid}})" if node_label else "(center:Entity {uid: $uid})"
     )
 
     # Optional pre-aggregation row cap (genuinely bounds the result on dense graphs).
@@ -355,7 +365,7 @@ def build_prerequisite_chain(
     # The root check and the per-edge filter both narrow to the exact requested
     # predicates via r.semantic_type, not just the collapsed edge type (Phase 1).
     cypher = f"""
-    MATCH (target {{uid: $uid}})
+    MATCH (target:Entity {{uid: $uid}})
     MATCH path = (target)<-[rs:{rel_pattern}*1..{depth}]-(prereq)
     WHERE NOT EXISTS {{
           MATCH (prereq)<-[rp:{rel_pattern}]-()
@@ -412,8 +422,8 @@ def build_semantic_traversal(
     rel_pattern = _coarse_alternation(semantic_types)
 
     cypher = f"""
-    MATCH (start {{uid: $start_uid}})
-    MATCH (end {{uid: $end_uid}})
+    MATCH (start:Entity {{uid: $start_uid}})
+    MATCH (end:Entity {{uid: $end_uid}})
     MATCH path = shortestPath(
         (start)-[r:{rel_pattern}*1..{max_depth}]-(end)
     )
@@ -466,7 +476,7 @@ def build_hierarchical_context(
     child_pattern = _coarse_alternation(child_types)
 
     cypher = f"""
-    MATCH (center {{uid: $uid}})
+    MATCH (center:Entity {{uid: $uid}})
 
     // Get parents
     OPTIONAL MATCH parent_path = (center)-[pr:{parent_pattern}*1..{depth}]->(parent)

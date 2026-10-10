@@ -240,7 +240,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 relationship_type="ENABLES",
                 direction="outgoing"
             )
-            # Cypher: MATCH (n {uid: $uid})-[:ENABLES]->(related) RETURN related.uid
+            # Cypher: MATCH (n:Entity {uid: $uid})-[:ENABLES]->(related) RETURN related.uid
 
             # Get UIDs of prerequisites (incoming PREREQUISITE edges)
             result = await backend.get_related_uids(
@@ -248,7 +248,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 relationship_type="PREREQUISITE",
                 direction="incoming"
             )
-            # Cypher: MATCH (n {uid: $uid})<-[:PREREQUISITE]-(related) RETURN related.uid
+            # Cypher: MATCH (n:Entity {uid: $uid})<-[:PREREQUISITE]-(related) RETURN related.uid
 
             # Get all related topics (bidirectional RELATED_TO edges)
             result = await backend.get_related_uids(
@@ -256,7 +256,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 relationship_type="RELATED_TO",
                 direction="both"
             )
-            # Cypher: MATCH (n {uid: $uid})-[:RELATED_TO]-(related) RETURN related.uid
+            # Cypher: MATCH (n:Entity {uid: $uid})-[:RELATED_TO]-(related) RETURN related.uid
 
             # Get a goal's essential habits (incoming SUPPORTS_GOAL, filtered by tier)
             result = await backend.get_related_uids(
@@ -265,7 +265,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                 direction="incoming",
                 properties={"essentiality": "essential"}
             )
-            # Cypher: MATCH (n {uid: $uid})<-[r:SUPPORTS_GOAL]-(related)
+            # Cypher: MATCH (n:Entity {uid: $uid})<-[r:SUPPORTS_GOAL]-(related)
             # WHERE r.essentiality = $prop_essentiality
             # RETURN related.uid
 

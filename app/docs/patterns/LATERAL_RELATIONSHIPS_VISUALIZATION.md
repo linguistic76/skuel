@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-09-30'
+updated: '2026-10-10'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -290,10 +290,12 @@ Alpine.data('relationshipGraph', function(entity_uid, entity_type, initial_depth
 
 **Cypher Query:**
 ```cypher
-MATCH path = (start {uid: $uid})<-[:BLOCKS*1..3]-(blocker)
-WITH path, length(path) as depth
-RETURN DISTINCT blocker.uid, blocker.title, depth
-ORDER BY depth, blocker.created_at
+// LateralRelationshipBackend.get_blocking_chain — the anchor binds :Entity (SKILL.md § 0)
+MATCH path = (blocker)-[:BLOCKS*1..10]->(entity:Entity {uid: $uid})
+WITH blocker, path, length(path) as depth
+RETURN blocker.uid as uid, blocker.title as title, blocker.status as status,
+       labels(blocker)[0] as entity_type, depth,
+       COUNT { (blocker)-[:BLOCKS]->() } as blocks_count
 ```
 
 **Return Format:**
@@ -339,9 +341,13 @@ ORDER BY depth, blocker.created_at
 
 **Cypher Query:**
 ```cypher
-MATCH path = (start {uid: $uid})-[r*1..{depth}]-(related)
-WHERE type(r) IN $relationship_types
-RETURN DISTINCT related, r
+// LateralRelationshipBackend.get_relationship_graph — the type filter is interpolated
+// from validated RelationshipName values; the center binds :Entity (SKILL.md § 0)
+MATCH path = (center:Entity {uid: $uid})-[r:{type_filter}*1..{depth}]-(related)
+WITH center, r, related, length(path) as depth_level
+RETURN DISTINCT center.uid as center_uid, related.uid as related_uid, related.title as related_title,
+       [rel in r | {type: type(rel), from: startNode(rel).uid, to: endNode(rel).uid}] as relationships,
+       depth_level
 ```
 
 **Return Format (Vis.js):**

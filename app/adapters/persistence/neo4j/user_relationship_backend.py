@@ -121,7 +121,7 @@ class UserRelationshipBackend:
         result = await self.executor.execute(
             query=f"""
                 MATCH (user:User {{uid: $user_uid}})
-                MATCH (entity {{uid: $entity_uid}})
+                MATCH (entity:Entity {{uid: $entity_uid}})
                 MERGE (user)-[r:{RelationshipName.PINNED}]->(entity)
                 ON CREATE SET r.order = $order
                 RETURN true as success
@@ -151,7 +151,7 @@ class UserRelationshipBackend:
         """
         result = await self.executor.execute(
             query=f"""
-                MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.PINNED}]->(entity {{uid: $entity_uid}})
+                MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.PINNED}]->(entity:Entity {{uid: $entity_uid}})
                 DELETE r
                 RETURN true as success
             """,
@@ -183,7 +183,7 @@ class UserRelationshipBackend:
                 MATCH (user:User {{uid: $user_uid}})
                 UNWIND range(0, size($uids) - 1) AS idx
                 WITH user, idx, $uids[idx] AS entity_uid
-                MATCH (user)-[r:{RelationshipName.PINNED}]->(entity {{uid: entity_uid}})
+                MATCH (user)-[r:{RelationshipName.PINNED}]->(entity:Entity {{uid: entity_uid}})
                 SET r.order = idx
                 RETURN count(r) as count
             """,
@@ -510,7 +510,7 @@ class UserRelationshipBackend:
                     MATCH (user:User {{uid: $user_uid}})
                     UNWIND range(0, size($uids) - 1) AS idx
                     WITH user, idx, $uids[idx] AS entity_uid
-                    MATCH (entity {{uid: entity_uid}})
+                    MATCH (entity:Entity {{uid: entity_uid}})
                     MERGE (user)-[r:{RelationshipName.PINNED} {{order: idx}}]->(entity)
                     RETURN count(r) as created
                 """,

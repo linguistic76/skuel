@@ -256,17 +256,21 @@ query, params = build_semantic_merge(
 which emits (executed, verbatim):
 
 ```cypher
-MERGE (s {uid: $subject})
-MERGE (o {uid: $object})
+MATCH (s:Entity {uid: $subject})
+MATCH (o:Entity {uid: $object})
 MERGE (s)-[r:REQUIRES_KNOWLEDGE {semantic_type: $semantic_type}]->(o)
 ON CREATE SET r = {confidence: $confidence, strength: $strength, created_at: $created_at, source: $source, semantic_type: $semantic_type}
 ON MATCH SET r += {confidence: $confidence, strength: $strength, created_at: $created_at, source: $source, semantic_type: $semantic_type}
+RETURN r.semantic_type AS semantic_type
 ```
 
 Note the edge type is `REQUIRES_KNOWLEDGE`, not the predicate name, and that
 `semantic_type` appears **inside the MERGE pattern** — a hand-written
 `MERGE (a)-[r:...]->(b)` that omits it silently merges two distinct predicates onto one
-edge.
+edge. Only the edge is merged: the endpoints are `MATCH`ed as `:Entity`, so a uid that
+names nothing writes nothing and returns no row (an unlabeled `MERGE` would create a
+bare node for it, and would bind a Ku's `:Content` shadow beside the Ku — the G13
+shadow rule, neo4j-cypher-patterns SKILL.md § 0).
 
 ---
 

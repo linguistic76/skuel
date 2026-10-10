@@ -502,6 +502,10 @@ class CrudOperations[T: "DomainModelProtocol"](Protocol):
         """Get entity by UID."""
         ...
 
+    async def entity_exists(self, uid: str) -> ResultType[bool]:
+        """Whether an ``:Entity`` node carries this uid — any domain label, never a shadow."""
+        ...
+
     async def get_visible_to_user(
         self,
         uid: str,

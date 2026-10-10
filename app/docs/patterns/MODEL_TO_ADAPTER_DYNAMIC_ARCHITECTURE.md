@@ -125,7 +125,7 @@ adapters/persistence/neo4j/
     _semantic_mixin.py            # _SemanticMixin — semantic relationships + graph analysis (11 methods)
     _knowledge_context_mixin.py   # _KnowledgeContextMixin — context, discovery, readiness (13 methods)
     _adaptive_mixin.py            # _AdaptiveMixin — practice, search, adaptive mastery (10 methods)
-    _lp_step_mixin.py             # _LpStepMixin — LP step management CRUD + path CRUD (14 methods)
+    _lp_step_mixin.py             # _LpStepMixin — LP step management CRUD + path CRUD (12 methods)
     _lp_progress_mixin.py         # _LpProgressMixin — KU mastery progress + search queries (6 methods)
     _lp_intelligence_mixin.py     # _LpIntelligenceMixin — intelligence + adaptive learning (8 methods)
     _user_entry_crud_mixin.py     # _UserEntryCrudMixin — UserEntry CRUD + content-search operations
@@ -306,7 +306,7 @@ Three changes completing curriculum domain infrastructure parity:
 
 | Mixin | Methods | Responsibility |
 |-------|---------|----------------|
-| `_LpStepMixin` | 14 | Step management CRUD + path CRUD |
+| `_LpStepMixin` | 12 | Step management CRUD + path CRUD |
 | `_LpProgressMixin` | 6 | KU mastery progress + search queries |
 | `_LpIntelligenceMixin` | 8 | Intelligence + adaptive learning |
 

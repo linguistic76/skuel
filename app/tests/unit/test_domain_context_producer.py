@@ -47,10 +47,11 @@ def test_supplied_relationship_types_build_typed_pattern() -> None:
     assert "[r:DEPENDS_ON|FULFILLS_GOAL*1..2]" in query
 
 
-def test_label_less_match_when_no_label() -> None:
-    """``node_label=None`` matches on uid alone — the intent path has only the domain."""
+def test_entity_label_match_when_no_label() -> None:
+    """``node_label=None`` binds the universal ``:Entity`` label — the intent path has only
+    the domain, and a uid-only anchor would also bind a ``:Content`` shadow (G13)."""
     query, _ = build_domain_context_with_paths("uid", node_label=None)
-    assert "MATCH (center {uid: $uid})" in query
+    assert "MATCH (center:Entity {uid: $uid})" in query
 
 
 def test_label_match_when_label_given() -> None:

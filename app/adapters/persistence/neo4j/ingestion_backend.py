@@ -408,12 +408,12 @@ class IngestionBackend:
         ``rel_type`` is a ``RelationshipName`` — the enum type makes the
         interpolation injection-safe, mirroring ``IngestionWriteBackend.ingest_edge``.
         A missing relationship (already removed by hand) still cleans up the
-        metadata row.
+        metadata row. Both ends bind ``:Entity``, as ``ingest_edge`` bound them.
         """
         return await self._executor.execute_query(
             f"""
             MATCH (s:IngestionMetadata {{file_path: $file_path}})
-            OPTIONAL MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+            OPTIONAL MATCH (a:Entity {{uid: $from_uid}})-[r:{rel_type}]->(b:Entity {{uid: $to_uid}})
             DELETE r
             WITH DISTINCT s
             DETACH DELETE s

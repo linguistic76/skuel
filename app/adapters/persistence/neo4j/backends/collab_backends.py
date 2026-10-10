@@ -323,6 +323,11 @@ class LateralRelationshipBackend:
     ) -> Result[list[Neo4jProperties]]:
         """MERGE a lateral relationship between two entities (upsert, idempotent).
 
+        Both ends bind ``:Entity`` — the label every endpoint carries by the
+        ``check_entities_exist`` contract, and the guard that keeps a Ku or
+        PathStep with a body from binding its ``:Content`` shadow too (G13);
+        every writer and reader in this block binds the same way.
+
         ``created_at`` is stamped ``ON CREATE`` only, so re-asserting an existing
         edge refreshes its metadata without rewriting when the edge first
         appeared. It arrives as an ISO string from the service rather than a
@@ -336,8 +341,8 @@ class LateralRelationshipBackend:
         """
         return await self.executor.execute_query(
             f"""
-            MATCH (source {{uid: $source_uid}})
-            MATCH (target {{uid: $target_uid}})
+            MATCH (source:Entity {{uid: $source_uid}})
+            MATCH (target:Entity {{uid: $target_uid}})
             MERGE (source)-[r:{relationship_type}]->(target)
             ON CREATE SET r.created_at = $created_at
             SET r += $metadata
@@ -360,7 +365,7 @@ class LateralRelationshipBackend:
         """Delete a lateral relationship. Returns deleted_count."""
         return await self.executor.execute_query(
             f"""
-            MATCH (source {{uid: $source_uid}})-[r:{relationship_type}]->(target {{uid: $target_uid}})
+            MATCH (source:Entity {{uid: $source_uid}})-[r:{relationship_type}]->(target:Entity {{uid: $target_uid}})
             DELETE r
             RETURN count(r) as deleted_count
             """,
@@ -382,8 +387,8 @@ class LateralRelationshipBackend:
         """
         return await self.executor.execute_query(
             f"""
-            MATCH (source {{uid: $source_uid}})
-            MATCH (target {{uid: $target_uid}})
+            MATCH (source:Entity {{uid: $source_uid}})
+            MATCH (target:Entity {{uid: $target_uid}})
             MERGE (source)-[r:{relationship_type}]->(target)
             ON CREATE SET r.created_at = $created_at
             SET r += $metadata
@@ -405,7 +410,7 @@ class LateralRelationshipBackend:
         """Delete inverse relationship for asymmetric types."""
         return await self.executor.execute_query(
             f"""
-            MATCH (source {{uid: $source_uid}})-[r:{relationship_type}]->(target {{uid: $target_uid}})
+            MATCH (source:Entity {{uid: $source_uid}})-[r:{relationship_type}]->(target:Entity {{uid: $target_uid}})
             DELETE r
             """,
             {"source_uid": source_uid, "target_uid": target_uid},
@@ -443,11 +448,11 @@ class LateralRelationshipBackend:
         from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
 
         if pattern == "outgoing":
-            match_pattern = f"(entity)-[r:{type_filter}]->(related)"
+            match_pattern = f"(entity:Entity)-[r:{type_filter}]->(related)"
         elif pattern == "incoming":
-            match_pattern = f"(entity)<-[r:{type_filter}]-(related)"
+            match_pattern = f"(entity:Entity)<-[r:{type_filter}]-(related)"
         else:
-            match_pattern = f"(entity)-[r:{type_filter}]-(related)"
+            match_pattern = f"(entity:Entity)-[r:{type_filter}]-(related)"
 
         # OWNER_ONLY fragment on the target alias — the one Cypher composition
         # point for ownership (no publication gate: this is a by-anchor read of
@@ -511,7 +516,7 @@ class LateralRelationshipBackend:
         """
         result = await self.executor.execute_query(
             """
-            MATCH (parent)-[anchor]->(entity {uid: $entity_uid})
+            MATCH (parent)-[anchor]->(entity:Entity {uid: $entity_uid})
             MATCH (parent)-[r]->(sibling)
             WHERE sibling.uid <> $entity_uid
             AND type(anchor) IN ['HAS_SUBTASK', 'HAS_SUBGOAL', 'HAS_SUBHABIT',
@@ -551,7 +556,7 @@ class LateralRelationshipBackend:
         """
         result = await self.executor.execute_query(
             """
-            MATCH (grandparent)-[gp]->(parent1)-[p1]->(entity {uid: $entity_uid})
+            MATCH (grandparent)-[gp]->(parent1)-[p1]->(entity:Entity {uid: $entity_uid})
             MATCH (grandparent)-[gp2]->(parent2)-[p2]->(cousin)
             WHERE parent1 <> parent2
             AND cousin.uid <> $entity_uid
@@ -590,7 +595,7 @@ class LateralRelationshipBackend:
         """Get transitive blocking chain with depth levels."""
         result = await self.executor.execute_query(
             """
-            MATCH path = (blocker)-[:BLOCKS*1..10]->(entity {uid: $uid})
+            MATCH path = (blocker)-[:BLOCKS*1..10]->(entity:Entity {uid: $uid})
             WITH blocker, path, length(path) as depth
             RETURN
                 blocker.uid as uid,
@@ -670,7 +675,7 @@ class LateralRelationshipBackend:
         """Get relationship graph in Vis.js Network format."""
         result = await self.executor.execute_query(
             f"""
-            MATCH path = (center {{uid: $uid}})-[r:{type_filter}*1..{depth}]-(related)
+            MATCH path = (center:Entity {{uid: $uid}})-[r:{type_filter}*1..{depth}]-(related)
             WITH center, r, related, length(path) as depth_level
             RETURN DISTINCT
                 center.uid as center_uid,
