@@ -66,8 +66,8 @@ second door in [askesis-intelligence-doors.md](askesis-intelligence-doors.md).
    `core/services/user/user_context_service.py:324` — the `ContextInsights` row is a constant
    because the projection holds only the `DailyWorkPlan`, which carries no blocked list. The
    rich context the plan was built from is in the cache (`UserService.peek_cached_context`),
-   and its `blocked_task_uids_or_empty()` is the figure; or the plan grows the field. Noted in
-   the skills review (`plans/skills-review-2026-09.md`), left standing by F8-7 (a docs PR).
+   and its `blocked_task_uids_or_empty()` is the figure; or the plan grows the field. Left
+   standing by F8-7 (a docs PR).
 
 ## Resolution
 
