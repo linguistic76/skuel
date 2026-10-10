@@ -100,7 +100,10 @@ def orchestrator(neo4j_driver) -> UserEntryOrchestrator:
         teacher_review_service=None,  # type: ignore[arg-type]
         user_service=None,  # type: ignore[arg-type]
         activity_report_service=None,  # type: ignore[arg-type]
-        revised_exercise_service=RevisedExerciseService(backend=revised_backend),
+        revised_exercise_service=RevisedExerciseService(
+            backend=revised_backend,
+            entry_service=None,  # type: ignore[arg-type]
+        ),
         entry_report_service=EntryReportService(llm_caller=None, backend=report_backend),
         report_relationship_service=None,  # type: ignore[arg-type]
     )

@@ -980,23 +980,6 @@ async def compose_services(
 
         logger.info("✅ Report, exercise, and resource services created")
 
-        # Create revised exercise service (four-phase learning loop)
-        from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
-        from core.models.exercises.revised_exercise import RevisedExercise
-        from core.services.revised_exercises import RevisedExerciseService
-
-        revised_exercise_backend = RevisedExerciseBackend(
-            driver=driver,
-            label=NeoLabel.REVISED_EXERCISE,
-            entity_class=RevisedExercise,
-            prometheus_metrics=prometheus_metrics,
-            base_label=NeoLabel.ENTITY,
-        )
-        revised_exercise_service = RevisedExerciseService(
-            backend=revised_exercise_backend, event_bus=event_bus
-        )
-        logger.info("✅ RevisedExerciseService created (four-phase learning loop)")
-
         # Create form services (general-purpose form system)
         from adapters.persistence.neo4j.backends.forms_backends import (
             FormSubmissionBackend,
@@ -1170,6 +1153,25 @@ async def compose_services(
             group_service=group_service,
             user_service=user_service,  # Role gate for visibility=PUBLIC (Finding 2)
         )
+
+        # Create revised exercise service (four-phase learning loop)
+        from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
+        from core.models.exercises.revised_exercise import RevisedExercise
+        from core.services.revised_exercises import RevisedExerciseService
+
+        revised_exercise_backend = RevisedExerciseBackend(
+            driver=driver,
+            label=NeoLabel.REVISED_EXERCISE,
+            entity_class=RevisedExercise,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+        revised_exercise_service = RevisedExerciseService(
+            backend=revised_exercise_backend,
+            entry_service=user_entry_service,  # admit_revision's feedback authority
+            event_bus=event_bus,
+        )
+        logger.info("✅ RevisedExerciseService created (four-phase learning loop)")
 
         # The post-create Share / Stop-sharing door (ADR-088 §6): the create
         # path's checks and writers, on an entry the owner already has.

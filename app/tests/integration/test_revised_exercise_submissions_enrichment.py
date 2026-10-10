@@ -72,7 +72,8 @@ def revised_service(neo4j_driver: AsyncDriver) -> RevisedExerciseService:
         entity_class=RevisedExercise,
         base_label=NeoLabel.ENTITY,
     )
-    return RevisedExerciseService(backend=backend)
+    # Reads only: the admission's entry service is never reached.
+    return RevisedExerciseService(backend=backend, entry_service=None)  # type: ignore[arg-type]
 
 
 @pytest.mark.asyncio

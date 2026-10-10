@@ -3824,15 +3824,16 @@ class PathStepSubmissionRow(TypedDict):
     report_outcome: str | None
 
 
-class TeacherAuthorityRow(TypedDict):
-    """Return shape for RevisedExerciseBackend.verify_teacher_authority().
+class RevisionTargetRow(TypedDict):
+    """Return shape for RevisedExerciseBackend.get_revision_target().
 
-    Mirrors the query's single ``RETURN submission.uid AS submission_uid`` alias.
-    A row exists only when the authority path matched, so the caller reads
-    emptiness as "no authority" rather than testing a null field.
+    The entry a report is about (``submission_uid``) and the exercises that entry
+    fulfils. A row exists only when the entry is the named student's own, so the
+    caller reads ``None`` as "no such target" rather than testing a null field.
     """
 
     submission_uid: str
+    exercise_uids: list[str]
 
 
 class RevisionChainResult(TypedDict):
@@ -4455,7 +4456,7 @@ __all__ = [
     "ReferenceChunkHit",
     "RequiredKnowledgeResult",
     "CurriculumExerciseResult",
-    "TeacherAuthorityRow",
+    "RevisionTargetRow",
     "RevisionChainResult",
     # Notification Backend Result Types
     "NotificationRow",

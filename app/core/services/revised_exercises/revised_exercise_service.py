@@ -33,7 +33,7 @@ from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID
 from core.ports.curriculum_protocols import RevisedExerciseBackendOperations
-from core.ports.query_types import RevisionChainResult, TeacherAuthorityRow
+from core.ports.query_types import RevisionChainResult
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
@@ -42,8 +42,21 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger(__name__)
+
+
+@dataclasses.dataclass(frozen=True)
+class AdmittedRevision:
+    """Proof that a teacher may file a revision on one report's entry.
+
+    Returned only by ``RevisedExerciseService.admit_revision``: the entry the
+    report is about (``submission_uid``) belongs to the named student, asks this
+    teacher for feedback, and fulfils the exercise being revised.
+    """
+
+    submission_uid: str
 
 
 class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, RevisedExercise]):
@@ -94,11 +107,17 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
     def __init__(
         self,
         backend: RevisedExerciseBackendOperations,
+        entry_service: UserEntryService,
         event_bus: EventBusOperations | None = None,
     ) -> None:
-        """Initialize with backend and optional event bus."""
+        """Initialize with backend, the UserEntry facade, and optional event bus.
+
+        ``entry_service`` answers whether an entry asks a teacher for feedback —
+        the authority ``admit_revision`` requires before anything is written.
+        """
         super().__init__(backend, "revised_exercises")
         self.backend = backend
+        self.entry_service = entry_service
         self.event_bus = event_bus
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("RevisedExerciseService initialized")
@@ -118,9 +137,9 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
 
         Also auto-shares with the student and publishes domain events.
 
-        Access control: Verifies the student_uid owns the submission linked
-        to the report (OWNS-based, per ADR-040). Teacher identity is
-        role-gated at the route level.
+        Access control: ``admit_revision`` decides before the first write — the
+        teacher must be one the report's entry asks for feedback, the student its
+        owner, and the exercise the one it fulfils. Every refusal is not-found.
         """
         teacher_uid = entity.user_uid
 
@@ -138,16 +157,12 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
                 )
             )
 
-        # Verify teacher has review authority over this report/student
-        auth_result = await self._verify_teacher_authority(teacher_uid, report_uid, student_uid)
-        if auth_result.is_error:
-            return Result.fail(auth_result)
-
-        # Auto-resolve submission_uid from authority query result
-        auth_records = auth_result.value
-        submission_uid = entity.submission_uid
-        if not submission_uid and auth_records:
-            submission_uid = auth_records[0].get("submission_uid")
+        admitted = await self.admit_revision(
+            teacher_uid, report_uid, student_uid, original_exercise_uid
+        )
+        if admitted.is_error:
+            return Result.fail(admitted)
+        submission_uid = admitted.value.submission_uid
 
         # Auto-resolve expected_modality from the original Exercise, so a revision
         # asks the learner for the same kind of artefact as the exercise it revises
@@ -253,37 +268,49 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
     # INTERNAL HELPERS
     # ========================================================================
 
-    @with_error_handling("verify_teacher_authority", error_type="database")
-    async def _verify_teacher_authority(
+    async def admit_revision(
         self,
         teacher_uid: str,
         report_uid: str,
         student_uid: str,
-    ) -> Result[list[TeacherAuthorityRow]]:
-        """Verify the teacher has review authority over the feedback.
+        original_exercise_uid: str,
+    ) -> Result[AdmittedRevision]:
+        """Decide whether a teacher may file a revision on a report's entry.
 
-        Checks the graph path (OWNS-based, per ADR-040):
-        - (EntryReport)-[:REPORT_FOR]->(UserEntry) exists
-        - (Student)-[:OWNS]->(UserEntry)
-        Teacher identity is role-gated at the route level.
+        A revision is written into the student's space — it answers their report,
+        revises their exercise and lands in their inbox — so it is admitted only
+        when all three hold:
 
-        Returns the matched records (including submission_uid) on success.
+        - the report is about an entry the named student owns;
+        - that entry asks this teacher for feedback: it was ``SUBMITTED_TO_GROUP``
+          an active group the teacher owns (ADR-088 §2). Having the student in one
+          of the teacher's groups is not enough, and neither is the role alone;
+        - the exercise being revised is the one that entry FULFILLS.
+
+        Every refusal is not-found, and the exercise is looked at only once the
+        entry is admitted: a report uid naming nothing, another teacher's
+        student's report, the wrong student and an exercise the entry does not
+        fulfil each answer the same as missing.
         """
-        result = await self.backend.verify_teacher_authority(teacher_uid, report_uid, student_uid)
-        if result.is_error:
-            return Result.fail(result)
+        target = await self.backend.get_revision_target(report_uid, student_uid)
+        if target.is_error:
+            return Result.fail(target)
+        if target.value is None:
+            return Result.fail(Errors.not_found("EntryReport", report_uid))
+        submission_uid = target.value["submission_uid"]
 
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.validation(
-                    "Teacher does not have review authority over this feedback. "
-                    "The feedback must be linked to a submission that is shared "
-                    "with the teacher and owned by the specified student.",
-                    field="report_uid",
-                )
-            )
-        return Result.ok(records)
+        authority = await self.entry_service.teacher_has_feedback_authority(
+            submission_uid, teacher_uid
+        )
+        if authority.is_error:
+            return Result.fail(authority)
+        if not authority.value:
+            return Result.fail(Errors.not_found("EntryReport", report_uid))
+
+        if original_exercise_uid not in target.value["exercise_uids"]:
+            return Result.fail(Errors.not_found("Exercise", original_exercise_uid))
+
+        return Result.ok(AdmittedRevision(submission_uid=submission_uid))
 
     # ========================================================================
     # DOMAIN-SPECIFIC QUERIES (not part of CRUDOperations)

@@ -40,6 +40,7 @@ from adapters.persistence.neo4j.backends.exercise_backends import (
     EntryReportBackend,
     RevisedExerciseBackend,
 )
+from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.enums import UserRole
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome
@@ -49,6 +50,7 @@ from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.report.entry_report import EntryReport
 from core.models.user.user import User
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
+from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils.result_simplified import Errors, Result
 
 STUDENT_A = "user_rcs_student_a"  # in the group IN_TEACHER owns
@@ -127,7 +129,8 @@ def revised_service(neo4j_driver) -> RevisedExerciseService:
         entity_class=RevisedExercise,
         base_label=NeoLabel.ENTITY,
     )
-    return RevisedExerciseService(backend=backend)
+    entries = UserEntryService(backend=UserEntryBackend(neo4j_driver))  # type: ignore[arg-type]
+    return RevisedExerciseService(backend=backend, entry_service=entries)
 
 
 @pytest.fixture
@@ -209,6 +212,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (sb)-[:OWNS]->(subB2)
             MERGE (subB)-[:FULFILLS_EXERCISE]->(ex)
             MERGE (subB2)-[:FULFILLS_EXERCISE]->(ex)
+            MERGE (subB)-[:SUBMITTED_TO_GROUP]->(gb)
             CREATE (repB:Entity:EntryReport {
                 uid: $report_b, entity_type: 'entry_report', title: 'Feedback for B',
                 status: 'completed', processor_type: 'human', user_uid: $student_b,
