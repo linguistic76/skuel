@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_publication_clause
 from core.ports.query_types import (
     GroundingEntryRow,
     GroundingRemovalRow,
@@ -96,11 +97,17 @@ class EntryGroundingBackend:
         never re-stamped as inferred. ``confidence`` is the vector similarity;
         the MEGA-QUERY's ``coalesce(entry_app_rel.confidence, 1.0) >=
         $min_confidence`` filter applies to it with zero query changes.
+
+        The Ku must be published (``build_publication_clause``): a draft is
+        unfinished curriculum no learner is shown, so it is no entry's
+        knowledge — it matches nothing and writes nothing, like a Ku that is
+        gone.
         """
+        published, published_params = build_publication_clause("k")
         result = await self._executor.execute_query(
-            """
-            MATCH (e:UserEntry {uid: $entry_uid}) WHERE NOT e:Content
-            MATCH (k:Ku {uid: $ku_uid}) WHERE NOT k:Content
+            f"""
+            MATCH (e:UserEntry {{uid: $entry_uid}}) WHERE NOT e:Content
+            MATCH (k:Ku {{uid: $ku_uid}}) WHERE NOT k:Content AND {published}
             MERGE (e)-[r:APPLIES_KNOWLEDGE]->(k)
             ON CREATE SET r.inferred = true,
                           r.confidence = $confidence,
@@ -110,13 +117,18 @@ class EntryGroundingBackend:
             REMOVE r.grounding_created
             RETURN created
             """,
-            {"entry_uid": entry_uid, "ku_uid": ku_uid, "confidence": confidence},
+            {
+                "entry_uid": entry_uid,
+                "ku_uid": ku_uid,
+                "confidence": confidence,
+                **published_params,
+            },
         )
         if result.is_error:
             return Result.fail(result)
         rows = result.value or []
         if not rows:
-            # Entry or Ku vanished between the candidate read and the write.
+            # The entry or the Ku is gone, or the Ku is a draft.
             return Result.ok(False)
         return Result.ok(bool(rows[0].get("created")))
 

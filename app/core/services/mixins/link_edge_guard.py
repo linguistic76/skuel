@@ -3,7 +3,7 @@ Link-Edge Guard
 ===============
 
 One admission rule for every door that turns a request-supplied UID into a graph
-edge, in two shapes:
+edge, in these shapes:
 
 - a CREATE door admits a list of links and drops the ones it may not write — each
   domain's ``_write_link_edges`` goes through ``keep_permitted_link_edges``;
@@ -13,7 +13,10 @@ edge, in two shapes:
   create goes through ``admit_far_ends_for_owner``;
 - the personal-vault door admits a file's frontmatter targets through
   ``partition_link_edges`` — the create doors' filter with its failure kept, so
-  a sync can leave the file unstamped and retry rather than lose its edges.
+  a sync can leave the file unstamped and retry rather than lose its edges;
+- an entry's knowledge references (``@ku()`` / ``@link(ku:…|ps:…)``) are admitted
+  through ``partition_link_edges`` by ``UserEntryService.link_applied_knowledge``,
+  which writes the kept ones and reports each refused one as not found.
 
 A request field like ``linked_goal_uids`` or ``knowledge_uid`` is a UID the caller
 chose. Writing it straight into ``create_relationships_batch`` trusts three things the
@@ -89,6 +92,12 @@ EdgeTuple = tuple[str, str, str, Neo4jProperties | None]
 # these fields — the forms omit list-typed links by design — so no UI flow narrows.
 # Shared so the lists cannot drift into disagreeing about what knowledge is.
 KNOWLEDGE_LABELS: Final = frozenset({NeoLabel.KU.value})
+
+# What an entry's knowledge reference (``@ku()`` / ``@link(ku:…|ps:…)``) may point at:
+# shared curriculum, the atom or the lesson. "I reflected on this lesson" is a real fact
+# and the substance counter is grain-agnostic, so unlike the create doors' lists an
+# entry may name a PathStep — the credit lands on the step itself.
+REFLECTED_KNOWLEDGE_LABELS: Final = frozenset({NeoLabel.KU.value, NeoLabel.PATH_STEP.value})
 
 
 @dataclass(frozen=True)

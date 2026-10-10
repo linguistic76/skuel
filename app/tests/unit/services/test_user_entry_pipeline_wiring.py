@@ -14,11 +14,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.events.base import BaseEvent
+from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
 from core.events.user_entry_events import UserEntryProcessingFailed
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import EnrichmentMode
-from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS, UserEntry
 from core.ports.output_generator_protocols import OutputInstruction
 from core.services.dsl import ActivityExtractionResult, DSLTransformResult
@@ -26,7 +26,7 @@ from core.services.dsl.activity_extractor import ExtractedByVaultId, normalized_
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
-from core.services.user_entry.user_entry_service import ShareOutcome
+from core.services.user_entry.user_entry_service import AppliedKnowledgeLinks, ShareOutcome
 from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
@@ -427,9 +427,16 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
     svc.find_task_by_vault_id = AsyncMock(return_value=Result.ok([]))
     svc.repoint_extracted_from_link = AsyncMock(return_value=Result.ok(True))
     svc.revive_extracted_from_link = AsyncMock(return_value=Result.ok(True))
-    svc.add_relationship = AsyncMock(return_value=Result.ok(True))
+    svc.link_applied_knowledge = AsyncMock(side_effect=_link_every_reference)
     svc.get_entry = AsyncMock(return_value=Result.ok(updated_entry))
     return svc
+
+
+async def _link_every_reference(
+    entry_uid: str, owner_uid: str, knowledge_uids: list[str]
+) -> Result[AppliedKnowledgeLinks]:
+    """The entry service admitting and linking every reference it is handed."""
+    return Result.ok(AppliedKnowledgeLinks(linked=tuple(knowledge_uids), unlinked={}))
 
 
 def _extraction_result(
@@ -497,11 +504,8 @@ class TestExtractActivities:
         svc.create_extracted_from_links.assert_awaited_once_with(
             entry.uid, [("task:1", "hash1", None, "- [ ] Call mom @context(task)")]
         )
-        svc.add_relationship.assert_awaited_once()
-        assert svc.add_relationship.await_args.args == (
-            entry.uid,
-            RelationshipName.APPLIES_KNOWLEDGE,
-            "ku:tech/x",
+        svc.link_applied_knowledge.assert_awaited_once_with(
+            entry.uid, entry.user_uid, ["ku:tech/x"]
         )
         svc.update_processing_state.assert_awaited_once()
         updates = svc.update_processing_state.await_args.args[1]
@@ -1152,23 +1156,102 @@ class TestExtractActivities:
     async def test_ku_edge_failure_is_recorded_not_fatal(self):
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
         svc = _extract_entry_service(entry)
-        svc.add_relationship = AsyncMock(
-            return_value=Result.fail(Errors.validation("Invalid relationship type"))
+        svc.link_applied_knowledge = AsyncMock(
+            return_value=Result.ok(
+                AppliedKnowledgeLinks(
+                    linked=(),
+                    unlinked={"ku:typo/x": Errors.not_found("Knowledge", "ku:typo/x")},
+                )
+            )
         )
         extractor = MagicMock()
         extractor.extract_and_create = AsyncMock(
             return_value=Result.ok(_extraction_result(entry.uid, referenced_ku_uids=["ku:typo/x"]))
         )
+        bus, captured = _capturing_bus()
 
-        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher = _make_dispatcher(entry_service=svc, event_bus=bus)
         dispatcher.activity_extractor = extractor
         result = await dispatcher.process(entry)
 
         assert result.is_ok
         updates = svc.update_processing_state.await_args.args[1]
         link_errors = updates["metadata"]["activity_extraction"]["link_errors"]
-        assert len(link_errors) == 1
-        assert "ku:typo/x" in link_errors[0]
+        assert link_errors == [
+            f"APPLIES_KNOWLEDGE {entry.uid} -> ku:typo/x: Knowledge not found: ku:typo/x"
+        ]
+        assert not [e for e in captured if isinstance(e, KnowledgeReflectedInEntry)]
+
+    @pytest.mark.asyncio
+    async def test_only_linked_knowledge_is_credited(self):
+        """The substance event follows the edges the entry service WROTE, never the
+        references the text named."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        svc = _extract_entry_service(entry)
+        svc.link_applied_knowledge = AsyncMock(
+            return_value=Result.ok(
+                AppliedKnowledgeLinks(
+                    linked=("ku.shared",),
+                    unlinked={"task_someone": Errors.not_found("Knowledge", "task_someone")},
+                )
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(entry.uid, referenced_ku_uids=["ku.shared", "task_someone"])
+            )
+        )
+        bus, captured = _capturing_bus()
+
+        dispatcher = _make_dispatcher(entry_service=svc, event_bus=bus)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        reflected = [e for e in captured if isinstance(e, KnowledgeReflectedInEntry)]
+        assert [e.knowledge_uid for e in reflected] == ["ku.shared"]
+
+    @pytest.mark.asyncio
+    async def test_unreadable_admission_links_nothing_and_fails_nothing(self):
+        """When the admission read fails nothing is written: every reference is
+        recorded with that error, none is credited, and the run still completes."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        svc = _extract_entry_service(entry)
+        svc.link_applied_knowledge = AsyncMock(
+            return_value=Result.fail(Errors.database("get_owner_uids_batch", "unreachable"))
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(entry.uid, referenced_ku_uids=["ku.a", "ku.b"])
+            )
+        )
+        bus, captured = _capturing_bus()
+
+        dispatcher = _make_dispatcher(entry_service=svc, event_bus=bus)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        updates = svc.update_processing_state.await_args.args[1]
+        link_errors = updates["metadata"]["activity_extraction"]["link_errors"]
+        assert [line.split(":")[0] for line in link_errors] == [
+            f"APPLIES_KNOWLEDGE {entry.uid} -> ku.a",
+            f"APPLIES_KNOWLEDGE {entry.uid} -> ku.b",
+        ]
+        assert not [e for e in captured if isinstance(e, KnowledgeReflectedInEntry)]
+
+
+def _capturing_bus() -> tuple[MagicMock, list[BaseEvent]]:
+    bus = MagicMock()
+    captured: list[BaseEvent] = []
+
+    async def _publish(event: BaseEvent) -> None:
+        captured.append(event)
+
+    bus.publish_async = AsyncMock(side_effect=_publish)
+    return bus, captured
 
 
 # ---------------------------------------------------------------------------

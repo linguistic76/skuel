@@ -417,8 +417,10 @@ class UserEntryProcessingService:
            with it is re-linked (the line reappeared within the grace), and a
            🆔 found nowhere is a phantom the guards resolve as before.
         4. Knowledge contract: ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` for every
-           created Ku and resolved ``@ku()`` reference — the substance/ZPD
-           edge. Each successful write publishes ``KnowledgeReflectedInEntry``
+           created Ku and resolved ``@ku()`` reference whose far end is a
+           published Ku or PathStep (``UserEntryService.link_applied_knowledge``;
+           any other is a ``link_errors`` line) — the substance/ZPD
+           edge. Each new edge publishes ``KnowledgeReflectedInEntry``
            (substance fan-out) and feeds UserContext.entry_knowledge_applied
            + the ZPD entry_application signal on read.
         5. Run summary persisted under ``entry.metadata["activity_extraction"]``.
@@ -715,25 +717,33 @@ class UserEntryProcessingService:
                 return await self._fail(entry, advance_result.expect_error(), phase="persist_links")
 
         # --- APPLIES_KNOWLEDGE edges (substance/ZPD contract) -------------------
-        # A dangling @ku() reference (typo'd UID) must not fail the run — it
-        # lands in the summary's link_errors instead.
+        # A reference that may not be linked (a typo'd uid, another user's node,
+        # a draft, a non-curriculum node) must not fail the run — it lands in
+        # the summary's link_errors instead, as the same line whichever it was.
         link_errors: list[str] = []
-        ku_uids = dict.fromkeys(extraction.created_ku_uids + extraction.referenced_ku_uids)
-        for ku_uid in ku_uids:
-            edge_result = await self.entry_service.add_relationship(
-                entry.uid, RelationshipName.APPLIES_KNOWLEDGE, ku_uid
-            )
-            if edge_result.is_error:
-                message = f"APPLIES_KNOWLEDGE {entry.uid} -> {ku_uid}: " + str(
-                    edge_result.expect_error()
-                )
-                link_errors.append(message)
-                self.logger.warning(message)
-                continue
+        ku_uids = list(dict.fromkeys(extraction.created_ku_uids + extraction.referenced_ku_uids))
+        knowledge_result = await self.entry_service.link_applied_knowledge(
+            entry.uid, entry.user_uid, ku_uids
+        )
+        if knowledge_result.is_error:
+            # The admission read failed, so nothing was written: every reference
+            # is unlinked for the same reason.
+            error = knowledge_result.expect_error()
+            linked: tuple[str, ...] = ()
+            unlinked = dict.fromkeys(ku_uids, error)
+        else:
+            linked = knowledge_result.value.linked
+            unlinked = dict(knowledge_result.value.unlinked)
+        for ku_uid, error in unlinked.items():
+            message = f"APPLIES_KNOWLEDGE {entry.uid} -> {ku_uid}: {error.message}"
+            link_errors.append(message)
+            reason = error.details.get("reason")
+            self.logger.warning(message + (f" ({reason})" if reason else ""))
+        for ku_uid in linked:
             # Substance fan-out: PsService increments times_reflected_in_entries
             # on the Ku (+ connected PathSteps) — knowledge_substance_philosophy.
             # Only for NEW links: the edge MERGE is idempotent but the counter
-            # increment is not, so skip Kus already linked to this entry.
+            # increment is not, so skip knowledge already linked to this entry.
             if ku_uid in already_applied_ku_uids:
                 continue
             if self.event_bus is not None:

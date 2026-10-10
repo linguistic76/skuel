@@ -37,7 +37,7 @@ Plus optional `PsAIService` (`ai`, FULL tier only — LLM / embedding features).
   | Tasks | 0.05 (0.25) | `connections.applies_knowledge` on the Task → `APPLIES_KNOWLEDGE` |
   | Habits | 0.10 (0.30) | `connections.reinforces_knowledge` on the Habit → `REINFORCES_KNOWLEDGE` |
   | Events | 0.05 (0.25) | `connections.applies_knowledge` on the Event → `APPLIES_KNOWLEDGE` |
-  | Entries | 0.07 (0.20) | **Pipeline-driven.** `(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)` from explicit `@ku()` refs (EXTRACT_ACTIVITIES, ADR-069) and vector grounding (`EntryGroundingService`); both publish `KnowledgeReflectedInEntry` |
+  | Entries | 0.07 (0.20) | **Pipeline-driven.** `(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)` from explicit `@ku()` refs (EXTRACT_ACTIVITIES, ADR-069; far end admitted as a published Ku or PathStep by `UserEntryService.link_applied_knowledge`) and vector grounding (`EntryGroundingService`, published Kus only); both publish `KnowledgeReflectedInEntry` |
   | Choices | 0.07 (0.15) | `connections.informed_by_knowledge` on the Choice → `INFORMED_BY_KNOWLEDGE` |
   | Principles | 0.07 (0.15) | `connections.grounded_in_knowledge` on the Principle → `GROUNDED_IN_KNOWLEDGE` |
 

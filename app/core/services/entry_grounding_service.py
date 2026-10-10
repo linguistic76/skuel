@@ -301,7 +301,8 @@ class EntryGroundingService:
                         skipped_rejected=skipped_rejected,
                     )
                 if not write_result.value:
-                    # Matched an existing edge (race) — no substance event.
+                    # An existing edge (race), or the Ku is gone or a draft —
+                    # no substance event.
                     skipped_existing += 1
                     continue
                 written.append(candidate)

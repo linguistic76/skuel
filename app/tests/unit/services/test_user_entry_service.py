@@ -1326,3 +1326,76 @@ class TestEmbeddingPublishGate:
         assert result.is_ok
         entry_passed = backend.create.await_args.args[0]
         assert entry_passed.private is True
+
+
+class TestLinkAppliedKnowledge:
+    """``link_applied_knowledge`` admits every reference before its first write."""
+
+    @staticmethod
+    def _backend() -> MagicMock:
+        backend = _make_backend()
+        labels = {
+            "ku.shared": ["Entity", "Ku"],
+            "ps.shared": ["Entity", "PathStep"],
+            "ku.draft": ["Entity", "Ku"],
+            "task_theirs": ["Entity", "Task"],
+            "task_mine": ["Entity", "Task"],
+        }
+        owners = {"task_theirs": ["user_2"], "task_mine": ["user_1"]}
+        published = frozenset(uid for uid in labels if uid != "ku.draft")
+        calls: list[str] = []
+
+        async def _labels(uids: list[str]) -> Result[dict[str, list[str]]]:
+            calls.append("read")
+            return Result.ok({uid: labels[uid] for uid in uids if uid in labels})
+
+        async def _owners(uids: list[str]) -> Result[dict[str, list[str]]]:
+            calls.append("read")
+            return Result.ok({uid: owners[uid] for uid in uids if uid in owners})
+
+        async def _published(uids: list[str]) -> Result[frozenset[str]]:
+            calls.append("read")
+            return Result.ok(published & set(uids))
+
+        async def _write(**kwargs: object) -> Result[bool]:
+            calls.append("write")
+            return Result.ok(True)
+
+        backend.get_node_labels_batch = AsyncMock(side_effect=_labels)
+        backend.get_owner_uids_batch = AsyncMock(side_effect=_owners)
+        backend.get_published_uids_batch = AsyncMock(side_effect=_published)
+        backend.add_relationship = AsyncMock(side_effect=_write)
+        backend.calls = calls
+        return backend
+
+    @pytest.mark.asyncio
+    async def test_links_published_curriculum_and_refuses_the_rest_alike(self) -> None:
+        backend = self._backend()
+        service = UserEntryService(backend=backend)
+        references = ["ku.shared", "ps.shared", "ku.draft", "task_theirs", "task_mine", "ku.gone"]
+
+        result = await service.link_applied_knowledge("ue_test_1", "user_1", references)
+
+        assert result.is_ok
+        assert result.value.linked == ("ku.shared", "ps.shared")
+        written = [call.kwargs["to_uid"] for call in backend.add_relationship.await_args_list]
+        assert written == ["ku.shared", "ps.shared"]
+        assert backend.calls == ["read", "read", "read", "write", "write"]
+        messages = {
+            uid: error.message.replace(uid, "<uid>") for uid, error in result.value.unlinked.items()
+        }
+        assert set(messages) == {"ku.draft", "task_theirs", "task_mine", "ku.gone"}
+        assert set(messages.values()) == {"Knowledge not found: <uid>"}
+
+    @pytest.mark.asyncio
+    async def test_an_unreadable_admission_writes_nothing(self) -> None:
+        backend = self._backend()
+        backend.get_published_uids_batch = AsyncMock(
+            return_value=Result.fail(Errors.database("get_published_uids_batch", "down"))
+        )
+        service = UserEntryService(backend=backend)
+
+        result = await service.link_applied_knowledge("ue_test_1", "user_1", ["ku.shared"])
+
+        assert result.is_error
+        backend.add_relationship.assert_not_called()

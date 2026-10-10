@@ -456,6 +456,15 @@ SURFACES: tuple[Surface, ...] = (
         "backends that serve the guard share the one statement.",
     ),
     Surface(
+        "adapters.persistence.neo4j.entry_grounding_backend",
+        "EntryGroundingBackend.write_applies_knowledge",
+        Disposition.ADMISSION,
+        "Vector grounding's edge write: it links an entry to a candidate Ku only "
+        "when the Ku is published, so a draft never becomes a chip on the entry or "
+        "earns a substance credit. It returns whether the edge was created — no "
+        "curriculum the caller did not name.",
+    ),
+    Surface(
         "adapters.persistence.neo4j.query.cypher.context_query_generator",
         "_build_shared_neighbor_clause",
         Disposition.GATED,

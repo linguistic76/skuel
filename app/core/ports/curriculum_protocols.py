@@ -440,8 +440,9 @@ class KuOperations(BackendOperations["Ku"], Protocol):
     ) -> Result[int]:
         """Atomically increment a substance metric for multiple knowledge entities.
 
-        Grain-agnostic: each uid may name a Ku, a PathStep, or any Entity;
-        PathSteps composing a named Ku are credited once each.
+        Grain-agnostic: each uid may name a Ku or a PathStep, and PathSteps
+        composing a named Ku are credited once each. A uid naming any other
+        node writes nothing.
         """
         ...
 
@@ -454,8 +455,9 @@ class KuOperations(BackendOperations["Ku"], Protocol):
     ) -> Result[int]:
         """Atomically increment a substance metric for one knowledge entity.
 
-        Grain-agnostic: the uid may name a Ku, a PathStep, or any Entity;
-        PathSteps composing a named Ku are credited once each.
+        Grain-agnostic: the uid may name a Ku or a PathStep, and PathSteps
+        composing a named Ku are credited once each. A uid naming any other
+        node writes nothing.
         """
         ...
 
