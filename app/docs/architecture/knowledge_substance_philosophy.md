@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-09-22
+updated: 2026-10-10
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -85,6 +85,8 @@ When Ku or PathStep models are constructed from Neo4j (`from_neo4j_node()`), the
 **Grain is agnostic by ruling (2026-08-21):** the `knowledge_uid` a substance
 event carries may name a Ku **or** a PathStep — the write lands on whatever it
 names ("I practised this lesson" is a real fact), and only a named Ku fans out.
+A uid naming any other node writes nothing: the counter is shared curriculum's, so
+an event carrying a request-supplied uid cannot write onto a user's Task or exercise.
 See `docs/roadmap/done/substance-write-grain.md` § The closure record.
 
 ---
@@ -371,12 +373,16 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 - **Updates:** `last_reflected_date`
 - **Weight:** 0.07 per entry (max 0.20)
 - **Published by:** TWO writers, one event, writer-agnostic handler:
-  - `UserEntryProcessingService` — once per successful
-    `(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)` edge write from an explicit `@ku()`
-    reference in the `EXTRACT_ACTIVITIES` pipeline (ADR-069)
+  - `UserEntryProcessingService` — once per NEW
+    `(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku|PathStep)` edge from an explicit `@ku()`
+    or `@link(ku:…|ps:…)` reference in the `EXTRACT_ACTIVITIES` pipeline (ADR-069).
+    `UserEntryService.link_applied_knowledge` admits each far end first: a
+    published Ku or PathStep. Any other reference — another user's node, a draft,
+    a uid naming nothing — writes no edge, publishes nothing, and is one
+    `link_errors` line, the same whichever it was
   - `EntryGroundingService` — once per genuinely NEW inferred edge
     (`inferred: true`, `confidence: <similarity>`, `grounded_at`) written by the
-    vector grounding pass over `pipeline: knowledge` entries (knowledge/ and
+    vector grounding pass over `pipeline: knowledge` entries, to published Kus only (knowledge/ and
     je_pro/ doors — Entry-Enrichment PR 3). Existing edges and user-rejected
     links never re-publish; removals via the grounding remove route are
     calibration data for the threshold.

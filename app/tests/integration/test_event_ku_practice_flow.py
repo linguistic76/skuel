@@ -548,6 +548,43 @@ class TestIncrementSubstanceGrain:
             "a PathStep composing via two edge types must be credited once"
         )
 
+    async def test_a_uid_naming_no_curriculum_node_writes_nothing(self, ku_backend, neo4j_driver):
+        """The counter belongs to shared curriculum: a uid naming a user's Task or
+        exercise — an event can carry a request-supplied uid — is a no-op, single
+        and batched, while a Ku in the same batch is still credited."""
+        ku = Ku(uid="ku.test.batched-atom", title="Batched Atom")
+        assert (await ku_backend.create(ku)).is_ok
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                CREATE (:Entity:Task {uid: 'task_test_someones', entity_type: 'task',
+                                      user_uid: 'user_someone'})
+                CREATE (:Entity:Exercise {uid: 'ex_test_someones', entity_type: 'exercise',
+                                          owner_uid: 'user_someone'})
+                """
+            )
+
+        for uid in ("task_test_someones", "ex_test_someones"):
+            single = await ku_backend.increment_substance(
+                knowledge_uid=uid,
+                metric=self.METRIC,
+                timestamp_field=self.TS_FIELD,
+                timestamp_str=datetime.now().isoformat(),
+            )
+            assert single.is_ok
+            assert single.value == 0
+        batch = await ku_backend.batch_increment_substance(
+            knowledge_uids=["task_test_someones", "ex_test_someones", ku.uid],
+            metric=self.METRIC,
+            timestamp_field=self.TS_FIELD,
+            timestamp_str=datetime.now().isoformat(),
+        )
+        assert batch.is_ok
+
+        assert await self._counter(neo4j_driver, "task_test_someones") is None
+        assert await self._counter(neo4j_driver, "ex_test_someones") is None
+        assert await self._counter(neo4j_driver, ku.uid) == 1
+
     async def test_unknown_uid_is_a_true_noop(self, ku_backend):
         """ok(0) now means exactly one thing: the uid matched no node."""
         result = await ku_backend.increment_substance(

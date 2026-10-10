@@ -682,7 +682,7 @@ class EntryGroundingBackendOperations(Protocol):
 
         True iff this call created the link — an explicit reference the user
         already authored is never restamped as inferred, and the caller publishes
-        the substance event only on True.
+        the substance event only on True. A draft KU links nothing (False).
         """
         ...
 

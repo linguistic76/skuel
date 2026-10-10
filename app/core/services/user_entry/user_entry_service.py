@@ -44,6 +44,7 @@ Create flow
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -68,6 +69,11 @@ from core.models.user_entry.user_entry_request import (
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
+from core.services.mixins.link_edge_guard import (
+    REFLECTED_KNOWLEDGE_LABELS,
+    LinkEdge,
+    partition_link_edges,
+)
 from core.services.relationship_builder import relate
 from core.services.user_entry.audience_resolver import (
     AudienceResolver,
@@ -77,10 +83,12 @@ from core.services.user_entry.audience_resolver import (
 from core.services.user_entry.entry_sharing_service import publish_entry_shared
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorContext, Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import (
         ExtractionTwinRow,
@@ -97,7 +105,22 @@ if TYPE_CHECKING:
 
 # ``ShareOutcome`` lives in ``audience_resolver``; re-exported for callers
 # that import it from this module.
-__all__ = ["ShareOutcome", "UserEntryService"]
+__all__ = ["AppliedKnowledgeLinks", "ShareOutcome", "UserEntryService"]
+
+
+@dataclass(frozen=True)
+class AppliedKnowledgeLinks:
+    """What an entry's knowledge references came to.
+
+    Attributes:
+        linked: the far ends now joined to the entry by ``APPLIES_KNOWLEDGE``, in
+            reference order.
+        unlinked: each reference that was not linked, with why — a refusal
+            (``not_found``, alike for every reason) or the write's own error.
+    """
+
+    linked: tuple[str, ...]
+    unlinked: Mapping[str, ErrorContext]
 
 
 class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
@@ -898,6 +921,52 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         Backend: UserEntryBackend.read_graph_clock.
         """
         return await self.backend.read_graph_clock()
+
+    async def link_applied_knowledge(
+        self, entry_uid: str, owner_uid: UserUID, knowledge_uids: Sequence[str]
+    ) -> Result[AppliedKnowledgeLinks]:
+        """Link an entry to the knowledge its references name, admitting each first.
+
+        Writes ``(entry)-[:APPLIES_KNOWLEDGE]->(k)`` for each reference whose far end
+        is shared curriculum a learner can read: a published Ku or PathStep
+        (``REFLECTED_KNOWLEDGE_LABELS`` under ``link_edge_guard``'s rule). One
+        admission read covers the whole list, before the first write.
+
+        A uid that names nothing, another user's node, a node of another kind and a
+        draft are each refused as ``not_found`` of the knowledge, with the reason in
+        ``details`` only — so the refusal a caller records reads the same whichever
+        it was. A refused reference writes nothing.
+
+        Fails only when the admission read fails; then nothing is written.
+        """
+        candidates = [
+            LinkEdge(
+                (entry_uid, uid, RelationshipName.APPLIES_KNOWLEDGE.value, None),
+                uid,
+                REFLECTED_KNOWLEDGE_LABELS,
+            )
+            for uid in dict.fromkeys(knowledge_uids)
+        ]
+        partition = await partition_link_edges(
+            self.backend, candidates=candidates, owner_uid=owner_uid
+        )
+        if partition.is_error:
+            return Result.fail(partition)
+
+        unlinked: dict[str, ErrorContext] = {
+            candidate.other_uid: Errors.not_found("Knowledge", candidate.other_uid, reason=reason)
+            for candidate, reason in partition.value.refused
+        }
+        linked: list[str] = []
+        for candidate in partition.value.kept:
+            written = await self.add_relationship(
+                entry_uid, RelationshipName.APPLIES_KNOWLEDGE, candidate.other_uid
+            )
+            if written.is_error:
+                unlinked[candidate.other_uid] = written.expect_error()
+            else:
+                linked.append(candidate.other_uid)
+        return Result.ok(AppliedKnowledgeLinks(linked=tuple(linked), unlinked=unlinked))
 
     async def update_processing_state(
         self,

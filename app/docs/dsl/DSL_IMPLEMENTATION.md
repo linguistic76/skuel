@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Implementation Guide
-updated: 2026-10-06
+updated: 2026-10-10
 status: current
 category: dsl
 tags: [dsl, implementation, parser, architecture, regex]
@@ -358,7 +358,8 @@ parse_link("goal:goal.teens-yoga.ten-members, principle:principle_x_00000003")
 #   LinkRef(type="principle", id="principle_x_00000003")
 # ]
 # The id is stored bare — never re-prefixed — because every sink
-# existence-checks it against the graph.
+# admits it against the graph (the entry's APPLIES_KNOWLEDGE write takes
+# a published Ku or PathStep; the create doors run the link-edge guard).
 ```
 
 ---

@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-10-08
+updated: 2026-10-10
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -367,7 +367,9 @@ goal:       → Task contributes_to_goal_uids: one CONTRIBUTES_TO_GOAL edge per 
 principle:  → Habit linked_principle_uids (EMBODIES_PRINCIPLE) · Goal supporting_principle_uids
               (the principle's SUPPORTS_GOAL edge into the goal)
 ku:  ps:    → applies_knowledge_uids (+ the entry's APPLIES_KNOWLEDGE edge) — the door
-              for Kus beyond the one @ku() a line may carry
+              for Kus beyond the one @ku() a line may carry. The entry's edge lands only on
+              a published Ku or PathStep; any other uid is a link_errors line in the run
+              summary, the same line a uid that names nothing gets, and credits nothing
 lp:         → the learning-path anchor of a @context(ps) line
 ```
 Any other prefix parses but reaches no sink, and so does a `principle:` link on a line of any other

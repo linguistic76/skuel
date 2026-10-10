@@ -229,16 +229,20 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     ) -> Result[int]:
         """Atomically increment a substance metric for multiple knowledge entities.
 
-        Grain-agnostic by ruling (2026-08-21): each uid may name a Ku, a
-        PathStep, or any Entity — the increment lands on whatever it names.
-        Composing PathSteps (``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` into a
+        Grain-agnostic by ruling (2026-08-21): each uid may name a Ku or a
+        PathStep — the increment lands on whichever it names. A uid naming any
+        other node is a no-op: the counter belongs to shared curriculum, and an
+        event carrying a request-supplied uid must not write onto a user's
+        Task or exercise. Composing PathSteps (``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` into a
         named Ku) are credited once each per named entity, regardless of how
         many of those edge types connect the pair. Returns the number of
-        PathStep credits written; uids that match no node contribute nothing.
+        PathStep credits written; uids that match no Ku or PathStep contribute
+        nothing.
         """
         query = f"""
         UNWIND $knowledge_uids AS knowledge_uid
         MATCH (k:Entity {{uid: knowledge_uid}})
+        WHERE k:Ku OR k:PathStep
         SET k.{metric} = COALESCE(k.{metric}, 0) + 1,
             k.{timestamp_field} = datetime($timestamp),
             k._substance_cache_timestamp = NULL
@@ -268,17 +272,20 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     ) -> Result[int]:
         """Atomically increment a substance metric for one knowledge entity.
 
-        Grain-agnostic by ruling (2026-08-21): the uid may name a Ku, a
-        PathStep, or any Entity — the increment lands on whatever it names,
-        and any PathSteps composing a named Ku are each credited once. The
+        Grain-agnostic by ruling (2026-08-21): the uid may name a Ku or a
+        PathStep — the increment lands on whichever it names, and any
+        PathSteps composing a named Ku are each credited once. A uid naming
+        any other node is a no-op, as in ``batch_increment_substance``. The
         ``collect``/``FOREACH`` shape guarantees the RETURN emits whenever the
         primary write landed — the former ``WHERE ps IS NOT NULL`` row-filter
         dropped the row for orphan-Ku and PathStep-targeted writes, reporting
         ``ok(0)`` for an increment that had already been written. ``ok(0)``
-        now means exactly one thing: the uid matched no node (true no-op).
+        now means exactly one thing: the uid matched no Ku or PathStep (true
+        no-op).
         """
         query = f"""
         MATCH (k:Entity {{uid: $knowledge_uid}})
+        WHERE k:Ku OR k:PathStep
         SET k.{metric} = COALESCE(k.{metric}, 0) + 1,
             k.{timestamp_field} = datetime($timestamp),
             k._substance_cache_timestamp = NULL

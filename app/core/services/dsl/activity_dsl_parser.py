@@ -1221,9 +1221,9 @@ class ActivityDSLParser:
         ``ku_{slug}_{random}`` — and it is stored bare. The prefix only names
         the label a sink checks (``EntityType.from_string`` resolves aliases
         such as ``lp``); it is never prepended and nothing resolves a title
-        or a path to a uid. Every sink existence-checks the id against the
-        graph (the entry's APPLIES_KNOWLEDGE write, the create doors' link
-        guard), so only a stored uid ever lands.
+        or a path to a uid. Every sink admits the id against the graph (the
+        entry's APPLIES_KNOWLEDGE write takes a published Ku or PathStep, the
+        create doors run the link guard), so only a stored uid ever lands.
 
         Returns list of dicts: [{"type": "goal", "id": "goal_3f9a2b1c"}, ...]
         """
