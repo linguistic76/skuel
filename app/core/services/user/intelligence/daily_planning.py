@@ -113,9 +113,8 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         - report.get_pending_submissions() - Turn-ins still awaiting a report
 
         **Respects:**
-        - context.available_minutes_daily (capacity)
-        - context.current_energy_level (cognitive load)
-        - context.current_workload_score (not overload)
+        - context.available_minutes_daily (capacity) — the one context figure the
+          selection reads; energy and workload are method 8's inputs, not this one's
 
         Args:
             prioritize_life_path: Weight life path alignment highly

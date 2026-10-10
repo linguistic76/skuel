@@ -294,9 +294,10 @@ class UserContextService:
         under capacity and energy constraints. The ``DailyWorkPlan`` is then
         projected into the route-facing ``NextActionResult`` shape.
 
-        Fails only when ``UserService`` holds no intelligence factory; the factory is
-        built in both tiers and ``compose_services`` refuses to finish without it, so a
-        composed app never takes that branch.
+        Fails when the rich context cannot be built (user resolution or a context read
+        failing) or the plan read fails — both propagated from ``get_daily_work_plan``.
+        Its missing-factory branch is unreachable in a composed app: the factory is
+        built in both tiers and ``compose_services`` refuses to finish without it.
 
         Args:
             user_uid: User identifier

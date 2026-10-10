@@ -356,9 +356,9 @@ test needs the fields listed against the mixin it exercises.
 | `completed_goal_uids` | `set[str]` | synergy |
 | `completed_task_uids` | `set[str]` | synergy |
 | `core_principle_uids` | `list[str]` | learning, life path |
-| `current_energy_level` | `EnergyLevel` or `None` | daily plan, schedule |
+| `current_energy_level` | `EnergyLevel` or `None` | schedule |
 | `current_path_steps` | `list[CurrentPathStepItem]` | learning |
-| `current_workload_score` | `float` | daily plan, life path, schedule |
+| `current_workload_score` | `float` | life path, schedule |
 | `daily_habits` | `list[str]` | daily plan, schedule |
 | `decisions_against_principles` | `int` | life path |
 | `decisions_aligned_with_principles` | `int` | life path |
