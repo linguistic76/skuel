@@ -76,9 +76,7 @@ from core.models.query_types import QueryIntent
 # Search boundary models — canonical location is core.models.search_models
 from core.models.search_models import FacetSetRequest, SearchQueryRequest, SearchResultDTO
 
-from ._progressive_learning_queries import ProgressiveLearningQueries
 from ._provenance_queries import ProvenanceQueries
-from ._semantic_similarity_queries import SemanticSimilarityQueries
 
 # Confidence filtering utilities (December 2025)
 from .confidence_filter import (
@@ -108,12 +106,9 @@ from .cypher import (
     build_hierarchical_context,
     build_ku_with_context,
     build_list_query,
-    build_multi_relationship_count,
     build_prerequisite_chain,
-    build_relationship_count,
     build_relationship_filter_fragments,
     build_relationship_traversal_query,
-    build_relationship_uids_query,
     build_search_query,
     build_semantic_context,
     build_semantic_filter_query,
@@ -174,12 +169,10 @@ __all__ = [
     # QUERY MODELS & STRATEGIES
     # ============================================================================
     "ModelQueryBuilder",
-    "ProgressiveLearningQueries",
     "ProvenanceQueries",
     "QueryIntent",
     "QueryOptimizationStrategy",
     "QueryResult",
-    "SemanticSimilarityQueries",
     # ============================================================================
     # UNIFIED QUERY BUILDER - THE SINGLE ENTRY POINT
     # ============================================================================
@@ -221,13 +214,10 @@ __all__ = [
     "build_ku_with_context",
     "build_list_query",
     "build_multi_fallback_confidence",
-    "build_multi_relationship_count",
     "build_path_confidence_aggregation",
     "build_prerequisite_chain",
-    "build_relationship_count",
     "build_relationship_filter_fragments",
     "build_relationship_traversal_query",
-    "build_relationship_uids_query",
     "build_search_query",
     "build_semantic_context",
     "build_semantic_filter_query",

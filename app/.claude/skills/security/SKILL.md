@@ -47,7 +47,7 @@ Neo4j cannot parameterize labels, property names, or relationship types — thes
 
 | What | Validator | Location |
 |------|-----------|----------|
-| **Relationship types** | `validate_identifier()` + `validate_relationship_type()` | The query builder modules via `_helpers.py`; `_build_direction_pattern()` in `_relationship_crud_mixin.py` (choke point for mixin Cypher); `traverse()` and `find_path()` in `_traversal_mixin.py` |
+| **Relationship types** | `validate_identifier()` + `validate_relationship_type()` | The query builder modules via `_helpers.py`; `_build_direction_pattern()` in `_relationship_crud_mixin.py` (choke point for mixin Cypher); `traverse()` in `_traversal_mixin.py` |
 | **Neo4j labels** | `validate_label()` | The query builder modules via `_helpers.py` — checks against `NeoLabel` enum allowlist |
 | **Field/property names — syntactic** | `validate_identifier()` (raises) / `validate_field_name()` (returns bool, ≤64 chars) | One regex `^[a-zA-Z_][a-zA-Z0-9_]*$`, two contracts. The query builder modules **and** `neo4j_schema_manager`'s DDL share `validate_identifier` from `_helpers.py`; `_search_mixin.py`, `_user_entity_mixin.py`, `unified_query_builder.py` use `validate_field_name()`. **`ModelQueryBuilder.filter(**kwargs)` silently drops unsafe keys** (mirrors the `order_by` policy — operator suffixes like `__gte`/`__contains` still validate since the regex allows underscores throughout) |
 | **Field/property names — model-derived** | membership in `fields(entity_class)` | Every `crud_queries` builder. A **sort key** warns and drops on a miss; an interpolated **property name in a pattern** raises, because dropping it would change which rows match rather than only their order |

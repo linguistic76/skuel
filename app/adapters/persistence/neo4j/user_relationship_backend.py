@@ -29,7 +29,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j.batch_cypher_builder import BatchCypherBuilder
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.processor_functions import (
@@ -468,82 +467,3 @@ class UserRelationshipBackend:
             ),
             operation="get_user_summary",
         )
-
-    # ========================================================================
-    # Batch Relationship Creation (1 method)
-    # ========================================================================
-
-    async def create_user_relationships(
-        self,
-        user_uid: UserUID,
-        pinned_entity_uids: list[str] | None = None,
-        current_goal_uids: list[str] | None = None,
-        following_uids: list[str] | None = None,
-        team_uids: list[str] | None = None,
-    ) -> Result[int]:
-        """
-        Create all relationships for a user in batch.
-
-        Efficient batch operation for user creation/update workflows.
-        Uses UNWIND for optimal Neo4j performance.
-
-        Note: Pinned entities are created with sequential order property (0, 1, 2, ...).
-
-        Args:
-            user_uid: UID of the user
-            pinned_entity_uids: Ordered list of entity UIDs to pin
-            current_goal_uids: Goal UIDs to pursue
-            following_uids: User UIDs to follow
-            team_uids: Team UIDs to join
-
-        Returns:
-            Result containing count of relationships created
-        """
-        total_created = 0
-
-        # Create PINNED relationships (with order property - requires special handling)
-        # This uses indexed order properties, which the standard batch pattern doesn't support
-        # Note: empty list guard required - range(0, -1) produces no results but query still runs
-        if pinned_entity_uids:
-            result = await self.executor.execute(
-                query=f"""
-                    MATCH (user:User {{uid: $user_uid}})
-                    UNWIND range(0, size($uids) - 1) AS idx
-                    WITH user, idx, $uids[idx] AS entity_uid
-                    MATCH (entity:Entity {{uid: entity_uid}})
-                    MERGE (user)-[r:{RelationshipName.PINNED} {{order: idx}}]->(entity)
-                    RETURN count(r) as created
-                """,
-                params={"user_uid": user_uid, "uids": pinned_entity_uids},
-                processor=extract_created_count,
-                operation="create_user_relationships_pinned",
-            )
-            if result.is_error:
-                return result
-            total_created += result.value
-
-        # Convert following_uids from set to list if necessary
-        following_list = list(following_uids) if following_uids else None
-        team_list = list(team_uids) if team_uids else None
-
-        # Build relationship tuples using BatchCypherBuilder for standard relationships
-        relationships = BatchCypherBuilder.build_relationships_list(
-            source_uid=user_uid,
-            relationship_specs=[
-                (current_goal_uids, RelationshipName.PURSUING_GOAL, None),
-                (following_list, RelationshipName.FOLLOWS, None),
-                (team_list, RelationshipName.MEMBER_OF, None),
-            ],
-        )
-
-        # Create batch relationships
-        if relationships:
-            result = await self.executor.create_relationships_batch(
-                relationships=relationships,
-                operation="create_user_relationships",
-            )
-            if result.is_error:
-                return result
-            total_created += result.value
-
-        return Result.ok(total_created)

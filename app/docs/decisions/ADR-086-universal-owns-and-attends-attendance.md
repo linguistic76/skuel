@@ -1,6 +1,6 @@
 ---
 title: "ADR-086: Universal :OWNS Ratified; Attendance Is ATTENDS"
-updated: 2026-10-02
+updated: 2026-10-10
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, owns, attends, events, graph-schema, relationships]
@@ -154,8 +154,8 @@ there before deletion):
 - `is_ownership_relationship()` rewritten to `{OWNS}` — the generated contract finally traits
   the edge that carries ownership.
 
-Explicitly **untouched**: `create_user_relationships` (plural,
-`relationship_backend_protocols.py:72`) is a different, live method; the
+Explicitly **untouched**: `create_user_relationships` (plural) was a different method, left
+alone here and later deleted as caller-less (the G13 dead-builders PR); the
 `HAS_TASK_TEMPLATE`-family template edges are a distinct, live family; and the service-layer
 `DomainConfig.user_ownership_relationship` (`core/services/domain_config.py:161`) is a
 **different field** from the registry's — `get_search_visibility()` (`:238-252`) tests only

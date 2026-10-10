@@ -63,13 +63,3 @@ class UserRelationshipOperations(Protocol):
     async def count_pinned_entities(self, user_uid: UserUID) -> Result[int]: ...
     async def get_social_stats(self, user_uid: UserUID) -> Result[dict[str, int]]: ...
     async def get_user_summary(self, user_uid: UserUID) -> Result[dict[str, Any]]: ...
-
-    # Batch creation
-    async def create_user_relationships(
-        self,
-        user_uid: UserUID,
-        pinned_entity_uids: list[str] | None = None,
-        current_goal_uids: list[str] | None = None,
-        following_uids: list[str] | None = None,
-        team_uids: list[str] | None = None,
-    ) -> Result[int]: ...
