@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-10-05'
+updated: '2026-10-10'
 category: patterns
 related_skills:
 - activity-domains
@@ -240,11 +240,12 @@ of the contract; the body is what the learner sees, and the header is what lets 
 
 A bare `get()` followed by an inline `entity.user_uid != user_uid` compare, standing in
 for the anchor's own verification, is the ad-hoc "is this yours?" check ADR-085 §4 forbids
-even when its logic is correct — route the read through `verify_ownership`. Two inline
-compares are sanctioned because no service verifier expresses their rule (two owner fields,
-either of which grants the read) and both already answer 404:
-`adapters/inbound/exercises_api.py` (owner-or-teacher on an entry) and
-`adapters/inbound/revised_exercises_api.py` (student-or-owner). Filtering a *related* set
+even when its logic is correct — route the read through `verify_ownership`. One inline
+compare is sanctioned because no service verifier expresses its rule (two owner fields,
+either of which grants the read) and it already answers 404:
+`adapters/inbound/revised_exercises_api.py` (student-or-owner). The AI reviewer's
+owner-or-teacher rule is held by the service that writes the report
+(`EntryReportService.admit_report`), not the route. Filtering a *related* set
 by owner after the anchor was verified is scoping, not a gate — the hierarchy factory does
 that deliberately, because the traversal carries no owner predicate. Census:
 `grep -rn "user_uid != user_uid\|user_uid == user_uid" adapters/inbound`, read per hit.
