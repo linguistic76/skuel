@@ -29,7 +29,7 @@ from core.ports.query_types import (
     CurriculumExerciseResult,
     RequiredKnowledgeResult,
     RevisionChainResult,
-    TeacherAuthorityRow,
+    RevisionTargetRow,
 )
 from core.utils.result_simplified import Errors, Result
 
@@ -507,7 +507,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     Domain backend for RevisedExercise entities.
 
     Provides relationship-specific Cypher for the four-phase learning loop:
-    - verify_teacher_authority    — Check teacher review authority graph path
+    - get_revision_target        — Resolve a report's entry for its owning student
     - auto_share_with_student    — MERGE SHARES_WITH (student -> revised exercise)
     - list_for_student           — Query revisions targeting a student
     - link_to_report             — MERGE RESPONDS_TO_REPORT relationship
@@ -552,45 +552,38 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             identifier=f"{re_uid} -> {exercise_uid}",
         )
 
-    async def verify_teacher_authority(
-        self, teacher_uid: str, report_uid: str, student_uid: str
-    ) -> Result[list[TeacherAuthorityRow]]:
-        """Verify teacher has review authority over a report.
+    async def get_revision_target(
+        self, report_uid: str, student_uid: str
+    ) -> Result[RevisionTargetRow | None]:
+        """Resolve the entry a report is about, when that entry is the student's own.
 
-        Checks the graph path (OWNS-based, per ADR-040):
-        - (EntryReport)-[:REPORT_FOR]->(UserEntry) exists
-        - (Student)-[:OWNS]->(UserEntry)
-        - Teacher identity is role-gated at the route level (@require_role)
+        Follows ``REPORT_FOR`` from the report to its UserEntry, requires the
+        student to ``OWNS`` that entry, and returns its uid with the uids of the
+        exercises it ``FULFILLS_EXERCISE``. ``None`` when the report names no
+        report, is about no entry, or the entry is not the student's — the
+        caller cannot tell those apart, and must not.
 
-        teacher_uid is retained for audit logging and future per-teacher scoping.
-
-        Args:
-            teacher_uid: Teacher user UID (for audit; access is role-gated at route)
-            report_uid: Report UID
-            student_uid: Student user UID
-
-        Returns:
-            Result containing matching submission records (empty if no authority)
+        Says nothing about the teacher: whether the entry asks the teacher for
+        feedback is ``UserEntryBackend.verify_teacher_has_group_access``.
         """
         result = await self.execute_query(
-            """
-            MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity:UserEntry)
-            MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
-            WHERE EXISTS { (submission)-[:FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE]->() }
-            RETURN submission.uid AS submission_uid
+            f"""
+            MATCH (report:Entity {{uid: $report_uid}})
+                  -[:{RelationshipName.REPORT_FOR.value}]->(entry:Entity:UserEntry)
+            MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(entry)
+            RETURN entry.uid AS submission_uid,
+                   [(entry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
+                    | ex.uid] AS exercise_uids
+            LIMIT 1
             """,
-            {
-                "report_uid": report_uid,
-                "teacher_uid": teacher_uid,
-                "student_uid": student_uid,
-            },
+            {"report_uid": report_uid, "student_uid": student_uid},
         )
         if result.is_error:
             return Result.fail(result)
-        rows: list[TeacherAuthorityRow] = [
-            cast("TeacherAuthorityRow", dict(record)) for record in (result.value or [])
-        ]
-        return Result.ok(rows)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        return Result.ok(cast("RevisionTargetRow", dict(records[0])))
 
     async def auto_share_with_student(
         self, student_uid: str, re_uid: str, shared_at: str

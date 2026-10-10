@@ -124,9 +124,9 @@ from core.ports.query_types import (
     ReinforcementCandidateResult,
     RequiredKnowledgeResult,
     RevisionChainResult,
+    RevisionTargetRow,
     RootOrganizerResult,
     StepMasteryGapRow,
-    TeacherAuthorityRow,
     UserMasteryResult,
     UserProgressResult,
 )
@@ -1990,12 +1990,11 @@ class RevisedExerciseBackendOperations(BackendOperations["RevisedExercise"], Pro
 
     async def link_to_exercise(self, re_uid: str, exercise_uid: str) -> Result[bool]: ...
 
-    async def verify_teacher_authority(
+    async def get_revision_target(
         self,
-        teacher_uid: str,
         report_uid: str,
         student_uid: str,
-    ) -> Result[list[TeacherAuthorityRow]]: ...
+    ) -> Result[RevisionTargetRow | None]: ...
 
     async def auto_share_with_student(
         self,

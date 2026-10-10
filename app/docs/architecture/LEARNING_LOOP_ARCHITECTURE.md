@@ -567,9 +567,14 @@ an out-of-classroom read is an empty chain, indistinguishable from a nonexistent
 `GET /api/revised-exercises/view?uid=` (view if student or owning teacher).
 **Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation.
 
-**Access control:** `create()` (overrides `CrudOperationsMixin.create`) verifies the `student_uid`
-owns the submission linked to the report (OWNS-based, per ADR-040). Teacher identity is
-role-gated at the route level (`@require_role(UserRole.TEACHER)`). Teacher-facing *reads* are
+**Access control:** `create()` (overrides `CrudOperationsMixin.create`) runs
+`RevisedExerciseService.admit_revision` before its first write: the report's entry must be
+owned by `student_uid`, must ask this teacher for feedback — `SUBMITTED_TO_GROUP` an active
+group the teacher owns (ADR-088 §2, via `UserEntryService.teacher_has_feedback_authority`) —
+and `original_exercise_uid` must be the exercise that entry FULFILLS. The role gate
+(`@require_role(UserRole.TEACHER)`) alone admits nothing, an ADMIN included. Every refusal is a
+404 that reads as a missing report, and the exercise is judged only once the entry is admitted;
+`submission_uid` is always the admitted entry. Teacher-facing *reads* are
 scoped beyond the role gate (#887 class): `/chain` to the requesting teacher's classrooms,
 `/for-student` to revisions the requesting teacher owns.
 

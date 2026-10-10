@@ -326,7 +326,9 @@ async def test_revisions_for_a_student_list_newest_first(
         report = await review.submit_report(turn_ins[EXERCISE_A], TEACHER, "Say more.")
     assert report.is_ok, report.expect_error()
     with _at(string_at):
-        string_revision = await RevisedExerciseService(backend=revisions).create(
+        string_revision = await RevisedExerciseService(
+            backend=revisions, entry_service=entries
+        ).create(
             RevisedExercise(
                 uid="re_6b_string",
                 entity_type=EntityType.REVISED_EXERCISE,
