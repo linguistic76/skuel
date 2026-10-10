@@ -181,7 +181,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         # UserEntry lifecycle + learning loop
         UserEntryCreated: 3,  # exercise linker + learning-loop iteration tracking + the teacher's bell (Submit & Share arc R10)
         UserEntryProcessingStarted: 1,
-        # Link doors — context invalidation (UnifiedRelationshipService)
+        # Link doors — immediate context invalidation (UnifiedRelationshipService)
         EntityLinksChanged: 1,
         UserEntryProcessingCompleted: 1,
         UserEntryProcessingFailed: 2,  # invalidate + interaction FAILED transition

@@ -447,10 +447,20 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         return await self.activity.add_conversation_message(user_uid, role, content, metadata)
 
     async def invalidate_context(  # skuel-lint: disable=SKUEL005 -- facade delegation to the fire-and-forget cache invalidation
-        self, user_uid: UserUID, reason: str = "manual", affected_contexts: list[str] | None = None
+        self,
+        user_uid: UserUID,
+        reason: str = "manual",
+        affected_contexts: list[str] | None = None,
+        *,
+        immediate: bool = False,
     ) -> None:
-        """Invalidate cached user context when domain events occur."""
-        await self.activity.invalidate_context(user_uid, reason, affected_contexts)
+        """Invalidate cached user context when domain events occur.
+
+        ``immediate`` skips the debounce — for a write whose very next read must see it.
+        """
+        await self.activity.invalidate_context(
+            user_uid, reason, affected_contexts, immediate=immediate
+        )
 
     async def get_active_learners(
         self, since_hours: int = 24, limit: int = 100

@@ -324,8 +324,9 @@ await service.create_relationship(
 > **Every write and removal is announced.** The admission returns the source's owners
 > (`AdmittedFarEnds.owner_uids`); `create_relationship`, `create_relationships_batch` and
 > `delete_relationship` publish one `EntityLinksChanged` per owner once the write lands (a
-> removal reads the owner before it deletes), and the bootstrap subscribes it to context
-> invalidation — the owner's cached context reads these edges. A door that admits here and
+> removal reads the owner before it deletes), and the bootstrap subscribes it to an
+> immediate (undebounced) context invalidation — the owner's cached context reads these
+> edges, and the page that made the link reads it right back. A door that admits here and
 > writes on its own statement announces through `links_changed(admitted)` (the life-path
 > link). Shared content has no owner and announces nothing.
 

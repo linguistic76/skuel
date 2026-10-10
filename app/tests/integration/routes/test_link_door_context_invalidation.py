@@ -3,11 +3,11 @@
 The rich context is cached for five minutes, and every link-derived field reads the
 link edges — the goals a principle supports among them. A link door writes those edges
 through ``UnifiedRelationshipService``, which announces each write and each removal
-(``EntityLinksChanged``); the bootstrap subscribes that to context invalidation, which
-drops the cached context after its debounce (a burst of events is one rebuild). So
-after ``POST /api/goals/link-principle`` the cached context is dropped and the next
-rich read — and the Insights synergies card that reads it — names the link, inside
-the cache's five minutes.
+(``EntityLinksChanged``); the bootstrap subscribes that to an immediate context
+invalidation — no debounce, since the page that made the link reads the context right
+back. So when ``POST /api/goals/link-principle`` answers, the cached context is already
+dropped, and the next rich read — and the Insights synergies card that reads it — names
+the link, inside the cache's five minutes.
 
 The app runs bootstrapped over its own graph; the routes are the ones the bootstrap
 wires (``tests/integration/_activity_link_rig.py``).
@@ -15,7 +15,6 @@ wires (``tests/integration/_activity_link_rig.py``).
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -47,13 +46,9 @@ async def _supported_goals(services: Any, principle: str) -> list[str]:  # bound
     return list(context.value.principle_supported_goals.get(principle, []))
 
 
-async def _until_dropped(services: Any) -> None:  # boundary: Services
-    """Wait for the cached context to be dropped — the debounced invalidation landing."""
-    for _ in range(100):  # 5 seconds; the debounce is 100 ms
-        if services.user.activity.get_valid_context(UserUID(CALLER)) is None:
-            return
-        await asyncio.sleep(0.05)
-    pytest.fail("the cached context was never dropped")
+def _dropped(services: Any) -> bool:  # boundary: Services
+    """Whether the cached context is gone — read with no wait after the write answered."""
+    return services.user.activity.get_valid_context(UserUID(CALLER)) is None
 
 
 async def _synergies_card(client: httpx.AsyncClient) -> str:
@@ -75,13 +70,13 @@ async def test_a_link_and_its_removal_reach_the_cached_context(skuel_app: Any) -
             "/api/goals/link-principle", json={"goal_uid": goal, "principle_uid": principle}
         )
         assert linked.status_code == 200, linked.text
-        await _until_dropped(services)
+        assert _dropped(services)
 
         assert await _supported_goals(services, principle) == [goal]
         assert f"{MARK} steady principle" in await _synergies_card(client)
 
         removed = await services.goals.unlink_goal_from_principle(goal, principle)
         assert removed.is_ok, removed
-        await _until_dropped(services)
+        assert _dropped(services)
 
         assert await _supported_goals(services, principle) == []
