@@ -164,6 +164,7 @@ await ku_service.get_path_steps(ku_uid)
 await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 
 # Get next adaptive step for user
+# (staged — no surface calls it; docs/roadmap/lp-adaptive-reads.md)
 await lp_service.intelligence.get_next_adaptive_step(step_uid, user_uid)
 
 # Identify blockers

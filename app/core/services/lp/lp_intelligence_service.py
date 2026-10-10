@@ -423,7 +423,6 @@ class LpIntelligenceService(
 
         Uses edge metadata:
         - typical_learning_order for sequencing
-        - semantic_distance for related knowledge discovery
 
         Args:
             start_uid: Starting knowledge UID
@@ -507,9 +506,11 @@ class LpIntelligenceService(
         Get recommended path steps for a user based on their progress.
 
         Uses intelligence:
-        - Semantic distance for related knowledge
-        - Edge confidence for relationship quality
+        - Edge confidence and strength for relationship quality
+        - Edge difficulty gap as a ceiling on the step's difficulty
         - User progress for readiness assessment
+
+        Each recommendation also reports the edge's semantic distance.
 
         Args:
             user_uid: User UID

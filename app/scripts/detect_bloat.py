@@ -553,6 +553,33 @@ _LP_REVERSE_LOOKUP = PlannedEntry(
     "ku-detail 'paths teaching this' consumer",
     since=date(2026, 6, 11),
 )
+_LP_ADAPTIVE_SEQUENCE = PlannedEntry(
+    Readiness.DELAYED,
+    "weighted learning sequence staged: no surface calls it, and typical_learning_order has "
+    "no writer, so its ORDER BY reads the 999 default — and sorts rows of one path that all "
+    "return the same node list. A writer for the field plus a reshape to choose among paths "
+    "by order completes it; the surface that shows a start-to-goal sequence wires it",
+    since=date(2026, 10, 10),
+    blocked_by="LP Adaptive Reads Await an Edge-Weight Writer",
+)
+_LP_ADAPTIVE_NEXT_STEP = PlannedEntry(
+    Readiness.DELAYED,
+    "weighted next step staged: no surface calls it, and no live ENABLES_KNOWLEDGE edge "
+    "carries confidence / strength / difficulty_gap, so every candidate scores the coalesce "
+    "constants and LIMIT 1 breaks the tie. A writer for the edge fields completes it; the "
+    "unweighted 'next enabled step' is live in the ZPD proximal zone meanwhile",
+    since=date(2026, 10, 10),
+    blocked_by="LP Adaptive Reads Await an Edge-Weight Writer",
+)
+_LP_ADAPTIVE_RECOMMENDED = PlannedEntry(
+    Readiness.DELAYED,
+    "weighted step recommendations staged: no surface calls it, and every returned weight "
+    "is its coalesce default (difficulty_gap 0.3, semantic_distance 0.5), so the "
+    "max_difficulty filter passes all or nothing. A writer for the edge fields completes "
+    "it; a recommendations surface wires it",
+    since=date(2026, 10, 10),
+    blocked_by="LP Adaptive Reads Await an Edge-Weight Writer",
+)
 _DSL_EXTRACTION_PREVIEW = PlannedEntry(
     Readiness.DELAYED,
     "extraction preview lens staged — extract_and_create went live as the "
@@ -1012,6 +1039,15 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- LP: reverse-lookup search lenses ---
     "core/services/lp/lp_search_service.py::get_aligned_with_goal": _LP_REVERSE_LOOKUP,
     "core/services/lp/lp_search_service.py::get_by_knowledge": _LP_REVERSE_LOOKUP,
+    # --- LP: adaptive reads weighted by edge fields nothing writes ---
+    "core/services/lp/lp_intelligence_service.py::find_learning_sequence": (_LP_ADAPTIVE_SEQUENCE),
+    "core/services/lp/lp_intelligence_service.py::get_next_adaptive_step": (_LP_ADAPTIVE_NEXT_STEP),
+    "core/services/lp/lp_intelligence_service.py::get_recommended_path_steps": (
+        _LP_ADAPTIVE_RECOMMENDED
+    ),
+    "core/services/lp_service.py::find_learning_sequence": _LP_ADAPTIVE_SEQUENCE,
+    "core/services/lp_service.py::get_next_adaptive_step": _LP_ADAPTIVE_NEXT_STEP,
+    "core/services/lp_service.py::get_recommended_path_steps": _LP_ADAPTIVE_RECOMMENDED,
     # --- DSL: extraction preview lens (pipeline itself went live in ADR-069 PR-1) ---
     "core/services/dsl/activity_extractor.py::preview_extraction": _DSL_EXTRACTION_PREVIEW,
     # --- LifePath: word-action alignment lens ---
