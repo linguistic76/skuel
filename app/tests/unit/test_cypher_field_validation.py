@@ -44,8 +44,8 @@ change it. Those sites are deliberately not covered here.
 Comparison operators and sort directions are guarded a stronger way and so have
 no validator: no builder interpolates a caller's operator or direction at all.
 Operators are chosen by structural dispatch (``build_search_query``'s if/elif
-chain, ``intelligence_queries``' guarded ``op_map``, ``batch_cypher_builder``'s
-``_FILTER_OP_MAP``), which emits a literal and cannot emit an unknown one.
+chain, ``batch_cypher_builder``'s ``_FILTER_OP_MAP``), which emits a literal and
+cannot emit an unknown one.
 Directions resolve to ``"ASC"``/``"DESC"`` from a bool, from the
 developer-authored ``RelationshipSpec.order_direction``, or from a literal at
 the call site. A validator for either would check a value that never varies.

@@ -1,10 +1,9 @@
 ---
 related_skills:
 - skuel-search-architecture
-updated: 2026-10-08
+updated: 2026-10-10
 ---
 # Search Service Method Reference
-*Last updated: 2026-06-11*
 
 Complete catalog of methods across all 9 domain search services. All services extend `BaseService[Backend, Model]` following the unified architecture (ADR-023).
 
@@ -30,7 +29,7 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | `get_enables()` | I | I | I | I | I | I | I | I | I |
 | `get_user_progress()` | I | I | I | I | I | I | I | I | I |
 | **Protocol (DomainSearchOperations)** |
-| `get_prioritized()` | D | D | D | D | D | D | D | D | D |
+| `get_prioritized()` | D | D | D | D | D | D | - | D | D |
 | `get_upcoming()` | I | I | O | I | I | O | - | - | - |
 | `get_overdue()` | I | I | O | I | I | O | - | - | - |
 | `get_active()` | I | I | O | I | I | O | - | - | - |
@@ -227,7 +226,7 @@ graph_enrichment_patterns = [  # DomainConfig, from TASKS_CONFIG (excerpt)
 | `get_by_priority` | `(priority: Priority, user_uid: UserUID) -> Result[list[Task]]` | Filter by priority level |
 | `get_pending` | `(user_uid: UserUID) -> Result[list[Task]]` | Tasks with pending status |
 | `get_tasks_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Task]]` | The user's tasks contributing to a goal (`CONTRIBUTES_TO_GOAL`) |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Task]]` | Smart prioritization |
+| `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Task]]` | Smart prioritization via `score_task()` |
 
 ---
 
@@ -292,7 +291,7 @@ date_field = "created_at"
 | `get_user_due_today` | `(user_uid: UserUID) -> Result[list[Habit]]` | Habits due today (frequency-window logic) |
 | `get_habit_chain_candidates` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Potential habit stacking |
 | `get_knowledge_reinforcement_opportunities` | `(user_uid: UserUID) -> Result[list[dict]]` | KU-habit connection opportunities |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Habit]]` | Smart prioritization |
+| `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Habit]]` | Smart prioritization via `score_habit()` |
 
 ---
 
@@ -363,7 +362,7 @@ date_field = "decision_deadline"
 |--------|-----------|-------------|
 | `get_pending` | `(user_uid: UserUID) -> Result[list[Choice]]` | Undecided choices |
 | `get_needing_decision` | `(user_uid: UserUID, days: int = 7) -> Result[list[Choice]]` | Choices with deadline approaching |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Choice]]` | Smart prioritization |
+| `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Choice]]` | Smart prioritization via `score_choice()` |
 
 ---
 
@@ -409,7 +408,7 @@ date_field = "created_at"
 | `get_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles that support the goal (`SUPPORTS_GOAL` from a principle; a habit or PathStep supporter is not returned) |
 | `get_needing_review` | `(user_uid: UserUID, days: int = 90) -> Result[list[Principle]]` | Principles not reviewed recently (also drives the overridden `get_overdue`) |
 | `get_related_principles` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Related principles |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Principle]]` | Smart prioritization |
+| `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Principle]]` | Smart prioritization via `score_principle()` |
 
 ---
 
@@ -514,22 +513,25 @@ if steps_result.is_ok:
 
 ### Smart prioritization across domains
 
-```python
-# Get prioritized items from each domain
-tasks = await tasks_search.get_prioritized("user.123", limit=5)
-goals = await goals_search.get_prioritized("user.123", limit=3)
-habits = await habits_search.get_prioritized("user.123", limit=5)
-kus = await ku_search.get_prioritized("user.123", limit=5)
+`get_prioritized` is staged: no route or page calls it, and no search route hands
+`SearchRouter` the `user_context` that would score its results — see
+[priority-scoring-consumer.md](../roadmap/priority-scoring-consumer.md). The call shape:
 
-# Or use SearchRouter for unified search (wired in compose with explicit deps)
-from core.orchestrator.search_router import SearchRouter
-router = services.search_router
-result = await router.faceted_search(SearchRequest(
-    query="",
-    domains=[EntityType.TASK, EntityType.GOAL, EntityType.PATH_STEP],
-    user_uid="user.123",
-    limit=10
-))
+```python
+# The Activity services take the caller's UserContext; PS and LP take (user_uid, context)
+tasks = await tasks_search.get_prioritized(user_context, limit=5)
+goals = await goals_search.get_prioritized(user_context, limit=3)
+steps = await ps_search.get_prioritized(user_context.user_uid, user_context, limit=5)
+
+# A cross-domain faceted search through SearchRouter (`services.search_router`)
+result = await services.search_router.faceted_search(
+    SearchRequest(
+        query_text="",
+        entity_types=[EntityType.TASK, EntityType.GOAL, EntityType.PATH_STEP],
+        limit=10,
+    ),
+    user_uid,
+)
 ```
 
 ### Graph-aware search with relationship filters

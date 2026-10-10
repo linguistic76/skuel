@@ -3071,24 +3071,6 @@ class PendingReviewItem(TypedDict, total=False):
 # Return shapes for submission and report service methods.
 
 
-class SubmissionStatistics(TypedDict, total=False):
-    """Return shape for SubmissionsSearchService.get_report_statistics().
-
-    All keys are optional — callers should treat missing keys as zero/empty.
-    """
-
-    total: int
-    total_words: int
-    average_words: float
-    longest_streak: int
-    current_streak: int
-    submissions_by_day_of_week: dict[str, int]
-    submissions_by_type: dict[str, int]
-    # Legacy aliases retained for existing consumers that key off these names.
-    by_type: dict[str, int]
-    by_status: dict[str, int]
-
-
 class ReportSummary(TypedDict, total=False):
     """Return shape for ReportRelationshipService.get_report_summary()."""
 
@@ -4437,7 +4419,6 @@ __all__ = [
     "StudentSubmissionItem",
     "TeacherGroupStats",
     # Submission/Report Result Types
-    "SubmissionStatistics",
     "ReportSummary",
     "LearningLoopChain",
     "SubmissionChain",

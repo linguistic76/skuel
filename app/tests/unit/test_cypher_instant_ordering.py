@@ -62,12 +62,10 @@ INSTANT_NAMES: frozenset[str] = frozenset(name for name, _ in MODEL_INSTANTS) | 
 
 # Dynamic reads that never carry an instant. RelationshipSpec.order_by_property
 # is developer-authored, and its two values are the integers ``order`` and
-# ``sequence`` (docs/roadmap/field-name-guarding-in-cypher.md); the edge-weight
-# statistics read numeric weight properties (confidence, strength, …).
+# ``sequence`` (docs/roadmap/field-name-guarding-in-cypher.md).
 DYNAMIC_ALLOWED: frozenset[tuple[str, str]] = frozenset(
     {
         ("_relationship_ordered_mixin.py", "r.{order_by_property}"),
-        ("intelligence_queries.py", "r.{prop}"),
     }
 )
 

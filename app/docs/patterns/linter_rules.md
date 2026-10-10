@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-10-04
+updated: 2026-10-10
 category: patterns
 related_skills:
 - python
@@ -346,7 +346,7 @@ RETURN child
 
 **Suppression:** boundary-shaped literals — e.g. mapping an *external* system's status/type string that merely collides with a relationship name (an `"IN_PROGRESS"` status literal is not the `IN_PROGRESS` relationship) — are legitimate; annotate with `# skuel-lint: disable=SKUEL013 -- <reason>`.
 
-**Infrastructure defense-in-depth:** Even when callers use `RelationshipName` enum (safe), the infrastructure layer validates all interpolated identifiers before Cypher interpolation. Shared guards `validate_label()` and `validate_identifier()` in `_helpers.py` are used by all 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`). Backend mixins additionally use `validate_relationship_type()` in `_build_direction_pattern()`, `traverse()`, `find_path()`. See `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`.
+**Infrastructure defense-in-depth:** Even when callers use `RelationshipName` enum (safe), the infrastructure layer validates all interpolated identifiers before Cypher interpolation. Shared guards `validate_label()` and `validate_identifier()` in `_helpers.py` are used by the query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`). Backend mixins additionally use `validate_relationship_type()` in `_build_direction_pattern()`, `traverse()`, `find_path()`. See `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`.
 
 ## Rule: SKUEL014 - EntityType / NonKuDomain Enum
 

@@ -224,11 +224,14 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing prioritized tasks (highest score first)
         """
-        tasks_result = await self.backend.get_user_entities(user_context.user_uid)
+        tasks_result = await self.backend.get_user_entities(
+            user_context.user_uid, limit=QueryLimit.MAXIMUM
+        )
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
         entities, _total = tasks_result.value
+        warn_if_capped(self.logger, "Task prioritization", entities, user_uid=user_context.user_uid)
         all_tasks = self._to_domain_models(entities, TaskDTO, Task)
         tasks = [task for task in all_tasks if task.status != EntityStatus.COMPLETED]
 

@@ -41,6 +41,7 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.events._goal_links import enrich_events_with_goal_links
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.user import UserContext
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
@@ -128,7 +129,10 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         end_date = today + timedelta(days=14)  # Next 2 weeks
 
         # Get user's upcoming events
-        result = await self.backend.find_by(
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Event prioritization",
             user_uid=user_context.user_uid,
             event_date__gte=today.isoformat(),
             event_date__lte=end_date.isoformat(),

@@ -273,7 +273,7 @@ from core.ports.query_types import (
     ComponentHealthStatus, HealthCheckerValidationResult,
     InvoiceStats,
     # Teacher review + submissions + review queue
-    ReportSubmitResult, ExerciseWithSubmissionCounts, SubmissionStatistics,
+    ReportSubmitResult, ExerciseWithSubmissionCounts,
     ReportSummary, LearningLoopChain, SubmissionChain,
     GroupMemberProgress, ReviewRequestResult, PendingReviewItem,
     # Visualization configs

@@ -176,10 +176,10 @@ result = await search_router.advanced_search(request)   # Result[UnifiedSearchRe
 
 ## Priority scoring exists; nothing on a route runs it
 
-`core/models/search/scoring.py` holds `score_task` … `score_principle` (each a weighted sum of shared `ComponentScore` helpers → `PriorityScore`). They are reached two ways, and neither has a production caller:
+`core/models/search/scoring.py` holds `score_task` … `score_principle` (each a weighted sum of shared `ComponentScore` helpers → `PriorityScore`). They are reached two ways, and neither has a production caller — **staged** (ruled 2026-10-10; registered in `PLANNED_METHODS`, case file `/docs/roadmap/priority-scoring-consumer.md`):
 
 - `SearchRouter._score_results(items, user_context)` runs inside `intelligent_search` / `advanced_search` **only when the caller passes `user_context`** — `/api/search/intelligent` and `/api/search/unified` pass none.
-- `get_prioritized(user_context, limit=10)` on the six Activity search services (PS/LP take `(user_uid, context, limit=20)`); `TasksService.get_prioritized` is the only facade delegation and has no caller. Tasks reads `backend.get_user_entities(user_uid)` and Choices, Events, Goals and Principles read `backend.find_by(...)`, each with the door's default `limit=100`; Habits reads `backend.get_active_habits_prioritized`.
+- `get_prioritized(user_context, limit=10)` on the six Activity search services (PS/LP take `(user_uid, context, limit=20)`); `TasksService.get_prioritized` is the only facade delegation and has no caller. The candidate reads are whole-set reads: Tasks asks `backend.get_user_entities` for `QueryLimit.MAXIMUM` and calls `warn_if_capped`, Choices, Events, Goals and Principles read through `find_all_by`; Habits reads `backend.get_active_habits_prioritized`. `PsSearchService.get_standalone_steps` is staged with them.
 
 Do not describe `/search` results as priority-ranked: `faceted_search` builds no `UserContext` and runs no ranking pass, and on the two routes that return `SearchResultItem`s the `priority_score` stays at its 0.0 default.
 

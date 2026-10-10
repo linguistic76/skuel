@@ -380,12 +380,11 @@ def create_search_api_routes(
         tags: str = "",  # Comma-separated: "python,ml"
         tags_match_all: bool = False,
         limit: int = 50,
-        limit_per_domain: int = 20,
     ) -> dict[str, Any]:
         """
         Unified search API combining text, graph, and array search.
 
-        This endpoint combines all -3 search capabilities:
+        This endpoint combines three search capabilities:
         - Text search on configured fields
         - Graph-aware filtering (relationship traversal)
         - Tag/array filtering (AND/OR semantics)
@@ -398,8 +397,7 @@ def create_search_api_routes(
             direction: outgoing, incoming, or both
             tags: Comma-separated tags to filter by
             tags_match_all: True = AND semantics, False = OR semantics
-            limit: Total result limit
-            limit_per_domain: Results per entity type
+            limit: Total result limit — the router derives each domain's budget from it
 
         Returns:
             {
@@ -504,7 +502,7 @@ def create_search_api_routes(
     # INTELLIGENT SEARCH API ENDPOINT
     # ========================================================================
 
-    @rt("/api/search/intelligent")
+    @rt("/api/search/intelligent", methods=["GET"])
     @boundary_handler()
     async def intelligent_search_api(
         request: Request,

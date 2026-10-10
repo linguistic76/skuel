@@ -37,6 +37,7 @@ from core.models.search.scoring import score_choice
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
@@ -116,7 +117,9 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
             Result containing choices sorted by priority/relevance
         """
         # Get user's pending choices
-        result = await self.backend.find_by(user_uid=user_context.user_uid)
+        result = await find_all_by(
+            self.backend, self.logger, "Choice prioritization", user_uid=user_context.user_uid
+        )
         if result.is_error:
             return result
 

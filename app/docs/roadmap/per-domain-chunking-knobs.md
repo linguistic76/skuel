@@ -1,6 +1,6 @@
 ---
 title: "Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval"
-updated: 2026-09-05
+updated: 2026-10-10
 status: "partly done — filter half staged"
 registered: 2026-08-28
 ruled: 2026-08-30
@@ -121,9 +121,9 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    miss traced to chunk
    grain earns a `chunking_params` change on one `EntityIngestionConfig` + a domain-scoped
    re-chunk. This is also where `min_chunk_size`'s default is re-based: 50 words is above the
-   corpus median, so enforcing it is a tuning decision, not a defect fix. (The two older
-   scripts still measure something else: `analyze_search_metrics.py` is latency/score
-   from logs; `benchmark_hybrid_queries.py` is query-pattern latency.)
+   corpus median, so enforcing it is a tuning decision, not a defect fix. (The older
+   script still measures something else: `analyze_search_metrics.py` is latency/score
+   from logs.)
    **PR-2 (2026-08-30):** set widened to **v2** on Mike's ratification review — both
    `real_usage` rows had been too narrow, and both notes now carry the measurement that
    settled them. **Body-fold status shipped:** `SearchResponse.body_fold`

@@ -227,6 +227,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Life-Path Milestones — the Context Field Nothing Writes](life-path-milestones.md) — `UserContext.life_path_milestones` is read by method 7's milestone count and written by nothing, so every user reads 0 of 0; staged for future development (ruled 2026-10-09), waiting on what a life-path milestone is: the path's milestone events, milestone goals serving it, or chosen Kus of it.
 
+## Priority Scoring — the Ranking No Route Asks For
+
+[Priority Scoring — the Ranking No Route Asks For](priority-scoring-consumer.md) — The six Activity scorers, the eight `get_prioritized` methods and `PsSearchService.get_standalone_steps` are reached by no production path — no search route hands the router the `user_context` that would score its results; staged 2026-10-10, waiting on the first surface that ranks a user's activities for them.
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. The sections ARE the checklist:

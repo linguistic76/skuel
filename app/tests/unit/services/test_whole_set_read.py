@@ -127,21 +127,6 @@ PAGE_READS: dict[tuple[str, str, str], str] = {
     ("core/services/events/_scheduling_mixin.py", "check_conflicts", "find_by"): (
         "one user's events on one calendar day"
     ),
-    ("core/services/choices/choices_search_service.py", "get_prioritized", "find_by"): (
-        "no production caller"
-    ),
-    ("core/services/events/events_search_service.py", "get_prioritized", "find_by"): (
-        "no production caller"
-    ),
-    ("core/services/goals/goals_search_service.py", "get_prioritized", "find_by"): (
-        "no production caller"
-    ),
-    ("core/services/principles/principles_search_service.py", "get_prioritized", "find_by"): (
-        "no production caller"
-    ),
-    ("core/services/tasks/tasks_search_service.py", "get_prioritized", "get_user_entities"): (
-        "no production caller"
-    ),
 }
 
 

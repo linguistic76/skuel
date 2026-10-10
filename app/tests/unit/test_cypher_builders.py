@@ -28,12 +28,8 @@ from adapters.persistence.neo4j.query import (
     build_semantic_context,
     build_semantic_filter_query,
     build_semantic_traversal,
-    count,
-    get_by,
     get_filterable_fields,
     get_supported_operators,
-    list_entities,
-    search,
 )
 
 
@@ -338,42 +334,6 @@ class TestCypherBuildersSemantic:
         )
 
         assert "MATCH (n:Task)-[r:RELATED_TO]-(other)" in query
-
-
-class TestConvenienceFunctions:
-    """Test convenience wrapper functions."""
-
-    def test_search_convenience(self):
-        """Test search() convenience function."""
-        query, params = search(SampleTask, priority="high", status="in_progress")
-
-        assert "MATCH (n:SampleTask)" in query
-        assert "n.priority = $priority" in query
-        assert params["priority"] == "high"
-
-    def test_get_by_convenience(self):
-        """Test get_by() convenience function."""
-        query, params = get_by(SampleTask, "uid", "task-123")
-
-        assert "MATCH (n:SampleTask)" in query
-        assert "n.uid = $field_value" in query
-        assert params["field_value"] == "task-123"
-
-    def test_list_entities_convenience(self):
-        """Test list_entities() convenience function."""
-        query, params = list_entities(SampleTask, limit=50, order_by="created_at")
-
-        assert "MATCH (n:SampleTask)" in query
-        assert "LIMIT $limit" in query
-        assert params["limit"] == 50
-
-    def test_count_convenience(self):
-        """Test count() convenience function."""
-        query, params = count(SampleTask, priority="high", status="completed")
-
-        assert "MATCH (n:SampleTask)" in query
-        assert "RETURN count(n) as count" in query
-        assert params["priority"] == "high"
 
 
 class TestEdgeCases:

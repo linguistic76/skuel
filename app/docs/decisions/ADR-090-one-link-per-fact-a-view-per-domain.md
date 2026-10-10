@@ -1,11 +1,11 @@
 ---
 title: "ADR-090: One Link per Fact, a View per Domain"
-updated: 2026-10-08
+updated: 2026-10-10
 status: implemented
 category: decisions
 tags: [adr, decisions, relationships, activity-domains, graph-schema, registry, goals, principles]
 related: [ADR-026, ADR-057, ADR-087]
-related_skills: [activity-domains]
+related_skills: [activity-domains, skuel-ui]
 ---
 
 # ADR-090: One Link per Fact, a View per Domain

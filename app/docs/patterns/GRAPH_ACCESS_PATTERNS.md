@@ -1,6 +1,6 @@
 ---
 title: Graph Access Patterns Guide
-updated: 2026-10-06
+updated: 2026-10-10
 category: patterns
 related_skills:
 - pytest
@@ -911,27 +911,3 @@ async def test_analyze_impact(mock_graph_intelligence):
 - **Domain Models**: `/core/models/ku/ku.py` (Unified Ku model)
 - **CLAUDE.md**: Section on "Search & Query Architecture"
 
----
-
-## Changelog
-
-### v2.1 - June 2026 (#241/#243)
-- Intent-sourcing is now **mechanism B** (registry-sourced): the model bridge `Entity.get_suggested_query_intent()` is **deleted**; intent comes from `DomainRelationshipConfig.cross_domain_relationship_types`.
-- Canonical cross-domain reader is the inherited `get_with_context()`; non-registry callers pass an explicit `QueryIntent` to `query_with_intent` (slice from `cross_domain_backend._INTENT_EDGE_SETS`).
-- Reworked Example 2 + the annotation/FAQ prose off the retired method; fixed the deleted `graph_context_loader.py` link.
-
-### v2.0 - February 18, 2026
-- Updated Pattern 2 to reflect architectural separation: models express intent, infrastructure builds queries
-- Removed all references to `entity.build_*_query()` methods (deleted from domain models)
-- Updated code examples to use `GraphIntelligenceService.query_with_intent()` directly
-- Added "Architectural Separation" table explaining responsibility boundaries
-- Added anti-pattern: "Domain model generating Cypher strings"
-- Added FAQ: "Should domain models build Cypher queries?"
-- Updated from old Task/Habit/Goal model references to unified Ku model
-
-### v1.0 - October 8, 2025
-- Initial documentation
-- Decision tree and pattern selection matrix
-- Code examples for both patterns
-- Performance considerations
-- Migration guide

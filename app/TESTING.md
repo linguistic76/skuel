@@ -229,6 +229,11 @@ tests/
 ├── integration/              # Real Neo4j via testcontainers (./dev test-integration)
 │   ├── routes/               # Route / API tests
 │   ├── relationships/        # Graph-edge tests
+│   ├── cross_domain/         # Cross-domain reads against the real graph
+│   ├── user_entry/           # UserEntry pipelines (EXTRACT_ACTIVITIES, ADR-069)
+│   ├── migrations/           # One-shot migration scripts against seeded graphs
+│   ├── golden/               # Golden HTML the rendering tests compare against
+│   ├── probes/               # Scripts a test runs as its own process (not collected)
 │   ├── e2e/                  # Whole-workflow flows (worker → stored vector → search)
 │   ├── conftest.py           # Testcontainer lifecycle
 │   └── ...
