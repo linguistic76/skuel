@@ -57,7 +57,9 @@ async def _synergies_card(client: httpx.AsyncClient) -> str:
     return card.text
 
 
-async def test_a_link_and_its_removal_reach_the_cached_context(skuel_app: Any) -> None:
+async def test_a_link_and_its_removal_reach_the_cached_context(
+    skuel_app: Any,  # boundary: fasthtml-app
+) -> None:
     services = skuel_app.state.services
     async with signed_in_client(skuel_app, CALLER, MARK) as client:
         principle = await create(client, "principles", f"{MARK} steady principle")

@@ -363,11 +363,13 @@ class _RecordingBackend:
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[object, ...], dict[str, object]]] = []
 
-    def __getattr__(self, name: str) -> Callable[..., Coroutine[object, object, Result[Any]]]:
+    def __getattr__(
+        self, name: str
+    ) -> Callable[..., Coroutine[object, object, Result[dict[str, list[str]] | int]]]:
         if name.startswith("__"):
             raise AttributeError(name)
 
-        async def record(*args: object, **kwargs: object) -> Result[Any]:
+        async def record(*args: object, **kwargs: object) -> Result[dict[str, list[str]] | int]:
             self.calls.append((name, args, kwargs))
             return Result.ok({} if name == "get_owner_uids_batch" else 0)
 
