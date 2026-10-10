@@ -206,7 +206,8 @@ await lp_service.create_path(user_uid, title, description, steps)
 
 **Service:** `ExerciseService` — flat (no sub-service decomposition). CRUD plus domain-specific methods:
 - `create(entity: Exercise)` — canonical creation with all side effects (OWNS + HAS_EXERCISE + SHARED_WITH_GROUP); the CRUD route reaches it through the `ConversionServiceV2` registry
-- `link_to_curriculum(exercise_uid, curriculum_uid)` / `unlink_from_curriculum(...)` — REQUIRES_KNOWLEDGE to Ku/Resource
+- `admit_requirement_change(exercise_uid, caller_uid, caller_role)` → `AdmittedRequirementChange` — the exercise's `OWNS` owner, or an ADMIN (the only caller for an ownerless CURRICULUM exercise); any other caller is not-found
+- `link_to_curriculum(admitted, curriculum_uid)` / `unlink_from_curriculum(admitted, ...)` — REQUIRES_KNOWLEDGE to Ku/Resource; take only the admission proof
 - `get_required_knowledge(exercise_uid)` — all Kus required by this exercise
 - `get_exercises_for_curriculum(curriculum_uid)` — reverse lookup
 - `get_exercises_for_path_steps(...)`, `get_student_exercises_with_status(...)`, `list_group_exercises(...)`, `get_filtered_context(...)`

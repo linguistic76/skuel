@@ -20,6 +20,7 @@ Formerly AssignmentService — renamed to Exercise for domain clarity.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.constants import ExerciseTimeEstimate, QueryLimit
@@ -27,6 +28,7 @@ from core.models.enums import Domain, SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_entry_enums import ExerciseScope
+from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
@@ -60,6 +62,19 @@ if TYPE_CHECKING:
     from core.models.update_contracts import RawChanges
     from core.ports.query_types import ListContext
     from core.services.user.unified_user_context import RichUserContext
+
+
+@dataclass(frozen=True)
+class AdmittedRequirementChange:
+    """Proof that a caller may change what an exercise requires.
+
+    ``ExerciseService.admit_requirement_change`` returns one; ``link_to_curriculum``
+    and ``unlink_from_curriculum`` accept nothing else, so no door adds or removes
+    an exercise's ``REQUIRES_KNOWLEDGE`` edge without the check.
+    """
+
+    exercise_uid: str
+    caller_uid: UserUID
 
 
 # boundary: neo4j-record — a raw driver row, genuinely heterogeneous: an
@@ -575,39 +590,73 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
     # CURRICULUM LINKING
     # ========================================================================
 
-    @with_error_handling("link_to_curriculum", error_type="database")
-    async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
+    async def admit_requirement_change(
+        self, exercise_uid: str, caller_uid: UserUID, caller_role: UserRole
+    ) -> Result[AdmittedRequirementChange]:
+        """Decide whether the caller may change the knowledge this exercise requires.
+
+        An exercise's ``REQUIRES_KNOWLEDGE`` edges are part of the exercise — its
+        page lists them as the knowledge it asks for — so two callers may:
+
+        - the exercise's owner, the user who ``OWNS`` it;
+        - an ADMIN, on any exercise. A CURRICULUM exercise has no owner, so an
+          ADMIN is the only caller who may change it.
+
+        Every refusal is not-found of the exercise: a uid that names nothing,
+        another user's exercise and an ownerless one each answer the same, so no
+        refusal confirms that an exercise exists.
+
+        Backend: ExerciseBackend.get_exercise_owners
         """
-        Link an exercise to a curriculum KU via REQUIRES_KNOWLEDGE.
+        owners = await self.backend.get_exercise_owners(exercise_uid)
+        if owners.is_error:
+            return Result.fail(owners)
+        admitted = owners.value is not None and (
+            caller_role.has_permission(UserRole.ADMIN) or caller_uid in owners.value
+        )
+        if not admitted:
+            return Result.fail(Errors.not_found("Exercise", exercise_uid))
+        return Result.ok(AdmittedRequirementChange(exercise_uid, caller_uid))
+
+    @with_error_handling("link_to_curriculum", error_type="database")
+    async def link_to_curriculum(
+        self, admitted: AdmittedRequirementChange, curriculum_uid: str
+    ) -> Result[bool]:
+        """
+        Link an admitted exercise to a curriculum KU via REQUIRES_KNOWLEDGE.
 
         This declares that the exercise requires understanding of the
         curriculum knowledge unit — anchoring the exercise to the
         four-phase loop: Exercise → UserEntry → EntryReport → RevisedExercise.
 
         Args:
-            exercise_uid: Exercise UID (entity_type='exercise')
+            admitted: The exercise, as ``admit_requirement_change`` admitted it
             curriculum_uid: Curriculum KU UID (entity_type='ku')
 
         Returns:
             Result[bool] - True if relationship created
         """
+        exercise_uid = admitted.exercise_uid
         result = await self.backend.link_to_curriculum(exercise_uid, curriculum_uid)
         if result.is_ok:
             self.logger.info(f"Linked exercise {exercise_uid} to curriculum {curriculum_uid}")
         return result
 
     @with_error_handling("unlink_from_curriculum", error_type="database")
-    async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
+    async def unlink_from_curriculum(
+        self, admitted: AdmittedRequirementChange, curriculum_uid: str
+    ) -> Result[bool]:
         """
-        Remove REQUIRES_KNOWLEDGE relationship between exercise and curriculum KU.
+        Remove an admitted exercise's REQUIRES_KNOWLEDGE relationship to a curriculum KU.
 
         Args:
-            exercise_uid: Exercise UID
+            admitted: The exercise, as ``admit_requirement_change`` admitted it
             curriculum_uid: Curriculum KU UID
 
         Returns:
             Result[bool] - True if relationship removed
         """
+        exercise_uid = admitted.exercise_uid
         result = await self.backend.unlink_from_curriculum(exercise_uid, curriculum_uid)
         if result.is_ok:
             self.logger.info(f"Unlinked exercise {exercise_uid} from curriculum {curriculum_uid}")

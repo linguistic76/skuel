@@ -859,7 +859,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
     (Learning state: NONE → VIEWED → IN_PROGRESS → MASTERED)
        ↓
 2. ExerciseBackend.link_to_curriculum()             → adapters/persistence/neo4j/backends/exercise_backends.py
-   Teacher links Exercise to Ku via REQUIRES_KNOWLEDGE
+   The exercise's owner (or an ADMIN — the only caller for a CURRICULUM exercise) links it
+   to a Ku via REQUIRES_KNOWLEDGE, admitted by ExerciseService.admit_requirement_change
        ↓
 3. Student submits file (POST /api/user-entries/upload)
    → UserEntryService.create_entry()              → core/services/user_entry/user_entry_service.py

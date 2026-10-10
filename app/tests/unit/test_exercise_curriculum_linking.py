@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.user_enums import UserRole
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
     ENTITY_TYPE_TO_LABEL,
@@ -20,9 +21,17 @@ from core.models.relationship_registry import (
     LABEL_CONFIGS,
     LABEL_TO_DEFAULT_ENTITY_TYPE,
 )
+from core.models.type_hints import UserUID
 from core.ports.curriculum_protocols import ExerciseOperations
-from core.services.exercises.exercise_service import ExerciseService
-from core.utils.result_simplified import Result
+from core.services.exercises.exercise_service import AdmittedRequirementChange, ExerciseService
+from core.utils.result_simplified import ErrorCategory, Result
+
+_OWNER = UserUID("user_owner")
+
+
+def _admitted(exercise_uid: str) -> AdmittedRequirementChange:
+    return AdmittedRequirementChange(exercise_uid, _OWNER)
+
 
 # =========================================================================
 # Registry Tests — EXERCISE_CONFIG in relationship registry
@@ -100,12 +109,55 @@ class TestExerciseServiceCurriculumLinking:
         return service, backend
 
     @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ("owners", "caller", "role", "admitted"),
+        [
+            ([_OWNER], _OWNER, UserRole.TEACHER, True),
+            ([_OWNER], UserUID("user_other"), UserRole.TEACHER, False),
+            ([_OWNER], UserUID("user_admin"), UserRole.ADMIN, True),
+            ([], _OWNER, UserRole.TEACHER, False),  # ownerless CURRICULUM exercise
+            ([], UserUID("user_admin"), UserRole.ADMIN, True),
+            (None, _OWNER, UserRole.TEACHER, False),  # no such exercise
+            (None, UserUID("user_admin"), UserRole.ADMIN, False),
+        ],
+    )
+    async def test_admit_requirement_change(self, owners, caller, role, admitted):
+        """The owner, or an ADMIN on an exercise that exists; anyone else is not-found."""
+        service, backend = self._make_service()
+        backend.get_exercise_owners.return_value = Result.ok(owners)
+
+        result = await service.admit_requirement_change("ex_test_123", caller, role)
+
+        if admitted:
+            assert result.value == AdmittedRequirementChange("ex_test_123", caller)
+        else:
+            assert result.is_error
+            assert result.expect_error().category is ErrorCategory.NOT_FOUND
+        backend.get_exercise_owners.assert_awaited_once_with("ex_test_123")
+
+    @pytest.mark.anyio
+    async def test_an_unreadable_owner_admits_nobody(self):
+        """A failed owner read is propagated — an ADMIN is not admitted past it."""
+        service, backend = self._make_service()
+        from core.utils.result_simplified import Errors
+
+        backend.get_exercise_owners.return_value = Result.fail(
+            Errors.database("get_exercise_owners", "down")
+        )
+
+        result = await service.admit_requirement_change(
+            "ex_test_123", UserUID("user_admin"), UserRole.ADMIN
+        )
+
+        assert result.is_error
+
+    @pytest.mark.anyio
     async def test_link_to_curriculum_success(self):
         """link_to_curriculum should delegate to backend.link_to_curriculum."""
         service, backend = self._make_service()
         backend.link_to_curriculum.return_value = Result.ok(True)
 
-        result = await service.link_to_curriculum("ex_test_123", "ku_python_abc")
+        result = await service.link_to_curriculum(_admitted("ex_test_123"), "ku_python_abc")
 
         assert result.is_ok
         assert result.value is True
@@ -123,7 +175,7 @@ class TestExerciseServiceCurriculumLinking:
             )
         )
 
-        result = await service.link_to_curriculum("ex_missing", "ku_missing")
+        result = await service.link_to_curriculum(_admitted("ex_missing"), "ku_missing")
 
         assert result.is_error
 
@@ -133,7 +185,7 @@ class TestExerciseServiceCurriculumLinking:
         service, backend = self._make_service()
         backend.unlink_from_curriculum.return_value = Result.ok(True)
 
-        result = await service.unlink_from_curriculum("ex_test_123", "ku_python_abc")
+        result = await service.unlink_from_curriculum(_admitted("ex_test_123"), "ku_python_abc")
 
         assert result.is_ok
         assert result.value is True
@@ -151,7 +203,7 @@ class TestExerciseServiceCurriculumLinking:
             )
         )
 
-        result = await service.unlink_from_curriculum("ex_test_123", "ku_missing")
+        result = await service.unlink_from_curriculum(_admitted("ex_test_123"), "ku_missing")
 
         assert result.is_error
 
@@ -239,6 +291,10 @@ class TestExerciseServiceCurriculumLinking:
 
 class TestExerciseOperationsProtocol:
     """Verify ExerciseOperations protocol includes curriculum linking methods."""
+
+    def test_protocol_has_admit_requirement_change(self):
+        """ExerciseOperations should declare admit_requirement_change."""
+        assert hasattr(ExerciseOperations, "admit_requirement_change")
 
     def test_protocol_has_link_to_curriculum(self):
         """ExerciseOperations should declare link_to_curriculum."""

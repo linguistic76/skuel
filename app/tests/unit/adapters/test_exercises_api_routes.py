@@ -8,7 +8,10 @@ per-user AI tier gate on report generation (fail-secure), the report's
 admission (``EntryReportService.admit_report`` decides who may have the
 reviewer read an entry; the route asks it, answers its refusal, and hands the
 writer only what it admitted), exact service args on the happy path, and the
-teacher-role gate on curriculum linking. Who admission admits is pinned in
+teacher-role gate on curriculum linking (whose admission —
+``ExerciseService.admit_requirement_change`` — the route asks before either
+write, pinned through the real route in
+``tests/integration/routes/test_exercise_required_knowledge_owner.py``). Who admission admits is pinned in
 ``tests/unit/services/test_entry_report_service.py`` and, through the real
 route, in ``tests/integration/routes/test_ai_report_admission.py``. Harness
 mirrors ``test_choices_api_routes.py``.
@@ -30,6 +33,7 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.constants import LLMQuota
 from core.models.enums import EntityType, ExerciseScope, UserRole
 from core.models.exercises.exercise import Exercise
+from core.services.exercises.exercise_service import AdmittedRequirementChange
 from core.services.report.entry_report_service import AdmittedReport
 from core.utils.result_simplified import Errors, Result
 
@@ -90,6 +94,12 @@ def _make_harness(
     exercises_service.get_exercise_for_user = AsyncMock(return_value=Result.ok(exercise))
     exercises_service.get_exercise_for_submission = AsyncMock(
         return_value=Result.ok({"exercise_uid": _EXERCISE_UID})
+    )
+    requirement_change = AdmittedRequirementChange(_EXERCISE_UID, _USER_UID)
+    exercises_service.admit_requirement_change = AsyncMock(
+        return_value=Result.ok(requirement_change)
+        if admitted
+        else Result.fail(Errors.not_found("Exercise", _EXERCISE_UID))
     )
     exercises_service.link_to_curriculum = AsyncMock(return_value=Result.ok(True))
     exercises_service.unlink_from_curriculum = AsyncMock(return_value=Result.ok(True))
@@ -300,8 +310,48 @@ class TestCurriculumLinkingRoleGate:
         )
 
         assert response.status_code == 200
+        harness.exercises.admit_requirement_change.assert_awaited_once_with(
+            _EXERCISE_UID, _USER_UID, UserRole.TEACHER
+        )
         harness.exercises.link_to_curriculum.assert_awaited_once_with(
-            _EXERCISE_UID, _CURRICULUM_UID
+            AdmittedRequirementChange(_EXERCISE_UID, _USER_UID), _CURRICULUM_UID
+        )
+
+    @pytest.mark.parametrize(
+        ("door", "writer"),
+        [
+            ("/api/exercises/require-knowledge", "link_to_curriculum"),
+            ("/api/exercises/unrequire-knowledge", "unlink_from_curriculum"),
+        ],
+    )
+    def test_a_refused_admission_is_404_and_writes_nothing(
+        self, monkeypatch: pytest.MonkeyPatch, door: str, writer: str
+    ) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.TEACHER, admitted=False)
+
+        response = _post_json(
+            harness.client,
+            door,
+            {"exercise_uid": _EXERCISE_UID, "curriculum_uid": _CURRICULUM_UID},
+        )
+
+        assert response.status_code == 404
+        getattr(harness.exercises, writer).assert_not_awaited()
+
+    def test_teacher_unlink_awaited_with_the_admission(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.TEACHER)
+
+        response = _post_json(
+            harness.client,
+            "/api/exercises/unrequire-knowledge",
+            {"exercise_uid": _EXERCISE_UID, "curriculum_uid": _CURRICULUM_UID},
+        )
+
+        assert response.status_code == 200
+        harness.exercises.unlink_from_curriculum.assert_awaited_once_with(
+            AdmittedRequirementChange(_EXERCISE_UID, _USER_UID), _CURRICULUM_UID
         )
 
 
