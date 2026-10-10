@@ -418,7 +418,8 @@ response = await search_router.faceted_search(request, user_uid)
 **Implementation:** `/adapters/persistence/neo4j/user_context_queries.py`
 
 **How it Works:**
-1. Single comprehensive Cypher query
+1. One plan-cached statement per read family (`RICH_CONTEXT_STATEMENTS`), run
+   concurrently and merged into one map
 2. Fetches the user's state across all entity types
 3. Powers the intelligence services (daily plan, ZPD, alignment)
 
@@ -536,9 +537,9 @@ maps to exactly one fragment like step 3; they are all in
 
 | System | Speed | Depth | Personalization |
 |--------|-------|-------|-----------------|
-| Simple Search | Fast | Property-only | Via ranking |
-| Graph-Aware | Moderate | Rich relationships | Via ranking + context |
-| MEGA-QUERY | N/A (background) | Complete state | Powers all personalization |
+| Simple Search | Fast | Property-only | Owner scope only |
+| Graph-Aware | Moderate | Rich relationships | Query-time (`$user_uid` inside the Cypher) |
+| MEGA-QUERY | N/A (background) | Complete state | Powers the intelligence services, not search |
 
 ---
 
@@ -825,11 +826,8 @@ is `faceted_search_raw`'s. Every text-search surface is therefore case-insensiti
 The backend has no `search` method of its own (`EntitySearchOperations` declares `find_by`,
 `count` and the `*_raw` primitives; `search` is a service-layer name). Case-SENSITIVE `CONTAINS` remains in the
 persistence layer as the `find_by(field__contains=...)` filter operator
-(`query/cypher/crud_queries.py`) and inside two query builders in
-`query/cypher/intelligence_queries.py` (`build_hybrid_knowledge_search`,
-`build_registry_validated_query`) that no caller outside the package reaches — a field
-filter and two uncalled builders, on no search surface, and not what the fulltext rung would
-replace.
+(`query/cypher/crud_queries.py`) — a field filter on no search surface, and not what the
+fulltext rung would replace.
 
 Measured limits of the fulltext half (Neo4j 2026.06.0):
 
@@ -1124,10 +1122,12 @@ relationship-filter fragments referencing `$user_uid`, `_graph_context`
 enrichment). `faceted_search()` builds no `UserContext` and runs no ranking
 pass — that keeps the search box fast.
 
-Context-based scoring exists on the API paths that already carry a
-`UserContext`: `intelligent_search()` and `advanced_search()` call
-`SearchRouter._score_results()`, which applies the unified per-domain scorers
-(next section).
+Context-based scoring is staged. `intelligent_search()` and `advanced_search()`
+call `SearchRouter._score_results()`, which applies the unified per-domain
+scorers (next section), only when handed a `user_context`. Neither route passes
+one (`GET /api/search/intelligent`, `POST /api/search/unified`), so
+`SearchResultItem.priority_score` is 0.0 on every result a user sees — see
+[priority-scoring-consumer.md](../roadmap/priority-scoring-consumer.md).
 
 Two response fields are populated by `faceted_search()` itself, both
 zero-extra-query by design (July 2026):
@@ -1149,6 +1149,10 @@ zero-extra-query by design (July 2026):
 
 ## Priority Scoring — Unified Across 6 Activity Domains
 
+**Staged — no production caller.** Nothing calls `get_prioritized`, and no route hands
+`_score_results()` a context; the machinery is registered in `PLANNED_METHODS` and waits on a
+surface — [priority-scoring-consumer.md](../roadmap/priority-scoring-consumer.md).
+
 All 6 Activity Domain search services implement `get_prioritized(user_context)` by delegating to a single `score_<domain>(entity, context) -> PriorityScore` function in `core/models/search/scoring.py`. Each scorer composes the same shared component helpers (deadline proximity, priority level, goal alignment, streak protection, knowledge alignment, progress momentum, etc.) with domain-specific weights that sum to 1.0.
 
 The same scorers back `SearchRouter._score_results()` — cross-domain search and per-domain prioritization go through one code path.
@@ -1157,13 +1161,17 @@ The same scorers back `SearchRouter._score_results()` — cross-domain search an
 
 ```python
 from core.models.search.scoring import score_goal
+from core.services.whole_set_read import find_all_by
 from core.utils.sort_functions import get_result_score
 
 @with_error_handling("get_prioritized", error_type="database")
 async def get_prioritized(
     self, user_context: UserContext, limit: int = 10
 ) -> Result[list[Goal]]:
-    result = await self.backend.find_by(user_uid=user_context.user_uid)
+    # A ranking cut to `limit` must see the whole candidate set, not a 100-row page
+    result = await find_all_by(
+        self.backend, self.logger, "Goal prioritization", user_uid=user_context.user_uid
+    )
     if result.is_error:
         return Result.fail(result)
 
@@ -1252,7 +1260,7 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_user_due_to
 | File | Purpose |
 |------|---------|
 | `core/models/search/scoring.py` | Unified `score_<domain>` functions + shared `ComponentScore` helpers (`score_deadline_proximity`, `score_priority_level`, `score_goal_alignment`, `score_streak_protection`, `score_progress_momentum`) and the `PriorityScore` dataclass |
-| `core/orchestrator/search_router.py` | `SearchRouter._score_results()` consumes the same scorers for cross-domain ranking |
+| `core/orchestrator/search_router.py` | `SearchRouter._score_results()` consumes the same scorers for cross-domain ranking — only when a caller hands it a `user_context`, which no route does (staged) |
 | `core/utils/timestamp_helpers.py` | `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS`, `week_bounds()`, `month_grid_bounds()`, `prev_month()`, `next_month()`, `prev_week()`, `next_week()` |
 | `core/services/domain_config.py` | `date_field`, `temporal_exclude_statuses`, `temporal_secondary_sort`, `completed_statuses` config fields |
 | `core/services/mixins/time_query_mixin.py` | `get_upcoming()`, `get_overdue()`, `get_active()` base implementations |

@@ -314,7 +314,7 @@ from core.utils.validation_helpers import validate_field_name
 validate_field_name(name)    # regex check, max 64 chars
 ```
 
-**Coverage:** every `query/cypher/` module (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`, `learning_loop_fragments.py`) validates labels, field names, relationship types, and property keys before f-string interpolation; `_search_mixin.py`, `_user_entity_mixin.py`, `crud_queries.py` and `unified_query_builder.py` call `validate_field_name`. `_build_direction_pattern()` is the single choke point for mixin-level relationship Cypher (`get_related_entities`, `get_related_uids`, `count_related`). `traverse()` and `find_path()` validate pipe-separated patterns.
+**Coverage:** every `query/cypher/` module (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `learning_loop_fragments.py`) validates labels, field names, relationship types, and property keys before f-string interpolation; `_search_mixin.py`, `_user_entity_mixin.py`, `crud_queries.py` and `unified_query_builder.py` call `validate_field_name`. `_build_direction_pattern()` is the single choke point for mixin-level relationship Cypher (`get_related_entities`, `get_related_uids`, `count_related`). `traverse()` and `find_path()` validate pipe-separated patterns.
 
 The same pattern applies to DDL (vector indexes, schema creation) — validate `label`, `field_name`, and `similarity` before building the query string. See `adapters/persistence/neo4j/neo4j_schema_manager.py` for the pattern.
 

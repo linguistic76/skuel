@@ -24,9 +24,8 @@ router fails soft per domain: a missing service contributes no results rather
 than failing the search (CORE tier has no vector service; finance/calendar may
 be absent).
 
-One Path Forward (January 2026):
-    SearchRequest is THE canonical search request model. UnifiedSearchRequest
-    was merged into SearchRequest. All advanced_search calls use SearchRequest.
+SearchRequest is THE canonical search request model — every advanced_search
+call takes one.
 
 Usage:
     from core.orchestrator.search_router import SearchRouter
@@ -35,17 +34,18 @@ Usage:
     # Initialize router with the domain services it should route across
     router = SearchRouter(tasks=tasks_service, ku=ku_service, event_bus=bus)
 
-    # Route by EntityType
-    result = await router.search(EntityType.TASK, "urgent deadline")
+    # Route by EntityType — an OWNER_ONLY domain refuses without user_uid
+    result = await router.search(EntityType.TASK, "urgent deadline", user_uid=user_uid)
 
     # Search across multiple domains
     results = await router.search_domains(
         [EntityType.TASK, EntityType.GOAL, EntityType.HABIT],
-        "health fitness"
+        "health fitness",
+        user_uid=user_uid,
     )
 
     # Natural-language cross-domain search (semantic filter extraction)
-    results = await router.intelligent_search("urgent health tasks")
+    results = await router.intelligent_search("urgent health tasks", user_uid=user_uid)
 
     # Advanced search with graph and tag filters
     request = SearchRequest(
@@ -54,6 +54,7 @@ Usage:
         connected_to_uid="ku.python-basics",
         connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
         tags_contain=["python"],
+        user_uid=user_uid,
     )
     result = await router.advanced_search(request)
 """
@@ -287,19 +288,20 @@ class SearchRouter:
     Example:
         router = SearchRouter(tasks=tasks_service, goals=goals_service)
 
-        # Search single domain
-        tasks = await router.search(EntityType.TASK, "urgent")
+        # Search single domain — an OWNER_ONLY domain refuses without user_uid
+        tasks = await router.search(EntityType.TASK, "urgent", user_uid=user_uid)
 
         # Search multiple domains
         results = await router.search_domains(
             [EntityType.TASK, EntityType.GOAL],
-            "health fitness"
+            "health fitness",
+            user_uid=user_uid,
         )
 
         # Intelligent cross-domain search
         results = await router.intelligent_search(
             "show me urgent health tasks",
-            user_context
+            user_uid=user_uid,
         )
     """
 
@@ -1697,7 +1699,8 @@ class SearchRouter:
         Args:
             query: Natural language search query
             user_uid: Caller's user UID for ownership-scoped Activity domain queries
-            user_context: Optional rich user context for personalized scoring
+            user_context: When given, results are priority-scored. No route passes
+                one — staged, see /docs/roadmap/priority-scoring-consumer.md
             limit: Maximum total results
 
         Returns:
@@ -1834,7 +1837,7 @@ class SearchRouter:
         """
         Advanced unified search combining text, graph, and array filters.
 
-        This is the flagship search method, combining all -3 capabilities:
+        This is the flagship search method, combining three capabilities:
         - Text search on configured fields
         - Graph-aware filtering (relationship traversal)
         - Tag/array filtering (AND/OR semantics)
@@ -1846,7 +1849,8 @@ class SearchRouter:
 
         Args:
             request: SearchRequest with all search criteria (THE canonical model)
-            user_context: Optional user context for scoring
+            user_context: When given, results are priority-scored. No route passes
+                one — staged, see /docs/roadmap/priority-scoring-consumer.md
 
         Returns:
             Result containing UnifiedSearchResult with matched entities

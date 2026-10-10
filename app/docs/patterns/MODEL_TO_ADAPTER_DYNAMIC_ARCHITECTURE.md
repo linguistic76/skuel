@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-10-09
+updated: 2026-10-10
 category: patterns
 related_skills: []
 related_docs:
@@ -427,10 +427,10 @@ Hardened 3 backend methods against Cypher injection and migrated 17 inline Cyphe
 - `find_connected_activities()` — `node_label` typed `NeoLabel`, `rel_types` typed `list[RelationshipName | str]`, `limit` parameterized as `$limit`
 - `delete_semantic_relationship()` / `query_relationships_by_type()` — `rel_name` validated, `direction` typed `Literal["outgoing", "incoming", "both"]`
 
-*Query builders (`_helpers.py` — shared by all 5 modules):*
+*Query builders (`_helpers.py` — shared by the query builder modules):*
 - `validate_label()` — checks against `NeoLabel` enum allowlist before label interpolation
 - `validate_identifier()` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$` before field/relationship/property interpolation
-- Applied to 17 functions across `crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`
+- Applied across `crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`
 
 **Service → Backend migrations:**
 

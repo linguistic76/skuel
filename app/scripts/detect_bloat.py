@@ -537,6 +537,15 @@ _PS_GUIDANCE = PlannedEntry(
     "practice_completeness lens, or a PS detail-page guidance indicator",
     since=date(2026, 6, 11),
 )
+_PRIORITY_SCORING = PlannedEntry(
+    Readiness.DELAYED,
+    "priority-scoring machinery staged: the six Activity scorers, the eight get_prioritized "
+    "methods (TasksService the one facade delegation) and get_standalone_steps — no route hands "
+    "SearchRouter a user_context and nothing calls the rest; a surface that ranks a user's "
+    "activities wires it and retires the keys it reaches (name-collision masked, so by hand)",
+    since=date(2026, 10, 10),
+    blocked_by="Priority Scoring — the Ranking No Route Asks For",
+)
 _LP_REVERSE_LOOKUP = PlannedEntry(
     Readiness.DELAYED,
     "LP reverse-lookup lens staged (full chain: service wrapper + protocol member + backend "
@@ -983,6 +992,23 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/ps_service.py::search_by_semantic_query": _PS_AI_UNROUTED,
     "core/services/ps_service.py::suggest_step_applications": _PS_AI_UNROUTED,
     "core/services/ps_service.py::suggest_learning_sequence": _PS_AI_UNROUTED,
+    # --- Search: priority scoring (no production path reaches it) ---
+    "core/models/search/scoring.py::score_task": _PRIORITY_SCORING,
+    "core/models/search/scoring.py::score_goal": _PRIORITY_SCORING,
+    "core/models/search/scoring.py::score_habit": _PRIORITY_SCORING,
+    "core/models/search/scoring.py::score_event": _PRIORITY_SCORING,
+    "core/models/search/scoring.py::score_choice": _PRIORITY_SCORING,
+    "core/models/search/scoring.py::score_principle": _PRIORITY_SCORING,
+    "core/services/tasks/tasks_search_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/goals/goals_search_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/habits/habits_search_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/events/events_search_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/choices/choices_search_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/principles/principles_search_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/tasks_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/ps/ps_search_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/lp/lp_search_service.py::get_prioritized": _PRIORITY_SCORING,
+    "core/services/ps/ps_search_service.py::get_standalone_steps": _PRIORITY_SCORING,
     # --- LP: reverse-lookup search lenses ---
     "core/services/lp/lp_search_service.py::get_aligned_with_goal": _LP_REVERSE_LOOKUP,
     "core/services/lp/lp_search_service.py::get_by_knowledge": _LP_REVERSE_LOOKUP,

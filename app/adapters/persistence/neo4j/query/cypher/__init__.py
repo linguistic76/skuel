@@ -9,7 +9,6 @@ Modules:
 - semantic_queries: Semantic relationship traversal
 - domain_queries: Entity-with-context and prerequisite chains
 - relationship_queries: Counting, batch operations, path queries
-- intelligence_queries: Hybrid patterns, registry validation, weighted paths
 
 Infrastructure Functions (January 2026):
 - build_distinct_values_query: Get distinct field values (categories)
@@ -21,7 +20,6 @@ Usage:
     from adapters.persistence.neo4j.query.cypher import build_search_query, build_text_search_query
     from adapters.persistence.neo4j.query.cypher import build_ku_with_context
     from adapters.persistence.neo4j.query.cypher import build_relationship_count
-    from adapters.persistence.neo4j.query.cypher import build_hybrid_knowledge_search, search, get_by
 
     # consolidation functions
     from adapters.persistence.neo4j.query.cypher import (
@@ -87,27 +85,6 @@ from .domain_queries import (
     build_user_activity_query,
 )
 
-# Intelligence queries - hybrid patterns, registry validation, weighted paths
-from .intelligence_queries import (
-    # Registry-validated queries
-    build_bidirectional_impact_query,
-    # Hybrid queries
-    build_goal_aligned_hybrid,
-    build_hybrid_knowledge_search,
-    build_impact_chain_query,
-    # Weight queries
-    build_normalized_centrality_query,
-    build_optimized_ready_to_learn,
-    build_registry_validated_query,
-    build_relationship_weight_stats_query,
-    build_weighted_path_query,
-    # Convenience functions
-    count,
-    get_by,
-    list_entities,
-    search,
-)
-
 # Relationship filter fragments - graph-aware faceted search WHERE clauses
 from .relationship_filter_fragments import build_relationship_filter_fragments
 
@@ -147,7 +124,6 @@ __all__ = [
     "build_batch_relationship_count",
     "build_batch_relationship_exists",
     "build_batch_relationship_exists_with_filters",
-    "build_bidirectional_impact_query",
     "build_count_query",
     "build_cross_domain_bridges",
     # consolidation queries (January 2026)
@@ -158,32 +134,23 @@ __all__ = [
     # Domain queries - entity with context
     "build_entity_with_context",
     "build_get_by_field_query",
-    "build_goal_aligned_hybrid",
     "build_graph_aware_search_query",
     "build_hierarchical_context",
     "build_hierarchy_query",
     "build_prerequisite_chain_query",
-    # Intelligence queries - hybrid
-    "build_hybrid_knowledge_search",
-    "build_impact_chain_query",
     "build_ku_with_context",
     "build_list_query",
     "build_multi_relationship_count",
-    "build_normalized_centrality_query",
-    "build_optimized_ready_to_learn",
     # Time-based queries (January 2026)
     "build_overdue_query",
     "build_prerequisite_chain",
     "build_prerequisite_traversal_query",
-    # Intelligence queries - registry
-    "build_registry_validated_query",
     # Relationship queries
     "build_relationship_count",
     # Relationship filter fragments (graph-aware faceted search)
     "build_relationship_filter_fragments",
     "build_relationship_traversal_query",
     "build_relationship_uids_query",
-    "build_relationship_weight_stats_query",
     # CRUD queries
     "build_search_query",
     # Semantic queries
@@ -204,16 +171,9 @@ __all__ = [
     "build_text_search_query",
     # Meta-service queries
     "build_user_activity_query",
-    # Intelligence queries - weights
-    "build_weighted_path_query",
     "convert_value_for_neo4j",
-    "count",
-    "get_by",
     "get_filterable_fields",
     "get_supported_operators",
-    "list_entities",
-    # Convenience functions
-    "search",
     # Context query generator (January 2026)
     "generate_context_query",
     "get_available_relationships",

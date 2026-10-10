@@ -28,7 +28,7 @@ Supporting infrastructure (leaf-level utilities, NOT alternative query paths):
   Complements Pydantic (HTTP boundary), does NOT duplicate it.
 
 Key Components:
-- cypher package: Modular Cypher query building (crud, semantic, domain, relationship, intelligence)
+- cypher package: Modular Cypher query building (crud, semantic, domain, relationship)
 - QueryIntent: Semantic query understanding
 - QueryOptimizationStrategy: Schema-aware optimization vocabulary
 
@@ -97,8 +97,6 @@ from .cypher import (
     build_batch_relationship_count,
     build_batch_relationship_exists,
     build_batch_relationship_exists_with_filters,
-    # Intelligence queries
-    build_bidirectional_impact_query,
     # Domain-specific entity-with-context functions (reinstated January 2026)
     # CRUD queries
     build_count_query,
@@ -107,22 +105,15 @@ from .cypher import (
     build_domain_context_with_paths,
     build_entity_with_context,
     build_get_by_field_query,
-    build_goal_aligned_hybrid,
     build_hierarchical_context,
-    build_hybrid_knowledge_search,
-    build_impact_chain_query,
     build_ku_with_context,
     build_list_query,
     build_multi_relationship_count,
-    build_normalized_centrality_query,
-    build_optimized_ready_to_learn,
     build_prerequisite_chain,
-    build_registry_validated_query,
     build_relationship_count,
     build_relationship_filter_fragments,
     build_relationship_traversal_query,
     build_relationship_uids_query,
-    build_relationship_weight_stats_query,
     build_search_query,
     build_semantic_context,
     build_semantic_filter_query,
@@ -131,18 +122,13 @@ from .cypher import (
     build_simple_prerequisite_chain,
     build_text_search_query,
     build_user_activity_query,
-    build_weighted_path_query,
     convert_value_for_neo4j,
-    count,
     # Context query generator (January 2026)
     generate_context_query,
     get_available_relationships,
-    get_by,
     get_filterable_fields,
     get_relationship_details,
     get_supported_operators,
-    list_entities,
-    search,
 )
 
 # No APOC in the query layer. There was never an ApocQueryBuilder class to remove —
@@ -203,8 +189,6 @@ __all__ = [
     "build_batch_relationship_count",
     "build_batch_relationship_exists",
     "build_batch_relationship_exists_with_filters",
-    # Intelligence queries
-    "build_bidirectional_impact_query",
     # Context query generator (January 2026)
     "generate_context_query",
     "get_available_relationships",
@@ -229,28 +213,21 @@ __all__ = [
     "build_drop_index_ddl",
     "build_entity_with_context",
     "build_get_by_field_query",
-    "build_goal_aligned_hybrid",
     # ============================================================================
     # PURE CYPHER GRAPH TRAVERSAL
     # ============================================================================
     "build_graph_context_query",
     "build_hierarchical_context",
-    "build_hybrid_knowledge_search",
-    "build_impact_chain_query",
     "build_ku_with_context",
     "build_list_query",
     "build_multi_fallback_confidence",
     "build_multi_relationship_count",
-    "build_normalized_centrality_query",
-    "build_optimized_ready_to_learn",
     "build_path_confidence_aggregation",
     "build_prerequisite_chain",
-    "build_registry_validated_query",
     "build_relationship_count",
     "build_relationship_filter_fragments",
     "build_relationship_traversal_query",
     "build_relationship_uids_query",
-    "build_relationship_weight_stats_query",
     "build_search_query",
     "build_semantic_context",
     "build_semantic_filter_query",
@@ -259,14 +236,8 @@ __all__ = [
     "build_simple_prerequisite_chain",
     "build_text_search_query",
     "build_user_activity_query",
-    "build_weighted_path_query",
     "convert_value_for_neo4j",
-    # Convenience functions
-    "count",
-    "get_by",
     "get_filterable_fields",
     "get_supported_operators",
-    "list_entities",
     "query",
-    "search",
 ]

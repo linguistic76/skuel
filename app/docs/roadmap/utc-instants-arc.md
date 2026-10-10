@@ -1,6 +1,6 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-10-03
+updated: 2026-10-10
 status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a and 6b merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
@@ -1142,7 +1142,7 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
     - UserEntry `created_at` across the `_user_entry_*` mixins, `exercise_backends`,
       `cross_domain_backend` and `user_context_queries`' `max(sub.created_at)`.
     - Activity, Ku, Exercise, FormTemplate, User `created_at` across `activity_backends`,
-      `intelligence_queries`, `domain_queries`' `build_user_activity_query` /
+      `domain_queries`' `build_user_activity_query` /
       `build_active_query`, `exercise_backends`, `forms_backends`,
       `template_attachment_backend`, `_hierarchy_mixin`, `_knowledge_context_mixin`.
     - The CRUD list's `ORDER BY n.{field}` (`unified_query_builder`, `crud_queries`' sort
@@ -1258,16 +1258,17 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
   - `list_steps_raw`'s `order_field` is an expression composed in core (`s.{order_by}`),
     under the field-name ruling (`field-name-guarding-in-cypher.md`). Only `s.sequence`
     reaches it. A caller that passed an instant field would order raw.
-  - `intelligence_queries`' relationship-property filter and `batch_cypher_builder`'s
-    `_FILTER_OP_MAP` have no caller, and a relationship property has no model for the type
-    rule.
+  - `batch_cypher_builder`'s `_FILTER_OP_MAP` has no caller, and a relationship property
+    has no model for the type rule. (`intelligence_queries`' relationship-property filter,
+    censused beside it, was deleted with its module on the batch-6 ruling.)
   - The two `UserEntry.updated_at` readers (`_exercise_status_tail`'s living entry and
     `get_vault_notes_for_context`) are coerced, but have no mixed-shape test. The column's
     natives come from the report and approval writers, and the census did not show one
     reaching a living entry or a knowledge note.
-  - Three dead query modules are coerced, not deleted: `SemanticSimilarityQueries`,
-    `intelligence_queries`' Ku searches and `_progressive_learning_queries`. None is in the
-    PLANNED tier, so deleting them is a PR of their own.
+  - Two dead query modules are coerced, not deleted: `SemanticSimilarityQueries` and
+    `_progressive_learning_queries`. Neither is in the PLANNED tier, so deleting them is a PR
+    of its own. (`intelligence_queries`, the third in this census, was deleted on the batch-6
+    ruling.)
   - A correction to 6a's census: `EntryReport.created_at` is native-only by writer (both
     writers are `datetime($now)`).
 - **Oldest or newest deciding a write, in Cypher (6a's round-2 sibling rule).** No Cypher

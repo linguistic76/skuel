@@ -25,6 +25,7 @@ from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
@@ -101,8 +102,12 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing goals sorted by priority/relevance
         """
-        result = await self.backend.find_by(
-            user_uid=user_context.user_uid, status=EntityStatus.ACTIVE.value
+        result = await find_all_by(
+            self.backend,
+            self.logger,
+            "Goal prioritization",
+            user_uid=user_context.user_uid,
+            status=EntityStatus.ACTIVE.value,
         )
         if result.is_error:
             return result

@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-09-28
+updated: 2026-10-10
 category: patterns
 related_skills:
 - pytest
@@ -320,11 +320,14 @@ async def test_bad():
     # No cleanup - pollutes database
 ```
 
-### ❌ Don't Use Colon UIDs for Internal Operations
+### ❌ Don't Use Colon-Spelled Entity UIDs
 
 ```python
-# BAD - Uses external format internally
-await service.get("ku.topic")  # Will fail
+# BAD - the retired colon spelling; no entity carries it, so this reads nothing
+await service.get("ku:topic")
+
+# GOOD - authored = stored: the dot form
+await service.get("ku.topic")
 ```
 
 ### ❌ Don't Assume Mock Methods
@@ -350,8 +353,8 @@ Pure helper functions (no I/O, no database) have dedicated unit tests for fast r
 ```
 tests/unit/
 ├── scripts/                          # Script/tool tests
-│   ├── test_lint_skuel.py            # 314 tests — all 26 active SKUEL lint rules, LintResult, suppression audit
-│   └── test_cypher_linter.py         # 35 tests — CYP001-006, CYP009, query extraction, helpers
+│   ├── test_lint_skuel.py            # the SKUEL lint rules, LintResult, suppression audit
+│   └── test_cypher_linter.py         # the CYP rules, query extraction, helpers
 ├── ui/                               # UI component tests
 │   ├── test_enum_helpers.py          # 52 tests — 34 bridge/helper/builder functions
 │   ├── test_layout.py               # 18 tests — Size enum, 7 layout components
@@ -410,8 +413,8 @@ def test_cascade_delete_removes_relationships():
 | `tests/integration/conftest.py` | Integration test fixtures |
 | `tests/integration/test_user_entity_tracking.py` | User relationship tests |
 | `tests/integration/test_yaml_roundtrip.py` | Ingestion roundtrip tests |
-| `tests/unit/scripts/test_lint_skuel.py` | SKUEL linter unit tests (298 tests) |
-| `tests/unit/scripts/test_cypher_linter.py` | Cypher linter unit tests (35 tests) |
+| `tests/unit/scripts/test_lint_skuel.py` | SKUEL linter unit tests |
+| `tests/unit/scripts/test_cypher_linter.py` | Cypher linter unit tests |
 | `tests/unit/ui/test_enum_helpers.py` | UI enum bridge tests (52 tests) |
 | `tests/unit/ui/test_layout.py` | Layout component tests (18 tests) |
 

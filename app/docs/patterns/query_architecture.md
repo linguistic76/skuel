@@ -230,22 +230,11 @@ query, params = build_semantic_traversal(
 )
 ```
 
-**Convenience Functions:**
-```python
-from adapters.persistence.neo4j.query import search, get_by, list_entities, count
-
-# Shorthand for common operations
-query, params = search(Task, priority='high', status='in_progress')
-query, params = get_by(Task, 'uid', 'task-123')
-query, params = list_entities(Task, limit=100, order_by='created_at')
-query, params = count(Task, priority='high')
-```
-
-### Phase 2 Infrastructure Functions (January 2026)
+### Infrastructure Functions
 
 **Location:** `/adapters/persistence/neo4j/query/cypher/crud_queries.py`
 
-Three infrastructure functions were added to support BaseService operations:
+Three infrastructure functions support BaseService operations:
 
 | Function | Purpose | Used By |
 |----------|---------|---------|
@@ -761,16 +750,21 @@ Database-level concerns that operate below the domain layer. Most now use typed 
 | `UnifiedIngestionService` | `self.backend` (`IngestionBackend`) + `self.driver.execute_query()` | Bulk cross-domain writes |
 | `UnifiedRelationshipService` | `self.backend.execute_query()` | Cross-domain relationship ops with complex edge metadata |
 
-### Tier 3: Always Permitted — BaseService Mixins
+### Tier 3: Always Permitted — the Backend Mixins
 
-The BaseService mixins *implement* the backend abstraction. They call `execute_query` because they are the infrastructure that makes `self.backend.text_search_raw()` and `find_by()` work.
+The `UniversalNeo4jBackend` mixins (`adapters/persistence/neo4j/_*_mixin.py` — `_search_mixin.py`,
+`_search_raw_mixin.py`, `_temporal_mixin.py`, …) *implement* the backend abstraction: they author
+the Cypher behind `find_by()`, `text_search_raw()` and `upcoming_raw()`, below the boundary.
 
-| Mixin | Methods |
-|-------|---------|
-| `SearchOperationsMixin` | `search()`, `get_by_relationship()`, `search_connected_to()` |
-| `RelationshipOperationsMixin` | `get_prerequisites()`, `get_enables()` |
-| `TimeQueryMixin` | `get_user_items_in_range()`, `get_upcoming()`, `get_overdue()`, `get_active()` |
-| `ContextOperationsMixin` | `get_with_context()` |
+The service-layer BaseService mixins above them are **not** in this tier — they call
+`self.backend.*` and never `execute_query` (SKUEL021):
+
+| Service mixin | Methods | Backend calls |
+|-------|---------|---------|
+| `SearchOperationsMixin` | `search()`, `get_by_relationship()`, `search_connected_to()` | `text_search_raw()`, `find_by()`, … |
+| `RelationshipOperationsMixin` | `get_prerequisites()`, `get_enables()` | the relationship traversal reads |
+| `TimeQueryMixin` | `get_user_items_in_range()`, `get_upcoming()`, `get_overdue()`, `get_active()` | `upcoming_raw()`, `overdue_raw()`, `active_raw()` |
+| `ContextOperationsMixin` | `get_with_context()` | the context reads |
 
 ### Tier 4: Tolerated — Domain Sub-Services
 
@@ -785,5 +779,4 @@ Domain sub-services that need complex domain-specific queries can call `self.bac
 
 ---
 
-**Last Updated:** April 11, 2026
 **Status:** Active - Core pattern for all query operations in SKUEL

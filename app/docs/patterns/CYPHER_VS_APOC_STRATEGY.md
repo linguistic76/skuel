@@ -1,18 +1,12 @@
 ---
 title: 'Pure Cypher vs APOC: Strategic Decision Guide'
-updated: '2026-08-29'
-category: patterns
-related_skills:
-- neo4j-cypher-patterns
-related_docs: []
----
----
-title: Pure Cypher vs APOC: Strategic Decision Guide
-updated: 2026-08-11
+updated: 2026-10-10
 status: current
 category: patterns
 tags: [apoc, cypher, patterns, strategy]
-related: []
+related_skills:
+- neo4j-cypher-patterns
+related_docs: []
 ---
 
 # Pure Cypher vs APOC: Strategic Decision Guide
@@ -39,11 +33,10 @@ For implementation guidance, see:
 > `ImportError`.
 >
 > What shipped instead is a **package of module-level functions**:
-> `adapters/persistence/neo4j/query/cypher/` — 54 `build_*` functions across
-> `crud_queries.py` (16), `domain_queries.py` (13), `intelligence_queries.py` (9),
-> `semantic_queries.py` (8), `relationship_queries.py` (7), and
-> `relationship_filter_fragments.py` (1). Import and call them directly; there is no
-> object to construct.
+> `adapters/persistence/neo4j/query/cypher/` — `build_*` functions across
+> `crud_queries.py`, `domain_queries.py`, `semantic_queries.py`, `relationship_queries.py`
+> and the fragment modules beside them. Import and call them directly; there is no object
+> to construct.
 >
 > This is the same defect class as the `CypherGenerator` fiction — see
 > [query_architecture.md § Naming](./query_architecture.md#no-cyphergenerator-class).
@@ -283,7 +276,7 @@ edge.
 
 | Component | Pin | Location |
 |-----------|-----|----------|
-| Neo4j server | `neo4j:2026.07.1` (calendar line, exact — never a floating tag; the testcontainer reads this same pin) | `infrastructure/docker-compose.yml` |
+| Neo4j server | the exact calendar-line tag in the compose file's `image:` (never a floating tag; the testcontainer reads this same pin) | `infrastructure/docker-compose.yml` |
 | Python driver | `neo4j==5.26.0` (deliberate cap) | `app/pyproject.toml` |
 | APOC plugin | `NEO4J_PLUGINS: '["apoc"]'` — version tracks the server image | `infrastructure/docker-compose.yml` |
 
@@ -395,5 +388,5 @@ allowlisted namespace anyway.
 | Lockdown tests | Production profile, both directions | `tests/integration/test_apoc_allowlist_lockdown.py` | ✅ Shipped (own container, built from compose) |
 | Batch writes via APOC | Rejected | — | ❌ Not adopted |
 
-**See also:** [query_architecture.md](./query_architecture.md) for the three query
-layers and the full `build_*` inventory.
+**See also:** [query_architecture.md](./query_architecture.md) for the two query
+layers and the `build_*` functions.
