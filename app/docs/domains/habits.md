@@ -377,7 +377,7 @@ The Habits domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-`adapters/inbound/habits_ui.py` registers the list page (`/habits`, with `/habits/content` and `/habits/list-fragment` HTMX fragments), the detail page (`/habits/detail?uid=`) and the dual-track self-rate POST through `create_activity_ui_routes`; `create_habits_ui_routes` then registers the `/habits/insights-fragment` card and the `/habits/create` form (GET + POST) itself. API routes live in `habits_api.py`.
+`adapters/inbound/habits_ui.py` registers the list page (`/habits`, with `/habits/content` and `/habits/list-fragment` HTMX fragments), the detail page (`/habits/detail?uid=`) and the dual-track self-rate POST through `create_activity_ui_routes`; `create_habits_ui_routes` then registers the `/habits/insights-fragment` card and the `/habits/create` and `/habits/edit` forms (GET + POST) itself. API routes live in `habits_api.py`.
 
 ## Code Examples
 
