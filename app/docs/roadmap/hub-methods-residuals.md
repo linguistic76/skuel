@@ -47,17 +47,18 @@ second door in [askesis-intelligence-doors.md](askesis-intelligence-doors.md).
 
 ## Link writers outside the one invalidating chokepoint
 
-4. **The lateral-relationship doors and the backend-direct link writers publish no
-   `EntityLinksChanged`.** The one publisher is
+4. **The lateral-relationship writer publishes no `EntityLinksChanged`.** The one publisher is
    `core/services/relationships/unified_relationship_service.py:350` (`create_relationship` /
    `delete_relationship`, F8-6 part 2b), which drops the owner's cached context on any link made
    through it. `LateralRelationshipService.create_relationship`
    (`core/services/lateral_relationships/lateral_relationship_service.py:154`) writes through its
-   own backend and holds no event bus; the Task dependency writer (`DEPENDS_ON`) is
-   backend-direct too. A link made through either leaves every link-derived context field
+   own backend and holds no event bus, so a lateral link leaves every link-derived context field
    (`habits_by_goal`, `goal_knowledge_required`, …) stale for up to the 5-minute TTL, which the
-   Insights cards make visible. Fix at those writers, publishing the same event. Found by F8-6
-   part 2b (Codex P2 there, declined as out of that PR's scope).
+   Insights cards make visible. Fix at that writer, publishing the same event. The Task
+   dependency writer is NOT in this item: `create_task_dependency` / `delete_task_dependency`
+   publish `TaskUpdated` for each affected owner (`TasksService._publish_dependency_update`),
+   and `_event_wiring.py` invalidates on it. Found by F8-6 part 2b (Codex P2 there, declined as
+   out of that PR's scope).
 
 ## Projections that hard-code a figure
 

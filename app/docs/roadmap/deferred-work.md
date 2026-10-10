@@ -221,7 +221,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Hub Methods Build — Registered Residuals
 
-[Hub Methods Build — Registered Residuals](hub-methods-residuals.md) — The five defects the F8 rows (the hub methods, realized) found beside the hub and registered, each at its file and line: a ready-to-learn read that treats every Ku with a mastery level as mastered, an application read that turns a failed backend into an empty list, an event hydration that cannot succeed, the two link writers that publish no `EntityLinksChanged`, and a next-action figure that is a constant 0; all five re-verified live at the docs close.
+[Hub Methods Build — Registered Residuals](hub-methods-residuals.md) — The five defects the F8 rows (the hub methods, realized) found beside the hub and registered, each at its file and line: a ready-to-learn read that treats every Ku with a mastery level as mastered, an application read that turns a failed backend into an empty list, an event hydration that cannot succeed, the lateral-relationship writer that publishes no `EntityLinksChanged`, and a next-action figure that is a constant 0; all five re-verified live at the docs close.
 
 ## Life-Path Milestones — the Context Field Nothing Writes
 

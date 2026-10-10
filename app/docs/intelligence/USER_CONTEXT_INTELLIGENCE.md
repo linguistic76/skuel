@@ -79,9 +79,13 @@ in `core/models/context_types.py` with tuple sequence fields; method 9 returns t
 ## The eleven required services
 
 "SKUEL runs at full capacity or not at all": `UserContextIntelligence.__init__` and the factory
-both raise `ValueError` naming any required service that is `None`. The factory's
-`_required_services` dict is the one list; adding a twelfth is one entry there plus the matching
-`__init__` parameters.
+both raise `ValueError` naming any required service that is `None`. A twelfth service touches
+five sites, all of which the `ValueError` guards read: the factory's `_required_services` dict
+and its `__init__` parameter; `UserContextIntelligence.__init__`'s parameter, its `required`
+mapping and its `self.<service>` assignment; the annotation on `IntelligenceMixinBase`
+(`_base.py`), which is what a mixin reads; and the argument in
+`services_bootstrap/_intelligence_hub.py`. Miss the assignment or the annotation and the
+constructors validate while the method raises `AttributeError`.
 
 | Group | Parameter | Wired value (`services_bootstrap/_intelligence_hub.py`) | Read by |
 |-------|-----------|------------------------------------------------------|---------|
@@ -107,7 +111,7 @@ mypy rejects a standard context at the call site.
 
 | Read | Depth |
 |------|-------|
-| `UserService.get_rich_unified_context(user_uid)` | Rich — cached 5 minutes, built on a miss; **the read every door makes** |
+| `UserService.get_rich_unified_context(user_uid)` | Rich — cached 5 minutes, built on a miss; **the read the HTTP and HTMX doors make** (an Askesis wrapper makes no read — it takes the `RichUserContext` its caller hands it) |
 | `UserContextBuilder.build_rich(user_uid, window="30d")` | Rich — always builds |
 | `UserService.get_user_context(user_uid)` / `UserContextBuilder.build(user_uid)` | Standard — not accepted by the factory |
 
