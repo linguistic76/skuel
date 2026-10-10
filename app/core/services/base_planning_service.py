@@ -3,7 +3,7 @@ Base Planning Service - Context-First User Planning Foundation
 ==============================================================
 
 Provides the common foundation for all domain planning services that leverage
-UserContext (~240 fields) for personalized, filtered, and ranked queries.
+UserContext for personalized, filtered, and ranked queries.
 
 **Pattern:** Context-First - "Filter by readiness, rank by relevance, enrich with insights"
 

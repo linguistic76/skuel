@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-10-09
+updated: 2026-10-10
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -255,7 +255,7 @@ class PrinciplesIntelligenceService(
 
 **Philosophy:** "Filter by attention needed, rank by relevance, enrich with insights"
 
-**Pattern:** Context-First - All methods use `UserContext` (~240 fields) for personalization.
+**Pattern:** Context-First - All methods use `UserContext` for personalization.
 
 ### Planning Methods
 

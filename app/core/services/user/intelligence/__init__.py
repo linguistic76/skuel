@@ -8,7 +8,7 @@ This package implements learning journey intelligence that synthesizes
 user state with graph intelligence to answer: "What should I work on?"
 
 **Architecture:**
-UserContextIntelligence = UserContext + 13 Domain Services
+UserContextIntelligence = RichUserContext + the eleven domain services
                         = User State + Complete Graph Intelligence
 
 **Package Structure:**
@@ -17,10 +17,13 @@ UserContextIntelligence = UserContext + 13 Domain Services
 - synergy_intelligence.py: Method 6 (cross-domain synergies)
 - schedule_intelligence.py: Method 8 (schedule-aware recommendations)
 - daily_planning.py: Method 5 (daily work plan - THE FLAGSHIP)
+- perception_intelligence.py: Method 9 (dual-track perception rollup)
+- temporal_momentum.py: compute_momentum_signals() (feeds method 5)
+- _base.py: IntelligenceMixinBase (the shared attribute surface)
 - core.py: Main UserContextIntelligence class (composes mixins)
 - factory.py: UserContextIntelligenceFactory
 
-**The 8 Core Methods:**
+**The nine hub methods:**
 1. get_optimal_next_path_steps() - What should I learn next?
 2. get_learning_path_critical_path() - Fastest route to life path?
 3. get_knowledge_application_opportunities() - Where can I apply this?
@@ -29,6 +32,12 @@ UserContextIntelligence = UserContext + 13 Domain Services
 6. get_cross_domain_synergies() - Cross-domain synergy detection
 7. calculate_life_path_alignment() - Life path alignment scoring
 8. get_schedule_aware_recommendations() - Schedule-aware recommendations
+9. get_cross_domain_perception_analysis() - Self-rating against the tracked record
+
+Doors: the Insights cards (``GET /insights/hub/{question}``, methods 1, 4, 6, 7, 8, 9),
+the Ku page's "Where you can apply this" (method 3), ``/api/context/next-action``
+(method 5). Askesis' eight wrappers are the staged second door; method 2 waits on
+the LP walk. See /docs/roadmap/askesis-intelligence-doors.md.
 
 **Context-Based Queries:**
 Simple context queries (get_ready_to_learn, etc.) are accessed directly

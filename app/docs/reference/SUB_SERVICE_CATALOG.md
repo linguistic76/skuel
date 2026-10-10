@@ -196,7 +196,7 @@ result = await rels.create_relationship(
 - Entity-level backend (`NeoLabel.ENTITY`) — queries across ALL 6 activity domains
 - `GraphIntelligenceService` (graph traversal)
 
-**Wiring:** Created once in `services_bootstrap.py`, injected into all 6 Activity Domain facades as `self.knowledge_intelligence`. NOT a per-domain instance — one shared singleton. The 4 delegation methods are provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`) — facades inherit it instead of repeating the methods.
+**Wiring:** Created once in `services_bootstrap/compose.py`, injected into all 6 Activity Domain facades as `self.knowledge_intelligence`. NOT a per-domain instance — one shared singleton. The 4 delegation methods are provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`) — facades inherit it instead of repeating the methods.
 
 **Access:** Via any Activity Domain facade — `service.get_knowledge_suggestions(user_uid)`
 

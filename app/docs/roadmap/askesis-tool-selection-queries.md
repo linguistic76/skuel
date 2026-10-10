@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-01
+updated: 2026-10-10
 ---
 
 # Askesis Tool-Selection Queries — A Safe Alternative to text2cypher
@@ -56,7 +56,7 @@ Cypher**:
    (`QueryIntent` in `core/models/query_types.py`).
 2. **Retrieval** (`core/services/askesis/context_retriever.py`,
    `retrieve_relevant_context`) — branches on intent, but the data is almost all
-   *pre-computed*: the UserContext MEGA-QUERY carries ~240 fields per session, plus
+   *pre-computed*: the UserContext MEGA-QUERY carries the whole cross-domain snapshot per session, plus
    a native Neo4j **vector-index** search over `:ContentChunk` nodes, plus fuzzy
    entity matching against the user's known titles.
 3. **Generation** — the LLM runs only here, producing the natural-language *answer*,

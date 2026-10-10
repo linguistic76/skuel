@@ -52,7 +52,7 @@ class ResponseGenerator:
     - Build guided system prompts for Socratic tutoring
 
     Architecture:
-    - Uses UserContext (~240 fields) as input
+    - Uses UserContext as input
     - Uses QueryIntent for intent-specific logic
     - Uses GuidanceDetermination for pedagogical prompt generation
     - Returns structured dicts for API responses

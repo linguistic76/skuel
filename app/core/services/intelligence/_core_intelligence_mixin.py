@@ -39,9 +39,6 @@ class _CoreIntelligenceMixin[T]:
 
     Generic in the domain model so subclasses get a typed return:
     `_CoreIntelligenceMixin[PathStep]` → `Result[tuple[PathStep, GraphContext]]`.
-
-    Activity domain services additionally expose a domain-named alias
-    from their per-domain wrapper.
     """
 
     # Populated by BaseAnalyticsService.__init__ (stores relationship_service).

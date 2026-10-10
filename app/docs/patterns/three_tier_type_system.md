@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-09-30
+updated: 2026-10-10
 category: patterns
 related_skills:
 - python
@@ -604,7 +604,7 @@ User is **NOT an activity domain** and does NOT implement DomainModelProtocol. U
 - ❌ Does NOT use UniversalNeo4jBackend
 - ✅ Uses dedicated **UserBackend** for identity operations
 - ✅ Created via factory functions (`create_user()`), not DTO conversion
-- ✅ Delegates rich state to **UserContext** (mutable, ~240 fields)
+- ✅ Delegates rich state to **UserContext** (mutable)
 - ✅ Similar to Reports (meta-layer, not activity domain)
 
 ### Backend Pattern

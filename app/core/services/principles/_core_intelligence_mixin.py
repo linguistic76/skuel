@@ -6,8 +6,7 @@ Protocol bridge methods + graph context orchestration.
 Graph context retrieval (mechanism B, registry-sourced) is inherited from the
 shared ``_CoreIntelligenceMixin``: ``self.relationships.get_with_context`` sources
 its edge vocabulary from ``PRINCIPLES_CONFIG.cross_domain_relationship_types`` (the
-registry single source of truth). This mixin adds the protocol bridge methods plus
-the principle-named alias.
+registry single source of truth). This mixin adds the protocol bridge methods.
 
 Part of principles_intelligence_service.py decomposition (April 2026).
 Converged onto mechanism B in Convergence Phase 1 (2C); the per-domain override
@@ -38,8 +37,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     Protocol bridge + graph context for PrinciplesIntelligenceService.
 
     ``get_with_context`` (mechanism B) is inherited from the shared
-    ``_CoreIntelligenceMixin``; this mixin adds the protocol bridge methods plus
-    the principle-named alias.
+    ``_CoreIntelligenceMixin``; this mixin adds the protocol bridge methods.
 
     Declares class-level attributes used by these methods so mypy
     resolves them without runtime cost.

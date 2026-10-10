@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-14
+updated: 2026-10-10
 ---
 
 # How Askesis Works
@@ -33,7 +33,7 @@ Askesis has two distinct operational modes. Both require `INTELLIGENCE_TIER=full
 
 ### Half 1: Intelligence Synthesis
 
-Eight methods that read the user's complete state (~250 fields from `UserContext.build_rich()`) and compute cross-domain recommendations. These don't have conversations — they return structured data.
+Askesis wraps eight of **the hub methods** — the nine questions `UserContextIntelligence` answers for one user from their `RichUserContext` (`UserService.get_rich_unified_context`) plus the domain services. Each wrapper builds the hub from a context and asks the hub method of the same name (method 5's wrapper is `get_daily_work_plan`); the wrappers are Askesis' door onto the hub methods, not a separate capability ([askesis-intelligence-doors.md](../roadmap/askesis-intelligence-doors.md)). They don't have conversations — they return structured data.
 
 | Method | Question It Answers |
 |--------|-------------------|
@@ -46,7 +46,9 @@ Eight methods that read the user's complete state (~250 fields from `UserContext
 | `calculate_life_path_alignment()` | "How aligned am I with my life direction?" (5 dimensions, 0.0-1.0) |
 | `get_schedule_aware_recommendations()` | "What's the right action RIGHT NOW given my energy and schedule?" |
 
-These are delegated to `UserContextIntelligence`, which is built by `UserContextIntelligenceFactory` using all domain services. The daily work plan is the flagship — it's the method that synthesizes everything.
+The hub is built by `UserContextIntelligenceFactory` from the eleven domain services. The daily work plan is the flagship — it's the method that synthesizes everything.
+
+**Doors.** No route calls a wrapper today: the Askesis API registers one route, `/api/askesis/ask`. The hub methods' first door is the Insights cards — `GET /insights/hub/{question}` answers methods 1, 4, 6, 7, 8 and 9 (the ninth, the dual-track perception rollup, has no wrapper); method 3 answers on the Ku reading page (`GET /explore/ku/{uid}/apply`); method 5 reaches `/api/context/next-action` through `UserService.get_daily_work_plan`. The wrappers are the staged second door: they become live when the conversation reaches a hub method by tool-selection, and until then are registered `PLANNED` in `scripts/detect_bloat.py` (`_ASKESIS_HUB_DOOR`). Method 2 waits on the LP walk (`_HUB_CRITICAL_PATH`). Full table: [USER_CONTEXT_INTELLIGENCE.md](../intelligence/USER_CONTEXT_INTELLIGENCE.md).
 
 ### Half 2: The Guided RAG Pipeline
 
@@ -60,7 +62,7 @@ When a user asks Askesis a question, here's exactly what happens:
 
 ### Step 1: Load User Context
 
-`UserService.get_rich_unified_context(user_uid)` runs the MEGA-QUERY against Neo4j and builds a `UserContext` with ~250 fields: active entities, mastery levels, streaks, progress, enrolled paths, ZPD assessment, and temporal data.
+`UserService.get_rich_unified_context(user_uid)` runs the MEGA-QUERY against Neo4j and builds a `UserContext`: active entities, mastery levels, streaks, progress, enrolled paths, ZPD assessment, and temporal data.
 
 ### Step 2: LP Enrollment Gate
 
@@ -226,7 +228,7 @@ The solution: extract the shared math into **pure functions** in `state_scoring.
 | Function | Input | Output | What It Computes |
 |----------|-------|--------|-----------------|
 | `score_current_state()` | UserContext | float (0.0-1.0) | Baseline quality from 5 binary factors: not blocked (+0.1), workload <70% (+0.1), no at-risk habits (+0.2), overdue items (-0.2), >5 blocked tasks (-0.1) |
-| `find_key_blocker()` | UserContext | str \| None | The prerequisite blocking the most downstream items (counts across `prerequisites_needed` dict) |
+| `find_key_blocker()` | UserContext | str \| None | The unmastered prerequisite blocking the most Kus (counts across `unmet_prerequisites_by_ku()`, the `ku_prerequisites` map less `mastered_knowledge_uids`) |
 | `calculate_momentum()` | UserContext | float (0.0-1.0) | 3-factor weighted average: task completion rate (10/10 = 1.0), habit streak average (14-day benchmark = 1.0), learning velocity |
 | `calculate_domain_balance()` | UserContext | float (0.0-1.0) | Inverse of standard deviation across domain progress — lower variance = better balance |
 

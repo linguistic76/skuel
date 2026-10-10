@@ -21,17 +21,19 @@ UserContextIntelligence instances when given a UserContext.
 
 **Usage:**
 ```python
-# At bootstrap (services_bootstrap.py)
+# At bootstrap (services_bootstrap/_intelligence_hub.py)
 factory = UserContextIntelligenceFactory(
-    tasks=tasks_service.relationships,
-    goals=goals_service.relationships,
-    # ... 11 more services
+    tasks=tasks_service,  # the facade, not .relationships
+    goals=goals_service,
+    # ... the other nine services
 )
 services.context_intelligence = factory
 
-# At runtime (UserService)
-context = await user_service.get_user_context(user_uid)
-intelligence = factory.create(context)
+# At runtime (UserService) — the hub needs the RICH context
+context_result = await user_service.get_rich_unified_context(user_uid)
+if context_result.is_error:
+    return Result.fail(context_result)
+intelligence = factory.create(context_result.value)
 plan = await intelligence.get_ready_to_work_on_today()
 ```
 """
@@ -79,17 +81,19 @@ class UserContextIntelligenceFactory:
 
     **Usage:**
     ```python
-    # At bootstrap (services_bootstrap.py)
+    # At bootstrap (services_bootstrap/_intelligence_hub.py)
     factory = UserContextIntelligenceFactory(
-        tasks=tasks_service,
+        tasks=tasks_service,  # the facade, not .relationships
         goals=goals_service,
-        # ... 11 more services
+        # ... the other nine services
     )
     services.context_intelligence = factory
 
-    # At runtime (UserService)
-    context = await user_service.get_user_context(user_uid)
-    intelligence = factory.create(context)
+    # At runtime (UserService) — the hub needs the RICH context
+    context_result = await user_service.get_rich_unified_context(user_uid)
+    if context_result.is_error:
+        return Result.fail(context_result)
+    intelligence = factory.create(context_result.value)
     plan = await intelligence.get_ready_to_work_on_today()
     ```
     """
@@ -105,7 +109,7 @@ class UserContextIntelligenceFactory:
         principles: PrinciplesService,
         # Curriculum Domains (3) - REQUIRED
         ps: PsService,
-        lp: UnifiedRelationshipService,  # January 2026: Unified
+        lp: UnifiedRelationshipService,
         exercises: Any,  # ExerciseService facade — get_actionable_exercises_for_user / get_pending_revisions_for_user
         # Processing Domain (1) - REQUIRED
         report: ReportRelationshipService,

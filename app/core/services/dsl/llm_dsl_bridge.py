@@ -3,7 +3,7 @@ LLM DSL Bridge Service
 ======================
 
 Transforms natural journal text into structured DSL format using LLM intelligence.
-This bridges the gap between free-form journaling and SKUEL's 13-domain architecture.
+This bridges the gap between free-form journaling and SKUEL's Activity DSL.
 
 **The Problem:**
 
@@ -154,7 +154,7 @@ class LLMDSLBridgeService:
     Transforms natural journal text into structured DSL format using LLM.
 
     This service bridges the gap between free-form journaling and SKUEL's
-    13-domain DSL architecture. It uses an LLM to intelligently identify
+    Activity DSL. It uses an LLM to intelligently identify
     actionable items and add the appropriate @context tags.
 
     **Usage:**

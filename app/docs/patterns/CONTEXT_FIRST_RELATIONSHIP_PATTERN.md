@@ -1,6 +1,6 @@
 ---
 title: Context-First Relationship Pattern
-updated: 2026-10-09
+updated: 2026-10-10
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -24,7 +24,7 @@ For implementation guidance, see:
 
 ## Executive Summary
 
-The Context-First pattern transforms raw graph entities into personalized, scored, and ranked recommendations by combining entity data with the ~240-field `UserContext`. Every relationship query becomes an opportunity to filter by readiness, rank by relevance, and enrich with actionable insights.
+The Context-First pattern transforms raw graph entities into personalized, scored, and ranked recommendations by combining entity data with the `UserContext` snapshot. Every relationship query becomes an opportunity to filter by readiness, rank by relevance, and enrich with actionable insights.
 
 **Architecture (February 2026):** A harmonized scoring engine with factory classmethods on frozen dataclasses. All 7 ContextualEntity subclasses have `from_entity_and_context()` classmethods that accept domain-specific parameters and optional score overrides, producing fully-scored frozen instances from a single call.
 
@@ -568,7 +568,7 @@ Used by `PrinciplesPlanningService.get_principle_practice_opportunities_for_user
 
 **Location:** `core/services/user/intelligence/` (modular package)
 
-The Context-First types are the output of intelligence methods. The 8 flagship methods produce `DailyWorkPlan`, `LifePathAlignment`, and other aggregate types that contain `ContextualTask`, `ContextualHabit`, `ContextualGoal`, and `ContextualKnowledge` instances.
+The Context-First types are the output of intelligence methods. The nine hub methods produce `DailyWorkPlan`, `LifePathAlignment`, and other aggregate types that contain `ContextualTask`, `ContextualHabit`, `ContextualGoal`, and `ContextualKnowledge` instances.
 
 ### DailyWorkPlan (THE FLAGSHIP OUTPUT)
 

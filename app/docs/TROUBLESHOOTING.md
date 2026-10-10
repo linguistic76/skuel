@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-10-10
 ---
 
 # SKUEL Troubleshooting Guide
@@ -207,7 +207,7 @@ def my_function(param: Any):
 
 **Symptom**: `AttributeError: 'ServiceContainer' object has no attribute 'tasks'`
 
-**Cause**: Service not initialized in `services_bootstrap.py` or initialization failed
+**Cause**: Service not initialized in `services_bootstrap/compose.py` or initialization failed
 
 **Diagnostic**:
 ```bash
@@ -220,7 +220,7 @@ grep -i "tasks.*service" /tmp/server.log
 ```
 
 **Solution**:
-1. Verify service is created in `services_bootstrap.py`
+1. Verify service is created in `services_bootstrap/compose.py`
 2. Check for errors during service initialization
 3. Ensure all dependencies of the service are available
 
@@ -230,7 +230,7 @@ grep -i "tasks.*service" /tmp/server.log
 
 **Symptom**: ImportError or AttributeError during service composition
 
-**SKUEL Pattern**: Services are composed in dependency order in `services_bootstrap.py`
+**SKUEL Pattern**: Services are composed in dependency order in `services_bootstrap/compose.py`
 
 **Solution**:
 1. Check dependency graph - services must be created before their dependents

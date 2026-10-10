@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-10-10
 ---
 
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
@@ -14,7 +14,7 @@ Unlike domain intelligence services that focus on a single domain, Askesis orche
 
 **Key Distinction:**
 - **Domain Intelligence** (Tasks, Goals, etc.): Single-domain analysis and recommendations
-- **UserContextIntelligence**: Cross-domain state aggregation (~240 fields)
+- **UserContextIntelligence**: the hub methods — cross-domain synthesis over the user's context
 - **Askesis**: Cross-domain SYNTHESIS - actively recommends based on priorities, patterns, and life path alignment
 
 ---
@@ -116,7 +116,7 @@ When generating recommendations, Askesis follows this priority order:
 
 | Dependency | Purpose |
 |------------|---------|
-| `intelligence_factory` | **REQUIRED** - 13-domain synthesis |
+| `intelligence_factory` | **REQUIRED** - the hub methods (`UserContextIntelligence`) |
 | `graph_intel` | Graph traversal queries |
 | `user_service` | UserContext access |
 | `llm_service` | Natural language generation |
@@ -390,11 +390,11 @@ def process_user(askesis: AskesisOperations) -> Result[...]:
 |--------|------------------------|---------|
 | **Architecture** | Modular mixin package | Facade with sub-services |
 | **Core Question** | "What is my current state?" | "What should I do next?" |
-| **Methods** | 8 core methods | 17 methods |
+| **Methods** | the nine hub methods | 17 members of `AskesisOperations`, eight of them wrappers onto hub methods |
 | **Factory Pattern** | Creates instances per-request | Uses factory for synthesis |
 | **Statefulness** | Stateless analysis | Maintains session context |
 
-**Integration:** Askesis uses `UserContextIntelligenceFactory` to access UserContextIntelligence methods for 13-domain synthesis.
+**Integration:** Askesis uses `UserContextIntelligenceFactory` to build the hub from a rich context and ask a hub method; its wrappers are the staged second door onto them (`/docs/roadmap/askesis-intelligence-doors.md`).
 
 ---
 

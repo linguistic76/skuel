@@ -1,6 +1,6 @@
 ---
 title: Docstring Standards
-updated: 2026-09-17
+updated: 2026-10-10
 category: patterns
 related_skills:
 - python
@@ -175,7 +175,7 @@ holistic insights about the user's state and next best actions.
 Architecture:
     - Extends BaseAnalyticsService (graph-native analytics)
     - Uses UserContext as primary data source
-    - Provides 8 flagship intelligence methods
+    - Provides the nine hub methods
 
 See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 See: /docs/intelligence/USER_CONTEXT_INTELLIGENCE.md
@@ -374,7 +374,7 @@ async def create_task_with_context(self, task_data, user_context) -> Result[Task
     Create a task after checking its prerequisites against the user's context.
 
     The prerequisite gate is ALL this door adds: set membership against the
-    context's ``prerequisites_completed`` / ``completed_task_uids``, no graph
+    context's ``mastered_knowledge_uids`` / ``completed_task_uids``, no graph
     round-trip. The create itself is ``TasksCoreService.create_task``, THE create
     primitive's request door, so the task gets the same guarded link edges,
     write-then-announce ordering, ``TaskCreated`` event and embedding request as

@@ -1,6 +1,6 @@
 ---
 title: SearchService Pattern for Activity Domains
-updated: 2026-10-06
+updated: 2026-10-10
 category: patterns
 related_skills:
 - base-analytics-service
@@ -384,7 +384,7 @@ User Request
      │
      ▼
 ┌─────────────┐
-│ UserContext │ ◄── ~240 fields populated via SearchService queries
+│ UserContext │ ◄── populated via SearchService queries
 └─────────────┘
      │
      ▼

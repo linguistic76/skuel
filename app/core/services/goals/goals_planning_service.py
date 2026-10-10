@@ -7,7 +7,7 @@ Extracted from the former GoalsRelationshipService. Now uses UnifiedRelationship
 **Purpose:** Methods that leverage UserContext to provide personalized,
 filtered, and ranked goal queries for users.
 
-**Pattern:** Uses UserContext (~240 fields) for context-aware filtering and ranking.
+**Pattern:** Uses UserContext for context-aware filtering and ranking.
 
 **Why Extracted:**
 - Heavy UserContext dependency (HIGH RISK)

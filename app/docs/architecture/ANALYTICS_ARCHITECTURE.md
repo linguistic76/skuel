@@ -1,6 +1,6 @@
 ---
 title: Analytics Architecture - Statistical Aggregation Meta-Service
-updated: 2026-10-06
+updated: 2026-10-10
 status: current
 category: architecture
 tags: [architecture, analytics]
@@ -248,9 +248,9 @@ Analytics queries graph relationships to calculate metrics:
 Analytics sits ABOVE the domain layer, reading across all of them:
 
 ```
-Activity Domains (tasks, habits, goals, events, finance, choices, principles)
-Curriculum Domains (ku, ls, lp)
-Submissions + Reports
+Activity Domains (tasks, habits, goals, events, choices, principles)
+Curriculum Domains (ku, ps, lp, exercises)
+UserEntries + Reports
 
                     ↓ reads from all ↓
 

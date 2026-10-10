@@ -1,7 +1,7 @@
 ---
 title: Domain Documentation
 created: 2025-12-04
-updated: 2026-09-05
+updated: 2026-10-10
 status: current
 category: domains
 tags: [domains, reference, architecture]
@@ -106,7 +106,7 @@ Domain intelligence services follow the **unified internal creation pattern**:
 **Unified Pattern:**
 - All facades create their intelligence service internally (not passed in from bootstrap)
 - All extend `BaseAnalyticsService[BackendOperations[T], T]`
-- No external intelligence creation in `services_bootstrap.py`
+- No external intelligence creation in `services_bootstrap/compose.py`
 
 ```python
 # Example: LpService creates intelligence internally

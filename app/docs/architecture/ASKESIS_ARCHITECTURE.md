@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-10-10
 ---
 
 # Askesis Architecture - Cross-Cutting Intelligence System
@@ -18,7 +18,7 @@ Askesis is one of SKUEL's **5 Cross-Cutting Systems** providing life context syn
 
 | System | Purpose | Type |
 |--------|---------|------|
-| **UserContext** | ~240 fields of cross-domain state | Foundation |
+| **UserContext** | The user's cross-domain state snapshot | Foundation |
 | **Search** | Unified search across all domains | Infrastructure |
 | **Calendar** | Aggregates Tasks, Events, Habits, Goals | Aggregation |
 | **Askesis** | Life context synthesis + recommendations | Intelligence |
@@ -104,7 +104,7 @@ class AskesisService:
             ...
         )
 
-        # Required: 13-domain synthesis capability
+        # Required: the hub methods' factory (UserContextIntelligence)
         self.intelligence_factory = deps.intelligence_factory
 ```
 

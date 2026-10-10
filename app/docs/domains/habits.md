@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-10-08
+updated: 2026-10-10
 status: current
 category: domains
 tags:
@@ -115,7 +115,7 @@ Common sub-services created via `create_common_sub_services()` factory (with `sk
 
 ### Cross-Domain Wiring
 
-`HabitsService.goals_service` is post-wired in `services_bootstrap.py` (circular dependency). The facade's orchestration methods (`create_with_goal_links`, `complete_with_goal_impacts`) use `self.goals_service` internally — routes do not pass cross-domain services as parameters.
+`HabitsService.goals_service` is post-wired in `services_bootstrap/compose.py` (circular dependency). The facade's orchestration methods (`create_with_goal_links`, `complete_with_goal_impacts`) use `self.goals_service` internally — routes do not pass cross-domain services as parameters.
 
 ## Model Fields
 
@@ -279,7 +279,7 @@ on `HabitsPatternService.analyze_patterns` (the detail page's insights fragment)
 
 ## Planning Service (January 2026)
 
-`HabitsPlanningService` provides context-aware habit recommendations based on UserContext (~240 fields).
+`HabitsPlanningService` provides context-aware habit recommendations based on UserContext.
 
 **Philosophy:** "Filter by readiness, rank by relevance, enrich with insights"
 

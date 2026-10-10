@@ -31,7 +31,7 @@ CACHING POLICY
 TTL (Time-To-Live): 5 minutes (300 seconds)
 -------------------------------------------
 Rationale:
-- UserContext contains ~240 fields aggregated from multiple domains
+- UserContext aggregates the user's state across every domain
 - Building context requires a MEGA-QUERY that hits many graph patterns
 - 5 minutes balances freshness vs query cost
 - Most user sessions have activity within 5-minute windows
@@ -102,7 +102,7 @@ class UserContextCache:
     _cache: dict[UserUID, RichUserContext] = field(default_factory=dict)
 
     # TTL in seconds (5 minutes = 300s)
-    # Rationale: Balances freshness vs MEGA-QUERY cost for ~240 field context
+    # Rationale: Balances freshness vs the MEGA-QUERY's cost
     # See module docstring for full caching policy documentation
     default_ttl: int = 300
 

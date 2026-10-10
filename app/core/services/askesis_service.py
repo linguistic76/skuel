@@ -179,7 +179,7 @@ class AskesisService:
         # ZPD service — required for guided pipeline (readiness assessment).
         self.zpd_service = deps.zpd_service
 
-        # 13-domain intelligence factory for comprehensive daily planning
+        # The hub methods' factory (UserContextIntelligence) for the daily plan
         # (REQUIRED - passed at construction, not post-wired)
         self.intelligence_factory = deps.intelligence_factory
 
@@ -436,14 +436,16 @@ class AskesisService:
         )
 
     # ========================================================================
-    # 13-DOMAIN INTELLIGENCE (Explicit - factory logic required)
+    # THE HUB METHODS — Askesis' wrappers (Explicit - factory logic required)
     # ========================================================================
     #
-    # These methods leverage the full 13-domain architecture for comprehensive
-    # daily planning and path step recommendations.
+    # Each wrapper builds the hub (UserContextIntelligence) from a rich context
+    # and asks the hub method of the same name. They are Askesis' door onto the
+    # hub methods — staged until the conversation reaches one by tool-selection
+    # (/docs/roadmap/askesis-intelligence-doors.md; _ASKESIS_HUB_DOOR).
     #
     # Architecture:
-    # UserContextIntelligence = UserContext + 13 Domain Services
+    # UserContextIntelligence = RichUserContext + the eleven domain services
     # = User State + Complete Graph Intelligence
     #
     # Entity Types:
@@ -480,7 +482,7 @@ class AskesisService:
         is set by the builder.
 
         Args:
-            user_context: Complete UserContext snapshot (~240 fields)
+            user_context: Complete UserContext snapshot
             prioritize_life_path: Weight life path alignment highly
             respect_capacity: Don't exceed available time
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-10-10
 ---
 
 # Askesis: Pedagogical Architecture
@@ -84,11 +84,13 @@ This is the computation `ZPDService.assess_zone()` performs (see
 `ZPDService` and the Askesis services take `UserContext` directly. There is no parallel layer of ISP "awareness slice" protocols — that pattern was retired (2026-05-11, commit `a82faaba`) in favor of a single source of truth.
 
 ```python
-async def assess_zone(self, context: UserContext) -> ZPDAssessment:
-    """ZPD assessment reads knowledge mastery + prerequisites + path position."""
-    mastered = context.mastered_knowledge_uids
-    prereqs = context.prerequisites_completed
-    enrolled = context.enrolled_path_uids
+async def assess_zone(
+    self, user_uid: UserUID, context: UserContext | None = None
+) -> Result[ZPDAssessment]:
+    """Mastery, prerequisites and path position come from the ZPD backend's own
+    graph reads; the context, when given, adds life-path alignment and evidence."""
+    life_path_alignment = getattr(context, "life_path_alignment_score", 0.0) or 0.0
+    life_path_uid = getattr(context, "life_path_uid", None)
     ...
 ```
 
@@ -96,7 +98,7 @@ The function docstring (and body) document which fields are actually read. Don't
 
 | Service | Fields it actually reads |
 |---------|-------------------------|
-| `ZPDService.assess_zone()` | `mastered_knowledge_uids`, `in_progress_knowledge_uids`, `active_path_step_uids`, `prerequisites_completed`, `prerequisites_needed`, `enrolled_path_uids`, `current_step_uid` |
+| `ZPDService.assess_zone()` | `life_path_alignment_score`, `life_path_uid` (the context is optional; mastery, prerequisites and path position are the backend's own reads) |
 | `AskesisQueryService` | Enrolled paths, current step, ZPD position |
 | `AskesisStateAnalysisService` | Cross-domain readiness signals |
 | Askesis dialogue context | Complete user state for Socratic scaffolding |

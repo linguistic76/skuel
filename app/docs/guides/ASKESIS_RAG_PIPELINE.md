@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-22
+updated: 2026-10-10
 ---
 
 # Askesis RAG Pipeline — Developer Guide
@@ -238,7 +238,7 @@ The orchestrator runs 7 steps in sequence:
 user_context = await user_service.get_rich_unified_context(user_uid)
 ```
 
-Returns ~250 fields: active tasks, mastered knowledge, enrolled paths, at-risk habits, overdue items, and cross-domain state. This is the MEGA-QUERY — a single comprehensive Cypher query.
+Returns the whole cross-domain snapshot: active tasks, mastered knowledge, enrolled paths, at-risk habits, overdue items. This is the MEGA-QUERY — one plan-cached statement per read family, merged into one map.
 
 **Critical:** Askesis uses `get_rich_unified_context()` (not `get_user_context()`). The rich version populates `entities_rich` which intelligence mixins depend on. Using the standard version silently degrades answer quality.
 
@@ -428,7 +428,7 @@ AskesisService (Facade — zero business logic)
 ├── ActionRecommendationEngine ← "what should I do next?"
 │
 └── External dependencies (injected via AskesisDeps):
-    ├── UserService            ← builds UserContext (~250 fields)
+    ├── UserService            ← builds UserContext
     ├── LLMService             ← generates natural language answers
     ├── EmbeddingsService ← creates embeddings
     ├── GraphIntelligenceService ← executes graph queries
@@ -453,7 +453,7 @@ See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 
 **Gate:** Askesis is only created when `INTELLIGENCE_TIER=full`. In `core` tier, `services.askesis` is `None` and all Askesis routes return 404.
 
-**Bootstrap order** (in `services_bootstrap.py`):
+**Bootstrap order** (in `services_bootstrap/compose.py`):
 1. Activity services created (`_create_activity_services()`)
 2. Learning services created (`_create_learning_services()`)
 3. `UserContextIntelligenceFactory` created with all domain relationship services
@@ -550,7 +550,7 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 - **Askesis Guided Pipeline:** `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md` — PS-scoped, ZPD-centered, GuidanceMode-aware pipeline
 - **Askesis Pedagogy:** `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Socratic companion design, GuidanceMode detection
 - **Search Architecture:** `/docs/architecture/SEARCH_ARCHITECTURE.md` — SearchRouter, domain search
-- **UserContext:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the MEGA-QUERY and ~250 fields
+- **UserContext:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the MEGA-QUERY and the context it builds
 - **Embeddings ADRs:** `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md` — provider + 1024 dims; `/docs/decisions/ADR-074-post-persist-embedding-events.md` — how embeddings get and stay fresh
 - **Prompt Templates:** the `@prompt-templates` skill — centralized LLM prompt registry (`PROMPT_REGISTRY`)
 - **Analog/Digital Architecture:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md` — how intelligence tier toggle works

@@ -1,6 +1,6 @@
 ---
 title: SKUEL Query Design - Pure Cypher Patterns for Curriculum Navigation
-updated: 2026-09-27
+updated: 2026-10-10
 status: current
 category: general
 tags: [design, query, skuel]
@@ -82,7 +82,7 @@ Every SKUEL query should consider the UserContext to provide personalized, relev
 | Field | Query Impact |
 |-------|--------------|
 | `knowledge_mastery` | Filter by mastery level |
-| `prerequisites_completed` | Determine ready-to-learn knowledge |
+| `mastered_knowledge_uids` / `ready_to_learn_uids` | Determine ready-to-learn knowledge (`get_ready_to_learn()`, `unmet_prerequisites()`) |
 | `current_learning_path_uid` | Prioritize current path knowledge |
 | `life_path_uid` | Ultimate alignment target |
 | `learning_level` | Adjust content difficulty |

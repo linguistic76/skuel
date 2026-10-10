@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-03
+updated: 2026-10-10
 ---
 
 # LpIntelligenceService - Learning State & Content Intelligence
@@ -808,7 +808,7 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.lp.intelligence
 **IMPORTANT:** Unlike TasksIntelligenceService or GoalsIntelligenceService, LpIntelligenceService is **standalone** and must be created independently:
 
 ```python
-# services_bootstrap.py
+# services_bootstrap/compose.py
 from core.services.lp import LpIntelligenceService
 
 # Create standalone (NOT via LpService)

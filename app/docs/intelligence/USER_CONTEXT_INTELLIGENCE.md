@@ -1,869 +1,166 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-10-09
+updated: 2026-10-10
 ---
-# UserContextIntelligence - Central Intelligence Hub
+# UserContextIntelligence — the Hub Methods
+
 ## Related Skills
 
 For implementation guidance, see:
-- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md) — the
+  method contracts, the flagship's slot order, the context fields each mixin reads
 
-## Overview
+## What it is
 
-**Architecture:** Modular package with mixin composition (NOT BaseAnalyticsService)
-**Location:** `/core/services/user/intelligence/` (package, ~3,124 lines total)
-**Package Name:** `core.services.user.intelligence`
-**Last Updated:** January 2026 (ADR-021 modular decomposition)
+**The hub methods** are the nine questions `UserContextIntelligence` answers for one user from
+their `RichUserContext` plus the domain services. **Askesis** is the pedagogical companion that
+asks them; its wrappers are its door onto them, not a separate capability (the ruling and its
+date: [askesis-intelligence-doors.md](../roadmap/askesis-intelligence-doors.md)).
+
+**Location:** `core/services/user/intelligence/` (package)
+**Not a `BaseAnalyticsService`:** a class composed from seven mixins (ADR-021), constructed per
+request by a factory that holds the services. It owns no backend; it synthesizes across domains
+from one user's context and fresh reads made at call time.
+
+```
+UserContextIntelligence = RichUserContext (one user's state, already read)
+                        + the eleven domain services (fresh reads, made at call time)
+```
+
+Domain intelligence services (`TasksIntelligenceService`, …) analyse single domains.
+`UserContextIntelligence` synthesizes across all of them. It runs in both tiers: the factory is
+built in CORE and FULL alike, and `compose_services` refuses to finish without it. Only the two
+optional services (`zpd_service`, `vector_search`) are FULL-tier.
 
 ---
 
-## Purpose
+## The nine methods and their doors
 
-UserContextIntelligence is THE central intelligence hub answering: **"What should I work on next?"**
+| # | Method | Mixin | Question | Door today |
+|---|--------|-------|----------|------------|
+| 1 | `get_optimal_next_path_steps()` | Learning | What should I learn next? | Insights card `learn-next` |
+| 2 | `get_learning_path_critical_path()` | Learning | Fastest route to my life path? | none — staged (`_HUB_CRITICAL_PATH`) |
+| 3 | `get_knowledge_application_opportunities(ku_uid)` | Learning | Where can I apply this? | Ku page, "Where you can apply this" (`GET /explore/ku/{uid}/apply`) |
+| 4 | `get_unblocking_priority_order()` | Learning | What unlocks the most? | Insights card `unblock-first` |
+| 5 | **`get_ready_to_work_on_today()`** | DailyPlanning | **The daily plan** | `/api/context/next-action` → `UserContextService.get_next_action` → `UserService.get_daily_work_plan` |
+| 6 | `get_cross_domain_synergies()` | Synergy | What helps many things at once? | Insights card `synergies` |
+| 7 | `calculate_life_path_alignment()` | LifePath | Am I living toward my life path? | Insights card `alignment` |
+| 8 | `get_schedule_aware_recommendations()` | Schedule | What fits right now? | Insights card `right-now` |
+| 9 | `get_cross_domain_perception_analysis()` | Perception | How do my self-ratings compare with the record? | Insights card `perception` |
 
-This service synthesizes user state (UserContext ~240 fields) with complete graph intelligence (12 domain services) to provide actionable daily planning, learning recommendations, and life path alignment insights.
+**The first door — the Insights cards.** `GET /insights/hub/{question}`
+(`adapters/inbound/insights_ui.py`) builds the hub from the caller's cached rich context
+(`UserService.get_rich_unified_context`) and answers the `HubQuestion` the segment names, as an
+HTMX fragment the `/insights` "Your intelligence" section mounts (`ui/insights/hub_cards.py`).
+A failed read renders the question's error card (200), never a 500. Method 3's door is the same
+shape on the Ku reading page (`learning_loop_routes.py`).
 
-**Depends on:** UserContext (~240 fields) — see [Unified User Architecture](../architecture/UNIFIED_USER_ARCHITECTURE.md)
+**The second door — Askesis, staged.** `AskesisService` wraps methods 1–8 (method 5's wrapper is
+`get_daily_work_plan`; the other seven carry the hub method's name) as members of
+`AskesisOperations`. No route calls a wrapper; they become live when the Askesis conversation
+reaches a hub method by tool-selection. Registered `PLANNED` / `DELAYED` in
+`scripts/detect_bloat.py` (`_ASKESIS_HUB_DOOR`).
 
-UserContext provides the state. This service provides the synthesis.
+**Method 2 waits on something else.** The critical path reads the context only (the life path's
+unmastered knowledge in prerequisite order); the walk through the LP structure it was imagined
+for waits on the two LP backend methods ruled *build, not now*
+([lp-backend-recommendation-methods.md](../roadmap/lp-backend-recommendation-methods.md)). The
+`lp` dependency is held for that walk and read by no method yet.
 
-**Core Value Proposition:**
-- Combines user state (UserContext) with graph intelligence (12 domain services)
-- Answers "What should I work on?" across all entity types
-- Provides schedule-aware, capacity-respecting recommendations
-- Measures life path alignment across 5 dimensions
-
-**Key Difference from Domain Intelligence:**
-- Domain intelligence services (TasksIntelligenceService, GoalsIntelligenceService, etc.) analyze SINGLE domains
-- UserContextIntelligence synthesizes ACROSS ALL domains for holistic planning
-- Uses mixin architecture (NOT BaseAnalyticsService pattern)
-
----
-
-## Modular Package Architecture
-
-**Philosophy:** One Path Forward (ADR-021)
-
-The service is decomposed into a modular package using mixin composition. Total ~3,124 lines across 10 files:
-
-```
-core/services/user/intelligence/
-├── __init__.py                   (95 lines)   - Package exports
-│   (return-type data classes now live in core/models/context_types.py)
-├── learning_intelligence.py      (445 lines)  - LearningIntelligenceMixin (Methods 1-4)
-├── life_path_intelligence.py     (429 lines)  - LifePathIntelligenceMixin (Method 7)
-├── synergy_intelligence.py       (382 lines)  - SynergyIntelligenceMixin (Method 6)
-├── schedule_intelligence.py      (469 lines)  - ScheduleIntelligenceMixin (Method 8)
-├── daily_planning.py             (254 lines)  - DailyPlanningMixin (Method 5 - THE FLAGSHIP)
-├── core.py                       (245 lines)  - UserContextIntelligence (composes mixins)
-└── factory.py                    (234 lines)  - UserContextIntelligenceFactory
-```
-
-**Import:**
-```python
-# Primary import
-from core.services.user.intelligence import (
-    UserContextIntelligence,
-    UserContextIntelligenceFactory,
-)
-
-# Data types
-from core.services.user.intelligence import (
-    LifePathAlignment,
-    CrossDomainSynergy,
-    PathStep,
-    DailyWorkPlan,
-    ScheduleAwareRecommendation,
-)
-
-# Mixins (advanced usage/testing)
-from core.services.user.intelligence import (
-    LearningIntelligenceMixin,
-    DailyPlanningMixin,
-    SynergyIntelligenceMixin,
-    LifePathIntelligenceMixin,
-    ScheduleIntelligenceMixin,
-    GraphNativeMixin,
-)
-```
+Every hub method returns `Result[T]`. The record types (`PathStep`, `DailyWorkPlan`,
+`CrossDomainSynergy`, `LifePathAlignment`, `ScheduleAwareRecommendation`) are frozen dataclasses
+in `core/models/context_types.py` with tuple sequence fields; method 9 returns the
+`PerceptionAnalysis` TypedDict (`core/ports/query_types.py`). Signatures and fields:
+[QUICK_REFERENCE.md](../../.claude/skills/user-context-intelligence/QUICK_REFERENCE.md).
 
 ---
 
-## The 8 Flagship Methods
+## The eleven required services
 
-UserContextIntelligence provides 8 core methods across 5 mixins:
+"SKUEL runs at full capacity or not at all": `UserContextIntelligence.__init__` and the factory
+both raise `ValueError` naming any required service that is `None`. A twelfth service touches
+five sites, all of which the `ValueError` guards read: the factory's `_required_services` dict
+and its `__init__` parameter; `UserContextIntelligence.__init__`'s parameter, its `required`
+mapping and its `self.<service>` assignment; the annotation on `IntelligenceMixinBase`
+(`_base.py`), which is what a mixin reads; and the argument in
+`services_bootstrap/_intelligence_hub.py`. Miss the assignment or the annotation and the
+constructors validate while the method raises `AttributeError`.
 
-| # | Method | Mixin | Question Answered |
-|---|--------|-------|-------------------|
-| 1 | `get_optimal_next_path_steps()` | LearningIntelligenceMixin | What should I learn next? |
-| 2 | `get_learning_path_critical_path()` | LearningIntelligenceMixin | Fastest route to life path? |
-| 3 | `get_knowledge_application_opportunities()` | LearningIntelligenceMixin | Where can I apply this knowledge? |
-| 4 | `get_unblocking_priority_order()` | LearningIntelligenceMixin | What unlocks the most? |
-| 5 | `get_ready_to_work_on_today()` | DailyPlanningMixin | **THE FLAGSHIP** - What's optimal for TODAY? |
-| 6 | `get_cross_domain_synergies()` | SynergyIntelligenceMixin | Which entities create synergy? |
-| 7 | `calculate_life_path_alignment()` | LifePathIntelligenceMixin | Am I living my life path? |
-| 8 | `get_schedule_aware_recommendations()` | ScheduleIntelligenceMixin | What fits my schedule right now? |
+| Group | Parameter | Wired value (`services_bootstrap/_intelligence_hub.py`) | Read by |
+|-------|-----------|------------------------------------------------------|---------|
+| Activity (6) | `tasks`, `goals`, `habits`, `events`, `choices`, `principles` | the **facades** (`TasksService`, …) — not `.relationships`; the planning methods (`get_actionable_tasks_for_user`, …) are facade methods | methods 1, 5, 9 |
+| Curriculum (3) | `ps` | `PsService` facade | methods 1, 5 |
+| | `lp` | `LpService.relationships` (`UnifiedRelationshipService`) | no method yet (held for method 2's LP walk) |
+| | `exercises` | `ExerciseService` facade | method 5 (revisions, unsubmitted exercises) |
+| Processing (1) | `report` | `ReportRelationshipService` | method 5 — `get_pending_submissions(pipelines=Pipeline.awaiting_report())`, the plan's `awaiting_report` slot |
+| Temporal (1) | `calendar` | `CalendarService` | method 8 — `event_items_in_range` for the horizon's committed minutes |
 
----
-
-## The 13 Required Domain Services
-
-**Philosophy:** "SKUEL runs at full capacity or not at all"
-
-UserContextIntelligence requires ALL 12 domain services because each contributes unique intelligence:
-
-### Activity (6) - All use UnifiedRelationshipService
-
-| Service | Purpose | Implementation |
-|---------|---------|----------------|
-| **tasks** | What can I do now? | `tasks_service.relationships` (UnifiedRelationshipService) |
-| **goals** | What goals need attention? | `goals_service.relationships` (UnifiedRelationshipService) |
-| **habits** | What streaks are at risk? | `habits_service.relationships` (UnifiedRelationshipService) |
-| **events** | What's scheduled? | `events_service.relationships` (UnifiedRelationshipService) |
-| **choices** | What decisions await? | `choices_service.relationships` (UnifiedRelationshipService) |
-| **principles** | What values guide this? | `principles_service.relationships` (UnifiedRelationshipService) |
-
-### Curriculum (3) - PS/LP unified January 2026, KU split March 2026, Lesson merged into PS April 2026
-
-| Service | Purpose | Implementation |
-|---------|---------|----------------|
-| **ku** | Atomic knowledge reference | `ku_service` (KuService) |
-| **ps** | PathStep — THE curriculum content entity | `ps_service` (PsService facade) |
-| **lp** | Critical path to life path | `lp_service.relationships` (UnifiedRelationshipService) |
-
-**January 2026 Consolidation:**
-- `LsRelationshipService` DELETED → PS now uses `UnifiedRelationshipService` with PS domain config
-- `LpRelationshipService` DELETED → LP now uses `UnifiedRelationshipService` with LP domain config
-- All curriculum relationships now use the same unified service pattern as Activity domains
-
-### Processing (2)
-
-| Service | Purpose | Implementation |
-|---------|---------|----------------|
-| **report** | Entries turned in and still awaiting a report (the daily plan's `awaiting_report` slot, P2.7) | ReportRelationshipService (`get_pending_submissions`, `Pipeline.awaiting_report()`) |
-
-### Temporal Domain (1)
-
-| Service | Purpose | Implementation |
-|---------|---------|----------------|
-| **calendar** | Schedule-aware intelligence | CalendarService |
-
-### Factory Pattern
-
-**Location:** `/core/services/user/intelligence/factory.py` (lines 94-167)
-
-```python
-class UserContextIntelligenceFactory:
-    def __init__(
-        self,
-        # Activity (6) - All UnifiedRelationshipService with domain configs
-        tasks: UnifiedRelationshipService,
-        goals: UnifiedRelationshipService,
-        habits: UnifiedRelationshipService,
-        events: UnifiedRelationshipService,
-        choices: UnifiedRelationshipService,
-        principles: UnifiedRelationshipService,
-        # Curriculum (3)
-        ku: KuGraphService,
-        ls: UnifiedRelationshipService,  # January 2026: Unified
-        lp: UnifiedRelationshipService,  # January 2026: Unified
-        # Processing (2) — journals merged into reports Feb 2026
-        reports: SubmissionsRelationshipService,
-        # Temporal Domain (1)
-        calendar: CalendarService,
-    ) -> None:
-        # Fail-fast validation: ALL 12 services REQUIRED
-        required = {
-            "tasks": tasks, "goals": goals, "habits": habits,
-            "events": events, "choices": choices, "principles": principles,
-            "ku": ku, "ls": ls, "lp": lp,
-            "reports": reports, "analytics": analytics,
-            "calendar": calendar,
-        }
-        missing = [name for name, service in required.items() if service is None]
-        if missing:
-            raise ValueError(
-                f"UserContextIntelligenceFactory requires all 12 domain services. "
-                f"Missing: {', '.join(missing)}"
-            )
-
-    def create(self, context: UserContext) -> UserContextIntelligence:
-        """Create intelligence instance bound to specific user context."""
-        return UserContextIntelligence(context=context, services=self)
-```
+Optional: `zpd_service` (`ZPDOperations`, FULL tier — method 1's first candidate source),
+`vector_search_service` (FULL tier — methods 1 and 5's semantic step), `filtered_providers`
+(the nine facades that implement `FilteredContextProvider`: the six Activity facades, `ps`,
+`learning_paths`, `exercises` — read by method 5's domain-health warnings, Activity keys only).
 
 ---
 
-## Context Depth: Standard vs Rich
+## Rich context is required
 
-**Philosophy:** UserContextIntelligence operations require RICH context.
+`factory.create()` and every mixin take a `RichUserContext` — the `UserContext` subclass that
+narrows the seven `RICH_ONLY_FIELDS` from `X | None` to `X` and pins `is_rich_context=True`.
+mypy rejects a standard context at the call site.
 
-UserContext has two depth levels:
+| Read | Depth |
+|------|-------|
+| `UserService.get_rich_unified_context(user_uid)` | Rich — cached 5 minutes, built on a miss; **the read the HTTP and HTMX doors make** (an Askesis wrapper makes no read — it takes the `RichUserContext` its caller hands it) |
+| `UserContextBuilder.build_rich(user_uid, window="30d")` | Rich — always builds |
+| `UserService.get_user_context(user_uid)` / `UserContextBuilder.build(user_uid)` | Standard — not accepted by the factory |
 
-| Depth | Method | Fields | Use Case | Intelligence Compatible? |
-|-------|--------|--------|----------|--------------------------|
-| **Standard** | `build()` | UIDs only (~150) | API responses, lightweight checks | ❌ NO - missing entities/graph |
-| **Rich** | `build_rich()` | UIDs + entities + graph (~240) | Intelligence operations | ✅ YES - full context |
+The `/api/context/*` view methods (`UserContextService`: dashboard, summary, at-risk habits,
+adaptive path, create-tasks-from-goal) build the rich context too; only
+`complete_habit_with_context` reads the standard depth.
 
-**Standard Context:**
-- Contains entity UIDs only (e.g., `task_uids: list[str]`)
-- Fast to build (~50-100ms)
-- Sufficient for ownership checks, simple queries
-- NOT sufficient for intelligence operations
-
-**Rich Context:**
-- Contains UIDs + full entities + graph neighborhoods
-- Slower to build (~200-500ms) due to MEGA-QUERY
-- Includes: tasks with their goals/habits, KUs with prerequisites, etc.
-- Required for all 8 flagship methods
-
-### Validation at Runtime
-
-Intelligence methods rely on two mechanisms to fail fast when handed a
-standard-depth context:
-
-1. **Compile-time:** type the parameter as `RichUserContext` — the subclass
-   narrows the seven `RICH_ONLY_FIELDS` to non-Optional and pins
-   `is_rich_context=True`.
-2. **Runtime backstop:** strict accessors (`get_tasks_for_goal`,
-   `get_blocked_tasks`, etc.) delegate through `_as_rich(operation)` on
-   `UserContext`, which raises `RichContextRequiredError` on a standard-depth
-   context.
+Two guards stack: the parameter type, and the strict accessors (`get_blocked_tasks()`,
+`get_habits_by_goal()`, …) that go through `UserContext._as_rich(operation)` and raise
+`RichContextRequiredError` on a standard context. There is no universal runtime check —
+`factory.create()` does not test the depth, so a wrong-depth context handed over by an unchecked
+caller gets as far as the first strict accessor the call reaches. The type is the guard.
 
 ```python
-# File: /core/services/user/unified_user_context.py
+context_result = await user_service.get_rich_unified_context(user_uid)
+if context_result.is_error:
+    return Result.fail(context_result)
 
-class UserContext:
-    def _as_rich(self, operation: str) -> RichUserContext:
-        """Guard + cast chokepoint for strict rich-only accessors."""
-        if not self.is_rich_context:
-            from core.errors import RichContextRequiredError
-
-            raise RichContextRequiredError(operation)
-        return cast("RichUserContext", self)
-
-# Usage in intelligence methods — type against RichUserContext:
-async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:
-    """THE FLAGSHIP - requires rich context."""
-    # self.context typed as RichUserContext; strict accessors raise on standard
-    blocked = self.context.get_blocked_tasks()
-    # Proceed with full entities available
+intelligence = factory.create(context_result.value)
+plan_result = await intelligence.get_ready_to_work_on_today()
 ```
 
-**MEGA-QUERY for Rich Context:**
-- Location: `/adapters/persistence/neo4j/user_context_queries.py`
-- Single ~1,000 line Cypher query
-- Fetches UIDs + entities + graph context in one round-trip
-- Populates all ~240 fields of UserContext
+What `build_rich()` reads, and why a new read is a new `RICH_CONTEXT_STATEMENTS` entry:
+[UNIFIED_USER_ARCHITECTURE.md](../architecture/UNIFIED_USER_ARCHITECTURE.md).
 
 ---
 
-## Method 1: get_optimal_next_path_steps()
+## The flagship: the daily plan (method 5)
 
-**Mixin:** LearningIntelligenceMixin
+`get_ready_to_work_on_today(prioritize_life_path=True, respect_capacity=True)` fills its slots
+in a fixed order — at-risk habits, today's events, pending revisions, unsubmitted exercises,
+entries awaiting a report (named, no minutes), tasks, daily habits, learning, goals, decisions,
+principles — accumulating `estimated_time` and, under `respect_capacity`, skipping a
+capacity-checked item that would push the total past `context.available_minutes_daily`. The
+learning slot takes the first source that answers: the ZPD assessment's learn actions, vector
+search, `ps.get_ready_to_learn_for_user`; a candidate's minutes come from
+`context.estimated_minutes(uid, default)` (a path step in progress answers with its own
+estimate). A slot whose read fails contributes nothing; the plan is still `Result.ok`.
 
-**Purpose:** Determine what to learn next based on ALL factors (prerequisites, goals, capacity, life path).
+`prioritize_life_path` changes one clause of the rationale, not the selection. Warnings, the
+domain-health checks over `filtered_providers`, the momentum signals and the ADR-059 engagement
+buckets: skill § The Flagship.
 
-**Signature:**
-```python
-async def get_optimal_next_path_steps(
-    self,
-    max_steps: int = 5,
-    consider_goals: bool = True,
-    consider_capacity: bool = True,
-) -> Result[list[PathStep]]:
-```
-
-**Parameters:**
-- `max_steps` (int, default=5) - Maximum number of steps to return
-- `consider_goals` (bool, default=True) - Weight by goal alignment: each goal a step serves
-  adds `NextStepRanking.GOAL_WEIGHT_PER_GOAL` to its `priority_score`, up to `GOAL_WEIGHT_MAX`
-  and no higher than a score of 1.0. Off, goal alignment changes no score;
-  `aligns_with_goals` is filled either way
-- `consider_capacity` (bool, default=True) - Respect user capacity limits: the returned steps
-  fit `context.available_minutes_daily` together. Off, no step is dropped
-
-Both flags act in one place (`_rank_steps`), so they mean the same thing whichever source
-answered. The context fields they read (`learning_goals`, `prerequisites_needed`,
-`estimated_time_to_mastery`) have no writer in `UserContextBuilder` — see the skill's
-[MIXIN_ARCHITECTURE.md](../../.claude/skills/user-context-intelligence/MIXIN_ARCHITECTURE.md).
-
-**Returns** (the `Result`'s value, in descending `priority_score` order):
-```python
-[
-    PathStep(
-        ku_uid="ku.python-async",
-        title="Python Async Programming",
-        rationale="Needed for 2 goals, unlocks 5 tasks, prerequisites met",
-        prerequisites_met=True,
-        aligns_with_goals=["goal_001", "goal_003"],
-        unlocks_count=5,
-        estimated_time_minutes=60,
-        priority_score=0.85,
-        application_opportunities={
-            "tasks": ["task_042", "task_087"],
-            "goals": ["goal_001"]
-        }
-    )
-]
-```
-
-**Synthesis Algorithm:**
-1. Take candidates from the first source that has them: the ZPD assessment (its learn
-   actions, else its proximal zone), vector search, `ps.get_ready_to_learn_for_user()`, the
-   context's `get_ready_to_learn()`
-2. For each candidate, find application opportunities, count the items it unlocks, find the
-   goals it serves, and build the rationale; the source supplies the priority score
-3. `_rank_steps`: add the goal weight (`consider_goals`), sort by priority, keep the steps
-   that fit the day (`consider_capacity`), return the top N
-
-**Example:**
-```python
-intelligence = factory.create(context)
-result = await intelligence.get_optimal_next_path_steps(
-    max_steps=3,
-    consider_goals=True,
-    consider_capacity=True
-)
-
-for step in result.value:
-    print(f"Learn: {step.title}")
-    print(f"  Priority: {step.priority_score:.2f}")
-    print(f"  Unlocks: {step.unlocks_count} items")
-    print(f"  Rationale: {step.rationale}")
-```
-
-**Dependencies:** `zpd_service` and `vector_search` (optional), `ps`, `tasks`, context
+`UserContextService.get_next_action` projects the plan into `NextActionResult` for
+`/api/context/next-action`.
 
 ---
 
-## Method 2: get_learning_path_critical_path()
-
-**Mixin:** LearningIntelligenceMixin
-
-**Purpose:** Find the fastest route to the user's life path by identifying critical path steps.
-
-**Signature:**
-```python
-async def get_learning_path_critical_path(
-    self,
-    life_path_uid: str | None = None,
-    max_depth: int = 5,
-) -> list[PathStep]:
-```
-
-**Parameters:**
-- `life_path_uid` (str, optional) - Target life path (defaults to context.life_path_uid)
-- `max_depth` (int, default=5) - Maximum prerequisite chain depth
-
-**Returns:**
-Ordered list of PathStep objects representing the critical path.
-
-**Algorithm:**
-1. Get user's life path (from context or parameter)
-2. Identify terminal knowledge required for life path
-3. Traverse prerequisite chains backwards
-4. Identify critical bottlenecks (single prerequisite paths)
-5. Calculate time estimates for each step
-6. Return ordered sequence (earliest prerequisite first)
-
-**Example:**
-```python
-critical_path = await intelligence.get_learning_path_critical_path()
-
-print(f"Critical path has {len(critical_path)} steps")
-for i, step in enumerate(critical_path, 1):
-    print(f"{i}. {step.title} ({step.estimated_time_minutes}min)")
-```
-
-**Dependencies:** lp (UnifiedRelationshipService), ku (KuGraphService)
-
----
-
-## Method 3: get_knowledge_application_opportunities()
-
-**Mixin:** LearningIntelligenceMixin
-
-**Purpose:** Discover where specific knowledge can be applied across tasks, goals, and events.
-
-**Signature:**
-```python
-async def get_knowledge_application_opportunities(
-    self,
-    ku_uid: str,
-) -> dict[str, list[str]]:
-```
-
-**Parameters:**
-- `ku_uid` (str) - Knowledge unit UID to analyze
-
-**Returns:**
-```python
-{
-    "tasks": ["task_042", "task_087"],  # Tasks requiring this knowledge
-    "goals": ["goal_001"],              # Goals enabled by this knowledge
-    "events": ["event_023"],            # Events applying this knowledge
-    "habits": ["habit_005"]             # Habits reinforcing this knowledge
-}
-```
-
-**Example:**
-```python
-opportunities = await intelligence.get_knowledge_application_opportunities(
-    ku_uid="ku.python-async"
-)
-
-print(f"Can apply to {len(opportunities['tasks'])} tasks")
-print(f"Supports {len(opportunities['goals'])} goals")
-```
-
-**Dependencies:** tasks, goals, events, habits (UnifiedRelationshipService)
-
----
-
-## Method 4: get_unblocking_priority_order()
-
-**Mixin:** LearningIntelligenceMixin
-
-**Purpose:** Identify knowledge/tasks with highest unblocking potential (what unlocks the most downstream work).
-
-**Signature:**
-```python
-async def get_unblocking_priority_order(
-    self,
-    max_items: int = 10,
-) -> list[dict[str, Any]]:
-```
-
-**Parameters:**
-- `max_items` (int, default=10) - Maximum items to return
-
-**Returns:**
-```python
-[
-    {
-        "uid": "ku.python-basics",
-        "type": "knowledge",
-        "title": "Python Basics",
-        "unlocks_count": 23,  # Unlocks 23 downstream items
-        "unlocks": {
-            "knowledge": ["ku.django", "ku.flask"],
-            "tasks": ["task_001", "task_002"],
-            "goals": ["goal_005"]
-        },
-        "priority_score": 0.92
-    }
-]
-```
-
-**Algorithm:**
-1. Traverse prerequisite graph for all user entities
-2. Count downstream items for each knowledge/task
-3. Calculate priority score (unlocks_count / total_items)
-4. Sort by priority score descending
-5. Return top N items
-
-**Example:**
-```python
-unblocking = await intelligence.get_unblocking_priority_order(max_items=5)
-
-for item in unblocking:
-    print(f"{item['title']}: Unlocks {item['unlocks_count']} items")
-```
-
-**Dependencies:** ku (KuGraphService), tasks, goals (UnifiedRelationshipService)
-
----
-
-## Method 5: get_ready_to_work_on_today() - THE FLAGSHIP
-
-**Mixin:** DailyPlanningMixin
-
-**Purpose:** THE core method - synthesize ALL 9 domains to answer "What should I focus on TODAY?"
-
-**Signature:**
-```python
-async def get_ready_to_work_on_today(
-    self,
-    prioritize_life_path: bool = True,
-    respect_capacity: bool = True,
-) -> DailyWorkPlan:
-```
-
-**Parameters:**
-- `prioritize_life_path` (bool, default=True) - Weight life path alignment highly
-- `respect_capacity` (bool, default=True) - Don't exceed available time
-
-**Returns:**
-```python
-DailyWorkPlan(
-    # Domain items (UIDs)
-    learning=["ku.python-async"],
-    tasks=["task_042", "task_087"],
-    habits=["habit_005"],
-    events=["event_023"],
-    goals=["goal_001"],
-    choices=["choice_012"],
-    principles=["principle_003"],
-
-    # Contextual items (enriched entities)
-    contextual_tasks=[ContextualTask(...), ...],
-    contextual_habits=[ContextualHabit(...), ...],
-    contextual_goals=[ContextualGoal(...), ...],
-    contextual_knowledge=[ContextualKnowledge(...), ...],
-
-    # Plan metadata
-    estimated_time_minutes=240,
-    fits_capacity=True,
-    workload_utilization=0.72,  # 72% capacity
-
-    rationale="Focus on at-risk habits first, then advance goal_001",
-    priorities=[
-        "1. Maintain meditation habit (streak at risk)",
-        "2. Complete task_042 (unblocks 3 items)",
-        "3. Learn Python async (needed for 2 goals)"
-    ],
-    warnings=["Approaching 75% capacity - consider lighter afternoon"]
-)
-```
-
-**Synthesis Algorithm:**
-
-```
-Priority 1: At-risk habits (maintain streaks - highest priority)
-  └─ habits.get_at_risk_habits_for_user() → Top 3 habits
-     Cost: ~15min per habit
-
-Priority 2: Today's events (can't reschedule)
-  └─ events.get_upcoming_events_for_user() → Events today
-     Cost: Event duration
-
-Priority 2.3 / 2.5: Pending revisions, then unsubmitted exercises
-  └─ exercises.get_pending_revisions_for_user() / get_actionable_exercises_for_user()
-     Cost: the exercise's estimate; capacity-checked
-
-Priority 2.7: Entries awaiting a report (DailyWorkPlan.awaiting_report)
-  └─ report.get_pending_submissions(pipelines=Pipeline.awaiting_report())
-     → turn-ins (teacher_review) with no REPORT_FOR yet, newest first
-     Cost: none — out of the user's hands, not capacity-checked;
-     named in the rationale ("N entries awaiting a report")
-
-
-Priority 3: High-priority tasks (urgent/important)
-  └─ tasks.get_actionable_tasks_for_user() → Priority > HIGH
-     Filter: Has prerequisites met
-     Cost: Task estimated_time
-
-Priority 4: Advancing goals (make progress)
-  └─ goals.get_advancing_goals_for_user() → Active goals
-     Include: Next actions for each goal
-     Cost: ~30min per goal
-
-Priority 5: Ready-to-learn knowledge (growth)
-  └─ ps.get_ready_to_learn_for_user() → Prerequisites met
-     Filter: Aligns with goals or life path
-     Cost: KU estimated_time
-
-Priority 6: Pending decisions (reduce cognitive load)
-  └─ choices.get_pending_decisions_for_user() → Awaiting decision
-     Cost: ~20min per choice
-
-Priority 7: Principle embodiment (value alignment)
-  └─ principles.get_aligned_principles_for_user() → Active principles
-     Cost: Reflection time
-```
-
-**Capacity Management:**
-- Respects `context.available_minutes_daily`
-- Considers `context.current_energy_level`
-- Warns when `context.current_workload_score >= 0.75`
-- Stops adding items when capacity reached
-
-**Domain Health Warnings** (via `filtered_providers` stats):
-- Queries aggregate stats from tasks, goals, habits `FilteredContextProvider` facades
-- Warns on: task backlog (>30 active), no active goals, no habits tracked
-- `_query_domain_stats(domain)` — reusable helper for any domain's `ListContext["stats"]`
-- Graceful: skipped when `filtered_providers` is empty or provider query fails
-
-**Example:**
-```python
-intelligence = factory.create(context)
-plan = await intelligence.get_ready_to_work_on_today(
-    prioritize_life_path=True,
-    respect_capacity=True
-)
-
-print(f"Daily Plan ({plan.estimated_time_minutes}min)")
-print(f"Workload: {plan.workload_utilization:.0%}")
-print(f"\nPriorities:")
-for priority in plan.priorities:
-    print(f"  {priority}")
-
-print(f"\nFocus Areas:")
-print(f"  - {len(plan.habits)} habits")
-print(f"  - {len(plan.tasks)} tasks")
-print(f"  - {len(plan.learning)} learning")
-print(f"  - {len(plan.goals)} goals")
-```
-
-**Dependencies:** ALL 9 domain services (tasks, goals, habits, events, choices, principles, ku, ls, lp)
-
----
-
-## Method 6: get_cross_domain_synergies()
-
-**Mixin:** SynergyIntelligenceMixin
-
-**Purpose:** Detect synergies between entities across different domains (high-leverage opportunities).
-
-**Signature:**
-```python
-async def get_cross_domain_synergies(
-    self,
-    min_synergy_score: float = 0.3,
-    include_types: list[str] | None = None,
-) -> list[CrossDomainSynergy]:
-```
-
-**Parameters:**
-- `min_synergy_score` (float, default=0.3) - Minimum score to include (0.0-1.0)
-- `include_types` (list[str], optional) - Filter to specific types ["habit_goal", "task_habit", etc.]
-
-**Synergy Types Detected:**
-1. **Habit→Goal**: Habits supporting multiple goals (high leverage)
-2. **Task→Habit**: Tasks that build habits (behavior change)
-3. **Knowledge→Task**: Knowledge enabling tasks (skill application)
-4. **Principle→Goal**: Principles guiding the active goals they `SUPPORTS_GOAL` (`principle_supported_goals`), weighted by `strength` (`principle_priorities`)
-5. **Goal→Learning**: Goals requiring specific knowledge (learning gaps)
-
-**Returns:**
-```python
-[
-    CrossDomainSynergy(
-        source_uid="habit_005",
-        source_domain="habit",
-        target_uids=["goal_001", "goal_003", "goal_007"],
-        target_domain="goal",
-        synergy_type="supports",
-        synergy_score=0.85,  # High leverage - supports 3 goals
-        rationale="Morning meditation supports mental clarity, stress reduction, and focus",
-        recommendations=[
-            "Prioritize this habit - it advances multiple goals",
-            "Track which goal it helps most each day"
-        ]
-    )
-]
-```
-
-**Synergy Score Scale:**
-- 0.0-0.3: Weak synergy (single connection)
-- 0.4-0.6: Moderate synergy (multiple connections)
-- 0.7-1.0: Strong synergy (hub entity, high leverage)
-
-**Example:**
-```python
-synergies = await intelligence.get_cross_domain_synergies(
-    min_synergy_score=0.5,
-    include_types=["habit_goal", "knowledge_task"]
-)
-
-for synergy in synergies:
-    print(f"{synergy.source_domain} → {synergy.target_domain}")
-    print(f"  {synergy.rationale}")
-    print(f"  Score: {synergy.synergy_score:.2f}")
-```
-
-**Dependencies:** tasks, goals, habits, principles, ku (relationship services)
-
----
-
-## Method 7: calculate_life_path_alignment()
-
-**Mixin:** LifePathIntelligenceMixin
-
-**Purpose:** Calculate comprehensive life path alignment across 5 dimensions.
-
-**Signature:**
-```python
-async def calculate_life_path_alignment(
-    self
-) -> Result[LifePathAlignment]:
-```
-
-**Returns:**
-```python
-LifePathAlignment(
-    # Overall score
-    overall_score=0.73,
-    alignment_level="aligned",  # "drifting", "exploring", "aligned", "flourishing"
-
-    # Dimension scores (0.0-1.0 each)
-    knowledge_score=0.68,     # Mastery of life path knowledge (25% weight)
-    activity_score=0.81,      # Tasks/habits supporting life path (25% weight)
-    goal_score=0.75,          # Goals contributing to life path (20% weight)
-    principle_score=0.62,     # Values supporting life path (15% weight)
-    momentum_score=0.79,      # Recent trend toward life path (15% weight)
-
-    # Insights
-    strengths=[
-        "Strong momentum - 79% of recent activity aligns",
-        "Activity patterns well-aligned with life path goals"
-    ],
-    gaps=[
-        "Low principle alignment - clarify core values",
-        "Some knowledge remains theoretical (not applied)"
-    ],
-    recommendations=[
-        "Focus on embodying principles in daily choices",
-        "Apply Python knowledge to more real-world projects",
-        "Schedule weekly life path review sessions"
-    ],
-
-    # Supporting data
-    life_path_uid="lp.full-stack-developer",
-    life_path_milestones_completed=12,
-    life_path_milestones_total=18,
-    aligned_goals=["goal_001", "goal_003"],
-    supporting_habits=["habit_005", "habit_009"],
-    knowledge_gaps=["ku.kubernetes", "ku.microservices"]
-)
-```
-
-**Alignment Dimensions:**
-
-| Dimension | Weight | Calculation |
-|-----------|--------|-------------|
-| **Knowledge** | 25% | Mastery of life path knowledge units |
-| **Activity** | 25% | Tasks/habits supporting life path goals |
-| **Goal** | 20% | Active goals contributing to life path |
-| **Principle** | 15% | Values supporting life path direction |
-| **Momentum** | 15% | Recent activity trend toward life path |
-
-**Alignment Levels:**
-- 0.0-0.3: **Drifting** (significant misalignment)
-- 0.4-0.6: **Exploring** (some alignment, room for growth)
-- 0.7-0.8: **Aligned** (actively living the path)
-- 0.9-1.0: **Flourishing** (fully integrated, embodied)
-
-**Example:**
-```python
-result = await intelligence.calculate_life_path_alignment()
-
-if result.is_ok:
-    alignment = result.value
-    print(f"Life Path Alignment: {alignment.overall_score:.1%}")
-    print(f"Level: {alignment.alignment_level}")
-    print(f"\nStrengths:")
-    for strength in alignment.strengths:
-        print(f"  ✓ {strength}")
-    print(f"\nGaps:")
-    for gap in alignment.gaps:
-        print(f"  ✗ {gap}")
-```
-
-**Dependencies:** lp (UnifiedRelationshipService), goals, habits, principles, ku (graph analysis)
-
----
-
-## Method 8: get_schedule_aware_recommendations()
-
-**Mixin:** ScheduleIntelligenceMixin
-
-**Purpose:** Get recommendations that consider schedule, capacity, and energy levels.
-
-**Signature:**
-```python
-async def get_schedule_aware_recommendations(
-    self,
-    max_recommendations: int = 5,
-    time_horizon_hours: int = 8,
-    respect_energy: bool = True,
-) -> Result[list[ScheduleAwareRecommendation]]:
-```
-
-**Parameters:**
-- `max_recommendations` (int, default=5) - Maximum number of recommendations
-- `time_horizon_hours` (int, default=8) - How far ahead to look
-- `respect_energy` (bool, default=True) - Consider current energy level
-
-**Returns:**
-```python
-[
-    ScheduleAwareRecommendation(
-        uid="task_042",
-        entity_type="task",
-        recommendation_type="task",
-        title="Complete Python API integration",
-        rationale="Fits morning energy, no conflicts, unblocks 3 tasks",
-
-        # Schedule context
-        suggested_time_slot="morning",
-        estimated_duration_minutes=90,
-        fits_available_time=True,
-        conflicts_with=[],
-
-        # Scoring
-        schedule_fit_score=0.88,
-        energy_match_score=0.92,
-        priority_score=0.85,
-        overall_score=0.88,  # Weighted combination
-
-        # Decision context
-        deadline="2026-01-10",
-        streak_at_risk=False,
-        blocks_other_work=True,  # Unblocks 3 tasks
-        life_path_aligned=True,
-
-        # Guidance
-        preparation_needed=["Review API docs", "Set up test environment"],
-        alternatives=["task_087", "task_091"]
-    )
-]
-```
-
-**Synthesis Algorithm:**
-1. Calculate available time slots from calendar events
-2. Assess current energy level and capacity
-3. Gather candidates from all domains (tasks, habits, learning, goals)
-4. Score each by: schedule_fit × energy_match × priority
-5. Filter conflicts and capacity violations
-6. Rank by overall score
-7. Generate actionable recommendations with preparation steps
-
-**Recommendation Types:**
-- **"learn"**: Knowledge unit to study
-- **"task"**: Task to complete
-- **"habit"**: Habit to maintain
-- **"goal"**: Goal to advance
-- **"rest"**: Rest recommendation (capacity exceeded)
-- **"reschedule"**: Reschedule suggestion for conflicts
-
-**Example:**
-```python
-recommendations = await intelligence.get_schedule_aware_recommendations(
-    max_recommendations=3,
-    time_horizon_hours=4,
-    respect_energy=True
-)
-
-for rec in recommendations:
-    print(f"\n{rec.title}")
-    print(f"  When: {rec.suggested_time_slot}")
-    print(f"  Duration: {rec.estimated_duration_minutes}min")
-    print(f"  Overall Score: {rec.overall_score:.2f}")
-    print(f"  Why: {rec.rationale}")
-    if rec.preparation_needed:
-        print(f"  Prep: {', '.join(rec.preparation_needed)}")
-```
-
-**Dependencies:** calendar (CalendarService), tasks, habits, goals, ku (all domain services)
-
----
-
-## Mixin Architecture
-
-UserContextIntelligence uses **mixin composition** to organize the 8 flagship methods:
+## Mixin architecture
 
 ```python
 class UserContextIntelligence(
@@ -871,399 +168,58 @@ class UserContextIntelligence(
     LifePathIntelligenceMixin,      # Method 7
     SynergyIntelligenceMixin,       # Method 6
     ScheduleIntelligenceMixin,      # Method 8
-    DailyPlanningMixin,             # Method 5
-    GraphNativeMixin,               # Graph-native methods
-):
-    """Main intelligence class - composes all mixins."""
+    TemporalMomentumMixin,          # compute_momentum_signals() — feeds method 5
+    DailyPlanningMixin,             # Method 5 — the flagship
+    PerceptionIntelligenceMixin,    # Method 9
+): ...
 ```
 
-### LearningIntelligenceMixin (Methods 1-4)
+Every mixin inherits `IntelligenceMixinBase` (`_base.py`), the one declaration of the shared
+attribute surface (`self.context`, `self.tasks`, …). A mixin declares no attributes of its own
+and defines no `__init__`; state lives on the context. Per-mixin contracts:
+[MIXIN_ARCHITECTURE.md](../../.claude/skills/user-context-intelligence/MIXIN_ARCHITECTURE.md).
 
-**Location:** `/core/services/user/intelligence/learning_intelligence.py` (445 lines)
-
-**Methods:**
-1. `get_optimal_next_path_steps()` - What should I learn next?
-2. `get_learning_path_critical_path()` - Fastest route to life path?
-3. `get_knowledge_application_opportunities()` - Where can I apply this?
-4. `get_unblocking_priority_order()` - What unlocks the most?
-
-**Purpose:** Learning journey intelligence - synthesize KU, Goals, Tasks, and Context to determine optimal learning priorities.
-
-### LifePathIntelligenceMixin (Method 7)
-
-**Location:** `/core/services/user/intelligence/life_path_intelligence.py` (429 lines)
-
-**Methods:**
-7. `calculate_life_path_alignment()` - Multi-dimensional life path alignment scoring
-
-**Purpose:** Measure how well user's daily activities, knowledge, habits, goals, and principles align with ultimate life path.
-
-### SynergyIntelligenceMixin (Method 6)
-
-**Location:** `/core/services/user/intelligence/synergy_intelligence.py` (382 lines)
-
-**Methods:**
-6. `get_cross_domain_synergies()` - Cross-domain synergy detection
-
-**Purpose:** Detect high-leverage opportunities where entities across domains create synergy (habits supporting multiple goals, knowledge enabling multiple tasks).
-
-### ScheduleIntelligenceMixin (Method 8)
-
-**Location:** `/core/services/user/intelligence/schedule_intelligence.py` (469 lines)
-
-**Methods:**
-8. `get_schedule_aware_recommendations()` - Schedule-aware recommendations
-
-**Purpose:** Recommendations considering schedule, capacity, energy levels, and conflict avoidance.
-
-### DailyPlanningMixin (Method 5 - THE FLAGSHIP)
-
-**Location:** `/core/services/user/intelligence/daily_planning.py` (254 lines)
-
-**Methods:**
-5. `get_ready_to_work_on_today()` - THE FLAGSHIP - What's optimal for TODAY?
-
-**Purpose:** THE core method - synthesize ALL 9 domains to answer "What should I focus on today?"
+Not the same method: `AnalyticsService.calculate_life_path_alignment(user_uid)` (the analytics
+pages, `analytics_ui.py`, `analytics_summary_api.py`) is a different implementation returning a
+dict. Method 7 is the hub's.
 
 ---
 
-## Factory Pattern
+## Factory pattern
 
-**Location:** `/core/services/user/intelligence/factory.py` (234 lines)
-
-**Why a Factory?**
-- UserContextIntelligence requires a **context at construction** (user-specific)
-- The **12 domain services are singletons** (created once at bootstrap)
-- Factory separates service wiring from context binding
-
-**Bootstrap (services_bootstrap.py):**
-```python
-from core.services.user.intelligence import UserContextIntelligenceFactory
-
-# Create factory with all 12 domain services
-factory = UserContextIntelligenceFactory(
-    # Activity (6)
-    tasks=tasks_service.relationships,
-    goals=goals_service.relationships,
-    habits=habits_service.relationships,
-    events=events_service.relationships,
-    choices=choices_service.relationships,
-    principles=principles_service.relationships,
-    # Curriculum (3)
-    ku=ku_service,  # KuService facade
-    ps=ps_service,  # PsService facade (THE curriculum content entity)
-    lp=lp_service.relationships,
-    # Processing (3)
-    assignments=assignments_service.relationships,
-    journals=journals_service.relationships,
-    reports=reports_service.relationships,
-    # Temporal Domain (1)
-    calendar=calendar_service,
-)
-
-# Store in services container
-services.context_intelligence = factory
-```
-
-**Runtime (UserService):**
-```python
-# Build context for specific user
-context = await user_service.get_user_context(user_uid)
-
-# Create intelligence instance bound to context
-intelligence = factory.create(context)
-
-# Use intelligence methods
-plan = await intelligence.get_ready_to_work_on_today()
-```
+`UserContextIntelligenceFactory` holds the eleven services once, at bootstrap
+(`services_bootstrap/_intelligence_hub.py`), and `create(context)` binds them to one user's
+context. The context is user-specific and built on demand; the services are singletons. The
+factory is stored on `services.context_intelligence` and post-wired onto
+`user_service.intelligence_factory`. An instance is bound to the context it was created with —
+keep the factory, not an instance; the context cache is the reuse mechanism and `create()` costs
+nothing. Constructor, wiring and testing:
+[FACTORY_PATTERN.md](../../.claude/skills/user-context-intelligence/FACTORY_PATTERN.md).
 
 ---
 
-## Integration with Other Services
+## Key source files
 
-### UserService Integration
+| File | Purpose |
+|------|---------|
+| `core/services/user/intelligence/core.py` | `UserContextIntelligence` |
+| `core/services/user/intelligence/factory.py` | `UserContextIntelligenceFactory` |
+| `core/services/user/intelligence/_base.py` | `IntelligenceMixinBase` |
+| `core/services/user/intelligence/{learning,life_path,synergy,schedule,perception}_intelligence.py`, `daily_planning.py`, `temporal_momentum.py` | the mixins |
+| `core/models/context_types.py` | the record types and the `Contextual*` items |
+| `core/models/enums/intelligence_enums.py` | `HubQuestion` — card segment → method number |
+| `adapters/inbound/insights_ui.py`, `ui/insights/hub_cards.py` | the first door |
+| `adapters/inbound/learning_loop_routes.py` | method 3's door |
+| `core/services/user/user_context_service.py` | method 5's door (`get_next_action`) |
+| `core/services/askesis_service.py`, `core/ports/askesis_protocols.py` | the staged second door |
+| `services_bootstrap/_intelligence_hub.py` | factory, ZPD and Askesis wiring |
 
-**Location:** `/core/services/user/_context_planning_mixin.py` (on the `UserService` facade)
+## See also
 
-UserService uses the factory to create intelligence instances:
-
-```python
-async def get_daily_plan(self, user_uid: UserUID) -> Result[DailyWorkPlan]:
-    """Get daily work plan for user."""
-    # Build context
-    context = await self.get_user_context(user_uid)
-
-    # Create intelligence
-    intelligence = self.context_intelligence.create(context)
-
-    # Get plan
-    return await intelligence.get_ready_to_work_on_today()
-```
-
-### Askesis Service Integration
-
-**Location:** `/core/services/askesis_service.py`
-
-Askesis (AI coach) uses UserContextIntelligence for recommendations:
-
-```python
-async def get_coaching_recommendations(self, user_uid: UserUID):
-    """Get AI coaching recommendations."""
-    context = await self.user_service.get_user_context(user_uid)
-    intelligence = self.context_intelligence.create(context)
-
-    # Use intelligence for insights
-    plan = await intelligence.get_ready_to_work_on_today()
-    alignment = await intelligence.calculate_life_path_alignment()
-    synergies = await intelligence.get_cross_domain_synergies()
-
-    # Generate coaching based on intelligence
-    return self._generate_coaching(plan, alignment, synergies)
-```
-
----
-
-## Domain-Specific Features
-
-### Daily Planning (Method 5)
-
-**Priority Order (hardcoded for predictable planning):**
-1. **At-risk habits** - Maintain streaks (highest priority)
-2. **Today's events** - Can't reschedule
-3. **High-priority tasks** - Urgent/important work
-4. **Advancing goals** - Make progress
-5. **Ready-to-learn knowledge** - Growth opportunities
-6. **Pending decisions** - Reduce cognitive load
-7. **Principle embodiment** - Value alignment
-
-**Capacity Management:**
-- Respects `context.available_minutes_daily`
-- Warns at 75% capacity
-- Stops at 100% capacity
-- Considers `context.current_energy_level`
-
-### Cross-Domain Synthesis
-
-**Unique Capability:** UserContextIntelligence is the ONLY service that synthesizes across all entity types:
-
-| Synthesis Type | Domains Combined | Output |
-|----------------|------------------|--------|
-| Daily Planning | 9 domains | Prioritized work plan |
-| Life Path Alignment | 5 dimensions | Alignment score + insights |
-| Cross-Domain Synergies | 6 domains | High-leverage opportunities |
-| Schedule-Aware | 4 domains + calendar | Time-optimized recommendations |
-
----
-
-## Data Types
-
-**Location:** `/core/models/context_types.py`
-
-### LifePathAlignment
-
-```python
-@dataclass
-class LifePathAlignment:
-    overall_score: float              # 0.0-1.0
-    alignment_level: str              # "drifting", "exploring", "aligned", "flourishing"
-    knowledge_score: float            # 0.0-1.0
-    activity_score: float             # 0.0-1.0
-    goal_score: float                 # 0.0-1.0
-    principle_score: float            # 0.0-1.0
-    momentum_score: float             # 0.0-1.0
-    strengths: list[str]
-    gaps: list[str]
-    recommendations: list[str]
-    life_path_uid: str | None
-    life_path_milestones_completed: int
-    life_path_milestones_total: int
-    aligned_goals: list[str]
-    supporting_habits: list[str]
-    knowledge_gaps: list[str]
-```
-
-### CrossDomainSynergy
-
-```python
-@dataclass
-class CrossDomainSynergy:
-    source_uid: str
-    source_domain: str                # "habit", "task", "knowledge", "principle"
-    target_uids: list[str]
-    target_domain: str                # "goal", "habit", "task", "choice"
-    synergy_type: str                 # "supports", "enables", "builds", "informs"
-    synergy_score: float              # 0.0-1.0
-    rationale: str
-    recommendations: list[str]
-```
-
-### PathStep
-
-```python
-@dataclass
-class PathStep:
-    ku_uid: str
-    title: str
-    rationale: str
-    prerequisites_met: bool
-    aligns_with_goals: list[str]
-    unlocks_count: int
-    estimated_time_minutes: int
-    priority_score: float             # 0.0-1.0
-    application_opportunities: dict[str, list[str]]
-```
-
-### DailyWorkPlan
-
-```python
-@dataclass
-class DailyWorkPlan:
-    learning: list[str] = field(default_factory=list)
-    tasks: list[str] = field(default_factory=list)
-    habits: list[str] = field(default_factory=list)
-    events: list[str] = field(default_factory=list)
-    goals: list[str] = field(default_factory=list)
-    choices: list[str] = field(default_factory=list)
-    principles: list[str] = field(default_factory=list)
-
-    contextual_tasks: list[ContextualTask] = field(default_factory=list)
-    contextual_habits: list[ContextualHabit] = field(default_factory=list)
-    contextual_goals: list[ContextualGoal] = field(default_factory=list)
-    contextual_knowledge: list[ContextualKnowledge] = field(default_factory=list)
-
-    estimated_time_minutes: int = 0
-    fits_capacity: bool = True
-    workload_utilization: float = 0.0
-    rationale: str = ""
-    priorities: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-```
-
-### ScheduleAwareRecommendation
-
-```python
-@dataclass
-class ScheduleAwareRecommendation:
-    uid: str
-    entity_type: str
-    recommendation_type: str          # "learn", "task", "habit", "goal", "rest", "reschedule"
-    title: str
-    rationale: str
-    suggested_time_slot: str          # "morning", "afternoon", "evening", "now", "later"
-    estimated_duration_minutes: int = 30
-    fits_available_time: bool = True
-    conflicts_with: list[str] = field(default_factory=list)
-    schedule_fit_score: float = 0.0
-    energy_match_score: float = 0.0
-    priority_score: float = 0.0
-    overall_score: float = 0.0
-    deadline: str | None = None
-    streak_at_risk: bool = False
-    blocks_other_work: bool = False
-    life_path_aligned: bool = False
-    preparation_needed: list[str] = field(default_factory=list)
-    alternatives: list[str] = field(default_factory=list)
-```
-
----
-
-## Testing
-
-### Integration Tests
-
-**Location:** `/tests/integration/`
-
-Test intelligence methods and user context workflow:
-async def test_get_optimal_next_path_steps():
-    # Mock context and services
-    context = create_mock_context()
-    intelligence = create_test_intelligence(context)
-
-    # Test
-    steps = await intelligence.get_optimal_next_path_steps(max_steps=3)
-
-    # Assert
-    assert len(steps) <= 3
-    assert all(step.prerequisites_met for step in steps)
-
-async def test_daily_planning_workflow():
-    # Build real context
-    context = await user_service.get_user_context("user.mike")
-
-    # Create intelligence
-    intelligence = factory.create(context)
-
-    # Get daily plan
-    plan = await intelligence.get_ready_to_work_on_today()
-
-    # Verify plan structure
-    assert plan.fits_capacity == (
-        plan.estimated_time_minutes <= context.available_minutes_daily
-    )
-    assert plan.workload_utilization <= 1.0
-    assert len(plan.priorities) > 0
-```
-
-### Mock Factory for Testing
-
-```python
-def create_test_intelligence(context: UserContext) -> UserContextIntelligence:
-    """Create intelligence with mock services for testing."""
-    return UserContextIntelligence(
-        context=context,
-        tasks=mock_tasks_service(),
-        goals=mock_goals_service(),
-        habits=mock_habits_service(),
-        # ... etc for all 12 services
-    )
-```
-
----
-
-## Consumers
-
-UserContextIntelligence has no dedicated dashboard UI. Its flagship outputs are
-consumed by:
-
-- **Askesis** (`core/services/askesis_service.py` + `adapters/inbound/askesis_api.py`) — daily-plan, synergies, path-steps, life-path-alignment endpoints
-- **UserService.get_daily_work_plan** (`core/services/user/_context_planning_mixin.py`) — daily plan for programmatic consumers
-- **ZPD assessment** (`core/models/zpd/zpd_assessment.py`) — `get_optimal_next_path_steps()` is the primary ranking signal
-- **`build_rich()` capstone** (`core/services/user/unified_user_context.py`)
-
-Askesis is the intelligence UI paradigm — there is no separate intelligence
-overview page.
-
----
-
-
-## See Also
-
-### Related Documentation
-
-- **ADR-021:** User Context Intelligence Modularization (`/docs/decisions/ADR-021-user-context-intelligence-modularization.md`)
-- **ADR-016:** Context Builder Decomposition (similar pattern)
-- **Unified User Architecture:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`
-- **Context First Relationship Pattern:** `/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md`
-
-### Related Services
-
-- **Domain Intelligence Services:**
-  - `/docs/intelligence/TASKS_INTELLIGENCE.md`
-  - `/docs/intelligence/GOALS_INTELLIGENCE.md`
-  - `/docs/intelligence/HABITS_INTELLIGENCE.md`
-  - `/docs/intelligence/EVENTS_INTELLIGENCE.md`
-  - `/docs/intelligence/CHOICES_INTELLIGENCE.md`
-  - `/docs/intelligence/PRINCIPLES_INTELLIGENCE.md`
-  - `/docs/intelligence/KU_INTELLIGENCE.md`
-  - `/docs/intelligence/PS_INTELLIGENCE.md`
-  - `/docs/intelligence/LP_INTELLIGENCE.md`
-
-- **UserContext:** `/core/services/user/unified_user_context.py`
-- **UserService:** `/core/services/user_service.py`
-- **Askesis Service:** `/core/services/askesis_service.py`
-
-### CLAUDE.md Sections
-
-- **Intelligence Services Architecture** - Overview of all intelligence services
-- **UserContextIntelligence** - Quick reference for the 8 flagship methods
-- **Entity Type + 5-System Architecture** - Domain organization
+- [ADR-021](../decisions/ADR-021-user-context-intelligence-modularization.md) — the mixin decomposition
+- [ADR-030-dual-track-assessment-pattern.md](../decisions/ADR-030-dual-track-assessment-pattern.md) — the check-ins method 9 reads
+- [UNIFIED_USER_ARCHITECTURE.md](../architecture/UNIFIED_USER_ARCHITECTURE.md) — `UserContext`, the builder, the MEGA-QUERY
+- [ASKESIS_HOW_IT_WORKS.md](../architecture/ASKESIS_HOW_IT_WORKS.md) — the companion's two halves
+- [askesis-intelligence-doors.md](../roadmap/askesis-intelligence-doors.md) — the doors ruling and the staged second door
+- [hub-methods-residuals.md](../roadmap/hub-methods-residuals.md) — defects the F8 build found beside the hub and registered
+- [CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](../patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md)

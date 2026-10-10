@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-01
+updated: 2026-10-10
 ---
 
 # Intelligence Backlog: Implementation Guide
@@ -89,8 +89,8 @@ together — they share the same dependency pattern.
 2. **Filter by mastery.** Check `_user_context.mastered_knowledge_uids` (already populated
    on `UserContext`). Skip KUs the user has already mastered.
 
-3. **Check prerequisite readiness.** Use `_user_context.prerequisites_needed` — skip KUs
-   whose prerequisites are not yet in `_user_context.prerequisites_completed`.
+3. **Check prerequisite readiness.** Use `_user_context.unmet_prerequisites(ku_uid)` — skip
+   KUs with any unmet prerequisite (`ku_prerequisites` less `mastered_knowledge_uids`).
 
 4. **Create one Task per unmastered, ready step.** Call `self.backend.create()` with a
    `TaskCreateRequest`-style dict. Link the task to the KU via `APPLIES_KNOWLEDGE`
@@ -110,8 +110,9 @@ together — they share the same dependency pattern.
 **Current body:** calls `user_context.get_ready_to_learn()` (real method on `UserContext`,
 returns a list of KU UIDs) but then short-circuits to `Result.ok(None)`.
 
-`get_ready_to_learn()` is already implemented at `unified_user_context.py:633`. It checks
-`next_recommended_knowledge` against `prerequisites_needed` and `prerequisites_completed`.
+`get_ready_to_learn()` is already implemented on `UserContext` (`unified_user_context.py`). It
+returns `ready_to_learn_uids` sorted — unmastered knowledge whose prerequisites are all mastered,
+derived by the rich build.
 
 **Implementation steps:**
 

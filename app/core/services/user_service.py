@@ -148,9 +148,9 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         # this facade, like devices above
         self.session_invalidator: SessionInvalidationOperations | None = session_invalidator
 
-        # Intelligence factory (wired with 13 domain relationship services)
-        # Note: Factory is wired post-construction via services_bootstrap.py
-        # This is intentional - the factory requires all 13 domain services
+        # Intelligence factory (holds the eleven domain services the hub methods read)
+        # Note: Factory is wired post-construction via services_bootstrap/_intelligence_hub.py
+        # This is intentional - the factory requires every domain service to exist first
         self.intelligence_factory = intelligence_factory
 
         # Keep repo reference for backward compatibility

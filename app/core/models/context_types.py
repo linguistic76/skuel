@@ -49,7 +49,7 @@ match entity.entity_type:
 ```
 
 **Integration Points:**
-- UserContext: Provides ~240 fields for personalization
+- UserContext: The cross-domain state snapshot the queries personalize against
 - Relationship Services: Consume context to enrich results
 - UserContextIntelligence: Combines context-first queries for flagship methods
 
@@ -1502,7 +1502,8 @@ class DailyWorkPlan:
 
     **Synthesizes ALL domains:**
     - Activity Domains (6): tasks, habits, goals, events, choices, principles
-    - Curriculum Domains (3): ku, ls, lp
+    - Curriculum: ready-to-learn knowledge (ZPD assessment, vector search, or the
+      PathStep service) and the exercises below
     - Submissions Domain (1): exercises assigned but not yet submitted
     - Report Domain (1): entries turned in and still awaiting a report
 

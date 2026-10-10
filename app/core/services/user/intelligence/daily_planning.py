@@ -93,7 +93,7 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         """
         THE FLAGSHIP METHOD - What should I focus on TODAY?
 
-        **Synthesizes ALL 9 domains:**
+        **Synthesizes the domain services:**
 
         Activity Domains (6):
         - tasks.get_actionable_tasks_for_user() - Ready tasks
@@ -104,17 +104,17 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         - principles.get_aligned_principles_for_user() - Values to embody
 
         Curriculum Domains (3):
-        - ps.get_ready_to_learn_for_user() - Ready knowledge
-        - ls: Learning step sequencing
-        - lp: Life path alignment
+        - ps.get_ready_to_learn_for_user() - Ready knowledge (the learning slot's
+          third source, after the ZPD assessment and vector search)
+        - exercises.get_pending_revisions_for_user() / get_actionable_exercises_for_user()
+        - lp: not read here (held for the critical path)
 
         Report Domain (1):
         - report.get_pending_submissions() - Turn-ins still awaiting a report
 
         **Respects:**
-        - context.available_minutes_daily (capacity)
-        - context.current_energy_level (cognitive load)
-        - context.current_workload_score (not overload)
+        - context.available_minutes_daily (capacity) — the one context figure the
+          selection reads; energy and workload are method 8's inputs, not this one's
 
         Args:
             prioritize_life_path: Weight life path alignment highly
@@ -676,9 +676,8 @@ class DailyPlanningMixin(IntelligenceMixinBase):
 # =========================================================================
 # ADR-059 Bucketing Helpers — pure data transformations on the assembled
 # DailyWorkPlan. Module-level (not methods) so they have no implicit self
-# coupling and are trivially testable. Lifted from askesis_service.py
-# (where the code was dead — Askesis is uncalled) to live in the mixin
-# that actually produces the plan.
+# coupling and are trivially testable. They live beside the mixin that
+# produces the plan, not in Askesis (which only wraps it).
 # =========================================================================
 
 

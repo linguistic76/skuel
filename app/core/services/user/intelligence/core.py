@@ -70,11 +70,15 @@ class UserContextIntelligence(
     PerceptionIntelligenceMixin,
 ):
     """
-    Learning journey intelligence = Context + 12 Domain Services.
+    The hub methods: one user's RichUserContext + the eleven domain services.
 
     **Architecture:**
-    This service synthesizes user state (UserContext) with graph
-    intelligence (11 domain services) to answer: "What should I work on?"
+    This class synthesizes user state (UserContext) with graph
+    intelligence (the eleven domain services) to answer: "What should I work on?"
+    Its nine public methods are the hub methods; the Insights cards
+    (``GET /insights/hub/{question}``), the Ku page's "Where you can apply this"
+    and ``/api/context/next-action`` are their doors, Askesis' wrappers the staged
+    second door (``/docs/roadmap/askesis-intelligence-doors.md``).
 
     **Required Dependencies (entity types):**
 
@@ -88,14 +92,15 @@ class UserContextIntelligence(
 
     Curriculum Domains (3):
     - ps: PsService - What knowledge is ready?
-    - lp: UnifiedRelationshipService - Critical path to life path (unified)
+    - lp: UnifiedRelationshipService - held for the critical path's LP walk; no
+      method reads it yet (``_HUB_CRITICAL_PATH`` in scripts/detect_bloat.py)
     - exercises: ExerciseService facade - Daily-plan exercise enrichment
 
     Processing Domain (1):
-    - report: ReportRelationshipService - Report loop graph queries
+    - report: ReportRelationshipService - entries awaiting a report (method 5)
 
     Temporal Domain (1):
-    - calendar: CalendarService - Schedule-aware intelligence
+    - calendar: CalendarService - today's event minutes (method 8)
 
     **Philosophy:**
     SKUEL runs at full capacity or not at all. all entity types are REQUIRED
@@ -111,6 +116,7 @@ class UserContextIntelligence(
     - ScheduleIntelligenceMixin: Method 8 (schedule-aware recommendations)
     - TemporalMomentumMixin: compute_momentum_signals() (entities_rich analysis)
     - DailyPlanningMixin: Method 5 (daily work plan - THE FLAGSHIP)
+    - PerceptionIntelligenceMixin: Method 9 (dual-track perception rollup)
 
     Context-based queries (get_ready_to_learn, etc.) are now accessed directly
     via UserContext methods for simplicity and "One Path Forward" alignment.
@@ -128,7 +134,7 @@ class UserContextIntelligence(
         principles: PrinciplesService,
         # Curriculum Domains (3) - REQUIRED
         ps: PsService,
-        lp: UnifiedRelationshipService,  # January 2026: Unified
+        lp: UnifiedRelationshipService,
         exercises: Any,  # ExerciseService facade — daily-plan exercise enrichment
         # Processing Domain (1) - REQUIRED
         report: ReportRelationshipService,
@@ -142,10 +148,10 @@ class UserContextIntelligence(
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None:
         """
-        Initialize with user context and all 11 required relationship services.
+        Initialize with user context and all 11 required domain services.
 
         Args:
-            context: Complete UserContext snapshot (~240 fields)
+            context: The user's RichUserContext snapshot
 
             Activity Domains (6) - Concrete facade services:
                 tasks: TasksService facade for actionable tasks
@@ -155,9 +161,10 @@ class UserContextIntelligence(
                 choices: ChoicesService facade for pending decisions
                 principles: PrinciplesService facade for value alignment
 
-            Curriculum Domains (2):
+            Curriculum Domains (3):
                 ps: PathStep service facade for learning readiness
-                lp: Learning path service for critical path analysis
+                lp: Learning path relationship service, held for the critical path
+                exercises: ExerciseService facade for the daily plan's exercise slots
 
             Processing Domain (1):
                 report: Report relationship service (pending submissions, completion rate)

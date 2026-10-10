@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-30
+updated: 2026-10-10
 ---
 
 # Graceful Degradation Architecture
@@ -35,7 +35,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 | CRUD | Create, read, update, delete all 25 entity types | Neo4j only |
 | Ingestion | Markdown/YAML → Neo4j pipeline | Neo4j only |
 | Keyword Search | Text search across the 12 searchable domains — case-INSENSITIVE `CONTAINS` | Neo4j property scan (fulltext indexes are synced at bootstrap but read only by the FULL-tier hybrid rung) |
-| UserContext | ~250-field user state (standard + rich) | Neo4j MEGA-QUERY |
+| UserContext | the user's cross-domain state (standard + rich) | Neo4j MEGA-QUERY |
 | Analytics | 13 `BaseAnalyticsService` instances | Neo4j + Python |
 | UserContextIntelligence | Daily planning, life path alignment | Neo4j + Python |
 | Calendar | Schedule aggregation across domains | Neo4j + Python |

@@ -4,7 +4,7 @@ Habits Planning Service - Context-First User Planning
 
 Extracted following TasksPlanningService pattern (January 2026).
 
-**Purpose:** Context-aware planning methods that leverage UserContext (~240 fields)
+**Purpose:** Context-aware planning methods that leverage UserContext
 to provide personalized, filtered, and ranked habit queries.
 
 **Pattern:** Context-First - "Filter by readiness, rank by relevance, enrich with insights"
@@ -62,7 +62,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
     Context-aware habit planning service.
 
     Provides personalized habit recommendations based on user context.
-    All methods use UserContext (~240 fields) for filtering and ranking.
+    All methods use UserContext for filtering and ranking.
 
     **Naming Convention:** *_for_user() suffix indicates context-awareness
 
@@ -132,7 +132,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         - active_goal_uids: For relevance calculation
 
         Args:
-            context: User's complete context (~240 fields)
+            context: User's complete context
             limit: Maximum habits to return
 
         Returns:

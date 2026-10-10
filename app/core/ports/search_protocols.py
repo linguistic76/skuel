@@ -175,7 +175,7 @@ class DomainSearchOperations(Protocol[T]):
         - Workload and capacity
 
         Args:
-            user_context: User's current context (~240 fields)
+            user_context: User's current context
             limit: Maximum results to return
 
         Returns:

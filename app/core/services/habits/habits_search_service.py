@@ -142,7 +142,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         level, then delegates to the unified ``score_habit`` scorer.
 
         Args:
-            user_context: User's current context (~240 fields)
+            user_context: User's current context
             limit: Maximum results to return
 
         Returns:

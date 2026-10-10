@@ -66,7 +66,7 @@ class UserContextBuilder:
     - Learning: Mastered knowledge, enrolled paths, mastery scores
     - Events: Upcoming events, today's events
 
-    The resulting UserContext contains ~240 fields with UIDs,
+    The resulting UserContext carries UIDs,
     relationships, and computed metrics.
 
     Architecture:
@@ -183,7 +183,7 @@ class UserContextBuilder:
             user_uid: User identifier
 
         Returns:
-            Result[UserContext] with complete domain awareness (~240 fields)
+            Result[UserContext] with complete domain awareness
 
         Raises:
             Result.fail if user_service not configured or user not found
@@ -227,7 +227,7 @@ class UserContextBuilder:
                 start on. Default "30d"; an unknown token is a validation failure.
 
         Returns:
-            Result[UserContext] with ALL ~240 fields including rich data.
+            Result[UserContext] with the rich fields filled.
             context.entities_rich["tasks"], context.entities_rich["goals"], etc.
 
         Example:
@@ -265,7 +265,7 @@ class UserContextBuilder:
             user: User entity
 
         Returns:
-            Result[UserContext] with complete domain awareness (~240 fields)
+            Result[UserContext] with complete domain awareness
 
         Process:
             1. Initialize context with user identity
@@ -370,7 +370,7 @@ class UserContextBuilder:
                 "30d"; an unknown token is a validation failure, never a default.
 
         Returns:
-            Result[UserContext] with ALL ~240 fields populated
+            Result[UserContext] with the rich fields populated
 
         Performance:
             - 6 rich-context statements + 5 reads beside them, all in flight at

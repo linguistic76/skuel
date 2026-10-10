@@ -43,7 +43,7 @@ CROSS-CUTTING INFRASTRUCTURE
 --------------------------
 
 **Foundation & Infrastructure (not domains):**
-    1. UserContextBuilder - ~240 fields cross-domain state
+    1. UserContextBuilder - the cross-domain state snapshot
     2. SearchOperations - Unified search
     3. AskesisService - Life context synthesis
     4. Conversation - Turn-based chat interface

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-10-10
 ---
 
 # Development Setup Guide
@@ -132,7 +132,7 @@ uv run pytest tests/unit/test_event_registry_derivation.py
 **Solution:** Ensure user service is properly initialized:
 1. Check Neo4j is running
 2. Check environment variables are set
-3. Check services_bootstrap.py initializes user_service
+3. Check services_bootstrap/compose.py initializes user_service
 
 ### Database connection errors
 
