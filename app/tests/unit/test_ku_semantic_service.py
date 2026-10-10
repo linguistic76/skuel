@@ -18,7 +18,7 @@ from core.infrastructure.relationships.semantic_relationships import (
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityType
 from core.services.ps.ps_semantic_service import PsSemanticService
-from core.utils.result_simplified import ErrorCategory, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
 def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
@@ -151,12 +151,13 @@ class TestCreateWithSemanticRelationships:
         service.repo.create_semantic_relationship.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_create_refuses_a_triple_whose_endpoint_vanished_after_the_check(self, service):
-        """The writer's empty row (an endpoint gone since the check) is still a refusal."""
+    async def test_a_link_refused_after_the_write_takes_the_step_back(self, service):
+        """An endpoint gone since the check: the writer's empty row refuses, the step is deleted."""
         service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
         service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
         service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
+        service.repo.delete = AsyncMock(return_value=Result.ok(True))
 
         result = await service.create_with_semantic_relationships(
             ku_data={"title": "New Unit", "content": "Test content", "domain": "tech"},
@@ -173,6 +174,33 @@ class TestCreateWithSemanticRelationships:
         error = result.expect_error()
         assert error.category == ErrorCategory.NOT_FOUND
         assert error.details["identifier"] == "ku.absent"
+        service.repo.delete.assert_awaited_once_with("ku.new.1", cascade=True)
+
+    @pytest.mark.asyncio
+    async def test_a_failed_rollback_is_the_error_returned(self, service):
+        """When the step cannot be taken back, the caller hears about the state that is wrong."""
+        service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
+        service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
+        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
+        service.repo.delete = AsyncMock(
+            return_value=Result.fail(Errors.database("delete", "lock timeout"))
+        )
+
+        result = await service.create_with_semantic_relationships(
+            ku_data={"title": "New Unit", "content": "Test content", "domain": "tech"},
+            relationships=[
+                SemanticTriple(
+                    subject="ku.placeholder",
+                    predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
+                    object="ku.absent",
+                    metadata=RelationshipMetadata(confidence=0.9),
+                )
+            ],
+        )
+
+        error = result.expect_error()
+        assert error.category == ErrorCategory.DATABASE
+        service.repo.delete.assert_awaited_once_with("ku.new.1", cascade=True)
 
 
 class TestSemanticNeighborhood:

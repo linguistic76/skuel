@@ -63,12 +63,19 @@ class PsSemanticService:
         """
         Create a path step with semantic relationships.
 
+        Every object endpoint is checked before the step is written, and a link
+        refused after the write (an endpoint gone since the check, or a failed
+        write) deletes the step again — the graph holds either the step with all
+        its links or nothing.
+
         Args:
             ku_data: Path step data (title, content, domain, etc.),
             relationships: List of semantic triples to create
 
         Returns:
-            Result containing created CurriculumDTO with relationships
+            Result containing created CurriculumDTO with relationships, or the
+            refusal (not-found naming the absent endpoint; a database error when
+            the rollback itself failed)
         """
         # Every object endpoint must exist BEFORE the step is written: the step
         # and its triples are separate statements, so a refusal after the create
@@ -105,10 +112,20 @@ class PsSemanticService:
                 metadata=triple.metadata,
             )
 
-            # Create relationship in Neo4j. The path step already exists; a
-            # refused link names the endpoint the triple could not reach.
+            # Create relationship in Neo4j. The step committed in its own
+            # statement, so a refused link (an endpoint gone since the check, or
+            # a failed write) takes the step back with it — nothing half-made
+            # stays behind, and the refusal names the endpoint the triple could
+            # not reach.
             link_result = await self._create_semantic_relationship(triple_to_create)
             if link_result.is_error:
+                rollback = await self.repo.delete(uid, cascade=True)
+                if rollback.is_error:
+                    self.logger.error(
+                        f"Path step {uid} kept after a refused semantic link "
+                        f"({link_result.error}): rollback failed ({rollback.error})"
+                    )
+                    return Result.fail(rollback)
                 return Result.fail(link_result)
 
         self.logger.info(
