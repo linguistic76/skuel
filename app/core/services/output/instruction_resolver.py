@@ -59,8 +59,11 @@ class InstructionResolver:
         """
         Resolve processing instructions into an OutputInstruction.
 
-        The returned prompt_text contains a {content} placeholder that the
-        generator substitutes with actual content at call time.
+        The returned prompt_text ends its instructions with a {content}
+        placeholder that the generator substitutes with actual content at call
+        time. The slot is the LAST {content} in prompt_text: a user's custom
+        instructions come before it and may contain the same characters, which
+        stay literal.
 
         Args:
             enrichment_mode: Processing strategy name (maps to prompt template)

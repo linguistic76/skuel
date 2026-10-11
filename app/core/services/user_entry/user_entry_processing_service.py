@@ -836,9 +836,10 @@ class UserEntryProcessingService:
             return Result.fail(instruction_result)
         instruction = instruction_result.value
 
-        prompt = instruction.prompt_text.replace(
-            "{content}", truncate_to_budget(content, PromptInput.DOCUMENT_MAX_CHARS)
-        )
+        # The resolver's slot is the last ``{content}``; one the user typed into
+        # their instructions stays literal, so the content enters the prompt once.
+        head, _slot, tail = instruction.prompt_text.rpartition("{content}")
+        prompt = head + truncate_to_budget(content, PromptInput.DOCUMENT_MAX_CHARS) + tail
 
         try:
             return await self.llm_caller.generate(

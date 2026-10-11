@@ -105,7 +105,10 @@ async def _batch_compile(port: ScriptedChatCaller, text: str) -> object:
 
 
 async def _entry_llm_summary(
-    port: ScriptedChatCaller, text: str, journal_mode: str | None = None
+    port: ScriptedChatCaller,
+    text: str,
+    journal_mode: str | None = None,
+    instructions: str | None = None,
 ) -> object:
     not_under_test: Result[object] = Result.fail(Errors.system("not under test"))
     entry_service = MagicMock()
@@ -121,7 +124,7 @@ async def _entry_llm_summary(
         title="Bounds",
         user_uid=USER,
         content=text,
-        instructions=text,
+        instructions=text if instructions is None else instructions,
         pipeline=Pipeline.LLM_SUMMARY,
         journal_mode=journal_mode,
     )
@@ -215,6 +218,19 @@ async def test_long_entry_instructions_keep_the_response_mode() -> None:
     prompt = _sent(port)
     assert LONG_TEXT not in prompt
     assert f"## Response Mode\n\n{journal_mode_addendum(JournalMode.SCRIBE)}" in prompt
+
+
+@pytest.mark.asyncio
+async def test_instructions_that_name_the_content_slot_do_not_repeat_the_content() -> None:
+    """A user's literal ``{content}`` is text, not a second slot for the entry."""
+    port = _port()
+    instructions = "Summarise {content} twice: {content} {content}"
+
+    await _entry_llm_summary(port, SHORT_TEXT, instructions=instructions)
+
+    prompt = _sent(port)
+    assert prompt.count(SHORT_TEXT) == 1
+    assert instructions in prompt
 
 
 def test_the_transcript_editor_bounds_the_transcript() -> None:
