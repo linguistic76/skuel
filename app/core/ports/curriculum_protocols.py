@@ -1888,6 +1888,13 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
         """The Kus an exercise declares as prerequisites."""
         ...
 
+    async def get_required_knowledge_for_user(
+        self, exercise_uid: str, user_uid: UserUID
+    ) -> Result[list[RequiredKnowledgeResult] | None]:
+        """The Kus an exercise requires, only if this user is in the exercise's audience
+        (SCOPE_AWARE); None when absent or out of audience — one outcome."""
+        ...
+
     async def get_student_exercises_with_status(
         self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[Neo4jProperties]]:
@@ -1907,9 +1914,9 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
         ...
 
     async def get_exercises_for_curriculum(
-        self, curriculum_uid: str
+        self, curriculum_uid: str, user_uid: UserUID
     ) -> Result[list[CurriculumExerciseResult]]:
-        """The exercises attached to one curriculum entity."""
+        """The exercises requiring one curriculum entity that this user may read."""
         ...
 
     async def get_exercise_for_submission(
@@ -2003,10 +2010,16 @@ class ExerciseOperations(Protocol):
         """Get curriculum KUs required by an exercise."""
         ...
 
+    async def get_required_knowledge_for_user(
+        self, exercise_uid: str, user_uid: UserUID
+    ) -> Result[list[RequiredKnowledgeResult]]:
+        """The Kus an exercise requires, for a caller in its audience; not-found otherwise."""
+        ...
+
     async def get_exercises_for_curriculum(
-        self, curriculum_uid: str
+        self, curriculum_uid: str, user_uid: UserUID
     ) -> Result[list[CurriculumExerciseResult]]:
-        """Get exercises that require a specific curriculum KU."""
+        """The exercises requiring a curriculum KU that this user may read."""
         ...
 
 

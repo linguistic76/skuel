@@ -218,10 +218,13 @@ WHERE-fragment builder consumed by `build_text_search_query`,
 `build_graph_aware_search_query`, `build_array_any_match_query`,
 `build_array_contains_query`, `build_relationship_traversal_query`,
 `build_knowledge_read_clause`, `_crud_mixin.get_visible_to_user`,
-`faceted_search_raw`, and the lateral-target audience filter
-(`LateralRelationshipBackend.get_relationships`). No strategy carries its own
-ad-hoc filter. (The last three joined with the ADR-085 gap closures, PR-3:
-relationship traversal G3, array-contains G5, lateral targets G4.)
+`faceted_search_raw`, the lateral-target audience filter
+(`LateralRelationshipBackend.get_relationships`), and the Exercise listings that
+render links to the by-UID read — `ExerciseBackend.get_ps_exercises_with_status`,
+`get_exercises_for_curriculum`, `get_required_knowledge_for_user` and the step
+page's anonymous `_KnowledgeContextMixin.get_exercises_for_path_step`. No strategy
+carries its own ad-hoc filter. (The relationship traversal, array-contains and lateral-target
+builders joined with the ADR-085 gap closures, PR-3: G3, G5, G4.)
 
 **Faceted search converged onto the clause (August 2026).** Until then the
 faceted path expressed OWNER_ONLY as an anchor `MATCH (user:User {uid:

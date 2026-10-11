@@ -11,6 +11,9 @@ another user's space, admitted by the writing service
   not enough: the entry has to have been sent to it;
 - with the student who owns that entry, and the exercise that entry FULFILLS.
 
+Nobody else — review authority is the asked teacher's, so an ADMIN the entry does
+not ask is refused like any other user (ADR-088 §2).
+
 Every refusal is a 404 that reads the same as a report uid naming nothing, and the
 exercise is looked at only once the entry is admitted.
 
@@ -51,10 +54,12 @@ MARK = "zzzrevadmit"
 STUDENT_MARK = f"{MARK}s"
 TEACHER_MARK = f"{MARK}t"
 OUTSIDER_MARK = f"{MARK}o"
+ADMIN_MARK = f"{MARK}a"
 STUDENT = f"user_{STUDENT_MARK}"
 TEACHER = f"user_{TEACHER_MARK}"  # owns the group the entry was submitted to
 OUTSIDER = f"user_{OUTSIDER_MARK}"  # a teacher with the student in a group of their own
-ROLES = {STUDENT: "member", TEACHER: "teacher", OUTSIDER: "teacher"}
+ADMIN = f"user_{ADMIN_MARK}"  # no tie to the student or the entry
+ROLES = {STUDENT: "member", TEACHER: "teacher", OUTSIDER: "teacher", ADMIN: "admin"}
 MISSING_REPORT = f"er_{MARK}_missing"
 MISSING_EXERCISE = f"ex_{MARK}_missing"
 CREATE = "/api/revised-exercises/create"
@@ -175,6 +180,7 @@ async def world(
             signed_in_client(skuel_app, STUDENT, STUDENT_MARK) as student,
             signed_in_client(skuel_app, TEACHER, TEACHER_MARK) as teacher,
             signed_in_client(skuel_app, OUTSIDER, OUTSIDER_MARK) as outsider,
+            signed_in_client(skuel_app, ADMIN, ADMIN_MARK) as admin,
         ):
             for uid, role in ROLES.items():
                 await _set_role(driver, uid, role)
@@ -213,7 +219,7 @@ async def world(
 
                 yield World(
                     driver,
-                    {STUDENT: student, TEACHER: teacher, OUTSIDER: outsider},
+                    {STUDENT: student, TEACHER: teacher, OUTSIDER: outsider, ADMIN: admin},
                     report,
                     exercise,
                     other_exercise,
@@ -246,6 +252,18 @@ async def test_a_teacher_the_entry_was_not_submitted_to_is_refused(world: World)
     assert {owner for _, owner, _ in await _revisions(world.driver)} <= {TEACHER}
     inbox = await world.clients[STUDENT].get("/api/revised-exercises/my-revisions")
     assert OUTSIDER not in inbox.text, inbox.text
+
+
+async def test_an_admin_the_entry_does_not_ask_is_refused(world: World) -> None:
+    """Review authority is the asked teacher's; the role alone admits nobody (ADR-088 §2)."""
+    refused = await world.file(ADMIN, world.report, world.exercise)
+    missing = await world.file(ADMIN, MISSING_REPORT, world.exercise)
+
+    assert refused.status_code == 404, refused.text
+    assert _uidless(refused.text, world.report) == _uidless(missing.text, MISSING_REPORT)
+    assert {owner for _, owner, _ in await _revisions(world.driver)} <= {TEACHER}
+    inbox = await world.clients[STUDENT].get("/api/revised-exercises/my-revisions")
+    assert ADMIN not in inbox.text, inbox.text
 
 
 async def test_a_student_who_does_not_own_the_entry_is_refused(world: World) -> None:

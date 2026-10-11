@@ -114,6 +114,15 @@ entry ──SHARED_WITH_GROUP───▶ Group ◀─MEMBER_OF|OWNS─       sh
   members nothing. Every teacher-side reader — e.g. the review queue and its detail, the
   dashboard, the teacher's group pages, the exchange in teacher mode, the forms review; PR 1's
   reader census is the full list — reads it through `(teacher)-[:OWNS]->(group)`.
+- **Review authority is the asked teacher's, and an admin is not a reviewer.** The review writes
+  — the AI report (`EntryReportService.admit_report`) and the revised exercise
+  (`RevisedExerciseService.admit_revision`) — admit the entry's owner or a teacher the entry asks
+  (here, or directly — §9) and nobody else: an ADMIN with no such request is refused exactly as
+  any other user is, not-found. A revision lands in the student's inbox as pedagogy from their
+  teacher, and an AI report spends quota on work the student sent to someone else; an admin who
+  must read student work for support needs a read-only admin view, a different door (ruled
+  2026-10-10). Pinned by `tests/integration/routes/test_ai_report_admission.py` and
+  `test_revision_create_admission.py`.
 - `SHARED_WITH_GROUP` is a share with every member. The curriculum direction (Exercise, PathStep,
   LearningPath → group, ADR-053) keeps this edge unchanged.
 - Every FormSubmission group target is a feedback request.
@@ -450,6 +459,7 @@ gets its note with the PR that falsifies it:
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-09-24 | MCF | Accepted with the Submit & Share arc plan (rulings R1–R14, refinements 1–4) | 1.0 |
+| 2026-10-10 | MCF | §2: review authority is the asked teacher's — an ADMIN with no feedback request is refused at both review writes, like any other user (ruled 2026-10-10; the refusal is pinned by the two admission route tests) | 1.5 |
 | 2026-10-10 | MCF | §9: Submit's second target — `SUBMITTED_TO_TEACHER` to the owner of a PERSONAL exercise anchored to a published PathStep; every entry-level teacher reader composes `asks_teacher`; the exchange and report download admit that teacher, the knowledge tab and the student page stay with the classroom | 1.4 |
 | 2026-09-27 | MCF | Verified: the arc-close walk-through passed live (every step, as a student, a teacher and a second account), after three pre-flight fixes on its path (#1427–#1429); status implemented | 1.3 |
 | 2026-09-26 | MCF | PR 8 landed R9 at the vault door (§1): every vault note is a living draft from its first sync and never carries a link; `status: submitted` files a frozen copy to the note's audience (`teachers` by default) — first-class `submitted_from_uid`, a fingerprint of the authored snapshot for dedup, and one supersede rule for the note lineage in the review queue | 1.2 |

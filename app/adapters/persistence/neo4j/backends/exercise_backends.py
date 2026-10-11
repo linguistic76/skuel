@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
 from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
     SUPERSEDED_COPY,
     asks_teacher,
@@ -235,7 +236,6 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             resource="REQUIRES_KNOWLEDGE relationship",
             identifier=f"{exercise_uid} -> {curriculum_uid}",
         )
-        return Result.ok(True)
 
     async def get_required_knowledge(
         self, exercise_uid: str
@@ -267,6 +267,53 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             return Result.fail(result)
         items: list[RequiredKnowledgeResult] = [
             cast("RequiredKnowledgeResult", dict(record)) for record in (result.value or [])
+        ]
+        return Result.ok(items)
+
+    async def get_required_knowledge_for_user(
+        self, exercise_uid: str, user_uid: UserUID
+    ) -> Result[list[RequiredKnowledgeResult] | None]:
+        """The Kus an exercise requires, read only if this user is in the exercise's audience.
+
+        One statement: the exercise is matched behind the SCOPE_AWARE audience
+        predicate (``build_search_visibility_clause`` — the same composition as
+        ``_CrudMixin.get_visible_to_user``), and its ``REQUIRES_KNOWLEDGE`` far
+        ends ride along as the contents of a container the caller may open. The
+        caller NAMED the exercise, so the publication gate is off, as on every
+        by-UID read: an owner lists what their own draft requires.
+
+        ``None`` when the uid names no exercise OR one outside the caller's
+        audience — the two are deliberately one outcome. An admitted exercise
+        with no requirements answers an empty list.
+        """
+        visibility_scope = build_search_visibility_clause(
+            SearchVisibility.SCOPE_AWARE,
+            entity_alias="exercise",
+            has_user=True,
+            apply_publication_gate=False,
+        )
+        audience_where, scope_params = visibility_scope or ("true", {})
+        result = await self.execute_query(
+            f"""
+            MATCH (exercise:Entity:Exercise {{uid: $exercise_uid}})
+            WHERE {audience_where}
+            OPTIONAL MATCH (exercise)-[:{RelationshipName.REQUIRES_KNOWLEDGE}]->(curriculum:Entity)
+            WITH exercise, curriculum
+            ORDER BY curriculum.title
+            RETURN exercise.uid AS uid,
+                   [c IN collect(curriculum) | c{{
+                       .uid, .title, .entity_type, .complexity, .learning_level
+                   }}] AS required
+            """,
+            {"exercise_uid": exercise_uid, "user_uid": user_uid, **scope_params},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows:
+            return Result.ok(None)
+        items: list[RequiredKnowledgeResult] = [
+            cast("RequiredKnowledgeResult", dict(record)) for record in rows[0]["required"]
         ]
         return Result.ok(items)
 
@@ -380,11 +427,24 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         Scoped version of get_enrolled_ps_exercises_with_status() — returns the same
         shape (compatible with ExerciseStatusRow) but for a single PathStep.
 
+        Lists only the exercises this user may open: each row is rendered as a link
+        to the by-UID read, so the listing composes the same SCOPE_AWARE audience
+        predicate (``build_search_visibility_clause``). The step is the caller's
+        anchor and is not gated here, exactly as the step page that embeds this
+        listing opens a step by uid — but a PERSONAL exercise hanging from a
+        DRAFT step is the step's only once the step is published, so a non-owner
+        does not see it listed. A draft-marked exercise is unlisted to everyone
+        but its owner, as in search.
+
         ``user`` is bound with OPTIONAL MATCH, not MATCH: the PathStep's exercises
         are listed even when the learner has no User node, exactly as before the
         shared tail was extracted (an absent ``user`` simply nulls every status
         field, since OPTIONAL MATCH from a null node yields nulls).
         """
+        visibility_scope = build_search_visibility_clause(
+            SearchVisibility.SCOPE_AWARE, entity_alias="exercise", has_user=True
+        )
+        audience_where, scope_params = visibility_scope or ("true", {})
         tail = _exercise_status_tail(
             carry_group=False,
             group_name="''",
@@ -393,28 +453,43 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         return await self.execute_query(
             f"""
             MATCH (ps:Entity {{uid: $ps_uid}})-[:{RelationshipName.HAS_EXERCISE}]->(exercise:Entity {{entity_type: 'exercise'}})
+            WHERE {audience_where}
             OPTIONAL MATCH (user:User {{uid: $user_uid}})
             {tail}
             """,
-            {"ps_uid": ps_uid, "user_uid": user_uid},
+            {"ps_uid": ps_uid, "user_uid": user_uid, **scope_params},
         )
 
     async def get_exercises_for_curriculum(
-        self, curriculum_uid: str
+        self, curriculum_uid: str, user_uid: UserUID
     ) -> Result[list[CurriculumExerciseResult]]:
-        """Get all exercises that require a specific curriculum KU.
+        """The exercises requiring a curriculum Ku that this user may read.
+
+        A discovery listing — "what exercises practice this knowledge?" — so it
+        composes the SCOPE_AWARE audience predicate with the publication gate on
+        (``build_search_visibility_clause``): CURRICULUM for everyone, the
+        caller's own, what is shared with them or their groups, and a PERSONAL
+        exercise anchored to a published PathStep; a draft-marked shared
+        exercise is unlisted. Another teacher's unanchored PERSONAL exercise is
+        absent, not refused — the list says nothing about what it withholds.
 
         Args:
             curriculum_uid: Curriculum KU UID
+            user_uid: The requesting user, referenced by the audience predicate
 
         Returns:
             Result containing exercise summary records
         """
+        visibility_scope = build_search_visibility_clause(
+            SearchVisibility.SCOPE_AWARE, entity_alias="exercise", has_user=True
+        )
+        audience_where, scope_params = visibility_scope or ("true", {})
         result = await self.execute_query(
             f"""
             MATCH (exercise:Entity {{entity_type: 'exercise'}})
                   -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
                   (curriculum:Entity {{uid: $curriculum_uid}})
+            WHERE {audience_where}
             RETURN exercise.uid as uid,
                    exercise.title as title,
                    exercise.scope as scope,
@@ -423,7 +498,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                    exercise.form_schema as form_schema
             ORDER BY datetime(exercise.created_at) DESC
             """,
-            {"curriculum_uid": curriculum_uid},
+            {"curriculum_uid": curriculum_uid, "user_uid": user_uid, **scope_params},
         )
         if result.is_error:
             return Result.fail(result)
@@ -1162,8 +1237,6 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         a caller cannot tell "no such UID" from "not yours" — the
         404-equivalent refusal of OWNERSHIP_VERIFICATION.md.
         """
-        from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
-
         visibility_scope = build_search_visibility_clause(
             SearchVisibility.OWNER_ONLY,
             entity_alias="n",

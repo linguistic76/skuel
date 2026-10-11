@@ -10,6 +10,9 @@ exercise the entry FULFILLS:
   group the teacher owns (ADR-088 §2). Having the student in one of your groups is
   not enough: the entry has to have been sent to it.
 
+Nobody else — review authority is the asked teacher's, so an ADMIN the entry does
+not ask is refused like any other user (ADR-088 §2).
+
 Every refusal is a 404 that reads the same as a uid naming nothing.
 
 The world is built at the app's real doors: the teacher creates a group, adds the
@@ -56,10 +59,12 @@ MARK = "zzzaireport"
 STUDENT_MARK = f"{MARK}s"
 TEACHER_MARK = f"{MARK}t"
 OUTSIDER_MARK = f"{MARK}o"
+ADMIN_MARK = f"{MARK}a"
 STUDENT = f"user_{STUDENT_MARK}"
 TEACHER = f"user_{TEACHER_MARK}"  # owns the group the entry was submitted to
 OUTSIDER = f"user_{OUTSIDER_MARK}"  # a teacher with the student in a group of their own
-ROLES = {STUDENT: "member", TEACHER: "teacher", OUTSIDER: "teacher"}
+ADMIN = f"user_{ADMIN_MARK}"  # no tie to the student or the entry
+ROLES = {STUDENT: "member", TEACHER: "teacher", OUTSIDER: "teacher", ADMIN: "admin"}
 MISSING_ENTRY = f"ue_{MARK}_missing"
 MISSING_EXERCISE = f"ex_{MARK}_missing"
 REPORT = "/api/exercises/report"
@@ -137,6 +142,7 @@ async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-a
         signed_in_client(skuel_app, STUDENT, STUDENT_MARK) as student,
         signed_in_client(skuel_app, TEACHER, TEACHER_MARK) as teacher,
         signed_in_client(skuel_app, OUTSIDER, OUTSIDER_MARK) as outsider,
+        signed_in_client(skuel_app, ADMIN, ADMIN_MARK) as admin,
     ):
         for uid, role in ROLES.items():
             await _set_role(driver, uid, role)
@@ -163,7 +169,7 @@ async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-a
             assert "SUBMITTED_TO_GROUP" in sent_to, sent_to
 
             yield World(
-                {STUDENT: student, TEACHER: teacher, OUTSIDER: outsider},
+                {STUDENT: student, TEACHER: teacher, OUTSIDER: outsider, ADMIN: admin},
                 entry,
                 exercise,
                 other_exercise,
@@ -220,6 +226,18 @@ async def test_a_teacher_the_entry_was_not_submitted_to_is_refused(
     """The outsider has the student in a group — the entry was sent to another one."""
     refused = await world.ask(OUTSIDER, world.entry, world.exercise)
     missing = await world.ask(OUTSIDER, MISSING_ENTRY, world.exercise)
+
+    assert refused.status_code == 404, refused.text
+    assert reviewer == []
+    assert _uidless(refused.text, world.entry) == _uidless(missing.text, MISSING_ENTRY)
+
+
+async def test_an_admin_the_entry_does_not_ask_is_refused(
+    world: World, reviewer: list[AdmittedReport]
+) -> None:
+    """Review authority is the asked teacher's; the role alone admits nobody (ADR-088 §2)."""
+    refused = await world.ask(ADMIN, world.entry, world.exercise)
+    missing = await world.ask(ADMIN, MISSING_ENTRY, world.exercise)
 
     assert refused.status_code == 404, refused.text
     assert reviewer == []

@@ -103,7 +103,7 @@ def _make_harness(
     )
     exercises_service.link_to_curriculum = AsyncMock(return_value=Result.ok(True))
     exercises_service.unlink_from_curriculum = AsyncMock(return_value=Result.ok(True))
-    exercises_service.get_required_knowledge = AsyncMock(return_value=Result.ok([]))
+    exercises_service.get_required_knowledge_for_user = AsyncMock(return_value=Result.ok([]))
     exercises_service.get_exercises_for_curriculum = AsyncMock(return_value=Result.ok([]))
 
     report_entity = MagicMock()
@@ -364,7 +364,33 @@ class TestInputGuards:
         response = harness.client.get("/api/exercises/required-knowledge")
 
         assert response.status_code == 400
-        harness.exercises.get_required_knowledge.assert_not_awaited()
+        harness.exercises.get_required_knowledge_for_user.assert_not_awaited()
+
+
+class TestScopedReads:
+    """Both teacher reads hand the service the caller: the audience is the service's rule."""
+
+    def test_required_knowledge_is_read_as_the_caller(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.TEACHER)
+
+        response = harness.client.get(f"/api/exercises/required-knowledge?uid={_EXERCISE_UID}")
+
+        assert response.status_code == 200
+        harness.exercises.get_required_knowledge_for_user.assert_awaited_once_with(
+            _EXERCISE_UID, _USER_UID
+        )
+
+    def test_exercises_for_curriculum_are_listed_as_the_caller(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.TEACHER)
+
+        response = harness.client.get("/api/exercises/for-curriculum?curriculum_uid=ku_1")
+
+        assert response.status_code == 200
+        harness.exercises.get_exercises_for_curriculum.assert_awaited_once_with("ku_1", _USER_UID)
 
 
 class TestMarkdownDownload:

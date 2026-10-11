@@ -13,6 +13,11 @@ naming nothing. The owner reads every exercise they own, CURRICULUM is open to e
 learner, and an ASSIGNED exercise is its group's even when it hangs from a step — the
 anchor admits PERSONAL scope alone.
 
+The step page's listing (``/learning-loop/ps/{uid}/exercises``) renders each row as a
+link to that read, so it lists a caller exactly the exercises the read opens: the
+owner's PERSONAL exercise on a DRAFT step is listed to the owner alone, and an
+ASSIGNED exercise on a published step to the group's members alone.
+
 The exercises are made at the real create door, as the teacher; the learner has no tie
 to the teacher.
 """
@@ -59,7 +64,8 @@ LEARNER = f"user_{LEARNER_MARK}"  # a member with no tie to the teacher
 PS_PUBLISHED = f"ps.{TEACHER_MARK}.published"
 PS_DRAFT = f"ps.{TEACHER_MARK}.draft"
 CURRICULUM_EX = f"ex.{TEACHER_MARK}.curriculum"
-ASSIGNED_EX = f"ex.{TEACHER_MARK}.assigned"
+ASSIGNED_EX = f"ex.{TEACHER_MARK}.assigned-elsewhere"  # a group the learner is not in
+ASSIGNED_TO_LEARNER_EX = f"ex.{TEACHER_MARK}.assigned-to-learner"  # the learner's group
 MISSING_EX = f"ex.{TEACHER_MARK}.missing"
 
 FRAGMENT = "/exercises/get/content"
@@ -151,8 +157,18 @@ async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-a
         await _seed_draft_path_step(driver, PS_DRAFT)
         await _seed_exercise(driver, CURRICULUM_EX, ExerciseScope.CURRICULUM)
         await _seed_exercise(driver, ASSIGNED_EX, ExerciseScope.ASSIGNED)
+        await _seed_exercise(driver, ASSIGNED_TO_LEARNER_EX, ExerciseScope.ASSIGNED)
         await write_edge(driver, PS_PUBLISHED, "HAS_EXERCISE", ASSIGNED_EX)
+        await write_edge(driver, PS_PUBLISHED, "HAS_EXERCISE", ASSIGNED_TO_LEARNER_EX)
         try:
+            # The learner's classroom, made at the real doors; the assigned exercise
+            # is shared with it the way the ASSIGNED create door shares.
+            classroom = await create(teacher, "groups", f"{MARK}-class", name=f"{MARK}-class")
+            joined = await teacher.post(
+                f"/api/groups/{classroom}/members/add", json={"user_uid": LEARNER}
+            )
+            assert joined.status_code == 200, joined.text
+            await write_edge(driver, ASSIGNED_TO_LEARNER_EX, "SHARED_WITH_GROUP", classroom)
             anchored = await create(
                 teacher,
                 "exercises",
@@ -213,6 +229,24 @@ async def test_the_step_listing_links_the_learner_to_the_detail_read(world: Worl
     listing = await world.clients[LEARNER].get(f"/learning-loop/ps/{PS_PUBLISHED}/exercises")
     assert listing.status_code == 200
     assert f"/exercises/get?uid={world.anchored}" in listing.text
+
+
+async def test_the_step_listing_lists_only_what_the_caller_may_open(world: World) -> None:
+    """Each row is a link to the detail read, so a row the read would refuse is not
+    rendered: the draft step's PERSONAL exercise to anyone but its owner, an ASSIGNED
+    exercise to anyone outside its group."""
+    learner_draft = await world.clients[LEARNER].get(f"/learning-loop/ps/{PS_DRAFT}/exercises")
+    owner_draft = await world.clients[TEACHER].get(f"/learning-loop/ps/{PS_DRAFT}/exercises")
+    assert learner_draft.status_code == owner_draft.status_code == 200
+    assert world.draft_anchored not in learner_draft.text
+    assert f"/exercises/get?uid={world.draft_anchored}" in owner_draft.text
+
+    learner_published = await world.clients[LEARNER].get(
+        f"/learning-loop/ps/{PS_PUBLISHED}/exercises"
+    )
+    assert learner_published.status_code == 200
+    assert f'uid={ASSIGNED_EX}"' not in learner_published.text
+    assert f'/exercises/get?uid={ASSIGNED_TO_LEARNER_EX}"' in learner_published.text
 
 
 async def test_a_learner_reads_an_anchored_exercise_before_starting_the_step(

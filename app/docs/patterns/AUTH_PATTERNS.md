@@ -163,9 +163,12 @@ async def list_all_users(request: Request, current_user: Any = None):
 @rt("/api/exercises/for-curriculum", methods=["GET"])
 @require_teacher(get_user_service)
 async def get_exercises_for_curriculum(request: Request, current_user: Any = None):
-    # Teachers and Admins read the exercises that require a curriculum uid
+    # Teachers and Admins read the exercises that require a curriculum uid —
+    # scoped to what the caller may read (the service composes the audience)
     curriculum_uid = request.query_params.get("curriculum_uid")
-    return await exercises_service.get_exercises_for_curriculum(curriculum_uid)
+    return await exercises_service.get_exercises_for_curriculum(
+        curriculum_uid, UserUID(current_user.uid)
+    )
 ```
 
 **The one spelling is `current_user: Any = None`, next to a parameter named `request`.**

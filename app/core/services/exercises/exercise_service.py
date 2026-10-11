@@ -683,6 +683,29 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
             )
         return result
 
+    @with_error_handling("get_required_knowledge_for_user", error_type="database")
+    async def get_required_knowledge_for_user(
+        self, exercise_uid: str, user_uid: UserUID
+    ) -> Result[list[RequiredKnowledgeResult]]:
+        """The Kus an exercise requires, read by a caller in the exercise's audience.
+
+        The audience is the SCOPE_AWARE rule this service declares, the one
+        ``get_exercise_for_user`` applies — a uid that names no exercise and one
+        outside the caller's audience answer the same not-found, so the answer
+        never confirms that an exercise exists. The unscoped
+        ``get_required_knowledge`` stays for reads that already admitted the
+        caller (the owner's authoring view, the daily plan over the user's own
+        context).
+
+        Backend: ExerciseBackend.get_required_knowledge_for_user
+        """
+        result = await self.backend.get_required_knowledge_for_user(exercise_uid, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            return Result.fail(Errors.not_found(resource="Exercise", identifier=exercise_uid))
+        return Result.ok(result.value)
+
     @with_error_handling("get_exercise_for_submission", error_type="database")
     async def get_exercise_for_submission(
         self, submission_uid: str
@@ -711,20 +734,25 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
 
     @with_error_handling("get_exercises_for_curriculum", error_type="database")
     async def get_exercises_for_curriculum(
-        self, curriculum_uid: str
+        self, curriculum_uid: str, user_uid: UserUID
     ) -> Result[list[CurriculumExerciseResult]]:
         """
-        Get all exercises that require a specific curriculum KU.
+        The exercises requiring a curriculum KU that this user may read.
 
-        Enables the reverse lookup: "what exercises practice this knowledge?"
+        Enables the reverse lookup: "what exercises practice this knowledge?" —
+        scoped to the SCOPE_AWARE audience this service declares, so an exercise
+        the caller may not open is absent from the list rather than refused.
 
         Args:
             curriculum_uid: Curriculum KU UID
+            user_uid: The requesting user
 
         Returns:
             Result containing list of exercise summaries
+
+        Backend: ExerciseBackend.get_exercises_for_curriculum
         """
-        result = await self.backend.get_exercises_for_curriculum(curriculum_uid)
+        result = await self.backend.get_exercises_for_curriculum(curriculum_uid, user_uid)
 
         if result.is_error:
             return Result.fail(result)

@@ -265,12 +265,12 @@ class TestExerciseServiceCurriculumLinking:
             ]
         )
 
-        result = await service.get_exercises_for_curriculum("ku_python_abc")
+        result = await service.get_exercises_for_curriculum("ku_python_abc", _OWNER)
 
         assert result.is_ok
         assert len(result.value) == 1
         assert result.value[0]["uid"] == "ex_essay_123"
-        backend.get_exercises_for_curriculum.assert_called_once_with("ku_python_abc")
+        backend.get_exercises_for_curriculum.assert_called_once_with("ku_python_abc", _OWNER)
 
     @pytest.mark.anyio
     async def test_get_exercises_for_curriculum_empty(self):
@@ -278,10 +278,45 @@ class TestExerciseServiceCurriculumLinking:
         service, backend = self._make_service()
         backend.get_exercises_for_curriculum.return_value = Result.ok([])
 
-        result = await service.get_exercises_for_curriculum("ku_unused_abc")
+        result = await service.get_exercises_for_curriculum("ku_unused_abc", _OWNER)
 
         assert result.is_ok
         assert result.value == []
+
+    @pytest.mark.anyio
+    async def test_get_required_knowledge_for_user_passes_the_caller_to_the_backend(self):
+        """The audience-scoped read hands the backend the exercise AND the caller."""
+        service, backend = self._make_service()
+        backend.get_required_knowledge_for_user.return_value = Result.ok(
+            [
+                {
+                    "uid": "ku_python_abc",
+                    "title": "Python Basics",
+                    "entity_type": "ku",
+                    "complexity": None,
+                    "learning_level": None,
+                }
+            ]
+        )
+
+        result = await service.get_required_knowledge_for_user("ex_test_123", _OWNER)
+
+        assert result.is_ok
+        assert [ku["uid"] for ku in result.value] == ["ku_python_abc"]
+        backend.get_required_knowledge_for_user.assert_called_once_with("ex_test_123", _OWNER)
+
+    @pytest.mark.anyio
+    async def test_get_required_knowledge_for_user_is_not_found_outside_the_audience(self):
+        """The backend's None (absent OR out of audience) is one not-found of the exercise."""
+        service, backend = self._make_service()
+        backend.get_required_knowledge_for_user.return_value = Result.ok(None)
+
+        result = await service.get_required_knowledge_for_user("ex_test_123", _OWNER)
+
+        assert result.is_error
+        error = result.expect_error()
+        assert error.category == ErrorCategory.NOT_FOUND
+        assert "ex_test_123" in str(error)
 
 
 # =========================================================================

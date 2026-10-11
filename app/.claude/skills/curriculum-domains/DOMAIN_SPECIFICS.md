@@ -208,8 +208,9 @@ await lp_service.create_path(user_uid, title, description, steps)
 - `create(entity: Exercise)` — canonical creation with all side effects (OWNS + HAS_EXERCISE + SHARED_WITH_GROUP); the CRUD route reaches it through the `ConversionServiceV2` registry
 - `admit_requirement_change(exercise_uid, caller_uid, caller_role)` → `AdmittedRequirementChange` — the exercise's `OWNS` owner, or an ADMIN (the only caller for an ownerless CURRICULUM exercise); any other caller is not-found
 - `link_to_curriculum(admitted, curriculum_uid)` / `unlink_from_curriculum(admitted, ...)` — REQUIRES_KNOWLEDGE to Ku/Resource; take only the admission proof
-- `get_required_knowledge(exercise_uid)` — all Kus required by this exercise
-- `get_exercises_for_curriculum(curriculum_uid)` — reverse lookup
+- `get_required_knowledge(exercise_uid)` — all Kus required by this exercise (unscoped; for a caller already admitted — the owner's authoring view, the daily plan)
+- `get_required_knowledge_for_user(exercise_uid, user_uid)` — the same, behind the SCOPE_AWARE audience (`GET /api/exercises/required-knowledge`); out of audience ≡ missing, not-found
+- `get_exercises_for_curriculum(curriculum_uid, user_uid)` — reverse lookup, scoped to what the caller may read (an unreadable exercise is absent)
 - `get_exercises_for_path_steps(...)`, `get_student_exercises_with_status(...)`, `list_group_exercises(...)`, `get_filtered_context(...)`
 
 `ExerciseBackend.link_to_path_step(exercise_uid, path_step_uid)` writes/repairs the `HAS_EXERCISE` edge.
