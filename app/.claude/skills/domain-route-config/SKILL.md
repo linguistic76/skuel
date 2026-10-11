@@ -324,7 +324,7 @@ The manual block follows the same service-null-guard pattern that `register_doma
 
 ### 5. Config-Driven CRUDRouteConfig — Role-Gated Non-Activity Domains
 
-**When to use:** Non-activity domains that need CRUDRouteFactory with role-based access control. Ku, PathStep and LearningPath register no CRUD factory — they are created by vault ingestion; PathStep and LearningPath carry `intelligence=` only. The `crud` field on `DomainRouteConfig` auto-registers create/get/list/update/delete routes before `api_factory` runs. The `intelligence` field auto-registers the context and insights routes, plus analytics at `USER_OWNED` scope. The API factory then only needs domain-specific routes.
+**When to use:** Non-activity domains that need CRUDRouteFactory with role-based access control. Ku, PathStep and LearningPath register no CRUD factory — they are created by vault ingestion; all three carry `intelligence=` (Ku beside its UI factory, PathStep and LearningPath beside their API factories). The `crud` field on `DomainRouteConfig` auto-registers create/get/list/update/delete routes before `api_factory` runs. The `intelligence` field auto-registers the context and insights routes, plus analytics at `USER_OWNED` scope. The API factory then only needs domain-specific routes.
 
 **CRUDRouteConfig fields:**
 
@@ -383,7 +383,7 @@ crud=CRUDRouteConfig(
 
 **Exemplars:** `groups_routes.py`, `exercises_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`, `_pathstep_template_routes_helpers.py`
 
-**Intelligence without CRUD:** PathStep and LearningPath register only the two
+**Intelligence without CRUD:** Ku, PathStep and LearningPath register only the two
 shared intelligence routes — context and insights; a `SHARED` config has no
 analytics route:
 

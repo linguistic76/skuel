@@ -3,20 +3,22 @@
 ``IntelligenceRouteFactory`` registers context and insights for a domain at
 either scope, and analytics — the signed-in user's own aggregate — for a
 user-owned domain alone. Shared curriculum has no per-user set to aggregate, so
-PathSteps and LearningPaths have no ``/analytics`` route.
+Kus, PathSteps and LearningPaths have no ``/analytics`` route.
 
 The routes are registered here through the bootstrap's own entry points
-(``create_pathways_routes`` and the six ``create_{activity}_routes``) over the
+(``create_ku_routes``, ``create_pathways_routes`` and the six
+``create_{activity}_routes``) over the
 composed app's services, on a ``fast_app`` with real session middleware and a
 sign-in route — so each domain's ``DomainRouteConfig`` reaches the factory as it
 does in the app. The composed app's own route table is read too.
 
 The contract:
 
-- ``GET /api/path-steps/analytics`` and ``GET /api/pathways/analytics`` are 404;
-- the same two domains' ``/context`` and ``/insights`` answer 200 for a real
-  PathStep and LearningPath, neither insights payload carries
-  ``min_confidence``, and a path's insights count its ``HAS_STEP`` steps;
+- ``GET /api/ku/analytics``, ``GET /api/path-steps/analytics`` and
+  ``GET /api/pathways/analytics`` are 404;
+- the same three domains' ``/context`` and ``/insights`` answer 200 for a real
+  Ku, PathStep and LearningPath, no insights payload carries ``min_confidence``,
+  and a path's insights count its ``HAS_STEP`` steps;
 - the six Activity domains answer 200 on ``/analytics``, and on ``/context``
   and ``/insights`` for an entity the caller owns.
 """
@@ -55,7 +57,7 @@ ACTIVITY_ANCHORS = {
     "choices": ("Choice", "choice", "choice_f7b1_owned"),
     "principles": ("Principle", "principle", "principle_f7b1_owned"),
 }
-CURRICULUM_ANCHORS = {"path-steps": PS, "pathways": LP}
+CURRICULUM_ANCHORS = {"ku": KU, "path-steps": PS, "pathways": LP}
 _UIDS = [USER, KU, PS, LP, *(uid for _, _, uid in ACTIVITY_ANCHORS.values())]
 
 
@@ -102,19 +104,21 @@ async def seeded_graph(skuel_app):
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def client(skuel_app, seeded_graph):
-    """An HTTP client over the eight routed domains' routes, signed in as ``USER``."""
+    """An HTTP client over the nine routed domains' routes, signed in as ``USER``."""
     from fasthtml.common import fast_app
 
     from adapters.inbound.choices_routes import create_choices_routes
     from adapters.inbound.events_routes import create_events_routes
     from adapters.inbound.goals_routes import create_goals_routes
     from adapters.inbound.habits_routes import create_habits_routes
+    from adapters.inbound.ku_routes import create_ku_routes
     from adapters.inbound.pathways_routes import create_pathways_routes
     from adapters.inbound.principles_routes import create_principles_routes
     from adapters.inbound.tasks_routes import create_tasks_routes
 
     services = skuel_app.state.services
     app, rt = fast_app(pico=False, default_hdrs=False, secret_key="f7b1-route-set-test-key")
+    create_ku_routes(app, rt, services)
     create_pathways_routes(app, rt, services, None)
     create_tasks_routes(app, rt, services)
     create_goals_routes(app, rt, services)

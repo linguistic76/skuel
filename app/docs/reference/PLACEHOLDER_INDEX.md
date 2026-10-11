@@ -159,8 +159,7 @@ factory's `IntelligenceOperations` protocol names the parameter `min_confidence`
 Habits, Choices and Principles forward it to the analysis behind their payload. These four do
 not apply it:
 
-- **KU** returns the Ku's title, alias count, usage counts and `ORGANIZES` depth. Not routed —
-  `KU_CONFIG` sets no `IntelligenceRouteConfig`.
+- **KU** returns the Ku's title, alias count, usage counts and `ORGANIZES` depth.
 - **PS** returns the step's practice counts, practice completeness and a prerequisites flag.
 - **LP** returns the path's title, domain and `HAS_STEP` count.
 - **Events** returns `analyze_event_performance(uid)`, which takes no threshold and reads its
@@ -462,7 +461,7 @@ tree is its own definition.
 | High | E — Hardcoded Scalars | The three choices rows are **unreachable** — both enclosing methods filter on a `Choice.date` property that does not exist, so they return empty. Repointing that filter comes before any of the aggregations; `learning_progress_rate` is independent and needs a graph query |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
-| Low | L — Insights Confidence Threshold | `GET /api/{events,path-steps,pathways}/insights` accept a `min_confidence` the payload has nothing to apply it to; no response echoes it. KU's is unrouted |
+| Low | L — Insights Confidence Threshold | `GET /api/{events,ku,path-steps,pathways}/insights` accept a `min_confidence` the payload has nothing to apply it to; no response echoes it |
 | Low | B — Habits Predictions | No caller in the tree — `get_habit_analytics()` is unreached facade surface. Establish a consumer or delete it before implementing either parameter |
 | Low | D — Neo4j Adapter Stubs | Developer tooling; not user-facing, and `_force`'s intent is not recoverable |
 | Low | F — Goal Task Generation | Tasks are already generated; priority/due-date hardcoded and cross-goal context unread in all three generators |

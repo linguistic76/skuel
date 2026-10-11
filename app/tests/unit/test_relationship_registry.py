@@ -69,10 +69,6 @@ class TestUnifiedRegistry:
             "LearningPath",
             "Exercise",
             "RevisedExercise",
-            # Backward-compat aliases (old label keys)
-            "Lesson",  # backward-compat alias -> PS_CONFIG
-            "Ls",
-            "Lp",
             # Other entities
             "User",
             "PrincipleReflection",
@@ -276,9 +272,9 @@ class TestCurriculumDomains:
         assert config is not None
         assert config.is_shared_content is True
 
-    def test_ls_has_knowledge_relationships(self):
-        """Verify PS config has knowledge and step relationships (activity wiring moved to Lessons)."""
-        config = get_config_by_label("Ls")
+    def test_pathstep_has_knowledge_relationships(self):
+        """Verify PS config has knowledge and step relationships."""
+        config = get_config_by_label("PathStep")
         assert config is not None
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.CONTAINS_KNOWLEDGE in rel_names
@@ -287,7 +283,7 @@ class TestCurriculumDomains:
 
     def test_lp_has_milestone_relationship(self):
         """Verify LP config has milestone event relationship."""
-        config = get_config_by_label("Lp")
+        config = get_config_by_label("LearningPath")
         assert config is not None
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.HAS_MILESTONE_EVENT in rel_names
@@ -321,10 +317,6 @@ class TestNamedUnifiedConfigs:
         """Verify curriculum *_CONFIG configs match LABEL_CONFIGS entries."""
         assert PS_CONFIG is LABEL_CONFIGS["PathStep"]
         assert LP_CONFIG is LABEL_CONFIGS["LearningPath"]
-        # Backward-compat aliases still work
-        assert PS_CONFIG is LABEL_CONFIGS["Lesson"]  # Lesson merged into PathStep
-        assert PS_CONFIG is LABEL_CONFIGS["Ls"]
-        assert LP_CONFIG is LABEL_CONFIGS["Lp"]
 
     def test_all_unified_configs_are_domain_relationship_config(self):
         """Verify all named configs are DomainRelationshipConfig."""

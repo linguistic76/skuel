@@ -3,7 +3,7 @@ Orchestration Mixin — GoalsService
 ====================================
 
 Multi-step orchestration methods that coordinate multiple sub-services:
-create_goal_with_context, generate_tasks_for_goal, assess_goal_feasibility.
+create_goal_with_context, assess_goal_feasibility.
 
 Part of goals_service.py decomposition (April 2026).
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
@@ -13,14 +13,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Priority
-from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.goal.goal import Goal
     from core.models.goal.goal_request import GoalCreateRequest
-    from core.ports.domain_protocols import GoalsOperations
     from core.services.goals.goals_core_service import GoalsCoreService
     from core.services.goals_types import GoalFeasibilityAssessment
     from core.services.user import UserContext
@@ -35,9 +32,7 @@ class _OrchestrationMixin:
     """
 
     # Populated by GoalsService.__init__ / BaseService
-    backend: GoalsOperations
     core: GoalsCoreService
-    learning: Any
     relationships: Any
     logger: Any
 
@@ -111,84 +106,6 @@ class _OrchestrationMixin:
         )
 
         return Result.ok(goal)
-
-    async def generate_tasks_for_goal(
-        self, goal_uid: str, user_context: UserContext
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Generate task suggestions for achieving a goal (orchestration method).
-
-        This combines goal data with user context to generate:
-        - Milestone tasks
-        - Knowledge acquisition tasks
-        - Habit reinforcement tasks
-        """
-        from core.models.goal.goal import Goal
-        from core.models.goal.goal_dto import GoalDTO
-
-        goal_result = await self.backend.get_goal(goal_uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
-
-        # GRAPH-NATIVE: Fetch relationships from graph
-        from core.services.goals.goal_relationships import GoalRelationships
-
-        rels = await GoalRelationships.fetch(goal_uid, self.relationships)
-
-        task_suggestions = []
-
-        # Generate milestone tasks
-        if goal.milestones:
-            for i, milestone in enumerate(goal.milestones):
-                if not milestone.is_completed:
-                    task = {
-                        "title": f"Complete: {milestone.title}",
-                        "description": milestone.description or "",
-                        "contributes_to_goal_uids": [goal_uid],
-                        "goal_progress_contribution": 100.0 / len(goal.milestones),
-                        "priority": Priority.HIGH
-                        if goal.days_remaining() < 30
-                        else Priority.MEDIUM,
-                        "tags": ["goal", f"milestone-{i + 1}"],
-                    }
-                    task_suggestions.append(task)
-
-        # Generate knowledge acquisition tasks
-        if rels.required_knowledge_uids:
-            for knowledge_uid in rels.required_knowledge_uids:
-                if knowledge_uid not in user_context.mastered_knowledge_uids:
-                    task = {
-                        "title": f"Learn: {knowledge_uid}",
-                        "contributes_to_goal_uids": [goal_uid],
-                        "applies_knowledge_uids": [knowledge_uid],
-                        "knowledge_mastery_check": True,
-                        "priority": Priority.HIGH,
-                        "tags": ["learning", "goal"],
-                    }
-                    task_suggestions.append(task)
-
-        # Generate habit reinforcement tasks
-        if rels.supporting_habit_uids:
-            for habit_uid in rels.supporting_habit_uids:
-                if user_context.habit_streaks.get(habit_uid, 0) < 7:
-                    task = {
-                        "title": f"Strengthen habit: {habit_uid}",
-                        "reinforces_habit_uid": habit_uid,
-                        "contributes_to_goal_uids": [goal_uid],
-                        "habit_streak_maintainer": True,
-                        "priority": Priority.MEDIUM,
-                        "recurring": True,
-                        "tags": ["habit", "goal"],
-                    }
-                    task_suggestions.append(task)
-
-        self.logger.info(
-            "Generated %d task suggestions for goal %s", len(task_suggestions), goal_uid
-        )
-
-        return Result.ok(task_suggestions)
 
     async def assess_goal_feasibility(
         self, goal: Goal, user_context: UserContext

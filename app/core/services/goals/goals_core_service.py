@@ -386,24 +386,6 @@ class GoalsCoreService(
 
         return Result.ok(None)  # All validations passed
 
-    # ========================================================================
-    # READ OPERATIONS WITH GRAPH CONTEXT
-    # ========================================================================
-    # NOTE: get_with_context() is inherited from BaseService (January 2026)
-    #
-    # Uses registry-driven query generation from RelationshipRegistry.
-    # The GOALS_CONFIG config includes:
-    # - contributing_tasks, contributing_events, contributing_habits and the habit
-    #   tiers (supporting activities)
-    # - sub_goals, parent_goal (hierarchy)
-    # - required_knowledge, supporting_principles (prerequisites and support)
-    # - inspired_by_choice (motivation)
-    # - milestone_progress (calculated in BaseService._parse_context_result)
-    #
-    # See: /core/models/relationship_registry.py - GOALS_CONFIG
-    # See: /core/services/base_service.py - get_with_context()
-    # ========================================================================
-
     async def get_goal(self, goal_uid: str) -> Result[Goal]:
         """
         Get a specific goal by UID.

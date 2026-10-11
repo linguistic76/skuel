@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 # Deferred Work
@@ -234,6 +234,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## LP Adaptive Reads Await an Edge-Weight Writer
 
 [LP Adaptive Reads Await an Edge-Weight Writer](lp-adaptive-reads.md) — The three LP intelligence reads that rank knowledge by `ENABLES_KNOWLEDGE` / `REQUIRES_KNOWLEDGE` edge weights (learning sequence, next adaptive step, recommended steps) reach no production surface and weigh fields no live edge carries (three of the five have no writer at all), so every weight is its `coalesce` default; staged 2026-10-10, waiting on a writer for the edge fields.
+
+## Explore Sidebar Entity Graph — the Reading Pages' Centred View
+
+[Explore Sidebar Entity Graph — the Reading Pages' Centred View](explore-sidebar-entity-graph.md) — The Explore sidebar's entity mode (a graph centred on the Ku or PathStep a page shows) and the lateral graph's `?types=` knowledge-dependency view are complete on both sides and reached by no page; staged 2026-10-10, waiting on the Ku and PathStep reading pages adopting the sidebar.
 
 ## Review Schedule
 

@@ -28,9 +28,10 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import QueryLimit
 from core.models.choice.choice import Choice
 from core.models.enums import SearchVisibility
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.goal_enums import MeasurementType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.principle_enums import PrincipleStrength
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.goal.goal_contribution import CONTRIBUTOR_TYPES
@@ -292,8 +293,11 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         result = await _count_user_stats(
             self,
             user_uid,
-            "habit",
-            {"active": "n.status = 'active'", "streaks": "n.current_streak > 0"},
+            EntityType.HABIT.value,
+            {
+                "active": f"n.status = '{EntityStatus.ACTIVE.value}'",
+                "streaks": "n.current_streak > 0",
+            },
         )
         if result.is_error:
             return Result.fail(result)
@@ -598,8 +602,11 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         result = await _count_user_stats(
             self,
             user_uid,
-            "goal",
-            {"active": "n.status = 'active'", "completed": "n.status = 'completed'"},
+            EntityType.GOAL.value,
+            {
+                "active": f"n.status = '{EntityStatus.ACTIVE.value}'",
+                "completed": f"n.status = '{EntityStatus.COMPLETED.value}'",
+            },
         )
         if result.is_error:
             return Result.fail(result)
@@ -1135,13 +1142,13 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         result = await _count_user_stats(
             self,
             user_uid,
-            "task",
+            EntityType.TASK.value,
             {
-                "completed": "n.status = 'completed'",
+                "completed": f"n.status = '{EntityStatus.COMPLETED.value}'",
                 "overdue": (
                     "n.due_date IS NOT NULL"
                     " AND date(left(toString(n.due_date), 10)) < date($today)"
-                    " AND n.status <> 'completed'"
+                    f" AND n.status <> '{EntityStatus.COMPLETED.value}'"
                 ),
             },
             extra_params={"today": today_in(current_zone()).isoformat()},
@@ -1421,9 +1428,9 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         result = await _count_user_stats(
             self,
             user_uid,
-            "event",
+            EntityType.EVENT.value,
             {
-                "scheduled": "n.status = 'scheduled'",
+                "scheduled": f"n.status = '{EntityStatus.SCHEDULED.value}'",
                 "today": (
                     "n.event_date IS NOT NULL"
                     " AND date(left(toString(n.event_date), 10)) = date($today)"
@@ -1647,7 +1654,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         result = await _count_user_stats(
             self,
             user_uid,
-            "choice",
+            EntityType.CHOICE.value,
             {
                 "pending": build_choice_pending_predicate("n"),
                 "decided": build_choice_decided_predicate("n"),
@@ -1744,8 +1751,11 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         result = await _count_user_stats(
             self,
             user_uid,
-            "principle",
-            {"core": "n.strength = 'core'", "active": "n.is_active = true"},
+            EntityType.PRINCIPLE.value,
+            {
+                "core": f"n.strength = '{PrincipleStrength.CORE.value}'",
+                "active": "n.is_active = true",
+            },
         )
         if result.is_error:
             return Result.fail(result)

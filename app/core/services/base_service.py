@@ -75,7 +75,7 @@ TimeQueryMixin:
     get_upcoming, get_overdue, get_active
 
 ContextOperationsMixin:
-    get_with_content, get_with_context
+    get_with_content
 
 Architecture Patterns:
     - Protocol-based dependency injection

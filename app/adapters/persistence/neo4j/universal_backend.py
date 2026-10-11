@@ -79,9 +79,6 @@ _temporal_mixin.py:
 _prereq_progress_mixin.py:
     prerequisite_traversal, hierarchy_query_raw
 
-_context_query_mixin.py:
-    context_query_raw, basic_context_query_raw
-
 _relationship_crud_mixin.py:
     create_relationship, delete_relationship, delete_relationships_batch,
     has_relationship, count_related, create_relationships_batch
@@ -141,7 +138,6 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j._context_query_mixin import _ContextQueryMixin
 from adapters.persistence.neo4j._crud_mixin import _CrudMixin
 from adapters.persistence.neo4j._prereq_progress_mixin import _PrereqProgressMixin
 from adapters.persistence.neo4j._relationship_crud_mixin import _RelationshipCrudMixin
@@ -163,7 +159,6 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
     _SearchRawMixin[T],
     _TemporalMixin[T],
     _PrereqProgressMixin[T],
-    _ContextQueryMixin[T],
     _RelationshipQueryMixin[T],
     _RelationshipOrderedMixin[T],
     _RelationshipCrudMixin[T],

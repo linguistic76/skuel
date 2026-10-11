@@ -258,35 +258,7 @@ def test_factory_initialization(intelligence_factory):
     """Test factory initializes with correct parameters."""
     assert intelligence_factory.domain == "goals"
     assert intelligence_factory.base_path == "/api/goals"
-    assert intelligence_factory.enable_analytics is True
-    assert intelligence_factory.enable_context is True
-    assert intelligence_factory.enable_insights is True
-
-
-def test_factory_custom_base_path(mock_service):
-    """Test factory accepts custom base path."""
-    factory = IntelligenceRouteFactory(
-        intelligence_service=mock_service,
-        domain_name="tasks",
-        base_path="/api/v2/tasks/intelligence",
-        ownership_service=AllowAllOwnership(),
-    )
-    assert factory.base_path == "/api/v2/tasks/intelligence"
-
-
-def test_factory_feature_flags(mock_service):
-    """Test factory accepts feature flags."""
-    factory = IntelligenceRouteFactory(
-        intelligence_service=mock_service,
-        domain_name="habits",
-        enable_analytics=True,
-        enable_context=False,
-        enable_insights=True,
-        ownership_service=AllowAllOwnership(),
-    )
-    assert factory.enable_analytics is True
-    assert factory.enable_context is False
-    assert factory.enable_insights is True
+    assert intelligence_factory.analytics_service is not None
 
 
 def test_factory_user_owned_without_ownership_service_raises(mock_service):
@@ -327,25 +299,6 @@ def test_register_routes_all_enabled(intelligence_factory, mock_router):
     assert "GET:/api/goals/analytics" in mock_router.routes
     assert "GET:/api/goals/context" in mock_router.routes
     assert "GET:/api/goals/insights" in mock_router.routes
-
-
-def test_register_routes_selective_features(mock_service, mock_router):
-    """Test only enabled routes are registered."""
-    factory = IntelligenceRouteFactory(
-        intelligence_service=mock_service,
-        domain_name="tasks",
-        enable_analytics=True,
-        enable_context=False,
-        enable_insights=True,
-        ownership_service=AllowAllOwnership(),
-    )
-
-    factory.register_routes(_app=None, rt=mock_router)
-
-    # Verify only enabled routes registered
-    assert "GET:/api/tasks/analytics" in mock_router.routes
-    assert "GET:/api/tasks/context" not in mock_router.routes
-    assert "GET:/api/tasks/insights" in mock_router.routes
 
 
 # ============================================================================
@@ -599,17 +552,16 @@ def test_shared_scope_registers_no_analytics_route(mock_router):
 
 def test_shared_scope_has_no_analytics_route_whatever_the_service_offers(mock_service, mock_router):
     """Scope decides, not the service: a SHARED factory over a service that has
-    get_performance_analytics, with the flag left on, registers no analytics route."""
+    get_performance_analytics registers no analytics route."""
     factory = IntelligenceRouteFactory(
         intelligence_service=mock_service,
         domain_name="pathways",
         scope=ContentScope.SHARED,
-        enable_analytics=True,
     )
 
     factory.register_routes(_app=None, rt=mock_router)
 
-    assert factory.enable_analytics is False
+    assert factory.analytics_service is None
     assert "GET:/api/pathways/analytics" not in mock_router.routes
     assert "GET:/api/pathways/context" in mock_router.routes
     assert "GET:/api/pathways/insights" in mock_router.routes
@@ -624,19 +576,6 @@ def test_user_owned_service_without_analytics_refuses_to_construct():
             domain_name="goals",
             ownership_service=AllowAllOwnership(),
         )
-
-
-def test_user_owned_service_without_analytics_constructs_with_the_route_disabled(mock_router):
-    factory = IntelligenceRouteFactory(
-        intelligence_service=MockSharedIntelligenceService(),
-        domain_name="goals",
-        ownership_service=AllowAllOwnership(),
-        enable_analytics=False,
-    )
-
-    factory.register_routes(_app=None, rt=mock_router)
-
-    assert set(mock_router.routes) == {"GET:/api/goals/context", "GET:/api/goals/insights"}
 
 
 # ============================================================================

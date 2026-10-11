@@ -138,41 +138,6 @@ class SharedNeighborConfig:
 
 
 @dataclass(frozen=True)
-class PostProcessor:
-    """
-    Post-query Python calculation for computed fields.
-
-    Some context fields can't be computed in Cypher and need Python processing
-    after the query returns. PostProcessors define these calculations.
-
-    **Example: Milestone Progress**
-    Goals have a `milestones` relationship that returns milestone data.
-    The `milestone_progress` field is calculated from this data:
-    ```python
-    PostProcessor(
-        source_field="milestones",
-        target_field="milestone_progress",
-        processor_name="calculate_milestone_progress",
-    )
-    ```
-
-    **Available Processors:**
-    Processors are registered in `core/models/post_processors.py`:
-    - calculate_milestone_progress: Count total/completed milestones
-    - (add more as needed)
-
-    Attributes:
-        source_field: Field in graph_context to read from (e.g., "milestones")
-        target_field: Field to add to graph_context (e.g., "milestone_progress")
-        processor_name: Name of processor function in post_processors module
-    """
-
-    source_field: str
-    target_field: str
-    processor_name: str
-
-
-@dataclass(frozen=True)
 class LateralRelationshipSpec:
     """
     Metadata for one lateral relationship type.
@@ -374,9 +339,6 @@ class DomainRelationshipConfig:
     # Feature flags
     use_semantic_helper: bool = True
     is_shared_content: bool = False  # True for KU, PS, LP
-
-    # Post-query processors for calculated fields (January 2026)
-    post_processors: tuple[PostProcessor, ...] = ()
 
     def get_outgoing_relationships(self) -> tuple[UnifiedRelationshipDefinition, ...]:
         """Get only outgoing relationships."""
@@ -2336,15 +2298,13 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
 }
 
 # Label-based lookup (THE authoritative way to get curriculum configs)
-# (February 2026): "Ls" and "Lp" kept as virtual config keys.
-# Their entity_label is now "Entity" (all curriculum nodes are :Entity in Neo4j).
 LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Activity Domains (6)
     "Task": TASKS_CONFIG,
     "Goal": GOALS_CONFIG,
     "Habit": HABITS_CONFIG,
     "Event": EVENTS_CONFIG,
-    "Choice": CHOICES_CONFIG,  # Virtual key — config lookup key for 'choice'}
+    "Choice": CHOICES_CONFIG,
     "Principle": PRINCIPLES_CONFIG,
     # Note: Finance/Expense is standalone (not in registry)
     # User (Identity Layer - January 2026)
@@ -2363,10 +2323,6 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "EntryReport": ENTRY_REPORT_CONFIG,
     # Interaction audit records (ADR-051 — User Interaction Contract)
     "Interaction": INTERACTION_CONFIG,
-    # Backward-compat aliases (old label keys used by DomainConfig files)
-    "Lesson": PS_CONFIG,  # backward-compat alias (Lesson merged into PathStep)
-    "Ls": PS_CONFIG,
-    "Lp": LP_CONFIG,
 }
 
 
@@ -2516,7 +2472,7 @@ def generate_graph_enrichment(entity_label: str) -> list[tuple[str, str, str, st
     Generate graph enrichment patterns for BaseService._graph_enrichment_patterns.
 
     Args:
-        entity_label: Neo4j node label (e.g., "Task", "Entity", "Lp")
+        entity_label: Neo4j node label (e.g., "Task", "PathStep")
 
     A shared-neighbour definition is left out: its relationship type is a placeholder
     for a two-hop walk, and enrichment builds one-hop patterns, so the placeholder would
@@ -2584,7 +2540,6 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # =============================================================================
 
 # Maps EntityType to registry config key (Neo4j label string).
-# All domain entities are :Entity nodes; virtual config keys kept for lookup.
 #
 # DERIVED from NeoLabel, over EntityType rather than a hand-written key set, so
 # it cannot disagree with the accessor and cannot be incomplete: a new
@@ -2596,7 +2551,6 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
 
 LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     # Curriculum (4)
-    "Lesson": EntityType.PATH_STEP,  # alias: Lesson merged into PathStep
     "Ku": EntityType.KU,
     "PathStep": EntityType.PATH_STEP,
     "LearningPath": EntityType.LEARNING_PATH,
@@ -2632,10 +2586,8 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     "Interaction": EntityType.INTERACTION,
     # Destination (1)
     "LifePath": EntityType.LIFE_PATH,
-    # Backward-compat aliases for old label keys
+    # Backward-compat alias for an old label key
     "Entity": EntityType.PATH_STEP,
-    "Lp": EntityType.LEARNING_PATH,
-    "Ls": EntityType.PATH_STEP,
 }
 
 

@@ -21,11 +21,11 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_registry import LABEL_CONFIGS
 
 _PARAMETER = re.compile(r"\$(\w+)")
-# The caller supplies the anchored uid (``context_query_raw``).
+# The caller supplies the anchored uid.
 _CALLER_SUPPLIED = {"uid"}
 
-# The registry also keys configs by names that are not Neo4j labels; the generator
-# refuses those before it builds a statement, so there is nothing to measure.
+# Every registry key is a Neo4j label; the generator refuses any other name before it
+# builds a statement, so a key that is not one would have nothing to measure.
 _LABELS = [label for label in LABEL_CONFIGS if label in set(NeoLabel)]
 
 _CASES = [

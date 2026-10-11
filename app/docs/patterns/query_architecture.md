@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-10-10
+updated: 2026-10-11
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -481,67 +481,6 @@ See [Three-Tier Type System](three_tier_type_system.md#the-typed-write-boundary-
 6. **Maintainability** - 25% code reduction (2,427 → ~1,800 lines)
 7. **Discoverability** - Clear two-layer pattern guides usage
 
-## Post-Query Processors (January 2026)
-
-### Core Principle: "Cypher for traversal, Python for calculation"
-
-Some computed fields cannot be efficiently calculated in Cypher (e.g., percentage calculations, streak summaries). Post-Query Processors handle these calculations in Python after the query returns.
-
-### Architecture
-
-```
-Cypher Query → Raw Data → Post-Processor → Computed Field
-    │              │            │               │
-    │              │            │               └─ graph_context["habit_summary"]
-    │              │            └─ calculate_habit_streak_summary()
-    │              └─ graph_context["contributing_habits"] = [{...}, {...}]
-    └─ OPTIONAL MATCH (g)<-[:SUPPORTS_GOAL]-(h)
-```
-
-### Configuration in Registry
-
-```python
-# In relationship_registry.py
-HABITS_CONFIG = DomainRelationshipConfig(
-    relationships=(...),
-    post_processors=(
-        PostProcessor(
-            source_field="habits",               # Input from Cypher
-            target_field="habit_summary",        # Output field
-            processor_name="calculate_habit_streak_summary",  # Function name
-        ),
-    ),
-)
-```
-
-### BaseService Integration
-
-`BaseService._parse_context_result()` automatically applies post-processors:
-
-```python
-for processor in config.post_processors:
-    source_data = graph_context.get(processor.source_field, [])
-    if source_data:
-        graph_context[processor.target_field] = apply_processor(
-            processor.processor_name, source_data
-        )
-```
-
-### Available Processors
-
-| Processor | Input | Output | Use Case |
-|-----------|-------|--------|----------|
-| `calculate_habit_streak_summary` | `habits[]` | `{total, active, total_streak_days, avg_streak}` | Habit analytics |
-| `calculate_task_status_summary` | `tasks[]` | `{total, completed, in_progress, pending, completion_percentage}` | Task breakdown |
-
-### Key Files
-
-- **Processor functions:** `/core/models/post_processors.py`
-- **Registry config:** `/core/models/relationship_registry.py`
-- **BaseService integration:** `/core/services/base_service.py` (`_parse_context_result`)
-
-See [Service Consolidation Patterns](SERVICE_CONSOLIDATION_PATTERNS.md#4-post-query-processors) for detailed usage guide.
-
 ## Intent-Based Traversal Pattern (December 2025)
 
 > **SUPERSEDED below this banner — historical (pre-Phase-1, 2026-06-04).** The
@@ -764,7 +703,7 @@ The service-layer BaseService mixins above them are **not** in this tier — the
 | `SearchOperationsMixin` | `search()`, `get_by_relationship()`, `search_connected_to()` | `text_search_raw()`, `find_by()`, … |
 | `RelationshipOperationsMixin` | `get_prerequisites()`, `get_enables()` | the relationship traversal reads |
 | `TimeQueryMixin` | `get_user_items_in_range()`, `get_upcoming()`, `get_overdue()`, `get_active()` | `upcoming_raw()`, `overdue_raw()`, `active_raw()` |
-| `ContextOperationsMixin` | `get_with_context()` | the context reads |
+| `ContextOperationsMixin` | `get_with_content()` | `get_content()` |
 
 ### Tier 4: Tolerated — Domain Sub-Services
 

@@ -96,7 +96,6 @@ from core.ports.base_protocols import Direction
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from datetime import date
 
     from core.models.search_request import SearchRequest
@@ -719,55 +718,11 @@ class ContextOperations(Protocol[T]):
     """
     Methods provided by ContextOperationsMixin.
 
-    Purpose: Retrieve entities with enriched graph context.
-
-    Updated: 2026-01-29 - Signatures now match actual mixin implementation.
+    Purpose: Retrieve an entity together with its full content.
     """
 
     async def get_with_content(self, uid: str) -> Result[T]:
         """Get entity with content fields populated."""
-        ...
-
-    async def get_with_context(
-        self,
-        uid: str,
-        depth: int = 2,
-        min_confidence: float = 0.7,
-        include_relationships: Sequence[str] | None = None,
-        exclude_relationships: Sequence[str] | None = None,
-    ) -> Result[T]:
-        """
-        Get entity with graph neighborhood context.
-
-        Args:
-            uid: Entity UID
-            depth: Maximum graph traversal depth
-            min_confidence: Minimum relationship confidence to include
-            include_relationships: Optional whitelist of relationship types
-            exclude_relationships: Optional blacklist of relationship types
-
-        Returns:
-            Result[T]: Entity with graph_context metadata
-        """
-        ...
-
-    async def _basic_get_with_context(
-        self,
-        uid: str,
-        depth: int = 2,
-        min_confidence: float = 0.7,
-    ) -> Result[T]:
-        """
-        Basic get_with_context for entities not in RelationshipRegistry.
-
-        Args:
-            uid: Entity UID
-            depth: Maximum graph traversal depth
-            min_confidence: Minimum relationship confidence to include
-
-        Returns:
-            Result[T]: Entity with graph_context metadata
-        """
         ...
 
 
@@ -792,7 +747,7 @@ class BaseServiceInterface(
     - SearchOperationsMixin: Search and filtering
     - RelationshipOperationsMixin: Graph relationships
     - TimeQueryMixin: Date-based queries
-    - ContextOperationsMixin: Graph context retrieval
+    - ContextOperationsMixin: Content retrieval
 
     Use this protocol for type hints when you need the complete BaseService interface.
 

@@ -269,9 +269,9 @@ principles = await service.get_related_uids("supporting_principles", "goal.123")
 > on **every** read path: `get_related_uids`/`has_relationship`/`batch_get_related_uids` (backend
 > `WHERE r.<prop> = $value`), `get_cross_domain_context` categorization (filtered mappings
 > sort before the catch-all, matched on each node's `incident_rel_properties`), and
-> `get_with_context`/`build_entity_with_context` (per-clause `WHERE`). **Catch-all semantics
-> differ by path:** the no-filter key returns ALL on `get_related_uids` / `get_with_context`
-> (independent queries) but the RESIDUAL on `get_cross_domain_context` (first-match `break`);
+> the registry context statement `build_entity_with_context` (per-clause `WHERE`). **Catch-all
+> semantics differ by path:** the no-filter key returns ALL on `get_related_uids` /
+> `build_entity_with_context` (independent queries) but the RESIDUAL on `get_cross_domain_context` (first-match `break`);
 > the union is identical. **Writing through a filtered key stamps the property** (see
 > create_relationship below) so create→read round-trips. Reconciled end-to-end PR #216.
 

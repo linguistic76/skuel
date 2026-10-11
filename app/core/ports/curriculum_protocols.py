@@ -58,7 +58,6 @@ Protocol Hierarchy
         │
         └── Curriculum-Specific Methods:
             ├── get_with_content() → Result[T]
-            ├── get_with_context() → Result[T]
             ├── get_prerequisites() → Result[list[T]]
             └── get_hierarchy() → Result[dict]
 
@@ -174,7 +173,6 @@ class CurriculumOperations[T: "DomainModelProtocol"](
 
     Adds curriculum-specific methods that all three domains share:
         - get_with_content(): Fetch entity with full content
-        - get_with_context(): Fetch entity with graph neighborhood
         - get_prerequisites(): Fetch prerequisite entities
         - get_hierarchy(): Fetch hierarchical structure
 
@@ -214,28 +212,6 @@ class CurriculumOperations[T: "DomainModelProtocol"](
 
         Returns:
             Result[tuple[T, str | None]]: Entity and its content, or error
-        """
-        ...
-
-    async def get_with_context(
-        self,
-        uid: str,
-        depth: int = 2,
-        min_confidence: float = 0.7,
-    ) -> Result[T]:
-        """
-        Get entity with graph neighborhood context.
-
-        Fetches the entity plus related entities within the specified depth.
-        Context is stored in entity.metadata["graph_context"].
-
-        Args:
-            uid: Entity UID
-            depth: How many relationship hops to include (default: 2)
-            min_confidence: Minimum relationship confidence (default: 0.7)
-
-        Returns:
-            Result[T]: Entity with graph_context in metadata
         """
         ...
 

@@ -99,6 +99,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 - `POST /api/ku/{uid}/mark-studying` — Mark Ku as studying (IN_PROGRESS)
 - `POST /api/ku/{uid}/mark-understood` — Mark Ku as understood (MASTERED)
 - Both admit the far end in the write: a published Ku, or the Ku is not found (one answer for a draft, another kind, a missing uid)
+- `GET /api/ku/context?uid=` / `GET /api/ku/insights?uid=` — the shared intelligence routes (`IntelligenceRouteConfig`, `SHARED`)
 
 **Note**: Ku has its own dedicated route config (`KU_CONFIG` in `ku_routes.py`), separate from PS routes. PS UI is absorbed into `path_steps_routes.py` (no separate `lp_routes.py` file — LP routes live in `pathways_routes.py`).
 

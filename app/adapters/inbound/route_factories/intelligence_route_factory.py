@@ -183,10 +183,6 @@ class IntelligenceRouteFactory:
         self,
         intelligence_service: IntelligenceOperations,
         domain_name: str,
-        base_path: str | None = None,
-        enable_analytics: bool = True,
-        enable_context: bool = True,
-        enable_insights: bool = True,
         scope: ContentScope = ContentScope.USER_OWNED,
         ownership_service: OwnershipVerifier | None = None,
     ) -> None:
@@ -195,35 +191,26 @@ class IntelligenceRouteFactory:
 
         Args:
             intelligence_service: Service implementing IntelligenceOperations; at
-                USER_OWNED scope with analytics enabled it also implements
-                PerformanceAnalyticsOperations
-            domain_name: Domain name (e.g., "habits", "tasks", "goals")
-            base_path: Custom base path (default: /api/{domain})
-            enable_analytics: Register the analytics route (default: True). Read at
-                USER_OWNED scope; a SHARED factory has no analytics route to enable
-            enable_context: Enable context route (default: True)
-            enable_insights: Enable insights route (default: True)
+                USER_OWNED scope it also implements PerformanceAnalyticsOperations
+            domain_name: Domain name (e.g., "habits", "tasks", "goals"); the routes
+                live under /api/{domain_name}
             scope: Content ownership model (default: ContentScope.USER_OWNED).
-                  - ContentScope.USER_OWNED: User-specific content with ownership verification
-                  - ContentScope.SHARED: Public/shared content (no ownership checks)
+                  - ContentScope.USER_OWNED: User-specific content with ownership
+                    verification, plus the analytics route
+                  - ContentScope.SHARED: Public/shared content (no ownership checks,
+                    no analytics route)
             ownership_service: Service with verify_ownership method (required if scope=USER_OWNED)
 
         Raises:
-            ValueError: USER_OWNED without an ownership_service, or USER_OWNED with
-                analytics enabled over a service that has no get_performance_analytics.
+            ValueError: USER_OWNED without an ownership_service, or USER_OWNED over a
+                service that has no get_performance_analytics.
         """
         self.service = intelligence_service
         self.domain = domain_name
-        self.base_path = base_path or f"/api/{domain_name}"
+        self.base_path = f"/api/{domain_name}"
 
         self.verify_ownership = scope == ContentScope.USER_OWNED
         self.ownership_service = ownership_service
-
-        # Feature flags. Analytics is the caller's own aggregate, so it is a
-        # USER_OWNED route whatever the flag says.
-        self.enable_analytics = enable_analytics and self.verify_ownership
-        self.enable_context = enable_context
-        self.enable_insights = enable_insights
 
         # A USER_OWNED factory with no ownership service cannot verify ownership
         # on its context/insights routes, so it refuses to construct (ADR-085).
@@ -235,17 +222,17 @@ class IntelligenceRouteFactory:
                 f"scope=ContentScope.SHARED for shared content."
             )
 
+        # Analytics is the caller's own aggregate, so it is a USER_OWNED route.
         # Presence is read by attribute, so a stand-in service is judged by what
         # it answers to: scripts/health/route_catalog.py wires this tree over mocks.
         self.analytics_service: PerformanceAnalyticsOperations | None = None
-        if self.enable_analytics:
+        if self.verify_ownership:
             if getattr(intelligence_service, "get_performance_analytics", None) is None:
                 raise ValueError(
                     f"IntelligenceRouteFactory for {domain_name}: the analytics route needs "
                     f"get_performance_analytics, which "
                     f"{type(intelligence_service).__name__} does not implement. Implement "
-                    f"it, pass enable_analytics=False, or declare "
-                    f"scope=ContentScope.SHARED for shared content."
+                    f"it, or declare scope=ContentScope.SHARED for shared content."
                 )
             self.analytics_service = cast("PerformanceAnalyticsOperations", intelligence_service)
 
@@ -259,7 +246,7 @@ class IntelligenceRouteFactory:
             app: FastHTML application instance
             rt: Route decorator
 
-        Registers (based on scope and feature flags):
+        Registers:
             - Analytics route: GET /analytics -> get_performance_analytics(user_uid)
               (USER_OWNED scope only)
             - Context route: GET /context?uid=... -> get_with_context(uid)
@@ -268,11 +255,8 @@ class IntelligenceRouteFactory:
         if self.analytics_service is not None:
             self._register_analytics_route(rt, self.analytics_service)
 
-        if self.enable_context:
-            self._register_context_route(rt)
-
-        if self.enable_insights:
-            self._register_insights_route(rt)
+        self._register_context_route(rt)
+        self._register_insights_route(rt)
 
         logger.info(f"Intelligence routes registered for {self.domain} at {self.base_path}")
 

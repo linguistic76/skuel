@@ -5,8 +5,7 @@ Enhanced Goals Service - Facade Pattern
 Goals service facade that delegates to specialized sub-services.
 
 Architecture: Shell delegates to 1 facade mixin in the goals/ package:
-  _orchestration_mixin.py  — create_goal_with_context, generate_tasks_for_goal,
-                              assess_goal_feasibility
+  _orchestration_mixin.py  — create_goal_with_context, assess_goal_feasibility
 
 Sub-Services:
 - GoalsCoreService: CRUD operations
@@ -202,8 +201,7 @@ class GoalsService(
     Goals service facade with specialized sub-services.
 
     Architecture: Shell delegates to 1 facade mixin + 8 sub-services:
-      _OrchestrationMixin  — create_goal_with_context, generate_tasks_for_goal,
-                              assess_goal_feasibility
+      _OrchestrationMixin  — create_goal_with_context, assess_goal_feasibility
 
     Delegations (explicit methods):
     - Core: get_goal, get_user_goals, get_user_items_in_range, activate/pause/complete/archive

@@ -4,9 +4,8 @@ Knowledge Context Mixin
 
 Context, discovery, and readiness operations for domain backends.
 
-Provides graph context queries (full neighborhood, USES_KU linking),
-application discovery (connected activities, PS/LP containing KU), and
-learning readiness (ready to learn, gaps, reinforcement, recommendations,
+Provides USES_KU linking, application discovery (connected activities, PS/LP
+containing KU), and learning readiness (ready to learn, gaps, reinforcement, recommendations,
 prerequisite linking).
 
 Requires on concrete class:
@@ -204,64 +203,6 @@ class _KnowledgeContextMixin:
         async def execute_query(
             self, query: str, params: dict[str, Any] | None = None
         ) -> Result[builtins.list[dict[str, Any]]]: ...
-
-    # ========================================================================
-    # GRAPH CONTEXT QUERIES
-    # ========================================================================
-
-    async def get_with_context_raw(
-        self, uid: str, min_confidence: float
-    ) -> Result[list[Neo4jProperties]]:
-        """Fetch entity with full graph neighborhood in one query."""
-        query = """
-        MATCH (ku:Entity {uid: $uid})
-
-        OPTIONAL MATCH (ku)-[r1:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-        WHERE coalesce(r1.confidence, 1.0) >= $min_confidence
-        WITH ku, collect(DISTINCT {
-            uid: prereq.uid,
-            title: prereq.title,
-            confidence: coalesce(r1.confidence, 1.0)
-        }) as prerequisites
-
-        OPTIONAL MATCH (dependent:Entity)-[r2:REQUIRES_KNOWLEDGE]->(ku)
-        WHERE coalesce(r2.confidence, 1.0) >= $min_confidence
-        WITH ku, prerequisites, collect(DISTINCT {
-            uid: dependent.uid,
-            title: dependent.title,
-            confidence: coalesce(r2.confidence, 1.0)
-        }) as dependents
-
-        OPTIONAL MATCH (ku)-[r3:RELATED_TO]-(related:Entity)
-        WHERE coalesce(r3.confidence, 1.0) >= $min_confidence * 0.85
-        WITH ku, prerequisites, dependents, collect(DISTINCT {
-            uid: related.uid,
-            title: related.title,
-            confidence: coalesce(r3.confidence, 1.0),
-            relationship_type: type(r3)
-        }) as related
-
-        OPTIONAL MATCH (ku)<-[:MASTERED]-(user:User)
-        WITH ku, prerequisites, dependents, related, count(DISTINCT user) as mastery_count
-
-        OPTIONAL MATCH (ku)-[]-(shared)-[]-(similar:Entity)
-        WHERE similar <> ku
-        WITH ku, prerequisites, dependents, related, mastery_count,
-             similar, count(DISTINCT shared) as shared_count
-
-        WITH ku, prerequisites, dependents, related, mastery_count,
-             collect(DISTINCT {
-                 uid: similar.uid,
-                 title: similar.title,
-                 shared_neighbors: shared_count
-             }) as all_similar
-
-        WITH ku, prerequisites, dependents, related, mastery_count,
-             [s IN all_similar WHERE s.shared_neighbors >= 2][0..5] as similar_knowledge
-
-        RETURN ku, prerequisites, dependents, related, mastery_count, similar_knowledge
-        """
-        return await self.execute_query(query, {"uid": uid, "min_confidence": min_confidence})
 
     # ========================================================================
     # PATHSTEP-KU LINKING

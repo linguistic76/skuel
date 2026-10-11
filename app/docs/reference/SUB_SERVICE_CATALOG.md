@@ -448,17 +448,15 @@ result = await service.get_submissions_for_path_step(user_uid, ps_uid)
 ### Event Scheduling Intelligence (on HabitsIntelligenceService)
 
 **Domains:** Habits only
-**File:** `/core/services/habits/habits_intelligence_service.py` (methods: `get_event_uids_for_habit`, `schedule_events_for_habit`)
+**File:** `/core/services/habits/habits_intelligence_service.py` (method: `get_event_uids_for_habit`)
 
-**Responsibility:** Read-only UserContext intelligence and recurrence logic for habit↔event scheduling
+**Responsibility:** Read-only UserContext intelligence for habit↔event scheduling
 
 **Key Methods:**
 - `get_event_uids_for_habit()` - Get upcoming event UIDs from UserContext for a habit
-- `schedule_events_for_habit()` - Generate event suggestion templates for EventsService to create
 
 **When to use:**
 - Looking up which events reinforce a habit (returns UIDs, not Event objects)
-- Generating event scheduling suggestions from habit recurrence patterns
 - Cross-domain habit-event integration
 
 ---
@@ -631,8 +629,9 @@ config includes a learning class; singleton is passed in).
 **Common (all 6 domains, uniform):** core, search, relationships, intelligence, event_handler, learning, knowledge_intelligence — always the same seven slots; `create_common_sub_services()` fills `search`, `relationships`, `event_handler` and `learning` for every domain, `core` for all but Tasks, and `intelligence` for Principles alone (the others build theirs in the facade — `SERVICE_CONSOLIDATION_PATTERNS.md` § Foundational). The shared shape is the contract for interconnectivity (see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization").
 
 Habits has one event service: `HabitEventHandlerService` (reactive fire-and-forget, auto-wired by
-factory as `self.event_handler`). Event scheduling intelligence (recurrence logic, UserContext lookups)
-lives on `HabitsIntelligenceService` as `get_event_uids_for_habit()` and `schedule_events_for_habit()`.
+factory as `self.event_handler`). The UserContext lookup of a habit's upcoming events lives on
+`HabitsIntelligenceService` as `get_event_uids_for_habit()`; scheduling events from a habit's
+recurrence is `HabitEventScheduler.schedule_events_for_habit()`.
 
 **Most Complex:** Habits (12 sub-services + the optional `ai` slot + 4 facade mixins)
 **Simplest:** Choices (7 sub-services + the optional `ai` slot + 1 facade mixin)

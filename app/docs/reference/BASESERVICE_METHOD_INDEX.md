@@ -104,13 +104,12 @@ These methods are available on **all services that extend BaseService**.
 
 ### ContextOperationsMixin
 
-**Purpose:** Retrieve entities with enriched graph context
+**Purpose:** Retrieve an entity with its full content
 
 | Method | Async |
 |--------|-------|
 | `get()` | ✅ |
 | `get_with_content()` | ✅ |
-| `get_with_context()` | ✅ |
 
 ---
 
@@ -201,7 +200,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### GoalsService
 
-**Facade-specific public methods:** 61
+**Facade-specific public methods:** 60
 
 | Method | Async |
 |--------|-------|
@@ -224,7 +223,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_goal_with_scheduling_context()` | ✅ |
 | `create_semantic_goal_relationship()` | ✅ |
 | `create_subgoal_relationship()` | ✅ |
-| `generate_tasks_for_goal()` | ✅ |
 | `get_achievable_goals_for_user()` | ✅ |
 | `get_active()` | ✅ |
 | `get_advancing_goals_for_user()` | ✅ |
@@ -271,7 +269,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### HabitsService
 
-**Facade-specific public methods:** 78
+**Facade-specific public methods:** 77
 
 | Method | Async |
 |--------|-------|
@@ -343,7 +341,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `list_habits()` | ✅ |
 | `optimize_habit_schedule()` | ✅ |
 | `remove_subhabit_relationship()` | ✅ |
-| `schedule_events_for_habit()` | ✅ |
 | `set_habit_reminder()` | ✅ |
 | `suggest_habit_frequency()` | ✅ |
 | `suggest_habit_stacking()` | ✅ |

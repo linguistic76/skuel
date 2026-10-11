@@ -859,26 +859,6 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         """Get hierarchical structure for an entity."""
         ...
 
-    async def context_query_raw(
-        self,
-        uid: str,
-        *,
-        include_relationships: builtins.list[str] | None = None,
-        exclude_relationships: builtins.list[str] | None = None,
-        default_confidence: float = 0.7,
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Registry-driven context query for entity with graph neighborhood."""
-        ...
-
-    async def basic_context_query_raw(
-        self,
-        uid: str,
-        prereq_rels: str,
-        min_confidence: float = 0.7,
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Basic 3-relationship context query for unregistered entities."""
-        ...
-
 
 @runtime_checkable
 class RelationshipCrudOperations(Protocol):
