@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-10-10
+updated: 2026-10-11
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -303,11 +303,19 @@ Exercise shares substance tracking, learning metadata, and confidence fields wit
 and LearningPath — that is the only reason they share the `Curriculum` base class. Shared
 base class does not mean structural peers.
 
-**One Exercise per PathStep (PERSONAL scope):**
+**One PathStep per Exercise (PERSONAL scope):**
 
-A PERSONAL-scope Exercise belongs to exactly one PathStep. This is the canonical loop
-anchor. ASSIGNED-scope Exercises (teacher → group) omit `path_step_uid` and use a
-`group_uid` instead.
+A PERSONAL-scope Exercise hangs from at most one PathStep — the canonical loop anchor —
+or from none, as a free-standing template in its owner's library. ASSIGNED-scope
+Exercises (teacher → group) omit `path_step_uid` and use a `group_uid` instead.
+
+**Anchoring contributes the exercise to the step.** A teacher who anchors their PERSONAL
+exercise to a shared PathStep gives it to that step's learners: while the step is
+published, every signed-in learner may read it — the step page lists it, and the learner
+detail read (`/exercises/get`, the SCOPE_AWARE audience) and exercise search open it —
+and a learner in progress on the step may turn in against it. A draft step contributes
+nothing. The owner keeps the authoring view (`/exercises/{uid}/view`) and the edit door;
+an unanchored PERSONAL exercise stays its owner's.
 
 **Graph Role:** Exercise is the applied-knowledge anchor — the bridge between curriculum
 knowledge (PathStep) and user practice (UserEntry → EntryReport → RevisedExercise).

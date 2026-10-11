@@ -199,7 +199,7 @@ await lp_service.create_path(user_uid, title, description, steps)
 
 | Scope | Who creates | Anchor | Requirement |
 |-------|-------------|--------|-------------|
-| `PERSONAL` | TEACHER+ (the CRUD create route and the exercises UI are both teacher-gated) | `path_step_uid` optional | When set, writes `Exercise.path_step_uid` **and** `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (dual-write); unset = free-standing template in the user's library |
+| `PERSONAL` | TEACHER+ (the CRUD create route and the exercises UI are both teacher-gated) | `path_step_uid` optional | When set, writes `Exercise.path_step_uid` **and** `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (dual-write) — anchored, it is the step's: every learner reads it while the step is published and submits once in progress; unset = free-standing template in the user's library |
 | `ASSIGNED` | TEACHER+ | `group_uid` required | Shared via `SHARED_WITH_GROUP` (ADR-040) |
 | `ASSESSMENT` | TEACHER+ | `scoring_rubric` required | `pass_threshold` defaults to 0.7 |
 | `CURRICULUM` | Content vault (ingestion only) | `exercise_uids:` in PathStep YAML | Shared content, no user OWNS edge; API create rejected; ingestion rejects every other scope (no owner mechanism at the file boundary) |

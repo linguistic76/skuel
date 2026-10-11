@@ -44,7 +44,7 @@ Task, Goal, Habit, Event, Choice, Principle · Ku, PathStep, LearningPath · Exe
 |--------|---------|
 | `OWNER_ONLY` | 6 Activity + UserEntry + RevisedExercise |
 | `PUBLIC` | Ku, PS, LP |
-| `SCOPE_AWARE` | Exercise (curriculum visible to all; owned scopes via OWNS/SHARES_WITH/group) |
+| `SCOPE_AWARE` | Exercise (curriculum visible to all; a PERSONAL one anchored to a published PathStep visible to every signed-in user; owned scopes via OWNS/SHARES_WITH/group) |
 | `OWNER_OR_AUDIENCE` | UserEntry — as `read_visibility` only (the by-UID read opens for the share links' recipients; search stays `OWNER_ONLY`; ADR-088 §5) |
 
 Single Cypher composition point: `build_search_visibility_clause()` (`query/cypher/crud_queries.py`); its audience arm is `build_audience_fragment()` (ADR-088 §3). Every composing builder passes `has_user=True` unconditionally — fail-closed on a null uid.

@@ -370,8 +370,9 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         Applies the SCOPE_AWARE policy this service declares (its
         ``read_visibility`` is the search declaration, ADR-088 §5) to a
         single-entity read:
-        CURRICULUM is everyone's; PERSONAL/ASSIGNED/ASSESSMENT need OWNS,
-        SHARES_WITH, or group membership. Without this, a direct read by UID
+        CURRICULUM is everyone's, and so is a PERSONAL exercise anchored to a
+        published PathStep (the step's); otherwise PERSONAL/ASSIGNED/ASSESSMENT
+        need OWNS, SHARES_WITH, or group membership. Without this, a direct read by UID
         answered questions the same entity's search surface refuses.
 
         Out-of-audience is reported as not-found, never forbidden, so the

@@ -120,6 +120,24 @@ class TestVisibilityClause:
         assert "publication_state" not in clause
         assert "publication_draft" not in params
 
+    def test_an_anchored_exercise_needs_a_published_step_with_the_gate_off(self) -> None:
+        """The by-UID read turns the gate off; the anchor's step must still be
+        published — a draft step admits no one — while the exercise's own draft
+        state is the gate's, and the gate is off."""
+        scope = build_search_visibility_clause(
+            SearchVisibility.SCOPE_AWARE, has_user=True, apply_publication_gate=False
+        )
+        assert scope is not None
+        clause, params = scope
+        assert (
+            "(n.scope = $visibility_personal_scope AND $user_uid IS NOT NULL"
+            " AND EXISTS { MATCH (visibility_anchor_step:PathStep)-[:HAS_EXERCISE]->(n)"
+            " WHERE (visibility_anchor_step.publication_state IS NULL"
+            " OR visibility_anchor_step.publication_state <> $publication_draft) })" in clause
+        )
+        assert "n.publication_state" not in clause
+        assert params["publication_draft"] == "draft"
+
     def test_publication_state_survives_the_dto_round_trip(self) -> None:
         """Codex #1006 P2: listing a name in ``enum_fields`` does not declare a field.
 
@@ -195,13 +213,20 @@ class TestVisibilityClause:
         assert "n.scope = $visibility_curriculum_scope" in clause
         assert params == {
             "visibility_curriculum_scope": "curriculum",
+            "visibility_personal_scope": "personal",
             "publication_draft": "draft",
         }
-        # The publication gate binds to the CURRICULUM half only — an owner must
-        # still see their own unfinished work.
-        assert (
-            "(n.scope = $visibility_curriculum_scope AND (n.publication_state IS NULL"
-            " OR n.publication_state <> $publication_draft))" in clause
+        # The shared half — CURRICULUM, or a PERSONAL exercise anchored to a
+        # published PathStep (the step's) — carries the publication gate; the
+        # owned arms do not, so an owner still sees their own unfinished work.
+        assert clause.startswith(
+            "(((n.scope = $visibility_curriculum_scope"
+            " OR (n.scope = $visibility_personal_scope AND $user_uid IS NOT NULL"
+            " AND EXISTS { MATCH (visibility_anchor_step:PathStep)-[:HAS_EXERCISE]->(n)"
+            " WHERE (visibility_anchor_step.publication_state IS NULL"
+            " OR visibility_anchor_step.publication_state <> $publication_draft) }))"
+            " AND (n.publication_state IS NULL OR n.publication_state <> $publication_draft))"
+            " OR n.owner_uid = $user_uid"
         )
         assert "-[:OWNS]->" in clause
         assert "-[:SHARES_WITH]->" in clause
