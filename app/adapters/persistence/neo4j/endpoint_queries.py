@@ -113,7 +113,12 @@ def build_guarded_link_query(
     """The statement that writes an anchor's links and re-asserts the guard's rule.
 
     The link-edge guard admits a far end in reads taken before the write; this
-    statement reads the same facts again under the write. Every far uid must name an
+    statement reads the same facts again under the write — after taking each node's
+    write lock (``SET x.uid = x.uid`` writes nothing and is the pure-Cypher lock; reads
+    are read-committed and lock-free, so without it a change committed between this
+    statement's read and its ``MERGE`` would still be linked). A writer that re-owns,
+    unpublishes or deletes the node waits for this transaction, or this one waits for
+    it and reads what it committed. Every far uid must name an
     ``:Entity`` carrying one of ``$far_labels`` that is owned by one of the anchor's
     owners, or owned by nobody and published — the rule ``_refusal_reason`` states. A
     far end deleted, re-owned or unpublished since its admission fails it, and the
@@ -138,12 +143,14 @@ def build_guarded_link_query(
     )
     return f"""
 MATCH (a:{NeoLabel.ENTITY.value} {{uid: $anchor_uid}}) WHERE NOT a:{NeoLabel.CONTENT.value}
+SET a.uid = a.uid
 WITH a, {build_owner_uids_expression("a")} AS anchor_owners
 CALL (a, anchor_owners) {{
     UNWIND $far_uids AS far_uid
     MATCH (n:{NeoLabel.ENTITY.value} {{uid: far_uid}})
     WHERE NOT n:{NeoLabel.CONTENT.value} AND n <> a
       AND any(label IN labels(n) WHERE label IN $far_labels)
+    SET n.uid = n.uid
     WITH n, {build_owner_uids_expression("n")} AS far_owners
     WHERE CASE WHEN size(far_owners) = 0 THEN {_PUBLISHED_CLAUSE}
                ELSE any(o IN far_owners WHERE o IN anchor_owners) END

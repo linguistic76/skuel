@@ -15,6 +15,7 @@ apart from a uid that names nothing.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -51,6 +52,7 @@ GOAL_SHARED_SOURCE = f"goal_{MARK}_nobodys"  # a goal nobody owns
 HABIT = f"habit_{MARK}_alice"
 HABIT_TWO = f"habit_{MARK}_alice_two"
 HABIT_BOB = f"habit_{MARK}_bob"
+HABIT_CONTESTED = f"habit_{MARK}_contested"
 KU = f"ku_{MARK}_published"
 KU_DRAFT = f"ku_{MARK}_draft"
 GROUP = f"group_{MARK}"
@@ -227,6 +229,57 @@ class TestTheWriteReassertsTheRule:
         outcome = await backend.write_guarded_links(MISSING, [_habits(HABIT)])
 
         assert outcome.value.refused_uid == MISSING
+
+
+class TestTheWriteReadsUnderTheFarEndsLock:
+    async def test_a_far_end_re_owned_by_a_transaction_in_flight_is_refused(
+        self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
+    ) -> None:
+        """Another writer holds the far end, re-owning it, when the write starts: the
+        write waits for that transaction and reads what it committed — Bob's habit."""
+        await _clear_links(graph)
+        await _owned(graph, "Habit", HABIT_CONTESTED, ALICE)
+        async with graph.session() as session:
+            other = await session.begin_transaction()
+            await other.run(
+                """
+                MATCH (alice:User {uid: $alice})-[owns:OWNS]->(h:Entity {uid: $habit})
+                MATCH (bob:User {uid: $bob})
+                DELETE owns
+                SET h.user_uid = $bob
+                CREATE (bob)-[:OWNS]->(h)
+                """,
+                alice=ALICE,
+                bob=BOB,
+                habit=HABIT_CONTESTED,
+            )
+            write = asyncio.create_task(
+                backend.write_guarded_links(GOAL, [_habits(HABIT_CONTESTED)])
+            )
+            await asyncio.sleep(1)
+            assert not write.done(), "the write waits for the transaction holding its far end"
+            await other.commit()
+            outcome = await write
+
+        assert outcome.is_ok
+        assert outcome.value.refused_uid == HABIT_CONTESTED
+        assert await _links(graph, GOAL) == set()
+
+    async def test_control_a_far_end_left_alone_in_flight_is_linked(
+        self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
+    ) -> None:
+        """The same wait, with the other transaction touching the far end but not its owner."""
+        await _clear_links(graph)
+        async with graph.session() as session:
+            other = await session.begin_transaction()
+            await other.run("MATCH (h:Entity {uid: $habit}) SET h.title = 'renamed'", habit=HABIT)
+            write = asyncio.create_task(backend.write_guarded_links(GOAL, [_habits(HABIT)]))
+            await asyncio.sleep(1)
+            await other.commit()
+            outcome = await write
+
+        assert outcome.value.refused_uid is None
+        assert await _links(graph, GOAL) == {(REINFORCES_HABIT.value, HABIT)}
 
 
 class TestAReplaceIsOneStatement:
