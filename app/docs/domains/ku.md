@@ -1,7 +1,7 @@
 ---
 title: KU (Knowledge Unit) Domain
 created: 2025-12-04
-updated: 2026-10-10
+updated: 2026-10-11
 status: current
 category: domains
 tags:
@@ -124,7 +124,7 @@ What a Ku carries:
 | `CITES_RESOURCE` | Outgoing | Resource | `KU_CONFIG` |
 | `ORGANIZES` | Both | any Entity | Read-side only in `KU_CONFIG` (its `bidirectional_relationships` entry, Ku → Ku, is not an ingestible field — `generate_ingestion_relationship_config(EntityType.KU)` yields `resource_uids` alone). A Ku **authors** ORGANIZES through `moc: true` body links (the MOC edge pass, any `:Entity` target); `organizes:` frontmatter is a PathStep field. See [moc.md](moc.md) |
 | `IN_PROGRESS`, `MASTERED` | Incoming | User | learning state (`mark_as_studying` / `mark_as_understood`) |
-| `PINNED` | Incoming | User | bookmark (`/library/ku`) |
+| `PINNED` | Incoming | User | bookmark (`/library/ku`; `POST /api/user/pins` pins a published Ku or PathStep, or an entity the caller owns — anything else is a 404 alike for a uid that names nothing) |
 | `PREREQUISITE_FOR`, `LATERAL_ENABLES`, `SIMILAR_TO`, `COMPLEMENTARY_TO`, `ALTERNATIVE_TO`, … | Both | Ku | the lateral family (`/api/ku/{uid}/lateral/*`; `_LATERAL_TYPES` in `core/models/relationship_names.py`) |
 | `APPLIES_KNOWLEDGE {inferred, confidence}` | Incoming | UserEntry | `EntryGroundingService` (vector grounding) and explicit `@ku()` refs (ADR-069) — the grounded-journal channel of substance |
 

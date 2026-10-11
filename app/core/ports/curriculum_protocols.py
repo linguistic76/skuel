@@ -1210,7 +1210,11 @@ class PsOperations(
     # =========================================================================
     # LEARNING STATE TRACKING (VIEWED / IN_PROGRESS / MASTERED / bookmarks)
     # =========================================================================
-    # Per-user progress edges on :Entity nodes, consumed by PsMasteryService.
+    # Per-user progress edges, consumed by PsMasteryService. The learner-door writes
+    # (record_view, mark_in_progress, mark_as_learning, mark_as_read, create_bookmark)
+    # land on a published PathStep only and return no row for any other uid — the
+    # write admits its own far end; the service reports the empty result as the step
+    # not being found.
     # These return raw Cypher rows the service interprets into UserKuProgress /
     # LearningState. The rows are genuinely heterogeneous — bool flags, counts,
     # UIDs, and Neo4j temporal objects (.to_native()) in one dict — so they use
@@ -1220,9 +1224,9 @@ class PsOperations(
     async def record_view(
         self, user_uid: UserUID, ku_uid: str, now: str, time_spent: int
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {view_count}
-        """Record a user's visit to a KU; repeat visits accumulate count and time spent.
+        """Record a user's visit to a published PathStep; repeat visits accumulate count and time spent.
 
-        One view record per user/KU pair, but NOT idempotent: every call
+        One view record per user/step pair, but NOT idempotent: every call
         increments the view count and adds to total time spent, so a retry
         double-counts engagement. The first-viewed timestamp is set once and
         survives later visits; the running view count comes back on the row.
@@ -1232,9 +1236,9 @@ class PsOperations(
     async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str, now: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
-        """Put a KU into the user's in-progress set, refreshing last activity.
+        """Put a published PathStep into the user's in-progress set, refreshing last activity.
 
-        One record per user/KU pair and safe to repeat — nothing accumulates, and
+        One record per user/step pair and safe to repeat — nothing accumulates, and
         the original start time and progress score survive. Only the
         last-activity timestamp moves.
         """
@@ -1243,13 +1247,13 @@ class PsOperations(
     async def mark_as_learning(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
-        """Delete MARKED_AS_READ and ensure IN_PROGRESS (Review again action)."""
+        """Delete MARKED_AS_READ and ensure IN_PROGRESS on a published PathStep (Review again)."""
         ...
 
     async def mark_as_read(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns the MARKED_AS_READ edge
-        """Mark a KU as read for this user, returning the resulting read record.
+        """Mark a published PathStep as read for this user, returning the read record.
 
         Idempotent — the original marked-at time survives a repeat.
         """
@@ -1290,8 +1294,9 @@ class PsOperations(
 
     async def create_bookmark(
         self, user_uid: UserUID, ku_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: no RETURN (empty rows)
-        """Bookmark a KU for the user; idempotent, keeping the original bookmark time."""
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
+        """Bookmark a published PathStep for the user; idempotent, keeping the original
+        bookmark time. One row when the bookmark stands."""
         ...
 
     async def delete_bookmark(

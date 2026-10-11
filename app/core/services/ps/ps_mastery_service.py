@@ -31,7 +31,7 @@ from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorContext, Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import PsOperations
@@ -46,6 +46,12 @@ step teaches, never reported directly (a Ku's ``method`` names its reporter —
 STEP_MASTERY_SCORE = 1.0
 """``mastery_score`` on a PathStep's MASTERED edge: the step's mastered-Ku
 ratio, which is 1.0 by the time the edge is written."""
+
+
+def _step_not_found(step_uid: str) -> ErrorContext:
+    """The one refusal a learner-state write gives: a uid that names nothing, another
+    kind of node, another user's entity and a draft step all read as a missing step."""
+    return Errors.not_found("PathStep", step_uid)
 
 
 class StepWrite(Enum):
@@ -119,9 +125,11 @@ class PsMasteryService:
         time_spent_seconds: int = 0,
     ) -> Result[bool]:
         """
-        Record that a user viewed a knowledge unit.
+        Record that a user viewed a published PathStep.
 
-        Creates or updates VIEWED relationship with timestamps and counts.
+        Creates or updates VIEWED relationship with timestamps and counts. Any
+        other uid — another kind of node, another user's entity, a draft, nothing —
+        is ``not_found`` of the step (the backend write admits its own far end).
         """
         now = datetime.now(UTC).isoformat()
         result = await self.backend.record_view(user_uid, ku_uid, now, time_spent_seconds)
@@ -138,8 +146,7 @@ class PsMasteryService:
                 view_count=record["view_count"],
             )
             return Result.ok(True)
-        else:
-            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+        return Result.fail(_step_not_found(ku_uid))
 
     async def count_in_progress_steps(self, user_uid: UserUID) -> Result[int]:
         """Count PathSteps the user is currently enrolled in (IN_PROGRESS)."""
@@ -163,7 +170,11 @@ class PsMasteryService:
         user_uid: UserUID,
         ku_uid: str,
     ) -> Result[bool]:
-        """Mark a knowledge unit as in-progress for a user."""
+        """Enrol the user in a published PathStep (IN_PROGRESS) and announce it.
+
+        Refused as ``not_found`` of the step for any other uid; nothing is
+        written and ``PathStepEnrolled`` is not published.
+        """
         now = datetime.now(UTC).isoformat()
         result = await self.backend.mark_in_progress(user_uid, ku_uid, now)
 
@@ -178,8 +189,7 @@ class PsMasteryService:
                 self.logger,
             )
             return Result.ok(True)
-        else:
-            return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+        return Result.fail(_step_not_found(ku_uid))
 
     async def get_learning_state(
         self,
@@ -288,18 +298,20 @@ class PsMasteryService:
         if result.value:
             self.logger.debug("Reset to learning", user_uid=user_uid, ku_uid=ku_uid)
             return Result.ok(True)
-        return Result.fail(Errors.not_found("User or PathStep", f"{user_uid} / {ku_uid}"))
+        return Result.fail(_step_not_found(ku_uid))
 
     async def mark_as_read(
         self,
         user_uid: UserUID,
         ku_uid: str,
     ) -> Result[bool]:
-        """Mark a KU as read by the user."""
+        """Mark a published PathStep as read; ``not_found`` of the step for any other uid."""
         result = await self.backend.mark_as_read(user_uid, ku_uid)
 
         if result.is_error:
             return Result.fail(result)
+        if not result.value:
+            return Result.fail(_step_not_found(ku_uid))
 
         self.logger.info(f"Marked KU as read: {user_uid} -> {ku_uid}")
         return Result.ok(True)
@@ -317,6 +329,8 @@ class PsMasteryService:
             result = await self.backend.delete_bookmark(user_uid, ku_uid)
         if result.is_error:
             return Result.fail(result)
+        if desired and not result.value:
+            return Result.fail(_step_not_found(ku_uid))
         self.logger.debug("Set bookmark", user_uid=user_uid, ku_uid=ku_uid, desired=desired)
         return Result.ok(desired)
 
@@ -325,7 +339,11 @@ class PsMasteryService:
         user_uid: UserUID,
         ku_uid: str,
     ) -> Result[bool]:
-        """Toggle bookmark state for a KU."""
+        """Toggle the user's bookmark on a published PathStep.
+
+        Removing a bookmark needs no admission (it deletes the user's own edge);
+        adding one is ``not_found`` of the step for any other uid.
+        """
         # Check if bookmark exists
         check_result = await self.backend.check_bookmark(user_uid, ku_uid)
 
@@ -344,6 +362,8 @@ class PsMasteryService:
             create_result = await self.backend.create_bookmark(user_uid, ku_uid)
             if create_result.is_error:
                 return Result.fail(create_result)
+            if not create_result.value:
+                return Result.fail(_step_not_found(ku_uid))
             self.logger.info(f"Added bookmark: {user_uid} -> {ku_uid}")
             return Result.ok(True)
 

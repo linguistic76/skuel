@@ -165,6 +165,15 @@ class SharingBackendOperations(Protocol):
         user_uid: UserUID,
     ) -> Result[list[Neo4jProperties]]: ...
 
+    # The link-edge guard's three endpoint reads (``link_edge_guard``), inherited
+    # from the universal backend: AudienceResolver admits an entry's PathStep
+    # context with them before the entry is written.
+    async def get_owner_uids_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]: ...
+
+    async def get_node_labels_batch(self, uids: list[str]) -> Result[dict[str, list[str]]]: ...
+
+    async def get_published_uids_batch(self, uids: list[str]) -> Result[frozenset[str]]: ...
+
 
 @runtime_checkable
 class SharingOperations(Protocol):

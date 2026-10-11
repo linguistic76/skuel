@@ -29,6 +29,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import (
+    build_owner_uids_expression,
+    build_publication_clause,
+)
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.processor_functions import (
@@ -42,6 +47,10 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+# The publication predicate a pinned Ku or PathStep must pass — a draft is curriculum
+# no learner is shown, so it is not pinnable either.
+_PUBLISHED_ENTITY, _PUBLISHED_ENTITY_PARAMS = build_publication_clause("entity")
 
 
 class UserRelationshipBackend:
@@ -103,9 +112,17 @@ class UserRelationshipBackend:
 
         Adds to end of current pinned list (max order + 1).
 
+        What may be pinned is decided by the statement that writes the edge: an
+        entity the user owns (any of the three ownership spellings,
+        ``build_owner_uids_expression``), or shared curriculum a learner can read —
+        a Ku or PathStep owned by nobody that passes ``build_publication_clause``.
+        Anything else matches no row, so another user's entity, a draft, another
+        kind of shared node and a uid that names nothing are each ``not_found`` of
+        the entity — one answer, which confirms nothing about whether it exists.
+
         Args:
             user_uid: User UID
-            entity_uid: Entity UID to pin (task, goal, KU, etc.)
+            entity_uid: Entity UID to pin
 
         Returns:
             Result[bool] - True if pinned successfully
@@ -120,12 +137,23 @@ class UserRelationshipBackend:
         result = await self.executor.execute(
             query=f"""
                 MATCH (user:User {{uid: $user_uid}})
-                MATCH (entity:Entity {{uid: $entity_uid}})
+                MATCH (entity:{NeoLabel.ENTITY} {{uid: $entity_uid}})
+                WHERE NOT entity:{NeoLabel.CONTENT}
+                WITH user, entity, {build_owner_uids_expression("entity")} AS owners
+                WHERE $user_uid IN owners
+                   OR (size(owners) = 0
+                       AND (entity:{NeoLabel.KU} OR entity:{NeoLabel.PATH_STEP})
+                       AND {_PUBLISHED_ENTITY})
                 MERGE (user)-[r:{RelationshipName.PINNED}]->(entity)
                 ON CREATE SET r.order = $order
                 RETURN true as success
             """,
-            params={"user_uid": user_uid, "entity_uid": entity_uid, "order": current_count},
+            params={
+                "user_uid": user_uid,
+                "entity_uid": entity_uid,
+                "order": current_count,
+                **_PUBLISHED_ENTITY_PARAMS,
+            },
             processor=check_exists,
             operation="pin_entity",
         )
