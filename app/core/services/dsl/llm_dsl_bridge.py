@@ -48,11 +48,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.constants import PromptInput
 from core.models.type_hints import UserUID
 from core.prompts import PROMPT_REGISTRY
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
@@ -268,7 +270,11 @@ class LLMDSLBridgeService:
             if self.use_compact_prompt
             else "dsl_domain_recognition"
         )
-        prompt = PROMPT_REGISTRY.render(template_id, journal_text=text, user_context=context_block)
+        prompt = PROMPT_REGISTRY.render(
+            template_id,
+            journal_text=truncate_to_budget(text, PromptInput.DOCUMENT_MAX_CHARS),
+            user_context=context_block,
+        )
 
         # Call LLM
         response = await self._call_llm(prompt)

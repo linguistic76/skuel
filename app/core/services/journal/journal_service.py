@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from core.constants import PromptInput
 from core.models.enums.user_enums import JournalMode
 from core.models.type_hints import UserUID
 from core.services.chat import available_chat_models, resolve_chat_model
@@ -35,6 +36,7 @@ from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
     from core.models.goal.goal import Goal
@@ -73,6 +75,17 @@ class JournalFollowUp:
 
 _MAX_TOKENS = 4000
 _STAGE3_MAX_TOKENS = 3000
+
+
+def _document(text: str) -> str:
+    """``text`` as it may enter a prompt: at most ``PromptInput.DOCUMENT_MAX_CHARS``.
+
+    Every user-written document a stage sends — the note, a stage output the
+    client posts back, review notes, the conversation so far, the reply — goes
+    through this, so no one of them can crowd the instructions out of the
+    prompt or push it past the provider's context window.
+    """
+    return truncate_to_budget(text, PromptInput.DOCUMENT_MAX_CHARS)
 
 
 class JournalService:
@@ -378,7 +391,9 @@ class JournalService:
     async def run_stage1(self, raw_entry: str, user_uid: UserUID) -> Result[str]:
         """Stage 1: produce a faithful structural Scribe record of the raw entry."""
         system_prompt = stage1_system_prompt()
-        user_message = f"# Daily Note\n\n{raw_entry}\n\nPlease process this as Stage 1 — Scribe."
+        user_message = (
+            f"# Daily Note\n\n{_document(raw_entry)}\n\nPlease process this as Stage 1 — Scribe."
+        )
         try:
             return await self._llm.generate(
                 prompt=user_message,
@@ -423,9 +438,9 @@ class JournalService:
             context_summary, canon.to_prompt_block(), vault.to_prompt_block()
         )
         user_message = (
-            f"# Raw Daily Note\n\n{raw_entry}\n\n"
-            f"# Stage 1 — Scribe Record\n\n{scribe_output}\n\n"
-            f"# Review Notes\n\n{review_notes or '(none)'}\n\n"
+            f"# Raw Daily Note\n\n{_document(raw_entry)}\n\n"
+            f"# Stage 1 — Scribe Record\n\n{_document(scribe_output)}\n\n"
+            f"# Review Notes\n\n{_document(review_notes) or '(none)'}\n\n"
             "Please process this as Stage 2 — Thought Partner."
         )
         try:
@@ -471,9 +486,9 @@ class JournalService:
             context_summary, canon.to_prompt_block(), vault.to_prompt_block()
         )
         user_message = (
-            f"# Raw Daily Note\n\n{raw_entry}\n\n"
-            f"# Stage 2 — What Is Emerging\n\n{thought_partner_output}\n\n"
-            f"# Review Notes\n\n{review_notes or '(none)'}\n\n"
+            f"# Raw Daily Note\n\n{_document(raw_entry)}\n\n"
+            f"# Stage 2 — What Is Emerging\n\n{_document(thought_partner_output)}\n\n"
+            f"# Review Notes\n\n{_document(review_notes) or '(none)'}\n\n"
             "Please process this as Stage 3 — What Is Related."
         )
         try:
@@ -547,7 +562,7 @@ class JournalService:
         system_prompt = discussion_system_prompt(
             context_summary, mode, canon.to_discussion_block(), vault.to_discussion_block()
         )
-        user_message = raw_entry
+        user_message = _document(raw_entry)
         try:
             result = await self._llm.generate(
                 prompt=user_message,
@@ -674,9 +689,9 @@ class JournalService:
             context_summary, mode, canon.to_discussion_block(), vault.to_discussion_block()
         )
         user_message = (
-            f"# Original Note\n\n{original_entry}\n\n"
-            f"# Previous Response\n\n{ai_response}\n\n"
-            f"# Follow-up\n\n{user_reply}"
+            f"# Original Note\n\n{_document(original_entry)}\n\n"
+            f"# Previous Response\n\n{_document(ai_response)}\n\n"
+            f"# Follow-up\n\n{_document(user_reply)}"
         )
         try:
             result = await self._llm.generate(

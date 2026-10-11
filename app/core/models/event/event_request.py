@@ -39,9 +39,9 @@ class EventCreateRequest(BaseModel):
     event_type: EventType = Field(default=EventType.PERSONAL, description="Type of event")
 
     # Location
-    location: str | None = Field(default=None, description="Event location")
+    location: str | None = Field(default=None, max_length=500, description="Event location")
     is_online: bool = Field(default=False, description="Is this an online event")
-    meeting_url: str | None = Field(default=None, description="Online meeting URL")
+    meeting_url: str | None = Field(default=None, max_length=2000, description="Online meeting URL")
 
     # Organization
     tags: list[str] = Field(default_factory=list, description="Event tags")
@@ -112,9 +112,9 @@ class EventUpdateRequest(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     event_type: EventType | None = None
-    location: str | None = None
+    location: str | None = Field(default=None, max_length=500)
     is_online: bool | None = None
-    meeting_url: str | None = None
+    meeting_url: str | None = Field(default=None, max_length=2000)
     tags: list[str] | None = None
     priority: Priority | None = None
     status: EntityStatus | None = None

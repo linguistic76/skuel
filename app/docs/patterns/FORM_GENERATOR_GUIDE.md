@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-10-11
 ---
 
 # FormGenerator User Guide
@@ -353,7 +353,6 @@ form = Form(
 |-------------|--------|-----------------|
 | `str` | `<input type="text">` | `uk-input` |
 | `str` (name contains "description", "notes", "content", "body") | `<textarea>` | `uk-textarea` |
-| `str` (max_length > 100) | `<textarea>` | `uk-textarea` |
 | `int`, `float` | `<input type="number">` | `uk-input` |
 | `bool` | hidden `"false"` companion + `<input type="checkbox" value="true">` | `uk-checkbox` |
 | `date` | `<input type="date">` | `uk-input` |

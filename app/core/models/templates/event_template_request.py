@@ -27,7 +27,7 @@ from core.models.validation_rules import validate_url_when_online
 class EventTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating an EventTemplate."""
 
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     tags: list[str] = Field(default_factory=list)
 
     event_offset: RelativeOffsetDTO | None = None
@@ -36,9 +36,9 @@ class EventTemplateCreateRequest(TemplateCreateRequest):
     duration_minutes: int | None = Field(default=None, ge=1)
 
     event_type: EventType | None = None
-    location: str | None = None
+    location: str | None = Field(default=None, max_length=500)
     is_online: bool = False
-    meeting_url: str | None = None
+    meeting_url: str | None = Field(default=None, max_length=2000)
 
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffsetDTO | None = None
@@ -68,7 +68,7 @@ class EventTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating an EventTemplate."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     status: EntityStatus | None = None
     tags: list[str] | None = None
 
@@ -78,9 +78,9 @@ class EventTemplateUpdateRequest(UpdateRequestBase):
     duration_minutes: int | None = Field(default=None, ge=1)
 
     event_type: EventType | None = None
-    location: str | None = None
+    location: str | None = Field(default=None, max_length=500)
     is_online: bool | None = None
-    meeting_url: str | None = None
+    meeting_url: str | None = Field(default=None, max_length=2000)
 
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffsetDTO | None = None

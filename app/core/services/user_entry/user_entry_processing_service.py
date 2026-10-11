@@ -32,6 +32,7 @@ import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.constants import PromptInput
 from core.events import publish_event
 from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
 from core.events.user_entry_events import (
@@ -57,6 +58,7 @@ from core.services.dsl.grounding import goals_as_context
 from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -817,7 +819,12 @@ class UserEntryProcessingService:
         custom_instructions: str | None,
         enrichment_mode: EnrichmentMode,
     ) -> Result[str]:
-        """Resolve an instruction template and call the LLM."""
+        """Resolve an instruction template and call the LLM.
+
+        The entry's content is bounded at ``PromptInput.DOCUMENT_MAX_CHARS``
+        before it enters the prompt; the instructions arrive bounded
+        (``_apply_mode_addendum``).
+        """
         assert self.llm_caller is not None
         assert self.instruction_resolver is not None
 
@@ -829,7 +836,10 @@ class UserEntryProcessingService:
             return Result.fail(instruction_result)
         instruction = instruction_result.value
 
-        prompt = instruction.prompt_text.replace("{content}", content)
+        # The resolver's slot is the last ``{content}``; one the user typed into
+        # their instructions stays literal, so the content enters the prompt once.
+        head, _slot, tail = instruction.prompt_text.rpartition("{content}")
+        prompt = head + truncate_to_budget(content, PromptInput.DOCUMENT_MAX_CHARS) + tail
 
         try:
             return await self.llm_caller.generate(
@@ -854,7 +864,16 @@ class UserEntryProcessingService:
     def _apply_mode_addendum(
         base_instructions: str | None, journal_mode_str: str | None
     ) -> str | None:
-        """Append a JournalMode style addendum to LLM instructions when mode is set."""
+        """The user's instructions as they enter the prompt, with the JournalMode addendum.
+
+        The instructions are bounded at ``PromptInput.DOCUMENT_MAX_CHARS`` before
+        the addendum is appended, so a long instruction text never cuts the
+        response mode the user chose.
+        """
+        if base_instructions:
+            base_instructions = truncate_to_budget(
+                base_instructions, PromptInput.DOCUMENT_MAX_CHARS
+            )
         if not journal_mode_str:
             return base_instructions
         from core.models.enums.user_enums import JournalMode

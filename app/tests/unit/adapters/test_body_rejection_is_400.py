@@ -115,20 +115,29 @@ def test_a_valid_body_still_reaches_the_service(monkeypatch: pytest.MonkeyPatch)
 
 
 # ---------------------------------------------------------------------------
-# Task and Event `description` — capped by the real request models
+# Task and Event text fields — capped by the real request models
 # ---------------------------------------------------------------------------
 
 _EVENT_TIMES = {"event_date": "2099-01-05", "start_time": "09:00", "end_time": "10:00"}
 
 #: domain → (create schema, update schema, the fields a create body must carry)
-_DESCRIPTION_DOORS: dict[str, tuple[type[BaseModel], type[BaseModel], dict[str, str]]] = {
+_TEXT_DOORS: dict[str, tuple[type[BaseModel], type[BaseModel], dict[str, str]]] = {
     "tasks": (TaskCreateRequest, TaskUpdateRequest, {"title": "a real task"}),
     "events": (EventCreateRequest, EventUpdateRequest, {"title": "a real event", **_EVENT_TIMES}),
 }
 
-_DESCRIPTION_CASES = [
-    pytest.param(domain, "create", id=f"{domain}-create") for domain in _DESCRIPTION_DOORS
-] + [pytest.param(domain, "update", id=f"{domain}-update") for domain in _DESCRIPTION_DOORS]
+#: domain → the free-text fields both its doors cap, with the cap
+_TEXT_CAPS: dict[str, dict[str, int]] = {
+    "tasks": {"description": 2000, "project": 200, "assignee": 200},
+    "events": {"description": 2000, "location": 500, "meeting_url": 2000},
+}
+
+_TEXT_CASES = [
+    pytest.param(domain, door, field, cap, id=f"{domain}-{door}-{field}")
+    for domain, caps in _TEXT_CAPS.items()
+    for door in ("create", "update")
+    for field, cap in caps.items()
+]
 
 
 def _to_dict_entity(schema: BaseModel, uid: str, user_uid: str) -> dict[str, object]:
@@ -136,11 +145,11 @@ def _to_dict_entity(schema: BaseModel, uid: str, user_uid: str) -> dict[str, obj
     return {"uid": uid, "user_uid": user_uid, **schema.model_dump(mode="json")}
 
 
-def _post_description(
-    monkeypatch: pytest.MonkeyPatch, domain: str, door: str, description: str
+def _post_text(
+    monkeypatch: pytest.MonkeyPatch, domain: str, door: str, field: str, value: str
 ) -> tuple[int, str]:
-    """POST one description through the real schemas; answer (status, body text)."""
-    create_schema, update_schema, required = _DESCRIPTION_DOORS[domain]
+    """POST one text field through the real schemas; answer (status, body text)."""
+    create_schema, update_schema, required = _TEXT_DOORS[domain]
     app, rt = fast_app(pico=False, default_hdrs=False)
     monkeypatch.setattr(crud_module, "require_authenticated_user", _fake_authenticated_user)
 
@@ -158,30 +167,30 @@ def _post_description(
     ).register_routes(app, rt)
 
     if door == "create":
-        path, body = f"/api/{domain}/create", {**required, "description": description}
+        path, body = f"/api/{domain}/create", {**required, field: value}
     else:
-        path, body = f"/api/{domain}/update?uid=entity_1", {"description": description}
+        path, body = f"/api/{domain}/update?uid=entity_1", {field: value}
     response = TestClient(app, cookies=_COOKIES).post(path, json=body, headers=_CSRF)
     return response.status_code, response.text
 
 
-@pytest.mark.parametrize(("domain", "door"), _DESCRIPTION_CASES)
-def test_an_over_length_description_is_400(
-    monkeypatch: pytest.MonkeyPatch, domain: str, door: str
+@pytest.mark.parametrize(("domain", "door", "field", "cap"), _TEXT_CASES)
+def test_an_over_length_text_field_is_400(
+    monkeypatch: pytest.MonkeyPatch, domain: str, door: str, field: str, cap: int
 ) -> None:
     """One character past the cap is the caller's error, named by field."""
-    status, text = _post_description(monkeypatch, domain, door, "x" * 2001)
+    status, text = _post_text(monkeypatch, domain, door, field, "x" * (cap + 1))
 
     assert status == 400, text
     payload = json.loads(text)
     assert payload["category"] == "validation"
-    assert "description" in payload["message"]
+    assert field in payload["message"]
 
 
-@pytest.mark.parametrize(("domain", "door"), _DESCRIPTION_CASES)
-def test_a_description_at_the_cap_reaches_the_service(
-    monkeypatch: pytest.MonkeyPatch, domain: str, door: str
+@pytest.mark.parametrize(("domain", "door", "field", "cap"), _TEXT_CASES)
+def test_a_text_field_at_the_cap_reaches_the_service(
+    monkeypatch: pytest.MonkeyPatch, domain: str, door: str, field: str, cap: int
 ) -> None:
-    status, text = _post_description(monkeypatch, domain, door, "x" * 2000)
+    status, text = _post_text(monkeypatch, domain, door, field, "x" * cap)
 
     assert status == (201 if door == "create" else 200), text

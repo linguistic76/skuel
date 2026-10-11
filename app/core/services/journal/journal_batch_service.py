@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.config import get_settings
+from core.constants import PromptInput
 from core.models.enums.pipeline import JeUse, ProcessingMode
 from core.models.type_hints import UserUID
 from core.services.chat import resolve_chat_model
@@ -46,6 +47,7 @@ from core.services.journal.instruction_loader import load_named_instruction
 from core.utils.frontmatter import parse_frontmatter, split_frontmatter
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
     from core.services.journal.journal_service import JournalService
@@ -301,6 +303,9 @@ class JournalBatchService:
         # switcher seam (converges with JournalService; no implicit Claude default).
         model = resolve_chat_model(None, self.llm_caller)
         preamble = _build_exemplar_preamble(self._load_exemplars())
+        if instructions:
+            instructions = truncate_to_budget(instructions, PromptInput.DOCUMENT_MAX_CHARS)
+        text = truncate_to_budget(text, PromptInput.DOCUMENT_MAX_CHARS)
         header = "\n\n".join(part for part in (instructions, preamble) if part)
         prompt = f"{header}\n\n---\n\n{text}" if header else text
         try:

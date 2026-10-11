@@ -1,6 +1,6 @@
 ---
 title: "AI Tier Consumer — the routed AI features wait for their first UI surface"
-updated: 2026-10-01
+updated: 2026-10-11
 status: "staged — the tier is repaired and routed (34 POST routes over 8 services), and nothing in the repo calls any of them"
 registered: 2026-09-29
 ruled: 2026-09-29
@@ -80,5 +80,7 @@ a spec whose `method_name` does not resolve on its AI class is refused at regist
   `PromptInput.FIELD_MAX_CHARS`), because a field written by vault ingestion or a template
   spawn passes no request model. `_generate_insight` refuses an assembled prompt over
   `PromptInput.PROMPT_MAX_CHARS`. The Activity-template request models
-  (`core/models/templates/*_template_request.py`) set no `max_length` on `description`; a
-  spawned instance's text is bounded at the prompt like any other.
+  (`core/models/templates/*_template_request.py`) cap every text field a spawn copies at the
+  instance request model's cap (`tests/unit/models/test_template_request_cap_parity.py`);
+  a vault-authored template passes no request model, so its spawned text is bounded at the
+  prompt like any other.
