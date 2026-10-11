@@ -16,7 +16,7 @@ BackendOperations[T] is THE full backend protocol, composed from 10 sub-protocol
         ├── RelationshipMetadataOperations     (3 methods)
         ├── RelationshipQueryOperations        (3 methods)
         ├── OrderedRelationshipOperations      (5 methods)
-        ├── BatchRelationshipOperations        (1 method)
+        ├── BatchRelationshipOperations        (2 methods)
         ├── GraphTraversalOperations           (6 methods)
         └── LowLevelOperations                 (2 methods + driver)
 
@@ -410,7 +410,7 @@ __all__ = [
     # ========== FORM PROTOCOLS ==========
     "FormTemplateOperations",
     "FormSubmissionOperations",
-    "BatchRelationshipOperations",  # Batch related-uid query (1 method)
+    "BatchRelationshipOperations",  # Batch related-uid read and count (2 methods)
     "OrderedRelationshipOperations",  # Ordered writes/hierarchical traversal (5 methods)
     "RelationshipCrudOperations",  # Edge CRUD (15 methods)
     "RelationshipMetadata",

@@ -71,8 +71,8 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
         self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
     ) -> Result[list[Task]]:
         # Stays hand-rolled (not delegated to LearningAlignmentBridge): Task knowledge
-        # lives on APPLIES_KNOWLEDGE edges, not on the model, so scoring requires an
-        # async fetch per task. The Bridge's sync scorer cannot express that, and
+        # lives on APPLIES_KNOWLEDGE edges, not on the model, so scoring needs a graph
+        # read first. The Bridge's sync scorer cannot express that, and
         # LpPosition.assess_task_relevance has current+next-step semantics distinct
         # from the Bridge's default sum-based scorer.
         tasks_result = await self.backend.get_user_entities(user_uid, limit=QueryLimit.MAXIMUM)
@@ -82,18 +82,19 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
         entities, _total = tasks_result.value
         warn_if_capped(self.logger, "Learning-relevant tasks", entities, user_uid=user_uid)
         all_tasks = self._to_domain_models(entities, TaskDTO, Task)
+        open_tasks = [task for task in all_tasks if task.status != EntityStatus.COMPLETED]
+
+        # One read of the applied knowledge for every open task.
+        applies_result = await self.backend.batch_get_related_uids(
+            [task.uid for task in open_tasks], RelationshipName.APPLIES_KNOWLEDGE, "outgoing"
+        )
+        if applies_result.is_error:
+            return Result.fail(applies_result)
+        applied_knowledge = applies_result.value
 
         task_scores: list[tuple[Task, float]] = []
-        for task in all_tasks:
-            if task.status == EntityStatus.COMPLETED:
-                continue
-
-            applies_knowledge_result = await self.backend.get_related_uids(
-                task.uid, RelationshipName.APPLIES_KNOWLEDGE, direction="outgoing"
-            )
-            task_knowledge_uids = (
-                applies_knowledge_result.value if applies_knowledge_result.is_ok else []
-            )
+        for task in open_tasks:
+            task_knowledge_uids = applied_knowledge.get(task.uid, [])
             task_domain = task.priority if task.priority else "general"
             relevance_score = learning_position.assess_task_relevance(
                 task_domain, task_knowledge_uids

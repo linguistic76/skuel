@@ -299,9 +299,10 @@ class _InfluenceMixin:
         self, principle_uids: list[str]
     ) -> Result[dict[str, dict[str, Any]]]:
         """
-        Analyze principle adoption for multiple principles in parallel.
+        Analyze principle adoption for many principles at once.
 
-        OPTIMIZATION: Uses fetch() for ~50% faster batch processing.
+        The relationship read is one query per relationship key
+        (``PrincipleRelationships.fetch_many``), whatever the number of principles.
 
         Args:
             principle_uids: List of principle UIDs
@@ -309,18 +310,15 @@ class _InfluenceMixin:
         Returns:
             Result containing mapping of principle_uid -> quick_impact
         """
-        import asyncio
-
         from core.services.principles.principle_relationships import PrincipleRelationships
 
-        # Fetch all relationships in parallel
-        all_rels = await asyncio.gather(
-            *[PrincipleRelationships.fetch(uid, self.relationships) for uid in principle_uids]
-        )
+        rels_result = await PrincipleRelationships.fetch_many(principle_uids, self.relationships)
+        if rels_result.is_error:
+            return Result.fail(rels_result)
 
         # Calculate quick impact for each
         results = {}
-        for principle_uid, rels in zip(principle_uids, all_rels, strict=False):
+        for principle_uid, rels in rels_result.value.items():
             goal_count = len(rels.supported_goal_uids)
             habit_count = len(rels.inspired_habit_uids)
             total_actions = goal_count + habit_count

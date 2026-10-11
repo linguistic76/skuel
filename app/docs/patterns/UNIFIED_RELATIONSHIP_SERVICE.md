@@ -411,7 +411,10 @@ The live "fetch all relationships in parallel" path is the per-domain
 `<Domain>Relationships.fetch()` classmethod — a standalone frozen dataclass whose
 `fetch()` calls `core/utils/generic_fetcher.py::fetch_relationships_parallel()` with
 the domain's `*_QUERY_SPECS` constant. (`UnifiedRelationshipService` is passed in as
-the query backend.)
+the query backend.) For many entities at once, `ChoiceRelationships.fetch_many()` and
+`PrincipleRelationships.fetch_many()` call `fetch_relationships_batch()` instead: one
+`batch_get_related_uids` read per key, so the query count does not grow with the
+number of entities.
 
 ```python
 from core.services.tasks.task_relationships import TaskRelationships

@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 
 from core.ports.knowledge_pattern_protocol import compute_knowledge_intensity
 from core.services.relationships import UnifiedRelationshipService
-from core.utils.generic_fetcher import fetch_relationships_parallel
+from core.utils.generic_fetcher import fetch_relationships_batch, fetch_relationships_parallel
+from core.utils.result_simplified import Result
 
 # Query specifications: (field_name, service_method_name)
 # Defines the mapping between dataclass fields and service query methods
@@ -64,6 +65,18 @@ class ChoiceRelationships:
         """Fetch all relationship data from graph in parallel."""
         return await fetch_relationships_parallel(
             uid=choice_uid,
+            service=service,
+            query_specs=CHOICE_QUERY_SPECS,
+            dataclass_type=cls,
+        )
+
+    @classmethod
+    async def fetch_many(
+        cls, uids: list[str], service: UnifiedRelationshipService
+    ) -> Result[dict[str, ChoiceRelationships]]:
+        """Fetch the relationship data of many entities — one query per relationship key."""
+        return await fetch_relationships_batch(
+            uids=uids,
             service=service,
             query_specs=CHOICE_QUERY_SPECS,
             dataclass_type=cls,

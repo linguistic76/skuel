@@ -158,10 +158,11 @@ class _AnalyticsMixin:
         self, choice_uids: list[str]
     ) -> Result[dict[str, dict[str, Any]]]:
         """
-        Analyze decision complexity for multiple choices in parallel.
+        Analyze decision complexity for many choices at once.
 
-        OPTIMIZATION: Uses fetch() for ~50% faster batch processing.
-        Perfect for:
+        The relationship read is one query per relationship key
+        (``ChoiceRelationships.fetch_many``), whatever the number of choices.
+        Suited to:
         - User dashboards showing all choices
         - Decision pattern analysis
         - Filtering choices by complexity before detailed analysis
@@ -176,9 +177,7 @@ class _AnalyticsMixin:
 
         Example:
             ```python
-            # Analyze 100 user choices in ~4s instead of ~8s
-            all_choices = ["choice:1", "choice:2", ..., "choice:100"]
-            batch_result = await service.batch_analyze_decision_complexity(all_choices)
+            batch_result = await service.batch_analyze_decision_complexity(choice_uids)
 
             # Filter complex decisions for full analysis
             complex_choices = [
@@ -192,16 +191,17 @@ class _AnalyticsMixin:
                 await service.get_decision_intelligence(uid)
             ```
         """
-        import asyncio
+        from core.services.choices.choice_relationships import ChoiceRelationships
 
-        # ✅ Fetch all relationships in parallel (~4s for 100 choices vs ~8s sequential)
-        all_rels = await asyncio.gather(
-            *[self._fetch_choice_relationships(uid) for uid in choice_uids]
-        )
+        assert self.relationships is not None  # _require_relationships = True
+        rels_result = await ChoiceRelationships.fetch_many(choice_uids, self.relationships)
+        if rels_result.is_error:
+            return Result.fail(rels_result)
+        all_rels = rels_result.value
 
         # Calculate quick complexity for each
         results = {}
-        for choice_uid, rels in zip(choice_uids, all_rels, strict=False):
+        for choice_uid, rels in all_rels.items():
             knowledge_count = len(rels.informed_by_knowledge_uids)
             principle_count = len(rels.informing_principle_uids)
             total = rels.total_knowledge_count()

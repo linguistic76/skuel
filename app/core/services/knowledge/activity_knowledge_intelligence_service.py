@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth
 from core.models.type_hints import EntityUID, UserUID
 from core.services.whole_set_read import find_all_by
+from core.utils.bounded_gather import gather_bounded
 from core.utils.timestamp_helpers import as_utc, now_utc
 
 if TYPE_CHECKING:
@@ -302,11 +303,13 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
 
         # Find entities with knowledge requirements (requires graph intelligence)
         if self.graph_intel:
-            for entity in entities:
-                context_result = await self.graph_intel.get_entity_context(
-                    entity.uid, GraphDepth.NEIGHBORHOOD
-                )
-
+            # Each entity's context is its own graph read; a bounded number run at once.
+            graph_intel = self.graph_intel
+            context_results = await gather_bounded(
+                graph_intel.get_entity_context(entity.uid, GraphDepth.NEIGHBORHOOD)
+                for entity in entities
+            )
+            for entity, context_result in zip(entities, context_results, strict=True):
                 if context_result.is_ok:
                     knowledge_nodes = context_result.value.get_published_knowledge_nodes()
 

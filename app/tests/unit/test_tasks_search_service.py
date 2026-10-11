@@ -51,8 +51,8 @@ def mock_backend() -> Any:
     # Graph-native goal linkage (CONTRIBUTES_TO_GOAL edge)
     backend.get_tasks_contributing_to_goal = AsyncMock(return_value=Result.ok([]))
     backend.get_goal_links_for_tasks = AsyncMock(return_value=Result.ok({}))
-    # count_related returns Result[int] for relationship counting
-    backend.count_related = AsyncMock(return_value=Result.ok(0))
+    # batch_count_related maps uid -> count; an absent uid counts 0
+    backend.batch_count_related = AsyncMock(return_value=Result.ok({}))
     # Temporal raw helpers used by TimeQueryMixin (get_upcoming/get_overdue/get_active)
     backend.upcoming_raw = AsyncMock(return_value=Result.ok([]))
     backend.overdue_raw = AsyncMock(return_value=Result.ok([]))
@@ -233,9 +233,7 @@ async def test_get_blocked_by_prerequisites(
     task_data = [t.to_dto().to_dict() for t in sample_tasks]
     mock_backend.get_user_entities.return_value = Result.ok((task_data, len(task_data)))
 
-    # Mock count_related to return 0 for all tasks (no prerequisites)
-    # count_related returns Result[int]
-    mock_backend.count_related.return_value = Result.ok(0)
+    # No task has a prerequisite edge: the fixture's count maps are empty
 
     # Execute
     result = await search_service.get_blocked_by_prerequisites("user_123")
@@ -246,9 +244,9 @@ async def test_get_blocked_by_prerequisites(
     # With no prerequisites in the mocked graph, expect 0 blocked tasks
     assert len(blocked_tasks) == 0
 
-    # Verify count_related was called to check for prerequisites
-    # Should check both REQUIRES_KNOWLEDGE and REQUIRES_PREREQUISITE for each task
-    assert mock_backend.count_related.called
+    # One count per prerequisite edge type — REQUIRES_KNOWLEDGE, REQUIRES_PREREQUISITE —
+    # over the whole set
+    assert mock_backend.batch_count_related.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -268,8 +266,7 @@ async def test_get_blocked_tasks_empty(search_service, mock_backend):
     # get_user_entities returns (entities, total_count) tuple
     mock_backend.get_user_entities.return_value = Result.ok(([simple_task.to_dto().to_dict()], 1))
 
-    # count_related returns Result[int] - 0 means no prerequisites
-    mock_backend.count_related.return_value = Result.ok(0)
+    # No prerequisite edges (the fixture's count maps are empty)
 
     # Execute
     result = await search_service.get_blocked_by_prerequisites("user_123")

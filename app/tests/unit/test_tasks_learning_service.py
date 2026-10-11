@@ -38,7 +38,7 @@ def mock_backend() -> Any:
     """Create a mock tasks backend."""
     backend = Mock()
     backend.get_user_entities = AsyncMock(return_value=Result.ok(([], 0)))
-    backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
+    backend.batch_get_related_uids = AsyncMock(return_value=Result.ok({}))
     return backend
 
 

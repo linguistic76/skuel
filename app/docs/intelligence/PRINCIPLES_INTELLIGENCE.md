@@ -453,7 +453,7 @@ if result.is_ok:
 - BaseRelationshipOperations relationship service (REQUIRED)
 - Uses `PrincipleRelationships.fetch()` for fast parallel UID fetching
 
-**OPTIMIZATION:** Uses `fetch()` for ~60% faster simple metrics compared to `get_with_context()`.
+Reads relationship UIDs only — one query per relationship key, no path metadata.
 
 **Impact Score Calculation:**
 ```python
@@ -477,7 +477,7 @@ adoption_level = "exploring"    # otherwise
 
 ### Method 6: batch_analyze_principle_adoption()
 
-**Purpose:** Analyze principle adoption for multiple principles in parallel for dashboard views and filtering high-impact principles before detailed analysis.
+**Purpose:** Analyze principle adoption for many principles at once — one relationship query per key, whatever the number of principles — for dashboard views and filtering high-impact principles before detailed analysis.
 
 **Signature:**
 ```python
@@ -519,7 +519,6 @@ async def batch_analyze_principle_adoption(
 
 **Example:**
 ```python
-# Analyze all user principles in ~2s instead of ~4s
 all_principles = ["principle.integrity", "principle.excellence", "principle.balance"]
 
 result = await principles_service.intelligence.batch_analyze_principle_adoption(
@@ -547,9 +546,9 @@ if result.is_ok:
 
 **Dependencies:**
 - BaseRelationshipOperations relationship service (REQUIRED)
-- Uses `PrincipleRelationships.fetch()` with parallel execution
-
-**OPTIMIZATION:** Uses `fetch()` for ~50% faster batch processing compared to sequential `get_with_context()` calls.
+- Uses `PrincipleRelationships.fetch_many()` — one `batch_get_related_uids` read per key in
+  `PRINCIPLE_QUERY_SPECS`, so the query count does not grow with the number of principles
+  (pinned by `tests/integration/test_batched_relationship_reads.py`)
 
 ---
 
