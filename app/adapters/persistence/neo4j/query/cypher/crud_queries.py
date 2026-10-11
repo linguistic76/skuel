@@ -505,9 +505,13 @@ def build_search_visibility_clause(
             when it is needed.
         SCOPE_AWARE: CURRICULUM-scope entities are always visible; owned
             scopes require the ``owner_uid`` claim, :OWNS, :SHARES_WITH, or
-            group membership (:MEMBER_OF + :SHARED_WITH_GROUP). Without a
-            user, only CURRICULUM survives — shared content is the
-            fail-closed floor.
+            group membership (:MEMBER_OF + :SHARED_WITH_GROUP). A PERSONAL
+            entity anchored to a published PathStep (``(:PathStep)-[:HAS_EXERCISE]->``)
+            is the step's, so any signed-in user (a non-null ``$user_uid``)
+            reads it: the step's publication decides the audience, so it
+            applies even with the gate off, and the entity's own draft state
+            follows the gate as CURRICULUM's does. Without a user, only CURRICULUM survives — shared content
+            is the fail-closed floor.
 
             ``owner_uid`` is checked alongside the :OWNS edge because the two
             are a dual write whose halves can be split in stored data: on
@@ -576,28 +580,44 @@ def build_search_visibility_clause(
     # identifiers that Cypher cannot parameterize, like relationship types
     # and labels, are interpolated — property VALUES never are).
     #
-    # The publication gate binds to the CURRICULUM half only: shared curriculum
-    # must be finished to face an audience, but an owner always sees their own
+    # The publication gate binds to the shared half only: shared content must be
+    # finished to face an audience, but an owner always sees their own
     # unfinished work (gating the owned half would hide a user's draft from
     # the user who is drafting it).
     scope_params = {
         "visibility_curriculum_scope": ExerciseScope.CURRICULUM.value,
         **published_params,
     }
-    curriculum = (
-        f"({alias}.scope = $visibility_curriculum_scope AND {published})"
-        if gated
-        else f"({alias}.scope = $visibility_curriculum_scope)"
-    )
+    curriculum_scope = f"{alias}.scope = $visibility_curriculum_scope"
     if not has_user:
-        return f"({curriculum})", scope_params
+        floor = f"({curriculum_scope} AND {published})" if gated else f"({curriculum_scope})"
+        return f"({floor})", scope_params
     owns = RelationshipName.OWNS.value
     shares = RelationshipName.SHARES_WITH.value
     member_of = RelationshipName.MEMBER_OF.value
     shared_with_group = RelationshipName.SHARED_WITH_GROUP.value
+    has_exercise = RelationshipName.HAS_EXERCISE.value
     group_label = NeoLabel.GROUP.value
+    step_label = NeoLabel.PATH_STEP.value
+    # The shared half: CURRICULUM, or a PERSONAL exercise anchored to a PathStep — the
+    # step's, so any signed-in learner reads it while the step is published. Signed in
+    # is the bound user, so a caller passing a null user (the fail-closed spelling) is
+    # floored at CURRICULUM as an anonymous one is. The step's publication decides the
+    # audience, so it holds whatever the gate flag says; the exercise's own draft state
+    # is the gate's, as CURRICULUM's is.
+    step_published, step_params = build_publication_clause("visibility_anchor_step")
+    scope_params.update(step_params)
+    scope_params["visibility_personal_scope"] = ExerciseScope.PERSONAL.value
+    anchored = (
+        f"({alias}.scope = $visibility_personal_scope AND $user_uid IS NOT NULL"
+        f" AND EXISTS {{ MATCH (visibility_anchor_step:{step_label})-[:{has_exercise}]->"
+        f"({alias}) WHERE {step_published} }})"
+    )
+    shared = f"({curriculum_scope} OR {anchored})"
+    if gated:
+        shared = f"({shared} AND {published})"
     return (
-        f"({curriculum}"
+        f"({shared}"
         f" OR {alias}.owner_uid = $user_uid"
         f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{owns}]->({alias}) }}"
         f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{shares}]->({alias}) }}"

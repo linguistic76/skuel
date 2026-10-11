@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-10-10
+updated: 2026-10-11
 status: current
 category: architecture
 tags:
@@ -143,7 +143,7 @@ genuinely instance-scoped domains declare it explicitly.
 |-------|---------|-----------|
 | `PUBLIC` | PS, LP, KU | No filter — shared curriculum content |
 | `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.{ownership_property} = $user_uid` on the domain's declared `DomainConfig.ownership_property` (default `user_uid`; Group declares `owner_uid` — ADR-086) — **every** strategy, faceted included (see the convergence note below) |
-| `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's PERSONAL template |
+| `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; a PERSONAL exercise anchored to a published PathStep (`(:PathStep)-[:HAS_EXERCISE]->`) is the step's and visible to every signed-in user; otherwise owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's unanchored PERSONAL template. Without a user, CURRICULUM alone |
 | `OWNER_OR_AUDIENCE` | UserEntry — as its `read_visibility` only | The owner arm OR the **audience fragment** (`build_audience_fragment`, ADR-088 §3): a direct `:SHARES_WITH`, or `:MEMBER_OF` / `:OWNS` of an **active** group the entry is `:SHARED_WITH_GROUP` to (strict `is_active = true`). A feedback request (`:SUBMITTED_TO_GROUP`) admits nobody here. Never a search declaration — `DomainConfig` refuses it |
 
 ### Opening by UID follows `read_visibility` (ADR-088 §5)

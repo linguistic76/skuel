@@ -154,8 +154,9 @@ def create_exercises_ui_routes(
         The authoring surface's read view — it links straight to the editor
         above, so it carries the same owner audience. This is deliberately
         narrower than the learner's ``/exercises/get`` detail, which serves the
-        full SCOPE_AWARE audience; reading shared curriculum or a group's
-        assigned exercise is that surface's job, not this one's.
+        full SCOPE_AWARE audience; reading shared curriculum, a group's
+        assigned exercise or an exercise anchored to a published PathStep is
+        that surface's job, not this one's.
         """
         found = require_found(
             await exercises_service.verify_ownership(uid, current_user.uid), "Exercise", uid

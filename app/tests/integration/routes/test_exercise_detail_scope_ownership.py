@@ -8,7 +8,9 @@ and all, by guessing or replaying a UID.
 
 Exercise declares ``SearchVisibility.SCOPE_AWARE``, so the policy already
 existed for the *same entity* on the search surface: CURRICULUM is everyone's,
-PERSONAL/ASSIGNED/ASSESSMENT need OWNS / SHARES_WITH / group membership. Search
+PERSONAL/ASSIGNED/ASSESSMENT need OWNS / SHARES_WITH / group membership (a
+PERSONAL exercise anchored to a published PathStep is the step's — see
+test_anchored_exercise_readable.py; none here is anchored). Search
 fail-closed on a foreign PERSONAL exercise while the direct read handed it
 over. These tests pin the closed form, and the last one pins the invariant that
 made this a bug rather than a preference: **the two surfaces must agree.**

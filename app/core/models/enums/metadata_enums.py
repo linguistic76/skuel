@@ -297,7 +297,9 @@ class SearchVisibility(StrEnum):
     SCOPE_AWARE: Instance-scoped content (Exercise) — CURRICULUM scope is
         visible to everyone; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT)
         visible via :OWNS, :SHARES_WITH, or group membership
-        (:MEMBER_OF + :SHARED_WITH_GROUP). ADR-038/040 semantics.
+        (:MEMBER_OF + :SHARED_WITH_GROUP); a PERSONAL one anchored to a
+        published PathStep (:HAS_EXERCISE) is the step's, visible to every
+        signed-in user. ADR-038/040 semantics.
     OWNER_OR_AUDIENCE: The owner, or a recipient the share links name — a
         direct :SHARES_WITH, or :MEMBER_OF / :OWNS of an active group the
         entity is :SHARED_WITH_GROUP to (the audience fragment, ADR-088 §3).
