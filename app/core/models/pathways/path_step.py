@@ -10,10 +10,10 @@ learning content and sits within a LearningPath.
 
 Inherits common fields from Entity via Curriculum. Adds 9 path-step-specific fields:
 - Intent (1): intent
-- NOUS membership (1): nous
+- NOUS membership (2): nous, nous_subtopic
 - Knowledge references (1): knowledge_uids (graph-native, reconstructed from CONTAINS_KNOWLEDGE)
 - Path relationship (2): learning_path_uid, sequence
-- Mastery (4): mastery_threshold, current_mastery, estimated_hours, step_difficulty
+- Mastery (3): mastery_threshold, estimated_hours, step_difficulty
 
 Key relationships:
 - USES_KU -> Ku (content composition)
@@ -45,7 +45,7 @@ class PathStep(Curriculum):
 
     A PathStep composes atomic Kus into coherent learning content and sits
     within a LearningPath. Inherits ~50 fields from Curriculum. Adds 9 fields
-    for intent, knowledge references, path relationship, and mastery tracking.
+    for intent, knowledge references, path relationship, and authored mastery metadata.
     """
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
@@ -99,8 +99,10 @@ class PathStep(Curriculum):
     # =========================================================================
     # MASTERY
     # =========================================================================
-    mastery_threshold: float = 0.7  # Target mastery level
-    current_mastery: float = 0.0  # Current progress toward mastery
+    # Authored metadata on the shared step, the same for every learner — not
+    # learner state. A learner's mastery of a step is their own
+    # (User)-[:MASTERED]->(PathStep) edge (UserContext.mastered_path_steps).
+    mastery_threshold: float = 0.7  # Target mastery level the author sets
     estimated_hours: float | None = None  # Estimated time to complete
     step_difficulty: StepDifficulty | None = None  # Difficulty rating
 
@@ -159,5 +161,5 @@ class PathStep(Curriculum):
         return (
             f"PathStep(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, sequence={self.sequence}, "
-            f"mastery={self.current_mastery}/{self.mastery_threshold})"
+            f"mastery_threshold={self.mastery_threshold})"
         )

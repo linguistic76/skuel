@@ -60,9 +60,7 @@ def _calculate_virtue_embodiment_score(
     # Calculate average progress across all paths
     total_progress = 0.0
     for path in learning_position.active_paths:
-        steps = path.steps if isinstance(path, LearningPath) else ()
-        completed_steps = len([s for s in steps if s.uid in learning_position.completed_step_uids])
-        total_steps = len(steps)
+        completed_steps, total_steps = learning_position.step_progress(path)
         path_progress = completed_steps / total_steps if total_steps > 0 else 0.0
         total_progress += path_progress
 
@@ -407,11 +405,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
             path_embodiment = 0.0
 
             # Check how principle is embodied in path progression
-            steps = path.steps if isinstance(path, LearningPath) else ()
-            completed_steps = len(
-                [s for s in steps if s.uid in learning_position.completed_step_uids]
-            )
-            total_steps = len(steps)
+            completed_steps, total_steps = learning_position.step_progress(path)
             path_progress = completed_steps / total_steps if total_steps > 0 else 0.0
 
             # Principle-specific embodiment scoring

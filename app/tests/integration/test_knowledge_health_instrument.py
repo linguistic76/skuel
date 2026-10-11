@@ -456,7 +456,6 @@ async def test_create_step_node_multilabel_visible_to_coverage(neo4j_driver, cle
             "learning_path_uid": None,
             "sequence": 1,
             "mastery_threshold": 0.8,
-            "current_mastery": 0.0,
             "estimated_hours": 1.0,
             "step_difficulty": "beginner",
             "status": "active",

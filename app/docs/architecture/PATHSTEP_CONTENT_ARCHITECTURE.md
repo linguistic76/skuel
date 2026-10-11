@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-10-11
 ---
 
 # PathStep Content Architecture
@@ -89,8 +89,7 @@ After ingestion, this YAML produces the following graph structure:
     tags: ["mindfulness", "breath", "beginner"],
     quality_score: 0.90,
     word_count: 1247,           ← calculated from content body at ingest time
-    mastery_threshold: 0.7,
-    current_mastery: 0.0,
+    mastery_threshold: 0.7,      ← authored; the same for every learner
     created_at: "...",
     status: "active"
 })

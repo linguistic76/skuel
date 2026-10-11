@@ -265,9 +265,8 @@ class LearningAlignmentBridge[T]:
                 suggestions.append(mastery_suggestion)
 
             # Suggest path completion entity
-            remaining_steps = len(
-                [s for s in path.steps if s.uid not in learning_position.completed_step_uids]
-            )
+            completed_steps, total_steps = learning_position.step_progress(path)
+            remaining_steps = total_steps - completed_steps
             if remaining_steps > 0:
                 completion_suggestion = {
                     "title": f"Complete {path.title} Learning Path",

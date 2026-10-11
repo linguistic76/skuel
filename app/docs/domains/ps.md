@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-10-10
+updated: 2026-10-11
 status: current
 category: domains
 tags:
@@ -98,7 +98,7 @@ await ps_service.intelligence.is_ready(step_uid, completed_steps)
 | `description` | `str?` | Step description |
 | `sequence` | `int` | Order within learning path |
 | `estimated_minutes` | `int` | Estimated completion time |
-| `mastery_threshold` | `float` | Required mastery (0.0-1.0) |
+| `mastery_threshold` | `float` | Target mastery the author sets (0.0-1.0) — the same for every learner; a learner's mastery of the step is their `(User)-[:MASTERED]->(PathStep)` edge |
 
 ## Relationships
 

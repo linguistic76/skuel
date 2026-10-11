@@ -923,7 +923,6 @@ class PsBackend(
             learning_path_uid: $learning_path_uid,
             sequence: $sequence,
             mastery_threshold: $mastery_threshold,
-            current_mastery: $current_mastery,
             estimated_hours: $estimated_hours,
             step_difficulty: $step_difficulty,
             status: $status,
@@ -969,7 +968,6 @@ class PsBackend(
         data.setdefault("title", "Path Step")
         data.setdefault("intent", "Complete this path step")
         data.setdefault("mastery_threshold", 0.7)
-        data.setdefault("current_mastery", 0.0)
         data.setdefault("estimated_hours", 1.0)
         data.setdefault("domain", "PERSONAL")
         data["knowledge_uids"] = [uid for uid in record["knowledge_uids"] if uid]

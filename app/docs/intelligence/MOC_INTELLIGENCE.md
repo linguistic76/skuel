@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-04
+updated: 2026-10-11
 ---
 
 # MOC Intelligence (Emergent Identity, KU-Canonical)
@@ -34,7 +34,7 @@ MOC provides the **learner-directed exploration path** parallel to the **teacher
 | PS | Linear | Structured curriculum | Teacher-directed |
 | MOC | Graph | Free exploration | Learner-directed |
 
-The same knowledge node is reachable via both the PS (linear) and MOC (graph) paths. **Per-user** learning progress is maintained by the learning-state / progress services (`PsProgressService`, `LpProgressService`, `user_progress_recorder_service`), not as per-user state on the organizing node. Note that some entity types *do* carry a **shared** (non-per-user) mastery field — e.g. `PathStep.current_mastery`, which no learner-facing progress reads (a learner's step mastery is their `mastered_uids`) — whereas a `Ku` and a `moc: true` UserEntry organizer carry no progress field at all.
+The same knowledge node is reachable via both the PS (linear) and MOC (graph) paths. **Per-user** learning progress lives on the learner's own edges (`VIEWED`, `IN_PROGRESS`, `MASTERED`), not as per-user state on the organizing node: a learner's mastery of a PathStep is their own `(User)-[:MASTERED]->(PathStep)` edge (`UserContext.mastered_path_steps`); the step's `mastery_threshold` is authored metadata, the same for every learner; and a `Ku` and a `moc: true` UserEntry organizer carry no progress field at all.
 
 ---
 

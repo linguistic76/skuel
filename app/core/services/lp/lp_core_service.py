@@ -321,14 +321,13 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
             "domain",
             "estimated_hours",
             "path_type",
-            "step_difficulty",
             "outcomes",
             "checkpoint_week_intervals",
         }
         for key, value in updates.items():
             if key in allowed_fields:
                 set_clauses.append(f"p.{key} = ${key}")
-                if key in ("domain", "path_type", "step_difficulty"):
+                if key in ("domain", "path_type"):
                     params[key] = get_enum_value(value)
                 elif key in ("outcomes", "checkpoint_week_intervals"):
                     params[key] = list(value) if value else []
@@ -451,7 +450,6 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
             "description": path.description,
             "domain": get_enum_value(path.domain),
             "path_type": get_enum_value(path.path_type),
-            "step_difficulty": get_enum_value(getattr(path, "step_difficulty", None)),
             "created_by": path.created_by,
             "estimated_hours": path.estimated_hours,
             "outcomes": list(path.outcomes),
@@ -468,7 +466,6 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
                 "learning_path_uid": step.learning_path_uid,
                 "sequence": step.sequence,
                 "mastery_threshold": step.mastery_threshold,
-                "current_mastery": step.current_mastery,
                 "estimated_hours": step.estimated_hours,
                 "step_difficulty": get_enum_value(step.step_difficulty),
                 "status": get_enum_value(step.status),

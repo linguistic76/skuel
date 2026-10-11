@@ -20,18 +20,16 @@ import pytest
 
 from core.services.askesis.context_retriever import ContextRetriever
 from core.services.ps_engagement.engagement import Engagement
+from core.services.user import UserContext
 from core.utils.result_simplified import Result
 
 
-def _ps_item(
-    uid: str, current_mastery: float = 0.0, mastery_threshold: float = 0.7
-) -> dict[str, Any]:
+def _ps_item(uid: str) -> dict[str, Any]:
     return {
         "entity": {
             "uid": uid,
             "title": f"Step {uid}",
-            "current_mastery": current_mastery,
-            "mastery_threshold": mastery_threshold,
+            "mastery_threshold": 0.7,
             "knowledge_uids": [],
             "semantic_links": [],
         },
@@ -39,9 +37,11 @@ def _ps_item(
     }
 
 
-def _user_context(items: list[dict[str, Any]]) -> MagicMock:
-    ctx = MagicMock()
-    ctx.active_path_steps_rich = items
+def _user_context(items: list[dict[str, Any]], mastered: tuple[str, ...] = ()) -> UserContext:
+    """A real context: the learner's mastered steps are their MASTERED edges."""
+    ctx = UserContext(user_uid="user_1")
+    ctx.active_path_steps_rich = items  # type: ignore[assignment]
+    ctx.mastered_ps_uids = set(mastered)
     return ctx
 
 
@@ -141,10 +141,10 @@ async def test_completed_engagement_is_not_engaged() -> None:
 async def test_mastered_candidates_are_skipped() -> None:
     """A mastered PS is never selected even if it carries an engagement."""
     items = [
-        _ps_item("ps:mastered", current_mastery=0.9, mastery_threshold=0.7),
+        _ps_item("ps:mastered"),
         _ps_item("ps:active"),
     ]
-    ctx = _user_context(items)
+    ctx = _user_context(items, mastered=("ps:mastered",))
     # Engagement on the mastered PS — should still be skipped
     svc = _engagement_service({"ps:mastered": _engagement("ps:mastered")})
     retriever = _retriever(svc)
@@ -172,10 +172,10 @@ async def test_no_candidates_returns_none() -> None:
 async def test_all_mastered_returns_none() -> None:
     """When every candidate is mastered, no PS is returned."""
     items = [
-        _ps_item("ps:a", current_mastery=0.9, mastery_threshold=0.7),
-        _ps_item("ps:b", current_mastery=0.95, mastery_threshold=0.7),
+        _ps_item("ps:a"),
+        _ps_item("ps:b"),
     ]
-    ctx = _user_context(items)
+    ctx = _user_context(items, mastered=("ps:a", "ps:b"))
     retriever = _retriever(_engagement_service({}))
 
     ps_rich, engagement = await retriever._find_active_ps("user_1", ctx)

@@ -19,12 +19,12 @@ def _make_user_context(
 ) -> MagicMock:
     """Build a minimal mock UserContext with one active path step."""
     ctx = MagicMock()
+    ctx.mastered_ps_uids = set()
     if active_ls_data is None:
         active_ls_data = {
             "entity": {
                 "uid": "ps:test_1",
                 "title": "Test Step",
-                "current_mastery": 0.0,
                 "mastery_threshold": 0.7,
                 "knowledge_uids": ["ku_lesson_1"],
                 "semantic_links": [],

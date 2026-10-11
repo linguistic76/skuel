@@ -7,10 +7,11 @@ Frozen dataclass for learning path entities (EntityType.LEARNING_PATH).
 Inherits common fields from Entity via Curriculum. Adds 4 learning-path-specific fields:
 - Path configuration (4): path_type, outcomes, checkpoint_week_intervals, estimated_hours
 
-Learning-path-specific methods/properties: steps, goal, get_summary, from_dto.
+Learning-path-specific methods/properties: goal, get_summary, from_dto.
 
-Note: LP steps are graph relationships (HAS_STEP), not model attributes.
-The `steps` property returns an empty tuple — use LpService.get_path_steps() instead.
+Note: LP steps are graph relationships (HAS_STEP), not model attributes. The LP
+backend's path reads compose them into ``metadata["steps"]``; read them with
+LpService.get_path_steps().
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -61,14 +62,6 @@ class LearningPath(Curriculum):
     # =========================================================================
     # LEARNING-PATH-SPECIFIC METHODS
     # =========================================================================
-
-    @property
-    def steps(self) -> tuple:
-        """LP steps are graph relationships (HAS_STEP), not model attributes.
-
-        Always returns empty tuple. Use LpService.get_path_steps(uid) for actual steps.
-        """
-        return ()
 
     @property
     def goal(self) -> str:

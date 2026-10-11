@@ -1049,7 +1049,7 @@ async def enrolled_user_with_lp(skuel_app):
        user_context.enrolled_path_uids is non-empty
     2. user_context.active_path_steps_rich has a non-mastered candidate
        → (User)-[:IN_PROGRESS]->(PathStep) where ps.status in ['draft','active']
-          and ps.current_mastery < ps.mastery_threshold
+          and the user holds no MASTERED edge to it
     3. The PathStep references at least one Ku
 
     The PathStep also REQUIRES_KNOWLEDGE an evidenced prerequisite Ku, so the
@@ -1117,7 +1117,6 @@ async def enrolled_user_with_lp(skuel_app):
             SET ps.title = 'Test Guided PathStep',
                 ps.entity_type = 'path_step',
                 ps.status = 'active',
-                ps.current_mastery = 0.0,
                 ps.mastery_threshold = 0.7,
                 ps.intent = 'Verify guided pipeline activation',
                 ps.knowledge_uids = [$ku_uid],
