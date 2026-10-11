@@ -155,7 +155,7 @@ def create_auth_ui_routes(
 
         return _registration_page()
 
-    @rt("/register/submit")
+    @rt("/register/submit", methods=["POST"])
     @csrf_protected
     @rate_limited_ip(bucket="register", per_ip=5, window_s=300)
     async def register_submit(request: Request) -> Any:
@@ -282,7 +282,7 @@ def create_auth_ui_routes(
             headers={"Cache-Control": "no-store"},
         )
 
-    @rt("/login/submit")
+    @rt("/login/submit", methods=["POST"])
     @csrf_protected
     @rate_limited_ip(bucket="login", per_ip=10, window_s=60)
     async def login_submit(request: Request) -> Any:
@@ -384,7 +384,7 @@ def create_auth_ui_routes(
         """Show forgot password email form"""
         return AuthComponents.render_forgot_password_form()
 
-    @rt("/forgot-password")
+    @rt("/forgot-password", methods=["POST"])
     @csrf_protected
     @rate_limited_ip(bucket="forgot-password", per_ip=5, window_s=300)
     async def forgot_password_submit(request: Request) -> Any:
@@ -419,7 +419,7 @@ def create_auth_ui_routes(
 
         return AuthComponents.render_reset_password_page(token=token)
 
-    @rt("/reset-password/submit")
+    @rt("/reset-password/submit", methods=["POST"])
     @csrf_protected
     @rate_limited_ip(bucket="reset-password", per_ip=5, window_s=300)
     async def reset_password_submit(request: Request) -> Any:

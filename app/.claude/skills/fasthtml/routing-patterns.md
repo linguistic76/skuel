@@ -47,7 +47,7 @@ not used, and the `@app.get(...)` spelling survives in two files only (`analytic
 ```python
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 
-# Bare @rt(path) registers GET, HEAD and POST — fast_app()'s default
+# Bare @rt(path) registers GET, HEAD and POST — fast_app()'s default; reads only
 @rt("/tasks")
 async def tasks_page(request: Request): ...
 
@@ -87,13 +87,14 @@ There is no `PUT` route in SKUEL; updates are `POST /api/{domain}/update` or the
 ### Function Name Conventions
 
 FastHTML can derive the method from a handler named `get`/`post`/`put`/`delete`. SKUEL
-does not use it — every handler has a descriptive name. The convention is `methods=` on
-every mutation and a bare `@rt(path)` (GET, HEAD and POST) only for reads; it is a
-convention, not yet an invariant — 282 registrations are bare against 218 with `methods=`,
-and 17 of the bare ones are CSRF-protected mutations (`/settings/save`, `/performance/optimize`,
-`/api/admin/users/hard-delete`, `/askesis/api/submit`, …) that ride the default GET+POST
-(`grep -rn -A1 -E '@rt\("[^"]+"\)$' adapters/inbound/*.py | grep -c csrf_protected`,
-2026-09-28). What IS enforced is the shadowing rule below.
+does not use it — every handler has a descriptive name. The rule is `methods=` on every
+write and a bare `@rt(path)` (GET, HEAD and POST) only for reads — enforced, not a
+convention: `scripts/audit_route_security.py` fails a `@csrf_protected` handler, a literal
+`/api/…/create|update|delete` path, or a factory `rt(f"{base_path}/delete")(handler)` write
+that names no `methods=` or names GET / HEAD / OPTIONS (the methods `csrf_protected` passes
+through unchecked). `/forgot-password` shows the two-registration shape: the page
+`methods=["GET"]`, the submit `methods=["POST"]`, each its own handler. The shadowing rule
+below is the other half.
 
 ## Path Parameters
 

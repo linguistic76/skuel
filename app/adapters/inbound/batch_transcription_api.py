@@ -59,7 +59,7 @@ def create_batch_transcription_api_routes(
     """
     get_user_service = make_service_getter(user_service)
 
-    @rt("/api/journals/batch-transcribe")
+    @rt("/api/journals/batch-transcribe", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=200)
@@ -129,7 +129,7 @@ def create_batch_transcription_api_routes(
             }
         )
 
-    @rt("/api/journals/folder-transcribe")
+    @rt("/api/journals/folder-transcribe", methods=["POST"])
     @csrf_protected
     @boundary_handler(success_status=200)
     async def folder_transcribe(request: Request) -> Result[dict[str, Any]]:

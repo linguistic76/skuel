@@ -194,7 +194,7 @@ Primary defense is `SameSite=Strict` on the session cookie — the browser refus
 
 State-changing routes wear `@csrf_protected`. The decorator reads header first then form field, constant-time compares against the cookie, returns 403 on mismatch. Verification is unconditional in every environment — there is no enforcement toggle. Route tests satisfy it by minting a real cookie+header pair via `tests/fixtures/csrf.py` (`attach_csrf`).
 
-⚠ **Declare the mutation's unsafe method explicitly** — `methods=["POST"]`, or `["DELETE"]` / `["PATCH"]` where that is the route's contract (`transcription_api.py`, `hierarchy_route_factory.py`). `@csrf_protected` verifies every method except GET/HEAD/OPTIONS, and `@rt(path)` without `methods=` answers GET, HEAD *and* POST — so a mutation registered without it is reachable by a GET that the double-submit check never sees (`SameSite=Strict` is then the only line).
+⚠ **Declare the mutation's unsafe method explicitly** — `methods=["POST"]`, or `["DELETE"]` / `["PATCH"]` where that is the route's contract (`transcription_api.py`, `hierarchy_route_factory.py`). `@csrf_protected` verifies every method except GET/HEAD/OPTIONS, and `@rt(path)` without `methods=` answers GET, HEAD *and* POST — so a mutation registered without it is reachable by a GET that the double-submit check never sees (`SameSite=Strict` is then the only line). Enforced: `scripts/audit_route_security.py` fails a `@csrf_protected` handler, an `/api/…/create|update|delete` path or a factory write that names no `methods=` or a safe method, and `tests/integration/routes/test_write_routes_post_only.py` drives every wired write on GET and HEAD (405, nothing written).
 
 ```python
 from adapters.inbound.csrf import csrf_protected

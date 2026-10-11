@@ -335,7 +335,7 @@ def create_system_api_routes(
     # SERVICE REGISTRATION
     # ========================================================================
 
-    @rt("/api/services/register")
+    @rt("/api/services/register", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
@@ -385,7 +385,7 @@ def create_system_api_routes(
             }
         )
 
-    @rt("/api/services/unregister")
+    @rt("/api/services/unregister", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
@@ -626,7 +626,7 @@ def create_system_api_routes(
         thresholds = system_service.get_alert_thresholds()
         return Result.ok({"thresholds": thresholds, "timestamp": datetime.now(UTC).isoformat()})
 
-    @rt("/api/alerts/thresholds")
+    @rt("/api/alerts/thresholds", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()

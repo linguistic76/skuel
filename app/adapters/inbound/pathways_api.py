@@ -91,7 +91,7 @@ def create_pathways_api_routes(
     # Progress Tracking
     # -----------------
 
-    @rt("/api/pathways/progress")
+    @rt("/api/pathways/progress", methods=["POST"])
     @csrf_protected
     @boundary_handler(success_status=201)
     async def update_progress_route(request: Request) -> Result[dict[str, Any]]:

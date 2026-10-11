@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-27'
+updated: '2026-10-11'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -549,7 +549,7 @@ result = await graph_auth.reset_password_with_token(
 - `POST /forgot-password` - Send reset email
 - `GET /reset-password?token=` - Token + new password form
 - `POST /reset-password/submit` - Process password reset
-- `POST /api/admin/users/reset-password?uid=` - Admin generates a reset token for a user (no email is sent; the admin hands the token over) — `admin_api.py`, `@require_admin`; the plain `@rt` also answers GET
+- `POST /api/admin/users/reset-password?uid=` - Admin generates a reset token for a user (no email is sent; the admin hands the token over) — `admin_api.py`, `@csrf_protected` + `@require_admin`, POST only like its sibling account doors
 
 ## Auth Form Validation
 

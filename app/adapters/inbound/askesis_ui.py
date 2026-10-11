@@ -157,7 +157,7 @@ def create_askesis_ui_routes(
     ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
 
-    @rt("/askesis/api/submit")
+    @rt("/askesis/api/submit", methods=["POST"])
     @csrf_protected
     async def submit_message(request: Request) -> Any:
         """Handle message submission (HTMX endpoint) — returns styled user + AI bubbles."""

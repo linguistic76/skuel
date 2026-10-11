@@ -17,8 +17,9 @@ doors' help. Each of the caller's activities is linked three ways:
 - to a shared Ku, whose ``publication_state`` the draft test flips.
 
 The whole wired route tree is crawled over real HTTP as the caller. Routes whose
-path names a mutation are left out: a method-less CRUD route answers GET, and a GET
-of ``/api/goals/delete?uid=`` deletes.
+path names a mutation are left out as a belt — a write names an unsafe method and
+answers a GET with 405 (``test_write_routes_post_only.py``), and a crawl that reads a
+mutation's path is not reading a reader.
 """
 
 from __future__ import annotations

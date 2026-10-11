@@ -524,7 +524,7 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 ### FastHTML Best Practices
 
 - Query parameters for CRUD-factory reads (`/api/tasks/get?uid=...`); a path uid for a per-entity door, read or write (`GET /api/path-steps/{uid}/organizers`, `POST /api/tasks/{uid}/status`)
-- POST for all mutations
+- POST for all mutations — enforced: a write registers `methods=["POST"]` (or its unsafe verb), so GET and HEAD answer 405 before any handler; `scripts/audit_route_security.py` (quality check 5) fails a `@csrf_protected` handler, an `/api/…/create|update|delete` path or a factory `rt(path)(handler)` write that names no `methods=` or a safe one
 - Type hints for automatic parameter extraction
 - **Critical:** Do NOT use `routes = []` / `routes.append()` with `@rt()`. The decorator registers immediately.
 

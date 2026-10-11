@@ -256,7 +256,7 @@ def create_admin_api_routes(
     # CHANGE USER ROLE
     # ========================================================================
 
-    @rt("/api/admin/users/role")
+    @rt("/api/admin/users/role", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
@@ -307,7 +307,7 @@ def create_admin_api_routes(
     # DEACTIVATE USER
     # ========================================================================
 
-    @rt("/api/admin/users/deactivate")
+    @rt("/api/admin/users/deactivate", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
@@ -346,7 +346,7 @@ def create_admin_api_routes(
     # ACTIVATE USER
     # ========================================================================
 
-    @rt("/api/admin/users/activate")
+    @rt("/api/admin/users/activate", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
@@ -375,7 +375,7 @@ def create_admin_api_routes(
     # HARD-DELETE USER (GDPR ERASURE)
     # ========================================================================
 
-    @rt("/api/admin/users/hard-delete")
+    @rt("/api/admin/users/hard-delete", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
@@ -458,7 +458,8 @@ def create_admin_api_routes(
     # GENERATE PASSWORD RESET TOKEN (Admin-Initiated)
     # ========================================================================
 
-    @rt("/api/admin/users/reset-password")
+    @rt("/api/admin/users/reset-password", methods=["POST"])
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def generate_reset_token(

@@ -155,7 +155,7 @@ def create_performance_routes(
         stats = performance_optimization.inference_engine.get_cache_stats()
         return Result.ok(stats)
 
-    @rt("/performance/optimize")
+    @rt("/performance/optimize", methods=["POST"])
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()

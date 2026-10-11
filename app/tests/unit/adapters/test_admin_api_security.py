@@ -266,7 +266,7 @@ class TestAdminResetToken:
     def test_missing_graph_auth_is_500(self, monkeypatch: pytest.MonkeyPatch) -> None:
         client, _service = _make_client(monkeypatch, graph_auth=None)
 
-        response = client.get(f"/api/admin/users/reset-password?uid={_TARGET_UID}")
+        response = _post_form(client, f"/api/admin/users/reset-password?uid={_TARGET_UID}")
 
         assert response.status_code == 500
 
@@ -275,7 +275,7 @@ class TestAdminResetToken:
         graph_auth.admin_generate_reset_token = AsyncMock(return_value=Result.ok("tok_secret"))
         client, _service = _make_client(monkeypatch, graph_auth=graph_auth)
 
-        response = client.get(f"/api/admin/users/reset-password?uid={_TARGET_UID}")
+        response = _post_form(client, f"/api/admin/users/reset-password?uid={_TARGET_UID}")
 
         assert response.status_code == 200
         assert response.json()["reset_token"] == "tok_secret"
@@ -405,3 +405,45 @@ class TestAccountActionsFromTheDetailPage:
         _service.deactivate_user.assert_awaited_once_with(
             target_user_uid=_TARGET_UID, admin_user_uid=_ADMIN_UID, reason="spam"
         )
+
+
+class TestAccountDoorsAnswerPostOnly:
+    """Every account door is ``methods=["POST"]``: a GET is 405 before any gate or
+    service runs — a link or a prefetch with an admin's session changes nothing."""
+
+    DOORS = (
+        "/api/admin/users/role",
+        "/api/admin/users/deactivate",
+        "/api/admin/users/activate",
+        "/api/admin/users/hard-delete",
+        "/api/admin/users/reset-password",
+    )
+
+    def test_get_is_405_and_calls_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        graph_auth = MagicMock()
+        graph_auth.admin_generate_reset_token = AsyncMock(return_value=Result.ok("tok"))
+        client, service = _make_client(monkeypatch, graph_auth=graph_auth)
+
+        for door in self.DOORS:
+            assert client.get(f"{door}?uid={_TARGET_UID}").status_code == 405, door
+            assert client.head(f"{door}?uid={_TARGET_UID}").status_code == 405, door
+
+        for method in (
+            service.update_role,
+            service.deactivate_user,
+            service.activate_user,
+            service.hard_delete_user,
+            graph_auth.admin_generate_reset_token,
+        ):
+            method.assert_not_awaited()
+
+    def test_post_reaches_the_door(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The control: the same doors on POST run — the reset door mints.
+        graph_auth = MagicMock()
+        graph_auth.admin_generate_reset_token = AsyncMock(return_value=Result.ok("tok"))
+        client, _service = _make_client(monkeypatch, graph_auth=graph_auth)
+
+        response = _post_form(client, f"/api/admin/users/reset-password?uid={_TARGET_UID}")
+
+        assert response.status_code == 200
+        graph_auth.admin_generate_reset_token.assert_awaited_once()
