@@ -215,9 +215,9 @@ Database query result limits:
 | `MEDIUM` | 20 | Medium lists | Search results |
 | `LARGE` | 25 | Large lists | Full page listings |
 | `DEFAULT` | 50 | Default pagination | **Standard pagination** |
-| `COMPREHENSIVE` | 100 | Comprehensive results | Full dataset views |
+| `COMPREHENSIVE` | 100 | Comprehensive results | Long pages — a page, never "all of them" |
 | `BULK` | 1000 | Bulk operations | **Use with caution** |
-| `MAXIMUM` | 10000 | Maximum allowed | Admin/debug only |
+| `MAXIMUM` | 10000 | Maximum allowed | Whole-set reads (`find_all_by`, which logs a read that fills it) |
 
 **Usage:**
 ```python
@@ -234,10 +234,11 @@ results = await search_service.search(
     limit=QueryLimit.MEDIUM  # ✅ 20 results per page
 )
 
-# Comprehensive analytics
-all_data = await analytics_service.get_data(
-    limit=QueryLimit.COMPREHENSIVE  # ✅ Full dataset
-)
+# Analytics over everything the user owns — a whole set, not a page
+# (core/services/whole_set_read.py)
+all_tasks = await find_all_by(
+    self.backend, self.logger, "Task analytics", user_uid=user_uid
+)  # ✅ QueryLimit.MAXIMUM, a warning logged at the cap
 
 # Admin bulk export
 export_data = await admin_service.export(
@@ -473,7 +474,7 @@ query, params = build_semantic_context(
 
 results = await backend.find_by(
     user_uid=user_uid,
-    limit=QueryLimit.COMPREHENSIVE  # Comprehensive results
+    limit=QueryLimit.COMPREHENSIVE  # A page of 100 — a whole set reads through find_all_by
 )
 ```
 

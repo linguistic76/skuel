@@ -1,6 +1,6 @@
 ---
 title: Return Type Error Propagation Pattern
-updated: 2026-09-17
+updated: 2026-10-11
 category: patterns
 related_skills:
 - result-pattern
@@ -187,13 +187,13 @@ The `list()` method returns `tuple[list[T], int]` (items + total count). Always 
 
 ```python
 # ❌ WRONG - Treats tuple as list
-list_result = await self.backend.list(filters={"user_uid": user_uid})
+list_result = await self.backend.list(filters={"user_uid": user_uid}, limit=20)
 if list_result.is_error:
     return Result.fail(list_result)
 entities = list_result.value  # This is tuple[list[T], int], not list[T]!
 
 # ✅ CORRECT - Unpack the tuple
-list_result = await self.backend.list(filters={"user_uid": user_uid})
+list_result = await self.backend.list(filters={"user_uid": user_uid}, limit=20)
 if list_result.is_error:
     return Result.fail(list_result)
 entities, total = list_result.value  # Properly unpacked
