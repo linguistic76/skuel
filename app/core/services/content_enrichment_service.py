@@ -480,11 +480,16 @@ Preserve the author's voice and authenticity while improving readability.
     def _build_editing_prompt(
         self, raw_transcript: str, instructions: str, context: dict[str, Any] | None
     ) -> str:
-        """Build comprehensive prompt for AI editing."""
+        """Build comprehensive prompt for AI editing.
+
+        The transcript is bounded at ``PromptInput.DOCUMENT_MAX_CHARS`` before
+        either prompt — the full one or the minimal fallback — is built.
+        """
         # COMPREHENSIVE ERROR TRACING - Find the exact .get() on None location
         self.logger.info(
             f"_build_editing_prompt called with context type: {type(context)}, context is None: {context is None}"
         )
+        raw_transcript = truncate_to_budget(raw_transcript, PromptInput.DOCUMENT_MAX_CHARS)
 
         try:
             prompt_parts = [
@@ -510,7 +515,7 @@ Preserve the author's voice and authenticity while improving readability.
                 if context.get("active_goals"):
                     prompt_parts.append("**Active Goals**:")
                     prompt_parts.extend(
-                        f"  - {goal.get('title', 'Untitled')}: {goal.get('description', '')[:100]}"
+                        f"  - {goal.get('title', 'Untitled')}: {(goal.get('description') or '')[:100]}"
                         for goal in context["active_goals"]
                         if goal and isinstance(goal, dict)  # Defensive check
                     )
@@ -551,7 +556,7 @@ Preserve the author's voice and authenticity while improving readability.
                 [
                     "## Raw Transcript",
                     "```",
-                    truncate_to_budget(raw_transcript, PromptInput.DOCUMENT_MAX_CHARS),
+                    raw_transcript,
                     "```",
                     "",
                     "## Task",

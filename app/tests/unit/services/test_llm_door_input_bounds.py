@@ -208,6 +208,18 @@ def test_the_transcript_editor_bounds_the_transcript() -> None:
     assert long_prompt.endswith(short_prompt.rsplit(SHORT_TEXT, 1)[-1])
 
 
+def test_the_transcript_editor_bounds_the_transcript_beside_a_goal_with_no_description() -> None:
+    """A goal stored without a description is valid; the context it shapes is still built."""
+    service = ContentEnrichmentService(backend=MagicMock())
+    context = {"active_goals": [{"title": "Run a marathon", "description": None}]}
+
+    prompt = service._build_editing_prompt(LONG_TEXT, "Tidy it.", context)
+
+    assert "Run a marathon" in prompt
+    assert LONG_TEXT not in prompt
+    assert len(prompt) <= PromptInput.DOCUMENT_MAX_CHARS + 5_000
+
+
 def test_a_document_at_the_bound_reaches_the_prompt_whole() -> None:
     document = ("word " * 9000)[: PromptInput.DOCUMENT_MAX_CHARS]
     assert len(document) == PromptInput.DOCUMENT_MAX_CHARS
