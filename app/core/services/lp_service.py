@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.constants import QueryLimit
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
     LpActivePathProgress,
@@ -30,6 +31,7 @@ from core.ports.query_types import (
 )
 from core.services.filtered_context import build_filtered_context
 from core.services.lp.lp_ai_service import LpAIService
+from core.services.whole_set_read import warn_if_capped
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -612,7 +614,10 @@ class LpService:
         """Get filtered and sorted learning paths with pre-filter stats."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.list_all_paths(limit=500)
+            result = await self.list_all_paths(limit=QueryLimit.MAXIMUM)
+            if result.is_ok:
+                warn_if_capped(self.logger, "Learning path list", result.value)
+            return result
 
         def apply_filters(all_paths: list[Any]) -> list[Any]:
             return all_paths  # LP has no status filtering

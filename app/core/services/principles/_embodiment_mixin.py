@@ -15,6 +15,7 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -110,12 +111,12 @@ class _EmbodimentMixin:
 
     async def get_user_principle_portfolio(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get user's complete principle portfolio with integrity analysis."""
-        # Get all principles for the user
-        principles_result = await self.backend.list(filters={"user_uid": user_uid}, limit=100)
+        principles_result = await find_all_by(
+            self.backend, self.logger, "Principle portfolio", user_uid=user_uid
+        )
         if principles_result.is_error:
             return Result.fail(principles_result)
-        # list() returns tuple[list[Principle], int]
-        principles, _total = principles_result.value
+        principles = principles_result.value
         return Result.ok(
             {
                 "user_uid": user_uid,

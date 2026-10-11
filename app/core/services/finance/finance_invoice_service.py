@@ -24,12 +24,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.constants import QueryLimit
 from core.models.finance.invoice import (
     InvoicePure,
     InvoiceStatus,
     InvoiceType,
 )
 from core.ports.query_types import InvoiceStats
+from core.services.whole_set_read import warn_if_capped
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -289,17 +291,13 @@ class FinanceInvoiceService:
         Returns:
             Result containing stats dictionary
         """
-        result = await self.backend.list(limit=1000, offset=0, filters=None)
+        result = await self.backend.list(limit=QueryLimit.MAXIMUM)
 
         if result.is_error:
             return Result.fail(result)
 
-        # Handle case where database has no Invoice nodes yet
-        value = result.value
-        if isinstance(value, tuple) and len(value) >= 2:
-            invoices, _count = value
-        else:
-            invoices = value if isinstance(value, list) else []
+        invoices, _total = result.value
+        warn_if_capped(self.logger, "Invoice statistics", invoices)
 
         total_count = len(invoices)
         outgoing_total = 0.0

@@ -331,25 +331,29 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
 
     @with_error_handling("get_needing_attention", error_type="database")
     async def get_needing_attention(
-        self, streak_threshold: int = 3, limit: int = 50
+        self, user_uid: UserUID, streak_threshold: int = 3, limit: int = 50
     ) -> Result[list[Habit]]:
         """
-        Get habits that need attention based on streak status.
+        Get the user's habits that need attention based on streak status.
 
         Habits needing attention:
         - Broken streaks (was > streak_threshold, now 0)
         - Low streaks (< streak_threshold)
         - Never completed
 
+        Every habit the user owns is considered before ``limit`` cuts the answer.
+
         Args:
+            user_uid: The habits' owner
             streak_threshold: Minimum streak to be considered "healthy" (default 3)
             limit: Maximum results to return
 
         Returns:
             Result containing habits needing attention
         """
-        # Get all habits
-        result = await self.backend.find_by(limit=limit * 2)
+        result = await find_all_by(
+            self.backend, self.logger, "Habits needing attention", user_uid=user_uid
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -442,7 +446,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result with list of habits due today for this user
         """
-        result = await self.backend.find_by(user_uid=user_uid, limit=500)
+        result = await find_all_by(self.backend, self.logger, "Habits due today", user_uid=user_uid)
         return self._filter_due_today(result, f"user {user_uid}")
 
     @with_error_handling("get_all_due_today", error_type="database")
@@ -458,7 +462,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result with list of all habits due today
         """
-        result = await self.backend.find_by(limit=500)
+        result = await find_all_by(self.backend, self.logger, "Habits due today, all users")
         return self._filter_due_today(result, "all users")
 
     def _filter_due_today(self, result: Result[list[Habit]], context: str) -> Result[list[Habit]]:

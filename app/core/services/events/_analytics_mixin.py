@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.intelligence import RecommendationEngine
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -64,11 +65,11 @@ class _AnalyticsMixin:
             "status": "scheduled",
         }
 
-        result = await self.backend.list(filters=filters)
+        result = await find_all_by(self.backend, self.logger, "Upcoming event analysis", **filters)
         if result.is_error:
             return Result.fail(result)
 
-        events, _ = result.value
+        events = result.value
         # Populate the derived reinforces_habit_uid from the REINFORCES_HABIT edge.
         events = await enrich_events_with_habit_links(self.backend, events)
 

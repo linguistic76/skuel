@@ -20,6 +20,7 @@ from core.models.event.event_dto import EventDTO
 from core.models.type_hints import FilterParams, UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.whole_set_read import find_all_by
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -100,12 +101,11 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             "event_date__lte": end_date.isoformat(),
         }
 
-        result = await self.backend.list(filters=filters)
+        result = await find_all_by(self.backend, self.logger, "Learning events", **filters)
         if result.is_error:
             return Result.fail(result)
 
-        # Unpack tuple: backend.list() returns (events, total_count)
-        events, _ = result.value
+        events = result.value
 
         # Filter for learning events
         # GRAPH-NATIVE: PS link is the curriculum-origin signal

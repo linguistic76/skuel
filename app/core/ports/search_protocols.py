@@ -361,9 +361,9 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
         ...
 
     async def get_needing_attention(
-        self, user_uid: UserUID, limit: int = 20
+        self, user_uid: UserUID, streak_threshold: int = 3, limit: int = 50
     ) -> Result[list[Habit]]:
-        """Get habits that need attention (broken streaks, missed completions)."""
+        """Get the user's habits that need attention (broken, low or never-started streaks)."""
         ...
 
     async def get_at_risk(self, user_context: UserContext) -> Result[list[Habit]]:

@@ -33,6 +33,7 @@ from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.mixins.link_edge_guard import HABIT_FAR_END, admit_far_ends_for_owner
 from core.services.user import UserContext
 from core.services.user.rich_context import rich_entity_to_model
+from core.services.whole_set_read import find_all_by
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -269,12 +270,13 @@ class EventsHabitIntegrationService:
             "event_date__lte": end_date.isoformat(),
         }
 
-        result = await self.backend.list(filters=filters)
+        result = await find_all_by(
+            self.backend, self.logger, "Habit reinforcement events", **filters
+        )
         if result.is_error:
             return Result.fail(result)
 
-        # Unpack tuple: backend.list() returns (events, total_count)
-        events, _ = result.value
+        events = result.value
         # Enrich with habit links from the REINFORCES_HABIT edge (derived field).
         events = await self._enrich_with_habit_links(events)
 
@@ -328,12 +330,11 @@ class EventsHabitIntegrationService:
             "status": "scheduled",
         }
 
-        result = await self.backend.list(filters=filters)
+        result = await find_all_by(self.backend, self.logger, "At-risk habit events", **filters)
         if result.is_error:
             return Result.fail(result)
 
-        # Unpack tuple: backend.list() returns (events, total_count)
-        events_list, _ = result.value
+        events_list = result.value
         # Enrich with habit links from the REINFORCES_HABIT edge (derived field).
         events_list = await self._enrich_with_habit_links(events_list)
 
@@ -537,12 +538,11 @@ class EventsHabitIntegrationService:
             "status": "scheduled",
         }
 
-        result = await self.backend.list(filters=filters)
+        result = await find_all_by(self.backend, self.logger, "Next habit events", **filters)
         if result.is_error:
             return Result.fail(result)
 
-        # Unpack tuple: backend.list() returns (events, total_count)
-        events, _ = result.value
+        events = result.value
         # Enrich with habit links from the REINFORCES_HABIT edge (derived field).
         events = await self._enrich_with_habit_links(events)
 
