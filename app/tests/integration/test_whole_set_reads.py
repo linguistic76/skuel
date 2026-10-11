@@ -4,15 +4,16 @@ Real-Neo4j guard for reads that mean "everything".
 
 ``find_by``, ``get_user_entities``, ``list_by_user`` and ``list`` each return a page
 of 100 unless the caller writes a limit. A service that counts, averages or lists
-"the user's tasks" over such a page answers about a hundred of them — and so does
-one that wrote its own cap (``limit=100``, ``COMPREHENSIVE``, 500, 1000) on a read
-that means "all of them".
+"the user's tasks" over such a page answers about a hundred of them, and a read
+that means "all of them" under any fixed limit short of ``QueryLimit.MAXIMUM``
+answers about that many.
 
-Every test seeds ``SEEDED`` (> 100) nodes per domain for one user and asserts a
-figure equal to ``SEEDED`` — a count, never which rows: the page a bare ``find_by``
-returns is unordered, so no assertion here depends on row identity. A second user
-owns a handful of rows of each kind, so a read that dropped its owner scope would
-overshoot rather than pass.
+A count test seeds more rows than the bound it guards — ``SEEDED`` (> 100) per
+domain for one user, ``LARGE_SET`` (> 500) or ``INVOICES`` (> 1000) for the reads
+with a larger page in reach — and asserts a figure equal to the seeded count: a
+count, never which rows, since the page a bare ``find_by`` returns is unordered.
+A second user owns a handful of rows of each kind, so a read that dropped its
+owner scope would overshoot rather than pass.
 
 See: core/services/whole_set_read.py
      tests/unit/services/test_whole_set_read.py (the cap warning, and the census
@@ -424,7 +425,7 @@ class TestCurriculumSetsAreWhole:
 
 
 # ============================================================================
-# Reads that wrote a cap of their own
+# Whole-set reads whose question is about everything the user has
 # ============================================================================
 
 
@@ -487,7 +488,7 @@ async def _copy_property_from(
 
 @pytest.mark.asyncio
 class TestWrittenCapsReadEveryRow:
-    """A read that wrote ``limit=100`` (or ``COMPREHENSIVE``) reads the whole set now."""
+    """Each figure is computed over every row of the user's set."""
 
     async def test_habit_capacity(self, neo4j_driver, seeded):
         result = await _scheduling(neo4j_driver).check_habit_capacity(USER)
@@ -722,7 +723,7 @@ class TestEventWindowsAreWhole:
 
 
 # ============================================================================
-# Reads that wrote a cap of 500 or 1000
+# Whole sets past 500 and 1000 rows
 # ============================================================================
 
 LARGE_SET = 510  # past the 500-row caps
