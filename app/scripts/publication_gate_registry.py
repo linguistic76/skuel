@@ -515,7 +515,9 @@ SURFACES: tuple[Surface, ...] = (
         "published node. A shared far end it leaves out is refused like a uid that "
         "names nothing, so a learner's goal, habit or task cannot carry a draft "
         "Ku's title into its readers. Composed at module level because both "
-        "backends that serve the guard share the one statement.",
+        "backends that serve the guard share the one statement — and the guarded "
+        "link write (build_guarded_link_query) re-asserts the same clause over its "
+        "far node as it merges the edge, returning only which named uids it admitted.",
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",

@@ -22,7 +22,7 @@ RETURN t
 MATCH (n:Entity {uid: $uid})
 
 // Mixed-label paths (endpoints may be User/Group/…) — exclude the :Content shadow
-MATCH (n {uid: $uid}) WHERE NOT n:Content
+MATCH (n {uid: $uid}) WHERE NOT n:Content   // an AllNodesScan: on a hot path use build_uid_anchor
 ```
 
 **When to use**: Always. An unlabeled `MATCH ({uid: $uid})` binds BOTH the entity and its `:Content` chunk-store shadow node.

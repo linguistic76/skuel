@@ -14,7 +14,7 @@ BackendOperations[T] is THE full backend protocol, composed from 9 sub-protocols
         │                                   update, update_with_status_guard, delete, list)
         ├── EntitySearchOperations[T]      (20 methods: find_by, count, find_by_date_range,
         │                                   get_user_entities + the *_raw query primitives)
-        ├── RelationshipCrudOperations     (13 methods: add/delete relationships, batch ops)
+        ├── RelationshipCrudOperations     (15 methods: add/delete relationships, batch ops)
         ├── RelationshipMetadataOperations (3 methods: get/update edge properties)
         ├── RelationshipQueryOperations    (3 methods: count_related, get_related_uids, batch)
         ├── OrderedRelationshipOperations  (ordered/hierarchical traversal on edge properties)
@@ -52,6 +52,7 @@ if TYPE_CHECKING:
 
     from core.models.enums import Priority, SearchVisibility
     from core.models.enums.neo_labels import NeoLabel
+    from core.models.link_write_contracts import GuardedLinkOutcome, GuardedLinkWrite
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_filters import RelationshipFilters
     from core.models.relationship_names import RelationshipName
@@ -924,6 +925,19 @@ class RelationshipCrudOperations(Protocol):
         self, relationships: builtins.list[tuple[str, str, str, Neo4jProperties | None]]
     ) -> ResultType[int]:
         """Create multiple relationships in a single transaction."""
+        ...
+
+    async def write_guarded_links(
+        self, anchor_uid: str, writes: builtins.list[GuardedLinkWrite]
+    ) -> ResultType[GuardedLinkOutcome]:
+        """Write an anchor's links, each statement re-asserting the link-edge guard's rule.
+
+        Every far end must still be an entity of an allowed kind, owned by one of the
+        anchor's owners or by nobody and published, when the edge is merged — one that
+        changed since its admission refuses the whole write. The writes share one
+        transaction: all land, or none does.
+        Backend: ``_RelationshipCrudMixin.write_guarded_links``.
+        """
         ...
 
     async def get_node_labels_batch(

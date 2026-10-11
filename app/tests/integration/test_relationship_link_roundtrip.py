@@ -1,12 +1,8 @@
 """Real-Neo4j guard tests for the UnifiedRelationshipService single-edge path.
 
-`UnifiedRelationshipService.create_relationship` used to dispatch to a dynamically-named
-`link_{domain}_to_{key}` *backend* method. Only two such methods ever existed
-(`link_habit_to_knowledge`, `link_habit_to_principle`), so the call failed at runtime
-("Backend method not found") for every other domain — including reachable routes
-(`POST /goals/generate-tasks` → `link_task_to_knowledge`). The fix routes the single
-method through the proven `backend.create_relationships_batch` path, keyed off the
-registry spec.
+`UnifiedRelationshipService.create_relationship` writes the edge its registry key names,
+keyed off the registry spec, through `backend.write_guarded_links` — every domain the same
+way, including reachable routes (`POST /goals/generate-tasks` → `link_task_to_knowledge`).
 
 Every facade `link_{domain}_to_{key}` method now passes its explicit registry method_key
 straight to `create_relationship` (the candidate-list `link_to_*` wrappers were deleted):

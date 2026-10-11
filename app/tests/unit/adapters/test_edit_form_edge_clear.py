@@ -11,7 +11,7 @@ Two controls have to post something for "off" to reach the write:
   hidden input, so the browser posts ``reinforces_habit_uid=""``. ``parse_form_body`` maps an
   empty string to ``None``, the field lands in ``model_fields_set``, and ``to_intent()``
   carries ``None`` — the ADR-066 explicit-clear signal both facades turn into an edge
-  deletion (``TasksService._sync_relationship_edges`` / ``EventsService._replace_edge``).
+  deletion (``TasksService._sync_relationship_edges`` / ``EventsService._replace_edges``).
 - An **unchecked checkbox** is not a successful control, so ``FormGenerator`` renders a
   hidden ``"false"`` companion ahead of it. Without one the browser posts nothing, the
   field stays ``UNSET``, and the box cannot be turned off.

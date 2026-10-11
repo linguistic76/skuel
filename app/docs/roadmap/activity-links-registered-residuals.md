@@ -149,12 +149,13 @@ or DSL link parsed and discarded, answering 200 and writing no edge.
    set at create never reaches that reader — `core/services/tasks/task_relationships.py:25`;
    registry `:588`; `core/services/tasks/tasks_core_service.py:592`. Registered by PR 5. Its home is
    the same-type pass, [follow-ons § 3](activity-links-follow-ons.md).
-1. The task and event "replace" paths (`TasksService._delete_edges_of_kind`,
+1. ~~The task and event "replace" paths (`TasksService._delete_edges_of_kind`,
    `EventsService._replace_edge`) find the edges to delete through `get_related_uids`, which the
    far-node wall scopes: an `APPLIES_KNOWLEDGE` edge to a Ku since reverted to draft is withheld,
-   so it is not deleted when the set is replaced, and comes back beside the new set on republish.
-   The delete needs an untied read (`include_withheld`), which the keyed reader does not expose —
-   `core/services/tasks_service.py:506`; `core/services/events_service.py:406`. Registered by PR 1c.
+   so it is not deleted when the set is replaced, and comes back beside the new set on republish.~~
+   Struck: both paths now replace through
+   `UnifiedRelationshipService.replace_relationships`, whose statement deletes every edge of the
+   key's type and kind — no wall-scoped read decides what goes. Registered by PR 1c.
 
 ## 7. Search enrichment
 

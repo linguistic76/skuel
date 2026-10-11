@@ -16,6 +16,7 @@ Provides:
     has_relationship: Check relationship existence
     count_related: Count related entities without loading them
     create_relationships_batch: Batch relationship creation (with validation)
+    write_guarded_links: A link door's write, re-asserting the link-edge guard's rule
     batch_get_related_uids: Related UIDs for many anchors in one query
 
 Requires on concrete class:
@@ -32,6 +33,8 @@ from adapters.persistence.neo4j.endpoint_queries import (
     OWNER_UIDS_BATCH_QUERY,
     PUBLISHED_UIDS_BATCH_PARAMS,
     PUBLISHED_UIDS_BATCH_QUERY,
+    build_guarded_link_query,
+    build_uid_anchor,
 )
 from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier
 from adapters.persistence.neo4j.query.cypher.crud_queries import (
@@ -39,10 +42,12 @@ from adapters.persistence.neo4j.query.cypher.crud_queries import (
     build_owner_uids_expression,
 )
 from core.models.enums.neo_labels import NeoLabel
+from core.models.link_write_contracts import GuardedLinkOutcome
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, UserUID
 from core.utils.error_boundary import safe_backend_operation
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, ErrorSeverity, Result
 
 if TYPE_CHECKING:
@@ -51,6 +56,7 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver, Record
 
+    from core.models.link_write_contracts import GuardedLinkWrite
     from core.ports.base_protocols import Direction
 
 
@@ -1196,10 +1202,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         params: dict[str, Any] = {"uid": uid, **property_params}
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-        # NOT :Content — G13 shadow-uid guard (see create_relationship).
+        # The anchor is bound by index seeks, NOT :Content (G13): build_uid_anchor.
         query = f"""
-        MATCH (n {{uid: $uid}})
-        WHERE NOT n:Content
+        {build_uid_anchor("n", "$uid", self.label)}
         MATCH {pattern}
         {where_clause}
         RETURN count(related) as count
@@ -1360,6 +1365,56 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         self.logger.info(f"Created {total_created} relationships in batch")
         return Result.ok(total_created)
+
+    @safe_backend_operation("write_guarded_links")
+    async def write_guarded_links(
+        self, anchor_uid: str, writes: builtins.list[GuardedLinkWrite]
+    ) -> Result[GuardedLinkOutcome]:
+        """Write an anchor's links, each statement re-asserting the link-edge guard's rule.
+
+        One transaction for every write: a far end the statement refuses — deleted,
+        re-owned, unpublished or of the wrong kind since it was admitted — rolls back
+        the writes before it, so the anchor's links are all written or none is (the
+        rule and the statement: ``build_guarded_link_query``).
+        """
+        anchor_owners: frozenset[str] = frozenset()
+        async with self.driver.session() as session:
+            tx = await session.begin_transaction()
+            try:
+                for write in writes:
+                    far_uids = list(dict.fromkeys(write.far_uids))
+                    query = build_guarded_link_query(
+                        write.relationship,
+                        anchor_is_source=write.anchor_is_source,
+                        replace=write.replace,
+                        replace_label=write.replace_label,
+                    )
+                    result = await tx.run(
+                        query,
+                        {
+                            **PUBLISHED_UIDS_BATCH_PARAMS,
+                            "anchor_uid": anchor_uid,
+                            "far_uids": far_uids,
+                            "far_labels": sorted(write.far_labels),
+                            "properties": dict(write.properties or {}),
+                        },
+                    )
+                    record = await result.single()
+                    admitted = set(record["admitted"]) if record else set()
+                    refused = (
+                        anchor_uid
+                        if record is None
+                        else next((uid for uid in far_uids if uid not in admitted), None)
+                    )
+                    if refused is not None:
+                        await tx.rollback()
+                        return Result.ok(GuardedLinkOutcome(refused, frozenset()))
+                    anchor_owners = frozenset(record["anchor_owners"])
+                await tx.commit()
+            except NEO4J_EXCEPTIONS:
+                await tx.rollback()
+                raise
+        return Result.ok(GuardedLinkOutcome(None, anchor_owners))
 
     # ============================================================================
     # CONFIG-DRIVEN BATCH RELATIONSHIP QUERIES

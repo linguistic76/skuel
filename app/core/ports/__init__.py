@@ -12,7 +12,7 @@ BackendOperations[T] is THE full backend protocol, composed from 10 sub-protocol
     BackendOperations[T]  ← UniversalNeo4jBackend implements this
         ├── CrudOperations[T]                  (8 methods)
         ├── EntitySearchOperations[T]          (20 methods)
-        ├── RelationshipCrudOperations         (13 methods)
+        ├── RelationshipCrudOperations         (15 methods)
         ├── RelationshipMetadataOperations     (3 methods)
         ├── RelationshipQueryOperations        (3 methods)
         ├── OrderedRelationshipOperations      (5 methods)
@@ -412,7 +412,7 @@ __all__ = [
     "FormSubmissionOperations",
     "BatchRelationshipOperations",  # Batch related-uid query (1 method)
     "OrderedRelationshipOperations",  # Ordered writes/hierarchical traversal (5 methods)
-    "RelationshipCrudOperations",  # Edge CRUD (13 methods)
+    "RelationshipCrudOperations",  # Edge CRUD (15 methods)
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties (3 methods)
     "RelationshipQueryOperations",  # Relationship queries (3 methods)

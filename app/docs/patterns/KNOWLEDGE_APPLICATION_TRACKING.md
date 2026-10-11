@@ -1,6 +1,6 @@
 ---
 title: Knowledge Application Tracking
-updated: '2026-09-15'
+updated: '2026-10-11'
 category: patterns
 related_skills:
 - activity-domains
@@ -63,7 +63,7 @@ method key is `"knowledge"` (see `TASK_QUERY_SPECS` in
 | Operation | Site | Behaviour |
 |-----------|------|-----------|
 | **Create** | `tasks_core_service.create_task` / `tasks_scheduling_service` | Each `request.applies_knowledge_uids` entry becomes an `APPLIES_KNOWLEDGE` edge via `create_relationships_batch`. |
-| **Update** | `TasksService.update_task` (facade) | `applies_knowledge_uids` is **popped out of the property `updates` dict** and re-synced as edges (delete-all-then-recreate). An empty list clears all knowledge edges. |
+| **Update** | `TasksService.update_task` (facade) | `applies_knowledge_uids` is **popped out of the property `updates` dict** and re-synced as edges: `UnifiedRelationshipService.replace_relationships` deletes the old edges and writes the new ones in one transaction, so a refused far end leaves the old ones in place. An empty list clears all knowledge edges. |
 
 The update handling is symmetric to `reinforces_habit_uid` and is **required**: the
 backend `update()` does an unfiltered `SET n += $updates`, so any relationship-typed key
