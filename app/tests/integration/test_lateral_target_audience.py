@@ -106,10 +106,11 @@ async def lateral_neighbourhood(neo4j_driver):
         )
     yield
     async with neo4j_driver.session() as session:
+        # The OTHER User node is the suite's shared fixture user (conftest ensures it);
+        # only the Exercise's OWNS edge is this fixture's, and it goes with the Exercise.
         await session.run(
             "MATCH (n:Entity) WHERE n.uid IN $uids DETACH DELETE n", uids=_FIXTURE_UIDS
         )
-        await session.run("MATCH (u:User {uid: $other}) DETACH DELETE u", other=OTHER)
 
 
 def _target_uids(items) -> set[str]:
