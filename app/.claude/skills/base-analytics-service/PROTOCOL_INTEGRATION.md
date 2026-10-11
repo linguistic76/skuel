@@ -136,11 +136,7 @@ from adapters.inbound.route_factories import IntelligenceRouteFactory
 ```python
 IntelligenceRouteFactory(
     intelligence_service=...,          # satisfies IntelligenceOperations
-    domain_name="tasks",
-    base_path=None,                    # default: /api/{domain_name}
-    enable_analytics=True,
-    enable_context=True,
-    enable_insights=True,
+    domain_name="tasks",               # routes live under /api/{domain_name}
     scope=ContentScope.USER_OWNED,     # or ContentScope.SHARED
     ownership_service=...,             # required when scope is USER_OWNED
 ).register_routes(app, rt)
@@ -148,10 +144,9 @@ IntelligenceRouteFactory(
 
 - `scope=ContentScope.USER_OWNED` without an `ownership_service` raises `ValueError` at
   construction. A misconfigured factory does not start.
-- `scope=ContentScope.USER_OWNED` with analytics enabled, over a service that has no
-  `get_performance_analytics`, raises `ValueError` at construction.
-- `scope=ContentScope.SHARED` registers no analytics route, whatever `enable_analytics` says
-  and whatever the service offers.
+- `scope=ContentScope.USER_OWNED` over a service that has no `get_performance_analytics`
+  raises `ValueError` at construction.
+- `scope=ContentScope.SHARED` registers no analytics route, whatever the service offers.
 - `ownership_service` is anything with `verify_ownership(uid, user_uid) -> Result[...]` — in
   practice the domain facade.
 - There is no `verify_ownership=` keyword; `scope` decides.
@@ -162,9 +157,9 @@ Each is registered with `methods=["GET"]`.
 
 | Route | Calls | Query parameters | Scope |
 |-------|-------|------------------|-------|
-| `GET {base_path}/context` | `get_with_context(uid, depth)` | `uid` (required), `depth=2` | either |
-| `GET {base_path}/insights` | `get_domain_insights(uid, min_confidence)` | `uid` (required), `min_confidence=0.7` | either |
-| `GET {base_path}/analytics` | `get_performance_analytics(user_uid, period_days)` | `period_days=30` | `USER_OWNED` |
+| `GET /api/{domain}/context` | `get_with_context(uid, depth)` | `uid` (required), `depth=2` | either |
+| `GET /api/{domain}/insights` | `get_domain_insights(uid, min_confidence)` | `uid` (required), `min_confidence=0.7` | either |
+| `GET /api/{domain}/analytics` | `get_performance_analytics(user_uid, period_days)` | `period_days=30` | `USER_OWNED` |
 
 `user_uid` always comes from the session. A `user_uid` query parameter is ignored.
 
@@ -180,7 +175,7 @@ Reproduced with a `TestClient` against the factory:
 |---------|--------|
 | Any registered route, no session — either scope | 401 |
 | `POST`, `PUT` or `DELETE` to any registered route | 405 |
-| `SHARED`: `GET {base_path}/analytics` | 404 — not registered |
+| `SHARED`: `GET /api/{domain}/analytics` | 404 — not registered |
 | `context` / `insights` with no `uid` | 400 |
 | `depth=abc` (a value the annotation cannot coerce) | 404 |
 | `USER_OWNED`: a uid the user does not own | 404 |
@@ -208,11 +203,11 @@ service and the facade itself as `ownership_service`.
 | Domain | `domain_name` | Routes |
 |--------|---------------|--------|
 | Tasks, Goals, Habits, Events, Choices, Principles | `tasks`, `goals`, … | context, insights, analytics — `USER_OWNED` |
+| KU | `ku` | context, insights — `SHARED` |
 | PathStep | `path-steps` | context, insights — `SHARED` |
 | LearningPath | `pathways` | context, insights — `SHARED` |
-| KU | — | **no** — `KU_CONFIG` sets no `IntelligenceRouteConfig` |
 
-`KuIntelligenceService` is still reached over HTTP for mastery check-ins:
+`KuIntelligenceService` is also reached over HTTP for mastery check-ins:
 `POST /explore/ku/{uid}/mastery-checkin` calls `assess_mastery_dual_track`.
 
 See the [domain-route-config](../domain-route-config/SKILL.md) skill.

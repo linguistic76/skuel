@@ -1501,7 +1501,7 @@ def build_hierarchy_query(
         Tuple of (cypher_query, parameters)
 
     Example:
-        query, params = build_hierarchy_query("Lp", "lp:python-basics")
+        query, params = build_hierarchy_query(NeoLabel.LEARNING_PATH, "lp.python.basics")
     """
     validate_label(label)
     rel_list = relationship_types or list(_HIERARCHY_FORWARD_EDGES)

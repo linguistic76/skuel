@@ -1,6 +1,6 @@
 ---
 title: "Mechanisms Awaiting a Consumer"
-updated: 2026-09-05
+updated: 2026-10-11
 status: "awaiting consumer"
 trigger: "a product need that partitions edges into tier buckets (§6), reads a Ku's prerequisite/dependent Kus (§7), or a task's dependents (§8)"
 check: "product need, not a data threshold"
@@ -21,7 +21,8 @@ not get built ahead of a reader. The trigger is a product need, not a data thres
 **Why deferred**: PR #216 made the `filter_property`/`filter_value` mechanism on a
 `UnifiedRelationshipDefinition` work end-to-end — WRITE auto-stamps the edge property
 (`_orient_edge`), and all three read paths auto-filter (`get_related_uids`/`count_related`,
-`get_cross_domain_context` categorization, `get_with_context`). It lets one relationship type fan
+`get_cross_domain_context` categorization, the registry context statement
+`build_entity_with_context`). It lets one relationship type fan
 out into separate typed tier buckets (e.g. a goal's `essential_habits` / `critical_habits` /
 `optional_habits` off `(:Habit)-[:SUPPORTS_GOAL {essentiality}]->(:Goal)`). An audit (2026-06-04)
 asked whether any *other* domain should use it. **Conclusion: none currently qualifies, so nothing

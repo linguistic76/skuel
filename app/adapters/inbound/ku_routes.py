@@ -8,6 +8,8 @@ KuService is the only service dependency — no PsService.
 Routes:
 - POST /api/ku/{uid}/mark-studying   — Mark Ku as studying (IN_PROGRESS)
 - POST /api/ku/{uid}/mark-understood — Mark Ku as understood (MASTERED)
+- GET  /api/ku/context?uid=          — The Ku with its graph neighbourhood
+- GET  /api/ku/insights?uid=         — Alias count, usage and ORGANIZES depth
 
 The Ku detail PAGE is /explore/ku/{uid} (learning_loop_routes.py) — there is no
 /ku/{uid} route; entity_detail_href owns the entity_type → URL mapping.
@@ -17,7 +19,12 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.ku_ui import create_ku_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import (
+    DomainRouteConfig,
+    IntelligenceRouteConfig,
+    register_domain_routes,
+)
+from core.models.enums import ContentScope
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
@@ -32,6 +39,7 @@ KU_CONFIG = DomainRouteConfig(
         "user_relationship_service": "user_relationships",
         "exercises_service": "exercises",
     },
+    intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
 

@@ -773,7 +773,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (200, "KuStatus"): Allow(_m_health),
     },
     "docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md": {
-        (186, "submissions_sharing_service"): Allow(_m2a),
+        (184, "submissions_sharing_service"): Allow(_m2a),
     },
     "docs/patterns/three_tier_type_system.md": {
         # These two move whenever the prose above them changes length. Re-derive

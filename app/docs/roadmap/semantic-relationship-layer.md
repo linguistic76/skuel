@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 # Semantic Relationship Layer — Development Roadmap
@@ -201,8 +201,8 @@ readers, no data).**
 **Bullet C — Confidence-weighted traversal — REDUNDANT / MISFRAMED (the consumed confidence is a
 *different* one).**
 - The confidence-weighted traversal that is **already consumed** rides on **analog** edges:
-  `_context_query_mixin.py` (`coalesce(r.confidence, 1.0) >= $min_confidence` over the cross-domain
-  context path), written by `_learning_state_mixin.py` (`r.confidence = mastery_score`). This is
+  the path-aware neighbourhood (`build_domain_context_with_paths` — every edge on a path at least
+  `$min_confidence`, `path_strength` the product), written by `_learning_state_mixin.py` (`r.confidence = mastery_score`). This is
   learning-progress/grounding confidence, **not** `RelationshipMetadata.confidence`.
 - On **semantic** edges, a confidence *threshold* reader already exists and is live
   (`find_uids_by_semantic_filter`, choices route) — but it filters, it does not *rank*, and it

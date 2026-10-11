@@ -278,22 +278,6 @@ class TasksCoreService(
         return Result.ok(None)
 
     # ========================================================================
-    # READ OPERATIONS WITH GRAPH CONTEXT
-    # ========================================================================
-    # NOTE: get_with_context() is inherited from BaseService (January 2026)
-    #
-    # Uses registry-driven query generation from RelationshipRegistry.
-    # The TASKS_CONFIG config includes:
-    # - subtasks, dependencies, dependents (task hierarchy)
-    # - applied_knowledge, required_knowledge (knowledge context)
-    # - contributing_goals, habit_context (related entities)
-    # - related_tasks (shared-neighbor pattern via APPLIES_KNOWLEDGE|CONTRIBUTES_TO_GOAL)
-    #
-    # See: /core/models/relationship_registry.py - TASKS_CONFIG
-    # See: /core/services/base_service.py - get_with_context()
-    # ========================================================================
-
-    # ========================================================================
     # CREATE OPERATIONS
     # ========================================================================
 

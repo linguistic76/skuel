@@ -820,6 +820,27 @@ _EMBEDDED_FORMS_FRAGMENT = PlannedEntry(
     blocked_by="Embedded Forms Fragment — staged behind the PathStep page that dropped it",
 )
 
+# The six Activity whole-set counts — one Cypher aggregate per domain, each
+# literal bound to its model's vocabulary
+# (tests/integration/test_activity_stats_vocabulary.py).
+_ACTIVITY_STATS_FOR_USER = PlannedEntry(
+    Readiness.DELAYED,
+    "a whole-set count in Cypher, staged; the list pages count the fetched rows in "
+    "Python — wire it where a page or Askesis answer wants a user's counts without "
+    "fetching the rows",
+    since=date(2026, 10, 10),
+)
+# First cousins over the hierarchy edges. No route or reader asks for them; the
+# siblings read is the live twin of shape, not of job.
+_LATERAL_COUSINS = PlannedEntry(
+    Readiness.DELAYED,
+    "derived cousin read (same grandparent, different parent) staged beside the live "
+    "derived siblings; give it the user_uid / domain_service pair the other lateral "
+    "reads take, then wire a cousins route the way LateralRouteFactory serves siblings, "
+    "behind the same anchor check",
+    since=date(2026, 10, 10),
+)
+
 PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Entity chunking: staged metadata read path ---
     "core/services/entity_chunking_service.py::get_metadata": PlannedEntry(
@@ -1248,6 +1269,20 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # Neither ORGANIZES writer consults it — `organize()` (HTTP: POST
     # /api/path-steps/organize) and the MOC body-link ingest MERGE unguarded, so
     # the graph can cycle today.
+    # --- Activity whole-set counts ---
+    "core/services/tasks/tasks_core_service.py::get_stats_for_user": _ACTIVITY_STATS_FOR_USER,
+    "core/services/goals/goals_core_service.py::get_stats_for_user": _ACTIVITY_STATS_FOR_USER,
+    "core/services/habits/habits_core_service.py::get_stats_for_user": _ACTIVITY_STATS_FOR_USER,
+    "core/services/events/events_core_service.py::get_stats_for_user": _ACTIVITY_STATS_FOR_USER,
+    "core/services/choices/choices_core_service.py::get_stats_for_user": (_ACTIVITY_STATS_FOR_USER),
+    "core/services/principles/principles_core_service.py::get_stats_for_user": (
+        _ACTIVITY_STATS_FOR_USER
+    ),
+    # --- Lateral relationships: derived cousins ---
+    "core/services/lateral_relationships/lateral_relationship_service.py::get_cousins": (
+        _LATERAL_COUSINS
+    ),
+    "adapters/persistence/neo4j/backends/collab_backends.py::get_cousins": _LATERAL_COUSINS,
     "adapters/persistence/neo4j/_organizes_mixin.py::check_organizes_cycle": PlannedEntry(
         Readiness.DELAYED,
         "cycle probe for a would-be parent→child ORGANIZES edge; its Cypher is "

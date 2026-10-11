@@ -1,6 +1,6 @@
 ---
 title: HTTP Status Codes - REST Best Practices
-updated: 2026-09-23
+updated: 2026-10-11
 category: patterns
 related_skills: []
 related_docs: []
@@ -28,29 +28,18 @@ SKUEL follows REST/HTTP best practices for status codes, using 201 for resource 
 
 ## boundary_handler Decorator
 
-**Two ways to specify 201 status for POST create routes:**
-
-### Method 1: Decorator Parameter (Preferred)
+**A POST create route declares 201 on its decorator:**
 
 ```python
-# ✅ CORRECT - Specify status in decorator
-@rt("/api/tasks", methods=["POST"])
+# adapters/inbound/user_entry_api.py
+@rt("/api/user-entries", methods=["POST"])
+@csrf_protected
 @boundary_handler(success_status=201)
-async def create_task_route(request):
-    result = await tasks_service.create(task)
-    return result  # Automatically returns 201 status
+async def create_user_entry_route(request: Request) -> Result[dict[str, Any]]: ...
 ```
 
-### Method 2: Return Statement (Alternative)
-
-```python
-# ✅ ALSO CORRECT - Specify in return helper
-@rt("/api/tasks", methods=["POST"])
-@boundary_handler()
-async def create_task_route(request):
-    result = await tasks_service.create(task)
-    return success_response(result, status_code=201)  # Explicit 201
-```
+The handler returns its `Result`; the boundary turns a success into a 201 response.
+A handler with a bare `@boundary_handler()` answers 200.
 
 ---
 
@@ -64,18 +53,17 @@ async def create_task_route(request):
 ### Examples of 201 Routes
 
 ```python
-# Resource creation (database persistence)
-@rt("/api/goals/{uid}/progress", methods=["POST"])
+# adapters/inbound/habits_api.py — records a habit completion
+@rt("/api/habits/track", methods=["POST"])
+@csrf_protected
 @boundary_handler(success_status=201)
-async def create_progress_record(request): ...
+async def habit_track(request: Request) -> Result[dict[str, Any]]: ...
 
-@rt("/api/learning/paths", methods=["POST"])
+# adapters/inbound/pathways_api.py — records progress on a path step
+@rt("/api/pathways/progress", methods=["POST"])
+@csrf_protected
 @boundary_handler(success_status=201)
-async def create_learning_path(request): ...
-
-@rt("/api/principles/{uid}/links", methods=["POST"])
-@boundary_handler(success_status=201)
-async def create_principle_link(request): ...
+async def update_progress_route(request: Request) -> Result[dict[str, Any]]: ...
 ```
 
 ---
@@ -83,64 +71,41 @@ async def create_principle_link(request): ...
 ## When to Use 200 OK
 
 **Use default `@boundary_handler()` (200) for POST routes that:**
-1. Perform **actions** on existing resources (complete, cancel, activate)
+1. Perform **actions** on existing resources (complete, cancel, activate, link)
 2. Trigger **ephemeral operations** (search, analyze, optimize)
 3. Return **computed results** without persistence (generate, predict)
 
 ### Examples of 200 Routes
 
 ```python
-# Actions on existing resources
-@rt("/api/tasks/{uid}/complete", methods=["POST"])
-@boundary_handler()  # 200 OK (action, not creation)
-async def complete_task(request): ...
+# adapters/inbound/principles_api.py — links the caller's principle to a target
+@rt("/api/principles/link", methods=["POST"])
+@csrf_protected
+@boundary_handler()  # 200 OK (an edge between existing entities, not a new resource)
+async def principle_create_link(request: Request) -> Result[dict[str, Any]]: ...
 
-# Ephemeral operations
-@rt("/api/search", methods=["POST"])
-@boundary_handler()  # 200 OK (search doesn't create resource)
-async def search(request): ...
-
-# Generation without persistence
-@rt("/api/adaptive-learning/generate-path", methods=["POST"])
-@boundary_handler()  # 200 OK (ephemeral generation)
-async def generate_path(request): ...
+# adapters/inbound/search_routes.py — search creates nothing
+@rt("/api/search/unified", methods=["POST"])
+@csrf_protected
+@boundary_handler()  # 200 OK
+async def unified_search_api(request: Request, ...): ...
 ```
 
 ---
 
 ## CRUDRouteFactory
 
-**The factory automatically uses 201 for POST create:**
+**The factory registers its create route with 201:**
 
 ```python
-# Factory pattern (line 205 in crud_route_factory.py)
-@rt(f"{self.base_path}", methods=["POST"])
-@boundary_handler(success_status=201)  # Automatic 201
-async def create_route(request):
-    result = await service.create(entity)
-    return result
+# adapters/inbound/route_factories/crud_route_factory.py
+instrumented = self._instrument_handler(
+    create, f"{self.base_path}/create", success_status=201
+)
+rt(f"{self.base_path}/create", methods=["POST"])(instrumented)
 ```
 
----
-
-## Migration Complete (October 16, 2025)
-
-**Status:** All POST resource creation routes now return 201 Created.
-
-### Updated Files
-
-- `goals_api.py` - 3 routes (progress, milestones, habits)
-- `pathways_api.py` - 3 routes (paths, progress, steps) - uses return statement method
-- `principles_api.py` - 2 routes (expressions, links)
-- `system_api.py` - 2 routes (register, thresholds)
-- All other domain APIs - Already using factory or correct status codes
-
-### Consistency Achieved
-
-- ✅ Factory-generated routes: 201 (via `success_status=201`)
-- ✅ Manual creation routes: 201 (via decorator or return)
-- ✅ Action routes: 200 (default behavior)
-- ✅ Search/analysis routes: 200 (ephemeral operations)
+So `POST /api/{domain}/create` answers 201 for every domain the factory serves.
 
 ---
 
@@ -158,7 +123,3 @@ async def create_route(request):
 
 - [Error Handling Standard](ERROR_HANDLING.md)
 
----
-
-**Last Updated:** October 17, 2025
-**Status:** Active - Migration complete, all routes follow REST best practices

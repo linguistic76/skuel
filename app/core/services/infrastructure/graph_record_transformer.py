@@ -51,7 +51,6 @@ def determine_domain(node_dict: dict[str, Any], labels: list[str]) -> Domain:
         "Goal": Domain.GOALS,
         "Event": Domain.EVENTS,
         "Entity": Domain.KNOWLEDGE,
-        "Lp": Domain.LEARNING,
         "Finance": Domain.FINANCE,
         "Choice": Domain.CHOICES,
         "Principle": Domain.PRINCIPLES,

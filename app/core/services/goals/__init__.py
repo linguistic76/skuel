@@ -16,7 +16,7 @@ Architecture: Facade Pattern (8 sub-services + intelligence mixins + 1 facade mi
 - Zero breaking changes to external code
 
 Facade Mixin (compose into GoalsService):
-- _OrchestrationMixin: create_goal_with_context, generate_tasks_for_goal, assess_goal_feasibility
+- _OrchestrationMixin: create_goal_with_context, assess_goal_feasibility
 
 Intelligence Mixins (compose into GoalsIntelligenceService):
 - _AnalyticsMixin: progress dashboard, completion forecast, learning requirements

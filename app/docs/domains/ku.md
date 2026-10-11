@@ -156,6 +156,12 @@ and is read on its page. What is registered:
 
 Both write onto a published Ku only (`KuBackend`'s MATCH admits the far end): a draft Ku, a PathStep, a Task or a uid that names nothing writes no edge and renders the same fragment, so no refusal confirms that a node exists.
 
+### Intelligence (`adapters/inbound/ku_routes.py` — `IntelligenceRouteConfig`, `SHARED`)
+- `GET /api/ku/context?uid=` — the Ku with its graph neighbourhood (`get_with_context`)
+- `GET /api/ku/insights?uid=` — alias count, usage counts and `ORGANIZES` depth (`get_domain_insights`)
+
+Any signed-in user may read any Ku through them, a draft included: the caller named the uid.
+
 ### Pages (`adapters/inbound/learning_loop_routes.py`, `library_ui.py`)
 - `GET /explore/ku/{uid}` — the Ku page (shell; body via `GET /explore/ku/{uid}/content`, related via `GET /explore/ku/{uid}/related`, the reader's linked activities via `GET /explore/ku/{uid}/apply`)
 - `POST /explore/ku/{uid}/mastery-checkin` — the dual-track mastery check-in (`assess_mastery_dual_track`, which reads `calculate_user_substance`)

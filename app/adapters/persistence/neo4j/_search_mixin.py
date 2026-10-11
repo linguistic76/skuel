@@ -23,8 +23,6 @@ mixins composed alongside this one on ``UniversalNeo4jBackend``:
         user_activity_range_raw, upcoming_raw, overdue_raw, active_raw
     E: _prereq_progress_mixin.py (_PrereqProgressMixin)
         prerequisite_traversal, hierarchy_query_raw
-    G: _context_query_mixin.py   (_ContextQueryMixin)
-        context_query_raw, basic_context_query_raw
 
 Requires on concrete class:
     driver, logger, entity_class, label, default_filters, query_builder,

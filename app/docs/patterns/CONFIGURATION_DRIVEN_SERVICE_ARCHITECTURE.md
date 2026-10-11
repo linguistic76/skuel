@@ -1,6 +1,6 @@
 ---
 title: Configuration-Driven Service Architecture
-updated: 2026-09-17
+updated: 2026-10-11
 category: patterns
 related_skills:
 - base-analytics-service
@@ -227,9 +227,6 @@ enables = await service.get_enables(uid, depth=3)
 
 # Entity with content
 entity = await service.get_with_content(uid)
-
-# Entity with graph neighborhood
-entity_with_context = await service.get_with_context(uid, depth=2)
 ```
 
 ### Graph-Aware Search

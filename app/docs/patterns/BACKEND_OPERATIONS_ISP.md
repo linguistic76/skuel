@@ -75,8 +75,8 @@ class EntitySearchOperations[T: DomainModelProtocol](Protocol):
     async def find_by_date_range(...) -> Result[list[T]]: ...
     async def get_user_entities(...) -> Result[tuple[list[T], int]]: ...  # (page, total)
     # + the *_raw query primitives the search strategies compose:
-    #   text_search_raw, faceted_search_raw, graph_aware_search_raw, context_query_raw,
-    #   basic_context_query_raw, hierarchy_query_raw, relationship_traversal_raw,
+    #   text_search_raw, faceted_search_raw, graph_aware_search_raw,
+    #   hierarchy_query_raw, relationship_traversal_raw,
     #   array_contains_raw, array_any_match_raw, distinct_values_raw, active_raw,
     #   overdue_raw, upcoming_raw, user_activity_range_raw,
     #   prerequisite_traversal, prerequisite_chain_with_distance

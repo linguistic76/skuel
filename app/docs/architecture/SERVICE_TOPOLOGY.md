@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 # Service Architecture: File Organization & Topology
@@ -193,7 +193,7 @@ BaseService[B: BackendOperations, T: DomainModelProtocol]
     │   └─ Methods: get_user_items_in_range(), get_upcoming(), get_overdue(), get_active()
     │
     └─ ContextOperationsMixin       ← Depends on CrudOperationsMixin
-        └─ Methods: get_with_content(), get_with_context()
+        └─ Methods: get_with_content()
 ```
 
 **File layout** (`/core/services/mixins/`):

@@ -94,18 +94,20 @@ class KuIntelligenceService(
             return Result.fail(Errors.not_found(resource="Ku", identifier=uid))
 
         usage_result = await self.get_usage_summary(uid)
-        usage = usage_result.value if usage_result.is_ok else {}
+        if usage_result.is_error:
+            return Result.fail(usage_result)
 
         depth_result = await self.get_organization_depth(uid)
-        org_depth = depth_result.value if depth_result.is_ok else 0
+        if depth_result.is_error:
+            return Result.fail(depth_result)
 
         return Result.ok(
             {
                 "ku_uid": uid,
                 "ku_title": ku.title,
                 "alias_count": len(ku.aliases),
-                "usage": usage,
-                "organization_depth": org_depth,
+                "usage": usage_result.value,
+                "organization_depth": depth_result.value,
             }
         )
 

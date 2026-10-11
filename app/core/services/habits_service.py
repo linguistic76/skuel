@@ -167,7 +167,7 @@ class HabitsService(
     - Planning: get_habit_priorities_for_user, get_actionable_habits_for_user, etc.
     - Scheduling: check_habit_capacity, suggest_habit_stacking, etc.
     - Intelligence: analyze_habit_performance, etc.
-    - Events: get_event_uids_for_habit, schedule_events_for_habit
+    - Events: get_event_uids_for_habit
 
     Mixin methods (see habits/ package):
     - _CompletionMixin: track_habit, untrack_habit, get_habit_streak/progress/history,
@@ -423,13 +423,6 @@ class HabitsService(
     ) -> Result[list[str]]:
         return await self.intelligence.get_event_uids_for_habit(
             habit_uid, user_context, _days_ahead
-        )
-
-    async def schedule_events_for_habit(
-        self, habit_uid: str, _user_context: UserContext, days_to_schedule: int = 7
-    ) -> Result[list[dict[str, Any]]]:
-        return await self.intelligence.schedule_events_for_habit(
-            habit_uid, _user_context, days_to_schedule
         )
 
     async def analyze_learning_patterns(

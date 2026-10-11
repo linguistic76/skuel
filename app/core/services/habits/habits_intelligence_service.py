@@ -17,13 +17,10 @@ Architecture: Shell delegates to focused mixins (graph context retrieval —
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
-from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -39,9 +36,7 @@ from core.services.habits.habit_relationships import HabitRelationships
 from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.services.whole_set_read import find_all_by
-from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -277,84 +272,6 @@ class HabitsIntelligenceService(
         event_uids = user_context.events_by_habit[habit_uid]
         upcoming = [uid for uid in event_uids if uid in user_context.upcoming_event_uids]
         return Result.ok(upcoming)
-
-    async def schedule_events_for_habit(
-        self, habit_uid: str, _user_context: UserContext, days_to_schedule: int = 7
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Generate event suggestion templates for maintaining a habit.
-
-        Returns dicts that EventsService can use to create actual Event entities.
-        Does NOT create events — that is EventsService's responsibility.
-
-        DESIGN DECISION — Knowledge UIDs Intentionally Omitted (Graph-Native):
-        Event suggestions do NOT include `practices_knowledge_uids` even though
-        habits may have knowledge reinforcement relationships in the graph.
-        EventsService handles relationship wiring when converting suggestion → Event.
-
-        Args:
-            habit_uid: UID of the habit
-            _user_context: User context (reserved for future filtering)
-            days_to_schedule: Number of days to generate suggestions for
-
-        Returns:
-            Result containing list of event suggestion dicts
-        """
-        habit_result = await self.backend.get_habit(habit_uid)
-        if habit_result.is_error:
-            return Result.fail(habit_result)
-
-        habit = to_domain_model(habit_result.value, HabitDTO, Habit)
-
-        event_suggestions = []
-        start_date = today_in(current_zone())
-
-        for day_offset in range(days_to_schedule):
-            event_date = start_date + timedelta(days=day_offset)
-            if self._should_occur_on_date(habit, event_date):
-                event_suggestions.append(
-                    {
-                        "title": habit.title,
-                        "description": f"Maintain {habit.title} habit",
-                        "reinforces_habit_uid": habit_uid,
-                        "event_date": event_date.isoformat(),
-                        "duration_minutes": habit.duration_minutes,
-                        "recurrence_maintains_habit": True,
-                        "skip_breaks_habit_streak": True,
-                        "habit_completion_quality": None,
-                        "tags": ["habit", *list(habit.tags if habit.tags else [])],
-                    }
-                )
-
-        return Result.ok(event_suggestions)
-
-    def _should_occur_on_date(self, habit: Habit, check_date: date) -> bool:
-        """
-        Check if a habit should occur on a specific date based on its recurrence pattern.
-
-        Args:
-            habit: Habit domain model
-            check_date: Date to check
-
-        Returns:
-            True if the habit should occur on this date
-        """
-        if habit.recurrence_pattern == HabitFrequency.DAILY:
-            return True
-        elif habit.recurrence_pattern == HabitFrequency.WEEKDAYS:
-            return check_date.weekday() < 5
-        elif habit.recurrence_pattern == HabitFrequency.WEEKENDS:
-            return check_date.weekday() >= 5
-        elif habit.recurrence_pattern == HabitFrequency.WEEKLY:
-            # GRAPH-NATIVE: Simplified — occurs once per week
-            if habit.started_at:
-                days_since_start = (check_date - day_of(habit.started_at, current_zone())).days
-                return days_since_start % 7 == 0
-            return check_date.weekday() == 0  # Default to Monday
-        elif habit.recurrence_pattern == HabitFrequency.CUSTOM:
-            # GRAPH-NATIVE: Custom patterns not supported in simplified check
-            return False
-        return False
 
     async def analyze_learning_patterns(
         self, user_uid: UserUID, timeframe_days: int = 30

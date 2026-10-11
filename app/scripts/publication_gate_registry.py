@@ -1,22 +1,17 @@
 """The classified set of query surfaces that touch the curriculum publication gate.
 
-**Why a registry rather than a fourth hand-written list.** ``publication_state``
-has been applied per-surface three times over, and each pass was enumerated by
-hand: #1006 gated nine surfaces and Codex found a new one on each of four
-rounds; #1008 replaced the grep census with a structural one and found sixteen
-more; Codex then found six further defects across three rounds *on #1008*. The
-enumeration is the defect, not any individual missing gate.
-
-Categorising those six is what this module is shaped around. Three were
-**omissions** — a surface the census never saw, because the census keyed on
-labels and the binding carried none (``discover_semantic_bridges``) or the
-bridging step was an anonymous ``(:Entity)`` (``get_learning_path_uids``). Three
-were **misclassifications** — a surface that WAS enumerated and gated, just
-gated wrongly: the wrong alias (``get_paths_by_knowledge`` gated ``lp`` and not
-the bridging ``ps``), the wrong half of a mixed surface
-(``get_prioritized_steps`` gated the catalogue without yielding to the learner's
-own progress), or the wrong channel (``find_ready_to_learn`` withheld the draft
-node and then named its uid inside a collected list).
+**Why a registry rather than a hand-written list.** ``publication_state`` is
+applied surface by surface, and a hand enumeration of those surfaces misses some:
+the enumeration is the defect, not any individual missing gate. The misses take
+two shapes, and this module is shaped around both. An **omission** is a surface
+no census sees, because the census keys on labels and the binding carries none
+(``discover_semantic_bridges``) or the bridging step is an anonymous
+``(:Entity)`` (``get_learning_path_uids``). A **misclassification** is a surface
+that is enumerated and gated, just gated wrongly: the wrong alias (gating ``lp``
+in ``get_paths_by_knowledge`` and not the bridging ``ps``), the wrong half of a
+mixed surface (gating the catalogue in ``get_prioritized_steps`` without yielding
+to the learner's own progress), or the wrong channel (withholding the draft node
+in ``find_ready_to_learn`` and then naming its uid inside a collected list).
 
 So this module carries two things, and neither is a correctness judgement made
 by a pattern:
@@ -26,14 +21,14 @@ by a pattern:
    asserts the set is COMPLETE against the tree by AST. That claim ("is this
    surface classified?") is exactly decidable; the claim a linter must never
    make is "is this surface correctly gated?", which is where a regex
-   approximating a parser generates an infinite tail (#831, and the rule in
-   #868: narrow the claim rather than approximate).
+   approximating a parser generates an infinite tail — narrow the claim rather
+   than approximate it.
 
 2. **The criterion** — ``tests/integration/test_publication_gate_output_invariant.py``
    runs each GATED surface against a seeded graph and asserts no draft
    IDENTITY reaches the caller at any depth. That is the invariant itself
    rather than a proxy for it, and it is the only form that can express the
-   three misclassification shapes: it does not care which alias carries the
+   misclassification shapes: it does not care which alias carries the
    predicate, where in the query it sits, or whether the leak travels as a node,
    a scalar or an element of a ``collect()``.
 
@@ -572,7 +567,7 @@ SURFACES: tuple[Surface, ...] = (
         "adapters.persistence.neo4j.query.cypher.domain_queries",
         "build_entity_with_context",
         Disposition.GATED,
-        "The registry context statement (get_with_context) — an activity with "
+        "The registry context statement (generate_context_query) — an activity with "
         "every registered neighbour's uid and title. Under an Activity label each "
         "neighbour is tied by build_link_far_node_clause.",
     ),

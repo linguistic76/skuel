@@ -247,11 +247,11 @@ both distinct from the ISP protocols in `core.ports.intelligence_protocols`). Co
 insights are per-entity reads and are registered at either scope. Analytics is the signed-in
 user's own aggregate, so it is registered at `ContentScope.USER_OWNED` alone: shared
 curriculum has no per-user set to aggregate, and a `SHARED` factory has no `/analytics`
-route. Eight domains register the factory — the six Activity Domains through
-`create_activity_domain_route_config` (three routes each), PathSteps and LearningPaths through
-`IntelligenceRouteConfig(scope=ContentScope.SHARED)` (two each) — 22 routes (re-count:
+route. Nine domains register the factory — the six Activity Domains through
+`create_activity_domain_route_config` (three routes each), Kus, PathSteps and LearningPaths
+through `IntelligenceRouteConfig(scope=ContentScope.SHARED)` (two each) — 24 routes (re-count:
 `./dev health-claims` prints the catalog size; `grep -n IntelligenceRouteConfig
-adapters/inbound/*_routes.py` names the two curriculum registrations).
+adapters/inbound/*_routes.py` names the three curriculum registrations).
 
 ### Clear Boundaries: Intelligence vs Analytics
 
@@ -299,12 +299,8 @@ intelligence_factory.register_routes(app, rt)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `intelligence_service` | IntelligenceOperations | required | Service implementing the protocol; at `USER_OWNED` with analytics enabled it also implements `PerformanceAnalyticsOperations`, or the factory refuses to construct |
-| `domain_name` | str | required | Domain name for route paths |
-| `base_path` | str | `/api/{domain}` | Custom base path |
-| `enable_analytics` | bool | True | Enable analytics route (read at `USER_OWNED`; a `SHARED` factory has none) |
-| `enable_context` | bool | True | Enable context route |
-| `enable_insights` | bool | True | Enable insights route |
+| `intelligence_service` | IntelligenceOperations | required | Service implementing the protocol; at `USER_OWNED` it also implements `PerformanceAnalyticsOperations`, or the factory refuses to construct |
+| `domain_name` | str | required | Domain name; the routes live under `/api/{domain_name}` |
 | `scope` | ContentScope | USER_OWNED | Content ownership model |
 | `ownership_service` | OwnershipVerifier | None | Service for ownership checks (required if scope=USER_OWNED) |
 

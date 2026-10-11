@@ -29,8 +29,6 @@ def mock_backend() -> Mock:
     backend.list = AsyncMock(return_value=Result.ok(([], 0)))
     backend.create_relationships_batch = AsyncMock(return_value=Result.ok(0))
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
-    # GoalsService uses backend.get_goal in generate_tasks_for_goal
-    backend.get_goal = AsyncMock(return_value=Result.ok({}))
     return backend
 
 

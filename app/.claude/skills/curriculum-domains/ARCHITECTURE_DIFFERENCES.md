@@ -118,8 +118,6 @@ self.relationships = UnifiedRelationshipService(
 **Direct backend calls for complex queries:**
 ```python
 # Domain-specific Cypher lives in domain backends, not services.
-# PsBackend.get_with_context_raw() (_KnowledgeContextMixin) fetches the graph neighborhood:
-result = await self.backend.get_with_context_raw(uid, min_confidence)
 # KuBackend.get_usage_summary() counts the PathSteps using / training this Ku, organized children:
 result = await self.backend.get_usage_summary(ku_uid)
 ```

@@ -66,7 +66,7 @@ MIXIN_DESCRIPTIONS: dict[str, str] = {
     "SearchOperationsMixin": "Text search, filtering, and graph-aware queries",
     "RelationshipOperationsMixin": "Graph relationship operations and traversal",
     "TimeQueryMixin": "Calendar and scheduling queries",
-    "ContextOperationsMixin": "Retrieve entities with enriched graph context",
+    "ContextOperationsMixin": "Retrieve an entity with its full content",
     "KnowledgeIntelligenceDelegationMixin": (
         "Knowledge intelligence delegation shared by all Activity Domain facades"
     ),

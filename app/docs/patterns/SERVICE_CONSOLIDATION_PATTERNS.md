@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-10-10
+updated: 2026-10-11
 category: patterns
 related_skills:
 - base-analytics-service
@@ -23,7 +23,7 @@ For hands-on implementation:
 1. Invoke `@base-analytics-service` for intelligence service patterns
 2. Invoke `@activity-domains` for facade delegation patterns
 3. See [BASESERVICE_QUICK_START.md](../guides/BASESERVICE_QUICK_START.md) for new developer onboarding
-4. Continue below for all 6 consolidation patterns
+4. Continue below for the consolidation patterns
 
 **Related ADRs:** [ADR-025](../decisions/ADR-025-service-consolidation-patterns.md), [ADR-031](../decisions/ADR-031-baseservice-mixin-decomposition.md)
 
@@ -194,7 +194,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     SearchOperationsMixin[B, T],        # search, filtering, graph-aware search
     RelationshipOperationsMixin[B, T],  # graph relationships, prerequisites
     TimeQueryMixin[B, T],               # date range queries, due_soon, overdue
-    ContextOperationsMixin[B, T],       # get_with_context, graph enrichment
+    ContextOperationsMixin[B, T],       # get_with_content
 ):
     """Unified base service - now composed of focused mixins."""
 ```
@@ -208,19 +208,19 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 | `SearchOperationsMixin` | `mixins/search_operations_mixin.py` | `search`, `get_by_status`, `graph_aware_faceted_search` |
 | `RelationshipOperationsMixin` | `mixins/relationship_operations_mixin.py` | `add_relationship`, `traverse`, `get_prerequisites` |
 | `TimeQueryMixin` | `mixins/time_query_mixin.py` | `get_user_items_in_range`, `get_upcoming`, `get_overdue`, `get_active` (config-driven via `date_field` + `temporal_exclude_statuses` + `temporal_secondary_sort` + `completed_statuses`) |
-| `ContextOperationsMixin` | `mixins/context_operations_mixin.py` | `get_with_context`, `get_with_content` |
+| `ContextOperationsMixin` | `mixins/context_operations_mixin.py` | `get_with_content` |
 
 ### Fail-Fast Philosophy
 
 All mixins follow SKUEL's fail-fast philosophy - no fallback paths:
 
 ```python
-# CORRECT - fail-fast when not configured
+# CORRECT - fail-fast when not configured (TimeQueryMixin.get_upcoming)
 if self._dto_class is None or self._model_class is None:
     return Result.fail(
         Errors.system(
-            message=f"{self.entity_label} must configure _dto_class and _model_class",
-            operation="get_with_context",
+            message=f"{self.service_name} must configure _dto_class and _model_class",
+            operation="get_upcoming",
         )
     )
 
@@ -461,115 +461,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
 
 ---
 
-## 5. Post-Query Processors
-
-Registry-driven Python calculations for computed context fields.
-
-### The Problem
-
-Domain services needed calculated fields derived from relationship data:
-
-```python
-# OLD PATTERN - hardcoded in BaseService
-if self.entity_label == "Goal" and "milestones" in graph_context:
-    milestone_data = graph_context.get("milestones", [])
-    total = len(milestone_data)
-    completed = sum(1 for m in milestone_data if m.get("is_completed"))
-    percentage = (completed / total * 100.0) if total > 0 else 0.0
-    graph_context["milestone_progress"] = {...}
-```
-
-### The Solution
-
-Define processors declaratively in the registry, implement once in `post_processors.py`:
-
-```python
-# In relationship_registry.py
-GOALS_CONFIG = DomainRelationshipConfig(
-    # ... relationships ...
-    post_processors=(
-        PostProcessor(
-            source_field="milestones",       # Field from Cypher query
-            target_field="milestone_progress",  # Computed field name
-            processor_name="calculate_milestone_progress",  # Function in registry
-        ),
-    ),
-)
-
-# In post_processors.py
-def calculate_milestone_progress(milestones: list[dict]) -> dict:
-    if not milestones:
-        return {"total": 0, "completed": 0, "percentage": 0.0}
-    total = len(milestones)
-    completed = sum(1 for m in milestones if m.get("is_completed"))
-    return {
-        "total": total,
-        "completed": completed,
-        "percentage": round((completed / total * 100.0), 2),
-    }
-
-PROCESSOR_REGISTRY = {
-    "calculate_milestone_progress": calculate_milestone_progress,
-    "calculate_habit_streak_summary": calculate_habit_streak_summary,
-    "calculate_task_status_summary": calculate_task_status_summary,
-}
-```
-
-### How It Works
-
-1. `BaseService.get_with_context()` calls `generate_context_query()` from registry
-2. Query returns relationship data (e.g., `milestones` list)
-3. `_parse_context_result()` loops through `config.post_processors`
-4. Each processor transforms source data into computed field
-
-```python
-# In BaseService._parse_context_result()
-for processor in config.post_processors:
-    source_data = graph_context.get(processor.source_field, [])
-    if source_data:
-        graph_context[processor.target_field] = apply_processor(
-            processor.processor_name, source_data
-        )
-```
-
-### Available Processors
-
-| Processor | Source Field | Output |
-|-----------|--------------|--------|
-| `calculate_milestone_progress` | `milestones` | `{total, completed, percentage}` |
-| `calculate_habit_streak_summary` | `habits` | `{total, active, total_streak_days, avg_streak}` |
-| `calculate_task_status_summary` | `tasks` | `{total, completed, in_progress, pending, completion_percentage}` |
-
-### Adding New Processors
-
-1. Add function to `/core/models/post_processors.py`
-2. Register in `PROCESSOR_REGISTRY`
-3. Add `PostProcessor` to domain config in `relationship_registry.py`
-
-```python
-# Step 1: Add function
-def calculate_new_metric(items: list[dict]) -> dict:
-    # Your calculation logic
-    return {"metric": calculated_value}
-
-# Step 2: Register
-PROCESSOR_REGISTRY["calculate_new_metric"] = calculate_new_metric
-
-# Step 3: Add to domain config
-DOMAIN_CONFIG = DomainRelationshipConfig(
-    post_processors=(
-        PostProcessor(
-            source_field="items",
-            target_field="new_metric",
-            processor_name="calculate_new_metric",
-        ),
-    ),
-)
-```
-
----
-
-## 6. Domain-Specific Factories (Curriculum)
+## 5. Domain-Specific Factories (Curriculum)
 
 Specialized factory functions for curriculum domains with complex initialization requirements.
 
@@ -732,7 +624,7 @@ class LpSubServices:
 
 ---
 
-## 7. Cross-Domain Read Consolidation (April 2026)
+## 6. Cross-Domain Read Consolidation (April 2026)
 
 **Problem:** Cross-domain reads were scattered across domain backends and services. Each domain had its own N+1 pattern: fetch all entities of one type, then fan-out queries for related entities in another type, then join in Python. This is the relational-brain pattern — treating the graph like SQL tables you join in application code. Cross-domain Cypher lived on the wrong domain's backend (e.g., `ChoicesBackend` knew about Principles, `GoalsBackend` knew about Tasks).
 
@@ -763,7 +655,7 @@ class LpSubServices:
 
 ---
 
-## 8. Activity Stats Consolidation (April 2026)
+## 7. Activity Stats Consolidation (April 2026)
 
 **Problem:** Duplicated stats-building logic across 6 Activity Domain facade files. Each facade had its own `_compute_{domain}_stats()` function with similar patterns (counting active, completed, overdue, etc.) but subtly different implementations.
 
@@ -779,7 +671,7 @@ class LpSubServices:
 
 ---
 
-## 9. Facade Mixin Decomposition (April 2026)
+## 8. Facade Mixin Decomposition (April 2026)
 
 **Problem:** Facade files (500-900 lines) mix delegation methods with domain-specific logic (option management, relationship linking, analytics enrichment). Hard to navigate and inconsistent across domains.
 
@@ -832,7 +724,6 @@ class ChoicesService(
 | BaseService Mixins | `/core/services/mixins/` | `from core.services.mixins import ConversionHelpersMixin, CrudOperationsMixin, ...` |
 | Explicit Delegation | `/core/services/tasks_service.py` | Explicit `async def` methods on facade class (no import needed) |
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
-| Post-Query Processors | `/core/models/post_processors.py` | `from core.models.post_processors import apply_processor, PROCESSOR_REGISTRY` |
 | PS/LP Factories | `/core/services/curriculum_domain_config.py` | `from core.services.curriculum_domain_config import create_ps_sub_services, create_lp_sub_services` |
 | Cross-Domain Reads | `/core/services/cross_domain/cross_domain_query_service.py` | `from core.services.cross_domain import CrossDomainQueryService` |
 | Activity Stats | `/core/utils/activity_stats.py` | `from core.utils.activity_stats import compute_task_stats, TaskStats` |

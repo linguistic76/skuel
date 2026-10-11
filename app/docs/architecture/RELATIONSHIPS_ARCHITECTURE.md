@@ -267,7 +267,7 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 >
 > Every read routes its check through one private helper, `_verify_entity_access(entity_uid, user_uid, domain_service)`; a verified write calls it per endpoint, and an unverified write goes through `_verify_write_endpoints`. Add a read method and call it; do not re-inline the guard.
 >
-> `get_cousins` is the one remaining ❌: it accepts neither parameter, so it cannot enforce ownership even when a caller wants to. No route exposes it and it has no caller anywhere in the tree, so it is reachable only by a direct caller — wire the pair in if you ever give it one.
+> `get_cousins` is the one remaining ❌: it accepts neither parameter, so it cannot enforce ownership even when a caller wants to. No route exposes it and it has no caller anywhere in the tree; it is staged (`_LATERAL_COUSINS` in `scripts/detect_bloat.py`) — wire the pair in before you give it a caller.
 
 ### Lateral Relationship Type Taxonomy
 

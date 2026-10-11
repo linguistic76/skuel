@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-01
+updated: 2026-10-11
 ---
 
 # KuIntelligenceService - Usage, Organization & Per-User Substance
@@ -29,9 +29,9 @@ A Ku is an atomic, shared knowledge unit. KuIntelligenceService answers three qu
 
 ### Route-factory surface
 
-`get_with_context(uid, depth=2)` (inherited from `_CoreIntelligenceMixin[Ku]`) and `get_domain_insights(uid, _min_confidence=0.7)` implement the route factory's `IntelligenceOperations`. **KU has no routes for them:** `KU_CONFIG` wires no `IntelligenceRouteConfig` (see [INTELLIGENCE_SERVICES_INDEX.md](INTELLIGENCE_SERVICES_INDEX.md) § Route Factory Protocol). There is no `get_performance_analytics`: Kus are shared content, with no per-user set to aggregate — corpus-level counts are `KnowledgeHealthService`'s.
+`get_with_context(uid, depth=2)` (inherited from `_CoreIntelligenceMixin[Ku]`) and `get_domain_insights(uid, _min_confidence=0.7)` implement the route factory's `IntelligenceOperations`, served as `GET /api/ku/context?uid=` and `GET /api/ku/insights?uid=` — `KU_CONFIG` wires an `IntelligenceRouteConfig` at `ContentScope.SHARED` (see [INTELLIGENCE_SERVICES_INDEX.md](INTELLIGENCE_SERVICES_INDEX.md) § Route Factory Protocol). There is no `get_performance_analytics`: Kus are shared content, with no per-user set to aggregate — corpus-level counts are `KnowledgeHealthService`'s.
 
-- `get_domain_insights` returns the Ku's title, alias count, `get_usage_summary()` result and `get_organization_depth()`. `_min_confidence` is accepted and not applied — nothing in the payload is confidence-scored.
+- `get_domain_insights` returns the Ku's title, alias count, `get_usage_summary()` result and `get_organization_depth()`; a failed usage or depth read fails the insights. `_min_confidence` is accepted and not applied — nothing in the payload is confidence-scored.
 
 ### get_usage_summary(ku_uid) → `Result[dict[str, int]]`
 

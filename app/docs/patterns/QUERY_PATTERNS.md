@@ -1,6 +1,6 @@
 ---
 title: Query Patterns
-updated: '2026-10-05'
+updated: 2026-10-11
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -157,7 +157,7 @@ For complex user context, SKUEL uses a single comprehensive query:
 | Scenario | Approach |
 |----------|----------|
 | User context for dashboard | MEGA-QUERY |
-| Single entity with relationships | `get_with_context()` |
+| Single entity with relationships | `service.intelligence.get_with_context()` |
 | Simple list fetch | Standard query |
 | Paginated results | Standard query with SKIP/LIMIT |
 
