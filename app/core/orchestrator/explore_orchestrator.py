@@ -107,9 +107,9 @@ class ExploreOrchestrator:
             store_callback=store_callback,
         )
 
-    async def get_exercises_for_curriculum(self, ku_uid: str) -> Result[list]:
-        """Get exercises associated with a KU."""
-        return await self._exercises.get_exercises_for_curriculum(ku_uid)
+    async def get_exercises_for_curriculum(self, ku_uid: str, user_uid: UserUID) -> Result[list]:
+        """The exercises requiring a KU that this user may read."""
+        return await self._exercises.get_exercises_for_curriculum(ku_uid, user_uid)
 
     async def get_pinned_entities(self, user_uid: UserUID) -> Result[Any]:
         """Get UIDs of entities pinned by the user."""

@@ -285,7 +285,8 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
         - that entry asks this teacher for feedback: it was ``SUBMITTED_TO_GROUP``
           an active group the teacher owns, or ``SUBMITTED_TO_TEACHER`` the
           teacher (ADR-088 §2, §9). Having the student in one
-          of the teacher's groups is not enough, and neither is the role alone;
+          of the teacher's groups is not enough, and neither is a role alone —
+          an ADMIN with no such request is refused like any other user;
         - the exercise being revised is the one that entry FULFILLS.
 
         Every refusal is not-found, and the exercise is looked at only once the

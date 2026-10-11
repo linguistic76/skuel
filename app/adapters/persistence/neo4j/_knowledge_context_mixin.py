@@ -23,10 +23,12 @@ from adapters.persistence.neo4j._backend_helpers import _validate_rel_name
 from adapters.persistence.neo4j.query.cypher import (
     build_knowledge_read_clause,
     build_publication_clause,
+    build_search_visibility_clause,
     comparable_property,
 )
 from core.models.entity import Entity
 from core.models.enums.activity_enums import ActivitySortKey
+from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -698,7 +700,14 @@ class _KnowledgeContextMixin:
     # ========================================================================
 
     async def get_exercises_for_path_step(self, ps_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get exercises linked to a PathStep via HAS_EXERCISE.
+        """Get the exercises linked to a PathStep via HAS_EXERCISE that an anonymous reader may see.
+
+        The step page's listing for a visitor who is not signed in, so it
+        composes the SCOPE_AWARE audience predicate with no user
+        (``build_search_visibility_clause``): the fail-closed floor is published
+        CURRICULUM alone — a teacher's PERSONAL or a group's ASSIGNED exercise
+        hanging from the step is never listed here. The signed-in listing is
+        ``ExerciseBackend.get_ps_exercises_with_status``.
 
         Returns basic exercise details (uid, title, scope, estimated_time_minutes)
         so the PathStep detail page can render an exercises section with submit links.
@@ -709,13 +718,18 @@ class _KnowledgeContextMixin:
         Returns:
             List of records with exercise uid, title, scope, estimated_time_minutes.
         """
-        query = """
-        MATCH (ps:Entity {uid: $ps_uid, entity_type: 'path_step'})-[:HAS_EXERCISE]->(e:Entity {entity_type: 'exercise'})
+        visibility_scope = build_search_visibility_clause(
+            SearchVisibility.SCOPE_AWARE, entity_alias="e", has_user=False
+        )
+        audience_where, scope_params = visibility_scope or ("true", {})
+        query = f"""
+        MATCH (ps:Entity {{uid: $ps_uid, entity_type: 'path_step'}})-[:HAS_EXERCISE]->(e:Entity {{entity_type: 'exercise'}})
+        WHERE {audience_where}
         RETURN e.uid AS uid, e.title AS title, e.scope AS scope,
                e.estimated_time_minutes AS estimated_time_minutes
         ORDER BY e.title
         """
-        return await self.execute_query(query, {"ps_uid": ps_uid})
+        return await self.execute_query(query, {"ps_uid": ps_uid, **scope_params})
 
     async def get_cited_resources(
         self, source_uids: list[str], limit: int = 20

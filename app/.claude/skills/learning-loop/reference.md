@@ -64,11 +64,13 @@ services.exercises                # ExerciseService — flat (no sub-services); 
 await backend.link_to_path_step(exercise_uid, path_step_uid)  # HAS_EXERCISE (PERSONAL scope creation)
 await backend.link_to_curriculum(exercise_uid, ku_uid)        # REQUIRES_KNOWLEDGE
 await backend.unlink_from_curriculum(exercise_uid, ku_uid)    # DELETE relationship
-await backend.get_required_knowledge(exercise_uid)            # list KUs required
+await backend.get_required_knowledge(exercise_uid)            # list KUs required (unscoped)
+await backend.get_required_knowledge_for_user(exercise_uid, user_uid)  # same, SCOPE_AWARE; None = absent or out of audience
+await backend.get_exercises_for_curriculum(ku_uid, user_uid)  # exercises requiring a KU the user may read
 await backend.get_exercise_for_submission(submission_uid)     # FULFILLS_EXERCISE lookup
 await backend.get_student_exercises_with_status(user_uid)     # ASSIGNED exercises via group membership
 await backend.get_enrolled_ps_exercises_with_status(user_uid) # PERSONAL exercises via enrolled PathSteps
-await backend.get_ps_exercises_with_status(ps_uid, user_uid)  # Exercises for a SINGLE PathStep with status
+await backend.get_ps_exercises_with_status(ps_uid, user_uid)  # One PathStep's exercises the user may open, with status
 ```
 
 **PathStep detail page (reading-first):**
@@ -94,7 +96,7 @@ below. The `forms` fragments are registered in `learning_loop_routes.py`
 
 | Fragment Endpoint | Service Method | Renderer |
 |---|---|---|
-| `GET /learning-loop/ps/{ps_uid}/exercises` | `ExerciseService.get_exercises_for_path_step_with_status()` | `render_exercise_list()` with `from_ps` context |
+| `GET /learning-loop/ps/{ps_uid}/exercises` | `ExerciseService.get_exercises_for_path_step_with_status()` — lists only the exercises the caller may open (SCOPE_AWARE, like `/exercises/get`); the step itself is the caller's anchor and is not publication-gated, as the embedding page opens a step by uid | `render_exercise_list()` with `from_ps` context |
 | `GET /learning-loop/ps/{ps_uid}/submissions-and-feedback` | `LearningLoopQueryService.get_submissions_for_path_step()` | `render_ps_submissions()` + `render_ps_feedback()` (single query) |
 | `GET /learning-loop/ps/{ps_uid}/forms` | `ExploreOrchestrator.get_forms_for_path_step()` → `FormTemplateService` | `render_embedded_forms()` — empty div when no forms linked |
 | `POST /learning-loop/ps/{ps_uid}/forms/{template_uid}/submit` | `FormSubmissionService.submit_form()` | success card (outerHTML swap) or form re-render with error banner |

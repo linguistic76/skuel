@@ -244,19 +244,22 @@ def create_exercises_api_routes(
         request: Request, current_user: Any = None
     ) -> Result[list[RequiredKnowledgeResult]]:
         """
-        Get all curriculum KUs required by an exercise.
+        Get the curriculum KUs required by an exercise the caller may read.
 
         Query params:
         - uid: Exercise UID (required)
 
         Returns:
         - 200: List of required curriculum KUs
+        - 404: Exercise not found — also an exercise outside the caller's audience
         """
         uid = request.query_params.get("uid")
         if not uid:
             return Result.fail(Errors.validation("uid is required", field="uid"))
 
-        return await exercises_service.get_required_knowledge(uid)
+        return await exercises_service.get_required_knowledge_for_user(
+            uid, UserUID(current_user.uid)
+        )
 
     @rt("/api/exercises/for-curriculum", methods=["GET"])
     @require_teacher(get_user_service)
@@ -265,13 +268,14 @@ def create_exercises_api_routes(
         request: Request, current_user: Any = None
     ) -> Result[list[CurriculumExerciseResult]]:
         """
-        Get all exercises that require a specific curriculum KU.
+        Get the exercises requiring a specific curriculum KU that the caller may read.
 
         Query params:
         - curriculum_uid: Curriculum KU UID (required)
 
         Returns:
-        - 200: List of exercises requiring this curriculum KU
+        - 200: List of exercises requiring this curriculum KU, scoped to the
+          caller's audience — an exercise the caller may not open is absent
         """
         curriculum_uid = request.query_params.get("curriculum_uid")
         if not curriculum_uid:
@@ -279,7 +283,9 @@ def create_exercises_api_routes(
                 Errors.validation("curriculum_uid is required", field="curriculum_uid")
             )
 
-        return await exercises_service.get_exercises_for_curriculum(curriculum_uid)
+        return await exercises_service.get_exercises_for_curriculum(
+            curriculum_uid, UserUID(current_user.uid)
+        )
 
     @rt("/api/exercises/md")
     async def download_exercise_md(request, uid: str) -> Any:

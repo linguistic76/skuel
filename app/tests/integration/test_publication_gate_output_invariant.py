@@ -63,6 +63,7 @@ from adapters.persistence.neo4j.backends.curriculum_backends import (
     LpBackend,
     PsBackend,
 )
+from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
 from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -71,6 +72,7 @@ from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.models.enums import EntityType, PublicationState
 from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
+from core.models.exercises.exercise import Exercise
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
@@ -125,6 +127,13 @@ LP_DRAFT_ENROLLED = "lp.gate-draft-enrolled"
 KU_BRIDGE = "ku.gate-bridge"
 KU_FAR_DRAFT = "ku.gate-far-draft"
 
+# A shared (CURRICULUM) exercise anchored to the published step and requiring the
+# shared KU, beside a draft-marked twin on the same step and KU: the exercise
+# listings — by step, for a visitor and for a learner, and by required KU — must
+# withhold the draft and keep the published one.
+EXERCISE_SHARED = "ex.gate-shared"
+EXERCISE_DRAFT = "ex.gate-draft"
+
 DRAFT_UIDS = frozenset(
     {
         LP_DRAFT,
@@ -134,6 +143,7 @@ DRAFT_UIDS = frozenset(
         KU_FAR_DRAFT,
         STEP_DRAFT_IN_PROGRESS,
         LP_DRAFT_ENROLLED,
+        EXERCISE_DRAFT,
     }
 )
 
@@ -231,6 +241,17 @@ CREATE (g)-[:REQUIRES_KNOWLEDGE]->(ku_shared)
 CREATE (g)-[:REQUIRES_KNOWLEDGE]->(ku_d)
 CREATE (lp_pub)-[:ALIGNED_WITH_GOAL]->(g)
 CREATE (lp_draft)-[:ALIGNED_WITH_GOAL]->(g)
+
+CREATE (ex_shared:Entity:Exercise {uid: $exercise_shared, entity_type: 'exercise',
+                                   scope: 'curriculum', title: 'Shared exercise',
+                                   created_at: '2026-01-01'})
+CREATE (ex_draft:Entity:Exercise {uid: $exercise_draft, entity_type: 'exercise',
+                                  scope: 'curriculum', title: 'Draft exercise',
+                                  created_at: '2026-01-02', publication_state: 'draft'})
+CREATE (s_pub)-[:HAS_EXERCISE]->(ex_shared)
+CREATE (s_pub)-[:HAS_EXERCISE]->(ex_draft)
+CREATE (ex_shared)-[:REQUIRES_KNOWLEDGE]->(ku_shared)
+CREATE (ex_draft)-[:REQUIRES_KNOWLEDGE]->(ku_shared)
 """
 
 SEED_PARAMS = {
@@ -248,6 +269,8 @@ SEED_PARAMS = {
     "step_draft_in_progress": STEP_DRAFT_IN_PROGRESS,
     "lp_draft_enrolled": LP_DRAFT_ENROLLED,
     "ku_far_draft": KU_FAR_DRAFT,
+    "exercise_shared": EXERCISE_SHARED,
+    "exercise_draft": EXERCISE_DRAFT,
 }
 
 # A limit far above the fixture corpus: a small LIMIT masks the delta, because
@@ -358,7 +381,8 @@ async def gate_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDriver]:
     async with neo4j_driver.session() as session:
         await session.run(
             "MATCH (n) WHERE n.uid STARTS WITH 'lp.gate-' OR n.uid STARTS WITH 'ps.gate-' "
-            "OR n.uid STARTS WITH 'ku.gate-' OR n.uid IN [$user, $goal] DETACH DELETE n",
+            "OR n.uid STARTS WITH 'ku.gate-' OR n.uid STARTS WITH 'ex.gate-' "
+            "OR n.uid IN [$user, $goal] DETACH DELETE n",
             {"user": USER, "goal": GOAL},
         )
         await session.run(SEED, SEED_PARAMS)
@@ -369,7 +393,8 @@ async def gate_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDriver]:
     async with neo4j_driver.session() as session:
         await session.run(
             "MATCH (n) WHERE n.uid STARTS WITH 'lp.gate-' OR n.uid STARTS WITH 'ps.gate-' "
-            "OR n.uid STARTS WITH 'ku.gate-' OR n.uid IN [$user, $goal] DETACH DELETE n",
+            "OR n.uid STARTS WITH 'ku.gate-' OR n.uid STARTS WITH 'ex.gate-' "
+            "OR n.uid IN [$user, $goal] DETACH DELETE n",
             {"user": USER, "goal": GOAL},
         )
 
@@ -454,6 +479,7 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
     ku = KuBackend(driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
     ps = PsBackend(driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
     lp = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
+    ex = ExerciseBackend(driver, NeoLabel.EXERCISE, Exercise, base_label=NeoLabel.ENTITY)
     xd = CrossDomainBackend(Neo4jQueryExecutor(driver))
     vs = VectorSearchBackend(Neo4jQueryExecutor(driver))
     cf = ConnectionFetchBackend(Neo4jQueryExecutor(driver))
@@ -531,6 +557,18 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
             "adapters.persistence.neo4j._knowledge_context_mixin",
             "_KnowledgeContextMixin.find_learning_recommendations",
         ): partial(ps.find_learning_recommendations, USER, None, LIMIT),
+        (
+            "adapters.persistence.neo4j._knowledge_context_mixin",
+            "_KnowledgeContextMixin.get_exercises_for_path_step",
+        ): partial(ps.get_exercises_for_path_step, STEP_PUBLISHED),
+        (
+            "adapters.persistence.neo4j.backends.exercise_backends",
+            "ExerciseBackend.get_exercises_for_curriculum",
+        ): partial(ex.get_exercises_for_curriculum, KU_SHARED, USER),
+        (
+            "adapters.persistence.neo4j.backends.exercise_backends",
+            "ExerciseBackend.get_ps_exercises_with_status",
+        ): partial(ex.get_ps_exercises_with_status, STEP_PUBLISHED, USER),
         (
             "adapters.persistence.neo4j._semantic_mixin",
             "_SemanticMixin.discover_semantic_bridges",
@@ -802,6 +840,18 @@ _COVERED_KEYS = (
     (
         "adapters.persistence.neo4j._knowledge_context_mixin",
         "_KnowledgeContextMixin.find_learning_recommendations",
+    ),
+    (
+        "adapters.persistence.neo4j._knowledge_context_mixin",
+        "_KnowledgeContextMixin.get_exercises_for_path_step",
+    ),
+    (
+        "adapters.persistence.neo4j.backends.exercise_backends",
+        "ExerciseBackend.get_exercises_for_curriculum",
+    ),
+    (
+        "adapters.persistence.neo4j.backends.exercise_backends",
+        "ExerciseBackend.get_ps_exercises_with_status",
     ),
     ("adapters.persistence.neo4j._semantic_mixin", "_SemanticMixin.discover_semantic_bridges"),
     (

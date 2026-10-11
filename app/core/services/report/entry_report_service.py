@@ -393,6 +393,9 @@ class EntryReportService:
           an active group the teacher owns, or ``SUBMITTED_TO_TEACHER`` the
           teacher (ADR-088 §2, §9).
 
+        Nobody else: review authority is the asked teacher's, so an ADMIN with
+        no such request is refused like any other user (ADR-088 §2).
+
         The pin is what keeps the reviewer from running another user's exercise
         instructions against an entry and handing them back in the report.
 
