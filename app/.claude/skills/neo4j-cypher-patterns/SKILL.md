@@ -216,7 +216,10 @@ path to the center's owner — the owner's nodes and shared content only (publis
 an owned center), with ownership read
 in all three spellings (`user_uid`, `owner_uid`, the `OWNS` edge) — so a variable-length
 traversal through a shared Ku never returns another user's node
-(`tests/integration/test_neighbourhood_owner_scope.py`). The predicate is
+(`tests/integration/test_neighbourhood_owner_scope.py`). A path also stops at a `User` node:
+the owner may be a neighbour (the center's `OWNS` edge), but no path runs through a `User` to
+what that user owns or viewed, so a neighbourhood is the center's own links, not its owner's
+graph. The predicate is
 `build_far_node_clause` — compose it in any statement that projects the node at the far
 end of an edge (`tests/integration/routes/test_link_reader_far_nodes.py`). For a non-registry caller,
 `QueryIntent` / a domain's `default_context_intent` selects the edge slice from

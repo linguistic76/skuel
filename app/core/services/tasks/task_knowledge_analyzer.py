@@ -18,7 +18,7 @@ See: core/services/knowledge/knowledge_pattern_analyzer.py  (generic 5-pattern b
 from __future__ import annotations
 
 import statistics
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, cast
@@ -332,33 +332,30 @@ class TaskKnowledgeAnalyzer:
                 )
             )
 
-    async def track_knowledge_mastery_progression(
-        self, tasks: list[Task], knowledge_uids: list[str]
+    def track_knowledge_mastery_progression(
+        self,
+        tasks: list[Task],
+        knowledge_by_task: Mapping[str, Collection[str]],
+        knowledge_uids: Collection[str],
     ) -> Result[dict[str, MasteryProgression]]:
         """
         Track knowledge mastery progression across specified knowledge areas.
+
+        A knowledge area's progression is read from the tasks that link it;
+        ``knowledge_by_task`` maps each task uid to the knowledge it links.
 
         Returns:
             Result[dict[knowledge_uid, MasteryProgression]]
         """
         try:
-            if not tasks or not knowledge_uids or not self.relationship_service:
+            if not tasks or not knowledge_uids:
                 return Result.ok({})
 
-            rels_list = await gather_bounded(
-                TaskRelationships.fetch(t.uid, self.relationship_service) for t in tasks
-            )
             progressions: dict[str, MasteryProgression] = {}
 
             for knowledge_uid in knowledge_uids:
                 relevant_tasks = [
-                    task
-                    for task, rels in zip(tasks, rels_list, strict=False)
-                    if (
-                        knowledge_uid in rels.applies_knowledge_uids
-                        or knowledge_uid in rels.prerequisite_knowledge_uids
-                        or knowledge_uid in rels.inferred_knowledge_uids
-                    )
+                    task for task in tasks if knowledge_uid in knowledge_by_task.get(task.uid, ())
                 ]
                 if not relevant_tasks:
                     continue
