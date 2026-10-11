@@ -130,6 +130,15 @@ class SharingBackendOperations(Protocol):
         submitted_at: str,
     ) -> Result[list[Neo4jProperties]]: ...
 
+    async def create_teacher_submission(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: UserUID,
+        teacher_uid: UserUID,
+        exercise_uid: EntityUID,
+        submitted_at: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
     async def delete_group_share(
         self,
         entity_uid: EntityUID,
@@ -165,6 +174,12 @@ class SharingBackendOperations(Protocol):
         user_uid: UserUID,
     ) -> Result[list[Neo4jProperties]]: ...
 
+    async def query_anchored_exercise_teacher(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[list[Neo4jProperties]]: ...
+
     # The link-edge guard's three endpoint reads (``link_edge_guard``), inherited
     # from the universal backend: AudienceResolver admits an entry's PathStep
     # context with them before the entry is written.
@@ -180,7 +195,7 @@ class SharingOperations(Protocol):
     """Entity-agnostic sharing and publication control.
 
     Manages the share links (``SHARES_WITH``, ``SHARED_WITH_GROUP``), the
-    feedback request (``SUBMITTED_TO_GROUP``) and the public-or-not flag for
+    feedback requests (``SUBMITTED_TO_GROUP``, ``SUBMITTED_TO_TEACHER``) and the public-or-not flag for
     any entity type.
 
     Consumers: ``Services.sharing`` (services_bootstrap/_container.py) —
@@ -304,6 +319,21 @@ class SharingOperations(Protocol):
         (``SUBMITTED_TO_GROUP``, ADR-088 §2). The bool is ``created``:
         True when this call wrote the link, False when it already stood —
         both are successes; a forbidden group is the error.
+        """
+        ...
+
+    async def submit_to_teacher(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: str,
+        teacher_uid: str,
+        exercise_uid: str,
+    ) -> Result[bool]:
+        """File a feedback request with one teacher directly — the owner of the
+        anchored PERSONAL exercise the entry turns in against
+        (``SUBMITTED_TO_TEACHER``, ADR-088 §9). The bool is ``created``, as for
+        ``submit_to_group``; a teacher that is not that exercise's reviewer is
+        the error.
         """
         ...
 

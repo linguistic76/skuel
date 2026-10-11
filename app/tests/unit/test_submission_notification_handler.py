@@ -150,3 +150,37 @@ async def test_a_failed_write_is_logged_and_the_other_teacher_is_still_rung(
         source_uid="ue_1",
         source_type=EntityType.USER_ENTRY,
     )
+
+
+def test_a_teacher_asked_directly_is_a_recipient_once():
+    """ADR-088 §9: a direct request rings its teacher, deduplicated against group owners."""
+    owners = {"g_a": ["user_teacher"]}
+    assert unique_recipients(owners, "user_student", ("user_direct", "user_teacher")) == [
+        "user_teacher",
+        "user_direct",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_direct_request_alone_rings_its_teacher_with_no_group_lookup(
+    notification_service,
+):
+    backend = _backend()
+    event = UserEntryCreated(
+        entity_uid="ue_1",
+        user_uid="user_student",
+        pipeline="teacher_review",
+        title="My essay",
+        submitted_teacher_uids=("user_direct",),
+    )
+
+    await handle_submission_for_review(
+        event, notification_service=notification_service, backend=backend
+    )
+
+    backend.get_owner_uids_batch.assert_not_called()
+    notification_service.create_notification.assert_awaited_once()
+    kwargs = notification_service.create_notification.await_args.kwargs
+    assert kwargs["user_uid"] == "user_direct"
+    assert kwargs["notification_type"] is NotificationType.SUBMISSION_FOR_REVIEW
+    assert kwargs["source_uid"] == "ue_1"

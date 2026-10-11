@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 166, with_contract: 90}
+    relationships: {total: 167, with_contract: 90}
     labels: {total: 60, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -727,6 +727,9 @@ relationships:
         definitions:
           - {direction: outgoing, target: Group, context_field: shared_groups, method: shared_groups, fields: [uid, name]}
   SUBMITTED_TO_GROUP:
+    traits: [access]
+    contract: null
+  SUBMITTED_TO_TEACHER:
     traits: [access]
     contract: null
   RESPONDS_TO_REPORT:

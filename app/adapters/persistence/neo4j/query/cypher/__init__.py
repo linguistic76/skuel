@@ -40,6 +40,7 @@ from .context_query_generator import (
 
 # CRUD queries - dynamic query generation
 from .crud_queries import (
+    build_anchored_exercise_clause,
     build_array_any_match_query,
     build_array_contains_query,
     build_audience_fragment,
@@ -141,6 +142,7 @@ __all__ = [
     "build_knowledge_read_clause",
     "build_link_far_node_clause",
     "build_owner_uids_expression",
+    "build_anchored_exercise_clause",
     "build_publication_clause",
     "build_search_visibility_clause",
     "build_semantic_merge",

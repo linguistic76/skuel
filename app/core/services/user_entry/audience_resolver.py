@@ -5,8 +5,9 @@ Every door that creates a ``UserEntry`` — ``UserEntryService.create_entry()``
 for the ``/submissions/submit`` form and the JSON API, and the vault door through it —
 hands the request's ``AudienceSpec`` (``core/models/user_entry/audience.py``,
 the one parser) to this resolver, which turns the vocabulary into the two link
-kinds (ADR-088 §1-§2): a feedback request (``SUBMITTED_TO_GROUP`` —
-TEACHER_REVIEW only, read by the group's owning teachers) and a share
+kinds (ADR-088 §1-§2): a feedback request (TEACHER_REVIEW only —
+``SUBMITTED_TO_GROUP``, read by the group's owning teachers, or
+``SUBMITTED_TO_TEACHER``, read by the one teacher it names, §9) and a share
 (``SHARES_WITH`` / ``SHARED_WITH_GROUP`` — openable by its recipients).
 
 Three steps, in the order ``create_entry`` runs them:
@@ -15,7 +16,8 @@ Three steps, in the order ``create_entry`` runs them:
                                  first write: exercise / predecessor claims,
                                  ``user:`` co-membership (R8), ``group:`` /
                                  ``teacher:`` reachability, and ``teachers``
-                                 expanded to concrete groups
+                                 expanded to concrete groups or, for an
+                                 anchored PERSONAL exercise, its teacher
     3. ``resolve_and_share``   — the post-persist writes, of validated targets only
 
 Public surface:
@@ -54,12 +56,26 @@ FEEDBACK_TARGET_FIELD = "feedback_target"
 
 
 @dataclass(frozen=True)
+class TeacherTarget:
+    """A feedback request filed with one teacher directly (ADR-088 §9).
+
+    ``teacher_uid`` owns the anchored PERSONAL exercise ``exercise_uid`` the
+    entry turns in against — the reviewer the write re-decides from it.
+    """
+
+    teacher_uid: str
+    exercise_uid: str
+
+
+@dataclass(frozen=True)
 class ResolvedAudience:
     """The validated, concrete targets a spec resolved to — what the writes consume.
 
     ``teacher_groups`` are the explicit ``teacher:<group_uid>`` targets and
     ``teachers_groups`` the ``teachers`` expansion — together
-    ``submit_groups``, where a feedback request goes; ``share_groups`` the
+    ``submit_groups``, where a feedback request goes; ``submit_teachers`` the
+    ``teachers`` expansion's direct target, when the exercise is an anchored
+    PERSONAL one in no group the owner shares (ADR-088 §9); ``share_groups`` the
     ``group:`` targets; ``share_users`` the ``user:`` targets as
     ``(username, uid)`` pairs, each a verified co-member. ``public`` is the
     portfolio flag. Every uid here passed its authorisation check.
@@ -67,6 +83,7 @@ class ResolvedAudience:
 
     teacher_groups: tuple[str, ...] = ()
     teachers_groups: tuple[str, ...] = ()
+    submit_teachers: tuple[TeacherTarget, ...] = ()
     share_groups: tuple[str, ...] = ()
     share_users: tuple[tuple[str, str], ...] = ()
     public: bool = False
@@ -85,6 +102,8 @@ class ShareOutcomePayload(TypedDict):
 
     submitted_groups: list[str]
     newly_submitted_groups: list[str]
+    submitted_teachers: list[str]
+    newly_submitted_teachers: list[str]
     shared_groups: list[str]
     shared_users: list[str]
     newly_shared_users: list[str]
@@ -106,7 +125,9 @@ class ShareOutcome:
     this pass — every ``SUBMITTED_TO_GROUP`` MERGE that matched, created or
     not (a re-filed request is a success, not zero reach);
     ``newly_submitted_groups`` is the created subset, the only thing that
-    rings a teacher's bell. ``shared_groups`` / ``shared_users`` are the
+    rings a teacher's bell. ``submitted_teachers`` /
+    ``newly_submitted_teachers`` are the same pair for a request filed with a
+    teacher directly (``SUBMITTED_TO_TEACHER``). ``shared_groups`` / ``shared_users`` are the
     share targets that landed; ``newly_shared_users`` is the subset whose
     ``SHARES_WITH`` this pass created — the only thing that rings a
     recipient's bell (R10: a re-share rings nobody twice, a group share
@@ -116,6 +137,8 @@ class ShareOutcome:
 
     submitted_groups: tuple[str, ...] = field(default_factory=tuple)
     newly_submitted_groups: tuple[str, ...] = field(default_factory=tuple)
+    submitted_teachers: tuple[str, ...] = field(default_factory=tuple)
+    newly_submitted_teachers: tuple[str, ...] = field(default_factory=tuple)
     shared_groups: tuple[str, ...] = field(default_factory=tuple)
     shared_users: tuple[str, ...] = field(default_factory=tuple)
     newly_shared_users: tuple[str, ...] = field(default_factory=tuple)
@@ -124,7 +147,12 @@ class ShareOutcome:
     @property
     def any_success(self) -> bool:
         """Any link of any kind landed — the aggregate every non-feedback caller reads."""
-        return bool(self.submitted_groups) or bool(self.shared_groups) or bool(self.shared_users)
+        return self.any_feedback_request or bool(self.shared_groups) or bool(self.shared_users)
+
+    @property
+    def any_feedback_request(self) -> bool:
+        """A feedback request stands — to a group, or to a teacher directly."""
+        return bool(self.submitted_groups) or bool(self.submitted_teachers)
 
     @property
     def any_failure(self) -> bool:
@@ -134,6 +162,8 @@ class ShareOutcome:
         return {
             "submitted_groups": list(self.submitted_groups),
             "newly_submitted_groups": list(self.newly_submitted_groups),
+            "submitted_teachers": list(self.submitted_teachers),
+            "newly_submitted_teachers": list(self.newly_submitted_teachers),
             "shared_groups": list(self.shared_groups),
             "shared_users": list(self.shared_users),
             "newly_shared_users": list(self.newly_shared_users),
@@ -259,13 +289,16 @@ class AudienceResolver:
           - ``teachers`` (explicit, or the TEACHER_REVIEW default): with an
             exercise, the exercise's groups the owner belongs to, falling
             back to the owner's default group for a curriculum exercise
-            (ruled 2026-07-04); without one, every group the owner is a
-            student of. Expanded only on TEACHER_REVIEW — elsewhere it names
-            a reviewer the pipeline never has and writes nothing. Explicit
-            ``teacher:`` targets are validated on every pipeline.
+            (ruled 2026-07-04), and for a PERSONAL exercise anchored to a
+            published PathStep to the exercise's owner directly (ADR-088
+            §9 — a reviewer, never the submitter); without one, every group
+            the owner is a student of. Expanded only on TEACHER_REVIEW —
+            elsewhere it names a reviewer the pipeline never has and writes
+            nothing. Explicit ``teacher:`` targets are validated on every
+            pipeline.
           - A TEACHER_REVIEW request whose feedback targets resolve to no
-            group at all is refused here, pre-persist: an entry no teacher
-            can open is never written.
+            group and no teacher is refused here, pre-persist: an entry no
+            teacher can open is never written.
 
         Without a sharing service the reference checks fail closed and any
         audience that needs a lookup is refused.
@@ -309,17 +342,19 @@ class AudienceResolver:
 
         teacher_groups: tuple[str, ...] = spec.teacher_groups
         teachers_groups: tuple[str, ...] = ()
+        submit_teachers: tuple[TeacherTarget, ...] = ()
         if request.pipeline == Pipeline.TEACHER_REVIEW and (spec.teachers or spec.is_empty):
             expanded = await self._expand_teachers(user_uid, request.fulfills_exercise_uid)
             if expanded.is_error:
                 return Result.fail(expanded)
-            teachers_groups = tuple(expanded.value)
-            if not teacher_groups and not teachers_groups:
+            teachers_groups, submit_teachers = expanded.value
+            if not teacher_groups and not teachers_groups and not submit_teachers:
                 return Result.fail(
                     Errors.validation(
                         "Submission reached no teacher: "
                         + (
-                            "you belong to none of the groups this exercise is assigned to"
+                            "you belong to none of the groups this exercise is assigned to, "
+                            "and no teacher reviews it for you"
                             if request.fulfills_exercise_uid
                             else "you are a student in no group"
                         )
@@ -332,6 +367,7 @@ class AudienceResolver:
             ResolvedAudience(
                 teacher_groups=teacher_groups,
                 teachers_groups=teachers_groups,
+                submit_teachers=submit_teachers,
                 share_groups=tuple(spec.share_groups),
                 share_users=tuple(share_users),
                 public=spec.public,
@@ -465,24 +501,27 @@ class AudienceResolver:
         self,
         user_uid: UserUID,
         exercise_uid: str | None,
-    ) -> Result[list[str]]:
-        """``teachers`` as concrete group uids — see ``validate_references``.
+    ) -> Result[tuple[tuple[str, ...], tuple[TeacherTarget, ...]]]:
+        """``teachers`` as concrete group uids, or a teacher to ask directly — see ``validate_references``.
+
+        Returns ``(groups, teachers)``; at most one of the two is non-empty.
 
         Backend: SharingBackend.query_exercise_groups_for_member,
-        SharingBackend.query_default_groups_for_curriculum_submission;
+        SharingBackend.query_default_groups_for_curriculum_submission,
+        SharingBackend.query_anchored_exercise_teacher;
         GroupService.get_user_groups (student role) without an exercise.
         """
         assert self.sharing_service is not None  # caller gates
         backend = self.sharing_service.backend
         if exercise_uid is None:
             if self.group_service is None:
-                return Result.ok([])
+                return Result.ok(((), ()))
             groups = await self.group_service.get_user_groups(
                 user_uid, role=GroupMemberRole.STUDENT.value
             )
             if groups.is_error:
                 return Result.fail(groups)
-            return Result.ok([g.uid for g in (groups.value or [])])
+            return Result.ok((tuple(g.uid for g in (groups.value or [])), ()))
 
         # Scoped to the intersection of the exercise's assigned groups and the
         # owner's memberships: an exercise assigned to groups A and B never
@@ -508,12 +547,32 @@ class AudienceResolver:
             if fallback.is_error:
                 return Result.fail(fallback)
             records = list(fallback.value or [])
+        if not records:
+            # Anchored PERSONAL route (ADR-088 §9): a PERSONAL exercise anchored
+            # to a published PathStep is the step's, so any learner on the step
+            # turns in against it — and it is in no group. The request goes to
+            # the exercise's owner directly. The backend read is the whole rule
+            # (scope, published anchor, owner by OWNS, reviewer role, not the
+            # submitter): zero rows for anything else, which leaves the request
+            # with no target and refused.
+            direct = await backend.query_anchored_exercise_teacher(
+                exercise_uid=EntityUID(exercise_uid),
+                user_uid=user_uid,
+            )
+            if direct.is_error:
+                return Result.fail(direct)
+            teachers: list[TeacherTarget] = []
+            for record in direct.value or []:
+                raw = record.get("teacher_uid") if isinstance(record, dict) else None
+                if raw and all(t.teacher_uid != str(raw) for t in teachers):
+                    teachers.append(TeacherTarget(teacher_uid=str(raw), exercise_uid=exercise_uid))
+            return Result.ok(((), tuple(teachers)))
         out: list[str] = []
         for record in records:
             raw = record.get("group_uid") if isinstance(record, dict) else None
             if raw and str(raw) not in out:
                 out.append(str(raw))
-        return Result.ok(out)
+        return Result.ok((tuple(out), ()))
 
     # =========================================================================
     # 3. RESOLVE & SHARE — the post-persist writes
@@ -534,7 +593,8 @@ class AudienceResolver:
         failure, never an unauthorised edge. On any pipeline other than
         TEACHER_REVIEW a feedback target writes no link — it names a
         reviewer the pipeline never has — and is logged, never silently
-        dropped; no ``SUBMITTED_TO_GROUP`` is ever written off-pipeline.
+        dropped; no feedback request (``SUBMITTED_TO_GROUP``,
+        ``SUBMITTED_TO_TEACHER``) is ever written off-pipeline.
         """
         sharing = self.sharing_service
         if sharing is None:
@@ -542,6 +602,8 @@ class AudienceResolver:
 
         submitted_groups: list[str] = []
         newly_submitted_groups: list[str] = []
+        submitted_teachers: list[str] = []
+        newly_submitted_teachers: list[str] = []
         shared_groups: list[str] = []
         shared_users: list[str] = []
         newly_shared_users: list[str] = []
@@ -579,6 +641,13 @@ class AudienceResolver:
                 if result.value:
                     newly_shared_users.append(recipient_uid)
 
+        if pipeline != Pipeline.TEACHER_REVIEW and resolved.submit_teachers:
+            self.logger.warning(
+                f"UserEntry {entry_uid}: a direct feedback request to "
+                f"{', '.join(t.teacher_uid for t in resolved.submit_teachers)} on "
+                f"pipeline={pipeline.value} — no feedback request written."
+            )
+
         if pipeline != Pipeline.TEACHER_REVIEW and resolved.submit_groups:
             self.logger.warning(
                 f"UserEntry {entry_uid}: feedback target "
@@ -588,7 +657,9 @@ class AudienceResolver:
                 "a group, or pipeline: teacher_review to ask its teacher for feedback."
             )
 
-        if pipeline != Pipeline.TEACHER_REVIEW or not resolved.submit_groups:
+        if pipeline != Pipeline.TEACHER_REVIEW or not (
+            resolved.submit_groups or resolved.submit_teachers
+        ):
             return Result.ok(
                 ShareOutcome(
                     shared_groups=tuple(shared_groups),
@@ -615,10 +686,31 @@ class AudienceResolver:
             if submit_result.value:
                 newly_submitted_groups.append(group_uid)
 
+        for target in resolved.submit_teachers:
+            teacher_result = await sharing.submit_to_teacher(
+                entity_uid=EntityUID(entry_uid),
+                owner_uid=user_uid,
+                teacher_uid=target.teacher_uid,
+                exercise_uid=target.exercise_uid,
+            )
+            if teacher_result.is_error:
+                reason = str(teacher_result.expect_error())
+                self.logger.warning(
+                    f"Failed to submit UserEntry {entry_uid} to teacher "
+                    f"{target.teacher_uid}: {reason}"
+                )
+                failed.append((target.teacher_uid, reason))
+                continue
+            submitted_teachers.append(target.teacher_uid)
+            if teacher_result.value:
+                newly_submitted_teachers.append(target.teacher_uid)
+
         return Result.ok(
             ShareOutcome(
                 submitted_groups=tuple(submitted_groups),
                 newly_submitted_groups=tuple(newly_submitted_groups),
+                submitted_teachers=tuple(submitted_teachers),
+                newly_submitted_teachers=tuple(newly_submitted_teachers),
                 shared_groups=tuple(shared_groups),
                 shared_users=tuple(shared_users),
                 newly_shared_users=tuple(newly_shared_users),
@@ -634,4 +726,5 @@ __all__ = [
     "ShareFailurePayload",
     "ShareOutcome",
     "ShareOutcomePayload",
+    "TeacherTarget",
 ]

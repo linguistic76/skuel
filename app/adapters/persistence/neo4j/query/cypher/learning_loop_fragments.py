@@ -67,12 +67,59 @@ def build_review_standing_subquery(entity_alias: str = "entity") -> str:
     }}"""
 
 
-__all__ = ["build_review_standing_subquery"]
+__all__ = ["asks_teacher", "build_review_standing_subquery", "feedback_requests_subquery"]
 
 
 _OWNS = RelationshipName.OWNS.value
 _SUBMITTED_TO_GROUP = RelationshipName.SUBMITTED_TO_GROUP.value
+_SUBMITTED_TO_TEACHER = RelationshipName.SUBMITTED_TO_TEACHER.value
 _FULFILLS_EXERCISE = RelationshipName.FULFILLS_EXERCISE.value
+_GROUP = NeoLabel.GROUP.value
+
+
+def asks_teacher(entry_alias: str, teacher_alias: str) -> str:
+    """THE feedback-request predicate: does this entry ask this teacher for feedback?
+
+    True when the entry was submitted to an ACTIVE group the teacher ``OWNS``
+    (``SUBMITTED_TO_GROUP``), or submitted to the teacher directly
+    (``SUBMITTED_TO_TEACHER`` — ADR-088 §9). Every teacher-side reader and writer
+    of a feedback request composes this one predicate — the review queue, the
+    review detail, the review writes' authority, the exercise and student lists
+    and the supersede rule — so a teacher reads and acts on exactly the requests
+    sent to them, whichever of the two targets carried it. Both aliases must be
+    bound by the caller; a share (``SHARED_WITH_GROUP``) never satisfies it.
+    """
+    validate_identifier(entry_alias, context="entry alias")
+    validate_identifier(teacher_alias, context="teacher alias")
+    return (
+        f"(EXISTS {{ MATCH ({entry_alias})-[:{_SUBMITTED_TO_GROUP}]->"
+        f"(:{_GROUP} {{is_active: true}})<-[:{_OWNS}]-({teacher_alias}) }}"
+        f" OR EXISTS {{ MATCH ({entry_alias})-[:{_SUBMITTED_TO_TEACHER}]->({teacher_alias}) }})"
+    )
+
+
+def feedback_requests_subquery(teacher_alias: str, entry_alias: str) -> str:
+    """The ``CALL`` block enumerating every UserEntry that asks the bound teacher for feedback.
+
+    The enumerating twin of ``asks_teacher``: one row per entry submitted to an
+    active group the teacher ``OWNS`` or submitted to the teacher directly, each
+    entry once (``UNION`` deduplicates an entry that reached the teacher both
+    ways). Composed after the statement binds ``teacher_alias``; introduces
+    ``entry_alias``. A teacher with no requests yields no rows — wrap it in an
+    aggregating subquery where the statement must keep its row.
+    """
+    validate_identifier(teacher_alias, context="teacher alias")
+    validate_identifier(entry_alias, context="entry alias")
+    entry = f"{NeoLabel.ENTITY.value}:{NeoLabel.USER_ENTRY.value}"
+    t, e = teacher_alias, entry_alias
+    return f"""CALL ({t}) {{
+        MATCH ({t})-[:{_OWNS}]->(:{_GROUP} {{is_active: true}})<-[:{_SUBMITTED_TO_GROUP}]-({e}:{entry})
+        RETURN {e}
+      UNION
+        MATCH ({e}:{entry})-[:{_SUBMITTED_TO_TEACHER}]->({t})
+        RETURN {e}
+    }}"""
+
 
 # THE supersede rule for pending feedback requests — one predicate, read by the
 # review queue, its dashboard badge twin, the students summary and the teacher
@@ -80,8 +127,8 @@ _FULFILLS_EXERCISE = RelationshipName.FULFILLS_EXERCISE.value
 # superseded copy), so no surface disagrees on what awaits review.
 #
 # A copy is superseded by a newer sibling the SAME teacher can see (a
-# ``teacher_review`` entry of the same student, submitted to one of this
-# teacher's ACTIVE owned groups), in either of two lineages:
+# ``teacher_review`` entry of the same student that asks this teacher for
+# feedback — ``asks_teacher``), in either of two lineages:
 #
 #   * the exercise lineage — the same turn-in snapshot ``turn_in_exercise_uid``
 #     (the key that outlives the exercise, Submit & Share arc R12), newer by the
@@ -103,7 +150,7 @@ SUPERSEDED_COPY = f"""EXISTS {{
     MATCH (student)-[:{_OWNS}]->(newer:Entity:UserEntry)
     WHERE newer.uid <> copy_uid
       AND newer.pipeline = $pipeline
-      AND (newer)-[:{_SUBMITTED_TO_GROUP}]->(:Group {{is_active: true}})<-[:{_OWNS}]-(teacher)
+      AND {asks_teacher("newer", "teacher")}
       AND ((copy_lineage IS NOT NULL
             AND newer.turn_in_exercise_uid = copy_lineage
             AND (coalesce(head([(newer)-[nr:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) | nr.revision]), 0)

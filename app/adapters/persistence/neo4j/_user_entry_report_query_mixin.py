@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
+    asks_teacher,
     build_review_standing_subquery,
 )
 from core.models.enums.entity_enums import EntityType
@@ -157,8 +158,8 @@ class _UserEntryReportQueryMixin:
         title the newest entry snapshotted at submission.
 
         ``viewer_uid`` is the teacher-mode scope (NULL = the student reading
-        their own exchange): each entry must itself be ``SUBMITTED_TO_GROUP``
-        an active group the viewer owns — the Model B entry-level gate
+        their own exchange): each entry must itself ask the viewer for
+        feedback (``asks_teacher``) — the Model B entry-level gate
         (``get_entry_detail_for_teacher``). Merely sharing *some* group with
         a multi-class student must not expose work the student directed only
         to another teacher's classroom; reports and revisions hang off the
@@ -182,12 +183,10 @@ class _UserEntryReportQueryMixin:
         """
         query = f"""
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: $exercise_uid}})
+        OPTIONAL MATCH (viewer:User {{uid: $viewer_uid}})
         OPTIONAL MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
         WHERE e.turn_in_exercise_uid = $exercise_uid
-          AND ($viewer_uid IS NULL OR EXISTS {{
-            MATCH (e)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
-                  <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $viewer_uid}})
-          }})
+          AND ($viewer_uid IS NULL OR {asks_teacher("e", "viewer")})
         OPTIONAL MATCH (e)-[f:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
         OPTIONAL MATCH (e)-[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(rex:Entity:RevisedExercise)
         WITH ex, e, f, rex

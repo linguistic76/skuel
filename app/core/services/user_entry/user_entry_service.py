@@ -461,7 +461,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if (
             submitted_against_uid
             and request.pipeline == Pipeline.TEACHER_REVIEW
-            and outcome.submitted_groups
+            and outcome.any_feedback_request
             and self.interaction_service is not None
         ):
             shared_result = await self.interaction_service.record_result(
@@ -500,8 +500,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # the exercise_handler subscriber runs the linker (scope and
         # membership validation) off it. A living entry's declared intent
         # must NOT trigger that machinery, so the field rides only for turn-ins.
-        # ``submitted_group_uids`` is the CREATED subset of the feedback
-        # requests, so the teacher's bell never rings for a re-filed one.
+        # ``submitted_group_uids`` / ``submitted_teacher_uids`` are the CREATED
+        # subset of the feedback requests, so the teacher's bell never rings
+        # for a re-filed one.
         await publish_event(
             self.event_bus,
             UserEntryCreated(
@@ -514,6 +515,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 file_type=request.file_type,
                 title=created.title,
                 submitted_group_uids=outcome.newly_submitted_groups,
+                submitted_teacher_uids=outcome.newly_submitted_teachers,
             ),
             self.logger,
         )

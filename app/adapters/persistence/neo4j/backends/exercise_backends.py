@@ -14,6 +14,7 @@ from typing import Any, cast
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
     SUPERSEDED_COPY,
+    asks_teacher,
     superseded_copy_bindings,
 )
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
@@ -502,15 +503,16 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     ) -> Result[list[Neo4jProperties]]:
         """Get teacher's exercises with submission and reviewed counts.
 
-        A turn-in counts only when it is ``SUBMITTED_TO_GROUP`` an active group
-        the teacher owns (ADR-088 §2-§3) — a deactivated group's work is not
+        A turn-in counts only when it asks the teacher for feedback
+        (``asks_teacher``: an active group the teacher owns, or the teacher
+        directly — ADR-088 §2-§3, §9) — a deactivated group's work is not
         pending anywhere.
         """
         query = f"""
         MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
         OPTIONAL MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
           WHERE s.pipeline = $pipeline
-            AND EXISTS {{ (s)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})<-[:{RelationshipName.OWNS.value}]-(user) }}
+            AND {asks_teacher("s", "user")}
         WITH exercise, count(DISTINCT s) AS total_count,
              count(DISTINCT CASE WHEN s.status = 'completed' THEN s.uid END) AS reviewed_count
         RETURN exercise.uid AS uid, exercise.title AS title,
