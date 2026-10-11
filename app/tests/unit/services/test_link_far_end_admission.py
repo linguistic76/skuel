@@ -21,8 +21,10 @@ from typing import Any
 
 import pytest
 
+from core.models.enums.neo_labels import NeoLabel
+from core.models.link_write_contracts import GuardedLinkOutcome, GuardedLinkWrite
 from core.models.relationship_registry import GOALS_CONFIG
-from core.models.type_hints import EntityUID, Neo4jProperties
+from core.models.type_hints import EntityUID
 from core.services.mixins.link_edge_guard import (
     GOAL_FAR_END,
     HABIT_FAR_END,
@@ -61,6 +63,8 @@ _OWNERS = {
 # Nodes marked ``publication_state: draft`` — absent from the publication read.
 _DRAFTS = frozenset({"ku_draft", "exercise_alice_draft"})
 EXERCISE_FAR_END = LinkFarEnd(frozenset({"Exercise"}), "Exercise")
+# boundary: the service's type parameters are the goals backend's, which a fake stands in for
+_GoalsService = UnifiedRelationshipService[Any, Any, Any]
 
 
 @dataclass
@@ -91,15 +95,32 @@ class Endpoints:
 
 @dataclass
 class WritingEndpoints(Endpoints):
-    """The endpoint reads plus the batch write, recording every edge written."""
+    """The endpoint reads plus the guarded write, recording every edge written.
 
+    ``changed`` names far ends that changed between their admission and the write:
+    the write refuses the first one it meets and writes nothing, as the statement does.
+    """
+
+    changed: frozenset[str] = frozenset()
     written: list[tuple[str, str, str]] = field(default_factory=list)
+    writes: list[GuardedLinkWrite] = field(default_factory=list)
+    expected_owners: list[frozenset[str]] = field(default_factory=list)
 
-    async def create_relationships_batch(
-        self, relationships: list[tuple[str, str, str, Neo4jProperties | None]]
-    ) -> Result[int]:
-        self.written.extend((source, target, name) for source, target, name, _ in relationships)
-        return Result.ok(len(relationships))
+    async def write_guarded_links(
+        self, anchor_uid: str, writes: list[GuardedLinkWrite], *, anchor_owners: frozenset[str]
+    ) -> Result[GuardedLinkOutcome]:
+        self.expected_owners.append(anchor_owners)
+        refused = next(
+            (uid for write in writes for uid in write.far_uids if uid in self.changed), None
+        )
+        if refused is not None:
+            return Result.ok(GuardedLinkOutcome(refused, frozenset()))
+        self.writes.extend(writes)
+        for write in writes:
+            for uid in write.far_uids:
+                source, target = (anchor_uid, uid) if write.anchor_is_source else (uid, anchor_uid)
+                self.written.append((source, target, write.relationship.value))
+        return Result.ok(GuardedLinkOutcome(None, frozenset(_OWNERS.get(anchor_uid, ()))))
 
 
 async def _from_source(
@@ -302,7 +323,7 @@ class TestTheServiceWritesOnAnAdmission:
     """``UnifiedRelationshipService``: admit once, then write on the proof."""
 
     @staticmethod
-    def _service(endpoints: WritingEndpoints) -> UnifiedRelationshipService[Any, Any, Any]:
+    def _service(endpoints: WritingEndpoints) -> _GoalsService:
         return UnifiedRelationshipService(backend=endpoints, config=GOALS_CONFIG)
 
     @pytest.mark.asyncio
@@ -387,6 +408,111 @@ class TestTheServiceWritesOnAnAdmission:
         assert refused.is_error
         assert refused.expect_error().category == ErrorCategory.VALIDATION
         assert endpoints.written == []
+
+    @pytest.mark.asyncio
+    async def test_a_far_end_changed_since_its_admission_is_refused_at_the_write(self) -> None:
+        """The write re-asserts the admission: a far end it refuses answers as the
+        admission would — not found, of the far end's resource — and nothing lands."""
+        endpoints = WritingEndpoints(changed=frozenset({"habit_alice"}))
+
+        refused = await self._service(endpoints).create_relationship(
+            "supporting_habits", "goal_alice", "habit_alice", far_end=HABIT_FAR_END
+        )
+
+        assert refused.is_error
+        error = refused.expect_error()
+        assert error.category == ErrorCategory.NOT_FOUND
+        assert error.code == "NOT_FOUND_HABIT"
+        assert endpoints.written == []
+
+    @pytest.mark.asyncio
+    async def test_a_batch_is_one_write(self) -> None:
+        endpoints = WritingEndpoints()
+
+        created = await self._service(endpoints).create_relationships_batch(
+            EntityUID("goal_alice"),
+            {"supporting_habits": ["habit_alice"], "knowledge": ["ku_shared"]},
+            far_ends={"supporting_habits": HABIT_FAR_END, "knowledge": KNOWLEDGE_FAR_END},
+        )
+
+        assert created.is_ok, created.error
+        assert created.value == 2
+        assert [write.far_uids for write in endpoints.writes] == [("habit_alice",), ("ku_shared",)]
+        assert not any(write.replace for write in endpoints.writes)
+
+
+class TestTheServiceReplacesInOneWrite:
+    """``replace_relationships``: admit every far end, then one guarded replace."""
+
+    @staticmethod
+    def _service(endpoints: WritingEndpoints) -> _GoalsService:
+        return UnifiedRelationshipService(backend=endpoints, config=GOALS_CONFIG)
+
+    @pytest.mark.asyncio
+    async def test_a_replace_writes_the_keys_kind_only(self) -> None:
+        endpoints = WritingEndpoints()
+
+        replaced = await self._service(endpoints).replace_relationships(
+            "goal_alice",
+            {"supporting_habits": ["habit_alice"], "knowledge": []},
+            far_ends={"supporting_habits": HABIT_FAR_END, "knowledge": KNOWLEDGE_FAR_END},
+        )
+
+        assert replaced.is_ok, replaced.error
+        habits, knowledge = endpoints.writes
+        assert (habits.replace, habits.replace_label, habits.far_uids) == (
+            True,
+            NeoLabel.HABIT,
+            ("habit_alice",),
+        )
+        # An empty list clears the key, and admits — reads — nothing for it.
+        assert (knowledge.replace, knowledge.far_uids) == (True, ())
+        assert endpoints.asked == [["goal_alice", "habit_alice"]]
+        # The write is bound to the owners the admission read.
+        assert endpoints.expected_owners == [frozenset({ALICE})]
+
+    @pytest.mark.asyncio
+    async def test_a_replace_that_only_clears_reads_the_owner_it_binds_to(self) -> None:
+        endpoints = WritingEndpoints()
+
+        cleared = await self._service(endpoints).replace_relationships(
+            "goal_alice", {"supporting_habits": []}, far_ends={"supporting_habits": HABIT_FAR_END}
+        )
+
+        assert cleared.is_ok, cleared.error
+        assert endpoints.asked == [["goal_alice"]]
+        assert endpoints.expected_owners == [frozenset({ALICE})]
+
+    @pytest.mark.asyncio
+    async def test_a_refused_far_end_replaces_nothing(self) -> None:
+        endpoints = WritingEndpoints()
+
+        refused = await self._service(endpoints).replace_relationships(
+            "goal_alice",
+            {"knowledge": [], "supporting_habits": ["habit_bob"]},
+            far_ends={"supporting_habits": HABIT_FAR_END, "knowledge": KNOWLEDGE_FAR_END},
+        )
+
+        assert refused.is_error
+        assert endpoints.writes == []
+
+    @pytest.mark.parametrize(
+        ("key", "category"),
+        [("essential_habits", ErrorCategory.VALIDATION), ("no_such_key", ErrorCategory.VALIDATION)],
+    )
+    @pytest.mark.asyncio
+    async def test_a_filtered_or_unknown_key_is_refused(
+        self, key: str, category: ErrorCategory
+    ) -> None:
+        endpoints = WritingEndpoints()
+
+        refused = await self._service(endpoints).replace_relationships(
+            "goal_alice", {key: ["habit_alice"]}, far_ends={key: HABIT_FAR_END}
+        )
+
+        assert refused.is_error
+        assert refused.expect_error().category == category
+        assert endpoints.writes == []
 
 
 def _knowledge_edge(ku_uid: str) -> LinkEdge:

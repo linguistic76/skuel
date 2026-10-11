@@ -1,7 +1,8 @@
 """Every edge writer under ``core/services/`` says how its far end is admitted.
 
-Three calls turn two uids into an edge: ``create_relationship``,
-``create_relationships_batch`` and ``add_relationship`` — the last through the
+Five calls turn two uids into an edge: ``create_relationship``,
+``create_relationships_batch``, ``replace_relationships``, ``write_guarded_links`` and
+``add_relationship`` — the last through the
 ``relate(backend, uid).via(...).to(...).create()`` builder, so a ``relate(`` call is
 a write site too. A call that hands any of them a uid from a request without
 admitting it joins one user's entity to another's (ADR-085 § G11). This census holds
@@ -9,7 +10,8 @@ every call site to one of five answers, and fails on a call site it does not kno
 
 - it goes through ``UnifiedRelationshipService`` and declares its far end
   (``far_end=`` / ``far_ends=``) — the service admits it;
-- it is the service's own write, behind that admission;
+- it is the service's own write, behind that admission — in a function that admits, or
+  in the one writer (``_write_links``) every caller of which admits;
 - it is a pass-through — the builder's ``create`` and the mixin's ``add_relationship``
   — whose callers are themselves sites of this census;
 - its enclosing function admits through the link-edge guard itself;
@@ -26,7 +28,13 @@ from pathlib import Path
 import pytest
 
 _SERVICES = Path(__file__).resolve().parents[3] / "core" / "services"
-_WRITER_METHODS = {"create_relationship", "create_relationships_batch", "add_relationship"}
+_WRITER_METHODS = {
+    "create_relationship",
+    "create_relationships_batch",
+    "replace_relationships",
+    "write_guarded_links",
+    "add_relationship",
+}
 _BUILDER = "relate"
 _GUARDS = {
     "keep_permitted_link_edges",
@@ -35,6 +43,10 @@ _GUARDS = {
     "admit_far_ends_for_source",
 }
 _THE_SERVICE = "relationships/unified_relationship_service.py"
+# What a function of the service calls to admit its far ends: the admission itself, or
+# the helper that admits or checks a proof covers the link.
+_SERVICE_ADMISSIONS = {"admit_far_ends", "_admitted"}
+_SERVICE_WRITER = "_write_links"
 
 # Writes that only forward to another write this census sees:
 # ``"<path under core/services>::<function>"`` -> what forwards to what.
@@ -124,14 +136,36 @@ def _how_admitted(key: str, call: ast.Call, function: ast.AST) -> str | None:
     if _receiver(call) == "self.relationships":
         return "declared" if keywords & {"far_end", "far_ends"} else None
     if relative == _THE_SERVICE:
-        names = {node.attr for node in ast.walk(function) if isinstance(node, ast.Attribute)}
-        return "the service" if "admit_far_ends" in names else None
+        if _admits(function):
+            return "the service"
+        name = getattr(function, "name", "")
+        return "the service" if name == _SERVICE_WRITER and _every_caller_admits(name) else None
     if key in PASS_THROUGHS:
         return "pass-through"
     names = {node.id for node in ast.walk(function) if isinstance(node, ast.Name)}
     if names & _GUARDS:
         return "guard"
     return "named" if key in OTHERWISE_ADMITTED else None
+
+
+def _admits(function: ast.AST) -> bool:
+    names = {node.attr for node in ast.walk(function) if isinstance(node, ast.Attribute)}
+    return bool(names & _SERVICE_ADMISSIONS)
+
+
+def _every_caller_admits(writer: str) -> bool:
+    """Whether the service calls ``writer`` at least once, and only from functions that admit."""
+    tree = ast.parse((_SERVICES / _THE_SERVICE).read_text())
+    callers = [
+        function
+        for function in ast.walk(tree)
+        if isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef)
+        and any(
+            isinstance(node, ast.Attribute) and node.attr == writer for node in ast.walk(function)
+        )
+        and function.name != writer
+    ]
+    return bool(callers) and all(_admits(function) for function in callers)
 
 
 _SITES = _call_sites()
@@ -142,9 +176,10 @@ def test_the_census_sees_the_writers() -> None:
     keys = {key for key, _, _ in _SITES}
 
     assert "goals_service.py::link_goal_to_knowledge" in keys
-    assert "events_service.py::_replace_edge" in keys
+    assert "events_service.py::_replace_edges" in keys
+    assert "tasks_service.py::_sync_relationship_edges" in keys
+    assert f"{_THE_SERVICE}::_write_links" in keys
     assert "goals/goals_core_service.py::_write_link_edges" in keys
-    assert f"{_THE_SERVICE}::create_relationship" in keys
     # The add_relationship family: the builder's own write, a relate( site, an
     # add_relationship site.
     assert "relationship_builder.py::create" in keys

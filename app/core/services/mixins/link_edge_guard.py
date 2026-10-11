@@ -9,8 +9,11 @@ edge, in these shapes:
   domain's ``_write_link_edges`` goes through ``keep_permitted_link_edges``;
 - a LINK door names one far end and is refused when it may not write it —
   ``UnifiedRelationshipService`` admits every edge it writes through
-  ``admit_far_ends_for_source``, and a door that links entities it is about to
-  create goes through ``admit_far_ends_for_owner``;
+  ``admit_far_ends_for_source`` and writes it through ``write_guarded_links``, whose
+  statement applies the same rule again as it merges the edge (a far end deleted,
+  re-owned or unpublished since its admission is refused, and nothing is written);
+  a door that links entities it is about to create goes through
+  ``admit_far_ends_for_owner``;
 - the personal-vault door admits a file's frontmatter targets through
   ``partition_link_edges`` — the create doors' filter with its failure kept, so
   a sync can leave the file unstamped and retry rather than lose its edges;
@@ -129,13 +132,16 @@ class AdmittedFarEnds:
     ``UnifiedRelationshipService.admit_far_ends`` returns one; handing it back as a
     write's ``far_end`` writes the edge on that admission, with no second read. A door
     that admits before its first write and links after it uses this, so the link cannot
-    fail on an endpoint read once the door has started writing. ``owner_uids`` is who
-    owns the source, as the admission read it — whose context the link changes.
+    fail on an endpoint read once the door has started writing. The write's statement
+    still re-asserts the rule for ``far_end`` (``write_guarded_links``), so a far end
+    that changed since this admission is refused there. ``owner_uids`` is who owns the
+    source, as the admission read it — whose context the link changes.
     """
 
     source_uid: str
     far_uids: frozenset[str]
     owner_uids: frozenset[str]
+    far_end: LinkFarEnd
 
     def covers(self, source_uid: str, far_uid: str) -> bool:
         """Whether this admission is for exactly this link."""

@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-10-10
+updated: 2026-10-11
 category: patterns
 related_skills: []
 related_docs:
@@ -26,7 +26,7 @@ related_docs:
 BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
     ├── CrudOperations[T]                  (9 methods)
     ├── EntitySearchOperations[T]          (20 methods)
-    ├── RelationshipCrudOperations         (13 methods)
+    ├── RelationshipCrudOperations         (15 methods)
     ├── RelationshipMetadataOperations     (3 methods)
     ├── RelationshipQueryOperations        (3 methods)
     ├── OrderedRelationshipOperations      (5 methods)
@@ -85,7 +85,7 @@ class EntitySearchOperations[T: DomainModelProtocol](Protocol):
 The census is the expression under the protocol tree above — read it rather than this list
 when the two differ.
 
-### RelationshipCrudOperations (13 methods)
+### RelationshipCrudOperations (15 methods)
 CRUD operations for graph relationships (edges).
 
 ```python
@@ -100,6 +100,7 @@ class RelationshipCrudOperations(Protocol):
     async def get_relationships(self, uid: str, rel_type: RelationshipName | None = None, direction: Direction = "both") -> Any: ...
     async def has_relationship(self, from_uid: str, to_uid: str, relationship_type: RelationshipName) -> Result[bool]: ...
     async def create_relationships_batch(self, relationships: list[tuple[str, str, str, Neo4jProperties | None]]) -> Result[int]: ...
+    async def write_guarded_links(self, anchor_uid: str, writes: list[GuardedLinkWrite], *, anchor_owners: frozenset[str]) -> Result[GuardedLinkOutcome]: ...  # a link door's write: the statement re-asserts the link-edge guard's rule
     async def delete_relationship(self, from_uid: str, to_uid: str, relationship_type: RelationshipName, *, from_label: NeoLabel | None = None, to_label: NeoLabel | None = None) -> Result[bool]: ...  # a label is the kind that end must be
     async def delete_relationships_batch(self, relationships: list[tuple[str, str, str]]) -> Result[int]: ...
 ```

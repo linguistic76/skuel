@@ -275,19 +275,29 @@ principles = await service.get_related_uids("supporting_principles", "goal.123")
 > the union is identical. **Writing through a filtered key stamps the property** (see
 > create_relationship below) so create→read round-trips. Reconciled end-to-end PR #216.
 
-### Relationship Creation (6 methods)
+### Relationship Creation
 
 ```python
 # Batch create. Signature is (entity_uid, {relationship_key: [target_uids]},
 # far_ends={relationship_key: LinkFarEnd}). Every far end of every key is admitted
 # BEFORE the first write, so one refused uid fails the call with nothing written.
-# After admission each key's targets go through one validated
-# backend.create_relationships_batch (atomic per key); a per-key WRITE failure is
-# skipped, not rolled back — use one key for atomic semantics.
+# Every key is then written in ONE transaction (backend.write_guarded_links): all
+# land, or none does.
 await service.create_relationships_batch(
     EntityUID("task.123"),
     {"knowledge": ["ku.py", "ku.js", "ku.sql"]},
     far_ends={"knowledge": KNOWLEDGE_FAR_END},
+)
+
+# Replace. Each key's links become exactly the uids given ([] clears the key): one
+# transaction, a statement per key, deletes the key's other edges (of the kind
+# delete_relationship removes) and writes the new ones — a refused far end leaves every
+# key's links as they were. far_ends takes a LinkFarEnd (admitted here first) or the
+# AdmittedFarEnds an earlier admission returned. A filtered key is refused.
+await service.replace_relationships(
+    "event.123",
+    {"celebrated_goals": ["goal.new"], "habits": []},
+    far_ends={"celebrated_goals": admitted, "habits": HABIT_FAR_END},
 )
 
 # Delete relationship. The key's definition is read whole: when it names the far end's
@@ -320,12 +330,22 @@ await service.create_relationship(
 > that one admission with no second endpoint read (`EventsService.update_event`); a proof
 > covers its own `(from_uid, to_uid)` only. `tests/unit/services/test_link_writer_census.py` holds
 > every edge-writer call site under `core/services/` — `create_relationship`,
-> `create_relationships_batch`, `add_relationship` and the `relate(…)` builder — to an admission.
+> `create_relationships_batch`, `replace_relationships`, `write_guarded_links`,
+> `add_relationship` and the `relate(…)` builder — to an admission.
 >
-> **Every write and removal is announced.** The admission returns the source's owners
-> (`AdmittedFarEnds.owner_uids`); `create_relationship`, `create_relationships_batch` and
-> `delete_relationship` publish one `EntityLinksChanged` per owner once the write lands (a
-> removal reads the owner before it deletes), and the bootstrap subscribes it to an
+> **The write re-asserts the admission.** Every edge goes through
+> `backend.write_guarded_links`, whose statement (`build_guarded_link_query`,
+> `adapters/persistence/neo4j/endpoint_queries.py`) takes the source's and each far end's
+> write lock and reads them again — the far end an entity of an allowed kind, owned by one
+> of the source's owners or by nobody and published; the source owned by exactly the owners
+> its admission read — so a far end deleted, re-owned or unpublished between the admission
+> and the write is refused there, as `not_found(far_end.resource)`, and a source that
+> changed hands as `not_found` of the source, with nothing written.
+>
+> **Every write and removal is announced.** The write returns the source's owners as it
+> read them; `create_relationship`, `create_relationships_batch`, `replace_relationships`
+> and `delete_relationship` publish one `EntityLinksChanged` per owner once the write lands
+> (a removal reads the owner before it deletes), and the bootstrap subscribes it to an
 > immediate (undebounced) context invalidation — the owner's cached context reads these
 > edges, and the page that made the link reads it right back. A door that admits here and
 > writes on its own statement announces through `links_changed(admitted)` (the life-path
@@ -333,9 +353,9 @@ await service.create_relationship(
 
 > **`create_relationship(key, from_uid, to_uid, properties, *, far_end)` is safe** (root-fixed
 > PR #197). It looks up the registry `spec` for `key`, admits the far end, orients direction via
-> `_orient_edge` (an *incoming* spec swaps endpoints on write/delete so direction-aware
-> reads still match), and routes through the same `backend.create_relationships_batch`
-> path create-flows use. It **fails closed** on an unknown key (`Result.fail`, no edge).
+> `_guarded_write` (an *incoming* spec swaps endpoints on write, as `_orient` does on
+> delete, so direction-aware reads still match), and writes through
+> `backend.write_guarded_links`. It **fails closed** on an unknown key (`Result.fail`, no edge).
 > It previously dispatched to a dynamic `link_{domain}_to_{key}` backend method that
 > existed for only two habit cases and failed at runtime everywhere else — that whole
 > dispatch is gone.

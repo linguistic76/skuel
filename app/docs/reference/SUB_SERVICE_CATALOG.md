@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 # Sub-Service Responsibility Catalog
@@ -145,10 +145,11 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 **Responsibility:** Cross-domain graph relationships
 
 **Key Methods:**
-- `create_relationship(method_key, from_uid, to_uid, properties, *, far_end)` - The single cross-domain link write path (registry-validated key, fails closed). `far_end` is required: the far end is admitted before the write — it exists, is one of `far_end.labels`, and is owned by `from_uid`'s owner or is published shared content
+- `create_relationship(method_key, from_uid, to_uid, properties, *, far_end)` - The single cross-domain link write path (registry-validated key, fails closed). `far_end` is required: the far end is admitted before the write — it exists, is one of `far_end.labels`, and is owned by `from_uid`'s owner or is published shared content — and the write's statement re-asserts that rule as it merges the edge
 - `admit_far_ends(from_uid, to_uids, far_end)` → `Result[AdmittedFarEnds]` - The admission alone, for a door that must refuse before its first write; the returned proof is a valid `far_end` for writing that same link without a second read
+- `replace_relationships(entity_uid, {method_key: [uids]}, *, far_ends)` - Make each key's links exactly the uids given (`[]` clears): one transaction deletes the old edges and writes the new ones, so a refused far end leaves the old links in place (the Events and Tasks update doors)
 - `delete_relationship(method_key, from_uid, to_uid)` - Remove a link
-- `links_changed(admitted)` - Announce a link a door wrote on its own statement after admitting here; the three writes above announce their own (`EntityLinksChanged`, one per owner — the owner's cached context is dropped)
+- `links_changed(admitted)` - Announce a link a door wrote on its own statement after admitting here; the writes above announce their own (`EntityLinksChanged`, one per owner — the owner's cached context is dropped)
 - `get_related_uids(method_key, entity_uid)` - Query relationships
 - `get_with_context()` - Get entity with graph context
 - `create_semantic_relationship()` - Create semantic links

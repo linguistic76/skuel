@@ -16,6 +16,7 @@ Provides:
     has_relationship: Check relationship existence
     count_related: Count related entities without loading them
     create_relationships_batch: Batch relationship creation (with validation)
+    write_guarded_links: A link door's write, re-asserting the link-edge guard's rule
     batch_get_related_uids: Related UIDs for many anchors in one query
 
 Requires on concrete class:
@@ -32,6 +33,8 @@ from adapters.persistence.neo4j.endpoint_queries import (
     OWNER_UIDS_BATCH_QUERY,
     PUBLISHED_UIDS_BATCH_PARAMS,
     PUBLISHED_UIDS_BATCH_QUERY,
+    build_guarded_link_query,
+    build_uid_anchor,
 )
 from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier
 from adapters.persistence.neo4j.query.cypher.crud_queries import (
@@ -39,6 +42,7 @@ from adapters.persistence.neo4j.query.cypher.crud_queries import (
     build_owner_uids_expression,
 )
 from core.models.enums.neo_labels import NeoLabel
+from core.models.link_write_contracts import GuardedLinkOutcome
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, UserUID
@@ -49,9 +53,23 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-    from neo4j import AsyncDriver, Record
+    from neo4j import AsyncDriver, AsyncManagedTransaction, Record
 
+    from core.models.link_write_contracts import GuardedLinkWrite
     from core.ports.base_protocols import Direction
+
+
+class _LinkRefusedError(Exception):
+    """A guarded link statement refused ``uid``: raised to roll its transaction back."""
+
+    def __init__(self, uid: str) -> None:
+        super().__init__(uid)
+        self.uid = uid
+
+
+def _write_order(write: GuardedLinkWrite) -> tuple[str, bool]:
+    """The order a transaction takes its writes in — by edge type, then direction."""
+    return (write.relationship.value, write.anchor_is_source)
 
 
 class _PairDiagnosis(TypedDict, total=False):
@@ -1196,10 +1214,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         params: dict[str, Any] = {"uid": uid, **property_params}
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-        # NOT :Content — G13 shadow-uid guard (see create_relationship).
+        # The anchor is bound by index seeks, NOT :Content (G13): build_uid_anchor.
         query = f"""
-        MATCH (n {{uid: $uid}})
-        WHERE NOT n:Content
+        {build_uid_anchor("n", "$uid", self.label)}
         MATCH {pattern}
         {where_clause}
         RETURN count(related) as count
@@ -1360,6 +1377,67 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         self.logger.info(f"Created {total_created} relationships in batch")
         return Result.ok(total_created)
+
+    @safe_backend_operation("write_guarded_links")
+    async def write_guarded_links(
+        self,
+        anchor_uid: str,
+        writes: builtins.list[GuardedLinkWrite],
+        *,
+        anchor_owners: frozenset[str],
+    ) -> Result[GuardedLinkOutcome]:
+        """Write an anchor's links, each statement re-asserting the link-edge guard's rule.
+
+        One transaction for every write: a far end the statement refuses — deleted,
+        re-owned, unpublished or of the wrong kind since it was admitted — rolls back
+        the writes before it, so the anchor's links are all written or none is (the
+        rule and the statement: ``build_guarded_link_query``). ``anchor_owners`` is who
+        owned the anchor when the caller admitted the links: an anchor owned by anyone
+        else at the write is refused as the anchor's own uid.
+        """
+        # A stable lock order — writes by edge type, far ends sorted — so two writes over
+        # overlapping far ends take their locks in the same order; a deadlock the order
+        # cannot prevent is retried by the managed transaction (the work is idempotent).
+        ordered = sorted(writes, key=_write_order)
+
+        async def write_all(tx: AsyncManagedTransaction) -> frozenset[str]:
+            written_owners: frozenset[str] = frozenset()
+            for write in ordered:
+                far_uids = sorted(set(write.far_uids))
+                query = build_guarded_link_query(
+                    write.relationship,
+                    anchor_is_source=write.anchor_is_source,
+                    replace=write.replace,
+                    replace_label=write.replace_label,
+                )
+                result = await tx.run(
+                    query,
+                    {
+                        **PUBLISHED_UIDS_BATCH_PARAMS,
+                        "anchor_uid": anchor_uid,
+                        "expected_owners": sorted(anchor_owners),
+                        "far_uids": far_uids,
+                        "far_labels": sorted(write.far_labels),
+                        "properties": dict(write.properties or {}),
+                    },
+                )
+                record = await result.single()
+                if record is None:
+                    raise _LinkRefusedError(anchor_uid)
+                admitted = set(record["admitted"])
+                refused = next((uid for uid in far_uids if uid not in admitted), None)
+                if refused is not None:
+                    raise _LinkRefusedError(refused)
+                written_owners = frozenset(record["anchor_owners"])
+            return written_owners
+
+        try:
+            async with self.driver.session() as session:
+                written = await session.execute_write(write_all)
+        except _LinkRefusedError as refusal:
+            # Raised inside the unit of work, so the managed transaction rolled back.
+            return Result.ok(GuardedLinkOutcome(refusal.uid, frozenset()))
+        return Result.ok(GuardedLinkOutcome(None, written))
 
     # ============================================================================
     # CONFIG-DRIVEN BATCH RELATIONSHIP QUERIES

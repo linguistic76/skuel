@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.endpoint_queries import build_uid_anchor
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
@@ -306,10 +307,9 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             params.update(far_node_params)
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-        # NOT :Content — G13 shadow-uid guard (chunk-store shadow shares uid).
+        # The anchor is bound by index seeks, NOT :Content (G13): build_uid_anchor.
         query = f"""
-        MATCH (n {{uid: $uid}})
-        WHERE NOT n:Content
+        {build_uid_anchor("n", "$uid", self.label)}
         {owners_line}
         MATCH {pattern}
         {where_clause}

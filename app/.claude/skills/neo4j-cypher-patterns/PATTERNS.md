@@ -123,7 +123,7 @@ RETURN entity_uid, collect(related.uid) AS related_uids
 - UNWIND on an empty list returns no rows — always handle the empty case
 - OPTIONAL MATCH inside UNWIND prevents failures when entities have no relationships
 
-**Real-world usage**: `UnifiedRelationshipService.batch_get_related_uids()`, `BatchCypherBuilder.build_relationship_create_query()` (backs `create_relationships_batch` on the universal backend — how the Events service's `link_event_to_knowledge` facade writes APPLIES_KNOWLEDGE)
+**Real-world usage**: `UnifiedRelationshipService.batch_get_related_uids()`, `BatchCypherBuilder.build_relationship_create_query()` (backs `create_relationships_batch` on the universal backend — how the create doors write the link edges they admitted)
 
 ---
 

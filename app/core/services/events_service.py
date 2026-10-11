@@ -280,7 +280,7 @@ class EventsService(
         intent with both edge fields reset to ``UNSET`` (so its ``to_changes()`` carries
         only node properties). The edge values pass through with the canonical ADR-066
         contract intact — ``UNSET`` = not in this update (untouched), ``None`` = explicit
-        clear, value = set — which ``update_event`` / ``_replace_edge`` consume.
+        clear, value = set — which ``update_event`` / ``_replace_edges`` consume.
         """
         prop_intent = dataclasses.replace(
             intent, milestone_celebration_for_goal=UNSET, reinforces_habit_uid=UNSET
@@ -321,13 +321,15 @@ class EventsService(
     async def update_event(self, event_uid: str, intent: EventUpdateIntent) -> Result[Event]:
         """THE Events update path (ADR-066). Splits the two edge-typed fields off the
         intent, writes node properties via core (events fire), and replaces the
-        ``CELEBRATES_GOAL`` / ``REINFORCES_HABIT`` edges. See ``_replace_edge``."""
+        ``CELEBRATES_GOAL`` / ``REINFORCES_HABIT`` edges. See ``_replace_edges``."""
         goal_uid, habit_uid, prop_intent = self._split_relationship_intent(intent)
 
         # Both far ends are admitted before the first write, so a refused link leaves
         # the event's properties and its existing edges as they were — and each edge
         # is then written on that admission, so no link fails on a second endpoint
-        # read after the first write.
+        # read after the first write. The edge statement still re-asserts the
+        # admission: a far end deleted, re-owned or unpublished in between fails the
+        # update with the properties written and every edge as it was.
         admitted: dict[str, AdmittedFarEnds] = {}
         for relationship_key, target_uid in (("celebrated_goals", goal_uid), ("habits", habit_uid)):
             if isinstance(target_uid, str) and target_uid:
@@ -352,18 +354,11 @@ class EventsService(
         if result.is_error:
             return result
 
-        if goal_uid is not UNSET:
-            replaced = await self._replace_edge(
-                "celebrated_goals", event_uid, goal_uid, admitted.get("celebrated_goals")
-            )
-            if replaced.is_error:
-                return Result.fail(replaced)
-        if habit_uid is not UNSET:
-            replaced = await self._replace_edge(
-                "habits", event_uid, habit_uid, admitted.get("habits")
-            )
-            if replaced.is_error:
-                return Result.fail(replaced)
+        replaced = await self._replace_edges(
+            event_uid, {"celebrated_goals": goal_uid, "habits": habit_uid}, admitted
+        )
+        if replaced.is_error:
+            return Result.fail(replaced)
 
         if not wrote_properties:  # edge-only: core.update_event didn't fire CalendarEventUpdated
             await self._publish_edge_only_update(result.value, goal_uid, habit_uid)
@@ -389,32 +384,32 @@ class EventsService(
             return ownership
         return await self.update_event(uid, updates)
 
-    async def _replace_edge(
+    async def _replace_edges(
         self,
-        relationship_key: str,
         event_uid: str,
-        target_uid: str | None,
-        admitted: AdmittedFarEnds | None,
-    ) -> Result[bool]:
-        """Replace the single outbound edge of ``relationship_key`` with ``target_uid``.
+        targets: dict[str, str | Unset | None],
+        admitted: dict[str, AdmittedFarEnds],
+    ) -> Result[int]:
+        """Replace the single outbound edge of each key in ``targets`` with its target.
 
-        A falsy ``target_uid`` (``None`` — the explicit-clear signal) clears the edge
-        (delete only). Used by update_event to route cross-domain field updates to
-        graph-edge mutations. ``admitted`` is update_event's admission of the new
-        target; without one the write admits the target itself.
+        ``UNSET`` leaves a key's edge untouched; a falsy target (``None`` — the
+        explicit-clear signal) clears it. Every key is replaced in one transaction,
+        each statement deleting the old edge and merging the new one, so a refused
+        target leaves every edge as it was. ``admitted`` is update_event's admission of
+        each new target; a key without one is admitted by the write itself.
         """
-        existing = await self.relationships.get_related_uids(relationship_key, EntityUID(event_uid))
-        if existing.is_ok:
-            for old_uid in existing.value or []:
-                await self.relationships.delete_relationship(relationship_key, event_uid, old_uid)
-        if target_uid:  # non-empty → create the new edge (None = cleared)
-            return await self.relationships.create_relationship(
-                relationship_key,
-                event_uid,
-                target_uid,
-                far_end=admitted or self._EDGE_FAR_ENDS[relationship_key],
-            )
-        return Result.ok(True)
+        replacements: dict[str, list[str]] = {}
+        for key, target in targets.items():
+            if target is not UNSET:
+                replacements[key] = [target] if target else []
+        if not replacements:
+            return Result.ok(0)
+        far_ends: dict[str, LinkFarEnd | AdmittedFarEnds] = {
+            key: admitted.get(key) or self._EDGE_FAR_ENDS[key] for key in replacements
+        }
+        return await self.relationships.replace_relationships(
+            event_uid, replacements, far_ends=far_ends
+        )
 
     async def get_celebrated_goal(self, event_uid: str) -> Result[str | None]:
         """Return the goal uid this event celebrates via (Event)-[:CELEBRATES_GOAL]->(Goal).

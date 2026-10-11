@@ -15,7 +15,10 @@ Methods tested (4):
 3. has_relationship("principles") - Check if learning path embodies principles
 4. get_related_uids("steps") - Get list of path step UIDs
 
-Pattern: Real Neo4j testcontainer, generic relationship API.
+Pattern: Real Neo4j testcontainer, generic relationship API. Every node carries the
+labels the graph gives it (``:Entity:LearningPath``, ``:Entity:PathStep``, …) — the
+keyed reads bind a uid by its label, so a node under a label nothing writes is no
+anchor.
 """
 
 import pytest
@@ -35,17 +38,17 @@ async def test_has_milestone_events_true_integration(
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="event:complete_python_course",
-        to_label="Event",
+        to_label="Entity:Event",
         rel_type="HAS_MILESTONE_EVENT",
     )
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="event:first_ml_project",
-        to_label="Event",
+        to_label="Entity:Event",
         rel_type="HAS_MILESTONE_EVENT",
     )
 
@@ -68,9 +71,9 @@ async def test_has_milestone_events_false_integration(
     # Create LP with other relationships (not HAS_MILESTONE_EVENT)
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="goal:master_ml",
-        to_label="Goal",
+        to_label="Entity:Goal",
         rel_type="ALIGNED_WITH_GOAL",
     )
 
@@ -108,17 +111,17 @@ async def test_supports_goals_true_integration(
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="goal:become_senior_dev",
-        to_label="Goal",
+        to_label="Entity:Goal",
         rel_type="ALIGNED_WITH_GOAL",
     )
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="goal:master_architecture",
-        to_label="Goal",
+        to_label="Entity:Goal",
         rel_type="ALIGNED_WITH_GOAL",
     )
 
@@ -141,9 +144,9 @@ async def test_supports_goals_false_integration(
     # Create LP with other relationships (not ALIGNED_WITH_GOAL)
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="principle:curiosity",
-        to_label="Principle",
+        to_label="Entity:Principle",
         rel_type="EMBODIES_PRINCIPLE",
     )
 
@@ -167,9 +170,9 @@ async def test_supports_goals_multiple_goals_integration(
     for i in range(4):
         await create_relationship(
             from_uid=lp_uid,
-            from_label="Lp",
+            from_label="Entity:LearningPath",
             to_uid=f"goal:objective_{i}",
-            to_label="Goal",
+            to_label="Entity:Goal",
             rel_type="ALIGNED_WITH_GOAL",
         )
 
@@ -200,25 +203,25 @@ async def test_embodies_principles_true_integration(
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="principle:fairness",
-        to_label="Principle",
+        to_label="Entity:Principle",
         rel_type="EMBODIES_PRINCIPLE",
     )
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="principle:transparency",
-        to_label="Principle",
+        to_label="Entity:Principle",
         rel_type="EMBODIES_PRINCIPLE",
     )
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="principle:accountability",
-        to_label="Principle",
+        to_label="Entity:Principle",
         rel_type="EMBODIES_PRINCIPLE",
     )
 
@@ -241,9 +244,9 @@ async def test_embodies_principles_false_integration(
     # Create LP with other relationships (not EMBODIES_PRINCIPLE)
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="goal:learn_coding",
-        to_label="Goal",
+        to_label="Entity:Goal",
         rel_type="ALIGNED_WITH_GOAL",
     )
 
@@ -269,25 +272,25 @@ async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, c
     # Create learning path with multiple steps (using HAS_STEP per LP_CONFIG)
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="ps:step_1_basics",
-        to_label="Ls",
+        to_label="Entity:PathStep",
         rel_type="HAS_STEP",
     )
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="ps:step_2_functions",
-        to_label="Ls",
+        to_label="Entity:PathStep",
         rel_type="HAS_STEP",
     )
 
     await create_relationship(
         from_uid=lp_uid,
-        from_label="Lp",
+        from_label="Entity:LearningPath",
         to_uid="ps:step_3_classes",
-        to_label="Ls",
+        to_label="Entity:PathStep",
         rel_type="HAS_STEP",
     )
 

@@ -293,6 +293,12 @@ MATCH (n:Entity {uid: $uid})
 MATCH (n {uid: $uid}) WHERE NOT n:Content
 ```
 
+The second form has no label, so it plans as an `AllNodesScan` per uid. On a hot path
+— the link-edge guard's endpoint reads, the keyed anchor reads — bind the uid with
+`build_uid_anchor` (`adapters/persistence/neo4j/endpoint_queries.py`) instead: a `CALL`
+`UNION` of one index seek per label a uid can name (`:Entity`, `:User`, `:Group`, plus the
+backend's own label), which still sees a User or a Group and binds nothing else.
+
 ### 1. Always Use Parameters
 
 ```cypher

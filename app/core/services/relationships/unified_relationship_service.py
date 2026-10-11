@@ -45,9 +45,11 @@ core/services/relationships/
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.events import EntityLinksChanged, publish_event
+from core.models.link_write_contracts import GuardedLinkWrite
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_registry import (
     DomainRelationshipConfig,
@@ -59,7 +61,6 @@ from core.services.base_service import BaseService
 from core.services.infrastructure import SemanticRelationshipLinker
 from core.services.mixins.link_edge_guard import (
     AdmittedFarEnds,
-    EdgeTuple,
     LinkFarEnd,
     admit_far_ends_for_source,
 )
@@ -75,6 +76,16 @@ if TYPE_CHECKING:
 
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext
+
+
+@dataclass(frozen=True)
+class _Admission:
+    """One key's admission: the far end the write re-asserts, and the source's owners
+    as the admission read them (``None`` when nothing was admitted — a cleared key)."""
+
+    far_end: LinkFarEnd
+    owners: frozenset[str] | None
+
 
 # Type variables
 T = TypeVar("T")  # Domain model type
@@ -310,8 +321,9 @@ class UnifiedRelationshipService[
 
         A door that writes anything else alongside the edge calls this BEFORE its
         first write and hands the returned ``AdmittedFarEnds`` to
-        ``create_relationship`` as ``far_end``: a refused link leaves nothing
-        half-applied, and the write after it reads no endpoint again.
+        ``create_relationship`` / ``replace_relationships`` as its far end: a refused
+        link leaves nothing half-applied, and the write after it reads no endpoint
+        again — its statement re-asserts the rule as it merges the edge.
 
         See: core/services/mixins/link_edge_guard.py
         """
@@ -326,7 +338,10 @@ class UnifiedRelationshipService[
             return Result.fail(owners)
         return Result.ok(
             AdmittedFarEnds(
-                source_uid=from_uid, far_uids=frozenset(to_uids), owner_uids=owners.value
+                source_uid=from_uid,
+                far_uids=frozenset(to_uids),
+                owner_uids=owners.value,
+                far_end=far_end,
             )
         )
 
@@ -335,10 +350,10 @@ class UnifiedRelationshipService[
     ) -> None:  # skuel-lint: disable=SKUEL005 -- an announcement after the write landed; publish_event cannot fail the write
         """Announce a link written on ``admitted`` by a door that wrote it itself.
 
-        ``create_relationship``, ``create_relationships_batch`` and
-        ``delete_relationship`` announce their own writes; a door that admits here and
-        writes the edge through its own backend statement (the life-path link) calls
-        this once the write lands.
+        ``create_relationship``, ``create_relationships_batch``,
+        ``replace_relationships`` and ``delete_relationship`` announce their own
+        writes; a door that admits here and writes the edge through its own backend
+        statement (the life-path link) calls this once the write lands.
         """
         await self._publish_links_changed(admitted.owner_uids, admitted.source_uid)
 
@@ -350,6 +365,120 @@ class UnifiedRelationshipService[
                 EntityLinksChanged(user_uid=UserUID(owner_uid), entity_uid=entity_uid),
                 self.logger,
             )
+
+    def _spec(self, relationship_key: str) -> Result[UnifiedRelationshipDefinition]:
+        """The registry definition for ``relationship_key``; a key the config lacks fails."""
+        spec = self.config.get_relationship_by_method(relationship_key)
+        if not spec:
+            return Result.fail(
+                Errors.validation(
+                    f"Unknown relationship key '{relationship_key}' for {self.config.entity_label}"
+                )
+            )
+        return Result.ok(spec)
+
+    async def _admitted(
+        self, from_uid: str, to_uids: Sequence[str], far_end: LinkFarEnd | AdmittedFarEnds
+    ) -> Result[_Admission]:
+        """Admit ``to_uids`` — or check a prior admission covers them — before a write.
+
+        Returns the far end the write re-asserts and the source's owners as the
+        admission read them. An empty ``to_uids`` (a cleared key) admits nothing and
+        reads nothing: its owners are ``None``.
+        """
+        if isinstance(far_end, AdmittedFarEnds):
+            if not all(far_end.covers(from_uid, uid) for uid in to_uids):
+                return Result.fail(
+                    Errors.validation("The admission handed to this write is for another link")
+                )
+            return Result.ok(_Admission(far_end.far_end, far_end.owner_uids))
+        if not to_uids:
+            return Result.ok(_Admission(far_end, None))
+        admitted = await self.admit_far_ends(from_uid, to_uids, far_end)
+        if admitted.is_error:
+            return Result.fail(admitted)
+        return Result.ok(_Admission(far_end, admitted.value.owner_uids))
+
+    @classmethod
+    def _guarded_write(
+        cls,
+        spec: UnifiedRelationshipDefinition,
+        far_uids: Sequence[str],
+        far_end: LinkFarEnd,
+        properties: Neo4jProperties | None,
+        *,
+        replace: bool,
+    ) -> GuardedLinkWrite:
+        """One key's links as the guarded write takes them, oriented per the registry.
+
+        The registry read paths are direction-aware, so an ``incoming`` spec (stored
+        related→owner, e.g. goals ``supporting_habits`` =
+        ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``) is written with the related entity as the
+        edge's source — otherwise the direction-aware reader never sees it. A replace
+        removes the key's own kind only (``far_end_label``), as ``delete_relationship``
+        does.
+        """
+        return GuardedLinkWrite(
+            far_uids=tuple(dict.fromkeys(far_uids)),
+            relationship=spec.relationship,
+            anchor_is_source=spec.direction != "incoming",
+            far_labels=far_end.labels,
+            properties=cls._stamp_spec_filter(spec, properties),
+            replace=replace,
+            replace_label=far_end_label(spec) if replace else None,
+        )
+
+    async def _write_links(
+        self,
+        anchor_uid: str,
+        writes: Sequence[tuple[GuardedLinkWrite, _Admission]],
+    ) -> Result[int]:
+        """Write ``writes`` in one transaction and announce the change; returns the far ends linked.
+
+        The statement re-asserts each far end's admission (``write_guarded_links``): one
+        that changed since it was admitted — deleted, re-owned, unpublished — refuses
+        the whole write as ``not_found`` of its far end, exactly as the admission
+        refuses, and nothing is written. The anchor must still be owned by exactly the
+        owners its admissions read (read here when no write admitted anything — a
+        replace that only clears); an anchor that changed hands is refused as not found.
+        """
+        read_owners = {admission.owners for _, admission in writes if admission.owners is not None}
+        if not read_owners:
+            owners = await self.backend.get_owner_uids_batch([anchor_uid])
+            if owners.is_error:
+                return Result.fail(owners)
+            read_owners = {frozenset(owners.value.get(anchor_uid, ()))}
+        if len(read_owners) > 1:
+            return Result.fail(
+                Errors.not_found(
+                    self.config.entity_label, anchor_uid, reason="owners changed between admissions"
+                )
+            )
+        outcome = await self.backend.write_guarded_links(
+            anchor_uid, [write for write, _ in writes], anchor_owners=read_owners.pop()
+        )
+        if outcome.is_error:
+            return Result.fail(outcome)
+        refused = outcome.value.refused_uid
+        if refused == anchor_uid:
+            return Result.fail(
+                Errors.not_found(
+                    self.config.entity_label,
+                    anchor_uid,
+                    reason="gone or changed hands at the write",
+                )
+            )
+        if refused is not None:
+            resource = next(
+                admission.far_end.resource
+                for write, admission in writes
+                if refused in write.far_uids
+            )
+            return Result.fail(
+                Errors.not_found(resource, refused, reason="changed since its admission")
+            )
+        await self._publish_links_changed(outcome.value.anchor_owners, anchor_uid)
+        return Result.ok(sum(len(write.far_uids) for write, _ in writes))
 
     async def create_relationship(
         self,
@@ -366,7 +495,8 @@ class UnifiedRelationshipService[
         The far end is admitted first (``admit_far_ends``), unless ``far_end`` is the
         ``AdmittedFarEnds`` an earlier admission of this same link returned; the edge
         type is taken from the registry ``spec`` for ``relationship_key`` and written
-        through ``backend.create_relationships_batch``, the path the create flows use.
+        through ``backend.write_guarded_links``, whose statement re-asserts the
+        admission as it merges the edge.
 
         Args:
             relationship_key: Key from config
@@ -379,77 +509,32 @@ class UnifiedRelationshipService[
         Returns:
             Result[bool] — True when the edge was created.
         """
-        spec = self.config.get_relationship_by_method(relationship_key)
-        if not spec:
-            return Result.fail(
-                Errors.validation(
-                    f"Unknown relationship key '{relationship_key}' for {self.config.entity_label}"
-                )
-            )
-
-        if isinstance(far_end, AdmittedFarEnds):
-            if not far_end.covers(from_uid, to_uid):
-                return Result.fail(
-                    Errors.validation(
-                        "The admission handed to create_relationship is for another link"
-                    )
-                )
-            admission = far_end
-        else:
-            admitted = await self.admit_far_ends(from_uid, [to_uid], far_end)
-            if admitted.is_error:
-                return Result.fail(admitted)
-            admission = admitted.value
-
-        result = await self.backend.create_relationships_batch(
-            [self._orient_edge(spec, from_uid, to_uid, properties)]
+        spec = self._spec(relationship_key)
+        if spec.is_error:
+            return Result.fail(spec)
+        admitted = await self._admitted(from_uid, [to_uid], far_end)
+        if admitted.is_error:
+            return Result.fail(admitted)
+        write = self._guarded_write(
+            spec.value, [to_uid], admitted.value.far_end, properties, replace=False
         )
-        if result.is_error:
-            return Result.fail(result)
-        await self.links_changed(admission)
-        return Result.ok(result.value > 0)
+        written = await self._write_links(from_uid, [(write, admitted.value)])
+        if written.is_error:
+            return Result.fail(written)
+        return Result.ok(True)
 
     @staticmethod
     def _orient(spec: UnifiedRelationshipDefinition, from_uid: str, to_uid: str) -> tuple[str, str]:
         """Orient ``(owner, related)`` → ``(edge_from, edge_to)`` per the registry direction.
 
         ``from_uid`` is the entity that owns this domain config, ``to_uid`` the related
-        entity. The registry read paths are direction-aware, so an ``incoming`` spec
-        (stored related→owner, e.g. goals ``supporting_habits`` =
-        ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``) must have its endpoints swapped — on write
-        AND on delete — otherwise the edge is created/matched backwards and the
-        direction-aware reader never sees it. Shared by create_relationship,
-        create_relationships_batch, and delete_relationship so all three agree.
+        entity. An ``incoming`` spec (stored related→owner) has its endpoints swapped on
+        delete, as ``_guarded_write`` swaps them on write — otherwise the edge is
+        matched backwards and the direction-aware reader still sees it.
         """
         if spec.direction == "incoming":
             return (to_uid, from_uid)
         return (from_uid, to_uid)
-
-    @classmethod
-    def _orient_edge(
-        cls,
-        spec: UnifiedRelationshipDefinition,
-        from_uid: str,
-        to_uid: str,
-        properties: Neo4jProperties | None,
-    ) -> EdgeTuple:
-        """``_orient`` plus the relationship type and (filter-stamped) properties.
-
-        A *filtered* spec (e.g. ``essential_habits`` = SUPPORTS_GOAL with
-        ``essentiality="essential"``) defines edges by an edge property. Writing through
-        that key must stamp the property, or the read side — which now requires
-        ``r.essentiality = "essential"`` — would never see the edge back (create succeeds,
-        read returns empty). The stamp uses ``setdefault`` so an explicit caller value
-        wins. Unfiltered specs (the ``supporting_habits`` catch-all, all other domains)
-        are untouched.
-        """
-        edge_from, edge_to = cls._orient(spec, from_uid, to_uid)
-        return (
-            edge_from,
-            edge_to,
-            spec.relationship.value,
-            cls._stamp_spec_filter(spec, properties),
-        )
 
     @staticmethod
     def _stamp_spec_filter(
@@ -457,8 +542,12 @@ class UnifiedRelationshipService[
     ) -> Neo4jProperties | None:
         """Merge a filtered spec's ``filter_property=filter_value`` into write properties.
 
-        Keeps create/read symmetric for property-filtered relationship keys (see
-        _orient_edge). No-op for unfiltered specs; an explicit caller value is preserved.
+        A *filtered* spec (e.g. ``essential_habits`` = SUPPORTS_GOAL with
+        ``essentiality="essential"``) defines edges by an edge property. Writing through
+        that key must stamp the property, or the read side — which requires
+        ``r.essentiality = "essential"`` — would never see the edge back (create
+        succeeds, read returns empty). The stamp uses ``setdefault`` so an explicit
+        caller value wins. No-op for unfiltered specs.
         """
         if spec.filter_property is None:
             return properties
@@ -528,7 +617,8 @@ class UnifiedRelationshipService[
         Create multiple relationships for an entity in a single batch.
 
         Every far end is admitted before the first edge is written
-        (``admit_far_ends``), so a refused UID writes nothing.
+        (``admit_far_ends``), so a refused UID writes nothing; the edges are then
+        written in one transaction whose statements re-assert each admission.
 
         Args:
             entity_uid: Entity UID
@@ -540,8 +630,7 @@ class UnifiedRelationshipService[
         Returns:
             Result[int] with count of relationships created
         """
-        batches: list[list[EdgeTuple]] = []
-        owner_uids: set[str] = set()
+        writes: list[tuple[GuardedLinkWrite, _Admission]] = []
 
         for relationship_key, target_uids in relationships.items():
             if not target_uids:
@@ -562,21 +651,69 @@ class UnifiedRelationshipService[
             admitted = await self.admit_far_ends(entity_uid, target_uids, far_end)
             if admitted.is_error:
                 return Result.fail(admitted)
-            owner_uids |= admitted.value.owner_uids
+            writes.append(
+                (
+                    self._guarded_write(spec, target_uids, far_end, None, replace=False),
+                    _Admission(far_end, admitted.value.owner_uids),
+                )
+            )
 
-            # Orient each edge per the registry direction so incoming specs are not
-            # written backwards (see _orient_edge).
-            batches.append([self._orient_edge(spec, entity_uid, uid, None) for uid in target_uids])
+        if not writes:
+            return Result.ok(0)
+        return await self._write_links(entity_uid, writes)
 
-        total_created = 0
-        for relationships_batch in batches:
-            result = await self.backend.create_relationships_batch(relationships_batch)
-            if result.is_ok:
-                total_created += result.value
+    async def replace_relationships(
+        self,
+        entity_uid: str,
+        relationships: Mapping[str, Sequence[str]],
+        *,
+        far_ends: Mapping[str, LinkFarEnd | AdmittedFarEnds],
+    ) -> Result[int]:
+        """Make each key's links exactly the uids given — an empty list clears the key.
 
-        if batches:
-            await self._publish_links_changed(owner_uids, entity_uid)
-        return Result.ok(total_created)
+        Every far end is admitted before anything is written (or covered by the
+        ``AdmittedFarEnds`` an earlier admission returned). Then ONE transaction, a
+        statement per key, deletes the key's other edges and merges the new ones — the
+        same kind ``delete_relationship`` removes (``far_end_label``) — re-asserting
+        each admission as it writes: a refused far end leaves every key's links as they
+        were, so a replacement never loses the old link without writing the new one.
+
+        A key whose definition filters on an edge property (``essential_habits``) is
+        refused: a replace would remove its sibling keys' edges of the same type.
+
+        Returns:
+            Result[int] — the far ends linked across every key.
+        """
+        writes: list[tuple[GuardedLinkWrite, _Admission]] = []
+        for relationship_key, target_uids in relationships.items():
+            spec = self._spec(relationship_key)
+            if spec.is_error:
+                return Result.fail(spec)
+            if spec.value.filter_property is not None:
+                return Result.fail(
+                    Errors.validation(
+                        f"Relationship key '{relationship_key}' filters on an edge property "
+                        "and cannot be replaced"
+                    )
+                )
+            far_end = far_ends.get(relationship_key)
+            if far_end is None:
+                return Result.fail(
+                    Errors.validation(
+                        f"No far end declared for relationship key '{relationship_key}'"
+                    )
+                )
+            admitted = await self._admitted(entity_uid, target_uids, far_end)
+            if admitted.is_error:
+                return Result.fail(admitted)
+            write = self._guarded_write(
+                spec.value, target_uids, admitted.value.far_end, None, replace=True
+            )
+            writes.append((write, admitted.value))
+
+        if not writes:
+            return Result.ok(0)
+        return await self._write_links(entity_uid, writes)
 
     # =========================================================================
     # USER CONTEXT PLANNING METHODS
@@ -790,8 +927,8 @@ class UnifiedRelationshipService[
     # Activity/Curriculum facades link into the semantic graph via
     # ``create_relationship("<explicit method_key>", ..., far_end=...)`` — the registry
     # validates the key (fails closed on a typo), the far end is admitted (existence,
-    # owner, kind), direction is oriented via ``_orient_edge``, and the edge is written
-    # through the batch path. The facade is where domain intent lives
+    # owner, kind), direction is oriented via ``_guarded_write``, and the edge is written
+    # through ``write_guarded_links``, whose statement re-asserts the admission. The facade is where domain intent lives
     # (``link_task_to_goal`` knows it means ``contributes_to_goal``), so the key is
     # named explicitly there rather than guessed from a candidate list here.
     # Coverage is guarded by tests/test_cross_domain_link_keys.py.

@@ -892,7 +892,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
 
         Creates:
         - Entity.uid UNIQUENESS constraint (base label — globally unique uid)
-        - UID indexes for the per-type labels (18)
+        - UID indexes for the per-type labels (18) and :Group (1)
         - user_uid indexes for the user-owned domain labels (12)
         - Status indexes for time-sensitive domains (4)
         - Date indexes for temporal queries (3)
@@ -939,7 +939,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             else:
                 results["failed"].append(name)
 
-        # UID indexes — one per entity type. The base :Entity label uses a
+        # UID indexes — one per entity type, and :Group. The base :Entity label uses a
         # uniqueness CONSTRAINT instead (created above), whose backing index
         # serves :Entity {uid} lookups, so it is intentionally absent here.
         uid_labels: list[tuple[str, NeoLabel]] = [
@@ -961,6 +961,9 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             ("form_template_uid_idx", NeoLabel.FORM_TEMPLATE),
             ("form_submission_uid_idx", NeoLabel.FORM_SUBMISSION),
             ("revised_exercise_uid_idx", NeoLabel.REVISED_EXERCISE),
+            # Not an EntityType: a Group is a uid-bearing node outside :Entity that the
+            # endpoint reads bind by uid (build_uid_anchor), so its uid is a seek too.
+            ("group_uid_idx", NeoLabel.GROUP),
         ]
         for name, label in uid_labels:
             await _idx(name, label, "uid")

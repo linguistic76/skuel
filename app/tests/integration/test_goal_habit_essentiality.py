@@ -240,8 +240,8 @@ async def test_create_via_filtered_key_round_trips(neo4j_driver, goal_rel, clean
     """Write/read symmetry: creating via a FILTERED key stamps the edge property.
 
     Codex P2: the new read filter (``r.essentiality = "essential"``) would make a bare-edge
-    create via the same key invisible — create succeeds, read returns empty. ``_orient_edge``
-    now stamps the filtered spec's property on write, so ``create_relationship`` and
+    create via the same key invisible — create succeeds, read returns empty.
+    ``_stamp_spec_filter`` stamps the filtered spec's property on write, so ``create_relationship`` and
     ``get_related_uids`` round-trip through the ``essential_habits`` key with no explicit
     property from the caller.
     """

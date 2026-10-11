@@ -122,39 +122,35 @@ class TestEventsServiceRelationships:
 
 class TestUpdateEventEdges:
     @pytest.mark.asyncio
-    async def test_clearing_goal_edge_deletes_without_creating(
+    async def test_clearing_goal_edge_replaces_it_with_nothing(
         self, events_service: EventsService
     ) -> None:
-        """milestone_celebration_for_goal=None (picker-clear) must delete the existing
-        CELEBRATES_GOAL edge and create no replacement — the edge-clear gap fix."""
+        """milestone_celebration_for_goal=None (picker-clear) replaces the
+        CELEBRATES_GOAL edge with none — the edge-clear gap fix — and admits nothing."""
         events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
-        events_service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok(["goal_old"])
-        )
-        events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        events_service.relationships.create_relationship = AsyncMock()
+        events_service.relationships.admit_far_ends = AsyncMock()
+        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok(0))
 
         result = await events_service.update_event(
             "event_abc", EventUpdateIntent(milestone_celebration_for_goal=None)
         )
 
         assert result.is_ok
-        events_service.relationships.delete_relationship.assert_awaited_once_with(
-            "celebrated_goals", "event_abc", "goal_old"
+        events_service.relationships.admit_far_ends.assert_not_called()
+        events_service.relationships.replace_relationships.assert_awaited_once_with(
+            "event_abc", {"celebrated_goals": []}, far_ends={"celebrated_goals": GOAL_FAR_END}
         )
-        events_service.relationships.create_relationship.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_setting_goal_edge_replaces_existing(self, events_service: EventsService) -> None:
-        """A new milestone_celebration_for_goal deletes the old edge and creates the new."""
+        """A new milestone_celebration_for_goal replaces the old edge in one write."""
         events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
-        events_service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok(["goal_old"])
-        )
-        events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        events_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
+        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok(1))
         admission = AdmittedFarEnds(
-            source_uid="event_abc", far_uids=frozenset({"goal_new"}), owner_uids=frozenset()
+            source_uid="event_abc",
+            far_uids=frozenset({"goal_new"}),
+            owner_uids=frozenset(),
+            far_end=GOAL_FAR_END,
         )
         events_service.relationships.admit_far_ends = AsyncMock(return_value=Result.ok(admission))
 
@@ -166,28 +162,56 @@ class TestUpdateEventEdges:
         events_service.relationships.admit_far_ends.assert_awaited_once_with(
             "event_abc", ["goal_new"], GOAL_FAR_END
         )
-        events_service.relationships.delete_relationship.assert_awaited_once_with(
-            "celebrated_goals", "event_abc", "goal_old"
-        )
         # The edge is written on update_event's own admission — the write is handed
         # the proof, not the far-end declaration that would admit a second time.
-        events_service.relationships.create_relationship.assert_awaited_once_with(
-            "celebrated_goals", "event_abc", "goal_new", far_end=admission
+        events_service.relationships.replace_relationships.assert_awaited_once_with(
+            "event_abc",
+            {"celebrated_goals": ["goal_new"]},
+            far_ends={"celebrated_goals": admission},
         )
+
+    @pytest.mark.asyncio
+    async def test_both_edges_are_replaced_in_one_write(
+        self, events_service: EventsService
+    ) -> None:
+        """A goal and a habit in one update are one replace — both land, or neither."""
+        events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
+        events_service.relationships.replace_relationships = AsyncMock(return_value=Result.ok(1))
+
+        result = await events_service.update_event(
+            "event_abc",
+            EventUpdateIntent(milestone_celebration_for_goal=None, reinforces_habit_uid=None),
+        )
+
+        assert result.is_ok
+        events_service.relationships.replace_relationships.assert_awaited_once_with(
+            "event_abc",
+            {"celebrated_goals": [], "habits": []},
+            far_ends={"celebrated_goals": GOAL_FAR_END, "habits": HABIT_FAR_END},
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_refused_replace_fails_the_update(self, events_service: EventsService) -> None:
+        events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
+        events_service.relationships.replace_relationships = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Goal", "goal_gone"))
+        )
+
+        result = await events_service.update_event(
+            "event_abc", EventUpdateIntent(milestone_celebration_for_goal=None)
+        )
+
+        assert result.is_error
 
     @pytest.mark.asyncio
     async def test_a_refused_far_end_is_refused_before_any_write(
         self, events_service: EventsService
     ) -> None:
         """A far end the relationship service does not admit fails the update with
-        nothing written: no property, no edge deleted, no edge created."""
+        nothing written: no property, no edge replaced."""
         events_service.core.update_event = AsyncMock(return_value=Result.ok(Mock()))
         events_service.core.get_event = AsyncMock(return_value=Result.ok(Mock()))
-        events_service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok(["habit_old"])
-        )
-        events_service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
-        events_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
+        events_service.relationships.replace_relationships = AsyncMock()
         events_service.relationships.admit_far_ends = AsyncMock(
             return_value=Result.fail(Errors.not_found("Habit", "habit_other"))
         )
@@ -201,23 +225,16 @@ class TestUpdateEventEdges:
             "event_abc", ["habit_other"], HABIT_FAR_END
         )
         events_service.core.update_event.assert_not_called()
-        events_service.relationships.delete_relationship.assert_not_called()
-        events_service.relationships.create_relationship.assert_not_called()
+        events_service.relationships.replace_relationships.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_unset_edges_leave_them_untouched(self, events_service: EventsService) -> None:
         """An update that omits both edge fields (UNSET) must not touch either edge —
-        no fetch, no delete, no create — even while writing node properties."""
+        no replace — even while writing node properties."""
         events_service.core.update_event = AsyncMock(return_value=Result.ok(Mock()))
-        events_service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok(["goal_old"])
-        )
-        events_service.relationships.delete_relationship = AsyncMock()
-        events_service.relationships.create_relationship = AsyncMock()
+        events_service.relationships.replace_relationships = AsyncMock()
 
         result = await events_service.update_event("event_abc", EventUpdateIntent(title="New"))
 
         assert result.is_ok
-        events_service.relationships.get_related_uids.assert_not_called()
-        events_service.relationships.delete_relationship.assert_not_called()
-        events_service.relationships.create_relationship.assert_not_called()
+        events_service.relationships.replace_relationships.assert_not_called()
