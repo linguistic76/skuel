@@ -370,7 +370,9 @@ def collision_gaps(handlers: list[Handler]) -> list[tuple[str, list[Handler]]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Audit @rt route handlers for CSRF + auth gaps.")
+    parser = argparse.ArgumentParser(
+        description="Audit @rt route handlers for CSRF, auth and write-method gaps."
+    )
     parser.add_argument("--verbose", action="store_true", help="List every mutation handler.")
     parser.add_argument(
         "--form-only",
