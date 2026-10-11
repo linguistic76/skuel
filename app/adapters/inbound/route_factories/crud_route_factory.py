@@ -9,7 +9,9 @@ Core Principle: "One factory per domain, zero CRUD duplication"
 
 FastHTML Conventions Applied
 ----------------------------
-1. Routes registered with explicit paths (``base_path`` + suffix), e.g. ``rt(f"{base_path}/create")``
+1. Routes registered with explicit paths (``base_path`` + suffix), e.g.
+   ``rt(f"{base_path}/create", methods=["POST"])`` — a write answers POST only;
+   a read rides the default (GET, HEAD and POST)
 2. Query parameters preferred over path parameters
 3. Type hints enable automatic parameter extraction
 4. Minimal ceremony, maximum clarity
@@ -373,7 +375,7 @@ class CRUDRouteFactory[T]:
         """
         Register create route: POST /{domain}/create
 
-        Path: explicit base_path + suffix — rt(f"{base_path}/create")
+        Path: explicit base_path + suffix — rt(f"{base_path}/create", methods=["POST"])
         Request body: JSON or a form encoding by Content-Type (``parse_body``),
             validated by create_schema — one door for API clients and HTMX forms
         Response: Created entity (201 status)
@@ -482,7 +484,7 @@ class CRUDRouteFactory[T]:
         instrumented = self._instrument_handler(
             create, f"{self.base_path}/create", success_status=201
         )
-        rt(f"{self.base_path}/create")(instrumented)
+        rt(f"{self.base_path}/create", methods=["POST"])(instrumented)
 
     def _register_get_route(self, rt) -> None:
         """
@@ -586,7 +588,7 @@ class CRUDRouteFactory[T]:
 
         # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(update, f"{self.base_path}/update")
-        rt(f"{self.base_path}/update")(instrumented)
+        rt(f"{self.base_path}/update", methods=["POST"])(instrumented)
 
     def _register_delete_route(self, rt) -> None:
         """
@@ -630,7 +632,7 @@ class CRUDRouteFactory[T]:
 
         # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(delete, f"{self.base_path}/delete")
-        rt(f"{self.base_path}/delete")(instrumented)
+        rt(f"{self.base_path}/delete", methods=["POST"])(instrumented)
 
     def _register_list_route(self, rt) -> None:
         """

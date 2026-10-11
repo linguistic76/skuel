@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-10-02'
+updated: '2026-10-11'
 category: patterns
 related_skills:
 - domain-route-config
@@ -95,6 +95,8 @@ crud_factory.register_routes(app, rt)
 | GET | `/api/{domain}/get?uid=...` | Get (with ownership check) |
 | POST | `/api/{domain}/update?uid=...` | Update (with ownership check) |
 | POST | `/api/{domain}/delete?uid=...` | Delete (with ownership check; cascades — OWNS edge means non-cascade could never succeed, G18) |
+
+The three writes are registered `methods=["POST"]` — a GET or HEAD of `/create`, `/update` or `/delete` is 405 before the handler runs (FASTHTML_ROUTE_REGISTRATION § Key Points 5); the reads ride FastHTML's default (GET, HEAD and POST).
 | GET | `/api/{domain}/list` | List (filtered by user) |
 
 **Note:** the factory's reads and writes take the uid as a query parameter (`?uid=...`). A per-entity door written by hand or by the `create_activity_*` factories takes a path uid (`POST /api/tasks/{uid}/status`, `GET /api/path-steps/{uid}/organizers`) — both shapes are live; the CRUD factory is the query-param one.

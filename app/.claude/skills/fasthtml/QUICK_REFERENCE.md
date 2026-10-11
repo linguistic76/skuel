@@ -102,7 +102,7 @@ found = require_found(result, "Entity", uid)                      # adapters/inb
 |---------|----------|
 | `routes = []` / `routes.append()` with `@rt()` | Delete the list — the decorator registers on definition |
 | `request: Any` in a handler → FastHTML 400 | `request: Request` from `adapters.inbound.fasthtml_types` (SKUEL020) |
-| `@rt(path)` with no `methods=` defaults to **GET+POST** | Page handler can SHADOW its CSRF-protected POST twin — always pass explicit `methods=`; guarded by `scripts/audit_route_security.py` |
+| `@rt(path)` with no `methods=` defaults to **GET+POST** | A write registered bare runs on a link or a prefetch, and a page handler can SHADOW its CSRF-protected POST twin — a write declares `methods=["POST"]`, a page beside one `methods=["GET"]`; both guarded by `scripts/audit_route_security.py` |
 | Hardcoded `cls=` + `**kwargs` splat in an FT helper | `cls: str = ""` param + `cls=f"...base... {cls}".strip()` (SKUEL024) |
 | `Result[Any]` return on a handler | `Result[FT]` (fragments), `Result[Goal]` (models), or `Response` (redirects) |
 | Hand-assembled `<link>` tags / `NotStr` full documents | `BasePage`/`AuthPage` — CSS/JS load through `build_head()` |

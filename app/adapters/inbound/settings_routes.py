@@ -87,7 +87,7 @@ def create_settings_routes(
             id="settings-content",
         )
 
-    @rt("/settings/save")
+    @rt("/settings/save", methods=["POST"])
     @csrf_protected
     async def save_settings(request: Request) -> Any:
         """Save user preferences from form submission.

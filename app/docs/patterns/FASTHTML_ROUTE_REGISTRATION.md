@@ -1,6 +1,6 @@
 ---
 title: FastHTML Route Registration Pattern
-updated: 2026-09-21
+updated: 2026-10-11
 category: patterns
 related_skills:
 - domain-route-config
@@ -95,6 +95,7 @@ def create_domain_routes(_app, rt, service, user_service):
 2. **No `routes.append()`** - Don't append decorated functions
 3. **No `return routes`** - Don't return the list — not as `return [handler, …]`, not as `return []`
 4. **Just define and decorate** - The `@rt()` decorator handles registration
+5. **A write names its method** - `@rt(path)` with no `methods=` answers GET, HEAD and POST, and `@csrf_protected` lets GET / HEAD / OPTIONS through unchecked; a write is registered `@rt(path, methods=["POST"])` (or the route's unsafe verb — `DELETE` on `/api/form-submissions/delete`), so a link, an image URL or a prefetch gets 405 before any handler runs. The CRUD factory applies its three writes as `rt(f"{base_path}/create", methods=["POST"])(handler)`. `scripts/audit_route_security.py` fails a `@csrf_protected` handler, a literal `/api/…/create|update|delete` path or a computed factory write path that names no `methods=` or names a safe one; `tests/integration/routes/test_write_routes_post_only.py` drives every wired write on GET and HEAD.
 
 ### The rule holds at every layer
 
