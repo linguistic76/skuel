@@ -48,12 +48,14 @@ ALICE = f"user_{MARK}_alice"
 BOB = f"user_{MARK}_bob"
 
 GOAL = f"goal_{MARK}_alice"
+GOAL_TWO = f"goal_{MARK}_alice_two"
 GOAL_SHARED_SOURCE = f"goal_{MARK}_nobodys"  # a goal nobody owns
 HABIT = f"habit_{MARK}_alice"
 HABIT_TWO = f"habit_{MARK}_alice_two"
 HABIT_BOB = f"habit_{MARK}_bob"
 HABIT_CONTESTED = f"habit_{MARK}_contested"
 KU = f"ku_{MARK}_published"
+KU_TWO = f"ku_{MARK}_published_two"
 KU_DRAFT = f"ku_{MARK}_draft"
 GROUP = f"group_{MARK}"
 SESSION = f"session_{MARK}"
@@ -101,6 +103,7 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:  # boundary: fast
     for user in (ALICE, BOB):
         await _run(driver, "CREATE (:User {uid: $uid, title: $uid})", uid=user)
     await _owned(driver, "Goal", GOAL, ALICE)
+    await _owned(driver, "Goal", GOAL_TWO, ALICE)
     await _owned(driver, "Habit", HABIT, ALICE)
     await _owned(driver, "Habit", HABIT_TWO, ALICE)
     await _owned(driver, "Habit", HABIT_BOB, BOB)
@@ -112,6 +115,7 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:  # boundary: fast
                             publication_state: 'published'})
         CREATE (:Entity:Ku {uid: $draft, title: $draft, entity_type: 'ku',
                             publication_state: 'draft'})
+        CREATE (:Entity:Ku {uid: $ku_two, title: $ku_two, entity_type: 'ku'})
         CREATE (:Content {uid: $ku})
         WITH 1 AS one
         MATCH (alice:User {uid: $alice})
@@ -123,6 +127,7 @@ async def graph(skuel_app: Any) -> AsyncIterator[AsyncDriver]:  # boundary: fast
         nobodys=GOAL_SHARED_SOURCE,
         ku=KU,
         draft=KU_DRAFT,
+        ku_two=KU_TWO,
         alice=ALICE,
         group=GROUP,
         session=SESSION,
@@ -293,6 +298,29 @@ class TestTheWriteReadsUnderTheFarEndsLock:
 
         assert outcome.value.refused_uid is None
         assert await _links(graph, GOAL) == {(REINFORCES_HABIT.value, HABIT)}
+
+
+class TestConcurrentWritesOverSharedFarEnds:
+    async def test_writes_naming_the_same_far_ends_in_opposite_orders_all_land(
+        self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
+    ) -> None:
+        """Two anchors link the same two Kus, named in opposite orders, at once: the
+        locks are taken in one order (and a deadlock is retried), so every write lands."""
+        for _ in range(5):
+            await _clear_links(graph)
+            outcomes = await asyncio.gather(
+                backend.write_guarded_links(GOAL, [_knowledge(KU, KU_TWO)], anchor_owners=ALICES),
+                backend.write_guarded_links(
+                    GOAL_TWO, [_knowledge(KU_TWO, KU)], anchor_owners=ALICES
+                ),
+            )
+
+            assert [outcome.is_ok for outcome in outcomes] == [True, True], outcomes
+            assert [outcome.value.refused_uid for outcome in outcomes] == [None, None]
+            assert await _links(graph, GOAL) == {
+                (REQUIRES_KNOWLEDGE.value, KU),
+                (REQUIRES_KNOWLEDGE.value, KU_TWO),
+            }
 
 
 class TestTheWriteIsBoundToTheAdmittedOwners:

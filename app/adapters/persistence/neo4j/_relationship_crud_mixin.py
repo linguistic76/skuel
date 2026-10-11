@@ -47,17 +47,29 @@ from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, UserUID
 from core.utils.error_boundary import safe_backend_operation
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, ErrorSeverity, Result
 
 if TYPE_CHECKING:
     import builtins
     import logging
 
-    from neo4j import AsyncDriver, Record
+    from neo4j import AsyncDriver, AsyncManagedTransaction, Record
 
     from core.models.link_write_contracts import GuardedLinkWrite
     from core.ports.base_protocols import Direction
+
+
+class _LinkRefusedError(Exception):
+    """A guarded link statement refused ``uid``: raised to roll its transaction back."""
+
+    def __init__(self, uid: str) -> None:
+        super().__init__(uid)
+        self.uid = uid
+
+
+def _write_order(write: GuardedLinkWrite) -> tuple[str, bool]:
+    """The order a transaction takes its writes in — by edge type, then direction."""
+    return (write.relationship.value, write.anchor_is_source)
 
 
 class _PairDiagnosis(TypedDict, total=False):
@@ -1383,45 +1395,49 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         owned the anchor when the caller admitted the links: an anchor owned by anyone
         else at the write is refused as the anchor's own uid.
         """
-        written_owners: frozenset[str] = frozenset()
-        async with self.driver.session() as session:
-            tx = await session.begin_transaction()
-            try:
-                for write in writes:
-                    far_uids = list(dict.fromkeys(write.far_uids))
-                    query = build_guarded_link_query(
-                        write.relationship,
-                        anchor_is_source=write.anchor_is_source,
-                        replace=write.replace,
-                        replace_label=write.replace_label,
-                    )
-                    result = await tx.run(
-                        query,
-                        {
-                            **PUBLISHED_UIDS_BATCH_PARAMS,
-                            "anchor_uid": anchor_uid,
-                            "expected_owners": sorted(anchor_owners),
-                            "far_uids": far_uids,
-                            "far_labels": sorted(write.far_labels),
-                            "properties": dict(write.properties or {}),
-                        },
-                    )
-                    record = await result.single()
-                    admitted = set(record["admitted"]) if record else set()
-                    refused = (
-                        anchor_uid
-                        if record is None
-                        else next((uid for uid in far_uids if uid not in admitted), None)
-                    )
-                    if refused is not None:
-                        await tx.rollback()
-                        return Result.ok(GuardedLinkOutcome(refused, frozenset()))
-                    written_owners = frozenset(record["anchor_owners"])
-                await tx.commit()
-            except NEO4J_EXCEPTIONS:
-                await tx.rollback()
-                raise
-        return Result.ok(GuardedLinkOutcome(None, written_owners))
+        # A stable lock order — writes by edge type, far ends sorted — so two writes over
+        # overlapping far ends take their locks in the same order; a deadlock the order
+        # cannot prevent is retried by the managed transaction (the work is idempotent).
+        ordered = sorted(writes, key=_write_order)
+
+        async def write_all(tx: AsyncManagedTransaction) -> frozenset[str]:
+            written_owners: frozenset[str] = frozenset()
+            for write in ordered:
+                far_uids = sorted(set(write.far_uids))
+                query = build_guarded_link_query(
+                    write.relationship,
+                    anchor_is_source=write.anchor_is_source,
+                    replace=write.replace,
+                    replace_label=write.replace_label,
+                )
+                result = await tx.run(
+                    query,
+                    {
+                        **PUBLISHED_UIDS_BATCH_PARAMS,
+                        "anchor_uid": anchor_uid,
+                        "expected_owners": sorted(anchor_owners),
+                        "far_uids": far_uids,
+                        "far_labels": sorted(write.far_labels),
+                        "properties": dict(write.properties or {}),
+                    },
+                )
+                record = await result.single()
+                if record is None:
+                    raise _LinkRefusedError(anchor_uid)
+                admitted = set(record["admitted"])
+                refused = next((uid for uid in far_uids if uid not in admitted), None)
+                if refused is not None:
+                    raise _LinkRefusedError(refused)
+                written_owners = frozenset(record["anchor_owners"])
+            return written_owners
+
+        try:
+            async with self.driver.session() as session:
+                written = await session.execute_write(write_all)
+        except _LinkRefusedError as refusal:
+            # Raised inside the unit of work, so the managed transaction rolled back.
+            return Result.ok(GuardedLinkOutcome(refusal.uid, frozenset()))
+        return Result.ok(GuardedLinkOutcome(None, written))
 
     # ============================================================================
     # CONFIG-DRIVEN BATCH RELATIONSHIP QUERIES
