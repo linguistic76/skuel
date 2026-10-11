@@ -2304,7 +2304,7 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "Goal": GOALS_CONFIG,
     "Habit": HABITS_CONFIG,
     "Event": EVENTS_CONFIG,
-    "Choice": CHOICES_CONFIG,  # Virtual key — config lookup key for 'choice'}
+    "Choice": CHOICES_CONFIG,
     "Principle": PRINCIPLES_CONFIG,
     # Note: Finance/Expense is standalone (not in registry)
     # User (Identity Layer - January 2026)
@@ -2540,7 +2540,6 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # =============================================================================
 
 # Maps EntityType to registry config key (Neo4j label string).
-# All domain entities are :Entity nodes; virtual config keys kept for lookup.
 #
 # DERIVED from NeoLabel, over EntityType rather than a hand-written key set, so
 # it cannot disagree with the accessor and cannot be incomplete: a new

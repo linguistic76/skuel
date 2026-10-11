@@ -46,7 +46,7 @@ class TestExerciseRegistryConfig:
         assert EXERCISE_CONFIG is not None
 
     def test_exercise_in_label_configs(self):
-        """Exercise should be registered as virtual key in LABEL_CONFIGS."""
+        """Exercise should be registered under its label in LABEL_CONFIGS."""
         assert "Exercise" in LABEL_CONFIGS
         assert LABEL_CONFIGS["Exercise"] is EXERCISE_CONFIG
 
