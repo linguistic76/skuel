@@ -45,6 +45,7 @@ core/services/relationships/
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.events import EntityLinksChanged, publish_event
@@ -75,6 +76,16 @@ if TYPE_CHECKING:
 
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext
+
+
+@dataclass(frozen=True)
+class _Admission:
+    """One key's admission: the far end the write re-asserts, and the source's owners
+    as the admission read them (``None`` when nothing was admitted — a cleared key)."""
+
+    far_end: LinkFarEnd
+    owners: frozenset[str] | None
+
 
 # Type variables
 T = TypeVar("T")  # Domain model type
@@ -368,23 +379,25 @@ class UnifiedRelationshipService[
 
     async def _admitted(
         self, from_uid: str, to_uids: Sequence[str], far_end: LinkFarEnd | AdmittedFarEnds
-    ) -> Result[LinkFarEnd]:
+    ) -> Result[_Admission]:
         """Admit ``to_uids`` — or check a prior admission covers them — before a write.
 
-        Returns the far end the write re-asserts. An empty ``to_uids`` (a cleared
-        key) admits nothing and reads nothing.
+        Returns the far end the write re-asserts and the source's owners as the
+        admission read them. An empty ``to_uids`` (a cleared key) admits nothing and
+        reads nothing: its owners are ``None``.
         """
         if isinstance(far_end, AdmittedFarEnds):
             if not all(far_end.covers(from_uid, uid) for uid in to_uids):
                 return Result.fail(
                     Errors.validation("The admission handed to this write is for another link")
                 )
-            return Result.ok(far_end.far_end)
-        if to_uids:
-            admitted = await self.admit_far_ends(from_uid, to_uids, far_end)
-            if admitted.is_error:
-                return Result.fail(admitted)
-        return Result.ok(far_end)
+            return Result.ok(_Admission(far_end.far_end, far_end.owner_uids))
+        if not to_uids:
+            return Result.ok(_Admission(far_end, None))
+        admitted = await self.admit_far_ends(from_uid, to_uids, far_end)
+        if admitted.is_error:
+            return Result.fail(admitted)
+        return Result.ok(_Admission(far_end, admitted.value.owner_uids))
 
     @classmethod
     def _guarded_write(
@@ -418,26 +431,48 @@ class UnifiedRelationshipService[
     async def _write_links(
         self,
         anchor_uid: str,
-        writes: Sequence[tuple[GuardedLinkWrite, LinkFarEnd]],
+        writes: Sequence[tuple[GuardedLinkWrite, _Admission]],
     ) -> Result[int]:
         """Write ``writes`` in one transaction and announce the change; returns the far ends linked.
 
         The statement re-asserts each far end's admission (``write_guarded_links``): one
         that changed since it was admitted — deleted, re-owned, unpublished — refuses
         the whole write as ``not_found`` of its far end, exactly as the admission
-        refuses, and nothing is written.
+        refuses, and nothing is written. The anchor must still be owned by exactly the
+        owners its admissions read (read here when no write admitted anything — a
+        replace that only clears); an anchor that changed hands is refused as not found.
         """
-        outcome = await self.backend.write_guarded_links(anchor_uid, [write for write, _ in writes])
+        read_owners = {admission.owners for _, admission in writes if admission.owners is not None}
+        if not read_owners:
+            owners = await self.backend.get_owner_uids_batch([anchor_uid])
+            if owners.is_error:
+                return Result.fail(owners)
+            read_owners = {frozenset(owners.value.get(anchor_uid, ()))}
+        if len(read_owners) > 1:
+            return Result.fail(
+                Errors.not_found(
+                    self.config.entity_label, anchor_uid, reason="owners changed between admissions"
+                )
+            )
+        outcome = await self.backend.write_guarded_links(
+            anchor_uid, [write for write, _ in writes], anchor_owners=read_owners.pop()
+        )
         if outcome.is_error:
             return Result.fail(outcome)
         refused = outcome.value.refused_uid
         if refused == anchor_uid:
             return Result.fail(
-                Errors.not_found(self.config.entity_label, anchor_uid, reason="gone at the write")
+                Errors.not_found(
+                    self.config.entity_label,
+                    anchor_uid,
+                    reason="gone or changed hands at the write",
+                )
             )
         if refused is not None:
             resource = next(
-                far_end.resource for write, far_end in writes if refused in write.far_uids
+                admission.far_end.resource
+                for write, admission in writes
+                if refused in write.far_uids
             )
             return Result.fail(
                 Errors.not_found(resource, refused, reason="changed since its admission")
@@ -480,7 +515,9 @@ class UnifiedRelationshipService[
         admitted = await self._admitted(from_uid, [to_uid], far_end)
         if admitted.is_error:
             return Result.fail(admitted)
-        write = self._guarded_write(spec.value, [to_uid], admitted.value, properties, replace=False)
+        write = self._guarded_write(
+            spec.value, [to_uid], admitted.value.far_end, properties, replace=False
+        )
         written = await self._write_links(from_uid, [(write, admitted.value)])
         if written.is_error:
             return Result.fail(written)
@@ -593,7 +630,7 @@ class UnifiedRelationshipService[
         Returns:
             Result[int] with count of relationships created
         """
-        writes: list[tuple[GuardedLinkWrite, LinkFarEnd]] = []
+        writes: list[tuple[GuardedLinkWrite, _Admission]] = []
 
         for relationship_key, target_uids in relationships.items():
             if not target_uids:
@@ -615,7 +652,10 @@ class UnifiedRelationshipService[
             if admitted.is_error:
                 return Result.fail(admitted)
             writes.append(
-                (self._guarded_write(spec, target_uids, far_end, None, replace=False), far_end)
+                (
+                    self._guarded_write(spec, target_uids, far_end, None, replace=False),
+                    _Admission(far_end, admitted.value.owner_uids),
+                )
             )
 
         if not writes:
@@ -644,7 +684,7 @@ class UnifiedRelationshipService[
         Returns:
             Result[int] — the far ends linked across every key.
         """
-        writes: list[tuple[GuardedLinkWrite, LinkFarEnd]] = []
+        writes: list[tuple[GuardedLinkWrite, _Admission]] = []
         for relationship_key, target_uids in relationships.items():
             spec = self._spec(relationship_key)
             if spec.is_error:
@@ -666,7 +706,9 @@ class UnifiedRelationshipService[
             admitted = await self._admitted(entity_uid, target_uids, far_end)
             if admitted.is_error:
                 return Result.fail(admitted)
-            write = self._guarded_write(spec.value, target_uids, admitted.value, None, replace=True)
+            write = self._guarded_write(
+                spec.value, target_uids, admitted.value.far_end, None, replace=True
+            )
             writes.append((write, admitted.value))
 
         if not writes:

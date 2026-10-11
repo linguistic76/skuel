@@ -1368,16 +1368,22 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("write_guarded_links")
     async def write_guarded_links(
-        self, anchor_uid: str, writes: builtins.list[GuardedLinkWrite]
+        self,
+        anchor_uid: str,
+        writes: builtins.list[GuardedLinkWrite],
+        *,
+        anchor_owners: frozenset[str],
     ) -> Result[GuardedLinkOutcome]:
         """Write an anchor's links, each statement re-asserting the link-edge guard's rule.
 
         One transaction for every write: a far end the statement refuses — deleted,
         re-owned, unpublished or of the wrong kind since it was admitted — rolls back
         the writes before it, so the anchor's links are all written or none is (the
-        rule and the statement: ``build_guarded_link_query``).
+        rule and the statement: ``build_guarded_link_query``). ``anchor_owners`` is who
+        owned the anchor when the caller admitted the links: an anchor owned by anyone
+        else at the write is refused as the anchor's own uid.
         """
-        anchor_owners: frozenset[str] = frozenset()
+        written_owners: frozenset[str] = frozenset()
         async with self.driver.session() as session:
             tx = await session.begin_transaction()
             try:
@@ -1394,6 +1400,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                         {
                             **PUBLISHED_UIDS_BATCH_PARAMS,
                             "anchor_uid": anchor_uid,
+                            "expected_owners": sorted(anchor_owners),
                             "far_uids": far_uids,
                             "far_labels": sorted(write.far_labels),
                             "properties": dict(write.properties or {}),
@@ -1409,12 +1416,12 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                     if refused is not None:
                         await tx.rollback()
                         return Result.ok(GuardedLinkOutcome(refused, frozenset()))
-                    anchor_owners = frozenset(record["anchor_owners"])
+                    written_owners = frozenset(record["anchor_owners"])
                 await tx.commit()
             except NEO4J_EXCEPTIONS:
                 await tx.rollback()
                 raise
-        return Result.ok(GuardedLinkOutcome(None, anchor_owners))
+        return Result.ok(GuardedLinkOutcome(None, written_owners))
 
     # ============================================================================
     # CONFIG-DRIVEN BATCH RELATIONSHIP QUERIES

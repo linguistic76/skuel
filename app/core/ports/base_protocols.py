@@ -928,14 +928,19 @@ class RelationshipCrudOperations(Protocol):
         ...
 
     async def write_guarded_links(
-        self, anchor_uid: str, writes: builtins.list[GuardedLinkWrite]
+        self,
+        anchor_uid: str,
+        writes: builtins.list[GuardedLinkWrite],
+        *,
+        anchor_owners: frozenset[str],
     ) -> ResultType[GuardedLinkOutcome]:
         """Write an anchor's links, each statement re-asserting the link-edge guard's rule.
 
         Every far end must still be an entity of an allowed kind, owned by one of the
         anchor's owners or by nobody and published, when the edge is merged — one that
-        changed since its admission refuses the whole write. The writes share one
-        transaction: all land, or none does.
+        changed since its admission refuses the whole write, as does an anchor whose
+        owners are no longer ``anchor_owners`` (the owners the admission read). The
+        writes share one transaction: all land, or none does.
         Backend: ``_RelationshipCrudMixin.write_guarded_links``.
         """
         ...

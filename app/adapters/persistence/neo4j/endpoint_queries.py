@@ -125,14 +125,18 @@ def build_guarded_link_query(
     statement then writes NOTHING: every far end passes, or no edge is merged and none
     is deleted.
 
+    The anchor's owners must be exactly ``$expected_owners`` — the owners the caller's
+    admission read — so an anchor that changed hands since then is refused like one
+    that names nothing, rather than linked on its new owner's terms.
+
     With ``replace`` the anchor's other edges of this type — to a node carrying
     ``replace_label`` when one is given — are deleted in the same statement, so a
     replacement never leaves the anchor without its old link and without the new one.
 
-    Parameters: ``$anchor_uid``, ``$far_uids`` (distinct), ``$far_labels``,
+    Parameters: ``$anchor_uid``, ``$expected_owners``, ``$far_uids`` (distinct), ``$far_labels``,
     ``$properties`` and ``PUBLISHED_UIDS_BATCH_PARAMS``. Returns one row —
     ``admitted`` (the far uids that passed) and ``anchor_owners`` — or none when the
-    anchor names no entity.
+    anchor names no entity, or is not owned by exactly ``$expected_owners``.
     """
     rel = relationship.value
     link = f"(a)-[r:{rel}]->(f)" if anchor_is_source else f"(f)-[r:{rel}]->(a)"
@@ -145,6 +149,8 @@ def build_guarded_link_query(
 MATCH (a:{NeoLabel.ENTITY.value} {{uid: $anchor_uid}}) WHERE NOT a:{NeoLabel.CONTENT.value}
 SET a.uid = a.uid
 WITH a, {build_owner_uids_expression("a")} AS anchor_owners
+WHERE all(o IN anchor_owners WHERE o IN $expected_owners)
+  AND all(o IN $expected_owners WHERE o IN anchor_owners)
 CALL (a, anchor_owners) {{
     UNWIND $far_uids AS far_uid
     MATCH (n:{NeoLabel.ENTITY.value} {{uid: far_uid}})

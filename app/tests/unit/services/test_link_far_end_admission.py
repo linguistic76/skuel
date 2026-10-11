@@ -104,10 +104,12 @@ class WritingEndpoints(Endpoints):
     changed: frozenset[str] = frozenset()
     written: list[tuple[str, str, str]] = field(default_factory=list)
     writes: list[GuardedLinkWrite] = field(default_factory=list)
+    expected_owners: list[frozenset[str]] = field(default_factory=list)
 
     async def write_guarded_links(
-        self, anchor_uid: str, writes: list[GuardedLinkWrite]
+        self, anchor_uid: str, writes: list[GuardedLinkWrite], *, anchor_owners: frozenset[str]
     ) -> Result[GuardedLinkOutcome]:
+        self.expected_owners.append(anchor_owners)
         refused = next(
             (uid for write in writes for uid in write.far_uids if uid in self.changed), None
         )
@@ -466,6 +468,20 @@ class TestTheServiceReplacesInOneWrite:
         # An empty list clears the key, and admits — reads — nothing for it.
         assert (knowledge.replace, knowledge.far_uids) == (True, ())
         assert endpoints.asked == [["goal_alice", "habit_alice"]]
+        # The write is bound to the owners the admission read.
+        assert endpoints.expected_owners == [frozenset({ALICE})]
+
+    @pytest.mark.asyncio
+    async def test_a_replace_that_only_clears_reads_the_owner_it_binds_to(self) -> None:
+        endpoints = WritingEndpoints()
+
+        cleared = await self._service(endpoints).replace_relationships(
+            "goal_alice", {"supporting_habits": []}, far_ends={"supporting_habits": HABIT_FAR_END}
+        )
+
+        assert cleared.is_ok, cleared.error
+        assert endpoints.asked == [["goal_alice"]]
+        assert endpoints.expected_owners == [frozenset({ALICE})]
 
     @pytest.mark.asyncio
     async def test_a_refused_far_end_replaces_nothing(self) -> None:

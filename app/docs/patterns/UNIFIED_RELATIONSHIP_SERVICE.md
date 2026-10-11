@@ -335,10 +335,12 @@ await service.create_relationship(
 >
 > **The write re-asserts the admission.** Every edge goes through
 > `backend.write_guarded_links`, whose statement (`build_guarded_link_query`,
-> `adapters/persistence/neo4j/endpoint_queries.py`) reads the far end again under the
-> write — an entity of an allowed kind, owned by one of the source's owners or by nobody
-> and published — so a far end deleted, re-owned or unpublished between the admission and
-> the write is refused there, as `not_found(far_end.resource)`, with nothing written.
+> `adapters/persistence/neo4j/endpoint_queries.py`) takes the source's and each far end's
+> write lock and reads them again — the far end an entity of an allowed kind, owned by one
+> of the source's owners or by nobody and published; the source owned by exactly the owners
+> its admission read — so a far end deleted, re-owned or unpublished between the admission
+> and the write is refused there, as `not_found(far_end.resource)`, and a source that
+> changed hands as `not_found` of the source, with nothing written.
 >
 > **Every write and removal is announced.** The write returns the source's owners as it
 > read them; `create_relationship`, `create_relationships_batch`, `replace_relationships`

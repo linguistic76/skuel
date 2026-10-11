@@ -60,6 +60,9 @@ SESSION = f"session_{MARK}"
 COMPLETION = f"completion_{MARK}"
 MISSING = f"habit_{MARK}_names_nothing"
 
+ALICES = frozenset({ALICE})
+NOBODY: frozenset[str] = frozenset()
+
 REINFORCES_HABIT = RelationshipName.REINFORCES_HABIT
 REQUIRES_KNOWLEDGE = RelationshipName.REQUIRES_KNOWLEDGE
 HABITS = frozenset({NeoLabel.HABIT.value})
@@ -178,7 +181,9 @@ class TestTheWriteReassertsTheRule:
     ) -> None:
         await _clear_links(graph)
 
-        outcome = await backend.write_guarded_links(GOAL, [_habits(HABIT), _knowledge(KU)])
+        outcome = await backend.write_guarded_links(
+            GOAL, [_habits(HABIT), _knowledge(KU)], anchor_owners=ALICES
+        )
 
         assert outcome.is_ok
         assert outcome.value.refused_uid is None
@@ -204,7 +209,9 @@ class TestTheWriteReassertsTheRule:
     ) -> None:
         await _clear_links(graph)
 
-        outcome = await backend.write_guarded_links(GOAL, [_habits(HABIT), write])
+        outcome = await backend.write_guarded_links(
+            GOAL, [_habits(HABIT), write], anchor_owners=ALICES
+        )
 
         assert outcome.is_ok
         assert outcome.value.refused_uid == write.far_uids[0]
@@ -216,8 +223,12 @@ class TestTheWriteReassertsTheRule:
     ) -> None:
         await _clear_links(graph)
 
-        refused = await backend.write_guarded_links(GOAL_SHARED_SOURCE, [_habits(HABIT)])
-        linked = await backend.write_guarded_links(GOAL_SHARED_SOURCE, [_knowledge(KU)])
+        refused = await backend.write_guarded_links(
+            GOAL_SHARED_SOURCE, [_habits(HABIT)], anchor_owners=NOBODY
+        )
+        linked = await backend.write_guarded_links(
+            GOAL_SHARED_SOURCE, [_knowledge(KU)], anchor_owners=NOBODY
+        )
 
         assert refused.value.refused_uid == HABIT
         assert linked.value.refused_uid is None
@@ -226,7 +237,7 @@ class TestTheWriteReassertsTheRule:
     async def test_an_anchor_that_names_nothing_is_refused(
         self, backend: UniversalNeo4jBackend[Entity]
     ) -> None:
-        outcome = await backend.write_guarded_links(MISSING, [_habits(HABIT)])
+        outcome = await backend.write_guarded_links(MISSING, [_habits(HABIT)], anchor_owners=NOBODY)
 
         assert outcome.value.refused_uid == MISSING
 
@@ -254,7 +265,7 @@ class TestTheWriteReadsUnderTheFarEndsLock:
                 habit=HABIT_CONTESTED,
             )
             write = asyncio.create_task(
-                backend.write_guarded_links(GOAL, [_habits(HABIT_CONTESTED)])
+                backend.write_guarded_links(GOAL, [_habits(HABIT_CONTESTED)], anchor_owners=ALICES)
             )
             await asyncio.sleep(1)
             assert not write.done(), "the write waits for the transaction holding its far end"
@@ -273,7 +284,9 @@ class TestTheWriteReadsUnderTheFarEndsLock:
         async with graph.session() as session:
             other = await session.begin_transaction()
             await other.run("MATCH (h:Entity {uid: $habit}) SET h.title = 'renamed'", habit=HABIT)
-            write = asyncio.create_task(backend.write_guarded_links(GOAL, [_habits(HABIT)]))
+            write = asyncio.create_task(
+                backend.write_guarded_links(GOAL, [_habits(HABIT)], anchor_owners=ALICES)
+            )
             await asyncio.sleep(1)
             await other.commit()
             outcome = await write
@@ -282,14 +295,35 @@ class TestTheWriteReadsUnderTheFarEndsLock:
         assert await _links(graph, GOAL) == {(REINFORCES_HABIT.value, HABIT)}
 
 
+class TestTheWriteIsBoundToTheAdmittedOwners:
+    async def test_an_anchor_owned_by_someone_else_than_admitted_writes_nothing(
+        self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
+    ) -> None:
+        """Admitted as Alice's goal; the goal is Bob's (or shared) at the write."""
+        await _clear_links(graph)
+
+        bob = await backend.write_guarded_links(
+            GOAL, [_knowledge(KU)], anchor_owners=frozenset({BOB})
+        )
+        shared = await backend.write_guarded_links(GOAL, [_knowledge(KU)], anchor_owners=NOBODY)
+
+        assert bob.value.refused_uid == GOAL
+        assert shared.value.refused_uid == GOAL
+        assert await _links(graph, GOAL) == set()
+
+
 class TestAReplaceIsOneStatement:
     async def test_a_replace_removes_the_old_edge_and_writes_the_new(
         self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
     ) -> None:
         await _clear_links(graph)
-        await backend.write_guarded_links(GOAL, [_habits(HABIT), _knowledge(KU)])
+        await backend.write_guarded_links(
+            GOAL, [_habits(HABIT), _knowledge(KU)], anchor_owners=ALICES
+        )
 
-        outcome = await backend.write_guarded_links(GOAL, [_habits(HABIT_TWO, replace=True)])
+        outcome = await backend.write_guarded_links(
+            GOAL, [_habits(HABIT_TWO, replace=True)], anchor_owners=ALICES
+        )
 
         assert outcome.value.refused_uid is None
         # The knowledge edge is another type: a habit replace leaves it alone.
@@ -302,9 +336,11 @@ class TestAReplaceIsOneStatement:
         self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
     ) -> None:
         await _clear_links(graph)
-        await backend.write_guarded_links(GOAL, [_habits(HABIT)])
+        await backend.write_guarded_links(GOAL, [_habits(HABIT)], anchor_owners=ALICES)
 
-        outcome = await backend.write_guarded_links(GOAL, [_habits(HABIT_BOB, replace=True)])
+        outcome = await backend.write_guarded_links(
+            GOAL, [_habits(HABIT_BOB, replace=True)], anchor_owners=ALICES
+        )
 
         assert outcome.value.refused_uid == HABIT_BOB
         assert await _links(graph, GOAL) == {(REINFORCES_HABIT.value, HABIT)}
@@ -313,9 +349,13 @@ class TestAReplaceIsOneStatement:
         self, graph: AsyncDriver, backend: UniversalNeo4jBackend[Entity]
     ) -> None:
         await _clear_links(graph)
-        await backend.write_guarded_links(GOAL, [_habits(HABIT, HABIT_TWO), _knowledge(KU)])
+        await backend.write_guarded_links(
+            GOAL, [_habits(HABIT, HABIT_TWO), _knowledge(KU)], anchor_owners=ALICES
+        )
 
-        outcome = await backend.write_guarded_links(GOAL, [_habits(replace=True)])
+        outcome = await backend.write_guarded_links(
+            GOAL, [_habits(replace=True)], anchor_owners=ALICES
+        )
 
         assert outcome.value.refused_uid is None
         assert await _links(graph, GOAL) == {(REQUIRES_KNOWLEDGE.value, KU)}
