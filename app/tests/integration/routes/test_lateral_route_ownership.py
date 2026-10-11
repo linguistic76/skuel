@@ -94,13 +94,13 @@ _GRAPH_ROW = {
 }
 
 
-def _make_request(user_uid: str | None = OWNER) -> Any:
+def _make_request(user_uid: str | None = OWNER, query: dict[str, str] | None = None) -> Any:
     """Minimal session-backed request stub for ``require_authenticated_user``."""
     return SimpleNamespace(
         method="GET",
         session={"user_uid": user_uid} if user_uid is not None else {},
         url=SimpleNamespace(path="/api/goals/x/lateral/chain"),
-        query_params={},
+        query_params=query or {},
         cookies={},
     )
 
@@ -366,10 +366,10 @@ class TestRouteThreadsTheVerifier:
         self, spy: tuple[Any, dict[str, Any]], owner_only_service: Any
     ) -> None:
         lateral, handlers = spy
-        await _chain(handlers, "goals")(request=_make_request(OWNER), uid=OWNED_UID, max_depth=4)
+        await _chain(handlers, "goals")(request=_make_request(OWNER), uid=OWNED_UID)
 
         args, kwargs = lateral.get_blocking_chain.await_args
-        assert args == (OWNED_UID, 4)
+        assert args == (OWNED_UID,)
         assert kwargs == {"user_uid": OWNER, "domain_service": owner_only_service}
 
     async def test_comparison_passes_user_and_verifier(
@@ -387,7 +387,7 @@ class TestRouteThreadsTheVerifier:
     ) -> None:
         lateral, handlers = spy
         await _graph(handlers, "goals")(
-            request=_make_request(OWNER), uid=OWNED_UID, depth=3, types="BLOCKS"
+            request=_make_request(OWNER, {"depth": "3"}), uid=OWNED_UID, types="BLOCKS"
         )
 
         args, kwargs = lateral.get_relationship_graph.await_args

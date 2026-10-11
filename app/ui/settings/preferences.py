@@ -14,6 +14,7 @@ from typing import Any
 
 from fasthtml.common import Div, Form, Option, P, Span
 
+from core.models.user.user import LANGUAGES, THEMES
 from core.utils.zone_context import zone_names
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT
@@ -24,6 +25,14 @@ from ui.patterns.page_header import PageHeader
 # zone" did — SKUEL.useDeviceZone (static/js/skuel.js) is handed both ids.
 TIMEZONE_SELECT_ID = "timezone"
 TIMEZONE_NOTE_ID = "timezone-device-note"
+
+#: The language list's labels, one per code in ``LANGUAGES``.
+_LANGUAGE_LABELS: dict[str, str] = {
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+}
 
 
 class UserPreferencesComponents:
@@ -267,12 +276,6 @@ class UserPreferencesComponents:
             ),
         )
 
-    # DaisyUI themes (class-based dark mode via Tailwind)
-    THEMES = [
-        "light",
-        "dark",
-    ]
-
     @staticmethod
     def _render_display_prefs(prefs: dict, default_timezone: str) -> Any:
         """Render display preferences section"""
@@ -283,7 +286,7 @@ class UserPreferencesComponents:
                 value=theme,
                 selected=current_theme == theme,
             )
-            for theme in UserPreferencesComponents.THEMES
+            for theme in THEMES
         ]
 
         return Div(
@@ -297,10 +300,12 @@ class UserPreferencesComponents:
                 cls="space-y-2 mb-4",
             ),
             LabelSelect(
-                Option("English", value="en", selected=prefs.get("language") == "en"),
-                Option("Spanish", value="es", selected=prefs.get("language") == "es"),
-                Option("French", value="fr", selected=prefs.get("language") == "fr"),
-                Option("German", value="de", selected=prefs.get("language") == "de"),
+                *(
+                    Option(
+                        _LANGUAGE_LABELS[code], value=code, selected=prefs.get("language") == code
+                    )
+                    for code in LANGUAGES
+                ),
                 label="Language",
                 lbl_cls="font-semibold",
                 name="language",

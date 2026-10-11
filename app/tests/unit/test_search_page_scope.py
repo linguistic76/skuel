@@ -474,6 +474,7 @@ class TestRouteWiring:
             session={"user_uid": "user_caller"},
             url=SimpleNamespace(path="/search/results"),
             headers={},
+            query_params={},
         )
 
     @pytest.mark.asyncio

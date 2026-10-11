@@ -30,6 +30,7 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.form_helpers import read_json_body
 from core.ports.query_types import AlertCheckResult, HealthCheckValidation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -348,7 +349,7 @@ def create_system_api_routes(
         Returns:
             Result[dict[str, Any]]: Registration confirmation with total services count
         """
-        body = await request.json()
+        body = await read_json_body(request)
 
         service_name = body.get("name")
         if not service_name or not isinstance(service_name, str):
@@ -398,7 +399,7 @@ def create_system_api_routes(
         Returns:
             Result[dict[str, Any]]: Unregistration confirmation with total services count
         """
-        body = await request.json()
+        body = await read_json_body(request)
 
         service_name = body.get("name")
         if not service_name:
@@ -639,7 +640,7 @@ def create_system_api_routes(
         Returns:
             Result[dict[str, Any]]: Confirmation with updated and current thresholds
         """
-        body = await request.json()
+        body = await read_json_body(request)
 
         thresholds = body.get("thresholds", {})
         if not thresholds:

@@ -143,16 +143,19 @@ async def gradebook_lines(request: Request, status: str = "all", source: str = "
 # GET /gradebook/lines?status=pending
 ```
 
-### Type Coercion — two live mechanisms, two failure codes
+### Type Coercion — never on a typed parameter outside the path
 
-FastHTML coerces an annotated query parameter itself (`limit: int = 10`), and an uncoercible
-value is a **404** before the handler runs (measured with a `TestClient` on a bare
-`fast_app()`; a missing value takes the default). Thirteen handlers rely on that
-(`ai_routes.py`'s `limit: int`, the calendar fragments —
-`grep -rnE 'request: Request[^)]*: (int|float|bool)\b' adapters/inbound/`). The SKUEL shape
-for a parameter that carries validation — a range, a date format, a CSV list, a bool
-spelling — is a `route_factories/route_helpers.py` parser, which answers a **400**
-(`ErrorCategory.VALIDATION`) with the field named, never a silent default (36 call sites):
+FastHTML coerces an annotated parameter itself by calling its annotation on the raw text,
+before the handler runs: an uncoercible `int` / `float` / `date` is a bare-text **404**, an
+uncoercible `bool` a **500** (measured with a `TestClient` on a bare `fast_app()`; a
+missing value takes the default). So SKUEL binds no `bool` / `int` / `float` / `date` /
+enum parameter outside the path — `tests/unit/adapters/test_request_input_census.py`
+walks every registered handler and fails on one. A typed path segment stays (a segment
+that does not read is a URL that names nothing). Everything else is read with a
+`route_factories/route_helpers.py` parser: the silent `parse_*_query_param` family for a
+read (an unreadable value is the default, `API_VALIDATION_PATTERNS.md` § Query Params),
+the strict `parse_*_strict` family (a **400**, `ErrorCategory.VALIDATION`, the field
+named) for a value a write stores or a required one:
 
 ```python
 from adapters.inbound.route_factories.route_helpers import (
@@ -185,13 +188,16 @@ refused as a validation error, not a 404.
 
 ## Parameter Sources
 
-FastHTML searches for parameters in order:
+FastHTML looks a parameter up by name, in order (`fasthtml/core.py` `_find_p`):
 1. Path parameters
-2. Query parameters
-3. Cookies
-4. Headers
-5. Session
-6. Form data
+2. Cookies
+3. Headers (snake_case name ↔ Hyphen-Case header)
+4. Query parameters
+5. The body — form fields, or a JSON body's top-level keys
+
+The session is not a source; `require_authenticated_user(request)` reads it. FastHTML
+also merges the query string into the JSON body it caches, so a route reads a JSON body
+with `form_helpers.read_json_body`, never `await request.json()`.
 
 ```python
 @rt("/api/tasks/{uid}/status", methods=["POST"])

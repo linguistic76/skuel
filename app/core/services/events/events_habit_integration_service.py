@@ -27,7 +27,6 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.goal.goal_contribution import moves_contribution_class
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties
 from core.services.completion_stamp import status_transition_guard
 from core.services.events._habit_links import enrich_events_with_habit_links
@@ -43,6 +42,7 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
     from core.ports.query_types import RichEntityItem
+    from core.services.events.events_core_service import EventsCoreService
 
 
 @dataclass(frozen=True)
@@ -73,12 +73,14 @@ class EventsHabitIntegrationService:
     - Managing habit-event relationships
     """
 
-    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
+    def __init__(self, backend: EventsOperations, core: EventsCoreService, event_bus=None) -> None:
         """
         Initialize events habit integration service.
 
         Args:
             backend: Protocol-based backend for event operations,
+            core: The domain's create door — every event this service creates
+                goes through it, so the create rules hold
             event_bus: Event bus for publishing domain events (optional)
 
         Note:
@@ -86,6 +88,7 @@ class EventsHabitIntegrationService:
             Calendar event operations trigger domain events which invalidate context.
         """
         self.backend = backend
+        self.core = core
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.events.habit_integration")
 
@@ -433,6 +436,9 @@ class EventsHabitIntegrationService:
             days_to_create: Number of days to create events for,
             title: Optional custom title
 
+        Each event goes through the domain's create door, so the create rules
+        hold; a write it fails fails the call with that error.
+
         Returns:
             Result containing list of created events
         """
@@ -458,46 +464,33 @@ class EventsHabitIntegrationService:
             RecurrencePattern.MONTHLY: 30,
         }.get(pattern, 1)
 
-        # Create events
+        # Create events — each through the domain's create door: its create rules
+        # hold, and the habit link rides on the entity, so the primitive writes
+        # REINFORCES_HABIT before it announces the event.
         while current_date <= end_date:
-            event_data = {
-                "user_uid": user_context.user_uid,
-                "title": title or f"Practice: {habit_uid}",
-                "event_date": current_date,
-                "duration_minutes": duration_minutes,
-                "status": "scheduled",
-                "recurrence_pattern": pattern.value,
-            }
-
-            result = await self.backend.create(Event.from_dto(EventDTO.from_dict(event_data)))
-            if result.is_error:
-                self.logger.error(f"Failed to create recurring event: {result.error}")
-                continue
-
-            event = to_domain_model(result.value, EventDTO, Event)
-            events.append(event)
-            # Habit reinforcement is a graph edge, not a property.
-            await self.backend.create_relationship(
-                event.uid, habit_uid, RelationshipName.REINFORCES_HABIT
-            )
-
-            # Publish CalendarEventCreated event (event-driven architecture)
-            from core.events import CalendarEventCreated
-
-            event_obj = CalendarEventCreated(
-                event_uid=event.uid,
+            dto = EventDTO.create_event(
                 user_uid=user_context.user_uid,
-                title=event.title,
-                event_date=event.event_date or today_in(current_zone()),
-                # event_data above sets no event_type, so Event.event_type is
-                # None here — publish a canonical EventType member rather than
-                # None (the field is declared str) or a raw literal. PERSONAL
-                # because a habit practice session is the user's own event and
-                # EventType has no RECURRING member.
-                calendar_event_type=event.event_type or EventType.PERSONAL,
+                title=title or f"Practice: {habit_uid}",
+                event_date=current_date,
+                duration_minutes=duration_minutes,
+                status=EntityStatus.SCHEDULED,
+                # A habit practice session is the user's own event; EventType has
+                # no RECURRING member.
+                event_type=EventType.PERSONAL,
+                recurrence_pattern=pattern,
             )
-            await publish_event(self.event_bus, event_obj, self.logger)
 
+            result = await self.core.create(
+                replace(
+                    Event.from_dto(dto),
+                    reinforces_habit_uid=habit_uid,
+                    contributes_to_goal_uids=(),
+                )
+            )
+            if result.is_error:
+                return Result.fail(result)
+
+            events.append(to_domain_model(result.value, EventDTO, Event))
             current_date += timedelta(days=interval_days)
 
         self.logger.info(f"Created {len(events)} recurring events for habit {habit_uid}")

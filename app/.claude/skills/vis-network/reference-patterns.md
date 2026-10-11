@@ -159,12 +159,12 @@ before anything sends larger values.
 Two of the section's three views are HTML, not a canvas:
 
 - `BlockingChainView(entity_uid, entity_type)` HTMX-loads `GET .../lateral/chain`, which
-  answers `render_chain_fragment(...)`: blockers by depth (`get_blocking_chain`,
-  `max_depth=10` by default).
+  answers `render_chain_fragment(...)`: blockers by depth (`get_blocking_chain`; the
+  backend walks a fixed 1-10 hops, and the route takes no depth).
 - `AlternativesComparisonGrid(entity_uid, entity_type)` HTMX-loads
   `GET .../lateral/alternatives/compare`, which answers `render_alternatives_fragment(...)`: a
   table whose criteria rows are fixed (`timeframe`, `difficulty`, `resources`) plus the edge's
-  `tradeoffs` / `comparison_criteria`. No writer sets the three criteria today, so those rows
-  read `N/A`.
+  `tradeoffs` / `comparison_criteria`. The add-relationship modal's alternatives form writes
+  the three criteria (`ui/patterns/relationships/add_modal.py`); a blank one reads `N/A`.
 
 Both reload on `relationships-changed from:body`.

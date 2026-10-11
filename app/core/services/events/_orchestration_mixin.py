@@ -11,11 +11,12 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalContributionsChanged, publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
-from core.models.enums import AttendanceStatus, EventType, RecurrencePattern
+from core.models.enums import AttendanceStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
@@ -28,8 +29,6 @@ from core.services.mixins.link_edge_guard import (
     keep_permitted_link_edges,
 )
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.event.event_request import (
@@ -306,6 +305,9 @@ class _OrchestrationMixin:
         kind, a uid that names nothing — is dropped from the credit and logged
         like a stale uid; the event itself is the caller's own and is created
         either way.
+
+        The event is written through the domain's create door, so the create
+        rules hold here too: a span they refuse is refused, and nothing is written.
         """
         dto = EventDTO.create_event(
             user_uid=user_context.user_uid,
@@ -320,8 +322,6 @@ class _OrchestrationMixin:
             tags=event_data.tags,
         )
 
-        # Habit reinforcement is a graph edge ((Event)-[:REINFORCES_HABIT]->(Habit)),
-        # not a DTO property — capture it here and write the edge after create.
         habit_uid = event_data.reinforces_habit_uid
 
         if habit_uid and habit_uid in user_context.active_habit_uids:
@@ -331,28 +331,18 @@ class _OrchestrationMixin:
             dto.uid, user_context.user_uid, event_data.practices_knowledge_uids
         )
 
-        create_result = await self.backend.create(Event.from_dto(dto))
+        # Through the domain's create door: its create rules (the span) hold, and the
+        # habit link rides on the entity, so the primitive admits it, writes
+        # REINFORCES_HABIT, and only then announces the event.
+        create_result = await self.core.create(
+            replace(
+                Event.from_dto(dto), reinforces_habit_uid=habit_uid, contributes_to_goal_uids=()
+            )
+        )
         if create_result.is_error:
             return Result.fail(create_result)
 
         event = create_result.value
-
-        if habit_uid:
-            await self.link_event_to_habit(event.uid, habit_uid)
-
-        from core.events import CalendarEventCreated, publish_event
-
-        event_obj = CalendarEventCreated(
-            event_uid=event.uid,
-            user_uid=user_context.user_uid,
-            title=event.title,
-            # Event.event_date and .event_type are both optional on the model but
-            # required by the event; fall back the same way the sibling publish
-            # sites in events_core_service / events_habit_integration_service do.
-            event_date=event.event_date or today_in(current_zone()),
-            calendar_event_type=event.event_type or EventType.MEETING,
-        )
-        await publish_event(self.event_bus, event_obj, self.logger)
 
         if practised:
             from core.events.knowledge_substance_events import KnowledgePracticedInEvent

@@ -20,7 +20,11 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories.hierarchy_api_factory import tree_error_row
-from adapters.inbound.route_factories.route_helpers import is_not_found, refuse
+from adapters.inbound.route_factories.route_helpers import (
+    is_not_found,
+    parse_int_query_param,
+    refuse,
+)
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
     LearningPathProgressRequest,
@@ -194,14 +198,16 @@ def create_pathways_api_routes(
         return await learning_service.get_optimal_path_recommendation(user_uid)
 
     @rt("/api/lp/{uid}/children", methods=["GET"])
-    async def lp_children_fragment(request: Request, uid: str, parent_depth: int = 0) -> Any:
+    async def lp_children_fragment(request: Request, uid: str) -> Any:
         """The step tree's lazy load: a learning path's steps, or a path step's Kus.
 
-        ``parent_depth`` is the depth of the node whose children these are (-1
-        loads them as roots). A Ku is a leaf. A uid that names neither a learning
-        path nor a path step is the ordinary 404, whatever it does name. Public,
-        like the ``/lp/{uid}`` page it serves; the rows are read-only.
+        ``parent_depth`` (query, default 0; an unreadable value is the default) is
+        the depth of the node whose children these are (-1 loads them as roots).
+        A Ku is a leaf. A uid that names neither a learning path nor a path step
+        is the ordinary 404, whatever it does name. Public, like the ``/lp/{uid}``
+        page it serves; the rows are read-only.
         """
+        parent_depth = parse_int_query_param(request.query_params, "parent_depth", 0, minimum=-1)
         steps = await learning_service.get_path_steps(uid)
         if not steps.is_error:
             return tree_rows(step_tree_nodes(steps.value, set()), "ps", parent_depth)

@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, Mock
 
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.event.event import Event
+from core.services.events.events_core_service import EventsCoreService
 from core.services.events.events_scheduling_service import EventsSchedulingService
 from core.utils.result_simplified import Errors, Result
 
@@ -20,7 +21,7 @@ async def test_a_failed_event_read_is_the_result():
         Errors.database(message="events unavailable", operation="find_by")
     )
     backend.find_by = AsyncMock(return_value=failure)
-    service = EventsSchedulingService(backend=backend)
+    service = EventsSchedulingService(backend=backend, core=EventsCoreService(backend))
 
     result = await service.optimize_recurring_schedule("user_1", RecurrencePattern.WEEKLY)
 

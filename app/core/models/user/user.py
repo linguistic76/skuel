@@ -29,6 +29,12 @@ from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.zone_context import zone_for
 
+#: The display themes a user may choose (``UserPreferences.theme``).
+THEMES: tuple[str, ...] = ("light", "dark")
+
+#: The interface languages a user may choose (``UserPreferences.language``).
+LANGUAGES: tuple[str, ...] = ("en", "es", "fr", "de")
+
 
 def _default_energy_pattern() -> dict[TimeOfDay, EnergyLevel]:
     """Create default energy pattern for user preferences."""
@@ -68,8 +74,8 @@ class UserPreferences:
     daily_summary_time: str | None = "09:00"  # HH:MM format
 
     # Display preferences
-    theme: str = "light"  # light, dark, auto
-    language: str = "en"
+    theme: str = "light"  # one of THEMES
+    language: str = "en"  # one of LANGUAGES
     # The user's zone: an IANA name chosen in Settings, validated at the doors
     # (core/utils/zone_context.py). None — no choice — follows SKUEL_TIMEZONE.
     timezone: str | None = None

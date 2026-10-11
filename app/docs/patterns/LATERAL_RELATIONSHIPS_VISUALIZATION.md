@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-10-10'
+updated: '2026-10-11'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -94,9 +94,9 @@ The visualizations are now backed by **authoring**, not read-only. Two things la
                   │
 ┌─────────────────▼───────────────────────────────────────┐
 │  LateralRelationshipService                             │
-│  - get_blocking_chain(uid, max_depth=3)                 │
+│  - get_blocking_chain(uid)                              │
 │  - get_alternatives_with_comparison(uid)                │
-│  - get_relationship_graph(uid, depth=1, types=None)     │
+│  - get_relationship_graph(uid, depth=2, types=None)     │
 └─────────────────┬───────────────────────────────────────┘
                   │
 ┌─────────────────▼───────────────────────────────────────┐
@@ -469,9 +469,7 @@ The 3 read methods live on the one domain-agnostic `LateralRelationshipService` 
 
 ```python
 # core/services/lateral_relationships/lateral_relationship_service.py
-await lateral_service.get_blocking_chain(
-    uid, max_depth=10, user_uid=user_uid, domain_service=domain_service
-)
+await lateral_service.get_blocking_chain(uid, user_uid=user_uid, domain_service=domain_service)
 await lateral_service.get_alternatives_with_comparison(
     uid, user_uid=user_uid, domain_service=domain_service
 )
@@ -535,15 +533,11 @@ shows and hides; it gates no request.
 
 **Why:** Prevent exponential graph explosion
 
-**Pattern:**
-```python
-# Service layer enforces max depth
-async def get_blocking_chain(self, uid: str, max_depth: int = 3):
-    if max_depth > 3:
-        max_depth = 3  # Hard limit
-
-    # Cypher uses bounded path: -[:BLOCKS*1..{max_depth}]-
-```
+**Pattern:** the two lateral traversals are bounded — one in its Cypher, one where its depth is read.
+The blocking chain takes no depth — `LateralRelationshipBackend.get_blocking_chain`
+walks a fixed `-[:BLOCKS*1..10]->`. The graph route reads `?depth=` with
+`parse_int_query_param`, clamped to 1-10 (`GraphDepth.MAXIMUM`; the page's control
+offers 1-3).
 
 **Trade-offs:**
 - Depth 1: ~10 nodes (fast, limited context)

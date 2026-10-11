@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-10-02
+updated: 2026-10-11
 category: patterns
 related_skills:
 - pydantic
@@ -177,7 +177,7 @@ async def request_revision(request: Request, uid: str, current_user: Any = None)
          # no exercise → request_revision(report_uid=uid, teacher_uid=..., notes=req.instructions)
 ```
 
-**Ownership-verified POSTs** verify the owner uid wherever it travels. When it is a model field (`TrackHabitRequest.habit_uid`): `parse_json_body`, then `verify_entity_ownership(habits_service, req.habit_uid, user_uid, "habit")` (`adapters/inbound/habits_api.py`, `POST /api/habits/track`). When it is in the query string (`POST /api/principles/link?uid=`): verify first, then parse — that model's `target_uid` is the link *target*, admitted by the service that writes the edge (exists, right kind, the caller's own or shared content). ⚠ A query parameter overrides a same-named field of a JSON body (FastHTML merges the query string into the parsed body before any helper reads it), so a body model never reuses a query parameter's name.
+**Ownership-verified POSTs** verify the owner uid wherever it travels. When it is a model field (`TrackHabitRequest.habit_uid`): `parse_json_body`, then `verify_entity_ownership(habits_service, req.habit_uid, user_uid, "habit")` (`adapters/inbound/habits_api.py`, `POST /api/habits/track`). When it is in the query string (`POST /api/principles/link?uid=`): verify first, then parse — that model's `target_uid` is the link *target*, admitted by the service that writes the edge (exists, right kind, the caller's own or shared content). The JSON readers read the body's bytes (`read_json_body` in `form_helpers.py`): FastHTML merges the query string into the JSON body it parses and caches, so `await request.json()` hands back `?uid=` in place of the body's `uid`. No route calls it (`tests/unit/adapters/test_request_input_census.py`); a JSON body read by hand is `await read_json_body(request)`.
 
 **Benefits:**
 - ✅ Automatic structure + type validation via Pydantic
@@ -662,11 +662,11 @@ limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maxi
 
 | Parameter | Default | Min | Max | Used By |
 |-----------|---------|-----|-----|---------|
-| `limit` (general) | 50-100 | 1 | 500 | All list/query endpoints |
-| `limit` (search) | 50 | 1 | 100 | Search endpoints |
+| `limit` (general) | 50-100 | 1 | 500 | The CRUD factory's `/list`; list/query endpoints |
+| `limit` (search) | 50 | 1 | 100 / 200 | The CRUD factory's `/search` (100); `/api/search/unified` and `/api/search/intelligent` (`SEARCH_LIMIT_MAX`, 200 — what `SearchRequest` accepts) |
 | `offset` | 0 | 0 | — | Pagination |
 | `days` / `days_back` / `period_days` | 30 | 1 | 365 | Analytics, time-windowed queries |
-| `depth` | 2 | 1 | 5 | Graph traversal |
+| `depth` | 2 | 1 | 10 (`GraphDepth.MAXIMUM`) | Graph traversal — the intelligence `/context` route, the lateral `/graph` route, `/api/path-steps/prerequisites` (default 3) |
 | `min_usage` | 1 | 0 | — | Tag usage filters |
 | `max_steps` / `max_recommendations` | 5 | 1 | 20 | Askesis intelligence |
 | `time_horizon_hours` | 8 | 1 | 168 | Schedule-aware recommendations |
@@ -696,6 +696,26 @@ days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum
 **Tests:** `tests/unit/adapters/test_route_helpers.py`
 
 ---
+
+### A Value FastHTML Binds From a Body
+
+A handler parameter FastHTML binds — a form field, a JSON body's key — is typed `str` (or
+a `str`-first union: FastHTML converts by the first member that is not `None`, and a
+JSON number arrives as the number) and read by a value helper with the same rule as its
+query twin: `parse_bool_value(raw, default)`, `parse_int_value(raw, default, minimum=,
+maximum=)`. A typed `bool` / `int` / `float` / `date` / enum parameter outside the path is
+never declared — FastHTML would answer an unreadable value with a 500 or a bare 404
+before the handler runs (`tests/unit/adapters/test_request_input_census.py` walks every
+registered handler).
+
+### A Number a Write Stores
+
+**Pattern:** `parse_float_param_strict(value, field, *, default, min_val, max_val)` →
+`Result[float]` — never a silent default on a write. Missing or blank is `default`; a
+boolean, text that is not a number, a non-finite number, or one out of range is a
+validation error (400). The lateral edge creators read `confidence` / `strength` /
+`synergy_score` through `parse_edge_score` (`lateral_route_factory.py`), this helper over
+0.0-1.0.
 
 ### Boolean Query Parameters
 

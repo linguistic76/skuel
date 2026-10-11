@@ -64,7 +64,10 @@ from pydantic import BaseModel
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_body
-from adapters.inbound.route_factories.route_helpers import check_required_role
+from adapters.inbound.route_factories.route_helpers import (
+    check_required_role,
+    parse_pagination_params,
+)
 from core.models.enums import ContentScope, UserRole
 from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
@@ -638,10 +641,9 @@ class CRUDRouteFactory[T]:
         """
         Register list route: GET /{domain}/list
 
-        FastHTML Convention: Type hints for automatic parameter extraction
-        Query params:
-            - limit: Max results (default: 100)
-            - offset: Pagination offset (default: 0)
+        Query params (read by the route; an unreadable value is its default):
+            - limit: Max results (default: 100, 1-500)
+            - offset: Pagination offset (default: 0, at least 0)
 
         The sort key is the server's, not the caller's: the service applies
         its own stable default and the route publishes no way to override it.
@@ -677,11 +679,7 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        async def list_entities(
-            request,
-            limit: int = 100,
-            offset: int = 0,
-        ) -> Result[EntityListPayload[T]]:
+        async def list_entities(request: Request) -> Result[EntityListPayload[T]]:
             """List entities with pagination and user filtering"""
             # Role check — skipped when role_gates_reads=False
             if factory.role_gates_reads:
@@ -691,11 +689,11 @@ class CRUDRouteFactory[T]:
                 if role_check.is_error:
                     return cast("Result[EntityListPayload[T]]", role_check)
 
-            # FastHTML extracts query params via type hints
-
             # USER_OWNED: filter by ownership; SHARED: no user filter (OWNS-filtered query
             # would return 0 for shared entities that have no owner relationship).
             user_uid = require_authenticated_user(request) if verify_ownership else None
+            page = parse_pagination_params(request.query_params, default_limit=100)
+            limit, offset = page.limit, page.offset
 
             # Call service with user filtering. No sort arguments: the
             # service applies its own stable default.
@@ -721,11 +719,11 @@ class CRUDRouteFactory[T]:
         """
         Register search route: GET /{domain}/search?query=...
 
-        FastHTML Convention: Type hints + validation
         Query params:
             - query: Search query string (required)
-            - limit: Max results (default: 50)
-            - offset: Pagination offset (default: 0)
+            - limit: Max results (default: 50, 1-100; an unreadable value is the default,
+              an out-of-range one the nearest bound)
+            - offset: Pagination offset (default: 0, at least 0; likewise)
 
         Ownership (ADR-085 G7): USER_OWNED domains authenticate the caller and
         the handler receives ``user_uid``; SHARED domains pass ``user_uid=None``
@@ -744,9 +742,7 @@ class CRUDRouteFactory[T]:
         verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
-        async def search(
-            request: Request, query: str, limit: int = 50, offset: int = 0
-        ) -> Result[list[T]]:
+        async def search(request: Request, query: str) -> Result[list[T]]:
             """Search entities"""
             # Role check — skipped when role_gates_reads=False
             if factory.role_gates_reads:
@@ -756,12 +752,12 @@ class CRUDRouteFactory[T]:
                 if role_check.is_error:
                     return cast("Result[list[T]]", role_check)
 
-            # FastHTML extracts query params via type hints
-
             # USER_OWNED: the caller must be authenticated and the handler is
             # handed the requesting user; SHARED: anonymous browse (the
             # handler's visibility declaration decides what None may see).
             user_uid = require_authenticated_user(request) if verify_ownership else None
+            page = parse_pagination_params(request.query_params, default_limit=50, max_limit=100)
+            limit, offset = page.limit, page.offset
 
             # Validation
             if not query.strip():

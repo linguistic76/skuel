@@ -361,11 +361,10 @@ async def test_analytics_route_success(intelligence_factory, mock_router, mock_s
     analytics_handler = mock_router.get_route("GET", "/api/goals/analytics")
     assert analytics_handler is not None
 
-    # Mock request
-    request = MockRequest()
+    # period_days rides the query string
+    request = MockRequest(query_params={"period_days": "60"})
 
-    # Call route handler with period_days as function arg (FastHTML pattern)
-    json_response = await analytics_handler(request, period_days=60)
+    json_response = await analytics_handler(request)
     response, status_code = extract_response(json_response)
 
     # Verify response
@@ -414,11 +413,10 @@ async def test_context_route_success(intelligence_factory, mock_router, mock_ser
     context_handler = mock_router.get_route("GET", "/api/goals/context")
     assert context_handler is not None
 
-    # Mock request
-    request = MockRequest()
+    # depth rides the query string; uid is bound by FastHTML
+    request = MockRequest(query_params={"depth": "3"})
 
-    # Call route handler with params as function args (FastHTML pattern)
-    json_response = await context_handler(request, uid="goal:abc123", depth=3)
+    json_response = await context_handler(request, uid="goal:abc123")
     response, status_code = extract_response(json_response)
 
     # Verify response structure
@@ -467,11 +465,10 @@ async def test_insights_route_success(intelligence_factory, mock_router, mock_se
     insights_handler = mock_router.get_route("GET", "/api/goals/insights")
     assert insights_handler is not None
 
-    # Mock request
-    request = MockRequest()
+    # min_confidence rides the query string; uid is bound by FastHTML
+    request = MockRequest(query_params={"min_confidence": "0.8"})
 
-    # Call route handler with params as function args (FastHTML pattern)
-    json_response = await insights_handler(request, uid="goal:def456", min_confidence=0.8)
+    json_response = await insights_handler(request, uid="goal:def456")
     response, status_code = extract_response(json_response)
 
     # Verify response
@@ -506,6 +503,27 @@ async def test_insights_route_default_confidence(intelligence_factory, mock_rout
 
     # Verify service called with default
     assert mock_service.insights_calls[0] == ("goal:ghi789", 0.7)
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_query_value_is_its_default(
+    intelligence_factory, mock_router, mock_service
+):
+    """A value the handler cannot read is its default — never a 404 or a 500."""
+    intelligence_factory.register_routes(_app=None, rt=mock_router)
+    bad = {"period_days": "soon", "depth": "deep", "min_confidence": "very"}
+
+    await mock_router.get_route("GET", "/api/goals/analytics")(MockRequest(query_params=bad))
+    await mock_router.get_route("GET", "/api/goals/context")(
+        MockRequest(query_params=bad), uid="goal:bad"
+    )
+    await mock_router.get_route("GET", "/api/goals/insights")(
+        MockRequest(query_params=bad), uid="goal:bad"
+    )
+
+    assert mock_service.analytics_calls == [("user_test", 30)]
+    assert mock_service.context_calls == [("goal:bad", 2)]
+    assert mock_service.insights_calls == [("goal:bad", 0.7)]
 
 
 # ============================================================================

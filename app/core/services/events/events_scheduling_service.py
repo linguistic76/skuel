@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 from core.models.enums import EntityStatus, EntityType, EventType, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -30,6 +29,7 @@ from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
+    from core.services.events.events_core_service import EventsCoreService
 
 
 class EventsSchedulingService(BaseService["EventsOperations", Event]):
@@ -56,15 +56,18 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     # Configure BaseService
     _date_field = "event_date"
 
-    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
+    def __init__(self, backend: EventsOperations, core: EventsCoreService, event_bus=None) -> None:
         """
         Initialize scheduling service.
 
         Args:
             backend: Protocol-based backend for event operations
+            core: The domain's create door — every event this service creates
+                goes through it, so the create rules hold
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend, "events.scheduling")
+        self.core = core
         self.event_bus = event_bus
 
     # ========================================================================
@@ -170,6 +173,10 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
             days_to_create: How many days to create events for
             reinforces_habit_uid: Optional habit to reinforce
 
+        Each event goes through the domain's create door, so the create rules
+        hold: a span they refuse (``duration_minutes`` out of bounds, or a start
+        whose end wraps past midnight) fails the call with that refusal.
+
         Returns:
             Result containing list of created events
         """
@@ -218,19 +225,16 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
                 event_type=EventType.PERSONAL,
                 recurrence_pattern=pattern,
                 status=EntityStatus.DRAFT,
+                # The habit link rides on the entity: the create door admits it and
+                # writes REINFORCES_HABIT before it announces the event.
+                reinforces_habit_uid=reinforces_habit_uid,
             )
 
-            create_result = await self.backend.create(event_model)
-            if create_result.is_ok:
-                event = self._to_domain_model(create_result.value, EventDTO, Event)
-                created_events.append(event)
-                # Habit reinforcement is a graph edge, not a property.
-                if reinforces_habit_uid:
-                    await self.backend.create_relationship(
-                        event.uid,
-                        reinforces_habit_uid,
-                        RelationshipName.REINFORCES_HABIT,
-                    )
+            # Through the domain's create door, so its create rules (the span) hold here.
+            create_result = await self.core.create(event_model)
+            if create_result.is_error:
+                return Result.fail(create_result)
+            created_events.append(self._to_domain_model(create_result.value, EventDTO, Event))
 
         self.logger.info(f"Created {len(created_events)} recurring events")
 

@@ -39,9 +39,14 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_body
+from adapters.inbound.form_helpers import parse_body, read_json_body
 from adapters.inbound.result_helpers import require_found
-from adapters.inbound.route_factories import is_not_found, refuse
+from adapters.inbound.route_factories import (
+    is_not_found,
+    parse_bool_query_param,
+    parse_int_query_param,
+    refuse,
+)
 from core.models.entity_requests import ChangeUserRoleRequest, DeactivateUserRequest
 from core.models.enums import UserRole
 from core.models.type_hints import UserUID
@@ -155,10 +160,7 @@ def create_admin_api_routes(
     async def list_users(
         request: Request,
         current_user: Any = None,
-        limit: int = 100,
-        offset: int = 0,
         role: str | None = None,
-        active_only: bool = True,
     ):
         """
         List all users (ADMIN only).
@@ -169,9 +171,16 @@ def create_admin_api_routes(
             role: Filter by role (registered, member, teacher, admin)
             active_only: Only return active users (default: true)
 
+        An unreadable ``limit`` / ``offset`` is its default and an unreadable
+        ``active_only`` is false — the query-param helpers' rule.
+
         Returns:
             JSON array of user objects
         """
+        params = request.query_params
+        limit = parse_int_query_param(params, "limit", 100, minimum=1)
+        offset = parse_int_query_param(params, "offset", 0, minimum=0)
+        active_only = parse_bool_query_param(params, "active_only", default=True)
         # Parse role filter if provided
         role_filter = UserRole.from_string(role) if role else None
 
@@ -403,7 +412,7 @@ def create_admin_api_routes(
             JSON object with count of deleted nodes.
         """
         try:
-            body = await request.json()
+            body = await read_json_body(request)
         except Exception:  # safety-net: HTTP error boundary — malformed JSON
             return Result.fail(
                 Errors.validation(

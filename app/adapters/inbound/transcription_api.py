@@ -23,6 +23,7 @@ from typing import Any
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.form_helpers import read_json_body
 from adapters.inbound.route_factories import (
     parse_int_query_param,
     parse_pagination_params,
@@ -67,7 +68,7 @@ def create_transcription_api_routes(
     async def create_transcription(request) -> Result[dict[str, Any]]:
         """Create a new transcription."""
         user_uid = require_authenticated_user(request)
-        body = await request.json()
+        body = await read_json_body(request)
 
         create_request = TranscriptionCreateRequest(**body)
         result = await transcription_service.create(create_request, user_uid)
@@ -141,7 +142,7 @@ def create_transcription_api_routes(
         if ownership_error:
             return ownership_error
 
-        body = await request.json() if request.headers.get("content-length") else {}
+        body = await read_json_body(request) if request.headers.get("content-length") else {}
 
         options = TranscriptionProcessOptions(**body) if body else None
         result = await transcription_service.process(uid, options)

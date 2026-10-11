@@ -18,6 +18,7 @@ from core.events.knowledge_substance_events import KnowledgePracticedInEvent
 from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest
 from core.services.events._orchestration_mixin import _OrchestrationMixin
+from core.services.events.events_core_service import EventsCoreService
 from core.utils.result_simplified import Errors, Result
 
 USER = "user_1"
@@ -47,6 +48,8 @@ class _Host(_OrchestrationMixin):
         self.mock = MagicMock()
         self.backend = self.mock
         self.mock.create = AsyncMock(side_effect=_echo)
+        # The real create door over the mock: the create rules run before the write.
+        self.core = EventsCoreService(self.mock)
         if reads_fail:
             failed: Result[dict[str, list[str]]] = Result.fail(
                 Errors.database("get_owner_uids_batch", "down")

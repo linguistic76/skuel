@@ -911,6 +911,7 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/events/_orchestration_mixin.py::link_event_to_knowledge": (
         _EVENTS_ORCHESTRATION
     ),
+    "core/services/events/_orchestration_mixin.py::link_event_to_habit": (_EVENTS_ORCHESTRATION),
     "core/services/events/_orchestration_mixin.py::create_event_with_context": (
         _EVENTS_ORCHESTRATION
     ),

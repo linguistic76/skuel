@@ -2,7 +2,7 @@
 Unit tests for the form data helpers in form_helpers.py.
 
 Tests cover:
-- safe_form_string() / safe_form_int() / safe_form_bool() — one raw form field,
+- safe_form_string() / safe_form_bool() — one raw form field,
   typed ``str | UploadFile | None``, read with a default
 - _list_field_names() / _split_list_input() — the textarea-to-list mapping
 - parse_form_body() — list fields split from the textarea string
@@ -10,6 +10,7 @@ Tests cover:
 """
 
 import io
+import json as json_module
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -22,7 +23,6 @@ from adapters.inbound.form_helpers import (
     parse_body,
     parse_form_body,
     safe_form_bool,
-    safe_form_int,
     safe_form_string,
 )
 
@@ -32,7 +32,7 @@ def _upload() -> UploadFile:
 
 
 # ============================================================================
-# safe_form_string / safe_form_int / safe_form_bool — one raw field
+# safe_form_string / safe_form_bool — one raw field
 # ============================================================================
 
 
@@ -52,19 +52,6 @@ class TestSafeFormString:
 
     def test_an_upload_is_the_default(self):
         assert safe_form_string(_upload(), default="personal") == "personal"
-
-
-class TestSafeFormInt:
-    def test_integer_string_is_parsed_after_stripping(self):
-        assert safe_form_int(" 45 ") == 45
-
-    def test_unparseable_string_is_the_default(self):
-        assert safe_form_int("forty", default=60) == 60
-        assert safe_form_int("", default=60) == 60
-
-    def test_none_and_upload_are_the_default(self):
-        assert safe_form_int(None, default=15) == 15
-        assert safe_form_int(_upload(), default=15) == 15
 
 
 class TestSafeFormBool:
@@ -166,9 +153,12 @@ def _request(content_type: str | None, *, body: bytes = b"x", form=None, json=No
     """A request whose readers answer what a real one would for that Content-Type."""
     request = Mock()
     request.headers = {"content-type": content_type} if content_type is not None else {}
-    request.body = AsyncMock(return_value=body)
+    request.body = AsyncMock(
+        return_value=body if json is None else json_module.dumps(json).encode()
+    )
     request.form = AsyncMock(return_value=form if form is not None else {})
-    request.json = AsyncMock(return_value=json)
+    # FastHTML's cached parse, query string merged in — the body readers never read it.
+    request.json = AsyncMock(side_effect=AssertionError("read the merged JSON cache"))
     return request
 
 

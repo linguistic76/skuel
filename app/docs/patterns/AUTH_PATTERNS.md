@@ -249,7 +249,7 @@ async def update_goal(request, uid: str):
         return ownership_error
 
     # Build the typed intent from the validated request (ADR-066) — never a raw dict.
-    intent = GoalUpdateRequest.model_validate(await request.json()).to_intent()
+    intent = GoalUpdateRequest.model_validate(await read_json_body(request)).to_intent()
     return await goals_service.update(uid, intent)
 ```
 

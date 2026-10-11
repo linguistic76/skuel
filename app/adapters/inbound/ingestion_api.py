@@ -25,6 +25,7 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.form_helpers import read_json_body
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -88,7 +89,7 @@ def create_ingestion_api_routes(
             from core.models.chunks_request import RegenerateChunksRequest
 
             try:
-                payload = await request.json()
+                payload = await read_json_body(request)
                 body = RegenerateChunksRequest.model_validate(payload)
             except ValidationError as e:
                 return Result.fail(

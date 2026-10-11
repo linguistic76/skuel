@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-10-08
+updated: 2026-10-11
 status: current
 category: architecture
 version: 2.0.0
@@ -248,7 +248,7 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 | `delete_lateral_relationship(source_uid, target_uid, relationship_type, delete_inverse=True, …)` | ✅ | `Result[bool]` |
 | `get_lateral_relationships(entity_uid, relationship_types=None, direction="outgoing", include_metadata=True, …)` | ✅ | `Result[list[LateralRelationshipItem]]` |
 | `get_siblings(entity_uid, include_explicit_only=False, …)` | ✅ | `Result[list[dict[str, Any]]]` |
-| `get_blocking_chain(entity_uid, max_depth=10, …)` | ✅ | `Result[BlockingChainResult]` |
+| `get_blocking_chain(entity_uid, …)` — the backend's chain is 1-10 hops | ✅ | `Result[BlockingChainResult]` |
 | `get_alternatives_with_comparison(entity_uid, …)` | ✅ | `Result[list[AlternativeComparisonItem]]` |
 | `get_relationship_graph(entity_uid, depth=2, relationship_types=None, …)` | ✅ | `Result[RelationshipGraphData]` |
 | `get_cousins(entity_uid, degree=1)` | ❌ | `Result[list[dict[str, Any]]]` |

@@ -702,7 +702,6 @@ class LateralRelationshipService:
     async def get_blocking_chain(
         self,
         entity_uid: EntityUID,
-        max_depth: int = 10,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
     ) -> Result[BlockingChainResult]:
@@ -714,7 +713,6 @@ class LateralRelationshipService:
 
         Args:
             entity_uid: Entity UID to get blockers for
-            max_depth: Maximum depth to traverse (default 10)
             user_uid: User requesting the chain (for ownership verification)
             domain_service: Domain service with verify_ownership() (None = shared
                 content: the anchor must be curriculum)

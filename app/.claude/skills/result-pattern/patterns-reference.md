@@ -206,7 +206,7 @@ def create_task_routes(_app, rt, services):
     @boundary_handler(success_status=201)
     async def create_task(request):
         user_uid = require_authenticated_user(request)
-        data = await request.json()
+        data = await read_json_body(request)
         request_obj = TaskCreateRequest(**data)
         return await services.tasks.create_task(request_obj, user_uid)
 
@@ -220,7 +220,7 @@ def create_task_routes(_app, rt, services):
     @boundary_handler()
     async def update_task(request, uid: str):
         user_uid = require_authenticated_user(request)
-        updates = await request.json()
+        updates = await read_json_body(request)
         return await services.tasks.update_task(uid, updates, user_uid)
 
     @rt("/api/tasks/{uid}", methods=["DELETE"])
@@ -249,7 +249,7 @@ async def search_tasks(request):
 @boundary_handler()
 async def bulk_delete_tasks(request):
     user_uid = require_authenticated_user(request)
-    data = await request.json()
+    data = await read_json_body(request)
     uids = data.get("uids", [])
 
     if not uids:

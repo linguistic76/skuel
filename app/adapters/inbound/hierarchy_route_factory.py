@@ -29,6 +29,7 @@ from pydantic import BaseModel
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.form_helpers import read_json_body
 from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
 from core.utils.result_simplified import Errors, Result
@@ -153,7 +154,7 @@ class HierarchyRouteFactory:
             """Move node to new parent (drag-and-drop)."""
             user_uid = require_authenticated_user(request)
 
-            body = await request.json()
+            body = await read_json_body(request)
             new_parent_uid = body.get("new_parent_uid")
 
             if not new_parent_uid:
@@ -187,7 +188,7 @@ class HierarchyRouteFactory:
             user_uid = require_authenticated_user(request)
 
             # Parse JSON body
-            body = await request.json()
+            body = await read_json_body(request)
             title = body.get("title")
 
             if not title:
@@ -232,7 +233,7 @@ class HierarchyRouteFactory:
             user_uid = require_authenticated_user(request)
 
             # Parse JSON body
-            body = await request.json()
+            body = await read_json_body(request)
             uids = body.get("uids", [])
 
             if not uids:

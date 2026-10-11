@@ -27,6 +27,7 @@ import pytest
 from core.models.enums import EntityStatus, EventType, RecurrencePattern
 from core.models.event.event import Event
 from core.models.search.scoring import ScoringComponent, score_event
+from core.services.events.events_core_service import EventsCoreService
 from core.services.events.events_scheduling_service import EventsSchedulingService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Result
@@ -60,7 +61,10 @@ class _FixedScheduleService(EventsSchedulingService):
 class TestRecurringEventsWriteRealTypes:
     async def test_created_events_carry_a_canonical_member(self) -> None:
         backend = _CapturingBackend()
-        service = _FixedScheduleService(backend)  # type: ignore[arg-type]  # boundary: test double
+        service = _FixedScheduleService(
+            backend,  # type: ignore[arg-type]  # boundary: test double
+            EventsCoreService(backend),  # type: ignore[arg-type]  # boundary: test double
+        )
 
         result = await service.create_recurring_events(
             user_uid="user_demo",

@@ -29,6 +29,7 @@ from core.models.enums import (
     TimeOfDay,
 )
 from core.models.request_base import ClientDateTime
+from core.models.user.user import LANGUAGES, THEMES
 from core.utils.zone_context import validated_zone_name
 
 # ============================================================================
@@ -92,6 +93,85 @@ class UserPreferencesSchema(BaseModel):
     def validate_timezone(cls, value: str | None) -> str | None:
         """A zone zoneinfo lists, or None for no choice (a blank value included)."""
         return validated_zone_name(value)
+
+
+class UserPreferencesFormRequest(BaseModel):
+    """The Settings editor's save: every field the preferences form posts.
+
+    Each field the form always sends is required, so a post that leaves one out
+    is refused rather than storing a default the user did not choose. The four
+    modality checkboxes and ``enable_reminders`` are absent when unchecked, so
+    absent is ``False``. An empty time zone or summary time is no choice.
+
+    See: /docs/patterns/ERROR_HANDLING.md § Never silently default on a write
+    """
+
+    learning_level: LearningLevel
+    preferred_time_of_day: TimeOfDay
+    available_minutes_daily: int = Field(ge=0, le=1440)
+    enable_reminders: bool = False
+    reminder_minutes_before: int = Field(ge=0, le=1440)
+    daily_summary_time: str | None = Field(pattern=r"^([01]\d|2[0-3]):([0-5]\d)$")
+    theme: str
+    language: str
+    timezone: str | None
+    weekly_task_goal: int = Field(ge=0, le=100)
+    daily_habit_goal: int = Field(ge=0, le=20)
+    monthly_learning_hours: int = Field(ge=0, le=500)
+    modality_video: bool = False
+    modality_reading: bool = False
+    modality_interactive: bool = False
+    modality_audio: bool = False
+
+    @field_validator("theme")
+    @classmethod
+    def validate_theme(cls, value: str) -> str:
+        """One of the themes the editor offers."""
+        if value not in THEMES:
+            raise ValueError(f"Unknown theme {value!r}: expected one of {', '.join(THEMES)}")
+        return value
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str) -> str:
+        """One of the languages the editor offers."""
+        if value not in LANGUAGES:
+            raise ValueError(f"Unknown language {value!r}: expected one of {', '.join(LANGUAGES)}")
+        return value
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        """A zone zoneinfo lists, or None for no choice (a blank value included)."""
+        return validated_zone_name(value)
+
+    def to_preferences_update(self) -> dict[str, object]:
+        """The ``UserPreferences`` fields this form sets, as one patch."""
+        modalities = [
+            name
+            for name, chosen in (
+                ("video", self.modality_video),
+                ("reading", self.modality_reading),
+                ("interactive", self.modality_interactive),
+                ("audio", self.modality_audio),
+            )
+            if chosen
+        ]
+        return {
+            "learning_level": self.learning_level,
+            "preferred_modalities": modalities,
+            "preferred_time_of_day": self.preferred_time_of_day,
+            "available_minutes_daily": self.available_minutes_daily,
+            "enable_reminders": self.enable_reminders,
+            "reminder_minutes_before": self.reminder_minutes_before,
+            "daily_summary_time": self.daily_summary_time,
+            "theme": self.theme,
+            "language": self.language,
+            "timezone": self.timezone,
+            "weekly_task_goal": self.weekly_task_goal,
+            "daily_habit_goal": self.daily_habit_goal,
+            "monthly_learning_hours": self.monthly_learning_hours,
+        }
 
 
 # ============================================================================
