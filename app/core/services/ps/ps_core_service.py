@@ -121,7 +121,6 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
             "learning_path_uid": step.learning_path_uid,
             "sequence": step.sequence,
             "mastery_threshold": step.mastery_threshold,
-            "current_mastery": step.current_mastery,
             "estimated_hours": step.estimated_hours,
             "step_difficulty": get_enum_value(step.step_difficulty),
             "status": get_enum_value(step.status),

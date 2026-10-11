@@ -1,6 +1,6 @@
 ---
 title: LearningAlignmentBridge - Unified Learning Integration Pattern
-updated: '2026-09-04'
+updated: '2026-10-11'
 category: patterns
 related_skills: []
 related_docs:
@@ -11,6 +11,12 @@ related_docs:
 **Location:** `/core/services/infrastructure/learning_alignment_bridge.py`
 
 **Status:** ✅ Read/assess operations only — the create half was deleted 2026-08-06 (see below)
+
+**Input:** every read takes an `LpPosition` (`core/models/pathways/lp_position.py`), whose
+active paths carry their steps as the LP backend's path reads compose them
+(`metadata["steps"]`); a path's step progress is `LpPosition.step_progress(path)`. No
+production code builds an `LpPosition` yet — `create_lp_position` has no caller and only
+tests construct one — so these reads wait on their producer.
 
 ---
 

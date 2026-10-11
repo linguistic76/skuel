@@ -4,7 +4,7 @@ PathStepDTO - Path Step-Specific DTO (Tier 2 - Transfer)
 
 Extends CurriculumDTO with 9 path-step-specific fields matching the
 PathStep frozen dataclass (Tier 3): intent, knowledge references,
-path relationship, and mastery tracking.
+path relationship, and authored mastery metadata.
 
 Hierarchy:
     EntityDTO (~18 common fields)
@@ -32,10 +32,10 @@ class PathStepDTO(CurriculumDTO):
 
     Extends CurriculumDTO with 9 path-step-specific fields:
     - Intent (1): intent
-    - NOUS membership (1): nous
+    - NOUS membership (2): nous, nous_subtopic
     - Knowledge references (1): knowledge_uids
     - Path relationship (2): learning_path_uid, sequence
-    - Mastery (4): mastery_threshold, current_mastery, estimated_hours, step_difficulty
+    - Mastery (3): mastery_threshold, estimated_hours, step_difficulty
     """
 
     # Honest leaf default (base EntityDTO requires entity_type — G6).
@@ -69,7 +69,6 @@ class PathStepDTO(CurriculumDTO):
     # MASTERY
     # =========================================================================
     mastery_threshold: float = 0.7
-    current_mastery: float = 0.0
     estimated_hours: float | None = None
     step_difficulty: StepDifficulty | None = None
 
@@ -183,7 +182,6 @@ class PathStepDTO(CurriculumDTO):
                 "learning_path_uid",
                 "sequence",
                 "mastery_threshold",
-                "current_mastery",
                 "estimated_hours",
                 "step_difficulty",
             },

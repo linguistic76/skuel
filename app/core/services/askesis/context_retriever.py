@@ -634,7 +634,8 @@ class ContextRetriever:
                           knowledge_relationships, learning_path}
 
         Selection rule (ADR-059):
-        1. Walk the non-mastered candidates in order.
+        1. Walk the non-mastered candidates in order — a step is mastered when
+           the learner holds a ``MASTERED`` edge to it (``mastered_ps_uids``).
         2. If `ps_engagement_service` is available, prefer the first whose
            ``ENGAGED_WITH`` edge has ``state == "engaged"``.
         3. Fall back to the first non-mastered candidate without an engagement
@@ -649,9 +650,7 @@ class ContextRetriever:
             step_data: dict[str, Any] = dict(ps_item.get("step") or ps_item.get("entity", {}))  # type: ignore[call-overload]
             if not step_data:
                 continue
-            current_mastery = step_data.get("current_mastery", 0.0) or 0.0
-            mastery_threshold = step_data.get("mastery_threshold", 0.7) or 0.7
-            if current_mastery >= mastery_threshold:
+            if step_data.get("uid") in user_context.mastered_ps_uids:
                 continue
             candidates.append((ps_item, step_data))
 

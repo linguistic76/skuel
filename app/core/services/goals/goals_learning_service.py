@@ -200,10 +200,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
                 total_learning_alignment += path_support
 
                 # Track path progress
-                completed_steps = len(
-                    [s for s in path.steps if s.uid in learning_position.completed_step_uids]
-                )
-                total_steps = len(path.steps)
+                completed_steps, total_steps = learning_position.step_progress(path)
                 path_progress = completed_steps / total_steps if total_steps > 0 else 0.0
 
                 # Build PathProgressData frozen dataclass

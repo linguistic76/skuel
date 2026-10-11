@@ -59,6 +59,16 @@ class LpPosition:
     generated_at: datetime
     readiness_scores: dict[EntityUID, float]  # step_uid -> readiness (0.0-1.0)
 
+    def step_progress(self, path: LearningPath) -> tuple[int, int]:
+        """The learner's (completed, total) step counts on one active path.
+
+        Counts over the steps the path's read composed into ``metadata["steps"]``
+        (its HAS_STEP steps) — the same list ``current_steps`` was chosen from.
+        """
+        steps = _get_path_steps(path)
+        completed = sum(1 for step in steps if step.uid in self.completed_step_uids)
+        return completed, len(steps)
+
     def assess_task_relevance(self, task_domain: str, task_knowledge_uids: list[str]) -> float:
         """
         Simple learning path relevance assessment for tasks.
