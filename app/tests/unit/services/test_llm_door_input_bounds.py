@@ -25,11 +25,13 @@ import pytest
 
 from core.constants import PromptInput
 from core.models.enums.pipeline import Pipeline
+from core.models.enums.user_enums import JournalMode
 from core.models.exercises.exercise import Exercise
 from core.models.user_entry.user_entry import UserEntry
 from core.ports.llm_protocols import LLMCompletion
 from core.services.content_enrichment_service import ContentEnrichmentService
 from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
+from core.services.journal.instruction_loader import journal_mode_addendum
 from core.services.journal.journal_batch_service import JournalBatchService
 from core.services.journal.journal_service import JournalService
 from core.services.lifepath.lifepath_vision_service import LifePathVisionService
@@ -97,7 +99,9 @@ async def _batch_compile(port: ScriptedChatCaller, text: str) -> object:
     return await batch.compile_text(text, text, user_uid=USER, is_founder=False)
 
 
-async def _entry_llm_summary(port: ScriptedChatCaller, text: str) -> object:
+async def _entry_llm_summary(
+    port: ScriptedChatCaller, text: str, journal_mode: str | None = None
+) -> object:
     not_under_test: Result[object] = Result.fail(Errors.system("not under test"))
     entry_service = MagicMock()
     entry_service.update_processed_content = AsyncMock(return_value=not_under_test)
@@ -114,6 +118,7 @@ async def _entry_llm_summary(port: ScriptedChatCaller, text: str) -> object:
         content=text,
         instructions=text,
         pipeline=Pipeline.LLM_SUMMARY,
+        journal_mode=journal_mode,
     )
     return await service.process(entry)
 
@@ -193,6 +198,18 @@ async def test_a_door_bounds_every_user_written_slot(name: str) -> None:
     assert len(long_prompt) <= len(short_prompt) + slots * bound
     tail = short_prompt.rsplit(SHORT_TEXT, 1)[-1]
     assert long_prompt.endswith(tail), "the instructions after the text were cut"
+
+
+@pytest.mark.asyncio
+async def test_long_entry_instructions_keep_the_response_mode() -> None:
+    """The mode the user chose is appended after the bound, so the cut never takes it."""
+    port = _port()
+
+    await _entry_llm_summary(port, LONG_TEXT, journal_mode=JournalMode.SCRIBE.value)
+
+    prompt = _sent(port)
+    assert LONG_TEXT not in prompt
+    assert f"## Response Mode\n\n{journal_mode_addendum(JournalMode.SCRIBE)}" in prompt
 
 
 def test_the_transcript_editor_bounds_the_transcript() -> None:

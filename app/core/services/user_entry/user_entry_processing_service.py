@@ -821,19 +821,16 @@ class UserEntryProcessingService:
     ) -> Result[str]:
         """Resolve an instruction template and call the LLM.
 
-        The entry's content and the user's instructions are each bounded at
-        ``PromptInput.DOCUMENT_MAX_CHARS`` before they enter the prompt.
+        The entry's content is bounded at ``PromptInput.DOCUMENT_MAX_CHARS``
+        before it enters the prompt; the instructions arrive bounded
+        (``_apply_mode_addendum``).
         """
         assert self.llm_caller is not None
         assert self.instruction_resolver is not None
 
         instruction_result = self.instruction_resolver.resolve(
             enrichment_mode=enrichment_mode,
-            custom_instructions=(
-                truncate_to_budget(custom_instructions, PromptInput.DOCUMENT_MAX_CHARS)
-                if custom_instructions
-                else custom_instructions
-            ),
+            custom_instructions=custom_instructions,
         )
         if instruction_result.is_error:
             return Result.fail(instruction_result)
@@ -866,7 +863,16 @@ class UserEntryProcessingService:
     def _apply_mode_addendum(
         base_instructions: str | None, journal_mode_str: str | None
     ) -> str | None:
-        """Append a JournalMode style addendum to LLM instructions when mode is set."""
+        """The user's instructions as they enter the prompt, with the JournalMode addendum.
+
+        The instructions are bounded at ``PromptInput.DOCUMENT_MAX_CHARS`` before
+        the addendum is appended, so a long instruction text never cuts the
+        response mode the user chose.
+        """
+        if base_instructions:
+            base_instructions = truncate_to_budget(
+                base_instructions, PromptInput.DOCUMENT_MAX_CHARS
+            )
         if not journal_mode_str:
             return base_instructions
         from core.models.enums.user_enums import JournalMode
