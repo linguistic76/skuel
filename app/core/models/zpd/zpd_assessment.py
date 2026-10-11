@@ -188,13 +188,28 @@ class ZPDAssessment:
 
         return sorted(self.proximal_zone, key=by_readiness, reverse=True)[:n]
 
-    def top_recommended_actions(self, n: int = 5) -> list[ZPDAction]:
-        """Return top-n recommended actions sorted by priority descending."""
+    def top_recommended_actions(
+        self, n: int = 5, action_type: str | None = None
+    ) -> list[ZPDAction]:
+        """The top-n recommended actions by priority, descending.
+
+        ``action_type`` keeps only the actions of that type BEFORE the cut, so a
+        reader that schedules one type (the daily plan's learning slot, method 1's
+        learn candidates) sees its top n: an ``unblock`` action always carries
+        ``ZPDWeights.UNBLOCK_PRIORITY``, which a ``learn`` action reaches only with
+        its readiness, life-path alignment and behavioural readiness all near 1.0,
+        so three blocking gaps would otherwise fill every slot.
+        """
 
         def by_priority(action: ZPDAction) -> float:
             return action.priority
 
-        return sorted(self.recommended_actions, key=by_priority, reverse=True)[:n]
+        actions = (
+            self.recommended_actions
+            if action_type is None
+            else [a for a in self.recommended_actions if a.action_type == action_type]
+        )
+        return sorted(actions, key=by_priority, reverse=True)[:n]
 
     def confirmed_zone_uids(self) -> list[str]:
         """KU UIDs with compound-confirmed evidence (2+ signal types)."""

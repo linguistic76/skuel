@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import LearningTimeEstimate
 from core.models.context_types import ContextualExercise, DailyWorkPlan, EngagedPsGroup
+from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.pipeline import Pipeline
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.utils.result_simplified import Result
@@ -263,20 +264,22 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         if not respect_capacity or estimated_time < available_time * 0.7:
             zpd = self.context.zpd_assessment
             if zpd is not None and not zpd.is_empty():
-                # ZPD gravity well path: use recommended actions
-                for action in zpd.top_recommended_actions(3):
-                    if action.action_type == "learn":
-                        est_time = self.context.estimated_minutes(
-                            action.entity_uid, LearningTimeEstimate.DAILY_PLAN_MINUTES
-                        )
-                        if not respect_capacity or estimated_time + est_time <= available_time:
-                            learning_uids.append(action.entity_uid)
-                            estimated_time += est_time
+                # ZPD gravity well path: the top three LEARN actions — the slot
+                # schedules learning, and an unblock action (a gap whose own
+                # readiness the assessment does not score) is not a learning item.
+                for action in zpd.top_recommended_actions(3, action_type="learn"):
+                    est_time = self.context.estimated_minutes(
+                        action.entity_uid, LearningTimeEstimate.DAILY_PLAN_MINUTES
+                    )
+                    if not respect_capacity or estimated_time + est_time <= available_time:
+                        learning_uids.append(action.entity_uid)
+                        estimated_time += est_time
             elif self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
-                # Fallback: semantic-enhanced search
+                # Fallback: semantic-enhanced search of the Ku index — each hit is
+                # scheduled as a Ku, so only a published Ku may be one.
                 search_query = self._generate_daily_learning_query(goals_uids, tasks_uids)
                 vector_result = await self.vector_search.learning_aware_search(
-                    label="Entity",
+                    label=NeoLabel.KU.value,
                     text=search_query,
                     user_uid=self.context.user_uid,
                     prefer_unmastered=True,

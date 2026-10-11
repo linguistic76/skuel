@@ -173,6 +173,22 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"alias": alias, **published_params})
 
+    async def get_published_titles(self, uids: list[str]) -> Result[list[Neo4jProperties]]:
+        """The ``uid`` / ``title`` rows of the published Kus among ``uids``, in one read.
+
+        A recommendation names these titles to a learner, so the read is DISCOVERY
+        under the same rule as ``search_by_alias``: ``build_publication_clause``
+        withholds a Ku marked draft, NULL-tolerantly. A uid naming no Ku has no row.
+        """
+        published, published_params = build_publication_clause("ku")
+        query = f"""
+        UNWIND $uids AS uid
+        MATCH (ku:Entity:Ku {{uid: uid}})
+        WHERE {published}
+        RETURN ku.uid AS uid, ku.title AS title
+        """
+        return await self.execute_query(query, {"uids": uids, **published_params})
+
     async def list_library(self, limit: int) -> Result[tuple[list[Ku], int]]:
         """The Ku library: the first ``limit`` Kus, oldest first, and how many there are.
 

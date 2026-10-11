@@ -164,14 +164,14 @@ def _error_card(question: HubQuestion, failed: Result[Any]) -> FT:
 
 
 async def _answer_learn_next(
-    hub: UserContextIntelligence, context: RichUserContext, ku_service: KuService
+    hub: UserContextIntelligence, context: RichUserContext, _ku_service: KuService
 ) -> FT:
     result = await hub.get_optimal_next_path_steps()
     if result.is_error:
         return _error_card(HubQuestion.LEARN_NEXT, result)
-    steps = result.value
-    titles = await _resolve_titles(context, (step.ku_uid for step in steps), ku_service)
-    return render_learn_next_card(steps, titles)
+    # Every step carries its title (the hub reads the published ones in one
+    # batch), so no Ku read here: the context's titles name the goals a step serves.
+    return render_learn_next_card(result.value, rich_entity_titles(context))
 
 
 async def _answer_unblock_first(

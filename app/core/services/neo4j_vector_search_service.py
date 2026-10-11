@@ -21,7 +21,7 @@ import time
 from collections.abc import Sequence
 from datetime import datetime
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from core.config.unified_config import VectorSearchConfig
 from core.models.enums.neo_labels import NeoLabel
@@ -37,6 +37,14 @@ from core.utils.lucene import escape_lucene_query
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.vector_search")
+
+# The labels whose nodes a learner's VIEWED / IN_PROGRESS / MASTERED edges reach —
+# the only ones a learning-state boost describes. ``Entity`` is deliberately not
+# one: its index holds every user's activities and entries beside the curriculum,
+# and a learning-aware caller names each hit as a unit of knowledge.
+LEARNING_STATE_LABELS: Final[frozenset[str]] = frozenset(
+    {NeoLabel.KU.value, NeoLabel.PATH_STEP.value}
+)
 
 
 class Neo4jVectorSearchService:
@@ -641,7 +649,10 @@ class Neo4jVectorSearchService:
         - NOT_STARTED: +15% boost (new content, prioritize discovery)
 
         Args:
-            label: Node label (currently only "Entity" supported)
+            label: One of ``LEARNING_STATE_LABELS`` (``Ku`` or ``PathStep``) — the
+                index searched is that label's, so a hit is always a node of that
+                kind, and published (``VectorSearchBackend.query_vector_index``).
+                Any other label is searched without the boost.
             text: Query text to embed and search
             user_uid: User's UID for learning state lookup
             prefer_unmastered: If True, applies boosts as above. If False, inverts
@@ -655,7 +666,7 @@ class Neo4jVectorSearchService:
         Example:
             >>> # Search for Python content, prioritizing unlearned material
             >>> result = await service.learning_aware_search(
-            ...     label="Entity",
+            ...     label="Ku",
             ...     text="python programming",
             ...     user_uid="user_alice",
             ...     prefer_unmastered=True,
@@ -670,10 +681,11 @@ class Neo4jVectorSearchService:
             - Adds ~20-30ms per search (1 batch query for learning states)
             - Recommended for interactive "next steps" recommendations
         """
-        # Only supported for Knowledge Units currently
-        if label != "Entity":
+        if label not in LEARNING_STATE_LABELS:
             self.logger.warning(
-                f"Learning-aware search only supports Ku, got {label}. Falling back."
+                "Learning-aware search boosts only %s, got %s. Falling back to plain vector search.",
+                sorted(LEARNING_STATE_LABELS),
+                label,
             )
             return await self.find_similar_by_text(
                 label=label, text=text, limit=limit, min_score=min_score

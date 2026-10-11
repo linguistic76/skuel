@@ -167,7 +167,8 @@ def _create_intelligence_hub(
         events=activity_services["events"],
         choices=activity_services["choices"],
         principles=activity_services["principles"],
-        # Curriculum Domains (3)
+        # Curriculum Domains (4)
+        ku=learning_services["atomic_ku_service"],
         ps=learning_services["ps"],
         lp=learning_services["learning_paths"].relationships,  # factory param name
         exercises=services.exercises,
@@ -182,7 +183,7 @@ def _create_intelligence_hub(
     )
     services.context_intelligence = context_intelligence_factory
     logger.info(
-        "✅ UserContextIntelligence factory created (11 domain services + ZPD + %d filtered providers)",
+        "✅ UserContextIntelligence factory created (12 domain services + ZPD + %d filtered providers)",
         len(filtered_providers),
     )
 

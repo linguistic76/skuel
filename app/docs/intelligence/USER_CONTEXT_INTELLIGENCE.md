@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 # UserContextIntelligence — the Hub Methods
 
@@ -25,7 +25,7 @@ from one user's context and fresh reads made at call time.
 
 ```
 UserContextIntelligence = RichUserContext (one user's state, already read)
-                        + the eleven domain services (fresh reads, made at call time)
+                        + the twelve domain services (fresh reads, made at call time)
 ```
 
 Domain intelligence services (`TasksIntelligenceService`, …) analyse single domains.
@@ -76,10 +76,10 @@ in `core/models/context_types.py` with tuple sequence fields; method 9 returns t
 
 ---
 
-## The eleven required services
+## The twelve required services
 
 "SKUEL runs at full capacity or not at all": `UserContextIntelligence.__init__` and the factory
-both raise `ValueError` naming any required service that is `None`. A twelfth service touches
+both raise `ValueError` naming any required service that is `None`. A thirteenth service touches
 five sites, all of which the `ValueError` guards read: the factory's `_required_services` dict
 and its `__init__` parameter; `UserContextIntelligence.__init__`'s parameter, its `required`
 mapping and its `self.<service>` assignment; the annotation on `IntelligenceMixinBase`
@@ -90,14 +90,17 @@ constructors validate while the method raises `AttributeError`.
 | Group | Parameter | Wired value (`services_bootstrap/_intelligence_hub.py`) | Read by |
 |-------|-----------|------------------------------------------------------|---------|
 | Activity (6) | `tasks`, `goals`, `habits`, `events`, `choices`, `principles` | the **facades** (`TasksService`, …) — not `.relationships`; the planning methods (`get_actionable_tasks_for_user`, …) are facade methods | methods 1, 5, 9 |
-| Curriculum (3) | `ps` | `PsService` facade | methods 1, 5 |
+| Curriculum (4) | `ku` | `KuService` facade | method 1 — `get_published_titles`, the one batched read that names the steps the ZPD and context sources hand over as Ku uids (a draft's title is withheld; its step keeps the `Knowledge Unit {uid}` placeholder) |
+| | `ps` | `PsService` facade | methods 1, 5 |
 | | `lp` | `LpService.relationships` (`UnifiedRelationshipService`) | no method yet (held for method 2's LP walk) |
 | | `exercises` | `ExerciseService` facade | method 5 (revisions, unsubmitted exercises) |
 | Processing (1) | `report` | `ReportRelationshipService` | method 5 — `get_pending_submissions(pipelines=Pipeline.awaiting_report())`, the plan's `awaiting_report` slot |
 | Temporal (1) | `calendar` | `CalendarService` | method 8 — `event_items_in_range` for the horizon's committed minutes |
 
 Optional: `zpd_service` (`ZPDOperations`, FULL tier — method 1's first candidate source),
-`vector_search_service` (FULL tier — methods 1 and 5's semantic step), `filtered_providers`
+`vector_search_service` (FULL tier — methods 1 and 5's semantic step: `learning_aware_search`
+of the **`Ku` index**, `LEARNING_STATE_LABELS` — every hit is named as a Ku, so a hit is a
+published Ku and never another user's task, goal or entry), `filtered_providers`
 (the nine facades that implement `FilteredContextProvider`: the six Activity facades, `ps`,
 `learning_paths`, `exercises` — read by method 5's domain-health warnings, Activity keys only).
 
@@ -146,8 +149,10 @@ in a fixed order — at-risk habits, today's events, pending revisions, unsubmit
 entries awaiting a report (named, no minutes), tasks, daily habits, learning, goals, decisions,
 principles — accumulating `estimated_time` and, under `respect_capacity`, skipping a
 capacity-checked item that would push the total past `context.available_minutes_daily`. The
-learning slot takes the first source that answers: the ZPD assessment's learn actions, vector
-search, `ps.get_ready_to_learn_for_user`; a candidate's minutes come from
+learning slot takes the first source that answers: the ZPD assessment's top three **learn**
+actions (`top_recommended_actions(3, action_type="learn")` — filtered before the cut, so three
+blocking gaps at `UNBLOCK_PRIORITY` cannot empty the slot; an unblock target is not scheduled as
+learning), vector search of the Ku index, `ps.get_ready_to_learn_for_user`; a candidate's minutes come from
 `context.estimated_minutes(uid, default)` (a path step in progress answers with its own
 estimate). A slot whose read fails contributes nothing; the plan is still `Result.ok`.
 
@@ -187,7 +192,7 @@ dict. Method 7 is the hub's.
 
 ## Factory pattern
 
-`UserContextIntelligenceFactory` holds the eleven services once, at bootstrap
+`UserContextIntelligenceFactory` holds the twelve services once, at bootstrap
 (`services_bootstrap/_intelligence_hub.py`), and `create(context)` binds them to one user's
 context. The context is user-specific and built on demand; the services are singletons. The
 factory is stored on `services.context_intelligence` and post-wired onto

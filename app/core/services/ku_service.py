@@ -144,6 +144,22 @@ class KuService:
         """
         return await self.core.backend.get_many(uids)
 
+    async def get_published_titles(self, uids: list[str]) -> Result[dict[str, str]]:
+        """The titles of the published Kus among ``uids``, by uid — one batched read.
+
+        Backend: ``KuBackend.get_published_titles``. A uid naming no Ku, a Ku marked
+        draft, or a Ku without a title is absent from the answer, so a caller
+        keeps its own text for it. An empty ``uids`` is answered without a read.
+        """
+        if not uids:
+            return Result.ok({})
+        rows = await self.backend.get_published_titles(uids)
+        if rows.is_error:
+            return Result.fail(rows)
+        return Result.ok(
+            {str(row["uid"]): str(row["title"]) for row in rows.value if row.get("title")}
+        )
+
     # =========================================================================
     # SEARCH (sub-service at .search; extra delegations below)
     # =========================================================================

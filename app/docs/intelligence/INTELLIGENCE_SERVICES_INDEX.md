@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-10-10
+updated: 2026-10-11
 category: intelligence
 status: current
 related_skills:
@@ -687,7 +687,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 **UserContext:**
 - Central intelligence hub answering "What should I work on next?" — the nine hub methods across seven mixins
 - **Flagship method:** `get_ready_to_work_on_today()` - Daily planning based on goals, habits, knowledge, exercises, schedule
-- Requires eleven domain services (6 Activity + 3 Curriculum + 1 Processing + 1 Temporal)
+- Requires twelve domain services (6 Activity + 4 Curriculum + 1 Processing + 1 Temporal)
 - Optional: `filtered_providers` dict (the nine `FilteredContextProvider` facades) — consumed by daily planning for domain health warnings (the 6 Activity keys + cross-domain balance checks)
 - Doors: the Insights cards (`GET /insights/hub/{question}`), the Ku page (method 3), `/api/context/next-action` (method 5); Askesis' wrappers are the staged second door
 

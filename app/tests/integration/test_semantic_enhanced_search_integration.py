@@ -33,7 +33,7 @@ async def test_semantic_enhanced_search_with_relationships(
         # Create base KU
         result = await session.run(
             """
-            CREATE (k1:Entity {
+            CREATE (k1:Entity:Ku {
                 uid: 'ku.python-basics',
                 title: 'Python Basics',
                 description: 'Introduction to Python programming',
@@ -48,7 +48,7 @@ async def test_semantic_enhanced_search_with_relationships(
         # Create advanced KU with relationship to basics
         result = await session.run(
             """
-            CREATE (k2:Entity {
+            CREATE (k2:Entity:Ku {
                 uid: 'ku.python-advanced',
                 title: 'Advanced Python',
                 description: 'Advanced Python programming concepts',
@@ -133,7 +133,7 @@ async def test_learning_aware_search_with_states(
         # Create mastered KU
         result = await session.run(
             """
-            CREATE (k1:Entity {
+            CREATE (k1:Entity:Ku {
                 uid: 'ku.mastered-topic',
                 title: 'Mastered Topic',
                 description: 'A topic the user has mastered',
@@ -148,7 +148,7 @@ async def test_learning_aware_search_with_states(
         # Create not-started KU
         result = await session.run(
             """
-            CREATE (k2:Entity {
+            CREATE (k2:Entity:Ku {
                 uid: 'ku.new-topic',
                 title: 'New Topic',
                 description: 'A topic the user has not started',
@@ -181,7 +181,7 @@ async def test_learning_aware_search_with_states(
 
     # Execute learning-aware search (prefer unmastered)
     result = await vector_search.learning_aware_search(
-        label="Entity",
+        label="Ku",
         text="topic",
         user_uid="user_test_learning",
         prefer_unmastered=True,
@@ -219,7 +219,7 @@ async def test_semantic_boost_multiple_relationships(
         # Create context KUs
         result = await session.run(
             """
-            CREATE (k1:Entity {
+            CREATE (k1:Entity:Ku {
                 uid: 'ku.context1',
                 title: 'Context 1',
                 embedding: $embedding
@@ -231,7 +231,7 @@ async def test_semantic_boost_multiple_relationships(
 
         result = await session.run(
             """
-            CREATE (k2:Entity {
+            CREATE (k2:Entity:Ku {
                 uid: 'ku.context2',
                 title: 'Context 2',
                 embedding: $embedding
@@ -244,7 +244,7 @@ async def test_semantic_boost_multiple_relationships(
         # Create target KU
         result = await session.run(
             """
-            CREATE (k3:Entity {
+            CREATE (k3:Entity:Ku {
                 uid: 'ku.target',
                 title: 'Target KU',
                 description: 'Has multiple relationships',
@@ -312,7 +312,7 @@ async def test_performance_semantic_enhanced_search(
         for i in range(10):
             result = await session.run(
                 f"""
-                CREATE (k:Entity {{
+                CREATE (k:Entity:Ku {{
                     uid: 'ku.test-{i}',
                     title: 'Test KU {i}',
                     description: 'Test knowledge unit {i}',
@@ -378,7 +378,7 @@ async def test_performance_learning_aware_search(
         for i in range(10):
             result = await session.run(
                 f"""
-                CREATE (k:Entity {{
+                CREATE (k:Entity:Ku {{
                     uid: 'ku.perf-{i}',
                     title: 'Performance Test KU {i}',
                     embedding: $embedding
@@ -418,7 +418,7 @@ async def test_performance_learning_aware_search(
     start_time = time.perf_counter()
 
     result = await vector_search.learning_aware_search(
-        label="Entity",
+        label="Ku",
         text="performance test",
         user_uid="user_test_perf",
         prefer_unmastered=True,
@@ -442,7 +442,7 @@ async def test_graceful_degradation_no_vector_index(
     # Create KU without vector index
     async with neo4j_driver.session() as session:
         result = await session.run("""
-            CREATE (k:Entity {
+            CREATE (k:Entity:Ku {
                 uid: 'ku.no-index',
                 title: 'No Vector Index',
                 description: 'KU without embedding'
@@ -485,17 +485,17 @@ async def test_end_to_end_semantic_discovery_workflow(
         # Create learning path: basics -> intermediate -> advanced
         result = await session.run(
             """
-            CREATE (k1:Entity {
+            CREATE (k1:Entity:Ku {
                 uid: 'ku.python-basics',
                 title: 'Python Basics',
                 embedding: $emb1
             })
-            CREATE (k2:Entity {
+            CREATE (k2:Entity:Ku {
                 uid: 'ku.python-intermediate',
                 title: 'Python Intermediate',
                 embedding: $emb2
             })
-            CREATE (k3:Entity {
+            CREATE (k3:Entity:Ku {
                 uid: 'ku.python-advanced',
                 title: 'Python Advanced',
                 embedding: $emb3
@@ -563,7 +563,7 @@ async def test_end_to_end_semantic_discovery_workflow(
 
     # Now test learning-aware search to prioritize unlearned content
     learning_result = await vector_search.learning_aware_search(
-        label="Entity",
+        label="Ku",
         text="python programming",
         user_uid="user_discovery",
         prefer_unmastered=True,

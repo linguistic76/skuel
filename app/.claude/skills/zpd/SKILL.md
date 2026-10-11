@@ -172,7 +172,7 @@ class ZPDAssessment:
 
     def is_empty(self) -> bool: ...
     def top_proximal_ku_uids(self, n=5) -> list[str]: ...
-    def top_recommended_actions(self, n=5) -> list[ZPDAction]: ...
+    def top_recommended_actions(self, n=5, action_type=None) -> list[ZPDAction]: ...  # the type filter runs BEFORE the cut
     def confirmed_zone_uids(self) -> list[str]: ...
 ```
 
@@ -298,7 +298,10 @@ if zpd_service is not None:
 > `tests/unit/services/test_user_context_builder_wiring.py`.
 
 **Consumers:**
-- `DailyPlanningMixin.get_ready_to_work_on_today()` — P5 Learning: uses `recommended_actions`
+- `DailyPlanningMixin.get_ready_to_work_on_today()` — P5 Learning: the top three `learn`
+  actions (`top_recommended_actions(3, action_type="learn")`); an `unblock` action is not a
+  learning item there, and filtering before the cut is what keeps three gaps at 0.9 from
+  emptying the slot
 - `LearningIntelligenceMixin.get_optimal_next_path_steps()` — primary ranking signal
 - `AskesisService` — reads assessment for scaffolding decisions
 - `/explore/next-step/related` fragment (PS detail page) — "Related to your next step"
@@ -372,7 +375,9 @@ for ku_uid in assessment.proximal_zone:
 
 # CORRECT — unblock actions first, then learn
 actions = assessment.top_recommended_actions()
-# Actions are pre-sorted: unblock (0.9) > learn > reinforce
+# Sorted by priority: unblock (0.9) > learn > reinforce. A reader that schedules ONE
+# type filters before the cut — top_recommended_actions(3, action_type="learn") —
+# or three gaps fill its three slots.
 ```
 
 ---

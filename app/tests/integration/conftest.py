@@ -374,22 +374,28 @@ async def clean_neo4j(neo4j_driver, create_moc_test_user, ensure_test_users):
             )
 
     async def create_vector_indexes():
-        """Create vector indexes required for semantic search tests."""
+        """Create the vector indexes the semantic search tests query.
+
+        The whole-corpus ``:Entity`` index and the ``:Ku`` index — the one the
+        hub's learning-aware search reads (``LEARNING_STATE_LABELS``).
+        """
         async with neo4j_driver.session() as session:
-            # Create vector index for KU entities
-            # Required by semantic search integration tests
-            result = await session.run("""
-                CREATE VECTOR INDEX entity_embedding_idx IF NOT EXISTS
-                FOR (n:Entity)
-                ON (n.embedding)
-                OPTIONS {
-                    indexConfig: {
-                        `vector.dimensions`: 1024,
-                        `vector.similarity_function`: 'cosine'
-                    }
-                }
-            """)
-            await result.consume()  # Ensure transaction commits
+            for index_name, label in (
+                ("entity_embedding_idx", "Entity"),
+                ("ku_embedding_idx", "Ku"),
+            ):
+                result = await session.run(f"""
+                    CREATE VECTOR INDEX {index_name} IF NOT EXISTS
+                    FOR (n:{label})
+                    ON (n.embedding)
+                    OPTIONS {{
+                        indexConfig: {{
+                            `vector.dimensions`: 1024,
+                            `vector.similarity_function`: 'cosine'
+                        }}
+                    }}
+                """)
+                await result.consume()  # Ensure transaction commits
 
     # Cleanup before test
     await cleanup()

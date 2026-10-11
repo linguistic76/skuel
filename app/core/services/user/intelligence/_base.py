@@ -51,7 +51,8 @@ class IntelligenceMixinBase:
     choices: Any
     principles: Any
 
-    # Curriculum Domains (3) — boundary: duck-typed (PsService facade / UnifiedRelationshipService / ExerciseService facade)
+    # Curriculum Domains (4) — boundary: duck-typed (KuService / PsService facades / UnifiedRelationshipService / ExerciseService facade)
+    ku: Any
     ps: Any
     lp: Any
     exercises: Any  # ExerciseService facade — daily-plan exercise enrichment

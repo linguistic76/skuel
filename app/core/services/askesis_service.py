@@ -445,13 +445,13 @@ class AskesisService:
     # (/docs/roadmap/askesis-intelligence-doors.md; _ASKESIS_HUB_DOOR).
     #
     # Architecture:
-    # UserContextIntelligence = RichUserContext + the eleven domain services
+    # UserContextIntelligence = RichUserContext + the twelve domain services
     # = User State + Complete Graph Intelligence
     #
     # Entity Types:
     # Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
-    # Curriculum Domains (3): KU, PS, LP
-    # Processing Domains (3): Assignments, Journals, Reports
+    # Curriculum Domains (4): KU, PS, LP, Exercises
+    # Processing Domain (1): Report
     # Temporal Domain (1): Calendar
     #
     # ========================================================================

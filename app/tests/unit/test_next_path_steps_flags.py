@@ -26,6 +26,7 @@ from core.constants import NextStepRanking
 from core.models.context_types import ContextualKnowledge, PathStep
 from core.models.type_hints import EntityUID
 from core.models.zpd.zpd_assessment import ZPDAction, ZPDAssessment
+from core.services.ku_service import KuService
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.services.ps_service import PsService
 from core.services.tasks_service import TasksService
@@ -81,6 +82,10 @@ def _intelligence(
     tasks = create_autospec(TasksService, instance=True)
     tasks.get_learning_tasks_for_user.return_value = Result.ok([])
 
+    # The title read answers nothing here: a flag test reads uids and scores.
+    ku = create_autospec(KuService, instance=True)
+    ku.get_published_titles.return_value = Result.ok({})
+
     vector_search = None
     if vector_rows is not None:
         vector_search = create_autospec(Neo4jVectorSearchService, instance=True)
@@ -98,6 +103,7 @@ def _intelligence(
         events=MagicMock(),
         choices=MagicMock(),
         principles=MagicMock(),
+        ku=ku,
         ps=ps,
         lp=MagicMock(),
         exercises=MagicMock(),

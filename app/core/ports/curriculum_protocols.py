@@ -419,6 +419,14 @@ class KuOperations(BackendOperations["Ku"], Protocol):
         """Search Kus by alias (case-insensitive substring)."""
         ...
 
+    async def get_published_titles(self, uids: list[str]) -> Result[list[Neo4jProperties]]:
+        """The ``uid`` / ``title`` rows of the published Kus among ``uids`` — one read.
+
+        A uid naming no Ku, or a Ku marked draft, has no row: the read withholds
+        unfinished curriculum the way every learner-facing listing does.
+        """
+        ...
+
     async def list_library(self, limit: int) -> Result[tuple[list[Ku], int]]:
         """The first ``limit`` published Kus, oldest first, and the published total."""
         ...

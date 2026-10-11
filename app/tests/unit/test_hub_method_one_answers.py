@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec
 import pytest
 
 from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAssessment
+from core.services.ku_service import KuService
 from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
 from core.services.ps_service import PsService
 from core.services.tasks_service import TasksService
@@ -61,6 +62,8 @@ def _hub(
     ps.find_events_applying_knowledge.return_value = Result.ok([])
     tasks = create_autospec(TasksService, instance=True)
     tasks.get_learning_tasks_for_user.return_value = Result.ok([])
+    ku = create_autospec(KuService, instance=True)
+    ku.get_published_titles.return_value = Result.ok({})
     zpd = create_autospec(ZPDService, instance=True)
     zpd.assess_zone.return_value = Result.ok(assessment)
     factory = UserContextIntelligenceFactory(
@@ -70,6 +73,7 @@ def _hub(
         events=MagicMock(),
         choices=MagicMock(),
         principles=MagicMock(),
+        ku=ku,
         ps=ps,
         lp=MagicMock(),
         exercises=MagicMock(),

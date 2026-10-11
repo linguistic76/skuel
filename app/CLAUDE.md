@@ -392,7 +392,7 @@ One object, built by one concurrent round-trip — the MEGA-QUERY is one plan-ca
 | Standard | `build()` | API responses, ownership checks (the seven `RICH_ONLY_FIELDS` stay `None`) |
 | Rich | `build_rich()` | Intelligence, daily planning — the hub methods accept only this depth |
 
-**The hub methods:** `UserContextIntelligence` (`core/services/user/intelligence/`) binds one user's `RichUserContext` to the eleven domain services and answers nine cross-domain questions — the daily plan (5) is the flagship. Doors: the Insights cards (`GET /insights/hub/{question}` → 1, 4, 6, 7, 8, 9), the Ku page's "Where you can apply this" (3), `/api/context/next-action` (5); Askesis' eight wrappers are the staged second door, method 2 waits on the LP walk. **See:** `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`, `/docs/roadmap/askesis-intelligence-doors.md`.
+**The hub methods:** `UserContextIntelligence` (`core/services/user/intelligence/`) binds one user's `RichUserContext` to the twelve domain services and answers nine cross-domain questions — the daily plan (5) is the flagship. Doors: the Insights cards (`GET /insights/hub/{question}` → 1, 4, 6, 7, 8, 9), the Ku page's "Where you can apply this" (3), `/api/context/next-action` (5); Askesis' eight wrappers are the staged second door, method 2 waits on the LP walk. **See:** `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`, `/docs/roadmap/askesis-intelligence-doors.md`.
 
 **ZPD Capstone:** `build_rich()` computes `context.zpd_assessment` (ZPDAssessment) as its final step — the pedagogical gravity well that synthesizes curriculum graph, behavioral signals, life path alignment, and compound evidence into recommended learning actions. FULL tier only. See: `core/services/zpd/zpd_service.py`.
 

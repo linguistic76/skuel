@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import LearningTimeEstimate, NextStepRanking
 from core.models.context_types import PathStep
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.neo_labels import NeoLabel
 from core.services.user.intelligence._base import IntelligenceMixinBase
 from core.services.user.rich_context import find_rich_entity_item
 from core.utils.neo4j_temporal import convert_neo4j_time
@@ -31,18 +32,21 @@ from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
-    from core.models.zpd.zpd_assessment import ZPDAction, ZPDAssessment
+    from core.models.zpd.zpd_assessment import ZPDAssessment
 
 
-def _action_priority(action: ZPDAction) -> float:
-    return action.priority
+def _placeholder_title(ku_uid: str) -> str:
+    """The title a step carries until its Ku's published title is read."""
+    return f"Knowledge Unit {ku_uid}"
 
 
 class LearningIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing learning intelligence methods.
 
-    Requires self.context (UserContext) and self.tasks, self.ps (relationship services).
+    Requires self.context (UserContext), self.tasks, self.ps (relationship services) and
+    self.ku (the Ku facade — the published titles of the steps the ZPD and context
+    sources name).
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     Optional: self.zpd_service (ZPDOperations) for curriculum-graph-aware step ranking.
     """
@@ -117,14 +121,10 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         """
         # If recommended_actions are pre-computed, use them directly
         if assessment.recommended_actions:
-            learn_actions = sorted(
-                [a for a in assessment.recommended_actions if a.action_type == "learn"],
-                key=_action_priority,
-                reverse=True,
-            )
+            learn_actions = assessment.top_recommended_actions(max_steps * 2, action_type="learn")
             if learn_actions:
                 path_steps = []
-                for action in learn_actions[: max_steps * 2]:
+                for action in learn_actions:
                     ku_uid: str = action.entity_uid
                     applications_result = await self._get_application_opportunities_for_ku(ku_uid)
                     if applications_result.is_error:
@@ -136,7 +136,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
                     step = PathStep(
                         ku_uid=ku_uid,
-                        title=f"Knowledge Unit {ku_uid}",
+                        title=_placeholder_title(ku_uid),
                         rationale=action.rationale,
                         prerequisites_met=readiness_score >= 1.0,
                         aligns_with_goals=tuple(aligned_goals),
@@ -149,7 +149,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
                     )
                     path_steps.append(step)
 
-                return Result.ok(
+                return await self._with_titles(
                     self._rank_steps(path_steps, max_steps, consider_goals, consider_capacity)
                 )
 
@@ -186,7 +186,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
             step = PathStep(
                 ku_uid=ku_uid,
-                title=f"Knowledge Unit {ku_uid}",
+                title=_placeholder_title(ku_uid),
                 rationale=self._generate_learning_rationale(
                     ku_uid, aligned_goals, unlocks_count, applications
                 ),
@@ -201,7 +201,9 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             )
             path_steps.append(step)
 
-        return Result.ok(self._rank_steps(path_steps, max_steps, consider_goals, consider_capacity))
+        return await self._with_titles(
+            self._rank_steps(path_steps, max_steps, consider_goals, consider_capacity)
+        )
 
     async def _rank_by_activity(
         self,
@@ -217,9 +219,11 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
             # Use semantic/learning-aware search to find optimal next steps
             # This personalizes based on mastery state (MASTERED, IN_PROGRESS, etc.)
+            # Every hit becomes a step named by its uid as a Ku, so the search is
+            # of the Ku index — a published Ku is the only thing it can return.
             search_query = self._generate_learning_query()
             vector_result = await self.vector_search.learning_aware_search(
-                label="Entity",
+                label=NeoLabel.KU.value,
                 text=search_query,
                 user_uid=self.context.user_uid,
                 prefer_unmastered=True,
@@ -237,7 +241,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
         if ready_result.is_error or not ready_result.value:
             # Fall back to context-based approach
-            return Result.ok(
+            return await self._with_titles(
                 self._rank_steps(
                     self._get_path_steps_from_context(max_steps),
                     max_steps,
@@ -308,7 +312,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
             step = PathStep(
                 ku_uid=ku_uid,
-                title=f"Knowledge Unit {ku_uid}",
+                title=_placeholder_title(ku_uid),
                 rationale=self._generate_learning_rationale(
                     ku_uid, aligned_goals, unlocks_count, applications
                 ),
@@ -363,6 +367,28 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
             ranked = self._filter_by_capacity(ranked)
 
         return ranked[:max_steps]
+
+    async def _with_titles(self, steps: list[PathStep]) -> Result[list[PathStep]]:
+        """Name the answer's steps by their Kus' published titles — one batched read.
+
+        The ZPD and context sources hand over Ku uids alone, so their steps are
+        built with a placeholder title and named here, after the cut, in one
+        ``KuService.get_published_titles`` read. A uid the read does not answer —
+        no such Ku, or one marked draft — keeps the placeholder: a learner is not
+        shown a title the catalogue withholds. A failed read fails the answer.
+        """
+        if not steps:
+            return Result.ok(steps)
+        titles_result = await self.ku.get_published_titles([step.ku_uid for step in steps])
+        if titles_result.is_error:
+            return Result.fail(titles_result)
+        titles = titles_result.value
+        return Result.ok(
+            [
+                replace(step, title=titles[step.ku_uid]) if step.ku_uid in titles else step
+                for step in steps
+            ]
+        )
 
     def _with_goal_weight(self, step: PathStep) -> PathStep:
         """Raise a step's score by the goals it serves; a step serving none is returned as is."""
@@ -727,7 +753,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
 
             step = PathStep(
                 ku_uid=ku_uid,
-                title=node.get("title", f"Knowledge Unit {ku_uid}"),
+                title=node.get("title") or _placeholder_title(ku_uid),
                 rationale=self._generate_learning_rationale(
                     ku_uid, aligned_goals, unlocks_count, applications
                 ),

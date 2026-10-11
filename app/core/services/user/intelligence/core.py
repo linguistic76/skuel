@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
+    from core.services.ku_service import KuService
     from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
@@ -70,11 +71,11 @@ class UserContextIntelligence(
     PerceptionIntelligenceMixin,
 ):
     """
-    The hub methods: one user's RichUserContext + the eleven domain services.
+    The hub methods: one user's RichUserContext + the twelve domain services.
 
     **Architecture:**
     This class synthesizes user state (UserContext) with graph
-    intelligence (the eleven domain services) to answer: "What should I work on?"
+    intelligence (the twelve domain services) to answer: "What should I work on?"
     Its nine public methods are the hub methods; the Insights cards
     (``GET /insights/hub/{question}``), the Ku page's "Where you can apply this"
     and ``/api/context/next-action`` are their doors, Askesis' wrappers the staged
@@ -90,7 +91,8 @@ class UserContextIntelligence(
     - choices: ChoicesService - What decisions await?
     - principles: PrinciplesService - What values guide this?
 
-    Curriculum Domains (3):
+    Curriculum Domains (4):
+    - ku: KuService - the published titles of the Kus a step names (method 1)
     - ps: PsService - What knowledge is ready?
     - lp: UnifiedRelationshipService - held for the critical path's LP walk; no
       method reads it yet (``_HUB_CRITICAL_PATH`` in scripts/detect_bloat.py)
@@ -132,7 +134,8 @@ class UserContextIntelligence(
         events: EventsService,
         choices: ChoicesService,
         principles: PrinciplesService,
-        # Curriculum Domains (3) - REQUIRED
+        # Curriculum Domains (4) - REQUIRED
+        ku: KuService,
         ps: PsService,
         lp: UnifiedRelationshipService,
         exercises: Any,  # ExerciseService facade — daily-plan exercise enrichment
@@ -148,7 +151,7 @@ class UserContextIntelligence(
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None:
         """
-        Initialize with user context and all 11 required domain services.
+        Initialize with user context and all 12 required domain services.
 
         Args:
             context: The user's RichUserContext snapshot
@@ -161,7 +164,8 @@ class UserContextIntelligence(
                 choices: ChoicesService facade for pending decisions
                 principles: PrinciplesService facade for value alignment
 
-            Curriculum Domains (3):
+            Curriculum Domains (4):
+                ku: Ku service facade for the published titles a step carries
                 ps: PathStep service facade for learning readiness
                 lp: Learning path relationship service, held for the critical path
                 exercises: ExerciseService facade for the daily plan's exercise slots
@@ -189,7 +193,8 @@ class UserContextIntelligence(
             "events": events,
             "choices": choices,
             "principles": principles,
-            # Curriculum Domains (3)
+            # Curriculum Domains (4)
+            "ku": ku,
             "ps": ps,
             "lp": lp,
             "exercises": exercises,
@@ -202,7 +207,7 @@ class UserContextIntelligence(
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligence requires all 11 domain services. "
+                f"UserContextIntelligence requires all 12 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -217,7 +222,8 @@ class UserContextIntelligence(
         self.choices = choices
         self.principles = principles
 
-        # Curriculum domains (3)
+        # Curriculum domains (4)
+        self.ku = ku
         self.ps = ps
         self.lp = lp
         self.exercises = exercises
