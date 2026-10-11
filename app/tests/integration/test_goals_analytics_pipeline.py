@@ -21,13 +21,14 @@ key/shape mismatch (a silent empty list); the guard must run against real Cypher
 
 The harness runs over the real ``GoalsBackend``: the goal the methods analyse is the
 node as stored, and the dashboard's contribution figures are the contribution tally read
-from the graph (``GoalsBackend.get_contribution_tally``).
+from the graph (``GoalsBackend.get_contribution_tally``). The forecast runs through the
+real ``GoalsProgressService`` — its velocity helpers read the context the method holds.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
@@ -44,6 +45,7 @@ from core.models.habit.habit import Habit
 from core.models.relationship_registry import GOALS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
+from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
@@ -71,45 +73,6 @@ def rel_backend(neo4j_driver):
     return GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
 
 
-class _FakeProgress:
-    """Canned progress service for the forecast path — the migration only changed how
-    forecast reads its graph_context block off the path-aware context; the velocity/forecast
-    maths is untouched and out of scope, so we feed it fixed values."""
-
-    def calculate_velocity_metrics(self, _context: Any, _goal: Goal) -> dict[str, float]:
-        return {
-            "current_progress_rate": 0.5,
-            "task_completion_velocity": 0.3,
-            "habit_consistency_score": 0.7,
-        }
-
-    def generate_forecast(self, _goal: Goal, _rate: float) -> dict[str, Any]:
-        return {
-            "estimated_completion_date": date.today(),
-            "days_ahead_or_behind": 3,
-            "completion_probability": 0.8,
-        }
-
-    def calculate_timeline_analysis(
-        self, _goal: Goal, _velocity: dict[str, float], _days: int
-    ) -> dict[str, Any]:
-        return {
-            "required_velocity": 0.4,
-            "confidence_level": "medium",
-            "target_date": date.today(),
-            "days_remaining": 30,
-            "current_pace": "on_track",
-        }
-
-    def identify_risk_factors(self, _velocity: dict[str, float], _context: Any) -> list[str]:
-        return []
-
-    def identify_acceleration_opportunities(
-        self, _velocity: dict[str, float], _context: Any, _required: float
-    ) -> list[str]:
-        return []
-
-
 class _GoalIntelHarness(_AnalyticsMixin, BaseAnalyticsService):
     """Mirrors the real service composition (mixin + BaseAnalyticsService) so the migrated
     methods can reach ``_analyze_entity_with_typed_context``. ``graph_intel`` only needs to be
@@ -118,7 +81,7 @@ class _GoalIntelHarness(_AnalyticsMixin, BaseAnalyticsService):
     def __init__(self, backend: GoalsBackend, relationships: Any) -> None:
         self.backend = backend
         self.relationships = relationships
-        self.progress = _FakeProgress()
+        self.progress = GoalsProgressService(backend=backend)
         self.graph_intel = Mock(spec=GraphIntelligenceService)
 
 
@@ -555,6 +518,76 @@ async def test_goal_completion_forecast_reads_graph_context(neo4j_driver, rel_ba
     assert gc["task_support_count"] == 1
     assert gc["habit_support_count"] == 1
     assert res.value["metrics"]["cascade_impact"]["total_impact"] > 0.0
+
+
+@pytest.mark.asyncio
+async def test_goal_completion_forecast_reads_the_goals_tasks_and_habit_adherence(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """The forecast's velocity is read through the real progress service: the goal's
+    progress tally (two contributing tasks, one completed) and its supporting habits'
+    adherence — an essential daily habit kept one of its four days reads 0.25, below the
+    0.5 the risk factors hold a habit system to."""
+    goal_uid = GL + "forecast_goal"
+    await _seed_owned_goal(neo4j_driver, goal_uid)
+    async with neo4j_driver.session() as s:
+        for task_uid, status in [
+            (GL + "forecast_done", "completed"),
+            (GL + "forecast_open", "active"),
+        ]:
+            await s.run(
+                "MATCH (owner:User {uid:$owner}), (g:Entity {uid:$g}) "
+                "CREATE (owner)-[:OWNS]->(t:Entity:Task {uid:$t, entity_type:'task', title:$t, "
+                "user_uid:$owner, status:$status, created_at:datetime()})"
+                "-[:CONTRIBUTES_TO_GOAL {confidence:0.95}]->(g)",
+                owner=GL_OWNER,
+                g=goal_uid,
+                t=task_uid,
+                status=status,
+            )
+    await _seed_supporting_habit(
+        neo4j_driver, GL + "forecast_habit", goal_uid, essentiality="essential", kept_days=1
+    )
+
+    res = await _harness(rel_backend).get_goal_completion_forecast(
+        goal_uid, depth=1, min_confidence=0.7
+    )
+
+    assert res.is_ok, res
+    velocity = res.value["velocity_metrics"]
+    assert velocity["habit_consistency_score"] == pytest.approx(0.25)
+    assert velocity["task_completion_velocity"] == pytest.approx(0.25)  # 1 completed / 4 weeks
+    assert res.value["graph_context"]["task_support_count"] == 2
+    assert (
+        "Low habit consistency - supporting routines are inconsistent" in res.value["risk_factors"]
+    )
+    assert (
+        "No supporting habits - progress relies entirely on ad-hoc tasks"
+        not in res.value["risk_factors"]
+    )
+    assert "Create daily/weekly habits to build momentum" in res.value["acceleration_opportunities"]
+
+
+@pytest.mark.asyncio
+async def test_goal_completion_forecast_without_habits_is_neutral_on_consistency(
+    neo4j_driver, rel_backend, clean_neo4j
+):
+    """No supporting habit is no measurement: the consistency reads the neutral 0.5 —
+    no "low consistency" risk — and the missing habit system is the risk named."""
+    goal_uid = GL + "forecast_bare_goal"
+    await _seed_owned_goal(neo4j_driver, goal_uid)
+
+    res = await _harness(rel_backend).get_goal_completion_forecast(
+        goal_uid, depth=1, min_confidence=0.7
+    )
+
+    assert res.is_ok, res
+    assert res.value["velocity_metrics"]["habit_consistency_score"] == pytest.approx(0.5)
+    assert res.value["velocity_metrics"]["task_completion_velocity"] == 0
+    risks = res.value["risk_factors"]
+    assert "No supporting habits - progress relies entirely on ad-hoc tasks" in risks
+    assert "Low habit consistency - supporting routines are inconsistent" not in risks
+    assert "Too few tasks defined - goal may lack concrete action plan" in risks
 
 
 @pytest.mark.asyncio

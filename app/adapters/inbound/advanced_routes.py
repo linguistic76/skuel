@@ -30,7 +30,11 @@ from adapters.inbound.route_factories import (
     parse_date_param_strict,
     register_domain_routes,
 )
-from core.models.calendar_optimization import CalendarOptimization, SchedulingStrategy
+from core.models.calendar_optimization import (
+    CalendarOptimization,
+    CognitiveLoadDay,
+    SchedulingStrategy,
+)
 from core.orchestrator.calendar_optimization_orchestrator import (
     CalendarOptimizationOrchestrator,
 )
@@ -97,11 +101,9 @@ def create_calendar_optimization_routes(
     async def cognitive_load(
         request: Request,
         target_date: str | None = None,
-    ) -> Result[dict[str, Any]]:
-        """
-        Analyze cognitive load for a specific date.
-        Returns cognitive load distribution and overload risks.
-        """
+    ) -> Result[CognitiveLoadDay]:
+        """The caller's cognitive load for a date: one analysis per open task due
+        that day, and the analyses that risk overload."""
         user_uid = require_authenticated_user(request)
         if target_date:
             date_result = parse_date_param_strict(target_date, "target_date")
@@ -115,12 +117,12 @@ def create_calendar_optimization_routes(
             user_uid=user_uid, target_date=opt_date
         )
         return Result.ok(
-            {
-                "date": opt_date.isoformat(),
-                "task_count": len(task_list),
-                "cognitive_analyses": analyses,
-                "overload_risks": [a for a in analyses if a["is_overload_risk"]],
-            }
+            CognitiveLoadDay(
+                date=opt_date.isoformat(),
+                task_count=len(task_list),
+                cognitive_analyses=analyses,
+                overload_risks=[a for a in analyses if a["cognitive_load"]["is_overload_risk"]],
+            )
         )
 
 

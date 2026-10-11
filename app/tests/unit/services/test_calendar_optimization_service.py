@@ -3,7 +3,7 @@ Tests for Calendar Optimization Service
 =========================================
 
 Mock-free unit tests for CalendarOptimizationService — pure, synchronous
-scheduling algorithms exercised with real DTOs (testing-gap roadmap item 4:
+scheduling algorithms exercised with real models (testing-gap roadmap item 4:
 pure-algorithm units; this service previously had ZERO coverage).
 
 Covers:
@@ -32,8 +32,8 @@ from core.models.calendar_optimization import (
 )
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityType, Priority
-from core.models.event.event_dto import EventDTO
-from core.models.task.task_dto import TaskDTO
+from core.models.event.event import Event
+from core.models.task.task import Task
 from core.services.calendar_optimization_service import CalendarOptimizationService
 
 TARGET_DATE = date(2026, 7, 20)
@@ -46,14 +46,14 @@ def service() -> CalendarOptimizationService:
     return CalendarOptimizationService()
 
 
-def make_task(uid: str, **kwargs) -> TaskDTO:
-    """Build a real TaskDTO with a unique uid (empty uids collide in schedules)."""
-    return TaskDTO(uid=uid, title=f"Task {uid}", user_uid=USER_UID, **kwargs)
+def make_task(uid: str, **kwargs) -> Task:
+    """Build a real Task with a unique uid (empty uids collide in schedules)."""
+    return Task(uid=uid, title=f"Task {uid}", user_uid=USER_UID, **kwargs)
 
 
-def make_event(uid: str, **kwargs) -> EventDTO:
-    """Build a real EventDTO."""
-    return EventDTO(uid=uid, title=f"Event {uid}", user_uid=USER_UID, **kwargs)
+def make_event(uid: str, **kwargs) -> Event:
+    """Build a real Event."""
+    return Event(uid=uid, title=f"Event {uid}", user_uid=USER_UID, **kwargs)
 
 
 def make_slot(
@@ -788,7 +788,7 @@ class TestScoreCalculations:
 
 
 class TestOptimizeKnowledgeSchedulingEndToEnd:
-    """Full optimize_knowledge_scheduling run with real DTOs."""
+    """Full optimize_knowledge_scheduling run with real models."""
 
     def test_end_to_end_returns_complete_optimization(
         self, service: CalendarOptimizationService

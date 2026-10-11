@@ -18,6 +18,7 @@ from core.models.graph.path_aware_types import GoalCrossContext
 from core.models.habit.adherence import adherence_window_days
 from core.ports.domain_protocols import GoalsOperations
 from core.services.goals.dashboard_figures import (
+    habit_support_adherence,
     habit_support_contribution,
     knowledge_mastery_contribution,
     needs_more_tasks,
@@ -35,6 +36,7 @@ from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
+    from core.services.goals.goals_progress_service import GoalsProgressService
     from core.services.user.unified_user_context import UserContext
 
 
@@ -49,7 +51,7 @@ class _AnalyticsMixin:
     # Populated by GoalsIntelligenceService.__init__
     backend: GoalsOperations
     relationships: Any
-    progress: Any
+    progress: GoalsProgressService | None
     logger: Any
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
     _analyze_entity_with_typed_context: Any
@@ -205,9 +207,14 @@ class _AnalyticsMixin:
 
         Analyzes completion trajectory based on:
         - Current progress rate
-        - Task completion velocity
-        - Habit consistency trends
-        - Historical patterns
+        - Task completion velocity — the goal's progress tally (the contributions that
+          count toward it, as the dashboard's ``total_contributions``)
+        - Habit consistency — the supporting habits' essentiality-weighted adherence
+          (the dashboard's ``habit_contribution`` as a 0-1 rate; 0.5 when no habit has a
+          rate yet)
+
+        Backend: GoalsBackend.get_contribution_tally,
+        GoalsBackend.get_supporting_habit_windows
         """
         # Use base class template over the CANONICAL typed (path-aware) reader.
         analysis_result = await self._analyze_entity_with_typed_context(
@@ -234,8 +241,25 @@ class _AnalyticsMixin:
         context: GoalCrossContext = analysis["context"]
         metrics = analysis["metrics"]
 
+        # The progress tally — the contributions that count toward the goal.
+        tally_result = await self.backend.get_contribution_tally(uid)
+        if tally_result.is_error:
+            return Result.fail(tally_result)
+
+        # The supporting habits' adherence — the dashboard's habit figure, as a rate.
+        zone = current_zone()
+        window_start, window_end = adherence_window_days(zone)
+        habit_windows = await self.backend.get_supporting_habit_windows(
+            uid, window_start.isoformat(), window_end.isoformat()
+        )
+        if habit_windows.is_error:
+            return Result.fail(habit_windows)
+        habit_adherence = habit_support_adherence(habit_windows.value, zone)
+
         # Calculate all metrics using progress service helpers
-        velocity_metrics = self.progress.calculate_velocity_metrics(None, goal)
+        velocity_metrics = self.progress.calculate_velocity_metrics(
+            goal, tally_result.value, habit_adherence
+        )
         current_progress_rate = velocity_metrics["current_progress_rate"]
 
         forecast = self.progress.generate_forecast(goal, current_progress_rate)
@@ -247,9 +271,9 @@ class _AnalyticsMixin:
         required_velocity = timeline_analysis["required_velocity"]
         confidence_level = timeline_analysis["confidence_level"]
 
-        risk_factors = self.progress.identify_risk_factors(velocity_metrics, None)
+        risk_factors = self.progress.identify_risk_factors(velocity_metrics, context)
         acceleration_opportunities = self.progress.identify_acceleration_opportunities(
-            velocity_metrics, None, required_velocity
+            velocity_metrics, context, required_velocity
         )
 
         return Result.ok(
