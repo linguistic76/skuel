@@ -32,6 +32,7 @@ import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.constants import PromptInput
 from core.events import publish_event
 from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
 from core.events.user_entry_events import (
@@ -57,6 +58,7 @@ from core.services.dsl.grounding import goals_as_context
 from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -817,19 +819,29 @@ class UserEntryProcessingService:
         custom_instructions: str | None,
         enrichment_mode: EnrichmentMode,
     ) -> Result[str]:
-        """Resolve an instruction template and call the LLM."""
+        """Resolve an instruction template and call the LLM.
+
+        The entry's content and the user's instructions are each bounded at
+        ``PromptInput.DOCUMENT_MAX_CHARS`` before they enter the prompt.
+        """
         assert self.llm_caller is not None
         assert self.instruction_resolver is not None
 
         instruction_result = self.instruction_resolver.resolve(
             enrichment_mode=enrichment_mode,
-            custom_instructions=custom_instructions,
+            custom_instructions=(
+                truncate_to_budget(custom_instructions, PromptInput.DOCUMENT_MAX_CHARS)
+                if custom_instructions
+                else custom_instructions
+            ),
         )
         if instruction_result.is_error:
             return Result.fail(instruction_result)
         instruction = instruction_result.value
 
-        prompt = instruction.prompt_text.replace("{content}", content)
+        prompt = instruction.prompt_text.replace(
+            "{content}", truncate_to_budget(content, PromptInput.DOCUMENT_MAX_CHARS)
+        )
 
         try:
             return await self.llm_caller.generate(

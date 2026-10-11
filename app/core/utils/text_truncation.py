@@ -5,9 +5,11 @@ Text Truncation — Sentence-Boundary-Aware Truncation for LLM Context
 Truncates text to a character budget while preserving readability by
 cutting at sentence or paragraph boundaries where possible.
 
-Two families of prompt builder call it: the Askesis pipeline bounds its
-assembled context (``AskesisTokenBudget``), and the domain AI services bound
-each entity field (``BaseAIService._bounded``, ``PromptInput``).
+Three families of prompt builder call it: the Askesis pipeline bounds its
+assembled context (``AskesisTokenBudget``), the domain AI services bound each
+entity field (``BaseAIService._bounded``, ``PromptInput.FIELD_MAX_CHARS``), and
+the journal, entry, report and DSL doors bound each user-written document
+(``PromptInput.DOCUMENT_MAX_CHARS``).
 """
 
 from typing import Final

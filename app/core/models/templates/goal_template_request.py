@@ -27,7 +27,7 @@ from core.models.templates.relative_offset_dto import RelativeOffsetDTO
 class GoalTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a GoalTemplate."""
 
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     tags: list[str] = Field(default_factory=list)
 
     goal_type: GoalType | None = None
@@ -35,7 +35,7 @@ class GoalTemplateCreateRequest(TemplateCreateRequest):
     measurement_type: MeasurementType | None = None
 
     target_value: float | None = None
-    unit_of_measurement: str | None = None
+    unit_of_measurement: str | None = Field(default=None, max_length=50)
 
     start_offset: RelativeOffsetDTO | None = None
     target_offset: RelativeOffsetDTO | None = None
@@ -45,9 +45,9 @@ class GoalTemplateCreateRequest(TemplateCreateRequest):
         description="Authored milestone structure (cloned to instance)",
     )
 
-    vision_statement: str | None = None
-    why_important: str | None = None
-    success_criteria: str | None = None
+    vision_statement: str | None = Field(default=None, max_length=1000)
+    why_important: str | None = Field(default=None, max_length=1000)
+    success_criteria: str | None = Field(default=None, max_length=1000)
     potential_obstacles: list[str] = Field(default_factory=list)
     strategies: list[str] = Field(default_factory=list)
 
@@ -63,7 +63,7 @@ class GoalTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating a GoalTemplate."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     status: EntityStatus | None = None
     tags: list[str] | None = None
 
@@ -72,16 +72,16 @@ class GoalTemplateUpdateRequest(UpdateRequestBase):
     measurement_type: MeasurementType | None = None
 
     target_value: float | None = None
-    unit_of_measurement: str | None = None
+    unit_of_measurement: str | None = Field(default=None, max_length=50)
 
     start_offset: RelativeOffsetDTO | None = None
     target_offset: RelativeOffsetDTO | None = None
 
     milestones: list[dict[str, Any]] | None = None
 
-    vision_statement: str | None = None
-    why_important: str | None = None
-    success_criteria: str | None = None
+    vision_statement: str | None = Field(default=None, max_length=1000)
+    why_important: str | None = Field(default=None, max_length=1000)
+    success_criteria: str | None = Field(default=None, max_length=1000)
     potential_obstacles: list[str] | None = None
     strategies: list[str] | None = None
 

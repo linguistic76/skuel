@@ -27,7 +27,7 @@ from core.models.templates.relative_offset_dto import RelativeOffsetDTO
 class ChoiceTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a ChoiceTemplate."""
 
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=1000)
     tags: list[str] = Field(default_factory=list)
 
     choice_type: ChoiceType | None = None
@@ -50,7 +50,7 @@ class ChoiceTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating a ChoiceTemplate."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=1000)
     status: EntityStatus | None = None
     tags: list[str] | None = None
 

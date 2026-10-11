@@ -21,18 +21,18 @@ from core.models.templates.relative_offset_dto import RelativeOffsetDTO
 class HabitTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a HabitTemplate."""
 
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=1000)
     tags: list[str] = Field(default_factory=list)
 
     polarity: HabitPolarity | None = None
     habit_category: HabitCategory | None = None
     habit_difficulty: HabitDifficulty | None = None
 
-    cue: str | None = None
-    routine: str | None = None
-    reward: str | None = None
+    cue: str | None = Field(default=None, max_length=500)
+    routine: str | None = Field(default=None, max_length=1000)
+    reward: str | None = Field(default=None, max_length=500)
 
-    reinforces_identity: str | None = None
+    reinforces_identity: str | None = Field(default=None, max_length=200)
     is_identity_habit: bool = False
     target_identity: str | None = None
     identity_evidence_required: int = Field(default=0, ge=0)
@@ -52,7 +52,7 @@ class HabitTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating a HabitTemplate."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=1000)
     status: EntityStatus | None = None
     tags: list[str] | None = None
 
@@ -60,11 +60,11 @@ class HabitTemplateUpdateRequest(UpdateRequestBase):
     habit_category: HabitCategory | None = None
     habit_difficulty: HabitDifficulty | None = None
 
-    cue: str | None = None
-    routine: str | None = None
-    reward: str | None = None
+    cue: str | None = Field(default=None, max_length=500)
+    routine: str | None = Field(default=None, max_length=1000)
+    reward: str | None = Field(default=None, max_length=500)
 
-    reinforces_identity: str | None = None
+    reinforces_identity: str | None = Field(default=None, max_length=200)
     is_identity_habit: bool | None = None
     target_identity: str | None = None
     identity_evidence_required: int | None = Field(default=None, ge=0)

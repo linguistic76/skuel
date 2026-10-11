@@ -26,7 +26,9 @@ from core.models.templates.relative_offset_dto import RelativeOffsetDTO
 class TaskTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a TaskTemplate."""
 
-    description: str | None = Field(default=None, description="Detailed description")
+    description: str | None = Field(
+        default=None, max_length=2000, description="Detailed description"
+    )
     tags: list[str] = Field(default_factory=list, description="Tags for categorization")
 
     # Scheduling (engagement-relative)
@@ -44,7 +46,7 @@ class TaskTemplateCreateRequest(TemplateCreateRequest):
 
     # Hierarchy / project context
     parent_template_uid: str | None = Field(default=None, description="Parent task template UID")
-    project: str | None = Field(default=None, description="Associated project")
+    project: str | None = Field(default=None, max_length=200, description="Associated project")
 
     # Cross-template references (resolved at spawn)
     contributes_to_goal_template_uid: str | None = None
@@ -62,7 +64,7 @@ class TaskTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating a TaskTemplate."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     status: EntityStatus | None = None
     tags: list[str] | None = None
 
@@ -74,7 +76,7 @@ class TaskTemplateUpdateRequest(UpdateRequestBase):
     recurrence_end_offset: RelativeOffsetDTO | None = None
 
     parent_template_uid: str | None = None
-    project: str | None = None
+    project: str | None = Field(default=None, max_length=200)
 
     contributes_to_goal_template_uid: str | None = None
     reinforces_habit_template_uid: str | None = None

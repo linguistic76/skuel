@@ -28,18 +28,20 @@ from core.models.templates._template_request_base import TemplateCreateRequest
 class PrincipleTemplateCreateRequest(TemplateCreateRequest):
     """External API request for creating a PrincipleTemplate."""
 
-    description: str | None = None
+    # A Principle's title is capped at 100, not the template base's 200.
+    title: str = Field(min_length=1, max_length=100, description="Template title")
+    description: str | None = Field(default=None, max_length=1000)
     tags: list[str] = Field(default_factory=list)
 
-    statement: str | None = None
+    statement: str | None = Field(default=None, max_length=500)
 
     principle_category: PrincipleCategory | None = None
     principle_source: PrincipleSource | None = None
     strength: PrincipleStrength | None = None
 
-    tradition: str | None = None
-    original_source: str | None = None
-    personal_interpretation: str | None = None
+    tradition: str | None = Field(default=None, max_length=100)
+    original_source: str | None = Field(default=None, max_length=200)
+    personal_interpretation: str | None = Field(default=None, max_length=1000)
 
     expressions: list[dict[str, Any]] = Field(
         default_factory=list,
@@ -51,27 +53,27 @@ class PrincipleTemplateCreateRequest(TemplateCreateRequest):
     conflicting_principles: list[str] = Field(default_factory=list)
     resolution_strategies: list[str] = Field(default_factory=list)
 
-    origin_story: str | None = None
+    origin_story: str | None = Field(default=None, max_length=2000)
     evolution_notes: str | None = None
 
 
 class PrincipleTemplateUpdateRequest(UpdateRequestBase):
     """External API request for updating a PrincipleTemplate."""
 
-    title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=1000)
     status: EntityStatus | None = None
     tags: list[str] | None = None
 
-    statement: str | None = None
+    statement: str | None = Field(default=None, max_length=500)
 
     principle_category: PrincipleCategory | None = None
     principle_source: PrincipleSource | None = None
     strength: PrincipleStrength | None = None
 
-    tradition: str | None = None
-    original_source: str | None = None
-    personal_interpretation: str | None = None
+    tradition: str | None = Field(default=None, max_length=100)
+    original_source: str | None = Field(default=None, max_length=200)
+    personal_interpretation: str | None = Field(default=None, max_length=1000)
 
     expressions: list[dict[str, Any]] | None = None
     key_behaviors: list[str] | None = None
@@ -80,5 +82,5 @@ class PrincipleTemplateUpdateRequest(UpdateRequestBase):
     conflicting_principles: list[str] | None = None
     resolution_strategies: list[str] | None = None
 
-    origin_story: str | None = None
+    origin_story: str | None = Field(default=None, max_length=2000)
     evolution_notes: str | None = None

@@ -85,8 +85,10 @@ class TaskCreateRequest(CreateRequestBase):
     )
 
     # Organization
-    project: str | None = Field(default=None, description="Associated project")
-    assignee: str | None = Field(default=None, description="Person assigned to this task")
+    project: str | None = Field(default=None, max_length=200, description="Associated project")
+    assignee: str | None = Field(
+        default=None, max_length=200, description="Person assigned to this task"
+    )
     tags: list[str] = Field(default_factory=list, description="Task tags")
 
     # Hierarchical Relationships (2026-01-30 - Hierarchical Pattern)
@@ -178,8 +180,8 @@ class TaskUpdateRequest(UpdateRequestBase):
     duration_minutes: int | None = Field(default=None, ge=5, le=480)
     priority: Priority | None = None
     status: EntityStatus | None = None
-    project: str | None = None
-    assignee: str | None = None
+    project: str | None = Field(default=None, max_length=200)
+    assignee: str | None = Field(default=None, max_length=200)
     tags: list[str] | None = None
     actual_minutes: int | None = Field(default=None, ge=0, description="Actual time spent")
     completion_date: date | None = None

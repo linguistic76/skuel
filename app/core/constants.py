@@ -332,7 +332,7 @@ class AskesisTokenBudget:
 
 class PromptInput:
     """
-    Character bounds on the entity text the domain AI services hand to an LLM.
+    Character bounds on the user-written text an LLM door puts in a prompt.
 
     A domain ``*AIService`` builds its prompt from an entity's stored fields.
     A request model's ``max_length`` holds only at the doors that validate
@@ -340,6 +340,10 @@ class PromptInput:
     template spawn — has no cap at all. So the bound is applied where the text
     enters the prompt (``BaseAIService._bounded``): each field is cut on its
     own, and the instructions that follow it are never the part that is lost.
+
+    The journal, entry, report and DSL doors put whole documents in their
+    prompts — a journal note, an entry's content, a conversation so far — and
+    bound each one, where it enters the prompt, at ``DOCUMENT_MAX_CHARS``.
     """
 
     # The most characters of one field that reach a prompt. No Activity request
@@ -352,6 +356,11 @@ class PromptInput:
     # only a builder that interpolates an unbounded field can reach it — and
     # that call is refused, not cut.
     PROMPT_MAX_CHARS: Final = 20000
+
+    # The most characters of one document that reach a prompt: a journal note,
+    # an entry's content or instructions, a transcript, a conversation so far.
+    # ~10 000 tokens.
+    DOCUMENT_MAX_CHARS: Final = 40000
 
 
 class AskesisPipelineTimeout:

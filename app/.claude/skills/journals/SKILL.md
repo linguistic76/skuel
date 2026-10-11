@@ -38,6 +38,12 @@ FOUNDER stages run in sequence and are gated at the route layer (`journal_tier.i
 `run_compiled()` is the batch path: file upload (`instructions_only` mode) chains all three stages
 without interactive review, producing a single markdown document with all three sections.
 
+Every user-written text a stage puts in its prompt — the note, a stage output or review notes
+the client posts back, the conversation so far, the reply — is cut at
+`PromptInput.DOCUMENT_MAX_CHARS` (`truncate_to_budget`, a boundary cut ending in `...`) where it
+enters the prompt (`_document` in `journal_service.py`); the batch compile bounds its text and
+instructions the same way.
+
 ---
 
 ## Core Principles

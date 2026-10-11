@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.constants import PromptInput
 from core.events import publish_event
 from core.events.learning_loop_events import EntryReportGenerated
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -37,6 +38,7 @@ from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
@@ -257,7 +259,10 @@ class EntryReportService:
             )
 
         try:
-            prompt = PROMPT_REGISTRY.render("entry_response", content=source_text)
+            prompt = PROMPT_REGISTRY.render(
+                "entry_response",
+                content=truncate_to_budget(source_text, PromptInput.DOCUMENT_MAX_CHARS),
+            )
             llm_result = await self.llm_caller.generate(
                 prompt=prompt,
                 temperature=0.7,
@@ -488,7 +493,9 @@ class EntryReportService:
                     Errors.validation("Submission has no content for report", field="content")
                 )
 
-            prompt = exercise.get_feedback_prompt(entry_content)
+            prompt = exercise.get_feedback_prompt(
+                truncate_to_budget(entry_content, PromptInput.DOCUMENT_MAX_CHARS)
+            )
 
             self.logger.info(
                 f"Generating report for entry {entry.uid} using exercise {exercise.uid}"

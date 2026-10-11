@@ -25,10 +25,12 @@ import time
 from itertools import islice
 from typing import TYPE_CHECKING
 
+from core.constants import PromptInput
 from core.models.enums.lifepath_enums import ThemeCategory
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 
 from .lifepath_types import (
     LpRecommendation,
@@ -213,7 +215,7 @@ For each theme, provide:
 - The theme keyword (1-2 words)
 - A brief context from the original statement
 
-Vision: "{vision_statement}"
+Vision: "{truncate_to_budget(vision_statement, PromptInput.FIELD_MAX_CHARS)}"
 
 Return themes as a JSON array like:
 [

@@ -126,10 +126,6 @@ class FieldWidgetMapper:
 
         # String with heuristics
         if annotation is str:
-            max_length = getattr(field_info, "max_length", None)
-            if max_length and max_length > 100:
-                return "textarea"
-
             if any(
                 keyword in field_name.lower()
                 for keyword in ["description", "notes", "content", "body"]

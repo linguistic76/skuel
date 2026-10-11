@@ -17,6 +17,7 @@ from dataclasses import asdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.constants import PromptInput
 from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
 from core.models.relationship_names import RelationshipName
@@ -31,6 +32,7 @@ from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
@@ -549,7 +551,7 @@ Preserve the author's voice and authenticity while improving readability.
                 [
                     "## Raw Transcript",
                     "```",
-                    raw_transcript,
+                    truncate_to_budget(raw_transcript, PromptInput.DOCUMENT_MAX_CHARS),
                     "```",
                     "",
                     "## Task",
