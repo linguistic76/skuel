@@ -169,8 +169,9 @@ def test_no_collision_for_distinct_paths(tmp_path: Path) -> None:
 # GET / HEAD / OPTIONS through unchecked — so a write registered that way runs
 # on a link, an image URL or a prefetch with the viewer's session and no token.
 # write_method_gaps() flags a @csrf_protected handler, a literal /api/ path ending
-# in /create, /update or /delete, or a computed factory path ending in one, that
-# names no methods=, names one the scanner cannot read, or names a safe method.
+# in /create, /update or /delete, a computed factory path ending in one, or a call
+# registration wrapping csrf_protected(...), that names no methods=, names one the
+# scanner cannot read, or names a safe method.
 
 
 def _gaps_in(tmp_path: Path, source: str) -> list[str]:
@@ -198,6 +199,32 @@ def test_scanner_sees_the_crud_factory_writes() -> None:
         "delete",
     }
     assert all(r.methods == frozenset({"POST"}) for r in writes), writes
+
+
+def test_scanner_sees_the_csrf_wrapped_call_registrations() -> None:
+    # Positive control for the wrapped spelling — rt(path, methods=["POST"])
+    # (csrf_protected(handler)) — the AI, field, link and hierarchy factories use.
+    wrapped = {r.file for r in collect_call_registrations(SCAN_DIR) if r.has_csrf}
+    assert wrapped >= {
+        "ai_routes.py",
+        "activity_field_api_factory.py",
+        "activity_link_api_factory.py",
+        "hierarchy_api_factory.py",
+    }
+
+
+def test_csrf_wrapped_call_registration_without_methods_is_a_gap(tmp_path: Path) -> None:
+    # A variable path says nothing; the csrf_protected(...) wrap says write.
+    assert _gaps_in(
+        tmp_path,
+        """
+        def register(rt, path, handler):
+            rt(path)(csrf_protected(handler))
+            rt(path, methods=["GET", "POST"])(csrf_protected(boundary_handler()(handler)))
+            rt(path, methods=["POST"])(csrf_protected(handler))
+            rt(path)(boundary_handler()(handler))
+        """,
+    ) == ["rt(path)(...)", "rt(path)(...)"]
 
 
 def test_csrf_handler_without_methods_is_a_gap(tmp_path: Path) -> None:

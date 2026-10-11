@@ -21,7 +21,8 @@ three classes of gap on **state-changing** endpoints:
    ``rt(path, methods=["POST"])(handler)``), must name its methods and name no
    safe one — named as a list of string literals: a ``methods=`` the scanner
    cannot read (a name, a call) is a gap, not a pass. Enforced on both spellings —
-   the decorator and the call. A UI page
+   the decorator and the call, where ``rt(path)(csrf_protected(handler))`` marks
+   the write whatever its path says. A UI page
    at ``/{domain}/create`` (the form, ``methods=["GET"]``) is outside ``/api/``
    and is a read.
 
@@ -175,11 +176,17 @@ class CallRegistration:
     has_methods_kwarg: bool
     methods: frozenset[str]
     methods_literal: bool
+    has_csrf: bool  # the applied handler is wrapped: rt(path)(csrf_protected(handler))
 
     @property
     def is_write_by_path(self) -> bool:
         """A computed path ending in a write suffix (``f"{base_path}/delete"``) is a factory write."""
         return self.path_source.rstrip("\"'").endswith(WRITE_SUFFIXES)
+
+    @property
+    def is_write(self) -> bool:
+        """A factory write: CSRF-wrapped at the call, or named by its path."""
+        return self.has_csrf or self.is_write_by_path
 
     @property
     def reachable_by_safe_method(self) -> bool:
@@ -358,6 +365,13 @@ def collect_call_registrations(scan_dir: Path) -> list[CallRegistration]:
                     has_methods_kwarg=any(kw.arg == "methods" for kw in inner.keywords),
                     methods=_methods_kwarg(inner.keywords),
                     methods_literal=_methods_literal(inner.keywords),
+                    has_csrf=any(
+                        isinstance(x, ast.Call)
+                        and isinstance(x.func, ast.Name)
+                        and x.func.id == CSRF_DECORATOR
+                        for arg in node.args
+                        for x in ast.walk(arg)
+                    ),
                 )
             )
     return found
@@ -369,7 +383,8 @@ def write_method_gaps(
     """Writes a safe method reaches, as ``(file, lineno, what)`` rows.
 
     A write is a ``@csrf_protected`` handler, a literal ``/api/`` path ending in a
-    ``WRITE_SUFFIXES`` entry, or a computed factory path ending in one; it gaps
+    ``WRITE_SUFFIXES`` entry, a computed factory path ending in one, or a call
+    registration whose handler is wrapped ``csrf_protected(...)``; it gaps
     when it names no ``methods=``, names one the scanner cannot read, or names a
     ``SAFE_METHODS`` member.
     """
@@ -381,7 +396,7 @@ def write_method_gaps(
     applied = [
         (r.file, r.lineno, f"rt({r.path_source})(...)")
         for r in registrations
-        if r.is_write_by_path and r.reachable_by_safe_method
+        if r.is_write and r.reachable_by_safe_method
     ]
     return sorted(decorated + applied)
 

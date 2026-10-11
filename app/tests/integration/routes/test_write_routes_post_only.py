@@ -88,6 +88,17 @@ TIER_WRITES: dict[str, tuple[str, ...]] = {
     ),
     "askesis": ("/askesis/api/submit",),
 }
+# The factory-applied writes the table carries beside the CRUD three: the field
+# doors (POST /api/{domain}/{uid}/{field} — every field goes through the one
+# registration site in activity_field_api_factory.py, so the two fields the Activity
+# domains declare prove the site; /api/{domain}/{uid}/children is a read), the link
+# doors, the hierarchy edge doors, and the AI doors.
+_FACTORY_WRITES = (
+    re.compile(r"^/api/[^/]+/\{uid\}/(status|priority)$"),
+    re.compile(r"^/api/[^/]+/link-[a-z-]+$"),
+    re.compile(r"^/api/[^/]+/(add-child|remove-child)$"),
+    re.compile(r"^/api/[^/]+/ai/[a-z-]+$"),
+)
 ACTIVITY_SEGMENTS = ("tasks", "goals", "habits", "events", "choices", "principles")
 # The fields a domain's create door requires beyond what the rig fills in.
 _CREATE_EXTRAS: dict[str, dict[str, str]] = {
@@ -172,12 +183,16 @@ async def test_every_crud_write_in_the_table_answers_post_only(wired: Wired) -> 
         route.path: set(route.methods or ())
         for route in app.routes
         if _CRUD_WRITE.match(getattr(route, "path", "") or "")
+        or any(pattern.match(getattr(route, "path", "") or "") for pattern in _FACTORY_WRITES)
     }
     # Positive controls: the six Activity domains' three writes are in the table,
-    # and a CRUD read still answers GET.
+    # as are a field door, a link door and a hierarchy door; a CRUD read still
+    # answers GET.
     for segment in ACTIVITY_SEGMENTS:
         for write in ("create", "update", "delete"):
             assert f"/api/{segment}/{write}" in writes, (segment, write)
+    for door in ("/api/tasks/{uid}/status", "/api/goals/link-knowledge", "/api/tasks/add-child"):
+        assert door in writes, door
     assert "GET" in next(iter(_routes_at(app, "/api/tasks/get")))
 
     # A write names an unsafe verb — POST, or DELETE where that is the route's
