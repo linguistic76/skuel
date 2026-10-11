@@ -202,7 +202,7 @@ Creation, deletion, validation:
 - `delete_relationship(from_uid, to_uid, relationship_type, *, from_label=None, to_label=None)` → `Result[bool]` — a label, when given, is the kind that end must be; an edge whose end is of another kind is kept
 - `delete_relationships_batch(relationships_list)` → `Result[int]`
 - `create_relationships_batch(relationships_list)` → `Result[int]`
-- `write_guarded_links(anchor_uid, writes)` → `Result[GuardedLinkOutcome]` — the link doors' write: each statement re-asserts the link-edge guard's rule as it merges (and, for a replace, deletes) the anchor's edges, all in one transaction
+- `write_guarded_links(anchor_uid, writes, *, anchor_owners)` → `Result[GuardedLinkOutcome]` — the link doors' write: under the anchor's and far ends' write locks each statement re-asserts the link-edge guard's rule (and that the anchor is still owned by exactly `anchor_owners`, the owners the admission read) as it merges (and, for a replace, deletes) the anchor's edges, all in one transaction
 - `has_relationship(from_uid, to_uid, relationship_type)` → `Result[bool]`
 - `count_related(uid, relationship_type, direction, properties, target_label)` → `Result[int]` — sees every edge (arithmetic); the anchor is bound by uid under `:Entity`, `:User`, `:Group` and the backend's own label (`build_uid_anchor` — index seeks), as `get_related_uids` binds it
 - `batch_get_related_uids(entity_uids, relationship_type, direction, properties, target_label)` → `Result[dict[str, list[str]]]` — anchors on the backend's own label; walled like `get_related_uids`
