@@ -45,7 +45,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.link_write_contracts import GuardedLinkOutcome
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import FilterParams, UserUID
+from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, ErrorSeverity, Result
 
@@ -1521,7 +1521,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         entity_uids: builtins.list[str],
         relationship_type: RelationshipName,
         direction: Direction,
-        properties: dict[str, Any] | None = None,
+        properties: Neo4jProperties | None = None,
         target_label: NeoLabel | None = None,
     ) -> Result[dict[str, int]]:
         """
