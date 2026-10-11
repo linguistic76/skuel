@@ -19,6 +19,7 @@ over-long text whole.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -47,6 +48,8 @@ from tests.fixtures.llm_doubles import ScriptedChatCaller
 LONG_TEXT = ("A sentence of ordinary words that runs on. " * 1200)[:50_000]
 SHORT_TEXT = "A short note about the morning walk."
 USER = "user_bounds"
+#: A vault with no exemplar folders, so the batch compile reads no settings and no files.
+_NO_VAULT = Path(__file__).parent / "_no_vault_here"
 
 
 def _port() -> ScriptedChatCaller:
@@ -95,7 +98,9 @@ async def _follow_up(port: ScriptedChatCaller, text: str) -> object:
 
 
 async def _batch_compile(port: ScriptedChatCaller, text: str) -> object:
-    batch = JournalBatchService(llm_caller=UnifiedLLMCaller(openai=port, anthropic=port))
+    batch = JournalBatchService(
+        llm_caller=UnifiedLLMCaller(openai=port, anthropic=port), vault_root=_NO_VAULT
+    )
     return await batch.compile_text(text, text, user_uid=USER, is_founder=False)
 
 
