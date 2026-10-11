@@ -14,7 +14,7 @@ time-slot analysis — a different concept from ``scheduling_enums.EnergyLevel``
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import Any
+from typing import TypedDict
 
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain
@@ -43,6 +43,39 @@ class SchedulingStrategy(Enum):
     SPACED_REPETITION = "spaced_repetition"  # Optimize knowledge retention
 
 
+class CognitiveLoadReport(TypedDict):
+    """A :class:`CognitiveLoadAnalysis` serialised — its loads plus the two verdicts
+    it derives (``CognitiveLoadAnalysis.to_dict``)."""
+
+    intrinsic_load: float
+    extraneous_load: float
+    germane_load: float
+    total_load: float
+    domain_complexity: float
+    prerequisite_load: float
+    is_overload_risk: bool
+    load_category: str
+
+
+class TaskCognitiveLoad(TypedDict):
+    """One task's cognitive load, as the day analysis reports it
+    (``CalendarOptimizationOrchestrator.get_cognitive_load_analyses``)."""
+
+    task_uid: str
+    task_title: str
+    cognitive_load: CognitiveLoadReport
+
+
+class CognitiveLoadDay(TypedDict):
+    """The day's cognitive load report (``GET /cal/cognitive-load``): one analysis per
+    open task due that day, and the analyses that risk overload."""
+
+    date: str
+    task_count: int
+    cognitive_analyses: list[TaskCognitiveLoad]
+    overload_risks: list[TaskCognitiveLoad]
+
+
 @dataclass
 class CognitiveLoadAnalysis:
     """Analysis of cognitive load for a task or learning session."""
@@ -69,8 +102,8 @@ class CognitiveLoadAnalysis:
         else:
             return "overload"
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization, including derived fields."""
+    def to_dict(self) -> CognitiveLoadReport:
+        """Serialise for JSON, with the two verdicts derived from the loads."""
         return {
             "intrinsic_load": self.intrinsic_load,
             "extraneous_load": self.extraneous_load,

@@ -24,12 +24,11 @@ from core.events import (
     GoalProgressUpdated,
     publish_event,
 )
-from core.models.enums import Domain, EntityStatus
+from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
-from core.models.graph_context import GraphContext
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import StatusWriteGuard
 from core.ports.domain_protocols import GoalsOperations
@@ -333,6 +332,7 @@ def _plan_habit_progress(goal: Goal, tally: LinkedHabitTally) -> _ProgressWrite 
 
 if TYPE_CHECKING:
     from core.events.habit_events import HabitCompleted
+    from core.models.graph.path_aware_types import GoalCrossContext
     from core.services.relationships import UnifiedRelationshipService
 
 
@@ -819,42 +819,39 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # VELOCITY & FORECASTING HELPERS
     # ========================================================================
 
-    def calculate_velocity_metrics(self, context: GraphContext, goal: Goal) -> dict[str, float]:
+    def calculate_velocity_metrics(
+        self, goal: Goal, tally: ContributionTally, habit_adherence: float | None
+    ) -> dict[str, float]:
         """
-        Calculate velocity metrics from graph context.
+        Calculate velocity metrics from the goal's progress tally and habit adherence.
 
         Args:
-            context: Graph context with supporting activities,
-            goal: Goal object for progress calculation
+            goal: Goal object for progress calculation,
+            tally: The goal's contribution tally (``GoalsBackend.get_contribution_tally``)
+                — the contributions that count toward it, by the rule its progress is
+                written by,
+            habit_adherence: The essentiality-weighted mean adherence of the goal's
+                supporting habits, 0-1 (``dashboard_figures.habit_support_adherence``);
+                ``None`` when no supporting habit has a rate yet
 
         Returns:
             Dict containing:
-            - total_tasks: Total task count
-            - completed_tasks: Completed task count
+            - total_tasks: the tally's counting contributions
+            - completed_tasks: the completed ones among them
             - task_completion_velocity: Tasks per week estimate
-            - habit_consistency_score: 0-1 consistency score
+            - habit_consistency_score: the habits' adherence, 0-1; 0.5 (neutral)
+              when no supporting habit has a rate
             - current_progress_rate: Progress % per week estimate
         """
-        # Extract data for velocity calculation
-        supporting_tasks = context.get_nodes_by_domain(Domain.TASKS)
-        supporting_habits = context.get_nodes_by_domain(Domain.HABITS)
-
         # Calculate velocity metrics (simple heuristics)
-        total_tasks = len(supporting_tasks)
-        completed_tasks = sum(
-            1 for t in supporting_tasks if t.properties.get("status") in ["completed", "done"]
-        )
+        total_tasks = tally["total_contributions"]
+        completed_tasks = tally["completed_contributions"]
         task_completion_velocity = (
             completed_tasks / 4.0 if completed_tasks > 0 else 0
         )  # per week estimate
 
-        # Habit consistency
-        habit_consistency_score = (
-            sum(h.properties.get("consistency_score", 0.5) for h in supporting_habits)
-            / len(supporting_habits)
-            if supporting_habits
-            else 0.5
-        )
+        # No measurement is neutral, not a zero.
+        habit_consistency_score = 0.5 if habit_adherence is None else habit_adherence
 
         # Progress rate (% per week estimate)
         current_progress_rate = (
@@ -961,14 +958,14 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         }
 
     def identify_risk_factors(
-        self, velocity_metrics: dict[str, float], context: GraphContext
+        self, velocity_metrics: dict[str, float], context: GoalCrossContext
     ) -> list[str]:
         """
         Identify risk factors that may prevent goal completion.
 
         Args:
             velocity_metrics: Velocity metrics from calculate_velocity_metrics(),
-            context: Graph context with supporting activities
+            context: The goal's path-aware context — its supporting habits
 
         Returns:
             List of risk factor descriptions
@@ -977,7 +974,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         habit_consistency_score = velocity_metrics["habit_consistency_score"]
         current_progress_rate = velocity_metrics["current_progress_rate"]
 
-        supporting_habits = context.get_nodes_by_domain(Domain.HABITS)
+        supporting_habits = context.habits
 
         risk_factors = []
         if total_tasks < 3:
@@ -992,24 +989,26 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         return risk_factors
 
     def identify_acceleration_opportunities(
-        self, velocity_metrics: dict[str, float], context: GraphContext, required_velocity: float
+        self,
+        velocity_metrics: dict[str, float],
+        context: GoalCrossContext,
+        required_velocity: float,
     ) -> list[str]:
         """
         Identify opportunities to accelerate goal progress.
 
         Args:
             velocity_metrics: Velocity metrics from calculate_velocity_metrics(),
-            context: Graph context with supporting activities,
+            context: The goal's path-aware context — its supporting habits,
             required_velocity: Required tasks per week from timeline analysis
 
         Returns:
             List of acceleration opportunity descriptions
         """
-        velocity_metrics["total_tasks"]
         completed_tasks = velocity_metrics["completed_tasks"]
         task_completion_velocity = velocity_metrics["task_completion_velocity"]
 
-        supporting_habits = context.get_nodes_by_domain(Domain.HABITS)
+        supporting_habits = context.habits
 
         acceleration_opportunities = []
         if len(supporting_habits) < 2:

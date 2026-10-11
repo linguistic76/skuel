@@ -22,7 +22,7 @@ from core.models.calendar_optimization import (
     SlotEnergyLevel,
 )
 from core.models.enums import Priority
-from core.models.task.task_dto import TaskDTO
+from core.models.task.task import Task
 from core.services.calendar_optimization_types import (
     CognitiveBalancedStrategy,
     DeadlineDrivenStrategy,
@@ -46,7 +46,7 @@ class _SchedulingStrategiesMixin:
         self,
         strategy: SchedulingStrategy,
         available_slots: list[OptimizedTimeSlot],
-        tasks: list[TaskDTO],
+        tasks: list[Task],
         task_loads: dict[str, CognitiveLoadAnalysis],
         knowledge_units: list[KnowledgeUnitDTO],
         energy_profile: EnergyProfile,
@@ -69,7 +69,7 @@ class _SchedulingStrategiesMixin:
     def _apply_cognitive_balanced_strategy(
         self,
         slots: list[OptimizedTimeSlot],
-        tasks: list[TaskDTO],
+        tasks: list[Task],
         task_loads: dict[str, CognitiveLoadAnalysis],
     ) -> CognitiveBalancedStrategy:
         """Apply cognitive load balancing strategy."""
@@ -83,7 +83,7 @@ class _SchedulingStrategiesMixin:
 
         sorted_tasks = sorted(tasks, key=_task_load_key, reverse=True)
 
-        schedule = {}
+        schedule: dict[str, dict[str, object]] = {}
         for i, task in enumerate(sorted_tasks):
             if i < len(sorted_slots):
                 slot = sorted_slots[i]
@@ -107,7 +107,7 @@ class _SchedulingStrategiesMixin:
         }
 
     def _apply_energy_aligned_strategy(
-        self, slots: list[OptimizedTimeSlot], tasks: list[TaskDTO], _energy_profile: EnergyProfile
+        self, slots: list[OptimizedTimeSlot], tasks: list[Task], _energy_profile: EnergyProfile
     ) -> EnergyAlignedStrategy:
         """Apply energy-aligned scheduling strategy."""
 
@@ -123,7 +123,7 @@ class _SchedulingStrategiesMixin:
         medium_energy_tasks = [t for t in tasks if t.priority == Priority.MEDIUM]
         low_energy_tasks = [t for t in tasks if t.priority == Priority.LOW]
 
-        schedule = {}
+        schedule: dict[str, dict[str, object]] = {}
 
         # Assign high-energy tasks to peak/high energy slots, best capacity first.
         peak_slots = sorted(
@@ -156,7 +156,7 @@ class _SchedulingStrategiesMixin:
     def _apply_knowledge_focused_strategy(
         self,
         slots: list[OptimizedTimeSlot],
-        tasks: list[TaskDTO],
+        tasks: list[Task],
         _knowledge_units: list[KnowledgeUnitDTO],
     ) -> KnowledgeFocusedStrategy:
         """Apply knowledge-focused scheduling strategy."""
@@ -171,7 +171,7 @@ class _SchedulingStrategiesMixin:
         # Use high learning effectiveness slots for learning tasks
         learning_slots = sorted(slots, key=attrgetter("learning_effectiveness"), reverse=True)
 
-        schedule = {}
+        schedule: dict[str, dict[str, object]] = {}
 
         # Schedule learning tasks first
         for i, task in enumerate(learning_tasks):
@@ -203,7 +203,7 @@ class _SchedulingStrategiesMixin:
         }
 
     def _apply_deadline_driven_strategy(
-        self, slots: list[OptimizedTimeSlot], tasks: list[TaskDTO]
+        self, slots: list[OptimizedTimeSlot], tasks: list[Task]
     ) -> DeadlineDrivenStrategy:
         """Apply deadline-driven scheduling strategy."""
 
@@ -216,7 +216,7 @@ class _SchedulingStrategiesMixin:
         # Sort slots by productivity score
         sorted_slots = sorted(slots, key=attrgetter("productivity_score"), reverse=True)
 
-        schedule = {}
+        schedule: dict[str, dict[str, object]] = {}
         for i, task in enumerate(sorted_tasks):
             if i < len(sorted_slots):
                 schedule[task.uid] = {
@@ -236,7 +236,7 @@ class _SchedulingStrategiesMixin:
     def _apply_spaced_repetition_strategy(
         self,
         slots: list[OptimizedTimeSlot],
-        tasks: list[TaskDTO],
+        tasks: list[Task],
         _knowledge_units: list[KnowledgeUnitDTO],
     ) -> SpacedRepetitionStrategy:
         """Apply spaced repetition optimization strategy."""
@@ -249,7 +249,7 @@ class _SchedulingStrategiesMixin:
             spacing_interval = max(1, len(slots) // len(review_tasks))
             spaced_slots = slots[::spacing_interval]
 
-            schedule = {}
+            schedule: dict[str, dict[str, object]] = {}
             for i, task in enumerate(review_tasks):
                 if i < len(spaced_slots):
                     schedule[task.uid] = {

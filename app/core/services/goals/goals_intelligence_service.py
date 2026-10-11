@@ -40,6 +40,7 @@ from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
+    from core.services.goals.goals_progress_service import GoalsProgressService
     from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
     from core.services.relationships import UnifiedRelationshipService
@@ -120,7 +121,7 @@ class GoalsIntelligenceService(
         backend: GoalsOperations,
         graph_intel=None,
         relationship_service: UnifiedRelationshipService[Any, Any, Any] | None = None,
-        progress_service=None,
+        progress_service: GoalsProgressService | None = None,
         insight_store: InsightStore | None = None,
     ) -> None:
         """

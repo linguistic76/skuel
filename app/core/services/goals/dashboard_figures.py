@@ -10,7 +10,8 @@ the figures are what the owner has done.
 - :func:`needs_more_tasks` — the contribution tally holds fewer counting
   contributions than :attr:`core.constants.GoalDashboard.MIN_COUNTING_CONTRIBUTIONS`.
 - :func:`habit_support_contribution` — the essentiality-weighted mean adherence of
-  the goal's supporting habits, as a percentage.
+  the goal's supporting habits, as a percentage (:func:`habit_support_adherence`, the
+  same mean as a 0-1 rate or ``None``, is what the completion forecast reads).
 - :func:`knowledge_mastery_contribution` — the share of the goal's required
   knowledge its owner has mastered, as a percentage.
 """
@@ -38,15 +39,25 @@ def needs_more_tasks(tally: ContributionTally) -> bool:
 def habit_support_contribution(rows: list[SupportingHabitWindow], zone: tzinfo) -> float:
     """The essentiality-weighted mean adherence of the goal's supporting habits, 0-100.
 
+    :func:`habit_support_adherence` as a percentage; 0.0 when no supporting habit
+    has a rate.
+    """
+    adherence = habit_support_adherence(rows, zone)
+    return 0.0 if adherence is None else adherence * 100
+
+
+def habit_support_adherence(rows: list[SupportingHabitWindow], zone: tzinfo) -> float | None:
+    """The essentiality-weighted mean adherence of the goal's supporting habits, 0-1.
+
     Each habit's adherence is the one definition
     (:func:`~core.models.habit.adherence.habit_adherence`): its window completions
     counted against its own cadence from the day it started, as of today in
     ``zone``. Its weight is its ``SUPPORTS_GOAL`` edge's tier
     (:meth:`HabitEssentiality.get_weight`), so an essential habit kept half the
-    time pulls the figure down four times as hard as an optional one does. A habit
+    time pulls the mean down four times as hard as an optional one does. A habit
     with no rate yet — nothing due in its span, or a cadence the window cannot
     measure — is left out of both sides of the mean: no measurement is not a zero.
-    0.0 when no supporting habit has a rate.
+    ``None`` when no supporting habit has a rate.
     """
     today = today_in(zone)
     weighted = 0.0
@@ -67,8 +78,8 @@ def habit_support_contribution(rows: list[SupportingHabitWindow], zone: tzinfo) 
         weighted += rate * weight
         weights += weight
     if weights == 0.0:
-        return 0.0
-    return weighted / weights * 100
+        return None
+    return weighted / weights
 
 
 def knowledge_mastery_contribution(tally: RequiredKnowledgeTally) -> float:

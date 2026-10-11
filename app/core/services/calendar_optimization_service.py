@@ -25,17 +25,11 @@ from core.models.calendar_optimization import (
     SlotEnergyLevel,
 )
 from core.models.enums import Domain, Priority
-from core.models.event.event_dto import EventDTO
-from core.models.task.task_dto import TaskDTO
+from core.models.event.event import Event
+from core.models.task.task import Task
 from core.models.type_hints import UserUID
 from core.services.calendar_optimization_strategies import _SchedulingStrategiesMixin
 from core.services.calendar_optimization_types import SchedulingStrategyResult
-
-# NOTE (November 2025): Removed Has* protocol imports - TaskDTO is well-typed
-# - TaskDTO.knowledge_mastery_check: bool (direct access)
-# - TaskDTO.project: str | None (direct access)
-# - TaskDTO.applies_knowledge_uids: REMOVED (graph-native migration)
-# Use TaskRelationships.fetch() for relationship data
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -53,8 +47,8 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
         self,
         user_uid: UserUID,
         target_date: date,
-        tasks: list[TaskDTO],
-        events: list[EventDTO],
+        tasks: list[Task],
+        events: list[Event],
         knowledge_units: list[KnowledgeUnitDTO],
         strategy: SchedulingStrategy = SchedulingStrategy.COGNITIVE_BALANCED,
     ) -> Result[CalendarOptimization]:
@@ -85,7 +79,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
             )
 
             # Analyze cognitive load requirements
-            task_loads = {}
+            task_loads: dict[str, CognitiveLoadAnalysis] = {}
             for task in tasks:
                 task_loads[task.uid] = self._analyze_task_cognitive_load(task, knowledge_units)
 
@@ -153,7 +147,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
         )
 
     def _analyze_existing_commitments(
-        self, events: list[EventDTO], target_date: date
+        self, events: list[Event], target_date: date
     ) -> list[tuple[datetime, datetime]]:
         """Analyze existing calendar commitments."""
         commitments = []
@@ -295,21 +289,19 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
         return cognitive_capacity * 0.4 + interruption_factor * 0.3 + learning_factor * 0.3
 
     def _analyze_task_cognitive_load(
-        self, task: TaskDTO, _knowledge_units: list[KnowledgeUnitDTO]
+        self, task: Task, _knowledge_units: list[KnowledgeUnitDTO]
     ) -> CognitiveLoadAnalysis:
         """
         Analyze cognitive load requirements for a task.
 
-        Note: Knowledge relationship data (applies_knowledge_uids, prerequisite_knowledge_uids)
-        was removed from TaskDTO during graph-native migration. Cognitive load calculation
-        now relies on task attributes and domain complexity.
+        Read from the task's own fields and its domain's complexity; the knowledge a
+        task applies or requires lives in graph edges this analysis does not read, so
+        its prerequisite load is 0.0.
         """
 
         # Base intrinsic load from task complexity
         intrinsic_load = 0.3  # Default base load
 
-        # GRAPH-NATIVE MIGRATION: applies_knowledge_uids removed from TaskDTO
-        # Previously: if task.applies_knowledge_uids: intrinsic_load += len(...) * 0.1
         # For learning tasks, add estimated knowledge complexity
         if task.knowledge_mastery_check:
             intrinsic_load += 0.2  # Estimate for knowledge application tasks
@@ -330,9 +322,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
         if task.knowledge_mastery_check:
             germane_load += 0.3
 
-        # GRAPH-NATIVE MIGRATION: prerequisite_knowledge_uids removed from TaskDTO
-        # Previously: if task.prerequisite_knowledge_uids: prerequisite_load = len(...) * 0.05
-        # Prerequisite load calculation removed - requires relationship service access
+        # GRAPH-NATIVE: prerequisites are REQUIRES_KNOWLEDGE edges, not read here.
         prerequisite_load = 0.0
 
         # Domain complexity
@@ -410,7 +400,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
     def _generate_scheduling_recommendations(
         self,
         _user_uid: UserUID,
-        _tasks: list[TaskDTO],
+        _tasks: list[Task],
         knowledge_units: list[KnowledgeUnitDTO],
         available_slots: list[OptimizedTimeSlot],
         _energy_profile: EnergyProfile,

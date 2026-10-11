@@ -23,7 +23,13 @@ from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
-    from core.models.calendar_optimization import CalendarOptimization, SchedulingStrategy
+    from core.models.calendar_optimization import (
+        CalendarOptimization,
+        SchedulingStrategy,
+        TaskCognitiveLoad,
+    )
+    from core.models.event.event import Event
+    from core.models.task.task import Task
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.events_service import EventsService
     from core.services.tasks_service import TasksService
@@ -65,8 +71,8 @@ class CalendarOptimizationOrchestrator:
         optimiser runs with whatever data it receives, logging a warning for each
         failed fetch.
         """
-        task_list: list[Any] = []
-        event_list: list[Any] = []
+        task_list: list[Task] = []
+        event_list: list[Event] = []
         next_day = target_date + timedelta(days=1)
 
         tasks_result = await self._tasks.get_user_items_in_range(
@@ -109,14 +115,14 @@ class CalendarOptimizationOrchestrator:
         self,
         user_uid: UserUID,
         target_date: date,
-    ) -> tuple[list[Any], list[dict[str, Any]]]:
-        """Fetch tasks for the date and compute per-task cognitive load analyses.
+    ) -> tuple[list[Task], list[TaskCognitiveLoad]]:
+        """The caller's open tasks due on the date, each with its cognitive load.
 
         Returns:
             (task_list, analyses) — task_list for count reporting,
             analyses for the response payload.
         """
-        task_list: list[Any] = []
+        task_list: list[Task] = []
         next_day = target_date + timedelta(days=1)
 
         tasks_result = await self._tasks.get_user_items_in_range(
@@ -133,7 +139,7 @@ class CalendarOptimizationOrchestrator:
                 extra={"date": str(target_date), "error": str(tasks_result.error)},
             )
 
-        analyses: list[dict[str, Any]] = []
+        analyses: list[TaskCognitiveLoad] = []
         for task in task_list:
             analysis = self._calendar._analyze_task_cognitive_load(task, [])
             analyses.append(

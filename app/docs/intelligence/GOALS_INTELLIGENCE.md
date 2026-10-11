@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-09
+updated: 2026-10-11
 ---
 
 # GoalsIntelligenceService - Progress Forecasting & Predictive Analytics
@@ -209,7 +209,12 @@ if result.is_ok:
 
 ### Method 3: get_goal_completion_forecast()
 
-**Purpose:** Generate goal completion forecast based on progress rate, task velocity, habit consistency, and historical patterns.
+**Purpose:** Generate goal completion forecast based on progress rate, task velocity and habit consistency.
+
+**What the velocity figures read:**
+- `total_tasks` / `completed_tasks` / `task_completion_velocity` — the goal's progress tally (`GoalsBackend.get_contribution_tally`: the contributions that count toward it, the dashboard's `total_contributions` / `completed_contributions`), not the path-aware neighbourhood, whose task entries carry no status.
+- `habit_consistency_score` — the supporting habits' essentiality-weighted adherence as a 0-1 rate (`dashboard_figures.habit_support_adherence`, the dashboard's `habit_contribution` before it is scaled to a percentage); 0.5, neutral, when no supporting habit has a rate yet.
+- `risk_factors` / `acceleration_opportunities` count the supporting habits the path-aware context (`GoalCrossContext.habits`) reaches.
 
 **Signature:**
 ```python
@@ -288,7 +293,7 @@ if result.is_ok:
 - GoalsOperations backend (REQUIRED)
 - UnifiedRelationshipService (REQUIRED)
 - GoalsProgressService - for velocity calculations (domain-specific)
-- Uses CrossDomainContextService (Phase 3)
+- `BaseAnalyticsService._analyze_entity_with_typed_context` (path-aware context)
 
 ---
 
