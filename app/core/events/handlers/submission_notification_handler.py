@@ -5,16 +5,18 @@ Submission Notification Handler
 Rings a teacher when a student submits work for their feedback (Submit &
 Share arc R10):
 
-  UserEntryCreated (with ``submitted_group_uids``) → "Submission for review"
+  UserEntryCreated (with ``submitted_group_uids`` / ``submitted_teacher_uids``)
+  → "Submission for review"
   — the bell opens ``/teaching/review/{entry_uid}``, the ``SUBMISSION_FOR_REVIEW``
   card override.
 
-The event carries only the groups whose ``SUBMITTED_TO_GROUP`` that creation
-wrote (the created subset), so a re-sync that finds the request standing
-rings nobody. The recipients are the owners of those groups
-(``get_owner_uids_batch`` — the ``OWNS`` edge unioned with the ``owner_uid``
-/ ``user_uid`` spellings, undeduplicated), collected into ONE set across
-every group and minus the submitter: one submission rings each teacher once,
+The event carries only the groups whose ``SUBMITTED_TO_GROUP`` and the
+teachers whose ``SUBMITTED_TO_TEACHER`` that creation wrote (the created
+subsets), so a re-sync that finds the request standing rings nobody. The
+recipients are the owners of those groups (``get_owner_uids_batch`` — the
+``OWNS`` edge unioned with the ``owner_uid`` / ``user_uid`` spellings,
+undeduplicated) and the teachers asked directly (ADR-088 §9), collected into
+ONE set and minus the submitter: one submission rings each teacher once,
 however many of the targeted groups they own.
 
 See: /docs/decisions/ADR-088-submit-and-share.md
@@ -37,16 +39,20 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.events.submission_notification_handler")
 
 
-def unique_recipients(owners_by_group: dict[str, list[str]], submitter_uid: str) -> list[str]:
-    """One recipient per owning teacher across every targeted group, the submitter excluded.
+def unique_recipients(
+    owners_by_group: dict[str, list[str]],
+    submitter_uid: str,
+    direct_teacher_uids: tuple[str, ...] = (),
+) -> list[str]:
+    """One recipient per teacher — every owner of a targeted group and every teacher asked directly — the submitter excluded.
 
     ``get_owner_uids_batch`` does not deduplicate (a group carries both its
     ``owner_uid`` and its ``OWNS`` edge), and one teacher may own several of
     the targeted groups; first-seen order is kept so the bells are written
-    in a stable order.
+    in a stable order, group owners first.
     """
     seen: dict[str, None] = {}
-    for owners in owners_by_group.values():
+    for owners in [*owners_by_group.values(), list(direct_teacher_uids)]:
         for owner_uid in owners:
             if owner_uid != submitter_uid:
                 seen.setdefault(owner_uid, None)
@@ -58,23 +64,27 @@ async def handle_submission_for_review(
     notification_service: NotificationOperations,
     backend: RelationshipCrudOperations,
 ) -> None:
-    """Ring every owning teacher of the groups a new feedback request reached."""
-    if not event.submitted_group_uids:
+    """Ring every teacher a new feedback request reached — each group's owners, each teacher asked directly."""
+    if not event.submitted_group_uids and not event.submitted_teacher_uids:
         return
 
-    owners_result = await backend.get_owner_uids_batch(list(event.submitted_group_uids))
-    if owners_result.is_error:
-        logger.error(
-            f"Teacher bell skipped for entry {event.entity_uid}: could not resolve the owners "
-            f"of {list(event.submitted_group_uids)}: {owners_result.expect_error()}"
-        )
-        return
+    owners_by_group: dict[str, list[str]] = {}
+    if event.submitted_group_uids:
+        owners_result = await backend.get_owner_uids_batch(list(event.submitted_group_uids))
+        if owners_result.is_error:
+            logger.error(
+                f"Teacher bell skipped for entry {event.entity_uid}: could not resolve the owners "
+                f"of {list(event.submitted_group_uids)}: {owners_result.expect_error()}"
+            )
+            return
+        owners_by_group = owners_result.value
 
-    recipients = unique_recipients(owners_result.value, event.user_uid)
+    recipients = unique_recipients(owners_by_group, event.user_uid, event.submitted_teacher_uids)
     if not recipients:
         logger.warning(
-            f"Teacher bell skipped for entry {event.entity_uid}: the submitted groups "
-            f"{list(event.submitted_group_uids)} have no owner but the submitter"
+            f"Teacher bell skipped for entry {event.entity_uid}: the request "
+            f"(groups {list(event.submitted_group_uids)}, teachers "
+            f"{list(event.submitted_teacher_uids)}) reached no one but the submitter"
         )
         return
 

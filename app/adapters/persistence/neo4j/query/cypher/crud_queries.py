@@ -235,6 +235,42 @@ def build_publication_clause(entity_alias: str = "n") -> tuple[str, dict[str, st
     )
 
 
+def build_anchored_exercise_clause(
+    entity_alias: str,
+    *,
+    step_alias: str = "anchor_step",
+    scope_param: str = "anchored_personal_scope",
+) -> tuple[str, dict[str, str]]:
+    """Build THE anchored-exercise predicate: a PERSONAL exercise anchored to a published PathStep.
+
+    A teacher who hangs a PERSONAL exercise from a shared PathStep
+    (``(:PathStep)-[:HAS_EXERCISE]->(exercise)``) contributes it to the step: the
+    step's publication decides who may read it (the SCOPE_AWARE clause) and who
+    its owner reviews for (a feedback request filed directly to that owner,
+    ``SUBMITTED_TO_TEACHER`` — ADR-088 §9). Every reader of the rule composes this
+    one function, never a restatement. A draft step anchors nothing; any other
+    scope is never admitted by the anchor.
+
+    ``step_alias`` names the anchoring step inside the ``EXISTS`` and
+    ``scope_param`` the scope parameter, so a statement composing the predicate
+    twice keeps its names apart.
+
+    Returns:
+        ``(fragment, params)`` — a parenthesized WHERE fragment plus the
+        parameters it introduces.
+    """
+    validate_identifier(entity_alias, context="entity alias")
+    validate_identifier(step_alias, context="step alias")
+    validate_identifier(scope_param, context="scope parameter")
+    step_published, params = build_publication_clause(step_alias)
+    return (
+        f"({entity_alias}.scope = ${scope_param}"
+        f" AND EXISTS {{ MATCH ({step_alias}:{NeoLabel.PATH_STEP.value})"
+        f"-[:{RelationshipName.HAS_EXERCISE.value}]->({entity_alias}) WHERE {step_published} }})",
+        {**params, scope_param: ExerciseScope.PERSONAL.value},
+    )
+
+
 def build_owner_uids_expression(node: str, owns_edge_uids: str | None = None) -> str:
     """Cypher list of a node's owner uids, over every spelling ownership has in the graph.
 
@@ -308,15 +344,16 @@ _LINK_ANCHOR_LABELS: frozenset[NeoLabel] = frozenset(
 )
 
 
-# Edges that join an activity to another user by design — attendance and the share
-# links. Their far end is an audience question with its own readers (ADR-086, ADR-088),
-# so a generic read of one of them is not tied.
+# Edges that join an activity to another user by design — attendance, the share links
+# and the feedback requests. Their far end is an audience question with its own readers
+# (ADR-086, ADR-088), so a generic read of one of them is not tied.
 _TWO_USER_EDGES: frozenset[str] = frozenset(
     {
         RelationshipName.ATTENDS.value,
         RelationshipName.SHARES_WITH.value,
         RelationshipName.SHARED_WITH_GROUP.value,
         RelationshipName.SUBMITTED_TO_GROUP.value,
+        RelationshipName.SUBMITTED_TO_TEACHER.value,
     }
 )
 
@@ -596,23 +633,18 @@ def build_search_visibility_clause(
     shares = RelationshipName.SHARES_WITH.value
     member_of = RelationshipName.MEMBER_OF.value
     shared_with_group = RelationshipName.SHARED_WITH_GROUP.value
-    has_exercise = RelationshipName.HAS_EXERCISE.value
     group_label = NeoLabel.GROUP.value
-    step_label = NeoLabel.PATH_STEP.value
     # The shared half: CURRICULUM, or a PERSONAL exercise anchored to a PathStep — the
     # step's, so any signed-in learner reads it while the step is published. Signed in
     # is the bound user, so a caller passing a null user (the fail-closed spelling) is
     # floored at CURRICULUM as an anonymous one is. The step's publication decides the
     # audience, so it holds whatever the gate flag says; the exercise's own draft state
     # is the gate's, as CURRICULUM's is.
-    step_published, step_params = build_publication_clause("visibility_anchor_step")
-    scope_params.update(step_params)
-    scope_params["visibility_personal_scope"] = ExerciseScope.PERSONAL.value
-    anchored = (
-        f"({alias}.scope = $visibility_personal_scope AND $user_uid IS NOT NULL"
-        f" AND EXISTS {{ MATCH (visibility_anchor_step:{step_label})-[:{has_exercise}]->"
-        f"({alias}) WHERE {step_published} }})"
+    anchored_clause, anchored_params = build_anchored_exercise_clause(
+        alias, step_alias="visibility_anchor_step", scope_param="visibility_personal_scope"
     )
+    scope_params.update(anchored_params)
+    anchored = f"({anchored_clause} AND $user_uid IS NOT NULL)"
     shared = f"({curriculum_scope} OR {anchored})"
     if gated:
         shared = f"({shared} AND {published})"

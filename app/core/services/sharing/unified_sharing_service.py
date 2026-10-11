@@ -16,7 +16,9 @@ Two verbs (ADR-088 §1-§2)
    (every member and owner of an active group). Both are taken back by
    ``unshare`` / ``unshare_from_group``, which never touch a feedback request.
 2. **Submit** — ``submit_to_group`` files a feedback request
-   (``SUBMITTED_TO_GROUP``), read only by the group's owning teachers.
+   (``SUBMITTED_TO_GROUP``), read only by the group's owning teachers;
+   ``submit_to_teacher`` files one with a single teacher directly
+   (``SUBMITTED_TO_TEACHER``, ADR-088 §9), read only by that teacher.
 
 The links are the one record of who sees what (ADR-088 §3): ``get_shared_with_me``
 lists what the links name the viewer for, ``get_shared_by_me`` lists the
@@ -515,6 +517,60 @@ class UnifiedSharingService:
         created = bool(records[0].get("created"))
         logger.info(
             f"Entity {entity_uid} submitted to group {group_uid} "
+            f"({'new request' if created else 'request already filed'})"
+        )
+        return Result.ok(created)
+
+    async def submit_to_teacher(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: str,
+        teacher_uid: str,
+        exercise_uid: str,
+    ) -> Result[bool]:
+        """File a feedback request with one teacher directly (ADR-088 §9).
+
+        Writes ``SUBMITTED_TO_TEACHER``: the teacher sees the entity in their
+        review surfaces, as a group's owner sees a request to the group. The
+        target is the owner of the anchored PERSONAL exercise ``exercise_uid``
+        (a published PathStep's, so it belongs to no group); the backend
+        statement re-decides that — the exercise anchored and PERSONAL, the
+        teacher its owner with a reviewer role, never the submitter — and an
+        empty result is the forbidden refusal.
+
+        The returned bool is ``created``, exactly as ``submit_to_group``'s.
+
+        Backend: SharingBackend.create_teacher_submission
+        """
+        # A feedback request is Submit, not Share (ADR-088 §1): a private
+        # entry may still ask its teacher — only the archived gate applies.
+        check = await self._verify_owned_and_shareable(entity_uid, owner_uid, privacy_gated=False)
+        if check.is_error:
+            return check
+
+        result = await self.backend.create_teacher_submission(
+            entity_uid=entity_uid,
+            owner_uid=UserUID(owner_uid),
+            teacher_uid=UserUID(teacher_uid),
+            exercise_uid=EntityUID(exercise_uid),
+            submitted_at=datetime.now().isoformat(),
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.forbidden(
+                    action="submit to teacher",
+                    reason=(
+                        f"Cannot submit {entity_uid} to teacher {teacher_uid}: they are not "
+                        f"the reviewer of exercise {exercise_uid}."
+                    ),
+                )
+            )
+        created = bool(records[0].get("created"))
+        logger.info(
+            f"Entity {entity_uid} submitted to teacher {teacher_uid} "
             f"({'new request' if created else 'request already filed'})"
         )
         return Result.ok(created)

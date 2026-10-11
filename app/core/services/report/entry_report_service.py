@@ -390,7 +390,8 @@ class EntryReportService:
 
         - the entry's owner, summoning feedback on their own work;
         - a teacher the entry asks for feedback — it was ``SUBMITTED_TO_GROUP``
-          an active group the teacher owns (ADR-088 §2).
+          an active group the teacher owns, or ``SUBMITTED_TO_TEACHER`` the
+          teacher (ADR-088 §2, §9).
 
         The pin is what keeps the reviewer from running another user's exercise
         instructions against an entry and handing them back in the report.

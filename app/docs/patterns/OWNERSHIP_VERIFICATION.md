@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-10-10'
+updated: '2026-10-11'
 category: patterns
 related_skills:
 - activity-domains
@@ -431,8 +431,8 @@ no MapOfContent entity type.
 
 A teacher reading a student's work is neither "owner only" nor "shared with
 everyone". Access is carried by the **entity's own feedback request**: the entity
-must be `SUBMITTED_TO_GROUP` an active group the requesting teacher `OWNS`
-(ADR-088 §2). A `SHARES_WITH` from the teacher is a share, never a review grant:
+must be `SUBMITTED_TO_GROUP` an active group the requesting teacher `OWNS`, or
+`SUBMITTED_TO_TEACHER` that teacher (ADR-088 §2, §9) — one predicate, `asks_teacher`. A `SHARES_WITH` from the teacher is a share, never a review grant:
 the two readers — the teacher gate and the audience fragment — are never
 crossed (ADR-088 §3).
 

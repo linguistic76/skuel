@@ -246,12 +246,12 @@ class UserEntryOrchestrator:
         """One (student, root exercise) exchange for the /exchange thread view.
 
         The viewer reads their own exchange by default; passing another
-        ``student_uid`` requires the viewer to share an active owned group
-        with that student — the same gate that guards the report-file
-        download — and the chain read is then additionally scoped to entries
-        ``SUBMITTED_TO_GROUP`` an active group the viewer owns, so a
-        multi-class student's work directed to another teacher's classroom
-        stays invisible. Every denial (no authority, missing exercise,
+        ``student_uid`` requires the viewer to have the student in an active
+        owned group, or to have been asked for feedback by the student
+        directly (``SUBMITTED_TO_TEACHER``, ADR-088 §9) — and the chain read
+        is then scoped to the entries that ask the viewer (``asks_teacher``),
+        so a multi-class student's work directed to another teacher stays
+        invisible. Every denial (no authority, missing exercise,
         student never submitted, nothing shared with this viewer) collapses
         to the same not-found error, so the page can probe neither exercise
         existence nor other classrooms' work (404-not-403,
@@ -259,12 +259,12 @@ class UserEntryOrchestrator:
         their own category — an outage must never read as missing data.
 
         Backend: ReportRelationshipService.get_exchange_thread (one chain
-        read); TeacherReviewService.verify_teacher_authority (the gate).
+        read); TeacherReviewService.verify_exchange_authority (the gate).
         """
         target_uid = student_uid or viewer_uid
         teacher_scope: str | None = None
         if target_uid != viewer_uid:
-            authority = await self._teacher_review.verify_teacher_authority(
+            authority = await self._teacher_review.verify_exchange_authority(
                 teacher_uid=viewer_uid, student_uid=target_uid
             )
             if authority.is_error:

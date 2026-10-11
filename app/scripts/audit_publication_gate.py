@@ -133,6 +133,7 @@ SCAN_DIR = ROOT / "adapters" / "persistence"
 GATE_HELPERS = frozenset(
     {
         "build_publication_clause",
+        "build_anchored_exercise_clause",
         "build_knowledge_read_clause",
         "build_search_visibility_clause",
         "build_far_node_clause",
@@ -416,6 +417,7 @@ def scan_file(path: Path) -> list[Found]:
 
 HELPER_DEFINITIONS = frozenset(
     {
+        ("adapters.persistence.neo4j.query.cypher.crud_queries", "build_anchored_exercise_clause"),
         ("adapters.persistence.neo4j.query.cypher.crud_queries", "build_knowledge_read_clause"),
         ("adapters.persistence.neo4j.query.cypher.crud_queries", "build_search_visibility_clause"),
         ("adapters.persistence.neo4j.query.cypher.crud_queries", "build_far_node_clause"),

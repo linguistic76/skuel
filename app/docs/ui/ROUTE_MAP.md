@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 # Route Map
@@ -107,7 +107,7 @@ The `/gradebook/{uid}` route is viewer-aware (Submit & Share arc R6, ADR-088 §3
 
 ### `/exchange?exercise={uid}[&student={uid}]`
 
-Read-only exchange thread (feedback-loop UX arc C5) — one (student, root exercise) exchange rendered chronologically: submissions (all revisions, including entries against a `RevisedExercise`), feedback reports, and revision requests (labelled with `EntityType.REVISED_EXERCISE`'s display name, "Revision request"), each linking to its existing detail/action surface per viewer (student → `/gradebook/{uid}` / `/entry-reports/detail`; teacher → `/teaching/review/{uid}`). The chain is keyed by the entries' turn-in snapshot, so the thread opens after the exercise is deleted — the header shows the snapshotted title with an **Exercise removed** badge and no exercise link (Submit & Share arc R12); not-found means the student has no turn-in against that uid. The viewer reads their own exchange; `student=` requires both report-download gates — the live TEACHER role plus a shared ACTIVE owned group — and the teacher-mode chain shows only entries `SUBMITTED_TO_GROUP` an active group the viewer owns (a multi-class student's other classroom stays invisible). Every denial serves the same rendered not-found page with a real HTTP 404 (404-not-403). Entry points: the Shared-With-Me card's exercise subject link, `/gradebook/{uid}`, the `/teaching/review/{uid}` fragment, and the learning-loop PS submissions rows. Route: `adapters/inbound/exchange_ui.py`; renderer: `ui/learning_loop/exchange_thread.py`.
+Read-only exchange thread (feedback-loop UX arc C5) — one (student, root exercise) exchange rendered chronologically: submissions (all revisions, including entries against a `RevisedExercise`), feedback reports, and revision requests (labelled with `EntityType.REVISED_EXERCISE`'s display name, "Revision request"), each linking to its existing detail/action surface per viewer (student → `/gradebook/{uid}` / `/entry-reports/detail`; teacher → `/teaching/review/{uid}`). The chain is keyed by the entries' turn-in snapshot, so the thread opens after the exercise is deleted — the header shows the snapshotted title with an **Exercise removed** badge and no exercise link (Submit & Share arc R12); not-found means the student has no turn-in against that uid. The viewer reads their own exchange; `student=` requires the live TEACHER role plus the exchange gate — the student in an ACTIVE owned group, or a feedback request filed with the viewer directly (`SUBMITTED_TO_TEACHER`, ADR-088 §9) — and the teacher-mode chain shows only entries that ask the viewer (`asks_teacher`; a multi-class student's other classroom and other work stay invisible). Every denial serves the same rendered not-found page with a real HTTP 404 (404-not-403). Entry points: the Shared-With-Me card's exercise subject link, `/gradebook/{uid}`, the `/teaching/review/{uid}` fragment, and the learning-loop PS submissions rows. Route: `adapters/inbound/exchange_ui.py`; renderer: `ui/learning_loop/exchange_thread.py`.
 
 ### `/library`
 
@@ -139,17 +139,19 @@ Teaching child pages (Students, Groups, Review Queue, Forms) use `SidebarPage` w
 
 ### `/teaching/review/{uid}` — Review a Submission
 
-The page a `submission_for_review` bell opens: a shell that loads `/teaching/review/{uid}/content`, gated by the entry's feedback request (`SUBMITTED_TO_GROUP` an active group the teacher owns — anything else is "Submission not found."). It renders the review body the per-student panel (`/api/teaching/review/{uid}/panel`) also renders: the student's work in their words with "`<exercise>` · v`<N>`", the feedback history, and the actions the status allows — feedback (`.md` upload) and a revision request from submitted/active, Approve from revision_requested, nothing on a superseded copy. Routes in `adapters/inbound/teaching_ui.py` / `teaching_api.py`.
+The page a `submission_for_review` bell opens: a shell that loads `/teaching/review/{uid}/content`, gated by the entry's feedback request (`SUBMITTED_TO_GROUP` an active group the teacher owns, or `SUBMITTED_TO_TEACHER` the teacher — anything else is "Submission not found."). It renders the review body the per-student panel (`/api/teaching/review/{uid}/panel`) also renders: the student's work in their words with "`<exercise>` · v`<N>`", the feedback history, and the actions the status allows — feedback (`.md` upload) and a revision request from submitted/active, Approve from revision_requested, nothing on a superseded copy. Routes in `adapters/inbound/teaching_ui.py` / `teaching_api.py`.
 
 ### `/teaching/queue` — Review Queue
 
-Two link-tab views over the SAME student-scoped queue query (`get_review_queue_by_groups` — one collapse rule, per-entry `SUBMITTED_TO_GROUP` gate, one card per entry however many of the teacher's classes it was submitted to): **Needs review** (default; statuses submitted/active) and **Waiting for resubmit** (`?view=waiting`; status `revision_requested` — feedback-loop UX arc 2, C3). A resubmit supersedes the revision-requested copy in its lineage, automatically moving the exercise from Waiting back to Needs review. The per-student page's Needs Review / Revision Requested buckets read the same two scoped queues, so the surfaces never disagree. Routes in `adapters/inbound/teaching_ui.py`.
+Two link-tab views over the SAME student-scoped queue query (`get_review_queue_by_groups` — one collapse rule, per-entry feedback-request gate (`asks_teacher` — an owned active group, or the teacher directly), one card per entry however many of the teacher's classes it was submitted to): **Needs review** (default; statuses submitted/active) and **Waiting for resubmit** (`?view=waiting`; status `revision_requested` — feedback-loop UX arc 2, C3). A resubmit supersedes the revision-requested copy in its lineage, automatically moving the exercise from Waiting back to Needs review. The per-student page's Needs Review / Revision Requested buckets read the same two scoped queues, so the surfaces never disagree. Routes in `adapters/inbound/teaching_ui.py`.
 
 ### `/teaching/forms`
 
 Teachers view FormTemplate submissions — template list with counts, per-template submission list with user names, and read-only submission detail. Routes in `adapters/inbound/teaching_forms_ui.py`.
 
 ### `/teaching/students/{uid}` — Individual Student Hub
+
+Classroom-gated (the student in an active group the teacher owns): a learner who reached the teacher by a direct request alone (`SUBMITTED_TO_TEACHER`, ADR-088 §9) is neither listed in `/teaching/students` nor opened here — the teacher works those requests from the review queue.
 
 Nested hub (no sidebar) with 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline via `/api/teaching/students/{uid}/{section}/preview`, linking to `/teaching/students/{uid}/submissions?tab=...` (Alpine section switching with student-specific sidebar).
 

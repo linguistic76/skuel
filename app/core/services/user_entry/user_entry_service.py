@@ -33,7 +33,9 @@ Create flow
      - ``pipeline=TEACHER_REVIEW`` → a feedback request, ``SUBMITTED_TO_GROUP``:
        ``teacher:<group_uid>`` targets, and ``teachers`` (the default) as
        the exercise's assigned groups the submitter belongs to (curriculum
-       exercise: the submitter's default group; no exercise: every group
+       exercise: the submitter's default group; a PERSONAL exercise anchored
+       to a published PathStep: ``SUBMITTED_TO_TEACHER`` to its owner,
+       ADR-088 §9; no exercise: every group
        they study in). A request that would reach no teacher is refused
        before the write (ADR-054 §3: no silent no-audience turn-ins).
      - every pipeline → ``group:`` / ``user:`` are shares; a feedback
@@ -461,7 +463,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if (
             submitted_against_uid
             and request.pipeline == Pipeline.TEACHER_REVIEW
-            and outcome.submitted_groups
+            and outcome.any_feedback_request
             and self.interaction_service is not None
         ):
             shared_result = await self.interaction_service.record_result(
@@ -500,8 +502,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # the exercise_handler subscriber runs the linker (scope and
         # membership validation) off it. A living entry's declared intent
         # must NOT trigger that machinery, so the field rides only for turn-ins.
-        # ``submitted_group_uids`` is the CREATED subset of the feedback
-        # requests, so the teacher's bell never rings for a re-filed one.
+        # ``submitted_group_uids`` / ``submitted_teacher_uids`` are the CREATED
+        # subset of the feedback requests, so the teacher's bell never rings
+        # for a re-filed one.
         await publish_event(
             self.event_bus,
             UserEntryCreated(
@@ -514,6 +517,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 file_type=request.file_type,
                 title=created.title,
                 submitted_group_uids=outcome.newly_submitted_groups,
+                submitted_teacher_uids=outcome.newly_submitted_teachers,
             ),
             self.logger,
         )
@@ -1003,8 +1007,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     async def delete_entry_as_teacher(self, uid: str, teacher_uid: UserUID) -> Result[bool]:
         """Cascade delete by a teacher the entry asks for feedback.
 
-        The entry must be ``SUBMITTED_TO_GROUP`` an active group the teacher
-        owns (ADR-088 §2). Mirrors ``TeacherReviewService._verify_teacher_has_group_access``:
+        The entry must ask this teacher for feedback — an active group the
+        teacher owns, or the teacher directly (ADR-088 §2, §9). Mirrors
+        ``TeacherReviewService._verify_teacher_has_group_access``:
         empty access → ``not_found`` (404) so teachers outside the student's
         group cannot distinguish between "entry does not exist" and "entry
         belongs to another teacher's student."
@@ -1020,7 +1025,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         """Whether the entry asks this teacher for feedback.
 
         True when the entry is ``SUBMITTED_TO_GROUP`` an active group the teacher
-        owns (ADR-088 §2) — the authority the review queue and every
+        owns, or ``SUBMITTED_TO_TEACHER`` the teacher (ADR-088 §2, §9) — the
+        authority the review queue and every
         teacher-side reader and writer carry. Never true for the teacher's own
         entry, and never true for a uid that names no entry, so a caller that
         answers ``False`` with not-found cannot tell the two apart.

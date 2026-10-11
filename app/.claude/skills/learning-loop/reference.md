@@ -167,10 +167,12 @@ here; the pre-filled frontmatter is for the student's reference.
 - `POST /api/user-entries/upload` — HTMX upload endpoint; exercise link via the `fulfills_exercise_uid` form field
 
 > **Critical (ADR-054):** The teacher review queue is assembled from the entry's feedback request
-> to a group the teacher owns (`SUBMITTED_TO_GROUP`), not by the student's group membership
+> to the teacher — `SUBMITTED_TO_GROUP` to a group they own, or `SUBMITTED_TO_TEACHER` to them
+> (ADR-088 §9) — not by the student's group membership
 > (`MEMBER_OF`) or by exercise ownership: `TeacherReviewService.get_review_queue()` →
-> `UserEntryBackend.get_review_queue_by_groups()` matches
-> `(teacher)-[:OWNS]->(:Group {is_active: true})<-[:SUBMITTED_TO_GROUP]-(entry:UserEntry)` where
+> `UserEntryBackend.get_review_queue_by_groups()` enumerates `feedback_requests_subquery`
+> (`(teacher)-[:OWNS]->(:Group {is_active: true})<-[:SUBMITTED_TO_GROUP]-(entry:UserEntry)`
+> UNION `(entry)-[:SUBMITTED_TO_TEACHER]->(teacher)`) where
 > `entry.pipeline = 'teacher_review'`, one row per entry however many of the teacher's groups it
 > asks. (A `(teacher)-[:OWNS]->(exercise)` traversal is NOT the queue path — it hides valid
 > group-submitted entries.)
@@ -677,8 +679,8 @@ enables student notification and learning loop progression tracking.
 **Access control:**
 - **Create:** `create()` (overrides `CrudOperationsMixin.create`; for pre-operation guards, prefer `_validate_create` hook or `_post_create` hook for events — see `/docs/patterns/DOMAIN_SPECIFIC_HOOKS.md`) verifies the `student_uid`
   owns the report's entry, then — through `admit_revision`, before any write — that the entry
-  asks this teacher for feedback (`SUBMITTED_TO_GROUP` an active group the teacher owns,
-  ADR-088 §2, via `UserEntryService.teacher_has_feedback_authority`) and that
+  asks this teacher for feedback (`SUBMITTED_TO_GROUP` an active group the teacher owns, or
+  `SUBMITTED_TO_TEACHER` the teacher, ADR-088 §2, §9, via `UserEntryService.teacher_has_feedback_authority`) and that
   `original_exercise_uid` is the exercise the entry FULFILLS. Graph path resolved:
   `(Report)-[:REPORT_FOR]->(UserEntry)<-[:OWNS]-(Student)` (`get_revision_target`). The role
   gate alone admits nothing (an ADMIN included); every refusal is a 404 that reads as a missing
@@ -770,6 +772,7 @@ RelationshipName.FULFILLS_REVISED_EXERCISE  # UserEntry → RevisedExercise (rev
 RelationshipName.REPORT_FOR              # EntryReport → UserEntry
 RelationshipName.SHARES_WITH             # User → RevisedExercise (auto-share to student)
 RelationshipName.SUBMITTED_TO_GROUP      # UserEntry → Group (the feedback request — teachers who OWN the group, ADR-088 §2)
+RelationshipName.SUBMITTED_TO_TEACHER    # UserEntry → User (the feedback request to one teacher — an anchored PERSONAL exercise's owner, ADR-088 §9)
 RelationshipName.SHARED_WITH_GROUP       # UserEntry → Group (a share — every member; never queues)
 RelationshipName.RESPONDS_TO_REPORT     # RevisedExercise → EntryReport
 RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
@@ -881,8 +884,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
    validates scope / group membership — it writes nothing
        ↓
 5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
-   Teacher sees the teacher_review entries SUBMITTED_TO_GROUP an active group
-   they own (UserEntryBackend.get_review_queue_by_groups)
+   Teacher sees the teacher_review entries that ask them — SUBMITTED_TO_GROUP an
+   active group they own, or SUBMITTED_TO_TEACHER them (UserEntryBackend.get_review_queue_by_groups)
        ↓
 6. TeacherReviewService.submit_report()             → core/services/report/teacher_review_service.py
    Creates EntryReport with ReportSource.HUMAN

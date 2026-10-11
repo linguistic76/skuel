@@ -397,6 +397,17 @@ SURFACES: tuple[Surface, ...] = (
         "has nothing to withhold here either way.",
     ),
     Surface(
+        "adapters.persistence.neo4j.backends.sharing_backend",
+        "_anchored_exercise_teacher_match",
+        Disposition.ADMISSION,
+        "The direct feedback target's rule (ADR-088 §9), composed by the resolving "
+        "read and by the SUBMITTED_TO_TEACHER write: a turn-in on a PERSONAL exercise "
+        "reaches its owner only while the anchoring PathStep is published "
+        "(build_anchored_exercise_clause), so a draft step's exercise asks nobody. "
+        "It returns a teacher uid or whether the edge landed — no curriculum the "
+        "caller did not name.",
+    ),
+    Surface(
         "adapters.persistence.neo4j.connection_fetch_backend",
         "ConnectionFetchBackend.fetch_entity_connections",
         Disposition.GATED,

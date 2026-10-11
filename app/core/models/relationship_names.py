@@ -341,6 +341,11 @@ class RelationshipName(StrEnum):
     # teacher-side readers under (teacher)-[:OWNS]->(group), never by the audience
     # fragment (ADR-088 §2 — two link kinds, never crossed).
     SUBMITTED_TO_GROUP = "SUBMITTED_TO_GROUP"
+    # (UserEntry)-[:SUBMITTED_TO_TEACHER {submitted_at}]->(User) - A feedback request to
+    # one teacher directly: the owner of the PERSONAL exercise, anchored to a published
+    # PathStep, that the entry turns in against. Read only by that teacher's teacher-side
+    # readers, never by the audience fragment (ADR-088 §9).
+    SUBMITTED_TO_TEACHER = "SUBMITTED_TO_TEACHER"
     # Revision cycle (four-phase learning loop)
     # (RevisedExercise)-[:RESPONDS_TO_REPORT]->(EntryReport)
     RESPONDS_TO_REPORT = "RESPONDS_TO_REPORT"
@@ -557,7 +562,8 @@ class RelationshipName(StrEnum):
         """Check if this edge says who owns, sees, or belongs to something.
 
         Ownership (``OWNS``), sharing (``SHARES_WITH``, ``SHARED_WITH_GROUP``), a
-        feedback request (``SUBMITTED_TO_GROUP``) and membership (``MEMBER_OF``) —
+        feedback request (``SUBMITTED_TO_GROUP``, ``SUBMITTED_TO_TEACHER``) and
+        membership (``MEMBER_OF``) —
         the edges the read gates decide by (ADR-085, ADR-088). Only the door that
         grants an access writes one; an Edge file never does (ADR-070 Decision 11).
         """
@@ -706,6 +712,7 @@ _ACCESS_TYPES = frozenset(
         RelationshipName.SHARES_WITH,
         RelationshipName.SHARED_WITH_GROUP,
         RelationshipName.SUBMITTED_TO_GROUP,
+        RelationshipName.SUBMITTED_TO_TEACHER,
         RelationshipName.MEMBER_OF,
     }
 )

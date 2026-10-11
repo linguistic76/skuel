@@ -300,8 +300,8 @@ def create_teaching_api_routes(
         """Get full submission detail for teacher review.
 
         Returns submission content, student info, and linked exercise.
-        Access-controlled: only succeeds when the entry is SUBMITTED_TO_GROUP an
-        active group the teacher owns (a feedback request to them).
+        Access-controlled: only succeeds when the entry asks this teacher for
+        feedback (submitted to an active group they own, or to them directly).
         """
         return await teacher_review_service.get_submission_detail(
             submission_uid=uid,
@@ -322,7 +322,7 @@ def create_teaching_api_routes(
         from ui.teaching.types import submission_detail_from_dict
 
         # get_submission_detail gates on the entry's feedback request
-        # (SUBMITTED_TO_GROUP an active group the teacher owns); a denied or
+        # to this teacher (a group they own, or them directly); a denied or
         # missing submission returns not-found. The feedback history below is this
         # student's private work, so it must not be read until that gate passes
         # — otherwise a teacher outside the classroom reads the reports while the
@@ -419,8 +419,8 @@ def create_teaching_api_routes(
     async def delete_submission(request: Request, uid: str, current_user: Any = None) -> Any:
         """Delete a student UserEntry (teacher action).
 
-        Authorized when the entry is ``SUBMITTED_TO_GROUP`` an active group the
-        teacher owns (see ``UserEntryService.delete_entry_as_teacher``); a denied
+        Authorized when the entry asks this teacher for feedback (see
+        ``UserEntryService.delete_entry_as_teacher``); a denied
         or missing entry fails as not-found. Hard-deletes
         the Neo4j node via cascade. Returns an empty response so HTMX removes
         the row.

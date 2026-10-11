@@ -130,10 +130,11 @@ class TestVisibilityClause:
         assert scope is not None
         clause, params = scope
         assert (
-            "(n.scope = $visibility_personal_scope AND $user_uid IS NOT NULL"
+            "((n.scope = $visibility_personal_scope"
             " AND EXISTS { MATCH (visibility_anchor_step:PathStep)-[:HAS_EXERCISE]->(n)"
             " WHERE (visibility_anchor_step.publication_state IS NULL"
-            " OR visibility_anchor_step.publication_state <> $publication_draft) })" in clause
+            " OR visibility_anchor_step.publication_state <> $publication_draft) })"
+            " AND $user_uid IS NOT NULL)" in clause
         )
         assert "n.publication_state" not in clause
         assert params["publication_draft"] == "draft"
@@ -221,10 +222,11 @@ class TestVisibilityClause:
         # owned arms do not, so an owner sees their own unfinished work.
         assert clause.startswith(
             "(((n.scope = $visibility_curriculum_scope"
-            " OR (n.scope = $visibility_personal_scope AND $user_uid IS NOT NULL"
+            " OR ((n.scope = $visibility_personal_scope"
             " AND EXISTS { MATCH (visibility_anchor_step:PathStep)-[:HAS_EXERCISE]->(n)"
             " WHERE (visibility_anchor_step.publication_state IS NULL"
-            " OR visibility_anchor_step.publication_state <> $publication_draft) }))"
+            " OR visibility_anchor_step.publication_state <> $publication_draft) })"
+            " AND $user_uid IS NOT NULL))"
             " AND (n.publication_state IS NULL OR n.publication_state <> $publication_draft))"
             " OR n.owner_uid = $user_uid"
         )

@@ -173,7 +173,7 @@ class EntrySharingService:
         """Take one share back: ``group:<uid>`` deletes its ``SHARED_WITH_GROUP``, ``user:<username>`` their ``SHARES_WITH``.
 
         Exactly one share target; a feedback request cannot be cancelled here
-        (the delete never touches ``SUBMITTED_TO_GROUP``). Returns the value
+        (the delete never touches ``SUBMITTED_TO_GROUP`` / ``SUBMITTED_TO_TEACHER``). Returns the value
         removed. A share that does not stand is a not-found.
         """
         parsed = AudienceSpec.parse([target])

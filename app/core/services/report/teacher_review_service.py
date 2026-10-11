@@ -4,9 +4,10 @@ Teacher Review Service
 
 Manages the teacher review workflow for assigned submissions.
 
-A student's turn-in reaches the teacher as a feedback request
-(``SUBMITTED_TO_GROUP`` to a group the teacher owns, ADR-088 §2); the review
-queue reads that link under the teacher's ``OWNS``.
+A student's turn-in reaches the teacher as a feedback request —
+``SUBMITTED_TO_GROUP`` to a group the teacher owns (ADR-088 §2), or
+``SUBMITTED_TO_TEACHER`` to the teacher directly (§9); every review read and
+write here gates on the entry asking this teacher, whichever link carried it.
 
 When providing a report or requesting revision, an ENTRY_REPORT Entity node
 is created and linked to the submission via REPORT_FOR. This makes every
@@ -105,8 +106,9 @@ class TeacherReviewService:
         """
         Get teacher's pending review queue.
 
-        Returns entries submitted to the teacher's groups via SUBMITTED_TO_GROUP
-        (the feedback request, ADR-088 §2) whose pipeline is ``teacher_review``,
+        Returns the entries that ask this teacher for feedback — submitted to
+        one of the teacher's groups or to the teacher directly (ADR-088 §2, §9)
+        — whose pipeline is ``teacher_review``,
         one item per entry however many of the teacher's groups it asks.
         Empty when the teacher owns no groups or no entries have been submitted
         — does not leak the existence of unrelated students' submissions. A
@@ -701,13 +703,15 @@ class TeacherReviewService:
         student_uid: str,
     ) -> Result[list[StudentSubmissionItem]]:
         """
-        Get a student's submissions to this teacher, gated per entry.
+        Get a classroom student's submissions to this teacher, gated per entry.
 
-        Each entry must itself be ``SUBMITTED_TO_GROUP`` an active group the
-        teacher owns — the gate the detail read uses — so a student's other
-        work never appears. Empty when none qualifies, which the route surface
-        treats as a genuinely empty per-student history — does not leak the
-        existence of unrelated students' work.
+        Two gates. The student must be in the teacher's classroom
+        (``verify_teacher_authority`` — the student page's gate; a feedback
+        request filed with the teacher directly does not open it, ADR-088 §9),
+        refused with ``forbidden`` — the same answer for a uid that names no
+        student. Then each entry must itself ask this teacher (``asks_teacher``
+        — the gate the detail read uses), so a student's other work never
+        appears; empty when none qualifies, a genuinely empty history.
 
         Args:
             teacher_uid: Teacher UID (load-bearing; gates the read)
@@ -717,6 +721,9 @@ class TeacherReviewService:
             Result containing list of submission dicts with exercise context
             and feedback count
         """
+        classroom = await self.verify_teacher_authority(teacher_uid, student_uid)
+        if classroom.is_error:
+            return Result.fail(classroom)
         result = await self.user_entry_backend.get_student_entries_for_teacher(
             teacher_uid, student_uid
         )
@@ -748,8 +755,9 @@ class TeacherReviewService:
         """
         Get full detail of a submission for teacher review.
 
-        Gated by ``SUBMITTED_TO_GROUP`` at the backend layer: empty when the
-        submission is not submitted to any active group the teacher owns.
+        Gated by the entry's feedback request at the backend layer: empty when
+        the submission asks this teacher nothing (no active group they own, no
+        direct request).
         Empty maps to ``Errors.not_found`` (404) so a teacher outside the
         student's group cannot distinguish "submission does not exist" from
         "exists but belongs to another teacher's student".
@@ -969,8 +977,9 @@ class TeacherReviewService:
     ) -> Result[bool]:
         """Verify the submission asks this teacher for feedback (the review-write gate).
 
-        The entry must be ``SUBMITTED_TO_GROUP`` an active group the teacher
-        owns — the authority the queue and the detail read carry (ADR-088 §2),
+        The entry must ask this teacher for feedback — ``SUBMITTED_TO_GROUP`` an
+        active group the teacher owns, or ``SUBMITTED_TO_TEACHER`` the teacher —
+        the authority the queue and the detail read carry (ADR-088 §2, §9),
         so a teacher can write on exactly what they can open. Maps empty
         backend results to ``Errors.not_found(...)`` (404) so a teacher outside
         that audience cannot distinguish between "submission does not exist"
@@ -995,12 +1004,45 @@ class TeacherReviewService:
 
         return Result.ok(True)
 
+    async def verify_exchange_authority(
+        self,
+        teacher_uid: str,
+        student_uid: str,
+    ) -> Result[bool]:
+        """Verify the teacher may open the student's exchange threads (ADR-088 §9).
+
+        The student is in the teacher's classroom, or filed a feedback request
+        with the teacher directly — the exchange read then shows only the
+        entries that ask this teacher. Refused with ``forbidden``, the same
+        contract as ``verify_teacher_authority``.
+
+        Backend: UserEntryBackend.verify_teacher_exchange_authority
+        """
+        result = await self.user_entry_backend.verify_teacher_exchange_authority(
+            teacher_uid, student_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(
+                Errors.forbidden(
+                    action="verify_exchange_authority",
+                    reason=f"Teacher {teacher_uid} has no exchange with student {student_uid}",
+                )
+            )
+        return Result.ok(True)
+
     async def verify_teacher_authority(
         self,
         teacher_uid: str,
         student_uid: str,
     ) -> Result[bool]:
-        """Verify the teacher shares an active group with the student."""
+        """Verify the student is in the teacher's classroom (an active group the teacher owns).
+
+        The student-level gate — the student page and its knowledge tab. A
+        feedback request filed with the teacher directly does not grant it
+        (ADR-088 §9).
+        """
         result = await self.user_entry_backend.verify_teacher_authority(teacher_uid, student_uid)
         if result.is_error:
             return Result.fail(result)

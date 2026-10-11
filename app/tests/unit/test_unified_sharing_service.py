@@ -840,6 +840,61 @@ async def test_submit_to_group_matched_request_is_a_success_not_created(
 
 
 @pytest.mark.asyncio
+async def test_submit_to_teacher_refuses_a_teacher_who_is_not_the_reviewer(
+    mock_backend, sharing_service
+):
+    """No row = the statement refused (not the anchored exercise's owner, no
+    reviewer role, the submitter themselves) — ``forbidden``, never ``not_found``."""
+    _owned_user_entry(mock_backend)
+    mock_backend.create_teacher_submission = AsyncMock(return_value=Result.ok([]))
+
+    result = await sharing_service.submit_to_teacher(
+        entity_uid="ue_1", owner_uid="user_owner", teacher_uid="user_t", exercise_uid="ex_1"
+    )
+
+    assert result.is_error
+    assert result.expect_error().category.value == "forbidden"
+    _, kwargs = mock_backend.create_teacher_submission.await_args
+    assert kwargs["owner_uid"] == "user_owner"
+    assert kwargs["teacher_uid"] == "user_t"
+    assert kwargs["exercise_uid"] == "ex_1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("created", [True, False])
+async def test_submit_to_teacher_returns_created(mock_backend, sharing_service, created):
+    _owned_user_entry(mock_backend)
+    mock_backend.create_teacher_submission = AsyncMock(
+        return_value=Result.ok([{"created": created}])
+    )
+
+    result = await sharing_service.submit_to_teacher(
+        entity_uid="ue_1", owner_uid="user_owner", teacher_uid="user_t", exercise_uid="ex_1"
+    )
+
+    assert result.is_ok
+    assert result.value is created
+
+
+@pytest.mark.asyncio
+async def test_submit_to_teacher_requires_ownership(mock_backend, sharing_service):
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [{"actual_owner": "user_other", "status": "submitted", "entity_type": "user_entry"}]
+        )
+    )
+    mock_backend.create_teacher_submission = AsyncMock()
+
+    result = await sharing_service.submit_to_teacher(
+        entity_uid="ue_1", owner_uid="user_owner", teacher_uid="user_t", exercise_uid="ex_1"
+    )
+
+    assert result.is_error
+    assert result.expect_error().category.value == "not_found"
+    mock_backend.create_teacher_submission.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_submit_to_group_requires_ownership(mock_backend, sharing_service):
     mock_backend.query_ownership_and_status = AsyncMock(
         return_value=Result.ok(
