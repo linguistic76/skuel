@@ -40,7 +40,7 @@ class UserContextIntelligence(
 Every mixin inherits `IntelligenceMixinBase` (`_base.py`), the one place the shared attribute
 surface (`self.context`, `self.tasks`, …) is declared. A new service on the class is one
 annotation there, one parameter on `UserContextIntelligence.__init__`, and one entry in the
-factory's `_required_services` dict.
+factory's `_required_services` dict and its `_HubServices` TypedDict.
 
 ## The Nine Methods
 

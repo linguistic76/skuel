@@ -47,6 +47,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.type_hints import Neo4jProperties
+from core.ports.query_types import EntityHierarchy
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 
 # Base service
@@ -1169,7 +1170,7 @@ class TasksService(
     async def get_parent_task(self, subtask_uid: str) -> Result[Task | None]:
         return await self.core.get_parent_entity(subtask_uid)
 
-    async def get_task_hierarchy(self, task_uid: str) -> Result[dict[str, Any]]:
+    async def get_task_hierarchy(self, task_uid: str) -> Result[EntityHierarchy[Task]]:
         return await self.core.get_entity_hierarchy(task_uid)
 
     async def create_subtask_relationship(

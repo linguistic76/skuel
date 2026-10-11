@@ -25,6 +25,7 @@ from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums import EntityStatus, Priority
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.domain_protocols import ChoicesOperations
+from core.ports.query_types import EntityHierarchy
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 
@@ -577,7 +578,7 @@ class ChoicesService(
     async def get_parent_choice(self, subchoice_uid: str) -> Result[Choice | None]:
         return await self.core.get_parent_entity(subchoice_uid)
 
-    async def get_choice_hierarchy(self, choice_uid: str) -> Result[dict[str, Any]]:
+    async def get_choice_hierarchy(self, choice_uid: str) -> Result[EntityHierarchy[Choice]]:
         return await self.core.get_entity_hierarchy(choice_uid)
 
     async def create_subchoice_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:

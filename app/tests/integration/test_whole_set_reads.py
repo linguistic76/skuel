@@ -23,7 +23,7 @@ See: core/services/whole_set_read.py
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -92,6 +92,11 @@ from core.services.user.unified_user_context import RichUserContext
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+
+if TYPE_CHECKING:
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.principles_service import PrinciplesService
 
 USER = "user_whole_set"
 STRANGER = "user_whole_set_stranger"
@@ -451,9 +456,13 @@ class _Perception(PerceptionIntelligenceMixin):
 
     def __init__(self, neo4j_driver: AsyncDriver) -> None:
         self.context = RichUserContext(user_uid=USER)
-        self.goals = SimpleNamespace(backend=_backend(neo4j_driver, "goals"))
-        self.habits = SimpleNamespace(backend=_backend(neo4j_driver, "habits"))
-        self.principles = SimpleNamespace(backend=_backend(neo4j_driver, "principles"))
+        self.goals = cast("GoalsService", SimpleNamespace(backend=_backend(neo4j_driver, "goals")))
+        self.habits = cast(
+            "HabitsService", SimpleNamespace(backend=_backend(neo4j_driver, "habits"))
+        )
+        self.principles = cast(
+            "PrinciplesService", SimpleNamespace(backend=_backend(neo4j_driver, "principles"))
+        )
 
 
 def _scheduling(neo4j_driver: AsyncDriver) -> HabitsSchedulingService:

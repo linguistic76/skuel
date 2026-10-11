@@ -40,11 +40,12 @@ plan = await intelligence.get_ready_to_work_on_today()
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, TypedDict
 
 from core.services.user.intelligence.core import UserContextIntelligence
 
 if TYPE_CHECKING:
+    from core.ports.curriculum_protocols import ExerciseOperations
     from core.ports.filtered_context_protocols import FilteredContextProvider
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.calendar_service import CalendarService
@@ -53,12 +54,30 @@ if TYPE_CHECKING:
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.ku_service import KuService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
     from core.services.tasks_service import TasksService
     from core.services.user.unified_user_context import RichUserContext
+
+
+class _HubServices(TypedDict):
+    """The twelve required services, keyed by `UserContextIntelligence.__init__`'s parameter names."""
+
+    tasks: TasksService
+    goals: GoalsService
+    habits: HabitsService
+    events: EventsService
+    choices: ChoicesService
+    principles: PrinciplesService
+    ku: KuService
+    ps: PsService
+    lp: UnifiedRelationshipService
+    exercises: ExerciseOperations
+    report: ReportRelationshipService
+    calendar: CalendarService
 
 
 class UserContextIntelligenceFactory:
@@ -112,13 +131,13 @@ class UserContextIntelligenceFactory:
         ku: KuService,
         ps: PsService,
         lp: UnifiedRelationshipService,
-        exercises: Any,  # ExerciseService facade — get_actionable_exercises_for_user / get_pending_revisions_for_user
+        exercises: ExerciseOperations,
         # Processing Domain (1) - REQUIRED
         report: ReportRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
-        vector_search_service: Any = None,
+        vector_search_service: Neo4jVectorSearchService | None = None,
         # Optional: ZPD service for curriculum-graph-aware path step ranking
         zpd_service: ZPDOperations | None = None,
         # Optional: FilteredContextProvider dict for on-demand domain-specific queries
@@ -159,9 +178,10 @@ class UserContextIntelligenceFactory:
         """
         # Single source of truth for the 12 required services. Both validation
         # and forwarding to UserContextIntelligence read from this dict — adding
-        # a 13th service means one entry here (plus the matching __init__ param
-        # and the matching UserContextIntelligence.__init__ param).
-        self._required_services: dict[str, Any] = {
+        # a 13th service means one entry here and in `_HubServices` (plus the
+        # matching __init__ param and the matching UserContextIntelligence.__init__
+        # param). `_HubServices` keeps the forwarding type-checked.
+        self._required_services: _HubServices = {
             # Activity Domains (6)
             "tasks": tasks,
             "goals": goals,

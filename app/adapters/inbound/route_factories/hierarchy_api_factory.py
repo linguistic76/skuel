@@ -27,7 +27,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md,
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypedDict, TypeVar
 
 from fasthtml.common import Div, Span
 
@@ -42,6 +42,7 @@ from core.models.entity_requests import (
     RemoveHierarchyChildRequest,
 )
 from core.models.user_owned_entity import UserOwnedEntity
+from core.ports.query_types import EntityHierarchy
 from core.utils.result_simplified import Errors, Result
 from ui.patterns.tree_view import TreeNode, TreeNodeList
 
@@ -59,6 +60,18 @@ if TYPE_CHECKING:
 T = TypeVar("T", bound=UserOwnedEntity)
 
 
+class ChildAddedPayload(TypedDict):
+    """``POST /api/{domain}/add-child`` — whether the parent-child edge was written."""
+
+    added: bool
+
+
+class ChildRemovedPayload(TypedDict):
+    """``POST /api/{domain}/remove-child`` — whether the parent-child edge was removed."""
+
+    removed: bool
+
+
 @dataclass(frozen=True)
 class ActivityHierarchyApiConfig(Generic[T]):
     """Configuration for one Activity Domain's hierarchy endpoints.
@@ -74,8 +87,7 @@ class ActivityHierarchyApiConfig(Generic[T]):
         get_children: Coroutine ``(parent_uid) -> Result[list[T]]``, e.g. the
             bound ``get_subtasks``.
         get_parent: Coroutine ``(child_uid) -> Result[T | None]``.
-        get_hierarchy: Coroutine ``(uid) -> Result[dict]`` with
-            ``ancestors``/``current``/``siblings``/``children`` entity lists.
+        get_hierarchy: Coroutine ``(uid) -> Result[EntityHierarchy[T]]``.
         add_child_relationship: Coroutine ``(AddHierarchyChildRequest) ->
             Result[bool]``. A small named adapter per domain decides whether
             ``progress_weight`` reaches the service.
@@ -88,7 +100,7 @@ class ActivityHierarchyApiConfig(Generic[T]):
     service: Any
     get_children: Callable[[str], Awaitable[Result[list[T]]]]
     get_parent: Callable[[str], Awaitable[Result[T | None]]]
-    get_hierarchy: Callable[[str], Awaitable[Result[dict[str, Any]]]]
+    get_hierarchy: Callable[[str], Awaitable[Result[EntityHierarchy[T]]]]
     add_child_relationship: Callable[[AddHierarchyChildRequest], Awaitable[Result[bool]]]
     remove_child_relationship: Callable[[str, str], Awaitable[Result[bool]]]
 
@@ -206,7 +218,7 @@ def _register_parent_route(rt: RouteDecorator, config: ActivityHierarchyApiConfi
 
 
 def _register_hierarchy_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> None:
-    async def hierarchy(request: Request) -> Result[dict[str, Any]]:
+    async def hierarchy(request: Request) -> Result[EntityHierarchy[T]]:
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
@@ -237,7 +249,7 @@ def _register_hierarchy_route(rt: RouteDecorator, config: ActivityHierarchyApiCo
 
 
 def _register_add_child_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> None:
-    async def add_child(request: Request) -> Result[dict[str, Any]]:
+    async def add_child(request: Request) -> Result[ChildAddedPayload]:
         user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, AddHierarchyChildRequest)
         if parsed.is_error:
@@ -276,7 +288,7 @@ def _register_add_child_route(rt: RouteDecorator, config: ActivityHierarchyApiCo
 
 
 def _register_remove_child_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> None:
-    async def remove_child(request: Request) -> Result[dict[str, Any]]:
+    async def remove_child(request: Request) -> Result[ChildRemovedPayload]:
         user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
         if parsed.is_error:

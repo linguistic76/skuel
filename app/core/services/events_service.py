@@ -36,6 +36,7 @@ from core.models.event.event_request import EventCreateRequest
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.sentinels import UNSET, Unset
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.query_types import EntityHierarchy
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
@@ -723,7 +724,7 @@ class EventsService(
     async def get_parent_event(self, subevent_uid: str) -> Result[Event | None]:
         return await self.core.get_parent_entity(subevent_uid)
 
-    async def get_event_hierarchy(self, event_uid: str) -> Result[dict[str, Any]]:
+    async def get_event_hierarchy(self, event_uid: str) -> Result[EntityHierarchy[Event]]:
         return await self.core.get_entity_hierarchy(event_uid)
 
     async def create_subevent_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:

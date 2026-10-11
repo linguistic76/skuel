@@ -35,6 +35,7 @@ from core.models.principle.principle_types import AlignmentAssessment as Alignme
 from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import PrinciplesOperations
+from core.ports.query_types import EntityHierarchy
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.cross_domain import CrossDomainQueryService
@@ -653,7 +654,9 @@ class PrinciplesService(
     async def get_parent_principle(self, subprinciple_uid: str) -> Result[Principle | None]:
         return await self.core.get_parent_entity(subprinciple_uid)
 
-    async def get_principle_hierarchy(self, principle_uid: str) -> Result[dict[str, Any]]:
+    async def get_principle_hierarchy(
+        self, principle_uid: str
+    ) -> Result[EntityHierarchy[Principle]]:
         return await self.core.get_entity_hierarchy(principle_uid)
 
     async def create_subprinciple_relationship(

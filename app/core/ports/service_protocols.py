@@ -54,6 +54,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import (
         AlternativeComparisonItem,
         BlockingChainResult,
+        DerivedSiblingItem,
         LateralRelationshipItem,
         LifePathAlignmentResult,
         LifePathDesignation,
@@ -674,9 +675,7 @@ class LateralRelationshipOperations(Protocol):
         include_explicit_only: bool = False,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
-    ) -> Result[
-        list[dict[str, Any]]
-    ]: ...  # boundary: sibling rows come from multiple backend queries
+    ) -> Result[list[DerivedSiblingItem] | list[LateralRelationshipItem]]: ...
 
 
 @runtime_checkable

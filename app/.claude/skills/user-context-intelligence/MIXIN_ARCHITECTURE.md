@@ -30,31 +30,30 @@ values are assigned in `UserContextIntelligence.__init__`.
 class IntelligenceMixinBase:
     context: RichUserContext
 
-    tasks: Any  # boundary: TasksService, typed at __init__
-    goals: Any  # boundary: GoalsService, typed at __init__
-    habits: Any  # boundary: HabitsService, typed at __init__
-    events: Any  # boundary: EventsService, typed at __init__
-    choices: Any  # boundary: ChoicesService, typed at __init__
-    principles: Any  # boundary: PrinciplesService, typed at __init__
+    tasks: TasksService
+    goals: GoalsService
+    habits: HabitsService
+    events: EventsService
+    choices: ChoicesService
+    principles: PrinciplesService
 
-    ps: Any  # boundary: PsService, typed at __init__
-    lp: Any  # boundary: UnifiedRelationshipService, typed at __init__
-    exercises: Any  # boundary: ExerciseService, duck-typed
+    ku: KuService
+    ps: PsService
+    lp: UnifiedRelationshipService
+    exercises: ExerciseOperations  # ExerciseService, as the services container holds it
 
     report: ReportRelationshipService
     calendar: CalendarService
 
-    vector_search: Any  # boundary: optional Neo4jVectorSearchService
-    zpd_service: Any  # boundary: optional ZPDOperations
+    vector_search: Neo4jVectorSearchService | None
+    zpd_service: ZPDOperations | None
     filtered_providers: dict[str, FilteredContextProvider]
 ```
 
-The base uses `Any` for the facades to keep six facade imports out of a module every mixin
-imports.
-
-mypy checks the concrete facade types at the constructor (`tasks: TasksService`, …); inside a
-mixin body, a call on `self.tasks` is unchecked. Verify a method name against the facade when
-you add a call.
+The types are imported under `TYPE_CHECKING` only, so no mixin pays a runtime import fan, and
+mypy checks every call a mixin body makes on `self.tasks`, `self.exercises`, … against the type
+it names. `exercises` is the `ExerciseOperations` protocol because that is what the services
+container holds; the two daily-plan methods the hub calls are on it.
 
 A mixin declares no attributes of its own and defines no `__init__`. State lives on the
 context.
@@ -250,7 +249,7 @@ No LLM. Its door is the `perception` Insights card, linked to `/self-checkin` �
 3. Export it from `core/services/user/intelligence/__init__.py`.
 4. If it needs a service the class does not hold, add the annotation to `IntelligenceMixinBase`,
    the parameter to `UserContextIntelligence.__init__`, the entry to the factory's
-   `_required_services`, and the argument in `services_bootstrap/_intelligence_hub.py`.
+   `_required_services` and its `_HubServices` TypedDict, and the argument in `services_bootstrap/_intelligence_hub.py`.
 5. A method with no `await` is `def`, not `async def` (SKUEL029). Methods 2, 4, 6, 7 and 8 are
    `async` without awaiting because a protocol or a facade delegation awaits them; each carries
    the lint suppression naming that reason.

@@ -18,29 +18,19 @@ Handler Contract:
     exceptions at boundaries" pattern. The @boundary_handler decorator converts
     Result[T] to HTTP responses at the boundary.
 
-Usage (the live consumer, path_steps_api.py):
-    # Define handler functions - MUST return Result[T]
-    async def handle_summary_analytics(service, params) -> Result[dict[str, Any]]:
-        return await service.get_step_stats(params.get("period", "month"))
-
-    async def handle_graph_structure(service, params) -> Result[dict[str, Any]]:
-        return await service.get_step_stats(params.get("metrics", "true"))
+Usage:
+    Each config entry maps a path to an ``async (service, params) -> Result[T]``
+    handler; ``params`` is the request's query string as a ``dict[str, str]``.
+    The live consumer is ``adapters/inbound/path_steps_api.py``.
 
     factory = AnalyticsRouteFactory(
-        service=ps_service,
+        service=domain_service,
         domain_name="path-steps",
         analytics_config={
             "summary": {
                 "path": "/api/path-steps/analytics/summary",
-                "handler": handle_summary_analytics,
-                "description": "Get summary analytics for all path steps",
-                "methods": ["GET"],
-            },
-            "graph_structure": {
-                "path": "/api/path-steps/graph/structure",
-                "handler": handle_graph_structure,
-                "description": "Get path step graph structure and metrics",
-                "methods": ["GET"],
+                "handler": handle_summary,
+                "description": "Summary analytics",
             },
         },
     )

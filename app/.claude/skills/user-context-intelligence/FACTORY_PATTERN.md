@@ -36,13 +36,13 @@ class UserContextIntelligenceFactory:
         ku: KuService,
         ps: PsService,
         lp: UnifiedRelationshipService,
-        exercises: Any,  # boundary: ExerciseService facade, duck-typed
+        exercises: ExerciseOperations,
         # Processing (1)
         report: ReportRelationshipService,
         # Temporal (1)
         calendar: CalendarService,
         # Optional
-        vector_search_service: Any = None,  # boundary: optional Neo4jVectorSearchService
+        vector_search_service: Neo4jVectorSearchService | None = None,
         zpd_service: ZPDOperations | None = None,
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None: ...
@@ -50,9 +50,10 @@ class UserContextIntelligenceFactory:
     def create(self, context: RichUserContext) -> UserContextIntelligence: ...
 ```
 
-- The twelve required services are held in one dict, `_required_services`. It is both what the
-  constructor validates and what `create()` forwards, so adding a service is one entry there
-  plus the two matching parameters.
+- The twelve required services are held in one dict, `_required_services`, typed by the
+  `_HubServices` TypedDict. It is both what the constructor validates and what `create()`
+  forwards (mypy checks the forward against `UserContextIntelligence.__init__`), so adding a
+  service is one entry there and in `_HubServices`, plus the two matching parameters.
 - A required service that is `None` raises `ValueError` at construction, naming every missing
   one.
 - The factory's keyword is `vector_search_service`; the instance attribute it becomes is

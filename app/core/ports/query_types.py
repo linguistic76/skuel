@@ -2538,6 +2538,16 @@ class LateralRelationshipItem(TypedDict, total=False):
     direction: str
 
 
+class DerivedSiblingItem(TypedDict):
+    """A sibling derived from the hierarchy (same parent) — ``get_siblings()``'s default rows."""
+
+    uid: str
+    title: str
+    hierarchy_type: str
+    order: int | None
+    relationship: Literal["derived_sibling"]
+
+
 class TaskDependencyNeighbor(TypedDict):
     """A single direct ``DEPENDS_ON`` neighbour of a task.
 
@@ -3454,6 +3464,20 @@ class PrincipleStats(TypedDict, total=False):
 # ============================================================================
 # TASK HIERARCHY RESULT TYPES
 # ============================================================================
+
+
+class EntityHierarchy[T](TypedDict):
+    """An Activity entity's hierarchy as typed domain models — ``get_entity_hierarchy()``.
+
+    ``depth`` is the number of ancestors. The six Activity facades' ``get_<entity>_hierarchy``
+    return it with ``T`` their model; the hierarchy API route answers the same shape.
+    """
+
+    ancestors: list[T]
+    current: T
+    siblings: list[T]
+    children: list[T]
+    depth: int
 
 
 class ParentProgressResult(TypedDict, total=False):
@@ -4386,6 +4410,7 @@ __all__ = [
     "LifePathDesignation",
     # Lateral Relationship Result Types
     "LateralRelationshipItem",
+    "DerivedSiblingItem",
     "BlockingChainResult",
     "RelationshipGraphData",
     # Activity Report Result Types
@@ -4442,6 +4467,7 @@ __all__ = [
     "ChoiceStats",
     "PrincipleStats",
     # Task Hierarchy Result Types
+    "EntityHierarchy",
     "ParentProgressResult",
     # Curriculum Backend Result Types
     "OrganizerResult",

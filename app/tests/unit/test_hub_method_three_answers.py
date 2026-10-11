@@ -12,6 +12,7 @@ cancelled or already over are not opportunities.
 """
 
 from datetime import date, datetime, time
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -142,4 +143,4 @@ async def test_no_service_is_asked() -> None:
     with _at_noon():
         await hub.get_knowledge_application_opportunities(KU)
 
-    assert hub.tasks.mock_calls == []
+    assert cast("MagicMock", hub.tasks).mock_calls == []

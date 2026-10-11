@@ -32,7 +32,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.domain_protocols import GoalsOperations
-from core.ports.query_types import GoalsAchievedCount
+from core.ports.query_types import EntityHierarchy, GoalsAchievedCount
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -790,7 +790,7 @@ class GoalsService(
     async def get_parent_goal(self, subgoal_uid: str) -> Result[Goal | None]:
         return await self.core.get_parent_entity(subgoal_uid)
 
-    async def get_goal_hierarchy(self, goal_uid: str) -> Result[dict[str, Any]]:
+    async def get_goal_hierarchy(self, goal_uid: str) -> Result[EntityHierarchy[Goal]]:
         return await self.core.get_entity_hierarchy(goal_uid)
 
     async def create_subgoal_relationship(

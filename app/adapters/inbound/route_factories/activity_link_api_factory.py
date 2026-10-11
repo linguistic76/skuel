@@ -28,7 +28,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md,
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -49,6 +49,33 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import RouteDecorator
     from core.models.type_hints import UserUID
     from core.services.knowledge.knowledge_pattern_analyzer import LearningPattern
+
+
+class LinkedPayload(TypedDict):
+    """``POST /api/{domain}/{action}`` — whether the link edge was written."""
+
+    linked: bool
+
+
+class LearningPatternPayload(TypedDict):
+    """One ``LearningPattern``, as ``GET /api/{domain}/knowledge-patterns`` serializes it."""
+
+    pattern_type: str
+    knowledge_uids: list[str]
+    entity_uids: list[str]
+    confidence: float
+    timeframe_days: int
+    frequency: int
+    growth_indicator: float
+    metadata: dict[str, Any]  # boundary: mirrors LearningPattern.metadata, per-pattern detail
+
+
+class KnowledgePatternsPayload(TypedDict):
+    """``GET /api/{domain}/knowledge-patterns`` — the patterns detected over the window."""
+
+    patterns: list[LearningPatternPayload]
+    count: int
+    timeframe_days: int
 
 
 @dataclass(frozen=True)
@@ -109,7 +136,7 @@ def _register_link_route(
     service: Any,
     spec: CrossDomainLinkSpec[Any],
 ) -> None:
-    async def link(request: Request) -> Result[dict[str, Any]]:
+    async def link(request: Request) -> Result[LinkedPayload]:
         user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, spec.request_model)
         if parsed.is_error:
@@ -144,11 +171,11 @@ def _register_link_route(
 def create_knowledge_patterns_api_route(
     rt: RouteDecorator,
     domain_name: str,
-    analyze_learning_patterns: Callable[[UserUID, int], Awaitable[Result[list[Any]]]],
+    analyze_learning_patterns: Callable[[UserUID, int], Awaitable[Result[list[LearningPattern]]]],
 ) -> None:
     """Register ``GET /api/{domain}/knowledge-patterns`` for one domain."""
 
-    async def knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
+    async def knowledge_patterns(request: Request) -> Result[KnowledgePatternsPayload]:
         user_uid = require_authenticated_user(request)
         timeframe_days = parse_int_query_param(
             request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
@@ -170,7 +197,7 @@ def create_knowledge_patterns_api_route(
     )
 
 
-def _serialize_learning_pattern(p: LearningPattern) -> dict[str, Any]:
+def _serialize_learning_pattern(p: LearningPattern) -> LearningPatternPayload:
     return {
         "pattern_type": p.pattern_type.value,
         "knowledge_uids": p.knowledge_uids,
