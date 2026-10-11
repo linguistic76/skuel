@@ -630,7 +630,10 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         """Verify the user has a legitimate relationship to an exercise.
 
         True if any hold:
-          - user owns the exercise (teacher previewing their own)
+          - user ``OWNS`` the exercise (its author) — read from the edge, the
+            canonical ownership claim: an Exercise carries ``owner_uid``, never
+            ``user_uid`` (ADR-086), and a RevisedExercise's author holds the
+            edge too
           - exercise is SHARED_WITH_GROUP with a group the user is a member of
           - exercise is linked to a PathStep the user is currently in progress on
           - the target is a RevisedExercise addressed to the user (its
@@ -644,7 +647,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             MATCH (ex:Entity {{uid: $exercise_uid}})
             OPTIONAL MATCH (ex)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group)<-[:{RelationshipName.MEMBER_OF.value}]-(:User {{uid: $user_uid}})
             OPTIONAL MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS.value}]->(ps:Entity)-[:{RelationshipName.HAS_EXERCISE.value}]->(ex)
-            WITH ex.user_uid = $user_uid AS is_owner,
+            WITH EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(ex) }} AS is_owner,
                  count(g) > 0 AS via_group,
                  count(ps) > 0 AS via_progress,
                  (ex.entity_type = $revised_exercise_type AND ex.student_uid = $user_uid) AS is_revision_target
