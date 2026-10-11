@@ -1,13 +1,17 @@
 """Every edge writer under ``core/services/`` says how its far end is admitted.
 
-``create_relationship`` and ``create_relationships_batch`` turn two uids into an
-edge. A call that hands them a uid from a request without admitting it joins one
-user's entity to another's (ADR-085 § G11). This census holds every call site to
-one of four answers, and fails on a call site it does not know:
+Three calls turn two uids into an edge: ``create_relationship``,
+``create_relationships_batch`` and ``add_relationship`` — the last through the
+``relate(backend, uid).via(...).to(...).create()`` builder, so a ``relate(`` call is
+a write site too. A call that hands any of them a uid from a request without
+admitting it joins one user's entity to another's (ADR-085 § G11). This census holds
+every call site to one of five answers, and fails on a call site it does not know:
 
 - it goes through ``UnifiedRelationshipService`` and declares its far end
   (``far_end=`` / ``far_ends=``) — the service admits it;
 - it is the service's own write, behind that admission;
+- it is a pass-through — the builder's ``create`` and the mixin's ``add_relationship``
+  — whose callers are themselves sites of this census;
 - its enclosing function admits through the link-edge guard itself;
 - it is named in ``OTHERWISE_ADMITTED`` with the reason.
 
@@ -22,7 +26,8 @@ from pathlib import Path
 import pytest
 
 _SERVICES = Path(__file__).resolve().parents[3] / "core" / "services"
-_WRITERS = {"create_relationship", "create_relationships_batch"}
+_WRITER_METHODS = {"create_relationship", "create_relationships_batch", "add_relationship"}
+_BUILDER = "relate"
 _GUARDS = {
     "keep_permitted_link_edges",
     "partition_link_edges",
@@ -30,6 +35,19 @@ _GUARDS = {
     "admit_far_ends_for_source",
 }
 _THE_SERVICE = "relationships/unified_relationship_service.py"
+
+# Writes that only forward to another write this census sees:
+# ``"<path under core/services>::<function>"`` -> what forwards to what.
+PASS_THROUGHS: dict[str, str] = {
+    "relationship_builder.py::create": (
+        "the builder's terminal step — backend.add_relationship, reached only from a "
+        "relate( site, each censused here"
+    ),
+    "mixins/relationship_operations_mixin.py::add_relationship": (
+        "the service-side add_relationship — one relate( call, reached only from an "
+        "add_relationship site, each censused here"
+    ),
+}
 
 # Call sites whose far end is admitted by something this census cannot read off the
 # call: ``"<path under core/services>::<function>"`` -> why the far end is safe.
@@ -44,14 +62,43 @@ OTHERWISE_ADMITTED: dict[str, str] = {
         "its one door (POST /tasks/{uid}/dependencies/add) verifies the caller owns both tasks"
     ),
     "interaction/interaction_service.py::create_interaction": (
-        "NOT admitted — the context uids of an Interaction are an open row of ADR-085 § G11"
+        "one caller, UserEntryService._create_interaction_record: context_path_step_uid is "
+        "the entry's about_path_step_uid, admitted as a published PathStep by "
+        "AudienceResolver._validate_reference_claims (PATH_STEP_FAR_END) before the entry "
+        "is written; source_entity_uid is the entry the service just wrote; "
+        "context_learning_path_uid has no writer"
+    ),
+    "user_entry/user_entry_service.py::create_entry": (
+        "the TRANSFORMS predecessor (transforms_of_uid) is admitted as the caller's own "
+        "entity by AudienceResolver._validate_reference_claims before the entry is written"
+    ),
+    "tasks/tasks_progress_service.py::assign_task_to_user": (
+        "reached only through TasksService.assign_task_to_user, which no route calls "
+        "(staged — PLANNED in scripts/detect_bloat.py); its far end is a User, the "
+        "assignee, not another user's entity"
+    ),
+    "mixins/relationship_operations_mixin.py::add_prerequisite": (
+        "no caller (staged — PLANNED in scripts/detect_bloat.py); a door that reaches it "
+        "admits the prerequisite before this write, which checks the uid's shape only"
+    ),
+    "infrastructure/semantic_relationship_linker.py::create_semantic_relationship": (
+        "no door: every caller is a facade's create_semantic_*_relationship (PLANNED in "
+        "scripts/detect_bloat.py), reached by no route"
     ),
 }
 
 
-def _receiver(call: ast.Call) -> str:
-    assert isinstance(call.func, ast.Attribute)
-    return ast.unparse(call.func.value)
+def _is_write(node: ast.Call) -> bool:
+    if isinstance(node.func, ast.Attribute):
+        return node.func.attr in _WRITER_METHODS
+    return isinstance(node.func, ast.Name) and node.func.id == _BUILDER
+
+
+def _receiver(call: ast.Call) -> str | None:
+    """The object a writer method is called on; ``None`` for the builder function."""
+    if isinstance(call.func, ast.Attribute):
+        return ast.unparse(call.func.value)
+    return None
 
 
 def _call_sites() -> list[tuple[str, ast.Call, ast.AST]]:
@@ -66,9 +113,7 @@ def _call_sites() -> list[tuple[str, ast.Call, ast.AST]]:
             sites.extend(
                 (f"{relative}::{function.name}", node, function)
                 for node in ast.walk(function)
-                if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr in _WRITERS
+                if isinstance(node, ast.Call) and _is_write(node)
             )
     return sites
 
@@ -81,6 +126,8 @@ def _how_admitted(key: str, call: ast.Call, function: ast.AST) -> str | None:
     if relative == _THE_SERVICE:
         names = {node.attr for node in ast.walk(function) if isinstance(node, ast.Attribute)}
         return "the service" if "admit_far_ends" in names else None
+    if key in PASS_THROUGHS:
+        return "pass-through"
     names = {node.id for node in ast.walk(function) if isinstance(node, ast.Name)}
     if names & _GUARDS:
         return "guard"
@@ -98,7 +145,12 @@ def test_the_census_sees_the_writers() -> None:
     assert "events_service.py::_replace_edge" in keys
     assert "goals/goals_core_service.py::_write_link_edges" in keys
     assert f"{_THE_SERVICE}::create_relationship" in keys
-    assert len(_SITES) >= 30
+    # The add_relationship family: the builder's own write, a relate( site, an
+    # add_relationship site.
+    assert "relationship_builder.py::create" in keys
+    assert "user_entry/user_entry_service.py::create_entry" in keys
+    assert "user_entry/user_entry_service.py::link_applied_knowledge" in keys
+    assert len(_SITES) >= 37
 
 
 @pytest.mark.parametrize(
@@ -115,4 +167,6 @@ def test_every_edge_writer_admits_its_far_end(key: str, call: ast.Call, function
 
 
 def test_no_named_reason_outlives_its_call_site() -> None:
-    assert set(OTHERWISE_ADMITTED) <= {key for key, _, _ in _SITES}
+    keys = {key for key, _, _ in _SITES}
+    assert set(OTHERWISE_ADMITTED) <= keys
+    assert set(PASS_THROUGHS) <= keys

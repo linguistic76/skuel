@@ -123,7 +123,7 @@ What a Ku carries:
 | `TRAINS_KU` | Incoming | PathStep (`Entity`) | `KU_CONFIG` — learning objective |
 | `CITES_RESOURCE` | Outgoing | Resource | `KU_CONFIG` |
 | `ORGANIZES` | Both | any Entity | Read-side only in `KU_CONFIG` (its `bidirectional_relationships` entry, Ku → Ku, is not an ingestible field — `generate_ingestion_relationship_config(EntityType.KU)` yields `resource_uids` alone). A Ku **authors** ORGANIZES through `moc: true` body links (the MOC edge pass, any `:Entity` target); `organizes:` frontmatter is a PathStep field. See [moc.md](moc.md) |
-| `IN_PROGRESS`, `MASTERED` | Incoming | User | learning state (`mark_as_studying` / `mark_as_understood`) |
+| `IN_PROGRESS`, `MASTERED` | Incoming | User | learning state (`mark_as_studying` / `mark_as_understood`) — the write lands on a published Ku only; any other uid is the Ku not found |
 | `PINNED` | Incoming | User | bookmark (`/library/ku`; `POST /api/user/pins` pins a published Ku or PathStep, or an entity the caller owns — anything else is a 404 alike for a uid that names nothing) |
 | `PREREQUISITE_FOR`, `LATERAL_ENABLES`, `SIMILAR_TO`, `COMPLEMENTARY_TO`, `ALTERNATIVE_TO`, … | Both | Ku | the lateral family (`/api/ku/{uid}/lateral/*`; `_LATERAL_TYPES` in `core/models/relationship_names.py`) |
 | `APPLIES_KNOWLEDGE {inferred, confidence}` | Incoming | UserEntry | `EntryGroundingService` (vector grounding) and explicit `@ku()` refs (ADR-069) — the grounded-journal channel of substance |
@@ -153,6 +153,8 @@ and is read on its page. What is registered:
 ### Learning state (`adapters/inbound/ku_ui.py`)
 - `POST /api/ku/{uid}/mark-studying` — `(User)-[:IN_PROGRESS]->(Ku)`; capped at 5 Kus studying at once
 - `POST /api/ku/{uid}/mark-understood` — `(User)-[:MASTERED]->(Ku)`
+
+Both write onto a published Ku only (`KuBackend`'s MATCH admits the far end): a draft Ku, a PathStep, a Task or a uid that names nothing writes no edge and renders the same fragment, so no refusal confirms that a node exists.
 
 ### Pages (`adapters/inbound/learning_loop_routes.py`, `library_ui.py`)
 - `GET /explore/ku/{uid}` — the Ku page (shell; body via `GET /explore/ku/{uid}/content`, related via `GET /explore/ku/{uid}/related`, the reader's linked activities via `GET /explore/ku/{uid}/apply`)

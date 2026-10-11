@@ -32,6 +32,7 @@ USER = UserUID("user_transition_flag")
 KU_A = "ku.flag.a"
 KU_B = "ku.flag.b"
 KU_C = "ku.flag.c"
+KU_DRAFT = "ku.flag.draft"
 
 
 @pytest_asyncio.fixture
@@ -43,10 +44,13 @@ async def graph(neo4j_driver, clean_neo4j) -> None:
             CREATE (:Entity:Ku {uid: $a, entity_type: 'ku', title: 'A'})
             CREATE (:Entity:Ku {uid: $b, entity_type: 'ku', title: 'B'})
             CREATE (:Entity:Ku {uid: $c, entity_type: 'ku', title: 'C'})
+            CREATE (:Entity:Ku {uid: $d, entity_type: 'ku', title: 'D',
+                                publication_state: 'draft'})
             """,
             a=KU_A,
             b=KU_B,
             c=KU_C,
+            d=KU_DRAFT,
         )
 
 
@@ -74,6 +78,10 @@ async def test_ku_backend_writer(neo4j_driver, graph) -> None:
 
     repeat = await backend.mark_mastered(USER, KU_B, mastery_score=0.7, method="self_report")
     assert repeat.is_ok and repeat.value == [{"mastery_score": 0.7, "was_mastered": True}]
+
+    draft = await backend.mark_mastered(USER, KU_DRAFT, mastery_score=0.7, method="self_report")
+    assert draft.is_ok and draft.value == [], "a draft Ku is admitted by no learner write"
+    assert await _edge_count(neo4j_driver, KU_DRAFT) == 0
 
 
 @pytest.mark.asyncio

@@ -19,7 +19,12 @@ edge, in these shapes:
   which writes the kept ones and reports each refused one as not found.
 - an entry's PathStep context (``about_path_step_uid``) is admitted through
   ``admit_far_ends_for_owner`` by ``AudienceResolver.validate_references``, so an
-  entry naming anything but a published PathStep is refused before it is written.
+  entry naming anything but a published PathStep is refused before it is written;
+- a CREDIT that names knowledge without writing an edge — an event's
+  ``practices_knowledge_uids``, announced as ``KnowledgePracticedInEvent`` — is
+  admitted through ``keep_permitted_link_edges`` by
+  ``EventsService.create_event_with_context`` as the edge it stands for, so the
+  substance counter never lands on a draft or another user's node.
 
 A request field like ``linked_goal_uids`` or ``knowledge_uid`` is a UID the caller
 chose. Writing it straight into ``create_relationships_batch`` trusts three things the

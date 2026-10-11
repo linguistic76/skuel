@@ -23,6 +23,9 @@ from core.services.mixins.link_edge_guard import (
     GOAL_FAR_END,
     HABIT_FAR_END,
     KNOWLEDGE_FAR_END,
+    REFLECTED_KNOWLEDGE_LABELS,
+    LinkEdge,
+    keep_permitted_link_edges,
 )
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
@@ -293,6 +296,16 @@ class _OrchestrationMixin:
         1. Sets up habit reinforcement relationships
         2. Links to learning paths if applicable
         3. Updates context after creation
+
+        ``practices_knowledge_uids`` is a knowledge CREDIT, not an edge: each uid
+        is announced as ``KnowledgePracticedInEvent`` and the substance counter
+        lands on the node it names. The uids are request input, so they are
+        admitted before the event is written — the same rule as an entry's
+        knowledge references (``REFLECTED_KNOWLEDGE_LABELS``: a published Ku or
+        PathStep). A uid the rule refuses — a draft, another user's node, another
+        kind, a uid that names nothing — is dropped from the credit and logged
+        like a stale uid; the event itself is the caller's own and is created
+        either way.
         """
         dto = EventDTO.create_event(
             user_uid=user_context.user_uid,
@@ -313,6 +326,10 @@ class _OrchestrationMixin:
 
         if habit_uid and habit_uid in user_context.active_habit_uids:
             dto.recurrence_pattern = RecurrencePattern.DAILY  # Default
+
+        practised = await self._admit_practised_knowledge(
+            dto.uid, user_context.user_uid, event_data.practices_knowledge_uids
+        )
 
         create_result = await self.backend.create(Event.from_dto(dto))
         if create_result.is_error:
@@ -337,10 +354,10 @@ class _OrchestrationMixin:
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
-        if event_data.practices_knowledge_uids:
+        if practised:
             from core.events.knowledge_substance_events import KnowledgePracticedInEvent
 
-            for knowledge_uid in event_data.practices_knowledge_uids:
+            for knowledge_uid in practised:
                 knowledge_event = KnowledgePracticedInEvent(
                     knowledge_uid=knowledge_uid,
                     event_uid=event.uid,
@@ -351,14 +368,42 @@ class _OrchestrationMixin:
                 await publish_event(self.event_bus, knowledge_event, self.logger)
 
             self.logger.debug(
-                f"Published {len(event_data.practices_knowledge_uids)} KnowledgePracticedInEvent events for event {event.uid}"
+                f"Published {len(practised)} KnowledgePracticedInEvent events for event {event.uid}"
             )
 
         self.logger.info(
             "Created event %s with habit=%s, knowledge=%d",
             event.uid,
             habit_uid,
-            len(event_data.practices_knowledge_uids or []),
+            len(practised),
         )
 
         return Result.ok(event)
+
+    async def _admit_practised_knowledge(
+        self, event_uid: str, owner_uid: UserUID, knowledge_uids: list[str]
+    ) -> list[str]:
+        """The practised uids a ``KnowledgePracticedInEvent`` may credit, in request order.
+
+        Each candidate is the ``APPLIES_KNOWLEDGE`` edge the credit stands for (THE
+        Event→knowledge edge), admitted by ``keep_permitted_link_edges``: the far
+        end is a published Ku or PathStep. A repeated uid is one credit. A refused
+        uid is logged by its reason and dropped; an unreadable endpoint map drops
+        them all — no credit is ever announced for a node the rule did not admit.
+        """
+        candidates = [
+            LinkEdge(
+                (event_uid, uid, RelationshipName.APPLIES_KNOWLEDGE.value, None),
+                other_uid=uid,
+                allowed_labels=REFLECTED_KNOWLEDGE_LABELS,
+            )
+            for uid in dict.fromkeys(knowledge_uids)
+        ]
+        kept = await keep_permitted_link_edges(
+            self.backend,
+            candidates=candidates,
+            subject_uid=event_uid,
+            owner_uid=owner_uid,
+            logger=self.logger,
+        )
+        return [edge[1] for edge in kept]

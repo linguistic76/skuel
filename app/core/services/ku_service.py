@@ -41,6 +41,11 @@ _SELF_REPORT_MASTERY_SCORE = 0.7
 (``MasteryImpact``), so an approved report always upgrades it."""
 
 
+def _ku_not_found(ku_uid: str) -> Result[bool]:
+    """The one answer a learner write gives for a uid its MATCH admitted no row for."""
+    return Result.fail(Errors.not_found("Ku", ku_uid))
+
+
 class KuService:
     """Facade for atomic Knowledge Unit operations.
 
@@ -297,27 +302,38 @@ class KuService:
         return Result.ok(coerce_int(records[0]["cnt"]) if records else 0)
 
     async def mark_as_studying(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
-        """Mark a Ku as actively being studied (IN_PROGRESS relationship)."""
+        """Mark a Ku as actively being studied (IN_PROGRESS relationship).
+
+        The far end is admitted by the write: a published Ku. Any other uid — a
+        draft, another kind of node, a uid that names nothing — writes no edge and
+        is refused as the Ku not being found, one answer for all of them.
+        """
         result = await self.backend.mark_in_progress(user_uid, ku_uid)
         if result.is_error:
             return Result.fail(result)
+        if not result.value:
+            return Result.fail(_ku_not_found(ku_uid))
         return Result.ok(True)
 
     async def mark_as_understood(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
         """Mark a Ku as understood (MASTERED relationship, self-reported).
 
-        The write that creates the edge publishes ``KnowledgeMastered`` with the
-        score the graph stored — every Ku-mastery door announces its transition,
-        so the progress chain (path-step and path progress, the derived step
-        mastery) runs however the Ku was mastered. A second "understood" on a Ku
-        already mastered (by a report, at a higher score) is not an event.
+        The far end is admitted as in ``mark_as_studying``: a published Ku, or the
+        Ku is not found. The write that creates the edge publishes
+        ``KnowledgeMastered`` with the score the graph stored — every Ku-mastery
+        door announces its transition, so the progress chain (path-step and path
+        progress, the derived step mastery) runs however the Ku was mastered. A
+        second "understood" on a Ku already mastered (by a report, at a higher
+        score) is not an event.
         """
         result = await self.backend.mark_mastered(
             user_uid, ku_uid, mastery_score=_SELF_REPORT_MASTERY_SCORE, method="self_report"
         )
         if result.is_error:
             return Result.fail(result)
-        if result.value and not result.value[0]["was_mastered"]:
+        if not result.value:
+            return Result.fail(_ku_not_found(ku_uid))
+        if not result.value[0]["was_mastered"]:
             await publish_event(
                 self.event_bus,
                 KnowledgeMastered(

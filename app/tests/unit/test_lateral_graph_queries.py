@@ -549,16 +549,15 @@ class TestLateralTargetAudience:
         assert kwargs["user_uid"] == "user_a"
 
     @pytest.mark.asyncio
-    async def test_backend_query_carries_the_audience_filter(self):
-        """The Cypher withholds owned targets that are not the caller's.
-
-        The owner half comes from build_search_visibility_clause (OWNER_ONLY
-        on the ``related`` alias) — one composition point, not a hand-rolled
-        predicate; the IS NULL disjunct keeps ownerless curriculum visible.
+    async def test_backend_query_ties_each_target_to_the_caller(self):
+        """The Cypher composes the far-node rule on the ``related`` alias with the
+        caller as the owner — one composition point (build_far_node_clause), not a
+        hand-rolled predicate — and threads the caller and the publication param.
         """
         from adapters.persistence.neo4j.backends.collab_backends import (
             LateralRelationshipBackend,
         )
+        from adapters.persistence.neo4j.query.cypher import build_far_node_clause
 
         executor = MagicMock()
         executor.execute_query = AsyncMock(return_value=Result.ok([]))
@@ -568,20 +567,21 @@ class TestLateralTargetAudience:
 
         assert not result.is_error
         query, params = executor.execute_query.await_args.args
-        assert "(related.user_uid IS NULL OR (related.user_uid = $user_uid))" in query
+        fragment, fragment_params = build_far_node_clause("related", "[$user_uid]")
+        assert fragment in query
+        assert "related.user_uid IS NULL" not in query
         assert params["user_uid"] == "user_a"
+        assert fragment_params.items() <= params.items()
 
     @pytest.mark.asyncio
-    async def test_backend_no_user_fails_closed_to_ownerless_targets(self):
-        """Null $user_uid: the owner predicate matches nothing — owned targets drop.
-
-        has_user=True fail-closed convention: the predicate is always emitted,
-        and a null parameter is a null predicate, so an anonymous read keeps
-        only ownerless (curriculum) targets rather than leaking everyone's.
-        """
+    async def test_backend_no_user_is_the_same_rule_with_a_null_caller(self):
+        """Null $user_uid: the same predicate is emitted and the caller owns nothing,
+        so only published shared targets survive — an anonymous read never leaks
+        anyone's entity, and the rule has no second, user-less shape."""
         from adapters.persistence.neo4j.backends.collab_backends import (
             LateralRelationshipBackend,
         )
+        from adapters.persistence.neo4j.query.cypher import build_far_node_clause
 
         executor = MagicMock()
         executor.execute_query = AsyncMock(return_value=Result.ok([]))
@@ -591,5 +591,5 @@ class TestLateralTargetAudience:
 
         assert not result.is_error
         query, params = executor.execute_query.await_args.args
-        assert "related.user_uid IS NULL" in query
+        assert build_far_node_clause("related", "[$user_uid]")[0] in query
         assert params["user_uid"] is None

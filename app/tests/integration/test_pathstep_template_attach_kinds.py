@@ -90,6 +90,7 @@ class World:
         self,
         driver: AsyncDriver,
         teacher: httpx.AsyncClient,
+        teacher_services: Any,  # boundary: composed Services container
         goal_template: str,
         task_template: str,
         foreign_goal: str,
@@ -97,6 +98,7 @@ class World:
     ) -> None:
         self.driver = driver
         self.teacher = teacher
+        self.teacher_services = teacher_services
         self.goal_template = goal_template
         self.task_template = task_template
         self.foreign_goal = foreign_goal
@@ -135,7 +137,15 @@ async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-a
         goal_template = await create(teacher, "pathstep-goal-templates", f"{MARK}-goal-template")
         task_template = await create(teacher, "pathstep-task-templates", f"{MARK}-task-template")
         try:
-            yield World(driver, teacher, goal_template, task_template, foreign_goal, foreign_task)
+            yield World(
+                driver,
+                teacher,
+                skuel_app.state.services,
+                goal_template,
+                task_template,
+                foreign_goal,
+                foreign_task,
+            )
         finally:
             await _delete_nodes(driver, [PATH_STEP, goal_template, task_template])
 
@@ -211,4 +221,46 @@ async def test_list_by_ps_never_reads_a_stray_edges_far_node(world: World) -> No
         async with world.driver.session() as session:
             await session.run(
                 "MATCH (:PathStep {uid: $ps})-[r:HAS_GOAL_TEMPLATE]->() DELETE r", ps=PATH_STEP
+            )
+
+
+async def test_the_spawn_loader_never_reads_a_stray_edges_far_node(world: World) -> None:
+    """The template loader the engagement spawn walks binds both ends as the doors do.
+
+    A stray edge from the step to another user's Goal, and a template hung off another
+    user's Task posing as the step, are neither a template of this step nor a step at
+    all: the loader returns the real template alone, and nothing for the Task.
+    """
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
+    from core.services.ps_engagement._template_loader import _TemplateLoader
+
+    services = world.teacher_services
+    loader = _TemplateLoader(
+        PsEngagementBackend(Neo4jQueryExecutor(world.driver)),
+        services.task_templates.backend,
+        services.goal_templates.backend,
+        services.habit_templates.backend,
+        services.event_templates.backend,
+        services.choice_templates.backend,
+        services.principle_templates.backend,
+    )
+    assert (await world.attach(PATH_STEP, world.goal_template)).status_code == 200
+    await write_edge(world.driver, PATH_STEP, "HAS_GOAL_TEMPLATE", world.foreign_goal)
+    await write_edge(world.driver, world.foreign_task, "HAS_GOAL_TEMPLATE", world.goal_template)
+    try:
+        bundle = await loader.load(PATH_STEP)
+        assert bundle.is_ok, bundle
+        assert [goal.uid for goal in bundle.value.goals] == [world.goal_template]
+
+        posing = await loader.load(world.foreign_task)
+        assert posing.is_ok, posing
+        assert posing.value.goals == ()
+    finally:
+        async with world.driver.session() as session:
+            await session.run(
+                "MATCH (:PathStep {uid: $ps})-[r:HAS_GOAL_TEMPLATE]->() DELETE r", ps=PATH_STEP
+            )
+            await session.run(
+                "MATCH ({uid: $task})-[r:HAS_GOAL_TEMPLATE]->() DELETE r", task=world.foreign_task
             )

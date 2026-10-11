@@ -122,6 +122,7 @@ await ku_service.search.search(query)
 # Learning state is Ku-native (KuBackend) — Ku never depends on PsService
 await ku_service.mark_as_studying(user_uid, ku_uid)    # IN_PROGRESS (the route caps it at 5)
 await ku_service.mark_as_understood(user_uid, ku_uid)  # MASTERED
+# Both land on a PUBLISHED Ku only — any other uid is Errors.not_found("Ku"), alike
 
 # Find PathSteps that use this Ku
 await ku_service.get_path_steps(ku_uid)

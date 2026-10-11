@@ -309,13 +309,13 @@ SURFACES: tuple[Surface, ...] = (
     Surface(
         "adapters.persistence.neo4j.backends.collab_backends",
         "LateralRelationshipBackend.get_relationships",
-        Disposition.CONTAINMENT,
-        "The held anchor's OWN lateral edges ride along with it — a by-anchor "
-        "relationship read, not a discovery listing. Composes "
-        "build_search_visibility_clause for the AUDIENCE half only (ADR-085 "
-        "G4: owned targets are withheld from everyone but their owner) with "
-        "apply_publication_gate=False — a draft neighbour of a held entity "
-        "stays reachable, matching the by-UID carve-out.",
+        Disposition.GATED,
+        "The lateral neighbours of a held anchor, each tied to the caller by "
+        "build_far_node_clause (ADR-085 G4): the caller's own entity through any "
+        "ownership spelling, or published shared content. The anchor itself rides "
+        "along by uid; its draft NEIGHBOUR does not — a lateral edge carries a "
+        "title into every lateral panel and the relationship graph, and the "
+        "far-node rule withholds a draft's title across an edge from a reader.",
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
@@ -516,6 +516,17 @@ SURFACES: tuple[Surface, ...] = (
         "names nothing, so a learner's goal, habit or task cannot carry a draft "
         "Ku's title into its readers. Composed at module level because both "
         "backends that serve the guard share the one statement.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.curriculum_backends",
+        "<module>:_PUBLISHED_KU",
+        Disposition.ADMISSION,
+        "The Ku page's two learner writes' far end (KuBackend.mark_in_progress, "
+        "KuBackend.mark_mastered — studying, understood): the edge lands on a "
+        "published Ku only, so a learner's IN_PROGRESS / MASTERED never references "
+        "a draft Ku. Each write returns whether it landed — no curriculum the caller "
+        "did not name. Composed at module level because both writes share the one "
+        "MATCH.",
     ),
     Surface(
         "adapters.persistence.neo4j._learning_state_mixin",
