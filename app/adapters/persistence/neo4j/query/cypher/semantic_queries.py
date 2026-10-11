@@ -209,6 +209,10 @@ def build_domain_context_with_paths(
     not told who is asking. Under an owned center, shared content on a path is published:
     a draft is left out, with the paths that run through it. The center's own access is the caller's question: a route
     verifies it, this statement does not.
+
+    A path stops at a ``User`` node: the owner may be a neighbour (the center's ``OWNS``
+    edge), but no path runs through a ``User`` to what that user owns, viewed or
+    enrolled in. The neighbourhood is the center's own links, not its owner's graph.
     See: /docs/decisions/ADR-085-ownership-read-enforcement-contract.md § 4 (G9)
 
     Returns path metadata for each related entity:
@@ -292,6 +296,7 @@ def build_domain_context_with_paths(
     OPTIONAL MATCH path = (center)-{rel_segment}-{direction_pattern}(related)
     WHERE related.uid <> center.uid
       AND all(n IN nodes(path)[1..] WHERE {far_node})
+      AND none(n IN nodes(path)[1..-1] WHERE n:User)
     WITH center, related, relationships(path) as rels,
          [rel in relationships(path) | coalesce(rel.confidence, 0.8)] as confidences,
          length(path) as path_length,

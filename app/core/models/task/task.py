@@ -245,14 +245,6 @@ class Task(UserOwnedEntity):
         """Check if this task validates knowledge mastery."""
         return self.knowledge_mastery_check
 
-    def get_combined_knowledge_uids(self) -> set[str]:
-        """Get all knowledge UIDs related to this task (empty — knowledge UIDs are graph-native)."""
-        return set()
-
-    def get_all_knowledge_uids(self) -> set[str]:
-        """Alias for get_combined_knowledge_uids."""
-        return self.get_combined_knowledge_uids()
-
     def calculate_knowledge_complexity(self) -> float:
         """Calculate knowledge complexity (0.0-1.0).
 

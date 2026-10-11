@@ -11,6 +11,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
@@ -18,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus
 from core.models.task.task import Task
-from core.services.tasks.task_relationships import TaskRelationships
+from core.services.tasks.task_relationships import TASK_KNOWLEDGE_KEYS, TaskRelationships
 from core.services.tasks_types import KnowledgePatternAnalysis
 from core.services.whole_set_read import find_all_by
 from core.utils.bounded_gather import gather_bounded
@@ -106,14 +107,17 @@ class _ProductivityMixin:
         patterns_result = await self.analyze_learning_patterns(user_uid)
         patterns = patterns_result.value if patterns_result.is_ok else []
 
-        all_knowledge_uids: set[str] = set()
-        for task in all_tasks:
-            all_knowledge_uids.update(task.get_combined_knowledge_uids())
+        knowledge_result = await self._knowledge_by_task(all_tasks)
+        if knowledge_result.is_error:
+            return Result.fail(knowledge_result)
+        knowledge_by_task = knowledge_result.value
 
-        mastery_result = await self._knowledge_analyzer.track_knowledge_mastery_progression(
-            all_tasks, list(all_knowledge_uids)
+        mastery_result = self._knowledge_analyzer.track_knowledge_mastery_progression(
+            all_tasks, knowledge_by_task, set().union(*knowledge_by_task.values())
         )
-        mastery_progressions = mastery_result.value if mastery_result.is_ok else {}
+        if mastery_result.is_error:
+            return Result.fail(mastery_result)
+        mastery_progressions = mastery_result.value
 
         # One sel_category batch for the tasks being scored — the per-task scorer
         # would otherwise issue one lookup per task. Union of the same uid tiers
@@ -192,15 +196,43 @@ class _ProductivityMixin:
 
         all_tasks = tasks_result.value
 
-        if knowledge_uids is None:
-            all_knowledge_uids: set[str] = set()
-            for task in all_tasks:
-                all_knowledge_uids.update(task.get_combined_knowledge_uids())
-            knowledge_uids = list(all_knowledge_uids)
+        knowledge_result = await self._knowledge_by_task(all_tasks)
+        if knowledge_result.is_error:
+            return Result.fail(knowledge_result)
+        knowledge_by_task = knowledge_result.value
 
-        return await self._knowledge_analyzer.track_knowledge_mastery_progression(
-            all_tasks, knowledge_uids
+        return self._knowledge_analyzer.track_knowledge_mastery_progression(
+            all_tasks,
+            knowledge_by_task,
+            set().union(*knowledge_by_task.values()) if knowledge_uids is None else knowledge_uids,
         )
+
+    async def _knowledge_by_task(self, tasks: list[Task]) -> Result[dict[str, set[str]]]:
+        """The knowledge each task links, read for the whole set in one batch per key.
+
+        A task's knowledge is what it applies, requires, or was inferred to touch
+        (``TASK_KNOWLEDGE_KEYS``) — the published curriculum ``TaskRelationships``
+        reads for one task, read here for every task at once.
+
+        Backend: batch_get_related_uids, once per key
+        """
+        knowledge_by_task: dict[str, set[str]] = {task.uid: set() for task in tasks}
+        if not tasks or self.relationships is None:
+            return Result.ok(knowledge_by_task)
+
+        task_uids = list(knowledge_by_task)
+        reads = await asyncio.gather(
+            *(
+                self.relationships.batch_get_related_uids(key, task_uids)
+                for key in TASK_KNOWLEDGE_KEYS
+            )
+        )
+        for read in reads:
+            if read.is_error:
+                return Result.fail(read)
+            for task_uid, knowledge_uids in read.value.items():
+                knowledge_by_task[task_uid].update(knowledge_uids)
+        return Result.ok(knowledge_by_task)
 
     async def analyze_task_learning_metrics(
         self, _filters: dict[str, Any] | None = None
@@ -310,22 +342,20 @@ class _ProductivityMixin:
             "average_learning_opportunities": total_learning_opportunities / len(all_tasks),
             "bridge_task_ratio": len(knowledge_bridge_tasks) / len(all_tasks),
             "mastery_validation_ratio": len(mastery_validation_tasks) / len(all_tasks),
-            "knowledge_discovery_patterns": self._analyze_task_knowledge_patterns(
-                all_tasks, rels_list
-            ),
+            "knowledge_discovery_patterns": self._analyze_task_knowledge_patterns(rels_list),
         }
 
         return Result.ok(insights)
 
     def _analyze_task_knowledge_patterns(
-        self, tasks: list[Task], rels_list: list[TaskRelationships]
+        self, rels_list: list[TaskRelationships]
     ) -> KnowledgePatternAnalysis:
         """Derive knowledge-combination frequencies across tasks."""
         pattern_counts: dict[str, int] = {}
         knowledge_combinations: dict[tuple[str, ...], int] = {}
 
-        for task, _rels in zip(tasks, rels_list, strict=False):
-            all_knowledge = task.get_combined_knowledge_uids()
+        for rels in rels_list:
+            all_knowledge = rels.get_combined_knowledge_uids()
             if len(all_knowledge) > 1:
                 combo_key = tuple(sorted(all_knowledge))
                 knowledge_combinations[combo_key] = knowledge_combinations.get(combo_key, 0) + 1

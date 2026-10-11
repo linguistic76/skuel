@@ -47,11 +47,10 @@ class _InfluenceMixin:
         """
         Analyze conflicts between user's principles.
 
-        Identifies situations where principles may be in tension:
-        - Competing principles for same activity
-        - Resource allocation conflicts
-        - Priority conflicts
-        - Value tensions
+        Two principles conflict when both support the same goal — each pulls on it,
+        and the user decides which one leads. A principle's goals are its own
+        ``SUPPORTS_GOAL`` links, read from its cross-domain context's
+        ``supported_goals``; severity comes from the two principles' strengths.
 
         Args:
             user_uid: User UID
@@ -101,29 +100,34 @@ class _InfluenceMixin:
                 )
             )
 
+        # The goals each principle supports directly (its own SUPPORTS_GOAL edges);
+        # a goal two hops out belongs to the principle in between.
+        supported_goals: dict[str, set[str]] = {}
+        for principle in principles:
+            context_result = await self.relationships.get_cross_domain_context(principle.uid)
+            if context_result.is_error:
+                return Result.fail(context_result)
+            supported_goals[principle.uid] = {
+                goal["uid"]
+                for goal in context_result.value.get("supported_goals", [])
+                if goal.get("distance") == 1
+            }
+
         for i, p1 in enumerate(principles):
             for p2 in principles[i + 1 :]:
-                # Get cross-domain contexts using relationship helper (Priority 2 refactoring)
-                context1_result = await self.relationships.get_cross_domain_context(p1.uid)
-                context2_result = await self.relationships.get_cross_domain_context(p2.uid)
+                # Two principles supporting the same goal compete for it.
+                overlapping_goals = supported_goals[p1.uid] & supported_goals[p2.uid]
 
-                if context1_result.is_ok and context2_result.is_ok:
-                    # Check for overlapping activities (potential conflict)
-                    c1_goals = set(g.get("uid") for g in context1_result.value.get("goals", []))
-                    c2_goals = set(g.get("uid") for g in context2_result.value.get("goals", []))
+                if overlapping_goals:
+                    # Determine severity and update counters
+                    severity, h, m, low = self._determine_conflict_severity(p1, p2)
+                    high_severity += h
+                    medium_severity += m
+                    low_severity += low
 
-                    overlapping_goals = c1_goals & c2_goals
-
-                    if overlapping_goals:
-                        # Determine severity and update counters
-                        severity, h, m, low = self._determine_conflict_severity(p1, p2)
-                        high_severity += h
-                        medium_severity += m
-                        low_severity += low
-
-                        # Create conflict record
-                        conflict = self._create_conflict_record(p1, p2, severity, overlapping_goals)
-                        conflicts.append(conflict)
+                    # Create conflict record
+                    conflict = self._create_conflict_record(p1, p2, severity, overlapping_goals)
+                    conflicts.append(conflict)
 
         # Calculate harmony score
         harmony_score = self._calculate_harmony_score(principles, conflicts)

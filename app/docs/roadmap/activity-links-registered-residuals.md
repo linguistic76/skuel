@@ -1,6 +1,6 @@
 ---
 title: "Activity Links Arc — Registered Residuals"
-updated: 2026-10-09
+updated: 2026-10-11
 status: "registered"
 registered: "2026-10-04 to 2026-10-08 (the censuses of Activity Links arc PRs 1c–5)"
 trigger: "the next touch of the subsystem an item names (each item carries its file and line), or the quarterly review walk"
@@ -18,7 +18,7 @@ the arc's close (2026-10-08): all 27 still hold. Each item keeps the census's nu
 line are where the defect is, not where the fix goes. Items whose nearest home is another live
 case file say so.
 
-Two kinds recur. **A reader of a key nothing writes** (items 6, 10, 12, 13, 14, 16, 27): a
+Two kinds recur. **A reader of a key nothing writes** (items 10, 12, 13, 14, 16, 27; 6 is struck): a
 bucket, context field or projection name that no statement emits, so the reader is dead and its
 feature silently returns nothing — the shape the arc fixed for the goal page, `/self-checkin` and
 `EventCrossContext`. **A door that drops what it was given** (items 5, 7, 18, 25): a request field
@@ -48,10 +48,9 @@ or DSL link parsed and discarded, answering 200 and writing no edge.
 
 ## 2. Readers of keys nothing projects or writes
 
-6. `get_principle_conflict_analysis` reads the bucket `"goals"` from each principle's cross-domain
-   context; the buckets are keyed by the registry's context names (`supported_goals`), so the key
-   is never present and no conflict is ever detected —
-   `core/services/principles/_influence_mixin.py:112-113`. Registered by PR 2.
+6. ~~`get_principle_conflict_analysis` read the bucket `"goals"`, a key no context emits.~~
+   Struck: it reads each principle's `supported_goals` (direct links
+   only), pinned by `tests/integration/routes/test_activity_intelligence_readers.py`.
 10. `GoalsProgressService._get_relationships_from_rich_context` reads a goal's rich-context keys
    `supporting_habits`, `aligned_paths` and `guiding_principles`, none of which the user context's
    goals statement emits (it projects `contributing_tasks`, `sub_goals`, `required_knowledge`),

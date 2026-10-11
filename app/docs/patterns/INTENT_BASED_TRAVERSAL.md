@@ -1,6 +1,6 @@
 ---
 title: Intent-Based Graph Traversal
-updated: 2026-10-06
+updated: 2026-10-11
 category: patterns
 related_skills: []
 related_docs:
@@ -53,6 +53,9 @@ comes from*.
   (`graph_intelligence_service.py:504`) applies `QueryIntent.RELATIONSHIP` (its docstring: "uses
   RELATIONSHIP intent"). `RELATIONSHIP` is *also* an else-branch intent (no edge filter), so the
   practical result matches A — an unfiltered neighborhood — but the intent value and code path differ.
+  Unfiltered by edge type, not unbounded: every path stays on the center's owner's nodes and shared
+  content, and stops at a `User` node — the owner is a neighbour, never a stepping stone to the rest
+  of the owner's graph.
   **Caveat:** `get_entity_context` has several live, correct consumers —
   `ActivityKnowledgeIntelligenceService.discover_learning_opportunities`
   (`activity_knowledge_intelligence_service.py:292`) and the `core/utils/intelligence_queries.py`

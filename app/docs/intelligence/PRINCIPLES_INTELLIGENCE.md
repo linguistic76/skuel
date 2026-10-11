@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-11
 ---
 
 # PrinciplesIntelligenceService - Cross-Domain Principle Alignment & Conflict Detection
@@ -278,7 +278,7 @@ trajectory = "stable"     # otherwise
 
 ### Method 4: get_principle_conflict_analysis()
 
-**Purpose:** Analyze conflicts between user's principles by identifying situations where principles may be in tension through competing activities, resource allocation conflicts, priority conflicts, and value tensions.
+**Purpose:** Analyze conflicts between user's principles. Two principles conflict when both support the same goal (each one's own `SUPPORTS_GOAL` link, read from its cross-domain context's `supported_goals` at distance 1); severity comes from the two principles' strengths.
 
 **Signature:**
 ```python

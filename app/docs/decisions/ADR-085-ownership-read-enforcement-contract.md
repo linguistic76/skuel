@@ -143,6 +143,14 @@ another user's rows it is an audience read and belongs to a chokepoint.
 > traversal that needs a *viewer's* audience — "what may this user see around a shared
 > Ku" — is an audience read and belongs to a chokepoint.
 
+> **2026-10-10 — a neighbourhood stops at a `User` node (Mike's ruling).** The producer
+> also refuses any path whose intermediate node is a `:User`: the owner may be a neighbour
+> (the center's `OWNS` edge), but a path does not run through the owner to everything the
+> owner owns, viewed or enrolled in. Without it, the every-edge lens at depth ≥ 2 read the
+> owner's whole graph, and a task's knowledge prerequisites listed every PathStep its owner
+> had viewed. Pinned by `tests/integration/test_neighbourhood_owner_scope.py` and
+> `tests/integration/routes/test_activity_intelligence_readers.py`.
+
 > **2026-10-03 — the far-node fragment (G12).** The anchor re-tie has one spelling:
 > `build_far_node_clause(far, anchor_owners)` (`query/cypher/crud_queries.py`). A statement
 > that projects the node at the other end of an edge from an anchored entity composes it —

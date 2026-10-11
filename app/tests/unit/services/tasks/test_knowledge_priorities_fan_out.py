@@ -16,7 +16,7 @@ import pytest
 from core.constants import RelationshipFanOut
 from core.models.enums import EntityStatus
 from core.models.task.task import Task
-from core.services.tasks.task_relationships import TaskRelationships
+from core.services.tasks.task_relationships import TASK_KNOWLEDGE_KEYS, TaskRelationships
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 from core.utils.result_simplified import Result
 
@@ -69,7 +69,9 @@ def recorder(monkeypatch) -> _FetchRecorder:
 def intelligence() -> TasksIntelligenceService:
     backend = Mock()
     backend.find_by = AsyncMock(return_value=Result.ok(_tasks()))
-    return TasksIntelligenceService(backend=backend, relationship_service=Mock())
+    relationships = Mock()
+    relationships.batch_get_related_uids = AsyncMock(return_value=Result.ok({}))
+    return TasksIntelligenceService(backend=backend, relationship_service=relationships)
 
 
 async def test_one_requested_task_fetches_one_tasks_relationships(intelligence, recorder):
@@ -89,9 +91,14 @@ async def test_scoring_every_open_task_keeps_a_bounded_number_in_flight(intellig
     assert recorder.peak <= RelationshipFanOut.MAX_ENTITIES_IN_FLIGHT
 
 
-async def test_mastery_progression_with_no_knowledge_named_fetches_nothing(intelligence, recorder):
+async def test_mastery_progression_reads_the_whole_set_in_one_batch_per_key(intelligence, recorder):
+    """The knowledge every task links is one batched read per relationship key, not a
+    per-task relationship fetch."""
     result = await intelligence.track_knowledge_mastery_progression(USER)
 
     assert result.is_ok, result
     assert result.value == {}
     assert recorder.uids == []
+    batch = intelligence.relationships.batch_get_related_uids
+    assert [call.args[0] for call in batch.await_args_list] == list(TASK_KNOWLEDGE_KEYS)
+    assert all(len(call.args[1]) == TASK_COUNT for call in batch.await_args_list)

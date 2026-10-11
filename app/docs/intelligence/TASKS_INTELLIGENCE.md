@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-11
 ---
 
 # TasksIntelligenceService - Behavioral & Performance Intelligence
@@ -10,7 +10,7 @@ updated: 2026-10-06
 retrieval (`get_with_context`, mechanism B) comes from the shared
 `core/services/intelligence/_CoreIntelligenceMixin`:
 - `_analytics_mixin.py` (~255 lines) — `get_behavioral_insights`, completion patterns, success factors
-- `_productivity_mixin.py` (~187 lines) — `analyze_learning_patterns`, `calculate_knowledge_aware_priorities`, `generate_task_insights`, `track_knowledge_mastery_progression`; delegates to `TaskKnowledgeAnalyzer` (`/core/services/tasks/task_knowledge_analyzer.py`). Routes: `GET /api/tasks/knowledge-patterns`, `GET /api/tasks/knowledge-priorities` (live since #367)
+- `_productivity_mixin.py` (~370 lines) — `analyze_learning_patterns`, `calculate_knowledge_aware_priorities`, `generate_task_insights`, `track_knowledge_mastery_progression`; delegates to `TaskKnowledgeAnalyzer` (`/core/services/tasks/task_knowledge_analyzer.py`). The knowledge a task links (what it applies, requires, or was inferred to touch — published curriculum) is read from the graph for the whole task set in one batch per relationship key (`_knowledge_by_task`), and the mastery progression is computed from it. Routes: `GET /api/tasks/knowledge-patterns`, `GET /api/tasks/knowledge-priorities` (live since #367)
 - `_dual_track_mixin.py` — `assess_productivity_dual_track` (ADR-030 perception gap; the 6th dual-track engine, added #259)
 
 ```python
@@ -193,7 +193,9 @@ if result.is_ok:
 
 **Purpose:** `get_domain_insights` (GET `/api/tasks/insights`) composes TWO sources — Task's
 distinctive **readiness** lens (graph-intel `get_knowledge_prerequisites` — the published
-Ku/PathStep in the task's neighbourhood, `GraphContext.get_published_knowledge_nodes()` →
+Ku/PathStep in the task's neighbourhood — its own links; the traversal stops at the owner's
+`User` node, so a PathStep the owner viewed is not a prerequisite —
+`GraphContext.get_published_knowledge_nodes()` →
 `knowledge_prerequisites` / `has_prerequisites`, plus task-field `insights`) AND an additive
 path-aware **cross-domain** block over the CANONICAL typed reader.
 

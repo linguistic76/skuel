@@ -222,7 +222,7 @@ async def test_intent_reader_carries_no_other_users_properties(
     neo4j_driver, graph_intel, clean_neo4j
 ):
     """Both intent lenses — the registry vocabulary and every edge type — return my
-    nodes and shared content only. The every-edge lens also walks ``OWNS`` and the
+    nodes and shared content only. The every-edge lens also reads ``OWNS`` and the
     learner edges, where the other user's ``User`` node sits one hop past the Ku."""
     await _seed(neo4j_driver, "Task", "task", "APPLIES_KNOWLEDGE")
     async with neo4j_driver.session() as s:
@@ -245,8 +245,9 @@ async def test_intent_reader_carries_no_other_users_properties(
     every_edge = await graph_intel.get_entity_context(CENTER, depth=2)
     assert every_edge.is_ok, every_edge
     reached = {n.uid for n in every_edge.value.all_nodes}
-    # Mine, shared, and my own User node (CENTER <-OWNS- ME), which leads to all I own.
-    assert reached == {KU, MINE_VIA_KU, MINE_BEHIND_THEIRS, ME}
+    # Mine, shared, and my own User node (CENTER <-OWNS- ME) — where a path stops:
+    # MINE_BEHIND_THEIRS is reachable only through ME or THEIRS_DIRECT.
+    assert reached == {KU, MINE_VIA_KU, ME}
     for lens in (registry.value, every_edge.value):
         assert all(n.properties.get("description") != THEIR_WORDS for n in lens.all_nodes)
 
@@ -256,7 +257,7 @@ async def test_an_entity_shared_with_me_is_not_in_my_neighbourhood(
     neo4j_driver, graph_intel, clean_neo4j
 ):
     """A share link lets me open their entity; it does not make it part of what
-    surrounds mine. The every-edge lens reaches it in two hops through my User node."""
+    surrounds mine — not even two hops out through my User node."""
     await _seed(neo4j_driver, "Task", "task", "APPLIES_KNOWLEDGE")
     async with neo4j_driver.session() as s:
         await s.run(
@@ -292,3 +293,25 @@ async def test_shared_content_has_only_shared_content_around_it(
 
     assert every_edge.is_ok, every_edge
     assert {n.uid for n in every_edge.value.all_nodes} == {step}
+
+
+@pytest.mark.asyncio
+async def test_the_every_edge_lens_stops_at_a_user_node(neo4j_driver, graph_intel, clean_neo4j):
+    """The owner is a neighbour of what they own; what else they own or viewed is not.
+    A task's neighbourhood is its own links, not its owner's graph."""
+    await _seed(neo4j_driver, "Task", "task", "APPLIES_KNOWLEDGE")
+    viewed = P + "viewed_ku"
+    async with neo4j_driver.session() as s:
+        await _create_ku(s, viewed)
+        await s.run(
+            "MATCH (u:User {uid:$u}), (k {uid:$k}) CREATE (u)-[:VIEWED]->(k)", u=ME, k=viewed
+        )
+
+    every_edge = await graph_intel.get_entity_context(CENTER, depth=3)
+
+    assert every_edge.is_ok, every_edge
+    reached = {n.uid for n in every_edge.value.all_nodes}
+    assert ME in reached
+    assert KU in reached
+    assert viewed not in reached
+    assert MINE_BEHIND_THEIRS not in reached

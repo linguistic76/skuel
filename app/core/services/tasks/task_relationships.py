@@ -32,6 +32,18 @@ TASK_QUERY_SPECS: list[tuple[str, str]] = [
     ("serves_life_path_uids", "life_path"),
 ]
 
+# The knowledge a task links: what it applies, what it requires, what it was inferred
+# to touch. ``TaskRelationships.get_combined_knowledge_uids`` reads these three fields;
+# a batch read takes the same three relationship keys.
+_KNOWLEDGE_FIELDS = (
+    "applies_knowledge_uids",
+    "prerequisite_knowledge_uids",
+    "inferred_knowledge_uids",
+)
+TASK_KNOWLEDGE_KEYS: tuple[str, ...] = tuple(
+    key for field_name, key in TASK_QUERY_SPECS if field_name in _KNOWLEDGE_FIELDS
+)
+
 
 @dataclass(frozen=True)
 class TaskRelationships:
@@ -95,9 +107,8 @@ class TaskRelationships:
     def get_combined_knowledge_uids(self) -> set[str]:
         """Get all unique knowledge UIDs (explicit + inferred)."""
         all_uids: set[str] = set()
-        all_uids.update(self.applies_knowledge_uids)
-        all_uids.update(self.prerequisite_knowledge_uids)
-        all_uids.update(self.inferred_knowledge_uids)
+        for field_name in _KNOWLEDGE_FIELDS:
+            all_uids.update(getattr(self, field_name))
         return all_uids
 
     # KnowledgeLinkedRelationships protocol --------------------------------
