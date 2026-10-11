@@ -48,6 +48,7 @@ from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
+from core.ports.query_types import EntityHierarchy
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -668,22 +669,27 @@ class HabitsService(
             return Result.fail(enriched)
         return Result.ok(enriched.value)
 
-    async def get_habit_hierarchy(self, habit_uid: str) -> Result[dict[str, Any]]:
+    async def get_habit_hierarchy(self, habit_uid: str) -> Result[EntityHierarchy[Habit]]:
         """The habit's ancestors, itself, its siblings and children — every one hydrated."""
         hierarchy = await self.core.get_entity_hierarchy(habit_uid)
         if hierarchy.is_error:
             return hierarchy
         tree = hierarchy.value
-        groups = ("ancestors", "siblings", "children")
-        flat = [tree["current"], *(habit for key in groups for habit in tree[key])]
+        flat = [tree["current"], *tree["ancestors"], *tree["siblings"], *tree["children"]]
         enriched = await self.enrich_with_adherence(flat)
         if enriched.is_error:
             return Result.fail(enriched)
         hydrated = iter(enriched.value)
-        result = {**tree, "current": next(hydrated)}
-        for key in groups:
-            result[key] = [next(hydrated) for _ in tree[key]]
-        return Result.ok(result)
+        current = next(hydrated)
+        return Result.ok(
+            {
+                "current": current,
+                "ancestors": [next(hydrated) for _ in tree["ancestors"]],
+                "siblings": [next(hydrated) for _ in tree["siblings"]],
+                "children": [next(hydrated) for _ in tree["children"]],
+                "depth": tree["depth"],
+            }
+        )
 
     async def create_subhabit_relationship(
         self, parent_uid: str, child_uid: str, progress_weight: float = 1.0

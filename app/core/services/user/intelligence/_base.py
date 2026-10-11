@@ -16,12 +16,24 @@ See: `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from core.ports.curriculum_protocols import ExerciseOperations
     from core.ports.filtered_context_protocols import FilteredContextProvider
+    from core.ports.zpd_protocols import ZPDOperations
     from core.services.calendar_service import CalendarService
+    from core.services.choices_service import ChoicesService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.ku_service import KuService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+    from core.services.principles_service import PrinciplesService
+    from core.services.ps_service import PsService
+    from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
+    from core.services.tasks_service import TasksService
     from core.services.user.unified_user_context import RichUserContext
 
 
@@ -33,29 +45,28 @@ class IntelligenceMixinBase:
     consistent types. Concrete values are assigned in
     `UserContextIntelligence.__init__` — this base contributes annotations only.
 
-    Activity services are typed `Any` (boundary): the constructor parameter types
-    are declared as concrete facades (TasksService, GoalsService, etc.) in
-    `UserContextIntelligence.__init__`, so MyPy validates call sites there. The
-    base class uses `Any` to avoid importing 6 concrete facades into this shared
-    module, which would widen the import fan and risk cycles.
+    The services carry the types `UserContextIntelligence.__init__` takes — the
+    concrete facades, and `ExerciseOperations` for the exercises service (the
+    protocol the services container holds it as) — imported under `TYPE_CHECKING`
+    only: no runtime import fan, and MyPy checks every mixin body against them.
     """
 
     # User state
     context: RichUserContext
 
-    # Activity Domains (6) — boundary: concrete facades at init, Any here avoids import fan
-    tasks: Any
-    goals: Any
-    habits: Any
-    events: Any
-    choices: Any
-    principles: Any
+    # Activity Domains (6)
+    tasks: TasksService
+    goals: GoalsService
+    habits: HabitsService
+    events: EventsService
+    choices: ChoicesService
+    principles: PrinciplesService
 
-    # Curriculum Domains (4) — boundary: duck-typed (KuService / PsService facades / UnifiedRelationshipService / ExerciseService facade)
-    ku: Any
-    ps: Any
-    lp: Any
-    exercises: Any  # ExerciseService facade — daily-plan exercise enrichment
+    # Curriculum Domains (4)
+    ku: KuService
+    ps: PsService
+    lp: UnifiedRelationshipService
+    exercises: ExerciseOperations  # ExerciseService — daily-plan exercise enrichment
 
     # Processing Domain (1)
     report: ReportRelationshipService
@@ -64,8 +75,8 @@ class IntelligenceMixinBase:
     calendar: CalendarService
 
     # Optional services
-    vector_search: Any  # boundary: Neo4jVectorSearchService (optional, duck-typed)
-    zpd_service: Any  # boundary: ZPDOperations | None (optional, duck-typed)
+    vector_search: Neo4jVectorSearchService | None
+    zpd_service: ZPDOperations | None
     filtered_providers: dict[str, FilteredContextProvider]
 
 

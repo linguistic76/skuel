@@ -34,7 +34,7 @@ UserContextIntelligence = UserContext + Domain Services
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.services.user.intelligence.daily_planning import DailyPlanningMixin
 from core.services.user.intelligence.learning_intelligence import LearningIntelligenceMixin
@@ -45,6 +45,7 @@ from core.services.user.intelligence.synergy_intelligence import SynergyIntellig
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 
 if TYPE_CHECKING:
+    from core.ports.curriculum_protocols import ExerciseOperations
     from core.ports.filtered_context_protocols import FilteredContextProvider
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.calendar_service import CalendarService
@@ -53,6 +54,7 @@ if TYPE_CHECKING:
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.ku_service import KuService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
@@ -138,13 +140,13 @@ class UserContextIntelligence(
         ku: KuService,
         ps: PsService,
         lp: UnifiedRelationshipService,
-        exercises: Any,  # ExerciseService facade — daily-plan exercise enrichment
+        exercises: ExerciseOperations,
         # Processing Domain (1) - REQUIRED
         report: ReportRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
-        vector_search: Any = None,
+        vector_search: Neo4jVectorSearchService | None = None,
         # Optional: ZPD service for curriculum-graph-aware path step ranking
         zpd_service: ZPDOperations | None = None,
         # Optional: FilteredContextProvider dict for on-demand domain queries

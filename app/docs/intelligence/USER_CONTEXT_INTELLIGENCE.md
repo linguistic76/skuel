@@ -81,7 +81,7 @@ in `core/models/context_types.py` with tuple sequence fields; method 9 returns t
 "SKUEL runs at full capacity or not at all": `UserContextIntelligence.__init__` and the factory
 both raise `ValueError` naming any required service that is `None`. A thirteenth service touches
 five sites, all of which the `ValueError` guards read: the factory's `_required_services` dict
-and its `__init__` parameter; `UserContextIntelligence.__init__`'s parameter, its `required`
+(typed by its `_HubServices` TypedDict) and its `__init__` parameter; `UserContextIntelligence.__init__`'s parameter, its `required`
 mapping and its `self.<service>` assignment; the annotation on `IntelligenceMixinBase`
 (`_base.py`), which is what a mixin reads; and the argument in
 `services_bootstrap/_intelligence_hub.py`. Miss the assignment or the annotation and the

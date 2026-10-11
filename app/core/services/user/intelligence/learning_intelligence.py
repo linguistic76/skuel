@@ -44,7 +44,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
     """
     Mixin providing learning intelligence methods.
 
-    Requires self.context (UserContext), self.tasks, self.ps (relationship services) and
+    Requires self.context (UserContext), the self.tasks and self.ps facades and
     self.ku (the Ku facade — the published titles of the steps the ZPD and context
     sources name).
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
@@ -216,7 +216,7 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
         Tries vector search → ``ps`` service → context fallback, in that order.
         """
         # Try learning-aware search first (if available)
-        if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
+        if self.vector_search is not None:
             # Use semantic/learning-aware search to find optimal next steps
             # This personalizes based on mastery state (MASTERED, IN_PROGRESS, etc.)
             # Every hit becomes a step named by its uid as a Ku, so the search is

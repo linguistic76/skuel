@@ -140,6 +140,7 @@ if TYPE_CHECKING:
         SemanticRelationshipType,
         SemanticTriple,
     )
+    from core.models.context_types import ContextualExercise
     from core.models.enums import Domain
     from core.models.enums.neo_labels import NeoLabel
     from core.models.enums.user_entry_enums import ExerciseScope
@@ -152,6 +153,7 @@ if TYPE_CHECKING:
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
     from core.services.exercises.exercise_service import AdmittedRequirementChange
+    from core.services.user.unified_user_context import RichUserContext
     from core.utils.result_simplified import Result
 
 
@@ -1996,6 +1998,18 @@ class ExerciseOperations(Protocol):
         self, curriculum_uid: str, user_uid: UserUID
     ) -> Result[list[CurriculumExerciseResult]]:
         """The exercises requiring a curriculum KU that this user may read."""
+        ...
+
+    async def get_actionable_exercises_for_user(
+        self, context: RichUserContext, limit: int = 3
+    ) -> Result[list[ContextualExercise]]:
+        """The context's unsubmitted exercises with prerequisite readiness, most-ready first."""
+        ...
+
+    async def get_pending_revisions_for_user(
+        self, context: RichUserContext, limit: int = 3
+    ) -> Result[list[ContextualExercise]]:
+        """The context's pending revised exercises with prerequisite readiness."""
         ...
 
 

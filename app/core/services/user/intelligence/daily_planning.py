@@ -274,7 +274,7 @@ class DailyPlanningMixin(IntelligenceMixinBase):
                     if not respect_capacity or estimated_time + est_time <= available_time:
                         learning_uids.append(action.entity_uid)
                         estimated_time += est_time
-            elif self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
+            elif self.vector_search is not None:
                 # Fallback: semantic-enhanced search of the Ku index — each hit is
                 # scheduled as a Ku, so only a published Ku may be one.
                 search_query = self._generate_daily_learning_query(goals_uids, tasks_uids)

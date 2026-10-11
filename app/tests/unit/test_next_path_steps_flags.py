@@ -18,6 +18,7 @@ Each test ranks one fixture twice, flag on and flag off, through the real
 """
 
 from collections.abc import Callable
+from typing import cast
 from unittest.mock import MagicMock, create_autospec
 
 import pytest
@@ -319,8 +320,8 @@ async def test_empty_proximal_zone_passes_the_goals_flag_to_the_next_source() ->
 async def test_a_source_is_asked_the_same_questions_whatever_the_flags(arrange: Arrange) -> None:
     """Candidate retrieval reads neither flag; they act on what the source returned."""
     intelligence = arrange(_timed_context())
-    services = [
-        service
+    services: list[MagicMock] = [
+        cast("MagicMock", service)
         for service in (
             intelligence.ps,
             intelligence.tasks,

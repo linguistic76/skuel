@@ -24,7 +24,7 @@ Covers:
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -33,6 +33,16 @@ from core.models.context_types import ContextualExercise, DailyWorkPlan
 from core.services.user.intelligence.daily_planning import DailyPlanningMixin
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.ports.curriculum_protocols import ExerciseOperations
+    from core.services.choices_service import ChoicesService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.principles_service import PrinciplesService
+    from core.services.ps_service import PsService
+    from core.services.tasks_service import TasksService
 
 
 @dataclass
@@ -176,14 +186,14 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         report: object,
     ) -> None:
         self.context = cast("Any", context)
-        self.tasks = tasks
-        self.habits = habits
-        self.goals = goals
-        self.events = events
-        self.choices = choices
-        self.principles = principles
-        self.ps = ku
-        self.exercises = exercises
+        self.tasks = cast("TasksService", tasks)
+        self.habits = cast("HabitsService", habits)
+        self.goals = cast("GoalsService", goals)
+        self.events = cast("EventsService", events)
+        self.choices = cast("ChoicesService", choices)
+        self.principles = cast("PrinciplesService", principles)
+        self.ps = cast("PsService", ku)
+        self.exercises = cast("ExerciseOperations", exercises)
         self.report = cast("Any", report)
         self.vector_search = None
         self.filtered_providers = {}

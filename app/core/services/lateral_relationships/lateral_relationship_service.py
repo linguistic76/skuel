@@ -48,6 +48,7 @@ from core.models.relationship_registry import get_lateral_spec
 from core.ports.query_types import (
     AlternativeComparisonItem,
     BlockingChainResult,
+    DerivedSiblingItem,
     LateralRelationshipItem,
     RelationshipGraphData,
 )
@@ -336,7 +337,7 @@ class LateralRelationshipService:
         include_explicit_only: bool = False,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[DerivedSiblingItem] | list[LateralRelationshipItem]]:
         """
         Get sibling entities (same parent).
 
@@ -356,11 +357,8 @@ class LateralRelationshipService:
             return Result.fail(access)
 
         if include_explicit_only:
-            # Query explicit SIBLING relationships. get_siblings is a `# boundary`
-            # method whose two branches return different shapes, so flatten the
-            # typed relationship rows back to plain dicts for the union return.
-            # user_uid rides along so target audience scoping (ADR-085 G4)
-            # sees the caller, not an anonymous read.
+            # Query explicit SIBLING relationships. user_uid rides along so target
+            # audience scoping (ADR-085 G4) sees the caller, not an anonymous read.
             explicit = await self.get_lateral_relationships(
                 entity_uid,
                 relationship_types=[RelationshipName.SIBLING],
@@ -370,8 +368,7 @@ class LateralRelationshipService:
             )
             if explicit.is_error:
                 return Result.fail(explicit)
-            explicit_siblings: list[dict[str, Any]] = [dict(item) for item in explicit.value]
-            return Result.ok(explicit_siblings)
+            return Result.ok(explicit.value)
         else:
             # Derive from hierarchy (share same parent)
             result = await self.backend.get_siblings(entity_uid)
@@ -379,7 +376,7 @@ class LateralRelationshipService:
             if result.is_error:
                 return Result.fail(result)
 
-            siblings = [
+            siblings: list[DerivedSiblingItem] = [
                 {
                     "uid": record["sibling_uid"],
                     "title": record["sibling_title"],

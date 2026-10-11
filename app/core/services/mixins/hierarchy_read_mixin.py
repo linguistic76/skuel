@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.type_hints import EntityUID
 from core.ports import HierarchicalBackendOperations
+from core.ports.query_types import EntityHierarchy
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -107,19 +108,11 @@ class HierarchyReadMixin[B: HierarchicalBackendOperations, T: DomainModelProtoco
         return Result.ok(self._to_domain_model(result.value, dto_class, model_class))
 
     @with_error_handling("get_entity_hierarchy", error_type="database", uid_param="uid")
-    async def get_entity_hierarchy(self, uid: str) -> Result[dict[str, Any]]:
+    async def get_entity_hierarchy(self, uid: str) -> Result[EntityHierarchy[T]]:
         """Full hierarchy context: ancestors, current, siblings, children, depth.
 
         Backend: ``BackendOperations.get_hierarchy_raw`` (typed models — not to be
         confused with ``RelationshipOperationsMixin.get_hierarchy``).
-
-        Return shape (a genuinely heterogeneous map — ``list[T]`` / ``T`` / ``int``):
-        ``{"ancestors": list[T], "current": T, "siblings": list[T], "children": list[T],
-        "depth": int}``.
-        boundary: dict[str, Any] is the domain-agnostic contract consumed by the shared
-        hierarchy API factory (``Callable[[str], Awaitable[Result[dict[str, Any]]]]``, which
-        JSON-serializes it); a generic TypedDict is not a subtype of that dict (PEP 589) and
-        would only be unwrapped back at the factory boundary.
         """
         classes = self._ensure_conversion_classes()
         if classes.is_error:

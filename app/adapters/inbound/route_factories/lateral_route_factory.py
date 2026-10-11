@@ -44,7 +44,7 @@ See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 from fasthtml.common import FT
 
@@ -62,7 +62,11 @@ from core.models.enums import UserRole
 from core.models.enums.activity_enums import Priority
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties
-from core.ports.query_types import RelationshipGraphData
+from core.ports.query_types import (
+    DerivedSiblingItem,
+    LateralRelationshipItem,
+    RelationshipGraphData,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.patterns.entity_links import entity_detail_href
@@ -84,6 +88,86 @@ logger = get_logger(__name__)
 # Emitted by every lateral write (create/delete) so the shared readers and the
 # relationship graph refresh off one DOM event. See LATERAL_RELATIONSHIPS_VISUALIZATION.md.
 _RELATIONSHIPS_CHANGED_HEADERS: dict[str, str] = {"HX-Trigger": "relationships-changed"}
+
+
+class _ChangedHeaders(TypedDict):
+    """The ``_headers`` every lateral write answers with — popped into response headers."""
+
+    _headers: dict[str, str]
+
+
+class BlockingCreatedPayload(_ChangedHeaders):
+    """``POST …/lateral/blocks`` — the BLOCKS edge written."""
+
+    message: str
+    blocker_uid: str
+    blocked_uid: str
+
+
+class PrerequisiteCreatedPayload(_ChangedHeaders):
+    """``POST …/lateral/prerequisites`` — the PREREQUISITE_FOR edge written."""
+
+    message: str
+    prerequisite_uid: str
+    dependent_uid: str
+
+
+class PairCreatedPayload(_ChangedHeaders):
+    """``POST …/lateral/alternatives`` and ``…/complementary`` — the symmetric edge written."""
+
+    message: str
+    entity_a_uid: str
+    entity_b_uid: str
+
+
+class LateralDeletedPayload(_ChangedHeaders):
+    """``DELETE …/lateral/{type}/{target_uid}`` — the edge removed."""
+
+    message: str
+    source_uid: str
+    target_uid: str
+
+
+class BlockingPayload(TypedDict):
+    """``GET …/lateral/blocking`` — the entities that block this one."""
+
+    blocking: list[LateralRelationshipItem]
+    count: int
+
+
+class BlockedPayload(TypedDict):
+    """``GET …/lateral/blocked`` — the entities this one blocks."""
+
+    blocked: list[LateralRelationshipItem]
+    count: int
+
+
+class PrerequisitesPayload(TypedDict):
+    """``GET …/lateral/prerequisites`` — prerequisite edges in either direction."""
+
+    prerequisites: list[LateralRelationshipItem]
+    count: int
+
+
+class AlternativesPayload(TypedDict):
+    """``GET …/lateral/alternatives`` — the entity's alternatives."""
+
+    alternatives: list[LateralRelationshipItem]
+    count: int
+
+
+class ComplementaryPayload(TypedDict):
+    """``GET …/lateral/complementary`` — the entities that complement this one."""
+
+    complementary: list[LateralRelationshipItem]
+    count: int
+
+
+class SiblingsPayload(TypedDict):
+    """``GET …/lateral/siblings`` — the entity's siblings (derived from the hierarchy by default)."""
+
+    siblings: list[DerivedSiblingItem] | list[LateralRelationshipItem]
+    count: int
 
 
 def parse_edge_score(value: object, field: str, default: float) -> Result[float]:
@@ -172,7 +256,7 @@ class LateralRouteFactory:
             severity: str = "required",
             confidence: str | float | None = None,
             priority: str = "medium",
-        ) -> Result[dict[str, Any]]:
+        ) -> Result[BlockingCreatedPayload]:
             """
             Create BLOCKS relationship.
 
@@ -212,7 +296,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -226,7 +310,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/blocking - Get entities that block this one
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocking", methods=["GET"])
         @boundary_handler()
-        async def get_blocking(request: Request, uid: str) -> Result[dict[str, Any]]:
+        async def get_blocking(request: Request, uid: str) -> Result[BlockingPayload]:
             """Get entities that block this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -239,7 +323,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -251,7 +335,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/blocked - Get entities blocked by this one
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocked", methods=["GET"])
         @boundary_handler()
-        async def get_blocked(request: Request, uid: str) -> Result[dict[str, Any]]:
+        async def get_blocked(request: Request, uid: str) -> Result[BlockedPayload]:
             """Get entities blocked by this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -264,7 +348,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -288,7 +372,7 @@ class LateralRouteFactory:
             reasoning: str | None = None,
             confidence: str | float | None = None,
             priority: str = "medium",
-        ) -> Result[dict[str, Any]]:
+        ) -> Result[PrerequisiteCreatedPayload]:
             """
             Create PREREQUISITE_FOR relationship.
 
@@ -333,7 +417,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -347,7 +431,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisite entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["GET"])
         @boundary_handler()
-        async def get_prerequisites(request: Request, uid: str) -> Result[dict[str, Any]]:
+        async def get_prerequisites(request: Request, uid: str) -> Result[PrerequisitesPayload]:
             """Get entities that are prerequisites for this entity."""
             user_uid = require_authenticated_user(request)
 
@@ -363,7 +447,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -390,7 +474,7 @@ class LateralRouteFactory:
             timeframe: str = "",
             difficulty: str = "",
             resources: str = "",
-        ) -> Result[dict[str, Any]]:
+        ) -> Result[PairCreatedPayload]:
             """
             Create ALTERNATIVE_TO relationship.
 
@@ -452,7 +536,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -466,7 +550,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/alternatives - Get alternative entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["GET"])
         @boundary_handler()
-        async def get_alternatives(request: Request, uid: str) -> Result[dict[str, Any]]:
+        async def get_alternatives(request: Request, uid: str) -> Result[AlternativesPayload]:
             """Get alternative entities."""
             user_uid = require_authenticated_user(request)
 
@@ -479,7 +563,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -503,7 +587,7 @@ class LateralRouteFactory:
             synergy_score: str | float | None = None,
             confidence: str | float | None = None,
             priority: str = "medium",
-        ) -> Result[dict[str, Any]]:
+        ) -> Result[PairCreatedPayload]:
             """
             Create COMPLEMENTARY_TO relationship.
 
@@ -548,7 +632,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -562,7 +646,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/complementary - Get complementary entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["GET"])
         @boundary_handler()
-        async def get_complementary(request: Request, uid: str) -> Result[dict[str, Any]]:
+        async def get_complementary(request: Request, uid: str) -> Result[ComplementaryPayload]:
             """Get complementary entities."""
             user_uid = require_authenticated_user(request)
 
@@ -575,7 +659,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -590,7 +674,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/siblings - Get sibling entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/siblings", methods=["GET"])
         @boundary_handler()
-        async def get_siblings(request: Request, uid: str) -> Result[dict[str, Any]]:
+        async def get_siblings(request: Request, uid: str) -> Result[SiblingsPayload]:
             """Get sibling entities (same parent in hierarchy)."""
             user_uid = require_authenticated_user(request)
 
@@ -601,7 +685,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -625,7 +709,7 @@ class LateralRouteFactory:
             uid: str,
             relationship_type: str,
             target_uid: str,
-        ) -> Result[dict[str, Any]]:
+        ) -> Result[LateralDeletedPayload]:
             """
             Delete lateral relationship.
 
@@ -662,7 +746,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -702,7 +786,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[FT]", result)
+                return Result.fail(result)
 
             return Result.ok(render_chain_fragment(cast("dict[str, Any]", result.value)))
 
@@ -740,7 +824,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[FT]", result)
+                return Result.fail(result)
 
             return Result.ok(
                 render_alternatives_fragment(cast("list[dict[str, Any]]", result.value))
@@ -839,7 +923,7 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[FT]", result)
+                return Result.fail(result)
 
             return Result.ok(render_lateral_manage_fragment(uid, self.domain, result.value))
 
