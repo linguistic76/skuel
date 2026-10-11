@@ -295,6 +295,19 @@ class TestTitles:
         assert "Unseen concept" not in response.text
         harness.ku_service.get_kus_batch.assert_not_awaited()
 
+    def test_learn_next_lets_no_context_title_override_the_hub_s_placeholder(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A Ku the hub kept nameless (its published-only read withheld it) stays
+        nameless even when the rich context carries its title — the hub's gate holds."""
+        harness = _make_harness(monkeypatch)
+        harness.hub.get_optimal_next_path_steps.return_value = Result.ok(
+            [PathStep(ku_uid=KU_IN_CONTEXT, title=f"Knowledge Unit {KU_IN_CONTEXT}")]
+        )
+        response = harness.client.get("/insights/hub/learn-next")
+        assert f"Knowledge Unit {KU_IN_CONTEXT}" in response.text
+        assert "Engaged concept" not in response.text
+
     def test_a_record_saying_ku_instead_of_knowledge_resolves_too(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
