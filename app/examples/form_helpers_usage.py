@@ -2,7 +2,7 @@
 Example: Type-Safe Form Data Extraction
 
 Demonstrates two approaches:
-1. Individual field helpers (safe_form_string, safe_form_int, etc.)
+1. Individual field helpers (safe_form_string, safe_form_bool)
 2. Structured body helpers (parse_json_body, parse_form_body)
 """
 
@@ -10,7 +10,6 @@ from adapters.inbound.form_helpers import (
     parse_form_body,
     parse_json_body,
     safe_form_bool,
-    safe_form_int,
     safe_form_string,
 )
 
@@ -36,13 +35,11 @@ async def new_registration_handler(request):
     # Type-safe extraction with proper type guards
     username = safe_form_string(form_data.get("username"))
     email = safe_form_string(form_data.get("email"))
-    age = safe_form_int(form_data.get("age"), default=0)
     is_admin = safe_form_bool(form_data.get("is_admin"))
 
     return {
         "username": username,
         "email": email,
-        "age": age,
         "is_admin": is_admin,
     }
 

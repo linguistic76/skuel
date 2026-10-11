@@ -69,10 +69,10 @@ class _Body(BaseModel):
 
 
 class _JsonRequest:
-    """Stands in for the JSON half of a Starlette request."""
+    """Stands in for the JSON half of a Starlette request: the body's bytes."""
 
-    async def json(self) -> dict[str, str]:
-        return {"reflection": "x" * 10}
+    async def body(self) -> bytes:
+        return json.dumps({"reflection": "x" * 10}).encode()
 
 
 class _StubRequest:
@@ -81,8 +81,8 @@ class _StubRequest:
     def __init__(self, body: dict[str, object]) -> None:
         self._body = body
 
-    async def json(self) -> dict[str, object]:
-        return self._body
+    async def body(self) -> bytes:
+        return json.dumps(self._body).encode()
 
 
 class _FormRequest:
@@ -97,9 +97,6 @@ class _TypedRequest(_JsonRequest, _FormRequest):
 
     def __init__(self, content_type: str) -> None:
         self.headers = {"content-type": content_type}
-
-    async def body(self) -> bytes:
-        return b'{"reflection": "xxxxxxxxxx"}'
 
 
 def _json_block(text: str, heading: str) -> dict[str, object]:

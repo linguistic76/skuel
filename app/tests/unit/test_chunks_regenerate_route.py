@@ -9,6 +9,7 @@ Mirrors the fake-rt registry pattern from tests/unit/adapters/test_calendar_ui.p
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -69,10 +70,7 @@ def _request_with_session(session: dict | None, json_body: dict | None = None):
     request.session = session if session is not None else {}
     request.method = "POST"
     request.url = SimpleNamespace(path="/api/chunks/regenerate")
-    if json_body is not None:
-        request.json = AsyncMock(return_value=json_body)
-    else:
-        request.json = AsyncMock(return_value={})
+    request.body = AsyncMock(return_value=json.dumps(json_body or {}).encode())
     return attach_csrf(request)
 
 

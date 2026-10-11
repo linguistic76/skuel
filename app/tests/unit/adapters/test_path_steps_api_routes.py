@@ -356,7 +356,20 @@ class TestPrerequisiteChain:
         )
 
         assert response.status_code == 200
-        # Service receives the raw depth (it clamps internally); the reported
-        # depth is clamped to the 1-10 ceiling.
-        harness.ps.get_prerequisite_chain.assert_awaited_once_with(_CHILD_UID, max_depth=99)
+        # The route clamps to the 1-10 ceiling; the service and the report agree.
+        harness.ps.get_prerequisite_chain.assert_awaited_once_with(_CHILD_UID, max_depth=10)
         assert response.json()["depth"] == 10
+
+    @pytest.mark.parametrize("depth", ["abc", "2.5", ""])
+    def test_an_unreadable_depth_is_the_default(
+        self, monkeypatch: pytest.MonkeyPatch, depth: str
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.get(
+            f"/api/path-steps/prerequisites?step_uid={_CHILD_UID}&depth={depth}"
+        )
+
+        assert response.status_code == 200, response.text
+        harness.ps.get_prerequisite_chain.assert_awaited_once_with(_CHILD_UID, max_depth=3)
+        assert response.json()["depth"] == 3

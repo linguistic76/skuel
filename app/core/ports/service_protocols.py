@@ -648,7 +648,6 @@ class LateralRelationshipOperations(Protocol):
     async def get_blocking_chain(
         self,
         entity_uid: EntityUID,
-        max_depth: int = 10,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
     ) -> Result[BlockingChainResult]: ...

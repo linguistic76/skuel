@@ -1,6 +1,6 @@
 ---
 title: Insight Action Tracking Pattern
-updated: '2026-09-29'
+updated: '2026-10-11'
 category: patterns
 related_skills:
 - chartjs
@@ -143,7 +143,7 @@ async def dismiss_insight(request: Request, uid: str) -> Result[dict[str, str]]:
     # Parse optional notes from request body
     notes = ""
     try:
-        body = await request.json()
+        body = await read_json_body(request)
         notes = body.get("notes", "")
     except Exception:
         # No body provided - that's ok, notes are optional

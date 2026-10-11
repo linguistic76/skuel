@@ -29,6 +29,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.route_factories import parse_int_query_param
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import LearningLevel
 from core.models.search.filter_enums import SearchSortOrder
@@ -177,9 +178,10 @@ def create_explore_api_routes(
         nous: str = "",
         nous_subtopic: str = "",
         learning_level: str = "",
-        offset: int = 0,
     ) -> Any:
         """One library page of bare cards (+ Load-more sentinel) for HTMX swap.
+
+        ``offset`` is read from the query string; an unreadable one is 0.
 
         The catalog query runs through SearchRouter.faceted_search (One Path
         Forward) — Neo4j-side text/tag/type/nous/level filtering, sort, and
@@ -187,6 +189,7 @@ def create_explore_api_routes(
         domains), so the richer facets work for non-registered viewers too.
         """
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
+        offset = parse_int_query_param(request.query_params, "offset", 0, minimum=0)
 
         search_request = _library_search_request(
             q, type, tag, sort, offset, nous, nous_subtopic, learning_level

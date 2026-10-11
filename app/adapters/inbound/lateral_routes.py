@@ -27,7 +27,10 @@ from adapters.inbound.auth.roles import make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
-from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
+from adapters.inbound.route_factories.lateral_route_factory import (
+    LateralRouteFactory,
+    parse_edge_score,
+)
 from core.models.enums import UserRole
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -102,17 +105,24 @@ def create_lateral_api_routes(
         uid: str,
         target_uid: str,
         trigger: str = "after",
-        strength: float = 0.8,
+        strength: str | float | None = None,
     ) -> Result[dict[str, Any]]:
-        """Create STACKS_WITH relationship for habit chaining."""
+        """Create STACKS_WITH relationship for habit chaining.
+
+        ``strength`` is 0.0-1.0 (default 0.8); anything else is refused (400),
+        nothing written.
+        """
         user_uid = require_authenticated_user(request)
+        strength_score = parse_edge_score(strength, "strength", 0.8)
+        if strength_score.is_error:
+            return Result.fail(strength_score)
         return await orchestrator.create_relationship(
             user_uid=user_uid,
             uid=uid,
             target_uid=target_uid,
             relationship_type=RelationshipName.STACKS_WITH,
             domain="habits",
-            metadata={"trigger": trigger, "strength": strength},
+            metadata={"trigger": trigger, "strength": strength_score.value},
             message="Habit stacking relationship created",
             response_extra={
                 "first_habit_uid": uid,
@@ -283,18 +293,25 @@ def create_lateral_api_routes(
         request: Request,
         uid: str,
         target_uid: str,
-        confidence: float = 0.8,
+        confidence: str | float | None = None,
         topic_domain: str | None = None,
         current_user: Any = None,
     ) -> Result[dict[str, Any]]:
-        """Create LATERAL_ENABLES relationship (learning A unlocks B)."""
+        """Create LATERAL_ENABLES relationship (learning A unlocks B).
+
+        ``confidence`` is 0.0-1.0 (default 0.8); anything else is refused (400),
+        nothing written.
+        """
+        confidence_score = parse_edge_score(confidence, "confidence", 0.8)
+        if confidence_score.is_error:
+            return Result.fail(confidence_score)
         return await orchestrator.create_relationship(
             user_uid=UserUID(current_user.uid),
             uid=uid,
             target_uid=target_uid,
             relationship_type=RelationshipName.LATERAL_ENABLES,
             domain="ku",
-            metadata={"confidence": confidence, "topic_domain": topic_domain},
+            metadata={"confidence": confidence_score.value, "topic_domain": topic_domain},
             message="KU enables relationship created",
             response_extra={"enabler_uid": uid, "enabled_uid": target_uid},
         )

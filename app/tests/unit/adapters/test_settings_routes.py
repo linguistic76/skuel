@@ -147,10 +147,34 @@ class TestOneForm:
         assert re.search(r'<button[^>]*type="submit"[^>]*>Save All Changes</button>', body)
 
 
+#: Every field the editor posts, as it posts them (checkboxes on).
+_FORM: dict[str, str] = {
+    "learning_level": "advanced",
+    "preferred_time_of_day": "morning",
+    "available_minutes_daily": "45",
+    "enable_reminders": "on",
+    "reminder_minutes_before": "10",
+    "daily_summary_time": "08:30",
+    "theme": "dark",
+    "language": "fr",
+    "timezone": "Asia/Bangkok",
+    "weekly_task_goal": "12",
+    "daily_habit_goal": "4",
+    "monthly_learning_hours": "30",
+    "modality_video": "on",
+    "modality_audio": "on",
+}
+
+
+async def _post(
+    user_service: _UserService, form: dict[str, str]
+) -> Any:  # boundary: FT or Response
+    return await _handlers(user_service)["/settings/save"](_Request(form, method="POST"))
+
+
 class TestSaveDoor:
     async def _save(self, user_service: _UserService, timezone: str) -> Any:
-        request = _Request({"timezone": timezone, "theme": "light"}, method="POST")
-        return await _handlers(user_service)["/settings/save"](request)
+        return await _post(user_service, {**_FORM, "timezone": timezone})
 
     @pytest.mark.asyncio
     async def test_an_unlisted_name_is_refused_and_nothing_is_saved(self) -> None:
@@ -171,3 +195,78 @@ class TestSaveDoor:
         service = _UserService(timezone="Asia/Bangkok")
         await self._save(service, "")
         assert [update["timezone"] for update in service.updates] == [None]
+
+
+class TestEveryFieldIsReadOrRefused:
+    """A value the editor could not have sent is refused — 400, nothing saved — never
+    replaced by a default the user did not choose."""
+
+    @pytest.mark.asyncio
+    async def test_the_whole_form_is_saved_as_posted(self) -> None:
+        service = _UserService()
+        await _post(service, _FORM)
+        assert service.updates == [
+            {
+                "learning_level": "advanced",
+                "preferred_modalities": ["video", "audio"],
+                "preferred_time_of_day": "morning",
+                "available_minutes_daily": 45,
+                "enable_reminders": True,
+                "reminder_minutes_before": 10,
+                "daily_summary_time": "08:30",
+                "theme": "dark",
+                "language": "fr",
+                "timezone": "Asia/Bangkok",
+                "weekly_task_goal": 12,
+                "daily_habit_goal": 4,
+                "monthly_learning_hours": 30,
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_unchecked_boxes_are_false(self) -> None:
+        service = _UserService()
+        form = {
+            k: v
+            for k, v in _FORM.items()
+            if not k.startswith("modality_") and k != "enable_reminders"
+        }
+        await _post(service, form)
+        assert service.updates[0]["preferred_modalities"] == []
+        assert service.updates[0]["enable_reminders"] is False
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("available_minutes_daily", "sixty"),
+            ("available_minutes_daily", ""),
+            ("available_minutes_daily", "1441"),
+            ("reminder_minutes_before", "-1"),
+            ("weekly_task_goal", "101"),
+            ("daily_habit_goal", "2.5"),
+            ("monthly_learning_hours", "lots"),
+            ("learning_level", "wizard"),
+            ("preferred_time_of_day", "teatime"),
+            ("theme", "');alert(1);//"),
+            ("theme", "auto"),
+            ("language", "xx"),
+            ("daily_summary_time", "25:00"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_a_bad_value_is_refused_and_nothing_is_saved(
+        self, field: str, value: str
+    ) -> None:
+        service = _UserService()
+        response = await _post(service, {**_FORM, field: value})
+        assert response.status_code == 400
+        assert field.encode() in response.body
+        assert service.updates == []
+
+    @pytest.mark.parametrize("field", ["learning_level", "theme", "weekly_task_goal", "timezone"])
+    @pytest.mark.asyncio
+    async def test_a_missing_field_is_refused_and_nothing_is_saved(self, field: str) -> None:
+        service = _UserService()
+        response = await _post(service, {k: v for k, v in _FORM.items() if k != field})
+        assert response.status_code == 400
+        assert service.updates == []

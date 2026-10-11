@@ -52,7 +52,12 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories.route_helpers import check_required_role
+from adapters.inbound.route_factories.route_helpers import (
+    check_required_role,
+    parse_float_param_strict,
+    parse_int_query_param,
+)
+from core.constants import GraphDepth
 from core.models.enums import UserRole
 from core.models.enums.activity_enums import Priority
 from core.models.relationship_names import RelationshipName
@@ -79,6 +84,13 @@ logger = get_logger(__name__)
 # Emitted by every lateral write (create/delete) so the shared readers and the
 # relationship graph refresh off one DOM event. See LATERAL_RELATIONSHIPS_VISUALIZATION.md.
 _RELATIONSHIPS_CHANGED_HEADERS: dict[str, str] = {"HX-Trigger": "relationships-changed"}
+
+
+def parse_edge_score(value: object, field: str, default: float) -> Result[float]:
+    """A 0.0-1.0 score a lateral edge stores (``confidence``, ``strength``,
+    ``synergy_score``): missing is ``default``; anything that is not a finite
+    number in range is refused before the edge is written."""
+    return parse_float_param_strict(value, field, default=default, min_val=0.0, max_val=1.0)
 
 
 def _lateral_priority(raw: str) -> Result[str]:
@@ -158,7 +170,7 @@ class LateralRouteFactory:
             target_uid: str,
             reason: str,
             severity: str = "required",
-            confidence: float = 1.0,
+            confidence: str | float | None = None,
             priority: str = "medium",
         ) -> Result[dict[str, Any]]:
             """
@@ -169,7 +181,7 @@ class LateralRouteFactory:
                 target_uid: Blocked entity UID
                 reason: Why blocker must complete first
                 severity: "required", "recommended", or "suggested"
-                confidence: Certainty of this constraint (0.0-1.0; default 1.0 — hard constraints are explicit)
+                confidence: Certainty of this constraint (0.0-1.0; default 1.0 — hard constraints are explicit; anything else is refused)
                 priority: Relative importance of this relationship (low/medium/high)
             """
             role_check = await self._check_write_role(request)
@@ -179,6 +191,9 @@ class LateralRouteFactory:
             edge_priority = _lateral_priority(priority)
             if edge_priority.is_error:
                 return Result.fail(edge_priority)
+            confidence_score = parse_edge_score(confidence, "confidence", 1.0)
+            if confidence_score.is_error:
+                return Result.fail(confidence_score)
 
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
@@ -187,7 +202,7 @@ class LateralRouteFactory:
                 metadata={
                     "reason": reason,
                     "severity": severity,
-                    "confidence": confidence,
+                    "confidence": confidence_score.value,
                     "priority": edge_priority.value,
                     "domain": self.domain,
                     "created_by": user_uid,
@@ -269,9 +284,9 @@ class LateralRouteFactory:
             request: Request,
             uid: str,
             target_uid: str,
-            strength: float = 0.8,
+            strength: str | float | None = None,
             reasoning: str | None = None,
-            confidence: float = 1.0,
+            confidence: str | float | None = None,
             priority: str = "medium",
         ) -> Result[dict[str, Any]]:
             """
@@ -280,9 +295,11 @@ class LateralRouteFactory:
             Args:
                 uid: Prerequisite entity UID
                 target_uid: Dependent entity UID
-                strength: How essential prerequisite is (0.0-1.0)
+                strength: How essential prerequisite is (0.0-1.0; default 0.8)
                 reasoning: Optional explanation
                 confidence: Certainty of this prerequisite (0.0-1.0; default 1.0 — asserting a hard requirement)
+
+            A score that is not a number in 0.0-1.0 is refused (400), nothing written.
                 priority: Relative importance of this relationship (low/medium/high)
             """
             role_check = await self._check_write_role(request)
@@ -292,15 +309,21 @@ class LateralRouteFactory:
             edge_priority = _lateral_priority(priority)
             if edge_priority.is_error:
                 return Result.fail(edge_priority)
+            strength_score = parse_edge_score(strength, "strength", 0.8)
+            if strength_score.is_error:
+                return Result.fail(strength_score)
+            confidence_score = parse_edge_score(confidence, "confidence", 1.0)
+            if confidence_score.is_error:
+                return Result.fail(confidence_score)
 
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
                 target_uid=target_uid,
                 relationship_type=RelationshipName.PREREQUISITE_FOR,
                 metadata={
-                    "strength": strength,
+                    "strength": strength_score.value,
                     "reasoning": reasoning,
-                    "confidence": confidence,
+                    "confidence": confidence_score.value,
                     "priority": edge_priority.value,
                     "domain": self.domain,
                     "created_by": user_uid,
@@ -362,7 +385,7 @@ class LateralRouteFactory:
             target_uid: str,
             comparison_criteria: str,
             tradeoffs: list[str] | None = None,
-            confidence: float = 0.8,
+            confidence: str | float | None = None,
             priority: str = "medium",
             timeframe: str = "",
             difficulty: str = "",
@@ -387,7 +410,7 @@ class LateralRouteFactory:
                 target_uid: Alternative entity UID
                 comparison_criteria: How to compare alternatives
                 tradeoffs: Optional list of tradeoffs
-                confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion)
+                confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion; anything else is refused)
                 priority: Relative importance of this relationship (low/medium/high)
                 timeframe: How long this alternative takes (e.g. "about 18 months")
                 difficulty: How hard it is (e.g. "steep at first")
@@ -400,12 +423,15 @@ class LateralRouteFactory:
             edge_priority = _lateral_priority(priority)
             if edge_priority.is_error:
                 return Result.fail(edge_priority)
+            confidence_score = parse_edge_score(confidence, "confidence", 0.8)
+            if confidence_score.is_error:
+                return Result.fail(confidence_score)
 
             tradeoffs_widened: list[str | int | float] = list(tradeoffs) if tradeoffs else []
             metadata: Neo4jProperties = {
                 "comparison_criteria": comparison_criteria,
                 "tradeoffs": tradeoffs_widened,
-                "confidence": confidence,
+                "confidence": confidence_score.value,
                 "priority": edge_priority.value,
                 "domain": self.domain,
                 "created_by": user_uid,
@@ -474,8 +500,8 @@ class LateralRouteFactory:
             uid: str,
             target_uid: str,
             synergy_description: str,
-            synergy_score: float = 0.7,
-            confidence: float = 0.8,
+            synergy_score: str | float | None = None,
+            confidence: str | float | None = None,
             priority: str = "medium",
         ) -> Result[dict[str, Any]]:
             """
@@ -485,8 +511,10 @@ class LateralRouteFactory:
                 uid: First entity UID
                 target_uid: Complementary entity UID
                 synergy_description: How entities complement each other
-                synergy_score: Strength of synergy (0.0-1.0)
+                synergy_score: Strength of synergy (0.0-1.0; default 0.7)
                 confidence: Certainty of this synergy (0.0-1.0; default 0.8 — softer assertion)
+
+            A score that is not a number in 0.0-1.0 is refused (400), nothing written.
                 priority: Relative importance of this relationship (low/medium/high)
             """
             role_check = await self._check_write_role(request)
@@ -496,6 +524,12 @@ class LateralRouteFactory:
             edge_priority = _lateral_priority(priority)
             if edge_priority.is_error:
                 return Result.fail(edge_priority)
+            synergy = parse_edge_score(synergy_score, "synergy_score", 0.7)
+            if synergy.is_error:
+                return Result.fail(synergy)
+            confidence_score = parse_edge_score(confidence, "confidence", 0.8)
+            if confidence_score.is_error:
+                return Result.fail(confidence_score)
 
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
@@ -503,8 +537,8 @@ class LateralRouteFactory:
                 relationship_type=RelationshipName.COMPLEMENTARY_TO,
                 metadata={
                     "synergy_description": synergy_description,
-                    "synergy_score": synergy_score,
-                    "confidence": confidence,
+                    "synergy_score": synergy.value,
+                    "confidence": confidence_score.value,
                     "priority": edge_priority.value,
                     "domain": self.domain,
                     "created_by": user_uid,
@@ -649,11 +683,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/chain - Get transitive blocking chain
         @rt(f"/api/{self.domain}/{{uid}}/lateral/chain", methods=["GET"])
         @boundary_handler()
-        async def get_chain(
-            request: Request,
-            uid: str,
-            max_depth: int = 10,
-        ) -> Result[FT]:
+        async def get_chain(request: Request, uid: str) -> Result[FT]:
             """
             Get the transitive blocking chain, rendered as an HTML fragment.
 
@@ -662,13 +692,11 @@ class LateralRouteFactory:
 
             Args:
                 uid: Entity UID
-                max_depth: Maximum depth to traverse (default 10)
             """
             user_uid = require_authenticated_user(request)
 
             result = await self.lateral_service.get_blocking_chain(
                 EntityUID(uid),
-                max_depth,
                 user_uid=user_uid,
                 domain_service=self.domain_service,
             )
@@ -727,7 +755,6 @@ class LateralRouteFactory:
         async def get_graph(
             request: Request,
             uid: str,
-            depth: int = 2,
             types: str | None = None,
         ) -> Result[RelationshipGraphData]:
             """
@@ -741,7 +768,9 @@ class LateralRouteFactory:
 
             Args:
                 uid: Center entity UID
-                depth: Graph traversal depth (1-3 recommended)
+                depth: Graph traversal depth (query; 1-3 recommended, default 2; an
+                    unreadable value is the default, an out-of-range one the
+                    nearest of 1-10)
                 types: Comma-separated relationship types to include (optional;
                     any RelationshipName value, not just the 6 lateral types)
 
@@ -749,6 +778,13 @@ class LateralRouteFactory:
                 Vis.js Network format (nodes and edges)
             """
             user_uid = require_authenticated_user(request)
+            depth = parse_int_query_param(
+                request.query_params,
+                "depth",
+                GraphDepth.NEIGHBORHOOD,
+                minimum=GraphDepth.DIRECT,
+                maximum=GraphDepth.MAXIMUM,
+            )
 
             # Parse relationship types if provided
             relationship_types = None
@@ -808,4 +844,4 @@ class LateralRouteFactory:
             return Result.ok(render_lateral_manage_fragment(uid, self.domain, result.value))
 
 
-__all__ = ["LateralRouteFactory"]
+__all__ = ["LateralRouteFactory", "parse_edge_score"]

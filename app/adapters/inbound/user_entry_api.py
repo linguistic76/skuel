@@ -33,9 +33,9 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_json_body, read_json_body
 from adapters.inbound.result_helpers import require_found
-from adapters.inbound.route_factories import is_not_found, refuse
+from adapters.inbound.route_factories import is_not_found, parse_int_query_param, refuse
 from core.models.entity_converters import entity_to_response
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
@@ -380,11 +380,15 @@ def create_user_entry_api_routes(
         request: Request,
         pipeline: str | None = None,
         status: str | None = None,
-        limit: int = 50,
-        offset: int = 0,
     ) -> Result[dict[str, Any]]:
-        """List the authenticated user's UserEntries with optional filters."""
+        """List the authenticated user's UserEntries with optional filters.
+
+        ``limit`` (default 50) and ``offset`` (default 0) are read from the query
+        string; an unreadable one is its default.
+        """
         user_uid = require_authenticated_user(request)
+        limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1)
+        offset = parse_int_query_param(request.query_params, "offset", 0, minimum=0)
 
         parsed_pipeline: Pipeline | None = None
         if pipeline:
@@ -455,7 +459,7 @@ def create_user_entry_api_routes(
         JSON body's ``audience`` (value or list), or the query string."""
         content_type = request.headers.get("content-type", "")
         if "application/json" in content_type:
-            body = await request.json()
+            body = await read_json_body(request)
             raw = body.get("audience") if isinstance(body, dict) else None
             if isinstance(raw, str):
                 return [raw]

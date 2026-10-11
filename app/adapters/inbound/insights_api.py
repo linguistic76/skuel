@@ -17,7 +17,8 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_json_body, read_json_body
+from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_requests import SmartDismissRequest
 from core.models.insight_request import BulkInsightUidsRequest, SnoozeInsightRequest
 from core.ports.query_types import ChartJsConfig
@@ -111,7 +112,7 @@ def create_insights_api_routes(
         # Parse optional notes from request body
         notes = ""
         try:
-            body = await request.json()
+            body = await read_json_body(request)
             notes = body.get("notes", "")
         except Exception:  # safety-net: JSON parsing boundary — optional body
             # No body provided - that's ok, notes are optional
@@ -149,7 +150,7 @@ def create_insights_api_routes(
         # Parse optional notes from request body
         notes = ""
         try:
-            body = await request.json()
+            body = await read_json_body(request)
             notes = body.get("notes", "")
         except Exception:  # safety-net: JSON parsing boundary — optional body
             # No body provided - that's ok, notes are optional
@@ -184,21 +185,23 @@ def create_insights_api_routes(
     async def get_active_insights(
         request: Request,
         domain: str | None = None,
-        limit: int = 50,
     ) -> Result[dict[str, Any]]:
         """Get active insights for the current user (JSON API).
 
         Args:
             request: HTTP request with authentication
             domain: Optional domain filter
-            limit: Maximum number of insights to return
+
+        Query Parameters:
+            limit: Maximum number of insights to return (default 50; an unreadable
+                value is the default)
 
         Returns:
             Result with list of active insights or error
         """
         user_uid = require_authenticated_user(request)
 
-        # Get active insights
+        limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1)
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
             domain=domain,

@@ -8,6 +8,7 @@ Also provides the request-body readers (``parse_body``, ``parse_json_body``,
 ``parse_form_body``) that validate a body into a Pydantic model as a ``Result``.
 """
 
+import json
 import types
 from typing import Any, Union, get_args, get_origin
 
@@ -37,28 +38,6 @@ def safe_form_string(value: str | UploadFile | None, default: str = "") -> str:
     """
     if isinstance(value, str):
         return value.strip()
-    return default
-
-
-def safe_form_int(value: str | UploadFile | None, default: int = 0) -> int:
-    """
-    Extract integer from form data safely.
-
-    Args:
-        value: Form field value (may be str, UploadFile, or None)
-        default: Default value if extraction/parsing fails
-
-    Returns:
-        Parsed integer or default
-
-    Example:
-        >>> age = safe_form_int(form_data.get("age"), default=0)
-    """
-    if isinstance(value, str):
-        try:
-            return int(value.strip())
-        except ValueError:
-            return default
     return default
 
 
@@ -111,11 +90,27 @@ async def parse_json_body[T: BaseModel](
         req = result.value
     """
     try:
-        body = await request.json()
-    except Exception:  # safety-net: JSON parsing boundary
+        body = await read_json_body(request)
+    except ValueError:
         return Result.fail(Errors.validation("Invalid JSON body"))
 
     return _validate_body(schema, body)
+
+
+async def read_json_body(request: Request) -> Any:  # boundary: any JSON document
+    """The request's JSON body, exactly as the client sent it.
+
+    FastHTML merges the query string into the JSON body it parses and caches on
+    the request before any handler runs, so ``request.json()`` hands back a query
+    parameter in place of a same-named body field. This reads the body's bytes
+    instead: the body, and only the body. Every JSON body read in
+    ``adapters/inbound`` goes through here.
+
+    Raises:
+        ValueError: the body is not JSON (``json.JSONDecodeError``, or a
+            ``UnicodeDecodeError`` for bytes that are not text)
+    """
+    return json.loads(await request.body())
 
 
 def _validate_body[T: BaseModel](schema: type[T], data: object) -> Result[T]:

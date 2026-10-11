@@ -14,10 +14,11 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_form_string
+from adapters.inbound.form_helpers import parse_form_body
+from core.models.user.user_request import UserPreferencesFormRequest
 from core.utils.logging import get_logger
 from core.utils.type_converters import get_enum_value
-from core.utils.zone_context import default_zone, validated_zone_name
+from core.utils.zone_context import default_zone
 from ui.patterns.error_banner import render_error_banner
 from ui.settings import render_settings_page
 
@@ -92,48 +93,19 @@ def create_settings_routes(
     async def save_settings(request: Request) -> Any:
         """Save user preferences from form submission.
 
-        The time zone is refused (400, nothing saved) unless it is a name
-        zoneinfo lists or empty — the SKUEL default, stored as no choice. The
-        list only offers valid names, so a refusal answers a forged or stale
-        post.
+        Every field is validated before anything is written: a value the editor
+        could not have sent — a number that does not read or is out of range, a
+        learning level, time of day, theme or language outside its vocabulary, a
+        malformed summary time, a time zone zoneinfo does not list, or a missing
+        field — is refused (400, nothing saved), never replaced by a default. An
+        empty time zone is the SKUEL default, stored as no choice.
         """
         user_uid = require_authenticated_user(request)
 
-        form_data = await request.form()
-
-        try:
-            timezone = validated_zone_name(safe_form_string(form_data.get("timezone")))
-        except ValueError as e:
-            return Response(str(e), status_code=400)
-
-        # Build modalities list from checkboxes
-        modalities = []
-        if form_data.get("modality_video"):
-            modalities.append("video")
-        if form_data.get("modality_reading"):
-            modalities.append("reading")
-        if form_data.get("modality_interactive"):
-            modalities.append("interactive")
-        if form_data.get("modality_audio"):
-            modalities.append("audio")
-
-        preferences_update = {
-            "learning_level": safe_form_string(form_data.get("learning_level"), "intermediate"),
-            "preferred_modalities": modalities,
-            "preferred_time_of_day": safe_form_string(
-                form_data.get("preferred_time_of_day"), "anytime"
-            ),
-            "available_minutes_daily": safe_form_int(form_data.get("available_minutes_daily"), 60),
-            "enable_reminders": safe_form_bool(form_data.get("enable_reminders"), False),
-            "reminder_minutes_before": safe_form_int(form_data.get("reminder_minutes_before"), 15),
-            "daily_summary_time": safe_form_string(form_data.get("daily_summary_time"), "09:00"),
-            "theme": safe_form_string(form_data.get("theme"), "light"),
-            "language": safe_form_string(form_data.get("language"), "en"),
-            "timezone": timezone,
-            "weekly_task_goal": safe_form_int(form_data.get("weekly_task_goal"), 10),
-            "daily_habit_goal": safe_form_int(form_data.get("daily_habit_goal"), 3),
-            "monthly_learning_hours": safe_form_int(form_data.get("monthly_learning_hours"), 20),
-        }
+        parsed = await parse_form_body(request, UserPreferencesFormRequest)
+        if parsed.is_error:
+            return Response(parsed.expect_error().message, status_code=400)
+        preferences_update = parsed.value.to_preferences_update()
 
         update_result = await user_service.update_preferences(user_uid, preferences_update)
 
@@ -157,7 +129,7 @@ def create_settings_routes(
 
         from ui.settings.preferences import UserPreferencesComponents
 
-        saved_theme = preferences_update.get("theme", "light")
+        saved_theme = parsed.value.theme
         dark_toggle = (
             "document.documentElement.classList.add('dark')"
             if saved_theme == "dark"

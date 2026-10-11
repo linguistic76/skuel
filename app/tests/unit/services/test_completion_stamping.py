@@ -59,6 +59,7 @@ from core.services.completion_stamp import (
     is_reopen_transition,
     status_transition_guard,
 )
+from core.services.events.events_core_service import EventsCoreService
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -71,7 +72,6 @@ from tests.helpers.status_guarded_backend import (
 
 if TYPE_CHECKING:
     from core.services.choices.choices_core_service import ChoicesCoreService
-    from core.services.events.events_core_service import EventsCoreService
     from core.services.goals.goals_core_service import GoalsCoreService
     from core.services.habits.habits_core_service import HabitsCoreService
 
@@ -1084,7 +1084,7 @@ class TestRawStatusWritersOutsideTheChokepoints:
         )
         cancelled = Event(uid="event_1", user_uid=USER, title="e", status=EntityStatus.CANCELLED)
         backend, recorder = guarded_backend(done, cancelled)
-        service = EventsHabitIntegrationService(backend=backend)
+        service = EventsHabitIntegrationService(backend=backend, core=EventsCoreService(backend))
 
         result = await service.miss_habit_event("event_1", Mock(user_uid=USER), reason="ill")
 
@@ -1103,7 +1103,7 @@ class TestRawStatusWritersOutsideTheChokepoints:
         scheduled = Event(uid="event_1", user_uid=USER, title="e", status=EntityStatus.SCHEDULED)
         cancelled = Event(uid="event_1", user_uid=USER, title="e", status=EntityStatus.CANCELLED)
         backend, recorder = guarded_backend(scheduled, cancelled)
-        service = EventsHabitIntegrationService(backend=backend)
+        service = EventsHabitIntegrationService(backend=backend, core=EventsCoreService(backend))
 
         result = await service.miss_habit_event("event_1", Mock(user_uid=USER))
 

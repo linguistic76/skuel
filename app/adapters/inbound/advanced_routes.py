@@ -28,6 +28,7 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
     parse_date_param_strict,
+    parse_int_query_param,
     register_domain_routes,
 )
 from core.models.calendar_optimization import (
@@ -171,21 +172,26 @@ def create_performance_routes(
     async def scale_test(  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
         request: Request,
         current_user: Any = None,
-        concurrent_users: int = 100,
-        duration_seconds: int = 60,
     ) -> Result[dict[str, Any]]:
         """
         Run scale testing simulation.
 
-        Args:
-            concurrent_users: Number of concurrent users to simulate
-            duration_seconds: Test duration
+        Query Parameters:
+            concurrent_users: Number of concurrent users to simulate (default 100)
+            duration_seconds: Test duration (default 60)
+
+        An unreadable value is its default.
         """
+        params = request.query_params
         return Result.ok(
             {
                 "message": "Scale test initiated",
-                "concurrent_users": concurrent_users,
-                "duration_seconds": duration_seconds,
+                "concurrent_users": parse_int_query_param(
+                    params, "concurrent_users", 100, minimum=1
+                ),
+                "duration_seconds": parse_int_query_param(
+                    params, "duration_seconds", 60, minimum=1
+                ),
                 "status": "running",
             }
         )

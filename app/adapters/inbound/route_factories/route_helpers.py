@@ -29,6 +29,7 @@ See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md,
      /docs/patterns/API_VALIDATION_PATTERNS.md
 """
 
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -155,8 +156,24 @@ def parse_int_query_param(
     Invalid, missing, or blank values return ``default``.
     Values are clamped when ``minimum`` and/or ``maximum`` are provided.
     """
-    raw_value = params.get(key)
-    if raw_value is None or raw_value == "":
+    return parse_int_value(params.get(key), default, minimum=minimum, maximum=maximum)
+
+
+def parse_int_value(
+    raw_value: object,
+    default: int,
+    *,
+    minimum: int | None = None,
+    maximum: int | None = None,
+) -> int:
+    """Read one already-extracted value as an integer — the rule of
+    :func:`parse_int_query_param`, for a value that arrives as a handler parameter
+    (a JSON body's number, or the text a query string or form carries).
+
+    Missing, blank or unreadable values return ``default``; ``minimum`` /
+    ``maximum`` clamp.
+    """
+    if raw_value is None or raw_value == "" or isinstance(raw_value, bool):
         return default
     try:
         value = int(str(raw_value))
@@ -326,7 +343,17 @@ def parse_bool_query_param(
     Truthy values: ``"true"``, ``"1"``, ``"yes"``, ``"on"`` (case-insensitive).
     Missing or blank values return *default*.
     """
-    raw = params.get(key)
+    return parse_bool_value(params.get(key), default)
+
+
+def parse_bool_value(raw: object, default: bool = False) -> bool:
+    """Read one already-extracted value as a boolean — the rule of
+    :func:`parse_bool_query_param`, for a value that arrives as a handler parameter
+    (a form field's text, or a JSON body's ``true`` / ``false``).
+
+    Missing or blank values return *default*; ``"true"``, ``"1"``, ``"yes"``,
+    ``"on"`` (any case) are ``True``; anything else is ``False``.
+    """
     if raw is None or raw == "":
         return default
     return str(raw).lower() in ("true", "1", "yes", "on")
@@ -468,17 +495,57 @@ def parse_int_param_strict(
     return Result.ok(n)
 
 
+def parse_float_param_strict(
+    value: object,
+    field: str,
+    *,
+    default: float,
+    min_val: float,
+    max_val: float,
+) -> Result[float]:
+    """Read a number a write stores, refusing what is not one.
+
+    ``value`` is the handler parameter as it arrives: the text a query string or
+    form carries, or a JSON body's number. Missing or blank is ``default``. A
+    boolean, a value that does not read as a number, a non-finite number, or one
+    outside ``[min_val, max_val]`` is a validation error — a write never stores a
+    default in place of a value it could not read.
+    """
+    if value is None or value == "":
+        return Result.ok(default)
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        return Result.fail(Errors.validation(f"{field} must be a number", field=field))
+    try:
+        number = float(value)
+    except ValueError:
+        return Result.fail(
+            Errors.validation(f"{field} must be a number", field=field, value=str(value))
+        )
+    if not math.isfinite(number) or number < min_val or number > max_val:
+        return Result.fail(
+            Errors.validation(
+                f"{field} must be between {min_val} and {max_val}",
+                field=field,
+                value=str(value),
+            )
+        )
+    return Result.ok(number)
+
+
 __all__ = [
     "DateRangeParams",
     "PaginationParams",
     "check_required_role",
     "parse_bool_query_param",
+    "parse_bool_value",
     "parse_csv_query_param",
     "parse_date_param_strict",
     "parse_date_query_param",
     "parse_date_range_params",
+    "parse_float_param_strict",
     "parse_int_param_strict",
     "parse_int_query_param",
+    "parse_int_value",
     "parse_pagination_params",
     "require_owned_entity",
     "split_csv",

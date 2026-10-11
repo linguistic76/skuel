@@ -22,8 +22,9 @@ from core.utils.result_simplified import Result
 
 
 def _get_request() -> SimpleNamespace:
-    """Minimal request shape: the CSRF wrapper reads .method (GET = safe)."""
-    return SimpleNamespace(method="GET")
+    """Minimal request shape: the CSRF wrapper reads .method (GET = safe); the route
+    reads ``limit`` / ``offset`` from the query string."""
+    return SimpleNamespace(method="GET", query_params={})
 
 
 class _MockRouter:
@@ -143,3 +144,28 @@ async def test_user_owned_search_refuses_unauthenticated(
         await search(_get_request(), query="alpha")
 
     assert handler.calls == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("query", "window"),
+    [
+        ({"limit": "lots", "offset": "x"}, (50, 0)),
+        ({"limit": "500", "offset": "-3"}, (100, 0)),
+        ({"limit": "7", "offset": "14"}, (7, 14)),
+    ],
+)
+async def test_the_window_is_read_from_the_query_string(
+    monkeypatch: pytest.MonkeyPatch, query: dict[str, str], window: tuple[int, int]
+) -> None:
+    """An unreadable limit / offset is its default, an out-of-range one the nearest
+    bound (1-100, at least 0) — never a 404 from a typed parameter."""
+    handler = _RecordingHandler()
+    factory = _make_factory(ContentScope.SHARED, handler)
+    router = _MockRouter()
+    factory._register_search_route(router)
+
+    request = SimpleNamespace(method="GET", query_params=query)
+    await router.routes["/api/tasks/search"](request, query="alpha")
+
+    assert (handler.calls[0]["limit"], handler.calls[0]["offset"]) == window

@@ -21,6 +21,7 @@ from adapters.inbound.auth import make_service_getter, require_admin, require_au
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.form_helpers import read_json_body
 from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from adapters.inbound.result_helpers import require_found
 from core.config.intelligence_tier import IntelligenceTier
@@ -79,7 +80,7 @@ def create_batch_transcription_api_routes(
             Preview: {files, total_files, total_size_mb, already_transcribed}
             Transcribe: {total_files, succeeded, failed, skipped, results, errors}
         """
-        body = await request.json()
+        body = await read_json_body(request)
         input_dir = Path(body.get("input_dir", DEFAULT_INPUT_DIR))
         output_dir = Path(body.get("output_dir", DEFAULT_OUTPUT_DIR))
         skip_existing = body.get("skip_existing", True)
@@ -176,7 +177,7 @@ def create_batch_transcription_api_routes(
                 )
             )
 
-        body = await request.json()
+        body = await read_json_body(request)
         # Paths are fixed server-side — never sourced from the request body.
         # Accepting client-supplied paths would let any authenticated user
         # read from and write to arbitrary server directories (Codex P1).

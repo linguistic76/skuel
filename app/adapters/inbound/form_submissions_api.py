@@ -13,6 +13,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.form_helpers import read_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import entity_to_response
 from core.models.forms.form_submission import FormSubmission
@@ -49,7 +50,7 @@ def create_form_submissions_api_routes(
         user_uid = require_authenticated_user(request)
 
         try:
-            body = await request.json()
+            body = await read_json_body(request)
             req = FormSubmissionCreateRequest(**body)
         except Exception as e:  # safety-net: JSON parsing boundary
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
@@ -116,7 +117,7 @@ def create_form_submissions_api_routes(
         user_uid = require_authenticated_user(request)
 
         try:
-            body = await request.json()
+            body = await read_json_body(request)
             req = FormSubmissionShareRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))

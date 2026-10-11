@@ -371,6 +371,7 @@ class _SchedulingHost(_SchedulingMixin):
     def __init__(self, source: Event) -> None:
         self.backend = MagicMock()
         self.backend.create = AsyncMock(side_effect=_echo)
+        self.core = EventsCoreService(self.backend)
         self.get_event = AsyncMock(return_value=Result.ok(source))
 
 
@@ -378,6 +379,7 @@ class _OrchestrationHost(_OrchestrationMixin):
     def __init__(self) -> None:
         self.backend = MagicMock()
         self.backend.create = AsyncMock(side_effect=_echo)
+        self.core = EventsCoreService(self.backend)
         self.event_bus = _RecordingBus()
         self.logger = MagicMock()
 

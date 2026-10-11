@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-10-04'
+updated: '2026-10-11'
 category: patterns
 related_skills:
 - skuel-ui
@@ -348,7 +348,7 @@ async def update_goal(request: Request, uid: str):
     user_uid = require_authenticated_user(request)
 
     # Parse body
-    body = await request.json()
+    body = await read_json_body(request)
     title = body.get("title")
 
     if not title:
@@ -394,7 +394,7 @@ async def bulk_delete(request: Request):
     user_uid = require_authenticated_user(request)
 
     # Parse body
-    body = await request.json()
+    body = await read_json_body(request)
     uids = body.get("uids", [])
 
     if not uids:

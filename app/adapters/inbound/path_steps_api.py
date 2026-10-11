@@ -112,7 +112,7 @@ def create_path_steps_api_routes(
     @rt("/api/path-steps/prerequisites")
     @boundary_handler()
     async def get_step_prerequisites_route(
-        request: Request, step_uid: str, depth: int = GraphDepth.DEFAULT
+        request: Request, step_uid: str
     ) -> Result[PrerequisiteChainData]:
         """Get the transitive prerequisite chain for a path step.
 
@@ -124,10 +124,18 @@ def create_path_steps_api_routes(
 
         Args:
             step_uid: Target path step
-            depth: Traversal depth (1-10, default 3); depth=1 yields only
-                immediate prerequisites.
+            depth: Traversal depth (query, 1-10, default 3; an unreadable value is
+                the default, an out-of-range one the nearest bound); depth=1
+                yields only immediate prerequisites.
         """
         user_uid = require_authenticated_user(request)
+        depth = parse_int_query_param(
+            request.query_params,
+            "depth",
+            GraphDepth.DEFAULT,
+            minimum=GraphDepth.DIRECT,
+            maximum=GraphDepth.MAXIMUM,
+        )
 
         # Existence gate: a missing/deleted step is 404, not a valid step with an
         # empty chain (the bare traversal can't tell those apart).
@@ -171,7 +179,7 @@ def create_path_steps_api_routes(
         return Result.ok(
             PrerequisiteChainData(
                 step_uid=step_uid,
-                depth=max(1, min(depth, GraphDepth.MAXIMUM)),
+                depth=depth,
                 prerequisites=nodes,
                 total_prerequisites=total,
                 prerequisites_mastered=mastered_count,
@@ -381,13 +389,16 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/curriculum/{category}")
     @boundary_handler()
-    async def get_personalized_curriculum(
-        request: Request, category: str, limit: int = 10
-    ) -> Result[list[Any]]:
-        """Get personalized curriculum for an SEL category."""
+    async def get_personalized_curriculum(request: Request, category: str) -> Result[list[Any]]:
+        """Get personalized curriculum for an SEL category.
+
+        ``limit`` is read from the query string (default 10; an unreadable value is
+        the default).
+        """
         from core.models.enums import SELCategory
 
         user_uid = require_authenticated_user(request)
+        limit = parse_int_query_param(request.query_params, "limit", 10, minimum=1)
         try:
             sel_category = SELCategory(category)
         except ValueError:
@@ -413,11 +424,16 @@ def create_path_steps_api_routes(
         return SELJourneyOverview(result.value)
 
     @rt("/api/path-steps/curriculum-html/{category}")
-    async def get_curriculum_html(request: Request, category: str, limit: int = 10) -> FT:
-        """HTMX: Render personalized curriculum grid as HTML fragment."""
+    async def get_curriculum_html(request: Request, category: str) -> FT:
+        """HTMX: Render personalized curriculum grid as HTML fragment.
+
+        ``limit`` is read from the query string (default 10; an unreadable value is
+        the default).
+        """
         from core.models.enums import SELCategory
 
         user_uid = require_authenticated_user(request)
+        limit = parse_int_query_param(request.query_params, "limit", 10, minimum=1)
 
         try:
             sel_category = SELCategory(category)

@@ -77,7 +77,7 @@ def _admin_request(json_body: dict | None = None):
     request.session = {"user_uid": "user_admin"}
     request.method = "POST"
     request.url = SimpleNamespace(path="/api/chunks/regenerate")
-    request.json = AsyncMock(return_value=json_body or {})
+    request.body = AsyncMock(return_value=json.dumps(json_body or {}).encode())
     return attach_csrf(request)
 
 

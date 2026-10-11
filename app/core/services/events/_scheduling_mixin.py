@@ -103,9 +103,14 @@ class _SchedulingMixin:
                 - event_uid: UID of the recurring event template
                 - count: Number of instances to create (1-100)
 
+        Each instance goes through the domain's create door, so the create rules
+        hold: an instance they refuse (a source event whose span is out of
+        bounds) fails the call with that refusal.
+
         Returns:
             Result with list of created event instances
         """
+        from dataclasses import replace
         from datetime import timedelta
 
         from core.models.event.event import Event as EventModel
@@ -166,8 +171,12 @@ class _SchedulingMixin:
             )
             dto.recurrence_parent_uid = request.event_uid  # Link to template
 
-            create_result = await self.backend.create(EventModel.from_dto(dto))
-            if create_result.is_ok:
-                created_events.append(create_result.value)
+            # Through the domain's create door, so its create rules (the span) hold here.
+            create_result = await self.core.create(
+                replace(EventModel.from_dto(dto), contributes_to_goal_uids=())
+            )
+            if create_result.is_error:
+                return Result.fail(create_result)
+            created_events.append(create_result.value)
 
         return Result.ok(created_events)

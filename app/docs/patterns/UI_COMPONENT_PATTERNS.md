@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-04'
+updated: '2026-10-11'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1229,8 +1229,8 @@ Module-level helpers keep route handlers thin. The form readers in `form_helpers
 
 | Helper | Purpose | Callers |
 |--------|---------|---------|
-| `parse_form_body(request, Model)` | The whole form validated into its Pydantic request model, as a `Result` | the 6 Activity `*_ui.py` files, `activity_reports_ui`; the API modules `exercises_api`, `teaching_api`, `user_pins_api` |
-| `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` | One raw field, typed `str \| UploadFile \| None`, read with a default | `auth_ui`, `settings_routes`, `lifepath_ui`, `askesis_ui` |
+| `parse_form_body(request, Model)` | The whole form validated into its Pydantic request model, as a `Result` | the 6 Activity `*_ui.py` files, `activity_reports_ui`, `settings_routes`; the API modules `exercises_api`, `teaching_api`, `user_pins_api` |
+| `safe_form_string()`, `safe_form_bool()` | One raw field, typed `str \| UploadFile \| None`, read with a default | `auth_ui`, `lifepath_ui`, `askesis_ui` |
 
 ```python
 # Route handler stays thin (tasks_ui.py, abridged):

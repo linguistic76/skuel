@@ -152,7 +152,7 @@ def __init__(self, backend, graph_intel, cross_domain_query, event_bus=None,
     self.knowledge_intelligence = common.knowledge_intelligence
 
     # Domain-specific sub-services
-    self.habits = EventsHabitIntegrationService(backend=backend, event_bus=event_bus)
+    self.habits = EventsHabitIntegrationService(backend=backend, core=self.core, event_bus=event_bus)
     self.progress = EventsProgressService(backend=backend, event_bus=event_bus)
 ```
 

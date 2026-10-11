@@ -9,7 +9,7 @@ related_skills:
 
 # SKUEL UI Error Handling
 
-*Last updated: 2026-09-29*
+*Last updated: 2026-10-11*
 
 **When to use this skill:** When building UI routes, handling `Result[T]` at boundaries, implementing error banners, creating form validation, or understanding how SKUEL propagates errors from services to UI.
 
@@ -133,8 +133,8 @@ validation layer. Shared body readers live in `adapters/inbound/form_helpers.py`
 
 - `parse_form_body(request, schema)` → `Result[T]` — form data into a Pydantic model. Empty strings become `None` (an unselected `<select>` posts `""`). A validation failure is `Result.fail` (VALIDATION).
 - `parse_body(request, schema)` → `Result[T]` — reads the body by Content-Type (JSON, or a form encoding through `parse_form_body`); the reader at a door both API clients and HTMX forms reach (the CRUD factory's create/update, the admin account actions).
-- `parse_json_body(request, schema)` → `Result[T]` — JSON body into a Pydantic model; JSON parse errors and `ValidationError` both become `Result.fail()`. An ownership-verified POST verifies the owner uid wherever it travels: a model field (`TrackHabitRequest.habit_uid` — parse, then `verify_entity_ownership`) or the query string (`POST /api/principles/link?uid=` — verify, then parse; that model's `target_uid` is the link *target*, admitted by the service that writes the edge). Read the route: a model's uid field is not always the owner. ⚠ A query parameter overrides a same-named field of a JSON body (FastHTML merges the query string into the parsed body before any helper reads it), so a body model never reuses a query parameter's name.
-- `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` — for the few routes that read a single raw field; each handles `str | UploadFile | None`.
+- `parse_json_body(request, schema)` → `Result[T]` — JSON body into a Pydantic model; JSON parse errors and `ValidationError` both become `Result.fail()`. An ownership-verified POST verifies the owner uid wherever it travels: a model field (`TrackHabitRequest.habit_uid` — parse, then `verify_entity_ownership`) or the query string (`POST /api/principles/link?uid=` — verify, then parse; that model's `target_uid` is the link *target*, admitted by the service that writes the edge). Read the route: a model's uid field is not always the owner. The JSON readers read the body's bytes (`read_json_body`): FastHTML merges the query string into the JSON body it caches, so `await request.json()` would hand back `?uid=` in place of the body's `uid` — no route calls it.
+- `safe_form_string()`, `safe_form_bool()` — for the few routes that read a single raw field; each handles `str | UploadFile | None`.
 
 ```python
 # adapters/inbound/tasks_ui.py — the create POST

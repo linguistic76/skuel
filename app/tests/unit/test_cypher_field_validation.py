@@ -228,7 +228,8 @@ class TestListRouteExposesNoSortKey:
         params = set(inspect.signature(handler).parameters)
         assert "order_by" not in params
         assert "order_desc" not in params
-        assert {"limit", "offset"} <= params
+        # limit / offset are read from the query string, not bound as typed parameters.
+        assert params == {"request"}
 
 
 # ----------------------------------------------------------------------------

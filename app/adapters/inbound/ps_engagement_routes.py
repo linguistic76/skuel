@@ -33,6 +33,7 @@ from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.form_helpers import read_json_body
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -136,7 +137,7 @@ def create_ps_engagement_routes(
         """
         student_uid = require_authenticated_user(request)
         try:
-            body = await request.json()
+            body = await read_json_body(request)
         except ValueError:
             return Result.fail(Errors.validation(message="Invalid JSON body", field="body"))
         if not isinstance(body, dict):

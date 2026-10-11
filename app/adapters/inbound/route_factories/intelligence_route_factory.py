@@ -41,7 +41,12 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
+from adapters.inbound.route_factories.route_helpers import (
+    parse_float_query_param,
+    parse_int_query_param,
+    verify_entity_ownership,
+)
+from core.constants import GraphDepth
 from core.models.enums import ContentScope
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -278,17 +283,17 @@ class IntelligenceRouteFactory:
         Maps to: PerformanceAnalyticsOperations.get_performance_analytics(user_uid, period_days)
 
         Authentication: Session-based (raises 401 if not logged in)
-        Query params: period_days (optional, default: 30)
+        Query params: period_days (optional, default: 30; an unreadable value is
+        the default, the least is 1)
         """
         domain = self.domain
 
         @rt(f"{self.base_path}/analytics", methods=["GET"])
         @boundary_handler()
-        async def analytics_route(
-            request: Request, period_days: int = 30
-        ) -> Result[IntelligencePayload]:
+        async def analytics_route(request: Request) -> Result[IntelligencePayload]:
             """Get performance analytics for authenticated user"""
             user_uid = require_authenticated_user(request)
+            period_days = parse_int_query_param(request.query_params, "period_days", 30, minimum=1)
 
             result = await service.get_performance_analytics(user_uid, period_days)
 
@@ -303,7 +308,8 @@ class IntelligenceRouteFactory:
 
         Authentication: Session-based (raises 401 if not logged in)
         Ownership: Verified if verify_ownership=True and ownership_service provided
-        Query params: uid (required), depth (optional, default: 2)
+        Query params: uid (required), depth (optional, default: 2; an unreadable
+        value is the default, an out-of-range one the nearest of 1-10)
         """
         service = self.service
         domain = self.domain
@@ -311,11 +317,16 @@ class IntelligenceRouteFactory:
 
         @rt(f"{self.base_path}/context", methods=["GET"])
         @boundary_handler()
-        async def context_route(
-            request: Request, uid: str, depth: int = 2
-        ) -> Result[IntelligencePayload]:
+        async def context_route(request: Request, uid: str) -> Result[IntelligencePayload]:
             """Get entity with full graph context"""
             user_uid = require_authenticated_user(request)
+            depth = parse_int_query_param(
+                request.query_params,
+                "depth",
+                GraphDepth.NEIGHBORHOOD,
+                minimum=GraphDepth.DIRECT,
+                maximum=GraphDepth.MAXIMUM,
+            )
 
             # Verify ownership (returns 404 to prevent UID enumeration).
             # verify_ownership=True implies ownership_service is present — the
@@ -355,7 +366,8 @@ class IntelligenceRouteFactory:
 
         Authentication: Session-based (raises 401 if not logged in)
         Ownership: Verified if verify_ownership=True and ownership_service provided
-        Query params: uid (required), min_confidence (optional, default: 0.7)
+        Query params: uid (required), min_confidence (optional, default: 0.7; an
+        unreadable value is the default, an out-of-range one the nearest of 0-1)
         """
         service = self.service
         domain = self.domain
@@ -363,11 +375,12 @@ class IntelligenceRouteFactory:
 
         @rt(f"{self.base_path}/insights", methods=["GET"])
         @boundary_handler()
-        async def insights_route(
-            request: Request, uid: str, min_confidence: float = 0.7
-        ) -> Result[IntelligencePayload]:
+        async def insights_route(request: Request, uid: str) -> Result[IntelligencePayload]:
             """Get domain-specific insights for entity"""
             user_uid = require_authenticated_user(request)
+            min_confidence = parse_float_query_param(
+                request.query_params, "min_confidence", 0.7, minimum=0.0, maximum=1.0
+            )
 
             # Verify ownership (returns 404 to prevent UID enumeration).
             # verify_ownership=True implies ownership_service is present — the

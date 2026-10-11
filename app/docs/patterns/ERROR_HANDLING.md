@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-09-30
+updated: 2026-10-11
 category: patterns
 related_skills:
 - result-pattern
@@ -747,15 +747,16 @@ The helpers in `adapters/inbound/form_helpers.py` never raise:
 
 - `safe_form_string(value, default="")` — a `str` comes back stripped (an empty one stays
   `""`); anything else is `default`
-- `safe_form_int(value, default=0)` — a `str` that parses as an `int`; anything else is `default`
 - `safe_form_bool(value, default=False)` — `"true"`, `"1"`, `"yes"`, `"on"` (any case) are
   `True`, any other `str` is `False`; a non-`str` is `default`
 
 Each answers a bad value with its `default`, so on a write each is a silent default
 unless the caller checks first — see § Guarding Enum Constructor Calls: a write refuses
-a bad value. `/settings/save` (`adapters/inbound/settings_routes.py`) shows both shapes:
-it refuses a time zone zoneinfo does not list (400, nothing saved), and it stores the
-default for a number field that does not parse (`safe_form_int(..., 60)`).
+a bad value. A number a write stores has no form helper for that reason: read the form
+into a request model, as `/settings/save` (`adapters/inbound/settings_routes.py`) does —
+`parse_form_body(request, UserPreferencesFormRequest)` refuses an unreadable or
+out-of-range number, a value outside its vocabulary, or a missing field (400, nothing
+saved).
 
 A body with a request model needs none of these: read it through `parse_form_body` /
 `parse_body` and a bad field is a validation failure.

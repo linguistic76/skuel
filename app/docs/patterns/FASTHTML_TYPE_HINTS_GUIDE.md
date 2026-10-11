@@ -22,9 +22,8 @@ For implementation guidance, see:
 FastHTML fills a handler's parameters from the request by name and type hint: `request`
 itself, path parameters, query parameters, and the top-level keys of a JSON or form body.
 It converts each value by calling the annotation's converter. What a bad value answers
-depends on the type, and it is never SKUEL's validation 400 — so a hint is the right tool
-for a value that cannot be malformed in a way that matters (a uid, an optional string
-filter, a bounded integer where a 404 is an acceptable answer), and a `route_helpers`
+depends on the type, and it is never SKUEL's answer — so a hint is the right tool for a
+`str` (a uid, an optional string filter) and for a path segment, and a `route_helpers`
 parser or a request model is the tool for everything else.
 
 ---
@@ -47,6 +46,13 @@ A required parameter the request does not carry answers **400** (`Missing requir
 uid`) — FastHTML's plain-text body, not the `Errors.validation` JSON envelope.
 
 The same conversion runs on a body's keys, JSON or form: `n: int` with `{"n": "z"}` is a 404.
+A JSON body's non-string value skips the converter (`{"n": 5}` binds the number as sent);
+a union is converted by its first member that is not `None`.
+
+FastHTML also merges the query string into the JSON body it parses and caches on the
+request (`data |= dict(conn.query_params)`), so `await request.json()` hands back
+`?uid=` in place of the body's `uid`. A route reads a JSON body through
+`form_helpers.read_json_body` (the body's bytes) — `parse_json_body` / `parse_body` do.
 
 ---
 
@@ -63,17 +69,23 @@ The same conversion runs on a body's keys, JSON or form: `n: int` with `{"n": "z
 3. **Read a body inside the handler** with `parse_body` / `parse_json_body` /
    `parse_form_body` — never a model in the signature. See
    [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) § Read the body inside the handler.
-4. **Parse a query value whose bad input must answer neither 404 nor 500 with a
-   `route_helpers` parser**, from `dict(request.query_params)` — a silent fallback
-   (`parse_bool_query_param`, `parse_pagination_params`) or a strict 400
-   (`parse_date_param_strict`). Never hint a query parameter `datetime`, and hint one
-   `bool` only where a 500 on a bad value is acceptable.
+4. **Never bind a `bool` / `int` / `float` / `date` / `datetime` / enum parameter outside
+   the path.** Read it from `request.query_params` with a `route_helpers` parser — a
+   silent fallback for a read (`parse_bool_query_param`, `parse_int_query_param`,
+   `parse_pagination_params`: an unreadable value is the default) or a strict 400 for a
+   value a write stores (`parse_float_param_strict`, `parse_date_param_strict`). A value
+   that arrives as a body field FastHTML binds is typed `str` (or a `str`-first union) and
+   read with `parse_bool_value` / `parse_int_value` / `parse_float_param_strict`. A typed
+   path segment stays: a segment that does not read is a URL that names nothing (404).
+   `tests/unit/adapters/test_request_input_census.py` holds every registered handler to
+   this.
+5. **Never `await request.json()`** — `read_json_body(request)` (see above).
 
 ---
 
 ## Examples
 
-### A read with typed query parameters
+### A read with a numeric query value
 
 ```python
 # adapters/inbound/insights_api.py
@@ -82,13 +94,34 @@ The same conversion runs on a body's keys, JSON or form: `n: int` with `{"n": "z
 async def get_active_insights(
     request: Request,
     domain: str | None = None,
-    limit: int = 50,
 ) -> Result[dict[str, Any]]:
     user_uid = require_authenticated_user(request)
+    limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1)
     ...
 ```
 
-`?limit=abc` answers 404 here — acceptable for a page-size hint.
+`?limit=abc` reads as 50, the default — a typed `limit: int` would have answered 404.
+
+### A score a write stores
+
+```python
+# adapters/inbound/route_factories/lateral_route_factory.py
+async def create_blocking(
+    request: Request,
+    uid: str,
+    target_uid: str,
+    reason: str,
+    confidence: str | float | None = None,  # form text or a JSON number
+    ...
+) -> Result[dict[str, Any]]:
+    ...
+    confidence_score = parse_edge_score(confidence, "confidence", 1.0)
+    if confidence_score.is_error:
+        return Result.fail(confidence_score)  # 400, nothing written
+```
+
+`parse_edge_score` is `parse_float_param_strict` over 0.0-1.0: a missing score is the
+default, and text that is not a number, a non-finite number, or one out of range is a 400.
 
 ### A mutation with a query uid and a body
 

@@ -127,6 +127,12 @@ class FacetCount(BaseModel):
 # ============================================================================
 
 
+#: The most results one search request may ask for. The ceiling accommodates the
+#: multi-domain sweep's over-fetch pagination (limit=offset+limit per domain) and the
+#: library browse page depth; a search door clamps a caller's ``limit`` to it.
+SEARCH_LIMIT_MAX = 200
+
+
 class SearchRequest(BaseModel):
     """
     Clean, simple search request - the foundation of SKUEL search.
@@ -394,9 +400,9 @@ class SearchRequest(BaseModel):
         description="Result ordering (relevance, created_desc, created_asc, updated_desc, title_asc)",
     )
 
-    # Ceiling accommodates the multi-domain sweep's over-fetch pagination
-    # (limit=offset+limit per domain) and the library browse page depth.
-    limit: int = Field(default=20, ge=1, le=200, description="Maximum results to return")
+    limit: int = Field(
+        default=20, ge=1, le=SEARCH_LIMIT_MAX, description="Maximum results to return"
+    )
 
     offset: int = Field(default=0, ge=0, description="Pagination offset")
 

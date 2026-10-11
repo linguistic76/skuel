@@ -150,7 +150,7 @@ def test_the_census_sees_the_writers() -> None:
     assert "relationship_builder.py::create" in keys
     assert "user_entry/user_entry_service.py::create_entry" in keys
     assert "user_entry/user_entry_service.py::link_applied_knowledge" in keys
-    assert len(_SITES) >= 37
+    assert len(_SITES) >= 35
 
 
 @pytest.mark.parametrize(

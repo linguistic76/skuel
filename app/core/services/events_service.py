@@ -681,10 +681,14 @@ class EventsService(
         )
 
         # Domain-specific sub-services (not common to all facades)
-        self.habits = EventsHabitIntegrationService(backend=backend, event_bus=event_bus)
+        self.habits = EventsHabitIntegrationService(
+            backend=backend, core=self.core, event_bus=event_bus
+        )
         self.learning: EventsLearningService = common.learning
         self.progress = EventsProgressService(backend=backend, event_bus=event_bus)
-        self.scheduling = EventsSchedulingService(backend=backend, event_bus=event_bus)
+        self.scheduling = EventsSchedulingService(
+            backend=backend, core=self.core, event_bus=event_bus
+        )
 
         # Event-driven handler from factory
         self.event_handler: EventEventHandlerService = common.event_handler

@@ -28,13 +28,16 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
+    parse_bool_value,
+    parse_int_query_param,
+    parse_int_value,
     register_domain_routes,
     split_csv,
 )
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
-from core.models.search_request import SearchRequest
+from core.models.search_request import SEARCH_LIMIT_MAX, SearchRequest
 from core.orchestrator.search_router import CURRICULUM_FACET_DOMAINS
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.result_simplified import Errors, Result
@@ -289,10 +292,13 @@ def create_search_api_routes(
         enable_semantic_boost: str | None = None,
         enable_learning_aware: str | None = None,
         prefer_unmastered: str | None = None,
-        limit: int = 20,
     ) -> Any:
-        """Execute search and return HTML results. Requires authentication."""
+        """Execute search and return HTML results. Requires authentication.
+
+        ``limit`` is read from the query string; an unreadable one is the default 20.
+        """
         user_uid = require_authenticated_user(request)
+        limit = parse_int_query_param(request.query_params, "limit", 20)
 
         logger.info(
             f"Search params: query={query}, entity_type={entity_type!r}, "
@@ -378,8 +384,8 @@ def create_search_api_routes(
         relationship: str | None = None,
         direction: str = "outgoing",
         tags: str = "",  # Comma-separated: "python,ml"
-        tags_match_all: bool = False,
-        limit: int = 50,
+        tags_match_all: str | bool = "",
+        limit: str | int = "",
     ) -> dict[str, Any]:
         """
         Unified search API combining text, graph, and array search.
@@ -396,8 +402,10 @@ def create_search_api_routes(
             relationship: Relationship type name (e.g., ENABLES, REQUIRES_KNOWLEDGE)
             direction: outgoing, incoming, or both
             tags: Comma-separated tags to filter by
-            tags_match_all: True = AND semantics, False = OR semantics
-            limit: Total result limit — the router derives each domain's budget from it
+            tags_match_all: True = AND semantics, False = OR semantics (an
+                unreadable value is False)
+            limit: Total result limit, 1-200 (default 50; an unreadable value is
+                the default) — the router derives each domain's budget from it
 
         Returns:
             {
@@ -468,8 +476,8 @@ def create_search_api_routes(
             connected_relationship=parsed_relationship,
             connected_direction=cast("Literal['outgoing', 'incoming', 'both']", direction),
             tags_contain=parsed_tags,
-            tags_match_all=tags_match_all,
-            limit=limit,
+            tags_match_all=parse_bool_value(tags_match_all),
+            limit=parse_int_value(limit, 50, minimum=1, maximum=SEARCH_LIMIT_MAX),
             user_uid=user_uid,
         )
 
@@ -507,7 +515,6 @@ def create_search_api_routes(
     async def intelligent_search_api(
         request: Request,
         q: str = "",
-        limit: int = 50,
     ) -> Result[dict[str, Any]]:
         """
         Cross-domain natural-language search with semantic filter extraction.
@@ -517,7 +524,8 @@ def create_search_api_routes(
 
         Args:
             q: Natural language search query
-            limit: Maximum total results (default 50)
+            limit: Maximum total results, 1-200 (default 50; an unreadable value
+                is the default)
 
         Returns:
             {
@@ -532,6 +540,9 @@ def create_search_api_routes(
         if not q.strip():
             return Result.fail(Errors.validation(message="q is required", field="q", value=None))
 
+        limit = parse_int_query_param(
+            request.query_params, "limit", 50, minimum=1, maximum=SEARCH_LIMIT_MAX
+        )
         result = await search_router.intelligent_search(q, user_uid=user_uid, limit=limit)
 
         if result.is_error:

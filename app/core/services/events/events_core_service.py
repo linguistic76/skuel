@@ -137,10 +137,12 @@ class EventsCoreService(
 
         Business Rules:
         1. Span: ``end_time - start_time`` lies within ``EventSpan`` (5 minutes to 12
-           hours) when both times are set. Both service doors reach this hook — the
+           hours) when both times are set. Every Events-service creator reaches this hook: the
            request door (``create_event``) and the entity door (``create``) persist
-           through the inherited CRUD create. A creator that calls ``backend.create``
-           directly does not.
+           through the inherited CRUD create, and the facade's other creators
+           (``create_event_with_context``, ``create_recurring_instances``,
+           ``create_recurring_events``, ``create_recurring_events_for_habit``)
+           persist through ``create``.
 
         Args:
             event: Event being created
@@ -315,10 +317,11 @@ class EventsCoreService(
     async def create(self, entity: Event) -> Result[Event]:
         """Persist, link, then announce — THE create primitive for Events.
 
-        Both doors land here: the entity door (``EventsService.create``) and
-        ``create_event`` below — which the generated CRUD route enters through, since
+        Every Events-service creator lands here: the entity door (``EventsService.create``), the
+        facade's other creators (context-aware and recurring), and ``create_event``
+        below — which the generated CRUD route enters through, since
         it was bound to the request door (``CRUDRouteConfig.request_create_method``). ``reinforces_habit_uid`` rides on the ``Event``, so
-        it is written as the REINFORCES_HABIT edge on this shared path for both doors.
+        it is written as the REINFORCES_HABIT edge on this shared path for each of them.
         Leaving that write on the request door alone is what made
         ``POST /api/events/create`` lose the link entirely: since #967 the mapper skips
         the field as a node property (it is DERIVED FROM EDGE), and nothing on the route

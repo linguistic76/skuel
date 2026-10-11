@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-10-01
+updated: 2026-10-11
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -210,7 +210,7 @@ from adapters.inbound.boundary import boundary_handler
 @boundary_handler()  # Auto-converts Result[T] to HTTP response
 async def create_task_route(request):
     # 1. Parse JSON body
-    body = await request.json()
+    body = await read_json_body(request)
 
     # 2. Validate with Pydantic (Tier 1)
     task_request = TaskCreateRequest.model_validate(body)

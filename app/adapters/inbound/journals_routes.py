@@ -27,6 +27,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed, rate_limited
+from adapters.inbound.route_factories import parse_bool_value
 from core.models.enums.pipeline import ProcessingMode
 from core.services.chat import DEFAULT_CHAT_MODEL
 from core.services.conversation import (
@@ -1166,8 +1167,8 @@ def create_journals_routes(
         transcript_json: str = "",
         title: str = "",
         journal_mode: str = "",
-        summon_canon: bool = False,
-        summon_vault: bool = False,
+        summon_canon: str = "",
+        summon_vault: str = "",
         canon_book_uids: str = "",
         model: str = "",
     ) -> Any:
@@ -1196,6 +1197,8 @@ def create_journals_routes(
         from ui.journals import FollowUpErrorFragment, FollowUpFragment
 
         user_uid = require_authenticated_user(request)
+        canon_on = parse_bool_value(summon_canon)
+        vault_on = parse_bool_value(summon_vault)
 
         gated_user = await _load_ai_gated_user(user_uid)
         if gated_user is None:
@@ -1212,17 +1215,17 @@ def create_journals_routes(
         # server-side (Codex #572 P1). The AI gate above already loaded the
         # user, so the dials resolve off that object — still ONE lookup per
         # follow-up (pinned by test_journals_follow_up_gate.py).
-        if summon_canon or summon_vault:
+        if canon_on or vault_on:
             is_founder = gated_user.journal_tier.is_founder()
-            summon_canon = summon_canon and is_founder
-            summon_vault = summon_vault and is_founder
+            canon_on = canon_on and is_founder
+            vault_on = vault_on and is_founder
 
         # Empty scope must mean "whole shelf" (None), never [] — an empty
         # resource_uids list is a guaranteed miss in retrieve(). The DNWF
         # file/audio composer carries no book scope, so its canon dial draws the
         # whole shelf; a typed discussion carries the books it opened on.
         book_uids = (
-            ([u for u in canon_book_uids.split(",") if u.strip()] or None) if summon_canon else None
+            ([u for u in canon_book_uids.split(",") if u.strip()] or None) if canon_on else None
         )
 
         mode = JournalMode.from_string(journal_mode)
@@ -1251,8 +1254,8 @@ def create_journals_routes(
                 user_reply=reply,
                 user_uid=user_uid,
                 mode=mode,
-                summon_canon=summon_canon,
-                summon_vault=summon_vault,
+                summon_canon=canon_on,
+                summon_vault=vault_on,
                 canon_book_uids=book_uids,
                 model=model or None,
             )
@@ -1277,7 +1280,7 @@ def create_journals_routes(
             # canon_on=false WITHOUT erasing the session's books (Codex #635 P2).
             # Best-effort: a write miss must not fail the reply already shown.
             scope_books = [book for book in canon_book_uids.split(",") if book.strip()]
-            selection = build_source_selection(scope_books, summon_canon, summon_vault)
+            selection = build_source_selection(scope_books, canon_on, vault_on)
             # Co-persist the per-conversation model (last-write-wins) so a mid-thread
             # switch on a saved discussion survives a later *continue* — model=None
             # (no picker sent) leaves the stored model unchanged.
@@ -1311,8 +1314,8 @@ def create_journals_routes(
             user_reply=reply,
             user_uid=user_uid,
             mode=mode,
-            summon_canon=summon_canon,
-            summon_vault=summon_vault,
+            summon_canon=canon_on,
+            summon_vault=vault_on,
             canon_book_uids=book_uids,
             model=model or None,
         )
@@ -1341,8 +1344,8 @@ def create_journals_routes(
         request: Request,
         transcript_json: str = "",
         title: str = "",
-        summon_canon: bool = False,
-        summon_vault: bool = False,
+        summon_canon: str = "",
+        summon_vault: str = "",
         canon_book_uids: str = "",
         model: str = "",
     ) -> Any:
@@ -1374,6 +1377,8 @@ def create_journals_routes(
             )
 
         user_uid = require_authenticated_user(request)
+        canon_on = parse_bool_value(summon_canon)
+        vault_on = parse_bool_value(summon_vault)
 
         pairs = transcript_to_pairs(parse_transcript(transcript_json))
         if not pairs:
@@ -1383,12 +1388,12 @@ def create_journals_routes(
         # POST flag is forgeable, so gate server-side) — also used to render the
         # session-backed composer's dials.
         is_founder = await _resolve_founder(user_uid)
-        summon_canon = summon_canon and is_founder
-        summon_vault = summon_vault and is_founder
+        canon_on = canon_on and is_founder
+        vault_on = vault_on and is_founder
         # Book scope is stored independent of the dial (an ungrounded save keeps
         # the session's books), mirroring the follow-up write (#635 P2).
         scope_books = [b for b in canon_book_uids.split(",") if b.strip()]
-        source_selection = build_source_selection(scope_books, summon_canon, summon_vault)
+        source_selection = build_source_selection(scope_books, canon_on, vault_on)
 
         clean_title = (
             title.strip()[:120] or pairs[0][0].split("\n")[0].strip()[:60] or "Journal Entry"
@@ -1422,8 +1427,8 @@ def create_journals_routes(
                 session_id=session.session_id,
                 is_founder=is_founder,
                 canon_book_uids=tuple(scope_books),
-                summon_canon=summon_canon,
-                summon_vault=summon_vault,
+                summon_canon=canon_on,
+                summon_vault=vault_on,
                 model=chosen_model,
                 model_options=journal_service.available_chat_models() if journal_service else [],
             ),
@@ -1482,12 +1487,14 @@ def create_journals_routes(
         title: str = "",
         scribe_output: str = "",
         review_notes: str = "",
-        summon_canon: bool = False,
-        summon_vault: bool = False,
+        summon_canon: str = "",
+        summon_vault: str = "",
     ) -> Any:
         from ui.journals import ErrorFragment, Stage2Fragment
 
         user_uid = require_authenticated_user(request)
+        canon_on = parse_bool_value(summon_canon)
+        vault_on = parse_bool_value(summon_vault)
 
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")
@@ -1505,8 +1512,8 @@ def create_journals_routes(
             scribe_output=scribe_output,
             review_notes=review_notes,
             user_uid=user_uid,
-            summon_canon=summon_canon,
-            summon_vault=summon_vault,
+            summon_canon=canon_on,
+            summon_vault=vault_on,
         )
         if result.is_error:
             logger.error("Stage 2 failed for %s: %s", user_uid, result.expect_error())
@@ -1532,12 +1539,14 @@ def create_journals_routes(
         scribe_output: str = "",
         thought_partner_output: str = "",
         review_notes: str = "",
-        summon_canon: bool = False,
-        summon_vault: bool = False,
+        summon_canon: str = "",
+        summon_vault: str = "",
     ) -> Any:
         from ui.journals import ErrorFragment, Stage3Fragment
 
         user_uid = require_authenticated_user(request)
+        canon_on = parse_bool_value(summon_canon)
+        vault_on = parse_bool_value(summon_vault)
 
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")
@@ -1555,8 +1564,8 @@ def create_journals_routes(
             thought_partner_output=thought_partner_output,
             review_notes=review_notes,
             user_uid=user_uid,
-            summon_canon=summon_canon,
-            summon_vault=summon_vault,
+            summon_canon=canon_on,
+            summon_vault=vault_on,
         )
         if result.is_error:
             logger.error("Stage 3 failed for %s: %s", user_uid, result.expect_error())
@@ -1576,6 +1585,6 @@ def create_journals_routes(
             related_output=result.value,
             is_founder=True,  # route is FOUNDER-gated above
             transcript_json=transcript_json,
-            summon_canon=summon_canon,
-            summon_vault=summon_vault,
+            summon_canon=canon_on,
+            summon_vault=vault_on,
         )
