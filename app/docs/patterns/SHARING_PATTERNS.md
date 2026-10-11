@@ -236,9 +236,9 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
   nothing); the teacher discovers submissions via `get_review_queue()`
   (`SUBMITTED_TO_GROUP` over active groups the teacher `OWNS`, filtered
   `pipeline='teacher_review'`)
-- Visibility is NOT changed — teacher access is group-relationship-gated
+- Visibility is NOT changed — teacher access is gated on the entry's own feedback request (`asks_teacher`: a group the teacher owns, or the teacher directly)
 - Entity ownership stays with the student
-- `verify_teacher_has_group_access()` — the review-write gate — requires the entry's own feedback request (`asks_teacher`): `(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:SUBMITTED_TO_GROUP]-(submission)`, or `(submission)-[:SUBMITTED_TO_TEACHER]->(teacher)` (ADR-088 §2, §9). Sharing a classroom with the *student* is not enough; a teacher writes on exactly what the queue and the detail read let them open. The AI reviewer and the standalone revision create door admit a teacher by the same gate (`EntryReportService.admit_report`, `RevisedExerciseService.admit_revision`, both via `UserEntryService.teacher_has_feedback_authority`). Others get 404
+- `verify_entry_asks_teacher()` — the review-write gate — requires the entry's own feedback request (`asks_teacher`): `(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:SUBMITTED_TO_GROUP]-(submission)`, or `(submission)-[:SUBMITTED_TO_TEACHER]->(teacher)` (ADR-088 §2, §9). Sharing a classroom with the *student* is not enough; a teacher writes on exactly what the queue and the detail read let them open. The AI reviewer and the standalone revision create door admit a teacher by the same gate (`EntryReportService.admit_report`, `RevisedExerciseService.admit_revision`, both via `UserEntryService.teacher_has_feedback_authority`). Others get 404
 
 **CLI alternative:** Teachers can bypass the web UI entirely. `scripts/export_submissions.py --teacher-uid <uid>` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; after writing reports to `done/`, `scripts/import_reports.py` posts them back via the same service methods. See ADR-040.
 

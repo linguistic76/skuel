@@ -126,7 +126,7 @@ class _UserEntryAssessmentMixin:
         teacher's ACTIVE groups, or ``SUBMITTED_TO_TEACHER`` the teacher —
         ADR-088 §2, §9) — the same visibility the detail read
         (``get_entry_detail_for_teacher``) and the review writes
-        (``verify_teacher_has_group_access``) enforce, so the queue never
+        (``verify_entry_asks_teacher``) enforce, so the queue never
         lists work the teacher cannot open or act on. Empty when nothing asks
         this teacher, so we do not leak the existence of unrelated students'
         submissions. A share
@@ -521,7 +521,7 @@ class _UserEntryAssessmentMixin:
             },
         )
 
-    async def verify_teacher_has_group_access(
+    async def verify_entry_asks_teacher(
         self, submission_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Verify the entry asks this teacher for feedback — the review-write gate.

@@ -4,10 +4,11 @@ Three role-gated surfaces read a student's learning-loop feedback by a
 caller-supplied UID and were scoped by ``@require_teacher`` alone — the role
 gate answers "may you review at all", never "whose feedback". Their paired
 *writes* are all narrower: ``submit_report`` / ``request_revision`` /
-``approve_report`` run ``verify_teacher_has_group_access`` first, so only a
-teacher sharing an active group with the student may author feedback. A read
-audience wider than that write audience is the #887 blind spot: any TEACHER
-could read one classroom's private feedback from another.
+``approve_report`` run ``verify_entry_asks_teacher`` first, so only a
+teacher the entry asks for feedback (``SUBMITTED_TO_GROUP`` an active group
+they own, or ``SUBMITTED_TO_TEACHER``) may author feedback. A read audience
+wider than that write audience is the #887 blind spot: any TEACHER could read
+one classroom's private feedback from another.
 
 The three surfaces, and what each leaked:
 

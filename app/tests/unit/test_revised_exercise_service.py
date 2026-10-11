@@ -119,7 +119,7 @@ class TestAdmitRevision:
 
         mock_backend.get_revision_target.return_value = Result.ok(TARGET)
         entry_service.teacher_has_feedback_authority.return_value = Result.fail(
-            Errors.database("verify_teacher_has_group_access", "connection failed")
+            Errors.database("verify_entry_asks_teacher", "connection failed")
         )
         result = await service.admit_revision("t", "fb", "s", "ex_123")
         assert result.is_error

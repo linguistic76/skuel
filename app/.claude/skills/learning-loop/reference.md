@@ -521,7 +521,7 @@ in `core/ports/report_protocols.py`):
 atomically in the database via `WHERE submission.status IN $allowed_from_statuses`.
 The service passes the allowed source statuses; if the guard rejects, the query
 returns empty results and the service returns a validation error (not "not found",
-since `_verify_teacher_has_group_access` already confirmed existence). This is race-safe —
+since `_verify_entry_asks_teacher` already confirmed existence). This is race-safe —
 no gap between read and write.
 
 Each feedback round creates a new `EntryReport` entity via `REPORT_FOR` —

@@ -83,7 +83,7 @@ if not records:
 **Trade-offs**:
 - Atomic — no gap between status check and mutation (race-safe)
 - Zero extra queries — guard is part of the existing MATCH
-- Empty results are ambiguous (not found vs guard rejected) — resolve by checking existence separately first (e.g., `_verify_teacher_has_group_access`)
+- Empty results are ambiguous (not found vs guard rejected) — resolve by checking existence separately first (e.g., `_verify_entry_asks_teacher`)
 
 **Real-world usage**: `EntryReportBackend.create_report_node()` (submit_report, request_revision), `create_report_and_revised_exercise()` and `UserEntryBackend.approve_and_get_linked_kus()` (approve_report). The status guards (submitted/active → completed or revision_requested, revision_requested → completed) sit beside a second in-write guard: a copy superseded for the reviewing teacher (`SUPERSEDED_COPY`, composed over names bound in a WITH) is refused by the same statement.
 

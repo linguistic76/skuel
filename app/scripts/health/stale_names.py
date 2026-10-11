@@ -63,6 +63,10 @@ SCAN_DIRS = [
 RENAMED: dict[str, str] = {
     # The supersede predicate moved to the learning-loop fragments module (public).
     "_SUPERSEDED_COPY": "SUPERSEDED_COPY",
+    # The review-write gate admits a direct request too (ADR-088 §9) — its name says
+    # what it checks: the entry asks this teacher.
+    "verify_teacher_has_group_access": "verify_entry_asks_teacher",
+    "_verify_teacher_has_group_access": "_verify_entry_asks_teacher",
     # EntityType enum values (Feb–Mar 2026)
     "EntityType.CURRICULUM": "EntityType.PATH_STEP",
     "EntityType.ARTICLE": "EntityType.PATH_STEP",
@@ -498,6 +502,7 @@ _adr088_2a = "the retired visibility ladder named where it stood -- ADR-038's Da
 _adr088_6a = "the retired create-request audience fields named where they stood -- ADR-054 §5's submit-time gate is frozen decision text; the PR 6a note above it names the one vocabulary that replaced them"
 _adr088_6b = "ADR-088 PR 6b -- the access list is Your wall (get_shared_by_me); the per-entity listings and the per-group reader are deleted, and the record names what it added"
 _sharing_door = "the sharing-door record -- ADR-038's amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) that no longer exist"
+_review_gate_name = "the arc's record of the review-write gate's narrowing names the gate by the name it carried then -- a closed record of what was built, read against the rename it predates"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
 _entity_arch = "'Pipeline and ReportSource (supersede ProcessorType)' explainer -- names the retired enum to document its replacement"
@@ -779,6 +784,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     # The arc's record, granted in bulk because naming the retired identifier IS the
     # finding. Every anchor re-derived from the scanner's own report (scan_file over the
     # file), never by adding a diff delta — the file is a closed record, so they hold.
+    "docs/roadmap/done/submission-sharing-arc.md": {
+        (437, "verify_teacher_has_group_access"): Allow(_review_gate_name),
+    },
     "docs/roadmap/done/docs-defiction-pass.md": {
         (62, "sel_routes"): Allow(_defiction),
         (92, "UnifiedUserContext"): Allow(_defiction),

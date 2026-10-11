@@ -186,7 +186,7 @@ class TeacherReviewService:
         Returns:
             Result containing report info
         """
-        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
+        access_check = await self._verify_entry_asks_teacher(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
         current = await self._refuse_superseded_copy(report_uid, teacher_uid)
@@ -276,7 +276,7 @@ class TeacherReviewService:
         Returns:
             Result containing revision info
         """
-        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
+        access_check = await self._verify_entry_asks_teacher(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
         current = await self._refuse_superseded_copy(report_uid, teacher_uid)
@@ -371,7 +371,7 @@ class TeacherReviewService:
             feedback_points: List of {category, detail} dicts
             revision_rationale: Why this revision was created
         """
-        access_check = await self._verify_teacher_has_group_access(submission_uid, teacher_uid)
+        access_check = await self._verify_entry_asks_teacher(submission_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
         current = await self._refuse_superseded_copy(submission_uid, teacher_uid)
@@ -523,7 +523,7 @@ class TeacherReviewService:
         Returns:
             Result containing updated submission info
         """
-        access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
+        access_check = await self._verify_entry_asks_teacher(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
         current = await self._refuse_superseded_copy(report_uid, teacher_uid)
@@ -926,16 +926,18 @@ class TeacherReviewService:
     # ========================================================================
 
     async def get_report_file_path(self, report_uid: str, teacher_uid: str) -> Result[str | None]:
-        """Report file path, gated by the teacher's classroom access to the report.
+        """Report file path, gated by the teacher's authority over the reviewed entry.
 
         The role gate on the download route answers "may you review at all",
-        never "whose feedback"; this answers the second question. Returns
-        ``None`` when the report is missing or belongs to a submission outside
-        the teacher's active groups, so the download route yields a 404 either
-        way (a denied read must not read as a missing-file success either).
+        never "whose feedback"; this answers the second question. The teacher
+        is admitted when the reviewed entry's owner is in their classroom
+        (``in_classroom``) or when the entry asks them for feedback
+        (``asks_teacher`` — a group they own, or a direct request, ADR-088 §9).
+        Returns ``None`` when the report is missing or the teacher has neither,
+        so the download route yields a 404 either way (a denied read must not
+        read as a missing-file success either).
 
-        Backend: UserEntryBackend.get_report_file_path (REPORT_FOR → owner →
-        shared active group).
+        Backend: UserEntryBackend.get_report_file_path
         """
         return await self.user_entry_backend.get_report_file_path(report_uid, teacher_uid)
 
@@ -970,7 +972,7 @@ class TeacherReviewService:
             )
         return Result.ok(True)
 
-    async def _verify_teacher_has_group_access(
+    async def _verify_entry_asks_teacher(
         self,
         report_uid: str,
         teacher_uid: str,
@@ -985,11 +987,9 @@ class TeacherReviewService:
         that audience cannot distinguish between "submission does not exist"
         and "submission exists but was sent to another teacher."
 
-        Backend: UserEntryBackend.verify_teacher_has_group_access
+        Backend: UserEntryBackend.verify_entry_asks_teacher
         """
-        result = await self.user_entry_backend.verify_teacher_has_group_access(
-            report_uid, teacher_uid
-        )
+        result = await self.user_entry_backend.verify_entry_asks_teacher(report_uid, teacher_uid)
         if result.is_error:
             return Result.fail(result)
 
