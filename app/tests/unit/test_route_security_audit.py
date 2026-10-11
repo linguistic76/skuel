@@ -249,6 +249,31 @@ def test_csrf_handler_with_unread_methods_is_a_gap(tmp_path: Path) -> None:
     ) == ["save_settings", "reset_settings", "rt(f'{self.base_path}/delete')(...)"]
 
 
+def test_csrf_handler_with_empty_or_lowercase_methods_is_a_gap(tmp_path: Path) -> None:
+    # FastHTML registers methods=[] as its default (GET, HEAD and POST) and
+    # uppercases names — "get" is GET. Both spellings are gaps.
+    assert _gaps_in(
+        tmp_path,
+        """
+        def make(rt):
+            @rt("/settings/save", methods=[])
+            @csrf_protected
+            async def save_settings(request):
+                return "saved"
+
+            @rt("/settings/reset", methods=["get", "post"])
+            @csrf_protected
+            async def reset_settings(request):
+                return "reset"
+
+            @rt("/settings/clear", methods=["post"])
+            @csrf_protected
+            async def clear_settings(request):
+                return "cleared"
+        """,
+    ) == ["save_settings", "reset_settings"]
+
+
 def test_csrf_handler_on_post_is_clean(tmp_path: Path) -> None:
     assert (
         _gaps_in(

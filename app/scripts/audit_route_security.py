@@ -150,14 +150,19 @@ class Handler:
     @property
     def reachable_by_safe_method(self) -> bool:
         """A write a GET reaches: no ``methods=``, one the scanner cannot read (a name,
-        a call — fail closed), or one naming a safe method."""
+        a call — fail closed), an empty one (the default registration), or one naming
+        a safe method in any case."""
         return _reachable_by_safe_method(self.has_methods_kwarg, self.methods_literal, self.methods)
 
 
 def _reachable_by_safe_method(
     has_methods_kwarg: bool, methods_literal: bool, methods: frozenset[str]
 ) -> bool:
-    return not has_methods_kwarg or not methods_literal or bool(methods & SAFE_METHODS)
+    # An empty literal is FastHTML's default registration (GET, HEAD and POST) —
+    # ``if methods:`` — so it is a gap like no kwarg at all.
+    return (
+        not has_methods_kwarg or not methods_literal or not methods or bool(methods & SAFE_METHODS)
+    )
 
 
 @dataclass(frozen=True)
@@ -208,9 +213,14 @@ def _route_path(args: list[ast.expr]) -> str | None:
 
 
 def _methods_kwarg(keywords: list[ast.keyword]) -> frozenset[str]:
+    """The string literals named, uppercased as FastHTML registers them (``"get"`` is GET)."""
     for kw in keywords:
         if kw.arg == "methods" and isinstance(kw.value, ast.List | ast.Tuple):
-            return frozenset(e.value for e in kw.value.elts if isinstance(e, ast.Constant))
+            return frozenset(
+                e.value.upper()
+                for e in kw.value.elts
+                if isinstance(e, ast.Constant) and isinstance(e.value, str)
+            )
     return frozenset()
 
 
