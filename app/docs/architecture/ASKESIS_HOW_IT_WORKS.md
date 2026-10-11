@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 # How Askesis Works
@@ -46,7 +46,7 @@ Askesis wraps eight of **the hub methods** — the nine questions `UserContextIn
 | `calculate_life_path_alignment()` | "How aligned am I with my life direction?" (5 dimensions, 0.0-1.0) |
 | `get_schedule_aware_recommendations()` | "What's the right action RIGHT NOW given my energy and schedule?" |
 
-The hub is built by `UserContextIntelligenceFactory` from the eleven domain services. The daily work plan is the flagship — it's the method that synthesizes everything.
+The hub is built by `UserContextIntelligenceFactory` from the twelve domain services. The daily work plan is the flagship — it's the method that synthesizes everything.
 
 **Doors.** No route calls a wrapper today: the Askesis API registers one route, `/api/askesis/ask`. The hub methods' first door is the Insights cards — `GET /insights/hub/{question}` answers methods 1, 4, 6, 7, 8 and 9 (the ninth, the dual-track perception rollup, has no wrapper); method 3 answers on the Ku reading page (`GET /explore/ku/{uid}/apply`); method 5 reaches `/api/context/next-action` through `UserService.get_daily_work_plan`. The wrappers are the staged second door: they become live when the conversation reaches a hub method by tool-selection, and until then are registered `PLANNED` in `scripts/detect_bloat.py` (`_ASKESIS_HUB_DOOR`). Method 2 waits on the LP walk (`_HUB_CRITICAL_PATH`). Full table: [USER_CONTEXT_INTELLIGENCE.md](../intelligence/USER_CONTEXT_INTELLIGENCE.md).
 

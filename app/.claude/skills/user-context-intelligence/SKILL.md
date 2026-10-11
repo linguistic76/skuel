@@ -188,7 +188,7 @@ takes a `UserContextQueryOperations` executor built at the composition root. `bu
 
 ## Services on the Instance
 
-`UserContextIntelligence.__init__` requires eleven services and raises `ValueError` naming any
+`UserContextIntelligence.__init__` requires twelve services and raises `ValueError` naming any
 that is `None`.
 
 | Attribute | Wired value | Called by |
@@ -199,6 +199,7 @@ that is `None`.
 | `events` | `EventsService` facade | DailyPlanning |
 | `choices` | `ChoicesService` facade | DailyPlanning |
 | `principles` | `PrinciplesService` facade | DailyPlanning, Perception |
+| `ku` | `KuService` facade | Learning — `get_published_titles`, one batched read naming the steps the ZPD and context sources hand over as Ku uids (method 1) |
 | `ps` | `PsService` facade | DailyPlanning, Learning |
 | `exercises` | `ExerciseService` facade | DailyPlanning |
 | `lp` | `LpService.relationships` (`UnifiedRelationshipService`) | no mixin — held for method 2's LP walk (`_HUB_CRITICAL_PATH`) |
@@ -218,7 +219,7 @@ methods.
 | Attribute | Value | When `None` / empty |
 |-----------|-------|---------------------|
 | `zpd_service` | `ZPDOperations` | CORE tier. Method 1 goes straight to the activity-based ranking. |
-| `vector_search` | `Neo4jVectorSearchService` | CORE tier. Methods 1 and 5 skip the semantic step. |
+| `vector_search` | `Neo4jVectorSearchService` | CORE tier. Methods 1 and 5 skip the semantic step (`learning_aware_search` of the `Ku` index — a hit is a published Ku, never another user's row). |
 | `filtered_providers` | `dict[str, FilteredContextProvider]` | Empty dict: method 5 adds no domain-health warnings. |
 
 The factory itself is built in both tiers — `compose_services` refuses to finish without
@@ -256,9 +257,12 @@ returned `Result.ok`. The method has no failing branch of its own.
 **Slot 5 (learning)** runs only when `respect_capacity` is off or the plan so far is under 70% of
 the available minutes, and takes the first branch that applies:
 
-1. `context.zpd_assessment` is present and non-empty → its top three recommended actions, keeping
-   those whose `action_type == "learn"`.
-2. `vector_search` is wired → `learning_aware_search(...)`, three results; an empty or failed
+1. `context.zpd_assessment` is present and non-empty → its top three **learn** actions
+   (`top_recommended_actions(3, action_type="learn")`: the type is filtered before the cut, so
+   three blocking gaps at `UNBLOCK_PRIORITY` 0.9 — above any learn action short of full
+   life-path alignment — cannot leave the slot empty; an unblock target is not a learning item).
+2. `vector_search` is wired → `learning_aware_search(label="Ku", ...)`, three results from the
+   Ku index (published Kus only — never another user's task, goal or entry); an empty or failed
    search falls to branch 3.
 3. `ps.get_ready_to_learn_for_user(context, limit=3)`.
 

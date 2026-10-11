@@ -17,7 +17,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from core.config.unified_config import VectorSearchConfig
-from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+from core.services.neo4j_vector_search_service import (
+    LEARNING_STATE_LABELS,
+    Neo4jVectorSearchService,
+)
 from core.utils.result_simplified import Errors, Result
 
 
@@ -261,7 +264,7 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Entity",
+                label="Ku",
                 text="python",
                 user_uid="user_test",
                 prefer_unmastered=True,
@@ -301,7 +304,7 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Entity",
+                label="Ku",
                 text="python",
                 user_uid="user_test",
                 prefer_unmastered=True,
@@ -343,7 +346,7 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Entity",
+                label="Ku",
                 text="test",
                 user_uid="user_test",
                 prefer_unmastered=False,  # Review mode - prefer mastered
@@ -393,7 +396,7 @@ class TestLearningAwareSearch:
             )
 
             result = await vector_search_service.learning_aware_search(
-                label="Entity", text="test", user_uid="user_test", limit=10
+                label="Ku", text="test", user_uid="user_test", limit=10
             )
 
             # Should still return results (graceful degradation)
@@ -402,6 +405,47 @@ class TestLearningAwareSearch:
             # 0.8 * 1.15 = 0.92
             assert result.value[0]["learning_state"] == "none"
             assert result.value[0]["score"] > result.value[0]["vector_score"]
+
+    # The boost is for the labels a learner's state edges reach; any other label is
+    # searched plainly — ``Entity`` among them, whose index holds every user's rows.
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("label", sorted(LEARNING_STATE_LABELS))
+    async def test_a_learning_state_label_is_boosted(
+        self, vector_search_service, mock_backend, label
+    ):
+        initial_results = [{"node": {"uid": "ku.test", "title": "Test"}, "score": 0.8}]
+        with patch.object(
+            vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
+        ) as find_similar:
+            result = await vector_search_service.learning_aware_search(
+                label=label, text="test", user_uid="user_test", limit=10
+            )
+
+        assert result.is_ok
+        assert result.value[0]["learning_state"] == "none"
+        mock_backend.get_learning_states_batch.assert_awaited_once()
+        assert find_similar.call_args.kwargs["label"] == label
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("label", ["Entity", "Task", "Goal"])
+    async def test_any_other_label_is_searched_without_the_boost(
+        self, vector_search_service, mock_backend, label
+    ):
+        initial_results = [{"node": {"uid": "task_x", "title": "Someone's task"}, "score": 0.8}]
+        with patch.object(
+            vector_search_service, "find_similar_by_text", return_value=Result.ok(initial_results)
+        ):
+            result = await vector_search_service.learning_aware_search(
+                label=label, text="test", user_uid="user_test", limit=10
+            )
+
+        assert result.is_ok
+        assert "learning_state" not in result.value[0]
+        mock_backend.get_learning_states_batch.assert_not_awaited()
+
+    def test_the_labels_are_the_ku_and_the_path_step(self):
+        assert frozenset({"Ku", "PathStep"}) == LEARNING_STATE_LABELS
 
 
 class TestVectorSearchConfig:

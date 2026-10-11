@@ -657,7 +657,7 @@ request = SearchRequest(
 | VIEWED | 0% | Seen but not active |
 | MASTERED | −20% | Already known |
 
-**Note:** Learning-aware search currently supports the KU label only (learning state relationships only exist for Knowledge Units).
+**Note:** the boost is applied for the labels a learner's VIEWED / IN_PROGRESS / MASTERED edges reach — `LEARNING_STATE_LABELS` (`Ku`, `PathStep`) in `neo4j_vector_search_service.py`. Any other label is searched without it; `Entity` (the whole corpus, every user's rows among it) is deliberately not accepted — a learning-aware caller names each hit as a unit of knowledge, so the hub's methods 1 and 5 search the `Ku` index.
 
 **Note:** both modes query `{label.lower()}_embedding_idx` for whatever domain is in
 scope (`NeoLabel.from_domain(entity_type)`), and only the labels in

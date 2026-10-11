@@ -72,7 +72,7 @@ number.
 
 | Method | Reads | Returns |
 |--------|-------|---------|
-| 1 `get_optimal_next_path_steps` | `zpd_service`, `vector_search`, `ps`, `tasks`, context | `Result[list[PathStep]]`, at most `max_steps` |
+| 1 `get_optimal_next_path_steps` | `zpd_service`, `vector_search`, `ps`, `ku`, `tasks`, context | `Result[list[PathStep]]`, at most `max_steps` |
 | 2 `get_learning_path_critical_path` | context | `Result[list[str]]` — `[]` without a `life_path_uid` |
 | 3 `get_knowledge_application_opportunities` | context | `Result[dict[str, list[str]]]` — six keys, never fails |
 | 4 `get_unblocking_priority_order` | context | `Result[list[tuple[str, int]]]`, highest count first |
@@ -116,8 +116,15 @@ What a caller must not assume:
   source handed over — a Ku uid (ZPD, vector) or a PathStep uid (`ps`) — and
   `PsApplicationDiscoveryService` matches it as an `:Entity` without verifying it first, so an
   unknown uid is an empty answer.
-- A step's `title` is the entity's title only on the vector and `ps` sources. The ZPD and
-  context sources build it from the uid.
+- **The vector source searches the Ku index** — `learning_aware_search(label="Ku", …)`
+  (`LEARNING_STATE_LABELS`), because every hit becomes a step named by its uid as a Ku. The
+  whole-corpus `Entity` index holds every user's tasks, goals and entries beside the curriculum
+  and is not searched; a hit is a published Ku and nothing else.
+- **A step's `title` is its Ku's published title on every source.** The vector and `ps` rows
+  carry it; the ZPD and context sources hand over Ku uids alone, so their steps are built with
+  the `Knowledge Unit {uid}` placeholder and named after the cut in one
+  `ku.get_published_titles` read (`_with_titles`). A uid the read withholds — no such Ku, or one
+  marked draft — keeps the placeholder; a failed read fails the answer.
 
 How the assessment is computed belongs to the [zpd](../zpd/SKILL.md) skill.
 

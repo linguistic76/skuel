@@ -60,7 +60,7 @@ class TestTheSection:
 class TestEveryCardOwnsItsMount:
     def test_each_card_swaps_into_its_questions_mount(self) -> None:
         cards = {
-            HubQuestion.LEARN_NEXT: render_learn_next_card([], TITLES),
+            HubQuestion.LEARN_NEXT: render_learn_next_card([]),
             HubQuestion.UNBLOCK_FIRST: render_unblock_first_card([], TITLES),
             HubQuestion.SYNERGIES: render_synergies_card([], TITLES),
             HubQuestion.ALIGNMENT: render_alignment_card(_no_life_path(), TITLES),
@@ -85,7 +85,7 @@ class TestLearnNext:
     def test_a_step_shows_its_title_and_links_the_ku_page(self) -> None:
         step = PathStep(
             ku_uid="ku.t.alpha",
-            title="Knowledge Unit ku.t.alpha",  # the ZPD source's placeholder
+            title="Alpha concept",  # the hub's published-titles read named it
             rationale="Helps with 1 active goals",
             prerequisites_met=False,
             aligns_with_goals=("goal_t_ship",),
@@ -93,20 +93,20 @@ class TestLearnNext:
             estimated_time_minutes=45,
             priority_score=0.75,
         )
-        html = _html(render_learn_next_card([step], TITLES))
+        html = _html(render_learn_next_card([step]))
         assert "Alpha concept" in html
         assert "Knowledge Unit ku.t.alpha" not in html
         assert 'href="/explore/ku/ku.t.alpha"' in html
         assert "~45 min" in html and "unlocks 2" in html and "prerequisites pending" in html
         assert "serves 1 goals" in html and "Helps with 1 active goals" in html
 
-    def test_an_unknown_title_falls_back_to_the_steps_own(self) -> None:
+    def test_a_step_the_hub_left_nameless_keeps_its_placeholder(self) -> None:
         step = PathStep(ku_uid="ku.t.unknown", title="Knowledge Unit ku.t.unknown")
-        html = _html(render_learn_next_card([step], TITLES))
+        html = _html(render_learn_next_card([step]))
         assert "Knowledge Unit ku.t.unknown" in html
 
     def test_empty_points_at_explore(self) -> None:
-        html = _html(render_learn_next_card([], TITLES))
+        html = _html(render_learn_next_card([]))
         assert "Nothing is ready to learn yet" in html
         assert 'href="/explore"' in html
 

@@ -81,11 +81,12 @@ from core.services.user.intelligence.perception_intelligence import PerceptionIn
 | 4 | `events` | `EventsService` | yes |
 | 5 | `choices` | `ChoicesService` | yes |
 | 6 | `principles` | `PrinciplesService` | yes |
-| 7 | `ps` | `PsService` | yes |
-| 8 | `lp` | `LpService.relationships` | no |
-| 9 | `exercises` | `ExerciseService` | yes |
-| 10 | `report` | `ReportRelationshipService` | yes |
-| 11 | `calendar` | `CalendarService` | yes |
+| 7 | `ku` | `KuService` | yes |
+| 8 | `ps` | `PsService` | yes |
+| 9 | `lp` | `LpService.relationships` | no |
+| 10 | `exercises` | `ExerciseService` | yes |
+| 11 | `report` | `ReportRelationshipService` | yes |
+| 12 | `calendar` | `CalendarService` | yes |
 
 Optional: `vector_search_service`, `zpd_service`, `filtered_providers` — see
 [FACTORY_PATTERN.md](FACTORY_PATTERN.md).

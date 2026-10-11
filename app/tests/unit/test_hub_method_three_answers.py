@@ -42,6 +42,7 @@ def _hub(context: RichUserContext) -> UserContextIntelligence:
         events=MagicMock(),
         choices=MagicMock(),
         principles=MagicMock(),
+        ku=MagicMock(),
         ps=MagicMock(),
         lp=MagicMock(),
         exercises=MagicMock(),

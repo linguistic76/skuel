@@ -172,7 +172,10 @@ def render_hub_card_error(question: HubQuestion, message: str) -> FT:
 # ---------------------------------------------------------------------------
 
 
-def render_learn_next_card(steps: Sequence[PathStep], titles: Mapping[str, str]) -> FT:
+def render_learn_next_card(steps: Sequence[PathStep]) -> FT:
+    """The steps as the hub named them: a step's ``title`` is its Ku's published title,
+    or the hub's placeholder for one the catalogue withholds — no other title overrides
+    it, so a draft the hub kept nameless stays nameless here."""
     if not steps:
         return _card(
             HubQuestion.LEARN_NEXT,
@@ -197,7 +200,7 @@ def render_learn_next_card(steps: Sequence[PathStep], titles: Mapping[str, str])
         rows.append(
             Li(
                 Div(
-                    _entity_link("ku", step.ku_uid, titles, step.title),
+                    _entity_link("ku", step.ku_uid, {}, step.title),
                     _score_badge(step.priority_score),
                     cls="flex items-start justify-between gap-2",
                 ),

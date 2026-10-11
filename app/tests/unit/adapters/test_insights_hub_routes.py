@@ -5,7 +5,8 @@ Driven through a real ``fast_app`` + TestClient so FastHTML's own binding of the
 question (404), every ``HubQuestion`` answered as its card (200, the mount id, the
 hub method of the same number asked), a failed rich-context read and a failed hub
 answer rendered as the question's error card (200, never a 500), the titles a card
-shows resolved from the rich context first and from one Ku batch for the rest, and
+shows resolved from the rich context first and from one Ku batch for the rest (the
+learn-next card excepted: the hub names its own steps, and the card reads no Ku), and
 the ``/insights`` page mounting the section only when the hub is wired.
 """
 
@@ -63,15 +64,19 @@ def _ku(uid: str, title: str) -> MagicMock:
 def _hub() -> MagicMock:
     """Every hub method answers; each test overrides the one it asks."""
     hub = MagicMock()
+    # The hub names its steps (one published-titles batch of its own); a uid that read
+    # withheld keeps the hub's placeholder.
     hub.get_optimal_next_path_steps = AsyncMock(
         return_value=Result.ok(
             [
-                PathStep(ku_uid=KU_IN_CONTEXT, title=f"Knowledge Unit {KU_IN_CONTEXT}"),
+                PathStep(ku_uid=KU_IN_CONTEXT, title="Engaged concept"),
                 PathStep(ku_uid=KU_OUTSIDE, title=f"Knowledge Unit {KU_OUTSIDE}"),
             ]
         )
     )
-    hub.get_unblocking_priority_order = AsyncMock(return_value=Result.ok([(KU_OUTSIDE, 2)]))
+    hub.get_unblocking_priority_order = AsyncMock(
+        return_value=Result.ok([(KU_OUTSIDE, 2), (KU_IN_CONTEXT, 1)])
+    )
     hub.get_cross_domain_synergies = AsyncMock(
         return_value=Result.ok(
             [
@@ -272,12 +277,36 @@ class TestTitles:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         harness = _make_harness(monkeypatch)
-        response = harness.client.get("/insights/hub/learn-next")
+        response = harness.client.get("/insights/hub/unblock-first")
         assert "Engaged concept" in response.text
         assert "Unseen concept" in response.text
-        assert "Knowledge Unit" not in response.text
         # Only the uid the context lacked went to the graph.
         harness.ku_service.get_kus_batch.assert_awaited_once_with([KU_OUTSIDE])
+
+    def test_learn_next_shows_the_hub_s_titles_and_reads_no_ku(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The hub's steps arrive named; the card does not resolve them again, so a
+        uid the hub's published-only read withheld stays as the hub left it."""
+        harness = _make_harness(monkeypatch)
+        response = harness.client.get("/insights/hub/learn-next")
+        assert "Engaged concept" in response.text
+        assert f"Knowledge Unit {KU_OUTSIDE}" in response.text
+        assert "Unseen concept" not in response.text
+        harness.ku_service.get_kus_batch.assert_not_awaited()
+
+    def test_learn_next_lets_no_context_title_override_the_hub_s_placeholder(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A Ku the hub kept nameless (its published-only read withheld it) stays
+        nameless even when the rich context carries its title — the hub's gate holds."""
+        harness = _make_harness(monkeypatch)
+        harness.hub.get_optimal_next_path_steps.return_value = Result.ok(
+            [PathStep(ku_uid=KU_IN_CONTEXT, title=f"Knowledge Unit {KU_IN_CONTEXT}")]
+        )
+        response = harness.client.get("/insights/hub/learn-next")
+        assert f"Knowledge Unit {KU_IN_CONTEXT}" in response.text
+        assert "Engaged concept" not in response.text
 
     def test_a_record_saying_ku_instead_of_knowledge_resolves_too(
         self, monkeypatch: pytest.MonkeyPatch
@@ -300,10 +329,8 @@ class TestTitles:
 
     def test_no_missing_title_means_no_ku_read(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
-        harness.hub.get_optimal_next_path_steps.return_value = Result.ok(
-            [PathStep(ku_uid=KU_IN_CONTEXT, title="placeholder")]
-        )
-        harness.client.get("/insights/hub/learn-next")
+        harness.hub.get_unblocking_priority_order.return_value = Result.ok([(KU_IN_CONTEXT, 1)])
+        harness.client.get("/insights/hub/unblock-first")
         harness.ku_service.get_kus_batch.assert_not_awaited()
 
     def test_a_failed_ku_batch_leaves_the_fallback_text(

@@ -32,7 +32,8 @@ class UserContextIntelligenceFactory:
         events: EventsService,
         choices: ChoicesService,
         principles: PrinciplesService,
-        # Curriculum (3)
+        # Curriculum (4)
+        ku: KuService,
         ps: PsService,
         lp: UnifiedRelationshipService,
         exercises: Any,  # boundary: ExerciseService facade, duck-typed
@@ -49,7 +50,7 @@ class UserContextIntelligenceFactory:
     def create(self, context: RichUserContext) -> UserContextIntelligence: ...
 ```
 
-- The eleven required services are held in one dict, `_required_services`. It is both what the
+- The twelve required services are held in one dict, `_required_services`. It is both what the
   constructor validates and what `create()` forwards, so adding a service is one entry there
   plus the two matching parameters.
 - A required service that is `None` raises `ValueError` at construction, naming every missing

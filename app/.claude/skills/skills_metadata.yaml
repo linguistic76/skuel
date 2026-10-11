@@ -537,7 +537,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-10-10"
+    last_reviewed: "2026-10-11"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library
@@ -583,7 +583,7 @@ skills:
 
   - name: zpd
     description: SKUEL's Zone of Proximal Development — readiness scoring, blocking gaps, compound evidence, recommended actions, ZPD snapshots (the pedagogical gravity well)
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-10-11"
     foundation: [user-context-intelligence, curriculum-domains]
     dependencies: [user-context-intelligence, curriculum-domains]
     library_package: null  # SKUEL pattern, not external library

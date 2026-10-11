@@ -112,7 +112,7 @@ async def setup_benchmark_data(driver):
         for i in range(100):
             await session.run(
                 """
-                CREATE (k:Entity {
+                CREATE (k:Entity:Ku {
                     uid: $uid,
                     title: $title,
                     description: $description,
@@ -255,7 +255,7 @@ async def run_benchmarks():
 
         async def learning_search():
             await vector_search.learning_aware_search(
-                label="Entity",
+                label="Ku",
                 text="benchmark test",
                 user_uid="user_benchmark",
                 prefer_unmastered=True,

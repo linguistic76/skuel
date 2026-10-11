@@ -1,6 +1,6 @@
 ---
 title: "Label-Generic Vector Rung Has No Index for Most Domains"
-updated: 2026-09-10
+updated: 2026-10-11
 status: "open — a search-design decision, not a config change"
 registered: 2026-09-10
 trigger: "Next touch of the /search semantic rung, or the first report that 'Semantic boost' does nothing"
@@ -55,9 +55,11 @@ The shape that actually fits is the **`Entity` index plus an `entity_type`
 filter** — one index serving every domain, which is why `Entity` is in the tuple
 at all. That needs care the config change does not: the vector query has to carry
 the type predicate without breaking the score normalization
-`find_similar_by_vector` does per label, and `learning_aware_search`'s
-`label != "Entity"` branch has to be reconciled with it rather than left as a
-fallthrough.
+`find_similar_by_vector` does per label, and it has to coexist with
+`learning_aware_search`'s guard, which admits `LEARNING_STATE_LABELS` (`Ku`,
+`PathStep`) and searches anything else without the boost — `Entity` included,
+since the hub's learning-aware callers name every hit as a Ku and the
+`Entity` index holds every user's rows.
 
 ## What was ruled here already
 

@@ -349,6 +349,14 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
+        "KuBackend.get_published_titles",
+        Disposition.GATED,
+        "The titles the hub's recommendations (method 1's ZPD and context "
+        "sources) name their steps by — a recommendation is discovery, so a "
+        "draft's title is withheld and its step keeps the uid placeholder.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.curriculum_backends",
         "PsBackend.count_engaged_knowledge",
         Disposition.USER_STATE,
         "Counts the knowledge the learner themselves marked in progress, "

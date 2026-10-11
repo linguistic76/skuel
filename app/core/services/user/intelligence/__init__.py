@@ -8,7 +8,7 @@ This package implements learning journey intelligence that synthesizes
 user state with graph intelligence to answer: "What should I work on?"
 
 **Architecture:**
-UserContextIntelligence = RichUserContext + the eleven domain services
+UserContextIntelligence = RichUserContext + the twelve domain services
                         = User State + Complete Graph Intelligence
 
 **Package Structure:**
