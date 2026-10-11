@@ -72,7 +72,8 @@ def create_exercises_api_routes(
 
         Access: the submission OWNER may summon the LLM reviewer for their own
         entry — the self-serve half of the learning loop — and a teacher may
-        for an entry submitted to an active group they own (ADR-088 §2). Both
+        for an entry that asks them for feedback — submitted to an active group
+        they own, or to them directly (ADR-088 §2, §9). Both
         are pinned to the exercise the entry fulfils
         (``EntryReportService.admit_report``). Gated per-user by the ADR-043
         intelligence tier (LLM = FULL).

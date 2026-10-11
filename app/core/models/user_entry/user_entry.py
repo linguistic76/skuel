@@ -19,13 +19,15 @@ that with a `pipeline: Pipeline` field. `entity_type` is always
                                       structured second entry (journal flow)
     Pipeline.LLM_SUMMARY              text/file -> LLM summary
     Pipeline.TEACHER_REVIEW           no processing; teacher review queue via
-                                      SUBMITTED_TO_GROUP (the feedback request)
+                                      the feedback request (SUBMITTED_TO_GROUP /
+                                      SUBMITTED_TO_TEACHER)
 
 Audience
 --------
 Declared at submit time via `UnifiedSharingService`, in two verbs (ADR-088):
 a feedback request (`SUBMITTED_TO_GROUP`, read by the group's owning
-teachers) and a share (`SHARES_WITH` / `SHARED_WITH_GROUP`, openable by its
+teachers, or `SUBMITTED_TO_TEACHER`, read by the one teacher it names —
+ADR-088 §9) and a share (`SHARES_WITH` / `SHARED_WITH_GROUP`, openable by its
 recipients). There is no implicit student->teacher routing inferred from
 `FULFILLS_EXERCISE` traversal + role check; the student (or the exercise's
 groups by default when `pipeline=TEACHER_REVIEW` + exercise link)

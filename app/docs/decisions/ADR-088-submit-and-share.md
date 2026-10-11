@@ -1,6 +1,6 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-09-27
+updated: 2026-10-11
 status: implemented
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
@@ -125,14 +125,14 @@ entry ──SHARED_WITH_GROUP───▶ Group ◀─MEMBER_OF|OWNS─       sh
 
 ### 3. Links are the only audience record (R4, R6)
 
-- `SHARES_WITH` (person), `SHARED_WITH_GROUP` (group) and `SUBMITTED_TO_GROUP` (feedback request)
-  are the whole record of who may see an entry. **A link alone grants access** — no property has
+- `SHARES_WITH` (person), `SHARED_WITH_GROUP` (group) and the feedback requests
+  (`SUBMITTED_TO_GROUP`, and `SUBMITTED_TO_TEACHER` — §9) are the whole record of who may see an entry. **A link alone grants access** — no property has
   to agree with it.
 - **Two readers, never crossed.** The **audience fragment** decides what a non-owner may open as
   a recipient: a direct `SHARES_WITH` reaches them, or they reach an **active** group
   (`g.is_active = true`, strict) the entry is `SHARED_WITH_GROUP` to, through `MEMBER_OF` or
   `OWNS`. The **teacher gate** (§2: `SUBMITTED_TO_GROUP` under the teacher's `OWNS` of an active
-  group) decides what a teacher may review. Neither admits through the other's link — a feedback
+  group, or §9: `SUBMITTED_TO_TEACHER` to the teacher) decides what a teacher may review. Neither admits through the other's link — a feedback
   request never makes an entry openable as a share, and a share never puts it in a queue.
 - The audience fragment holds no owner arm. The visibility clause ORs it with the owner arm
   (`ownership_property`) for `OWNER_OR_AUDIENCE` (§5); the Shared page and the `/groups` list
@@ -208,13 +208,65 @@ to a group), my default group (the curriculum fallback, ruled 2026-07-04, kept �
 every group I am a student of. `group:<uid>` is always a share: it never files a feedback
 request.
 
+### 9. Submit has two targets: a group or one teacher (amended 2026-10-10)
+
+```
+entry ──SUBMITTED_TO_GROUP {submitted_at}───▶ Group ◀─OWNS── teacher   read by the group's owning teachers
+entry ──SUBMITTED_TO_TEACHER {submitted_at}─▶ teacher (User)          read by that teacher
+```
+
+A teacher's PERSONAL exercise anchored to a published PathStep (`HAS_EXERCISE`) is the step's:
+every learner on the step may read it and turn in against it (ruled 2026-10-10). It belongs to no
+group, so a `teacher_review` turn-in on it found no feedback target and was refused. It is now
+filed **directly to the exercise's owner**: `SUBMITTED_TO_TEACHER`, the feedback-request sibling of
+`SUBMITTED_TO_GROUP`, with the same `submitted_at` stamp and the same idempotent MERGE.
+
+- **When it is written.** Only by `teachers` (explicit or the TEACHER_REVIEW default), only on
+  `pipeline=teacher_review`, and only when no group reaches a teacher: neither the exercise's
+  assigned groups the submitter belongs to nor the curriculum fallback (§8). The exercise (a
+  RevisedExercise resolves to the exercise it revises) must be PERSONAL and anchored to a
+  published PathStep — `build_anchored_exercise_clause`, the same rule the SCOPE_AWARE read
+  admits by. The target is the exercise's owner, read from the `:OWNS` edge (ADR-086). It holds
+  the TEACHER role or higher, and it is never the submitter. Anything else leaves the request with
+  no target, refused before the first write as today. The write statement
+  (`SharingBackend.create_teacher_submission`) decides the same rule again, so a change between
+  validation and the write is a refusal, never an edge.
+- **Who reads it.** The teacher it names, everywhere a group's teacher reads a request sent to
+  their group. Every entry-level teacher-side reader and writer composes one predicate,
+  `asks_teacher`: `SUBMITTED_TO_GROUP` an active group the teacher owns, or `SUBMITTED_TO_TEACHER`
+  the teacher. Its twin `feedback_requests_subquery` enumerates the same requests. These cover the
+  review queue and its detail, the review writes (report, revision, approve, teacher delete), the
+  AI-report and revision-create admissions, the supersede rule, the dashboard's pending count, an
+  exercise's submission list and counts, and the bell.
+- **What it does not grant.** The learner does not become that teacher's student (ruled
+  2026-10-10):
+  1. **The exchange thread: yes.** The teacher may open `/exchange?student=…` (the review page's
+     link). The gate is the student in the teacher's classroom, or a direct request from the
+     student (`verify_teacher_exchange_authority`). The thread then shows only the entries that
+     ask this teacher, never the learner's other work.
+  2. **Report downloads: yes,** for the reports on the entries that ask this teacher
+     (`get_report_file_path`: classroom, or `asks_teacher` on the reported entry).
+     `get_revision_chain` stays classroom-gated: it lists an exercise's revisions across
+     students, beyond any one request, and no review-page link reads it.
+  3. **The knowledge tab: no.** It stays classroom-gated: the student in an active group the
+     teacher owns (`in_classroom`, `verify_teacher_authority`).
+  4. **The student page: no, and no dead link.** `/teaching/students/{uid}` and its submissions
+     read stay classroom-gated. The students list and the dashboard's student count include
+     classroom students only, so a learner who reached the teacher by a direct request alone is
+     not listed. The teacher works those requests from the review queue.
+- **Two readers, still never crossed (§3).** `SUBMITTED_TO_TEACHER` is a feedback request, not a
+  share: the audience fragment never admits through it, and no share door writes or deletes it.
+  A request is not withdrawn, as with `SUBMITTED_TO_GROUP`.
+- **Not built:** naming a teacher in the audience (`teacher:<username>`). `teacher:` names a group
+  (§8). The direct target is reached only by the anchored-PERSONAL route above.
+
 ### The one audience vocabulary
 
 One parser and applier, used by the web form, the JSON API and the vault:
 
 | Value | Writes |
 |---|---|
-| `teachers` | `SUBMITTED_TO_GROUP` to the exercise's groups I belong to (a curriculum exercise: my default group); with no exercise, to all my student groups |
+| `teachers` | `SUBMITTED_TO_GROUP` to the exercise's groups I belong to (a curriculum exercise: my default group); a PERSONAL exercise anchored to a published PathStep, in none of my groups: `SUBMITTED_TO_TEACHER` to its owner (§9); with no exercise, to all my student groups |
 | `teacher:<group_uid>` | `SUBMITTED_TO_GROUP` to one group |
 | `group:<uid>` | `SHARED_WITH_GROUP` |
 | `user:<username>` | `SHARES_WITH`, only with a co-member (§7) |
@@ -334,6 +386,11 @@ GradeBook nudge (PR 6c), the submit form (PR 7) and the vault door (PR 8).
   copy survives the next sync (PR 8 — `tests/integration/user_entry/test_vault_exercise_channel.py`);
   the review queue, its badge and the students summary supersede older copies of one note (PR 8 —
   `tests/integration/routes/test_review_queue_copy_collapse.py`).
+- [x] Integration: the direct target (§9) — the anchored-PERSONAL turn-in reaches its owner's queue,
+  detail, AI-report and revision doors, exchange and report download; a classroom teacher and an
+  unrelated teacher are refused like a missing uid; the student page, its knowledge tab and the
+  students list stay with the classroom; unanchored, draft-anchored, assigned, curriculum,
+  self-owned and non-teacher-owner controls (`tests/integration/routes/test_submit_to_teacher.py`).
 - [x] Manual: the arc-close walk-through as a student and a second account (arc doc § Verification —
   passed live 2026-09-27; the dated record is there).
 
@@ -393,6 +450,7 @@ gets its note with the PR that falsifies it:
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-09-24 | MCF | Accepted with the Submit & Share arc plan (rulings R1–R14, refinements 1–4) | 1.0 |
+| 2026-10-10 | MCF | §9: Submit's second target — `SUBMITTED_TO_TEACHER` to the owner of a PERSONAL exercise anchored to a published PathStep; every entry-level teacher reader composes `asks_teacher`; the exchange and report download admit that teacher, the knowledge tab and the student page stay with the classroom | 1.4 |
 | 2026-09-27 | MCF | Verified: the arc-close walk-through passed live (every step, as a student, a teacher and a second account), after three pre-flight fixes on its path (#1427–#1429); status implemented | 1.3 |
 | 2026-09-26 | MCF | PR 8 landed R9 at the vault door (§1): every vault note is a living draft from its first sync and never carries a link; `status: submitted` files a frozen copy to the note's audience (`teachers` by default) — first-class `submitted_from_uid`, a fingerprint of the authored snapshot for dedup, and one supersede rule for the note lineage in the review queue | 1.2 |
 | 2026-09-25 | MCF | PR 6a landed the one vocabulary (§7, §8, § The one audience vocabulary): `AudienceSpec` + `AudienceResolver`, R8 co-membership at every person-share writer, the `private: true` refusal (the ADR-054 §5 amendment) | 1.1 |

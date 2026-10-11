@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-27
+updated: 2026-10-11
 related_skills: [learning-loop]
 ---
 
@@ -165,7 +165,8 @@ submitting students, so `DISTINCT student` + count aggregate in a single pass.
 
 The review detail read (`TeacherReviewService.get_submission_detail` →
 `get_entry_detail_for_teacher()`) returns an entry by uid only when it is
-`SUBMITTED_TO_GROUP` an active group the teacher owns (ADR-088); anything else is
+`SUBMITTED_TO_GROUP` an active group the teacher owns, or `SUBMITTED_TO_TEACHER` the teacher
+(ADR-088 §2, §9); anything else is
 `not_found` (404), so a teacher cannot tell a missing entry from another teacher's student's.
 `@require_role(UserRole.TEACHER)` is the role half and this read the access half; the
 revision route takes the exercise from it.

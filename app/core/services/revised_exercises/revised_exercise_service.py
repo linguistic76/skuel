@@ -283,7 +283,8 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
 
         - the report is about an entry the named student owns;
         - that entry asks this teacher for feedback: it was ``SUBMITTED_TO_GROUP``
-          an active group the teacher owns (ADR-088 §2). Having the student in one
+          an active group the teacher owns, or ``SUBMITTED_TO_TEACHER`` the
+          teacher (ADR-088 §2, §9). Having the student in one
           of the teacher's groups is not enough, and neither is the role alone;
         - the exercise being revised is the one that entry FULFILLS.
 

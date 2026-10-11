@@ -469,8 +469,8 @@ Both say "here is what your work means."
 `EntryReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
 via the Exercise's `instructions` field (`LLM`). The LLM report is triggered
 by the submission OWNER (self-serve — `POST /api/exercises/report`, per-user
-ADR-043 FULL-tier gate) or by a teacher the entry was `SUBMITTED_TO_GROUP` to
-(ADR-088 §2). `EntryReportService.admit_report` decides, pins both callers to
+ADR-043 FULL-tier gate) or by a teacher the entry asks for feedback
+(`SUBMITTED_TO_GROUP` or `SUBMITTED_TO_TEACHER`, ADR-088 §2, §9). `EntryReportService.admit_report` decides, pins both callers to
 the exercise the entry fulfils, and returns the `AdmittedReport` proof
 `generate_report` requires; every refusal is a 404.
 
@@ -574,7 +574,8 @@ an out-of-classroom read is an empty chain, indistinguishable from a nonexistent
 **Access control:** `create()` (overrides `CrudOperationsMixin.create`) runs
 `RevisedExerciseService.admit_revision` before its first write: the report's entry must be
 owned by `student_uid`, must ask this teacher for feedback — `SUBMITTED_TO_GROUP` an active
-group the teacher owns (ADR-088 §2, via `UserEntryService.teacher_has_feedback_authority`) —
+group the teacher owns, or `SUBMITTED_TO_TEACHER` the teacher (ADR-088 §2, §9, via
+`UserEntryService.teacher_has_feedback_authority`) —
 and `original_exercise_uid` must be the exercise that entry FULFILLS. The role gate
 (`@require_role(UserRole.TEACHER)`) alone admits nothing, an ADMIN included. Every refusal is a
 404 that reads as a missing report, and the exercise is judged only once the entry is admitted;

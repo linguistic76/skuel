@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-10-10'
+updated: '2026-10-11'
 category: patterns
 related_skills:
 - pytest
@@ -49,6 +49,7 @@ readers that are never crossed:
 
 ```
 entry ──SUBMITTED_TO_GROUP {submitted_at}──▶ Group ◀─OWNS── teacher   feedback request → review queue only
+entry ──SUBMITTED_TO_TEACHER {submitted_at}──▶ teacher (User)         feedback request → that teacher's queue only
 entry ──SHARED_WITH_GROUP {shared_at, share_version}──▶ Group ◀─MEMBER_OF|OWNS─   share → every member
 ```
 
@@ -57,11 +58,22 @@ entry ──SHARED_WITH_GROUP {shared_at, share_version}──▶ Group ◀─ME
   pipeline a feedback target (`teachers`, the exercise auto-target) writes **no link**. Every
   FormSubmission group target is a feedback request. The returned bool is `created` — a
   re-filed request is a success, not zero reach; only the created subset rings a teacher.
+- `submit_to_teacher()` files a feedback request with one teacher directly (ADR-088 §9): the
+  owner of a PERSONAL exercise anchored to a published PathStep, when no group reaches a teacher
+  for the turn-in. The target is the exercise's `:OWNS` owner, a TEACHER or higher, never the
+  submitter. The write statement decides the same rule again
+  (`SharingBackend.create_teacher_submission`), and it returns `created` like its sibling.
 - `share_with_group()` shares with every member and owner of an active group. It never puts an
   entry in a queue.
-- A teacher-side reader (the review queue and its detail, the dashboard counts, the teaching
-  group pages, the exchange in teacher mode, the forms gate) reads `SUBMITTED_TO_GROUP` under
-  `(teacher)-[:OWNS]->(g:Group {is_active: true})`. A teacher-side list or teacher-wide count
+- An entry-level teacher-side reader (the review queue and its detail, the review writes and
+  admissions, the supersede rule, the dashboard's pending count, the exercise lists, the
+  exchange in teacher mode) composes `asks_teacher` (`learning_loop_fragments.py`):
+  `SUBMITTED_TO_GROUP` under `(teacher)-[:OWNS]->(g:Group {is_active: true})`, or
+  `SUBMITTED_TO_TEACHER` to the teacher. `feedback_requests_subquery` enumerates the same
+  requests. The student-level surfaces (the student page, its knowledge tab, the students
+  list) read `in_classroom` instead, so a direct request opens the exchange thread and the
+  report download for its reports, never the student page (ADR-088 §9 rulings). The per-group
+  pages and the forms gate stay on `SUBMITTED_TO_GROUP`. A teacher-side list or teacher-wide count
   reads an entry once, however many of that teacher's groups it asks (a `teachers` request files
   to every class the student is in without an exercise, or with one to each of its assigned
   classes the student is in); a per-group page (a class card, a group's detail)
@@ -196,9 +208,10 @@ never the copy's live links).
 # - A RevisedExercise target resolves to the exercise it revises in both lookups,
 #   so a turn-in against a revision reaches the root exercise's reviewers
 
-# Step 3: Teacher views review queue (SUBMITTED_TO_GROUP over ACTIVE groups the teacher OWNS)
+# Step 3: Teacher views review queue (every feedback request to the teacher)
 queue_result = await teacher_review.get_review_queue(teacher_uid)
-# → get_review_queue_by_groups: entries SUBMITTED_TO_GROUP an owned active group,
+# → get_review_queue_by_groups: entries SUBMITTED_TO_GROUP an owned active group or
+#   SUBMITTED_TO_TEACHER the teacher (feedback_requests_subquery),
 #   filtered pipeline='teacher_review'
 
 # Step 4: Teacher provides feedback
@@ -225,7 +238,7 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
   `pipeline='teacher_review'`)
 - Visibility is NOT changed — teacher access is group-relationship-gated
 - Entity ownership stays with the student
-- `verify_teacher_has_group_access()` — the review-write gate — requires the entry's own feedback request: `(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:SUBMITTED_TO_GROUP]-(submission)` (ADR-088 §2). Sharing a classroom with the *student* is not enough; a teacher writes on exactly what the queue and the detail read let them open. The AI reviewer and the standalone revision create door admit a teacher by the same gate (`EntryReportService.admit_report`, `RevisedExerciseService.admit_revision`, both via `UserEntryService.teacher_has_feedback_authority`). Others get 404
+- `verify_teacher_has_group_access()` — the review-write gate — requires the entry's own feedback request (`asks_teacher`): `(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:SUBMITTED_TO_GROUP]-(submission)`, or `(submission)-[:SUBMITTED_TO_TEACHER]->(teacher)` (ADR-088 §2, §9). Sharing a classroom with the *student* is not enough; a teacher writes on exactly what the queue and the detail read let them open. The AI reviewer and the standalone revision create door admit a teacher by the same gate (`EntryReportService.admit_report`, `RevisedExerciseService.admit_revision`, both via `UserEntryService.teacher_has_feedback_authority`). Others get 404
 
 **CLI alternative:** Teachers can bypass the web UI entirely. `scripts/export_submissions.py --teacher-uid <uid>` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; after writing reports to `done/`, `scripts/import_reports.py` posts them back via the same service methods. See ADR-040.
 
@@ -549,6 +562,9 @@ Stop-sharing door over this service for a UserEntry.
 **SUBMITTED_TO_GROUP properties** (the feedback request, ADR-088 §2 — `(entry)-[:SUBMITTED_TO_GROUP]->(group)`):
 - `submitted_at`: Timestamp of the first filing (a re-filed request keeps it; the MERGE returns `created = false`)
 
+**SUBMITTED_TO_TEACHER properties** (the direct feedback request, ADR-088 §9 — `(entry)-[:SUBMITTED_TO_TEACHER]->(teacher:User)`):
+- `submitted_at`: the same as its sibling's
+
 ---
 
 ## Security Considerations
@@ -702,7 +718,7 @@ if result.is_error:
 - **UI Components:** `ui/user_entry/forms.py` (the Submit page's form — `submit_page_href()` is the one spelling of its URL)
 - **The Shared page:** `adapters/inbound/user_profile_ui.py`, `ui/profile/shared_view.py`
 - **The recipient's bell:** `core/events/handlers/share_notification_handler.py` (`EntryShared` → `shared_with_you`)
-- **The teacher's bell:** `core/events/handlers/submission_notification_handler.py` (`UserEntryCreated.submitted_group_uids` — the created `SUBMITTED_TO_GROUP` subset — → `submission_for_review` for every owning teacher of those groups, once each, the submitter excluded; the card opens `/teaching/review/{uid}`)
+- **The teacher's bell:** `core/events/handlers/submission_notification_handler.py` (`UserEntryCreated.submitted_group_uids` / `submitted_teacher_uids` — the created `SUBMITTED_TO_GROUP` / `SUBMITTED_TO_TEACHER` subsets — → `submission_for_review` for every owning teacher of those groups and every teacher asked directly, once each, the submitter excluded; the card opens `/teaching/review/{uid}`)
 
 ### Documentation
 - **ADR-038:** `/docs/decisions/ADR-038-content-sharing-model.md` — original sharing decision

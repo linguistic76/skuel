@@ -32,9 +32,9 @@ class Pipeline(StrEnum):
                                     goals, habits, ...) with EXTRACTED_FROM
                                     provenance (ADR-069)
         TEACHER_REVIEW            — no processing; entry waits in teacher queue
-                                    via SUBMITTED_TO_GROUP (the feedback
-                                    request, ADR-088 §2 — the only pipeline
-                                    that writes one)
+                                    via a feedback request (SUBMITTED_TO_GROUP
+                                    or SUBMITTED_TO_TEACHER, ADR-088 §2, §9 —
+                                    the only pipeline that writes one)
         REFERENCE                 — RESERVED for the planned per-user stored
                                     journal-exemplar layer (private, no
                                     processing, excluded from UserContext /
@@ -96,7 +96,7 @@ class Pipeline(StrEnum):
         """Whether an entry on this pipeline waits on someone else for its report.
 
         Only `TEACHER_REVIEW`: the turn-in is filed as a feedback request
-        (`SUBMITTED_TO_GROUP`), and the report comes back from the teacher's
+        (`SUBMITTED_TO_GROUP` / `SUBMITTED_TO_TEACHER`), and the report comes back from the teacher's
         queue or from the AI reviewer the owner asks for — until one is written
         (`REPORT_FOR`), the entry is awaiting a report and the daily plan says
         so (`DailyWorkPlan.awaiting_report`). A journal entry's reflective

@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-06
+updated: 2026-10-11
 category: patterns
 related_skills: []
 related_docs:
@@ -151,7 +151,7 @@ Keywords are case-insensitive; the part after the colon is kept verbatim (a user
 
 | Value | Meaning |
 |-------|---------|
-| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's groups the uploader belongs to (a curriculum exercise: the uploader's default group); without one, to every group they are a student of — read by those groups' teachers, never their members. A vault note's copy is filed on `teacher_review` when its audience names a teacher (`teachers` / `teacher:`), otherwise on `none`. A request that would reach no teacher is refused before the write. |
+| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's groups the uploader belongs to (a curriculum exercise: the uploader's default group; a PERSONAL exercise anchored to a published PathStep, in none of them: its owner directly, `SUBMITTED_TO_TEACHER` — ADR-088 §9); without one, to every group they are a student of — read by those groups' teachers, never their members. A vault note's copy is filed on `teacher_review` when its audience names a teacher (`teachers` / `teacher:`), otherwise on `none`. A request that would reach no teacher is refused before the write. |
 | `teacher:<group_uid>` | A feedback request to that one group's teachers (the per-teacher route). |
 | `group:<group_uid>` | A **share** (`SHARED_WITH_GROUP`) with exactly one group — every member and owner may open it. Always a share, never a feedback request. |
 | `user:<username>` | A **share** (`SHARES_WITH`) with one person who shares a group with you (R8 — co-membership through the default group counts only via its owner). An unknown and a non-co-member username get one not-found. |

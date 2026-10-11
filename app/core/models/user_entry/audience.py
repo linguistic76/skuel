@@ -8,7 +8,7 @@ nothing else. ``AudienceSpec.parse`` is the one parser; ``AudienceResolver``
 
 | Value                 | Meaning                                                       |
 |-----------------------|---------------------------------------------------------------|
-| ``teachers``          | a feedback request to all my teachers (SUBMITTED_TO_GROUP)    |
+| ``teachers``          | a feedback request to all my teachers (SUBMITTED_TO_GROUP; an anchored PERSONAL exercise's owner: SUBMITTED_TO_TEACHER) |
 | ``teacher:<group>``   | a feedback request to one group's teachers                    |
 | ``group:<uid>``       | a share with every member and owner of a group (SHARED_WITH_GROUP) |
 | ``user:<username>``   | a share with one co-member (SHARES_WITH)                      |

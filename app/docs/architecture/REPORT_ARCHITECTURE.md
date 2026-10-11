@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-10-10
+updated: 2026-10-11
 status: current
 category: architecture
 version: 3.2.0
@@ -119,7 +119,8 @@ Exercise (scope=ASSIGNED)
        |   UserEntryProcessingStarted event only.
        v
 5. The feedback request (teacher_review + exercise link): FULFILLS_EXERCISE {revision}
-       |   + SUBMITTED_TO_GROUP to the exercise's assigned groups (UnifiedSharingService.submit_to_group)
+       |   + SUBMITTED_TO_GROUP to the exercise's assigned groups (UnifiedSharingService.submit_to_group),
+       |     or SUBMITTED_TO_TEACHER to an anchored PERSONAL exercise's owner (submit_to_teacher, ADR-088 §9)
        v
 6. Teacher reviews via the group-based queue → writes ENTRY_REPORT
        |   submit_report:    SUBMITTED/ACTIVE   → COMPLETED          (Cypher guard)
@@ -146,9 +147,11 @@ Each status guard is enforced atomically in Cypher via `WHERE status IN $allowed
 (student)-[:OWNS]->(submission:Entity:UserEntry {entity_type: "user_entry", pipeline: "teacher_review"})
 (submission)-[:FULFILLS_EXERCISE]->(exercise)
 
-// Teacher discovers entries via the group-based review queue (ADR-040, ADR-088 §2):
-// the entry is SUBMITTED_TO_GROUP to an active Group the teacher OWNS, pipeline = 'teacher_review'
+// Teacher discovers entries via the review queue (ADR-040, ADR-088 §2, §9): the entry asks the
+// teacher (asks_teacher) — SUBMITTED_TO_GROUP an active Group the teacher OWNS, or
+// SUBMITTED_TO_TEACHER the teacher — and pipeline = 'teacher_review'
 (submission)-[:SUBMITTED_TO_GROUP]->(group)
+(submission)-[:SUBMITTED_TO_TEACHER]->(teacher)
 
 // Teacher report — student owns the report (access ownership); teacher is recorded via author_uid
 (student)-[:OWNS]->(report:Entity {entity_type: "entry_report", author_uid: "teacher_uid"})
@@ -494,7 +497,7 @@ When `openai_service` is available, the generator:
 | `/activity-reports/md?uid=` | GET | User | Download own report as `.md` (owner-scoped; foreign uid → 404) |
 | `/activity-review/queue`, `/activity-review/new`, `/activity-review/snapshot-fragment` | GET | Admin | The admin review track is HTMX pages, no JSON API (the "Activity report track" table above) |
 | `/activity-review/submit-feedback` | POST | Admin | Submit written activity feedback |
-| `/api/exercises/report` | POST | Owner, or a teacher the entry was `SUBMITTED_TO_GROUP` to (ADR-088 §2) — both pinned to the exercise the entry fulfils (`EntryReportService.admit_report`); per-user FULL tier, ADR-043 | Generate LLM `ENTRY_REPORT` (`REPORT_FOR`) for a submission |
+| `/api/exercises/report` | POST | Owner, or a teacher the entry asks for feedback (`SUBMITTED_TO_GROUP` / `SUBMITTED_TO_TEACHER`, ADR-088 §2, §9) — both pinned to the exercise the entry fulfils (`EntryReportService.admit_report`); per-user FULL tier, ADR-043 | Generate LLM `ENTRY_REPORT` (`REPORT_FOR`) for a submission |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | POST | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |

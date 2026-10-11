@@ -21,6 +21,7 @@ from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
     SUPERSEDED_COPY,
     asks_teacher,
     feedback_requests_subquery,
+    in_classroom,
     superseded_copy_bindings,
 )
 from core.models.enums.entity_enums import REVIEWABLE_ENTRY_STATUSES, EntityStatus
@@ -61,12 +62,43 @@ class _UserEntryAssessmentMixin:
     async def verify_teacher_authority(
         self, teacher_uid: str, subject_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify teacher-student share an active group."""
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group)
-              <-[:MEMBER_OF]-(student:User {uid: $subject_uid})
-        WHERE g.is_active = true
-        RETURN g.uid AS group_uid LIMIT 1
+        """Verify the student is in the teacher's classroom (``in_classroom``) — the student-level gate.
+
+        Gates the student page, its knowledge tab and the students list. A
+        feedback request filed with the teacher directly does not satisfy it
+        (ADR-088 §9). One row when it holds, none otherwise.
+        """
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        MATCH (student:User {{uid: $subject_uid}})
+        WHERE {in_classroom("teacher", "student")}
+        RETURN true AS has_authority
+        """
+        return await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "subject_uid": subject_uid}
+        )
+
+    async def verify_teacher_exchange_authority(
+        self, teacher_uid: str, subject_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Verify the teacher may open the student's exchange threads — classroom, or a direct request.
+
+        The student is in the teacher's classroom (``in_classroom``), or filed
+        a feedback request with the teacher directly (``SUBMITTED_TO_TEACHER``,
+        ADR-088 §9). The thread itself is scoped to the entries that ask the
+        teacher (``asks_teacher``), so this admits no entry of the student's
+        the teacher was not asked about. One row when it holds, none otherwise.
+        """
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        MATCH (student:User {{uid: $subject_uid}})
+        WHERE student.uid <> teacher.uid
+          AND ({in_classroom("teacher", "student")}
+               OR EXISTS {{
+                   MATCH (student)-[:{RelationshipName.OWNS.value}]->(:Entity:UserEntry)
+                         -[:{RelationshipName.SUBMITTED_TO_TEACHER.value}]->(teacher)
+               }})
+        RETURN true AS has_authority
         """
         return await self.execute_query(
             query, {"teacher_uid": teacher_uid, "subject_uid": subject_uid}
@@ -164,25 +196,25 @@ class _UserEntryAssessmentMixin:
         )
 
     async def get_report_file_path(self, report_uid: str, teacher_uid: str) -> Result[str | None]:
-        """Get the report_file_path for an EntryReport, gated by teacher group access.
+        """Get the report_file_path for an EntryReport, gated by the teacher's access to the reviewed entry.
 
         Anchors on the report, walks ``REPORT_FOR`` to the reviewed submission
-        and its owning student, and requires the teacher to share an active
-        group with that student (a student-level authority; the review write
-        gate, ``verify_teacher_has_group_access``, is narrower — the entry's
-        own feedback request). Returns ``None`` both
-        when no such report exists and when the teacher is outside the student's
-        classroom, so a denied download is indistinguishable from a missing one
-        and cannot enumerate other classrooms' reports.
+        and its owning student, and admits the teacher when the student is in
+        the teacher's classroom (``in_classroom``, a student-level authority)
+        or when the reviewed entry asks this teacher for feedback
+        (``asks_teacher`` — so a teacher reached by a direct request,
+        ADR-088 §9, downloads the reports on the entries sent to them, and no
+        other). Returns ``None`` both when no such report exists and when the
+        teacher has neither, so a denied download is indistinguishable from a
+        missing one and cannot enumerate other classrooms' reports.
         """
         query = f"""
         MATCH (r:Entity {{uid: $report_uid, entity_type: 'entry_report'}})
               -[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
         MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-              <-[:{RelationshipName.MEMBER_OF.value}]-(student)
-        WHERE g.is_active = true
-          AND student.uid <> $teacher_uid
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        WHERE student.uid <> $teacher_uid
+          AND ({in_classroom("teacher", "student")} OR {asks_teacher("sub", "teacher")})
         RETURN r.report_file_path as file_path
         LIMIT 1
         """
@@ -276,7 +308,15 @@ class _UserEntryAssessmentMixin:
         )
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
-        """Students whose work asks the teacher for feedback (``feedback_requests_subquery``), with entry counts.
+        """The teacher's classroom students whose work asks the teacher for feedback, with entry counts.
+
+        A student is listed only from the teacher's classroom (``in_classroom``
+        — the gate the student page opens by), so every row links to a page
+        that opens: a learner who reached this teacher by a direct request
+        alone (``SUBMITTED_TO_TEACHER``, ADR-088 §9) is not listed — the
+        teacher works their requests from the review queue. A listed student's
+        counts read every request to this teacher
+        (``feedback_requests_subquery``), as the student page does.
 
         ``submission_count`` is every submission, ``reviewed_count`` the
         completed ones, and ``pending_count`` the rest that are not superseded
@@ -290,6 +330,7 @@ class _UserEntryAssessmentMixin:
         MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
         WHERE student.uid <> $teacher_uid
           AND ku.pipeline = $pipeline
+          AND {in_classroom("teacher", "student")}
         OPTIONAL MATCH (ku)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
         WITH teacher, student, ku,
              ku.uid AS copy_uid,
@@ -438,7 +479,8 @@ class _UserEntryAssessmentMixin:
         ``pending_count`` + ``total_students`` are Model-B-scoped: counted only
         across the entries that ask this teacher for feedback
         (``feedback_requests_subquery`` — an active owned group, or the teacher
-        directly).
+        directly). ``total_students`` counts the requesters in the teacher's
+        classroom only (``in_classroom``) — the students list's own rule.
         ``total_exercises`` + ``total_groups`` are scoped via direct ``OWNS``
         from the teacher (already correct pre-fix).
 
@@ -461,7 +503,8 @@ class _UserEntryAssessmentMixin:
               count(DISTINCT CASE
                   WHEN sub.status IN $pending_statuses AND NOT {SUPERSEDED_COPY}
                   THEN sub.uid END) AS pending_count,
-              count(DISTINCT student) AS total_students
+              count(DISTINCT CASE WHEN {in_classroom("teacher", "student")}
+                                  THEN student END) AS total_students
         }}
         RETURN
           pending_count,

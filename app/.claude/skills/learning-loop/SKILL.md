@@ -215,7 +215,7 @@ The full mechanics of each loop phase live in **[reference.md](reference.md)**:
 **Who triggers Phase 3:** a teacher (review queue), or the submission OWNER
 self-serving an AI review — `POST /api/exercises/report` (per-user ADR-043
 FULL-tier gate, then `EntryReportService.admit_report`: the owner, or a teacher
-the entry was `SUBMITTED_TO_GROUP` to, each pinned to the exercise the entry
+the entry asks for feedback (`SUBMITTED_TO_GROUP` or `SUBMITTED_TO_TEACHER`), each pinned to the exercise the entry
 fulfils — refusals are 404; surfaced as the "Request AI feedback" button on
 `/gradebook/{uid}`).
 
@@ -224,9 +224,12 @@ fulfils — refusals are 404; surfaced as the "Request AI feedback" button on
 accounts excluded) on PathStep enrollment. A `teacher_review` turn-in whose audience is `teachers`
 resolves to the exercise's assigned groups the submitter belongs to; a
 CURRICULUM-scope exercise is never assigned, so it falls back to the submitter's
-default group (`AudienceResolver._expand_teachers` in
+default group; a PERSONAL exercise anchored to a published PathStep is in no
+group, so it goes to the exercise's owner directly (`AudienceResolver._expand_teachers` in
 `core/services/user_entry/audience_resolver.py`). The write is a feedback request
-(`SUBMITTED_TO_GROUP`, ADR-088 §2), not a share, and it lands in `/teaching/queue`.
+(`SUBMITTED_TO_GROUP`, ADR-088 §2, or `SUBMITTED_TO_TEACHER`, §9), not a share, and it
+lands in `/teaching/queue`. A direct request opens the exchange thread and the report
+download for that teacher, never the student page or its knowledge tab (classroom only).
 
 ---
 
@@ -302,7 +305,7 @@ that never closes the loop.
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` |
 | `UserEntryService` | `tests/unit/services/test_user_entry_service.py` |
 
-**TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — the entry must be `SUBMITTED_TO_GROUP` an active group the teacher owns, ADR-088 §2), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
+**TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — the entry must ask this teacher, `asks_teacher`: `SUBMITTED_TO_GROUP` an active group the teacher owns or `SUBMITTED_TO_TEACHER` the teacher, ADR-088 §2, §9), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
 **UserEntryService tests cover:** the consolidated `UserEntry` write path (ADR-054) — `create_entry`, exercise linking, pipeline dispatch, and ownership/access checks across the file-upload and structured-form entry modes.
 

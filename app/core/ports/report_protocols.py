@@ -600,7 +600,16 @@ class TeacherReviewOperations(Protocol):
         teacher_uid: str,
         student_uid: str,
     ) -> Result[bool]:
-        """Verify that a teacher has authority over a student's records."""
+        """Verify the student is in the teacher's classroom — the student page and its knowledge tab."""
+        ...
+
+    async def verify_exchange_authority(
+        self,
+        teacher_uid: str,
+        student_uid: str,
+    ) -> Result[bool]:
+        """Verify the teacher may open the student's exchange threads: classroom,
+        or a feedback request filed with the teacher directly (ADR-088 §9)."""
         ...
 
     async def get_exercises_with_submission_counts(

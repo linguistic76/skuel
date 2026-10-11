@@ -37,6 +37,8 @@ def _make_user_entry_backend():
     backend.get_entry_detail_for_teacher = AsyncMock(return_value=Result.ok([]))
     backend.get_dashboard_stats = AsyncMock(return_value=Result.ok([]))
     backend.verify_teacher_has_group_access = AsyncMock(return_value=Result.ok([]))
+    backend.verify_teacher_authority = AsyncMock(return_value=Result.ok([{"has_authority": True}]))
+    backend.verify_teacher_exchange_authority = AsyncMock(return_value=Result.ok([]))
     return backend
 
 
@@ -1171,6 +1173,40 @@ class TestGetStudentSubmissions:
 
         assert not result.is_error
         assert result.value == []
+
+    @pytest.mark.asyncio
+    async def test_a_student_outside_the_classroom_is_refused_before_the_read(self):
+        """A direct feedback request alone does not open the student page (ADR-088 §9)."""
+        backend = _make_user_entry_backend()
+        backend.verify_teacher_authority.return_value = Result.ok([])
+        service = _make_service(user_entry_backend=backend)
+
+        result = await service.get_student_submissions(TEACHER_UID, STUDENT_UID)
+
+        assert result.is_error
+        assert result.expect_error().category.value == "forbidden"
+        backend.get_student_entries_for_teacher.assert_not_called()
+
+
+class TestVerifyExchangeAuthority:
+    @pytest.mark.asyncio
+    async def test_admitted_when_the_backend_finds_classroom_or_a_direct_request(self):
+        backend = _make_user_entry_backend()
+        backend.verify_teacher_exchange_authority.return_value = Result.ok(
+            [{"has_authority": True}]
+        )
+        service = _make_service(user_entry_backend=backend)
+
+        assert (await service.verify_exchange_authority(TEACHER_UID, STUDENT_UID)).is_ok
+
+    @pytest.mark.asyncio
+    async def test_refused_as_forbidden_otherwise(self):
+        service = _make_service(user_entry_backend=_make_user_entry_backend())
+
+        result = await service.verify_exchange_authority(TEACHER_UID, STUDENT_UID)
+
+        assert result.is_error
+        assert result.expect_error().category.value == "forbidden"
 
 
 # ========================================================================

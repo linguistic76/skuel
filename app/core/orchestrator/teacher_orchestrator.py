@@ -80,11 +80,7 @@ class TeacherOrchestrator:
     async def get_student_submissions(
         self, teacher_uid: UserUID, student_uid: str
     ) -> Result[list[Any]]:
-        """Get the student's submissions to the teacher's groups."""
-        auth_check = await self._review.verify_teacher_authority(teacher_uid, student_uid)
-        if auth_check.is_error:
-            return Result.fail(auth_check)
-
+        """Get a classroom student's submissions to this teacher (the service holds both gates)."""
         return await self._review.get_student_submissions(
             teacher_uid=teacher_uid, student_uid=student_uid
         )

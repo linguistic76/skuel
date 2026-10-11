@@ -84,7 +84,10 @@ def create_exchange_ui_routes(
             # The report-download route's first gate, replicated: the role is
             # read live, so an ex-teacher who still OWNS groups cannot keep
             # reading students' work on a stale edge. The orchestrator's
-            # shared-active-group check is the second gate. Both denials
+            # exchange gate (the student in the viewer's classroom, or a
+            # feedback request filed with the viewer directly) is the second
+            # gate, and the thread reads only the entries that ask the
+            # viewer. Both denials
             # render the same 404 page — but the user read keeps its Result
             # distinction: a failed lookup is an outage, never a denial.
             viewer_result = await orchestrator.user_service.get_user(user_uid)

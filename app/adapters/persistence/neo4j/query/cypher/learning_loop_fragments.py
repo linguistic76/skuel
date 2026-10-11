@@ -1,5 +1,11 @@
 """
-Learning-loop Cypher fragments — the derived review standing of a UserEntry.
+Learning-loop Cypher fragments — who a feedback request asks, and the derived review standing of a UserEntry.
+
+The teacher-side gates are three predicates, each composed, never restated:
+``asks_teacher`` (an entry asks a teacher — a group request or a direct one,
+ADR-088 §2, §9) with its enumerating twin ``feedback_requests_subquery``, and
+``in_classroom`` (the student-level gate). ``SUPERSEDED_COPY`` is the queue's
+one supersede rule.
 
 The "reviewed" badges are derived, never stored (ADR-088 §1, Submit & Share arc
 R2): an entry is *reviewed* when a report with an ``assessment_outcome``
@@ -67,13 +73,19 @@ def build_review_standing_subquery(entity_alias: str = "entity") -> str:
     }}"""
 
 
-__all__ = ["asks_teacher", "build_review_standing_subquery", "feedback_requests_subquery"]
+__all__ = [
+    "asks_teacher",
+    "build_review_standing_subquery",
+    "feedback_requests_subquery",
+    "in_classroom",
+]
 
 
 _OWNS = RelationshipName.OWNS.value
 _SUBMITTED_TO_GROUP = RelationshipName.SUBMITTED_TO_GROUP.value
 _SUBMITTED_TO_TEACHER = RelationshipName.SUBMITTED_TO_TEACHER.value
 _FULFILLS_EXERCISE = RelationshipName.FULFILLS_EXERCISE.value
+_MEMBER_OF = RelationshipName.MEMBER_OF.value
 _GROUP = NeoLabel.GROUP.value
 
 
@@ -95,6 +107,23 @@ def asks_teacher(entry_alias: str, teacher_alias: str) -> str:
         f"(EXISTS {{ MATCH ({entry_alias})-[:{_SUBMITTED_TO_GROUP}]->"
         f"(:{_GROUP} {{is_active: true}})<-[:{_OWNS}]-({teacher_alias}) }}"
         f" OR EXISTS {{ MATCH ({entry_alias})-[:{_SUBMITTED_TO_TEACHER}]->({teacher_alias}) }})"
+    )
+
+
+def in_classroom(teacher_alias: str, student_alias: str) -> str:
+    """THE classroom predicate: does the teacher own an active group the student is a member of?
+
+    The student-level authority — "is this my student" — behind the student
+    page, its knowledge tab and the students list. A feedback request filed to
+    a teacher directly (``SUBMITTED_TO_TEACHER``) never satisfies it: that
+    teacher reads the requests sent to them, not the student (ADR-088 §9).
+    Both aliases must be bound by the caller.
+    """
+    validate_identifier(teacher_alias, context="teacher alias")
+    validate_identifier(student_alias, context="student alias")
+    return (
+        f"EXISTS {{ MATCH ({teacher_alias})-[:{_OWNS}]->(classroom:{_GROUP})"
+        f"<-[:{_MEMBER_OF}]-({student_alias}) WHERE classroom.is_active = true }}"
     )
 
 

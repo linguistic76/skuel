@@ -13,7 +13,7 @@ Six ISP parents mirror the six backend mixins (renamed from
     UserEntryCrudOperations         — content search + feedback-count joins
     UserEntryLifecycleOperations    — create-with-link, FULFILLS_EXERCISE,
                                       revision resolution
-    UserEntryAssessmentOperations   — teacher review queue (SUBMITTED_TO_GROUP),
+    UserEntryAssessmentOperations   — teacher review queue (the feedback requests),
                                       assessments, teacher dashboards
     UserEntryReportQueryOperations  — learning-loop chain queries + report
                                       cross-joins
@@ -270,8 +270,9 @@ class UserEntryLifecycleOperations(Protocol):
 class UserEntryAssessmentOperations(Protocol):
     """Assessment scoring + teacher-review workflow.
 
-    The review queue is a pure graph pattern on ``SUBMITTED_TO_GROUP`` (the
-    feedback request, ADR-088 §2) + ``pipeline = 'teacher_review'`` — no role
+    The review queue is a pure graph pattern on the feedback requests
+    (``SUBMITTED_TO_GROUP`` / ``SUBMITTED_TO_TEACHER``, ADR-088 §2, §9) +
+    ``pipeline = 'teacher_review'`` — no role
     gate at the Cypher level.
     Route-level role checks remain authoritative for access.
 
@@ -320,15 +321,23 @@ class UserEntryAssessmentOperations(Protocol):
     async def verify_teacher_authority(
         self, teacher_uid: str, subject_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify teacher-student share an active group."""
+        """Verify the student is in the teacher's classroom (an active group the teacher owns)."""
+        ...
+
+    async def verify_teacher_exchange_authority(
+        self, teacher_uid: str, subject_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Verify the teacher may open the student's exchange threads: classroom,
+        or a feedback request filed with the teacher directly (ADR-088 §9)."""
         ...
 
     # -------- teacher review workflow --------
 
     async def get_report_file_path(self, report_uid: str, teacher_uid: str) -> Result[str | None]:
         """Read ``report_file_path`` for an ``EntryReport``, gated by the
-        teacher's active-group access to the reviewed submission's owner.
-        ``None`` when missing or out of the teacher's classroom (indistinguishable)."""
+        teacher's classroom access to the reviewed submission's owner, or the
+        submission's feedback request to the teacher. ``None`` when missing or
+        neither holds (indistinguishable)."""
         ...
 
     async def approve_and_get_linked_kus(
@@ -361,8 +370,8 @@ class UserEntryAssessmentOperations(Protocol):
     ) -> Result[list[Neo4jProperties]]:
         """A student's entries submitted to this teacher, gated per entry.
 
-        Each entry must be ``SUBMITTED_TO_GROUP`` an active group the teacher
-        owns. Empty when none is — callers treat it as a genuinely empty
+        Each entry must ask this teacher for feedback (an active group they
+        own, or them directly). Empty when none does — callers treat it as a genuinely empty
         per-student history (no leak of unrelated students' submissions).
         """
         ...
@@ -376,10 +385,10 @@ class UserEntryAssessmentOperations(Protocol):
     async def get_entry_detail_for_teacher(
         self, entry_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Full entry detail for teacher review, gated by SUBMITTED_TO_GROUP.
+        """Full entry detail for teacher review, gated by the entry's feedback request.
 
-        One row, or none: empty when the entry is not submitted to any active
-        group the teacher owns — service-layer callers map empty to
+        One row, or none: empty when the entry asks this teacher nothing (no
+        active group they own, no direct request) — service-layer callers map empty to
         ``Errors.not_found`` (404).
         """
         ...
@@ -391,7 +400,7 @@ class UserEntryAssessmentOperations(Protocol):
     async def verify_teacher_has_group_access(
         self, entry_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify the entry is ``SUBMITTED_TO_GROUP`` an active group the teacher owns.
+        """Verify the entry asks this teacher for feedback (an active owned group, or the teacher directly).
 
         The review-write gate (ADR-088 §2): the same authority the queue and
         the detail read carry, never a student-level "share some group" check.
@@ -449,8 +458,8 @@ class UserEntryReportQueryOperations(Protocol):
         All ``created_at`` values arrive as ISO-8601 strings.
 
         ``viewer_uid`` is the teacher-mode scope (``None`` = self view):
-        each entry must be ``SUBMITTED_TO_GROUP`` an active group the viewer
-        owns, so a multi-class student's work directed to another teacher's
+        each entry must ask the viewer for feedback (an active group the viewer
+        owns, or the viewer directly), so a multi-class student's work directed to another teacher's
         classroom stays invisible (the Model B entry-level gate).
 
         Backend: _UserEntryReportQueryMixin.get_exchange_thread_raw

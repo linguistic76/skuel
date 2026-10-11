@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-10-01
+updated: 2026-10-11
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -192,8 +192,9 @@ living entry — resolves audience through `UnifiedSharingService`:
 
 - `pipeline=TEACHER_REVIEW` → a feedback request (`SUBMITTED_TO_GROUP`): `teacher:<group_uid>`
   targets, and `teachers` (the default when nothing is named) as the exercise's assigned groups
-  the submitter belongs to (a curriculum exercise: the default group; no exercise: every group
-  they study in). A request that would reach no teacher is **refused before the write**
+  the submitter belongs to (a curriculum exercise: the default group; a PERSONAL exercise
+  anchored to a published PathStep, in none of them: `SUBMITTED_TO_TEACHER` to its owner,
+  ADR-088 §9; no exercise: every group they study in). A request that would reach no teacher is **refused before the write**
   (ADR-054 §3: no silent no-audience turn-ins).
 - every pipeline → `group:<uid>` / `user:<username>` are shares (`SHARED_WITH_GROUP` /
   `SHARES_WITH`); a feedback target on any other pipeline writes no link.
@@ -234,7 +235,7 @@ opt-in dataclass, not a `BaseEvent` member, and none of these four carry one.)
 
 | Event | Trigger |
 |-------|---------|
-| `UserEntryCreated` | Entry persisted; `submitted_group_uids` (the created `SUBMITTED_TO_GROUP` subset) rings the owning teachers' `submission_for_review` bell — a re-filed request rings nobody |
+| `UserEntryCreated` | Entry persisted; `submitted_group_uids` / `submitted_teacher_uids` (the created `SUBMITTED_TO_GROUP` / `SUBMITTED_TO_TEACHER` subsets) ring the owning teachers' and the directly-asked teachers' `submission_for_review` bell — a re-filed request rings nobody |
 | `UserEntryProcessingStarted` | Pipeline dispatch begins |
 | `UserEntryProcessingCompleted` | Pipeline finished |
 | `UserEntryProcessingFailed` | Pipeline raised |
