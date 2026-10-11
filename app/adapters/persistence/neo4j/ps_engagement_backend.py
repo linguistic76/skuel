@@ -160,11 +160,16 @@ class PsEngagementBackend:
     # ------------------------------------------------------------------
 
     async def fetch_template_uids(
-        self, ps_uid: str, rel_value: str
+        self, ps_uid: str, rel_value: str, template_label: str
     ) -> Result[list[dict[str, Any]]]:
-        # rel_value is a RelationshipName enum value, not user input.
+        # rel_value is a RelationshipName value and template_label a NeoLabel value —
+        # the loader's own table, never user input. Both ends are bound: the source
+        # is a PathStep and the far end carries the edge's template label, so an
+        # edge written past the attach door (a stray onto a Goal, or hung off a
+        # Task posing as the step) never reaches the spawn.
         query = f"""
-        MATCH (ps:Entity {{uid: $ps_uid}})-[:{rel_value}]->(t)
+        MATCH (ps:{NeoLabel.ENTITY}:{NeoLabel.PATH_STEP} {{uid: $ps_uid}})
+              -[:{rel_value}]->(t:{NeoLabel.ENTITY}:{template_label})
         RETURN t.uid AS uid
         ORDER BY t.uid
         """

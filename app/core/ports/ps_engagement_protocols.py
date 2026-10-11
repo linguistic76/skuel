@@ -40,7 +40,7 @@ class PsEngagementOperations(Protocol):
 
     # Template attachment reads
     async def fetch_template_uids(
-        self, ps_uid: str, rel_value: str
+        self, ps_uid: str, rel_value: str, template_label: str
     ) -> Result[list[dict[str, Any]]]: ...
 
     # PathStep status (T1 publish)

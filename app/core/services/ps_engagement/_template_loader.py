@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.event_template import EventTemplate
@@ -61,18 +62,41 @@ class _TemplateLoader:
         from core.models.templates.principle_template import PrincipleTemplate
         from core.models.templates.task_template import TaskTemplate
 
-        rel_to_backend_and_class: list[tuple[RelationshipName, Any, type]] = [
-            (RelationshipName.HAS_TASK_TEMPLATE, self._tasks, TaskTemplate),
-            (RelationshipName.HAS_GOAL_TEMPLATE, self._goals, GoalTemplate),
-            (RelationshipName.HAS_HABIT_TEMPLATE, self._habits, HabitTemplate),
-            (RelationshipName.HAS_EVENT_TEMPLATE, self._events, EventTemplate),
-            (RelationshipName.HAS_CHOICE_TEMPLATE, self._choices, ChoiceTemplate),
-            (RelationshipName.HAS_PRINCIPLE_TEMPLATE, self._principles, PrincipleTemplate),
+        # Each edge with the label its far end must carry — the pair the attach door
+        # admits (``_BaseTemplateService._attachment_kind``), read back by the same pair.
+        # boundary: six CrudOperations[T] backends over six template types
+        edges: list[tuple[RelationshipName, NeoLabel, Any, type]] = [
+            (RelationshipName.HAS_TASK_TEMPLATE, NeoLabel.TASK_TEMPLATE, self._tasks, TaskTemplate),
+            (RelationshipName.HAS_GOAL_TEMPLATE, NeoLabel.GOAL_TEMPLATE, self._goals, GoalTemplate),
+            (
+                RelationshipName.HAS_HABIT_TEMPLATE,
+                NeoLabel.HABIT_TEMPLATE,
+                self._habits,
+                HabitTemplate,
+            ),
+            (
+                RelationshipName.HAS_EVENT_TEMPLATE,
+                NeoLabel.EVENT_TEMPLATE,
+                self._events,
+                EventTemplate,
+            ),
+            (
+                RelationshipName.HAS_CHOICE_TEMPLATE,
+                NeoLabel.CHOICE_TEMPLATE,
+                self._choices,
+                ChoiceTemplate,
+            ),
+            (
+                RelationshipName.HAS_PRINCIPLE_TEMPLATE,
+                NeoLabel.PRINCIPLE_TEMPLATE,
+                self._principles,
+                PrincipleTemplate,
+            ),
         ]
 
         results: dict[type, list[Any]] = {}
-        for rel, backend, cls in rel_to_backend_and_class:
-            uids_res = await self._fetch_template_uids(ps_uid, rel)
+        for rel, label, backend, cls in edges:
+            uids_res = await self._fetch_template_uids(ps_uid, rel, label)
             if uids_res.is_error:
                 return Result.fail(uids_res)
 
@@ -106,8 +130,10 @@ class _TemplateLoader:
             )
         )
 
-    async def _fetch_template_uids(self, ps_uid: str, rel: RelationshipName) -> Result[list[str]]:
-        result = await self._backend.fetch_template_uids(ps_uid, rel.value)
+    async def _fetch_template_uids(
+        self, ps_uid: str, rel: RelationshipName, label: NeoLabel
+    ) -> Result[list[str]]:
+        result = await self._backend.fetch_template_uids(ps_uid, rel.value, label.value)
         if result.is_error:
             return Result.fail(result)
         records: list[dict[str, Any]] = result.value

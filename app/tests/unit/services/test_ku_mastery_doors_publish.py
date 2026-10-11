@@ -79,12 +79,15 @@ async def test_understood_of_a_ku_already_mastered_publishes_nothing() -> None:
 
 
 @pytest.mark.asyncio
-async def test_understood_of_a_missing_ku_publishes_nothing() -> None:
+async def test_understood_of_a_ku_the_write_did_not_admit_is_not_found() -> None:
+    """No row: a draft, another kind, a uid that names nothing — one answer, no event."""
     bus = _Bus()
     service = _ku_service(Result.ok([]), bus)
 
-    await service.mark_as_understood(USER, "ku.gone")
+    result = await service.mark_as_understood(USER, "ku.gone")
 
+    assert result.is_error
+    assert result.expect_error().category.value == "not_found"
     assert bus.published == []
 
 

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import EntityType, SearchVisibility
+from core.models.enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.group.group import Group, default_group_uid
 from core.models.relationship_names import RelationshipName
@@ -432,20 +432,21 @@ class LateralRelationshipBackend:
         The anchor's reachability is the service's ownership gate; this filter
         covers the OTHER end (ADR-085 G4): a lateral edge can join an owned
         entity to ANY node, so the returned targets must themselves be in the
-        caller's audience. Targets are heterogeneous (activities + curriculum),
-        so the audience is: ownerless content (curriculum — carries no
-        ``user_uid`` claim) plus the caller's own entities, the latter composed
-        through ``build_search_visibility_clause`` (OWNER_ONLY on the target
-        alias) rather than a hand-rolled predicate. With no user, only
-        ownerless targets survive — fail-closed.
+        caller's audience — the far-node predicate (``build_far_node_clause``)
+        with the caller as the owner: a target the caller owns through any of the
+        three ownership spellings (``user_uid``, ``owner_uid``, the ``OWNS`` edge —
+        an Exercise carries no ``user_uid``), or shared content nobody owns that
+        is published. A draft's title does not ride a lateral edge into a reader;
+        the edge stays, so a republish restores it. With no user the caller owns
+        nothing, so only published shared content survives — fail-closed.
 
         Args:
             entity_uid: Entity UID
             type_filter: Pipe-separated relationship types (e.g. "BLOCKS|PREREQUISITE_FOR")
             pattern: Direction pattern — one of "outgoing", "incoming", "both"
-            user_uid: Requesting user; None keeps only ownerless targets
+            user_uid: Requesting user; None keeps only published shared targets
         """
-        from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
+        from adapters.persistence.neo4j.query.cypher import build_far_node_clause
 
         if pattern == "outgoing":
             match_pattern = f"(entity:Entity)-[r:{type_filter}]->(related)"
@@ -454,19 +455,12 @@ class LateralRelationshipBackend:
         else:
             match_pattern = f"(entity:Entity)-[r:{type_filter}]-(related)"
 
-        # OWNER_ONLY fragment on the target alias — the one Cypher composition
-        # point for ownership (no publication gate: this is a by-anchor read of
-        # existing edges, not a discovery listing). has_user=True is the
-        # fail-closed convention: on a null $user_uid the emitted predicate
-        # matches nothing, so owned targets drop out rather than leak.
-        owner_scope = build_search_visibility_clause(
-            SearchVisibility.OWNER_ONLY,
-            entity_alias="related",
-            has_user=True,
-            apply_publication_gate=False,
-        )
-        owner_clause, owner_params = owner_scope if owner_scope else ("false", {})
-        audience_filter = f"(related.user_uid IS NULL OR {owner_clause})"
+        # The caller is the anchor's owner as far as this read is concerned (the
+        # service admitted the anchor as the caller's own or as curriculum). A
+        # null $user_uid is the one-element list [null]: it owns nothing and is
+        # not the empty owner list that would stand for a shared anchor, so the
+        # publication arm applies.
+        audience_filter, audience_params = build_far_node_clause("related", "[$user_uid]")
 
         result = await self.executor.execute_query(
             f"""
@@ -484,7 +478,7 @@ class LateralRelationshipBackend:
                 END as direction
             ORDER BY relationship_type, related_title
             """,
-            {"entity_uid": entity_uid, "user_uid": user_uid, **owner_params},
+            {"entity_uid": entity_uid, "user_uid": user_uid, **audience_params},
         )
         if result.is_error:
             return Result.fail(result)

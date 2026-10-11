@@ -98,6 +98,17 @@ def _nous_subtopic_pairs_query(label: NeoLabel) -> tuple[str, dict[str, str]]:
     )
 
 
+# The far end of the Ku page's learner writes (``mark_in_progress``, ``mark_mastered``):
+# a Ku a learner can read. The write's own MATCH admits it, so a uid naming a draft,
+# another kind of node, another user's entity or nothing at all matches no row and
+# writes nothing — one answer for all of them, which the service reports as the Ku
+# not being found.
+_PUBLISHED_KU, _PUBLISHED_KU_PARAMS = build_publication_clause("ku")
+_MATCH_PUBLISHED_KU = (
+    f"MATCH (ku:{NeoLabel.ENTITY}:{NeoLabel.KU} {{uid: $ku_uid}}) WHERE {_PUBLISHED_KU}"
+)
+
+
 class KuBackend(UniversalNeo4jBackend[Ku]):
     """Domain backend for atomic Knowledge Unit entities.
 
@@ -468,10 +479,10 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Mark a Ku as actively being studied (IN_PROGRESS relationship)."""
-        query = """
-        MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Entity:Ku {uid: $ku_uid})
+        """MERGE IN_PROGRESS onto a published Ku; no row for any other uid."""
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})
+        {_MATCH_PUBLISHED_KU}
         MERGE (user)-[r:IN_PROGRESS]->(ku)
         ON CREATE SET
             r.started_at = datetime(),
@@ -481,7 +492,9 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             r.last_activity_at = datetime()
         RETURN ku.uid AS uid
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+        return await self.execute_query(
+            query, {"user_uid": user_uid, "ku_uid": ku_uid, **_PUBLISHED_KU_PARAMS}
+        )
 
     async def mark_mastered(
         self,
@@ -490,15 +503,15 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         mastery_score: float = 0.7,
         method: str = "self_report",
     ) -> Result[list[MasteredWriteRow]]:
-        """Mark a Ku as understood/mastered by the user; the higher score wins.
+        """MERGE MASTERED onto a published Ku; the higher score wins; no row for any other uid.
 
         Reports ``was_mastered`` (the edge existed before this write) so the
         service publishes on the transition only — decided by the ``MERGE``
         itself, under its lock (``_LearningStateMixin.mark_mastered`` explains).
         """
-        query = """
-        MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Entity:Ku {uid: $ku_uid})
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})
+        {_MATCH_PUBLISHED_KU}
         MERGE (user)-[r:MASTERED]->(ku)
         ON CREATE SET
             r.mastered_at = datetime(),
@@ -528,6 +541,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 "ku_uid": ku_uid,
                 "mastery_score": mastery_score,
                 "method": method,
+                **_PUBLISHED_KU_PARAMS,
             },
         )
         if result.is_error:

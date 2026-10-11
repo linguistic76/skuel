@@ -57,6 +57,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
+from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
 from adapters.persistence.neo4j.backends.curriculum_backends import (
     KnowledgeHealthBackend,
     KuBackend,
@@ -483,6 +484,7 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
     xd = CrossDomainBackend(Neo4jQueryExecutor(driver))
     vs = VectorSearchBackend(Neo4jQueryExecutor(driver))
     cf = ConnectionFetchBackend(Neo4jQueryExecutor(driver))
+    lateral = LateralRelationshipBackend(Neo4jQueryExecutor(driver))
     hub_params = {"min_confidence": 0.0, "min_connections": 0, "limit": LIMIT}
 
     async def source_step() -> Result[Payload]:
@@ -495,6 +497,12 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
             "adapters.persistence.neo4j.connection_fetch_backend",
             "ConnectionFetchBackend.fetch_source_pathstep",
         ): source_step,
+        # The shared KU's RELATED_TO neighbours include the draft KU: the far-node
+        # rule withholds it from the caller, who owns neither.
+        (
+            "adapters.persistence.neo4j.backends.collab_backends",
+            "LateralRelationshipBackend.get_relationships",
+        ): partial(lateral.get_relationships, KU_SHARED, "RELATED_TO", "both", USER),
         (
             "adapters.persistence.neo4j.backends.curriculum_backends",
             "KuBackend.search_by_alias",
@@ -809,6 +817,10 @@ _COVERED_KEYS = (
     (
         "adapters.persistence.neo4j.connection_fetch_backend",
         "ConnectionFetchBackend.fetch_source_pathstep",
+    ),
+    (
+        "adapters.persistence.neo4j.backends.collab_backends",
+        "LateralRelationshipBackend.get_relationships",
     ),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.search_by_alias"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.get_published_titles"),

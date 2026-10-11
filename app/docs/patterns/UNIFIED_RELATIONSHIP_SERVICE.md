@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-10-10
+updated: 2026-10-11
 category: patterns
 related_skills:
 - base-analytics-service
@@ -319,7 +319,8 @@ await service.create_relationship(
 > `AdmittedFarEnds` it returns back as the write's `far_end`, so the edge is written on
 > that one admission with no second endpoint read (`EventsService.update_event`); a proof
 > covers its own `(from_uid, to_uid)` only. `tests/unit/services/test_link_writer_census.py` holds
-> every edge-writer call site under `core/services/` to an admission.
+> every edge-writer call site under `core/services/` — `create_relationship`,
+> `create_relationships_batch`, `add_relationship` and the `relate(…)` builder — to an admission.
 >
 > **Every write and removal is announced.** The admission returns the source's owners
 > (`AdmittedFarEnds.owner_uids`); `create_relationship`, `create_relationships_batch` and
