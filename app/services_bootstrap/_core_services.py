@@ -1,8 +1,11 @@
 """Core service helpers — Finance, Transcription, Orchestration, Advanced."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.services.relationships import UnifiedRelationshipService
 
 logger = get_logger("skuel.bootstrap")
 
@@ -61,6 +64,7 @@ def _create_core_services(
 def _create_orchestration_services(
     goals_backend: Any,
     tasks_service: Any,
+    goals_relationships: UnifiedRelationshipService,
     habits_backend: Any,
     events_service: Any,
     habits_relationships: Any,
@@ -77,6 +81,9 @@ def _create_orchestration_services(
         goals_backend: UniversalNeo4jBackend[Goal] (label=NeoLabel.GOAL)
         tasks_service: TasksService — the generator persists through its entity
             door (the one create path for Tasks), never a backend handle
+        goals_relationships: GoalsService.relationships — the generator reads the
+            knowledge a goal requires and the habits that support it, which its
+            knowledge and habit tasks are generated from
         habits_backend: UniversalNeo4jBackend[Habit] (label=NeoLabel.HABIT)
         events_service: EventsService — the scheduler persists through its entity
             door (the one create path for Events), never a backend handle
@@ -88,7 +95,9 @@ def _create_orchestration_services(
 
     return {
         "goal_task_generator": GoalTaskGenerator(
-            goals_backend=goals_backend, tasks_service=tasks_service
+            goals_backend=goals_backend,
+            tasks_service=tasks_service,
+            relationship_service=goals_relationships,
         ),
         "habit_event_scheduler": HabitEventScheduler(
             habits_backend=habits_backend,

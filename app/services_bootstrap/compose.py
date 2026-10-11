@@ -1547,6 +1547,7 @@ async def compose_services(
         orchestration = _create_orchestration_services(
             goals_backend=goals_backend,
             tasks_service=activity_services["tasks"],
+            goals_relationships=activity_services["goals"].relationships,
             habits_backend=habits_backend,
             events_service=activity_services["events"],
             habits_relationships=activity_services["habits"].relationships,

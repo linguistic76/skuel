@@ -45,6 +45,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 from adapters.inbound.route_factories.route_helpers import (
     parse_bool_query_param,
     parse_int_query_param,
+    require_ownership_verifier,
     verify_entity_ownership,
 )
 from core.models.event.event_dto import EventDTO
@@ -71,16 +72,6 @@ if TYPE_CHECKING:
 _MAX_SCHEDULE_DAYS_AHEAD = 90
 
 
-def _require_verifier(verifier: OwnershipVerifier | None, routes: str) -> OwnershipVerifier:
-    """The service that owner-verifies ``routes``' uid — registration fails without one."""
-    if verifier is None:
-        raise ValueError(
-            f"{routes} routes take a uid and cannot be registered without the "
-            "service that verifies its owner"
-        )
-    return verifier
-
-
 # ---------------------------------------------------------------------------
 # Goal → Task Generation (primary service)
 # ---------------------------------------------------------------------------
@@ -93,7 +84,7 @@ def create_goal_task_routes(
     goals: OwnershipVerifier | None,
 ) -> None:
     """Register Goal→Task generation endpoints."""
-    goals = _require_verifier(goals, "Goal→Task")
+    goals = require_ownership_verifier(goals, "Goal→Task")
 
     @rt("/goals/generate-tasks", methods=["POST"])
     @csrf_protected
@@ -205,7 +196,7 @@ def create_habit_event_routes(
     habits: OwnershipVerifier | None,
 ) -> None:
     """Register Habit→Event scheduling endpoints."""
-    habits = _require_verifier(habits, "Habit→Event")
+    habits = require_ownership_verifier(habits, "Habit→Event")
 
     @rt("/habits/schedule-events", methods=["POST"])
     @csrf_protected
@@ -276,7 +267,7 @@ def create_goals_intelligence_routes(
     goals: OwnershipVerifier | None,
 ) -> None:
     """Register predictive goal analytics endpoints."""
-    goals = _require_verifier(goals, "Goal analytics")
+    goals = require_ownership_verifier(goals, "Goal analytics")
 
     @rt("/goals/predict-success", methods=["GET"])
     @boundary_handler()
@@ -347,8 +338,8 @@ def create_principle_alignment_routes(
     habits: OwnershipVerifier | None,
 ) -> None:
     """Register principle alignment and motivational intelligence endpoints."""
-    goals = _require_verifier(goals, "Goal alignment")
-    habits = _require_verifier(habits, "Habit alignment")
+    goals = require_ownership_verifier(goals, "Goal alignment")
+    habits = require_ownership_verifier(habits, "Habit alignment")
 
     @rt("/principles/list", methods=["GET"])
     @boundary_handler()

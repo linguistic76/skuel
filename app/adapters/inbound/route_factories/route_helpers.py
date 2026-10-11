@@ -9,6 +9,8 @@ boundary_handler converts to HTTP at the route level.
 Helpers:
     check_required_role       - Role-based access control (used by CRUD, Analytics)
     verify_entity_ownership   - Ownership verification returning 404 on failure (API)
+    require_ownership_verifier - The verifier a uid-taking route factory needs, or a
+                                registration-time refusal
     require_owned_entity      - Ownership verification returning a bare Response (UI): 404 not
                                 owned / missing, the error's own status otherwise
     refuse                    - A rendered refusal from a failed owner-scoped read: 404 body
@@ -33,7 +35,7 @@ import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from fasthtml.common import FT, FtResponse
 from starlette.responses import Response
@@ -45,6 +47,9 @@ from core.models.enums import UserRole
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
+
+if TYPE_CHECKING:
+    from core.ports.service_protocols import OwnershipVerifier
 
 logger = get_logger("skuel.routes.helpers")
 
@@ -105,6 +110,23 @@ async def check_required_role(
         )
 
     return Result.ok(None)
+
+
+def require_ownership_verifier(
+    verifier: OwnershipVerifier | None, routes: str
+) -> OwnershipVerifier:
+    """The service that owner-verifies ``routes``' uid — registration fails without one.
+
+    A route that takes an entity uid verifies its owner before the service behind it
+    runs (``verify_entity_ownership``); a factory registering such a route without the
+    verifier would serve it unguarded, so it refuses at registration instead.
+    """
+    if verifier is None:
+        raise ValueError(
+            f"{routes} routes take a uid and cannot be registered without the "
+            "service that verifies its owner"
+        )
+    return verifier
 
 
 async def verify_entity_ownership(
@@ -548,6 +570,7 @@ __all__ = [
     "parse_int_value",
     "parse_pagination_params",
     "require_owned_entity",
+    "require_ownership_verifier",
     "split_csv",
     "verify_entity_ownership",
 ]

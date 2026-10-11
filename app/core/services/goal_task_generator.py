@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task, get_task_urgency
 from core.models.task.task_dto import TaskDTO
 from core.services.goals.goal_relationships import GoalRelationships
@@ -28,6 +29,7 @@ from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports import GoalsOperations
+    from core.services.relationships import UnifiedRelationshipService
     from core.services.tasks_service import TasksService
     from core.services.user import UserContext
 
@@ -62,8 +64,7 @@ class GoalTaskGenerator:
         self,
         goals_backend: GoalsOperations,
         tasks_service: TasksService,
-        relationship_service: Any = None,
-        tasks_relationship_service: Any = None,
+        relationship_service: UnifiedRelationshipService,
         config: TaskGenerationConfig | None = None,
     ) -> None:
         """
@@ -76,9 +77,12 @@ class GoalTaskGenerator:
                 (``TasksCoreService.create``): the creation rule, the link edges
                 (CONTRIBUTES_TO_GOAL, REINFORCES_HABIT), ``TaskCreated`` and the embedding
                 request all happen there and nowhere else. A backend handle would
-                skip every one of them.
-            relationship_service: UnifiedRelationshipService for fetching goal relationships,
-            tasks_relationship_service: UnifiedRelationshipService for creating task-knowledge relationships,
+                skip every one of them. Its knowledge link methods write the edges a
+                generated task's knowledge metadata names
+                (``_create_task_knowledge_relationships``).
+            relationship_service: The Goals relationship service — the goal's required
+                knowledge and supporting habits, which the knowledge and habit tasks
+                are generated from
             config: Generation configuration
 
         Note:
@@ -89,11 +93,12 @@ class GoalTaskGenerator:
             raise ValueError("Goals backend is required")
         if not tasks_service:
             raise ValueError("Tasks service is required")
+        if not relationship_service:
+            raise ValueError("Goals relationship service is required")
 
         self.goals_backend = goals_backend
         self.tasks_service = tasks_service
         self.relationships = relationship_service
-        self.tasks_relationships = tasks_relationship_service
         self.config = config or TaskGenerationConfig()
         self.logger = get_logger("skuel.services.goal_task_generator")
 
@@ -123,11 +128,7 @@ class GoalTaskGenerator:
         goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
         # GRAPH-NATIVE: Fetch goal relationships from graph
-        rels = (
-            await GoalRelationships.fetch(goal_uid, self.relationships)
-            if self.relationships
-            else GoalRelationships()
-        )
+        rels = await GoalRelationships.fetch(goal_uid, self.relationships)
 
         generated_tasks = []
         # task.uid → habit_uid for tasks that reinforce a habit; written as
@@ -174,8 +175,7 @@ class GoalTaskGenerator:
                     # Knowledge edges are read off the generator's own metadata
                     # (the persisted task is round-tripped through the mapper), and
                     # are not entity-carried links the primitive knows.
-                    if self.tasks_relationships:
-                        await self._create_task_knowledge_relationships(task)
+                    await self._create_task_knowledge_relationships(task)
                 else:
                     self.logger.warning(f"Failed to create task: {create_result.error}")
 
@@ -478,74 +478,58 @@ class GoalTaskGenerator:
 
     async def _create_task_knowledge_relationships(self, task: Task) -> None:
         """
-        Create graph relationships for task-knowledge connections.
+        Link a created task to the knowledge its generation metadata names.
 
-        Reads metadata from task and creates appropriate relationships:
-        - required_knowledge_uid (single): REQUIRES_KNOWLEDGE
-        - required_knowledge_uids (multiple): REQUIRES_KNOWLEDGE for each
-        - prerequisite_knowledge_uids: REQUIRES_PREREQUISITE for each
+        Each link goes through a Tasks facade method, which admits the far end — a Ku
+        that is shared content or the task owner's own — before it writes:
+
+        - ``required_knowledge_uid`` (a knowledge task's subject) → APPLIES_KNOWLEDGE,
+          marked ``is_learning_opportunity``
+        - ``required_knowledge_uids`` (a milestone's required knowledge) and
+          ``prerequisite_knowledge_uids`` (the subject's unmet prerequisites) →
+          REQUIRES_KNOWLEDGE, the edge a task's prerequisite check reads
+
+        A refused or failed link is logged; the task stays created.
 
         Args:
             task: Created Task domain model with metadata
         """
-        # Handle single required knowledge UID (from knowledge tasks)
-        if "required_knowledge_uid" in task.metadata:
-            knowledge_uid = task.metadata["required_knowledge_uid"]
-            is_learning = task.metadata.get("is_learning_opportunity", False)
-
-            result = await self.tasks_relationships.link_task_to_knowledge(
+        subject_uid = task.metadata.get("required_knowledge_uid")
+        if subject_uid:
+            result = await self.tasks_service.link_task_to_knowledge(
                 task_uid=task.uid,
-                knowledge_uid=knowledge_uid,
-                is_learning_opportunity=is_learning,
+                knowledge_uid=subject_uid,
+                is_learning_opportunity=bool(task.metadata.get("is_learning_opportunity")),
+            )
+            self._log_knowledge_link(
+                task.uid, subject_uid, RelationshipName.APPLIES_KNOWLEDGE, result
             )
 
-            if result.is_ok:
-                self.logger.debug(
-                    f"Created REQUIRES_KNOWLEDGE relationship: {task.uid} -> {knowledge_uid}"
-                )
-            else:
-                self.logger.warning(
-                    f"Failed to create REQUIRES_KNOWLEDGE relationship: {result.error}"
-                )
+        required_uids = [
+            *task.metadata.get("required_knowledge_uids", ()),
+            *task.metadata.get("prerequisite_knowledge_uids", ()),
+        ]
+        for knowledge_uid in dict.fromkeys(required_uids):
+            result = await self.tasks_service.link_task_to_prerequisite_knowledge(
+                task_uid=task.uid, knowledge_uid=knowledge_uid
+            )
+            self._log_knowledge_link(
+                task.uid, knowledge_uid, RelationshipName.REQUIRES_KNOWLEDGE, result
+            )
 
-        # Handle multiple required knowledge UIDs (from milestone tasks)
-        if "required_knowledge_uids" in task.metadata:
-            knowledge_uids = task.metadata["required_knowledge_uids"]
-            for knowledge_uid in knowledge_uids:
-                result = await self.tasks_relationships.link_task_to_knowledge(
-                    task_uid=task.uid,
-                    knowledge_uid=knowledge_uid,
-                    is_learning_opportunity=False,
-                )
-
-                if result.is_ok:
-                    self.logger.debug(
-                        f"Created REQUIRES_KNOWLEDGE relationship: {task.uid} -> {knowledge_uid}"
-                    )
-                else:
-                    self.logger.warning(
-                        f"Failed to create REQUIRES_KNOWLEDGE relationship: {result.error}"
-                    )
-
-        # Handle prerequisite knowledge UIDs
-        if "prerequisite_knowledge_uids" in task.metadata:
-            prereq_uids = task.metadata["prerequisite_knowledge_uids"]
-            for prereq_uid in prereq_uids:
-                # Use REQUIRES_KNOWLEDGE for prerequisites too (same relationship type)
-                result = await self.tasks_relationships.link_task_to_knowledge(
-                    task_uid=task.uid,
-                    knowledge_uid=prereq_uid,
-                    knowledge_score_required=0.8,  # Higher threshold for prerequisites
-                )
-
-                if result.is_ok:
-                    self.logger.debug(
-                        f"Created prerequisite REQUIRES_KNOWLEDGE: {task.uid} -> {prereq_uid}"
-                    )
-                else:
-                    self.logger.warning(
-                        f"Failed to create prerequisite relationship: {result.error}"
-                    )
+    def _log_knowledge_link(
+        self, task_uid: str, knowledge_uid: str, edge: RelationshipName, result: Result[bool]
+    ) -> None:
+        if result.is_ok:
+            self.logger.debug("Linked %s -[%s]-> %s", task_uid, edge.value, knowledge_uid)
+        else:
+            self.logger.warning(
+                "Generated task %s not linked -[%s]-> %s: %s",
+                task_uid,
+                edge.value,
+                knowledge_uid,
+                result.error,
+            )
 
     # ========================================================================
     # TASK TEMPLATE LIBRARY

@@ -75,6 +75,7 @@ from adapters.inbound.route_factories.route_helpers import (
     refuse_not_found,
     refuse_unavailable,
     require_owned_entity,
+    require_ownership_verifier,
     split_csv,
     verify_entity_ownership,
 )
@@ -128,5 +129,6 @@ __all__ = [
     "refuse_unavailable",
     "require_owned_entity",
     "split_csv",
+    "require_ownership_verifier",
     "verify_entity_ownership",
 ]

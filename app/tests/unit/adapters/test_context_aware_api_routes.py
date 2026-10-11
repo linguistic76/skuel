@@ -1,9 +1,11 @@
 """Context-Aware API security/wiring pins (adapters/inbound/context_aware_api.py).
 
 PIN tests over the UserContext routes — auth gate (401), CSRF on the mutating
-context integrations (403), the integration bodies bound through ``parse_body``
-(400 before the service, JSON or form), the time_window whitelist guard (400
-before the service), and exact service kwargs. Harness mirrors
+context integrations (403), the owner check on the goal or habit each
+integration names (the route's, before the service — a refusal never reaches
+it), the integration bodies bound through ``parse_body`` (400 before the
+service, JSON or form), the time_window whitelist guard (400 before the
+service), and exact service kwargs. Harness mirrors
 ``test_choices_api_routes.py``; it installs no app-level exception guard, so
 every 400 here is the route's own.
 """
@@ -13,25 +15,45 @@ from __future__ import annotations
 from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.context_aware_api import create_context_aware_api_routes
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 _USER_UID = "user_owner"
+# The uids the fake verifiers refuse — another user's entity and one naming nothing
+# answer alike.
+_REFUSED = frozenset({"goal_foreign", "habit_foreign", "goal_missing", "habit_missing"})
 
 
 def _fake_auth(request: object) -> str:
     return _USER_UID
 
 
+class _FakeVerifier:
+    """``OwnershipVerifier``: the caller owns every uid but the refused ones."""
+
+    def __init__(self, resource: str) -> None:
+        self.resource = resource
+        self.checked: list[tuple[str, str]] = []
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[object]:
+        self.checked.append((uid, user_uid))
+        if uid in _REFUSED or user_uid != _USER_UID:
+            return Result.fail(Errors.not_found(resource=self.resource, identifier=uid))
+        return Result.ok(object())
+
+
 @dataclass(frozen=True)
 class _Harness:
     client: TestClient
     context: MagicMock
+    goals: _FakeVerifier
+    habits: _FakeVerifier
 
 
 def _make_harness(
@@ -55,8 +77,10 @@ def _make_harness(
             "adapters.inbound.context_aware_api.require_authenticated_user", _fake_auth
         )
 
-    create_context_aware_api_routes(None, rt, service)
-    return _Harness(client=TestClient(app), context=service)
+    goals = _FakeVerifier("Goal")
+    habits = _FakeVerifier("Habit")
+    create_context_aware_api_routes(None, rt, service, goals=goals, habits=habits)
+    return _Harness(client=TestClient(app), context=service, goals=goals, habits=habits)
 
 
 def _post_json(client: TestClient, path: str, json: dict[str, object] | None = None):
@@ -96,6 +120,61 @@ def _post_form(client: TestClient, path: str, data: dict[str, str]):
 
 _GOAL_TASKS = "/api/context/goal/tasks?goal_uid=goal_1"
 _HABIT_COMPLETE = "/api/context/habit/complete?habit_uid=habit_1"
+
+
+def _masked(response: httpx.Response, word: str) -> str:
+    """A refusal body with its per-request timestamp removed and its uid masked."""
+    body = dict(response.json())
+    body.pop("timestamp", None)
+    return str(body).replace(word, "<uid>")
+
+
+class TestOwnerCheck:
+    """Each integration verifies the caller owns the uid it names, before the service:
+    another user's goal or habit is answered exactly as a uid that names nothing."""
+
+    @pytest.mark.parametrize(
+        ("path", "service_method"),
+        [
+            ("/api/context/goal/tasks?goal_uid={uid}", "create_tasks_from_goal_context"),
+            ("/api/context/habit/complete?habit_uid={uid}", "complete_habit_with_context"),
+        ],
+        ids=["goal-tasks", "habit-complete"],
+    )
+    def test_foreign_answers_as_missing_and_never_reaches_the_service(
+        self, monkeypatch: pytest.MonkeyPatch, path: str, service_method: str
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+        kind = "goal" if "goal_uid" in path else "habit"
+
+        foreign = _post_json(harness.client, path.format(uid=f"{kind}_foreign"))
+        missing = _post_json(harness.client, path.format(uid=f"{kind}_missing"))
+
+        assert foreign.status_code == missing.status_code == 404
+        assert _masked(foreign, "foreign") == _masked(missing, "missing")
+        getattr(harness.context, service_method).assert_not_awaited()
+
+    def test_own_goal_and_habit_are_checked_then_served(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+
+        assert _post_json(harness.client, _GOAL_TASKS).status_code == 201
+        assert _post_json(harness.client, _HABIT_COMPLETE).status_code == 200
+
+        assert harness.goals.checked == [("goal_1", _USER_UID)]
+        assert harness.habits.checked == [("habit_1", _USER_UID)]
+        harness.context.create_tasks_from_goal_context.assert_awaited_once()
+        harness.context.complete_habit_with_context.assert_awaited_once()
+
+    @pytest.mark.parametrize("missing", ["goals", "habits"])
+    def test_registration_refuses_without_a_verifier(self, missing: str) -> None:
+        _, rt = fast_app(pico=False, default_hdrs=False)
+        verifiers = {"goals": _FakeVerifier("Goal"), "habits": _FakeVerifier("Habit")}
+        verifiers[missing] = None  # type: ignore[assignment]
+
+        with pytest.raises(ValueError, match="cannot be registered without"):
+            create_context_aware_api_routes(None, rt, MagicMock(), **verifiers)
 
 
 class TestContextIntegrationBodies:

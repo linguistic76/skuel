@@ -681,6 +681,18 @@ class TestWritersNoRouteReaches:
         assert linked.is_ok, linked.error
         assert await edges() == {(OWN["Task"], "APPLIES_KNOWLEDGE", SHARED_KU)}
 
+    async def test_task_to_prerequisite_knowledge(self, skuel_app, edges: EdgeReader) -> None:
+        tasks = skuel_app.state.services.tasks
+
+        for far_uid in (FOREIGN["Task"], SHARED_STEP, DRAFT_KU):
+            refused = await tasks.link_task_to_prerequisite_knowledge(OWN["Task"], far_uid)
+            assert refused.is_error, far_uid
+        assert await edges() == set()
+
+        linked = await tasks.link_task_to_prerequisite_knowledge(OWN["Task"], SHARED_KU)
+        assert linked.is_ok, linked.error
+        assert await edges() == {(OWN["Task"], "REQUIRES_KNOWLEDGE", SHARED_KU)}
+
     async def test_event_to_knowledge_writes_nothing_when_one_far_end_is_refused(
         self, skuel_app, edges: EdgeReader
     ) -> None:

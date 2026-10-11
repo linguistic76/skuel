@@ -5,19 +5,24 @@ Context-Aware API Routes
 JSON routes over ``UserContextOperations``: the context dashboard, analysis and
 next action, the two context integrations (goal → tasks, habit completion), and the
 context analytics reads. Every route is authenticated and scoped to the caller; the
-two integrations are CSRF-protected POSTs whose bodies bind through ``parse_body``.
+two integrations are CSRF-protected POSTs whose bodies bind through ``parse_body``, and
+each verifies the caller owns the goal or habit it names before the service runs.
 """
 
 __version__ = "2.0"
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_body
-from adapters.inbound.route_factories import parse_bool_query_param
+from adapters.inbound.route_factories import (
+    parse_bool_query_param,
+    require_ownership_verifier,
+    verify_entity_ownership,
+)
 from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import ContextualHabitCompletionRequest
@@ -35,11 +40,18 @@ from core.ports.query_types import (
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+if TYPE_CHECKING:
+    from core.ports.service_protocols import OwnershipVerifier
+
 logger = get_logger("skuel.routes.context_aware.api")
 
 
 def create_context_aware_api_routes(
-    _app: Any, rt: Any, context_service: UserContextOperations
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
+    context_service: UserContextOperations,
+    goals: OwnershipVerifier | None = None,
+    habits: OwnershipVerifier | None = None,
 ) -> None:
     """
     Create clean API routes for context-aware functionality with service integration.
@@ -48,9 +60,15 @@ def create_context_aware_api_routes(
         app: FastHTML application instance
         rt: Route decorator
         context_service: UserContextService instance (REQUIRED)
+        goals: The Goals facade — owner-verifies ``POST /api/context/goal/tasks``'s goal
+            (REQUIRED; registration refuses without it)
+        habits: The Habits facade — owner-verifies ``POST /api/context/habit/complete``'s
+            habit (REQUIRED; registration refuses without it)
     """
     if not context_service:
         raise ValueError("context_service is required for context-aware routes")
+    goals = require_ownership_verifier(goals, "Context goal")
+    habits = require_ownership_verifier(habits, "Context habit")
 
     # ========================================================================
     # CORE CONTEXT OPERATIONS
@@ -116,12 +134,16 @@ def create_context_aware_api_routes(
         Args:
             request: FastHTML request object (body: ``ContextualGoalTaskGenerationRequest``,
                 JSON or form-encoded; a rejected field is a 400)
-            goal_uid: Goal UID from query param
+            goal_uid: Goal UID from query param — the caller's own; another user's goal
+                is answered as a uid that names nothing
 
         Returns:
             Result containing list of created/template tasks
         """
         user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(goals, goal_uid, user_uid, "goal")
+        if ownership_error:
+            return ownership_error
         parsed = await parse_body(request, ContextualGoalTaskGenerationRequest)
         if parsed.is_error:
             return Result.fail(parsed)
@@ -143,12 +165,16 @@ def create_context_aware_api_routes(
         Args:
             request: FastHTML request object (body: ``ContextualHabitCompletionRequest``,
                 JSON or form-encoded; a rejected field is a 400)
-            habit_uid: Habit UID from query param
+            habit_uid: Habit UID from query param — the caller's own; another user's habit
+                is answered as a uid that names nothing
 
         Returns:
             Result containing completed habit
         """
         user_uid = require_authenticated_user(request)
+        ownership_error = await verify_entity_ownership(habits, habit_uid, user_uid, "habit")
+        if ownership_error:
+            return ownership_error
         parsed = await parse_body(request, ContextualHabitCompletionRequest)
         if parsed.is_error:
             return Result.fail(parsed)

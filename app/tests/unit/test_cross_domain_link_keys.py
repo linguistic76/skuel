@@ -39,6 +39,7 @@ from core.services.principles._gravity_mixin import _GravityMixin
 # adding/altering a facade link method.
 FACADE_LINK_KEYS: list[tuple[str, DomainRelationshipConfig, str]] = [
     ("link_task_to_knowledge", TASKS_CONFIG, "knowledge"),
+    ("link_task_to_prerequisite_knowledge", TASKS_CONFIG, "prerequisite_knowledge"),
     ("link_task_to_goal", TASKS_CONFIG, "contributes_to_goal"),
     ("link_goal_to_knowledge", GOALS_CONFIG, "knowledge"),
     ("link_goal_to_principle", GOALS_CONFIG, "supporting_principles"),
