@@ -338,9 +338,14 @@ async def test_unreachable_teacher_surfaces_error_and_compensates(
     student = await seed_user("user_ue_loner", name="Loner")
     exercise_uid = await seed_exercise("exercise.ue_personal", group_uid=None)
     async with neo4j_driver.session() as session:
-        # Owner passes the use-guard; no group to submit to → no reviewer
+        # Owner passes the use-guard; no group to submit to → no reviewer. The
+        # create door's shape: the OWNS edge plus ``owner_uid`` (ADR-086).
         await session.run(
-            "MATCH (ex:Entity {uid: $uid}) SET ex.user_uid = $owner",
+            """
+            MATCH (ex:Entity {uid: $uid}), (u:User {uid: $owner})
+            MERGE (u)-[:OWNS]->(ex)
+            SET ex.owner_uid = $owner
+            """,
             uid=exercise_uid,
             owner=student,
         )
