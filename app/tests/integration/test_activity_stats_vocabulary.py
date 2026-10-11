@@ -118,6 +118,54 @@ def _principles() -> list[Principle]:
     ]
 
 
+def _task_completed(task: Task) -> bool:
+    return task.is_completed
+
+
+def _task_overdue(task: Task) -> bool:
+    return task.is_overdue()
+
+
+def _goal_active(goal: Goal) -> bool:
+    return goal.is_active
+
+
+def _goal_achieved(goal: Goal) -> bool:
+    return goal.is_achieved()
+
+
+def _habit_active(habit: Habit) -> bool:
+    return habit.is_active
+
+
+def _habit_on_a_streak(habit: Habit) -> bool:
+    return habit.current_streak > 0
+
+
+def _event_scheduled(event: Event) -> bool:
+    return event.status == EntityStatus.SCHEDULED
+
+
+def _event_today(event: Event) -> bool:
+    return event.event_date == _today()
+
+
+def _choice_pending(choice: Choice) -> bool:
+    return choice.is_pending()
+
+
+def _choice_decided(choice: Choice) -> bool:
+    return choice.is_decided()
+
+
+def _principle_core(principle: Principle) -> bool:
+    return principle.strength == PrincipleStrength.CORE
+
+
+def _principle_active(principle: Principle) -> bool:
+    return principle.is_active
+
+
 @dataclass(frozen=True)
 class _Domain:
     """One Activity domain: how to build its backend, its seeds, and the model
@@ -137,48 +185,42 @@ _DOMAINS: dict[str, _Domain] = {
         NeoLabel.TASK,
         Task,
         _tasks,
-        {"completed": lambda t: t.is_completed, "overdue": lambda t: t.is_overdue()},
+        {"completed": _task_completed, "overdue": _task_overdue},
     ),
     "goal": _Domain(
         GoalsBackend,
         NeoLabel.GOAL,
         Goal,
         _goals,
-        {"active": lambda g: g.is_active, "completed": lambda g: g.is_achieved()},
+        {"active": _goal_active, "completed": _goal_achieved},
     ),
     "habit": _Domain(
         HabitsBackend,
         NeoLabel.HABIT,
         Habit,
         _habits,
-        {"active": lambda h: h.is_active, "streaks": lambda h: h.current_streak > 0},
+        {"active": _habit_active, "streaks": _habit_on_a_streak},
     ),
     "event": _Domain(
         EventsBackend,
         NeoLabel.EVENT,
         Event,
         _events,
-        {
-            "scheduled": lambda e: e.status == EntityStatus.SCHEDULED,
-            "today": lambda e: e.event_date == _today(),
-        },
+        {"scheduled": _event_scheduled, "today": _event_today},
     ),
     "choice": _Domain(
         ChoicesBackend,
         NeoLabel.CHOICE,
         Choice,
         _choices,
-        {"pending": lambda c: c.is_pending(), "decided": lambda c: c.is_decided()},
+        {"pending": _choice_pending, "decided": _choice_decided},
     ),
     "principle": _Domain(
         PrinciplesBackend,
         NeoLabel.PRINCIPLE,
         Principle,
         _principles,
-        {
-            "core": lambda p: p.strength == PrincipleStrength.CORE,
-            "active": lambda p: p.is_active,
-        },
+        {"core": _principle_core, "active": _principle_active},
     ),
 }
 
