@@ -30,7 +30,7 @@ BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
     ├── RelationshipMetadataOperations     (3 methods)
     ├── RelationshipQueryOperations        (3 methods)
     ├── OrderedRelationshipOperations      (5 methods)
-    ├── BatchRelationshipOperations        (1 method)
+    ├── BatchRelationshipOperations        (2 methods)
     ├── GraphTraversalOperations           (6 methods)
     └── LowLevelOperations                 (2 methods + driver)
 ```
@@ -140,13 +140,16 @@ class OrderedRelationshipOperations(Protocol):
     async def get_hierarchical_children_deep(self, ...) -> Result[list[dict[str, Any]]]: ...
 ```
 
-### BatchRelationshipOperations (1 method)
+### BatchRelationshipOperations (2 methods)
 N+1 elimination: one query answers a relationship question for many source entities, keyed
-by UID. Implemented by `_RelationshipCrudMixin`; consumed by `BatchOperationsMixin`.
+by UID. Implemented by `_RelationshipCrudMixin`; consumed by `BatchOperationsMixin` and by
+services that fan a read out over a user's set (`batch_count_related` — Tasks' blocked-by-
+prerequisites read).
 
 ```python
 class BatchRelationshipOperations(Protocol):
     async def batch_get_related_uids(self, entity_uids: list[str], relationship_type: RelationshipName, direction: Direction, properties: Neo4jProperties | None = None, target_label: NeoLabel | None = None) -> Result[dict[str, list[str]]]: ...
+    async def batch_count_related(self, entity_uids: list[str], relationship_type: RelationshipName, direction: Direction, properties: Neo4jProperties | None = None, target_label: NeoLabel | None = None) -> Result[dict[str, int]]: ...
 ```
 
 ### GraphTraversalOperations (6 methods)

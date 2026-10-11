@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 
 from core.ports.knowledge_pattern_protocol import compute_knowledge_intensity
 from core.services.relationships import UnifiedRelationshipService
-from core.utils.generic_fetcher import fetch_relationships_parallel
+from core.utils.generic_fetcher import fetch_relationships_batch, fetch_relationships_parallel
+from core.utils.result_simplified import Result
 
 # Query specifications: (field_name, PRINCIPLES_CONFIG relationship method key).
 # Keys must match PRINCIPLES_CONFIG exactly — validated by tests/unit/test_query_spec_keys.py.
@@ -58,6 +59,18 @@ class PrincipleRelationships:
         """Fetch all relationship data from graph in parallel."""
         return await fetch_relationships_parallel(
             uid=principle_uid,
+            service=service,
+            query_specs=PRINCIPLE_QUERY_SPECS,
+            dataclass_type=cls,
+        )
+
+    @classmethod
+    async def fetch_many(
+        cls, uids: list[str], service: UnifiedRelationshipService
+    ) -> Result[dict[str, PrincipleRelationships]]:
+        """Fetch the relationship data of many entities — one query per relationship key."""
+        return await fetch_relationships_batch(
+            uids=uids,
             service=service,
             query_specs=PRINCIPLE_QUERY_SPECS,
             dataclass_type=cls,

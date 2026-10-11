@@ -1514,3 +1514,59 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 for r in records
             }
         )
+
+    @safe_backend_operation("batch_count_related")
+    async def batch_count_related(
+        self,
+        entity_uids: builtins.list[str],
+        relationship_type: RelationshipName,
+        direction: Direction,
+        properties: dict[str, Any] | None = None,
+        target_label: NeoLabel | None = None,
+    ) -> Result[dict[str, int]]:
+        """
+        Count related entities for many of this backend's entities in one query.
+
+        The batch form of ``count_related``: a count is arithmetic, so it sees every
+        edge, the far ends the far-node scope withholds from ``get_related_uids``
+        included. An entity with no such edge maps to 0; a uid that names none of
+        this backend's entities is absent from the mapping.
+
+        Args:
+            entity_uids: UIDs of this backend's entities to count for
+            relationship_type: The relationship type
+            direction: "outgoing", "incoming", or "both"
+            properties: Optional dict of relationship properties to filter by
+            target_label: Count only far ends carrying this label (``None`` counts
+                every far end)
+
+        Returns:
+            Result[dict[str, int]] mapping entity_uid -> count
+        """
+        if not entity_uids:
+            return Result.ok({})
+
+        pattern_result = self._build_direction_pattern(
+            relationship_type=relationship_type,
+            direction=direction,
+            source_var="e",
+            rel_var="r",
+            target_label=target_label,
+        )
+        if pattern_result.is_error:
+            return Result.fail(pattern_result)
+
+        where_clauses, params = self._edge_property_filter(properties)
+        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+        query = f"""
+        UNWIND $entity_uids AS entity_uid
+        MATCH (e:{self.label} {{uid: entity_uid}})
+        WHERE NOT e:Content
+        OPTIONAL MATCH {pattern_result.value}
+        {where_clause}
+        RETURN entity_uid, count(related) AS count
+        """
+
+        records = await self._run_records(query, {"entity_uids": entity_uids, **params})
+        return Result.ok({str(r["entity_uid"]): int(r["count"]) for r in records})

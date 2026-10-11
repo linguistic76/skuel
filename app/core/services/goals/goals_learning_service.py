@@ -264,17 +264,21 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
             goal = to_domain_model(goal_data, GoalDTO, Goal)
             goals.append(goal)
 
-        # GRAPH-NATIVE: Check each goal's supporting habits from relationships
+        # GRAPH-NATIVE: every goal's supporting habits in one read
         needing_habits = []
         if self.relationships:
-            from core.services.goals.goal_relationships import GoalRelationships
+            habits_result = await self.relationships.batch_get_related_uids(
+                "supporting_habits", [goal.uid for goal in goals]
+            )
+            if habits_result.is_error:
+                return Result.fail(habits_result)
+            supporting_habits = habits_result.value
 
             for goal in goals:
-                rels = await GoalRelationships.fetch(goal.uid, self.relationships)
+                habit_uids = supporting_habits.get(goal.uid, [])
                 # Check if has supporting habits AND any have weak streaks (< 7 days)
-                if rels.supporting_habit_uids and any(
-                    user_context.habit_streaks.get(habit_uid, 0) < 7
-                    for habit_uid in rels.supporting_habit_uids
+                if habit_uids and any(
+                    user_context.habit_streaks.get(habit_uid, 0) < 7 for habit_uid in habit_uids
                 ):
                     needing_habits.append(goal)
 
@@ -302,18 +306,21 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
             goal = to_domain_model(goal_data, GoalDTO, Goal)
             goals.append(goal)
 
-        # GRAPH-NATIVE: Check each goal's required knowledge from relationships
+        # GRAPH-NATIVE: every goal's required knowledge in one read
         blocked_goals = []
         if self.relationships:
-            from core.services.goals.goal_relationships import GoalRelationships
+            knowledge_result = await self.relationships.batch_get_related_uids(
+                "knowledge", [goal.uid for goal in goals]
+            )
+            if knowledge_result.is_error:
+                return Result.fail(knowledge_result)
+            required_knowledge = knowledge_result.value
 
             for goal in goals:
-                rels = await GoalRelationships.fetch(goal.uid, self.relationships)
-                if rels.required_knowledge_uids:
-                    missing = (
-                        set(rels.required_knowledge_uids) - user_context.mastered_knowledge_uids
-                    )
-                    if missing:
-                        blocked_goals.append(goal)
+                missing = (
+                    set(required_knowledge.get(goal.uid, [])) - user_context.mastered_knowledge_uids
+                )
+                if missing:
+                    blocked_goals.append(goal)
 
         return Result.ok(blocked_goals)

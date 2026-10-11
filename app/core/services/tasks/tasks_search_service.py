@@ -154,7 +154,8 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         A task is considered blocked if it has prerequisites (knowledge or tasks)
         that need to be satisfied before it can be started.
 
-        Uses graph-native relationship queries.
+        Uses graph-native relationship queries — two counts over the whole set,
+        whatever its size.
 
         Args:
             user_uid: User UID
@@ -171,32 +172,27 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         entities, _total = tasks_result.value
         warn_if_capped(self.logger, "Tasks blocked by prerequisites", entities, user_uid=user_uid)
 
-        # Filter tasks that have any prerequisites (using graph relationships)
+        # A task is blocked if it has any prerequisite edge — knowledge or task.
+        # One count per edge type over the whole set, not two per task.
         all_tasks = self._to_domain_models(entities, TaskDTO, Task)
-        blocked_tasks = []
-
-        for task in all_tasks:
-            # Check for knowledge prerequisites
-            knowledge_prereqs_result = await self.backend.count_related(
-                uid=task.uid,
-                relationship_type=RelationshipName.REQUIRES_KNOWLEDGE,
-                direction="outgoing",
+        task_uids: list[str] = [task.uid for task in all_tasks]
+        prerequisite_counts: list[dict[str, int]] = []
+        for relationship_type in (
+            RelationshipName.REQUIRES_KNOWLEDGE,
+            RelationshipName.REQUIRES_PREREQUISITE,
+        ):
+            counts_result = await self.backend.batch_count_related(
+                task_uids, relationship_type, "outgoing"
             )
-            has_knowledge_prereqs = (
-                knowledge_prereqs_result.is_ok and knowledge_prereqs_result.value > 0
-            )
+            if counts_result.is_error:
+                return Result.fail(counts_result)
+            prerequisite_counts.append(counts_result.value)
 
-            # Check for task prerequisites
-            task_prereqs_result = await self.backend.count_related(
-                uid=task.uid,
-                relationship_type=RelationshipName.REQUIRES_PREREQUISITE,
-                direction="outgoing",
-            )
-            has_task_prereqs = task_prereqs_result.is_ok and task_prereqs_result.value > 0
-
-            # Task is blocked if it has any prerequisites
-            if has_knowledge_prereqs or has_task_prereqs:
-                blocked_tasks.append(task)
+        blocked_tasks = [
+            task
+            for task in all_tasks
+            if any(counts.get(task.uid, 0) > 0 for counts in prerequisite_counts)
+        ]
 
         self.logger.debug(f"Found {len(blocked_tasks)} blocked tasks for user {user_uid}")
         return Result.ok(blocked_tasks)

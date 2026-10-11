@@ -39,12 +39,21 @@ Philosophy: "Relationships ARE the data structure, not serialized lists"
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 from dataclasses import fields
-from typing import Any, TypeVar
+from typing import Any, Protocol, TypeVar
 
 from core.utils.result_simplified import Result
 
 T = TypeVar("T")
+
+
+class KeyedBatchReader(Protocol):
+    """The keyed batch read ``fetch_relationships_batch`` runs once per key."""
+
+    async def batch_get_related_uids(
+        self, relationship_key: str, entity_uids: list[str]
+    ) -> Result[dict[str, list[str]]]: ...
 
 
 async def fetch_relationships_parallel[T](
@@ -121,6 +130,52 @@ async def fetch_relationships_parallel[T](
 
     # Construct and return the dataclass
     return dataclass_type(**kwargs)
+
+
+async def fetch_relationships_batch[T](
+    uids: Sequence[str],
+    service: KeyedBatchReader,
+    query_specs: list[tuple[str, str]],
+    dataclass_type: type[T],
+) -> Result[dict[str, T]]:
+    """
+    Fetch the relationship data of many entities: one query per relationship key.
+
+    The batch form of ``fetch_relationships_parallel`` for a fan-out over many
+    uids — the query count is ``len(query_specs)`` whatever the number of uids.
+    Each key resolves through the service's keyed batch read, so the edge type,
+    direction, tier and far-end kind are the single read's.
+
+    Args:
+        uids: Entity UIDs to fetch relationships for (duplicates read once)
+        service: Relationship service with ``batch_get_related_uids``
+        query_specs: ``(field_name, relationship_key)`` tuples
+        dataclass_type: The dataclass type to construct per uid
+
+    Returns:
+        Result mapping each uid to its dataclass; a failed read fails the whole batch.
+    """
+    distinct = list(dict.fromkeys(uids))
+    if not distinct:
+        return Result.ok({})
+
+    results = await asyncio.gather(
+        *[service.batch_get_related_uids(key, distinct) for _field_name, key in query_specs]
+    )
+    by_field: dict[str, dict[str, list[str]]] = {}
+    for (field_name, _key), result in zip(query_specs, results, strict=True):
+        if result.is_error:
+            return Result.fail(result)
+        by_field[field_name] = result.value
+
+    return Result.ok(
+        {
+            uid: dataclass_type(
+                **{field_name: related.get(uid, []) for field_name, related in by_field.items()}
+            )
+            for uid in distinct
+        }
+    )
 
 
 def validate_query_specs(

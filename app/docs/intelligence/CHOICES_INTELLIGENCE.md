@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-11
 ---
 
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
@@ -411,7 +411,7 @@ else:
 - Uses `ChoiceRelationships.fetch()` for fast UID retrieval
 
 **Performance Optimization:**
-- Uses `fetch()` for ~60% faster simple metrics
+- Reads relationship UIDs only — one query per relationship key
 - No path metadata extraction
 - Perfect for dashboard quick views and batch analysis
 
@@ -433,7 +433,7 @@ needs_full_analysis = (quick_complexity > 6.0) or (principle_count > 2)
 
 ### Method 5: batch_analyze_decision_complexity()
 
-**Purpose:** Analyze decision complexity for multiple choices in parallel using fast batch processing.
+**Purpose:** Analyze decision complexity for many choices at once — one relationship query per key, whatever the number of choices.
 
 **Signature:**
 ```python
@@ -467,7 +467,6 @@ async def batch_analyze_decision_complexity(
 
 **Example:**
 ```python
-# Analyze 100 user choices in ~4s instead of ~8s
 all_choices = ["choice_001", "choice_002", ..., "choice_100"]
 batch_result = await choices_service.intelligence.batch_analyze_decision_complexity(all_choices)
 
@@ -486,12 +485,9 @@ if batch_result.is_ok:
 
 **Dependencies:**
 - UnifiedRelationshipService (REQUIRED)
-- Uses `ChoiceRelationships.fetch()` with `asyncio.gather()` for parallel fetching
-
-**Performance:**
-- ~50% faster than sequential processing
-- ~4s for 100 choices vs ~8s sequential
-- Perfect for dashboards and pattern analysis
+- Uses `ChoiceRelationships.fetch_many()` — one `batch_get_related_uids` read per key in
+  `CHOICE_QUERY_SPECS`, so the query count does not grow with the number of choices
+  (pinned by `tests/integration/test_batched_relationship_reads.py`)
 
 ---
 

@@ -1256,6 +1256,20 @@ class BatchRelationshipOperations(Protocol):
         """
         ...
 
+    async def batch_count_related(
+        self,
+        entity_uids: builtins.list[str],
+        relationship_type: RelationshipName,
+        direction: Direction,
+        properties: Neo4jProperties | None = None,
+        target_label: NeoLabel | None = None,
+    ) -> ResultType[dict[str, int]]:
+        """How many entities each of this backend's entities reaches over this relationship.
+
+        Maps uid -> count (0 for none); every edge counts, as in ``count_related``.
+        """
+        ...
+
 
 @runtime_checkable
 class GraphTraversalOperations(Protocol):

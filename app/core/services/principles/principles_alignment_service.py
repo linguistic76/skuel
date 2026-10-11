@@ -36,6 +36,7 @@ from core.services.cross_domain import CrossDomainQueryService
 from core.services.cross_domain.cross_domain_types import PrincipleAlignmentEvidence
 from core.services.intelligence import principle_gap_insights, principle_gap_recommendations
 from core.services.whole_set_read import find_all_by
+from core.utils.bounded_gather import gather_bounded
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -231,10 +232,13 @@ class PrinciplesAlignmentService:
         total_score = 0.0
         entity_name = ""
 
-        for principle in principles:
-            evidence_result = await self.cross_domain_query.get_principle_alignment_evidence(
-                principle.uid, user_uid
-            )
+        # Each principle's evidence is its own graph read; a bounded number run at once.
+        evidence_results = await gather_bounded(
+            self.cross_domain_query.get_principle_alignment_evidence(principle.uid, user_uid)
+            for principle in principles
+        )
+
+        for principle, evidence_result in zip(principles, evidence_results, strict=True):
             if evidence_result.is_error:
                 continue
 
