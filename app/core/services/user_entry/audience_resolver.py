@@ -37,6 +37,7 @@ from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import EntityUID, UserUID
 from core.models.user_entry.audience import TEACHER_PREFIX, USER_PREFIX
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.services.mixins.link_edge_guard import PATH_STEP_FAR_END, admit_far_ends_for_owner
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -242,6 +243,11 @@ class AudienceResolver:
             ``forbidden``.
           - ``transforms_of_uid``: the predecessor must be the user's own
             (``forbidden``), and must exist (``not_found``).
+          - ``about_path_step_uid``: a published PathStep (``PATH_STEP_FAR_END``
+            under ``link_edge_guard``'s rule) — it becomes the turn-in
+            Interaction's ``INTERACTION_DURING`` edge. Anything else (a uid that
+            names nothing, another user's entity, another kind of node, a draft)
+            is ``not_found`` of the PathStep, one answer for all of them.
 
         Audience targets (ADR-088 §7-§8; "every door validates every target
         before its first write"):
@@ -271,6 +277,7 @@ class AudienceResolver:
             needs_lookup = bool(
                 request.fulfills_exercise_uid
                 or request.transforms_of_uid
+                or request.about_path_step_uid
                 or spec.share_users
                 or spec.group_targets
                 or (request.pipeline == Pipeline.TEACHER_REVIEW and not spec.private)
@@ -401,7 +408,7 @@ class AudienceResolver:
         user_uid: UserUID,
         request: UserEntryCreateRequest,
     ) -> Result[None]:
-        """The exercise / predecessor claims — see ``validate_references``."""
+        """The exercise / predecessor / PathStep-context claims — see ``validate_references``."""
         assert self.sharing_service is not None  # caller gates
         backend = self.sharing_service.backend
         fulfills_exercise_uid = request.fulfills_exercise_uid
@@ -441,6 +448,16 @@ class AudienceResolver:
                         reason=(f"Predecessor entry {transforms_of_uid} belongs to another user."),
                     )
                 )
+
+        if request.about_path_step_uid:
+            admitted = await admit_far_ends_for_owner(
+                backend,
+                owner_uid=user_uid,
+                far_uids=[request.about_path_step_uid],
+                far_end=PATH_STEP_FAR_END,
+            )
+            if admitted.is_error:
+                return Result.fail(admitted)
 
         return Result.ok(None)
 

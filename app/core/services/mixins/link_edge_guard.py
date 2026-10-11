@@ -17,6 +17,9 @@ edge, in these shapes:
 - an entry's knowledge references (``@ku()`` / ``@link(ku:…|ps:…)``) are admitted
   through ``partition_link_edges`` by ``UserEntryService.link_applied_knowledge``,
   which writes the kept ones and reports each refused one as not found.
+- an entry's PathStep context (``about_path_step_uid``) is admitted through
+  ``admit_far_ends_for_owner`` by ``AudienceResolver.validate_references``, so an
+  entry naming anything but a published PathStep is refused before it is written.
 
 A request field like ``linked_goal_uids`` or ``knowledge_uid`` is a UID the caller
 chose. Writing it straight into ``create_relationships_batch`` trusts three things the
@@ -139,6 +142,9 @@ GOAL_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.GOAL.value}), "Goal")
 HABIT_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.HABIT.value}), "Habit")
 PRINCIPLE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.PRINCIPLE.value}), "Principle")
 CHOICE_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.CHOICE.value}), "Choice")
+# An entry's PathStep context (``about_path_step_uid`` → its Interaction's
+# INTERACTION_DURING edge), admitted by AudienceResolver before the entry is written.
+PATH_STEP_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.PATH_STEP.value}), "PathStep")
 # A life path is a LearningPath the user has designated; which one is checked by
 # the statement that writes the link (GoalsService.link_goal_to_life_path).
 LIFE_PATH_FAR_END: Final = LinkFarEnd(frozenset({NeoLabel.LEARNING_PATH.value}), "Life path")

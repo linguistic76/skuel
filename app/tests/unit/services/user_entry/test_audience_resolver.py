@@ -249,6 +249,15 @@ class TestValidateReferencesAudience:
         assert result.expect_error().category.value == "forbidden"
 
     @pytest.mark.asyncio
+    async def test_without_a_sharing_service_a_path_step_context_fails_closed(self):
+        """The PathStep context is admitted through the sharing backend's endpoint
+        reads; without one it cannot be checked, so the entry is refused."""
+        resolver = AudienceResolver(sharing_service=None, group_service=None)
+        result = await resolver.validate_references(USER, _req(about_path_step_uid="ps.x"))
+        assert result.is_error
+        assert result.expect_error().category.value == "forbidden"
+
+    @pytest.mark.asyncio
     async def test_without_a_sharing_service_no_audience_is_ok(self):
         resolver = AudienceResolver(sharing_service=None, group_service=None)
         result = await resolver.validate_references(USER, _req())

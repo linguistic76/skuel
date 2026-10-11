@@ -186,7 +186,7 @@ Report approval masters **Kus**: `ReportMasteryService.propagate_mastery` marks 
 **Key routes:**
 - `GET /path-steps` — Browse all PathSteps; rows link to the reading page, with an "Enrolled" badge on the session user's IN_PROGRESS steps
 - `GET /explore/ps/{uid}` — Full reading page (markdown + TOC + learning objectives + actions)
-- `POST /explore/ps/{uid}/progress` — the page's progress control (`state=learning|read`); `POST /api/path-steps/{uid}/start` is the HTMX fragment action that marks IN_PROGRESS (answers the updated button, not JSON)
+- `POST /explore/ps/{uid}/progress` — the page's progress control (`state=learning|read`); `POST /api/path-steps/{uid}/start` is the HTMX fragment action that marks IN_PROGRESS (answers the updated button, not JSON). Every learner-state write (these, `mark-read`, both bookmark doors, the page's VIEWED) lands on a **published PathStep** only — the backend statement admits its own far end, and any other uid is the step not found
 
 **Contrast with Learning Paths:** LPs use **explicit enrollment** via `(User)-[:ENROLLED_IN]->(LearningPath)`.
 

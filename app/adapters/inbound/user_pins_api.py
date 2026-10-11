@@ -13,15 +13,18 @@ Routes:
 
 from typing import Any
 
+from fasthtml.common import FT
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from core.models.type_hints import EntityUID
 from core.models.user_pins_request import PinEntityRequest, ReorderPinsRequest
 from core.ports.relationship_backend_protocols import UserRelationshipOperations
 from core.utils.result_simplified import Errors, Result
+from ui.patterns.pin_button import PinButton
 
 
 def create_user_pins_routes(
@@ -50,7 +53,8 @@ def create_user_pins_routes(
 
     @rt("/api/user/pins", methods=["POST"])
     @csrf_protected
-    async def pin_entity(request: Request):
+    @boundary_handler()
+    async def pin_entity(request: Request) -> Result[FT]:
         """
         Pin an entity.
 
@@ -58,10 +62,10 @@ def create_user_pins_routes(
         - entity_uid: UID of entity to pin
 
         Returns:
-        - Updated pin button HTML (for HTMX) or JSON (for API)
+        - Updated pin button HTML. A refused pin is a JSON error — 404 alike for a
+          uid that names nothing and for one that may not be pinned
+          (``UserRelationshipOperations.pin_entity``).
         """
-        from adapters.inbound.form_helpers import parse_form_body
-
         user_uid = require_authenticated_user(request)
 
         # Try JSON first, then form data (HTMX sends form data)
@@ -69,24 +73,20 @@ def create_user_pins_routes(
         if json_result.is_error:
             form_result = await parse_form_body(request, PinEntityRequest)
             if form_result.is_error:
-                return Result.fail(Errors.validation("entity_uid required"))
+                return Result.fail(Errors.validation("entity_uid required", field="entity_uid"))
             entity_uid = form_result.value.entity_uid
         else:
             entity_uid = json_result.value.entity_uid
 
         result = await user_relationship_service.pin_entity(user_uid, entity_uid)
-
         if result.is_error:
-            return result
-
-        # Return updated pin button for HTMX
-        from ui.patterns.pin_button import PinButton
-
-        return PinButton(entity_uid=entity_uid, is_pinned=True)
+            return Result.fail(result)
+        return Result.ok(PinButton(entity_uid=entity_uid, is_pinned=True))
 
     @rt("/api/user/pins/{entity_uid}", methods=["DELETE"])
     @csrf_protected
-    async def unpin_entity(request: Request, entity_uid: EntityUID):
+    @boundary_handler()
+    async def unpin_entity(request: Request, entity_uid: EntityUID) -> Result[FT]:
         """
         Unpin an entity.
 
@@ -94,18 +94,13 @@ def create_user_pins_routes(
         - entity_uid: UID of entity to unpin
 
         Returns:
-        - Updated pin button HTML (for HTMX) or JSON (for API)
+        - Updated pin button HTML; a JSON 404 when the entity is not pinned.
         """
         user_uid = require_authenticated_user(request)
         result = await user_relationship_service.unpin_entity(user_uid, entity_uid)
-
         if result.is_error:
-            return result
-
-        # Return updated pin button for HTMX
-        from ui.patterns.pin_button import PinButton
-
-        return PinButton(entity_uid=entity_uid, is_pinned=False)
+            return Result.fail(result)
+        return Result.ok(PinButton(entity_uid=entity_uid, is_pinned=False))
 
     @rt("/api/user/pins/reorder", methods=["POST"])
     @csrf_protected

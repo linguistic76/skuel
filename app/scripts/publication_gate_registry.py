@@ -456,6 +456,26 @@ SURFACES: tuple[Surface, ...] = (
         "backends that serve the guard share the one statement.",
     ),
     Surface(
+        "adapters.persistence.neo4j._learning_state_mixin",
+        "<module>:_PUBLISHED_STEP",
+        Disposition.ADMISSION,
+        "The PathStep learner-state writes' far end (record_view, mark_in_progress, "
+        "mark_as_learning, mark_as_read, create_bookmark): the edge lands on a "
+        "published step only, so a learner's VIEWED / IN_PROGRESS / MARKED_AS_READ / "
+        "BOOKMARKED never references a draft. Each write returns whether it landed — "
+        "no curriculum the caller did not name. Composed at module level because the "
+        "five writes share the one MATCH.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.user_relationship_backend",
+        "<module>:_PUBLISHED_ENTITY",
+        Disposition.ADMISSION,
+        "UserRelationshipBackend.pin_entity's write: a Ku or PathStep nobody owns is "
+        "pinned only when published, so a draft's uid never sits in a learner's pins "
+        "for the Saved sidebar to resolve. It returns whether the pin landed — no "
+        "curriculum the caller did not name.",
+    ),
+    Surface(
         "adapters.persistence.neo4j.entry_grounding_backend",
         "EntryGroundingBackend.write_applies_knowledge",
         Disposition.ADMISSION,

@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-10-10
+updated: 2026-10-11
 status: current
 category: architecture
 related:
@@ -442,6 +442,10 @@ via the UI. The PathStep UID flows as `from_ps={ps_uid}` through the URL chain a
 embedded as a hidden form field. The upload handler carries it as
 `UserEntryCreateRequest.about_path_step_uid`; `UserEntryService._create_interaction_record`
 writes it to `Interaction.context_path_step_uid` — never a guess from `UserContext`.
+The uid is a request field, so it is admitted before the entry is written
+(`AudienceResolver.validate_references`): a published PathStep, or the entry is refused
+as the PathStep not found — the same answer for a uid that names nothing, another
+user's entity, another kind of node and a draft.
 This means Interaction records have reliable, auditable situated context.
 
 **Auto-created, best-effort:** Failure never blocks the submission. No UI affordance needed.

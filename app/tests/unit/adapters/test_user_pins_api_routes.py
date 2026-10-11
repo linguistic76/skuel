@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.user_pins_api import create_user_pins_routes
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 _USER_UID = "user_owner"
 _ENTITY_UID = "task_1"
@@ -128,6 +128,42 @@ class TestPinning:
         harness.client.post("/api/user/pins", json={}, headers=_csrf(harness.client))
 
         harness.relationships.pin_entity.assert_not_awaited()
+
+    def test_a_refused_pin_is_a_json_404_not_a_200(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+        harness.relationships.pin_entity = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Entity", _ENTITY_UID))
+        )
+
+        response = harness.client.post(
+            "/api/user/pins", json={"entity_uid": _ENTITY_UID}, headers=_csrf(harness.client)
+        )
+
+        assert response.status_code == 404
+        assert response.json()["category"] == "not_found"
+        assert "source_location" not in response.text
+
+    def test_unpin_of_an_unpinned_entity_is_a_json_404(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+        harness.relationships.unpin_entity = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Pin", _ENTITY_UID))
+        )
+
+        response = harness.client.delete(
+            f"/api/user/pins/{_ENTITY_UID}", headers=_csrf(harness.client)
+        )
+
+        assert response.status_code == 404
+        assert response.json()["category"] == "not_found"
+
+    def test_pin_without_entity_uid_is_a_400(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.post("/api/user/pins", json={}, headers=_csrf(harness.client))
+
+        assert response.status_code == 400
 
     def test_unpin_awaited_with_exact_args(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)

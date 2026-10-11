@@ -388,7 +388,10 @@ from pre-report states — forward-only, driven by the report pipeline)
 - `source_entity_uid`: back-pointer to the `UserEntry` UID
 - `context_path_step_uid`: from the request's `about_path_step_uid` (the PS page's
   Submit → flow carries it as a hidden form field) — nullable when the submission
-  didn't come from a PathStep context
+  didn't come from a PathStep context. It must name a published PathStep:
+  `AudienceResolver.validate_references` admits it (`PATH_STEP_FAR_END`,
+  `link_edge_guard`) before the entry is written, and anything else refuses the
+  whole entry as the PathStep not found
 
 > **Registry requirement (found the hard way):** `create_relationships_batch` validates
 > every edge against `LABEL_CONFIGS` in `core/models/relationship_registry.py`. Interaction

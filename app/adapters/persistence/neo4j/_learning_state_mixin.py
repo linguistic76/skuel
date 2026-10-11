@@ -7,8 +7,9 @@ User progress tracking operations for domain backends.
 Manages learning-state relationships between User and Entity nodes:
 VIEWED, IN_PROGRESS, MASTERED, MARKED_AS_READ, BOOKMARKED.
 
-These methods are entity-agnostic internally (they operate on :Entity + :User
-nodes), enabling reuse by any curriculum backend — not just PsBackend.
+The learner-door writes land on a published PathStep only — the far end is
+admitted by the statement that writes the edge. ``mark_mastered`` takes a Ku or a
+PathStep, and the reads take any :Entity.
 
 Requires on concrete class:
     execute_query, logger  (provided by UniversalNeo4jBackend)
@@ -21,6 +22,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
@@ -30,6 +32,21 @@ if TYPE_CHECKING:
 
     from core.models.type_hints import Neo4jProperties
     from core.ports.query_types import MasteredWriteRow, StepMasteryGapRow
+
+
+# The far end of every learner-door write here (VIEWED, IN_PROGRESS, MARKED_AS_READ,
+# BOOKMARKED): a PathStep a learner can read. The write's own MATCH admits it, so a
+# uid naming another kind of node, another user's entity, a draft or nothing at all
+# matches no row and writes nothing — one answer for all of them, which the service
+# reports as the step not being found.
+_PUBLISHED_STEP, _PUBLISHED_STEP_PARAMS = build_publication_clause("ps")
+_MATCH_PUBLISHED_STEP = (
+    f"MATCH (ps:{NeoLabel.ENTITY}:{NeoLabel.PATH_STEP} {{uid: $step_uid}}) WHERE {_PUBLISHED_STEP}"
+)
+
+
+def _step_params(user_uid: UserUID, step_uid: str, **extra: str | int) -> dict[str, str | int]:
+    return {"user_uid": user_uid, "step_uid": step_uid, **_PUBLISHED_STEP_PARAMS, **extra}
 
 
 def to_mastered_write_rows(
@@ -50,9 +67,12 @@ def to_mastered_write_rows(
 class _LearningStateMixin:
     """User progress tracking operations (VIEWED, IN_PROGRESS, MASTERED, etc.).
 
-    Domain backends that track learning state should add ``_LearningStateMixin``
-    to their class bases. All methods are entity-agnostic — they operate on
-    :Entity and :User nodes without filtering by entity_type.
+    Hosted by ``PsBackend``. The learner-door writes (``record_view``,
+    ``mark_in_progress``, ``mark_as_learning``, ``mark_as_read``,
+    ``create_bookmark``) land on a published PathStep only and return no row for
+    any other uid. ``mark_mastered`` serves a Ku or a PathStep — its callers name a
+    Ku a report or self-report mastered, or a step derived from its Kus — and the
+    reads take any :Entity.
 
     Requires on concrete class:
         execute_query: async (query, params) -> Result[list[dict]]
@@ -73,11 +93,11 @@ class _LearningStateMixin:
     async def record_view(
         self, user_uid: UserUID, ku_uid: str, now: str, time_spent: int
     ) -> Result[list[Neo4jProperties]]:
-        """MERGE VIEWED relationship with timestamp and count tracking."""
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (u)-[r:VIEWED]->(ku)
+        """MERGE VIEWED onto a published PathStep, tracking timestamps and count."""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        {_MATCH_PUBLISHED_STEP}
+        MERGE (u)-[r:VIEWED]->(ps)
         ON CREATE SET
             r.first_viewed_at = datetime($now),
             r.last_viewed_at = datetime($now),
@@ -90,18 +110,17 @@ class _LearningStateMixin:
         RETURN r.view_count as view_count
         """
         return await self.execute_query(
-            query,
-            {"user_uid": user_uid, "ku_uid": ku_uid, "now": now, "time_spent": time_spent},
+            query, _step_params(user_uid, ku_uid, now=now, time_spent=time_spent)
         )
 
     async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str, now: str
     ) -> Result[list[Neo4jProperties]]:
-        """MERGE IN_PROGRESS relationship."""
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (u)-[r:IN_PROGRESS]->(ku)
+        """MERGE IN_PROGRESS onto a published PathStep."""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        {_MATCH_PUBLISHED_STEP}
+        MERGE (u)-[r:IN_PROGRESS]->(ps)
         ON CREATE SET
             r.started_at = datetime($now),
             r.last_activity_at = datetime($now),
@@ -110,34 +129,34 @@ class _LearningStateMixin:
             r.last_activity_at = datetime($now)
         RETURN true as success
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid, "now": now})
+        return await self.execute_query(query, _step_params(user_uid, ku_uid, now=now))
 
     async def mark_as_learning(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Delete MARKED_AS_READ and ensure IN_PROGRESS (Review again action)."""
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        OPTIONAL MATCH (u)-[r:MARKED_AS_READ]->(ku)
+        """Delete MARKED_AS_READ and ensure IN_PROGRESS on a published PathStep (Review again)."""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        {_MATCH_PUBLISHED_STEP}
+        OPTIONAL MATCH (u)-[r:MARKED_AS_READ]->(ps)
         DELETE r
-        MERGE (u)-[ip:IN_PROGRESS]->(ku)
+        MERGE (u)-[ip:IN_PROGRESS]->(ps)
         ON CREATE SET ip.started_at = datetime(), ip.last_activity_at = datetime(), ip.progress_score = 0.0
         ON MATCH SET ip.last_activity_at = datetime()
         RETURN true AS success
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+        return await self.execute_query(query, _step_params(user_uid, ku_uid))
 
     async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """MERGE MARKED_AS_READ relationship."""
-        query = """
-        MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (user)-[r:MARKED_AS_READ]->(ku)
+        """MERGE MARKED_AS_READ onto a published PathStep."""
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})
+        {_MATCH_PUBLISHED_STEP}
+        MERGE (user)-[r:MARKED_AS_READ]->(ps)
         ON CREATE SET r.marked_at = datetime()
         RETURN r
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+        return await self.execute_query(query, _step_params(user_uid, ku_uid))
 
     async def mark_mastered(
         self, user_uid: UserUID, entity_uid: str, now: str, mastery_score: float, method: str
@@ -246,14 +265,15 @@ class _LearningStateMixin:
     async def create_bookmark(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """MERGE BOOKMARKED relationship."""
-        query = """
-        MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (user)-[r:BOOKMARKED]->(ku)
+        """MERGE BOOKMARKED onto a published PathStep; one row when it lands."""
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})
+        {_MATCH_PUBLISHED_STEP}
+        MERGE (user)-[r:BOOKMARKED]->(ps)
         ON CREATE SET r.bookmarked_at = datetime()
+        RETURN true AS success
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+        return await self.execute_query(query, _step_params(user_uid, ku_uid))
 
     # ========================================================================
     # QUERY OPERATIONS

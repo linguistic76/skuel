@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-10-10
+updated: 2026-10-11
 category: patterns
 related_skills: []
 related_docs:
@@ -403,7 +403,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 
 Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) extracted to `_backend_helpers.py`.
 
-**Reuse potential:** `_LearningStateMixin` methods are entity-agnostic internally — `ExerciseBackend` or `KuBackend` can add it to their bases when learning state tracking is needed.
+**Scope:** `_LearningStateMixin` is PathStep learner state. Its learner-door writes (`record_view`, `mark_in_progress`, `mark_as_learning`, `mark_as_read`, `create_bookmark`) admit their own far end — a published PathStep, matched in the statement that writes the edge — and return no row for any other uid. `mark_mastered` serves a Ku or a PathStep; `KuBackend` keeps its own Ku-bound learning-state writers.
 
 ### March 26, 2026 Update: execute_query() Standardization (Phase 9)
 

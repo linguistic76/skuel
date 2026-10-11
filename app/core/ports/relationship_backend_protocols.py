@@ -36,7 +36,15 @@ class UserRelationshipOperations(Protocol):
 
     # Pinned entities
     async def get_pinned_entities(self, user_uid: UserUID) -> Result[list[str]]: ...
-    async def pin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]: ...
+    async def pin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
+        """Pin an entity the user owns, or a published Ku or PathStep.
+
+        The write admits its own far end; anything else — another user's entity, a
+        draft, another kind of shared node, a uid that names nothing — is
+        ``not_found`` of the entity, one answer for all of them.
+        """
+        ...
+
     async def unpin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]: ...
 
     async def reorder_pins(
