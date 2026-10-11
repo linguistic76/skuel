@@ -309,7 +309,7 @@ assert get_status_badge_class("active") != ""
 **Key mocking patterns in these tests:**
 - Backend method mocks: `backend.method_name = AsyncMock(return_value=Result.ok([...]))`
 - Event verification: `event_bus.publish_async.assert_awaited_once()` + check event type/fields
-- Access control: `_verify_teacher_has_group_access` returns `Result.fail(Errors.not_found(...))` — 404, not 403
+- Access control: `_verify_entry_asks_teacher` returns `Result.fail(Errors.not_found(...))` — 404, not 403
 - `_make_entity(**overrides)` helper using `MagicMock()` with attribute assignment (avoids frozen dataclass construction)
 
 ## Additional Resources

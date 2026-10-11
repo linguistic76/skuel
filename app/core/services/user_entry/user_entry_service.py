@@ -1009,10 +1009,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
 
         The entry must ask this teacher for feedback — an active group the
         teacher owns, or the teacher directly (ADR-088 §2, §9). Mirrors
-        ``TeacherReviewService._verify_teacher_has_group_access``:
-        empty access → ``not_found`` (404) so teachers outside the student's
-        group cannot distinguish between "entry does not exist" and "entry
-        belongs to another teacher's student."
+        ``TeacherReviewService._verify_entry_asks_teacher``:
+        empty access → ``not_found`` (404) so a teacher the entry does not ask
+        cannot distinguish between "entry does not exist" and "entry asks
+        another teacher."
         """
         access = await self.teacher_has_feedback_authority(uid, teacher_uid)
         if access.is_error:
@@ -1031,9 +1031,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         entry, and never true for a uid that names no entry, so a caller that
         answers ``False`` with not-found cannot tell the two apart.
 
-        Backend: ``UserEntryBackend.verify_teacher_has_group_access``
+        Backend: ``UserEntryBackend.verify_entry_asks_teacher``
         """
-        access = await self.backend.verify_teacher_has_group_access(uid, teacher_uid)
+        access = await self.backend.verify_entry_asks_teacher(uid, teacher_uid)
         if access.is_error:
             return Result.fail(access)
         return Result.ok(bool(access.value))

@@ -397,7 +397,7 @@ class UserEntryAssessmentOperations(Protocol):
         """At-a-glance stats for the teacher dashboard."""
         ...
 
-    async def verify_teacher_has_group_access(
+    async def verify_entry_asks_teacher(
         self, entry_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Verify the entry asks this teacher for feedback (an active owned group, or the teacher directly).

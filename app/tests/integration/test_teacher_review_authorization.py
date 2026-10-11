@@ -2,11 +2,12 @@
 Teacher Review Authorization Integration Tests
 ==============================================
 
-End-to-end: verify that `UserEntryBackend.verify_teacher_has_group_access`
+End-to-end: verify that `UserEntryBackend.verify_entry_asks_teacher`
 — the gate every review write runs (submit_report, request_revision,
 approve_report, the teacher delete) — only returns a match when the
-submission itself is ``SUBMITTED_TO_GROUP`` an active Group the teacher
-OWNS (ADR-088 §2). It is the authority the queue and the detail read carry,
+submission itself asks the teacher: ``SUBMITTED_TO_GROUP`` an active Group
+the teacher OWNS (ADR-088 §2), or ``SUBMITTED_TO_TEACHER`` the teacher
+directly (§9). It is the authority the queue and the detail read carry,
 so a teacher can write on exactly what they can open. Sharing a classroom
 with the submission's *owner* is deliberately not enough: a multi-class
 student who sent the entry to one teacher's group has not put it in another
@@ -26,6 +27,9 @@ Expectations:
   inactive Group Z must not satisfy the `g.is_active = true` predicate.
 - Teacher B over submission_2 → match.
 - A request to a deactivated group grants nothing.
+- Teacher A over submission_2 → no match until submission_2 is
+  ``SUBMITTED_TO_TEACHER`` Teacher A directly — then a match, with no group
+  of A's involved (the direct arm).
 - Teacher over their own submission UID → no match (``student.uid <> teacher.uid``).
 """
 
@@ -137,12 +141,12 @@ def user_entry_backend(neo4j_driver):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-class TestVerifyTeacherHasGroupAccess:
+class TestVerifyEntryAsksTeacher:
     async def test_teacher_with_shared_active_group_passes(
         self, user_entry_backend, teacher_review_fixture
     ):
         """submission_1 is SUBMITTED_TO_GROUP Teacher A's active Group X → access granted."""
-        result = await user_entry_backend.verify_teacher_has_group_access(
+        result = await user_entry_backend.verify_entry_asks_teacher(
             teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_a"]
         )
         assert not result.is_error
@@ -156,7 +160,7 @@ class TestVerifyTeacherHasGroupAccess:
         sent to Group X only → empty result. The gate is the entry's own
         feedback request, never "share some group with the owner" (and the
         inactive Group Z must not satisfy the is_active predicate either)."""
-        result = await user_entry_backend.verify_teacher_has_group_access(
+        result = await user_entry_backend.verify_entry_asks_teacher(
             teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_b"]
         )
         assert not result.is_error
@@ -174,7 +178,7 @@ class TestVerifyTeacherHasGroupAccess:
             sub=teacher_review_fixture["submission_1"],
             gz=teacher_review_fixture["group_z_inactive"],
         )
-        result = await user_entry_backend.verify_teacher_has_group_access(
+        result = await user_entry_backend.verify_entry_asks_teacher(
             teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_b"]
         )
         assert not result.is_error
@@ -193,7 +197,7 @@ class TestVerifyTeacherHasGroupAccess:
             sub=teacher_review_fixture["submission_1"],
             gy=teacher_review_fixture["group_y"],
         )
-        result = await user_entry_backend.verify_teacher_has_group_access(
+        result = await user_entry_backend.verify_entry_asks_teacher(
             teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_b"]
         )
         assert not result.is_error
@@ -223,7 +227,7 @@ class TestVerifyTeacherHasGroupAccess:
             self_owned=self_owned,
         )
         try:
-            result = await user_entry_backend.verify_teacher_has_group_access(self_owned, teacher_a)
+            result = await user_entry_backend.verify_entry_asks_teacher(self_owned, teacher_a)
             assert not result.is_error
             assert result.value == []
         finally:
@@ -235,13 +239,53 @@ class TestVerifyTeacherHasGroupAccess:
         self, user_entry_backend, teacher_review_fixture
     ):
         """Teacher B over Student 2 passes; Teacher A over Student 2 does not."""
-        b_over_s2 = await user_entry_backend.verify_teacher_has_group_access(
+        b_over_s2 = await user_entry_backend.verify_entry_asks_teacher(
             teacher_review_fixture["submission_2"], teacher_review_fixture["teacher_b"]
         )
-        a_over_s2 = await user_entry_backend.verify_teacher_has_group_access(
+        a_over_s2 = await user_entry_backend.verify_entry_asks_teacher(
             teacher_review_fixture["submission_2"], teacher_review_fixture["teacher_a"]
         )
         assert not b_over_s2.is_error
         assert len(b_over_s2.value) == 1
         assert not a_over_s2.is_error
         assert a_over_s2.value == []
+
+    async def test_a_direct_request_admits_the_teacher_it_names(
+        self, user_entry_backend, teacher_review_fixture, neo4j_driver
+    ):
+        """submission_2 asks none of Teacher A's groups; once it is
+        ``SUBMITTED_TO_TEACHER`` A directly, A is admitted — the gate is the
+        entry's feedback request in either form, not group membership. Teacher
+        B's own admission is unchanged and B still cannot touch submission_1
+        (the direct edge on submission_2 opens nothing else)."""
+        before = await user_entry_backend.verify_entry_asks_teacher(
+            teacher_review_fixture["submission_2"], teacher_review_fixture["teacher_a"]
+        )
+        assert not before.is_error
+        assert before.value == []
+
+        await neo4j_driver.execute_query(
+            """
+            MATCH (sub:Entity {uid: $sub}), (ta:User {uid: $teacher_a})
+            MERGE (sub)-[:SUBMITTED_TO_TEACHER]->(ta)
+            """,
+            sub=teacher_review_fixture["submission_2"],
+            teacher_a=teacher_review_fixture["teacher_a"],
+        )
+        after = await user_entry_backend.verify_entry_asks_teacher(
+            teacher_review_fixture["submission_2"], teacher_review_fixture["teacher_a"]
+        )
+        assert not after.is_error
+        assert len(after.value) == 1
+        assert after.value[0]["has_access"] is True
+
+        still_b = await user_entry_backend.verify_entry_asks_teacher(
+            teacher_review_fixture["submission_2"], teacher_review_fixture["teacher_b"]
+        )
+        assert not still_b.is_error
+        assert len(still_b.value) == 1
+        b_over_s1 = await user_entry_backend.verify_entry_asks_teacher(
+            teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_b"]
+        )
+        assert not b_over_s1.is_error
+        assert b_over_s1.value == []

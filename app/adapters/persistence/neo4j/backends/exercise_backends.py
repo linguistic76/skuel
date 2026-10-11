@@ -588,7 +588,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         caller cannot tell those apart, and must not.
 
         Says nothing about the teacher: whether the entry asks the teacher for
-        feedback is ``UserEntryBackend.verify_teacher_has_group_access``.
+        feedback is ``UserEntryBackend.verify_entry_asks_teacher``.
         """
         result = await self.execute_query(
             f"""
@@ -728,7 +728,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         an exercise's revisions across students, beyond any one request, so a
         teacher reached only by a direct request (``SUBMITTED_TO_TEACHER``,
         ADR-088 §9) is not admitted here. (The revision *write* is gated on the
-        entry's own feedback request — verify_teacher_has_group_access.) An out-of-classroom
+        entry's own feedback request — verify_entry_asks_teacher.) An out-of-classroom
         teacher gets an empty chain, indistinguishable from a nonexistent
         exercise.
 

@@ -242,11 +242,12 @@ def create_teaching_api_routes(
         """Download the .md feedback file attached to an EntryReport.
 
         Owner-scoped, not just teacher-gated: ``get_report_file_path`` returns a
-        path only for a report on a submission the caller shares an active group
-        with — the same audience that may write the feedback. A report outside
-        the caller's classroom, or one that does not exist, both return ``None``
-        and yield the same real 404 (a denied read must not reach a client or
-        cache as a 200 success).
+        path only for a report on a submission whose owner is in the caller's
+        classroom or which asks the caller for feedback (a group they own, or a
+        direct request — ADR-088 §9). A report the caller has neither authority
+        over, or one that does not exist, both return ``None`` and yield the
+        same real 404 (a denied read must not reach a client or cache as a 200
+        success).
         """
         from starlette.responses import Response
 

@@ -36,7 +36,7 @@ def _make_user_entry_backend():
     backend.get_student_entries_for_teacher = AsyncMock(return_value=Result.ok([]))
     backend.get_entry_detail_for_teacher = AsyncMock(return_value=Result.ok([]))
     backend.get_dashboard_stats = AsyncMock(return_value=Result.ok([]))
-    backend.verify_teacher_has_group_access = AsyncMock(return_value=Result.ok([]))
+    backend.verify_entry_asks_teacher = AsyncMock(return_value=Result.ok([]))
     backend.verify_teacher_authority = AsyncMock(return_value=Result.ok([{"has_authority": True}]))
     backend.verify_teacher_exchange_authority = AsyncMock(return_value=Result.ok([]))
     return backend
@@ -88,18 +88,18 @@ def _make_service(
 
 
 # ========================================================================
-# TestVerifyTeacherHasGroupAccess
+# TestVerifyEntryAsksTeacher
 # ========================================================================
 
 
-class TestVerifyTeacherHasGroupAccess:
+class TestVerifyEntryAsksTeacher:
     @pytest.mark.asyncio
     async def test_access_granted(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         service = _make_service(user_entry_backend=backend)
 
-        result = await service._verify_teacher_has_group_access(SUBMISSION_UID, TEACHER_UID)
+        result = await service._verify_entry_asks_teacher(SUBMISSION_UID, TEACHER_UID)
 
         assert not result.is_error
         assert result.value is True
@@ -107,10 +107,10 @@ class TestVerifyTeacherHasGroupAccess:
     @pytest.mark.asyncio
     async def test_access_denied_empty_records(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
-        result = await service._verify_teacher_has_group_access(SUBMISSION_UID, TEACHER_UID)
+        result = await service._verify_entry_asks_teacher(SUBMISSION_UID, TEACHER_UID)
 
         assert result.is_error
         assert "has no review access" in result.error.details["reason"]
@@ -119,10 +119,10 @@ class TestVerifyTeacherHasGroupAccess:
     async def test_access_check_propagates_db_error(self):
         db_error = Errors.database("execute_query", "connection lost")
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.fail(db_error)
+        backend.verify_entry_asks_teacher.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend)
 
-        result = await service._verify_teacher_has_group_access(SUBMISSION_UID, TEACHER_UID)
+        result = await service._verify_entry_asks_teacher(SUBMISSION_UID, TEACHER_UID)
 
         assert result.is_error
         assert result.error is db_error
@@ -130,14 +130,12 @@ class TestVerifyTeacherHasGroupAccess:
     @pytest.mark.asyncio
     async def test_access_check_uses_correct_params(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         service = _make_service(user_entry_backend=backend)
 
-        await service._verify_teacher_has_group_access(SUBMISSION_UID, TEACHER_UID)
+        await service._verify_entry_asks_teacher(SUBMISSION_UID, TEACHER_UID)
 
-        backend.verify_teacher_has_group_access.assert_awaited_once_with(
-            SUBMISSION_UID, TEACHER_UID
-        )
+        backend.verify_entry_asks_teacher.assert_awaited_once_with(SUBMISSION_UID, TEACHER_UID)
 
 
 # ========================================================================
@@ -149,15 +147,15 @@ class TestGroupMembershipRejection:
     """A teacher the submission was not submitted to must be rejected (404) on
     all four state-changing review endpoints.
 
-    Empty backend result models ``verify_teacher_has_group_access`` not
+    Empty backend result models ``verify_entry_asks_teacher`` not
     matching: the entry is ``SUBMITTED_TO_GROUP`` no active group the teacher
-    owns.
+    owns and is not ``SUBMITTED_TO_TEACHER`` the teacher.
     """
 
     @pytest.mark.asyncio
-    async def test_submit_report_rejects_teacher_without_shared_group(self):
+    async def test_submit_report_rejects_teacher_the_entry_does_not_ask(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
@@ -166,9 +164,9 @@ class TestGroupMembershipRejection:
         assert "has no review access" in result.error.details["reason"]
 
     @pytest.mark.asyncio
-    async def test_request_revision_rejects_teacher_without_shared_group(self):
+    async def test_request_revision_rejects_teacher_the_entry_does_not_ask(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
@@ -177,9 +175,9 @@ class TestGroupMembershipRejection:
         assert "has no review access" in result.error.details["reason"]
 
     @pytest.mark.asyncio
-    async def test_approve_report_rejects_teacher_without_shared_group(self):
+    async def test_approve_report_rejects_teacher_the_entry_does_not_ask(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
@@ -195,7 +193,7 @@ class TestSupersededCopyTakesNoAction:
     @staticmethod
     def _service() -> tuple[TeacherReviewService, MagicMock, MagicMock]:
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         backend.get_entry_detail_for_teacher.return_value = Result.ok(
             [{"uid": SUBMISSION_UID, "superseded": True}]
         )
@@ -251,7 +249,7 @@ class TestSubmitReport:
     async def test_success(self):
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.ok(
             [
                 {
@@ -275,7 +273,7 @@ class TestSubmitReport:
     @pytest.mark.asyncio
     async def test_access_denied(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
@@ -288,7 +286,7 @@ class TestSubmitReport:
         db_error = Errors.database("execute_query", "write failure")
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend, report_backend=report_backend)
 
@@ -302,7 +300,7 @@ class TestSubmitReport:
         """Empty results after access check = status guard rejected the transition."""
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend, report_backend=report_backend)
 
@@ -315,7 +313,7 @@ class TestSubmitReport:
     async def test_publishes_report_submitted_event(self):
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.ok(
             [
                 {
@@ -344,7 +342,7 @@ class TestSubmitReport:
     async def test_null_student_uid_defaults_to_empty(self):
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.ok(
             [
                 {
@@ -376,7 +374,7 @@ class TestRequestRevision:
     async def test_success(self):
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.ok(
             [
                 {
@@ -399,7 +397,7 @@ class TestRequestRevision:
     @pytest.mark.asyncio
     async def test_access_denied(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
@@ -412,7 +410,7 @@ class TestRequestRevision:
         db_error = Errors.database("execute_query", "timeout")
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend, report_backend=report_backend)
 
@@ -426,7 +424,7 @@ class TestRequestRevision:
         """Empty results after access check = status guard rejected the transition."""
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend, report_backend=report_backend)
 
@@ -439,7 +437,7 @@ class TestRequestRevision:
     async def test_publishes_revision_requested_event(self):
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.ok(
             [
                 {
@@ -467,7 +465,7 @@ class TestRequestRevision:
     async def test_null_student_uid_defaults_to_empty(self):
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_node.return_value = Result.ok(
             [
                 {
@@ -501,7 +499,7 @@ class TestRequestRevisionWithExercise:
         the Shared-With-Me inbox resolves sharer attribution from it (arc 2 C4)."""
         backend = _make_user_entry_backend()
         report_backend = _make_report_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         report_backend.create_report_and_revised_exercise.return_value = Result.ok(
             [
                 {
@@ -538,7 +536,7 @@ class TestApproveReport:
     @pytest.mark.asyncio
     async def test_success_no_linked_kus(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.ok(
             [
                 {
@@ -560,7 +558,7 @@ class TestApproveReport:
     @pytest.mark.asyncio
     async def test_success_with_linked_kus_mastered(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.ok(
             [
                 {
@@ -585,7 +583,7 @@ class TestApproveReport:
     async def test_partial_mastery_failure(self):
         """When propagate_mastery returns partial count, result reflects it."""
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.ok(
             [
                 {
@@ -608,7 +606,7 @@ class TestApproveReport:
     @pytest.mark.asyncio
     async def test_access_denied(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
@@ -620,7 +618,7 @@ class TestApproveReport:
     async def test_main_query_db_error(self):
         db_error = Errors.database("execute_query", "failure")
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.fail(db_error)
         service = _make_service(user_entry_backend=backend)
 
@@ -632,7 +630,7 @@ class TestApproveReport:
     async def test_empty_records_returns_invalid_transition(self):
         """Empty results after access check = status guard rejected the transition."""
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
@@ -644,7 +642,7 @@ class TestApproveReport:
     @pytest.mark.asyncio
     async def test_publishes_submission_approved_event(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.ok(
             [
                 {
@@ -669,7 +667,7 @@ class TestApproveReport:
     @pytest.mark.asyncio
     async def test_no_mastery_without_ku_service(self):
         backend = _make_user_entry_backend()
-        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.ok(
             [
                 {

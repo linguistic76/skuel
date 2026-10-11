@@ -4,11 +4,12 @@
 alone — the role gate answers "may you review at all", never "whose
 revisions" (the #887 blind spot; template PR #893). The *write* that mints a
 revision is narrower: ``request_revision`` runs
-``verify_teacher_has_group_access``, so only a teacher sharing an active
-group with the student may author one. These tests pin the chain read to
-that same audience: a teacher sees an exercise's revisions only for students
-in active groups they OWN, with an optional in-classroom ``student_uid``
-filter.
+``verify_entry_asks_teacher``, so only a teacher the entry asks for feedback
+(``SUBMITTED_TO_GROUP`` an active group they own, or ``SUBMITTED_TO_TEACHER``)
+may author one. The chain read lists revisions across students, beyond any one
+request, so these tests pin it to the *classroom* audience instead: a teacher
+sees an exercise's revisions only for students in active groups they OWN, with
+an optional in-classroom ``student_uid`` filter.
 
 They also pin ``revision_number`` to per-(exercise, student). Both writers —
 ``RevisedExerciseService.create`` and the atomic
