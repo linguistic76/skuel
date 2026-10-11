@@ -137,7 +137,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### TasksService
 
-**Facade-specific public methods:** 54
+**Facade-specific public methods:** 55
 
 | Method | Async |
 |--------|-------|
@@ -184,6 +184,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `get_user_tasks()` | ✅ |
 | `link_task_to_goal()` | ✅ |
 | `link_task_to_knowledge()` | ✅ |
+| `link_task_to_prerequisite_knowledge()` | ✅ |
 | `list_tasks()` | ✅ |
 | `remove_subtask_relationship()` | ✅ |
 | `suggest_learning_aligned_tasks()` | ✅ |

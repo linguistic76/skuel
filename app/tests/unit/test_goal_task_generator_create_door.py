@@ -13,7 +13,12 @@ fake Tasks facade:
 - a habit-reinforcement task carries its habit as ``reinforces_habit_uid`` — the
   edge's INPUT on create — so the primitive writes the edge, not the generator;
 - ``auto_create=False`` persists nothing;
-- a failed create is skipped, the rest still land.
+- a failed create is skipped, the rest still land;
+- a created knowledge task is linked through the facade's knowledge link methods —
+  its subject as APPLIES_KNOWLEDGE (a learning opportunity), its unmet prerequisites
+  as REQUIRES_KNOWLEDGE — and a refused link leaves the task created;
+- the generator cannot be built without the Goals relationship service it generates
+  the knowledge and habit tasks from.
 """
 
 from __future__ import annotations
@@ -36,17 +41,42 @@ USER = "user_gen"
 
 
 class _FakeTasksFacade:
-    """Records what reaches the entity door; echoes the task back as persisted."""
+    """Records what reaches the entity door and the knowledge link methods; echoes the
+    task back as persisted. A link to a uid in ``refuse_links`` is refused, as the
+    facade's far-end admission refuses one."""
 
-    def __init__(self, *, refuse_titles: frozenset[str] = frozenset()) -> None:
+    def __init__(
+        self,
+        *,
+        refuse_titles: frozenset[str] = frozenset(),
+        refuse_links: frozenset[str] = frozenset(),
+    ) -> None:
         self.created: list[Task] = []
+        self.links: list[tuple[str, str, str, bool]] = []
         self.refuse_titles = refuse_titles
+        self.refuse_links = refuse_links
 
     async def create(self, entity: Task) -> Result[Task]:
         if entity.title in self.refuse_titles:
             return Result.fail(Errors.database("create", "refused by the fixture"))
         self.created.append(entity)
         return Result.ok(entity)
+
+    def _link(self, edge: str, task_uid: str, knowledge_uid: str, learning: bool) -> Result[bool]:
+        if knowledge_uid in self.refuse_links:
+            return Result.fail(Errors.not_found("Ku"))
+        self.links.append((task_uid, edge, knowledge_uid, learning))
+        return Result.ok(True)
+
+    async def link_task_to_knowledge(
+        self, task_uid: str, knowledge_uid: str, *, is_learning_opportunity: bool
+    ) -> Result[bool]:
+        return self._link("APPLIES_KNOWLEDGE", task_uid, knowledge_uid, is_learning_opportunity)
+
+    async def link_task_to_prerequisite_knowledge(
+        self, task_uid: str, knowledge_uid: str
+    ) -> Result[bool]:
+        return self._link("REQUIRES_KNOWLEDGE", task_uid, knowledge_uid, False)
 
 
 class _FakeGoalsBackend:
@@ -148,3 +178,43 @@ async def test_a_refused_create_is_skipped_and_the_rest_land(rels) -> None:
     titles = {dto.title for dto in result.value}
     assert "Learn: ku.python.basics" not in titles
     assert "Practice habit: habit_daily_read" in titles
+
+
+@pytest.mark.asyncio
+async def test_a_knowledge_task_is_linked_to_its_subject_and_prerequisites(rels) -> None:
+    """The subject is the Ku the task applies, as a learning opportunity; each unmet
+    prerequisite is a Ku it requires — the edge its prerequisite check reads."""
+    facade = _FakeTasksFacade()
+    context = _context(ku_prerequisites={"ku.python.basics": {"ku.logic", "ku.syntax"}})
+    await _generator(facade).generate_tasks_for_goal(GOAL_UID, context, auto_create=True)
+
+    (learn,) = [t for t in facade.created if t.title == "Learn: ku.python.basics"]
+    assert learn.status == EntityStatus.BLOCKED
+    assert sorted(link for link in facade.links if link[0] == learn.uid) == [
+        (learn.uid, "APPLIES_KNOWLEDGE", "ku.python.basics", True),
+        (learn.uid, "REQUIRES_KNOWLEDGE", "ku.logic", False),
+        (learn.uid, "REQUIRES_KNOWLEDGE", "ku.syntax", False),
+    ]
+    # No other generated task names knowledge, so none is linked.
+    assert {link[0] for link in facade.links} == {learn.uid}
+
+
+@pytest.mark.asyncio
+async def test_a_refused_link_leaves_the_task_created(rels) -> None:
+    facade = _FakeTasksFacade(refuse_links=frozenset({"ku.python.basics"}))
+    result = await _generator(facade).generate_tasks_for_goal(
+        GOAL_UID, _context(), auto_create=True
+    )
+
+    assert result.is_ok
+    assert "Learn: ku.python.basics" in {dto.title for dto in result.value}
+    assert facade.links == []
+
+
+def test_the_generator_requires_the_goals_relationship_service() -> None:
+    with pytest.raises(ValueError, match="relationship service"):
+        GoalTaskGenerator(
+            goals_backend=_FakeGoalsBackend(_goal()),  # type: ignore[arg-type]
+            tasks_service=_FakeTasksFacade(),  # type: ignore[arg-type]
+            relationship_service=None,  # type: ignore[arg-type]
+        )

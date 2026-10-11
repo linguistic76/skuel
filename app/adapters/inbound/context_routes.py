@@ -20,7 +20,7 @@ CONTEXT_CONFIG = DomainRouteConfig(
     primary_service_attr="context",
     api_factory=create_context_aware_api_routes,
     ui_factory=None,  # No UI routes — profile page handles context display
-    api_related_services={},
+    api_related_services={"goals": "goals", "habits": "habits"},
 )
 
 

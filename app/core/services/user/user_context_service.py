@@ -60,6 +60,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.enums import ContextHealthScore
     from core.models.habit.habit import Habit
+    from core.ports.service_protocols import GoalTaskGeneratorOperations
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
@@ -89,7 +90,7 @@ class UserContextService:
         context_builder: UserContextBuilder,
         user_service: UserService,  # String annotation to avoid circular import
         tasks_service: TasksOperations | None = None,
-        goal_task_generator: Any | None = None,  # GoalTaskGenerator
+        goal_task_generator: GoalTaskGeneratorOperations | None = None,
         habits_service: Any | None = None,  # HabitsService
     ) -> None:
         """
@@ -512,8 +513,12 @@ class UserContextService:
         - Habit dependencies
         - User's current context
 
+        The goal is the caller's own: its one door (``POST /api/context/goal/tasks``)
+        verifies the owner before this runs.
+
         Args:
             goal_uid: Goal identifier
+            user_uid: The goal's owner
             context_preferences: Optional preferences for task generation
             auto_create: If True, create tasks immediately; if False, return templates
 
@@ -527,31 +532,6 @@ class UserContextService:
                     operation="create_tasks_from_goal_context",
                 )
             )
-
-        # Get user from goal
-        # First, get the goal to find the user
-        from core.ports.domain_protocols import GoalsOperations
-
-        try:
-            goal_backend: GoalsOperations = self.goal_task_generator.goals_backend
-        except AttributeError:
-            return Result.fail(
-                Errors.system(
-                    message="Goal task generator not properly configured",
-                    operation="create_tasks_from_goal_context",
-                )
-            )
-        goal_result = await goal_backend.get_goal(goal_uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        goal = goal_result.value
-        if not goal:
-            return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
-
-        # Ownership check — return 404 to prevent UID enumeration
-        if goal.user_uid != user_uid:
-            return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
         # Build user context - builder owns user resolution (Option A architecture)
         context_result = await self.context_builder.build_rich(user_uid)
@@ -605,8 +585,12 @@ class UserContextService:
         - Current energy level
         - Learning reinforcement
 
+        The habit is the caller's own: its one door (``POST /api/context/habit/complete``)
+        verifies the owner before this runs.
+
         Args:
             habit_uid: Habit identifier
+            user_uid: The habit's owner
             completion_quality: Quality rating (poor/fair/good/excellent)
             environmental_factors: Optional environmental context
 
@@ -629,19 +613,6 @@ class UserContextService:
             "excellent": 5,
         }
         quality_score = quality_map.get(completion_quality, 3)
-
-        # Get habit to find user
-        habit_result = await self.habits_service.get(habit_uid)
-        if habit_result.is_error:
-            return Result.fail(habit_result)
-
-        habit = habit_result.value
-        if not habit:
-            return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
-
-        # Ownership check — return 404 to prevent UID enumeration
-        if habit.user_uid != user_uid:
-            return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
         # Build user context - builder owns user resolution (Option A architecture)
         context_result = await self.context_builder.build(user_uid)

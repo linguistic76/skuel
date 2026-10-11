@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-11
 ---
 
 # Placeholder Parameter Index
@@ -328,9 +328,9 @@ read none of it — `_user_context` occurs exactly three times in the file, once
 
 | File | Line | Method | Parameter | Called at |
 |------|------|--------|-----------|-----------|
-| `core/services/goal_task_generator.py` | 258 | `_generate_milestone_tasks()` | `_user_context: UserContext` | 131, in `generate_tasks_for_goal()` (96) |
-| `core/services/goal_task_generator.py` | 411 | `_generate_checkin_tasks()` | `_user_context: UserContext` | 143, in `generate_tasks_for_goal()` (96) |
-| `core/services/goal_task_generator.py` | 439 | `_generate_urgent_tasks()` | `_user_context: UserContext` | 245, in `generate_next_critical_tasks()` (223) |
+| `core/services/goal_task_generator.py` | 269 | `_generate_milestone_tasks()` | `_user_context: UserContext` | 140, in `generate_tasks_for_goal()` (109) |
+| `core/services/goal_task_generator.py` | 410 | `_generate_checkin_tasks()` | `_user_context: UserContext` | 152, in `generate_tasks_for_goal()` (109) |
+| `core/services/goal_task_generator.py` | 439 | `_generate_urgent_tasks()` | `_user_context: UserContext` | 256, in `generate_next_critical_tasks()` (234) |
 
 **What full implementation requires:** `_generate_urgent_tasks()` is **not** a stub — it is live
 and emits a task for the goal's first incomplete milestone. But `_user_context`

@@ -293,7 +293,7 @@ class TasksService(
 
     Explicit Methods (custom logic):
     - create_task: Has special user_uid parameter handling
-    - link_task_to_knowledge/goal: Passes specific parameters
+    - link_task_to_knowledge/prerequisite_knowledge/goal: Passes specific parameters
     - analyze_task_knowledge_impact: Full orchestration
     """
 
@@ -934,6 +934,18 @@ class TasksService(
                 "is_learning_opportunity": is_learning_opportunity,
             },
             far_end=KNOWLEDGE_FAR_END,
+        )
+
+    async def link_task_to_prerequisite_knowledge(
+        self, task_uid: str, knowledge_uid: str
+    ) -> Result[bool]:
+        """Link task to a Ku it requires before it can start (``REQUIRES_KNOWLEDGE``).
+
+        No properties, as the create door writes the same edge, so a task linked at
+        creation is indistinguishable from one linked afterwards.
+        """
+        return await self.relationships.create_relationship(
+            "prerequisite_knowledge", task_uid, knowledge_uid, far_end=KNOWLEDGE_FAR_END
         )
 
     async def link_task_to_goal(self, task_uid: str, goal_uid: str) -> Result[bool]:

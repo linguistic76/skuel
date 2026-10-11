@@ -505,8 +505,11 @@ _TASKS_KU_ORCHESTRATION = PlannedEntry(
 )
 _TASKS_GRAVITY = PlannedEntry(
     Readiness.DELAYED,
-    "goal/Ku link surface staged (link_task_to_knowledge is the LIVE knowledge-edge "
-    "write path); wire link routes/UI or fold into relationship routes",
+    "semantic task/Ku link staged — the plain task→Ku edges are live "
+    "(link_task_to_knowledge / link_task_to_prerequisite_knowledge, called by "
+    "GoalTaskGenerator for the tasks POST /goals/generate-tasks and "
+    "POST /api/context/goal/tasks create); wire a semantic-link route/UI or fold into "
+    "relationship routes",
     since=date(2026, 6, 11),
 )
 _PS_SEMANTIC_DELETE = PlannedEntry(
