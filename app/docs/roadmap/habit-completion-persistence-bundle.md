@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-10-03
+updated: 2026-10-11
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -331,9 +331,9 @@ caller.
 - **`AnalyticsMetricsService.calculate_habit_metrics` reports 0.0 when no habit has a rate** (the
   shape it gives a user with no habits; HA-1's choice), and `analytics_aggregation_service`
   scores from it — an unmeasured user reads as a 0% one there.
-- **The staged `HabitsSearchService.get_needing_attention` reads `find_by(limit=…)` with no
-  user** — every user's habits — and its protocol declares a `user_uid` it does not take.
-  PLANNED (uncalled); it needs an owner scope before anything wires it.
+- **The staged `HabitsSearchService.get_needing_attention` is owner-scoped.** It takes the
+  `user_uid` its protocol declares and reads that user's whole set (`find_all_by`) before
+  `limit` cuts the answer; it stays PLANNED (uncalled).
 
 **The bundle keeps every write-side defect, and its trigger.** No write path was touched by the
 derivation. (One write-side defect the derivation reads through is not this bundle's:

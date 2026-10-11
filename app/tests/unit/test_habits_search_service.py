@@ -239,7 +239,7 @@ async def test_get_needing_attention_low_streak(search_service, mock_backend):
     low = _habit("habit:low", current_streak=1, best_streak=5)
     mock_backend.find_by.return_value = Result.ok([low.to_dto().to_dict()])
 
-    result = await search_service.get_needing_attention(streak_threshold=3)
+    result = await search_service.get_needing_attention("user_demo", streak_threshold=3)
 
     assert result.is_ok
     # best_streak (5) >= threshold (3) but current_streak (1) < threshold → lost streak

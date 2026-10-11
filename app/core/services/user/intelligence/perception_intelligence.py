@@ -23,10 +23,10 @@ from __future__ import annotations
 from operator import itemgetter
 from typing import Any
 
-from core.constants import QueryLimit
 from core.models.enums import DualTrackDimension
 from core.ports.query_types import PerceptionAnalysis, PerceptionDomainRollup
 from core.services.user.intelligence._base import IntelligenceMixinBase
+from core.services.whole_set_read import find_all_by
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -106,8 +106,8 @@ class PerceptionIntelligenceMixin(IntelligenceMixinBase):
             direction_counts: dict[str, int] = {d: 0 for d in _DIRECTIONS}
             gaps: list[float] = []
 
-            entities_result = await service.backend.find_by(
-                user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
+            entities_result = await find_all_by(
+                service.backend, logger, f"{label} perception analysis", user_uid=user_uid
             )
             if entities_result.is_error:
                 # A single domain read failing shouldn't sink the whole analysis;

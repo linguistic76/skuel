@@ -26,7 +26,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from core.constants import GraphDepth, QueryLimit
+from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import EntityStatus
@@ -50,6 +50,7 @@ from core.ports.query_types import (
 from core.services.filtered_context import build_filtered_context
 from core.services.ps.ps_ai_service import PsAIService
 from core.services.ps.ps_progress_service import PsProgressService
+from core.services.whole_set_read import find_all_by
 from core.utils.error_boundary import safe_event_handler
 from core.utils.list_helpers import (
     FilterConfig,
@@ -1052,10 +1053,10 @@ class PsService:
 
     async def list_step_categories(self) -> Result[list[str]]:
         """List all path step categories."""
-        result = await self.repo.list(QueryLimit.COMPREHENSIVE)
+        result = await find_all_by(self.repo, self.logger, "Path step categories")
         if result.is_error:
             return Result.fail(result)
-        entities, _ = result.value
+        entities = result.value
         categories = set()
         for entity in entities:
             sel_category = getattr(entity, "sel_category", None)
@@ -1065,10 +1066,10 @@ class PsService:
 
     async def list_step_tags(self, min_usage: int = 1) -> Result[list[dict[str, Any]]]:
         """List all path step tags with usage counts."""
-        result = await self.repo.list(QueryLimit.COMPREHENSIVE)
+        result = await find_all_by(self.repo, self.logger, "Path step tags")
         if result.is_error:
             return Result.fail(result)
-        entities, _ = result.value
+        entities = result.value
         tag_counts: dict[str, int] = {}
         for entity in entities:
             if entity.tags:
@@ -1165,11 +1166,10 @@ class PsService:
         """Get filtered and sorted path steps with pre-filter stats."""
 
         async def fetch_all() -> Result[list[Any]]:
-            result = await self.core.list(limit=500)
+            result = await find_all_by(self.repo, self.logger, "Path step list")
             if result.is_error:
                 return Result.fail(result)
-            entities, _ = result.value
-            return Result.ok(list(entities))
+            return Result.ok(list(result.value))
 
         def apply_filters(all_steps: list[Any]) -> list[Any]:
             return apply_entity_filter(all_steps, status_filter, _PS_FILTER_CONFIG)

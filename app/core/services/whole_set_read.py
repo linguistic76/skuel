@@ -14,8 +14,8 @@ warning: a full page may not be the whole set, and the figures computed from it
 may be short.
 
 ``warn_if_capped`` is the warning half alone, for a whole-set read that goes
-through another door (``find_by_date_range``, ``get_user_entities``) with the
-same bound.
+through another door (``find_by_date_range``, ``get_user_entities``, ``list``)
+with the same bound.
 """
 
 from collections.abc import Sized

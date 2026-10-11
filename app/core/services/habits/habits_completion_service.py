@@ -24,6 +24,7 @@ from core.models.type_hints import FilterParams, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.services.whole_set_read import find_all_by
 from core.utils.completion_exporter import export_completions_csv, export_completions_json
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str
@@ -663,9 +664,8 @@ class HabitsCompletionService:
         - Quality badges (100 high-quality completions)
         - Identity badges (50 identity votes cast)
         """
-        # Get user's habits
-        habits_result = await self.habits_backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
+        habits_result = await find_all_by(
+            self.habits_backend, self.logger, "Habit badge progress", user_uid=user_uid
         )
         if habits_result.is_error:
             return Result.fail(habits_result)

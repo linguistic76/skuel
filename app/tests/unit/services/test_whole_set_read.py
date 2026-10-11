@@ -9,8 +9,8 @@ what the backend returned, warns when the page came back full. The cap is patche
 small here; the real one is 10 000 rows.
 
 The census — the generic backend's ``find_by``, ``find_by_date_range``,
-``get_user_entities`` and ``list_by_user`` return a page of 100 unless the caller
-writes a limit. A call that writes none is a page read. The test walks the
+``get_user_entities``, ``list_by_user`` and ``list`` return a page of 100 unless the
+caller writes a limit. A call that writes none is a page read. The test walks the
 first-party trees and holds the set of such calls to ``PAGE_READS``: a new bare call fails until it is either given a limit
 (``find_all_by`` for a whole set) or listed here with what bounds it, and an entry
 whose call is gone fails until it is removed.
@@ -114,7 +114,13 @@ class TestWarnIfCapped:
 SCANNED_TREES = ("core", "adapters", "ui", "services_bootstrap")
 
 # door → index of ``limit`` among its positional parameters
-PAGE_DOORS = {"find_by": 0, "find_by_date_range": 4, "get_user_entities": 3, "list_by_user": 1}
+PAGE_DOORS = {
+    "find_by": 0,
+    "find_by_date_range": 4,
+    "get_user_entities": 3,
+    "list_by_user": 1,
+    "list": 0,
+}
 
 # (file, enclosing function, door) → what bounds the read
 PAGE_READS: dict[tuple[str, str, str], str] = {

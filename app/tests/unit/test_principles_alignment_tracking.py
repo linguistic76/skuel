@@ -163,11 +163,11 @@ class TestCalculateAverageAlignment:
         sample_principle_no_alignment,
     ):
         """Test average alignment calculation with multiple principles."""
-        # Mock backend to return principles
+        # The backend returns domain models
         mock_backend.find_by.return_value = Result.ok(
             [
-                sample_principle_with_alignment.to_dto().to_dict(),
-                sample_principle_no_alignment.to_dto().to_dict(),
+                sample_principle_with_alignment,
+                sample_principle_no_alignment,
             ]
         )
 
@@ -251,9 +251,7 @@ class TestCalculateAverageAlignment:
             updated_at=datetime.now(),
         )
 
-        mock_backend.find_by.return_value = Result.ok(
-            [principle1.to_dto().to_dict(), principle2.to_dto().to_dict()]
-        )
+        mock_backend.find_by.return_value = Result.ok([principle1, principle2])
 
         result = await alignment_service.calculate_average_alignment("user_mike")
 

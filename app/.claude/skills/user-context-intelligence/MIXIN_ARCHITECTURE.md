@@ -218,7 +218,7 @@ module-level functions in `daily_planning.py`.
 
 | Source | Read from |
 |--------|-----------|
-| Per-entity — Goals, Habits, Principles | each facade's `backend.find_by(user_uid=..., limit=QueryLimit.COMPREHENSIVE)` — at most 100 entities per domain — taking `dual_track_checkins[-1]` per entity |
+| Per-entity — Goals, Habits, Principles | each facade's backend read through `find_all_by(…, user_uid=...)` — the user's whole set per domain, up to `QueryLimit.MAXIMUM` with a warning at the cap — taking `dual_track_checkins[-1]` per entity |
 | User-level — productivity, engagement, decision quality | `context.dual_track_checkins` |
 | Knowledge — per-Ku mastery | `context.knowledge_checkins` |
 

@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from operator import itemgetter
 from typing import Any
 
-from core.constants import QueryLimit
 from core.events import publish_event
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
@@ -829,9 +828,8 @@ class PrinciplesAlignmentService:
         """
         self.logger.debug(f"Calculating average alignment for user {user_uid}")
 
-        # Get all user's principles
-        principles_result = await self.backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
+        principles_result = await find_all_by(
+            self.backend, self.logger, "Principle average alignment", user_uid=user_uid
         )
         if principles_result.is_error:
             return Result.fail(principles_result)
@@ -843,15 +841,7 @@ class PrinciplesAlignmentService:
         total_score = 0.0
         count = 0
 
-        for item in principles_result.value:
-            if isinstance(item, dict):
-                from core.models.principle.principle_dto import PrincipleDTO
-
-                principle_dto = PrincipleDTO.from_dict(item)
-                principle = Principle.from_dto(principle_dto)
-            else:
-                principle = item
-
+        for principle in principles_result.value:
             # Get most recent alignment from history
             if principle.alignment_history and len(principle.alignment_history) > 0:
                 latest_alignment = principle.alignment_history[-1]

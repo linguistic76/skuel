@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from core.constants import QueryLimit
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END
@@ -93,26 +94,26 @@ class TestPrinciplesServiceCreate:
 
 class TestPrinciplesServicePortfolio:
     @pytest.mark.asyncio
-    async def test_get_user_principle_portfolio_calls_backend_list(
+    async def test_get_user_principle_portfolio_reads_the_whole_set(
         self, principles_service: PrinciplesService, mock_backend: Mock
     ) -> None:
-        """get_user_principle_portfolio calls backend.list with user_uid filter."""
+        """get_user_principle_portfolio reads the user's whole set of principles."""
         mock_principle = Mock()
-        mock_backend.list = AsyncMock(return_value=Result.ok(([mock_principle], 1)))
+        mock_backend.find_by = AsyncMock(return_value=Result.ok([mock_principle]))
 
         result = await principles_service.get_user_principle_portfolio("user_test")
 
         assert result.is_ok
         assert result.value["user_uid"] == "user_test"
         assert result.value["count"] == 1
-        mock_backend.list.assert_called_once_with(filters={"user_uid": "user_test"}, limit=100)
+        mock_backend.find_by.assert_called_once_with(limit=QueryLimit.MAXIMUM, user_uid="user_test")
 
     @pytest.mark.asyncio
     async def test_get_user_principle_portfolio_propagates_backend_error(
         self, principles_service: PrinciplesService, mock_backend: Mock
     ) -> None:
         """get_user_principle_portfolio propagates backend error."""
-        mock_backend.list = AsyncMock(
+        mock_backend.find_by = AsyncMock(
             return_value=Result.fail(Errors.database("query", "DB error"))
         )
 

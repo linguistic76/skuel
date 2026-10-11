@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import UserUID
 from core.services.habits._adherence import enrich_habits_with_adherence
 from core.services.mixins.link_edge_guard import KNOWLEDGE_FAR_END, PRINCIPLE_FAR_END
+from core.services.whole_set_read import find_all_by
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Result
 
@@ -172,8 +173,9 @@ class _OrchestrationMixin:
 
     async def get_skills_developed_by_habits(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get all skills/knowledge developed through user's habits."""
-        # Get all user habits
-        habits_result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
+        habits_result = await find_all_by(
+            self.backend, self.logger, "Skills developed by habits", user_uid=user_uid
+        )
         if habits_result.is_error:
             return Result.fail(habits_result)
 

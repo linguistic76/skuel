@@ -46,6 +46,7 @@ from core.services.habits._adherence import (
     enrich_habit_with_adherence,
     enrich_habits_with_adherence,
 )
+from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
@@ -194,8 +195,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing capacity analysis dict
         """
-        # Get user's active habits
-        result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
+        result = await find_all_by(self.backend, self.logger, "Habit capacity", user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -399,8 +399,9 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing frequency suggestion
         """
-        # Get user's habits in same category
-        result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
+        result = await find_all_by(
+            self.backend, self.logger, "Habit frequency suggestion", user_uid=user_uid
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -616,8 +617,9 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing list of stacking suggestions
         """
-        # Get user's established habits
-        result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
+        result = await find_all_by(
+            self.backend, self.logger, "Habit stacking suggestions", user_uid=user_uid
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -800,7 +802,9 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing load analysis by day
         """
-        result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
+        result = await find_all_by(
+            self.backend, self.logger, "Habit load by day", user_uid=user_uid
+        )
         if result.is_error:
             return Result.fail(result)
 
