@@ -170,7 +170,7 @@ def test_no_collision_for_distinct_paths(tmp_path: Path) -> None:
 # on a link, an image URL or a prefetch with the viewer's session and no token.
 # write_method_gaps() flags a @csrf_protected handler, a literal /api/ path ending
 # in /create, /update or /delete, or a computed factory path ending in one, that
-# names no methods= or names a safe method.
+# names no methods=, names one the scanner cannot read, or names a safe method.
 
 
 def _gaps_in(tmp_path: Path, source: str) -> list[str]:
@@ -224,6 +224,29 @@ def test_csrf_handler_naming_a_safe_method_is_a_gap(tmp_path: Path) -> None:
                 return "saved"
         """,
     ) == ["save_settings"]
+
+
+def test_csrf_handler_with_unread_methods_is_a_gap(tmp_path: Path) -> None:
+    # Fail closed: a methods= the scanner cannot read (a name, a call) is not a pass.
+    assert _gaps_in(
+        tmp_path,
+        """
+        def make(rt):
+            @rt("/settings/save", methods=WRITE_METHODS)
+            @csrf_protected
+            async def save_settings(request):
+                return "saved"
+
+            @rt("/settings/reset", methods=[verb])
+            @csrf_protected
+            async def reset_settings(request):
+                return "reset"
+
+        class Factory:
+            def register(self, rt):
+                rt(f"{self.base_path}/delete", methods=self.write_methods)(self.delete)
+        """,
+    ) == ["save_settings", "reset_settings", "rt(f'{self.base_path}/delete')(...)"]
 
 
 def test_csrf_handler_on_post_is_clean(tmp_path: Path) -> None:

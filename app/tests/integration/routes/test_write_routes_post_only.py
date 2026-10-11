@@ -3,8 +3,8 @@
 ``@rt(path)`` with no ``methods=`` answers GET, HEAD and POST, and ``csrf_protected``
 lets GET / HEAD / OPTIONS through unchecked by design. A write registered that way
 runs on a link, an image URL inside rendered content or a browser prefetch, with the
-viewer's session and no token — the reader crawl in ``test_link_reader_far_nodes.py``
-once deleted its own seeded entities through ``GET /api/{domain}/delete?uid=``.
+viewer's session and no token — the reason the reader crawl in
+``test_link_reader_far_nodes.py`` leaves every mutation path out.
 
 Every write the bootstrap wires is driven here over real HTTP, as a signed-in user,
 per route family:
@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import pytest
 import pytest_asyncio
+from fasthtml.core import FastHTML
 from starlette.responses import PlainTextResponse
 
 from adapters.inbound.auth.session import set_current_user
@@ -54,8 +55,8 @@ MARK = "postonly"
 CALLER = f"user_{MARK}_caller"
 
 # The hand-written writes, by route family. Each path is a `@csrf_protected` handler
-# registered with methods=["POST"]; the admin reset-token door joined the family when
-# it stopped answering GET.
+# registered with methods=["POST"]; the admin reset-token door is one of the account
+# doors, CSRF-protected and POST-only like its siblings.
 CSRF_WRITES: dict[str, tuple[str, ...]] = {
     "admin": (
         "/api/admin/users/role",
@@ -97,8 +98,11 @@ _CRUD_WRITE = re.compile(r"^/api/[^/]+/(create|update|delete)$")
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
+Wired = tuple[FastHTML, httpx.AsyncClient]
+
+
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def wired(skuel_app: Any) -> AsyncIterator[tuple[Any, httpx.AsyncClient]]:
+async def wired(skuel_app: Any) -> AsyncIterator[Wired]:  # boundary: fasthtml-app
     """The whole route tree the bootstrap wires, and a client signed in as CALLER."""
     from fasthtml.common import fast_app
 
@@ -133,7 +137,7 @@ async def wired(skuel_app: Any) -> AsyncIterator[tuple[Any, httpx.AsyncClient]]:
     await wipe(driver, CALLER, MARK)
 
 
-def _routes_at(app: Any, path: str) -> list[set[str]]:
+def _routes_at(app: FastHTML, path: str) -> list[set[str]]:
     return [
         set(getattr(route, "methods", None) or ())
         for route in app.routes
@@ -141,11 +145,11 @@ def _routes_at(app: Any, path: str) -> list[set[str]]:
     ]
 
 
-def _composed(skuel_app: Any, service: str) -> bool:
+def _composed(skuel_app: Any, service: str) -> bool:  # boundary: fasthtml-app
     return getattr(skuel_app.state.container.services, service) is not None
 
 
-def _csrf_writes(skuel_app: Any) -> list[str]:
+def _csrf_writes(skuel_app: Any) -> list[str]:  # boundary: fasthtml-app
     """Every hand-written write this app wires — the tier-bound families when composed."""
     paths = [path for family in CSRF_WRITES.values() for path in family]
     for service, family in TIER_WRITES.items():
@@ -154,7 +158,7 @@ def _csrf_writes(skuel_app: Any) -> list[str]:
     return paths
 
 
-def _has_own_reader(app: Any, path: str) -> bool:
+def _has_own_reader(app: FastHTML, path: str) -> bool:
     """A GET-only registration beside the write (``/api/alerts/thresholds`` has one)."""
     return any("GET" in methods and "POST" not in methods for methods in _routes_at(app, path))
 
@@ -162,7 +166,7 @@ def _has_own_reader(app: Any, path: str) -> bool:
 # ── The route table ──────────────────────────────────────────────────────────
 
 
-async def test_every_crud_write_in_the_table_answers_post_only(wired: tuple[Any, Any]) -> None:
+async def test_every_crud_write_in_the_table_answers_post_only(wired: Wired) -> None:
     app, _client = wired
     writes = {
         route.path: set(route.methods or ())
@@ -185,7 +189,8 @@ async def test_every_crud_write_in_the_table_answers_post_only(wired: tuple[Any,
 
 
 async def test_every_csrf_write_in_the_table_answers_post_only(
-    wired: tuple[Any, Any], skuel_app: Any
+    wired: Wired,
+    skuel_app: Any,  # boundary: fasthtml-app
 ) -> None:
     app, _client = wired
     for path in _csrf_writes(skuel_app):
@@ -204,7 +209,10 @@ async def test_every_csrf_write_in_the_table_answers_post_only(
 # ── GET and HEAD are refused before any handler ──────────────────────────────
 
 
-async def test_get_and_head_of_a_csrf_write_are_405(wired: tuple[Any, Any], skuel_app: Any) -> None:
+async def test_get_and_head_of_a_csrf_write_are_405(
+    wired: Wired,
+    skuel_app: Any,  # boundary: fasthtml-app
+) -> None:
     app, client = wired
     # Positive control: a GET that reaches a handler is answered by the handler.
     assert (await client.get("/api/tasks/get", params={"uid": "nothing"})).status_code == 404
@@ -220,7 +228,8 @@ async def test_get_and_head_of_a_csrf_write_are_405(wired: tuple[Any, Any], skue
 
 
 async def test_post_of_a_csrf_write_reaches_its_handler(
-    wired: tuple[Any, Any], skuel_app: Any
+    wired: Wired,
+    skuel_app: Any,  # boundary: fasthtml-app
 ) -> None:
     # The control for the 405s: the same paths, on POST, are answered by the
     # handler stack — a role gate, a body gate or the handler itself — never 405.
@@ -235,7 +244,7 @@ async def test_post_of_a_csrf_write_reaches_its_handler(
 
 @pytest.mark.parametrize("segment", ACTIVITY_SEGMENTS)
 async def test_crud_write_on_get_is_405_and_the_graph_is_unchanged(
-    wired: tuple[Any, Any], segment: str
+    wired: Wired, segment: str
 ) -> None:
     _app, client = wired
     title = f"{MARK} {segment} keeps"

@@ -19,7 +19,9 @@ three classes of gap on **state-changing** endpoints:
    token. A ``@csrf_protected`` handler, and any registration whose path ends in
    ``/create``, ``/update`` or ``/delete`` (the CRUD factory's writes, applied as
    ``rt(path, methods=["POST"])(handler)``), must name its methods and name no
-   safe one. Enforced on both spellings — the decorator and the call. A UI page
+   safe one — named as a list of string literals: a ``methods=`` the scanner
+   cannot read (a name, a call) is a gap, not a pass. Enforced on both spellings —
+   the decorator and the call. A UI page
    at ``/{domain}/create`` (the form, ``methods=["GET"]``) is outside ``/api/``
    and is a read.
 
@@ -131,6 +133,7 @@ class Handler:
     claims_post: bool  # True if this registration accepts POST (explicit or by default)
     has_methods_kwarg: bool  # True if the @rt(...) call names methods= at all
     methods: frozenset[str]  # the methods named (empty when none are)
+    methods_literal: bool  # True if methods= is a list/tuple of string literals the scanner reads
 
     @property
     def is_mutation(self) -> bool:
@@ -146,8 +149,15 @@ class Handler:
 
     @property
     def reachable_by_safe_method(self) -> bool:
-        """A write a GET reaches: no ``methods=`` at all, or one naming a safe method."""
-        return not self.has_methods_kwarg or bool(self.methods & SAFE_METHODS)
+        """A write a GET reaches: no ``methods=``, one the scanner cannot read (a name,
+        a call — fail closed), or one naming a safe method."""
+        return _reachable_by_safe_method(self.has_methods_kwarg, self.methods_literal, self.methods)
+
+
+def _reachable_by_safe_method(
+    has_methods_kwarg: bool, methods_literal: bool, methods: frozenset[str]
+) -> bool:
+    return not has_methods_kwarg or not methods_literal or bool(methods & SAFE_METHODS)
 
 
 @dataclass(frozen=True)
@@ -159,6 +169,7 @@ class CallRegistration:
     path_source: str  # the first argument as written (an f-string stays an f-string)
     has_methods_kwarg: bool
     methods: frozenset[str]
+    methods_literal: bool
 
     @property
     def is_write_by_path(self) -> bool:
@@ -167,7 +178,7 @@ class CallRegistration:
 
     @property
     def reachable_by_safe_method(self) -> bool:
-        return not self.has_methods_kwarg or bool(self.methods & SAFE_METHODS)
+        return _reachable_by_safe_method(self.has_methods_kwarg, self.methods_literal, self.methods)
 
 
 def _by_location(h: Handler) -> tuple[str, int]:
@@ -201,6 +212,18 @@ def _methods_kwarg(keywords: list[ast.keyword]) -> frozenset[str]:
         if kw.arg == "methods" and isinstance(kw.value, ast.List | ast.Tuple):
             return frozenset(e.value for e in kw.value.elts if isinstance(e, ast.Constant))
     return frozenset()
+
+
+def _methods_literal(keywords: list[ast.keyword]) -> bool:
+    """True when ``methods=`` is a list/tuple of string literals — the one spelling the
+    scanner reads. A name or a call (``methods=WRITE_METHODS``) is unread, and a write
+    carrying it is judged a gap rather than trusted."""
+    for kw in keywords:
+        if kw.arg == "methods":
+            return isinstance(kw.value, ast.List | ast.Tuple) and all(
+                isinstance(e, ast.Constant) and isinstance(e.value, str) for e in kw.value.elts
+            )
+    return False
 
 
 def _body_signal(node: ast.AST, include_json: bool) -> str | None:
@@ -241,6 +264,7 @@ def _analyze(
 ) -> Handler | None:
     has_rt = False
     has_methods_kwarg = False
+    methods_literal = False
     methods: frozenset[str] = frozenset()
     path: str | None = None
     has_csrf = False
@@ -251,6 +275,7 @@ def _analyze(
             has_rt = True
             methods = _methods_kwarg(kwargs)
             has_methods_kwarg = any(kw.arg == "methods" for kw in kwargs)
+            methods_literal = _methods_literal(kwargs)
             path = _route_path(args)
         elif name == CSRF_DECORATOR:
             has_csrf = True
@@ -281,6 +306,7 @@ def _analyze(
         claims_post=claims_post,
         has_methods_kwarg=has_methods_kwarg,
         methods=methods,
+        methods_literal=methods_literal,
     )
 
 
@@ -321,6 +347,7 @@ def collect_call_registrations(scan_dir: Path) -> list[CallRegistration]:
                     path_source=ast.unparse(inner.args[0]),
                     has_methods_kwarg=any(kw.arg == "methods" for kw in inner.keywords),
                     methods=_methods_kwarg(inner.keywords),
+                    methods_literal=_methods_literal(inner.keywords),
                 )
             )
     return found
@@ -333,7 +360,8 @@ def write_method_gaps(
 
     A write is a ``@csrf_protected`` handler, a literal ``/api/`` path ending in a
     ``WRITE_SUFFIXES`` entry, or a computed factory path ending in one; it gaps
-    when it names no ``methods=`` or names a ``SAFE_METHODS`` member.
+    when it names no ``methods=``, names one the scanner cannot read, or names a
+    ``SAFE_METHODS`` member.
     """
     decorated = [
         (h.file, h.lineno, h.name)
