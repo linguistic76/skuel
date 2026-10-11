@@ -24,7 +24,9 @@ import json
 import re
 from typing import TYPE_CHECKING
 
+from core.constants import PromptInput
 from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
     from core.models.conversation import ConversationTurn
@@ -115,7 +117,44 @@ def transcript_to_pairs(items: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return pairs
 
 
-def render_follow_up_context(items: list[tuple[str, str]]) -> tuple[str, str]:
+#: Stands where turns were left out of a history over its budget.
+HISTORY_OMISSION = "(earlier turns omitted)"
+
+
+def _fit_history(blocks: list[str], budget: int) -> str:
+    """Join rendered turns into at most ``budget`` characters, keeping both ends.
+
+    A history within the budget is returned whole. A longer one keeps the
+    opening turn (cut to a quarter of the budget) and as many of the newest
+    turns as fit after it, with ``HISTORY_OMISSION`` where the middle was left
+    out — the newest turn always rides, cut to the room left if it must be.
+    The opening and the newest turn are cut by ``truncate_to_budget``, which
+    marks its own cut.
+    """
+    joined = "\n\n".join(blocks)
+    if len(joined) <= budget:
+        return joined
+    if len(blocks) == 1:
+        return truncate_to_budget(blocks[0], budget)
+
+    opening = truncate_to_budget(blocks[0], budget // 4)
+    separators = 2 * 3
+    room = budget - len(opening) - len(HISTORY_OMISSION) - separators
+    newest_first: list[str] = []
+    for block in reversed(blocks[1:]):
+        if len(block) + 2 > room:
+            if not newest_first:
+                newest_first.append(truncate_to_budget(block, room))
+            break
+        newest_first.append(block)
+        room -= len(block) + 2
+    omitted = [HISTORY_OMISSION] if len(newest_first) < len(blocks) - 1 else []
+    return "\n\n".join([opening, *omitted, *reversed(newest_first)])
+
+
+def render_follow_up_context(
+    items: list[tuple[str, str]], budget: int = PromptInput.DOCUMENT_MAX_CHARS
+) -> tuple[str, str]:
     """Reconstruct ``(original_entry, ai_response)`` for ``run_follow_up`` from turns.
 
     Shared by both memory models (ADR-078): the Neo4j turn history (saved,
@@ -123,7 +162,10 @@ def render_follow_up_context(items: list[tuple[str, str]]) -> tuple[str, str]:
     (ephemeral, unsaved) both flatten to the same ``(role, content)`` sequence,
     so context is rebuilt identically from one source of truth. ``ai_response``
     is the most recent assistant turn (the "previous response"); ``original_entry``
-    is a rendered transcript of everything before it.
+    is a rendered transcript of everything before it, held to ``budget``
+    characters by keeping the opening turn and the newest ones
+    (``_fit_history``) — so the message that prompted ``ai_response`` is
+    never the part that is lost.
     """
     if not items:
         return "", ""
@@ -134,9 +176,12 @@ def render_follow_up_context(items: list[tuple[str, str]]) -> tuple[str, str]:
             ai_response = items[index][1]
             split = index
             break
-    rendered = "\n\n".join(
-        f"# {'You' if role == ROLE_USER else 'Journal'}\n\n{content}"
-        for role, content in items[:split]
+    rendered = _fit_history(
+        [
+            f"# {'You' if role == ROLE_USER else 'Journal'}\n\n{content}"
+            for role, content in items[:split]
+        ],
+        budget,
     )
     return rendered, ai_response
 

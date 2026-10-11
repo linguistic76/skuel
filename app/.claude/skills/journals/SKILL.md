@@ -42,7 +42,9 @@ Every user-written text a stage puts in its prompt — the note, a stage output 
 the client posts back, the conversation so far, the reply — is cut at
 `PromptInput.DOCUMENT_MAX_CHARS` (`truncate_to_budget`, a boundary cut ending in `...`) where it
 enters the prompt (`_document` in `journal_service.py`); the batch compile bounds its text and
-instructions the same way.
+instructions the same way. A follow-up's history is fitted first by `render_follow_up_context`
+(`transcript_codec.py`): over the budget it keeps the opening turn and the newest turns, with
+`(earlier turns omitted)` where the middle was left out.
 
 ---
 
