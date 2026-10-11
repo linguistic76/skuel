@@ -315,7 +315,7 @@ published, every signed-in learner may read it — the step page lists it, and t
 detail read (`/exercises/get`, the SCOPE_AWARE audience) and exercise search open it —
 and a learner in progress on the step may turn in against it. A draft step contributes
 nothing. The owner keeps the authoring view (`/exercises/{uid}/view`) and the edit door;
-an unanchored PERSONAL exercise stays its owner's.
+an unanchored PERSONAL exercise is its owner's.
 
 **Graph Role:** Exercise is the applied-knowledge anchor — the bridge between curriculum
 knowledge (PathStep) and user practice (UserEntry → EntryReport → RevisedExercise).

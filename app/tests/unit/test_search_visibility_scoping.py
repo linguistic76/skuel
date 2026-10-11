@@ -121,7 +121,7 @@ class TestVisibilityClause:
         assert "publication_draft" not in params
 
     def test_an_anchored_exercise_needs_a_published_step_with_the_gate_off(self) -> None:
-        """The by-UID read turns the gate off; the anchor's step must still be
+        """The by-UID read turns the gate off; the anchor's step must be
         published — a draft step admits no one — while the exercise's own draft
         state is the gate's, and the gate is off."""
         scope = build_search_visibility_clause(
@@ -218,7 +218,7 @@ class TestVisibilityClause:
         }
         # The shared half — CURRICULUM, or a PERSONAL exercise anchored to a
         # published PathStep (the step's) — carries the publication gate; the
-        # owned arms do not, so an owner still sees their own unfinished work.
+        # owned arms do not, so an owner sees their own unfinished work.
         assert clause.startswith(
             "(((n.scope = $visibility_curriculum_scope"
             " OR (n.scope = $visibility_personal_scope AND $user_uid IS NOT NULL"

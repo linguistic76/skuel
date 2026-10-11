@@ -8,9 +8,10 @@ surface — ``/exercises/get`` → ``/exercises/get/content`` (and the ``.md`` d
 must open it too, or every link the listing renders lands on "not found".
 
 The anchor admits only while the step is published: a draft step publishes nothing.
-An unanchored PERSONAL exercise stays its owner's, and its refusal reads the same as a
-uid naming nothing. The owner's own read, CURRICULUM's open read, and the ASSIGNED
-group read are unchanged; the anchor admits PERSONAL scope alone.
+An unanchored PERSONAL exercise is its owner's, and its refusal reads the same as a uid
+naming nothing. The owner reads every exercise they own, CURRICULUM is open to every
+learner, and an ASSIGNED exercise is its group's even when it hangs from a step — the
+anchor admits PERSONAL scope alone.
 
 The exercises are made at the real create door, as the teacher; the learner has no tie
 to the teacher.
@@ -244,7 +245,7 @@ async def test_the_markdown_download_reads_the_same_audience(world: World) -> No
     assert f"{MARK} unanchored instructions" not in unanchored.text
 
 
-async def test_an_unanchored_personal_exercise_stays_its_owners(world: World) -> None:
+async def test_an_unanchored_personal_exercise_is_its_owners(world: World) -> None:
     refused = await world.read(LEARNER, world.unanchored)
     missing = await world.read(LEARNER, MISSING_EX)
     assert refused.status_code == missing.status_code == 404
@@ -259,19 +260,19 @@ async def test_a_draft_step_admits_no_one(world: World) -> None:
 
 
 async def test_the_anchor_admits_personal_scope_alone(world: World) -> None:
-    """An ASSIGNED exercise hanging from the same step stays its group's."""
+    """An ASSIGNED exercise hanging from the same step is its group's."""
     refused = await world.read(LEARNER, ASSIGNED_EX)
     assert refused.status_code == 404
     assert f"{ASSIGNED_EX} instructions" not in refused.text
 
 
-async def test_curriculum_stays_open_to_every_learner(world: World) -> None:
+async def test_curriculum_is_open_to_every_learner(world: World) -> None:
     response = await world.read(LEARNER, CURRICULUM_EX)
     assert response.status_code == 200, response.text
     assert f"{CURRICULUM_EX} instructions" in response.text
 
 
-async def test_the_owner_still_reads_each_of_their_exercises(world: World) -> None:
+async def test_the_owner_reads_each_of_their_exercises(world: World) -> None:
     for uid in (world.anchored, world.unanchored, world.draft_anchored):
         response = await world.read(TEACHER, uid)
         assert response.status_code == 200, (uid, response.text)
