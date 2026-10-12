@@ -7,7 +7,7 @@ Each helper follows SKUEL's Result[T] pattern: returns Result internally;
 boundary_handler converts to HTTP at the route level.
 
 Helpers:
-    check_required_role       - Role-based access control (used by CRUD, Analytics)
+    check_required_role       - Role-based access control (used by CRUD, Lateral)
     verify_entity_ownership   - Ownership verification returning 404 on failure (API)
     require_ownership_verifier - The verifier a uid-taking route factory needs, or a
                                 registration-time refusal

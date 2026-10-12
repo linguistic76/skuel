@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-10-05
+updated: 2026-10-12
 category: patterns
 related_skills:
 - fasthtml
@@ -57,7 +57,7 @@ class DomainRouteConfig:
 
 **Why:** These three factories have purely static parameters across all Activity Domains. Moving them to config eliminates ~80-120 lines of boilerplate per domain.
 
-**What Stays in api_factory:** Factories with runtime closures (create_activity_field_api_routes, AnalyticsRouteFactory) and all manual domain-specific routes remain in api_factory.
+**What Stays in api_factory:** Factories with runtime closures (create_activity_field_api_routes) and all manual domain-specific routes remain in api_factory.
 
 #### Sub-Config Dataclasses
 
@@ -308,11 +308,10 @@ __all__ = ["create_{domain}_routes"]
 - CommonQueryRouteFactory instantiation (~20 lines)
 - IntelligenceRouteFactory instantiation (~15 lines)
 - Schema imports (moved to routes file)
-- ContentScope import (unless needed by Status/Analytics factories)
+- ContentScope import (unless a manual route still needs it)
 
 **What remains in api_factory:**
 - create_activity_field_api_routes (inline status/priority card updates)
-- AnalyticsRouteFactory (if domain has custom analytics)
 - All manual domain-specific routes
 
 **Placeholders to replace:**
@@ -912,7 +911,6 @@ def create_advanced_routes(app, rt, services, _sync_service=None):
 | DomainRouteConfig | File-level | Wires entire domain (API + UI routes) |
 | CRUDRouteFactory | Endpoint-level | Creates CRUD endpoints for single entity |
 | create_activity_field_api_routes | Endpoint-level | Creates inline field-update endpoints (status, priority) |
-| AnalyticsRouteFactory | Endpoint-level | Creates analytics endpoints |
 
 **Usage together:**
 ```python
@@ -1252,7 +1250,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - `create_activity_domain_route_config()` convenience function
 - ~80-120 lines removed per domain (Tasks: 264 → 145 lines)
 - Schema imports moved to *_routes.py
-- Field-api factory routes, AnalyticsRouteFactory, manual routes stay in api_factory
+- Field-api factory routes and manual routes stay in api_factory
 - 16 comprehensive tests added
 - Zero regressions detected
 

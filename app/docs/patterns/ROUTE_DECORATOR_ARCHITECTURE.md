@@ -1,6 +1,6 @@
 ---
 title: Route Decorator Architecture
-updated: '2026-09-30'
+updated: '2026-10-12'
 category: patterns
 related_skills:
 - fasthtml
@@ -108,7 +108,6 @@ Factories generate routes from configuration. The handler code lives inside the 
 | create_activity_field_api_routes | inline status/priority updates | `activity_field_api_factory.py` |
 | CommonQueryRouteFactory | by-status, by-category, active, recent | `query_route_factory.py` |
 | IntelligenceRouteFactory | context, analytics, insights | `intelligence_route_factory.py` |
-| AnalyticsRouteFactory | Custom analytics endpoints | `analytics_route_factory.py` |
 | **LateralRouteFactory** | Blocking, prerequisites, alternatives, graph | `lateral_route_factory.py` |
 
 Every generated handler uses `@boundary_handler()` internally. When you call `factory.register_routes(app, rt)`, you get properly decorated routes.

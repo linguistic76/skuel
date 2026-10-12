@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-10-11'
+updated: '2026-10-12'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -708,7 +708,6 @@ Quick reference for auth behavior across all route factories in `/adapters/inbou
 | **CommonQueryRouteFactory** (mine) | Always | Implied via user_uid | No | by-status, by-category, user queries |
 | **CommonQueryRouteFactory** (admin) | Always | No | ADMIN required | Query any user's data |
 | **IntelligenceRouteFactory** | Always | No (read-only) | No | analytics, recommendations, patterns |
-| **AnalyticsRouteFactory** | Configurable | No | Optional | Domain-specific analytics |
 
 ### Key Patterns
 

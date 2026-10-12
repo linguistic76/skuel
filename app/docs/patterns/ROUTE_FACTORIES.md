@@ -25,7 +25,6 @@ SKUEL uses **route factories** to eliminate boilerplate in API route definitions
 |---------|---------|------------------|
 | **CRUDRouteFactory** | Standard CRUD operations | create, get, update, delete, list |
 | **CommonQueryRouteFactory** | Common query patterns | user, by-status, goal, habit |
-| **AnalyticsRouteFactory** | Analytics endpoints | domain-specific analytics |
 | **IntelligenceRouteFactory** | Intelligence endpoints | context, insights; analytics for user-owned domains |
 | **create_activity_field_api_routes** | HTMX inline card field updates | POST /api/{domain}/{uid}/{field} (status, priority) |
 | **create_activity_hierarchy_api_routes** | Shared Activity Domain hierarchy block | GET children (JSON + HTMX fragment), parent, hierarchy; POST add-child, remove-child |
@@ -141,8 +140,7 @@ domain wiring is needed beyond pointing `update_schema` at the request model.
 ## Security: Content Scope
 
 `CRUDRouteFactory`, `CommonQueryRouteFactory` and `IntelligenceRouteFactory` take a `scope`
-parameter (default: `ContentScope.USER_OWNED`). `AnalyticsRouteFactory` takes `require_role`
-only — its endpoints are user-scoped aggregates with no per-entity uid to verify.
+parameter (default: `ContentScope.USER_OWNED`).
 
 ### ContentScope Enum
 
@@ -211,33 +209,6 @@ query_factory.register_routes(app, rt)
 - `GET /api/{domain}/goal?goal_uid=...` — entities related to a goal (`supports_goal_filter=True`: Tasks, Principles)
 - `GET /api/{domain}/habit?habit_uid=...` — entities related to a habit (`supports_habit_filter=True`: Tasks, Events)
 
-## AnalyticsRouteFactory
-
-Generates analytics endpoints with custom handlers.
-
-```python
-from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-
-async def handle_habit_analytics(service, params):
-    uid = params.get("uid")
-    period = params.get("period", "month")
-    return await service.get_habit_analytics(uid, period)
-
-analytics_factory = AnalyticsRouteFactory(
-    service=habits_service,
-    domain_name="habits",
-    analytics_config={
-        "habit_analytics": {
-            "path": "/api/habits/analytics",  # Query params: ?uid=...&period=...
-            "handler": handle_habit_analytics,
-            "description": "Get analytics for a specific habit",
-            "methods": ["GET"],
-        },
-    },
-)
-analytics_factory.register_routes(app, rt)
-```
-
 ## IntelligenceRouteFactory
 
 Generates the routes of the route factory's own protocol pair
@@ -255,13 +226,14 @@ adapters/inbound/*_routes.py` names the three curriculum registrations).
 
 ### Clear Boundaries: Intelligence vs Analytics
 
-| Factory | Purpose | Endpoints |
+| Surface | Purpose | Endpoints |
 |---------|---------|-----------|
 | **IntelligenceRouteFactory** | Standard intelligence primitives | `GET /api/{domain}/context`, `GET /api/{domain}/insights`, and — user-owned domains — `GET /api/{domain}/analytics` |
-| **AnalyticsRouteFactory** | Custom domain-specific analytics | one path per config entry — the live consumer registers `GET /api/path-steps/analytics/summary` and `GET /api/path-steps/graph/structure` |
+| **Knowledge-health gauge** | Corpus structure of the knowledge subgraph (degree, orphans, prerequisite DAG, ORGANIZES coverage) | `/admin/knowledge-health`, `./dev knowledge-health` — see [KNOWLEDGE_HEALTH.md](../tools/KNOWLEDGE_HEALTH.md) |
 
 **Use IntelligenceRouteFactory** for the canonical intelligence endpoints of a routed domain.
-**Use AnalyticsRouteFactory** for additional domain-specific analytics beyond those.
+Corpus-level structure is not a per-domain route: it is the knowledge-health gauge. A
+domain-specific read beyond those is a manual route on the domain's `*_api.py` (e.g. `GET /api/path-steps/stats`).
 
 ### Usage
 
@@ -362,7 +334,6 @@ An ownership-verified route with a shape none of these express (a uid list, a ve
 |------|---------|
 | `/adapters/inbound/route_factories/crud_route_factory.py` | CRUDRouteFactory |
 | `/adapters/inbound/route_factories/query_route_factory.py` | CommonQueryRouteFactory |
-| `/adapters/inbound/route_factories/analytics_route_factory.py` | AnalyticsRouteFactory |
 | `/adapters/inbound/route_factories/intelligence_route_factory.py` | IntelligenceRouteFactory |
 | `/adapters/inbound/route_factories/activity_field_api_factory.py` | create_activity_field_api_routes |
 | `/adapters/inbound/route_factories/hierarchy_api_factory.py` | create_activity_hierarchy_api_routes |
