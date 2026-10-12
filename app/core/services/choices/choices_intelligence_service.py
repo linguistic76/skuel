@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import ConfidenceLevel
 from core.models.choice.choice import Choice
 from core.models.type_hints import UserUID
+from core.ports.query_types import ChoicePerformanceAnalytics
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._analytics_mixin import _AnalyticsMixin
 from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMixin
@@ -110,7 +111,7 @@ class ChoicesIntelligenceService(
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChoicePerformanceAnalytics]:
         """
         Get choice/decision analytics for a user.
 

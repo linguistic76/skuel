@@ -145,16 +145,20 @@ In the base itself the `Entity` and `Context` positions are written `Any`.
 # inherited from _CoreIntelligenceMixin[T]
 async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[T, GraphContext]]: ...
 
-# written per service
+# written per service — Ku, PS and LP return KuDomainInsights / PsDomainInsights /
+# LpDomainInsights; the six Activity services still return dict[str, Any]
 async def get_domain_insights(
     self, uid: str, min_confidence: float = 0.7
-) -> Result[dict[str, Any]]: ...  # boundary: per-domain insights payload
+) -> Result[KuDomainInsights]: ...
 
-# written per user-owned service (the six Activity domains)
+# written per user-owned service (the six Activity domains), each its own family:
+# TaskPerformanceAnalytics, GoalPerformanceAnalytics, HabitPerformanceAnalytics, ...
 async def get_performance_analytics(
     self, user_uid: UserUID, period_days: int = 30
-) -> Result[dict[str, Any]]: ...  # boundary: per-domain analytics payload
+) -> Result[HabitPerformanceAnalytics]: ...
 ```
+
+The payload TypedDicts live in `core/ports/query_types.py`.
 
 ### Dual-track methods
 

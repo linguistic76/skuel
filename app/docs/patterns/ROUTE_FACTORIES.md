@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-10-11'
+updated: '2026-10-12'
 category: patterns
 related_skills:
 - domain-route-config
@@ -306,13 +306,18 @@ intelligence_factory.register_routes(app, rt)
 
 ### Route Parameter Style
 
-Routes use FastHTML function parameters with type hints for clean API design:
+`uid` is the one bound handler parameter; the numeric options are read from the query string
+by the shared parsers (`parse_int_query_param` / `parse_float_query_param`), so an unreadable
+value is the default rather than a cast error before the handler:
 
 ```python
-async def context_route(request: Request, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
-async def analytics_route(request: Request, period_days: int = 30) -> Result[dict[str, Any]]:
-async def insights_route(request: Request, uid: str, min_confidence: float = 0.7) -> Result[dict[str, Any]]:
+async def context_route(request: Request, uid: str) -> Result[IntelligencePayload]:   # depth
+async def analytics_route(request: Request) -> Result[IntelligencePayload]:           # period_days
+async def insights_route(request: Request, uid: str) -> Result[IntelligencePayload]:  # min_confidence
 ```
+
+`IntelligencePayload` is the factory's erased payload type; each service names its own payload
+as a TypedDict in `core/ports/query_types.py`.
 
 The context route answers `{"entity": ..., "context": ...}` (the `(entity, GraphContext)`
 tuple serialized); a service error propagates with `Result.fail(result)` across the type

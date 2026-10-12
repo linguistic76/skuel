@@ -12,30 +12,38 @@ Each pattern below is taken from a live service. Read the named file for the who
 ```python
 async def get_performance_analytics(
     self, user_uid: UserUID, _period_days: int = 30
-) -> Result[dict[str, Any]]:  # boundary: per-domain analytics payload
+) -> Result[HabitPerformanceAnalytics]:
     habits_result = await find_all_by(
         self.backend, self.logger, "Habit performance analytics", user_uid=user_uid
     )
     if habits_result.is_error:
         return Result.fail(habits_result)
 
-    habits = habits_result.value or []
+    # One read gives every habit its adherence reading: the derived rate and
+    # the last day it was kept.
+    read = habits_result.value or []
+    readings_result = await adherence_readings(self.backend, read)
+    if readings_result.is_error:
+        return Result.fail(readings_result)
+    readings = readings_result.value
+    habits = with_readings(read, readings)
+
     total_habits = len(habits)
-    active_habits = [h for h in habits if h.is_active]
-
-    avg_consistency = sum(h.success_rate for h in habits) / total_habits if total_habits else 0.0
-    habits_with_streak = [h for h in habits if h.current_streak > 0]
-    at_risk_habits = [h for h in active_habits if h.success_rate < 0.5]
-
+    rates = [h.success_rate for h in habits if h.success_rate is not None]
+    avg_consistency = sum(rates) / len(rates) if rates else None
+    zone = current_zone()
+    at_risk_habits = [h for h in habits if habit_is_at_risk(h, readings[h.uid], zone)]
+    ...
     return Result.ok(
         {
             "user_uid": user_uid,
             "period_days": _period_days,
             "total_habits": total_habits,
-            "active_habits": len(active_habits),
-            "habits_with_streak": len(habits_with_streak),
-            "at_risk_habits": len(at_risk_habits),
-            "avg_consistency": round(avg_consistency, 2),
+            ...
+            "avg_consistency": (
+                round(avg_consistency, 2) if avg_consistency is not None else None
+            ),
+            ...
         }
     )
 ```
@@ -49,7 +57,10 @@ What to take from it:
   has, so the read asks for `QueryLimit.MAXIMUM` rows and logs a warning when it gets that many.
   The third argument names what is computed; it is the log line's subject.
 - A failed read is propagated, not turned into zeros.
-- Guard every division: an empty list is a normal input.
+- Guard every division: an empty list is a normal input — and an unmeasured value is `None`,
+  not `0.0`.
+- The payload is a TypedDict family (`HabitPerformanceAnalytics` and its nested summaries) in
+  `core/ports/query_types.py`; mypy then holds every key the method writes.
 - `_period_days` is accepted and not applied. The payload echoes it, which does not mean the
   numbers are windowed. A new method that takes a period applies it.
 

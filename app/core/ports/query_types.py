@@ -4032,8 +4032,210 @@ class StepLearningSequenceResult(TypedDict):
 
 
 # ============================================================================
+# ACTIVITY PERFORMANCE ANALYTICS RESULT TYPES
+# ============================================================================
+# One family per Activity domain: the ``get_performance_analytics`` return,
+# answered by ``GET /api/{domain}/analytics``. The flat counts sit beside an
+# ``analytics`` summary of the same counts in the shape the domain's UI reads.
+
+
+class TaskPerformanceMetrics(TypedDict):
+    """The window's task counts; ``completion_rate`` is a percentage (0-100)."""
+
+    total_tasks: int
+    completed_tasks: int
+    completion_rate: float
+    in_progress_tasks: int
+    overdue_tasks: int
+
+
+class TaskPerformanceTrends(TypedDict):
+    """The completion trend over the window (``Trend`` value); ``completion_rate`` is 0-100."""
+
+    completion_trend: str
+    efficiency_trend: str
+    quality_trend: str
+    completion_rate: float
+    tasks_analyzed: int
+
+
+class TaskOptimizationOpportunity(TypedDict):
+    """One suggestion; the optional key carries the figure the suggestion rests on."""
+
+    area: str
+    suggestion: str
+    potential_impact: str
+    tasks_affected: NotRequired[int]
+    tasks_needing_description: NotRequired[int]
+    learned_ratio: NotRequired[float]
+
+
+class TaskLearningState(TypedDict, total=False):
+    """The user's learned duration calibration (ADR-048); empty when the read failed."""
+
+    learned_duration_ratio: float | None
+    learning_sample_count: int
+    has_sufficient_learning_data: bool
+
+
+class TaskAnalyticsMetadata(TypedDict):
+    generated_at: str
+    user_uid: str
+    period_days: int
+
+
+class TaskPerformanceAnalytics(TypedDict):
+    """Return shape for TasksIntelligenceService.get_performance_analytics()."""
+
+    metrics: TaskPerformanceMetrics
+    trends: TaskPerformanceTrends
+    optimization_opportunities: list[TaskOptimizationOpportunity]
+    learning_state: TaskLearningState
+    metadata: TaskAnalyticsMetadata
+
+
+class GoalAnalyticsSummary(TypedDict):
+    total: int
+    active: int
+    completed: int
+    on_track: int
+    avg_progress_percentage: float
+    completion_rate: float
+
+
+class GoalPerformanceAnalytics(TypedDict):
+    """Return shape for GoalsIntelligenceService.get_performance_analytics()."""
+
+    user_uid: str
+    period_days: int
+    total_goals: int
+    active_goals: int
+    completed_goals: int
+    on_track_goals: int
+    avg_progress: float
+    success_rate: float
+    analytics: GoalAnalyticsSummary
+
+
+class HabitAnalyticsSummary(TypedDict):
+    total: int
+    active: int
+    with_streak: int
+    at_risk: int
+    avg_consistency_percentage: float | None
+    total_current_streak_days: int
+
+
+class HabitLearnedInsights(TypedDict):
+    """ADR-048 learned timing and difficulty, counted over the user's habits."""
+
+    habits_with_difficulty: int
+    habits_with_timing_data: int
+    avg_on_time_rate: float | None
+
+
+class HabitPerformanceAnalytics(TypedDict):
+    """Return shape for HabitsIntelligenceService.get_performance_analytics().
+
+    ``avg_consistency`` is ``None`` when no habit has a measured rate.
+    """
+
+    user_uid: str
+    period_days: int
+    total_habits: int
+    active_habits: int
+    habits_with_streak: int
+    at_risk_habits: int
+    avg_consistency: float | None
+    avg_streak: float
+    analytics: HabitAnalyticsSummary
+    learned_insights: HabitLearnedInsights
+
+
+class EventAnalyticsSummary(TypedDict):
+    total: int
+    completed: int
+    upcoming: int
+    completion_rate_percentage: float
+
+
+class EventPerformanceAnalytics(TypedDict):
+    """Return shape for EventsIntelligenceService.get_performance_analytics()."""
+
+    user_uid: str
+    period_days: int
+    start_date: str
+    end_date: str
+    total_events: int
+    completed_events: int
+    upcoming_events: int
+    completion_rate: float
+    analytics: EventAnalyticsSummary
+
+
+class ChoiceAnalyticsSummary(TypedDict):
+    total: int
+    decided: int
+    pending: int
+    decision_rate_percentage: float
+
+
+class ChoicePerformanceAnalytics(TypedDict):
+    """Return shape for ChoicesIntelligenceService.get_performance_analytics()."""
+
+    user_uid: str
+    period_days: int
+    total_choices: int
+    decided_choices: int
+    pending_choices: int
+    decision_rate: float
+    analytics: ChoiceAnalyticsSummary
+
+
+class PrincipleAnalyticsSummary(TypedDict):
+    total: int
+    active: int
+    core: int
+    strong: int
+
+
+class PrinciplePerformanceAnalytics(TypedDict):
+    """Return shape for PrinciplesIntelligenceService.get_performance_analytics()."""
+
+    user_uid: str
+    period_days: int
+    total_principles: int
+    active_principles: int
+    core_principles: int
+    strong_principles: int
+    analytics: PrincipleAnalyticsSummary
+
+
+# ============================================================================
 # KU INTELLIGENCE RESULT TYPES
 # ============================================================================
+
+
+class KuUsageSummary(TypedDict):
+    """How many path steps use (``USES_KU``) and train (``TRAINS_KU``) a Ku, and its
+    ``ORGANIZES`` children — ``KuIntelligenceService.get_usage_summary()``."""
+
+    path_steps_using: int
+    path_steps_training: int
+    organized_children: int
+
+
+class KuDomainInsights(TypedDict):
+    """Return shape for KuIntelligenceService.get_domain_insights() (``GET /api/ku/insights``).
+
+    ``organization_depth`` is the depth of the ``ORGANIZES`` tree below the Ku.
+    """
+
+    ku_uid: str
+    ku_title: str
+    alias_count: int
+    usage: KuUsageSummary
+    organization_depth: int
 
 
 class KuUserSubstanceResult(TypedDict):
@@ -4334,6 +4536,26 @@ class EntityConnection(TypedDict):
 # ============================================================================
 
 __all__ = [
+    # Activity Performance Analytics Result Types
+    "KuUsageSummary",
+    "KuDomainInsights",
+    "TaskPerformanceMetrics",
+    "TaskPerformanceTrends",
+    "TaskOptimizationOpportunity",
+    "TaskLearningState",
+    "TaskAnalyticsMetadata",
+    "TaskPerformanceAnalytics",
+    "GoalAnalyticsSummary",
+    "GoalPerformanceAnalytics",
+    "HabitAnalyticsSummary",
+    "HabitLearnedInsights",
+    "HabitPerformanceAnalytics",
+    "EventAnalyticsSummary",
+    "EventPerformanceAnalytics",
+    "ChoiceAnalyticsSummary",
+    "ChoicePerformanceAnalytics",
+    "PrincipleAnalyticsSummary",
+    "PrinciplePerformanceAnalytics",
     # Cypher Parameters
     "CypherParams",
     # Filter Specifications - Base

@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from core.models.ku.ku import Ku
     from core.models.shared.dual_track import DualTrackResult
     from core.ports.curriculum_protocols import KuOperations
-    from core.ports.query_types import KuUserSubstanceResult, NousSubtopicPair
+    from core.ports.query_types import KuUsageSummary, KuUserSubstanceResult, NousSubtopicPair
     from core.services.ku.ku_intelligence_service import KuIntelligenceService
     from core.services.user import UserContext
 
@@ -209,7 +209,7 @@ class KuService:
         """Get Ku with full graph context."""
         return await self.intelligence.get_with_context(uid, depth)
 
-    async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
+    async def get_usage_summary(self, ku_uid: str) -> Result[KuUsageSummary]:
         """Count path steps and organized children for a Ku."""
         return await self.intelligence.get_usage_summary(ku_uid)
 

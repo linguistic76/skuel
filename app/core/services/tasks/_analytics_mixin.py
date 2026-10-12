@@ -28,8 +28,15 @@ from core.utils.zone_context import current_zone
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from core.models.task.task import Task
     from core.models.type_hints import UserUID
     from core.ports.domain_protocols import TasksOperations
+    from core.ports.query_types import (
+        TaskLearningState,
+        TaskOptimizationOpportunity,
+        TaskPerformanceMetrics,
+        TaskPerformanceTrends,
+    )
 
 
 # =============================================================================
@@ -181,7 +188,7 @@ class _AnalyticsMixin:
 
         return engine.build()
 
-    def _analyze_performance_trends(self, tasks: list) -> dict[str, Any]:
+    def _analyze_performance_trends(self, tasks: list[Task]) -> TaskPerformanceTrends:
         """Analyze performance trends over time from task completion data."""
         completed_count = sum(1 for task in tasks if task.status == EntityStatus.COMPLETED)
         result = analyze_completion_trend(completed_count, len(tasks))
@@ -195,10 +202,17 @@ class _AnalyticsMixin:
         }
 
     def _identify_optimization_opportunities(
-        self, tasks: list, metrics: dict
-    ) -> list[dict[str, Any]]:
-        """Identify opportunities for optimization based on tasks and metrics."""
-        opportunities = []
+        self,
+        tasks: list[Task],
+        metrics: TaskPerformanceMetrics,
+        learning_state: TaskLearningState,
+    ) -> list[TaskOptimizationOpportunity]:
+        """Identify opportunities for optimization from the window's tasks and metrics.
+
+        The duration suggestion reads the learned duration ratio (ADR-048) only once
+        enough completions back it (``has_sufficient_learning_data``).
+        """
+        opportunities: list[TaskOptimizationOpportunity] = []
 
         if metrics["completion_rate"] < 70:
             opportunities.append(
@@ -209,7 +223,7 @@ class _AnalyticsMixin:
                 }
             )
 
-        if metrics.get("overdue_tasks", 0) > 5:
+        if metrics["overdue_tasks"] > 5:
             opportunities.append(
                 {
                     "area": "deadline_management",
@@ -221,8 +235,7 @@ class _AnalyticsMixin:
         if tasks:
             avg_title_length = sum(len(task.title) for task in tasks) / len(tasks)
             if avg_title_length < 10:
-                # Explicit type annotation to allow mixed str/int values
-                opportunity: dict[str, Any] = {
+                opportunity: TaskOptimizationOpportunity = {
                     "area": "task_clarity",
                     "suggestion": "Add more descriptive task titles for better clarity",
                     "potential_impact": "Improved focus and reduced ambiguity",
@@ -233,8 +246,7 @@ class _AnalyticsMixin:
         if tasks:
             tasks_without_description = sum(1 for task in tasks if not task.description)
             if tasks_without_description > len(tasks) * 0.5:
-                # Explicit type annotation to allow mixed str/int values
-                documentation_opportunity: dict[str, Any] = {
+                documentation_opportunity: TaskOptimizationOpportunity = {
                     "area": "task_documentation",
                     "suggestion": "Add descriptions to tasks for better context and execution",
                     "potential_impact": "Clearer expectations and easier execution",
@@ -243,8 +255,8 @@ class _AnalyticsMixin:
                 opportunities.append(documentation_opportunity)
 
         # Duration calibration insights (ADR-048)
-        learned_ratio = metrics.get("learned_duration_ratio")
-        if learned_ratio is not None:
+        learned_ratio = learning_state.get("learned_duration_ratio")
+        if learned_ratio is not None and learning_state.get("has_sufficient_learning_data"):
             if learned_ratio > 1.3:
                 opportunities.append(
                     {

@@ -68,8 +68,12 @@ class PerformanceAnalyticsOperations(Protocol):
 
 `IntelligencePayload = dict[str, Any]  # boundary: route-factory erased-T` — one factory serves
 each routed domain, so the payload's shape varies per domain and the factory reads none of its
-keys. A service may declare a TypedDict for its own payload (`PsDomainInsights`,
-`LpDomainInsights`).
+keys. The services name their payloads as TypedDicts in `core/ports/query_types.py`: the six
+Activity `get_performance_analytics` (`TaskPerformanceAnalytics`, `GoalPerformanceAnalytics`, …)
+and the Ku, PS and LP `get_domain_insights` (`KuDomainInsights`, `PsDomainInsights`,
+`LpDomainInsights`). A TypedDict is not a `dict[str, Any]` to mypy and `Result` is invariant, so a
+typed service does not satisfy these protocols statically; the factory is handed the service
+untyped (`primary_service.intelligence`) and checks for the analytics method by `getattr`.
 
 The split follows who has a per-user set to aggregate. The per-entity reads exist for a
 domain at either scope; the per-user aggregate exists for a user-owned domain. KU, PS and LP
@@ -240,7 +244,7 @@ class WidgetIntelligenceService(
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:  # boundary: per-domain analytics payload
+    ) -> Result[WidgetPerformanceAnalytics]:  # a TypedDict in core/ports/query_types.py
         widgets_result = await find_all_by(
             self.backend, self.logger, "Widget performance analytics", user_uid=user_uid
         )

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.event.event import Event
 from core.models.type_hints import UserUID
+from core.ports.query_types import EventPerformanceAnalytics
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events._analytics_mixin import _AnalyticsMixin
 from core.services.events._behavioral_signals_mixin import _BehavioralSignalsMixin
@@ -92,7 +93,7 @@ class EventsIntelligenceService(
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[EventPerformanceAnalytics]:
         """
         Get event performance analytics for a user.
 

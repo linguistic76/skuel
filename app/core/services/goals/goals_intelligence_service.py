@@ -26,6 +26,7 @@ from core.constants import QueryLimit
 from core.models.goal.goal import Goal
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
+from core.ports.query_types import GoalPerformanceAnalytics
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
 from core.services.goals._dual_track_mixin import _DualTrackMixin
@@ -158,7 +159,7 @@ class GoalsIntelligenceService(
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GoalPerformanceAnalytics]:
         """
         Get goal performance analytics for a user.
 

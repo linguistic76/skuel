@@ -50,6 +50,11 @@ from core.constants import GraphDepth, LearningLoop
 from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.query_types import (
+    TaskLearningState,
+    TaskPerformanceAnalytics,
+    TaskPerformanceMetrics,
+)
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.infrastructure.prerequisite_checker import build_learning_requirements
@@ -63,7 +68,7 @@ from core.services.tasks._dual_track_mixin import _DualTrackMixin
 from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.services.tasks.task_knowledge_analyzer import TaskKnowledgeAnalyzer
 from core.services.whole_set_read import find_all_by
-from core.utils.neo4j_props import coerce_int
+from core.utils.neo4j_props import coerce_float, coerce_int
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import as_utc, now_utc, today_in
 from core.utils.zone_context import current_zone
@@ -306,7 +311,7 @@ class TasksIntelligenceService(
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[TaskPerformanceAnalytics]:
         """
         Analyze task performance metrics.
 
@@ -339,7 +344,7 @@ class TasksIntelligenceService(
         completed_tasks = [t for t in period_tasks if t.status == EntityStatus.COMPLETED]
         completion_rate = len(completed_tasks) / len(period_tasks) if period_tasks else 0.0
 
-        metrics = {
+        metrics: TaskPerformanceMetrics = {
             "total_tasks": len(period_tasks),
             "completed_tasks": len(completed_tasks),
             "completion_rate": round(completion_rate * 100, 1),
@@ -355,21 +360,26 @@ class TasksIntelligenceService(
             ),
         }
 
-        trends = self._analyze_performance_trends(period_tasks)
-        optimizations = self._identify_optimization_opportunities(period_tasks, metrics)
-
-        # Include learned duration calibration (ADR-048)
-        learning_state = {}
+        # Learned duration calibration (ADR-048) — read before the opportunities, which
+        # suggest a buffer (or more work) once enough completions back the ratio.
+        learning_state: TaskLearningState = {}
         state_result = await self.backend.get_user_learning_state(user_uid)
         if state_result.is_ok:
             state = state_result.value
-            ratio = state.get("task_duration_ratio")
+            raw_ratio = state.get("task_duration_ratio")
             count = coerce_int(state.get("task_completion_count"))
             learning_state = {
-                "learned_duration_ratio": ratio,
+                "learned_duration_ratio": coerce_float(raw_ratio)
+                if raw_ratio is not None
+                else None,
                 "learning_sample_count": count,
                 "has_sufficient_learning_data": count >= LearningLoop.MIN_SAMPLES_TASK_DURATION,
             }
+
+        trends = self._analyze_performance_trends(period_tasks)
+        optimizations = self._identify_optimization_opportunities(
+            period_tasks, metrics, learning_state
+        )
 
         return Result.ok(
             {

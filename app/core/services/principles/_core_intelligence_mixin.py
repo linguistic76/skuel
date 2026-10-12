@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import PrincipleStrength
 from core.models.type_hints import UserUID
+from core.ports.query_types import PrinciplePerformanceAnalytics
 from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
@@ -53,7 +54,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[PrinciplePerformanceAnalytics]:
         """
         Get principle performance analytics for a user.
 
