@@ -19,7 +19,6 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import parse_int_query_param
-from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.constants import GraphDepth
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
 from core.models.pathways.learning_progress import LearningJourney
@@ -463,44 +462,6 @@ def create_path_steps_api_routes(
             *[AdaptiveKUCard(step) for step in curriculum],
             cls="grid grid-cols-1 md:grid-cols-2 gap-4",
         )
-
-    # ========================================================================
-    # ANALYTICS ROUTES (Factory-Generated)
-    # ========================================================================
-
-    async def handle_summary_analytics(
-        service: PsService, params: dict[str, str]
-    ) -> Result[dict[str, Any]]:
-        """Handle summary analytics for all path steps."""
-        time_period = params.get("period", "month")
-        return await service.get_step_stats(time_period)
-
-    async def handle_graph_structure(
-        service: PsService, params: dict[str, str]
-    ) -> Result[dict[str, Any]]:
-        """Handle path step graph structure and metrics."""
-        include_metrics = params.get("metrics", "true").lower() == "true"
-        return await service.get_step_stats(str(include_metrics))
-
-    analytics_factory = AnalyticsRouteFactory(
-        service=ps_service,
-        domain_name="path-steps",
-        analytics_config={
-            "summary": {
-                "path": "/api/path-steps/analytics/summary",
-                "handler": handle_summary_analytics,
-                "description": "Get summary analytics for all path steps",
-                "methods": ["GET"],
-            },
-            "graph_structure": {
-                "path": "/api/path-steps/graph/structure",
-                "handler": handle_graph_structure,
-                "description": "Get path step graph structure and metrics",
-                "methods": ["GET"],
-            },
-        },
-    )
-    analytics_factory.register_routes(app, rt)
 
     # ========================================================================
     # ORGANIZES HIERARCHY

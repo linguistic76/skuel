@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-10-11
+updated: 2026-10-12
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -448,7 +448,6 @@ def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services
 
 **What remains in `tasks_api.py`:**
 - `create_activity_field_api_routes` (inline field updates: status, priority)
-- `AnalyticsRouteFactory` (custom handlers)
 
 ### Benefits
 
@@ -464,7 +463,7 @@ def create_tasks_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services
 
 ## 🏭 Route Factories
 
-### Five Factory Types for Endpoint Generation
+### Four Factory Types for Endpoint Generation
 
 SKUEL uses specialized factories to generate common endpoint patterns. All factories support `ContentScope` for multi-tenant security.
 
@@ -476,7 +475,6 @@ SKUEL uses specialized factories to generate common endpoint patterns. All facto
 | **create_activity_field_api_routes** | Inline field updates (status, priority) | `POST /api/{domain}/{uid}/{field}` | USER_OWNED |
 | **CommonQueryRouteFactory** | Cross-domain query patterns | mine, by-status, goal, habit filters | USER_OWNED (default) / SHARED |
 | **IntelligenceRouteFactory** | Analytics and insights | context, insights; analytics at USER_OWNED only | USER_OWNED (default) / SHARED |
-| **AnalyticsRouteFactory** | Custom analytics handlers | performance, behavioral, etc. | USER_OWNED only |
 
 #### ContentScope Values
 
@@ -500,7 +498,7 @@ CRUDRouteFactory(
 
 ### Tasks API: Complete Factory Example
 
-The following shows four of the factories in a single API file (the fifth,
+The following shows three of the factories in a single API file (the fourth,
 `create_activity_field_api_routes`, is shown under Factory Overview above):
 
 ```python
@@ -511,7 +509,6 @@ from adapters.inbound.route_factories import (
     CommonQueryRouteFactory,
     IntelligenceRouteFactory,
 )
-from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
@@ -521,7 +518,7 @@ def create_tasks_api_routes(
     goals_service=None,
     habits_service=None
 ):
-    """Create task API routes using 4 factory patterns."""
+    """Create task API routes using 3 factory patterns."""
 
     # 1. CRUD FACTORY - Standard operations
     crud_factory = CRUDRouteFactory(
@@ -571,28 +568,6 @@ def create_tasks_api_routes(
     #   GET /api/tasks/context?uid=...&depth=2
     #   GET /api/tasks/analytics?period_days=30
     #   GET /api/tasks/insights?uid=...
-
-    # 4. ANALYTICS FACTORY - Custom handlers
-    async def handle_performance(service, params):
-        period_days = parse_int_query_param(params, "period_days", 30, minimum=1, maximum=365)
-        user_uid = params.get("_user_uid", "")
-        return await service.intelligence.get_performance_analytics(user_uid, period_days)
-
-    analytics_factory = AnalyticsRouteFactory(
-        service=tasks_service,
-        domain_name="tasks",
-        analytics_config={
-            "performance": {
-                "path": "/api/tasks/analytics/performance",
-                "handler": handle_performance,
-                "description": "Get task performance analytics",
-                "methods": ["GET"],
-            },
-        },
-    )
-    analytics_factory.register_routes(app, rt)
-    # Generates:
-    #   GET /api/tasks/analytics/performance
 
     return []  # Factories register routes via app, not return list
 ```

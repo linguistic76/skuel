@@ -179,7 +179,7 @@ def create_pathways_api_routes(
 
 Standard routes come from factories rather than hand-written handlers: `CRUDRouteFactory`
 (create/get/update/delete/list), `CommonQueryRouteFactory`, `IntelligenceRouteFactory`,
-`AnalyticsRouteFactory`, and the Activity-Domain function factories
+and the Activity-Domain function factories
 `create_activity_field_api_routes` (`POST /api/{domain}/{uid}/{field}`),
 `create_activity_hierarchy_api_routes` and `create_activity_link_api_routes`. Most domains
 wire them through `DomainRouteConfig`. **See:** `@domain-route-config`,
