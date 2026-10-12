@@ -23,6 +23,7 @@ from core.constants import ConfidenceLevel
 from core.models.habit.habit import Habit
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
+from core.ports.query_types import HabitPerformanceAnalytics
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._adherence import (
     adherence_readings,
@@ -128,7 +129,7 @@ class HabitsIntelligenceService(
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[HabitPerformanceAnalytics]:
         """
         Get habit performance analytics for a user.
 

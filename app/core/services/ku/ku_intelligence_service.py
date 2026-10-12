@@ -21,7 +21,7 @@ from core.models.enums import MasteryLevel
 from core.models.ku.ku import Ku
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
-from core.ports.query_types import KuUserSubstanceResult
+from core.ports.query_types import KuDomainInsights, KuUsageSummary, KuUserSubstanceResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import _CoreIntelligenceMixin
 from core.services.knowledge.user_substance import (
@@ -33,12 +33,13 @@ from core.services.knowledge.user_substance import (
 )
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from core.ports import BackendOperations
+    from core.ports.curriculum_protocols import KuOperations
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
@@ -46,7 +47,7 @@ logger = get_logger(__name__)
 
 class KuIntelligenceService(
     _CoreIntelligenceMixin[Ku],
-    BaseAnalyticsService["BackendOperations[Ku]", "Ku"],
+    BaseAnalyticsService["KuOperations", "Ku"],
 ):
     """
     Intelligence service for atomic Knowledge Units.
@@ -63,7 +64,7 @@ class KuIntelligenceService(
 
     def __init__(
         self,
-        backend: BackendOperations[Ku],
+        backend: KuOperations,
         graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
@@ -83,7 +84,7 @@ class KuIntelligenceService(
 
     async def get_domain_insights(
         self, uid: str, _min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[KuDomainInsights]:
         """Get domain-specific insights for a Ku: alias count, usage, ORGANIZES depth."""
         ku_result = await self.backend.get(uid)
         if ku_result.is_error:
@@ -116,9 +117,9 @@ class KuIntelligenceService(
     # ========================================================================
 
     @with_error_handling("get_usage_summary", error_type="database", uid_param="ku_uid")
-    async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
+    async def get_usage_summary(self, ku_uid: str) -> Result[KuUsageSummary]:
         """Count path steps using (USES_KU), training (TRAINS_KU), and organized children (ORGANIZES)."""
-        result = await self.backend.get_usage_summary(ku_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_usage_summary(ku_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -131,9 +132,9 @@ class KuIntelligenceService(
         row = records[0]
         return Result.ok(
             {
-                "path_steps_using": row.get("path_steps_using", 0),
-                "path_steps_training": row.get("path_steps_training", 0),
-                "organized_children": row.get("organized_children", 0),
+                "path_steps_using": coerce_int(row.get("path_steps_using")),
+                "path_steps_training": coerce_int(row.get("path_steps_training")),
+                "organized_children": coerce_int(row.get("organized_children")),
             }
         )
 
@@ -297,7 +298,7 @@ class KuIntelligenceService(
     @with_error_handling("get_organization_depth", error_type="database", uid_param="ku_uid")
     async def get_organization_depth(self, ku_uid: str) -> Result[int]:
         """Get depth of the ORGANIZES tree below this Ku."""
-        result = await self.backend.get_organization_depth(ku_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_organization_depth(ku_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -305,4 +306,4 @@ class KuIntelligenceService(
         if not records or records[0].get("max_depth") is None:
             return Result.ok(0)
 
-        return Result.ok(records[0]["max_depth"])
+        return Result.ok(coerce_int(records[0]["max_depth"]))
