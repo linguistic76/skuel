@@ -17,15 +17,15 @@ Helpers:
                                 for NOT_FOUND, an unavailable body at the error's status otherwise
     refuse_not_found          - The rendered 404 primitive (page or fragment)
     refuse_unavailable        - The rendered non-404 primitive (page or fragment)
-    parse_int_query_param     - Integer param with bounds clamping
-    parse_bool_query_param    - Boolean param ("true"/"1"/"yes"/"on" → True)
-    parse_date_query_param    - ISO date param with safe fallback
+    parse_int_param_strict    - Integer param → Result (missing = default, malformed or
+                                out of bounds = 400, above its cap = the cap)
+    parse_float_param_strict  - Number param → Result (the same rule, no cap)
+    parse_bool_param_strict   - Boolean param → Result (true/1/yes/on, false/0/no/off)
+    parse_date_param_strict   - ISO date param → Result
+    parse_pagination_params   - Limit/offset pair → Result[PaginationParams]
     parse_csv_query_param     - Comma-separated list from query params
     split_csv                 - Comma-separated list from a string value
-    parse_date_range_params   - Start/end date pair → DateRangeParams
-    parse_pagination_params   - Limit/offset pair → PaginationParams
-    parse_date_param_strict   - ISO date with Result[T] validation error
-    parse_int_param_strict    - Integer in range with Result[T] validation error
+    refuse_malformed          - The bare 400 an HTML route answers for a malformed param
 
 See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md,
      /docs/patterns/API_VALIDATION_PATTERNS.md
@@ -35,6 +35,7 @@ import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, cast, overload
 
 from fasthtml.common import FT, FtResponse
@@ -165,76 +166,6 @@ async def verify_entity_ownership(
     return None
 
 
-def parse_int_query_param(
-    params: Mapping[str, Any],
-    key: str,
-    default: int,
-    *,
-    minimum: int | None = None,
-    maximum: int | None = None,
-) -> int:
-    """Parse an integer query param with safe fallback and optional bounds.
-
-    Invalid, missing, or blank values return ``default``.
-    Values are clamped when ``minimum`` and/or ``maximum`` are provided.
-    """
-    return parse_int_value(params.get(key), default, minimum=minimum, maximum=maximum)
-
-
-def parse_int_value(
-    raw_value: object,
-    default: int,
-    *,
-    minimum: int | None = None,
-    maximum: int | None = None,
-) -> int:
-    """Read one already-extracted value as an integer — the rule of
-    :func:`parse_int_query_param`, for a value that arrives as a handler parameter
-    (a JSON body's number, or the text a query string or form carries).
-
-    Missing, blank or unreadable values return ``default``; ``minimum`` /
-    ``maximum`` clamp.
-    """
-    if raw_value is None or raw_value == "" or isinstance(raw_value, bool):
-        return default
-    try:
-        value = int(str(raw_value))
-    except (TypeError, ValueError):  # fmt: skip
-        return default
-    if minimum is not None:
-        value = max(minimum, value)
-    if maximum is not None:
-        value = min(maximum, value)
-    return value
-
-
-def parse_float_query_param(
-    params: Mapping[str, Any],
-    key: str,
-    default: float,
-    *,
-    minimum: float | None = None,
-    maximum: float | None = None,
-) -> float:
-    """Parse a float query param with safe fallback and optional bounds.
-
-    Invalid, missing, or blank values return ``default``.
-    Values are clamped when ``minimum`` and/or ``maximum`` are provided.
-    """
-    raw_value = params.get(key)
-    if raw_value is None or raw_value == "":
-        return default
-    try:
-        value = float(str(raw_value))
-    except (TypeError, ValueError):  # fmt: skip
-        return default
-    if minimum is not None:
-        value = max(minimum, value)
-    if maximum is not None:
-        value = min(maximum, value)
-    return value
-
-
 #: Response header on a rendered refusal. ``static/js/skuel.js`` swaps an error body into
 #: its target only when this header is present — a plain-text 4xx/5xx stays unswapped.
 REFUSAL_HEADER = "X-SKUEL-Refusal"
@@ -351,68 +282,212 @@ def refuse(error: ErrorContext, render: Callable[[str], FT], entity_name: str) -
 
 
 # ============================================================================
-# QUERY PARAM PARSING HELPERS
+# QUERY PARAM PARSING — one rule at every door
 # ============================================================================
+#
+# Missing or blank is the default; present but malformed is a validation error
+# (400 through ``boundary_handler``); a value outside its domain bounds
+# (``min_val`` / ``max_val``) is a validation error too. Only a ``cap`` clamps:
+# a limit, a window or a depth past what the server will do is server policy,
+# not an input error. Omit ``default`` and the parameter is required.
 
 
-def parse_bool_query_param(
-    params: Mapping[str, Any],
-    key: str,
-    default: bool = False,
-) -> bool:
-    """Parse a boolean query parameter with safe fallback.
+class _Required(Enum):
+    """The sentinel ``default`` of a required parameter."""
 
-    Truthy values: ``"true"``, ``"1"``, ``"yes"``, ``"on"`` (case-insensitive).
-    Missing or blank values return *default*.
-    """
-    return parse_bool_value(params.get(key), default)
+    TOKEN = auto()
 
 
-def parse_bool_value(raw: object, default: bool = False) -> bool:
-    """Read one already-extracted value as a boolean — the rule of
-    :func:`parse_bool_query_param`, for a value that arrives as a handler parameter
-    (a form field's text, or a JSON body's ``true`` / ``false``).
+_REQUIRED = _Required.TOKEN
 
-    Missing or blank values return *default*; ``"true"``, ``"1"``, ``"yes"``,
-    ``"on"`` (any case) are ``True``; anything else is ``False``.
-    """
-    if raw is None or raw == "":
-        return default
-    return str(raw).lower() in ("true", "1", "yes", "on")
+_TRUE_WORDS = frozenset({"true", "1", "yes", "on"})
+_FALSE_WORDS = frozenset({"false", "0", "no", "off"})
+
+
+def _is_blank(value: object) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _missing[D](value: object, field: str, default: D | _Required) -> Result[D] | None:
+    """The answer for a missing or blank value — its default, or "required" —
+    or ``None`` when a value is present."""
+    if not _is_blank(value):
+        return None
+    if isinstance(default, _Required):
+        return Result.fail(Errors.validation(f"{field} is required", field=field))
+    return Result.ok(default)
+
+
+def _out_of_range(field: str, value: object, low: object, high: object) -> ErrorContext:
+    if low is not None and high is not None:
+        message = f"{field} must be between {low} and {high}"
+    elif low is not None:
+        message = f"{field} must be at least {low}"
+    else:
+        message = f"{field} must be at most {high}"
+    return Errors.validation(message, field=field, value=str(value))
 
 
 @overload
-def parse_date_query_param(params: Mapping[str, Any], key: str, default: date) -> date: ...
+def parse_int_param_strict(
+    value: object,
+    field: str,
+    min_val: int | None = None,
+    max_val: int | None = None,
+    *,
+    cap: int | None = None,
+) -> Result[int]: ...
 @overload
-def parse_date_query_param(
-    params: Mapping[str, Any], key: str, default: None = None
-) -> date | None: ...
-def parse_date_query_param(
-    params: Mapping[str, Any],
-    key: str,
-    default: date | None = None,
-) -> date | None:
-    """Parse an ISO-format date query parameter with safe fallback.
+def parse_int_param_strict(
+    value: object,
+    field: str,
+    min_val: int | None = None,
+    max_val: int | None = None,
+    *,
+    default: int,
+    cap: int | None = None,
+) -> Result[int]: ...
+@overload
+def parse_int_param_strict(
+    value: object,
+    field: str,
+    min_val: int | None = None,
+    max_val: int | None = None,
+    *,
+    default: None,
+    cap: int | None = None,
+) -> Result[int | None]: ...
+def parse_int_param_strict(
+    value: object,
+    field: str,
+    min_val: int | None = None,
+    max_val: int | None = None,
+    *,
+    default: int | _Required | None = _REQUIRED,
+    cap: int | None = None,
+) -> Result[int] | Result[int | None]:
+    """Read an integer parameter: the text a query string or form carries, or a
+    JSON body's number.
 
-    Invalid or missing values return *default*. Overloaded on *default*
-    because every return path is either a parsed date or *default* itself:
-    a caller that supplies a real date can never receive None, and saying so
-    is what lets it feed a ``date``-typed parameter without a cast.
+    Missing or blank is ``default`` (required when omitted). Text that is not an
+    integer, a boolean, or a value outside ``[min_val, max_val]`` is a validation
+    error. A value above ``cap`` is ``cap``.
     """
-    raw = params.get(key)
-    if raw is None or raw == "":
-        return default
+    missing = _missing(value, field, default)
+    if missing is not None:
+        return missing
+    if isinstance(value, bool) or not isinstance(value, str | int):
+        return Result.fail(Errors.validation(f"{field} must be an integer", field=field))
     try:
-        return date.fromisoformat(str(raw))
-    except (TypeError, ValueError):  # fmt: skip
-        return default
+        number = int(value)
+    except ValueError:
+        return Result.fail(
+            Errors.validation(f"{field} must be an integer", field=field, value=str(value))
+        )
+    if (min_val is not None and number < min_val) or (max_val is not None and number > max_val):
+        return Result.fail(_out_of_range(field, number, min_val, max_val))
+    if cap is not None:
+        number = min(cap, number)
+    return Result.ok(number)
+
+
+def parse_float_param_strict(
+    value: object,
+    field: str,
+    *,
+    default: float,
+    min_val: float | None = None,
+    max_val: float | None = None,
+) -> Result[float]:
+    """Read a number parameter: the text a query string or form carries, or a
+    JSON body's number.
+
+    Missing or blank is ``default``. A boolean, a value that does not read as a
+    number, a non-finite number, or one outside ``[min_val, max_val]`` is a
+    validation error — a door never answers a default in place of a value it
+    could not read.
+    """
+    missing = _missing(value, field, default)
+    if missing is not None:
+        return missing
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        return Result.fail(Errors.validation(f"{field} must be a number", field=field))
+    try:
+        number = float(value)
+    except ValueError:
+        return Result.fail(
+            Errors.validation(f"{field} must be a number", field=field, value=str(value))
+        )
+    if not math.isfinite(number):
+        return Result.fail(
+            Errors.validation(f"{field} must be a finite number", field=field, value=str(value))
+        )
+    if (min_val is not None and number < min_val) or (max_val is not None and number > max_val):
+        return Result.fail(_out_of_range(field, value, min_val, max_val))
+    return Result.ok(number)
+
+
+def parse_bool_param_strict(value: object, field: str, *, default: bool) -> Result[bool]:
+    """Read a boolean parameter: the text a query string or form carries, or a
+    JSON body's ``true`` / ``false``.
+
+    Missing or blank is ``default``. ``true`` / ``1`` / ``yes`` / ``on`` and
+    ``false`` / ``0`` / ``no`` / ``off`` (any case) read; anything else is a
+    validation error.
+    """
+    missing = _missing(value, field, default)
+    if missing is not None:
+        return missing
+    if isinstance(value, bool):
+        return Result.ok(value)
+    word = str(value).strip().lower()
+    if word in _TRUE_WORDS:
+        return Result.ok(True)
+    if word in _FALSE_WORDS:
+        return Result.ok(False)
+    return Result.fail(
+        Errors.validation(f"{field} must be true or false", field=field, value=str(value))
+    )
+
+
+@overload
+def parse_date_param_strict(value: object, field: str) -> Result[date]: ...
+@overload
+def parse_date_param_strict(value: object, field: str, *, default: date) -> Result[date]: ...
+@overload
+def parse_date_param_strict(value: object, field: str, *, default: None) -> Result[date | None]: ...
+def parse_date_param_strict(
+    value: object,
+    field: str,
+    *,
+    default: date | _Required | None = _REQUIRED,
+) -> Result[date] | Result[date | None]:
+    """Read an ISO-format (``YYYY-MM-DD``) date parameter.
+
+    Missing or blank is ``default`` (required when omitted); text that is not an
+    ISO date is a validation error.
+    """
+    missing = _missing(value, field, default)
+    if missing is not None:
+        return missing
+    try:
+        return Result.ok(date.fromisoformat(str(value)))
+    except ValueError:
+        return Result.fail(
+            Errors.validation(
+                f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=str(value)
+            )
+        )
 
 
 def parse_csv_query_param(
     params: Mapping[str, Any],
     key: str,
 ) -> list[str]:
-    """Parse a comma-separated query parameter into a list of stripped, non-empty strings."""
+    """Parse a comma-separated query parameter into a list of stripped, non-empty strings.
+
+    Any text reads as a list, so there is no malformed value: missing or blank is ``[]``.
+    """
     raw = params.get(key)
     if raw is None or raw == "":
         return []
@@ -422,29 +497,6 @@ def parse_csv_query_param(
 def split_csv(value: str) -> list[str]:
     """Split a comma-separated string into a list of stripped, non-empty strings."""
     return [item.strip() for item in value.split(",") if item.strip()]
-
-
-@dataclass(frozen=True)
-class DateRangeParams:
-    """Parsed start_date / end_date pair."""
-
-    start_date: date | None
-    end_date: date | None
-
-
-def parse_date_range_params(
-    params: Mapping[str, Any],
-    start_key: str = "start_date",
-    end_key: str = "end_date",
-    *,
-    default_start: date | None = None,
-    default_end: date | None = None,
-) -> DateRangeParams:
-    """Parse a start/end date pair from query params with safe fallbacks."""
-    return DateRangeParams(
-        start_date=parse_date_query_param(params, start_key, default_start),
-        end_date=parse_date_query_param(params, end_key, default_end),
-    )
 
 
 @dataclass(frozen=True)
@@ -461,114 +513,41 @@ def parse_pagination_params(
     default_limit: int = 50,
     default_offset: int = 0,
     max_limit: int = 500,
-) -> PaginationParams:
-    """Parse limit + offset query params with safe defaults and bounds."""
-    return PaginationParams(
-        limit=parse_int_query_param(params, "limit", default_limit, minimum=1, maximum=max_limit),
-        offset=parse_int_query_param(params, "offset", default_offset, minimum=0),
+) -> Result[PaginationParams]:
+    """Read ``limit`` + ``offset``: missing or blank is the default, a malformed or
+    out-of-range value (``limit`` below 1, ``offset`` below 0) is a validation
+    error, and a ``limit`` above ``max_limit`` is ``max_limit``."""
+    limit = parse_int_param_strict(
+        params.get("limit"), "limit", 1, default=default_limit, cap=max_limit
     )
+    if limit.is_error:
+        return Result.fail(limit)
+    offset = parse_int_param_strict(params.get("offset"), "offset", 0, default=default_offset)
+    if offset.is_error:
+        return Result.fail(offset)
+    return Result.ok(PaginationParams(limit=limit.value, offset=offset.value))
 
 
-# ============================================================================
-# STRICT (Result-wrapped) QUERY PARAM HELPERS
-# ============================================================================
+def refuse_malformed(error: ErrorContext) -> Response:
+    """The bare 400 an HTML route answers for a malformed parameter.
 
-
-def parse_date_param_strict(value: str | None, field: str) -> Result[date]:
-    """Parse an ISO-format date string, returning a validation error on failure.
-
-    Use when invalid input should surface as a 400 to the caller rather
-    than silently falling back to a default.
+    Plain text with no refusal header, so HTMX leaves the target as it was: the
+    page minted the value, and only a crafted or stale request carries one that
+    does not read.
     """
-    if not value:
-        return Result.fail(Errors.validation(f"{field} is required", field=field))
-    try:
-        return Result.ok(date.fromisoformat(value))
-    except ValueError:
-        return Result.fail(
-            Errors.validation(f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=value)
-        )
-
-
-def parse_int_param_strict(
-    value: str | None, field: str, min_val: int, max_val: int
-) -> Result[int]:
-    """Parse an integer string and validate it falls within [min_val, max_val].
-
-    Use when invalid input should surface as a validation error rather than
-    silently clamping or falling back.
-    """
-    if not value:
-        return Result.fail(Errors.validation(f"{field} is required", field=field))
-    try:
-        n = int(value)
-    except ValueError:
-        return Result.fail(
-            Errors.validation(f"{field} must be an integer", field=field, value=value)
-        )
-    if n < min_val or n > max_val:
-        return Result.fail(
-            Errors.validation(
-                f"{field} must be between {min_val} and {max_val}",
-                field=field,
-                value=n,
-            )
-        )
-    return Result.ok(n)
-
-
-def parse_float_param_strict(
-    value: object,
-    field: str,
-    *,
-    default: float,
-    min_val: float,
-    max_val: float,
-) -> Result[float]:
-    """Read a number a write stores, refusing what is not one.
-
-    ``value`` is the handler parameter as it arrives: the text a query string or
-    form carries, or a JSON body's number. Missing or blank is ``default``. A
-    boolean, a value that does not read as a number, a non-finite number, or one
-    outside ``[min_val, max_val]`` is a validation error — a write never stores a
-    default in place of a value it could not read.
-    """
-    if value is None or value == "":
-        return Result.ok(default)
-    if isinstance(value, bool) or not isinstance(value, str | int | float):
-        return Result.fail(Errors.validation(f"{field} must be a number", field=field))
-    try:
-        number = float(value)
-    except ValueError:
-        return Result.fail(
-            Errors.validation(f"{field} must be a number", field=field, value=str(value))
-        )
-    if not math.isfinite(number) or number < min_val or number > max_val:
-        return Result.fail(
-            Errors.validation(
-                f"{field} must be between {min_val} and {max_val}",
-                field=field,
-                value=str(value),
-            )
-        )
-    return Result.ok(number)
+    return Response(error.message, status_code=status_for_error(error), media_type="text/plain")
 
 
 __all__ = [
-    "DateRangeParams",
     "PaginationParams",
     "check_required_role",
-    "parse_bool_query_param",
-    "parse_bool_value",
+    "parse_bool_param_strict",
     "parse_csv_query_param",
     "parse_date_param_strict",
-    "parse_date_query_param",
-    "parse_date_range_params",
     "parse_float_param_strict",
     "parse_int_param_strict",
-    "parse_int_query_param",
-    "parse_int_value",
     "parse_pagination_params",
+    "refuse_malformed",
     "require_owned_entity",
     "require_ownership_verifier",
     "split_csv",

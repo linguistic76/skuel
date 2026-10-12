@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-10-11'
+updated: '2026-10-12'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -536,8 +536,8 @@ shows and hides; it gates no request.
 **Pattern:** the two lateral traversals are bounded — one in its Cypher, one where its depth is read.
 The blocking chain takes no depth — `LateralRelationshipBackend.get_blocking_chain`
 walks a fixed `-[:BLOCKS*1..10]->`. The graph route reads `?depth=` with
-`parse_int_query_param`, clamped to 1-10 (`GraphDepth.MAXIMUM`; the page's control
-offers 1-3).
+`parse_int_param_strict`, capped at 10 (`GraphDepth.MAXIMUM`; a depth that does not read,
+or is below 1, is a 400; the page's control offers 1-3).
 
 **Trade-offs:**
 - Depth 1: ~10 nodes (fast, limited context)

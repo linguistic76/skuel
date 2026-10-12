@@ -18,7 +18,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_param_strict
 from core.ports.query_types import InvoiceStats
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -68,10 +68,14 @@ def create_finance_api_routes(
         # Get query params
         invoice_type = request.query_params.get("type")  # outgoing or incoming
         status = request.query_params.get("status")
-        limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
+        limit = parse_int_param_strict(
+            request.query_params.get("limit"), "limit", 1, default=50, cap=500
+        )
+        if limit.is_error:
+            return Result.fail(limit)
 
         result = await finance_service.list_invoices(
-            limit=limit,
+            limit=limit.value,
             invoice_type=invoice_type,
             status=status,
         )

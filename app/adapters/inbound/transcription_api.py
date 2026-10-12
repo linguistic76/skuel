@@ -25,7 +25,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import read_json_body
 from adapters.inbound.route_factories import (
-    parse_int_query_param,
+    parse_int_param_strict,
     parse_pagination_params,
     verify_entity_ownership,
 )
@@ -111,14 +111,23 @@ def create_transcription_api_routes(
 
         status_str = params.get("status")
         pagination = parse_pagination_params(params, default_limit=100, max_limit=500)
+        if pagination.is_error:
+            return Result.fail(pagination)
 
-        status = TranscriptionStatus(status_str) if status_str else None
+        status: TranscriptionStatus | None = None
+        if status_str:
+            try:
+                status = TranscriptionStatus(status_str)
+            except ValueError:
+                return Result.fail(
+                    Errors.validation(f"Invalid status: {status_str}", field="status")
+                )
 
         result = await transcription_service.list(
             user_uid=user_uid,
             status=status,
-            limit=pagination.limit,
-            offset=pagination.offset,
+            limit=pagination.value.limit,
+            offset=pagination.value.offset,
         )
 
         if result.is_error:
@@ -184,9 +193,11 @@ def create_transcription_api_routes(
         if not query:
             return Result.fail(Errors.validation("Query parameter 'q' is required", field="q"))
 
-        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
+        limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=100, cap=500)
+        if limit.is_error:
+            return Result.fail(limit)
 
-        result = await transcription_service.search(query, user_uid=user_uid, limit=limit)
+        result = await transcription_service.search(query, user_uid=user_uid, limit=limit.value)
 
         if result.is_error:
             return Result.fail(result)
@@ -205,10 +216,12 @@ def create_transcription_api_routes(
         except ValueError:
             return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
-        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
+        limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=100, cap=500)
+        if limit.is_error:
+            return Result.fail(limit)
 
         result = await transcription_service.get_by_status(
-            status_enum, user_uid=user_uid, limit=limit
+            status_enum, user_uid=user_uid, limit=limit.value
         )
 
         if result.is_error:

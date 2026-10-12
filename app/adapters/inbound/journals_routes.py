@@ -27,7 +27,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed, rate_limited
-from adapters.inbound.route_factories import parse_bool_value
+from adapters.inbound.route_factories import parse_bool_param_strict, refuse_malformed
 from core.models.enums.pipeline import ProcessingMode
 from core.services.chat import DEFAULT_CHAT_MODEL
 from core.services.conversation import (
@@ -51,6 +51,7 @@ from core.services.journal.journal_batch_service import (
     unknown_mode_message,
 )
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 from ui.journals.components import render_upload_status as render_journal_upload_status
@@ -80,6 +81,18 @@ AI_SUBSCRIPTION_MESSAGE = (
 # ``core.services.journal.JournalBatchService`` — routes here only parse the
 # request, gate auth/tier, call the service, and render fragments.
 # ---------------------------------------------------------------------------
+
+
+def _grounding_dials(summon_canon: str, summon_vault: str) -> Result[tuple[bool, bool]]:
+    """The composer's two grounding checkboxes (canon, vault): unchecked is off, and
+    a value the checkbox could not have sent is a validation error."""
+    canon = parse_bool_param_strict(summon_canon, "summon_canon", default=False)
+    if canon.is_error:
+        return Result.fail(canon)
+    vault = parse_bool_param_strict(summon_vault, "summon_vault", default=False)
+    if vault.is_error:
+        return Result.fail(vault)
+    return Result.ok((canon.value, vault.value))
 
 
 def _render_batch_report(report: BatchRunReport, status_id: str) -> Any:
@@ -1197,8 +1210,10 @@ def create_journals_routes(
         from ui.journals import FollowUpErrorFragment, FollowUpFragment
 
         user_uid = require_authenticated_user(request)
-        canon_on = parse_bool_value(summon_canon)
-        vault_on = parse_bool_value(summon_vault)
+        dials = _grounding_dials(summon_canon, summon_vault)
+        if dials.is_error:
+            return refuse_malformed(dials.expect_error())
+        canon_on, vault_on = dials.value
 
         gated_user = await _load_ai_gated_user(user_uid)
         if gated_user is None:
@@ -1377,8 +1392,10 @@ def create_journals_routes(
             )
 
         user_uid = require_authenticated_user(request)
-        canon_on = parse_bool_value(summon_canon)
-        vault_on = parse_bool_value(summon_vault)
+        dials = _grounding_dials(summon_canon, summon_vault)
+        if dials.is_error:
+            return refuse_malformed(dials.expect_error())
+        canon_on, vault_on = dials.value
 
         pairs = transcript_to_pairs(parse_transcript(transcript_json))
         if not pairs:
@@ -1493,8 +1510,10 @@ def create_journals_routes(
         from ui.journals import ErrorFragment, Stage2Fragment
 
         user_uid = require_authenticated_user(request)
-        canon_on = parse_bool_value(summon_canon)
-        vault_on = parse_bool_value(summon_vault)
+        dials = _grounding_dials(summon_canon, summon_vault)
+        if dials.is_error:
+            return refuse_malformed(dials.expect_error())
+        canon_on, vault_on = dials.value
 
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")
@@ -1545,8 +1564,10 @@ def create_journals_routes(
         from ui.journals import ErrorFragment, Stage3Fragment
 
         user_uid = require_authenticated_user(request)
-        canon_on = parse_bool_value(summon_canon)
-        vault_on = parse_bool_value(summon_vault)
+        dials = _grounding_dials(summon_canon, summon_vault)
+        if dials.is_error:
+            return refuse_malformed(dials.expect_error())
+        canon_on, vault_on = dials.value
 
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")

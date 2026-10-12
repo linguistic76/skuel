@@ -152,30 +152,35 @@ missing value takes the default). So SKUEL binds no `bool` / `int` / `float` / `
 enum parameter outside the path — `tests/unit/adapters/test_request_input_census.py`
 walks every registered handler and fails on one. A typed path segment stays (a segment
 that does not read is a URL that names nothing). Everything else is read with a
-`route_factories/route_helpers.py` parser: the silent `parse_*_query_param` family for a
-read (an unreadable value is the default, `API_VALIDATION_PATTERNS.md` § Query Params),
-the strict `parse_*_strict` family (a **400**, `ErrorCategory.VALIDATION`, the field
-named) for a value a write stores or a required one:
+`route_factories/route_helpers.py` reader under one rule (`API_VALIDATION_PATTERNS.md`
+§ Query Parameters): missing or blank is the default, malformed or outside its domain
+bounds is a **400** (`ErrorCategory.VALIDATION`, the field named), and only a `cap`
+clamps. Each reader returns a `Result`; an HTML route answers `refuse_malformed(error)`,
+a bare 400:
 
 ```python
 from adapters.inbound.route_factories.route_helpers import (
-    parse_bool_query_param, parse_int_query_param, parse_pagination_params,
+    parse_bool_param_strict, parse_int_param_strict, parse_pagination_params,
 )
 
 @rt("/api/context/dashboard")
 @boundary_handler()
 async def get_context_dashboard_route(request: Request) -> Result[ContextDashboard]:
     params = dict(request.query_params)
-    include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
-    # GET /api/context/dashboard?include_predictions=false
+    include_predictions = parse_bool_param_strict(
+        params.get("include_predictions"), "include_predictions", default=True
+    )
+    if include_predictions.is_error:
+        return Result.fail(include_predictions)  # ?include_predictions=maybe → 400
     ...
 
 @rt("/api/path-steps/root-organizers")
 @boundary_handler()
 async def list_root_organizers_route(request: Request) -> Result[list[RootOrganizerResult]]:
     params = dict(request.query_params)
-    limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
-    # GET /api/path-steps/root-organizers?limit=20
+    limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=50, cap=500)
+    if limit.is_error:
+        return Result.fail(limit)  # ?limit=0 → 400; ?limit=9999 → 500
     ...
 ```
 

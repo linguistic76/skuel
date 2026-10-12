@@ -1,12 +1,14 @@
-"""A door reads its input or refuses it — never a 500, never a stored default.
+"""A door reads its input or refuses it — never a 500, never a silent default.
 
 Over the bootstrapped app, through the real routes:
 
-- **A typed handler parameter is not bound by FastHTML.** FastHTML casts a handler
-  parameter by calling its annotation on the raw text: an unreadable ``bool`` raised
-  (500), an unreadable ``int`` / ``float`` answered a bare-text 404. Each route here
-  reads the value itself through the query-param helpers, so an unreadable value is
-  its default (``API_VALIDATION_PATTERNS`` § Query Params: 200).
+- **One rule for a parameter a route reads** (query string, or a bound handler
+  parameter). Missing or blank is its default; present but malformed — or outside
+  its domain bounds (``month=13``) — is a 400; a limit, window or depth above the
+  server's cap is the cap. FastHTML never casts these: each route reads the value
+  itself through the ``route_helpers`` strict readers.
+- **An HTML route answers a malformed parameter with a bare 400** — plain text, no
+  refusal header, so HTMX leaves its target as it was.
 - **A score a write stores is read or refused.** A lateral edge's ``confidence`` /
   ``strength`` / ``synergy_score`` that is not a finite number in 0.0-1.0 is a 400 and
   no edge is written.
@@ -102,20 +104,25 @@ async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-a
 
 
 # =============================================================================
-# A typed handler parameter: read by the route, its default when unreadable
+# A parameter a route reads: its default when missing, a 400 when malformed
 # =============================================================================
 
-#: ``(caller, method, path, body kind, body)`` — the bad value, then the readable one.
+#: ``(caller, method, path, body kind, body)`` — the malformed value, then the readable one.
 _READS: list[tuple[str, str, str, str, dict[str, str]]] = [
-    ("admin", "GET", "/api/admin/users?active_only=maybe&limit=lots&offset=x", "", {}),
-    ("admin", "GET", "/performance/scale-test?concurrent_users=many&duration_seconds=x", "", {}),
+    ("admin", "GET", "/api/admin/users?active_only=maybe", "", {}),
+    ("admin", "GET", "/api/admin/users?limit=lots", "", {}),
+    ("admin", "GET", "/api/admin/users?offset=x", "", {}),
+    ("admin", "GET", "/performance/scale-test?concurrent_users=many", "", {}),
+    ("admin", "GET", "/performance/scale-test?duration_seconds=x", "", {}),
     ("user", "POST", "/api/search/unified", "json", {"query": "x", "tags_match_all": "maybe"}),
     ("user", "POST", "/api/search/unified", "json", {"query": "x", "limit": "lots"}),
     ("user", "GET", "/search/results?query=x&limit=lots", "", {}),
-    ("user", "GET", "/api/goals/list?limit=lots&offset=x", "", {}),
+    ("user", "GET", "/api/goals/list?limit=lots", "", {}),
+    ("user", "GET", "/api/goals/list?offset=x", "", {}),
     ("user", "GET", "/api/search/intelligent?q=x&limit=lots", "", {}),
     ("user", "GET", "/api/insights/active?limit=lots", "", {}),
-    ("user", "GET", "/api/user-entries?limit=lots&offset=x", "", {}),
+    ("user", "GET", "/api/user-entries?limit=lots", "", {}),
+    ("user", "GET", "/api/user-entries?offset=x", "", {}),
     ("user", "GET", "/api/lp/{lp}/children?parent_depth=x", "", {}),
     ("user", "GET", "/api/explore/search?offset=x", "", {}),
     ("user", "GET", "/api/path-steps/prerequisites?step_uid={ps}&depth=x", "", {}),
@@ -125,18 +132,25 @@ _READS: list[tuple[str, str, str, str, dict[str, str]]] = [
     ("user", "GET", "/api/goals/context?uid={goal}&depth=x", "", {}),
     ("user", "GET", "/api/goals/insights?uid={goal}&min_confidence=x", "", {}),
     ("user", "GET", "/api/goals/{goal}/lateral/graph?depth=x", "", {}),
+    ("user", "GET", "/api/goals/stalled?max_progress=x", "", {}),
+    ("user", "GET", "/api/goals/knowledge-patterns?timeframe_days=x", "", {}),
+    ("user", "GET", "/api/habits/history?uid={habit}&days=x", "", {}),
+    ("user", "GET", "/api/habits/completion-calendar?uid={habit}&month=x", "", {}),
+    ("user", "GET", "/cal/item-details/{habit}?date=notadate", "", {}),
+    ("user", "GET", "/insights/load-more?offset=x", "", {}),
     ("user", "POST", "/journals/save", "form", {"summon_canon": "maybe"}),
     ("user", "POST", "/journals/follow-up", "form", {"user_reply": "hi", "summon_vault": "x"}),
     ("user", "POST", "/journals/stage2", "form", {"raw_entry": "x", "summon_canon": "x"}),
     ("user", "POST", "/journals/stage3", "form", {"raw_entry": "x", "summon_vault": "x"}),
 ]
 
-#: The readable spelling of every value the bad cases send.
+#: The readable spelling of every value the malformed cases send.
 _READABLE = {
     "maybe": "true",
     "lots": "5",
     "many": "5",
     "x": "1",
+    "notadate": "2026-01-05",
 }
 
 
@@ -161,15 +175,15 @@ async def _send(
 @pytest.mark.parametrize(
     ("caller", "method", "path", "kind", "body"),
     _READS,
-    ids=[f"{method} {path.split('?')[0]} {sorted(body)}" for _, method, path, _, body in _READS],
+    ids=[f"{method} {path} {sorted(body)}" for _, method, path, _, body in _READS],
 )
-async def test_an_unreadable_value_is_its_default(
+async def test_a_malformed_value_is_refused(
     world: World, caller: str, method: str, path: str, kind: str, body: dict[str, str]
 ) -> None:
     response = await _send(world, caller, method, path, kind, body)
-    assert response.status_code == 200, response.text[:300]
+    assert response.status_code == 400, response.text[:300]
 
-    # The control: the same door with a readable value answers the same way.
+    # The control: the same door with a readable value answers.
     readable = await _send(
         world,
         caller,
@@ -181,14 +195,75 @@ async def test_an_unreadable_value_is_its_default(
     assert readable.status_code == 200, readable.text[:300]
 
 
-@pytest.mark.parametrize(("sent", "read"), [("lots", 50), ("", 50), ("3", 3), ("0", 1), ("-5", 1)])
-async def test_the_route_reads_the_value_it_was_sent(world: World, sent: str, read: int) -> None:
-    """The instrument's own control: the list echoes the limit it read — the sent
-    number when readable (at least 1), the default when not."""
-    response = await world.client.get(f"/api/user-entries?limit={sent}")
+@pytest.mark.parametrize(
+    ("query", "read"),
+    [("", 50), ("limit=", 50), ("limit=%20", 50), ("limit=3", 3), ("limit=1", 1)],
+)
+async def test_a_missing_or_blank_value_is_its_default(world: World, query: str, read: int) -> None:
+    """The list echoes the limit it read: the default when missing or blank, the
+    number sent when it reads."""
+    response = await world.client.get(f"/api/user-entries?{query}")
 
     assert response.status_code == 200, response.text[:300]
     assert response.json()["limit"] == read
+
+
+@pytest.mark.parametrize(
+    ("path", "field"),
+    [
+        ("/api/user-entries?limit=0", "limit"),
+        ("/api/user-entries?limit=-5", "limit"),
+        ("/api/user-entries?offset=-1", "offset"),
+        ("/api/goals/list?limit=0", "limit"),
+        ("/api/habits/completion-calendar?uid={habit}&month=13", "month"),
+        ("/api/habits/completion-calendar?uid={habit}&month=0", "month"),
+        ("/api/goals/insights?uid={goal}&min_confidence=1.5", "min_confidence"),
+        ("/api/goals/stalled?max_progress=nan", "max_progress"),
+    ],
+)
+async def test_a_value_outside_its_bounds_is_refused(world: World, path: str, field: str) -> None:
+    """A domain bound is an input rule: a month 13 names no month, a limit of 0 asks
+    for nothing — a 400 naming the field, not the nearest bound."""
+    response = await world.client.get(path.format(**world.uids))
+
+    assert response.status_code == 400, response.text[:300]
+    assert field in response.text
+
+
+@pytest.mark.parametrize(
+    ("path", "key", "read"),
+    [
+        ("/api/goals/list?limit=10000", "limit", 500),
+        ("/api/goals/list?limit=500", "limit", 500),
+        ("/api/goals/knowledge-patterns?timeframe_days=1000", "timeframe_days", 365),
+        ("/api/goals/knowledge-patterns?timeframe_days=7", "timeframe_days", 7),
+    ],
+)
+async def test_a_value_above_its_cap_is_the_cap(
+    world: World, path: str, key: str, read: int
+) -> None:
+    """A cap is server policy, not an input error: the route answers, with the cap."""
+    response = await world.client.get(path)
+
+    assert response.status_code == 200, response.text[:300]
+    assert response.json()[key] == read
+
+
+async def test_a_fragment_route_answers_a_bare_400(world: World) -> None:
+    """An HTMX fragment route's refusal is plain text with no refusal header, so the
+    client's swap listener leaves the tree as it was; the readable value renders rows."""
+    url = f"/api/lp/{world.uids['lp']}/children"
+
+    refused = await world.client.get(f"{url}?parent_depth=deep", headers={"HX-Request": "true"})
+
+    assert refused.status_code == 400
+    assert refused.headers["content-type"].startswith("text/plain")
+    assert "X-SKUEL-Refusal" not in refused.headers
+    assert "parent_depth" in refused.text
+
+    rendered = await world.client.get(f"{url}?parent_depth=0", headers={"HX-Request": "true"})
+    assert rendered.status_code == 200, rendered.text[:300]
+    assert rendered.headers["content-type"].startswith("text/html")
 
 
 # =============================================================================

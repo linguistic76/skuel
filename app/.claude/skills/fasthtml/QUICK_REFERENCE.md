@@ -92,7 +92,7 @@ found = require_found(result, "Entity", uid)                      # adapters/inb
 
 ### Query-param validation — `route_factories/route_helpers.py`
 
-`parse_bool_query_param`, `parse_date_query_param`, `parse_pagination_params` — silent fallbacks; the strict `parse_*_param_strict` parsers fail with 400. Bodies use Pydantic request models read inside the handler by `parse_body` / `parse_json_body` / `parse_form_body` and also fail with 400 (`ErrorCategory.VALIDATION`). ⚠ Never declare the model as a handler parameter (`body: SomeRequest`): FastHTML coerces each field by calling its annotation during parameter extraction, before the handler runs — `Literal(...)` raises `TypeError`, `Priority("bad")` a plain `ValueError`, a Pydantic rejection escapes the same way — each a 500.
+`parse_int_param_strict`, `parse_float_param_strict`, `parse_bool_param_strict`, `parse_date_param_strict`, `parse_pagination_params` — one rule: missing or blank is the default, malformed or out of bounds a 400, and only a `cap` clamps (`refuse_malformed` is an HTML route's bare 400). Bodies use Pydantic request models read inside the handler by `parse_body` / `parse_json_body` / `parse_form_body` and also fail with 400 (`ErrorCategory.VALIDATION`). ⚠ Never declare the model as a handler parameter (`body: SomeRequest`): FastHTML coerces each field by calling its annotation during parameter extraction, before the handler runs — `Literal(...)` raises `TypeError`, `Priority("bad")` a plain `ValueError`, a Pydantic rejection escapes the same way — each a 500.
 
 ---
 

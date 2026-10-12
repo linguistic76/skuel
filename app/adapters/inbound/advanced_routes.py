@@ -28,7 +28,7 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
     parse_date_param_strict,
-    parse_int_query_param,
+    parse_int_param_strict,
     register_domain_routes,
 )
 from core.models.calendar_optimization import (
@@ -180,18 +180,24 @@ def create_performance_routes(
             concurrent_users: Number of concurrent users to simulate (default 100)
             duration_seconds: Test duration (default 60)
 
-        An unreadable value is its default.
+        A missing value is its default; an unreadable one, or one below 1, is a 400.
         """
         params = request.query_params
+        concurrent_users = parse_int_param_strict(
+            params.get("concurrent_users"), "concurrent_users", 1, default=100
+        )
+        if concurrent_users.is_error:
+            return Result.fail(concurrent_users)
+        duration_seconds = parse_int_param_strict(
+            params.get("duration_seconds"), "duration_seconds", 1, default=60
+        )
+        if duration_seconds.is_error:
+            return Result.fail(duration_seconds)
         return Result.ok(
             {
                 "message": "Scale test initiated",
-                "concurrent_users": parse_int_query_param(
-                    params, "concurrent_users", 100, minimum=1
-                ),
-                "duration_seconds": parse_int_query_param(
-                    params, "duration_seconds", 60, minimum=1
-                ),
+                "concurrent_users": concurrent_users.value,
+                "duration_seconds": duration_seconds.value,
                 "status": "running",
             }
         )

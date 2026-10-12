@@ -50,6 +50,7 @@ Knowledge intelligence:
 
 from __future__ import annotations
 
+from datetime import MAXYEAR, MINYEAR
 from typing import TYPE_CHECKING, Any
 
 from starlette.responses import Response
@@ -70,7 +71,7 @@ from adapters.inbound.route_factories import (
     create_activity_hierarchy_api_routes,
     create_activity_link_api_routes,
     create_knowledge_patterns_api_route,
-    parse_int_query_param,
+    parse_int_param_strict,
     verify_entity_ownership,
 )
 from core.models.entity_requests import (
@@ -259,34 +260,49 @@ def create_habits_api_routes(
         habit_uid = request.query_params.get("uid", "")
         if not habit_uid:
             return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        days = parse_int_query_param(
-            request.query_params, "days", default=90, minimum=1, maximum=365
+        days = parse_int_param_strict(
+            request.query_params.get("days"), "days", 1, default=90, cap=365
         )
+        if days.is_error:
+            return Result.fail(days)
 
         ownership_error = await verify_entity_ownership(
             habits_service, habit_uid, user_uid, "habit"
         )
         if ownership_error:
             return ownership_error
-        return await habits_service.get_habit_history(habit_uid, days)
+        return await habits_service.get_habit_history(habit_uid, days.value)
 
     @rt("/api/habits/completion-calendar")
     @boundary_handler()
     async def habit_completion_calendar(request: Request) -> Result[dict[str, Any]]:
-        """Calendar grid of completions for a habit (defaults to current month)."""
+        """Calendar grid of completions for a habit (defaults to current month).
+
+        A missing ``year`` / ``month`` is the current one; one that does not read,
+        or names no calendar month (``month=13``), is a 400.
+        """
         user_uid = require_authenticated_user(request)
         habit_uid = request.query_params.get("uid", "")
         if not habit_uid:
             return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        year = parse_int_query_param(request.query_params, "year", default=0) or None
-        month = parse_int_query_param(request.query_params, "month", default=0) or None
+        # The month after December must be a representable date too.
+        year = parse_int_param_strict(
+            request.query_params.get("year"), "year", MINYEAR, MAXYEAR - 1, default=None
+        )
+        if year.is_error:
+            return Result.fail(year)
+        month = parse_int_param_strict(
+            request.query_params.get("month"), "month", 1, 12, default=None
+        )
+        if month.is_error:
+            return Result.fail(month)
 
         ownership_error = await verify_entity_ownership(
             habits_service, habit_uid, user_uid, "habit"
         )
         if ownership_error:
             return ownership_error
-        return await habits_service.get_completion_calendar(habit_uid, year, month)
+        return await habits_service.get_completion_calendar(habit_uid, year.value, month.value)
 
     # ================================================================
     # USER STATS

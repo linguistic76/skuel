@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-10-11
+updated: 2026-10-12
 category: intelligence
 status: current
 related_skills:
@@ -208,12 +208,18 @@ factory = IntelligenceRouteFactory(
 ```
 
 **Route Parameter Style:**
-`uid` is a bound `str`; every number is read from the query string with a shared helper
-(`parse_int_query_param` / `parse_float_query_param`), so an unreadable value is the default
-and an out-of-range one the nearest bound — never a typed `int` / `float` handler parameter:
+`uid` is a bound `str`; every number is read from the query string with a shared reader
+(`parse_int_param_strict` / `parse_float_param_strict`): a missing value is the default, an
+unreadable or out-of-bounds one a 400, and a `depth` above 10 is 10 — never a typed `int` /
+`float` handler parameter:
 ```python
 async def context_route(request: Request, uid: str) -> Result[IntelligencePayload]:
-    depth = parse_int_query_param(request.query_params, "depth", GraphDepth.NEIGHBORHOOD, ...)
+    depth_read = parse_int_param_strict(
+        request.query_params.get("depth"), "depth", GraphDepth.DIRECT,
+        default=GraphDepth.NEIGHBORHOOD, cap=GraphDepth.MAXIMUM,
+    )
+    if depth_read.is_error:
+        return Result.fail(depth_read)
 ```
 
 **Rollout Status (current):**

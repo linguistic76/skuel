@@ -97,9 +97,9 @@ transition inside the status-guarded write (ADR-087). `TaskStatusUpdateRequest` 
 
 ### Query Parameters - GET
 
-A handful of query params go through the silent/strict helpers in
-`adapters/inbound/route_factories/route_helpers.py` (`parse_int_query_param`,
-`parse_date_param_strict`, …). A form with many checkbox/enum/optional-string facets builds
+A handful of query params go through the `Result`-returning readers in
+`adapters/inbound/route_factories/route_helpers.py` (`parse_int_param_strict`,
+`parse_date_param_strict`, … — missing is the default, malformed a 400). A form with many checkbox/enum/optional-string facets builds
 its model with a `from_form_params()` classmethod — see
 [Methods on Request Models](#methods-on-request-models). `FilterRequestBase`
 (`core/models/request_base.py`) is the base for such models.

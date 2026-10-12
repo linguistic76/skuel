@@ -23,7 +23,7 @@ from datetime import datetime
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_param_strict
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -65,11 +65,13 @@ def register_analytics_routes(app, services):
         """
         user_uid = require_authenticated_user(request)
 
-        days_back = parse_int_query_param(
-            request.query_params, "days_back", 30, minimum=1, maximum=365
+        days_back = parse_int_param_strict(
+            request.query_params.get("days_back"), "days_back", 1, default=30, cap=365
         )
+        if days_back.is_error:
+            return Result.fail(days_back)
 
-        result = await analytics.get_learning_velocity(user_uid, days_back)
+        result = await analytics.get_learning_velocity(user_uid, days_back.value)
 
         if result.is_ok:
             metrics = result.value
@@ -218,10 +220,12 @@ def register_analytics_routes(app, services):
         """Get combined analytics dashboard for user."""
         user_uid = require_authenticated_user(request)
 
-        days_back = parse_int_query_param(
-            request.query_params, "days_back", 30, minimum=1, maximum=365
+        days_back = parse_int_param_strict(
+            request.query_params.get("days_back"), "days_back", 1, default=30, cap=365
         )
+        if days_back.is_error:
+            return Result.fail(days_back)
 
-        return await analytics.get_combined_dashboard(user_uid, days_back)
+        return await analytics.get_combined_dashboard(user_uid, days_back.value)
 
     logger.info("✅ Analytics API routes registered (4 endpoints)")

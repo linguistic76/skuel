@@ -105,7 +105,7 @@ def to_intent(self) -> TaskUpdateIntent:
 | Update sentinels | `core/models/sentinels.py` | `UNSET` / `Unset` for partial-patch intents |
 | Intent contracts | `core/models/update_contracts.py` | `SupportsToIntent`, `SupportsToChanges`, `RawChanges` |
 | Body parsing → Result | `adapters/inbound/form_helpers.py` | `parse_body(request, Model)` — JSON or form by Content-Type, the door both API clients and HTMX forms reach (CRUD create/update, admin account actions, the context integrations); `parse_json_body` / `parse_form_body` for one caller kind — all catch `ValidationError`, return `Result.fail(Errors.validation(..., field="body"))` |
-| Query-param parsing | `adapters/inbound/route_factories/route_helpers.py` | Silent-default: `parse_bool_query_param`, `parse_int_query_param`, `parse_float_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`; strict Result-based: `parse_date_param_strict`, `parse_int_param_strict` |
+| Query-param parsing | `adapters/inbound/route_factories/route_helpers.py` | `Result`-returning, one rule (missing → default, malformed or out of bounds → 400, a `cap` clamps): `parse_int_param_strict`, `parse_float_param_strict`, `parse_bool_param_strict`, `parse_date_param_strict`, `parse_pagination_params`; `parse_csv_query_param` (no malformed value) |
 
 ### Validation error → HTTP status
 

@@ -12,6 +12,13 @@
    over the body's ``uid``. Every JSON body read goes through
    ``form_helpers.read_json_body``, which reads the body's bytes.
 
+3. **A value a route cannot read is never swapped for a default.** One rule at every
+   door: missing or blank is the default, malformed is a 400. A ``try`` that converts a
+   value and whose ``except`` falls through (no ``return`` / ``raise``) answers the
+   client a value it did not send — the silent fallback the ``route_helpers`` strict
+   readers replace. A path segment is exempt: a URL that names a day is navigation
+   (``/today/{date_str}`` degrades to today), not a parameter.
+
 Each census walks ``adapters/inbound`` and fails on a site it would let through; each
 is run once against a sample that must fail, so a walk that finds nothing is caught.
 """
@@ -320,3 +327,111 @@ def test_the_merge_the_reader_avoids_is_real() -> None:
     read = _app().post("/cache?uid=QUERY", json={"uid": "BODY"}).json()["read"]
 
     assert read["uid"] == "QUERY"
+
+
+# =============================================================================
+# 3. Silent fallbacks
+# =============================================================================
+
+#: Calls that read text as a number or a date.
+_CONVERTERS = frozenset({"int", "float", "fromisoformat", "Decimal"})
+
+
+def _converted_names(statement: ast.stmt) -> set[str] | None:
+    """The names a statement converts, or ``None`` when it converts nothing; an
+    argument that is not a bare name counts as the empty-string name."""
+    names: set[str] | None = None
+    for node in ast.walk(statement):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        called = (
+            func.id
+            if isinstance(func, ast.Name)
+            else func.attr
+            if isinstance(func, ast.Attribute)
+            else None
+        )
+        if called in _CONVERTERS:
+            names = names or set()
+            names.update(arg.id if isinstance(arg, ast.Name) else "" for arg in node.args)
+    return names
+
+
+def _falls_through(handler: ast.ExceptHandler) -> bool:
+    return not any(
+        isinstance(node, ast.Return | ast.Raise | ast.Continue)
+        for statement in handler.body
+        for node in ast.walk(statement)
+    )
+
+
+def silent_fallbacks(source: str) -> list[str]:
+    """``"<function>:<line>"`` for every ``try`` that converts a value other than a
+    path segment and lets an ``except`` fall through to carry on with a default."""
+    tree = ast.parse(source)
+    path_segments: dict[str, set[str]] = {}
+    for function, path in _handlers(tree):
+        path_segments.setdefault(function.name, set()).update(re.findall(r"\{(\w+)\}", path))
+    flagged: list[str] = []
+    for scope in ast.walk(tree):
+        if not isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        in_path = path_segments.get(scope.name, set())
+        for node in _own_nodes(scope):
+            if not isinstance(node, ast.Try):
+                continue
+            converted: set[str] = set()
+            for statement in node.body:
+                converted |= _converted_names(statement) or set()
+            if converted and not converted <= in_path and any(map(_falls_through, node.handlers)):
+                flagged.append(f"{scope.name}:{node.lineno}")
+    return flagged
+
+
+def test_no_route_swaps_an_unreadable_value_for_a_default() -> None:
+    flagged = [
+        f"{name} {site}"
+        for name, source, _ in _inbound_modules()
+        for site in silent_fallbacks(source)
+    ]
+    assert flagged == [], (
+        "read the value through route_helpers' parse_*_param_strict — malformed is a 400:\n"
+        + "\n".join(flagged)
+    )
+
+
+_FALLBACK_SAMPLE = """
+def register(rt):
+    @rt("/days/{date_str}")
+    async def day(request, date_str: str):
+        try:
+            when = date.fromisoformat(date_str)
+        except ValueError:
+            when = today()
+
+    @rt("/list")
+    async def listing(request):
+        raw = request.query_params.get("period_days", "90")
+        try:
+            period = int(raw)
+        except ValueError:
+            period = 90
+        try:
+            limit = int(request.query_params.get("limit"))
+        except ValueError:
+            return refuse()
+
+
+def _helper(params):
+    try:
+        offset = int(params.get("offset"))
+    except (TypeError, ValueError):
+        offset = 0
+"""
+
+
+def test_the_fallback_census_flags_a_sample_that_falls_back() -> None:
+    """The instrument's own control: a query value swapped for a default is flagged,
+    in a handler and in a helper; a path segment and a refusal pass."""
+    assert sorted(silent_fallbacks(_FALLBACK_SAMPLE)) == ["_helper:24", "listing:13"]

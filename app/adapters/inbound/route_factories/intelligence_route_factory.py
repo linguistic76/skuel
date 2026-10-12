@@ -42,8 +42,8 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import (
-    parse_float_query_param,
-    parse_int_query_param,
+    parse_float_param_strict,
+    parse_int_param_strict,
     verify_entity_ownership,
 )
 from core.constants import GraphDepth
@@ -267,8 +267,8 @@ class IntelligenceRouteFactory:
         Maps to: PerformanceAnalyticsOperations.get_performance_analytics(user_uid, period_days)
 
         Authentication: Session-based (raises 401 if not logged in)
-        Query params: period_days (optional, default: 30; an unreadable value is
-        the default, the least is 1)
+        Query params: period_days (optional, default: 30; one that does not read,
+        or is below 1, is a 400)
         """
         domain = self.domain
 
@@ -277,7 +277,12 @@ class IntelligenceRouteFactory:
         async def analytics_route(request: Request) -> Result[IntelligencePayload]:
             """Get performance analytics for authenticated user"""
             user_uid = require_authenticated_user(request)
-            period_days = parse_int_query_param(request.query_params, "period_days", 30, minimum=1)
+            period_read = parse_int_param_strict(
+                request.query_params.get("period_days"), "period_days", 1, default=30
+            )
+            if period_read.is_error:
+                return Result.fail(period_read)
+            period_days = period_read.value
 
             result = await service.get_performance_analytics(user_uid, period_days)
 
@@ -292,8 +297,8 @@ class IntelligenceRouteFactory:
 
         Authentication: Session-based (raises 401 if not logged in)
         Ownership: Verified if verify_ownership=True and ownership_service provided
-        Query params: uid (required), depth (optional, default: 2; an unreadable
-        value is the default, an out-of-range one the nearest of 1-10)
+        Query params: uid (required), depth (optional, default: 2; one that does
+        not read, or is below 1, is a 400; one above 10 is 10)
         """
         service = self.service
         domain = self.domain
@@ -304,13 +309,16 @@ class IntelligenceRouteFactory:
         async def context_route(request: Request, uid: str) -> Result[IntelligencePayload]:
             """Get entity with full graph context"""
             user_uid = require_authenticated_user(request)
-            depth = parse_int_query_param(
-                request.query_params,
+            depth_read = parse_int_param_strict(
+                request.query_params.get("depth"),
                 "depth",
-                GraphDepth.NEIGHBORHOOD,
-                minimum=GraphDepth.DIRECT,
-                maximum=GraphDepth.MAXIMUM,
+                GraphDepth.DIRECT,
+                default=GraphDepth.NEIGHBORHOOD,
+                cap=GraphDepth.MAXIMUM,
             )
+            if depth_read.is_error:
+                return Result.fail(depth_read)
+            depth = depth_read.value
 
             # Verify ownership (returns 404 to prevent UID enumeration).
             # verify_ownership=True implies ownership_service is present — the
@@ -350,8 +358,8 @@ class IntelligenceRouteFactory:
 
         Authentication: Session-based (raises 401 if not logged in)
         Ownership: Verified if verify_ownership=True and ownership_service provided
-        Query params: uid (required), min_confidence (optional, default: 0.7; an
-        unreadable value is the default, an out-of-range one the nearest of 0-1)
+        Query params: uid (required), min_confidence (optional, default: 0.7; one
+        that does not read, or lies outside 0-1, is a 400)
         """
         service = self.service
         domain = self.domain
@@ -362,9 +370,16 @@ class IntelligenceRouteFactory:
         async def insights_route(request: Request, uid: str) -> Result[IntelligencePayload]:
             """Get domain-specific insights for entity"""
             user_uid = require_authenticated_user(request)
-            min_confidence = parse_float_query_param(
-                request.query_params, "min_confidence", 0.7, minimum=0.0, maximum=1.0
+            confidence_read = parse_float_param_strict(
+                request.query_params.get("min_confidence"),
+                "min_confidence",
+                default=0.7,
+                min_val=0.0,
+                max_val=1.0,
             )
+            if confidence_read.is_error:
+                return Result.fail(confidence_read)
+            min_confidence = confidence_read.value
 
             # Verify ownership (returns 404 to prevent UID enumeration).
             # verify_ownership=True implies ownership_service is present — the

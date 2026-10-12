@@ -55,7 +55,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import (
     check_required_role,
     parse_float_param_strict,
-    parse_int_query_param,
+    parse_int_param_strict,
 )
 from core.constants import GraphDepth
 from core.models.enums import UserRole
@@ -852,9 +852,9 @@ class LateralRouteFactory:
 
             Args:
                 uid: Center entity UID
-                depth: Graph traversal depth (query; 1-3 recommended, default 2; an
-                    unreadable value is the default, an out-of-range one the
-                    nearest of 1-10)
+                depth: Graph traversal depth (query; 1-3 recommended, default 2;
+                    one that does not read, or is below 1, is a 400; one above
+                    10 is 10)
                 types: Comma-separated relationship types to include (optional;
                     any RelationshipName value, not just the 6 lateral types)
 
@@ -862,13 +862,16 @@ class LateralRouteFactory:
                 Vis.js Network format (nodes and edges)
             """
             user_uid = require_authenticated_user(request)
-            depth = parse_int_query_param(
-                request.query_params,
+            depth_read = parse_int_param_strict(
+                request.query_params.get("depth"),
                 "depth",
-                GraphDepth.NEIGHBORHOOD,
-                minimum=GraphDepth.DIRECT,
-                maximum=GraphDepth.MAXIMUM,
+                GraphDepth.DIRECT,
+                default=GraphDepth.NEIGHBORHOOD,
+                cap=GraphDepth.MAXIMUM,
             )
+            if depth_read.is_error:
+                return Result.fail(depth_read)
+            depth = depth_read.value
 
             # Parse relationship types if provided
             relationship_types = None

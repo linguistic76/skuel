@@ -1102,7 +1102,7 @@ class TestUnifiedRouteUserScope:
         )
         response = await handler(fake_request, query="Alpha")
 
-        assert isinstance(response, dict) and not response.get("error"), response
+        assert response.status_code == 200, response.body
         sent_request = search_router.advanced_search.await_args.args[0]
         assert sent_request.user_uid == "user_caller"
 

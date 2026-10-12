@@ -18,7 +18,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body, read_json_body
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_param_strict
 from core.models.entity_requests import SmartDismissRequest
 from core.models.insight_request import BulkInsightUidsRequest, SnoozeInsightRequest
 from core.ports.query_types import ChartJsConfig
@@ -193,19 +193,21 @@ def create_insights_api_routes(
             domain: Optional domain filter
 
         Query Parameters:
-            limit: Maximum number of insights to return (default 50; an unreadable
-                value is the default)
+            limit: Maximum number of insights to return (default 50; one that
+                does not read, or is below 1, is a 400)
 
         Returns:
             Result with list of active insights or error
         """
         user_uid = require_authenticated_user(request)
 
-        limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1)
+        limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=50)
+        if limit.is_error:
+            return Result.fail(limit)
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
             domain=domain,
-            limit=limit,
+            limit=limit.value,
         )
 
         if result.is_error:

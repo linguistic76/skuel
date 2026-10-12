@@ -34,7 +34,7 @@ from starlette.testclient import TestClient
 from adapters.inbound.boundary import result_to_response, status_for_error
 from adapters.inbound.form_helpers import parse_body, parse_form_body, parse_json_body
 from adapters.inbound.route_factories import (
-    parse_bool_query_param,
+    parse_bool_param_strict,
     parse_date_param_strict,
 )
 from adapters.inbound.search_routes import create_search_api_routes
@@ -233,16 +233,13 @@ def test_strict_query_helper_returns_the_documented_status() -> None:
     assert str(status) == _documented_rows()["Required Params (GET)"]
 
 
-def test_silent_query_helper_never_errors() -> None:
-    """The silent helpers' row claims 200: unparseable input yields a value, not an error.
+def test_query_helper_refuses_a_malformed_value() -> None:
+    """The query-params row: a malformed value is refused with the documented status,
+    and only a missing one is the default."""
+    status = _status_of(parse_bool_param_strict("garbage", "flag", default=True))
 
-    Not the *default* — an unrecognised string is falsy, and only a missing or
-    blank param falls back. Either way nothing reaches ``result_to_response``,
-    which is what the row's "200" is claiming.
-    """
-    assert parse_bool_query_param({"flag": "garbage"}, "flag", default=True) is False
-    assert parse_bool_query_param({}, "flag", default=True) is True
-    assert _documented_rows()["Query Params (GET)"] == "200 (default)"
+    assert parse_bool_param_strict(None, "flag", default=True).value is True
+    assert str(status) == _documented_rows()["Query Params (GET)"]
 
 
 def _units(text: str) -> list[str]:
@@ -320,9 +317,9 @@ def test_html_form_params_row_answers_with_a_banner_not_a_status(
     monkeypatch.setattr(
         "adapters.inbound.search_routes.require_authenticated_user", _fake_authenticated_user
     )
-    # limit=0 fails in from_form_params, before the route reaches the router.
+    # A 501-character query fails in from_form_params, before the route reaches the router.
     create_search_api_routes(app, rt, MagicMock())
-    response = TestClient(app).get("/search/results", params={"query": "x", "limit": 0})
+    response = TestClient(app).get("/search/results", params={"query": "x" * 501})
 
     assert str(response.status_code) + " (banner)" == _documented_rows()["HTML Form Params (GET)"]
     assert "Invalid filter selection" in response.text

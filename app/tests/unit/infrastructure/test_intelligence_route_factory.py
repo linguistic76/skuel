@@ -459,24 +459,28 @@ async def test_insights_route_default_confidence(intelligence_factory, mock_rout
 
 
 @pytest.mark.asyncio
-async def test_an_unreadable_query_value_is_its_default(
+async def test_an_unreadable_query_value_is_refused(
     intelligence_factory, mock_router, mock_service
 ):
-    """A value the handler cannot read is its default — never a 404 or a 500."""
+    """A value the handler cannot read is a 400 — never its default, a 404 or a 500 —
+    and the service is not called."""
     intelligence_factory.register_routes(_app=None, rt=mock_router)
     bad = {"period_days": "soon", "depth": "deep", "min_confidence": "very"}
 
-    await mock_router.get_route("GET", "/api/goals/analytics")(MockRequest(query_params=bad))
-    await mock_router.get_route("GET", "/api/goals/context")(
-        MockRequest(query_params=bad), uid="goal:bad"
-    )
-    await mock_router.get_route("GET", "/api/goals/insights")(
-        MockRequest(query_params=bad), uid="goal:bad"
-    )
+    responses = [
+        await mock_router.get_route("GET", "/api/goals/analytics")(MockRequest(query_params=bad)),
+        await mock_router.get_route("GET", "/api/goals/context")(
+            MockRequest(query_params=bad), uid="goal:bad"
+        ),
+        await mock_router.get_route("GET", "/api/goals/insights")(
+            MockRequest(query_params=bad), uid="goal:bad"
+        ),
+    ]
 
-    assert mock_service.analytics_calls == [("user_test", 30)]
-    assert mock_service.context_calls == [("goal:bad", 2)]
-    assert mock_service.insights_calls == [("goal:bad", 0.7)]
+    assert [extract_response(response)[1] for response in responses] == [400, 400, 400]
+    assert mock_service.analytics_calls == []
+    assert mock_service.context_calls == []
+    assert mock_service.insights_calls == []
 
 
 # ============================================================================

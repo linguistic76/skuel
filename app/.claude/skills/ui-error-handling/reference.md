@@ -27,8 +27,9 @@ config = ActivityUIConfig(
 ```
 
 Outside the Activity lists, query parameters parse through
-`adapters/inbound/route_factories/route_helpers.py` (`parse_bool_query_param`,
-`parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`).
+`adapters/inbound/route_factories/route_helpers.py` (`parse_int_param_strict`,
+`parse_bool_param_strict`, `parse_date_param_strict`, `parse_pagination_params`) — a
+malformed value is a 400, and an HTML route answers it with `refuse_malformed`.
 
 ---
 

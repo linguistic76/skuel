@@ -37,6 +37,7 @@ from adapters.inbound.route_factories import (
     create_activity_hierarchy_api_routes,
     create_activity_link_api_routes,
     create_knowledge_patterns_api_route,
+    parse_float_param_strict,
     verify_entity_ownership,
 )
 from core.models.choice.choice import Choice
@@ -172,15 +173,17 @@ def create_choices_api_routes(
         )
         if principle_ownership_error:
             return principle_ownership_error
-        raw_confidence = request.query_params.get("min_confidence", "0.8")
-        try:
-            min_confidence = float(raw_confidence)
-        except ValueError:
-            return Result.fail(
-                Errors.validation(message="min_confidence must be a number", field="min_confidence")
-            )
+        min_confidence = parse_float_param_strict(
+            request.query_params.get("min_confidence"),
+            "min_confidence",
+            default=0.8,
+            min_val=0.0,
+            max_val=1.0,
+        )
+        if min_confidence.is_error:
+            return Result.fail(min_confidence)
         return await choices_service.find_choices_aligned_with_principle(
-            principle_uid, user_uid, min_confidence
+            principle_uid, user_uid, min_confidence.value
         )
 
     # ================================================================

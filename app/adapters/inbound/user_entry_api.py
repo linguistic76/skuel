@@ -35,7 +35,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body, read_json_body
 from adapters.inbound.result_helpers import require_found
-from adapters.inbound.route_factories import is_not_found, parse_int_query_param, refuse
+from adapters.inbound.route_factories import is_not_found, parse_int_param_strict, refuse
 from core.models.entity_converters import entity_to_response
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
@@ -384,11 +384,21 @@ def create_user_entry_api_routes(
         """List the authenticated user's UserEntries with optional filters.
 
         ``limit`` (default 50) and ``offset`` (default 0) are read from the query
-        string; an unreadable one is its default.
+        string; one that does not read, a ``limit`` below 1 or a negative
+        ``offset`` is a 400.
         """
         user_uid = require_authenticated_user(request)
-        limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1)
-        offset = parse_int_query_param(request.query_params, "offset", 0, minimum=0)
+        limit_read = parse_int_param_strict(
+            request.query_params.get("limit"), "limit", 1, default=50
+        )
+        if limit_read.is_error:
+            return Result.fail(limit_read)
+        offset_read = parse_int_param_strict(
+            request.query_params.get("offset"), "offset", 0, default=0
+        )
+        if offset_read.is_error:
+            return Result.fail(offset_read)
+        limit, offset = limit_read.value, offset_read.value
 
         parsed_pipeline: Pipeline | None = None
         if pipeline:

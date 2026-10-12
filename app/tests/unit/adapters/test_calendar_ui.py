@@ -242,11 +242,22 @@ class TestItemDetailsModal:
         )
 
     @pytest.mark.asyncio
-    async def test_invalid_date_query_param_falls_back_to_none(self, routes_and_service) -> None:
+    async def test_invalid_date_query_param_is_a_bare_400(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
         handler = registry.get("/cal/item-details/{item_id}")
-        await handler(_make_request(query_params={"date": "not-a-date"}), item_id="habit-habit_1")
+        response = await handler(
+            _make_request(query_params={"date": "not-a-date"}), item_id="habit-habit_1"
+        )
+        assert response.status_code == 400
+        service.get_item.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_missing_date_query_param_is_no_date(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
+        handler = registry.get("/cal/item-details/{item_id}")
+        await handler(_make_request(), item_id="habit-habit_1")
         assert service.get_item.await_args.kwargs["on_date"] is None
 
     @pytest.mark.asyncio
