@@ -258,6 +258,10 @@ recreate. Each is put to Mike before that change merges.
   status and rung the student's bell, which a deletion cannot take back. Whether these files are
   fixed once synced, or a deletion or a changed `answers` is refused or compensated, is for the
   change that builds each door to put to Mike. Borders S5 and S6.
+- **Who receives work submitted against a revised exercise.** Today a revised exercise resolves to
+  the exercise it revises, so a feedback request on it would go to that exercise's named teacher
+  (S3). A group's owning teacher may also have written the revision; whether the request goes to the
+  revision's author instead is not ruled. Borders S3 and S5.
 - **Default-group enrolment on PathStep progress** (`handle_path_step_enrolled`). The reasons
   ADR-040 and ADR-088 §8 record for it, access to ASSIGNED exercises and the curriculum fallback,
   retire under S4 and S3. Borders S3.
