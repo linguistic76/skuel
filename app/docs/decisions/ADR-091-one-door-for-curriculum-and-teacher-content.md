@@ -248,6 +248,11 @@ recreate. Each is put to Mike before that change merges.
   file. Borders S8.
 - **PathStep and LearningPath shared with a group** (`SHARED_WITH_GROUP`, ADR-053 §1). User context
   still reads it, and no door writes it. S4 retires the exercise half only.
+- **FormTemplate CRUD** (`POST /api/form-templates/create`, `POST /api/form-templates/update` and
+  `POST /api/form-templates/delete`, ADMIN). A
+  FormTemplate is curated content (tier A), not curriculum, and has no content-vault ingestion
+  path; S8 names only its link and unlink to a PathStep. A form rendered inside a PathStep can still
+  be edited in the app. Borders S8.
 - **What deleting or editing a synced review file does.** A content-vault file's deletion deletes
   its node, and a re-sync rewrites it. A report or revision file has also moved its submission's
   status and rung the student's bell, which a deletion cannot take back. Whether these files are
