@@ -27,14 +27,15 @@ PERSONAL scope). It sits outside the cycle as context, not as a phase.
 Every layer is a frozen Python dataclass. Every connection is a Neo4j graph relationship.
 Every measurement flows from real user behaviour, not self-reported progress.
 
-> **Superseded in part by [ADR-091](../decisions/ADR-091-one-door-for-curriculum-and-teacher-content.md)
-> (2026-10-12; implementation pending).** Every exercise, every revised exercise and every teacher's
-> report is a content-vault file: Mike writes it into the content vault (another teacher sends
-> theirs to him), and it enters SKUEL through the content-vault sync, not through the app. The
-> in-app doors (the exercise create and edit doors, group assignment, the report upload, the
-> revision form and `POST /api/revised-exercises/create`) stay live until the ADR-091 change that
-> removes each one merges. Learners' submissions, the learner-summoned AI report and the approve
-> action are unchanged.
+> **Superseded in part by [ADR-091](../decisions/ADR-091-one-door-for-curriculum.md)
+> (2026-10-12; implementation pending).** Every exercise is a content-vault file naming its teacher:
+> Mike writes it into the content vault (another teacher sends theirs to him), and it enters SKUEL
+> through the content-vault sync, not through the app. A teacher's reply (the report, the revision
+> request, the approve action) stays on the review page. A revision request always names an
+> exercise and goes to that exercise's teacher, and a sent revision is not edited or deleted. The
+> doors that go (the exercise create and edit doors, group assignment, the report-only revision,
+> `POST /api/revised-exercises/update` and `POST /api/revised-exercises/delete`) stay live until
+> the ADR-091 change that removes each one merges.
 
 ---
 
@@ -477,9 +478,6 @@ Both say "here is what your work means."
 
 ### 3a. ENTRY_REPORT — Response to an Artifact
 
-*A teacher's written report becomes a content-vault file naming the submission it answers
-(ADR-091 S6; the upload door stays live until that change merges).*
-
 **What:** Evaluation of a specific `UserEntry`. One artifact in, one
 `EntryReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
 via the Exercise's `instructions` field (`LLM`). The LLM report is triggered
@@ -522,9 +520,9 @@ canonical taxonomy, all services, API routes, ReportSource table, graph patterns
 
 ## Phase 4: RevisedExercise — The Targeted Revision
 
-*A revised exercise becomes a content-vault file naming its student, the exercise it revises and the
-submission it answers, with the same graph shape as below (ADR-091 S5; the in-app creation doors
-stay live until that change merges).*
+*A revision request always names an exercise, its teacher is that exercise's named teacher, and
+work submitted against it goes to that teacher; the update and delete routes below go (ADR-091 N2,
+N7, N8; all stay live until that change merges).*
 
 **What:** A teacher-created revision of an Exercise that addresses specific gaps identified
 in `EntryReport`. The teacher creates targeted, revised instructions for a specific

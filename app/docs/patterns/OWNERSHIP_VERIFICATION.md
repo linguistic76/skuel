@@ -88,13 +88,13 @@ attendance design for Events.
 ## Owner, teacher, addressed to
 
 Three different words, never mixed
-([ADR-091](../decisions/ADR-091-one-door-for-curriculum-and-teacher-content.md) S1):
+([ADR-091](../decisions/ADR-091-one-door-for-curriculum.md) S1):
 
 | Word | Means | Recorded as |
 |---|---|---|
 | **Owner** | Whose private content it is. Curriculum has no owner. | `(User)-[:OWNS]->(entity)` (ADR-086) |
 | **Teacher** | Who reviews work on an exercise | Named in the exercise's vault file (ADR-091 S3) |
-| **Addressed to** | Which student a revised exercise or a teacher report is for | Named in its vault file: the student, or the submission it answers |
+| **Addressed to** | Which student a revised exercise or a teacher report is for | The student whose submission it answers (a revision's `student_uid`) |
 
 A revised exercise is owned by its teacher and addressed to one student (`student_uid`); a
 teacher's report is owned by the student whose work it answers, with the teacher as its author. A
@@ -102,11 +102,10 @@ teacher also owns the groups they run (ADR-040), and a group's owning teachers r
 submitted to the group (ADR-088 §2).
 
 **Not yet true in code.** ADR-091's implementing changes build this
-([§ Implementation](../decisions/ADR-091-one-door-for-curriculum-and-teacher-content.md#implementation)).
+([§ Implementation](../decisions/ADR-091-one-door-for-curriculum.md#implementation)).
 Until they merge, no exercise file names a teacher; a teacher-created PERSONAL exercise is still
 owned through `:OWNS`, and that owner still receives the feedback requests on it when it is
-anchored to a published PathStep (ADR-088 §9); and revised exercises and teacher reports are still
-created in the app. Curriculum exercises already have no owner.
+anchored to a published PathStep (ADR-088 §9). Curriculum exercises already have no owner.
 
 ## Architecture
 

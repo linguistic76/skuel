@@ -14,12 +14,12 @@ related_skills: [journals, learning-loop, security, skuel-search-architecture]
 below was built by the Submit & Share arc, PRs 1–8 (the last merged 2026-09-26), and the arc-close
 walk-through verified it live on 2026-09-27 (arc doc § Verification, after the three pre-flight
 fixes #1427–#1429).
-**Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum-and-teacher-content.md)
+**Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md)
 (2026-10-12; implementation pending):** every exercise names its teacher, and a feedback request on
 an exercise goes directly to that teacher (ADR-091 S3). That replaces §8's curriculum default-group
 fallback and §9's route to the owner of an anchored PERSONAL exercise; the `teachers` row of the
-audience table changes with them. ADR-091 S5 and S6 move the revised exercise and the teacher's
-report to content-vault files. The two verbs, both group-link kinds, `teacher:<group_uid>` and
+audience table changes with them. Work submitted against a revised exercise goes to the named
+teacher of the exercise it revises (ADR-091 N8). The two verbs, both group-link kinds, `teacher:<group_uid>` and
 sharing are unchanged. **§8's fallback and §9's owner route stay live until the ADR-091 change that
 replaces them merges.**
 **Date:** 2026-09-24
@@ -474,7 +474,7 @@ gets its note with the PR that falsifies it:
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-09-24 | MCF | Accepted with the Submit & Share arc plan (rulings R1–R14, refinements 1–4) | 1.0 |
-| 2026-10-12 | MCF | Partially superseded by ADR-091 S3 (§8's curriculum fallback, §9's owner route, the `teachers` row) and S5–S6 (the revised exercise and the teacher's report become content-vault files); implementation pending, the superseded routes live until ADR-091's change replaces them | 1.6 |
+| 2026-10-12 | MCF | Partially superseded by ADR-091 S3 and N8 (§8's curriculum fallback, §9's owner route, the `teachers` row: a request on an exercise or its revision goes to the exercise's named teacher); implementation pending, the superseded routes live until ADR-091's change replaces them | 1.6 |
 | 2026-10-10 | MCF | §2: review authority is the asked teacher's — an ADMIN with no feedback request is refused at both review writes, like any other user (ruled 2026-10-10; the refusal is pinned by the two admission route tests) | 1.5 |
 | 2026-10-10 | MCF | §9: Submit's second target — `SUBMITTED_TO_TEACHER` to the owner of a PERSONAL exercise anchored to a published PathStep; every entry-level teacher reader composes `asks_teacher`; the exchange and report download admit that teacher, the knowledge tab and the student page stay with the classroom | 1.4 |
 | 2026-09-27 | MCF | Verified: the arc-close walk-through passed live (every step, as a student, a teacher and a second account), after three pre-flight fixes on its path (#1427–#1429); status implemented | 1.3 |

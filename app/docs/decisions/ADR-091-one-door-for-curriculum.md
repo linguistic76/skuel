@@ -1,5 +1,5 @@
 ---
-title: "ADR-091: One Door for Curriculum and Teacher Content"
+title: "ADR-091: One Door for Curriculum"
 updated: 2026-10-12
 status: accepted
 category: decisions
@@ -8,7 +8,7 @@ related: [ADR-018, ADR-040, ADR-053, ADR-054, ADR-070, ADR-085, ADR-086, ADR-088
 related_skills: [learning-loop, curriculum-domains]
 ---
 
-# ADR-091: One Door for Curriculum and Teacher Content
+# ADR-091: One Door for Curriculum
 
 **Status:** Accepted — founder-ratified 2026-10-12. **Implementation pending:** the decisions below
 are built by the changes listed in [§ Implementation](#implementation), one at a time. Until the
@@ -18,13 +18,15 @@ change that removes a door has merged, that door still answers, and the records 
 **Deciders:** MCF
 **Decision Type:** ☑ Graph Schema  ☑ Pattern/Practice
 **Related ADRs:**
-- Supersedes in part (each record carries a note in its own header):
+- Supersedes in part (each record carries a note at its head or beside the part superseded):
   [ADR-018](ADR-018-user-roles-four-tier-system.md) (the TEACHER role's in-app curriculum authoring),
   [ADR-040](ADR-040-teacher-exercise-workflow.md) (group assignment, in-app exercise authoring, the
-  in-app report and revision forms),
-  [ADR-053](ADR-053-groups-first-class-and-unified-sharing.md) §1 (the exercise half),
+  offline import script, revision requests on work with no exercise),
+  [ADR-053](ADR-053-groups-first-class-and-unified-sharing.md) §1 and §3 (curriculum shared with a
+  group, and its user-context reader),
   [ADR-054](ADR-054-user-entry-unified-submissions.md) §3 (`teachers` on an exercise),
-  [ADR-070](ADR-070-bidirectional-vault-bridge.md) Decision 10 (the in-app exceptions),
+  [ADR-070](ADR-070-bidirectional-vault-bridge.md) Decision 10 (the in-app exception and the
+  prerequisite-approval vault write),
   [ADR-088](ADR-088-submit-and-share.md) §8 (the curriculum fallback) and §9 (the owner route).
 - Related to: [ADR-085](ADR-085-ownership-read-enforcement-contract.md) and
   [ADR-086](ADR-086-universal-owns-and-attends-attendance.md) (the `:OWNS` edge whose meaning S1
@@ -50,8 +52,7 @@ the same kinds of content from the browser or the API:
 - the six Activity Template CRUD and attach/detach doors (TEACHER);
 - lateral links between curriculum items (TEACHER);
 - `@ku(...)` in a journal entry, which can create a Ku (TEACHER and up);
-- exercise create, edit and requirement links (TEACHER), with three app-only scopes;
-- the teacher's report upload and revision form on a student's submission (TEACHER).
+- exercise create, edit and requirement links (TEACHER), with three app-only scopes.
 
 Measured on 2026-10-12 in a read-only session against the live graph, nothing live showed an
 in-app door's work. Every curriculum node but one Ku has a content-vault tracker row, none carries
@@ -79,22 +80,27 @@ edges between curriculum nodes carries the `created_by` the lateral doors stamp,
 > alternative paths: one path forward.
 
 Only Mike writes content-vault files. Another teacher's content is sent to Mike, who syncs it. The
-app reads curriculum and records what learners do with it. It authors no curriculum and no teacher
-content.
+app reads curriculum and records what learners do with it. It authors no curriculum.
+
+**The split (Mike, 2026-10-12, round 2).** Curriculum is a standing document, so it goes through
+the vault. A teacher's reply (a report, a revision request, feedback on an activity report) is a
+message about one submission at one moment, so it is sent from the review page where the teacher
+reads the work. Mike writes the reply on his computer; only its delivery is in the app.
 
 ---
 
 ## Decision
 
-Each decision below is Mike's ruling of 2026-10-12. The reason behind all of them is his: one path
-forward, and less confusion.
+Each decision below is Mike's ruling of 2026-10-12: S1–S9 first, then N1–N9 on the doors the census
+found beside them. S5 and S6 were withdrawn the same day. The reason behind all of them is his: one
+path forward, and less confusion.
 
 ### S1. Three different words, never mixed
 
 - **Owner** (`:OWNS`) means a user's private content. Curriculum has no owner.
 - **Teacher** is who reviews work on an exercise. The exercise's vault file names its teacher.
-- **Addressed to** is which student a revised exercise or a teacher report is for. The vault file
-  names the student, or the submission it answers.
+- **Addressed to** is which student a revised exercise or a teacher report is for: the student whose
+  submission it answers.
 
 **Why.** Reading one edge three ways is what made an exercise's owner its reviewer and its
 controller at once. Each word now has one spelling, so a reader never has to guess which one an
@@ -136,26 +142,20 @@ changing the field retracts the old edge on the next sync.
 and to avoid complexity. With no user-owned exercise left, the question of what an admin may change
 on an exercise it cannot read has nothing to apply to.
 
-### S5. A revised exercise is a content-vault file
+### S5 and S6 (withdrawn): a teacher's reply stays on the review page
 
-The file names its student, the exercise it revises, the submission it answers and the teacher who
-wrote it. Only that student and the teacher can see it. `RevisedExercise` stays an entity type; only its in-app creation goes
-(`POST /api/teaching/review/{uid}/revision` and `POST /api/revised-exercises/create`).
+Mike first ruled that a revised exercise (S5) and a teacher's written report (S6) would be
+content-vault files too. He withdrew both the same day. A reply (a report, a revision request, or
+feedback on an activity report) belongs to the submission the teacher is looking at; it is a message
+about one piece of work at one moment, not a standing document, and routing it through the vault
+made the workflow worse. So a reply is sent from the review page where the teacher reads the work:
+Mike writes it on his computer, and only its delivery is in the app. The report upload
+(`POST /api/teaching/review/{uid}/report`), the revision form
+(`POST /api/teaching/review/{uid}/revision`), the approve action and the admin's feedback on an
+activity report (`POST /activity-review/submit-feedback`) stay in the app.
 
-**Why.** A revision is teacher content, so it takes the one door teacher content has. It is always
-specific to one student, never generic, which is why the file names the student.
-
-### S6. A teacher's written feedback is a content-vault file
-
-The teacher's report on a submission is a content-vault file naming the submission it answers and
-the teacher who wrote it. The in-app upload door (`POST /api/teaching/review/{uid}/report`) goes. The admin's feedback text on a
-user's activity report (`POST /activity-review/submit-feedback`) moves to the vault the same way.
-
-Two actions author no content and stay: the "approve" button
-(`POST /api/teaching/review/{uid}/approve`, a verdict on work already reviewed) and the AI report a
-learner asks for (`POST /api/exercises/report`, generated by the machine).
-
-**Why.** Mike already writes feedback as a local `.md` file and uploads it; only the door moves.
+**The split.** Curriculum is a standing document, so it goes through the content vault (S2, S4, S7,
+S8). A teacher's reply is a message, so it goes through the review page (N6, N7, N8).
 
 ### S7. Publish is one marker, set in the vault
 
@@ -201,76 +201,55 @@ made for no longer exist; and any admin could turn it into a hidden admin with a
 `user_vault_watcher`'s only consumer was deleted, and it still has a working password. A missing
 owner is a configuration error at boot, not a silent fallback (fail-fast).
 
-### The same graph shape through the new door
+### N1–N9. The doors the first rulings did not name
 
-Each vault door writes the graph shape the in-app door writes today: the same labels, edges and
-owner. Only the door changes. A revised exercise, for example, keeps its teacher's `:OWNS` edge and
-its `student_uid`: it is the teacher's private content addressed to one student (S1). A change that
-finds it must alter the shape stops and asks.
+The census behind this ADR found doors and readers that S1–S9 did not name. Mike ruled on each the
+same day (round 2):
 
-The same holds for what the in-app write does besides the graph shape. A teacher's report moves the
-submission to `COMPLETED` and publishes `ReportSubmitted`; a revision moves it to
-`REVISION_REQUESTED` and publishes `UserEntryRevisionRequested` and `RevisedExerciseCreated`; an
-admin's activity-report feedback publishes `ActivityReportWritten`. Those events notify the student
-and refresh what is derived from the submission. The vault door makes the same status transitions,
-through ADR-087's guarded write, and publishes the same events once per file, as the in-app write
-publishes them once per request, never again on an unchanged re-sync.
+- **N1. `scripts/import_reports.py` goes.** It posted reports, revisions and approvals through
+  `TeacherReviewService` from local files, a second door beside the review page.
+  (`scripts/export_submissions.py` only reads the review queue.)
+- **N2. The revised-exercise update and delete doors go** (`POST /api/revised-exercises/update` and
+  `POST /api/revised-exercises/delete`). A revision is sent from the review page; nothing edits it
+  afterwards.
+- **N3. Prerequisite-suggestion approval goes** (`POST /admin/prereq-suggestions/approve`, which
+  writes an Edge YAML file into the content vault from the app). It is in-app curriculum authoring
+  (S8); Mike writes the edge file himself.
+- **N4. The user-context reader of group-shared curriculum goes:** the three `group_assigned_*`
+  fields (exercises, PathSteps, LearningPaths) and the query arms that fill them. With group
+  assignment gone (S4) nothing writes such a share; live there were none, and no consumer reads the
+  fields.
+- **N5. FormTemplate create, update and delete stay in the app.** A FormTemplate is curated content
+  (tier A), not curriculum. Only its link and unlink to a PathStep go (S8).
+- **N6. The split** (above): S5 and S6 are withdrawn, and the admin's feedback on an activity report
+  stays in the app too.
+- **N7. Every revision request names an exercise.** The path that requests a revision on work with no
+  exercise goes; work with no exercise gets a report only.
+- **N8. A revision's teacher is the original exercise's named teacher** (S3), and work submitted
+  against a revision goes to that teacher. Kept simple on purpose.
+- **N9. Default-group enrolment on PathStep progress is unchanged** (`handle_path_step_enrolled`).
+  The reasons ADR-040 and ADR-088 §8 record for it (access to ASSIGNED exercises, the curriculum
+  fallback) retire under S4 and S3; its remaining reason is feedback on work with no exercise and
+  sharing with the group. Revisit when a second teacher or open sign-up arrives.
 
-The file's named teacher is the author the shape needs (the revision's owner, the report's author,
-the events' actor): neither the sync's operator, who is Mike, nor the exercise's own teacher can
-stand in, since a group's owning teachers may also review. The sync admits the named teacher by the
-same rule the in-app review write admits by today: the submission asks that teacher for feedback.
+Not adopted: sending a report and a revision as one `.md` upload. The revision form records
+categorised feedback points that a file would lose.
 
 ### What stays
 
 - Everything a learner does with curriculum: enrolment, progress, bookmarks, mastery check-ins,
   submissions, and the shares and feedback requests of ADR-088.
 - Groups: a group's owning teachers still receive what is submitted to the group.
-- The approve button and the learner-summoned AI report (S6).
-- Maintenance that authors nothing (S8).
+- A teacher's replies on the review page: the report upload, the revision form (on work with an
+  exercise, N7) and the approve action; and the admin's feedback on an activity report (N6).
+- The AI report a learner asks for (`POST /api/exercises/report`).
+- FormTemplate CRUD (N5) and maintenance that authors nothing (S8).
 
 ---
 
 ## Not ruled by this ADR
 
-The census behind this ADR found these doors and readers, which the rulings do not name. Nothing
-here decides them, but none may be left unsettled by the change it borders: a writer left in place
-after that change would write state the vault does not hold, which the next sync can overwrite or
-recreate. Each is put to Mike before that change merges.
-
-- **The offline review scripts.** `scripts/import_reports.py` posts reports, revisions and approvals
-  through `TeacherReviewService` (ADR-040's CLI workflow); `scripts/export_submissions.py` only reads
-  the review queue. Borders S5 and S6.
-- **The revised-exercise update and delete doors** (`POST /api/revised-exercises/update` and
-  `POST /api/revised-exercises/delete`, TEACHER). S5 retires in-app creation. Borders S5.
-- **Prerequisite-suggestion approval** (`POST /admin/prereq-suggestions/approve`) writes an Edge YAML
-  file into the content vault from the app. The edge enters through the sync, but the app writes the
-  file. Borders S8.
-- **PathStep and LearningPath shared with a group** (`SHARED_WITH_GROUP`, ADR-053 §1). User context
-  still reads it, and no door writes it. S4 retires the exercise half only.
-- **FormTemplate CRUD** (`POST /api/form-templates/create`, `POST /api/form-templates/update` and
-  `POST /api/form-templates/delete`, ADMIN). A
-  FormTemplate is curated content (tier A), not curriculum, and has no content-vault ingestion
-  path; S8 names only its link and unlink to a PathStep. A form rendered inside a PathStep can still
-  be edited in the app. Borders S8.
-- **What deleting or editing a synced review file does.** A content-vault file's deletion deletes
-  its node, and a re-sync rewrites it. A report or revision file has also moved its submission's
-  status and rung the student's bell, which a deletion cannot take back. Whether these files are
-  fixed once synced, or a deletion or a changed `answers` is refused or compensated, is for the
-  change that builds each door to put to Mike. Borders S5 and S6.
-- **A revision request on work with no exercise.** The revision door, given a submission with no
-  exercise, files a report that asks for a revision (`NEEDS_REVISION`) and publishes
-  `UserEntryRevisionRequested`, with no revised exercise. A revised-exercise file needs an exercise,
-  and S6's report moves the submission to `COMPLETED`; how the vault expresses a revision request
-  without an exercise (a report file that asks for revision, or none) is not ruled. Borders S5 and
-  S6.
-- **Who receives work submitted against a revised exercise.** Today a revised exercise resolves to
-  the exercise it revises, so a feedback request on it would go to that exercise's named teacher
-  (S3). A group's owning teacher may also have written the revision; whether the request goes to the
-  revision's author instead is not ruled. Borders S3 and S5.
-- **Default-group enrolment on PathStep progress** (`handle_path_step_enrolled`). The reasons
-  ADR-040 and ADR-088 §8 record for it, access to ASSIGNED exercises and the curriculum fallback,
-  retire under S4 and S3. Borders S3.
+Nothing the census found is left: N1–N9 rule on every door and reader it listed beside S1–S9.
 
 ---
 
@@ -305,55 +284,52 @@ group, owned by the oldest admin account that is not a service account.
 ## Consequences
 
 ### Positive Consequences
-- ✅ One door for curriculum and teacher content, so the app can no longer make the graph disagree
-  with the vault.
+- ✅ One door for curriculum, so the app can no longer make the graph disagree with the vault.
 - ✅ `:OWNS` no longer stands for an exercise's teacher or controller. A reader looking for an
   exercise's teacher reads the teacher edge.
 - ✅ The publish button can no longer report success while learners still see nothing.
 - ✅ The door rules the in-app doors would need (whose template, whose link, who may publish) are
   never written.
+- ✅ A teacher's reply has one door, the review page: no import script and no edit after sending.
 - ✅ No hidden service admin remains to be activated.
 
 ### Negative Consequences
-- ⚠️ A teacher other than Mike changes no curriculum or teacher content in SKUEL without him: it
-  is sent to Mike, who syncs it.
-- ⚠️ A fix to a typo, or a new revision for a student, waits for the next content-vault sync.
+- ⚠️ A teacher other than Mike changes no curriculum in SKUEL without him: it is sent to Mike, who
+  syncs it.
+- ⚠️ A fix to a typo in curriculum waits for the next content-vault sync.
 - ⚠️ Every exercise file must name its teacher; the sync refuses one that does not, so the 14 live
   exercise files gain the field in the same change.
-- ⚠️ ADR-070 Decision 7 attributes a user-owned node in a content-vault file to the vault's acts-as
-  account (`SKUEL_CONTENT_VAULT_OWNER`). The in-app doors write other owners: a revised exercise is
-  owned by its teacher, and a teacher's report by the student whose work it answers, with the
-  teacher as its author. Keeping those shapes (§ The same graph shape), the revision and report
-  doors take their owner from the users their file names and the sync validates, not from the
-  vault. The change that builds each door states the exception in Decision 7.
+- ⚠️ A sent revision cannot be edited or deleted (N2), and work with no exercise can get a report but
+  no revision request (N7).
 - ⚠️ Boot and the ingestion defaults no longer fall back to `user_system`; a test or CI run names
   its owner.
 
 ### Neutral Consequences
-- ℹ️ `RevisedExercise` stays tier C (user-created) and teacher-owned; only its door changes.
+- ℹ️ `RevisedExercise` stays tier C (user-created) and teacher-owned, sent from the review page.
 - ℹ️ Groups, sharing and ADR-088's two verbs are unchanged.
 
 ---
 
 ## Implementation
 
-Each change below lands on its own. A door named in S1–S9 keeps answering until its change merges;
-the records listed in § Records this ADR supersedes say so in their own words.
+Each change below lands on its own. A door named in S1–S9 or N1–N9 keeps answering until its change
+merges; the records listed in § Records this ADR supersedes say so in their own words.
 
 | # | Change | Decisions |
 |---|--------|-----------|
-| 0 | This ADR and the supersession notes | S1–S9 |
+| 0 | This ADR and the supersession notes | all |
 | 1 | Remove the two system accounts and the `SYSTEM_USER_UID` default chain | S9 |
 | 2 | Delete the publish doors; `publication_state` is the one marker | S7 |
 | 3 | The exercise file names its teacher; a feedback request on an exercise goes to that teacher | S1, S3 |
-| 4 | Delete the in-app exercise doors, the three app-only scopes and group assignment | S4 |
-| 5 | A content-vault door for revised exercises; delete the in-app creation doors | S5 |
-| 6 | A content-vault door for teacher reports and activity-report feedback; delete the upload doors | S6 |
-| 7 | Delete the remaining in-app curriculum writes | S8 |
+| 4 | Delete the in-app exercise doors, the three app-only scopes, group assignment and its user-context reader | S4, N4, N9 |
+| 5 | The revision door: exercise-only, the named teacher; retire the extra review writers | N1, N2, N7, N8 |
+| 6 | *Withdrawn* (was: teacher reports through the vault) | N6 |
+| 7 | Delete the remaining in-app curriculum writes, prerequisite approval included | S8, N3 |
 | 8 | CLAUDE.md, the skills and the docs describe the result | all |
 
 Each change's own census (every writer and reader of what it removes, and the live graph read-only
-before any narrowing) decides its file-level scope.
+before any narrowing) decides its file-level scope. Change 4 also restates the default-group
+enrolment's docstring to the reason it keeps (N9).
 
 **Order between changes 3 and 4.** Until change 4 merges, a teacher can still create an owned
 exercise that has no vault file and so names no teacher. Change 3 must not leave such an exercise
@@ -370,12 +346,12 @@ Every note says the old behaviour stays live until the change that replaces it m
 | Record | What it decides today | What ADR-091 changes | Live until change |
 |---|---|---|---|
 | ADR-018 — Four-Tier User Role System | TEACHER: "create/edit KU, LP, MOC" | A teacher reviews work; curriculum is authored in the content vault (S2, S8) | 2, 4, 7 |
-| ADR-040 — Teacher Exercise Workflow | A teacher creates PERSONAL and ASSIGNED exercises and assigns them to a group; feedback is a `.md` upload and a revision is a form, both in the app | Exercises are vault files and group assignment goes (S4); revisions and reports are vault files (S5, S6) | 4, 5, 6 |
-| ADR-053 §1 — Unify on `SHARED_WITH_GROUP` | `ExerciseService` shares an ASSIGNED exercise with its group | No exercise is assigned to a group (S4); PathStep and LearningPath are not ruled | 4 |
+| ADR-040 — Teacher Exercise Workflow | A teacher creates PERSONAL and ASSIGNED exercises and assigns them to a group; reviews can be imported from local files; a revision can be requested on work with no exercise | Exercises are vault files and group assignment goes (S4); the import script goes (N1); every revision request names an exercise (N7). The review page and its replies stay | 4, 5 |
+| ADR-053 §1, §3 — Unify on `SHARED_WITH_GROUP`; Group in `UserContext` | `ExerciseService` shares an ASSIGNED exercise with its group; user context reads curriculum shared with the user's groups (`group_assigned_*`) | No exercise is assigned to a group (S4), and the reader goes (N4) | 4 |
 | ADR-054 §3 — the YAML `audience:` table | `teachers` on a curriculum exercise files a request to my default group | `teachers` on an exercise files a request to the exercise's named teacher (S3) | 3 |
-| ADR-070 Decision 10 — the content vault is the sole author | In-app exceptions: PERSONAL, ASSIGNED and ASSESSMENT exercises | No exception: the content vault is the sole author of curriculum and teacher content (S2, S4–S6) | 4, 5, 6 |
-| ADR-088 §8, §9 and the audience table | The curriculum default-group fallback; `SUBMITTED_TO_TEACHER` to the owner of an anchored PERSONAL exercise | A feedback request on an exercise goes to its named teacher (S3); the revised exercise and the teacher's report are vault files (S5, S6) | 3, 5, 6 |
-| [LEARNING_LOOP_ARCHITECTURE.md](../architecture/LEARNING_LOOP_ARCHITECTURE.md), its opening and phases 3–4 | A teacher creates and assigns exercises, writes a report and creates a revision in the app | All three are content-vault files (S4, S5, S6) | 4, 5, 6 |
+| ADR-070 Decision 10 — the content vault is the sole author | In-app exception: PERSONAL, ASSIGNED and ASSESSMENT exercises; prerequisite approval writes an Edge YAML into the vault | No exception (S2, S4); the approval door goes (N3) | 4, 7 |
+| ADR-088 §8, §9 and the audience table | The curriculum default-group fallback; `SUBMITTED_TO_TEACHER` to the owner of an anchored PERSONAL exercise | A feedback request on an exercise, or on a revision of it, goes to the exercise's named teacher (S3, N8) | 3, 5 |
+| [LEARNING_LOOP_ARCHITECTURE.md](../architecture/LEARNING_LOOP_ARCHITECTURE.md), its opening and phases 1 and 4 | A teacher creates and assigns exercises in the app; a revision may be requested without an exercise and edited after it is sent | Exercises are vault files naming their teacher (S3, S4); a revision names an exercise, goes to its teacher, and is not edited after sending (N2, N7, N8) | 3, 4, 5 |
 
 ---
 
@@ -383,4 +359,4 @@ Every note says the old behaviour stays live until the change that replaces it m
 
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
-| 2026-10-12 | MCF | Accepted: the commitment and rulings S1–S9; supersession notes added to the records above, each live until its implementing change | 1.0 |
+| 2026-10-12 | MCF | Accepted: the commitment and rulings S1–S9, then the split (S5 and S6 withdrawn) and N1–N9; supersession notes added to the records above, each live until its implementing change | 1.0 |

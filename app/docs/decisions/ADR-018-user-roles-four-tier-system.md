@@ -11,7 +11,7 @@ related: [UNIFIED_USER_ARCHITECTURE.md, ADR-022-graph-native-authentication.md]
 
 **Status:** Accepted
 
-**Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum-and-teacher-content.md)
+**Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md)
 (2026-10-12; implementation pending):** curriculum is authored only in the content vault, so the
 TEACHER role's "create/edit KU, LP, MOC" leaves the app (ADR-091 S2, S8); a teacher reviews work on
 the exercises that name them (S3). The in-app curriculum doors stay live until the ADR-091 changes

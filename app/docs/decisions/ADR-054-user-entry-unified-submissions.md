@@ -226,7 +226,7 @@ study in), `teacher:<group_uid>` (a feedback request to one group), `group:<uid>
 `user:<username>` (a share with a co-member), `public`, `private` (exclusive); one value or a list.
 Absent = `teachers` on `teacher_review`, nobody elsewhere.*
 
-*Superseded in part by [ADR-091](ADR-091-one-door-for-curriculum-and-teacher-content.md) S3
+*Superseded in part by [ADR-091](ADR-091-one-door-for-curriculum.md) S3
 (2026-10-12; implementation pending): `teachers` on an exercise files a feedback request to the
 teacher the exercise's vault file names, never to the default group. The default-group route stays
 live until the ADR-091 change that replaces it merges.*
