@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-10-12
 related_skills: [journals, learning-loop, neo4j-cypher-patterns, prometheus-grafana, ui-error-handling]
 ---
 
@@ -225,6 +225,11 @@ exercise's groups I belong to — a curriculum exercise: my default group; no ex
 study in), `teacher:<group_uid>` (a feedback request to one group), `group:<uid>` (a share),
 `user:<username>` (a share with a co-member), `public`, `private` (exclusive); one value or a list.
 Absent = `teachers` on `teacher_review`, nobody elsewhere.*
+
+*Superseded in part by [ADR-091](ADR-091-one-door-for-curriculum.md) S3
+(2026-10-12; implementation pending): `teachers` on an exercise files a feedback request to the
+teacher the exercise's vault file names, never to the default group. The default-group route stays
+live until the ADR-091 change that replaces it merges.*
 
 *Amended 2026-09-02: the two vault-note pipelines — `knowledge` (ADR-073's developed-files
 doorway) and `extract_activities` (periodic notes) — default to `private` when `audience:` is

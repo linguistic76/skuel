@@ -1,6 +1,6 @@
 ---
 title: "ADR-018: Four-Tier User Role System"
-updated: 2026-09-22
+updated: 2026-10-12
 status: current
 category: decisions
 tags: [adr, decisions, user, roles, authorization, authentication]
@@ -10,6 +10,12 @@ related: [UNIFIED_USER_ARCHITECTURE.md, ADR-022-graph-native-authentication.md]
 # ADR-018: Four-Tier User Role System
 
 **Status:** Accepted
+
+**Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md)
+(2026-10-12; implementation pending):** curriculum is authored only in the content vault, so the
+TEACHER role's "create/edit KU, LP, MOC" leaves the app (ADR-091 S2, S8); a teacher reviews work on
+the exercises that name them (S3). The in-app curriculum doors stay live until the ADR-091 changes
+that remove them merge.
 
 **Date:** 2025-12-06
 

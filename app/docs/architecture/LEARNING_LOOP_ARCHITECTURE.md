@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-10-11
+updated: 2026-10-12
 status: current
 category: architecture
 related:
@@ -26,6 +26,16 @@ PERSONAL scope). It sits outside the cycle as context, not as a phase.
 
 Every layer is a frozen Python dataclass. Every connection is a Neo4j graph relationship.
 Every measurement flows from real user behaviour, not self-reported progress.
+
+> **Superseded in part by [ADR-091](../decisions/ADR-091-one-door-for-curriculum.md)
+> (2026-10-12; implementation pending).** Every exercise is a content-vault file naming its teacher:
+> Mike writes it into the content vault (another teacher sends theirs to him), and it enters SKUEL
+> through the content-vault sync, not through the app. A teacher's reply (the report, the revision
+> request, the approve action) stays on the review page. A revision request always names an
+> exercise and goes to that exercise's teacher, and a sent revision is not edited or deleted. The
+> doors that go (the exercise create and edit doors, group assignment, the report-only revision,
+> `POST /api/revised-exercises/update` and `POST /api/revised-exercises/delete`) stay live until
+> the ADR-091 change that removes each one merges.
 
 ---
 
@@ -382,6 +392,9 @@ curriculum recommendations and the SEL journey are served as JSON (`/api/path-st
 
 ## Phase 1: Exercise — The Assignment
 
+*Exercises become content-vault files only, each naming its teacher, and the `PERSONAL` and
+`ASSIGNED` scopes below go (ADR-091 S3, S4; both stay live until those changes merge).*
+
 **What:** The teacher's directive. Instructions for what students should produce, with an
 LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-directed) and
 `ASSIGNED` (classroom with a Group target and due date).
@@ -506,6 +519,10 @@ canonical taxonomy, all services, API routes, ReportSource table, graph patterns
 ---
 
 ## Phase 4: RevisedExercise — The Targeted Revision
+
+*A revision request always names an exercise, its teacher is that exercise's named teacher, and
+work submitted against it goes to that teacher; the update and delete routes below go (ADR-091 N2,
+N7, N8; all stay live until that change merges).*
 
 **What:** A teacher-created revision of an Exercise that addresses specific gaps identified
 in `EntryReport`. The teacher creates targeted, revised instructions for a specific

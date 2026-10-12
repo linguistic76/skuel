@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-27
+updated: 2026-10-12
 ---
 
 # ADR-053: Groups First-Class + Unified Sharing
@@ -7,6 +7,8 @@ updated: 2026-09-27
 > **2026-04-14 — Extended by [ADR-054](ADR-054-user-entry-unified-submissions.md).** This ADR unified the teacher → student direction of sharing on `SHARED_WITH_GROUP`. ADR-054 makes the student → teacher direction symmetric by collapsing `Submission`/`ExerciseSubmission`/`JeInput`/`JeOutput` into a single `UserEntry` type that is shared via `UnifiedSharingService` at submit time.
 >
 > **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 1).** The curriculum half (§1, teacher → group) is unchanged. A student's turn-in is no longer symmetric on the same edge: a feedback request is its own kind, `SUBMITTED_TO_GROUP`, read only by the group's owning teachers; `SHARED_WITH_GROUP` on a UserEntry is a share with every member.
+>
+> **2026-10-12 — §1's curriculum-to-group sharing and §3's `group_assigned_*` fields superseded by [ADR-091](ADR-091-one-door-for-curriculum.md); implementation pending.** No exercise is assigned to a group: the ASSIGNED scope and `ExerciseService`'s `share_with_group` call go (ADR-091 S4). With nothing writing a curriculum share with a group, the user-context reader of it goes too: `group_assigned_exercise_uids`, `group_assigned_path_step_uids` and `group_assigned_learning_path_uids` (N4). Groups, membership and a user's own groups in `UserContext` stay. Both stay live until the ADR-091 change that removes them merges.
 
 **Status:** Accepted
 **Date:** 2026-04-14

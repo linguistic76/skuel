@@ -110,6 +110,7 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md)
 - [ADR-023](decisions/ADR-023-curriculum-baseservice-migration.md)
+- [ADR-091](decisions/ADR-091-one-door-for-curriculum.md)
 
 ### @docker
 
@@ -206,6 +207,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md)
 - [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md)
 - [ADR-088](decisions/ADR-088-submit-and-share.md)
+- [ADR-091](decisions/ADR-091-one-door-for-curriculum.md)
 
 ### @neo4j-cypher-patterns
 
@@ -622,6 +624,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-088](decisions/ADR-088-submit-and-share.md) → @journals, @learning-loop, @security, @skuel-search-architecture
 - [ADR-089](decisions/ADR-089-instants-utc-days-in-a-zone.md) → @neo4j-cypher-patterns
 - [ADR-090](decisions/ADR-090-one-link-per-fact-a-view-per-domain.md) → @activity-domains, @skuel-ui
+- [ADR-091](decisions/ADR-091-one-door-for-curriculum.md) → @curriculum-domains, @learning-loop
 
 ---
 
@@ -631,7 +634,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Architecture docs:** 9 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 42 docs linked to skills
-- **ADRs:** 47 ADRs linked to skills
+- **ADRs:** 48 ADRs linked to skills
 
 ---
 
