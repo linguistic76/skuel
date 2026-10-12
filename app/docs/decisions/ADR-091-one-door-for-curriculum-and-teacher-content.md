@@ -208,6 +208,14 @@ owner. Only the door changes. A revised exercise, for example, keeps its teacher
 its `student_uid`: it is the teacher's private content addressed to one student (S1). A change that
 finds it must alter the shape stops and asks.
 
+The same holds for what the in-app write does besides the graph shape. A teacher's report moves the
+submission to `COMPLETED` and publishes `ReportSubmitted`; a revision moves it to
+`REVISION_REQUESTED` and publishes `UserEntryRevisionRequested` and `RevisedExerciseCreated`; an
+admin's activity-report feedback publishes `ActivityReportWritten`. Those events notify the student
+and refresh what is derived from the submission. The vault door makes the same status transitions,
+through ADR-087's guarded write, and publishes the same events once per file, never again on an
+unchanged re-sync.
+
 ### What stays
 
 - Everything a learner does with curriculum: enrolment, progress, bookmarks, mastery check-ins,
