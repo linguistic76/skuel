@@ -138,8 +138,8 @@ on an exercise it cannot read has nothing to apply to.
 
 ### S5. A revised exercise is a content-vault file
 
-The file names its student, the exercise it revises and the submission it answers. Only that student
-and the teacher can see it. `RevisedExercise` stays an entity type; only its in-app creation goes
+The file names its student, the exercise it revises, the submission it answers and the teacher who
+wrote it. Only that student and the teacher can see it. `RevisedExercise` stays an entity type; only its in-app creation goes
 (`POST /api/teaching/review/{uid}/revision` and `POST /api/revised-exercises/create`).
 
 **Why.** A revision is teacher content, so it takes the one door teacher content has. It is always
@@ -147,8 +147,8 @@ specific to one student, never generic, which is why the file names the student.
 
 ### S6. A teacher's written feedback is a content-vault file
 
-The teacher's report on a submission is a content-vault file naming the submission it answers. The
-in-app upload door (`POST /api/teaching/review/{uid}/report`) goes. The admin's feedback text on a
+The teacher's report on a submission is a content-vault file naming the submission it answers and
+the teacher who wrote it. The in-app upload door (`POST /api/teaching/review/{uid}/report`) goes. The admin's feedback text on a
 user's activity report (`POST /activity-review/submit-feedback`) moves to the vault the same way.
 
 Two actions author no content and stay: the "approve" button
@@ -213,8 +213,13 @@ submission to `COMPLETED` and publishes `ReportSubmitted`; a revision moves it t
 `REVISION_REQUESTED` and publishes `UserEntryRevisionRequested` and `RevisedExerciseCreated`; an
 admin's activity-report feedback publishes `ActivityReportWritten`. Those events notify the student
 and refresh what is derived from the submission. The vault door makes the same status transitions,
-through ADR-087's guarded write, and publishes the same events once per file, never again on an
-unchanged re-sync.
+through ADR-087's guarded write, and publishes the same events once per file, as the in-app write
+publishes them once per request, never again on an unchanged re-sync.
+
+The file's named teacher is the author the shape needs (the revision's owner, the report's author,
+the events' actor): neither the sync's operator, who is Mike, nor the exercise's own teacher can
+stand in, since a group's owning teachers may also review. The sync admits the named teacher by the
+same rule the in-app review write admits by today: the submission asks that teacher for feedback.
 
 ### What stays
 
@@ -243,6 +248,11 @@ recreate. Each is put to Mike before that change merges.
   file. Borders S8.
 - **PathStep and LearningPath shared with a group** (`SHARED_WITH_GROUP`, ADR-053 §1). User context
   still reads it, and no door writes it. S4 retires the exercise half only.
+- **What deleting or editing a synced review file does.** A content-vault file's deletion deletes
+  its node, and a re-sync rewrites it. A report or revision file has also moved its submission's
+  status and rung the student's bell, which a deletion cannot take back. Whether these files are
+  fixed once synced, or a deletion or a changed `answers` is refused or compensated, is for the
+  change that builds each door to put to Mike. Borders S5 and S6.
 - **Default-group enrolment on PathStep progress** (`handle_path_step_enrolled`). The reasons
   ADR-040 and ADR-088 §8 record for it, access to ASSIGNED exercises and the curriculum fallback,
   retire under S4 and S3. Borders S3.
