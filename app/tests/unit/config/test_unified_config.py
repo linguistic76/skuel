@@ -253,6 +253,29 @@ class TestVaultConfig:
             assert config.vault_enabled is False
             assert config.ingestion_root == "/custom/ingestion"
 
+    def test_owners_are_read_when_the_config_is_built(self, monkeypatch):
+        """The owners come from the environment as it is when ``VaultConfig()`` runs.
+
+        main.py loads ``.env`` after importing this module, so an owner captured at
+        import would be blank there and boot would refuse a configured install.
+        """
+        monkeypatch.setenv("SKUEL_DEFAULT_USER_UID", "user_built_default")
+        monkeypatch.delenv("SKUEL_PERSONAL_VAULT_OWNER", raising=False)
+        config = VaultConfig()
+        assert config.default_user_uid == "user_built_default"
+        assert config.personal_vault_owner_uid == "user_built_default"
+
+        monkeypatch.setenv("SKUEL_PERSONAL_VAULT_OWNER", "user_built_personal")
+        assert VaultConfig().personal_vault_owner_uid == "user_built_personal"
+
+    def test_unset_owners_are_blank_and_refused(self, monkeypatch):
+        monkeypatch.delenv("SKUEL_DEFAULT_USER_UID", raising=False)
+        monkeypatch.delenv("SKUEL_PERSONAL_VAULT_OWNER", raising=False)
+        config = VaultConfig()
+        assert config.default_user_uid == ""
+        with pytest.raises(ValueError, match="SKUEL_DEFAULT_USER_UID"):
+            config.validate_owners()
+
 
 class TestUnifiedConfig:
     """Tests for UnifiedConfig dataclass."""

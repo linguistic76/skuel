@@ -9,8 +9,8 @@ The control runs the same three doors for a real user made at the user create do
 a token, a new password, and a sign-in that lands on ``/today``. Without it a refusal
 would prove nothing — a broken reset door refuses every uid.
 
-``user_vault_watcher`` has no test here: no code creates it (its provisioner was
-deleted), so only the live graph held one.
+``user_vault_watcher`` has no test here: no code creates it, so only a graph's own
+data can hold one.
 """
 
 from __future__ import annotations

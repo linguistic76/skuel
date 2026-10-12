@@ -37,7 +37,7 @@ load_dotenv()
 
 # The run names its ingestion owner — no account stands in for an unnamed one, and
 # a developer's .env would otherwise make the owner differ by machine. Set before
-# any import reads it (VaultConfig captures the environment at import time).
+# any fixture builds a config that reads it.
 import os  # noqa: E402
 
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER  # noqa: E402

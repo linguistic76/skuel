@@ -598,6 +598,16 @@ class FeatureFlags:
 VAULT_TRANSPORTS: frozenset[str] = frozenset({"filesystem", "local_agent"})
 
 
+def _default_user_uid_from_env() -> str:
+    """``SKUEL_DEFAULT_USER_UID``, read when the config is built — after ``.env`` loads."""
+    return os.getenv("SKUEL_DEFAULT_USER_UID", "")
+
+
+def _personal_vault_owner_from_env() -> str:
+    """``SKUEL_PERSONAL_VAULT_OWNER``, else ``SKUEL_DEFAULT_USER_UID``, read when the config is built."""
+    return os.getenv("SKUEL_PERSONAL_VAULT_OWNER", _default_user_uid_from_env())
+
+
 @dataclass
 class VaultConfig:
     """Configuration for Obsidian vault and file sync"""
@@ -620,16 +630,16 @@ class VaultConfig:
     # The ingestion service's default owner: the account a user-owned file that
     # names no owner is stamped with when no vault governs its path. No account
     # stands in for it: compose refuses to boot without one (validate_owners).
-    default_user_uid: str = os.getenv("SKUEL_DEFAULT_USER_UID", "")
+    # Read when the config is built, not at import: main.py loads .env after
+    # importing this module.
+    default_user_uid: str = field(default_factory=_default_user_uid_from_env)
 
     # The account VAULT_ROOT (the primary personal vault) BELONGS TO. Personal
     # sync for any other user resolves to {user_vaults_root}/{user_uid}/ instead
     # (VaultRegistry per-user roots). Falls back to SKUEL_DEFAULT_USER_UID so a
     # single-user install binds its one real account with no new config; with
     # neither set, compose refuses to boot (validate_owners).
-    personal_vault_owner_uid: str = os.getenv(
-        "SKUEL_PERSONAL_VAULT_OWNER", os.getenv("SKUEL_DEFAULT_USER_UID", "")
-    )
+    personal_vault_owner_uid: str = field(default_factory=_personal_vault_owner_from_env)
 
     # Per-user vault uploads directory
     user_vaults_root: str = os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults")
@@ -726,10 +736,8 @@ class VaultConfig:
             ingestion_root=os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"),
             user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),
             content_owner_uid=os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin"),
-            default_user_uid=os.getenv("SKUEL_DEFAULT_USER_UID", ""),
-            personal_vault_owner_uid=os.getenv(
-                "SKUEL_PERSONAL_VAULT_OWNER", os.getenv("SKUEL_DEFAULT_USER_UID", "")
-            ),
+            default_user_uid=_default_user_uid_from_env(),
+            personal_vault_owner_uid=_personal_vault_owner_from_env(),
             vault_transport=os.getenv("VAULT_TRANSPORT", "filesystem"),
         )
 

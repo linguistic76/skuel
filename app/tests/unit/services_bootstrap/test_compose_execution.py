@@ -331,9 +331,10 @@ COMPOSE_DEFAULT_OWNER = "user_compose_default_owner"
 def compose_config(tmp_path, hermetic_credentials) -> UnifiedConfig:
     """Real UnifiedConfig with vault roots redirected into tmp_path.
 
-    VaultConfig defaults are captured from the environment at import time, so
-    the instance attributes are overridden directly — the test must never read
-    or scan the developer's real vaults.
+    VaultConfig's root defaults are captured from the environment at import time,
+    so the instance attributes are overridden directly — the test must never read
+    or scan the developer's real vaults. The owners are set here too, so the
+    composed app names the same ones on every machine.
 
     Depends on hermetic_credentials because UnifiedConfig() itself reads a
     credential (DatabaseConfig's NEO4J_PASSWORD default factory) — the
