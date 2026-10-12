@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-12
 ---
 
 # Development Setup Guide
@@ -37,7 +37,7 @@ SKUEL requires Neo4j as its primary database. All dependencies are REQUIRED — 
 Development and production use the same authentication code path and the same account door — there is no seed script and no dev auto-login:
 
 - **Accounts** are created through the registration form at `/register` (UID `user_{username}`, role REGISTERED); an admin changes a role via `POST /api/admin/users/role?uid=<uid>`.
-- **The system user** (`user_system`, ADMIN) is created at boot by `ensure_system_user()` (`services_bootstrap/compose.py`) and owns infrastructure-owned content.
+- **No service account exists.** Boot creates no account; it refuses to start unless `SKUEL_DEFAULT_USER_UID` (and the personal-vault owner, `SKUEL_PERSONAL_VAULT_OWNER`, else the same) names a `user_<name>` account (`VaultConfig.validate_owners`, ADR-091 S9).
 - **A request without a session is refused** — page and API handlers read the session through `require_authenticated_user()` (`adapters/inbound/auth/session.py`), which raises 401 "Authentication required"; log in with an account you registered.
 
 ## Authentication in Development

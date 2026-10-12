@@ -25,6 +25,7 @@ from core.models.user_entry.user_entry import UserEntry
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 from core.services.user_entry.audience_resolver import ShareOutcome
 from core.utils.result_simplified import Result
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 def _entry(uid: str, pipeline: Pipeline = Pipeline.KNOWLEDGE, private: bool = False) -> UserEntry:
@@ -80,6 +81,7 @@ def _ingestion_service(
         bulk_backend=MagicMock(),
         user_entry_service=service,
         ingestion_backend=_ingestion_backend(prior_uid),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     svc._chunk_entity_content = AsyncMock(return_value=True)  # type: ignore[method-assign]
     return svc, service
@@ -197,6 +199,7 @@ async def test_no_ingestion_backend_falls_back_to_mint(tmp_path: Path) -> None:
         bulk_backend=MagicMock(),
         user_entry_service=service,
         ingestion_backend=None,
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     svc._chunk_entity_content = AsyncMock(return_value=True)  # type: ignore[method-assign]
     note = _note(tmp_path, "pipeline: knowledge\ntitle: Probe")

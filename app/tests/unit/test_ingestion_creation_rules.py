@@ -27,6 +27,7 @@ import pytest
 from neo4j.exceptions import ServiceUnavailable
 
 from core.models.enums.entity_enums import EntityType
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 class _FakeWriteBackend:
@@ -53,6 +54,7 @@ def _service(backend: _FakeWriteBackend) -> Any:
     return UnifiedIngestionService(
         write_backend=backend,  # type: ignore[arg-type]
         bulk_backend=object(),  # type: ignore[arg-type]
+        default_user_uid=INGESTION_TEST_OWNER,
     )
 
 

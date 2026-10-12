@@ -15,6 +15,8 @@ Run with: uv run pytest tests/integration/test_yaml_roundtrip.py -v
 
 import pytest
 
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio
@@ -45,7 +47,9 @@ class TestYAMLRoundTrip:
             await session.run("MATCH (n) WHERE NOT n:MigrationRecord DETACH DELETE n")
 
         # Create services with shared driver
-        ingestion_service = make_unified_ingestion_service(driver=neo4j_driver)
+        ingestion_service = make_unified_ingestion_service(
+            driver=neo4j_driver, default_user_uid=INGESTION_TEST_OWNER
+        )
         # Use "Entity" to match what UnifiedIngestionService creates
         # IMPORTANT: Backend must use CurriculumDTO (mutable), not Curriculum (immutable)
         ku_backend = UniversalNeo4jBackend[CurriculumDTO](neo4j_driver, "Entity", CurriculumDTO)

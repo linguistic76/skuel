@@ -37,8 +37,8 @@ from adapters.persistence.neo4j.ingestion_service_factory import make_unified_in
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.templates.offset_helpers import jsonable_to_offset
 from core.models.templates.relative_offset import RelativeOffset
-from core.services.ingestion.config import DEFAULT_USER_UID
 from core.services.ingestion.types import IncrementalStats
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _MARK = "zzztmpl"
 _PS = f"ps.{_MARK}.host"
@@ -150,12 +150,13 @@ async def template_service(neo4j_driver):
     service = make_unified_ingestion_service(
         driver=neo4j_driver,
         ingestion_backend=IngestionBackend(executor=executor),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     # The Event INSTANCE in the vault is user-owned, and the ingest door refuses
     # a batch naming an owner with no :User node (ADR-086). Templates themselves
     # are PS-owned and need none.
     async with neo4j_driver.session() as session:
-        await session.run("MERGE (u:User {uid: $uid})", {"uid": str(DEFAULT_USER_UID)})
+        await session.run("MERGE (u:User {uid: $uid})", {"uid": str(INGESTION_TEST_OWNER)})
     yield service
     # Session-scoped container — remove this module's nodes + tracker rows.
     async with neo4j_driver.session() as session:

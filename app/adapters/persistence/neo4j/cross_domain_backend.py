@@ -1342,7 +1342,6 @@ class CrossDomainBackend:
         return await self.executor.execute_query(
             """
             MATCH (u:User)
-            WHERE u.uid <> 'user_system'
             OPTIONAL MATCH (u)-[:VIEWED]->(ku1:Entity:Ku)
             WITH u, count(DISTINCT ku1) AS viewed_count
             OPTIONAL MATCH (u)-[:IN_PROGRESS]->(ku2:Entity:Ku)
@@ -1519,7 +1518,6 @@ class CrossDomainBackend:
         return await self.executor.execute_query(
             """
             MATCH (u:User)
-            WHERE u.uid <> 'user_system'
             RETURN u.role AS role, count(u) AS cnt
             """
         )

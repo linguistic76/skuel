@@ -40,6 +40,7 @@ from typing import Any
 import pytest
 
 from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.helpers.laptop_clock import laptop_wall
 
 OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
@@ -89,6 +90,7 @@ def door(neo4j_driver, bus: _CapturingBus):
         driver=neo4j_driver,
         event_bus=bus,
         ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
 
 

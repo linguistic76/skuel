@@ -21,6 +21,7 @@ from core.services.ingestion.config import (
     build_sync_allowlist,
     collect_files,
 )
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 def _default_allowed(root: Path) -> frozenset[Path]:
@@ -308,7 +309,9 @@ def _service_with_wall(wall: SyncAllowlist | None) -> object:
 
     from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 
-    svc = UnifiedIngestionService(write_backend=Mock(), bulk_backend=Mock())
+    svc = UnifiedIngestionService(
+        write_backend=Mock(), bulk_backend=Mock(), default_user_uid=INGESTION_TEST_OWNER
+    )
     svc.sync_allowlist = wall
     return svc
 

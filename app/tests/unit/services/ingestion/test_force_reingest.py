@@ -30,6 +30,7 @@ from core.services.vault.vault_descriptor import (
 )
 from core.services.vault.vault_reconciler import VaultReconciler
 from core.utils.result_simplified import Result
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 pytestmark = pytest.mark.asyncio
 
@@ -188,6 +189,7 @@ async def test_smart_mode_skips_unchanged_file(tmp_path: Path) -> None:
     bulk = _FakeBulkBackend()
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=tmp_path,
         bulk_backend=bulk,
         ingestion_backend=backend,
@@ -210,6 +212,7 @@ async def test_force_reprocesses_unchanged_file_and_restamps_metadata(tmp_path: 
     bulk = _FakeBulkBackend()
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=tmp_path,
         bulk_backend=bulk,
         ingestion_backend=backend,
@@ -242,6 +245,7 @@ async def test_force_still_runs_deletion_reconciliation(tmp_path: Path) -> None:
     }
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=tmp_path,
         bulk_backend=_FakeBulkBackend(),
         ingestion_backend=backend,
@@ -275,6 +279,7 @@ async def test_force_respects_allowlist_wall(tmp_path: Path) -> None:
     )
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=root,
         bulk_backend=bulk,
         ingestion_backend=backend,
@@ -298,6 +303,7 @@ async def test_force_with_full_mode_rejected_at_engine(tmp_path: Path) -> None:
     _write_ku(tmp_path, "any")
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=tmp_path,
         bulk_backend=_FakeBulkBackend(),
         ingestion_backend=_FakeIngestionBackend(),
@@ -329,7 +335,9 @@ async def test_facade_coerces_full_to_smart_and_threads_force(
 
     monkeypatch.setattr(mod, "ingest_directory", _fake_batch)
 
-    svc = UnifiedIngestionService(write_backend=Mock(), bulk_backend=Mock())
+    svc = UnifiedIngestionService(
+        write_backend=Mock(), bulk_backend=Mock(), default_user_uid=INGESTION_TEST_OWNER
+    )
     svc.ingestion_backend = object()  # type: ignore[assignment]  # non-None enables tracked modes
 
     root = tmp_path / "content"

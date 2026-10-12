@@ -15,14 +15,12 @@ here (not in the registry) to keep the model layer free of ingestion concerns.
 Extracted from unified_ingestion_service.py for separation of concerns.
 """
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from core.constants import SYSTEM_USER_UID
 from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enums.entity_enums import EntityStatus, EntityType, NonKuDomain
 from core.models.enums.pipeline import JeUse
@@ -36,7 +34,6 @@ from core.models.relationship_registry import (
     LABEL_CONFIGS,
     LABEL_TO_DEFAULT_ENTITY_TYPE,
 )
-from core.models.type_hints import UserUID
 from core.utils.frontmatter import parse_frontmatter, split_frontmatter
 from core.utils.logging import get_logger
 
@@ -72,17 +69,6 @@ DEFAULT_MAX_CONCURRENT_PARSING = 20
 REFERENCE_CHUNKING_PARAMS = ChunkingParams(
     min_chunk_size=100, max_chunk_size=1000, context_size=150
 )
-
-# ============================================================================
-# USER CONFIGURATION
-# ============================================================================
-
-# Default user UID for entities without explicit user_uid.
-# Configurable via SKUEL_DEFAULT_USER_UID; defaults to the canonical SYSTEM_USER_UID
-# (`user_system`). Must stay canonical (`user_<name>`) — the ingestion boundary rejects
-# non-canonical owners. See core.constants.SYSTEM_USER_UID.
-DEFAULT_USER_UID: UserUID = UserUID(os.environ.get("SKUEL_DEFAULT_USER_UID", SYSTEM_USER_UID))
-
 
 # ============================================================================
 # INGESTION RELATIONSHIP CONFIG GENERATION
@@ -1011,7 +997,6 @@ def collect_files(
 __all__ = [
     "DEFAULT_MAX_CONCURRENT_PARSING",
     "DEFAULT_MAX_FILE_SIZE_BYTES",
-    "DEFAULT_USER_UID",
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
     "FileCollectionSkips",

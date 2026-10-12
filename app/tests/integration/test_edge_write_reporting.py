@@ -39,6 +39,7 @@ from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.ingestion.types import IncrementalStats
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -92,6 +93,7 @@ async def edge_ingestion_service(neo4j_driver: AsyncDriver):
     service = make_unified_ingestion_service(
         driver=neo4j_driver,
         ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     yield service
 

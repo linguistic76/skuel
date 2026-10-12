@@ -1,6 +1,6 @@
 ---
 title: "ContextRetriever's Three Write-Only Fields"
-updated: 2026-09-06
+updated: 2026-10-12
 status: "open — events/principles half"
 registered: 2026-08-20
 ruled: 2026-08-21
@@ -226,8 +226,8 @@ direct-edge model. Way 2 is **not** forced; Option A is architecturally sound.
 ⚠️ **Cause — an earlier draft blamed `default_user_uid`, and that is WRONG** (Codex, #1112).
 Production installs a `VaultRegistry` (`compose.py:1433-1455`) and `_resolve_owner`
 (`unified_ingestion_service.py:351-371`) resolves content-vault paths to the content descriptor's
-**acts-as owner**. The two vault doors are already distinguished; changing `DEFAULT_USER_UID`
-would change nothing.
+**acts-as owner**. The two vault doors are already distinguished; changing the service's
+`default_user_uid` would change nothing.
 
 **The ingestion layer already does the right thing** — its docstring: *"Only `requires_user_uid`
 entity types actually persist this owner; SHARED curriculum drops it."* Measured: `HABIT` /

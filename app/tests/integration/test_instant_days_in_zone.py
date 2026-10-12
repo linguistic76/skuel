@@ -50,6 +50,7 @@ from core.services.user_service import UserService
 from core.utils.timestamp_helpers import as_stored_clock
 from core.utils.zone_context import zone_scope
 from tests.helpers.forced_zone import forced_zone
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
@@ -91,6 +92,7 @@ def door(neo4j_driver):
     return make_unified_ingestion_service(
         driver=neo4j_driver,
         ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
 
 

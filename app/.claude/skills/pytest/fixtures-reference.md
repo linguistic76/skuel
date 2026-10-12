@@ -61,7 +61,7 @@ Fixtures that seed data for the app (`populated_test_data`, `enrolled_user_with_
 
 | Fixture | Scope | Provides |
 |---------|-------|----------|
-| `ensure_test_users` | session | `MERGE`s every `:User` uid the tier's tests use (`user_test`, `user_test_integration`, `user_mike`, the per-flow `user_test_*` uids, …) plus the ingestion fallback owner **resolved, not spelled**: `DEFAULT_USER_UID` (a developer's `.env` sets `SKUEL_DEFAULT_USER_UID` to their own uid; CI falls back to `SYSTEM_USER_UID`) and `SYSTEM_USER_UID`. Seeding the literal passes on one machine and fails on the other |
+| `ensure_test_users` | session | `MERGE`s every `:User` uid the tier's tests use (`user_test`, `user_test_integration`, `user_mike`, the per-flow `user_test_*` uids, …) plus the owner the run ingests as, `INGESTION_TEST_OWNER` (`tests/helpers/ingestion_owner.py`): `tests/conftest.py` sets `SKUEL_DEFAULT_USER_UID` to it, and the tests that build the ingestion service pass it (or an owner of their own), so the owner never differs by machine |
 | `create_moc_test_user` | session | `user_test_integration` with the properties the MOC tests read |
 | `clean_neo4j` | function | Depends on `neo4j_driver`, `create_moc_test_user`, `ensure_test_users`. Before AND after the test: `MATCH (n) WHERE NOT n:User AND NOT n:MigrationRecord DETACH DELETE n`; then creates the `entity_embedding_idx` vector index (1024-dim cosine on `:Entity(embedding)`) the semantic-search tests need |
 | `test_user` | function | A `User` domain model (for tests that read `test_user.uid` etc.) |

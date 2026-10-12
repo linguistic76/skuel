@@ -23,6 +23,7 @@ from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from core.models.ps_content.content_chunks import CHUNKING_ALGORITHM_VERSION
 from core.services.chunks.batch_chunking_service import BatchChunkingService
 from core.services.entity_chunking_service import EntityChunkingService
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 class _DriverConnection:
@@ -76,6 +77,7 @@ async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
             driver=neo4j_driver,
             chunking_service=chunking_service,
             content_adapter=content_adapter,
+            default_user_uid=INGESTION_TEST_OWNER,
         )
 
         result = await ingestion_service.ingest_file(temp_path)
@@ -160,6 +162,7 @@ async def test_regenerate_chunks_skips_already_current_when_force_false(neo4j_dr
             driver=neo4j_driver,
             chunking_service=chunking_service,
             content_adapter=content_adapter,
+            default_user_uid=INGESTION_TEST_OWNER,
         )
 
         result = await ingestion_service.ingest_file(temp_path)

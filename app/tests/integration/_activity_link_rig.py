@@ -26,6 +26,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
@@ -350,6 +351,7 @@ async def sync_vault(
         driver=driver,
         ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(driver)),
         event_bus=event_bus,
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     result = await service.ingest_directory(vault, ingestion_mode="smart", force=force)
     assert result.is_ok, f"sync failed: {result}"

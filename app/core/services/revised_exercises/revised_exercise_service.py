@@ -185,8 +185,8 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
             return Result.fail(number_result)
         revision_number = number_result.value
 
-        # Enrich entity with computed fields. created_by feeds Shared-With-Me
-        # sharer attribution — every SHARES_WITH writer must stamp it.
+        # Enrich entity with computed fields; created_by names the teacher who
+        # wrote the revision.
         display_title = entity.title or f"Revision {revision_number}"
         enriched = dataclasses.replace(
             entity,

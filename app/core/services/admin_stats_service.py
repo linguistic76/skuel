@@ -235,7 +235,7 @@ class AdminStatsService:
         Uses parameterized WHERE clauses (no string interpolation).
         """
         # Build parameterized WHERE conditions
-        where_clauses = ["u.uid <> 'user_system'"]
+        where_clauses: list[str] = []
         params: dict[str, Any] = {}
 
         if role_filter:
@@ -244,7 +244,7 @@ class AdminStatsService:
         if active_only:
             where_clauses.append("u.is_active = true")
 
-        where_str = " AND ".join(where_clauses)
+        where_str = " AND ".join(where_clauses) or "true"
 
         result = await self.backend.get_users_with_activity_counts(where_str, params)
 

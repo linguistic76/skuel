@@ -22,13 +22,14 @@ from core.services.ingestion.detector import detect_entity_type
 from core.services.ingestion.parser import check_file_size, parse_markdown, parse_yaml
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data, validate_required_fields
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 def test_factory_rejects_none_driver():
     """make_unified_ingestion_service fails fast on a missing driver (mirrors the
     pre-inversion constructor), instead of deferring to a later AttributeError."""
     with pytest.raises(ValueError, match="driver is required"):
-        make_unified_ingestion_service(None)
+        make_unified_ingestion_service(None, default_user_uid=INGESTION_TEST_OWNER)
 
 
 @dataclass
@@ -376,7 +377,9 @@ async def test_dry_run_validation():
 
     # Create mock driver (not used in validation)
     mock_driver = MagicMock()
-    service = make_unified_ingestion_service(driver=mock_driver)
+    service = make_unified_ingestion_service(
+        driver=mock_driver, default_user_uid=INGESTION_TEST_OWNER
+    )
 
     # Create temporary test files
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -482,7 +485,9 @@ async def test_parallel_directory_processing():
     # Test 1: Default concurrency is 20
     assert DEFAULT_MAX_CONCURRENT_PARSING == 20, "Default should be 20 concurrent"
 
-    service = make_unified_ingestion_service(driver=mock_driver)
+    service = make_unified_ingestion_service(
+        driver=mock_driver, default_user_uid=INGESTION_TEST_OWNER
+    )
 
     # Test 2: Create directory with multiple files and verify parallel parsing
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -520,7 +525,7 @@ description: Description for task {i}
         from core.services.ingestion.batch import parse_file_sync
 
         test_file = tmppath / "lesson-0.md"
-        entity_type, entity_data, error = parse_file_sync(test_file)
+        entity_type, entity_data, error = parse_file_sync(test_file, INGESTION_TEST_OWNER)
         assert error is None, f"Should parse successfully: {error}"
         assert entity_type is not None
         assert entity_type.value == "path_step"
@@ -567,7 +572,9 @@ def test_file_size_limits():
 
     # Test 2: Custom max file size
     custom_limit = 1024  # 1 KB
-    service = make_unified_ingestion_service(driver=mock_driver, max_file_size_bytes=custom_limit)
+    service = make_unified_ingestion_service(
+        driver=mock_driver, max_file_size_bytes=custom_limit, default_user_uid=INGESTION_TEST_OWNER
+    )
     assert service.max_file_size_bytes == custom_limit
 
     # Test 3: File within limits passes
@@ -606,7 +613,9 @@ def test_file_size_limits():
         assert "too large" in error.message.lower()
 
         # Test 7: Small files still parse correctly
-        service_default = make_unified_ingestion_service(driver=mock_driver)  # Default 10 MB limit
+        service_default = make_unified_ingestion_service(
+            driver=mock_driver, default_user_uid=INGESTION_TEST_OWNER
+        )  # Default 10 MB limit
 
         small_md = tmppath / "valid.md"
         small_md.write_text("""---
@@ -712,7 +721,7 @@ def test_rich_error_context():
         bad_yaml = tmppath / "bad.yaml"
         bad_yaml.write_text("key:\n\t- invalid tab indentation")
 
-        entity_type, entity_data, error = parse_file_sync(bad_yaml)
+        entity_type, entity_data, error = parse_file_sync(bad_yaml, INGESTION_TEST_OWNER)
         assert entity_type is None
         assert entity_data is None
         assert error is not None
@@ -732,7 +741,7 @@ name: Test Principle
 # Missing required 'statement' field
 """)
 
-        entity_type, entity_data, error = parse_file_sync(missing_field)
+        entity_type, entity_data, error = parse_file_sync(missing_field, INGESTION_TEST_OWNER)
         assert error is not None
         assert error["stage"] == "validation"
         assert error["entity_type"] == "principle"
@@ -748,7 +757,7 @@ name: Test Principle
 statement: A principle with a task-prefixed UID
 """)
 
-        entity_type, entity_data, error = parse_file_sync(wrong_uid)
+        entity_type, entity_data, error = parse_file_sync(wrong_uid, INGESTION_TEST_OWNER)
         assert error is not None
         assert error["stage"] == "validation"
         assert error["field"] == "uid"
@@ -758,7 +767,7 @@ statement: A principle with a task-prefixed UID
         unsupported = tmppath / "test.txt"
         unsupported.write_text("Some content")
 
-        entity_type, entity_data, error = parse_file_sync(unsupported)
+        entity_type, entity_data, error = parse_file_sync(unsupported, INGESTION_TEST_OWNER)
         assert error is not None
         assert error["stage"] == "format_detection"
         assert error["error_type"] == "format"
@@ -788,7 +797,9 @@ def test_name_only_files_survive_post_prepare_validation():
 
     from core.models.enums.entity_enums import EntityType
 
-    service = make_unified_ingestion_service(driver=MagicMock())
+    service = make_unified_ingestion_service(
+        driver=MagicMock(), default_user_uid=INGESTION_TEST_OWNER
+    )
 
     cases = [
         (

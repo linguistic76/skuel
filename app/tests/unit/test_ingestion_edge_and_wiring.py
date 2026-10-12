@@ -23,6 +23,7 @@ from core.services.ingestion.detector import is_edge_type
 from core.services.ingestion.preparer import prepare_edge_data, prepare_entity_data
 from core.services.ingestion.validator import validate_edge_data
 from core.utils.zone_context import zone_scope
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 # ============================================================================
 # EDGE DETECTION
@@ -253,7 +254,9 @@ class TestPathStepUsesKuWiring:
             "title": "Test Lesson",
             "uses_kus": ["ku.meditation-basics", "ku.breathwork"],
         }
-        result = prepare_entity_data(EntityType.PATH_STEP, data, "body content", Path("test.md"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, "body content", Path("test.md"), INGESTION_TEST_OWNER
+        )
         assert result["uses_kus"] == ["ku.meditation-basics", "ku.breathwork"]
 
     def test_preparer_skips_non_list_uses_kus(self):
@@ -262,7 +265,9 @@ class TestPathStepUsesKuWiring:
             "title": "Test Lesson",
             "uses_kus": "not-a-list",
         }
-        result = prepare_entity_data(EntityType.PATH_STEP, data, "body content", Path("test.md"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, "body content", Path("test.md"), INGESTION_TEST_OWNER
+        )
         # Non-list value left unchanged
         assert result["uses_kus"] == "not-a-list"
 
@@ -275,7 +280,9 @@ class TestPathStepUsesKuWiring:
         whole content corpus). ``updated_at`` IS stamped: it means "this sync".
         """
         data = {"type": "lesson", "title": "Test Lesson"}
-        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("test.md"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, "body", Path("test.md"), INGESTION_TEST_OWNER
+        )
         assert "created_at" not in result
         assert "updated_at" in result
 
@@ -287,7 +294,9 @@ class TestPathStepUsesKuWiring:
         date, which is exactly the loss this change exists to prevent.
         """
         data = {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": None}
-        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("t.md"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, "body", Path("t.md"), INGESTION_TEST_OWNER
+        )
         assert "created_at" not in result
 
     def test_authored_created_at_is_canonicalized_to_utc(self):
@@ -313,6 +322,7 @@ class TestPathStepUsesKuWiring:
                     {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": authored},
                     "body",
                     Path("t.md"),
+                    INGESTION_TEST_OWNER,
                 )
             assert out["created_at"] == expected, f"{zone} {authored!r} → {out['created_at']!r}"
 
@@ -334,6 +344,7 @@ class TestPathStepUsesKuWiring:
                 {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": bad},
                 "body",
                 Path("t.md"),
+                INGESTION_TEST_OWNER,
             )
             result = validate_entity_data(EntityType.PATH_STEP, data, Path("t.md"))
             assert result.is_error, f"{bad!r} should be rejected"
@@ -358,6 +369,7 @@ class TestPathStepUsesKuWiring:
                 {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": good},
                 "body",
                 Path("t.md"),
+                INGESTION_TEST_OWNER,
             )
             result = validate_entity_data(EntityType.PATH_STEP, data, Path("t.md"))
             assert not result.is_error, f"{good!r} should be accepted"
@@ -369,7 +381,9 @@ class TestPathStepUsesKuWiring:
             "title": "Test Lesson",
             "created_at": "2026-03-29T00:00:00Z",
         }
-        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("test.md"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, "body", Path("test.md"), INGESTION_TEST_OWNER
+        )
         assert result["created_at"] == "2026-03-29T00:00:00Z"
 
     def test_preparer_canonicalizes_publication_state(self):
@@ -384,13 +398,17 @@ class TestPathStepUsesKuWiring:
         assert ENUM_FIELD_TYPES["publication_state"] is PublicationState
 
         data = {"type": "lesson", "title": "T", "publication_state": "DRAFT"}
-        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("t.md"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, "body", Path("t.md"), INGESTION_TEST_OWNER
+        )
         assert result["publication_state"] == "draft"
 
     def test_preparer_omits_publication_state_when_unauthored(self):
         """No key authored → no property written; readers must treat that as published."""
         data = {"type": "lesson", "title": "T"}
-        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("t.md"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, "body", Path("t.md"), INGESTION_TEST_OWNER
+        )
         assert "publication_state" not in result
 
 
@@ -488,7 +506,9 @@ class TestLsPreparerNormalization:
             "title": "Step 1",
             "learning_path_uid": "lp.mindfulness-101",
         }
-        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, None, Path("step1.yaml"), INGESTION_TEST_OWNER
+        )
         assert "learning_path_uid" not in result
         assert result["learning_path_uids"] == ["lp.mindfulness-101"]
 
@@ -499,7 +519,9 @@ class TestLsPreparerNormalization:
             "title": "Step 1",
             "knowledge_uid": "ku.breathing",
         }
-        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, None, Path("step1.yaml"), INGESTION_TEST_OWNER
+        )
         assert "knowledge_uid" not in result
         assert "ku.breathing" in result["knowledge_uids"]
 
@@ -511,7 +533,9 @@ class TestLsPreparerNormalization:
             "knowledge_uid": "ku.breathing",
             "knowledge_uids": ["ku.breathing"],
         }
-        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, None, Path("step1.yaml"), INGESTION_TEST_OWNER
+        )
         assert result["knowledge_uids"].count("ku.breathing") == 1
 
     def test_uid_list_fields_pass_through_verbatim(self):
@@ -522,7 +546,9 @@ class TestLsPreparerNormalization:
             "trains_ku_uids": ["ku.concept-a", "ku.concept-b"],
             "knowledge_uids": ["ku.concept-c"],
         }
-        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, None, Path("step1.yaml"), INGESTION_TEST_OWNER
+        )
         assert result["trains_ku_uids"] == ["ku.concept-a", "ku.concept-b"]
         assert result["knowledge_uids"] == ["ku.concept-c"]
 
@@ -537,7 +563,9 @@ class TestLsPreparerNormalization:
             "uses_kus": ["ku:sel/foo"],
         }
         with pytest.raises(ValueError, match="retired colon spelling"):
-            prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
+            prepare_entity_data(
+                EntityType.PATH_STEP, data, None, Path("step1.yaml"), INGESTION_TEST_OWNER
+            )
 
     def test_colon_connections_target_rejected_loudly(self):
         """The flattened, registry-registered ``connections.*`` keys get the
@@ -549,7 +577,9 @@ class TestLsPreparerNormalization:
             "connections": {"enables": ["ku:next"]},
         }
         with pytest.raises(ValueError, match="retired colon spelling"):
-            prepare_entity_data(EntityType.PATH_STEP, data, None, Path("s.yaml"))
+            prepare_entity_data(
+                EntityType.PATH_STEP, data, None, Path("s.yaml"), INGESTION_TEST_OWNER
+            )
 
     def test_sanctioned_machine_uid_target_accepted(self):
         """A ``ue:…`` periodic-entry target survives the guard — its colon
@@ -560,7 +590,9 @@ class TestLsPreparerNormalization:
             "title": "S",
             "organizes": ["ue:daily:user_mike:2026-06-28"],
         }
-        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("s.yaml"))
+        result = prepare_entity_data(
+            EntityType.PATH_STEP, data, None, Path("s.yaml"), INGESTION_TEST_OWNER
+        )
         assert result["organizes"] == ["ue:daily:user_mike:2026-06-28"]
 
 

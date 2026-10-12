@@ -16,7 +16,9 @@ Usage:
         make_unified_ingestion_service,
     )
 
-    service = make_unified_ingestion_service(driver, chunking_service=chunking)
+    service = make_unified_ingestion_service(
+        driver, default_user_uid=owner, chunking_service=chunking
+    )
 """
 
 from __future__ import annotations
@@ -26,18 +28,26 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+    from core.models.type_hints import UserUID
     from core.services.ingestion import UnifiedIngestionService
 
 
-def make_unified_ingestion_service(driver: AsyncDriver, **kwargs: Any) -> UnifiedIngestionService:
+def make_unified_ingestion_service(
+    driver: AsyncDriver,
+    *,
+    default_user_uid: UserUID,
+    **kwargs: Any,  # boundary: forwarded verbatim to UnifiedIngestionService
+) -> UnifiedIngestionService:
     """Build a UnifiedIngestionService wired with its Neo4j backends.
 
     Args:
         driver: Neo4j async driver. Used only to construct the write + bulk-upsert
             backends; the service never touches the driver directly.
+        default_user_uid: The owner a user-owned file that names none is stamped with
+            when no vault governs its path. Required: no account stands in for it.
         **kwargs: Forwarded verbatim to ``UnifiedIngestionService`` (e.g.
-            ``default_user_uid``, ``chunking_service``, ``content_adapter``,
-            ``event_bus``, ``ingestion_backend``).
+            ``chunking_service``, ``content_adapter``, ``event_bus``,
+            ``ingestion_backend``).
 
     Returns:
         A fully-wired UnifiedIngestionService.
@@ -55,5 +65,6 @@ def make_unified_ingestion_service(driver: AsyncDriver, **kwargs: Any) -> Unifie
     return UnifiedIngestionService(
         write_backend=IngestionWriteBackend(driver),
         bulk_backend=BulkUpsertBackend(driver),
+        default_user_uid=default_user_uid,
         **kwargs,
     )

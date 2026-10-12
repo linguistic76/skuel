@@ -40,6 +40,7 @@ from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.ingestion.types import IncrementalStats
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _MARK = "zzzretract"
 _KU_A = f"ku.{_MARK}.a"
@@ -144,6 +145,7 @@ async def retraction_service(neo4j_driver):
     service = make_unified_ingestion_service(
         driver=neo4j_driver,
         ingestion_backend=IngestionBackend(executor=executor),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     yield service
     # Session-scoped container — remove this module's nodes + tracker rows

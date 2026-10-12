@@ -21,6 +21,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType, NonKuDomain
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.ingestion.preparer import canonicalize_enum_values, prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 class TestEnumFieldsFor:
@@ -120,7 +121,7 @@ class TestEnumMembershipGateAtTheDoor:
 
     def _prepared_event(self, **fields: object) -> dict[str, object]:
         data: dict[str, object] = {"title": "Sample event", **fields}
-        return prepare_entity_data(EntityType.EVENT, data, None, self._FILE)
+        return prepare_entity_data(EntityType.EVENT, data, None, self._FILE, INGESTION_TEST_OWNER)
 
     def test_non_member_value_rejected(self) -> None:
         # The proven 2026-08-09 gap: ``event_type: PRACTICE`` upserted
@@ -174,6 +175,7 @@ class TestEnumMembershipGateAtTheDoor:
             {"title": "S", "instructions": "Do.", "scope": "personal"},
             None,
             file_path,
+            INGESTION_TEST_OWNER,
         )
         result = validate_entity_data(EntityType.EXERCISE, prepared, file_path)
         assert result.is_error
@@ -189,6 +191,7 @@ class TestEnumMembershipGateAtTheDoor:
             {"title": "S", "instructions": "Do.", "scope": "banana"},
             None,
             file_path,
+            INGESTION_TEST_OWNER,
         )
         result = validate_entity_data(EntityType.EXERCISE, prepared, file_path)
         assert result.is_error
@@ -206,7 +209,11 @@ class TestEnumMembershipGateAtTheDoor:
         # which would make this test assert the wrong door.
         file_path = Path("choice_sample.md")
         prepared = prepare_entity_data(
-            EntityType.CHOICE, {"title": "C", "status": "pending"}, None, file_path
+            EntityType.CHOICE,
+            {"title": "C", "status": "pending"},
+            None,
+            file_path,
+            INGESTION_TEST_OWNER,
         )
         assert prepared["status"] == "draft"
         assert validate_entity_data(EntityType.CHOICE, prepared, file_path).is_ok
@@ -312,7 +319,11 @@ class TestStatusLegalityGateAtTheDoor:
         # would refuse a file both gates admit (Codex #1289).
         for authored in ("none", None):
             prepared = prepare_entity_data(
-                EntityType.TASK, {"title": "T", "status": authored}, None, self._FILE
+                EntityType.TASK,
+                {"title": "T", "status": authored},
+                None,
+                self._FILE,
+                INGESTION_TEST_OWNER,
             )
             assert prepared["status"] is None
             assert validate_entity_data(EntityType.TASK, prepared, self._FILE).is_ok, (
@@ -373,6 +384,7 @@ class TestPrepareEntityDataNormalizesCasing:
             },
             body="Body.",
             file_path=Path("/tmp/casing-check.md"),
+            default_user_uid=INGESTION_TEST_OWNER,
         )
         assert prepared["scope"] == "curriculum"
         assert prepared["learning_level"] == "beginner"

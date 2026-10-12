@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-27
+updated: 2026-10-12
 ---
 
 # Feedback-Loop Staged Directions — Peer Feedback, Reply Artifact, Read-State
@@ -44,11 +44,11 @@ re-litigate them outside the item's own future elicitation.
   data and genuinely needs nothing.
 - `SHARES_WITH` edges all carry `shared_at` + `role`; `share_version` exists **only** on
   the generic `UnifiedSharingService.share` door — the report/revision Cyphers and
-  `auto_share_with_student` write edges without it. `created_by` is stamped by every
-  **user-authored** writer (arc 2 PR 3 — sharer attribution and the Shared-by filter key
-  on it); AI-generated reports pass `author_uid=None` *by design* (no human sharer —
-  `created_by` is null, provenance is carried by `processor_type` / the Source filter,
-  and the item simply contributes no Shared-by option). A peer writer must stamp
+  `auto_share_with_student` write edges without it. `created_by` names the author and is
+  stamped by every **user-authored** writer; the Shared-With-Me sharer attribution and the
+  Shared-by filter read the shared entity's owner (`user_uid`), not `created_by`.
+  AI-generated reports pass `author_uid=None` *by design* (`created_by` is null;
+  provenance is carried by `processor_type` / the Source filter). A peer writer must stamp
   `created_by` and must not assume complete sharer/version metadata on every existing
   edge.
 - The exchange thread (`/exchange`, `get_exchange_thread_raw`) renders the artifact chain

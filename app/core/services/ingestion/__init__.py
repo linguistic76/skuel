@@ -13,7 +13,7 @@ Usage:
         make_unified_ingestion_service,
     )
 
-    service = make_unified_ingestion_service(driver)
+    service = make_unified_ingestion_service(driver, default_user_uid=owner)
 
     # Full ingestion (default, processes all files)
     result = await service.ingest_directory(Path("/vault"))
@@ -30,7 +30,6 @@ Usage:
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
     DEFAULT_MAX_FILE_SIZE_BYTES,
-    DEFAULT_USER_UID,
     ENTITY_CONFIGS,
     EntityIngestionConfig,
 )
@@ -80,7 +79,6 @@ __all__ = [
     # Configuration
     "DEFAULT_MAX_CONCURRENT_PARSING",
     "DEFAULT_MAX_FILE_SIZE_BYTES",
-    "DEFAULT_USER_UID",
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
     # Data types

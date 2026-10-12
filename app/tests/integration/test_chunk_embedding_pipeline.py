@@ -28,6 +28,7 @@ from core.events import ChunkEmbeddingRequested
 from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 from core.services.entity_chunking_service import EntityChunkingService
 from core.utils.result_simplified import Result
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 class _DriverConnection:
@@ -106,6 +107,7 @@ Ingestion publishes ChunkEmbeddingRequested and the worker drains the queue.
             chunking_service=EntityChunkingService(),
             content_adapter=content_adapter,
             event_bus=event_bus,
+            default_user_uid=INGESTION_TEST_OWNER,
         )
 
         result = await ingestion.ingest_file(temp_path)

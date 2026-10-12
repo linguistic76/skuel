@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import EmbeddingGeometry
 from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
 from core.models.enums.neo_labels import NeoLabel
+from core.models.type_hints import UserUID
 from core.ports import EventBusOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -104,6 +105,10 @@ async def compose_services(
         logger.info("🧠 Intelligence tier: CORE (analytics only — no API costs)")
 
     try:
+        # Ingestion's default owner and the personal vault's owner are named in
+        # configuration; no account stands in for a missing one (ADR-091 S9).
+        config.vault.validate_owners()
+
         # ========================================================================
         # CREATE EVENT BUS (Event-Driven Architecture)
         # ========================================================================
@@ -380,23 +385,6 @@ async def compose_services(
             session_invalidator=session_backend,
         )
         logger.info("✅ UserService created (foundation service)")
-
-        # Ensure system user exists for infrastructure operations.
-        # Fail-fast: system-owned content (e.g. ingestion defaults, see
-        # core/services/ingestion/config.py) creates OWNS edges against
-        # (:User {uid: "user_system"}). If that node doesn't exist the MATCH
-        # yields zero rows, MERGE silently no-ops, and the entity becomes an
-        # orphan with no warning. Bootstrap should die here rather than ship
-        # an app with broken system-owned content.
-        logger.info("Ensuring system user exists...")
-        system_user_result = await user_service.ensure_system_user()
-        if system_user_result.is_error:
-            raise RuntimeError(
-                f"Bootstrap requires the system user (uid='user_system') for "
-                f"infrastructure-owned content. ensure_system_user() failed: "
-                f"{system_user_result.error}"
-            )
-        logger.info("✅ System user ready")
 
         # Create user relationship backend (pinning, following, etc.)
         from adapters.persistence.neo4j.user_relationship_backend import (
@@ -685,6 +673,7 @@ async def compose_services(
 
         unified_ingestion = make_unified_ingestion_service(
             driver=driver,
+            default_user_uid=UserUID(config.vault.default_user_uid),
             ingestion_backend=ingestion_backend,
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
             content_adapter=content_adapter,  # Persist :ContentChunk nodes for RAG retrieval
@@ -1330,7 +1319,6 @@ async def compose_services(
         from pathlib import Path
 
         from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
-        from core.models.type_hints import UserUID
         from core.services.ingestion.config import build_sync_allowlist
         from core.services.vault.vault_descriptor import (
             VaultDescriptor,

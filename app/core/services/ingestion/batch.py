@@ -46,7 +46,6 @@ from .authored_edges import (
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
     DEFAULT_MAX_FILE_SIZE_BYTES,
-    DEFAULT_USER_UID,
     ENTITY_CONFIGS,
     SyncAllowlist,
     collect_files,
@@ -178,7 +177,7 @@ def create_error(
 
 def parse_file_sync(
     file_path: Path,
-    default_user_uid: UserUID = DEFAULT_USER_UID,
+    default_user_uid: UserUID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
     *,
     owner_is_authoritative: bool = False,
@@ -467,7 +466,7 @@ def parse_file_sync(
 async def parse_file_for_batch(
     file_path: Path,
     semaphore: asyncio.Semaphore,
-    default_user_uid: UserUID = DEFAULT_USER_UID,
+    default_user_uid: UserUID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
     *,
     owner_is_authoritative: bool = False,
@@ -651,13 +650,13 @@ async def _announce_goals(
 
 async def ingest_directory(
     directory: Path,
+    default_user_uid: UserUID,
     write_backend: IngestionWriteOperations | None = None,  # edges, existence checks (ADR-044)
     bulk_backend: BulkUpsertOperations | None = None,  # node upsert + constraints (ADR-044)
     ingestion_backend: Any = None,  # IngestionBackend for ingestion tracking
     pattern: str = "*",
     batch_size: int = 500,
     max_concurrent: int = DEFAULT_MAX_CONCURRENT_PARSING,
-    default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
     ingestion_mode: Literal["full", "incremental", "smart"] = "full",
     force: bool = False,
@@ -687,6 +686,7 @@ async def ingest_directory(
 
     Args:
         directory: Directory to scan
+        default_user_uid: Default user UID
         write_backend: Ingestion write backend — edges + existence checks (required
             for edge ingestion). Cypher lives below the hexagonal boundary
             (ADR-044).
@@ -696,7 +696,6 @@ async def ingest_directory(
         pattern: Glob pattern for files (default: "*" for all supported)
         batch_size: Batch size for bulk operations
         max_concurrent: Maximum concurrent file parsing operations (default: 20)
-        default_user_uid: Default user UID
         max_file_size_bytes: Maximum file size
         ingestion_mode: Ingestion strategy:
             - "full": Process all files (default, backward compatible)
