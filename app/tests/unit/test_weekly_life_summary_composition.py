@@ -745,3 +745,24 @@ class TestCurriculumMetricsFailures:
         result = await AnalyticsMetricsService().calculate_curriculum_metrics(USER)
 
         assert result.is_error
+
+    async def test_the_focus_is_ranked_on_the_exact_ratio(self) -> None:
+        """98 of 99 and 99 of 100 both round to 0.99; the second is further along."""
+
+        def path(uid: str, total: int) -> LearningPath:
+            steps = [PathStep(uid=f"{uid}.s{i}", title=f"Step {i}") for i in range(total)]
+            return LearningPath(uid=uid, title=uid, metadata={"steps": steps})
+
+        lower = path("lp.a", 99)
+        higher = path("lp.b", 100)
+        mastered = {f"lp.a.s{i}" for i in range(98)} | {f"lp.b.s{i}" for i in range(99)}
+        service = self._service(Result.ok([lower, higher]), Result.ok(mastered))
+
+        result = await service.calculate_curriculum_metrics(USER)
+
+        assert result.is_ok
+        assert result.value["current_focus"] == {
+            "lp_uid": "lp.b",
+            "lp_title": "lp.b",
+            "progress": 0.99,
+        }

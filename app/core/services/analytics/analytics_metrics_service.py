@@ -954,7 +954,10 @@ class AnalyticsMetricsService:
 
         completed_paths = 0
         step_uids: set[str] = set()
-        focus: CurriculumFocus | None = None
+        # The furthest-along active path, ranked on its exact ratio — rounding
+        # first would tie 98/99 with 99/100.
+        focus_path: LearningPath | None = None
+        focus_ratio = 0.0
         for path in paths:
             path_step_uids = {step.uid for step in _path_steps(path)}
             step_uids |= path_step_uids
@@ -962,14 +965,21 @@ class AnalyticsMetricsService:
             if path_step_uids and mastered_here == len(path_step_uids):
                 completed_paths += 1
                 continue
-            progress = round(mastered_here / len(path_step_uids), 2) if path_step_uids else 0.0
+            ratio = mastered_here / len(path_step_uids) if path_step_uids else 0.0
             if (
-                focus is None
-                or progress > focus["progress"]
-                or (progress == focus["progress"] and path.uid < focus["lp_uid"])
+                focus_path is None
+                or ratio > focus_ratio
+                or (ratio == focus_ratio and path.uid < focus_path.uid)
             ):
-                focus = CurriculumFocus(lp_uid=path.uid, lp_title=path.title, progress=progress)
+                focus_path, focus_ratio = path, ratio
 
+        focus = (
+            CurriculumFocus(
+                lp_uid=focus_path.uid, lp_title=focus_path.title, progress=round(focus_ratio, 2)
+            )
+            if focus_path is not None
+            else None
+        )
         mastered_steps = len(step_uids & mastered_uids)
         return Result.ok(
             CurriculumProgressMetrics(
