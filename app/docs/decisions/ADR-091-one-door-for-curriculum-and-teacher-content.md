@@ -258,6 +258,12 @@ recreate. Each is put to Mike before that change merges.
   status and rung the student's bell, which a deletion cannot take back. Whether these files are
   fixed once synced, or a deletion or a changed `answers` is refused or compensated, is for the
   change that builds each door to put to Mike. Borders S5 and S6.
+- **A revision request on work with no exercise.** The revision door, given a submission with no
+  exercise, files a report that asks for a revision (`NEEDS_REVISION`) and publishes
+  `UserEntryRevisionRequested`, with no revised exercise. A revised-exercise file needs an exercise,
+  and S6's report moves the submission to `COMPLETED`; how the vault expresses a revision request
+  without an exercise (a report file that asks for revision, or none) is not ruled. Borders S5 and
+  S6.
 - **Who receives work submitted against a revised exercise.** Today a revised exercise resolves to
   the exercise it revises, so a feedback request on it would go to that exercise's named teacher
   (S3). A group's owning teacher may also have written the revision; whether the request goes to the
