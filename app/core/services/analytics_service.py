@@ -35,6 +35,9 @@ if TYPE_CHECKING:
     from core.ports.embedding_coverage_protocols import EmbeddingCoverageOperations
     from core.ports.knowledge_health_protocols import KnowledgeHealthOperations
     from core.ports.query_types import KnowledgeHealthReport
+    from core.services.lp_service import LpService
+    from core.services.ps_service import PsService
+    from core.services.user_progress_service import UserProgressService
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -78,8 +81,9 @@ class AnalyticsService:
         choices_service=None,
         principle_service=None,
         content_enrichment=None,
-        ku_service=None,
-        lp_service=None,
+        ku_service: PsService | None = None,
+        lp_service: LpService | None = None,
+        user_progress: UserProgressService | None = None,
         lifepath_service=None,
         report_dir: Path | None = None,
         event_bus=None,
@@ -99,7 +103,9 @@ class AnalyticsService:
             principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2)
             ku_service: PsService for knowledge substance scores (Layer 0)
-            lp_service: LpService for Learning Path CRUD (Layer 0)
+            lp_service: LpService — the learner's paths (Layer 0 curriculum progress)
+            user_progress: UserProgressService — the learner's mastered set
+                (Layer 0 curriculum progress)
             lifepath_service: LifePathService for designation + alignment history
             report_dir: Directory for storing generated analytics
             event_bus: Event bus for automatic analytics generation
@@ -136,6 +142,7 @@ class AnalyticsService:
             # Layer 0: Curriculum services
             ku_service=ku_service,
             lp_service=lp_service,
+            user_progress=user_progress,
             # Cross-domain backend — also carries the learner's activity
             # channels, which knowledge substance is scored against per-user
             # rather than against the shared curriculum node's counters.

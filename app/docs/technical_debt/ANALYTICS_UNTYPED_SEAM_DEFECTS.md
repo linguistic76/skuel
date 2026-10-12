@@ -1,6 +1,6 @@
 ---
 title: Analytics Untyped-Seam Defects
-updated: 2026-08-12
+updated: 2026-10-12
 status: resolved
 category: technical-debt
 tags: [analytics, error-handling, result, technical-debt, types]
@@ -93,7 +93,8 @@ not merely hiding behind defect 1.
 
 ### 1. `Result[dict]` placed where `dict` was expected
 
-Every `calculate_*_metrics` returns `Result[dict[str, Any]]`. Eight of the nine
+Every `calculate_*_metrics` returns a `Result` (`Result[dict[str, Any]]`; the
+curriculum metric's payload is `CurriculumProgressMetrics`). Eight of the nine
 results were stored straight into `layer1_domains` and into the returned summary;
 only `curriculum_metrics` was unwrapped. The analysis helpers below index and
 `.get()` their arguments, and `Result` supports neither — so
@@ -187,13 +188,15 @@ inventing a second rule here is how the two drift apart in the first place.
 
 ## The guard
 
-`tests/unit/test_weekly_life_summary_composition.py` — 10 tests.
+`tests/unit/test_weekly_life_summary_composition.py`.
 
 Its one structural decision is where the stubs sit. The metrics service is the
 **real** one, so the `Result` wrapper and every asserted number come from production
 code; the stubs are one layer further out, at the six `get_user_items_in_range`
-delegations and the three Layer-0/2 reads. A test that stubbed `calculate_*_metrics`
-instead would pass against defect 1.
+delegations and the knowledge and journal reads. A test that stubbed
+`calculate_*_metrics` instead would pass against defect 1. The curriculum layer has
+no stub there: its figures are guarded over the real LP and mastery reads in
+`tests/integration/routes/test_weekly_summary_curriculum.py`.
 
 It also pins the seam itself (`test_metrics_service_still_returns_result`): if the
 metrics contract is ever changed to plain dicts, the unwrapping becomes dead and the

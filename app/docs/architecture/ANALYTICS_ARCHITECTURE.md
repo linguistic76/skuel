@@ -1,6 +1,6 @@
 ---
 title: Analytics Architecture - Statistical Aggregation Meta-Service
-updated: 2026-10-10
+updated: 2026-10-12
 status: current
 category: architecture
 tags: [architecture, analytics]
@@ -72,15 +72,18 @@ def __init__(
     habits_service=None,
     goals_service=None,
     events_service=None,
-    finance_service=None,
     choices_service=None,
     principle_service=None,
     content_enrichment=None,
-    user_service=None,
-    ku_service=None,
-    lp_service=None,
+    ku_service: PsService | None = None,
+    lp_service: LpService | None = None,
+    user_progress: UserProgressService | None = None,
+    lifepath_service=None,
     report_dir: Path | None = None,
     event_bus=None,
+    cross_domain_backend=None,
+    knowledge_health_backend: KnowledgeHealthOperations | None = None,
+    embedding_coverage_backend: EmbeddingCoverageOperations | None = None,
 )
 ```
 
@@ -98,10 +101,10 @@ def __init__(
 - **Habits:** current_streaks, consistency_score, completion_rate
 - **Goals:** on_track_count, at_risk_count, progress_percentage, completion_rate
 - **Events:** total_count, completion_rate, time_distribution, total_hours_scheduled
-- **Finance:** total_expenses, category_breakdown, budget_variance, avg_daily_expense
 - **Choices:** total_count, domain_distribution, decision_quality_avg
 - **Principles:** total_principles, active_principles, avg_strength, alignment_score
 - **Knowledge:** substance_scores, mastery_levels, review_recommendations — **all per-learner.** Selection travels over the learner's engagement edges (curriculum is ownerless), and magnitudes come from their own six activity channels via `core/services/knowledge/user_substance.py`, never from `Curriculum.substance_score()`, which is corpus-global. `review_recommendations` replaced the old `decay_warnings` key: it is a personal review list, not a decay prediction, and carries no days-until field because there is no personal clock to predict from — see `knowledge_substance_philosophy.md` § Ruling.
+- **Curriculum:** active / completed learning paths, mastered / remaining steps, current_focus (`CurriculumProgressMetrics`). Two reads: the learner's paths with their steps (`LpService.list_user_paths` — enrolled or authored) and the learner's mastered set (`UserProgressService.get_mastered_uids`). A path is completed when it has steps and every one is mastered; step counts are distinct across the learner's paths. A failed read fails the metric — it never reads as zero.
 - **Submissions:** reflection_frequency, theme_analysis, metacognition_score
 
 ### AnalyticsAggregationService
@@ -361,12 +364,12 @@ Analytics doesn't have external API validation models — generated internally o
 | HabitsService | Habit streaks, completions | `get_user_items_in_range(user_uid, dates)` |
 | GoalsService | Goal progress, milestones | `get_user_items_in_range(user_uid, dates)` |
 | EventsService | Event completions, schedules | `get_user_items_in_range(user_uid, dates)` |
-| FinanceService | Expenses, budgets | `get_user_items_in_range(user_uid, dates)` |
 | ChoicesService | Decisions, outcomes | `get_user_items_in_range(user_uid, dates)` |
 | PrincipleService | Principle strength, alignment | `get_user_items_in_range(user_uid, dates)` |
 | ContentEnrichment | Submission reflection patterns | Direct submission node query |
-| KuService | Knowledge mastery | `list_by_user(user_uid, limit)` |
-| LpService | Learning path progress | `list_by_user(user_uid, limit)` |
+| PsService | The learner's engaged knowledge | `find_engaged_steps_in_window`, `count_engaged_knowledge`, `get_user_substance_scores` |
+| LpService | The learner's paths and their steps | `list_user_paths(user_uid, limit)` |
+| UserProgressService | The learner's mastered set | `get_mastered_uids(user_uid)` |
 
 ### Services That COULD Consume Analytics (Future)
 
