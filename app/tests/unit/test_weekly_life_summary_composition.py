@@ -18,9 +18,15 @@ metrics service here is the REAL one — it is what wraps in ``Result``, and it 
 what computes every number asserted below from real domain-model instances. The
 stubs sit one layer further out, at the six ``get_user_items_in_range``
 delegations (``TimeQueryMixin``, declared in ``core/ports/domain_protocols.py``)
-and the three Layer-0/2 reads. A test that instead stubbed
+and the knowledge and journal reads. A test that instead stubbed
 ``calculate_*_metrics`` to return plain dicts would pass against the bug, which
 is the whole reason no existing test caught it.
+
+The curriculum layer has no stub here: its two collaborators are left unwired,
+so its metric fails and the layer renders empty. It is guarded over the real LP
+and mastery reads in ``tests/integration/routes/test_weekly_summary_curriculum.py``,
+and its failure paths below over ``create_autospec`` collaborators, which refuse
+a method the real class lacks.
 
 Neo4j is not involved: the queries underneath those delegations are a different
 subject, guarded by ``tests/integration/test_knowledge_metrics_learner_scope.py``
@@ -40,6 +46,7 @@ already marked completed (P2).
 
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from unittest.mock import create_autospec
 
 import pytest
 
@@ -55,7 +62,9 @@ from core.models.task.task import Task
 from core.ports.analytics_protocols import AnalyticsMetricsOperations
 from core.services.analytics.analytics_aggregation_service import AnalyticsAggregationService
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
-from core.utils.result_simplified import Result
+from core.services.lp_service import LpService
+from core.services.user_progress_service import UserProgressService
+from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import wall_clock_in
 from core.utils.zone_context import current_zone
 
@@ -135,16 +144,6 @@ class _StubPsService:
         self, ps_uids: Any, user_context: Any
     ) -> Result[dict[str, float]]:
         return Result.ok({uid: self._substance[uid] for uid in ps_uids})
-
-
-class _StubLpService:
-    """``LpService.list_by_user`` — the one call ``calculate_curriculum_metrics`` makes."""
-
-    def __init__(self, learning_paths: list[LearningPath]) -> None:
-        self._learning_paths = learning_paths
-
-    async def list_by_user(self, user_uid: str, limit: Any = None) -> Result[list[LearningPath]]:
-        return Result.ok(list(self._learning_paths))
 
 
 class _StubCrossDomainBackend:
@@ -289,7 +288,6 @@ def metrics() -> AnalyticsMetricsService:
         ku_service=_StubPsService(
             _seed_path_steps(), {"total": 4, "mastered": 1}, PERSONAL_SUBSTANCE
         ),
-        lp_service=_StubLpService([LearningPath(uid="lp.python", title="Python Mastery")]),
         cross_domain_backend=_StubCrossDomainBackend(
             [
                 {
@@ -431,23 +429,15 @@ class TestWeeklyLifeSummaryComposition:
         # CORE (rank 5) and MODERATE (rank 3), as a fraction of CORE: (1.0 + 0.6) / 2
         assert layer1["principles"]["alignment_score"] == 80.0
 
-    async def test_layer_0_and_2_values_reach_the_summary(
+    async def test_layer_2_values_reach_the_summary(
         self, aggregation: AnalyticsAggregationService
     ) -> None:
-        """Curriculum progress and journal reflection, likewise by identity."""
-        summary = await aggregation.aggregate_weekly_life_summary(USER, START_DATE, END_DATE)
+        """Journal reflection, likewise by identity.
 
-        curriculum = summary["layer_0_knowledge"]["curriculum_progress"]
-        assert curriculum["active_learning_paths"] == 1
-        assert curriculum["completed_learning_paths"] == 0
-        # From count_engaged_knowledge, not from the LearningPath objects.
-        assert curriculum["total_knowledge_units"] == 4
-        assert curriculum["mastered_knowledge_units"] == 1
-        assert curriculum["current_focus"] == {
-            "lp_uid": "lp.python",
-            "lp_title": "Python Mastery",
-            "progress": 0.0,
-        }
+        Curriculum progress is guarded over the real LP and mastery reads in
+        ``tests/integration/routes/test_weekly_summary_curriculum.py``.
+        """
+        summary = await aggregation.aggregate_weekly_life_summary(USER, START_DATE, END_DATE)
 
         journal = summary["layer_2_reflection"]
         assert journal["total_entries"] == 2
@@ -693,3 +683,65 @@ def test_the_real_metrics_service_satisfies_the_protocol() -> None:
     Raised by Codex on #1032 (P1).
     """
     assert isinstance(AnalyticsMetricsService(), AnalyticsMetricsOperations)
+
+
+@pytest.mark.asyncio
+class TestCurriculumMetricsFailures:
+    """A failed read fails the curriculum metric — it never reads as an empty section.
+
+    The collaborators are ``create_autospec`` of the real classes: a method the
+    class lacks raises ``AttributeError`` at the call, as it would in production.
+    """
+
+    @staticmethod
+    def _service(
+        paths: Result[list[LearningPath]], mastered: Result[set[str]]
+    ) -> AnalyticsMetricsService:
+        lp_service = create_autospec(LpService, instance=True)
+        lp_service.list_user_paths.return_value = paths
+        user_progress = create_autospec(UserProgressService, instance=True)
+        user_progress.get_mastered_uids.return_value = mastered
+        return AnalyticsMetricsService(lp_service=lp_service, user_progress=user_progress)
+
+    async def test_a_failed_path_read_fails_the_metric(self) -> None:
+        service = self._service(
+            Result.fail(Errors.database(operation="list_user_paths", message="down")),
+            Result.ok(set()),
+        )
+
+        result = await service.calculate_curriculum_metrics(USER)
+
+        assert result.is_error
+        assert result.expect_error().message == "down"
+
+    async def test_a_failed_mastery_read_fails_the_metric(self) -> None:
+        service = self._service(
+            Result.ok([LearningPath(uid="lp.one", title="One")]),
+            Result.fail(Errors.database(operation="get_mastered_uids", message="down")),
+        )
+
+        result = await service.calculate_curriculum_metrics(USER)
+
+        assert result.is_error
+        assert result.expect_error().message == "down"
+
+    async def test_reads_that_succeed_produce_the_section(self) -> None:
+        """The control: the same two collaborators, both reads ok."""
+        service = self._service(
+            Result.ok([LearningPath(uid="lp.one", title="One")]), Result.ok(set())
+        )
+
+        result = await service.calculate_curriculum_metrics(USER)
+
+        assert result.is_ok
+        assert result.value["active_learning_paths"] == 1
+        assert result.value["current_focus"] == {
+            "lp_uid": "lp.one",
+            "lp_title": "One",
+            "progress": 0.0,
+        }
+
+    async def test_unwired_collaborators_fail_the_metric(self) -> None:
+        result = await AnalyticsMetricsService().calculate_curriculum_metrics(USER)
+
+        assert result.is_error

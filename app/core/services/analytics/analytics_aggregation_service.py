@@ -135,13 +135,13 @@ class AnalyticsAggregationService:
             await self.metrics.calculate_principle_metrics(user_uid, start_date, end_date),
         )
 
-        # Layer 0: Knowledge and curriculum metrics (NEW - )
+        # Layer 0: Knowledge and curriculum metrics
         knowledge_metrics = _layer_metrics(
             "knowledge",
             await self.metrics.calculate_knowledge_metrics(user_uid, start_date, end_date),
         )
         curriculum_metrics = _layer_metrics(
-            "curriculum", await self.metrics.calculate_curriculum_metrics(user_uid)
+            "curriculum", (await self.metrics.calculate_curriculum_metrics(user_uid)).map(dict)
         )
 
         # Layer 2: Journal reflection metrics (NEW - )

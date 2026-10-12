@@ -6,20 +6,20 @@ Calculates statistical metrics for all domains AND layers.
 
 This service extracts metrics from:
 
-**Layer 1 Domains (7):**
+**Layer 1 Domains (6):**
 - Tasks: completion rates, priority distribution, overdue counts
 - Habits: streaks, consistency, completion by day
 - Goals: progress percentages, on-track vs at-risk
 - Events: scheduled hours, event types, attendance
-- Finance: expense totals, category breakdowns, budget adherence
 - Choices: decision counts, domain distribution
 - Principles: alignment scores, strength changes, active principles
 
-**Layer 0 Curriculum (NEW):**
-- Knowledge Units: substance scores, decay warnings, domain distribution
-- Learning Paths: completion rates, active paths, mastered knowledge
+**Layer 0 Curriculum:**
+- Knowledge: per-learner substance scores, review recommendations, domain distribution
+- Learning Paths: the learner's active and completed paths, mastered and
+  remaining steps, the current focus
 
-**Layer 2 Submissions (NEW):**
+**Layer 2 Submissions:**
 - Journals: entry counts, reflection frequency, themes, metacognition
 
 Part of the 4-service Analytics architecture:
@@ -36,10 +36,16 @@ from typing import TYPE_CHECKING, Any
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus, PrincipleStrength
 from core.models.type_hints import UserUID
+from core.ports.query_types import (
+    CurriculumFocus,
+    CurriculumProgressMetrics,
+    PsEngagementCountsRow,
+)
 from core.services.knowledge.user_substance import (
     SUBSTANCE_ACTIVITY_TYPES,
     channel_maps_from_rows,
 )
+from core.services.whole_set_read import warn_if_capped
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -54,11 +60,21 @@ from core.utils.timestamp_helpers import (
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
+    from core.models.pathways.learning_path import LearningPath
+    from core.models.pathways.path_step import PathStep
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
     from core.ports.query_types import JournalEntryRow
+    from core.services.lp_service import LpService
+    from core.services.ps_service import PsService
+    from core.services.user_progress_service import UserProgressService
 
 
 logger = get_logger(__name__)
+
+
+def _path_steps(path: LearningPath) -> list[PathStep]:
+    """The steps a path read composed into ``metadata["steps"]`` (``LpService.list_user_paths``)."""
+    return list(path.metadata.get("steps", [])) if path.metadata else []
 
 
 class AnalyticsMetricsService:
@@ -67,7 +83,7 @@ class AnalyticsMetricsService:
 
     This service provides metric calculations from:
     - Layer 1: 7 domain services (tasks, habits, goals, etc.)
-    - Layer 0: Curriculum services (ku_service, lp_service)
+    - Layer 0: Curriculum services (ku_service, lp_service, user_progress)
     - Layer 2: Journal service
 
     Used by single-domain analytics, cross-domain Life Analytics, and
@@ -83,8 +99,9 @@ class AnalyticsMetricsService:
         choices_service=None,
         principle_service=None,
         content_enrichment=None,
-        ku_service=None,
-        lp_service=None,
+        ku_service: PsService | None = None,
+        lp_service: LpService | None = None,
+        user_progress: UserProgressService | None = None,
         cross_domain_backend: CrossDomainBackendOperations | None = None,
     ) -> None:
         """
@@ -99,7 +116,9 @@ class AnalyticsMetricsService:
             principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2)
             ku_service: PsService for knowledge metrics (Layer 0)
-            lp_service: LpService for curriculum metrics (Layer 0)
+            lp_service: LpService — the learner's paths, for curriculum metrics (Layer 0)
+            user_progress: UserProgressService — the learner's mastered set, for
+                curriculum metrics (Layer 0)
             cross_domain_backend: CrossDomainBackend for cross-domain queries.
                 Also the source of the learner's own activity channels, which
                 calculate_knowledge_metrics REQUIRES: without it substance has no
@@ -120,6 +139,7 @@ class AnalyticsMetricsService:
         # Layer 0 curriculum services
         self.ku_service = ku_service
         self.lp_service = lp_service
+        self.user_progress = user_progress
 
         # Cross-domain backend for analytics queries — and for the learner's
         # six activity→knowledge channels, which per-user substance is scored
@@ -885,127 +905,83 @@ class AnalyticsMetricsService:
                 )
             )
 
-    async def calculate_curriculum_metrics(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def calculate_curriculum_metrics(
+        self, user_uid: UserUID
+    ) -> Result[CurriculumProgressMetrics]:
         """
-        Calculate progress through curriculum layer (Layer 0).
+        The learner's progress through their learning paths (Layer 0).
 
-        Shows user's learning path progress, completion rates, and
-        current focus areas.
+        Two reads and a derivation. The paths are the learner's own — enrolled
+        or authored (``LpService.list_user_paths``), each with its steps; the
+        mastered set is every entity the learner holds a MASTERED edge to
+        (``UserProgressService.get_mastered_uids``). A path is completed when it
+        has steps and the learner has mastered every one; any other path is
+        active. Step figures count distinct steps across the learner's paths, so
+        a step two paths share is counted once. The current focus is the active
+        path with the largest mastered fraction (ties go to the lower uid).
 
-        Args:
-            user_uid: User identifier
+        Knowledge counts come from the learner's engagement edges
+        (``PsService.count_engaged_knowledge``) — curriculum is shared and has
+        no owner, so "the learner's knowledge" is what they have engaged.
 
-        Returns:
-            Result[dict] with curriculum progress:
-            {
-                "active_learning_paths": 3,
-                "completed_learning_paths": 7,
-                "in_progress_path_steps": 12,
-                "completed_path_steps": 85,
-                "total_knowledge_units": 50,
-                "mastered_knowledge_units": 23,
-                "current_focus": {
-                    "lp_uid": "lp:python-mastery",
-                    "lp_title": "Python Mastery",
-                    "progress": 0.65
-                }
-            }
+        A failed read fails the metric: none of the three falls back to zero.
         """
-        if not self.lp_service:
-            return Result.fail(Errors.system(message="LpService not available"))
-
-        try:
-            # Get all learning paths for user
-            lps_result = await self.lp_service.list_by_user(user_uid, QueryLimit.COMPREHENSIVE)
-
-            if lps_result.is_error or not lps_result.value:
-                return Result.ok(
-                    {
-                        "active_learning_paths": 0,
-                        "completed_learning_paths": 0,
-                        "in_progress_path_steps": 0,
-                        "completed_path_steps": 0,
-                        "total_knowledge_units": 0,
-                        "mastered_knowledge_units": 0,
-                        "current_focus": None,
-                    }
+        if self.lp_service is None or self.user_progress is None:
+            return Result.fail(
+                Errors.system(
+                    message="LpService and UserProgressService are required",
+                    operation="calculate_curriculum_metrics",
                 )
-
-            learning_paths = lps_result.value
-
-            active_lps = 0
-            completed_lps = 0
-            total_steps = 0
-            completed_steps = 0
-            current_focus = None
-
-            for lp_dto in learning_paths:
-                # Use DTO directly (Lp doesn't have from_dto method yet)
-                lp = lp_dto
-
-                # Check completion status
-                is_completed = getattr(lp, "is_completed", False)
-                if is_completed:
-                    completed_lps += 1
-                else:
-                    active_lps += 1
-
-                # Get path steps
-                steps = getattr(lp, "path_steps", [])
-                if steps:
-                    total_steps += len(steps)
-                    completed_steps += sum(1 for s in steps if getattr(s, "is_completed", False))
-
-                # Track most recently active path as current focus
-                if not is_completed and not current_focus:
-                    progress = 0.0
-                    if steps:
-                        progress = completed_steps / len(steps)
-
-                    current_focus = {
-                        "lp_uid": lp.uid,
-                        "lp_title": lp.title,
-                        "progress": round(progress, 2),
-                    }
-
-            # Knowledge counts come from the learner's engagement edges, not from
-            # an ownership property — curriculum is SHARED and has no owner, and
-            # mastery is carried by the MASTERED edge rather than a node field.
-            ku_metrics = {"total": 0, "mastered": 0}
-            if self.ku_service:
-                counts_result = await self.ku_service.count_engaged_knowledge(user_uid)
-                # Same rule as the sibling metric: a failed count is not a count
-                # of zero. Leaving the zeros in place here would publish a
-                # curriculum report claiming no knowledge on a Neo4j outage.
-                if counts_result.is_error:
-                    return Result.fail(counts_result)
-                if counts_result.value:
-                    ku_metrics = dict(counts_result.value)
-
-            return Result.ok(
-                {
-                    "active_learning_paths": active_lps,
-                    "completed_learning_paths": completed_lps,
-                    "in_progress_path_steps": total_steps - completed_steps,
-                    "completed_path_steps": completed_steps,
-                    "total_knowledge_units": ku_metrics["total"],
-                    "mastered_knowledge_units": ku_metrics["mastered"],
-                    "current_focus": current_focus,
-                }
             )
 
-        except DATA_CONVERSION_EXCEPTIONS as e:
-            logger.error(f"Failed to calculate curriculum metrics: {e}")
-            return Result.fail(
-                Errors.system(message="Curriculum metrics calculation failed", exception=e)
+        paths_result = await self.lp_service.list_user_paths(user_uid, limit=QueryLimit.MAXIMUM)
+        if paths_result.is_error:
+            return Result.fail(paths_result)
+        paths = paths_result.value or []
+        warn_if_capped(logger, "Curriculum metrics", paths, user_uid=user_uid)
+
+        mastered_result = await self.user_progress.get_mastered_uids(user_uid)
+        if mastered_result.is_error:
+            return Result.fail(mastered_result)
+        mastered_uids = mastered_result.value
+
+        knowledge: PsEngagementCountsRow = {"total": 0, "mastered": 0}
+        if self.ku_service:
+            counts_result = await self.ku_service.count_engaged_knowledge(user_uid)
+            if counts_result.is_error:
+                return Result.fail(counts_result)
+            knowledge = counts_result.value
+
+        completed_paths = 0
+        step_uids: set[str] = set()
+        focus: CurriculumFocus | None = None
+        for path in paths:
+            path_step_uids = {step.uid for step in _path_steps(path)}
+            step_uids |= path_step_uids
+            mastered_here = len(path_step_uids & mastered_uids)
+            if path_step_uids and mastered_here == len(path_step_uids):
+                completed_paths += 1
+                continue
+            progress = round(mastered_here / len(path_step_uids), 2) if path_step_uids else 0.0
+            if (
+                focus is None
+                or progress > focus["progress"]
+                or (progress == focus["progress"] and path.uid < focus["lp_uid"])
+            ):
+                focus = CurriculumFocus(lp_uid=path.uid, lp_title=path.title, progress=progress)
+
+        mastered_steps = len(step_uids & mastered_uids)
+        return Result.ok(
+            CurriculumProgressMetrics(
+                active_learning_paths=len(paths) - completed_paths,
+                completed_learning_paths=completed_paths,
+                in_progress_path_steps=len(step_uids) - mastered_steps,
+                completed_path_steps=mastered_steps,
+                total_knowledge_units=knowledge["total"],
+                mastered_knowledge_units=knowledge["mastered"],
+                current_focus=focus,
             )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(
-                f"Unexpected error calculating curriculum metrics: {type(e).__name__}: {e}"
-            )
-            return Result.fail(
-                Errors.system(message="Curriculum metrics calculation failed", exception=e)
-            )
+        )
 
     # ========================================================================
     # LAYER 2: JOURNAL METRICS

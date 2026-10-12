@@ -24,6 +24,10 @@ TypedDict per domain would have to be ``total=False`` throughout, which buys no
 checking the aggregator's ``.get(key, default)`` reads don't already tolerate.
 The defect class this file closes is Result-vs-dict, not key-level drift.
 
+The curriculum payload is the exception: it has one key set on every success
+(a failed read fails the metric rather than returning fewer keys), so it is
+``CurriculumProgressMetrics``.
+
 See: /docs/patterns/protocol_architecture.md, /docs/patterns/ANY_USAGE_POLICY.md
 """
 
@@ -37,6 +41,7 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.type_hints import UserUID
+    from core.ports.query_types import CurriculumProgressMetrics
 
 
 @runtime_checkable
@@ -80,7 +85,9 @@ class AnalyticsMetricsOperations(Protocol):
         self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]: ...
 
-    async def calculate_curriculum_metrics(self, user_uid: UserUID) -> Result[dict[str, Any]]: ...
+    async def calculate_curriculum_metrics(
+        self, user_uid: UserUID
+    ) -> Result[CurriculumProgressMetrics]: ...
 
     # Layer 2: reflection
     async def calculate_journal_metrics(

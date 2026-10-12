@@ -1528,6 +1528,7 @@ async def compose_services(
             content_enrichment=content_enrichment,  # ✅ ContentEnrichmentService - Layer 2 reporting
             ku_service=learning_services["ps"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
+            user_progress=learning_services["user_progress"],  # Layer 0 mastered set
             lifepath_service=lifepath_service,  # alignment snapshot history
             event_bus=event_bus,  # Event-driven report generation
             cross_domain_backend=cross_domain_backend,  # Cross-domain analytics queries

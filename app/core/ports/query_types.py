@@ -2507,6 +2507,44 @@ class LpDashboardSummary(TypedDict):
     completion_rate: float
 
 
+class CurriculumFocus(TypedDict):
+    """The learner's active path furthest along, in the weekly summary's curriculum section.
+
+    ``progress`` is the 0.0-1.0 fraction of the path's steps the learner has
+    mastered, rounded to two places.
+    """
+
+    lp_uid: str
+    lp_title: str
+    progress: float
+
+
+class CurriculumProgressMetrics(TypedDict):
+    """Return shape for AnalyticsMetricsService.calculate_curriculum_metrics().
+
+    The weekly life summary's curriculum section (``layer_0_knowledge.curriculum_progress``),
+    derived from the learner's paths — enrolled or authored, with their steps —
+    and the set of entities the learner has mastered.
+
+    - ``completed_learning_paths``: paths with steps, every one mastered;
+      ``active_learning_paths``: the learner's other paths (an empty path is active).
+    - ``completed_path_steps`` / ``in_progress_path_steps``: the distinct steps on
+      the learner's paths, mastered / not yet mastered — a step two paths share
+      counts once.
+    - ``total_knowledge_units`` / ``mastered_knowledge_units``: the learner's
+      engaged knowledge (``PsEngagementCountsRow``).
+    - ``current_focus``: the active path furthest along, or None with no active path.
+    """
+
+    active_learning_paths: int
+    completed_learning_paths: int
+    in_progress_path_steps: int
+    completed_path_steps: int
+    total_knowledge_units: int
+    mastered_knowledge_units: int
+    current_focus: CurriculumFocus | None
+
+
 class UserProgressResult(TypedDict, total=False):
     """Return shape for CurriculumOperations.get_user_progress().
 
