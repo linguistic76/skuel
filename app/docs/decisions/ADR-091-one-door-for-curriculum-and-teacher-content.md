@@ -119,8 +119,10 @@ with people or groups stay as they are.
 
 **Why.** A learner must be able to send work directly to the exercise's teacher, and Mike ruled the
 default group an inadequate substitute. Once no exercise has an owner (S2, S4), the owner can no
-longer stand in for the teacher (S1), so the file says who it is. The link is an edge from the
-exercise to that user, never `:OWNS`.
+longer stand in for the teacher (S1), so the file says who it is. The link is
+`(Exercise)-[:REVIEWED_BY]->(User)`, a `RelationshipName` member the implementing change adds; it is
+never `:OWNS`, and the exercise stays ownerless. Like every frontmatter edge, it is the file's own:
+changing the field retracts the old edge on the next sync.
 
 ### S4. Exercises are created and edited only in the vault
 
@@ -218,8 +220,10 @@ finds it must alter the shape stops and asks.
 
 ## Not ruled by this ADR
 
-The census behind this ADR found these doors and readers, which the rulings do not name. Each is put
-to Mike by the change it borders; nothing here decides them.
+The census behind this ADR found these doors and readers, which the rulings do not name. Nothing
+here decides them, but none may be left unsettled by the change it borders: a writer left in place
+after that change would write state the vault does not hold, which the next sync can overwrite or
+recreate. Each is put to Mike before that change merges.
 
 - **The offline review scripts.** `scripts/import_reports.py` posts reports, revisions and approvals
   through `TeacherReviewService` (ADR-040's CLI workflow); `scripts/export_submissions.py` only reads
@@ -317,6 +321,11 @@ the records listed in § Records this ADR supersedes say so in their own words.
 
 Each change's own census (every writer and reader of what it removes, and the live graph read-only
 before any narrowing) decides its file-level scope.
+
+**Order between changes 3 and 4.** Until change 4 merges, a teacher can still create an owned
+exercise that has no vault file and so names no teacher. Change 3 must not leave such an exercise
+with no feedback target: either it keeps the owner route for owned exercises until change 4 removes
+them, or the two land together. (Live on 2026-10-12 there were no owned exercises.)
 
 ---
 
