@@ -4164,6 +4164,22 @@ class HabitAnalyticsSummary(TypedDict):
     total_current_streak_days: int
 
 
+class HabitLearningState(TypedDict):
+    """One habit's learned timing and difficulty (ADR-048).
+
+    Stored as properties on the habit's node and read raw — the ``Habit`` model declares
+    none of them. ``completion_hours`` maps an hour of the day (0-23, in the user's zone)
+    to the completions made in it. A habit nothing has been learned about yet reads an
+    empty histogram, a count of 0 and ``None`` elsewhere.
+    """
+
+    completion_hours: dict[int, int]
+    learned_preferred_hour: int | None
+    learned_on_time_rate: float | None
+    learned_completion_count: int
+    learned_difficulty_level: str | None
+
+
 class HabitLearnedInsights(TypedDict):
     """ADR-048 learned timing and difficulty, counted over the user's habits."""
 
@@ -4587,6 +4603,7 @@ __all__ = [
     "GoalPerformanceAnalytics",
     "HabitAnalyticsSummary",
     "HabitLearnedInsights",
+    "HabitLearningState",
     "HabitPerformanceAnalytics",
     "EventAnalyticsSummary",
     "EventPerformanceAnalytics",

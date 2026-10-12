@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
+from functools import partial
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from core.constants import LearningLoop
 from core.events import publish_event
 from core.events.habit_events import (
     HabitCompleted,
@@ -31,12 +31,13 @@ from core.events.habit_events import (
     HabitStreakBroken,
     HabitStreakMilestone,
 )
+from core.models.habit.learning_state import plan_completion_timing, plan_difficulty
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_props import coerce_int, parse_neo4j_json
+from core.utils.neo4j_props import coerce_float, coerce_int
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import hour_of
 from core.utils.zone_context import current_zone
@@ -266,58 +267,32 @@ class HabitEventHandlerService:
     async def handle_habit_completed(self, event: HabitCompleted) -> None:
         """Learn scheduling and timing patterns from habit completions.
 
-        Tracks completion hour histogram and on-time rate via EMA,
-        persisted on the Habit node. Fire-and-forget: errors logged,
-        never propagated.
+        Adds the completion's hour (in the user's zone) to the habit's histogram, moves
+        its on-time rate (EMA) and counts the completion — all built on the state the
+        habit's node holds, read and written under the node's lock
+        (``update_habit_learning_state``), never through the ``Habit`` model.
+        Fire-and-forget: errors logged, never propagated.
 
-        Migrated from HabitsIntelligenceService.learn_from_completion().
-
-        See: /docs/decisions/ADR-048
+        See: /docs/decisions/ADR-048-adaptive-learning-loop.md
         """
         try:
-            # 1. Get current habit to read existing learning state
-            habit_result = await self.backend.get(event.habit_uid)
-            if habit_result.is_error or not habit_result.value:
-                return
-
-            habit = habit_result.value
-
-            # 2. Update completion hour histogram
             hour = hour_of(event.occurred_at, current_zone())
-            hours_hist: dict[str, int] = parse_neo4j_json(
-                getattr(habit, "completion_hours_json", None), default={}
-            )
-
-            hour_key = str(hour)
-            hours_hist[hour_key] = hours_hist.get(hour_key, 0) + 1
-
-            # 3. Calculate preferred hour (mode of histogram)
-            from core.utils.sort_functions import make_dict_value_getter
-
-            preferred_hour = int(max(hours_hist, key=make_dict_value_getter(hours_hist)))
-
-            # 4. EMA on-time rate
-            old_on_time_rate = getattr(habit, "learned_on_time_rate", None)
-            if old_on_time_rate is None:
-                old_on_time_rate = 1.0 if event.completed_on_time else 0.0
-            on_time_value = 1.0 if event.completed_on_time else 0.0
-            alpha = LearningLoop.EMA_ALPHA_HABIT_TIMING
-            new_on_time_rate = alpha * on_time_value + (1 - alpha) * old_on_time_rate
-
-            # 5. Increment completion count
-            old_count = getattr(habit, "learned_completion_count", None) or 0
-            new_count = old_count + 1
-
-            # 6. Persist to Habit node
-            await self.backend.update(
+            learned = await self.backend.update_habit_learning_state(
                 event.habit_uid,
-                {
-                    "completion_hours_json": hours_hist,  # type: ignore[dict-item]
-                    "learned_preferred_hour": preferred_hour,
-                    "learned_on_time_rate": round(new_on_time_rate, 4),
-                    "learned_completion_count": new_count,
-                },
+                partial(
+                    plan_completion_timing, hour=hour, completed_on_time=event.completed_on_time
+                ),
             )
+            if learned.is_error:
+                self.logger.warning(
+                    f"Habit timing learning not written: {learned.expect_error().message}",
+                    extra={"habit_uid": event.habit_uid, "user_uid": event.user_uid},
+                )
+                return
+            written = learned.value
+            preferred_hour = written.get("learned_preferred_hour")
+            new_on_time_rate = coerce_float(written.get("learned_on_time_rate"))
+            new_count = written.get("learned_completion_count")
 
             self.logger.info(
                 f"Habit timing learning: preferred_hour={preferred_hour}, "
@@ -326,13 +301,13 @@ class HabitEventHandlerService:
                     "habit_uid": event.habit_uid,
                     "user_uid": event.user_uid,
                     "preferred_hour": preferred_hour,
-                    "on_time_rate": round(new_on_time_rate, 4),
+                    "on_time_rate": new_on_time_rate,
                     "sample_count": new_count,
                     "event_type": "habit.timing.learned",
                 },
             )
 
-            # 7. Check and award aggregate badges (completion, quality, identity)
+            # Check and award aggregate badges (completion, quality, identity)
             await self._check_aggregate_badges(event.user_uid)
 
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
@@ -425,16 +400,6 @@ class HabitEventHandlerService:
                         "event_type": "habit.knowledge_impact",
                     },
                 )
-
-            # Persist learning state (ADR-048)
-            await self.backend.update(
-                event.habit_uid,
-                {
-                    "learned_recovery_difficulty": round(recovery_difficulty, 2),
-                    "last_streak_length": streak_length,
-                    "last_break_date": event.occurred_at.isoformat(),
-                },
-            )
 
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
@@ -560,14 +525,15 @@ class HabitEventHandlerService:
                             f"Failed to persist difficulty insight: {create_result.error}"
                         )
 
-            # Persist learned difficulty to Habit node (ADR-048)
-            await self.backend.update(
-                event.habit_uid,
-                {
-                    "learned_difficulty_level": difficulty_assessment,
-                    "miss_pattern_updated_at": datetime.now().isoformat(),
-                },
+            # Persist the learned difficulty on the habit's node (ADR-048)
+            learned = await self.backend.update_habit_learning_state(
+                event.habit_uid, partial(plan_difficulty, level=difficulty_assessment)
             )
+            if learned.is_error:
+                self.logger.warning(
+                    f"Habit difficulty not written: {learned.expect_error().message}",
+                    extra={"habit_uid": event.habit_uid, "user_uid": event.user_uid},
+                )
 
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(

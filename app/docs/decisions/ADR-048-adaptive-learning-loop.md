@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-20
+updated: 2026-10-12
 ---
 
 # ADR-048: Adaptive Learning Loop Architecture
@@ -71,6 +71,8 @@ Next recommendation query reads updated weights
    - `(user)-[:HAS_MASTERY {weight, success_count, last_updated}]->(ku)` — existing relationship, new properties
    - `(:User {preferred_task_time, avg_completion_rate})` — existing node, new properties
    - `(:Task {predicted_duration_minutes})` — calibrated over time from actuals
+
+   A habit's learning state (`completion_hours_json`, `learned_preferred_hour`, `learned_on_time_rate`, `learned_completion_count`, `learned_difficulty_level` — `core/models/habit/learning_state.py`) is stored on the habit's node and read raw (`HabitsBackend.get_habit_learning_states`, written under the node's lock by `update_habit_learning_state`), never through the `Habit` model, which declares none of it.
 
 2. **`*EventHandlerService` classes handle `learn_from_outcome()` methods** — fire-and-forget event handlers. Examples:
    - `TaskEventHandlerService.handle_task_completed()` (duration calibration)

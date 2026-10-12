@@ -634,6 +634,21 @@ class HabitsOperations(
         """Get aggregated habit stats for badge evaluation."""
         ...
 
+    # Learning state (ADR-048) — node properties the Habit model does not declare
+    async def get_habit_learning_states(
+        self, user_uid: UserUID
+    ) -> Result[dict[str, Neo4jProperties]]:
+        """Each of the user's habits' learning properties, raw, keyed by habit uid."""
+        ...
+
+    async def update_habit_learning_state(
+        self,
+        habit_uid: str,
+        plan: Callable[[Neo4jProperties], Neo4jProperties],
+    ) -> Result[Neo4jProperties]:
+        """Write one habit's learning properties from the ones it holds, under its write-lock."""
+        ...
+
     async def get_goal_links_for_habits(
         self, habit_uids: list[str]
     ) -> Result[dict[str, list[str]]]:

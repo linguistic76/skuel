@@ -252,4 +252,7 @@ HabitsBackend additionally has badge/achievement methods: per-habit streak badge
 (`award_user_badge`, `check_user_badge_earned`, `get_user_badge_stats`), and
 `get_habit_window_completions` — each habit's completion stamps in the adherence window, which
 `enrich_habits_with_adherence` (`core/services/habits/_adherence.py`) turns into each Habit's
-derived `success_rate` (`core/models/habit/adherence.py`); the facade's reads carry it.
+derived `success_rate` (`core/models/habit/adherence.py`); the facade's reads carry it. Its learning
+state (ADR-048) is node properties the `Habit` model does not declare, read raw per habit by
+`get_habit_learning_states` and written under the node's lock by `update_habit_learning_state`
+(`core/models/habit/learning_state.py` holds the property set and the planners).
