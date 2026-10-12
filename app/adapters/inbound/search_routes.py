@@ -28,9 +28,9 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
-    parse_bool_value,
-    parse_int_query_param,
-    parse_int_value,
+    parse_bool_param_strict,
+    parse_int_param_strict,
+    refuse_malformed,
     register_domain_routes,
     split_csv,
 )
@@ -295,10 +295,17 @@ def create_search_api_routes(
     ) -> Any:
         """Execute search and return HTML results. Requires authentication.
 
-        ``limit`` is read from the query string; an unreadable one is the default 20.
+        ``limit`` is read from the query string (default 20; one that does not read,
+        or is below 1, is a bare 400 — the search form never sends one; above 200
+        is 200).
         """
         user_uid = require_authenticated_user(request)
-        limit = parse_int_query_param(request.query_params, "limit", 20)
+        limit_read = parse_int_param_strict(
+            request.query_params.get("limit"), "limit", 1, default=20, cap=SEARCH_LIMIT_MAX
+        )
+        if limit_read.is_error:
+            return refuse_malformed(limit_read.expect_error())
+        limit = limit_read.value
 
         logger.info(
             f"Search params: query={query}, entity_type={entity_type!r}, "
@@ -386,7 +393,7 @@ def create_search_api_routes(
         tags: str = "",  # Comma-separated: "python,ml"
         tags_match_all: str | bool = "",
         limit: str | int = "",
-    ) -> dict[str, Any]:
+    ) -> Result[dict[str, Any]]:
         """
         Unified search API combining text, graph, and array search.
 
@@ -402,10 +409,13 @@ def create_search_api_routes(
             relationship: Relationship type name (e.g., ENABLES, REQUIRES_KNOWLEDGE)
             direction: outgoing, incoming, or both
             tags: Comma-separated tags to filter by
-            tags_match_all: True = AND semantics, False = OR semantics (an
-                unreadable value is False)
-            limit: Total result limit, 1-200 (default 50; an unreadable value is
-                the default) — the router derives each domain's budget from it
+            tags_match_all: True = AND semantics, False = OR semantics (default
+                False)
+            limit: Total result limit (default 50; above 200 is 200) — the router
+                derives each domain's budget from it
+
+        A blank query, a direction outside the three, or a ``tags_match_all`` /
+        ``limit`` that does not read (or a ``limit`` below 1) is a 400.
 
         Returns:
             {
@@ -431,17 +441,25 @@ def create_search_api_routes(
         user_uid = require_authenticated_user(request)
 
         if not query.strip():
-            return {"error": "Query is required", "total_count": 0, "results_by_domain": {}}
+            return Result.fail(Errors.validation("query is required", field="query"))
 
         # Validate graph-traversal direction at the boundary — SearchRequest narrows
         # connected_direction to a Literal, so an invalid value would otherwise raise an
         # unhandled Pydantic ValidationError during model construction.
         if direction not in ("outgoing", "incoming", "both"):
-            return {
-                "error": f"Invalid direction '{direction}'. Use 'outgoing', 'incoming', or 'both'.",
-                "total_count": 0,
-                "results_by_domain": {},
-            }
+            return Result.fail(
+                Errors.validation(
+                    "direction must be 'outgoing', 'incoming', or 'both'",
+                    field="direction",
+                    value=direction,
+                )
+            )
+        match_all = parse_bool_param_strict(tags_match_all, "tags_match_all", default=False)
+        if match_all.is_error:
+            return Result.fail(match_all)
+        total_limit = parse_int_param_strict(limit, "limit", 1, default=50, cap=SEARCH_LIMIT_MAX)
+        if total_limit.is_error:
+            return Result.fail(total_limit)
 
         # Parse entity types
         parsed_entity_types: list[EntityType | NonKuDomain] = []
@@ -476,8 +494,8 @@ def create_search_api_routes(
             connected_relationship=parsed_relationship,
             connected_direction=cast("Literal['outgoing', 'incoming', 'both']", direction),
             tags_contain=parsed_tags,
-            tags_match_all=parse_bool_value(tags_match_all),
-            limit=parse_int_value(limit, 50, minimum=1, maximum=SEARCH_LIMIT_MAX),
+            tags_match_all=match_all.value,
+            limit=total_limit.value,
             user_uid=user_uid,
         )
 
@@ -486,7 +504,7 @@ def create_search_api_routes(
 
         if result.is_error:
             logger.error(f"Unified search failed: {result.error}")
-            return {"error": str(result.error), "total_count": 0, "results_by_domain": {}}
+            return Result.fail(result)
 
         # Format response
         unified_result = result.value
@@ -504,7 +522,7 @@ def create_search_api_routes(
         # Add top results (sorted by combined score) - property returns top 10
         response["top_results"] = unified_result.top_results
 
-        return response
+        return Result.ok(response)
 
     # ========================================================================
     # INTELLIGENT SEARCH API ENDPOINT
@@ -524,8 +542,8 @@ def create_search_api_routes(
 
         Args:
             q: Natural language search query
-            limit: Maximum total results, 1-200 (default 50; an unreadable value
-                is the default)
+            limit: Maximum total results (default 50; one that does not read, or
+                is below 1, is a 400; above 200 is 200)
 
         Returns:
             {
@@ -540,10 +558,12 @@ def create_search_api_routes(
         if not q.strip():
             return Result.fail(Errors.validation(message="q is required", field="q", value=None))
 
-        limit = parse_int_query_param(
-            request.query_params, "limit", 50, minimum=1, maximum=SEARCH_LIMIT_MAX
+        limit = parse_int_param_strict(
+            request.query_params.get("limit"), "limit", 1, default=50, cap=SEARCH_LIMIT_MAX
         )
-        result = await search_router.intelligent_search(q, user_uid=user_uid, limit=limit)
+        if limit.is_error:
+            return Result.fail(limit)
+        result = await search_router.intelligent_search(q, user_uid=user_uid, limit=limit.value)
 
         if result.is_error:
             logger.error(f"Intelligent search failed: {result.error}")

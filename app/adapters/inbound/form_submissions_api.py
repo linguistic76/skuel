@@ -14,7 +14,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import read_json_body
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_param_strict
 from core.models.entity_converters import entity_to_response
 from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_submission_request import (
@@ -77,8 +77,10 @@ def create_form_submissions_api_routes(
     async def list_my_submissions(request: Request) -> Result[list[dict[str, Any]]]:
         """List the authenticated user's form submissions."""
         user_uid = require_authenticated_user(request)
-        limit = parse_int_query_param(request.query_params, "limit", 50)
-        return await form_submission_service.get_my_submissions(user_uid, limit=limit)
+        limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=50)
+        if limit.is_error:
+            return Result.fail(limit)
+        return await form_submission_service.get_my_submissions(user_uid, limit=limit.value)
 
     @rt("/api/form-submissions/get", methods=["GET"])
     @boundary_handler()

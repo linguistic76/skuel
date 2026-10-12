@@ -36,6 +36,7 @@ from adapters.inbound.route_factories import (
     create_activity_hierarchy_api_routes,
     create_activity_link_api_routes,
     create_knowledge_patterns_api_route,
+    parse_int_param_strict,
     verify_entity_ownership,
 )
 from core.models.entity_requests import (
@@ -311,13 +312,13 @@ def create_principles_api_routes(
         )
         if ownership_error:
             return ownership_error
-        period_str = request.query_params.get("period_days", "90")
-        try:
-            period_days = int(period_str)
-        except ValueError:
-            period_days = 90
+        period_days = parse_int_param_strict(
+            request.query_params.get("period_days"), "period_days", 1, default=90
+        )
+        if period_days.is_error:
+            return Result.fail(period_days)
         return await principles_service.get_choice_guidance_effectiveness(
-            uid, user_uid, period_days
+            uid, user_uid, period_days.value
         )
 
     # ================================================================

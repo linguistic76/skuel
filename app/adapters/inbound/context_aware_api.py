@@ -19,7 +19,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_body
 from adapters.inbound.route_factories import (
-    parse_bool_query_param,
+    parse_bool_param_strict,
     require_ownership_verifier,
     verify_entity_ownership,
 )
@@ -82,7 +82,11 @@ def create_context_aware_api_routes(
         params = dict(request.query_params)
 
         # Parse boolean and validate time_window
-        include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
+        include_predictions = parse_bool_param_strict(
+            params.get("include_predictions"), "include_predictions", default=True
+        )
+        if include_predictions.is_error:
+            return Result.fail(include_predictions)
         time_window_input = params.get("time_window", "7d")
 
         # Validate time_window
@@ -92,7 +96,7 @@ def create_context_aware_api_routes(
 
         return await context_service.get_context_dashboard(
             user_uid=user_uid,
-            include_predictions=include_predictions,
+            include_predictions=include_predictions.value,
             time_window=time_window_result.value,
         )
 
@@ -103,12 +107,16 @@ def create_context_aware_api_routes(
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
-        include_insights = parse_bool_query_param(params, "include_insights", default=True)
+        include_insights = parse_bool_param_strict(
+            params.get("include_insights"), "include_insights", default=True
+        )
+        if include_insights.is_error:
+            return Result.fail(include_insights)
 
         # Use get_context_summary for analysis (provides insights and metrics)
         return await context_service.get_context_summary(
             user_uid=user_uid,
-            include_insights=include_insights,
+            include_insights=include_insights.value,
         )
 
     @rt("/api/context/next-action")

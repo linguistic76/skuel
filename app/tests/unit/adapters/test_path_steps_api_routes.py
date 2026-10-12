@@ -360,8 +360,21 @@ class TestPrerequisiteChain:
         harness.ps.get_prerequisite_chain.assert_awaited_once_with(_CHILD_UID, max_depth=10)
         assert response.json()["depth"] == 10
 
-    @pytest.mark.parametrize("depth", ["abc", "2.5", ""])
-    def test_an_unreadable_depth_is_the_default(
+    @pytest.mark.parametrize("depth", ["abc", "2.5", "0"])
+    def test_an_unreadable_or_too_shallow_depth_is_refused(
+        self, monkeypatch: pytest.MonkeyPatch, depth: str
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.get(
+            f"/api/path-steps/prerequisites?step_uid={_CHILD_UID}&depth={depth}"
+        )
+
+        assert response.status_code == 400, response.text
+        harness.ps.get_prerequisite_chain.assert_not_awaited()
+
+    @pytest.mark.parametrize("depth", ["", "%20"])
+    def test_a_missing_or_blank_depth_is_the_default(
         self, monkeypatch: pytest.MonkeyPatch, depth: str
     ) -> None:
         harness = _make_harness(monkeypatch)

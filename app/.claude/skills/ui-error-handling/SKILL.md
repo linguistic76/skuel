@@ -87,10 +87,12 @@ config = ActivityUIConfig(
 )
 ```
 
-Other routes parse query parameters with the shared helpers in
+Other routes parse query parameters with the shared readers in
 `adapters/inbound/route_factories/route_helpers.py`
-(`parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`,
-`parse_pagination_params`) — see `/docs/patterns/API_VALIDATION_PATTERNS.md`.
+(`parse_int_param_strict`, `parse_bool_param_strict`, `parse_date_param_strict`,
+`parse_pagination_params`; missing is the default, malformed a 400 — an HTML route answers
+`refuse_malformed(error)`, a bare 400 HTMX does not swap) — see
+`/docs/patterns/API_VALIDATION_PATTERNS.md`.
 
 ### 3. Error Banner Component
 
@@ -284,7 +286,7 @@ lives on the request model, so it is tested there — the route only renders the
 
 ### Factory-Centralized Activity Error Handling (`/adapters/inbound/activity_ui_factory.py`)
 - `create_activity_ui_routes()` owns fetch + Result propagation + the not-found path for all 6 Activity domains — generated fragments render `render_error_banner()`; routes never hand-roll these states.
-- Calendar query params parse via `parse_date_query_param()` from `route_factories`.
+- Calendar query params parse via `parse_date_param_strict()` from `route_factories`; the item-details modal answers a `date` that does not read with `refuse_malformed`.
 - (The former `ui_helpers.py` shared-helper module was deleted 2026-08 with zero consumers.)
 
 ### Error Banner Component

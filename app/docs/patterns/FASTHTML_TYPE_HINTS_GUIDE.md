@@ -1,6 +1,6 @@
 ---
 title: FastHTML Type Hints Pattern Guide
-updated: 2026-10-11
+updated: 2026-10-12
 category: patterns
 related_skills:
 - ui-browser
@@ -70,12 +70,12 @@ request (`data |= dict(conn.query_params)`), so `await request.json()` hands bac
    `parse_form_body` — never a model in the signature. See
    [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) § Read the body inside the handler.
 4. **Never bind a `bool` / `int` / `float` / `date` / `datetime` / enum parameter outside
-   the path.** Read it from `request.query_params` with a `route_helpers` parser — a
-   silent fallback for a read (`parse_bool_query_param`, `parse_int_query_param`,
-   `parse_pagination_params`: an unreadable value is the default) or a strict 400 for a
-   value a write stores (`parse_float_param_strict`, `parse_date_param_strict`). A value
-   that arrives as a body field FastHTML binds is typed `str` (or a `str`-first union) and
-   read with `parse_bool_value` / `parse_int_value` / `parse_float_param_strict`. A typed
+   the path.** Read it from `request.query_params` with a `route_helpers` reader —
+   `parse_int_param_strict`, `parse_float_param_strict`, `parse_bool_param_strict`,
+   `parse_date_param_strict`, `parse_pagination_params`, one rule for a read and a write:
+   missing is the default, malformed a 400, and only a `cap` clamps. A value that arrives
+   as a body field FastHTML binds is typed `str` (or a `str`-first union) and read by the
+   same readers. A typed
    path segment stays: a segment that does not read is a URL that names nothing (404).
    `tests/unit/adapters/test_request_input_census.py` holds every registered handler to
    this.
@@ -96,11 +96,14 @@ async def get_active_insights(
     domain: str | None = None,
 ) -> Result[dict[str, Any]]:
     user_uid = require_authenticated_user(request)
-    limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1)
+    limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=50)
+    if limit.is_error:
+        return Result.fail(limit)
     ...
 ```
 
-`?limit=abc` reads as 50, the default — a typed `limit: int` would have answered 404.
+`?limit=abc` is a 400 naming `limit`, and a missing `limit` is 50 — a typed `limit: int`
+would have answered a bare 404.
 
 ### A score a write stores
 
@@ -155,11 +158,15 @@ async def create_tasks_from_goal_context_route(
 async def get_context_dashboard_route(request: Request) -> Result[ContextDashboard]:
     user_uid = require_authenticated_user(request)
     params = dict(request.query_params)
-    include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
+    include_predictions = parse_bool_param_strict(
+        params.get("include_predictions"), "include_predictions", default=True
+    )
+    if include_predictions.is_error:
+        return Result.fail(include_predictions)
     ...
 ```
 
-`?include_predictions=maybe` reads as `False` (an absent or blank value takes the default) instead of answering 500.
+`?include_predictions=maybe` is a 400 (an absent or blank value takes the default) instead of answering 500.
 
 ---
 

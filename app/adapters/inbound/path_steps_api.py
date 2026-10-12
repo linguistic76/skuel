@@ -11,6 +11,7 @@ and ORGANIZES hierarchy operations.
 from typing import Any
 
 from fasthtml.common import FT, Div, P
+from starlette.responses import Response
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -18,7 +19,11 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import (
+    parse_float_param_strict,
+    parse_int_param_strict,
+    refuse_malformed,
+)
 from core.constants import GraphDepth
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
 from core.models.pathways.learning_progress import LearningJourney
@@ -123,18 +128,21 @@ def create_path_steps_api_routes(
 
         Args:
             step_uid: Target path step
-            depth: Traversal depth (query, 1-10, default 3; an unreadable value is
-                the default, an out-of-range one the nearest bound); depth=1
-                yields only immediate prerequisites.
+            depth: Traversal depth (query, default 3; one that does not read or
+                is below 1 is a 400, one above 10 is 10); depth=1 yields only
+                immediate prerequisites.
         """
         user_uid = require_authenticated_user(request)
-        depth = parse_int_query_param(
-            request.query_params,
+        depth_read = parse_int_param_strict(
+            request.query_params.get("depth"),
             "depth",
-            GraphDepth.DEFAULT,
-            minimum=GraphDepth.DIRECT,
-            maximum=GraphDepth.MAXIMUM,
+            GraphDepth.DIRECT,
+            default=GraphDepth.DEFAULT,
+            cap=GraphDepth.MAXIMUM,
         )
+        if depth_read.is_error:
+            return Result.fail(depth_read)
+        depth = depth_read.value
 
         # Existence gate: a missing/deleted step is 404, not a valid step with an
         # empty chain (the bare traversal can't tell those apart).
@@ -289,19 +297,27 @@ def create_path_steps_api_routes(
         """Search path steps by content, title, or tags."""
         params = dict(request.query_params)
         query = params.get("q", "")
-        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
+        limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=50, cap=100)
+        if limit.is_error:
+            return Result.fail(limit)
 
-        return await ps_service.search_steps(query, limit)
+        return await ps_service.search_steps(query, limit.value)
 
     @rt("/api/path-steps/related")
     @boundary_handler()
     async def find_related_steps_route(request: Request, uid: str) -> Result[list[PathStep]]:
         """Find path steps related to the given one."""
         params = dict(request.query_params)
-        similarity_threshold = float(params.get("threshold", 0.7))
-        limit = parse_int_query_param(params, "limit", 10, minimum=1, maximum=500)
+        similarity_threshold = parse_float_param_strict(
+            params.get("threshold"), "threshold", default=0.7, min_val=0.0, max_val=1.0
+        )
+        if similarity_threshold.is_error:
+            return Result.fail(similarity_threshold)
+        limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=10, cap=500)
+        if limit.is_error:
+            return Result.fail(limit)
 
-        return await ps_service.find_related_steps(uid, similarity_threshold, limit)
+        return await ps_service.find_related_steps(uid, similarity_threshold.value, limit.value)
 
     @rt("/api/path-steps/recommendations")
     @boundary_handler()
@@ -337,9 +353,11 @@ def create_path_steps_api_routes(
     async def list_step_tags_route(request: Request) -> Result[list[dict[str, Any]]]:
         """List all path step tags with usage counts."""
         params = dict(request.query_params)
-        min_usage = parse_int_query_param(params, "min_usage", 1, minimum=0)
+        min_usage = parse_int_param_strict(params.get("min_usage"), "min_usage", 0, default=1)
+        if min_usage.is_error:
+            return Result.fail(min_usage)
 
-        return await ps_service.list_step_tags(min_usage)
+        return await ps_service.list_step_tags(min_usage.value)
 
     # ========================================================================
     # ANALYTICS
@@ -391,19 +409,21 @@ def create_path_steps_api_routes(
     async def get_personalized_curriculum(request: Request, category: str) -> Result[list[Any]]:
         """Get personalized curriculum for an SEL category.
 
-        ``limit`` is read from the query string (default 10; an unreadable value is
-        the default).
+        ``limit`` is read from the query string (default 10; one that does not read
+        or is below 1 is a 400).
         """
         from core.models.enums import SELCategory
 
         user_uid = require_authenticated_user(request)
-        limit = parse_int_query_param(request.query_params, "limit", 10, minimum=1)
+        limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=10)
+        if limit.is_error:
+            return Result.fail(limit)
         try:
             sel_category = SELCategory(category)
         except ValueError:
             return Result.fail(Errors.validation(f"Invalid SEL category: {category}"))
         return await ps_service.get_personalized_curriculum(
-            user_uid=user_uid, sel_category=sel_category, limit=limit
+            user_uid=user_uid, sel_category=sel_category, limit=limit.value
         )
 
     @rt("/api/path-steps/journey-html")
@@ -423,16 +443,18 @@ def create_path_steps_api_routes(
         return SELJourneyOverview(result.value)
 
     @rt("/api/path-steps/curriculum-html/{category}")
-    async def get_curriculum_html(request: Request, category: str) -> FT:
+    async def get_curriculum_html(request: Request, category: str) -> FT | Response:
         """HTMX: Render personalized curriculum grid as HTML fragment.
 
-        ``limit`` is read from the query string (default 10; an unreadable value is
-        the default).
+        ``limit`` is read from the query string (default 10; one that does not read
+        or is below 1 is a bare 400).
         """
         from core.models.enums import SELCategory
 
         user_uid = require_authenticated_user(request)
-        limit = parse_int_query_param(request.query_params, "limit", 10, minimum=1)
+        limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=10)
+        if limit.is_error:
+            return refuse_malformed(limit.expect_error())
 
         try:
             sel_category = SELCategory(category)
@@ -440,7 +462,7 @@ def create_path_steps_api_routes(
             return Alert(P(f"Invalid category: {category}"), variant=AlertT.error)
 
         result = await ps_service.get_personalized_curriculum(
-            user_uid=user_uid, sel_category=sel_category, limit=limit
+            user_uid=user_uid, sel_category=sel_category, limit=limit.value
         )
 
         if result.is_error:
@@ -559,8 +581,10 @@ def create_path_steps_api_routes(
     async def list_root_organizers_route(request: Request) -> Result[list[RootOrganizerResult]]:
         """List path steps that organize others but are not themselves organized."""
         params = dict(request.query_params)
-        limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
-        return await ps_service.list_root_organizers(limit)
+        limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=50, cap=500)
+        if limit.is_error:
+            return Result.fail(limit)
+        return await ps_service.list_root_organizers(limit.value)
 
     @rt("/api/path-steps/{uid}/organized-children")
     @boundary_handler()

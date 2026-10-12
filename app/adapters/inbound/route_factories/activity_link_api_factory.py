@@ -36,7 +36,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories.route_helpers import (
-    parse_int_query_param,
+    parse_int_param_strict,
     verify_entity_ownership,
 )
 from core.utils.result_simplified import Result
@@ -177,9 +177,12 @@ def create_knowledge_patterns_api_route(
 
     async def knowledge_patterns(request: Request) -> Result[KnowledgePatternsPayload]:
         user_uid = require_authenticated_user(request)
-        timeframe_days = parse_int_query_param(
-            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
+        timeframe_read = parse_int_param_strict(
+            request.query_params.get("timeframe_days"), "timeframe_days", 1, default=30, cap=365
         )
+        if timeframe_read.is_error:
+            return Result.fail(timeframe_read)
+        timeframe_days = timeframe_read.value
         result = await analyze_learning_patterns(user_uid, timeframe_days)
         if result.is_error:
             return Result.fail(result)

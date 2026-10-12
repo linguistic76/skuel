@@ -467,10 +467,18 @@ factory's routes are built the same way; a hand-written domain route looks like 
 @boundary_handler()
 async def goals_stalled(request: Request) -> Result[list[ContextualGoal]]:
     user_uid = require_authenticated_user(request)
-    max_progress = parse_float_query_param(request.query_params, "max_progress", 0.1)
-    limit = parse_int_query_param(request.query_params, "limit", 10)
+    max_progress = parse_float_param_strict(
+        request.query_params.get("max_progress"), "max_progress", default=0.1
+    )
+    if max_progress.is_error:
+        return Result.fail(max_progress)  # "x" → 400; missing → 0.1
+    limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=10)
+    if limit.is_error:
+        return Result.fail(limit)
     ctx_result = await fetch_context(user_uid)
     if ctx_result.is_error:
         return Result.fail(ctx_result)
-    return await goals_service.get_stalled_goals_for_user(ctx_result.value, max_progress, limit)
+    return await goals_service.get_stalled_goals_for_user(
+        ctx_result.value, max_progress.value, limit.value
+    )
 ```

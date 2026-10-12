@@ -238,8 +238,12 @@ def create_task_routes(_app, rt, services):
 async def search_tasks(request):
     user_uid = require_authenticated_user(request)
     query = request.query_params.get("q", "")
-    limit = parse_int_query_param(request.query_params, "limit", 20, minimum=1, maximum=100)
-    return await services.tasks.search.search(query, user_uid, limit)
+    limit = parse_int_param_strict(
+        request.query_params.get("limit"), "limit", 1, default=20, cap=100
+    )
+    if limit.is_error:
+        return Result.fail(limit)  # malformed or below 1 → 400; above 100 → 100
+    return await services.tasks.search.search(query, user_uid, limit.value)
 ```
 
 ### Bulk Operation Routes

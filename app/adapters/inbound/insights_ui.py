@@ -18,7 +18,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_param_strict, refuse_malformed
 from core.models.enums import EntityType, HubQuestion
 from core.services.user.rich_context import rich_entity_titles
 from core.utils.logging import get_logger
@@ -80,17 +80,22 @@ def _names_a_ku(domain: str) -> bool:
     return EntityType.from_string(domain) is EntityType.KU
 
 
-def _parse_insights_filters(request: Request) -> InsightsFilters:
-    """Extract insights filter parameters from request query params."""
-    offset = parse_int_query_param(request.query_params, "offset", 0, minimum=0)
+def _parse_insights_filters(request: Request) -> Result[InsightsFilters]:
+    """Extract insights filter parameters from request query params — a validation
+    error when ``offset`` does not read or is negative."""
+    offset = parse_int_param_strict(request.query_params.get("offset"), "offset", 0, default=0)
+    if offset.is_error:
+        return Result.fail(offset)
 
-    return InsightsFilters(
-        domain=request.query_params.get("domain"),
-        impact=request.query_params.get("impact"),
-        search=request.query_params.get("search", ""),
-        insight_type=request.query_params.get("type"),
-        action_status=request.query_params.get("status"),
-        offset=offset,
+    return Result.ok(
+        InsightsFilters(
+            domain=request.query_params.get("domain"),
+            impact=request.query_params.get("impact"),
+            search=request.query_params.get("search", ""),
+            insight_type=request.query_params.get("type"),
+            action_status=request.query_params.get("status"),
+            offset=offset.value,
+        )
     )
 
 
@@ -296,7 +301,10 @@ def create_insights_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Parse typed filter parameters
-        filters = _parse_insights_filters(request)
+        parsed = _parse_insights_filters(request)
+        if parsed.is_error:
+            return refuse_malformed(parsed.expect_error())
+        filters = parsed.value
 
         # Progressive loading - load 10 initially for fast page load
         page_size = 10
@@ -500,7 +508,10 @@ def create_insights_ui_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        filters = _parse_insights_filters(request)
+        parsed = _parse_insights_filters(request)
+        if parsed.is_error:
+            return refuse_malformed(parsed.expect_error())
+        filters = parsed.value
         page_size = 10
 
         result = await insight_store.get_active_insights(

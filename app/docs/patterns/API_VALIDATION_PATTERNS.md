@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-10-11
+updated: 2026-10-12
 category: patterns
 related_skills:
 - pydantic
@@ -42,11 +42,64 @@ SKUEL validates all external input at API boundaries to prevent 500 errors from 
 
 ### Query Parameters: Helper Functions
 
-**Use Case:** Simple string inputs from URL query params
+**Use Case:** Simple string inputs from URL query params — and any scalar a handler
+parameter carries (a form field, a JSON body's key), which reads the same way.
 
-**Pattern:** Lightweight helper functions that return `Result[T]`
+**The one rule, for every number, flag and date a route reads from the query string or a bound body field:**
+
+- **Missing or blank** → the parameter's default (or "required", a 400, when it has none).
+- **Present but malformed** → **400** (`ErrorCategory.VALIDATION`). Never a silent default.
+- **Outside its domain bounds** (`min_val` / `max_val` — a month 13, a confidence 1.5,
+  a `limit` of 0) → **400**: the value names nothing.
+- **Above its cap** (`cap` — a `limit`, a look-back window, a traversal depth past what
+  the server will do) → **the cap**. The cap is server policy, not an input error.
+
+**Pattern:** the readers in `route_helpers.py` — `parse_int_param_strict`,
+`parse_float_param_strict`, `parse_bool_param_strict`, `parse_date_param_strict`,
+`parse_pagination_params` — each return a `Result`, so a route composes them with
+`@boundary_handler()` by returning the failure onward. No reader answers a default for
+a malformed value. A form the learner types into answers with its banner (200) instead
+of a status — `/search/results` (`SearchRequest.from_form_params`, which also drops an
+unrecognised enum facet) and the analytics page's custom date range; see § When to Use
+Each Pattern.
 
 **Query param helpers live in** `adapters/inbound/route_factories/route_helpers.py` (re-exported from `adapters.inbound.route_factories`). **Body parsing helpers** (`parse_body`, `parse_json_body`, `parse_form_body`) live in `adapters/inbound/form_helpers.py`.
+
+**Example:**
+```python
+from adapters.inbound.route_factories import parse_bool_param_strict
+
+@rt("/api/context/dashboard")
+@boundary_handler()
+async def get_context_dashboard_route(request: Request) -> Result[ContextDashboard]:
+    user_uid = require_authenticated_user(request)
+    params = dict(request.query_params)
+
+    # Missing → True; "maybe" → 400
+    include_predictions = parse_bool_param_strict(
+        params.get("include_predictions"), "include_predictions", default=True
+    )
+    if include_predictions.is_error:
+        return Result.fail(include_predictions)
+
+    # Enum validation (domain-specific)
+    time_window_result = validate_time_window(params.get("time_window", "7d"))
+    if time_window_result.is_error:
+        return Result.fail(time_window_result)  # 400 with clear error
+
+    return await context_service.get_context_dashboard(
+        user_uid=user_uid,
+        include_predictions=include_predictions.value,
+        time_window=time_window_result.value,
+    )
+```
+
+**An HTML route** (a page or an HTMX fragment) cannot return the `Result`: it answers
+`refuse_malformed(error)` — a bare plain-text 400 with no `X-SKUEL-Refusal` header, so
+HTMX leaves its target as it was. The page minted the value (a Load-more sentinel's
+`offset`, a tree row's `parent_depth`, a modal's `date`), so only a crafted or stale
+request carries one that does not read — the same answer `/today/{date_str}/habits` gives a
+date it cannot read.
 
 ### Request bodies: one door, two encodings — `parse_body(request, Model)`
 
@@ -86,44 +139,9 @@ multipart body the parser cannot read. `install_malformed_json_guard` and
 `install_malformed_multipart_guard`, wired once in bootstrap's `_create_web_app`, turn
 each into a validation **400**.
 
-**Example:**
-```python
-from adapters.inbound.route_factories import (
-    parse_bool_query_param,
-    parse_date_query_param,
-    parse_csv_query_param,
-    parse_pagination_params,
-    parse_date_param_strict,
-)
-
-@rt("/api/context/dashboard")
-@boundary_handler()
-async def get_dashboard(request: Request) -> Result[Any]:
-    user_uid = require_authenticated_user(request)
-    params = dict(request.query_params)
-
-    # Boolean parsing (silent fallback)
-    include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
-
-    # Enum validation (domain-specific)
-    time_window_result = validate_time_window(params.get("time_window", "7d"))
-    if time_window_result.is_error:
-        return time_window_result  # 400 with clear error
-
-    return await service.get_dashboard(
-        user_uid=user_uid,
-        include_predictions=include_predictions,
-        time_window=time_window_result.value,
-    )
-```
-
-**Benefits:**
-- ✅ Flexible boolean parsing (true/1/yes/on)
-- ✅ Clear 400 errors with field context
-- ✅ Reusable across routes
-- ✅ Minimal overhead
-
 ---
+
+### JSON Bodies: Pydantic Request Models---
 
 ### JSON Bodies: Pydantic Request Models
 
@@ -283,11 +301,13 @@ async def request_revision(request: Request, uid: str) -> Result[Any]:
 
 ---
 
-### Date and Integer Query Parameters with `Result[T]` (Strict Helpers)
+### Required and Bounded Parameters
 
-**Use Case:** Routes where invalid dates or out-of-range integers should return a 400 error, not fall back to a default.
+**Use Case:** A parameter the route cannot do without, or one with domain bounds.
 
-**Helpers:** `parse_date_param_strict()` and `parse_int_param_strict()` from `route_helpers.py` — compose naturally with `@boundary_handler()`.
+**Helpers:** `parse_date_param_strict()` and `parse_int_param_strict()` with no `default`
+make the parameter required — missing is a 400 ("… is required"). `min_val` / `max_val`
+are inclusive domain bounds.
 
 **Usage in Routes:**
 ```python
@@ -300,10 +320,10 @@ async def get_quarterly(request: Request) -> Result[Any]:
 
     year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
     if year_result.is_error:
-        return year_result
+        return Result.fail(year_result)
     quarter_result = parse_int_param_strict(request.query_params.get("quarter"), "quarter", 1, 4)
     if quarter_result.is_error:
-        return quarter_result
+        return Result.fail(quarter_result)
 
     return await service.generate_quarterly_progress(user_uid, year_result.value, quarter_result.value)
 ```
@@ -517,8 +537,8 @@ envelope, while a UI form route re-renders with a banner at 200.
 
 | Input Type | Pattern | HTTP Status | Use Case |
 |------------|---------|------------|----------|
-| **Query Params (GET)** | Silent helpers (`parse_*_query_param`) | 200 (default) | Booleans, dates, CSV lists, pagination |
-| **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
+| **Query Params (GET)** | `parse_*_param_strict` with a `default` | 400 | Booleans, numbers, dates, pagination — missing is the default, malformed is refused |
+| **Required Params (GET)** | `parse_*_param_strict` with no `default` | 400 | Required dates, bounded integers |
 | **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 200 (banner) | Many checkbox/enum/optional string params needing coercion |
 | **Bodies at a door both callers reach (POST)** | `parse_body(request, Model)` — JSON or form by Content-Type | 400 | CRUD factory create/update, admin account actions, the context integrations: API clients and HTMX forms |
 | **JSON Bodies (POST)** | `parse_json_body(request, Model)` | 400 | JSON-only API routes |
@@ -635,65 +655,80 @@ adapters/inbound/
 
 **Use Case:** Pagination (`limit`, `offset`), time windows (`days`, `days_back`), depth controls
 
-**Pattern:** `parse_int_query_param()` — safe parsing with fallback and bounds clamping
+**Pattern:** `parse_int_param_strict(value, field, min_val=None, max_val=None, *, default, cap=None)`
 
 ```python
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_param_strict
 
-# In a route handler:
-params = dict(request.query_params)
-limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
-offset = parse_int_query_param(params, "offset", 0, minimum=0)
-days = parse_int_query_param(params, "days", 30, minimum=1, maximum=365)
-
-# Also works directly with request.query_params (Starlette QueryParams):
-limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
+params = request.query_params
+limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=50, cap=500)
+if limit.is_error:
+    return Result.fail(limit)
+month = parse_int_param_strict(params.get("month"), "month", 1, 12, default=None)
+if month.is_error:
+    return Result.fail(month)
 ```
 
 **Behavior:**
-- Missing key → returns `default`
-- Empty string → returns `default`
-- Non-numeric (e.g. `"abc"`) → returns `default`
-- Below `minimum` → clamped to `minimum`
-- Above `maximum` → clamped to `maximum`
+- Missing key, empty or blank string → `default` (`None` is a legal default: "not asked")
+- No `default` given → missing is a 400 ("… is required")
+- Non-integer (`"abc"`, `"3.14"`), or a boolean → 400
+- Below `min_val` or above `max_val` → 400
+- Above `cap` → `cap`
 - Valid integer → returned as-is
 
-**Standard Bounds:**
+**Caps vs domain bounds** — every bound a route passes today:
 
-| Parameter | Default | Min | Max | Used By |
+| Parameter | Default | Bound (400 outside) | Cap (clamps above) | Used By |
 |-----------|---------|-----|-----|---------|
-| `limit` (general) | 50-100 | 1 | 500 | The CRUD factory's `/list`; list/query endpoints |
-| `limit` (search) | 50 | 1 | 100 / 200 | The CRUD factory's `/search` (100); `/api/search/unified` and `/api/search/intelligent` (`SEARCH_LIMIT_MAX`, 200 — what `SearchRequest` accepts) |
-| `offset` | 0 | 0 | — | Pagination |
-| `days` / `days_back` / `period_days` | 30 | 1 | 365 | Analytics, time-windowed queries |
-| `depth` | 2 | 1 | 10 (`GraphDepth.MAXIMUM`) | Graph traversal — the intelligence `/context` route, the lateral `/graph` route, `/api/path-steps/prerequisites` (default 3) |
-| `min_usage` | 1 | 0 | — | Tag usage filters |
-| `max_steps` / `max_recommendations` | 5 | 1 | 20 | Askesis intelligence |
-| `time_horizon_hours` | 8 | 1 | 168 | Schedule-aware recommendations |
+| `limit` (general) | 50-100 | ≥ 1 | 500 where capped | The CRUD factory's `/list`, invoices, path-step related/root-organizers, transcriptions; uncapped on admin users, user entries, active insights, form submissions, the goals planning reads, path-step curriculum |
+| `limit` (search) | 20-50 | ≥ 1 | 100 / 200 | The CRUD factory's `/search` and `/api/path-steps/search` (100); `/search/results`, `/api/search/unified` and `/api/search/intelligent` (`SEARCH_LIMIT_MAX`, 200 — what `SearchRequest` accepts) |
+| `limit` (critical tasks) | 5 | ≥ 1 | 50 | `/goals/critical-tasks` |
+| `offset` | 0 | ≥ 0 | — | Pagination, Load-more |
+| `days` / `days_back` / `lookback_days` / `timeframe_days` | 30-90 | ≥ 1 | 365 | Analytics, habit history, goal prediction, knowledge patterns |
+| `period_days` | 30 / 90 | ≥ 1 | — | Intelligence analytics, principle choice-effectiveness |
+| `days_ahead` | 0 (the scheduler's horizon) | ≥ 0 | 90 | `/habits/schedule-events` |
+| `depth` | 2 / 3 | ≥ 1 | 10 (`GraphDepth.MAXIMUM`) | Graph traversal — the intelligence `/context` route, the lateral `/graph` route, `/api/path-steps/prerequisites` (default 3) |
+| `parent_depth` | 0 | ≥ -1 | — | The step tree's lazy load |
+| `year` / `month` | the current one | 1-9998 / 1-12 | — | `/api/habits/completion-calendar` |
+| `min_usage` | 1 | ≥ 0 | — | Tag usage filters |
 
 ### Float Query Parameters
 
-**Pattern:** `parse_float_query_param()` — same contract as the int helper (default on missing/blank/invalid, optional `minimum`/`maximum` clamping) for ratio-style params.
+**Pattern:** `parse_float_param_strict(value, field, *, default, min_val=None, max_val=None)`
+— the same rule with no cap: missing or blank is `default`; text that is not a number, a
+boolean, a non-finite number, or one outside `[min_val, max_val]` is a 400.
 
 ```python
-from adapters.inbound.route_factories import parse_float_query_param
+from adapters.inbound.route_factories import parse_float_param_strict
 
-min_progress = parse_float_query_param(request.query_params, "min_progress", 0.7)
+min_confidence = parse_float_param_strict(
+    params.get("min_confidence"), "min_confidence", default=0.7, min_val=0.0, max_val=1.0
+)
 ```
+
+A confidence or similarity threshold is bounded 0.0-1.0 (the intelligence `/insights`
+route, `/api/choices/aligned-with-principle`, `/api/path-steps/related`'s `threshold`); a
+goal-progress threshold (`/api/goals/stalled`, `/achievable`) is unbounded.
 
 **Anti-Pattern:**
 ```python
 # BAD: Crashes with ValueError on non-numeric input → 500 error
 limit = int(params.get("limit", 50))
-limit = int(request.query_params.get("days_back", 30))
 
-# GOOD: Safe fallback + bounds clamping
-limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
-days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum=1, maximum=365)
+# BAD: a value the client sent replaced by one it did not
+try:
+    period_days = int(period_str)
+except ValueError:
+    period_days = 90
+
+# GOOD: the default when missing, a 400 when malformed, the cap when too large
+limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=50, cap=500)
 ```
 
 **Location:** `adapters/inbound/route_factories/route_helpers.py`
-**Tests:** `tests/unit/adapters/test_route_helpers.py`
+**Tests:** `tests/unit/adapters/test_route_helpers.py`; through the real routes,
+`tests/integration/routes/test_door_validation.py`
 
 ---
 
@@ -701,47 +736,46 @@ days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum
 
 A handler parameter FastHTML binds — a form field, a JSON body's key — is typed `str` (or
 a `str`-first union: FastHTML converts by the first member that is not `None`, and a
-JSON number arrives as the number) and read by a value helper with the same rule as its
-query twin: `parse_bool_value(raw, default)`, `parse_int_value(raw, default, minimum=,
-maximum=)`. A typed `bool` / `int` / `float` / `date` / enum parameter outside the path is
+JSON number arrives as the number) and read by the same readers: `parse_bool_param_strict`
+takes `True` / `False` as well as their words, `parse_int_param_strict` an `int` as well as
+its text. A typed `bool` / `int` / `float` / `date` / enum parameter outside the path is
 never declared — FastHTML would answer an unreadable value with a 500 or a bare 404
 before the handler runs (`tests/unit/adapters/test_request_input_census.py` walks every
 registered handler).
 
 ### A Number a Write Stores
 
-**Pattern:** `parse_float_param_strict(value, field, *, default, min_val, max_val)` →
-`Result[float]` — never a silent default on a write. Missing or blank is `default`; a
-boolean, text that is not a number, a non-finite number, or one out of range is a
-validation error (400). The lateral edge creators read `confidence` / `strength` /
-`synergy_score` through `parse_edge_score` (`lateral_route_factory.py`), this helper over
-0.0-1.0.
+A write reads its number through the same `parse_float_param_strict`. The lateral edge
+creators read `confidence` / `strength` / `synergy_score` through `parse_edge_score`
+(`lateral_route_factory.py`), this helper over 0.0-1.0.
 
 ### Boolean Query Parameters
 
 ```python
-from adapters.inbound.route_factories import parse_bool_query_param
+from adapters.inbound.route_factories import parse_bool_param_strict
 
-include_insights = parse_bool_query_param(params, "include_insights", default=True)
+include_insights = parse_bool_param_strict(
+    params.get("include_insights"), "include_insights", default=True
+)
 ```
 
-**Handles:** `true/1/yes/on` → `True`, everything else → `False`, missing → default.
+**Handles:** `true/1/yes/on` → `True`, `false/0/no/off` → `False` (any case), missing or
+blank → default, anything else → 400.
 
 ---
 
 ### Date Query Parameters
 
 ```python
-from adapters.inbound.route_factories import parse_date_query_param
-
-# Silent fallback (optional dates)
-start_date = parse_date_query_param(params, "start_date", today - timedelta(days=7))
-
-# Strict validation (required dates)
 from adapters.inbound.route_factories import parse_date_param_strict
+
+# Optional: missing is the default (here "no date"); "2026-13-01" is a 400
+on_date = parse_date_param_strict(params.get("date"), "date", default=None)
+
+# Required: missing is a 400 too
 result = parse_date_param_strict(params.get("start_date"), "start_date")
 if result.is_error:
-    return result  # 400 with field-level error
+    return Result.fail(result)  # 400 with field-level error
 ```
 
 ---
@@ -758,6 +792,8 @@ tags = parse_csv_query_param(params, "tags")  # ["python", "ml"]
 status_filter = split_csv(status)  # strips whitespace, filters empties
 ```
 
+Any text reads as a list, so a CSV parameter has no malformed value: missing or blank is `[]`.
+
 ---
 
 ### Pagination Parameters
@@ -765,20 +801,11 @@ status_filter = split_csv(status)  # strips whitespace, filters empties
 ```python
 from adapters.inbound.route_factories import parse_pagination_params
 
-pagination = parse_pagination_params(params, default_limit=100, max_limit=500)
-# pagination.limit  — clamped to [1, max_limit]
-# pagination.offset — clamped to [0, ∞)
-```
-
----
-
-### Date Range Parameters
-
-```python
-from adapters.inbound.route_factories import parse_date_range_params
-
-date_range = parse_date_range_params(params, default_start=today - timedelta(days=7))
-# date_range.start_date, date_range.end_date — both date | None
+page = parse_pagination_params(params, default_limit=100, max_limit=500)
+if page.is_error:
+    return Result.fail(page)
+# page.value.limit  — ≥ 1 (else 400), above max_limit → max_limit
+# page.value.offset — ≥ 0 (else 400)
 ```
 
 ---
@@ -791,6 +818,9 @@ from core.utils.validation_helpers import parse_timeframe_days
 # Parse "90d" → 90, with fallback default
 lookback_days = parse_timeframe_days(timeframe, default=90)
 ```
+
+A service-side reader (Habits' `get_habit_trends`), not a door: no route reads a query
+parameter through it. A door reads a day count with `parse_int_param_strict`.
 
 **Handles:**
 - `"30d"` → `30`
@@ -923,14 +953,14 @@ async def create_exercise(request: Request) -> Result[Any]:
 
 ### Unit Tests for Helpers
 
-Tests in `tests/unit/adapters/test_route_helpers.py` cover all shared helpers (59 tests):
+Tests in `tests/unit/adapters/test_route_helpers.py` cover the shared query-param readers:
 
 ```python
-def test_parse_bool_query_param():
-    assert parse_bool_query_param({"flag": "true"}, "flag") is True
-    assert parse_bool_query_param({"flag": "1"}, "flag") is True
-    assert parse_bool_query_param({"flag": "false"}, "flag") is False
-    assert parse_bool_query_param({}, "flag", default=True) is True
+def test_parse_bool_param_strict():
+    assert parse_bool_param_strict("true", "flag", default=False).value is True
+    assert parse_bool_param_strict("0", "flag", default=True).value is False
+    assert parse_bool_param_strict(None, "flag", default=True).value is True
+    assert parse_bool_param_strict("maybe", "flag", default=True).is_error
 
 def test_parse_date_param_strict():
     result = parse_date_param_strict("2026-03-18", "start_date")
@@ -987,17 +1017,16 @@ the 400 example above from this very model.
 
 | Helper | Returns | Use Case |
 |--------|---------|----------|
-| `parse_int_query_param(params, key, default, *, minimum, maximum)` | `int` | Integer with bounds clamping, silent fallback |
-| `parse_bool_query_param(params, key, default)` | `bool` | Boolean (`true/1/yes/on` → True), silent fallback |
-| `parse_date_query_param(params, key, default)` | `date \| None` | ISO date, silent fallback |
-| `parse_csv_query_param(params, key)` | `list[str]` | Comma-separated list from params dict |
+| `parse_int_param_strict(value, field, min_val, max_val, *, default, cap)` | `Result[int]` | Integer: default when missing (required with no default), 400 when malformed or out of bounds, `cap` clamps |
+| `parse_float_param_strict(value, field, *, default, min_val, max_val)` | `Result[float]` | Finite number: default when missing, 400 when malformed, non-finite or out of bounds |
+| `parse_bool_param_strict(value, field, *, default)` | `Result[bool]` | `true/1/yes/on`, `false/0/no/off`; default when missing, 400 otherwise |
+| `parse_date_param_strict(value, field, *, default)` | `Result[date]` / `Result[date \| None]` | ISO date: default when missing (required with no default), 400 when malformed |
+| `parse_pagination_params(params, ...)` | `Result[PaginationParams]` | Limit+offset pair: `limit` ≥ 1 capped at `max_limit`, `offset` ≥ 0 |
+| `parse_csv_query_param(params, key)` | `list[str]` | Comma-separated list from params dict (no malformed value) |
 | `split_csv(value)` | `list[str]` | Comma-separated list from a string variable |
-| `parse_date_range_params(params, ...)` | `DateRangeParams` | Start/end date pair, silent fallback |
-| `parse_pagination_params(params, ...)` | `PaginationParams` | Limit+offset pair with bounds |
-| `parse_date_param_strict(value, field)` | `Result[date]` | ISO date with validation error on failure |
-| `parse_int_param_strict(value, field, min, max)` | `Result[int]` | Integer in range with validation error on failure |
+| `refuse_malformed(error)` | `Response` | The bare plain-text 400 an HTML route answers for a malformed parameter |
 
-**Silent vs strict:** Use silent helpers (`parse_*_query_param`) when invalid input should fall back to a default. Use strict helpers (`parse_*_param_strict`) when invalid input should surface as a 400 error.
+**One rule for every reader:** missing or blank is the default, malformed or out of bounds is a 400, and only a cap clamps.
 
 ## Reference Implementations
 

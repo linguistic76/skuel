@@ -279,8 +279,8 @@ intelligence_factory.register_routes(app, rt)
 ### Route Parameter Style
 
 `uid` is the one bound handler parameter; the numeric options are read from the query string
-by the shared parsers (`parse_int_query_param` / `parse_float_query_param`), so an unreadable
-value is the default rather than a cast error before the handler:
+by the shared readers (`parse_int_param_strict` / `parse_float_param_strict`): a missing value
+is the default and an unreadable one a 400, never a cast error before the handler:
 
 ```python
 async def context_route(request: Request, uid: str) -> Result[IntelligencePayload]:   # depth

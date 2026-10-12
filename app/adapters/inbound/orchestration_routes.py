@@ -43,8 +43,8 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.route_factories.route_helpers import (
-    parse_bool_query_param,
-    parse_int_query_param,
+    parse_bool_param_strict,
+    parse_int_param_strict,
     require_ownership_verifier,
     verify_entity_ownership,
 )
@@ -102,10 +102,14 @@ def create_goal_task_routes(
         ownership_error = await verify_entity_ownership(goals, uid, user_uid, "goal")
         if ownership_error:
             return ownership_error
-        auto_create = parse_bool_query_param(request.query_params, "auto_create")
+        auto_create = parse_bool_param_strict(
+            request.query_params.get("auto_create"), "auto_create", default=False
+        )
+        if auto_create.is_error:
+            return Result.fail(auto_create)
 
         return await goal_task_generator.generate_tasks_for_goal(
-            goal_uid=uid, user_context=UserContext(user_uid=user_uid), auto_create=auto_create
+            goal_uid=uid, user_context=UserContext(user_uid=user_uid), auto_create=auto_create.value
         )
 
     @rt("/goals/task-templates", methods=["GET"])
@@ -160,11 +164,17 @@ def create_goal_task_bulk_routes(
             auto_create: If true, create tasks; otherwise return templates only
         """
         user_uid = require_authenticated_user(request)
-        auto_create = parse_bool_query_param(request.query_params, "auto_create")
+        auto_create = parse_bool_param_strict(
+            request.query_params.get("auto_create"), "auto_create", default=False
+        )
+        if auto_create.is_error:
+            return Result.fail(auto_create)
         ctx_result = await user_service.get_user_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
-        return await goal_task_generator.generate_tasks_for_all_goals(ctx_result.value, auto_create)
+        return await goal_task_generator.generate_tasks_for_all_goals(
+            ctx_result.value, auto_create.value
+        )
 
     @rt("/goals/critical-tasks", methods=["GET"])
     @boundary_handler()
@@ -175,13 +185,15 @@ def create_goal_task_bulk_routes(
             limit: Max results (default 5)
         """
         user_uid = require_authenticated_user(request)
-        limit = parse_int_query_param(
-            request.query_params, "limit", default=5, minimum=1, maximum=50
+        limit = parse_int_param_strict(
+            request.query_params.get("limit"), "limit", 1, default=5, cap=50
         )
+        if limit.is_error:
+            return Result.fail(limit)
         ctx_result = await user_service.get_user_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
-        return await goal_task_generator.generate_next_critical_tasks(ctx_result.value, limit)
+        return await goal_task_generator.generate_next_critical_tasks(ctx_result.value, limit.value)
 
 
 # ---------------------------------------------------------------------------
@@ -216,21 +228,27 @@ def create_habit_event_routes(
         ownership_error = await verify_entity_ownership(habits, uid, user_uid, "habit")
         if ownership_error:
             return ownership_error
-        auto_create = parse_bool_query_param(request.query_params, "auto_create")
-        # 0 = not asked: the scheduler's configured horizon applies.
-        days_ahead = parse_int_query_param(
-            request.query_params,
-            "days_ahead",
-            default=0,
-            minimum=0,
-            maximum=_MAX_SCHEDULE_DAYS_AHEAD,
+        auto_create = parse_bool_param_strict(
+            request.query_params.get("auto_create"), "auto_create", default=False
         )
+        if auto_create.is_error:
+            return Result.fail(auto_create)
+        # 0 = not asked: the scheduler's configured horizon applies.
+        days_ahead = parse_int_param_strict(
+            request.query_params.get("days_ahead"),
+            "days_ahead",
+            0,
+            default=0,
+            cap=_MAX_SCHEDULE_DAYS_AHEAD,
+        )
+        if days_ahead.is_error:
+            return Result.fail(days_ahead)
 
         return await habit_event_scheduler.schedule_events_for_habit(
             habit_uid=uid,
             user_context=UserContext(user_uid=user_uid),
-            auto_create=auto_create,
-            days_ahead=days_ahead or None,
+            auto_create=auto_create.value,
+            days_ahead=days_ahead.value or None,
         )
 
     @rt("/habits/event-templates", methods=["GET"])
@@ -284,12 +302,14 @@ def create_goals_intelligence_routes(
         ownership_error = await verify_entity_ownership(goals, uid, user_uid, "goal")
         if ownership_error:
             return ownership_error
-        lookback_days = parse_int_query_param(
-            request.query_params, "lookback_days", default=30, minimum=1, maximum=365
+        lookback_days = parse_int_param_strict(
+            request.query_params.get("lookback_days"), "lookback_days", 1, default=30, cap=365
         )
+        if lookback_days.is_error:
+            return Result.fail(lookback_days)
         return await goals_intelligence.predict_goal_success(
             goal_uid=uid,
-            lookback_days=lookback_days,
+            lookback_days=lookback_days.value,
         )
 
     @rt("/goals/habit-impact", methods=["GET"])

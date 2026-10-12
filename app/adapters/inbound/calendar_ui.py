@@ -43,7 +43,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import parse_date_query_param
+from adapters.inbound.route_factories import parse_date_param_strict, refuse_malformed
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -319,11 +319,13 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         ``?date=YYYY-MM-DD`` scopes a habit item to that occurrence day — the
         modal then shows THAT day's completion state and its Mark Complete
         posts that day. Returns HTML fragment instead of JSON for direct DOM
-        insertion.
+        insertion. The page mints ``date``, so one that does not read is a bare 400.
         """
         user_uid = require_authenticated_user(request)
-        on_date = parse_date_query_param(request.query_params, "date")
-        result = await calendar_service.get_item(user_uid, item_id, on_date=on_date)
+        on_date = parse_date_param_strict(request.query_params.get("date"), "date", default=None)
+        if on_date.is_error:
+            return refuse_malformed(on_date.expect_error())
+        result = await calendar_service.get_item(user_uid, item_id, on_date=on_date.value)
 
         if result.is_ok and result.value:
             return create_item_details_modal(result.value)

@@ -392,11 +392,20 @@ class TestWriteRoutesArePostBehindCsrf:
 
 
 class TestQueryValues:
-    async def test_an_unreadable_auto_create_creates_nothing(
+    async def test_an_unreadable_auto_create_is_refused_and_creates_nothing(
         self, client: httpx.AsyncClient, driver: AsyncDriver
     ) -> None:
         await _clear_generated(driver)
         response = await client.post(f"/goals/generate-tasks?uid={OWN_GOAL}&auto_create=maybe")
+        assert response.status_code == 400, response.text
+        assert "auto_create" in response.text
+        assert await _generated(driver) == {CALLER: [], OTHER: []}
+
+    async def test_a_missing_auto_create_is_templates_only(
+        self, client: httpx.AsyncClient, driver: AsyncDriver
+    ) -> None:
+        await _clear_generated(driver)
+        response = await client.post(f"/goals/generate-tasks?uid={OWN_GOAL}")
         assert response.status_code == 200, response.text
         assert response.json(), "templates for the caller's goal"
         assert await _generated(driver) == {CALLER: [], OTHER: []}
@@ -406,8 +415,8 @@ class TestQueryValues:
         assert response.status_code == 200, response.text
         assert len(response.json()) == 90
 
-    @pytest.mark.parametrize("days_ahead", ["", "abc", "0", "-4"])
-    async def test_an_unreadable_days_ahead_is_the_schedulers_horizon(
+    @pytest.mark.parametrize("days_ahead", ["", "0"])
+    async def test_a_missing_or_zero_days_ahead_is_the_schedulers_horizon(
         self, client: httpx.AsyncClient, days_ahead: str
     ) -> None:
         response = await client.post(
@@ -415,3 +424,13 @@ class TestQueryValues:
         )
         assert response.status_code == 200, response.text
         assert len(response.json()) == 7
+
+    @pytest.mark.parametrize("days_ahead", ["abc", "-4"])
+    async def test_an_unreadable_days_ahead_is_refused(
+        self, client: httpx.AsyncClient, days_ahead: str
+    ) -> None:
+        response = await client.post(
+            f"/habits/schedule-events?uid={OWN_HABIT}&days_ahead={days_ahead}"
+        )
+        assert response.status_code == 400, response.text
+        assert "days_ahead" in response.text

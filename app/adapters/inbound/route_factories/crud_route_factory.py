@@ -641,9 +641,10 @@ class CRUDRouteFactory[T]:
         """
         Register list route: GET /{domain}/list
 
-        Query params (read by the route; an unreadable value is its default):
-            - limit: Max results (default: 100, 1-500)
-            - offset: Pagination offset (default: 0, at least 0)
+        Query params (read by the route; a missing one is its default, one that
+        does not read is a 400):
+            - limit: Max results (default: 100; below 1 is a 400, above 500 is 500)
+            - offset: Pagination offset (default: 0; negative is a 400)
 
         The sort key is the server's, not the caller's: the service applies
         its own stable default and the route publishes no way to override it.
@@ -693,7 +694,9 @@ class CRUDRouteFactory[T]:
             # would return 0 for shared entities that have no owner relationship).
             user_uid = require_authenticated_user(request) if verify_ownership else None
             page = parse_pagination_params(request.query_params, default_limit=100)
-            limit, offset = page.limit, page.offset
+            if page.is_error:
+                return Result.fail(page)
+            limit, offset = page.value.limit, page.value.offset
 
             # Call service with user filtering. No sort arguments: the
             # service applies its own stable default.
@@ -721,9 +724,10 @@ class CRUDRouteFactory[T]:
 
         Query params:
             - query: Search query string (required)
-            - limit: Max results (default: 50, 1-100; an unreadable value is the default,
-              an out-of-range one the nearest bound)
-            - offset: Pagination offset (default: 0, at least 0; likewise)
+            - limit: Max results (default: 50; one that does not read or is below 1
+              is a 400, one above 100 is 100)
+            - offset: Pagination offset (default: 0; one that does not read or is
+              negative is a 400)
 
         Ownership (ADR-085 G7): USER_OWNED domains authenticate the caller and
         the handler receives ``user_uid``; SHARED domains pass ``user_uid=None``
@@ -757,7 +761,9 @@ class CRUDRouteFactory[T]:
             # handler's visibility declaration decides what None may see).
             user_uid = require_authenticated_user(request) if verify_ownership else None
             page = parse_pagination_params(request.query_params, default_limit=50, max_limit=100)
-            limit, offset = page.limit, page.offset
+            if page.is_error:
+                return Result.fail(page)
+            limit, offset = page.value.limit, page.value.offset
 
             # Validation
             if not query.strip():

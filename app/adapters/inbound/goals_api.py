@@ -50,9 +50,9 @@ from adapters.inbound.route_factories import (
     create_activity_hierarchy_api_routes,
     create_activity_link_api_routes,
     create_knowledge_patterns_api_route,
-    parse_bool_query_param,
-    parse_float_query_param,
-    parse_int_query_param,
+    parse_bool_param_strict,
+    parse_float_param_strict,
+    parse_int_param_strict,
 )
 from core.models.context_types import ContextualGoal
 from core.models.entity_requests import (
@@ -156,12 +156,20 @@ def create_goals_api_routes(
             limit: Max results (default 10)
         """
         user_uid = require_authenticated_user(request)
-        max_progress = parse_float_query_param(request.query_params, "max_progress", 0.1)
-        limit = parse_int_query_param(request.query_params, "limit", 10)
+        max_progress = parse_float_param_strict(
+            request.query_params.get("max_progress"), "max_progress", default=0.1
+        )
+        if max_progress.is_error:
+            return Result.fail(max_progress)
+        limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=10)
+        if limit.is_error:
+            return Result.fail(limit)
         ctx_result = await fetch_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
-        return await goals_service.get_stalled_goals_for_user(ctx_result.value, max_progress, limit)
+        return await goals_service.get_stalled_goals_for_user(
+            ctx_result.value, max_progress.value, limit.value
+        )
 
     @rt("/api/goals/achievable", methods=["GET"])
     @boundary_handler()
@@ -173,13 +181,19 @@ def create_goals_api_routes(
             limit: Max results (default 5)
         """
         user_uid = require_authenticated_user(request)
-        min_progress = parse_float_query_param(request.query_params, "min_progress", 0.7)
-        limit = parse_int_query_param(request.query_params, "limit", 5)
+        min_progress = parse_float_param_strict(
+            request.query_params.get("min_progress"), "min_progress", default=0.7
+        )
+        if min_progress.is_error:
+            return Result.fail(min_progress)
+        limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=5)
+        if limit.is_error:
+            return Result.fail(limit)
         ctx_result = await fetch_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
         return await goals_service.get_achievable_goals_for_user(
-            ctx_result.value, min_progress, limit
+            ctx_result.value, min_progress.value, limit.value
         )
 
     @rt("/api/goals/advancing", methods=["GET"])
@@ -191,11 +205,13 @@ def create_goals_api_routes(
             limit: Max results (default 2)
         """
         user_uid = require_authenticated_user(request)
-        limit = parse_int_query_param(request.query_params, "limit", 2)
+        limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=2)
+        if limit.is_error:
+            return Result.fail(limit)
         ctx_result = await user_service.get_rich_unified_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
-        return await goals_service.get_advancing_goals_for_user(ctx_result.value, limit)
+        return await goals_service.get_advancing_goals_for_user(ctx_result.value, limit.value)
 
     # ================================================================
     # SCHEDULING-AWARE CREATION
@@ -212,9 +228,11 @@ def create_goals_api_routes(
             check_capacity: Whether to enforce capacity limits (default true)
         """
         user_uid = require_authenticated_user(request)
-        check_capacity = parse_bool_query_param(
-            request.query_params, "check_capacity", default=True
+        check_capacity = parse_bool_param_strict(
+            request.query_params.get("check_capacity"), "check_capacity", default=True
         )
+        if check_capacity.is_error:
+            return Result.fail(check_capacity)
         parsed = await parse_json_body(request, GoalCreateRequest)
         if parsed.is_error:
             return Result.fail(parsed)
@@ -222,7 +240,7 @@ def create_goals_api_routes(
         if ctx_result.is_error:
             return Result.fail(ctx_result)
         return await goals_service.create_goal_with_scheduling_context(
-            parsed.value, ctx_result.value, check_capacity
+            parsed.value, ctx_result.value, check_capacity.value
         )
 
     # ================================================================

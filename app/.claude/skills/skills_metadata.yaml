@@ -85,7 +85,7 @@ skills:
 
   - name: pydantic
     description: Pydantic V2 validation models
-    last_reviewed: "2026-10-10"
+    last_reviewed: "2026-10-12"
     foundation: []
     dependencies: []
     library_package: pydantic
@@ -247,7 +247,7 @@ skills:
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-10-12"
     foundation: [result-pattern, ui-css]
     dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -399,7 +399,7 @@ skills:
 
   - name: result-pattern
     description: Result[T] error handling pattern
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-10-12"
     foundation: [python]
     dependencies: [python]
     library_package: null  # SKUEL pattern, not external library
@@ -473,7 +473,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-10-12"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library

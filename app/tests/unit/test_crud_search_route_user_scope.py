@@ -150,16 +150,17 @@ async def test_user_owned_search_refuses_unauthenticated(
 @pytest.mark.parametrize(
     ("query", "window"),
     [
-        ({"limit": "lots", "offset": "x"}, (50, 0)),
-        ({"limit": "500", "offset": "-3"}, (100, 0)),
+        ({}, (50, 0)),
+        ({"limit": "", "offset": ""}, (50, 0)),
+        ({"limit": "500", "offset": "3"}, (100, 3)),
         ({"limit": "7", "offset": "14"}, (7, 14)),
     ],
 )
 async def test_the_window_is_read_from_the_query_string(
     monkeypatch: pytest.MonkeyPatch, query: dict[str, str], window: tuple[int, int]
 ) -> None:
-    """An unreadable limit / offset is its default, an out-of-range one the nearest
-    bound (1-100, at least 0) — never a 404 from a typed parameter."""
+    """A missing limit / offset is its default and a limit above 100 is 100 — never
+    a 404 from a typed parameter."""
     handler = _RecordingHandler()
     factory = _make_factory(ContentScope.SHARED, handler)
     router = _MockRouter()
@@ -169,3 +170,22 @@ async def test_the_window_is_read_from_the_query_string(
     await router.routes["/api/tasks/search"](request, query="alpha")
 
     assert (handler.calls[0]["limit"], handler.calls[0]["offset"]) == window
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "query", [{"limit": "lots"}, {"offset": "x"}, {"limit": "0"}, {"offset": "-3"}]
+)
+async def test_an_unreadable_window_is_refused(query: dict[str, str]) -> None:
+    """A limit / offset that does not read, or lies below its bound, is a 400 and
+    the search handler is not called."""
+    handler = _RecordingHandler()
+    factory = _make_factory(ContentScope.SHARED, handler)
+    router = _MockRouter()
+    factory._register_search_route(router)
+
+    request = SimpleNamespace(method="GET", query_params=query)
+    response = await router.routes["/api/tasks/search"](request, query="alpha")
+
+    assert response.status_code == 400
+    assert handler.calls == []

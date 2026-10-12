@@ -43,8 +43,8 @@ from adapters.inbound.form_helpers import parse_body, read_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import (
     is_not_found,
-    parse_bool_query_param,
-    parse_int_query_param,
+    parse_bool_param_strict,
+    parse_int_param_strict,
     refuse,
 )
 from core.models.entity_requests import ChangeUserRoleRequest, DeactivateUserRequest
@@ -171,25 +171,33 @@ def create_admin_api_routes(
             role: Filter by role (registered, member, teacher, admin)
             active_only: Only return active users (default: true)
 
-        An unreadable ``limit`` / ``offset`` is its default and an unreadable
-        ``active_only`` is false — the query-param helpers' rule.
+        A missing or blank parameter is its default; an unreadable one (or a
+        ``limit`` below 1, an ``offset`` below 0) is a 400.
 
         Returns:
             JSON array of user objects
         """
         params = request.query_params
-        limit = parse_int_query_param(params, "limit", 100, minimum=1)
-        offset = parse_int_query_param(params, "offset", 0, minimum=0)
-        active_only = parse_bool_query_param(params, "active_only", default=True)
+        limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=100)
+        if limit.is_error:
+            return Result.fail(limit)
+        offset = parse_int_param_strict(params.get("offset"), "offset", 0, default=0)
+        if offset.is_error:
+            return Result.fail(offset)
+        active_only = parse_bool_param_strict(
+            params.get("active_only"), "active_only", default=True
+        )
+        if active_only.is_error:
+            return Result.fail(active_only)
         # Parse role filter if provided
         role_filter = UserRole.from_string(role) if role else None
 
         result = await user_service.list_users(
             admin_user_uid=current_user.uid,
-            limit=limit,
-            offset=offset,
+            limit=limit.value,
+            offset=offset.value,
             role_filter=role_filter,
-            active_only=active_only,
+            active_only=active_only.value,
         )
 
         if result.is_error:
