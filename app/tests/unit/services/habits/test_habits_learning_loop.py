@@ -1,15 +1,14 @@
 """
 Unit tests for Habits adaptive learning loop (ADR-048).
 
-Tests timing/scheduling learning and persisted difficulty:
+A habit's learning state is stored on its node and read raw — the ``Habit`` model
+declares none of it. Tests cover:
 - Hour histogram tracking and mode calculation
 - On-time rate EMA
-- Streak broken persists recovery difficulty
-- Missed persists difficulty level
-- Performance analytics includes learned insights
-
-Note: Event handlers migrated from HabitsIntelligenceService to
-HabitEventHandlerService (March 2026). Tests updated accordingly.
+- Completion count accumulating across completions
+- A streak break writes nothing to the habit
+- A miss persists the difficulty level
+- Performance analytics count the learned state read raw per habit
 """
 
 import json
@@ -20,13 +19,20 @@ import pytest
 
 from core.events.habit_events import HabitCompleted, HabitMissed, HabitStreakBroken
 from core.models.habit.habit import Habit
+from core.models.habit.learning_state import (
+    habit_learning_state,
+    plan_completion_timing,
+)
 from core.services.habits.habit_event_handler_service import HabitEventHandlerService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
+from tests.helpers.habit_learning_fake import HabitLearningStore
 from tests.helpers.laptop_clock import laptop_wall
 
+HABIT = "habit_test_abc"
 
-def _make_habit(uid="habit_test_abc", title="Test Habit", **kwargs):
+
+def _make_habit(uid=HABIT, title="Test Habit"):
     """Create a mock Habit with common defaults."""
     habit = MagicMock(spec=Habit)
     habit.uid = uid
@@ -36,23 +42,18 @@ def _make_habit(uid="habit_test_abc", title="Test Habit", **kwargs):
     habit.current_streak = 5
     habit.best_streak = 10
     habit.recurrence_pattern = "daily"
-    habit.completion_hours_json = None
-    habit.learned_on_time_rate = None
-    habit.learned_completion_count = None
-    habit.learned_preferred_hour = None
-    habit.learned_difficulty_level = None
-    habit.learned_recovery_difficulty = None
-    for k, v in kwargs.items():
-        setattr(habit, k, v)
     return habit
 
 
-def _make_backend():
-    """Create a mock backend."""
+def _make_backend(**stored: object):
+    """A mock backend whose learning writes land in a ``HabitLearningStore`` holding HABIT."""
     backend = AsyncMock()
-    backend.get = AsyncMock()
+    backend.get = AsyncMock(return_value=Result.ok(_make_habit()))
     backend.update = AsyncMock(return_value=Result.ok(True))
     backend.find_by = AsyncMock(return_value=Result.ok([]))
+    backend.learning = HabitLearningStore(HABIT)
+    backend.learning.states[HABIT].update(stored)
+    backend.update_habit_learning_state = backend.learning.update_habit_learning_state
     return backend
 
 
@@ -63,28 +64,21 @@ def _make_relationships():
     return rels
 
 
-def _make_event_handler(backend=None, relationships=None):
-    """Create HabitEventHandlerService with mocks."""
-    if backend is None:
-        backend = _make_backend()
-    if relationships is None:
-        relationships = _make_relationships()
-    return HabitEventHandlerService(
+def _make_event_handler(backend):
+    return HabitEventHandlerService(backend=backend, relationship_service=_make_relationships())
+
+
+def _make_intelligence_service(backend):
+    return HabitsIntelligenceService(
         backend=backend,
-        relationship_service=relationships,
+        relationship_service=_make_relationships(),
+        cross_domain_query=AsyncMock(),
     )
 
 
-def _make_intelligence_service(backend=None, relationships=None):
-    """Create HabitsIntelligenceService with mocks."""
-    if backend is None:
-        backend = _make_backend()
-    if relationships is None:
-        relationships = _make_relationships()
-    return HabitsIntelligenceService(
-        backend=backend,
-        relationship_service=relationships,
-        cross_domain_query=AsyncMock(),
+def _completed(occurred_at: datetime, *, on_time: bool = True) -> HabitCompleted:
+    return HabitCompleted(
+        habit_uid=HABIT, user_uid="user_123", occurred_at=occurred_at, completed_on_time=on_time
     )
 
 
@@ -96,137 +90,86 @@ class TestLearnFromCompletion:
     async def test_tracks_completion_hour(self):
         """Records completion hour in histogram."""
         backend = _make_backend()
-        habit = _make_habit()
-        backend.get.return_value = Result.ok(habit)
 
-        service = _make_event_handler(backend)
-        event = HabitCompleted(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=laptop_wall(2026, 3, 9, 14, 30),  # 2:30 PM
+        await _make_event_handler(backend).handle_habit_completed(
+            _completed(laptop_wall(2026, 3, 9, 14, 30))  # 2:30 PM
         )
 
-        await service.handle_habit_completed(event)
-
-        update_call = backend.update.call_args[0]
-        assert update_call[0] == "habit_test_abc"
-        props = update_call[1]
-        hours_hist = props["completion_hours_json"]
-        assert hours_hist["14"] == 1
-        assert props["learned_preferred_hour"] == 14
+        state = backend.learning.states[HABIT]
+        assert json.loads(state["completion_hours_json"]) == {"14": 1}
+        assert state["learned_preferred_hour"] == 14
+        backend.update.assert_not_called()
 
     @pytest.mark.usefixtures("laptop_zone")
     @pytest.mark.asyncio
     async def test_builds_histogram_over_time(self):
-        """Histogram accumulates across completions."""
+        """Histogram and count accumulate across completions."""
         backend = _make_backend()
         service = _make_event_handler(backend)
 
-        # First completion at 8 AM
-        habit1 = _make_habit()
-        backend.get.return_value = Result.ok(habit1)
-        event1 = HabitCompleted(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=laptop_wall(2026, 3, 9, 8, 0),
-        )
-        await service.handle_habit_completed(event1)
+        await service.handle_habit_completed(_completed(laptop_wall(2026, 3, 9, 8, 0)))
+        await service.handle_habit_completed(_completed(laptop_wall(2026, 3, 10, 8, 0)))
 
-        # Second completion at 8 AM (with existing histogram)
-        hist_after_first = backend.update.call_args[0][1]["completion_hours_json"]
-        habit2 = _make_habit(completion_hours_json=hist_after_first, learned_completion_count=1)
-        backend.get.return_value = Result.ok(habit2)
-        event2 = HabitCompleted(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=laptop_wall(2026, 3, 10, 8, 0),
-        )
-        await service.handle_habit_completed(event2)
-
-        props = backend.update.call_args[0][1]
-        hours_hist = props["completion_hours_json"]
-        assert hours_hist["8"] == 2
-        assert props["learned_preferred_hour"] == 8
+        state = backend.learning.states[HABIT]
+        assert json.loads(state["completion_hours_json"]) == {"8": 2}
+        assert state["learned_preferred_hour"] == 8
+        assert state["learned_completion_count"] == 2
 
     @pytest.mark.asyncio
     async def test_preferred_hour_is_mode(self):
         """Preferred hour is the most frequent completion hour."""
-        backend = _make_backend()
-        # Simulate existing histogram: 8 AM=3, 14 PM=5
-        existing_hist = json.dumps({"8": 3, "14": 5})
-        habit = _make_habit(completion_hours_json=existing_hist, learned_completion_count=8)
-        backend.get.return_value = Result.ok(habit)
-
-        service = _make_event_handler(backend)
-        # Complete at 14:00 again
-        event = HabitCompleted(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=datetime(2026, 3, 9, 14, 0),
+        backend = _make_backend(
+            completion_hours_json=json.dumps({"8": 3, "14": 5}), learned_completion_count=8
         )
-        await service.handle_habit_completed(event)
 
-        props = backend.update.call_args[0][1]
-        assert props["learned_preferred_hour"] == 14
+        await _make_event_handler(backend).handle_habit_completed(
+            _completed(datetime(2026, 3, 9, 14, 0))
+        )
+
+        assert backend.learning.states[HABIT]["learned_preferred_hour"] == 14
 
     @pytest.mark.asyncio
     async def test_on_time_rate_ema(self):
         """On-time rate uses EMA."""
-        backend = _make_backend()
-        habit = _make_habit(learned_on_time_rate=0.8)
-        backend.get.return_value = Result.ok(habit)
+        backend = _make_backend(learned_on_time_rate=0.8)
 
-        service = _make_event_handler(backend)
-        # Complete late
-        event = HabitCompleted(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=datetime.now(),
-            completed_on_time=False,
+        await _make_event_handler(backend).handle_habit_completed(
+            _completed(datetime.now(), on_time=False)
         )
-        await service.handle_habit_completed(event)
 
         # EMA = 0.2 * 0.0 + 0.8 * 0.8 = 0.64
-        props = backend.update.call_args[0][1]
-        assert abs(props["learned_on_time_rate"] - 0.64) < 0.01
+        assert abs(backend.learning.states[HABIT]["learned_on_time_rate"] - 0.64) < 0.01
 
     @pytest.mark.asyncio
     async def test_on_time_rate_cold_start_on_time(self):
-        """Cold-start on-time rate for on-time completion."""
+        """A habit's first completion sets the on-time rate outright."""
         backend = _make_backend()
-        habit = _make_habit()
-        backend.get.return_value = Result.ok(habit)
 
-        service = _make_event_handler(backend)
-        event = HabitCompleted(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=datetime.now(),
-            completed_on_time=True,
-        )
-        await service.handle_habit_completed(event)
+        await _make_event_handler(backend).handle_habit_completed(_completed(datetime.now()))
 
-        # Cold start: old_rate = 1.0, EMA = 0.2 * 1.0 + 0.8 * 1.0 = 1.0
-        props = backend.update.call_args[0][1]
-        assert abs(props["learned_on_time_rate"] - 1.0) < 0.01
+        assert backend.learning.states[HABIT]["learned_on_time_rate"] == 1.0
 
     @pytest.mark.asyncio
     async def test_increments_completion_count(self):
         """Completion count increments."""
+        backend = _make_backend(learned_completion_count=5)
+
+        await _make_event_handler(backend).handle_habit_completed(_completed(datetime.now()))
+
+        assert backend.learning.states[HABIT]["learned_completion_count"] == 6
+
+    @pytest.mark.asyncio
+    async def test_a_refused_write_is_logged_not_raised(self):
+        """A learning write the backend refuses is logged; no badge check follows."""
         backend = _make_backend()
-        habit = _make_habit(learned_completion_count=5)
-        backend.get.return_value = Result.ok(habit)
-
-        service = _make_event_handler(backend)
-        event = HabitCompleted(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=datetime.now(),
+        backend.update_habit_learning_state = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Habit", HABIT))
         )
-        await service.handle_habit_completed(event)
+        backend.get_user_badge_stats = AsyncMock()
 
-        props = backend.update.call_args[0][1]
-        assert props["learned_completion_count"] == 6
+        await _make_event_handler(backend).handle_habit_completed(_completed(datetime.now()))
+
+        backend.get_user_badge_stats.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_error_is_swallowed(self):
@@ -234,161 +177,118 @@ class TestLearnFromCompletion:
         from neo4j.exceptions import ServiceUnavailable
 
         backend = _make_backend()
-        backend.get.side_effect = ServiceUnavailable("DB down")
+        backend.update_habit_learning_state = AsyncMock(side_effect=ServiceUnavailable("DB down"))
 
-        service = _make_event_handler(backend)
-        event = HabitCompleted(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=datetime.now(),
-        )
         # Should not raise
-        await service.handle_habit_completed(event)
+        await _make_event_handler(backend).handle_habit_completed(_completed(datetime.now()))
 
 
-class TestStreakBrokenPersistence:
-    """Test that handle_habit_streak_broken persists recovery difficulty."""
+class TestLearningStatePlanner:
+    """The pure read and plan the handler and the analytics share."""
+
+    def test_an_unwritten_habit_reads_empty(self):
+        assert habit_learning_state({}) == {
+            "completion_hours": {},
+            "learned_preferred_hour": None,
+            "learned_on_time_rate": None,
+            "learned_completion_count": 0,
+            "learned_difficulty_level": None,
+        }
+
+    def test_the_plan_writes_only_the_timing_properties(self):
+        written = plan_completion_timing({}, hour=7, completed_on_time=True)
+        assert set(written) == {
+            "completion_hours_json",
+            "learned_preferred_hour",
+            "learned_on_time_rate",
+            "learned_completion_count",
+        }
+
+
+class TestStreakBrokenWritesNothing:
+    """A streak break is analysed and logged; nothing reads a stored record of it."""
 
     @pytest.mark.asyncio
-    async def test_persists_recovery_difficulty(self):
+    async def test_writes_nothing_to_the_habit(self):
         backend = _make_backend()
-        habit = _make_habit()
-        backend.get.return_value = Result.ok(habit)
 
-        service = _make_event_handler(backend)
-        event = HabitStreakBroken(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=datetime(2026, 3, 9),
-            streak_length=14,
-            last_completion_date=datetime(2026, 3, 5),
-            days_since_last_completion=4,
+        await _make_event_handler(backend).handle_habit_streak_broken(
+            HabitStreakBroken(
+                habit_uid=HABIT,
+                user_uid="user_123",
+                occurred_at=datetime(2026, 3, 9),
+                streak_length=14,
+                last_completion_date=datetime(2026, 3, 5),
+                days_since_last_completion=4,
+            )
         )
 
-        await service.handle_habit_streak_broken(event)
-
-        # Should have called update with learning state
-        update_calls = backend.update.call_args_list
-        # Find the call with learned_recovery_difficulty
-        learning_call = None
-        for call in update_calls:
-            props = call[0][1]
-            if "learned_recovery_difficulty" in props:
-                learning_call = props
-                break
-
-        assert learning_call is not None
-        assert 0.0 <= learning_call["learned_recovery_difficulty"] <= 1.0
-        assert learning_call["last_streak_length"] == 14
-        assert learning_call["last_break_date"] == "2026-03-09T00:00:00"
+        backend.update.assert_not_called()
+        assert backend.learning.writes == []
 
 
 class TestMissedPersistence:
     """Test that handle_habit_missed persists difficulty level."""
 
+    @pytest.mark.parametrize(("misses", "level"), [(4, "difficult"), (1, "normal")])
     @pytest.mark.asyncio
-    async def test_persists_difficulty_level(self):
+    async def test_persists_difficulty_level(self, misses: int, level: str):
         backend = _make_backend()
-        habit = _make_habit()
-        backend.get.return_value = Result.ok(habit)
 
-        service = _make_event_handler(backend)
-        event = HabitMissed(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=datetime.now(),
-            scheduled_date=datetime.now(),
-            consecutive_misses=4,
-            days_overdue=2,
+        await _make_event_handler(backend).handle_habit_missed(
+            HabitMissed(
+                habit_uid=HABIT,
+                user_uid="user_123",
+                occurred_at=datetime.now(),
+                scheduled_date=datetime.now(),
+                consecutive_misses=misses,
+                days_overdue=2,
+            )
         )
 
-        await service.handle_habit_missed(event)
-
-        # Should persist difficulty assessment
-        update_calls = backend.update.call_args_list
-        learning_call = None
-        for call in update_calls:
-            props = call[0][1]
-            if "learned_difficulty_level" in props:
-                learning_call = props
-                break
-
-        assert learning_call is not None
-        assert learning_call["learned_difficulty_level"] == "difficult"
-        assert "miss_pattern_updated_at" in learning_call
-
-    @pytest.mark.asyncio
-    async def test_persists_normal_difficulty_for_single_miss(self):
-        backend = _make_backend()
-        habit = _make_habit()
-        backend.get.return_value = Result.ok(habit)
-
-        service = _make_event_handler(backend)
-        event = HabitMissed(
-            habit_uid="habit_test_abc",
-            user_uid="user_123",
-            occurred_at=datetime.now(),
-            scheduled_date=datetime.now(),
-            consecutive_misses=1,
-            days_overdue=0,
-        )
-
-        await service.handle_habit_missed(event)
-
-        update_calls = backend.update.call_args_list
-        learning_call = None
-        for call in update_calls:
-            props = call[0][1]
-            if "learned_difficulty_level" in props:
-                learning_call = props
-                break
-
-        assert learning_call is not None
-        assert learning_call["learned_difficulty_level"] == "normal"
+        assert backend.learning.writes == [(HABIT, {"learned_difficulty_level": level})]
 
 
-def _real_habit(uid: str, **learned: object) -> Habit:
-    """A real Habit (the analytics hydrate it with ``dataclasses.replace``), with any
-    ``learned_*`` values set as plain attributes — the model declares no such fields."""
-    habit = Habit(uid=uid, user_uid="user_123", title=f"Habit {uid}")
-    for name, value in learned.items():
-        object.__setattr__(habit, name, value)
-    return habit
+def _real_habit(uid: str) -> Habit:
+    """A real Habit (the analytics hydrate it with ``dataclasses.replace``)."""
+    return Habit(uid=uid, user_uid="user_123", title=f"Habit {uid}")
+
+
+def _analytics_backend(habits: list[Habit], raw_states: dict[str, dict[str, object]]):
+    backend = _make_backend()
+    backend.find_by.return_value = Result.ok(habits)
+    backend.get_habit_window_completions.return_value = Result.ok(
+        {habit.uid: [] for habit in habits}
+    )
+    backend.get_habit_learning_states = AsyncMock(return_value=Result.ok(raw_states))
+    return backend
 
 
 class TestPerformanceAnalyticsLearnedInsights:
-    """Test that get_performance_analytics includes learned insights."""
+    """get_performance_analytics counts the learned state, read raw per habit."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Known hole: HabitEventHandlerService writes learned_* as node properties, but "
-            "Habit declares no learned_* fields, so no read carries them and these insights "
-            "are always empty — registered in docs/roadmap/habit-completion-persistence-bundle.md"
-        ),
-    )
     @pytest.mark.asyncio
     async def test_includes_learned_insights(self):
-        backend = _make_backend()
-        habits = [
-            _real_habit(
-                "h1",
-                learned_difficulty_level="difficult",
-                learned_preferred_hour=8,
-                learned_on_time_rate=0.85,
-            ),
-            _real_habit("h2", learned_preferred_hour=14, learned_on_time_rate=0.92),
-            _real_habit("h3"),
-        ]
-        backend.find_by.return_value = Result.ok(habits)
-        backend.get_habit_window_completions.return_value = Result.ok(
-            {habit.uid: [] for habit in habits}
+        habits = [_real_habit("h1"), _real_habit("h2"), _real_habit("h3")]
+        backend = _analytics_backend(
+            habits,
+            {
+                "h1": {
+                    "learned_difficulty_level": "difficult",
+                    "learned_preferred_hour": 8,
+                    "learned_on_time_rate": 0.85,
+                },
+                "h2": {"learned_preferred_hour": 14, "learned_on_time_rate": 0.92},
+                "h3": {},
+                # A habit outside the analytics' own set is not counted.
+                "h_other": {"learned_preferred_hour": 3, "learned_on_time_rate": 0.1},
+            },
         )
 
-        service = _make_intelligence_service(backend)
-        result = await service.get_performance_analytics("user_123")
+        result = await _make_intelligence_service(backend).get_performance_analytics("user_123")
 
         assert result.is_ok
+        backend.get_habit_learning_states.assert_awaited_once_with("user_123")
         insights = result.value["learned_insights"]
         assert insights["habits_with_difficulty"] == 1
         assert insights["habits_with_timing_data"] == 2
@@ -396,16 +296,24 @@ class TestPerformanceAnalyticsLearnedInsights:
 
     @pytest.mark.asyncio
     async def test_no_learned_data(self):
-        backend = _make_backend()
-        habits = [_real_habit("h1")]
-        backend.find_by.return_value = Result.ok(habits)
-        backend.get_habit_window_completions.return_value = Result.ok({"h1": []})
+        backend = _analytics_backend([_real_habit("h1")], {"h1": {}})
 
-        service = _make_intelligence_service(backend)
-        result = await service.get_performance_analytics("user_123")
+        result = await _make_intelligence_service(backend).get_performance_analytics("user_123")
 
         assert result.is_ok
-        insights = result.value["learned_insights"]
-        assert insights["habits_with_difficulty"] == 0
-        assert insights["habits_with_timing_data"] == 0
-        assert insights["avg_on_time_rate"] is None
+        assert result.value["learned_insights"] == {
+            "habits_with_difficulty": 0,
+            "habits_with_timing_data": 0,
+            "avg_on_time_rate": None,
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_failed_learning_read_fails_the_analytics(self):
+        backend = _analytics_backend([_real_habit("h1")], {})
+        backend.get_habit_learning_states = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="read", message="down"))
+        )
+
+        result = await _make_intelligence_service(backend).get_performance_analytics("user_123")
+
+        assert result.is_error

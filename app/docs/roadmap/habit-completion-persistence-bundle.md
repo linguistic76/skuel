@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-10-11
+updated: 2026-10-12
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -321,13 +321,13 @@ caller.
   `get_keystone_habits` always returns `[]`. Neither user-context statement returns
   `is_identity_habit`, so populating it is a statement change — registered, not built
   (Mike, 2026-10-03: taken on recommendation).
-- **The ADR-048 `learned_*` fields are written and never readable.**
-  `HabitEventHandlerService` writes `learned_preferred_hour`, `learned_on_time_rate`,
-  `learned_completion_count`, `learned_recovery_difficulty` and `learned_difficulty_level` as
-  node properties, but `Habit` declares none of them, so the mapper drops them on every read:
-  `/api/habits/analytics`' `learned_insights` are always empty, and the handler's own running
-  values (`old_count`, `old_on_time_rate`) restart from nothing on every completion. Pinned by
-  the strict xfail `test_includes_learned_insights`.
+- **The ADR-048 learned state is read raw (closed 2026-10-11).** The five learning properties
+  stay off the `Habit` model: `HabitsBackend.get_habit_learning_states` reads them per habit in
+  one statement for `/api/habits/analytics`' `learned_insights`, and
+  `update_habit_learning_state` builds each completion on the stored state under the node's
+  lock, so the running values accumulate. The four keys nothing read
+  (`learned_recovery_difficulty`, `last_streak_length`, `last_break_date`,
+  `miss_pattern_updated_at`) are no longer written; the live graph held none of them.
 - **`AnalyticsMetricsService.calculate_habit_metrics` reports 0.0 when no habit has a rate** (the
   shape it gives a user with no habits; HA-1's choice), and `analytics_aggregation_service`
   scores from it — an unmeasured user reads as a 0% one there.

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
 from core.models.habit.habit import Habit
+from core.models.habit.learning_state import habit_learning_state
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitPerformanceAnalytics
@@ -182,18 +183,18 @@ class HabitsIntelligenceService(
         zone = current_zone()
         at_risk_habits = [h for h in habits if habit_is_at_risk(h, readings[h.uid], zone)]
 
-        # Learned insights (ADR-048)
-        habits_with_difficulty = [
-            h for h in habits if getattr(h, "learned_difficulty_level", None) is not None
-        ]
-        habits_with_timing = [
-            h for h in habits if getattr(h, "learned_preferred_hour", None) is not None
-        ]
-        on_time_rates: list[float] = [
-            float(rate)
-            for h in habits
-            if (rate := getattr(h, "learned_on_time_rate", None)) is not None
-        ]
+        # Learned insights (ADR-048) — stored on each habit's node and read raw; the
+        # Habit model carries none of it.
+        learned_result = await self.backend.get_habit_learning_states(user_uid)
+        if learned_result.is_error:
+            return Result.fail(learned_result)
+        raw_states = learned_result.value
+        learned = [habit_learning_state(raw_states.get(h.uid, {})) for h in habits]
+        habits_with_difficulty = sum(
+            1 for s in learned if s["learned_difficulty_level"] is not None
+        )
+        habits_with_timing = sum(1 for s in learned if s["learned_preferred_hour"] is not None)
+        on_time_rates = [rate for s in learned if (rate := s["learned_on_time_rate"]) is not None]
         avg_on_time = sum(on_time_rates) / len(on_time_rates) if on_time_rates else None
 
         return Result.ok(
@@ -219,8 +220,8 @@ class HabitsIntelligenceService(
                     "total_current_streak_days": total_current_streak,
                 },
                 "learned_insights": {
-                    "habits_with_difficulty": len(habits_with_difficulty),
-                    "habits_with_timing_data": len(habits_with_timing),
+                    "habits_with_difficulty": habits_with_difficulty,
+                    "habits_with_timing_data": habits_with_timing,
                     "avg_on_time_rate": round(avg_on_time, 4) if avg_on_time is not None else None,
                 },
             }

@@ -28,6 +28,7 @@ from core.services.habits.habit_event_handler_service import (
     _calculate_recovery_difficulty,
 )
 from core.utils.result_simplified import Result
+from tests.helpers.habit_learning_fake import HabitLearningStore
 from tests.helpers.laptop_clock import laptop_wall
 
 # ---------------------------------------------------------------------------
@@ -40,6 +41,9 @@ def mock_backend() -> Mock:
     backend = Mock()
     backend.get = AsyncMock(return_value=Result.ok(None))
     backend.update = AsyncMock(return_value=Result.ok({}))
+    # The learning state lives on the habit's node; this store holds the one test habit.
+    backend.learning = HabitLearningStore("habit_test_abc")
+    backend.update_habit_learning_state = backend.learning.update_habit_learning_state
     backend.execute_query = AsyncMock(return_value=Result.ok([]))
     backend.get_user_badges = AsyncMock(return_value=Result.ok([]))
     backend.get_habit_badges = AsyncMock(return_value=Result.ok([]))
@@ -96,9 +100,6 @@ def service_full(
 def _make_habit(
     uid: str = "habit_test_abc",
     title: str = "Test Habit",
-    completion_hours_json: str | None = None,
-    learned_on_time_rate: float | None = None,
-    learned_completion_count: int | None = None,
     recurrence_pattern: str | None = "daily",
     current_streak: int = 0,
     success_rate: float = 0.8,
@@ -107,9 +108,6 @@ def _make_habit(
     habit = Mock()
     habit.uid = uid
     habit.title = title
-    habit.completion_hours_json = completion_hours_json
-    habit.learned_on_time_rate = learned_on_time_rate
-    habit.learned_completion_count = learned_completion_count
     habit.recurrence_pattern = recurrence_pattern
     habit.current_streak = current_streak
     habit.success_rate = success_rate
@@ -180,9 +178,6 @@ class TestHandleHabitCompleted:
         self, service: HabitEventHandlerService, mock_backend: Mock
     ):
         """Completion hour histogram and on-time rate persisted to Habit node."""
-        habit = _make_habit()
-        mock_backend.get.return_value = Result.ok(habit)
-
         event = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_mike",
@@ -192,10 +187,8 @@ class TestHandleHabitCompleted:
 
         await service.handle_habit_completed(event)
 
-        mock_backend.update.assert_called_once()
-        call_args = mock_backend.update.call_args
-        assert call_args[0][0] == "habit_test_abc"
-        state = call_args[0][1]
+        mock_backend.update.assert_not_called()
+        state = mock_backend.learning.states["habit_test_abc"]
         assert "completion_hours_json" in state
         assert "learned_preferred_hour" in state
         assert state["learned_preferred_hour"] == 14
@@ -207,9 +200,7 @@ class TestHandleHabitCompleted:
     async def test_not_found_early_return(
         self, service: HabitEventHandlerService, mock_backend: Mock
     ):
-        """No update when habit not found."""
-        mock_backend.get.return_value = Result.ok(None)
-
+        """No learning written, and no badge checked, when the habit is not found."""
         event = HabitCompleted(
             habit_uid="habit_missing",
             user_uid="user_mike",
@@ -218,7 +209,8 @@ class TestHandleHabitCompleted:
         )
 
         await service.handle_habit_completed(event)
-        mock_backend.update.assert_not_called()
+        assert mock_backend.learning.writes == []
+        mock_backend.get_user_badge_stats.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_fire_and_forget_contract(
@@ -227,7 +219,9 @@ class TestHandleHabitCompleted:
         """Exceptions are logged, never propagated."""
         from neo4j.exceptions import ServiceUnavailable
 
-        mock_backend.get.side_effect = ServiceUnavailable("connection lost")
+        mock_backend.update_habit_learning_state = AsyncMock(
+            side_effect=ServiceUnavailable("connection lost")
+        )
 
         event = HabitCompleted(
             habit_uid="habit_test_abc",
@@ -250,7 +244,7 @@ class TestHandleHabitStreakBroken:
     async def test_recovery_analysis_happy_path(
         self, service_full: HabitEventHandlerService, mock_backend: Mock
     ):
-        """Recovery difficulty persisted to Habit node."""
+        """A streak break is analysed and logged; it writes nothing to the habit."""
         habit = _make_habit(title="Morning Run")
         mock_backend.get.return_value = Result.ok(habit)
 
@@ -265,12 +259,8 @@ class TestHandleHabitStreakBroken:
 
         await service_full.handle_habit_streak_broken(event)
 
-        mock_backend.update.assert_called_once()
-        state = mock_backend.update.call_args[0][1]
-        assert "learned_recovery_difficulty" in state
-        assert "last_streak_length" in state
-        assert state["last_streak_length"] == 14
-        assert "last_break_date" in state
+        mock_backend.update.assert_not_called()
+        assert mock_backend.learning.writes == []
 
     @pytest.mark.asyncio
     async def test_knowledge_impact_queried(
@@ -364,10 +354,10 @@ class TestHandleHabitMissed:
 
         await service.handle_habit_missed(event)
 
-        mock_backend.update.assert_called_once()
-        state = mock_backend.update.call_args[0][1]
-        assert state["learned_difficulty_level"] == "difficult"
-        assert "miss_pattern_updated_at" in state
+        mock_backend.update.assert_not_called()
+        assert mock_backend.learning.writes == [
+            ("habit_test_abc", {"learned_difficulty_level": "difficult"})
+        ]
 
     @pytest.mark.asyncio
     async def test_very_difficult_assessment(
@@ -388,7 +378,7 @@ class TestHandleHabitMissed:
 
         await service.handle_habit_missed(event)
 
-        state = mock_backend.update.call_args[0][1]
+        state = mock_backend.learning.states["habit_test_abc"]
         assert state["learned_difficulty_level"] == "very_difficult"
 
     @pytest.mark.asyncio
@@ -778,8 +768,7 @@ class TestHandleHabitCompletedCallsAggregateBadges:
     async def test_calls_check_aggregate_badges(
         self, mock_backend: Mock, service_full: HabitEventHandlerService
     ):
-        habit = _make_habit(learned_completion_count=5)
-        mock_backend.get.return_value = Result.ok(habit)
+        mock_backend.learning.states["habit_test_abc"]["learned_completion_count"] = 5
 
         event = HabitCompleted(
             habit_uid="habit_test_abc",
@@ -791,3 +780,4 @@ class TestHandleHabitCompletedCallsAggregateBadges:
 
         # Should have called get_user_badge_stats (from _check_aggregate_badges)
         mock_backend.get_user_badge_stats.assert_called_once_with("user_mike")
+        assert mock_backend.learning.states["habit_test_abc"]["learned_completion_count"] == 6

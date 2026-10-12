@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
+from uuid import uuid4
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
@@ -36,6 +37,7 @@ from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.goal.goal_contribution import CONTRIBUTOR_TYPES
 from core.models.habit.habit import Habit
+from core.models.habit.learning_state import HABIT_LEARNING_PROPERTIES
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
@@ -56,6 +58,8 @@ from core.ports.query_types import (
     SupportingHabitWindow,
     TaskStats,
 )
+from core.utils.error_boundary import safe_backend_operation
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import stored_day_bounds, today_in
 from core.utils.zone_context import current_zone
@@ -203,6 +207,10 @@ async def _contributed_goal_uids(
     if result.is_error:
         return Result.fail(result)
     return Result.ok([str(r["goal_uid"]) for r in (result.value or [])])
+
+
+# The learning properties as a map projection (``h {.completion_hours_json, ...}``).
+_HABIT_LEARNING_PROJECTION = ", ".join(f".{name}" for name in HABIT_LEARNING_PROPERTIES)
 
 
 class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
@@ -506,6 +514,95 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
                 }
             )
         return Result.ok(result.value[0])
+
+    async def get_habit_learning_states(
+        self, user_uid: UserUID
+    ) -> Result[dict[str, Neo4jProperties]]:
+        """Each of the user's habits' learning properties (ADR-048), raw, keyed by habit uid.
+
+        One statement for every habit the user owns (``OWNS``). A property the handlers
+        have not written yet reads ``None``. The properties are the ones
+        ``HABIT_LEARNING_PROPERTIES`` names — read here because the ``Habit`` model
+        declares none of them.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Entity:Habit)
+            RETURN h.uid AS uid, h {{{_HABIT_LEARNING_PROJECTION}}} AS state
+            """,
+            {"user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({str(row["uid"]): dict(row["state"]) for row in result.value or []})
+
+    @safe_backend_operation("update_habit_learning_state")
+    async def update_habit_learning_state(
+        self,
+        habit_uid: str,
+        plan: Callable[[Neo4jProperties], Neo4jProperties],
+    ) -> Result[Neo4jProperties]:
+        """Write one habit's learning properties from the ones it holds, under its write-lock.
+
+        A completion's learning is a read-modify-write — the histogram, the running
+        average and the count each build on what is stored. The node's write-lock is
+        taken (an ``_hl_lock`` sentinel) BEFORE the read, in one explicit transaction
+        with the write, so a second learning write on the same habit waits for this one
+        to commit and then reads what it wrote: two completions in flight never build on
+        the same old state. The sentinel is removed by the write.
+
+        Explicit transaction, not a managed ``execute_write``: a completion's learning is
+        not idempotent (the count goes up by one), so a retried commit could count it
+        twice; at-most-once surfaces a transient failure as ``Result.fail`` instead.
+
+        Args:
+            habit_uid: The habit to write.
+            plan: Pure: the habit's learning properties as locked (each
+                ``HABIT_LEARNING_PROPERTIES`` key, ``None`` where unwritten) → the
+                properties to write, every key one of ``HABIT_LEARNING_PROPERTIES``.
+
+        Returns:
+            The properties written (``{}`` when ``plan`` wrote nothing), or
+            ``Result.fail(not_found)`` when no habit has that uid.
+        """
+        lock_query = f"""
+        MATCH (h:Entity:Habit {{uid: $uid}})
+        SET h.`_hl_lock` = $lock_token
+        RETURN h {{{_HABIT_LEARNING_PROJECTION}}} AS state
+        """
+        write_query = """
+        MATCH (h:Entity:Habit {uid: $uid})
+        SET h += $properties
+        REMOVE h.`_hl_lock`
+        """
+        async with self.driver.session() as session:
+            tx = await session.begin_transaction()
+            try:
+                locked = await (
+                    await tx.run(lock_query, {"uid": habit_uid, "lock_token": uuid4().hex})
+                ).single()
+                if locked is None:
+                    await tx.rollback()
+                    return Result.fail(Errors.not_found("Habit", habit_uid))
+                properties = plan(dict(locked["state"]))
+                unknown = set(properties) - set(HABIT_LEARNING_PROPERTIES)
+                if unknown:
+                    await tx.rollback()
+                    return Result.fail(
+                        Errors.validation(
+                            f"Not a habit learning property: {', '.join(sorted(unknown))}",
+                            field="properties",
+                        )
+                    )
+                if not properties:
+                    await tx.rollback()
+                    return Result.ok({})
+                await tx.run(write_query, {"uid": habit_uid, "properties": properties})
+                await tx.commit()
+            except NEO4J_EXCEPTIONS:
+                await tx.rollback()
+                raise
+        return Result.ok(properties)
 
     async def get_habit_window_completions(
         self, habit_uids: list[str], window_start: str, window_end: str
