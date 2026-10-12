@@ -181,7 +181,7 @@ Reproduced with a `TestClient` against the factory:
 | `POST`, `PUT` or `DELETE` to any registered route | 405 |
 | `SHARED`: `GET /api/{domain}/analytics` | 404 — not registered |
 | `context` / `insights` with no `uid` | 400 |
-| `depth=abc` (a value the annotation cannot coerce) | 404 |
+| `depth=abc`, `period_days=soon`, `min_confidence=very` (read by the `parse_*_param_strict` readers) | 400 |
 | `USER_OWNED`: a uid the user does not own | 404 |
 | `USER_OWNED`: a uid that does not exist | 404 |
 | `SHARED`: any existing uid | 200 — no ownership check |
