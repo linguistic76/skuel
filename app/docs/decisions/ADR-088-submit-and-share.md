@@ -1,6 +1,6 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-10-11
+updated: 2026-10-12
 status: implemented
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
@@ -14,6 +14,14 @@ related_skills: [journals, learning-loop, security, skuel-search-architecture]
 below was built by the Submit & Share arc, PRs 1–8 (the last merged 2026-09-26), and the arc-close
 walk-through verified it live on 2026-09-27 (arc doc § Verification, after the three pre-flight
 fixes #1427–#1429).
+**Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum-and-teacher-content.md)
+(2026-10-12; implementation pending):** every exercise names its teacher, and a feedback request on
+an exercise goes directly to that teacher (ADR-091 S3). That replaces §8's curriculum default-group
+fallback and §9's route to the owner of an anchored PERSONAL exercise; the `teachers` row of the
+audience table changes with them. ADR-091 S5 and S6 move the revised exercise and the teacher's
+report to content-vault files. The two verbs, both group-link kinds, `teacher:<group_uid>` and
+sharing are unchanged. **§8's fallback and §9's owner route stay live until the ADR-091 change that
+replaces them merges.**
 **Date:** 2026-09-24
 **Deciders:** MCF
 **Decision Type:** ☑ Graph Schema  ☑ Pattern/Practice
@@ -208,6 +216,9 @@ touch a `SUBMITTED_TO_GROUP` feedback request.
 
 ### 8. `teacher:<group_uid>` — per-teacher targeting (Refinement 2)
 
+*The curriculum default-group fallback below is superseded by ADR-091 S3 (implementation pending;
+live until its change merges).*
+
 A student in several classes can already direct a feedback request to one teacher's group (the
 review queue pins the read side of this). That route is named `teacher:<group_uid>`: a
 `SUBMITTED_TO_GROUP` to that one group. `teachers` means all my teachers: the exercise's groups
@@ -218,6 +229,10 @@ every group I am a student of. `group:<uid>` is always a share: it never files a
 request.
 
 ### 9. Submit has two targets: a group or one teacher (amended 2026-10-10)
+
+*The route to the owner of an anchored PERSONAL exercise is superseded by ADR-091 S3: a feedback
+request on an exercise goes to the teacher its vault file names (implementation pending; live until
+its change merges).*
 
 ```
 entry ──SUBMITTED_TO_GROUP {submitted_at}───▶ Group ◀─OWNS── teacher   read by the group's owning teachers
@@ -459,6 +474,7 @@ gets its note with the PR that falsifies it:
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-09-24 | MCF | Accepted with the Submit & Share arc plan (rulings R1–R14, refinements 1–4) | 1.0 |
+| 2026-10-12 | MCF | Partially superseded by ADR-091 S3 (§8's curriculum fallback, §9's owner route, the `teachers` row) and S5–S6 (the revised exercise and the teacher's report become content-vault files); implementation pending, the superseded routes live until ADR-091's change replaces them | 1.6 |
 | 2026-10-10 | MCF | §2: review authority is the asked teacher's — an ADMIN with no feedback request is refused at both review writes, like any other user (ruled 2026-10-10; the refusal is pinned by the two admission route tests) | 1.5 |
 | 2026-10-10 | MCF | §9: Submit's second target — `SUBMITTED_TO_TEACHER` to the owner of a PERSONAL exercise anchored to a published PathStep; every entry-level teacher reader composes `asks_teacher`; the exchange and report download admit that teacher, the knowledge tab and the student page stay with the classroom | 1.4 |
 | 2026-09-27 | MCF | Verified: the arc-close walk-through passed live (every step, as a student, a teacher and a second account), after three pre-flight fixes on its path (#1427–#1429); status implemented | 1.3 |

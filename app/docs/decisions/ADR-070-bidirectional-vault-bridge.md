@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-10-02
+updated: 2026-10-12
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -17,6 +17,12 @@ reconciliation, #1345 deletion cancels open tasks, #1346 these docs). Decisions 
 mechanism as built; the record is
 [r4-vault-inbound-propagation.md](../roadmap/done/r4-vault-inbound-propagation.md). The period
 in which task state was outbound-only (2026-08-24 → 2026-09-16) is in the Changelog.
+
+**Decision 10 partially superseded by
+[ADR-091](ADR-091-one-door-for-curriculum-and-teacher-content.md) (2026-10-12; implementation
+pending):** its in-app exception, user-scoped exercises, goes (ADR-091 S4), and the content vault
+becomes the sole author of revised exercises and teacher reports too (S5, S6). The exception stays
+live until the ADR-091 change that removes it merges.
 
 **Date:** 2026-06-16
 
@@ -326,7 +332,8 @@ edges — plus CURRICULUM-scope Exercises. Verified 2026-09-03:
   next sync reads it back.
 
 **What SKUEL does author in-app** (the sole-author claim stops here): PERSONAL / ASSIGNED /
-ASSESSMENT exercises, which are user-owned. The six PathStep-owned Activity Templates keep a
+ASSESSMENT exercises, which are user-owned. *(Superseded by ADR-091 S4: exercises are authored only
+in the content vault — implementation pending; live until its change merges.)* The six PathStep-owned Activity Templates keep a
 `/api/pathstep-{domain}-templates/*` JSON CRUD (TEACHER+), but the vault is their author.
 
 > **Amended 2026-09-05 — Activity Templates are no longer an exception.** Decision 10 named them
@@ -517,3 +524,4 @@ targets linked across users; a Group file's `owner_uid` beat the vault owner; a 
 | 2026-09-22 | Mike + Claude Code | **Decision 9 AMENDED again — one ingestion system.** `POST /api/ingest/file` (+ the dashboard card that had 403'd since 2026-04-19) and `POST /api/ingest/bundle` (+ `ingest_bundle`, `BundleStats`, `find_entity_file`; no manifest ever existed) deleted with the HTTP path allowlist (`_validate_ingestion_path`, `SKUEL_INGESTION_ALLOWED_PATHS`) and the nous generator pair (`ingest_nous.py`, `generate_kus_from_moc.py`, `hierarchy_parser.py`). Ruling 2's entry points restated as the three doors built; Resolved Design Question 1 restated as built (one trigger). | 1.2 |
 | 2026-09-22 | Mike + Claude Code | **No scoped re-ingest — the open conditional closed.** The 2026-09-21 and 2026-09-22 amendments and Resolved Design Question 1 each ended by hedging that "a scoped re-ingest, if ever wanted, is a `--path` option on `scripts/vault_bridge_sync.py`". Ruled: a forced re-ingest of one *unchanged* file is not a want. All three now state the built behaviour — a changed file is re-ingested by the next sync, the whole vault by `--force` — and no `--path` option is registered as staged work. | 1.3 |
 | 2026-10-02 | Mike + Claude Code | **Decision 11 — a personal vault writes only its owner's graph.** Type allowlist per vault kind; the node upsert never changes a node's owner (content vault included); per-file identity for uid-less personal Activity / life-path files; personal frontmatter targets admitted by the link-edge guard; content Edge files bound to `:Entity` ends and never `OWNS`; Group owner = the vault's; overlapping vault roots refused at boot. Decision 8's "single-tenant today" restated. |
+| 2026-10-12 | Mike + Claude Code | **Decision 10's in-app exception superseded by ADR-091** (S4–S6): exercises, revised exercises and teacher reports are authored only in the content vault. Implementation pending; the exception stays live until ADR-091's change removes it. |

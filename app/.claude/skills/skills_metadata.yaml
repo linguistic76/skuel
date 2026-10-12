@@ -512,6 +512,7 @@ skills:
     related_adrs:
       - ADR-013  # Ku UID flat identity (both spellings sanctioned; never sniff the prefix)
       - ADR-023  # Curriculum BaseService migration
+      - ADR-091  # One door for curriculum and teacher content (the content vault is the sole author)
     patterns:
       - /docs/patterns/OWNERSHIP_VERIFICATION.md
     keywords: [curriculum, knowledge, learning, ku, ps, lp, exercise, moc]
@@ -576,6 +577,7 @@ skills:
       - ADR-069  # EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
       - ADR-073  # Journals zero-persistence (the file/audio door creates no UserEntry)
       - ADR-088  # Submit and share (two verbs, SUBMITTED_TO_GROUP vs SHARED_WITH_GROUP)
+      - ADR-091  # One door for curriculum and teacher content (exercises, revisions and reports are vault files)
     patterns:
       - /docs/architecture/REPORT_ARCHITECTURE.md
       - /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md

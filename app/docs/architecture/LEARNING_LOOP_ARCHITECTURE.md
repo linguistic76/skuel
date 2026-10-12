@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-10-11
+updated: 2026-10-12
 status: current
 category: architecture
 related:
@@ -26,6 +26,15 @@ PERSONAL scope). It sits outside the cycle as context, not as a phase.
 
 Every layer is a frozen Python dataclass. Every connection is a Neo4j graph relationship.
 Every measurement flows from real user behaviour, not self-reported progress.
+
+> **Superseded in part by [ADR-091](../decisions/ADR-091-one-door-for-curriculum-and-teacher-content.md)
+> (2026-10-12; implementation pending).** Every exercise, every revised exercise and every teacher's
+> report is a content-vault file: Mike writes it into the content vault (another teacher sends
+> theirs to him), and it enters SKUEL through the content-vault sync, not through the app. The
+> in-app doors (the exercise create and edit doors, group assignment, the report upload, the
+> revision form and `POST /api/revised-exercises/create`) stay live until the ADR-091 change that
+> removes each one merges. Learners' submissions, the learner-summoned AI report and the approve
+> action are unchanged.
 
 ---
 
@@ -382,6 +391,9 @@ curriculum recommendations and the SEL journey are served as JSON (`/api/path-st
 
 ## Phase 1: Exercise — The Assignment
 
+*Exercises become content-vault files only, each naming its teacher, and the `PERSONAL` and
+`ASSIGNED` scopes below go (ADR-091 S3, S4; both stay live until those changes merge).*
+
 **What:** The teacher's directive. Instructions for what students should produce, with an
 LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-directed) and
 `ASSIGNED` (classroom with a Group target and due date).
@@ -465,6 +477,9 @@ Both say "here is what your work means."
 
 ### 3a. ENTRY_REPORT — Response to an Artifact
 
+*A teacher's written report becomes a content-vault file naming the submission it answers
+(ADR-091 S6; the upload door stays live until that change merges).*
+
 **What:** Evaluation of a specific `UserEntry`. One artifact in, one
 `EntryReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
 via the Exercise's `instructions` field (`LLM`). The LLM report is triggered
@@ -506,6 +521,10 @@ canonical taxonomy, all services, API routes, ReportSource table, graph patterns
 ---
 
 ## Phase 4: RevisedExercise — The Targeted Revision
+
+*A revised exercise becomes a content-vault file naming its student, the exercise it revises and the
+submission it answers, with the same graph shape as below (ADR-091 S5; the in-app creation doors
+stay live until that change merges).*
 
 **What:** A teacher-created revision of an Exercise that addresses specific gaps identified
 in `EntryReport`. The teacher creates targeted, revised instructions for a specific

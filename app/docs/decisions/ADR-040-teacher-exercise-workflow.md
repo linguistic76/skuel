@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-12
 related_skills: [learning-loop]
 ---
 
@@ -12,6 +12,8 @@ related_skills: [learning-loop]
 > **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 1).** The queue reads `SUBMITTED_TO_GROUP` — the feedback request, a link kind of its own — under the teacher's `OWNS` of an active group; `SHARED_WITH_GROUP` on a turn-in is a share with the class and never queues.
 >
 > **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2a).** The `TEAM` visibility value this ADR reserved for a future phase is deleted: `Visibility` is `{PRIVATE, PUBLIC}`, and group audience is the `SHARED_WITH_GROUP` edge, never a property value.
+>
+> **2026-10-12 — Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum-and-teacher-content.md); implementation pending.** Exercises are created and edited only in the content vault: the in-app exercise authoring (§2's PERSONAL and ASSIGNED scopes, created by a teacher) and group assignment go (ADR-091 S4). A teacher's report and a revised exercise are content-vault files, so the `.md` upload form and the revision form go (S5, S6). The offline CLI scripts (§ CLI-Based Offline Review Workflow) are not ruled. Groups, teacher review of what is submitted to a group, and the approve action stay. **Every behaviour this note retires stays live until the ADR-091 change that removes it merges.**
 
 **Status:** Accepted
 **Date:** 2026-02-06
