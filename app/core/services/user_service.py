@@ -182,10 +182,6 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
         """Create a new user with default preferences."""
         return await self.core.create_user(username, email, display_name, **kwargs)
 
-    async def ensure_system_user(self) -> Result[User]:
-        """Ensure system user exists for infrastructure operations."""
-        return await self.core.ensure_system_user()
-
     async def get_user(self, user_uid: UserUID) -> Result[User | None]:
         """Get user by UID."""
         return await self.core.get_user(user_uid)

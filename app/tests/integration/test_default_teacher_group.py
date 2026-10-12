@@ -3,10 +3,8 @@ Integration tests pinning the care-arc teacher-path fixes (testcontainer Neo4j).
 
 Three seams, all raw-Cypher and therefore invisible to the mock-only suites:
 
-1. ``UserEntryBackend.get_admin_uid`` — the default-teacher pick must skip
-   service accounts (``@skuel.local`` emails: user_system, the legacy
-   vault-watcher) even when they are OLDER than the real admin. A default
-   group owned by user_system is a review queue nobody can log into.
+1. ``UserEntryBackend.get_admin_uid`` — the default-teacher pick is the
+   oldest admin, by ``created_at``.
 2. ``SharingBackend.query_default_groups_for_curriculum_submission`` — the
    fallback review route for CURRICULUM exercises is scope-gated in Cypher:
    personal exercises must resolve to zero rows so they can never leak to
@@ -38,9 +36,8 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 _RUN = uuid.uuid4().hex[:8]
 
 # --- (a) get_admin_uid fixtures -------------------------------------------
-_SVC_SYSTEM_UID = f"user_zz_svc_system_{_RUN}"
-_SVC_WATCHER_UID = f"user_zz_svc_watcher_{_RUN}"
-_REAL_ADMIN_UID = f"user_zz_real_admin_{_RUN}"
+_OLDER_ADMIN_UID = f"user_zz_older_admin_{_RUN}"
+_NEWER_ADMIN_UID = f"user_zz_newer_admin_{_RUN}"
 
 # --- (b) default-group fixtures --------------------------------------------
 _CURRICULUM_EX_UID = f"ex.test.dtg.{_RUN}"
@@ -61,15 +58,10 @@ _KU_UID = f"ku_test_cap_{_RUN}"
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def admin_pick_graph(neo4j_driver):
-    """Two OLDER service-account admins + one NEWER real admin.
-
-    Service accounts are deliberately oldest: created_at ordering alone would
-    pick them — only the @skuel.local email exclusion saves the real admin.
-    """
+    """Two admins: the older one is the pick."""
     rows = [
-        (_SVC_SYSTEM_UID, "system@skuel.local", "2020-01-01T00:00:00"),
-        (_SVC_WATCHER_UID, "vault-watcher@skuel.local", "2020-06-01T00:00:00"),
-        (_REAL_ADMIN_UID, "real@example.com", "2021-01-01T00:00:00"),
+        (_OLDER_ADMIN_UID, "older@example.com", "2020-01-01T00:00:00"),
+        (_NEWER_ADMIN_UID, "newer@example.com", "2021-01-01T00:00:00"),
     ]
     async with neo4j_driver.session() as session:
         for uid, email, created_at in rows:
@@ -86,7 +78,7 @@ async def admin_pick_graph(neo4j_driver):
                 created_at=created_at,
             )
 
-    yield {"svc_uids": {_SVC_SYSTEM_UID, _SVC_WATCHER_UID}, "real_admin_uid": _REAL_ADMIN_UID}
+    yield {"older_admin_uid": _OLDER_ADMIN_UID, "newer_admin_uid": _NEWER_ADMIN_UID}
 
     async with neo4j_driver.session() as session:
         await session.run(
@@ -240,7 +232,7 @@ async def enrollment_cap_graph(neo4j_driver):
 # ============================================================================
 
 
-async def test_get_admin_uid_skips_service_accounts(neo4j_driver, admin_pick_graph):
+async def test_get_admin_uid_picks_the_oldest_admin(neo4j_driver, admin_pick_graph):
     backend = UserEntryBackend(neo4j_driver)
 
     result = await backend.get_admin_uid()
@@ -248,29 +240,9 @@ async def test_get_admin_uid_skips_service_accounts(neo4j_driver, admin_pick_gra
     assert result.is_ok, f"get_admin_uid failed: {result.error}"
     records = result.value or []
     assert records, "An admin exists — get_admin_uid must return a row"
-    admin_uid = records[0]["admin_uid"]
-
-    # Robust form (container is session-shared across integration files):
-    # whoever wins must be a real human — never a @skuel.local service account.
-    assert admin_uid not in admin_pick_graph["svc_uids"], (
-        "Service accounts must never win the default-teacher pick, "
-        "even when they are the oldest admins"
-    )
-    async with neo4j_driver.session() as session:
-        email_result = await session.run(
-            "MATCH (u:User {uid: $uid}) RETURN u.email AS email",
-            uid=admin_uid,
-        )
-        record = await email_result.single()
-    assert record is not None, "Returned admin_uid must correspond to a User node"
-    email = record["email"] or ""
-    assert not email.endswith("@skuel.local"), (
-        f"Default teacher resolved to a service account email: {email!r}"
-    )
-
-    # Fresh-container form: our real admin (2021) is older than any admin
-    # another test could create with datetime.now(), so it must win.
-    assert admin_uid == admin_pick_graph["real_admin_uid"]
+    # The older admin (2020) is older than any admin another test could create with
+    # datetime.now(), so it wins on a session-shared container too.
+    assert records[0]["admin_uid"] == admin_pick_graph["older_admin_uid"]
 
 
 # ============================================================================

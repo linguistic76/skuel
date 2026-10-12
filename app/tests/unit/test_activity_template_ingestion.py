@@ -39,6 +39,7 @@ from core.services.ingestion.config import (
 from core.services.ingestion.detector import detect_entity_type
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data, validate_uid_format
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _TEMPLATE_TYPES: tuple[EntityType, ...] = (
     EntityType.TASK_TEMPLATE,
@@ -123,7 +124,7 @@ def test_absent_status_defaults_to_active(entity_type: EntityType) -> None:
     status at all and every vault-authored template would silently never spawn.
     """
     prepared = prepare_entity_data(
-        entity_type, {"type": entity_type.value, "title": "T"}, None, _FILE
+        entity_type, {"type": entity_type.value, "title": "T"}, None, _FILE, INGESTION_TEST_OWNER
     )
     assert prepared["status"] == EntityStatus.ACTIVE.value
 
@@ -131,7 +132,11 @@ def test_absent_status_defaults_to_active(entity_type: EntityType) -> None:
 @pytest.mark.parametrize("entity_type", _TEMPLATE_TYPES)
 def test_authored_status_wins(entity_type: EntityType) -> None:
     prepared = prepare_entity_data(
-        entity_type, {"type": entity_type.value, "title": "T", "status": "draft"}, None, _FILE
+        entity_type,
+        {"type": entity_type.value, "title": "T", "status": "draft"},
+        None,
+        _FILE,
+        INGESTION_TEST_OWNER,
     )
     assert prepared["status"] == EntityStatus.DRAFT.value
 
@@ -147,7 +152,11 @@ def test_uid_prefix_enforced(entity_type: EntityType) -> None:
 
 def test_generated_uid_uses_prefix() -> None:
     prepared = prepare_entity_data(
-        EntityType.TASK_TEMPLATE, {"type": "task_template", "title": "T"}, None, _FILE
+        EntityType.TASK_TEMPLATE,
+        {"type": "task_template", "title": "T"},
+        None,
+        _FILE,
+        INGESTION_TEST_OWNER,
     )
     assert prepared["uid"] == "tt.tt_daily-practice-log_tmpl"
     assert prepared["entity_type"] == "task_template"
@@ -206,6 +215,7 @@ def test_authored_offset_canonicalized_to_storage_shape() -> None:
         {"type": "task_template", "title": "T", "due_offset": {"days": 7}},
         None,
         _FILE,
+        INGESTION_TEST_OWNER,
     )
     assert prepared["due_offset"] == {"days": 7, "hours": 0, "minutes": 0}
 
@@ -221,6 +231,7 @@ def test_ingested_offset_matches_the_dto_write_path_byte_for_byte() -> None:
         {"type": "task_template", "title": "T", "due_offset": {"days": 7}},
         None,
         _FILE,
+        INGESTION_TEST_OWNER,
     )
     from_vault = to_neo4j_node(prepared)["due_offset"]
 
@@ -244,7 +255,9 @@ def test_ingested_offset_matches_the_dto_write_path_byte_for_byte() -> None:
 )
 def test_unauthorable_offset_rejected_loudly(authored: object) -> None:
     data = {"type": "task_template", "title": "T", "due_offset": authored}
-    prepared = prepare_entity_data(EntityType.TASK_TEMPLATE, dict(data), None, _FILE)
+    prepared = prepare_entity_data(
+        EntityType.TASK_TEMPLATE, dict(data), None, _FILE, INGESTION_TEST_OWNER
+    )
     # Left verbatim by the preparer so the validator owns the message.
     assert prepared["due_offset"] == authored
 
@@ -255,7 +268,11 @@ def test_unauthorable_offset_rejected_loudly(authored: object) -> None:
 
 def test_absent_offset_is_not_a_violation() -> None:
     prepared = prepare_entity_data(
-        EntityType.TASK_TEMPLATE, {"type": "task_template", "title": "T"}, None, _FILE
+        EntityType.TASK_TEMPLATE,
+        {"type": "task_template", "title": "T"},
+        None,
+        _FILE,
+        INGESTION_TEST_OWNER,
     )
     assert not validate_entity_data(EntityType.TASK_TEMPLATE, prepared, _FILE).is_error
 
@@ -267,6 +284,7 @@ def test_json_string_offset_accepted_like_the_reader() -> None:
         {"type": "task_template", "title": "T", "due_offset": '{"days": 2}'},
         None,
         _FILE,
+        INGESTION_TEST_OWNER,
     )
     assert prepared["due_offset"] == {"days": 2, "hours": 0, "minutes": 0}
     assert not validate_entity_data(EntityType.TASK_TEMPLATE, prepared, _FILE).is_error

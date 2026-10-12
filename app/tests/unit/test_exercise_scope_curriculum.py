@@ -30,6 +30,7 @@ from core.models.exercises.exercise_request import ExerciseCreateRequest
 from core.services.exercises.exercise_service import ExerciseService
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 # ============================================================================
 # 1. ENUM + MODEL VALIDITY
@@ -138,7 +139,7 @@ _FILE = Path("exercise_sample.md")
 
 
 def _prepared(data: dict[str, object]) -> dict[str, object]:
-    return prepare_entity_data(EntityType.EXERCISE, dict(data), None, _FILE)
+    return prepare_entity_data(EntityType.EXERCISE, dict(data), None, _FILE, INGESTION_TEST_OWNER)
 
 
 def test_ingestion_defaults_absent_scope_to_curriculum() -> None:

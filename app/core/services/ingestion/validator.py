@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
     from core.ports.ingestion_protocols import IngestionWriteOperations
 
-from core.constants import SYSTEM_USER_UID
 from core.models.enum_field_registry import ENUM_FIELD_TYPES
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.neo_labels import NeoLabel
@@ -39,7 +38,6 @@ from core.utils.result_simplified import Errors, Result
 
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
-    DEFAULT_USER_UID,
     ENTITY_CONFIGS,
     EntityIngestionConfig,
     collect_files,
@@ -404,7 +402,7 @@ def validate_entity_data(
 
 async def validate_file(  # skuel-lint: disable=SKUEL029 -- public validation API: awaited via UnifiedIngestionService.validate_file delegation + tests; sibling validate_directory is async
     file_path: Path,
-    default_user_uid: UserUID = DEFAULT_USER_UID,
+    default_user_uid: UserUID,
     max_file_size_bytes: int | None = None,
 ) -> Result[ValidationResult]:
     """
@@ -562,7 +560,7 @@ async def validate_file(  # skuel-lint: disable=SKUEL029 -- public validation AP
         if not entity_data.get("title") and not entity_data.get("name"):
             warnings.append("No title or name - will use filename as fallback")
 
-        # Fail-fast: a user-owned entity may omit user_uid (defaults to the system owner),
+        # Fail-fast: a user-owned entity may omit user_uid (it takes the default owner),
         # but an explicit user_uid must be canonical (`user_<name>`). Colon/dot/bare forms
         # are rejected here rather than silently persisted as unreachable owners.
         explicit_user_uid = entity_data.get("user_uid")
@@ -573,8 +571,8 @@ async def validate_file(  # skuel-lint: disable=SKUEL029 -- public validation AP
         ):
             errors.append(
                 f"Non-canonical user_uid '{explicit_user_uid}': user identifiers must use the "
-                f"'user_<name>' format (e.g. {SYSTEM_USER_UID}). Omit user_uid to default to "
-                f"the system owner."
+                "'user_<name>' format (e.g. user_mike). Omit user_uid to take the "
+                "default owner."
             )
 
         return Result.ok(
@@ -607,9 +605,9 @@ async def validate_file(  # skuel-lint: disable=SKUEL029 -- public validation AP
 
 async def validate_directory(
     directory: Path,
+    default_user_uid: UserUID,
     pattern: str = "*",
     max_concurrent: int = DEFAULT_MAX_CONCURRENT_PARSING,
-    default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int | None = None,
 ) -> Result[DirectoryValidationResult]:
     """
@@ -619,9 +617,9 @@ async def validate_directory(
 
     Args:
         directory: Directory to validate
+        default_user_uid: Default user UID for multi-tenant entities
         pattern: Glob pattern for file matching (default: all files)
         max_concurrent: Maximum concurrent validation operations (default: 20)
-        default_user_uid: Default user UID for multi-tenant entities
         max_file_size_bytes: Maximum file size (optional)
 
     Returns:

@@ -24,7 +24,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from core.constants import SYSTEM_USER_UID
 from core.models.enums import EntityType
 from core.utils.logging import get_logger
 from core.utils.zone_context import DEFAULT_TIMEZONE, configured_zone_name
@@ -618,14 +617,18 @@ class VaultConfig:
     # core/services/vault/vault_descriptor.py (resolve_by_path).
     content_owner_uid: str = os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
 
+    # The ingestion service's default owner: the account a user-owned file that
+    # names no owner is stamped with when no vault governs its path. No account
+    # stands in for it: compose refuses to boot without one (validate_owners).
+    default_user_uid: str = os.getenv("SKUEL_DEFAULT_USER_UID", "")
+
     # The account VAULT_ROOT (the primary personal vault) BELONGS TO. Personal
     # sync for any other user resolves to {user_vaults_root}/{user_uid}/ instead
-    # (VaultRegistry per-user roots). Defaults to the default-user chain so a
-    # single-user install binds its one real account with no new config; the
-    # user_system terminal default binds VAULT_ROOT to nobody (fail-safe: every
-    # user then gets a derived per-user root).
+    # (VaultRegistry per-user roots). Falls back to SKUEL_DEFAULT_USER_UID so a
+    # single-user install binds its one real account with no new config; with
+    # neither set, compose refuses to boot (validate_owners).
     personal_vault_owner_uid: str = os.getenv(
-        "SKUEL_PERSONAL_VAULT_OWNER", os.getenv("SKUEL_DEFAULT_USER_UID", str(SYSTEM_USER_UID))
+        "SKUEL_PERSONAL_VAULT_OWNER", os.getenv("SKUEL_DEFAULT_USER_UID", "")
     )
 
     # Per-user vault uploads directory
@@ -647,6 +650,30 @@ class VaultConfig:
                 f"must be one of {', '.join(sorted(VAULT_TRANSPORTS))} (ADR-075 Decision 6)"
             )
         return self.vault_transport
+
+    def validate_owners(self) -> None:
+        """Refuse an owner the configuration does not name (compose calls this).
+
+        ``SKUEL_DEFAULT_USER_UID`` and the personal-vault owner
+        (``SKUEL_PERSONAL_VAULT_OWNER``, else ``SKUEL_DEFAULT_USER_UID``) must each
+        name an account in the canonical ``user_<name>`` form. No account stands in
+        for a missing one (ADR-091 S9): a missing owner is a configuration error at
+        boot, not a silent fallback.
+        """
+        for name, uid in (
+            ("SKUEL_DEFAULT_USER_UID", self.default_user_uid),
+            (
+                "SKUEL_PERSONAL_VAULT_OWNER (or SKUEL_DEFAULT_USER_UID)",
+                self.personal_vault_owner_uid,
+            ),
+        ):
+            if not uid.strip():
+                raise ValueError(f"{name} is not set — name the account it stands for")
+            if not uid.startswith("user_"):
+                raise ValueError(
+                    f"{name} ({uid!r}) is not a canonical user uid — "
+                    "user identifiers use the 'user_<name>' form"
+                )
 
     def validate_roots(self) -> None:
         """Refuse a personal vault root that overlaps the content vault (compose calls this).
@@ -699,9 +726,9 @@ class VaultConfig:
             ingestion_root=os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"),
             user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),
             content_owner_uid=os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin"),
+            default_user_uid=os.getenv("SKUEL_DEFAULT_USER_UID", ""),
             personal_vault_owner_uid=os.getenv(
-                "SKUEL_PERSONAL_VAULT_OWNER",
-                os.getenv("SKUEL_DEFAULT_USER_UID", str(SYSTEM_USER_UID)),
+                "SKUEL_PERSONAL_VAULT_OWNER", os.getenv("SKUEL_DEFAULT_USER_UID", "")
             ),
             vault_transport=os.getenv("VAULT_TRANSPORT", "filesystem"),
         )

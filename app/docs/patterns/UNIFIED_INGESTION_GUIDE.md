@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-11
+updated: 2026-10-12
 category: patterns
 related_skills: []
 related_docs:
@@ -896,19 +896,18 @@ if stats.is_ok:
 
 ### Default User UID
 
-Configurable via environment variable:
+The owner a user-owned file that names none is stamped with, when no vault governs
+its path. It is required: the composition root passes `SKUEL_DEFAULT_USER_UID` to
+`make_unified_ingestion_service(driver, default_user_uid=...)`, and boot refuses an
+unset or non-canonical value (`VaultConfig.validate_owners`, ADR-091 S9). No account
+stands in for a missing one; a test names its own (`tests/helpers/ingestion_owner.py`).
 
 ```bash
-export SKUEL_DEFAULT_USER_UID="user_admin"
+export SKUEL_DEFAULT_USER_UID="user_mike"
 ```
 
-Falls back to `"user_system"` if not set. User UIDs are always underscore form
-(`user_{username}` — `TypeConverter.to_user_uid` rejects `user:...` / `user....`).
-
-```python
-from core.services.ingestion import DEFAULT_USER_UID
-print(DEFAULT_USER_UID)  # "user_admin" or "user_system"
-```
+User UIDs are always underscore form (`user_{username}` — `TypeConverter.to_user_uid`
+rejects `user:...` / `user....`).
 
 ---
 
@@ -1482,7 +1481,6 @@ from core.services.ingestion import (
     # Configuration
     ENTITY_CONFIGS,
     EntityIngestionConfig,
-    DEFAULT_USER_UID,
 )
 
 # Example: Check if file needs ingestion

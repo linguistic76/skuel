@@ -27,6 +27,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.ingestion_history import IngestionHistoryService
 from core.services.ingestion.types import IncrementalStats, IngestionStats
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 # ============================================================================
 # FIXTURES
@@ -42,7 +43,9 @@ async def ingestion_service(neo4j_driver):
     ingestion_backend = IngestionBackend(executor=executor)
 
     service = make_unified_ingestion_service(
-        driver=neo4j_driver, ingestion_backend=ingestion_backend
+        driver=neo4j_driver,
+        ingestion_backend=ingestion_backend,
+        default_user_uid=INGESTION_TEST_OWNER,
     )
 
     yield service
@@ -295,6 +298,7 @@ async def test_ingestion_history_paginated_list(
 async def test_error_handling_invalid_directory(neo4j_driver):
     """Test that non-existent directory returns proper error."""
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=Path("/nonexistent/path/to/nowhere"),
         write_backend=IngestionWriteBackend(neo4j_driver),
         bulk_backend=Mock(),

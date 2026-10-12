@@ -29,6 +29,7 @@ from core.services.ingestion.detector import detect_entity_type, is_edge_type
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.vault.vault_reconciler import _CONTENT_FAULT_STAGES
 from core.utils.result_simplified import Errors
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _MD = Path("note.md")
 
@@ -69,27 +70,37 @@ class TestDetectorEmptyValues:
 class TestPreparerEmptyUid:
     def test_empty_uid_line_raises_with_reason(self):
         with pytest.raises(ValueError, match="present but empty"):
-            prepare_entity_data(EntityType.KU, {"uid": None, "title": "t"}, None, Path("k.md"))
+            prepare_entity_data(
+                EntityType.KU, {"uid": None, "title": "t"}, None, Path("k.md"), INGESTION_TEST_OWNER
+            )
 
     def test_whitespace_uid_raises_with_reason(self):
         with pytest.raises(ValueError, match="present but empty"):
-            prepare_entity_data(EntityType.KU, {"uid": "  ", "title": "t"}, None, Path("k.md"))
+            prepare_entity_data(
+                EntityType.KU, {"uid": "  ", "title": "t"}, None, Path("k.md"), INGESTION_TEST_OWNER
+            )
 
     def test_empty_uid_never_silently_generates(self):
         """The failure mode this guards: an authored-but-empty ``uid:``
         falling back to the filename-generated UID behind the author's back."""
         with pytest.raises(ValueError):
-            prepare_entity_data(EntityType.KU, {"uid": "", "title": "t"}, None, Path("k.md"))
+            prepare_entity_data(
+                EntityType.KU, {"uid": "", "title": "t"}, None, Path("k.md"), INGESTION_TEST_OWNER
+            )
 
     def test_absent_uid_still_generates_from_filename(self):
-        prepared = prepare_entity_data(EntityType.KU, {"title": "t"}, None, Path("my-concept.md"))
+        prepared = prepare_entity_data(
+            EntityType.KU, {"title": "t"}, None, Path("my-concept.md"), INGESTION_TEST_OWNER
+        )
         assert prepared["uid"] == "ku.my-concept"
 
     def test_non_string_uid_is_stringified_not_crashed(self):
         # YAML can parse a bare uid value to a non-string (e.g. ``uid: 5``);
         # the preparer stringifies rather than crashing. No rewrite happens —
         # authored = stored (colon input alias deleted 2026-08-14).
-        prepared = prepare_entity_data(EntityType.KU, {"uid": 5, "title": "t"}, None, _MD)
+        prepared = prepare_entity_data(
+            EntityType.KU, {"uid": 5, "title": "t"}, None, _MD, INGESTION_TEST_OWNER
+        )
         assert prepared["uid"] == "5"
 
 
@@ -100,7 +111,7 @@ class TestParseFileSyncStageTagging:
     def _parse(self, tmp_path: Path, content: str) -> dict:
         file_path = tmp_path / "note.md"
         file_path.write_text(content)
-        entity_type, entity_data, error = parse_file_sync(file_path)
+        entity_type, entity_data, error = parse_file_sync(file_path, INGESTION_TEST_OWNER)
         assert entity_type is None and entity_data is None
         assert error is not None
         return error
@@ -134,7 +145,7 @@ class TestParseFileSyncStageTagging:
         file_path.write_text("---\ntype: ku\n---\nbody\n")
         file_path.chmod(0o000)
         try:
-            _, _, error = parse_file_sync(file_path)
+            _, _, error = parse_file_sync(file_path, INGESTION_TEST_OWNER)
         finally:
             file_path.chmod(0o644)
         assert error is not None

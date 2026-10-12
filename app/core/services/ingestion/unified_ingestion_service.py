@@ -87,7 +87,6 @@ from .authored_edges import (
 from .batch import ingest_directory
 from .config import (
     DEFAULT_MAX_FILE_SIZE_BYTES,
-    DEFAULT_USER_UID,
     ENTITY_CONFIGS,
     SyncAllowlist,
     is_ingestible_path,
@@ -153,7 +152,7 @@ class UnifiedIngestionService:
             make_unified_ingestion_service,
         )
 
-        service = make_unified_ingestion_service(driver)
+        service = make_unified_ingestion_service(driver, default_user_uid=owner)
 
         # Single file
         result = await service.ingest_file(Path("ku_machine-learning.md"))
@@ -166,7 +165,8 @@ class UnifiedIngestionService:
         self,
         write_backend: IngestionWriteOperations,
         bulk_backend: BulkUpsertOperations,
-        default_user_uid: UserUID | None = None,
+        *,
+        default_user_uid: UserUID,
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
         chunking_service: Any | None = None,
         content_adapter: Any | None = None,
@@ -186,8 +186,9 @@ class UnifiedIngestionService:
                 Both are built at the composition root and injected so this service
                 never imports the adapter (ADR-044 / SKUEL022); use
                 ``make_unified_ingestion_service(driver, ...)`` to build them.
-            default_user_uid: Default user UID for entities without explicit user_uid.
-                              If not provided, uses SKUEL_DEFAULT_USER_UID env var or "user_system".
+            default_user_uid: The owner a user-owned file that names none is stamped
+                              with when no vault governs its path. The composition root
+                              passes ``SKUEL_DEFAULT_USER_UID``; a test names its own.
             max_file_size_bytes: Maximum file size in bytes (default: 10 MB).
                                  Files larger than this will be rejected to prevent OOM.
             chunking_service: Optional EntityChunkingService for automatic chunk generation.
@@ -242,9 +243,7 @@ class UnifiedIngestionService:
         self._write_backend = write_backend
         self._bulk_backend = bulk_backend
         self.ingestion_backend = ingestion_backend
-        self.default_user_uid = (
-            default_user_uid if default_user_uid is not None else DEFAULT_USER_UID
-        )
+        self.default_user_uid = default_user_uid
         self.max_file_size_bytes = max_file_size_bytes
         self.chunking = chunking_service  # Can be None - graceful degradation
         self.content_adapter = content_adapter  # Can be None - graceful degradation

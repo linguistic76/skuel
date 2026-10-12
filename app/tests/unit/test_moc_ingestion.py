@@ -34,6 +34,7 @@ from core.services.ingestion.moc_links import (
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.user_entry_ingestion import build_user_entry_request
 from core.services.ingestion.validator import validate_uid_format
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 # ============================================================================
 # 1. Link extraction (moc_links.py)
@@ -117,25 +118,33 @@ class TestPreparerMocHook:
     def test_moc_true_stashes_ordered_suffixes(self):
         data = {"type": "ku", "uid": "ku.test", "title": "T", "moc": True}
         body = "[[first]] and [second](second.md)"
-        entity = prepare_entity_data(EntityType.KU, data, body, Path("test.md"))
+        entity = prepare_entity_data(
+            EntityType.KU, data, body, Path("test.md"), INGESTION_TEST_OWNER
+        )
         assert entity["_moc_links"] == ["/first.md", "/second.md"]
         # The plain flag flows through as an inert property.
         assert entity["moc"] is True
 
     def test_moc_true_with_empty_body_stashes_empty_list(self):
         data = {"type": "ku", "uid": "ku.test", "title": "T", "moc": True}
-        entity = prepare_entity_data(EntityType.KU, data, None, Path("test.md"))
+        entity = prepare_entity_data(
+            EntityType.KU, data, None, Path("test.md"), INGESTION_TEST_OWNER
+        )
         assert entity["_moc_links"] == []
 
     def test_no_moc_flag_no_stash(self):
         data = {"type": "ku", "uid": "ku.test", "title": "T"}
-        entity = prepare_entity_data(EntityType.KU, data, "[[linked]]", Path("test.md"))
+        entity = prepare_entity_data(
+            EntityType.KU, data, "[[linked]]", Path("test.md"), INGESTION_TEST_OWNER
+        )
         assert "_moc_links" not in entity
 
     def test_moc_non_true_values_do_not_trigger(self):
         for value in (False, "true", 1, None):
             data = {"type": "ku", "uid": "ku.test", "title": "T", "moc": value}
-            entity = prepare_entity_data(EntityType.KU, data, "[[x]]", Path("test.md"))
+            entity = prepare_entity_data(
+                EntityType.KU, data, "[[x]]", Path("test.md"), INGESTION_TEST_OWNER
+            )
             assert "_moc_links" not in entity, f"moc={value!r} must not trigger the pass"
 
     def test_pathstep_organizes_frontmatter_passes_through_verbatim(self):
@@ -149,7 +158,9 @@ class TestPreparerMocHook:
             "organizes": ["ku.test.fm-child"],
             "moc": True,
         }
-        entity = prepare_entity_data(EntityType.PATH_STEP, data, "[[x]]", Path("map.md"))
+        entity = prepare_entity_data(
+            EntityType.PATH_STEP, data, "[[x]]", Path("map.md"), INGESTION_TEST_OWNER
+        )
         assert entity["organizes"] == ["ku.test.fm-child"]
         assert frontmatter_organizes_targets(entity) == ["ku.test.fm-child"]
 
@@ -177,7 +188,7 @@ class TestUserEntryUidAcceptance:
             "---\ntype: user_entry\npipeline: knowledge\nuid: moc.worldview\n"
             "title: Worldview Taxonomy\nmoc: true\n---\n[[some topic]]\n"
         )
-        entity_type, entity_data, error = parse_file_sync(f)
+        entity_type, entity_data, error = parse_file_sync(f, INGESTION_TEST_OWNER)
         assert error is None, f"batch door rejected the fixture shape: {error}"
         assert entity_type == EntityType.USER_ENTRY
         assert entity_data is not None
@@ -186,7 +197,7 @@ class TestUserEntryUidAcceptance:
     def test_other_types_keep_prefix_validation(self, tmp_path: Path):
         f = tmp_path / "bad.md"
         f.write_text("---\ntype: ku\nuid: moc.worldview\ntitle: T\n---\nbody\n")
-        _, _entity_data, error = parse_file_sync(f)
+        _, _entity_data, error = parse_file_sync(f, INGESTION_TEST_OWNER)
         assert error is not None
         assert "must start with 'ku.'" in error["error"]
 
@@ -294,6 +305,7 @@ def _make_service(backend: _FakeWriteBackend) -> Any:
     return UnifiedIngestionService(
         write_backend=backend,  # type: ignore[arg-type]
         bulk_backend=object(),  # type: ignore[arg-type]
+        default_user_uid=INGESTION_TEST_OWNER,
     )
 
 

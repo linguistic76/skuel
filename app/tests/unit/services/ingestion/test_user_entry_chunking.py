@@ -29,6 +29,7 @@ from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 from core.services.user_entry.audience_resolver import ShareOutcome
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 def _entry(pipeline: Pipeline, private: bool = False) -> UserEntry:
@@ -54,6 +55,7 @@ def _ingestion_service(entry: UserEntry) -> UnifiedIngestionService:
         write_backend=MagicMock(),
         bulk_backend=MagicMock(),
         user_entry_service=_user_entry_service(entry),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     svc._chunk_entity_content = AsyncMock(return_value=True)  # type: ignore[method-assign]
     return svc

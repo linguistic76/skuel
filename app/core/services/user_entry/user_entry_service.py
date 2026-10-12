@@ -322,9 +322,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             title=title,
             entity_type=EntityType.USER_ENTRY,
             user_uid=user_uid,
-            # Sharer attribution: the Shared-With-Me inbox resolves who shared
-            # an item from created_by — every SHARES_WITH writer must stamp it
-            # (a ``user:`` share rides on this entity).
+            # The author: on a user's own entry, its owner.
             created_by=user_uid,
             content=request.content,
             description=request.description,

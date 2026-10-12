@@ -28,6 +28,7 @@ from adapters.persistence.neo4j.ingestion_service_factory import make_unified_in
 from core.services.ingestion.config import SyncAllowlist
 from core.services.ingestion.types import IncrementalStats
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _UID_PREFIX = "ku.test.mocpass"
 
@@ -63,6 +64,7 @@ async def moc_ingestion_service(neo4j_driver):
     service = make_unified_ingestion_service(
         driver=neo4j_driver,
         ingestion_backend=IngestionBackend(executor=executor),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     yield service
     # Session-scoped container — remove this module's nodes + tracker rows.

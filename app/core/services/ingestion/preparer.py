@@ -31,7 +31,7 @@ from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import local_day_bounds
 from core.utils.zone_context import current_zone
 
-from .config import DEFAULT_USER_UID, ENTITY_CONFIGS
+from .config import ENTITY_CONFIGS
 from .moc_links import extract_moc_link_suffixes
 
 logger = get_logger("skuel.ingestion.preparer")
@@ -226,7 +226,7 @@ def prepare_entity_data(
     data: dict[str, Any],
     body: str | None,
     file_path: Path,
-    default_user_uid: UserUID = DEFAULT_USER_UID,
+    default_user_uid: UserUID,
     *,
     owner_is_authoritative: bool = False,
     file_uid: str | None = None,

@@ -29,6 +29,7 @@ from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.entity_chunking_service import EntityChunkingService
 from core.services.ingestion.types import IncrementalStats
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _PS_UID = "ps.test.force-reingest"
 
@@ -76,6 +77,7 @@ async def force_ingestion_service(neo4j_driver):
         ingestion_backend=IngestionBackend(executor=executor),
         chunking_service=EntityChunkingService(),
         content_adapter=Neo4jContentAdapter(_DriverConnection(neo4j_driver)),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     yield service
     # Session-scoped container — clean up this test's nodes so other tests

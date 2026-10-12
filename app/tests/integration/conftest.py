@@ -21,8 +21,7 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.graph_driver import open_async_driver, require_utc_instants
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.constants import SYSTEM_USER_UID
-from core.services.ingestion.config import DEFAULT_USER_UID
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 from tests.integration._container_lifecycle import bounded_neo4j_container
 from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
 
@@ -312,14 +311,9 @@ async def ensure_test_users(neo4j_driver):
         "user_embodiment_window",
         "user_event_calendar_days",
         "user_ku_application_discovery",
-        # The ingestion fallback owner. A file that names no owner is stamped with
-        # DEFAULT_USER_UID (SKUEL_DEFAULT_USER_UID, else SYSTEM_USER_UID), so the
-        # bulk door's unknown-owner refusal (ADR-086) makes it REQUIRED — and it is
-        # resolved, not spelled, because a developer's .env sets it to their own uid
-        # while CI falls back to user_system. Seeding the literal would pass on one
-        # machine and fail on the other.
-        DEFAULT_USER_UID,
-        SYSTEM_USER_UID,
+        # The owner the run ingests as. A file that names no owner is stamped with
+        # it, so the bulk door's unknown-owner refusal (ADR-086) makes it REQUIRED.
+        INGESTION_TEST_OWNER,
     ]
 
     async def create_users():
@@ -462,7 +456,9 @@ async def ingestion_service(neo4j_driver):
     """Create real UnifiedIngestionService."""
     from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 
-    service = make_unified_ingestion_service(driver=neo4j_driver)
+    service = make_unified_ingestion_service(
+        driver=neo4j_driver, default_user_uid=INGESTION_TEST_OWNER
+    )
 
     yield service
 

@@ -43,6 +43,7 @@ from core.models.ps_content.content_chunks import DEFAULT_CHUNKING_PARAMS
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 from core.utils.logging import get_logger
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 logger = get_logger("test.post_persist_embedding")
 
@@ -340,6 +341,7 @@ async def test_batch_door_strips_file_path_and_calls_post_persist(tmp_path: Path
         calls.append((entity_type, entities, chunk_sources))
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=tmp_path,
         bulk_backend=backend,
         post_persist_fn=post_persist,
@@ -389,6 +391,7 @@ async def test_batch_door_pops_path_step_content_and_threads_chunk_source(tmp_pa
         calls.append((entity_type, entities, chunk_sources))
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=tmp_path,
         bulk_backend=backend,
         post_persist_fn=post_persist,
@@ -654,6 +657,7 @@ async def test_batch_door_empty_body_writes_zero_word_count_and_threads_clear(tm
         calls.append((entity_type, entities, chunk_sources))
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=tmp_path,
         bulk_backend=backend,
         post_persist_fn=post_persist,
@@ -691,6 +695,7 @@ async def test_batch_door_null_content_frontmatter_is_treated_as_empty(tmp_path:
         calls.append((entity_type, entities, chunk_sources))
 
     result = await ingest_directory(
+        default_user_uid=INGESTION_TEST_OWNER,
         directory=tmp_path,
         bulk_backend=backend,
         post_persist_fn=post_persist,

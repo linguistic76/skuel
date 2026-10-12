@@ -21,6 +21,7 @@ from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.ingestion.types import IncrementalStats
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _MARK = "zzzgoalparity"
 _USER = f"user_{_MARK}"
@@ -87,7 +88,9 @@ async def parity_service(neo4j_driver):
             "MERGE (u:User {uid: $uid}) ON CREATE SET u.created_at = datetime()", {"uid": _USER}
         )
     service = make_unified_ingestion_service(
-        driver=neo4j_driver, ingestion_backend=IngestionBackend(executor=executor)
+        driver=neo4j_driver,
+        ingestion_backend=IngestionBackend(executor=executor),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
     yield service
     async with neo4j_driver.session() as session:

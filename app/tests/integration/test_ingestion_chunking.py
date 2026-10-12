@@ -17,6 +17,7 @@ import pytest
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from core.services.entity_chunking_service import EntityChunkingService
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 class _DriverConnection:
@@ -84,6 +85,7 @@ Python is easy to learn and powerful.
             driver=neo4j_driver,
             chunking_service=chunking_service,
             content_adapter=content_adapter,
+            default_user_uid=INGESTION_TEST_OWNER,
         )
 
         # When: Ingesting the file
@@ -179,6 +181,7 @@ One shared chunk step, two doors.
         chunking_service=chunking_service,
         content_adapter=content_adapter,
         event_bus=bus,
+        default_user_uid=INGESTION_TEST_OWNER,
     )
 
     result = await ingestion_service.ingest_directory(tmp_path)
@@ -235,6 +238,7 @@ async def test_empty_body_reingest_clears_content_subtree(neo4j_driver, tmp_path
         driver=neo4j_driver,
         chunking_service=chunking_service,
         content_adapter=content_adapter,
+        default_user_uid=INGESTION_TEST_OWNER,
     )
 
     result = await ingestion_service.ingest_directory(tmp_path)
@@ -291,7 +295,8 @@ Just a short piece of content.
         # Given: UnifiedIngestionService WITHOUT chunking service (None)
         ingestion_service = make_unified_ingestion_service(
             driver=neo4j_driver,
-            chunking_service=None,  # No chunking service
+            chunking_service=None,  # No chunking service,
+            default_user_uid=INGESTION_TEST_OWNER,
         )
 
         # When: Ingesting the file
@@ -339,6 +344,7 @@ This is a task description.
         ingestion_service = make_unified_ingestion_service(
             driver=neo4j_driver,
             chunking_service=chunking_service,
+            default_user_uid=INGESTION_TEST_OWNER,
         )
 
         # When: Ingesting a non-KU file
@@ -380,6 +386,7 @@ Python is a programming language.
         ingestion_service = make_unified_ingestion_service(
             driver=neo4j_driver,
             chunking_service=chunking_service,
+            default_user_uid=INGESTION_TEST_OWNER,
         )
 
         # When: Ingesting a KU with minimal content

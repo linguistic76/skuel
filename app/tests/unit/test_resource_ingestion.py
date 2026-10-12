@@ -27,6 +27,7 @@ from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.ingestion.detector import detect_entity_type
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data, validate_uid_format
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _FILE = Path("resource_atlas-of-the-heart.md")
 
@@ -75,7 +76,9 @@ def test_resource_config_shape() -> None:
 
 
 def test_valid_descriptor_prepares_and_validates() -> None:
-    prepared = prepare_entity_data(EntityType.RESOURCE, dict(_DESCRIPTOR), None, _FILE)
+    prepared = prepare_entity_data(
+        EntityType.RESOURCE, dict(_DESCRIPTOR), None, _FILE, INGESTION_TEST_OWNER
+    )
     assert prepared["uid"] == "resource.atlas-of-the-heart"  # authored = stored, verbatim
     assert prepared["entity_type"] == "resource"
     assert prepared["author"] == "Brené Brown"
@@ -85,7 +88,7 @@ def test_valid_descriptor_prepares_and_validates() -> None:
 
 def test_descriptor_body_becomes_content() -> None:
     prepared = prepare_entity_data(
-        EntityType.RESOURCE, dict(_DESCRIPTOR), "A short annotation.", _FILE
+        EntityType.RESOURCE, dict(_DESCRIPTOR), "A short annotation.", _FILE, INGESTION_TEST_OWNER
     )
     assert prepared["content"] == "A short annotation."
 
@@ -114,7 +117,7 @@ def test_missing_title_falls_back_to_filename() -> None:
     filename when absent (the validator deliberately skips title pre-prepare) —
     so a title-less descriptor still ingests, with a humanized-stem title."""
     data = {k: v for k, v in _DESCRIPTOR.items() if k != "title"}
-    prepared = prepare_entity_data(EntityType.RESOURCE, data, None, _FILE)
+    prepared = prepare_entity_data(EntityType.RESOURCE, data, None, _FILE, INGESTION_TEST_OWNER)
     assert prepared["title"] == "Resource_Atlas Of The Heart"  # humanized stem
     assert validate_entity_data(EntityType.RESOURCE, prepared, _FILE).is_ok
 
@@ -155,7 +158,9 @@ def test_ps_resource_uid_list_passes_through_verbatim() -> None:
         "title": "Test",
         "resource_uids": ["resource.transcend"],
     }
-    prepared = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("ps_test.md"))
+    prepared = prepare_entity_data(
+        EntityType.PATH_STEP, data, None, Path("ps_test.md"), INGESTION_TEST_OWNER
+    )
     assert prepared["resource_uids"] == ["resource.transcend"]
 
 

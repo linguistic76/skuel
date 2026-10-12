@@ -31,7 +31,6 @@ from adapters.persistence.neo4j.session_backend import SessionBackend
 from core.config.unified_config import UnifiedConfig
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 from core.services.performance_optimization_service import PerformanceOptimizationService
-from core.services.user_service import UserService
 from core.utils.result_simplified import Result
 from services_bootstrap._container import Services
 from services_bootstrap.compose import compose_services
@@ -325,6 +324,9 @@ class _FakeConnection:
 # ---------------------------------------------------------------------------
 
 
+COMPOSE_DEFAULT_OWNER = "user_compose_default_owner"
+
+
 @pytest.fixture
 def compose_config(tmp_path, hermetic_credentials) -> UnifiedConfig:
     """Real UnifiedConfig with vault roots redirected into tmp_path.
@@ -350,6 +352,9 @@ def compose_config(tmp_path, hermetic_credentials) -> UnifiedConfig:
     config.vault.ingestion_root = str(content)
     config.vault.user_vaults_root = str(user_vaults)
     config.vault.vault_transport = "filesystem"
+    # The owners a run names (ADR-091 S9): boot supplies no account in their place.
+    config.vault.default_user_uid = COMPOSE_DEFAULT_OWNER
+    config.vault.personal_vault_owner_uid = COMPOSE_DEFAULT_OWNER
 
     # No background schema poll in a unit test.
     config.database.schema_monitoring_enabled = False
@@ -409,13 +414,6 @@ def startup_calls(monkeypatch, tmp_path) -> dict[str, int]:
         SessionBackend, "cleanup_expired_tokens", _make_cleanup_stub("cleanup_expired_tokens")
     )
 
-    async def _fake_ensure_system_user(self: UserService) -> Result[None]:
-        _record("ensure_system_user")
-        # compose only checks is_error; the User payload is never read there.
-        return Result.ok(None)
-
-    monkeypatch.setattr(UserService, "ensure_system_user", _fake_ensure_system_user)
-
     # initialize() starts background asyncio tasks — construction is what's
     # under test, so keep the loop clean.
     async def _fake_perf_initialize(self: PerformanceOptimizationService) -> None:
@@ -463,7 +461,6 @@ EXPECTED_STARTUP_CALLS_CORE = {
     "drop_stale_indexes",
     "cleanup_expired_sessions",
     "cleanup_expired_tokens",
-    "ensure_system_user",
     "performance_optimization.initialize",
 }
 EXPECTED_STARTUP_CALLS_FULL = EXPECTED_STARTUP_CALLS_CORE | {"sync_vector_indexes"}
@@ -623,3 +620,63 @@ class TestComposeServicesExecution:
         _assert_container_complete(services, NONE_OK_FULL_NO_TRANSCRIPTION)
         _assert_subscriptions_wired(event_bus, full_tier=True)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_FULL
+
+
+async def _compose_result(config: UnifiedConfig) -> Result[Services]:
+    return await compose_services(
+        neo4j_adapter=_FakeNeo4jAdapter(_NoDatabaseDriver()),
+        event_bus=InMemoryEventBus(),
+        config=config,
+        prometheus_metrics=None,
+        metrics_cache=None,
+    )
+
+
+class TestBootNamesItsOwners:
+    """Boot refuses an owner the configuration does not name (ADR-091 S9).
+
+    No account stands in for a missing ``SKUEL_DEFAULT_USER_UID`` or personal-vault
+    owner: an unset or non-canonical one is a configuration error at boot.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _core_tier(self, monkeypatch) -> None:
+        monkeypatch.setenv("INTELLIGENCE_TIER", "core")
+
+    async def test_named_owners_compose_and_ingestion_takes_the_default(
+        self, compose_config, startup_calls
+    ) -> None:
+        services, _ = await _compose(compose_config)
+
+        ingestion = services.unified_ingestion
+        assert isinstance(ingestion, UnifiedIngestionService)
+        assert ingestion.default_user_uid == COMPOSE_DEFAULT_OWNER
+
+    @pytest.mark.parametrize("unset", ["", "   "])
+    async def test_an_unset_default_owner_fails_boot(
+        self, compose_config, startup_calls, unset: str
+    ) -> None:
+        compose_config.vault.default_user_uid = unset
+
+        result = await _compose_result(compose_config)
+
+        assert result.is_error
+        assert "SKUEL_DEFAULT_USER_UID" in result.expect_error().message
+
+    async def test_an_unset_personal_vault_owner_fails_boot(
+        self, compose_config, startup_calls
+    ) -> None:
+        compose_config.vault.personal_vault_owner_uid = ""
+
+        result = await _compose_result(compose_config)
+
+        assert result.is_error
+        assert "SKUEL_PERSONAL_VAULT_OWNER" in result.expect_error().message
+
+    async def test_a_non_canonical_owner_fails_boot(self, compose_config, startup_calls) -> None:
+        compose_config.vault.default_user_uid = "system"
+
+        result = await _compose_result(compose_config)
+
+        assert result.is_error
+        assert "SKUEL_DEFAULT_USER_UID" in result.expect_error().message

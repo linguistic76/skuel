@@ -33,6 +33,7 @@ from core.services.chunks.batch_chunking_service import BatchChunkingService
 from core.services.entity_chunking_service import EntityChunkingService
 from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
 class _RouteRegistry:
@@ -120,6 +121,7 @@ async def test_regenerate_route_replaces_stale_chunks(neo4j_driver):
             driver=neo4j_driver,
             chunking_service=chunking_service,
             content_adapter=content_adapter,
+            default_user_uid=INGESTION_TEST_OWNER,
         )
 
         ingest_result = await ingestion_service.ingest_file(temp_path)

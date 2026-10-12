@@ -39,6 +39,7 @@ import pytest
 
 from core.utils.timestamp_helpers import day_of
 from core.utils.zone_context import current_zone
+from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
 
@@ -55,6 +56,7 @@ def door(neo4j_driver):
     return make_unified_ingestion_service(
         driver=neo4j_driver,
         ingestion_backend=IngestionBackend(executor=Neo4jQueryExecutor(neo4j_driver)),
+        default_user_uid=INGESTION_TEST_OWNER,
     )
 
 

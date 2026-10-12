@@ -220,8 +220,7 @@ fulfils — refusals are 404; surfaced as the "Request AI feedback" button on
 `/gradebook/{uid}`).
 
 **Teacher transition:** students auto-join the default teacher group
-(`group_default_{admin_uid}`, oldest HUMAN admin — `@skuel.local` service
-accounts excluded) on PathStep enrollment. A `teacher_review` turn-in whose audience is `teachers`
+(`group_default_{admin_uid}`, the oldest admin) on PathStep enrollment. A `teacher_review` turn-in whose audience is `teachers`
 resolves to the exercise's assigned groups the submitter belongs to; a
 CURRICULUM-scope exercise is never assigned, so it falls back to the submitter's
 default group; a PERSONAL exercise anchored to a published PathStep is in no
