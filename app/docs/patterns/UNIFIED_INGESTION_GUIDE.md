@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-10-12
+updated: 2026-10-13
 category: patterns
 related_skills: []
 related_docs:
@@ -59,6 +59,27 @@ A personal vault belongs to one user, so a file in it may write only that user's
   `type: user_entry` + `pipeline: knowledge`); its body links resolve within the same vault.
   A `moc: true` file with no `type:` is a PathStep and is refused with that hint.
 - The sync preview lists each refused file with its reason (`would_ignore_*`).
+
+### Publishing curriculum: `publication_state` is the one switch (ADR-091 S7)
+
+A content-vault curriculum file (`ku`, `path_step`, `learning_path`, `exercise`) is
+published or a draft by its own `publication_state:` frontmatter line. There is no publish
+button in the app.
+
+| The file says | The node holds | Learners |
+|---|---|---|
+| `publication_state: published` | `published` | the content is listed and searchable |
+| no `publication_state:` line, ever | no property | the same: absent reads as published |
+| `publication_state: draft` | `draft` | withheld from listings and search (`build_publication_clause`) |
+| `publication_state: none` | no property (removed) | as absent |
+
+- **A draft is unlisted, not locked.** A direct link still opens it, and a learner who was
+  already working on a step when it became a draft keeps it in their own lists.
+- **Deleting the line does not publish a draft.** A sync never removes a stored property
+  for a key the file no longer has, so the node keeps `draft`. To publish, write
+  `publication_state: published` (or `none`) and sync.
+- **`status:` is lifecycle, not publication.** A PathStep's `status` defaults to `active`;
+  `status: draft` does not withhold it from anyone, and `published` is not a status.
 
 ---
 

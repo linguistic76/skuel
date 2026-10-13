@@ -21,7 +21,7 @@ Module Organization:
 - lifepath_enums: ThemeCategory
 - migration_enums: MigrationState
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
-- learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
+- learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - notification_enums: NotificationType
 - askesis_enums: QueryComplexity, IntegrationSuccess, AggregationPeriod
@@ -93,7 +93,6 @@ from .learning_enums import (
     ContentType,
     EducationalLevel,
     FeedbackCategory,
-    KnowledgeStatus,
     KuComplexity,
     LearningLevel,
     MasteryImpact,
@@ -231,7 +230,6 @@ __all__ = [
     "InteractionType",
     "JournalMode",
     "JournalTier",
-    "KnowledgeStatus",
     "JeUse",
     "KnowledgeRelevance",
     "KuComplexity",

@@ -761,12 +761,10 @@ async def compose_services(
         logger.info("✅ Learning services created")
 
         # Build template + engagement layer (Phase 4 — PS+Activity Templates).
-        # PS service must already exist (it's inside learning_services).
         from services_bootstrap._template_services import _create_template_services
 
         template_services = _create_template_services(
             executor=query_executor,
-            ps_service=learning_services["ps"],
             task_template_backend=task_template_backend,
             goal_template_backend=goal_template_backend,
             habit_template_backend=habit_template_backend,

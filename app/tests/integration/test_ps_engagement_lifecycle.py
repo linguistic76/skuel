@@ -1,13 +1,12 @@
 # mypy: disable-error-code="var-annotated"
 """Integration tests for ``PsEngagementService`` (Phase 4 verification).
 
-Covers the four-transition lifecycle end-to-end against a real Neo4j
+Covers the three-transition lifecycle end-to-end against a real Neo4j
 testcontainer:
 
-    publish_pathstep    — T1 (validate + flip status)
-    engage_pathstep     — T2 (spawn 6 instances + open ENGAGED_WITH edge)
-    complete_pathstep   — T3 (mixed keep/discard review)
-    abandon_pathstep    — T4 (delete all instances, preserve audit edge)
+    engage_pathstep     — T1 (validate, spawn 6 instances + open ENGAGED_WITH edge)
+    complete_pathstep   — T2 (mixed keep/discard review)
+    abandon_pathstep    — T3 (delete all instances, preserve audit edge)
 
 Plus the cross-transition invariants the unit tests can't reach:
 
@@ -22,7 +21,7 @@ Plus the cross-transition invariants the unit tests can't reach:
 
 The unit tests (``tests/unit/services/ps_engagement/``) cover the validator
 and spawn-builder pure functions in isolation. This file is the only place
-the four transitions are wired together against the real backends.
+the three transitions are wired together against the real backends.
 """
 
 from __future__ import annotations
@@ -60,38 +59,6 @@ from core.utils.result_simplified import Errors, Result
 
 STUDENT_UID = "user_test_ps_engagement"
 PS_UID = "ps_test_engagement"
-
-
-# ============================================================================
-# Stub PsService — PsEngagementService only calls .core.get(ps_uid)
-# ============================================================================
-
-
-class _StubPsCore:
-    """Minimal core sub-service: just enough surface to satisfy publish_pathstep."""
-
-    def __init__(self, backend: Any) -> None:
-        self._backend = backend
-
-    async def get(self, uid: str) -> Result[PathStep]:
-        result = await self._backend.get(uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.fail(Errors.not_found("PathStep", uid))
-        return result
-
-
-class _StubPsService:
-    """Stand-in for PsService — wraps a PS backend behind a ``.core`` attribute.
-
-    PsEngagementService.publish_pathstep only calls ``self._ps_service.core.get()``.
-    Wiring the full PsService (12 sub-services) is unnecessary overhead for
-    these tests and would couple them to unrelated curriculum services.
-    """
-
-    def __init__(self, backend: Any) -> None:
-        self.core = _StubPsCore(backend)
 
 
 # ============================================================================
@@ -170,14 +137,12 @@ async def event_bus() -> InMemoryEventBus:
 @pytest_asyncio.fixture
 async def engagement_service(
     executor: Neo4jQueryExecutor,
-    ps_backend: Any,
     template_backends: dict[str, Any],
     instance_backends: dict[str, Any],
     event_bus: InMemoryEventBus,
 ) -> PsEngagementService:
     return PsEngagementService(
         backend=PsEngagementBackend(executor),
-        ps_service=_StubPsService(ps_backend),
         task_template_backend=template_backends["task"],
         goal_template_backend=template_backends["goal"],
         habit_template_backend=template_backends["habit"],
@@ -351,73 +316,7 @@ async def _instance_count(executor: Neo4jQueryExecutor, student: str, ps: str) -
 
 
 # ============================================================================
-# T1 — Publish
-# ============================================================================
-
-
-@pytest.mark.asyncio
-class TestPublishPathStep:
-    async def test_publish_succeeds_for_valid_bundle(
-        self, engagement_service, ps_backend, template_backends, executor
-    ):
-        await _seed_full_bundle(ps_backend, template_backends, executor)
-
-        result = await engagement_service.publish_pathstep(PS_UID)
-
-        assert result.is_ok, f"publish failed: {result.expect_error()}"
-        ps = result.value
-        assert ps.uid == PS_UID
-
-        # Status was flipped — read it back via raw Cypher to bypass any
-        # interpretation in PathStep's __post_init__.
-        status_res = await executor.execute(
-            query="MATCH (ps {uid: $uid}) RETURN ps.status AS status",
-            params={"uid": PS_UID},
-            operation="check_status",
-        )
-        assert status_res.is_ok
-        assert status_res.value[0]["status"] == "published"
-
-    async def test_publish_returns_validation_report_for_missing_target(
-        self, engagement_service, ps_backend, template_backends, executor
-    ):
-        # Build a PS whose Task template references a non-existent goal.
-        ps = PathStep(uid=PS_UID, title="Broken PS")
-        await ps_backend.create(ps)
-        bad_task = TaskTemplate(
-            uid="ttpl_bad",
-            title="Task with broken ref",
-            status=EntityStatus.ACTIVE,
-            contributes_to_goal_template_uid="gtpl_does_not_exist",
-        )
-        await template_backends["task"].create(bad_task)
-        await _attach_template(executor, PS_UID, "ttpl_bad", "HAS_TASK_TEMPLATE")
-
-        result = await engagement_service.publish_pathstep(PS_UID)
-
-        assert result.is_error
-        err = result.expect_error()
-        assert err.details["rule"] == "ps_template_validation"
-        violations = err.details["violations"]
-        assert len(violations) == 1
-        v = violations[0]
-        assert v["violation"] == "target_missing"
-        assert v["field"] == "contributes_to_goal_template_uid"
-        assert v["referenced_uid"] == "gtpl_does_not_exist"
-        assert v["template_type"] == "TaskTemplate"
-
-    async def test_publish_fails_for_missing_pathstep(self, engagement_service):
-        result = await engagement_service.publish_pathstep("ps_does_not_exist")
-
-        assert result.is_error
-        # Loader walks 6 HAS_*_TEMPLATE edges — non-existent PS yields an
-        # empty bundle (loader returns ok), and validation passes (empty is
-        # valid). The status update then fails with not_found.
-        assert result.expect_error().category.name in {"NOT_FOUND", "BUSINESS"}
-
-
-# ============================================================================
-# T2 — Engage
+# T1 — Engage
 # ============================================================================
 
 
@@ -544,6 +443,35 @@ class TestEngagePathStep:
             "see GOAL_SPEC.cross_edges in _spawn_orchestrator.py"
         )
 
+    async def test_engage_returns_validation_report_for_missing_target(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        # Build a PS whose Task template references a non-existent goal.
+        await ps_backend.create(PathStep(uid=PS_UID, title="Broken PS"))
+        bad_task = TaskTemplate(
+            uid="ttpl_bad",
+            title="Task with broken ref",
+            status=EntityStatus.ACTIVE,
+            contributes_to_goal_template_uid="gtpl_does_not_exist",
+        )
+        await template_backends["task"].create(bad_task)
+        await _attach_template(executor, PS_UID, "ttpl_bad", "HAS_TASK_TEMPLATE")
+
+        result = await engagement_service.engage_pathstep(test_user, PS_UID)
+
+        assert result.is_error
+        err = result.expect_error()
+        assert err.details["rule"] == "ps_template_validation"
+        violations = err.details["violations"]
+        assert len(violations) == 1
+        v = violations[0]
+        assert v["violation"] == "target_missing"
+        assert v["field"] == "contributes_to_goal_template_uid"
+        assert v["referenced_uid"] == "gtpl_does_not_exist"
+        assert v["template_type"] == "TaskTemplate"
+        # Refused before the spawn: nothing was made for the student.
+        assert await _instance_count(executor, test_user, PS_UID) == 0
+
     async def test_engage_fails_for_empty_pathstep(self, engagement_service, ps_backend, test_user):
         # PS exists but has no templates attached.
         await ps_backend.create(PathStep(uid=PS_UID, title="Empty PS"))
@@ -568,7 +496,7 @@ class TestEngagePathStep:
 
 
 # ============================================================================
-# T3 — Complete (mixed keep/discard review)
+# T2 — Complete (mixed keep/discard review)
 # ============================================================================
 
 
@@ -660,7 +588,7 @@ class TestCompletePathStep:
 
 
 # ============================================================================
-# T4 — Abandon
+# T3 — Abandon
 # ============================================================================
 
 
@@ -986,8 +914,8 @@ class TestConcurrentEngage:
 # Round-trip back-references — spawn → discover → mutate → re-discover
 # ============================================================================
 #
-# The four-transition tests above cover the engagement service's lifecycle
-# contract (publish/engage/complete/abandon). These tests cover the *round
+# The three-transition tests above cover the engagement service's lifecycle
+# contract (engage/complete/abandon). These tests cover the *round
 # trip* — the back-references that let a spawned activity be traced to its
 # originating PathStep and engagement, plus the gaps where back-references
 # are declared but not implemented.
@@ -1240,7 +1168,7 @@ class TestRoundTripBackReferences:
     ):
         """Student mutates a spawned activity while the engagement is still active.
 
-        The four-transition test ``test_complete_with_mixed_review`` mutates
+        The three-transition test ``test_complete_with_mixed_review`` mutates
         instances via ``complete_pathstep`` (which flips ``engagement_state``
         to 'owned' on keeps). This one models the other path — the student
         opens the spawned Task and marks it complete directly. The activity's

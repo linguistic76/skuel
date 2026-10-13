@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-10-10
+updated: 2026-10-13
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -212,9 +212,8 @@ defaults, so an unstamped node would read as `draft` and silently never spawn.
 
 An authored `status:` still wins, but **do not use `status: draft` to park a template
 that is already attached to a PathStep** — a single non-active template fails validation
-for the whole bundle, so it blocks that PathStep from being published *and* from being
-engaged by anyone. To park one, take its UID out of the PathStep's `*_template_uids:`
-list; the file can stay.
+for the whole bundle, so it blocks that PathStep from being engaged by anyone. To park
+one, take its UID out of the PathStep's `*_template_uids:` list; the file can stay.
 
 **Body text** is not read for templates. Put everything in the frontmatter.
 
@@ -382,7 +381,7 @@ has no reference fields at all.
 
 ## When a sync goes wrong
 
-Validation runs over the **whole PathStep bundle**, on both publish and engage, and it is
+Validation runs over the **whole PathStep bundle** when a learner engages the step, and it is
 all-or-nothing: one bad template fails the step, not just itself. Six violations exist;
 each names the offending template and field, and carries a fuzzy-matched `hint` when a
 near-miss UID is on the step.

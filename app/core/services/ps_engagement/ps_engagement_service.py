@@ -1,13 +1,15 @@
-"""PsEngagementService — facade for the 4-transition lifecycle.
+"""PsEngagementService — facade for the 3-transition lifecycle.
 
 Phase 4 of the PathStep + Activity Templates build.
 
 Surface:
 
-    publish_pathstep(ps_uid)             -> Result[PathStep]    # T1
-    engage_pathstep(student, ps)         -> Result[Engagement]  # T2
-    complete_pathstep(student, ps, rev)  -> Result[Engagement]  # T3
-    abandon_pathstep(student, ps)        -> Result[Engagement]  # T4
+    engage_pathstep(student, ps)         -> Result[Engagement]  # T1
+    complete_pathstep(student, ps, rev)  -> Result[Engagement]  # T2
+    abandon_pathstep(student, ps)        -> Result[Engagement]  # T3
+
+Publishing is not a transition here: a PathStep is published by its
+content-vault file's ``publication_state`` (ADR-091 S7).
 
 Concrete facade pattern (per CLAUDE.md "Facade IS the contract"):
 the class itself is the route-facing type — no parallel protocol.
@@ -15,13 +17,13 @@ the class itself is the route-facing type — no parallel protocol.
 Invariants enforced:
 - T1 fails fast if any template's cross-template references are broken
   (returns ``Errors.ps_validation_report`` with a typed ``list[Violation]``).
-- T2 refuses if an active engagement already exists for (student, PS).
-- T2 spawns transactionally — partial spawn is rolled back on failure.
-- T3 marks kept instances ``engagement_state=EngagementState.OWNED`` and deletes discarded
+- T1 refuses if an active engagement already exists for (student, PS).
+- T1 spawns transactionally — partial spawn is rolled back on failure.
+- T2 marks kept instances ``engagement_state=EngagementState.OWNED`` and deletes discarded
   ones; engagement edge transitions to ``state="completed"``.
-- T4 deletes all spawned instances (engaged or owned-by-this-engagement);
+- T3 deletes all spawned instances (engaged or owned-by-this-engagement);
   engagement edge transitions to ``state="abandoned"`` (preserved for audit).
-- T3 and T4 reach only the instances THIS engagement spawned — the ones
+- T2 and T3 reach only the instances THIS engagement spawned — the ones
   stamped with its ``uid``. An earlier engagement of the same step, or an
   engagement of another step sharing a template, is out of reach.
 
@@ -39,7 +41,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from core.events import GoalContributionsChanged, publish_event
 from core.models.choice.choice import Choice
@@ -76,9 +78,6 @@ def _goal_uids(rows: list[dict[str, Any]] | None) -> list[str]:
     return [str(uid) for row in rows or [] for uid in row.get("goal_uids") or []]
 
 
-if TYPE_CHECKING:
-    from core.models.pathways.path_step import PathStep
-
 logger = get_logger(__name__)
 
 
@@ -108,12 +107,11 @@ class ReviewItem:
 
 
 class PsEngagementService:
-    """Concrete facade — coordinates validator, loader, spawn, gateway, ps_service."""
+    """Concrete facade — coordinates validator, loader, spawn and gateway."""
 
     def __init__(
         self,
         backend: PsEngagementOperations,
-        ps_service: Any,
         task_template_backend: CrudOperations[TaskTemplate],
         goal_template_backend: CrudOperations[GoalTemplate],
         habit_template_backend: CrudOperations[HabitTemplate],
@@ -128,13 +126,11 @@ class PsEngagementService:
         principles_backend: CrudOperations[Principle],
         event_bus: EventBusOperations,
     ) -> None:
-        if backend is None or ps_service is None:
+        if backend is None:
             raise ValueError(
-                "PsEngagementService requires both backend and ps_service "
-                "(SKUEL fail-fast — no graceful degradation)."
+                "PsEngagementService requires a backend (SKUEL fail-fast — no graceful degradation)."
             )
 
-        self._ps_service = ps_service
         # Spawning and discarding instances changes goal contributions: a spawned task
         # contributes to its spawned goal, and a discarded one leaves it.
         self._event_bus = event_bus
@@ -167,45 +163,7 @@ class PsEngagementService:
         logger.debug("PsEngagementService initialized (Phase 4)")
 
     # ========================================================================
-    # T1 — Publish
-    # ========================================================================
-
-    async def publish_pathstep(self, ps_uid: str) -> Result[PathStep]:
-        """Validate the PS's templates and mark it published.
-
-        Free-order authoring + deferred validation: refs may have been left
-        unresolved during draft. Save-time validation produces the structured
-        ``list[Violation]`` rendered by ``Errors.ps_validation_report``.
-        """
-        bundle_res = await self._loader.load(ps_uid)
-        if bundle_res.is_error:
-            return Result.fail(bundle_res)
-
-        violations = self._validator.validate(bundle_res.value)
-        if violations:
-            return Result.fail(Errors.ps_validation_report(violations))
-
-        # Validation passed — flip the status to PUBLISHED.
-        from core.models.enums.learning_enums import KnowledgeStatus
-
-        # Focused single-property status update via the backend — avoids tugging
-        # on the full PS update-validation path.
-        update_res = await self._backend.set_pathstep_published(
-            ps_uid, KnowledgeStatus.PUBLISHED.value, datetime.now(UTC).isoformat()
-        )
-        if update_res.is_error:
-            return Result.fail(update_res)
-        if not update_res.value:
-            return Result.fail(Errors.not_found("PathStep", ps_uid))
-
-        # Hand back the freshly-loaded PathStep model.
-        ps_res = await self._ps_service.core.get(ps_uid)
-        if ps_res.is_error:
-            return Result.fail(ps_res)
-        return Result.ok(ps_res.value)
-
-    # ========================================================================
-    # T2 — Engage
+    # T1 — Engage
     # ========================================================================
 
     async def engage_pathstep(self, student_uid: str, ps_uid: str) -> Result[Engagement]:
@@ -213,8 +171,8 @@ class PsEngagementService:
 
         Steps:
             1. Refuse if (student, PS) already has an active engagement.
-            2. Re-validate the PS (defensive — templates may have changed
-               since publish).
+            2. Validate the PS's templates (they are read fresh on every
+               engagement).
             3. Open the engagement edge → use its ``since`` as the spawn anchor.
             4. Spawn all instances via the 4-layer orchestrator, each stamped
                with the engagement's ``uid``.
@@ -292,7 +250,7 @@ class PsEngagementService:
         )
 
     # ========================================================================
-    # T3 — Complete
+    # T2 — Complete
     # ========================================================================
 
     async def complete_pathstep(
@@ -348,7 +306,7 @@ class PsEngagementService:
         return await self._gateway.mark_completed(student_uid, ps_uid)
 
     # ========================================================================
-    # T4 — Abandon
+    # T3 — Abandon
     # ========================================================================
 
     async def abandon_pathstep(self, student_uid: str, ps_uid: str) -> Result[Engagement]:
@@ -405,7 +363,7 @@ class PsEngagementService:
             )
 
     # ========================================================================
-    # T3 (auto) — Auto-complete when all engaged siblings reach terminal
+    # T2 (auto) — Auto-complete when all engaged siblings reach terminal
     # ========================================================================
 
     async def check_auto_complete(

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-02
+updated: 2026-10-13
 ---
 
 # Enum Architecture
@@ -347,14 +347,13 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 
 ### Infrastructure Enums
 
-**Learning** (`learning_enums.py`) — 12 enums for education/knowledge tracking:
+**Learning** (`learning_enums.py`) — 9 enums for education/knowledge tracking:
 - `MasteryImpact` (MINOR, MODERATE, MAJOR, CERTIFICATION — controls mastery score advancement per Exercise, with `get_ai_score()`, `get_teacher_score()`, `get_label()`, `get_description()`, `sort_order()`, `from_value()`)
 - `AssessmentOutcome` (APPROVED, NEEDS_REVISION, AI_EVALUATED — self-describing report decisions)
 - `FeedbackCategory` (ACCURACY, COMPLETENESS, DEPTH, CLARITY, APPLICATION, METHODOLOGY — classifies learning gap type on RevisedExercise.feedback_points, with `get_label()`, `get_color()`, `get_description()`)
 - `LearningLevel` (BEGINNER → EXPERT, with `to_numeric()`, `can_handle()`, `sort_order()`, `from_value()`)
 - `EducationalLevel` (ELEMENTARY → LIFELONG, with `get_age_range()`, `to_numeric()`)
 - `MasteryStatus` (NOT_STARTED → MASTERED, 7-level progression, with `sort_order()`, `rank()`, `from_value()`)
-- `KnowledgeStatus` (DRAFT → UNDER_REVIEW, with `to_activity_status()`)
 - `ContentType` (CONCEPT, PRACTICE, THEORY, ... 12 values for faceted search)
 - `SELCategory` (5 SEL framework categories)
 - `KuComplexity` (BASIC, MEDIUM, ADVANCED, with `sort_order()`, `from_value()`)
@@ -505,9 +504,6 @@ UserRole.TEACHER.can_create_curriculum()              # → True
 Some enums bridge between systems:
 
 ```python
-# Knowledge status → Entity status
-KnowledgeStatus.PUBLISHED.to_activity_status()  # → EntityStatus.COMPLETED
-
 # Priority → numeric for sorting
 Priority.HIGH.to_numeric()                        # → 3
 

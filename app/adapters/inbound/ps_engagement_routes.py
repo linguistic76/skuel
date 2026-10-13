@@ -1,26 +1,26 @@
 """
-PathStep Engagement Routes — 4-Transition API (Phase 5)
+PathStep Engagement Routes — 3-Transition API (Phase 5)
 ========================================================
 
 Wires the public surface of :class:`PsEngagementService` (Phase 4):
 
-    POST /api/ps/{ps_uid}/publish      → T1 publish_pathstep
-    POST /api/ps/{ps_uid}/engage       → T2 engage_pathstep (authenticated user is student)
-    POST /api/ps/{ps_uid}/complete     → T3 complete_pathstep (body: review dict)
-    POST /api/ps/{ps_uid}/abandon      → T4 abandon_pathstep
+    POST /api/ps/{ps_uid}/engage       → T1 engage_pathstep (authenticated user is student)
+    POST /api/ps/{ps_uid}/complete     → T2 complete_pathstep (body: review dict)
+    POST /api/ps/{ps_uid}/abandon      → T3 abandon_pathstep
+
+There is no publish route: a PathStep is published by its content-vault file's
+``publication_state`` (ADR-091 S7).
 
 Authorization
 -------------
-- ``publish``: TEACHER role required (or higher). Templates and PS are
-  curriculum content owned by curriculum authors.
-- ``engage`` / ``complete`` / ``abandon``: any authenticated user. Each is
-  scoped to the calling user's own (student, PS) edge.
+Any authenticated user. Each transition is scoped to the calling user's own
+(student, PS) edge.
 
 Validation errors
 -----------------
-``publish`` and ``engage`` re-validate the PS's templates and may return a
-422 BUSINESS error with the typed ``list[Violation]`` under
-``details.violations`` (per the Phase 0 ``Errors.ps_validation_report``).
+``engage`` validates the PS's templates and may return a 422 BUSINESS error
+with the typed ``list[Violation]`` under ``details.violations`` (per the
+Phase 0 ``Errors.ps_validation_report``).
 """
 
 from __future__ import annotations
@@ -28,7 +28,6 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, cast
 
-from adapters.inbound.auth import make_service_getter, require_teacher
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
@@ -66,7 +65,7 @@ def create_ps_engagement_routes(
     services: Services | None,
     _sync_service: Any = None,
 ) -> None:
-    """Register the 4-transition engagement endpoints.
+    """Register the 3-transition engagement endpoints.
 
     No-op if the engagement service didn't initialize (e.g., during a partial
     bootstrap that omitted the template layer); a warning is logged.
@@ -76,36 +75,8 @@ def create_ps_engagement_routes(
         logger.warning("PS engagement routes registered without ps_engagement service")
         return
 
-    user_service = getattr(services, "user", None) if services else None
-    get_user_service = make_service_getter(user_service)
-
     # ========================================================================
-    # T1 — publish (TEACHER+)
-    # ========================================================================
-
-    @rt("/api/ps/{ps_uid}/publish", methods=["POST"])
-    @csrf_protected
-    @require_teacher(get_user_service)
-    @boundary_handler()
-    async def publish_pathstep(
-        request: Request, ps_uid: str, current_user: Any = None
-    ) -> Result[dict[str, Any]]:
-        """Validate and publish a PathStep so students can engage with it."""
-        result = await ps_engagement_service.publish_pathstep(ps_uid)
-        if result.is_error:
-            return cast("Result[dict[str, Any]]", result)
-        ps = result.value
-        # Hand back a minimal JSON-safe summary; the full PS is queryable elsewhere.
-        return Result.ok(
-            {
-                "uid": ps.uid,
-                "title": ps.title,
-                "status": getattr(ps.status, "value", ps.status),
-            }
-        )
-
-    # ========================================================================
-    # T2 — engage (any authenticated user)
+    # T1 — engage (any authenticated user)
     # ========================================================================
 
     @rt("/api/ps/{ps_uid}/engage", methods=["POST"])
@@ -120,7 +91,7 @@ def create_ps_engagement_routes(
         return Result.ok(_engagement_to_dict(result.value))
 
     # ========================================================================
-    # T3 — complete (any authenticated user; body is review dict)
+    # T2 — complete (any authenticated user; body is review dict)
     # ========================================================================
 
     @rt("/api/ps/{ps_uid}/complete", methods=["POST"])
@@ -172,7 +143,7 @@ def create_ps_engagement_routes(
         return Result.ok(_engagement_to_dict(result.value))
 
     # ========================================================================
-    # T4 — abandon (any authenticated user)
+    # T3 — abandon (any authenticated user)
     # ========================================================================
 
     @rt("/api/ps/{ps_uid}/abandon", methods=["POST"])
@@ -186,7 +157,7 @@ def create_ps_engagement_routes(
             return cast("Result[dict[str, Any]]", result)
         return Result.ok(_engagement_to_dict(result.value))
 
-    logger.info("PS engagement routes registered (4 transitions: publish/engage/complete/abandon)")
+    logger.info("PS engagement routes registered (3 transitions: engage/complete/abandon)")
 
 
 __all__ = ["create_ps_engagement_routes"]

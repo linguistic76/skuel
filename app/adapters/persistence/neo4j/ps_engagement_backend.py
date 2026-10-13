@@ -54,7 +54,7 @@ _ACTIVE_ENGAGEMENT_INSTANCES = f"""
 
 
 class PsEngagementBackend:
-    """Cypher backend for the 4-transition PathStep engagement lifecycle."""
+    """Cypher backend for the 3-transition PathStep engagement lifecycle."""
 
     def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self._executor = executor
@@ -180,27 +180,7 @@ class PsEngagementBackend:
         )
 
     # ------------------------------------------------------------------
-    # PathStep status (T1 publish)
-    # ------------------------------------------------------------------
-
-    async def set_pathstep_published(
-        self, ps_uid: str, status: str, updated_at: str
-    ) -> Result[list[dict[str, Any]]]:
-        # :Entity — the PathStep's :Content shadow shares its uid; unlabeled,
-        # this SET would stamp status onto the shadow node too (G13).
-        return await self._executor.execute_write(
-            query="""
-            MATCH (ps:Entity {uid: $uid})
-            SET ps.status = $status,
-                ps.updated_at = $updated_at
-            RETURN ps
-            """,
-            params={"uid": ps_uid, "status": status, "updated_at": updated_at},
-            operation="publish_pathstep",
-        )
-
-    # ------------------------------------------------------------------
-    # Spawned-instance lifecycle (T3 complete / T4 abandon)
+    # Spawned-instance lifecycle (T2 complete / T3 abandon)
     # ------------------------------------------------------------------
 
     async def delete_instance(

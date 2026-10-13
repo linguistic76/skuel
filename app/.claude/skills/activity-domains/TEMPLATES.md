@@ -77,12 +77,13 @@ time. If the template fields were mutable post-engagement, the edge and the
 denormalized `source_path_step_uid` on the instance could diverge. Do not
 mutate a template's authoring fields while it is `ACTIVE`.
 
-**Status is enforced by `_PsValidator`:** both `publish_pathstep` (T1) and
-`engage_pathstep` (T2 defensive re-validate) run `_PsValidator.validate()`
-before proceeding. The `not_active` check runs first and short-circuits the
-rest — a non-ACTIVE template produces a `Violation(violation="not_active")`
-and blocks the operation immediately. Promote every template to `ACTIVE`
-before publishing the PathStep.
+**Status is enforced by `_PsValidator`:** `engage_pathstep` (T1) runs
+`_PsValidator.validate()` before it spawns anything. The `not_active` check
+runs first and short-circuits the rest — a non-ACTIVE template produces a
+`Violation(violation="not_active")` and blocks the engagement immediately.
+Promote every template to `ACTIVE` before a learner engages the PathStep.
+Publishing checks nothing: a PathStep is published by its vault file's
+`publication_state` (ADR-091 S7).
 
 ---
 
@@ -294,7 +295,7 @@ After spawn, instances carry `engagement_state: EngagementState | None` on every
 ```
 None                      — standalone instance; not from template spawn
 EngagementState.ENGAGED   — freshly spawned; student is working through the curriculum content
-EngagementState.OWNED     — kept at the engagement's completion (T3 keep/discard review, or auto-completion,
+EngagementState.OWNED     — kept at the engagement's completion (T2 keep/discard review, or auto-completion,
                             which keeps all); the instance outlives the engagement
 ```
 
