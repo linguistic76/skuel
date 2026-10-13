@@ -228,9 +228,10 @@ class TestExerciseOperationsProtocol:
         ["admit_requirement_change", "link_to_curriculum", "unlink_from_curriculum"],
     )
     def test_protocol_has_no_requirement_writer(self, writer):
-        """The requirement doors are retired (ADR-091 S4)."""
-        assert not hasattr(ExerciseOperations, writer)
-        assert not hasattr(ExerciseService, writer)
+        """No app door writes what an exercise requires (ADR-091 S4)."""
+        absent = object()
+        assert getattr(ExerciseOperations, writer, absent) is absent
+        assert getattr(ExerciseService, writer, absent) is absent
 
     def test_protocol_has_get_required_knowledge(self):
         """ExerciseOperations should declare get_required_knowledge."""
