@@ -327,7 +327,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 | Pipeline | NONE, TRANSCRIBE, TRANSCRIBE_AND_STRUCTURE, LLM_SUMMARY, EXTRACT_ACTIVITIES, TEACHER_REVIEW | User entry processing dispatch. Replaces ProcessorType. |
 | ReportSource | HUMAN, LLM, HYBRID, AUTOMATIC | Provenance of a report. Replaces ProcessorType. |
 | SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `UserEntry.modality` (set at creation). Orthogonal to `Pipeline` (what processes) — modality is *how* the submission was created. |
-| ExerciseScope | PERSONAL, ASSIGNED, ASSESSMENT, CURRICULUM | Exercise scope (user's own / teacher-assigned / formal test / content-vault-authored). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
+| ExerciseScope | CURRICULUM | The vault grammar's `scope:` on an exercise — CURRICULUM is the one scope (ADR-091 S4); ingestion refuses any other value. |
 | EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `UserEntry.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |
 | ReportPeriodKind | TRAILING, WEEK, MONTH | How an activity report's window is anchored (`is_calendar`) |
 | ProgressDepth | SUMMARY, STANDARD, DETAILED | Report detail level |

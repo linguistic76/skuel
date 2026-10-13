@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-10-12
+updated: 2026-10-13
 category: patterns
 related_skills:
 - pydantic
@@ -933,12 +933,12 @@ async def habit_track(request: Request) -> Result[dict[str, Any]]:
 ```python
 from adapters.inbound.form_helpers import parse_form_body
 
-async def create_exercise(request: Request) -> Result[Any]:
-    parsed = await parse_form_body(request, ExerciseCreateRequest)
+async def request_revision(request: Request) -> Result[Any]:
+    parsed = await parse_form_body(request, RequestRevisionRequest)
     if parsed.is_error:
         return Result.fail(parsed)
     req = parsed.value
-    return await service.create_exercise(name=req.name, ...)
+    return await service.request_revision(instructions=req.instructions, ...)
 ```
 
 **Steps:**
@@ -1034,8 +1034,6 @@ the 400 example above from this very model.
 - The revision route uses `parse_form_body()` with `RequestRevisionRequest` — the review form posts
   multipart, and the exercise comes from the gated detail read, never the form
 - The feedback route reads its `.md` upload from the multipart form directly
-- Exercises are created through the CRUD factory (`ExerciseCreateRequest` — enum coercion, date
-  parsing and field validators in one Pydantic model)
 
 **Activity Domain APIs** (habits, principles — the hand-written ownership-verified POSTs):
 - owner uid in the model (`habits/track`): `parse_json_body()` first, then `verify_entity_ownership()` on that field; owner uid in the query (`principles/link?uid=`): verify first, then parse

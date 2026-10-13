@@ -21,7 +21,6 @@ from core.models.type_hints import UserUID
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
     from core.models.report.entry_report import EntryReport
@@ -173,7 +172,7 @@ class UserEntryOrchestrator:
         and is named by its ROOT exercise's title — the title the turn-in writer
         defaults to — falling back to the revision's own once the root is gone.
         Anything else, and anything the caller may not use, is one not-found, so
-        a stranger's PERSONAL exercise or revision discloses nothing by its uid.
+        a stranger's revision discloses nothing by its uid.
         """
         exercise = await self._exercises.get_exercise_for_user(uid, user_uid)
         if exercise.is_ok:
@@ -193,16 +192,6 @@ class UserEntryOrchestrator:
             if root.is_ok:
                 title = root.value.title
         return Result.ok(SubmitTarget(uid=uid, title=title, is_revision=True))
-
-    async def create_exercise(
-        self, user_uid: UserUID, name: str, instructions: str
-    ) -> Result[Exercise]:
-        """Save a new instruction file as an Exercise entity."""
-        return await self._exercises.create_exercise(
-            user_uid=user_uid,
-            name=name,
-            instructions=instructions,
-        )
 
     # ------------------------------------------------------------------
     # Reports & Reviews

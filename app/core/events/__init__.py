@@ -113,9 +113,6 @@ from core.events.embedding_events import (
     UserEntryEmbeddingRequested,
 )
 
-# Exercise events (ADR-040 — ExerciseCreated is a STAGED hook, see the module docstring)
-from core.events.exercise_events import ExerciseCreated
-
 # Form events
 from core.events.form_events import (
     FormSubmissionDeleted,
@@ -272,7 +269,6 @@ __all__ = [
     "EventAttendeeRemoved",
     "EventEmbeddingRequested",
     "EventMetadata",
-    "ExerciseCreated",
     "ExerciseEmbeddingRequested",
     "FormSubmissionDeleted",
     "FormSubmitted",
@@ -387,7 +383,7 @@ def _iter_event_classes(root: type[BaseEvent] = BaseEvent) -> Iterator[type[Base
 # ``./dev bloat``) is now unrepresentable.
 #
 # The one thing a comprehension cannot see is a sibling event module this package
-# never imports: that is exactly how exercise_events and group_events drifted out.
+# never imports: its events would be absent from the registry.
 # tests/unit/test_event_registry_derivation.py walks core/events/*.py by AST and
 # fails if any defined event is missing here.
 EVENT_REGISTRY: dict[str, type[BaseEvent]] = {

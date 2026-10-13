@@ -536,11 +536,11 @@ class SearchRouter:
           the domain is SKIPPED, never counted unscoped: an unscoped read would
           list every user's tag names, which is a cross-tenant leak, not a
           wider vocabulary.
-        - Anything else (SCOPE_AWARE, or a service that declares nothing) is
-          skipped too. SCOPE_AWARE scope lives in `:OWNS`/`:SHARES_WITH`/group
-          edges, and the `user_uid` PROPERTY filter behind this call cannot
-          express it — it would silently drop shared rows and misreport the
-          rest. Refusing beats answering wrongly.
+        - Anything else (OWNER_OR_AUDIENCE, or a service that declares nothing)
+          is skipped too: an audience lives in share edges, and the `user_uid`
+          PROPERTY filter behind this call cannot express it — it would
+          silently drop shared rows and misreport the rest. Refusing beats
+          answering wrongly.
 
         ⚠ Counts from a PUBLIC domain are corpus-wide while an OWNER_ONLY
         domain's are one user's, so the merged ranking mixes two populations.
@@ -670,7 +670,7 @@ class SearchRouter:
                 every OWNER_ONLY domain — without it there is no ownership
                 predicate to compose, so an unscoped search is refused rather
                 than leaking across users. Optional only for PUBLIC (shared
-                curriculum) and SCOPE_AWARE (floors at CURRICULUM) domains.
+                curriculum) domains.
 
         Returns:
             Result containing list of domain entities
@@ -730,8 +730,7 @@ class SearchRouter:
 
             # Forward the owner scope unconditionally — the domain's
             # search_visibility declaration (DomainConfig) decides what the
-            # uid means: OWNER_ONLY property-scopes, PUBLIC ignores it,
-            # SCOPE_AWARE (Exercise) resolves curriculum/ownership/sharing.
+            # uid means: OWNER_ONLY property-scopes, PUBLIC ignores it.
             return await search_service.search(query, limit, user_uid=user_uid)
 
         except (AttributeError, TypeError, ValueError) as e:
@@ -745,10 +744,9 @@ class SearchRouter:
     def _admits_anonymous_search(search_service: SupportsTextSearch) -> bool:
         """Whether this domain may be text-searched with no requesting user.
 
-        Only two declarations survive an anonymous search: PUBLIC (shared
-        curriculum — the whole point of anonymous catalog browse) and
-        SCOPE_AWARE (Exercise, whose clause floors at CURRICULUM without a
-        user). OWNER_ONLY has no predicate to compose and must be refused.
+        Only one declaration survives an anonymous search: PUBLIC (shared
+        curriculum — the whole point of anonymous catalog browse). OWNER_ONLY
+        has no predicate to compose and must be refused.
 
         A service that declares nothing is refused too: default-deny, and a
         domain that cannot say who may see its rows has no business serving
@@ -757,10 +755,7 @@ class SearchRouter:
         """
         if not isinstance(search_service, SupportsVisibilityDeclaration):
             return False
-        return search_service.search_visibility in (
-            SearchVisibility.PUBLIC,
-            SearchVisibility.SCOPE_AWARE,
-        )
+        return search_service.search_visibility is SearchVisibility.PUBLIC
 
     def _get_search_service(self, service: DomainService) -> SupportsTextSearch | None:
         """
@@ -1112,8 +1107,8 @@ class SearchRouter:
     }
 
     # Curriculum EntityType values eligible for the hybrid fulltext+vector text
-    # rung (D2 ruling 2026-08-16: PUBLIC-visibility domains only — Exercise is
-    # SCOPE_AWARE and deferred to the D1(b) domain-level follow-on). The belt
+    # rung (D2 ruling 2026-08-16: PUBLIC-visibility domains only; Exercise is
+    # left to the D1(b) domain-level follow-on). The belt
     # half of the rung's belt-and-braces eligibility; the braces half is the
     # live search_visibility read in _hybrid_curriculum_search.
     _HYBRID_TEXT_DOMAIN_VALUES: ClassVar[frozenset[str]] = frozenset(
@@ -1358,7 +1353,7 @@ class SearchRouter:
     # Covers the 6 user-owned Activity domains (routed through faceted_search with user_uid)
     # and 3 shared Curriculum domains (no ownership filter required).
     # Excluded intentionally:
-    #   Exercise / RevisedExercise / UserEntry — user-owned, no Domain enum mapping for routing.
+    #   Exercise / RevisedExercise / UserEntry — no Domain enum mapping for routing.
     _INTELLIGENT_SEARCH_DOMAINS: ClassVar[frozenset[EntityType]] = frozenset(
         {
             EntityType.TASK,

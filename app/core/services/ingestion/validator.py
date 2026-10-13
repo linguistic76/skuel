@@ -354,10 +354,9 @@ def validate_entity_data(
             )
         )
 
-    # File-ingested exercises carry no user OWNS edge, so every non-curriculum
-    # scope describes an owner or group the ingestion path cannot provide —
-    # the node would be invisible to all discovery surfaces (2026-07-03 audit:
-    # 9 vault exercises stamped scope=personal were unreachable dead content).
+    # An exercise is curriculum, owned by no user (ADR-091 S2, S4): CURRICULUM is
+    # the one scope, and the vault refuses any other value rather than store a
+    # scope no reader understands.
     if entity_type is EntityType.EXERCISE:
         scope = entity_data.get("scope")
         if scope != ExerciseScope.CURRICULUM.value:
@@ -366,8 +365,8 @@ def validate_entity_data(
                     f"Ingested exercises must have scope 'curriculum', got '{scope}'",
                     field="scope",
                     user_message=(
-                        f"File {file_path.name}: exercise scope '{scope}' is app-created only. "
-                        "Vault-authored exercises are shared curriculum content — use "
+                        f"File {file_path.name}: exercise scope '{scope}' does not exist. "
+                        "Every exercise is shared curriculum content — use "
                         "'scope: curriculum' (or omit the field)."
                     ),
                 )

@@ -79,6 +79,7 @@ TEACHER = "user_golden_teacher"
 STUDENT = "user_golden_student"
 GROUP = "group.golden_class"
 EXERCISE = "exercise.golden_essay"
+STEP = "ps.golden.essay-step"
 
 
 def _at(stamp: str) -> float:
@@ -97,25 +98,35 @@ RENDER = _at("2026-09-28T08:05:00")  # 01:05 on the 28th
 
 
 async def _seed_classroom(driver: Any) -> None:
-    """The structure the writers need: two users, the teacher's group, the student in it,
-    and the exercise assigned to the group. No stamp seeded here is displayed."""
+    """The structure the writers need: two users, the teacher's group with the student
+    in it, and the exercise as the content-vault sync writes it — curriculum, naming
+    the teacher (``REVIEWED_BY``), hanging from a published step the student is in
+    progress on. No stamp seeded here is displayed."""
     async with driver.session() as session:
         await session.run(
             """
-            MERGE (t:User {uid: $teacher}) SET t.display_name = 'Ms Rivera'
+            MERGE (t:User {uid: $teacher}) SET t.display_name = 'Ms Rivera', t.role = 'teacher'
             MERGE (s:User {uid: $student}) SET s.display_name = 'Sam Student'
             MERGE (g:Group {uid: $group}) SET g.name = 'Essay class', g.is_active = true
             MERGE (t)-[:OWNS]->(g)
             MERGE (s)-[:MEMBER_OF]->(g)
             MERGE (ex:Entity:Exercise {uid: $exercise})
             SET ex.title = 'A personal essay', ex.entity_type = 'exercise',
-                ex.status = 'active', ex.visibility = 'private', ex.scope = 'assigned'
-            MERGE (ex)-[:SHARED_WITH_GROUP]->(g)
+                ex.status = 'active', ex.visibility = 'private', ex.scope = 'curriculum'
+            MERGE (ex)-[:REVIEWED_BY]->(t)
+            MERGE (ps:Entity:PathStep {uid: $step})
+            SET ps.title = 'Essay step', ps.entity_type = 'path_step', ps.status = 'active',
+                ps.publication_state = 'published'
+            MERGE (ps)-[:HAS_EXERCISE]->(ex)
+            MERGE (s)-[ip:IN_PROGRESS]->(ps)
+            SET ip.started_at = datetime(), ip.last_activity_at = datetime(),
+                ip.progress_score = 0.0
             """,
             teacher=TEACHER,
             student=STUDENT,
             group=GROUP,
             exercise=EXERCISE,
+            step=STEP,
         )
 
 
@@ -178,6 +189,7 @@ async def test_every_stored_instant_renders_as_it_did(clean_neo4j, neo4j_driver)
                 content="A river town, and the bridge we crossed every day.",
                 pipeline=Pipeline.TEACHER_REVIEW,
                 fulfills_exercise_uid=EXERCISE,
+                audience=f"teacher:{GROUP}",
             ),
             student_uid,
         )

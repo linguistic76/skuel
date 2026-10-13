@@ -833,9 +833,9 @@ Input(name="q", **{
 # Delete with confirmation — the CRUD delete door is POST /api/{domain}/delete?uid=
 # and answers JSON, so swap "delete" (remove the card) rather than swapping the body in
 Button("Delete", cls=ButtonT.destructive, size="sm",
-       hx_post=f"/api/exercises/delete?uid={exercise.uid}",
-       hx_confirm="Are you sure you want to delete this exercise?",
-       hx_target=f"#{exercise_card_id(exercise.uid)}",
+       hx_post=f"/api/groups/delete?uid={group.uid}",
+       hx_confirm="Are you sure you want to delete this group?",
+       hx_target=f"#group-{group.uid}",
        hx_swap="delete")
 ```
 

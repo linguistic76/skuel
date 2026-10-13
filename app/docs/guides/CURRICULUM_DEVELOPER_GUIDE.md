@@ -402,13 +402,12 @@ Exercise.path_step_uid = "ps.mindfulness-101.breath-awareness-basics"
 ```
 
 This covers the reverse direction. Given an Exercise, you can read which PathStep it
-belongs to directly from the Exercise node — no graph traversal needed. This is a scalar
-(one value) because a PERSONAL-scope Exercise always belongs to exactly one PathStep.
+belongs to directly from the Exercise node — no graph traversal needed. It is a scalar
+(one value): the one step the author names as the exercise's home.
 
-**How path_step_uid gets written depends on how the Exercise was created:**
+**How path_step_uid gets written:** an exercise is authored only in the content vault
+(ADR-091 S4), so the property exists only when the exercise's own file sets it.
 
-- **API creation** (`ExerciseService.create()`): dual-write — both `path_step_uid` on
-  the Exercise node and the `HAS_EXERCISE` edge are written in a single operation.
 - **YAML ingestion** (PathStep side, `exercise_uids`): only the `HAS_EXERCISE` edge is
   created. The `exercise_uids` field is treated as a relationship key by the ingestion
   pipeline — it is filtered out of node properties and never written to the PathStep node
@@ -429,7 +428,7 @@ path_step_uid: ps.mindfulness-101.breath-awareness-basics
 | Question | How the system answers it | Storage form |
 |---|---|---|
 | Which exercises does this PathStep have? | Follow `HAS_EXERCISE` edges outward | Graph edge (no property on PathStep) |
-| Which PathStep does this Exercise belong to? | Read `Exercise.path_step_uid` (if set) or traverse incoming `HAS_EXERCISE` edge | Property on Exercise node (API path) or graph traversal (YAML path) |
+| Which PathStep does this Exercise belong to? | Read `Exercise.path_step_uid` (if the file sets it) or traverse incoming `HAS_EXERCISE` edge | Property on Exercise node (authored) or graph traversal |
 
 **What this means for you as an author**
 

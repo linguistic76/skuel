@@ -15,13 +15,14 @@ below was built by the Submit & Share arc, PRs 1–8 (the last merged 2026-09-26
 walk-through verified it live on 2026-09-27 (arc doc § Verification, after the three pre-flight
 fixes #1427–#1429).
 **Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md)
-(2026-10-12; change 3 implemented):** every exercise names its teacher, and a feedback request on
+(2026-10-12; changes 3 and 4 implemented):** every exercise names its teacher, and a feedback request on
 an exercise goes directly to that teacher (ADR-091 S3). That replaces §8's curriculum default-group
 fallback and §9's route to the owner of an anchored PERSONAL exercise; the `teachers` row of the
 audience table changes with them. Work submitted against a revised exercise goes to the named
 teacher of the exercise it revises (ADR-091 N8). The two verbs, both group-link kinds, `teacher:<group_uid>` and
-sharing are unchanged. **§8's curriculum fallback is retired (ADR-091 change 3); §9's owner route
-stays live for owned exercises until ADR-091 change 4 removes them.**
+sharing are unchanged. **§8's curriculum fallback is retired (ADR-091 change 3), and §9's owner
+route with it (change 4): no user owns an exercise, and a feedback request on one goes to its
+`REVIEWED_BY` teacher.**
 **Date:** 2026-09-24
 **Deciders:** MCF
 **Decision Type:** ☑ Graph Schema  ☑ Pattern/Practice
@@ -232,7 +233,8 @@ request.
 
 *The route to the owner of an anchored PERSONAL exercise is superseded by ADR-091 S3: a feedback
 request on an exercise goes to the teacher its vault file names (`REVIEWED_BY`, change 3). The owner
-route stays live for owned exercises until ADR-091 change 4 removes them.*
+route is retired (change 4): no user owns an exercise. `SUBMITTED_TO_TEACHER` stays — it now names
+the exercise's `REVIEWED_BY` teacher.*
 
 ```
 entry ──SUBMITTED_TO_GROUP {submitted_at}───▶ Group ◀─OWNS── teacher   read by the group's owning teachers

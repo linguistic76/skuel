@@ -1,9 +1,8 @@
-"""A feedback request on an anchored PERSONAL exercise reaches the teacher who owns it.
+"""A feedback request on an exercise reaches the teacher its vault file names, directly.
 
-A teacher who anchors a PERSONAL exercise to a published PathStep contributes it to the
-step: every learner on the step may turn in against it. A ``teacher_review`` turn-in is
-a feedback request, and the exercise belongs to no group — so it is filed to the
-exercise's owner directly, ``(entry)-[:SUBMITTED_TO_TEACHER {submitted_at}]->(teacher)``
+Every exercise names its teacher in its content-vault file (``REVIEWED_BY``, ADR-091
+S3). A ``teacher_review`` turn-in with no other target is a feedback request filed to
+that teacher directly, ``(entry)-[:SUBMITTED_TO_TEACHER {submitted_at}]->(teacher)``
 (ADR-088 §9). That teacher reads it everywhere a group's teacher reads a request sent to
 their group: the review queue, the review detail, the exercise's submission list, the
 AI-report door, the revision door, the exchange thread and the report download. Any
@@ -15,15 +14,14 @@ and the students list stay with the classroom, so a teacher reached only by a di
 request finds the learner in none of them (ruled with ADR-088 §9). The exchange thread
 opens for them, scoped to the entries that asked them — never the learner's other work.
 
-An owned exercise reaches its owner only by the anchored-PERSONAL route. An unanchored
-PERSONAL exercise is its owner's alone; one anchored to a draft step has no audience; an
-ASSIGNED exercise reaches its group's teacher, as before; a CURRICULUM one reaches the
-teacher its vault file names (``REVIEWED_BY``, ADR-091 S3), never the learner's default
-group; an owner turning in against their own exercise has nobody to ask, and an owner
-without the teacher role is nobody's reviewer.
+A learner who sends the work to a class instead (``teacher:<group_uid>``) reaches the
+class's teacher, as before; a request on an exercise never reaches the learner's
+default group; the named teacher turning in against their own exercise has nobody to
+ask, and a named teacher without the teacher role is nobody's reviewer.
 
-Every exercise and the group are made at the real create doors; the learner starts the
-step at the real progress door and turns in at the real upload door.
+The exercises enter through the content-vault sync, their one door, and the group at
+its real create door; the learner starts the step at the real progress door and turns
+in at the real upload door.
 """
 
 from __future__ import annotations
@@ -47,9 +45,8 @@ from core.utils.result_simplified import Result
 from tests.integration._activity_link_rig import (
     create,
     edges_between,
-    seed_published_path_step,
     signed_in_client,
-    write_edge,
+    sync_vault_exercises,
 )
 
 if TYPE_CHECKING:
@@ -73,10 +70,10 @@ LEARNER_MARK = f"{MARK}l"
 OUTSIDER_MARK = f"{MARK}o"
 DEMOTED_MARK = f"{MARK}d"
 STRANGER_MARK = f"{MARK}x"
-TEACHER = f"user_{TEACHER_MARK}"  # owns the anchored PERSONAL exercises
+TEACHER = f"user_{TEACHER_MARK}"  # the teacher the exercises' vault files name
 LEARNER = f"user_{LEARNER_MARK}"  # no tie to TEACHER
 OUTSIDER = f"user_{OUTSIDER_MARK}"  # a teacher with the learner in two classes of their own
-DEMOTED = f"user_{DEMOTED_MARK}"  # authored an anchored exercise, no longer a teacher
+DEMOTED = f"user_{DEMOTED_MARK}"  # named by an exercise, no longer a teacher
 STRANGER = f"user_{STRANGER_MARK}"  # a teacher with no tie to the learner at all
 ROLES = {
     TEACHER: "teacher",
@@ -86,7 +83,6 @@ ROLES = {
     STRANGER: "teacher",
 }
 PS_PUBLISHED = f"ps.{TEACHER_MARK}.published"
-PS_DRAFT = f"ps.{TEACHER_MARK}.draft"
 CURRICULUM_EX = f"ex.{OUTSIDER_MARK}.curriculum"
 DEFAULT_GROUP = f"{DEFAULT_GROUP_UID_PREFIX}{OUTSIDER_MARK}"
 MISSING_ENTRY = f"ue_{MARK}_missing"
@@ -105,18 +101,6 @@ async def _set_role(driver: AsyncDriver, uid: str, role: str) -> None:
             """,
             uid=uid,
             role=role,
-        )
-
-
-async def _seed_draft_path_step(driver: AsyncDriver, uid: str) -> None:
-    async with driver.session() as session:
-        await session.run(
-            """
-            MERGE (s:Entity:PathStep {uid: $uid})
-            SET s.title = $uid, s.entity_type = 'path_step', s.status = 'active',
-                s.publication_state = 'draft'
-            """,
-            uid=uid,
         )
 
 
@@ -153,10 +137,15 @@ async def _seed_curriculum_route(driver: AsyncDriver) -> None:
 
 
 async def _delete_owned(driver: AsyncDriver, users: list[str]) -> None:
-    """Groups, exercises and entries carry no mark in their generated uids — remove them by owner."""
+    """Groups and entries carry no mark in their generated uids — remove them by owner;
+    the vault's step, exercises and tracker rows carry the mark."""
     async with driver.session() as session:
         await session.run(
             "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users DETACH DELETE n", users=users
+        )
+        await session.run(
+            "MATCH (n) WHERE n.uid CONTAINS $mark OR n.entity_uid CONTAINS $mark DETACH DELETE n",
+            mark=MARK,
         )
 
 
@@ -247,7 +236,7 @@ class World:
         self.exercises = exercises
         self.group = group  # OUTSIDER's class with the learner in it
         self.entries = entries  # the learner's turn-ins, by exercise key
-        self.entry = entries["anchored"]  # the turn-in the review doors act on
+        self.entry = entries["named"]  # the turn-in the review doors act on
         self.reports = reports  # uploaded-feedback reports, by exercise key
 
     async def exchange(self, caller: str, exercise: str, student: str) -> httpx.Response:
@@ -278,30 +267,26 @@ async def world(
         for uid in (TEACHER, OUTSIDER, DEMOTED, STRANGER):
             await _set_role(driver, uid, "teacher")
         await _set_role(driver, LEARNER, "member")
-        await seed_published_path_step(driver, PS_PUBLISHED, f"{MARK} published step")
-        await _seed_draft_path_step(driver, PS_DRAFT)
         patch = pytest.MonkeyPatch()
         # The report door writes the feedback file to disk before it files the report.
         patch.setattr(teaching_api, "_REPORTS_DIR", reports_dir)
         try:
-
-            async def personal(client: httpx.AsyncClient, name: str, **anchor: str) -> str:
-                return await create(
-                    client,
-                    "exercises",
-                    f"{MARK}-{name}",
-                    name=f"{MARK}-{name}",
-                    instructions=f"{MARK} {name} instructions",
-                    **anchor,
-                )
-
             exercises = {
-                "anchored": await personal(teacher, "anchored", path_step_uid=PS_PUBLISHED),
-                "reported": await personal(teacher, "reported", path_step_uid=PS_PUBLISHED),
-                "unanchored": await personal(teacher, "unanchored"),
-                "draft": await personal(teacher, "draft", path_step_uid=PS_DRAFT),
-                "demoted": await personal(demoted, "demoted", path_step_uid=PS_PUBLISHED),
+                key: f"ex.{MARK}.{key}"
+                for key in ("named", "reported", "demoted", "classroom", "classroom_reported")
             }
+            await sync_vault_exercises(
+                driver,
+                tmp_path_factory.mktemp("content_vault"),
+                step_uid=PS_PUBLISHED,
+                exercises={uid: f"{MARK} {key}" for key, uid in exercises.items()},
+                teacher_uid=TEACHER,
+                teacher_of={
+                    exercises["demoted"]: DEMOTED,
+                    exercises["classroom"]: OUTSIDER,
+                    exercises["classroom_reported"]: OUTSIDER,
+                },
+            )
             await _set_role(driver, DEMOTED, ROLES[DEMOTED])
 
             group = await create(outsider, "groups", f"{MARK}-class", name=f"{MARK}-class")
@@ -309,39 +294,33 @@ async def world(
                 f"/api/groups/{group}/members/add", json={"user_uid": LEARNER}
             )
             assert added.status_code == 200, added.text
-            for key in ("assigned", "assigned_reported"):
-                exercises[key] = await create(
-                    outsider,
-                    "exercises",
-                    f"{MARK}-{key}",
-                    name=f"{MARK}-{key}",
-                    instructions=f"{MARK} {key} instructions",
-                    scope="assigned",
-                    group_uid=group,
-                )
             await _seed_curriculum_route(driver)
 
-            started = await learner.post(
-                f"/explore/ps/{PS_PUBLISHED}/progress",
-                data={"state": "learning", "review": "true"},
-            )
-            assert started.status_code == 200, started.text
-            # The draft step's control isolates the audience rule: the learner is in
-            # progress on it, so only the step's publication can refuse the request.
-            await write_edge(driver, LEARNER, "IN_PROGRESS", PS_DRAFT)
+            for client in (learner, teacher):
+                started = await client.post(
+                    f"/explore/ps/{PS_PUBLISHED}/progress",
+                    data={"state": "learning", "review": "true"},
+                )
+                assert started.status_code == 200, started.text
 
             entries: dict[str, str] = {}
-            for key in ("anchored", "reported", "assigned", "assigned_reported"):
+            for key in ("named", "reported"):
                 turned_in = await _turn_in(learner, exercises[key], key)
+                assert turned_in.status_code == 201, turned_in.text
+                entries[key] = str(turned_in.json()["user_entry"]["uid"])
+            for key in ("classroom", "classroom_reported"):
+                turned_in = await _turn_in(
+                    learner, exercises[key], key, audience=f"teacher:{group}"
+                )
                 assert turned_in.status_code == 201, turned_in.text
                 entries[key] = str(turned_in.json()["user_entry"]["uid"])
 
             # Each reviewer uploads feedback on one entry asked of them.
             await _upload_feedback(teacher, entries["reported"])
-            await _upload_feedback(outsider, entries["assigned_reported"])
+            await _upload_feedback(outsider, entries["classroom_reported"])
             reports = {
                 "reported": await _report_on(driver, entries["reported"]),
-                "assigned_reported": await _report_on(driver, entries["assigned_reported"]),
+                "classroom_reported": await _report_on(driver, entries["classroom_reported"]),
             }
 
             yield World(
@@ -386,24 +365,24 @@ def reviewer(
 
 
 # =============================================================================
-# The request reaches the exercise's owner — and no one else
+# The request reaches the exercise's named teacher — and no one else
 # =============================================================================
 
 
-async def test_the_request_is_filed_to_the_exercises_owner(world: World) -> None:
+async def test_the_request_is_filed_to_the_exercises_named_teacher(world: World) -> None:
     assert await _feedback_edges(world.driver, world.entry) == {("SUBMITTED_TO_TEACHER", TEACHER)}
     edges = [e for e in await edges_between(world.driver, world.entry, TEACHER) if e.type != "OWNS"]
     assert len(edges) == 1 and edges[0].properties.get("submitted_at") is not None, edges
 
 
-async def test_the_owner_reads_it_in_the_review_queue_and_no_other_teacher_does(
+async def test_the_named_teacher_reads_it_in_the_review_queue_and_no_other_teacher_does(
     world: World,
 ) -> None:
     assert world.entry in await world.queue(TEACHER)
     assert world.entry not in await world.queue(OUTSIDER)
 
 
-async def test_the_owner_opens_the_review_detail_and_another_teacher_gets_not_found(
+async def test_the_named_teacher_opens_the_review_detail_and_another_teacher_gets_not_found(
     world: World,
 ) -> None:
     opened = await world.clients[TEACHER].get(f"/api/teaching/review/{world.entry}")
@@ -415,18 +394,18 @@ async def test_the_owner_opens_the_review_detail_and_another_teacher_gets_not_fo
     assert _uidless(refused.text, world.entry) == _uidless(missing.text, MISSING_ENTRY)
 
 
-async def test_the_owner_lists_it_under_the_exercise(world: World) -> None:
+async def test_the_named_teacher_lists_it_under_the_exercise(world: World) -> None:
     listed = await world.clients[TEACHER].get(
-        f"/api/teaching/exercises/{world.exercises['anchored']}/submissions"
+        f"/api/teaching/exercises/{world.exercises['named']}/submissions"
     )
     assert listed.status_code == 200, listed.text
     assert world.entry in listed.text
 
 
-async def test_the_owner_reaches_the_ai_reviewer_and_another_teacher_is_refused(
+async def test_the_named_teacher_reaches_the_ai_reviewer_and_another_teacher_is_refused(
     world: World, reviewer: list[AdmittedReport]
 ) -> None:
-    exercise = world.exercises["anchored"]
+    exercise = world.exercises["named"]
     admitted = await world.clients[TEACHER].post(
         "/api/exercises/report", json={"submission_uid": world.entry, "exercise_uid": exercise}
     )
@@ -452,35 +431,24 @@ async def test_the_owner_reaches_the_ai_reviewer_and_another_teacher_is_refused(
 # =============================================================================
 
 
-async def test_an_unanchored_personal_exercise_takes_no_turn_in(world: World) -> None:
-    refused = await _turn_in(world.clients[LEARNER], world.exercises["unanchored"], "unanchored")
-    assert refused.status_code == 403, refused.text
-    assert await _entries_for(world.driver, LEARNER, world.exercises["unanchored"]) == 0
-
-
-async def test_an_exercise_anchored_to_a_draft_step_reaches_no_teacher(world: World) -> None:
-    refused = await _turn_in(world.clients[LEARNER], world.exercises["draft"], "draft")
-    assert refused.status_code == 400, refused.text
-    assert NO_TEACHER in refused.text
-    assert await _entries_for(world.driver, LEARNER, world.exercises["draft"]) == 0
-
-
-async def test_an_owner_without_the_teacher_role_is_nobodys_reviewer(world: World) -> None:
+async def test_a_named_teacher_without_the_teacher_role_is_nobodys_reviewer(world: World) -> None:
     refused = await _turn_in(world.clients[LEARNER], world.exercises["demoted"], "demoted")
     assert refused.status_code == 400, refused.text
     assert NO_TEACHER in refused.text
     assert await _entries_for(world.driver, LEARNER, world.exercises["demoted"]) == 0
 
 
-async def test_an_owner_turning_in_on_their_own_exercise_has_nobody_to_ask(world: World) -> None:
-    refused = await _turn_in(world.clients[TEACHER], world.exercises["anchored"], "own")
+async def test_the_named_teacher_turning_in_on_their_own_exercise_has_nobody_to_ask(
+    world: World,
+) -> None:
+    refused = await _turn_in(world.clients[TEACHER], world.exercises["named"], "own")
     assert refused.status_code == 400, refused.text
     assert NO_TEACHER in refused.text
-    assert await _entries_for(world.driver, TEACHER, world.exercises["anchored"]) == 0
+    assert await _entries_for(world.driver, TEACHER, world.exercises["named"]) == 0
 
 
-async def test_an_assigned_exercise_still_reaches_its_group(world: World) -> None:
-    entry = world.entries["assigned"]
+async def test_a_request_sent_to_a_class_still_reaches_its_group(world: World) -> None:
+    entry = world.entries["classroom"]
     assert await _feedback_edges(world.driver, entry) == {("SUBMITTED_TO_GROUP", world.group)}
     assert entry in await world.queue(OUTSIDER)
     assert entry not in await world.queue(TEACHER)
@@ -502,30 +470,32 @@ async def test_a_curriculum_exercise_reaches_its_named_teacher_not_the_default_g
 # =============================================================================
 
 
-async def test_the_owner_opens_the_exchange_on_the_requests_sent_to_them(world: World) -> None:
-    opened = await world.exchange(TEACHER, world.exercises["anchored"], LEARNER)
+async def test_the_named_teacher_opens_the_exchange_on_the_requests_sent_to_them(
+    world: World,
+) -> None:
+    opened = await world.exchange(TEACHER, world.exercises["named"], LEARNER)
     assert opened.status_code == 200, opened.text
     assert "Exchange not found" not in opened.text
 
 
-async def test_the_owner_never_opens_the_learners_other_exchanges(world: World) -> None:
+async def test_the_named_teacher_never_opens_the_learners_other_exchanges(world: World) -> None:
     """The learner's work for another teacher's exercise asked this teacher nothing."""
-    refused = await world.exchange(TEACHER, world.exercises["assigned"], LEARNER)
-    missing = await world.exchange(TEACHER, world.exercises["assigned"], MISSING_STUDENT)
+    refused = await world.exchange(TEACHER, world.exercises["classroom"], LEARNER)
+    missing = await world.exchange(TEACHER, world.exercises["classroom"], MISSING_STUDENT)
     assert refused.status_code == 404, refused.text
     assert _uidless(refused.text, LEARNER) == _uidless(missing.text, MISSING_STUDENT)
 
 
 async def test_the_classroom_teacher_opens_their_own_requests_only(world: World) -> None:
-    opened = await world.exchange(OUTSIDER, world.exercises["assigned"], LEARNER)
-    refused = await world.exchange(OUTSIDER, world.exercises["anchored"], LEARNER)
+    opened = await world.exchange(OUTSIDER, world.exercises["classroom"], LEARNER)
+    refused = await world.exchange(OUTSIDER, world.exercises["named"], LEARNER)
     assert opened.status_code == 200, opened.text
     assert refused.status_code == 404, refused.text
 
 
 async def test_an_unrelated_teacher_gets_the_exchange_not_found(world: World) -> None:
-    refused = await world.exchange(STRANGER, world.exercises["anchored"], LEARNER)
-    missing = await world.exchange(STRANGER, world.exercises["anchored"], MISSING_STUDENT)
+    refused = await world.exchange(STRANGER, world.exercises["named"], LEARNER)
+    missing = await world.exchange(STRANGER, world.exercises["named"], MISSING_STUDENT)
     assert refused.status_code == 404, refused.text
     assert _uidless(refused.text, LEARNER) == _uidless(missing.text, MISSING_STUDENT)
 
@@ -539,16 +509,18 @@ async def _download(world: World, caller: str, report_uid: str) -> httpx.Respons
     return await world.clients[caller].get(f"/api/reports/{report_uid}/download")
 
 
-async def test_the_owner_downloads_the_report_on_a_request_sent_to_them(world: World) -> None:
+async def test_the_named_teacher_downloads_the_report_on_a_request_sent_to_them(
+    world: World,
+) -> None:
     downloaded = await _download(world, TEACHER, world.reports["reported"])
     assert downloaded.status_code == 200, downloaded.text
     assert f"{MARK} feedback" in downloaded.text
 
 
-async def test_the_owner_never_downloads_a_report_on_another_teachers_request(
+async def test_the_named_teacher_never_downloads_a_report_on_another_teachers_request(
     world: World,
 ) -> None:
-    refused = await _download(world, TEACHER, world.reports["assigned_reported"])
+    refused = await _download(world, TEACHER, world.reports["classroom_reported"])
     missing = await _download(world, TEACHER, MISSING_REPORT)
     assert refused.status_code == 404, refused.text
     assert refused.text == missing.text
@@ -592,7 +564,7 @@ async def test_the_student_page_opens_for_the_classroom_teacher_only(world: Worl
 
     opened = await page(OUTSIDER, LEARNER)
     assert opened.status_code == 200, opened.text
-    assert world.entries["assigned"] in opened.text
+    assert world.entries["classroom"] in opened.text
     for caller in (TEACHER, STRANGER):
         refused = await page(caller, LEARNER)
         missing = await page(caller, MISSING_STUDENT)
@@ -632,7 +604,7 @@ async def test_the_dashboard_counts_the_request_but_not_a_student(
 # =============================================================================
 
 
-async def test_the_owner_requests_a_revision_and_another_teacher_gets_not_found(
+async def test_the_named_teacher_requests_a_revision_and_another_teacher_gets_not_found(
     world: World,
 ) -> None:
     form = {"instructions": f"{MARK} revise this", "fp_count": "0"}

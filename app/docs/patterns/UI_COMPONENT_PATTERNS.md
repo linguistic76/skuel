@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-11'
+updated: '2026-10-13'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1085,7 +1085,7 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Teaching UI as canonical example:** `ui/teaching/forms.py` holds the review actions — `render_review_actions()` (the one action rule) over `render_feedback_submission_form()`, `render_revision_request_form()` and `render_waiting_actions()` — plus `render_submission_metadata()` and `render_form_responses_section()`; `ui/teaching/detail.py` composes them into `render_review_body()`, which the review page and the per-student panel both render. The review routes build no form themselves. Dict→dataclass converters live in `ui/teaching/types.py`; submission bucketing lives in `TeacherOrchestrator.get_bucketed_student_submissions()`.
 
-**Exercises UI as second example:** `ui/exercises/editor.py` holds `render_exercise_editor()` (the Form/Input/Label/Textarea-heavy component), `ui/exercises/detail.py` holds `render_exercise_view()` and `render_exercise_student_detail()`, `ui/exercises/cards.py` holds `render_exercises_list()` and `render_exercise_card()`. `exercises_ui.py` is ~180 lines — pure auth + service call + delegation.
+**Exercises UI as second example:** `ui/exercises/detail.py` holds `render_exercise_student_detail()` and `ui/exercises/inline_form.py` the inline form; `exercises_ui.py` is pure auth + service call + delegation.
 
 **Explore UI:** `ui/explore/cards.py` holds `render_explore_card()` and `render_explore_search_panel()`. Filtering and sorting are no longer a UI concern at all — the former `filters.py` module went when `/explore/library` was consolidated onto `SearchRouter.faceted_search`. Sidebar data aggregation moved to `ExploreOrchestrator.get_sidebar_data()`. `render_explore_sidebar_page()` accepts pre-fetched `sidebar_data: dict[str, Any] | None` instead of raw services.
 

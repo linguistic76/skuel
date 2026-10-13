@@ -62,7 +62,7 @@ There is **no** `EXERCISE_SUBMISSION` EntityType — ADR-054 collapsed it (with 
 ## Naming Rationale
 
 **SUBMISSION** (not "assignment") because:
-- "Assignment" is what a **teacher gives** — that's an `Exercise` with `scope=ASSIGNED`
+- "Assignment" is what a **teacher gives** — that's an `Exercise`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
 - Backed by the unified content service `UserEntryService` (ADR-054 consolidation; backend port `UserEntryOperations`) — a turned-in `UserEntry` *is* the submission
 - Matches route language: `/submissions/submit` (UI), `/api/submissions/*` (HTMX preview endpoints)
@@ -74,19 +74,18 @@ There is **no** `EXERCISE_SUBMISSION` EntityType — ADR-054 collapsed it (with 
 An `Exercise` is the teacher's directive — instructions for what students should produce.
 
 ```
-Exercise (scope=ASSIGNED)
+Exercise (a content-vault file, ADR-091 S4)
     |
     +-- instructions: str                # What to do (LLM prompt for AI feedback)
-    +-- due_date: date                   # When it's due
-    +-- group_uid: str                   # Which class
+    +-- teacher (REVIEWED_BY)            # Who reviews the work (ADR-091 S3)
+    +-- due_date: date | None            # When it's due
     +-- model: str                       # Which LLM to use for AI feedback
     +-- expected_modality: SubmissionModality  # FILE_UPLOAD or STRUCTURED_FORM
     +-- form_schema: tuple[dict, ...] | None  # Inline form definition (sets STRUCTURED_FORM)
 ```
 
-**Two scopes:**
-- `PERSONAL` — User's own AI template for self-directed feedback
-- `ASSIGNED` — Teacher-created directive targeting a Group
+**One door:** authored and edited only in the content vault, owned by no user, hanging
+from the PathSteps that list it (`HAS_EXERCISE`); `CURRICULUM` is its one scope.
 
 **Two modalities** (typed by `SubmissionModality` enum):
 - `FILE_UPLOAD` — student uploads a file; `expected_modality` auto-derived when `form_schema` is None
@@ -97,7 +96,7 @@ Exercise (scope=ASSIGNED)
 ## Curriculum Submission Pipeline
 
 ```
-1. Teacher creates Exercise (scope=ASSIGNED, targets Group)
+1. The exercise's vault file enters through the content-vault sync, naming its teacher
        |
        v
 2. Student submits → UserEntryService.create_entry() (via /submit ingestion, ADR-054)
@@ -119,9 +118,9 @@ Exercise (scope=ASSIGNED)
        |   UserEntryProcessingStarted event only.
        v
 5. The feedback request (teacher_review + exercise link): FULFILLS_EXERCISE {revision}
-       |   + SUBMITTED_TO_GROUP to the exercise's assigned groups (UnifiedSharingService.submit_to_group),
-       |     or SUBMITTED_TO_TEACHER to the exercise's teacher — its REVIEWED_BY user (ADR-091 S3)
-       |     or an anchored PERSONAL exercise's owner (submit_to_teacher, ADR-088 §9)
+       |   + SUBMITTED_TO_TEACHER to the exercise's teacher — its REVIEWED_BY user
+       |     (submit_to_teacher, ADR-091 S3), or SUBMITTED_TO_GROUP to a class the learner
+       |     names (teacher:<group_uid>, UnifiedSharingService.submit_to_group)
        v
 6. Teacher reviews via the group-based queue → writes ENTRY_REPORT
        |   submit_report:    SUBMITTED/ACTIVE   → COMPLETED          (Cypher guard)
@@ -518,7 +517,7 @@ When `openai_service` is available, the generator:
     visibility: 'shared', // stamped by the writer; no read honours it — a report is an owner read (ADR-088 §3)
     processor_type,       // 'human' or 'llm'
     assessment_outcome,   // 'approved', 'needs_revision', or 'ai_evaluated'
-    assessment_score,     // 0.0-1.0 for ASSESSMENT-scope exercises
+    assessment_score,     // 0.0-1.0 when the exercise carries a scoring rubric
     title,                // composed at creation: "{prefix} '{subject}'" — subject = fulfilled exercise's title, else the entry's; never a raw UID (feedback-loop UX arc C3)
     processed_content,    // LLM/teacher-generated feedback body (written by create_report_node as processed_content: $feedback)
     created_at, updated_at

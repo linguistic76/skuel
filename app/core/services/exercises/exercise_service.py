@@ -2,33 +2,21 @@
 Exercise Service
 =================
 
-CRUD operations for Exercises (instruction templates for the core educational loop).
+Reads Exercises — the instruction templates of the core educational loop.
 
-An Exercise is the shared, transparent instruction template:
-- Teacher/admin creates exercise with visible instructions
-- Instructions are editable and always shown to the user (no black box)
-- User controls which LLM model to use
-- scope=PERSONAL: user's own feedback template
-- scope=ASSIGNED: teacher assigns to a group via SHARED_WITH_GROUP relationship
-  (unified sharing, ADR-053; supersedes the retired FOR_GROUP edge)
-
-When a student submits work against an ASSIGNED exercise, the submission handler
-creates the FULFILLS_EXERCISE relationship and auto-shares with the teacher.
-
-Formerly AssignmentService — renamed to Exercise for domain clarity.
+An Exercise is curriculum: authored only in the content vault, owned by no user,
+and naming in its file the teacher who reviews work on it (ADR-091 S2-S4). Its
+instructions are always shown to the learner (no black box). This service reads
+exercises for learners and teachers and joins them to the learner's submissions;
+it writes none.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from core.constants import ExerciseTimeEstimate, QueryLimit
-from core.models.enums import Domain, SearchVisibility
-from core.models.enums.entity_enums import EntityType
+from core.constants import ExerciseTimeEstimate
 from core.models.enums.neo_labels import NeoLabel
-from core.models.enums.user_entry_enums import ExerciseScope
-from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
@@ -41,40 +29,20 @@ from core.ports.query_types import (
 )
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.services.filtered_context import build_filtered_context
-from core.services.whole_set_read import find_all_by
 from core.utils.decorators import with_error_handling
-from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_created_at_attr, get_title_lower
 from core.utils.timestamp_helpers import today_in
-from core.utils.uid_generator import UIDGenerator
 from core.utils.zone_context import current_zone
 
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Mapping
+    from collections.abc import Mapping
     from datetime import date
 
     from core.models.context_types import ContextualExercise
-    from core.models.update_contracts import RawChanges
-    from core.ports.query_types import ListContext
     from core.services.user.unified_user_context import RichUserContext
-
-
-@dataclass(frozen=True)
-class AdmittedRequirementChange:
-    """Proof that a caller may change what an exercise requires.
-
-    ``ExerciseService.admit_requirement_change`` returns one; ``link_to_curriculum``
-    and ``unlink_from_curriculum`` accept nothing else, so no door adds or removes
-    an exercise's ``REQUIRES_KNOWLEDGE`` edge without the check.
-    """
-
-    exercise_uid: str
-    caller_uid: UserUID
 
 
 # boundary: neo4j-record — a raw driver row, genuinely heterogeneous: an
@@ -94,7 +62,6 @@ def _to_status_row(record: Mapping[str, Any]) -> ExerciseStatusRow:
         "title": props.get("title", ""),
         "description": props.get("description"),
         "due_date": props.get("due_date"),
-        "group_name": record.get("group_name") or "",
         "has_submission": bool(record.get("has_submission", False)),
         "submission_uid": record.get("submission_uid"),
         "submission_status": record.get("submission_status"),
@@ -106,41 +73,12 @@ def _to_status_row(record: Mapping[str, Any]) -> ExerciseStatusRow:
     }
 
 
-def _compute_exercise_stats(all_exercises: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full exercise set."""
-    total = len(all_exercises)
-    return {
-        "total": total,
-        "active": total,
-        "personal": sum(
-            1 for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.PERSONAL
-        ),
-        "assigned": sum(
-            1 for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSIGNED
-        ),
-        "assessment": sum(
-            1 for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSESSMENT
-        ),
-    }
-
-
-_EXERCISE_SORT_CONFIG: SortConfig = {
-    "title": (get_title_lower, False),
-    "created_at": (get_created_at_attr, True),
-}
-
-
-def _apply_exercise_sort(exercises: list[Any], sort_by: str) -> list[Any]:
-    """Sort exercises using declarative config."""
-    return apply_entity_sort(exercises, sort_by, _EXERCISE_SORT_CONFIG, "title")
-
-
 class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
     """
-    Simple CRUD service for Exercises (instruction templates).
+    Read service for Exercises (instruction templates).
 
-    No complex logic - just create, read, update, delete operations.
-    Exercises are stored as :Entity nodes with entity_type=EntityType.EXERCISE in Neo4j.
+    Exercises are stored as :Entity:Exercise nodes with entity_type=EntityType.EXERCISE,
+    written only by the content-vault sync (ADR-091 S4).
     """
 
     _config = DomainConfig(
@@ -149,12 +87,10 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         entity_label="Entity",
         search_fields=("title", "instructions"),
         search_order_by="created_at",
-        user_ownership_relationship=RelationshipName.OWNS,
-        # Exercises are instance-scoped, not type-scoped: CURRICULUM has no
-        # owner and is visible to everyone; PERSONAL/ASSIGNED/ASSESSMENT are
-        # visible via OWNS / SHARES_WITH / group membership (ADR-038/040).
-        # Without this, OWNS-derived scoping hides all curriculum exercises.
-        search_visibility=SearchVisibility.SCOPE_AWARE,
+        # Curriculum: no user owns an exercise (ADR-091 S2), so its visibility
+        # derives to PUBLIC — every exercise is shared content, and a draft is
+        # unlisted by the publication gate.
+        user_ownership_relationship=None,
     )
 
     # Graph enrichment for graph_aware_faceted_search (SearchRouter integration)
@@ -162,7 +98,6 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
     ] = (
         (RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.ENTITY.value, "required_knowledge"),
-        (RelationshipName.SHARED_WITH_GROUP.value, NeoLabel.GROUP.value, "shared_groups"),
         (
             RelationshipName.FULFILLS_EXERCISE.value,
             NeoLabel.ENTITY.value,
@@ -171,170 +106,17 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         ),
     )
 
-    def __init__(
-        self,
-        backend: ExerciseBackendOperations,
-        sharing_service: Any = None,
-        event_bus: Any = None,
-    ) -> None:
+    def __init__(self, backend: ExerciseBackendOperations) -> None:
         """
         Initialize with backend.
 
         Args:
             backend: Exercise backend port - REQUIRED (ExerciseBackend satisfies it)
-            sharing_service: UnifiedSharingService — wired after bootstrap
-                to avoid a circular construction order between Exercise and
-                sharing services. Required before any ASSIGNED exercise is
-                created.
-            event_bus: Event bus for ExerciseEmbeddingRequested publishes on
-                create/update (ADR-074 post-persist embedding step).
         """
         super().__init__(backend, "exercises")
         self.backend = backend
-        self.sharing_service = sharing_service
-        self.event_bus = event_bus
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("ExerciseService initialized")
-
-    # ========================================================================
-    # CREATE
-    # ========================================================================
-
-    async def create(self, entity: Exercise) -> Result[Exercise]:
-        """
-        Create an Exercise with all required side effects.
-
-        Scope-specific relationship writes:
-        - All scopes: (User)-[:OWNS]->(Exercise) via entity.owner_uid
-        - PERSONAL + path_step_uid set: (PathStep)-[:HAS_EXERCISE]->(Exercise) dual-write.
-          The anchor is optional, but when path_step_uid is set the edge write must
-          succeed — a set field without its mirror edge is silent inconsistency.
-        - ASSIGNED + group_uid set: (Exercise)-[:SHARED_WITH_GROUP]->(Group) sharing
-
-        Scope-field validation lives at the API boundary (ExerciseCreateRequest
-        model_validator), not here.
-
-        Called by the CRUD route factory (via ConversionServiceV2 registry) and by
-        create_exercise() (the convenience builder that also generates UIDs).
-        """
-        uid = entity.uid
-
-        result = await self.backend.create(entity)
-        if result.is_error:
-            self.logger.error(f"Failed to create exercise: {result.error}")
-            return result
-
-        # Create OWNS relationship (owner → exercise). Return failure when the
-        # edge write fails: the node is already persisted, so a warning here
-        # left an owner holding a create that reported success while the edge
-        # was missing — the property-only shape ADR-086 grades as door 4's soft
-        # spot, invisible to every :OWNS-traversing read. Reporting the failure
-        # is what lets the caller retry or surface it (ADR-086 hardening).
-        if entity.owner_uid:
-            owns_result = await self.backend.create_owns_relationship(
-                UserUID(entity.owner_uid), uid
-            )
-            if owns_result.is_error:
-                self.logger.error(
-                    f"OWNS edge failed for {uid} -> owner {entity.owner_uid}: "
-                    f"{owns_result.expect_error()} (node was persisted)"
-                )
-                return Result.fail(owns_result)
-
-        # Dual-write: HAS_EXERCISE edge mirrors Exercise.path_step_uid for PERSONAL scope.
-        # Return failure when edge creation fails — a PERSONAL exercise without the edge
-        # is invisible from PathStep views and broken for its intended purpose.
-        if entity.scope == ExerciseScope.PERSONAL and entity.path_step_uid:
-            ps_result = await self.backend.link_to_path_step(uid, entity.path_step_uid)
-            if ps_result.is_error:
-                self.logger.error(
-                    f"HAS_EXERCISE edge failed for {uid} -> {entity.path_step_uid}: "
-                    f"{ps_result.expect_error()} (node was persisted)"
-                )
-                return Result.fail(ps_result)
-
-        # Share assigned exercises with the target group via the unified
-        # SHARED_WITH_GROUP mechanism (ADR-053). FOR_GROUP has been retired.
-        if entity.scope == ExerciseScope.ASSIGNED and entity.group_uid:
-            if self.sharing_service is None:
-                self.logger.error(
-                    "ExerciseService.sharing_service not wired; ASSIGNED exercise "
-                    f"{uid} was not shared with group {entity.group_uid}"
-                )
-            else:
-                share_result = await self.sharing_service.share_with_group(
-                    entity_uid=uid,
-                    owner_uid=entity.owner_uid or "",
-                    group_uid=entity.group_uid,
-                    share_version="original",
-                )
-                if share_result.is_error:
-                    self.logger.warning(
-                        f"Failed to share exercise {uid} with group {entity.group_uid}: "
-                        f"{share_result.expect_error()}"
-                    )
-                else:
-                    self.logger.info(f"SHARED_WITH_GROUP created: {uid} -> {entity.group_uid}")
-
-        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
-        from core.events.embedding_publisher import publish_embedding_requested
-
-        await publish_embedding_requested(self.event_bus, EntityType.EXERCISE, entity, self.logger)
-
-        self.logger.info(f"Exercise created: {uid} - {entity.title} (scope={entity.scope.value})")
-        return Result.ok(entity)
-
-    @with_error_handling("create_exercise", error_type="database")
-    async def create_exercise(
-        self,
-        user_uid: UserUID,
-        name: str,
-        instructions: str,
-        model: str = "claude-sonnet-4-6",
-        context_notes: list[str] | None = None,
-        domain: Domain | None = None,
-        scope: ExerciseScope = ExerciseScope.PERSONAL,
-        due_date: date | None = None,
-        group_uid: str | None = None,
-        form_schema: list[dict[str, Any]] | None = None,
-        scoring_rubric: list[dict[str, Any]] | None = None,
-        pass_threshold: float | None = None,
-        path_step_uid: str | None = None,
-    ) -> Result[Exercise]:
-        """
-        Convenience builder: constructs an Exercise from named fields and delegates
-        to create() for persistence and side effects.
-
-        For PERSONAL scope: path_step_uid optional (when set, HAS_EXERCISE is dual-written).
-        For ASSIGNED scope: group_uid required.
-        For ASSESSMENT scope: scoring_rubric required.
-        """
-        # Default pass_threshold to 0.7 for assessments
-        if scope == ExerciseScope.ASSESSMENT and pass_threshold is None:
-            pass_threshold = 0.7
-
-        uid = UIDGenerator.generate_uid("ex", name)
-
-        exercise = Exercise(
-            uid=uid,
-            entity_type=EntityType.EXERCISE,
-            title=name,
-            instructions=instructions,
-            model=model,
-            context_notes=tuple(context_notes) if context_notes else (),
-            domain=domain if domain is not None else Domain.KNOWLEDGE,
-            scope=scope,
-            due_date=due_date,
-            group_uid=group_uid,
-            enrichment_mode=None,
-            form_schema=tuple(form_schema) if form_schema else None,
-            scoring_rubric=tuple(scoring_rubric) if scoring_rubric else None,
-            pass_threshold=pass_threshold,
-            path_step_uid=path_step_uid,
-            owner_uid=user_uid,
-        )
-
-        return await self.create(exercise)
 
     # ========================================================================
     # READ
@@ -344,15 +126,10 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
     async def get_exercise(self, uid: str) -> Result[Exercise]:
         """Get a specific Exercise by UID, unscoped.
 
-        Reads every scope, including another user's PERSONAL exercise, so it is
-        only for callers that have already established the audience by other
-        means — service composition resolving the exercise a submission
-        fulfils, after that submission has itself been checked.
-
-        A role gate is not such a check: it decides who may act, never on whose
-        content (ADR-042 §3). Any surface serving a user-supplied UID wants
-        get_exercise_for_user(), or verify_ownership() when the surface belongs
-        to the exercise's author.
+        For service composition resolving the exercise a submission fulfils,
+        after that submission has itself been checked. Any surface serving a
+        user-supplied UID wants get_exercise_for_user(), which applies the
+        domain's declared audience.
         """
         result = await self.backend.get(uid)
         if result.is_error:
@@ -365,18 +142,14 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
 
     @with_error_handling("get_exercise_for_user", error_type="database")
     async def get_exercise_for_user(self, uid: str, user_uid: UserUID) -> Result[Exercise]:
-        """Get an Exercise by UID only if this user is in its audience.
+        """Get an Exercise by UID through the domain's declared read audience.
 
-        Applies the SCOPE_AWARE policy this service declares (its
-        ``read_visibility`` is the search declaration, ADR-088 §5) to a
-        single-entity read:
-        CURRICULUM is everyone's, and so is a PERSONAL exercise anchored to a
-        published PathStep (the step's); otherwise PERSONAL/ASSIGNED/ASSESSMENT
-        need OWNS, SHARES_WITH, or group membership. Without this, a direct read by UID
-        answered questions the same entity's search surface refuses.
-
-        Out-of-audience is reported as not-found, never forbidden, so the
-        response cannot confirm that a UID exists (OWNERSHIP_VERIFICATION.md).
+        Every exercise is curriculum, so the declaration is PUBLIC and a by-UID
+        read admits any signed-in user, as a PathStep's does; the publication
+        gate belongs to discovery (search and listings), not to a named read.
+        Reading through the declaration keeps a direct read and a search of the
+        domain in agreement by construction. A uid that names no exercise is
+        not-found.
 
         Backend: UniversalNeo4jBackend.get_visible_to_user
         """
@@ -389,125 +162,9 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
             return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
         return Result.ok(result.value)
 
-    async def list_all(self, limit: int = 500) -> Result[list[Exercise]]:
-        """List all Exercise entities (admin/shared curriculum view)."""
-        # backend.list() returns a (page, total_count) tuple; this facade
-        # promises just the page, so unwrap it.
-        result = await self.backend.list(limit=limit, sort_by="title")
-        if result.is_error:
-            return Result.fail(result)
-        exercises, _total = result.value
-        return Result.ok(exercises)
-
-    @with_error_handling("list_user_exercises", error_type="database")
-    async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
-        """Every exercise the user owns, newest first — the teacher's own list.
-
-        Reads through the owner read every CRUD list uses, whose adapter maps
-        each node to an ``Exercise`` keeping only declared fields, so an
-        embedded exercise (its node carries the embedding bookkeeping keys) is
-        listed like any other and a failed read is a failure, never an empty
-        list. The list is complete: past one bulk page it is read whole, since
-        the dashboard and ``get_filtered_context`` both treat it as the full set.
-
-        Backend: UniversalNeo4jBackend.get_user_entities.
-        """
-        result = await self.backend.get_user_entities(
-            user_uid, sort_by="created_at", sort_order="desc", limit=QueryLimit.BULK
-        )
-        if result.is_error:
-            return Result.fail(result)
-        exercises, total = result.value
-        if total > len(exercises):
-            result = await self.backend.get_user_entities(
-                user_uid, sort_by="created_at", sort_order="desc", limit=total
-            )
-            if result.is_error:
-                return Result.fail(result)
-            exercises, _total = result.value
-        return Result.ok(exercises)
-
     # ========================================================================
-    # UPDATE
+    # LEARNER QUERIES
     # ========================================================================
-
-    async def _publish_update_embedding(
-        self, exercise: Exercise, changed_fields: Collection[str]
-    ) -> None:
-        """Post-persist embedding refresh (ADR-074) shared by both update paths."""
-        from core.events.embedding_publisher import publish_embedding_requested
-
-        await publish_embedding_requested(
-            self.event_bus,
-            EntityType.EXERCISE,
-            exercise,
-            self.logger,
-            changed_fields=changed_fields,
-        )
-
-    async def update(self, uid: str, updates: RawChanges) -> Result[Exercise]:
-        """Update an Exercise, then publish the post-persist embedding refresh (ADR-074).
-
-        Overrides the generic CRUD update to add the embedding event — text-field
-        changes (title/instructions) must re-embed via the background worker.
-        """
-        changes = updates.to_changes()
-        result = await super().update(uid, updates)
-        if result.is_error or result.value is None:
-            return result
-
-        await self._publish_update_embedding(result.value, changes.keys())
-        self.logger.info(f"Exercise updated: {uid}")
-        return result
-
-    async def update_for_user(
-        self, uid: str, updates: RawChanges, user_uid: UserUID
-    ) -> Result[Exercise]:
-        """Ownership-verified update + embedding refresh (ADR-074).
-
-        This is the path the CRUD route factory takes for exercises
-        (ContentScope.USER_OWNED ⇒ verify_ownership=True) — the base mixin
-        writes straight to the backend without going through update(), so the
-        embedding publish must be mirrored here.
-        """
-        changes = updates.to_changes()
-        result = await super().update_for_user(uid, updates, user_uid)
-        if result.is_error or result.value is None:
-            return result
-
-        await self._publish_update_embedding(result.value, changes.keys())
-        self.logger.info(f"Exercise updated: {uid} (owner {user_uid})")
-        return result
-
-    # ========================================================================
-    # EXERCISE QUERIES (ADR-040)
-    # ========================================================================
-
-    @with_error_handling("list_group_exercises", error_type="database")
-    async def list_group_exercises(self, group_uid: str) -> Result[list[Exercise]]:
-        """
-        Get all ASSIGNED exercises for a group.
-
-        Args:
-            group_uid: Group UID
-
-        Returns:
-            Result containing list of assigned exercises
-        """
-        result = await find_all_by(
-            self.backend,
-            self.logger,
-            "Group exercise list",
-            group_uid=group_uid,
-            scope="assigned",
-            entity_type=EntityType.EXERCISE.value,
-        )
-        if result.is_error:
-            return result
-
-        exercises = result.value or []
-        self.logger.info(f"Found {len(exercises)} exercises for group {group_uid}")
-        return Result.ok(exercises)
 
     @with_error_handling("get_student_exercises_with_status", error_type="database")
     async def get_student_exercises_with_status(
@@ -515,44 +172,19 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
     ) -> Result[list[ExerciseStatusRow]]:
         """Get exercises with submission + report status for the library exercises tab.
 
-        Combines two sources:
-        - Assigned exercises (scope=assigned, via SHARED_WITH_GROUP → group membership)
-        - PathStep-linked exercises (scope=personal, via HAS_EXERCISE from enrolled PathSteps)
-
-        Returns exercise properties enriched with has_submission, submission_uid,
-        submission_status, has_report, report_uid, report_outcome, group_name,
+        The exercises hanging from the PathSteps the learner is in progress on
+        (``IN_PROGRESS`` → ``HAS_EXERCISE``), each enriched with has_submission,
+        submission_uid, submission_status, has_report, report_uid, report_outcome,
         and the vault living channel's has_in_progress / in_progress_uid
         (declared-intent entry, no turn-in edge — "exercise in progress").
+        ``None`` for ``limit`` returns all of them.
 
-        ``limit`` is pushed down to both backend queries and re-applied after the
-        assigned-first merge/dedupe, which keeps the result identical to a full
-        fetch sliced to ``limit`` (assigned rows have no internal duplicates, so
-        the first ``limit`` merged rows never depend on rows beyond each query's
-        own top ``limit``). ``None`` returns all exercises.
+        Backend: ExerciseBackend.get_enrolled_ps_exercises_with_status
         """
-        assigned_result = await self.backend.get_student_exercises_with_status(
-            user_uid, limit=limit
-        )
-        if assigned_result.is_error:
-            return Result.fail(assigned_result)
-
-        ps_result = await self.backend.get_enrolled_ps_exercises_with_status(user_uid, limit=limit)
-        if ps_result.is_error:
-            return Result.fail(ps_result)
-
-        seen_uids: set[str] = set()
-        exercises: list[ExerciseStatusRow] = []
-
-        for record in (assigned_result.value or []) + (ps_result.value or []):
-            row = _to_status_row(record)
-            if row["uid"] in seen_uids:
-                continue
-            seen_uids.add(row["uid"])
-            exercises.append(row)
-
-        if limit is not None:
-            exercises = exercises[:limit]
-
+        result = await self.backend.get_enrolled_ps_exercises_with_status(user_uid, limit=limit)
+        if result.is_error:
+            return Result.fail(result)
+        exercises = [_to_status_row(record) for record in result.value or []]
         self.logger.info(f"Found {len(exercises)} exercises with status for student {user_uid}")
         return Result.ok(exercises)
 
@@ -577,91 +209,8 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         return Result.ok(exercises)
 
     # ========================================================================
-    # DELETE
+    # CURRICULUM LINKS
     # ========================================================================
-
-    async def deactivate_exercise(self, uid: str) -> Result[Exercise]:
-        """Soft-delete by archiving exercise."""
-        updates: dict[str, Any] = {
-            "status": "archived",
-        }
-        return await self.backend.update(uid, updates)
-
-    # ========================================================================
-    # CURRICULUM LINKING
-    # ========================================================================
-
-    async def admit_requirement_change(
-        self, exercise_uid: str, caller_uid: UserUID, caller_role: UserRole
-    ) -> Result[AdmittedRequirementChange]:
-        """Decide whether the caller may change the knowledge this exercise requires.
-
-        An exercise's ``REQUIRES_KNOWLEDGE`` edges are part of the exercise — its
-        page lists them as the knowledge it asks for — so two callers may:
-
-        - the exercise's owner, the user who ``OWNS`` it;
-        - an ADMIN, on any exercise. A CURRICULUM exercise has no owner, so an
-          ADMIN is the only caller who may change it.
-
-        Every refusal is not-found of the exercise: a uid that names nothing,
-        another user's exercise and an ownerless one each answer the same, so no
-        refusal confirms that an exercise exists.
-
-        Backend: ExerciseBackend.get_exercise_owners
-        """
-        owners = await self.backend.get_exercise_owners(exercise_uid)
-        if owners.is_error:
-            return Result.fail(owners)
-        admitted = owners.value is not None and (
-            caller_role.has_permission(UserRole.ADMIN) or caller_uid in owners.value
-        )
-        if not admitted:
-            return Result.fail(Errors.not_found("Exercise", exercise_uid))
-        return Result.ok(AdmittedRequirementChange(exercise_uid, caller_uid))
-
-    @with_error_handling("link_to_curriculum", error_type="database")
-    async def link_to_curriculum(
-        self, admitted: AdmittedRequirementChange, curriculum_uid: str
-    ) -> Result[bool]:
-        """
-        Link an admitted exercise to a curriculum KU via REQUIRES_KNOWLEDGE.
-
-        This declares that the exercise requires understanding of the
-        curriculum knowledge unit — anchoring the exercise to the
-        four-phase loop: Exercise → UserEntry → EntryReport → RevisedExercise.
-
-        Args:
-            admitted: The exercise, as ``admit_requirement_change`` admitted it
-            curriculum_uid: Curriculum KU UID (entity_type='ku')
-
-        Returns:
-            Result[bool] - True if relationship created
-        """
-        exercise_uid = admitted.exercise_uid
-        result = await self.backend.link_to_curriculum(exercise_uid, curriculum_uid)
-        if result.is_ok:
-            self.logger.info(f"Linked exercise {exercise_uid} to curriculum {curriculum_uid}")
-        return result
-
-    @with_error_handling("unlink_from_curriculum", error_type="database")
-    async def unlink_from_curriculum(
-        self, admitted: AdmittedRequirementChange, curriculum_uid: str
-    ) -> Result[bool]:
-        """
-        Remove an admitted exercise's REQUIRES_KNOWLEDGE relationship to a curriculum KU.
-
-        Args:
-            admitted: The exercise, as ``admit_requirement_change`` admitted it
-            curriculum_uid: Curriculum KU UID
-
-        Returns:
-            Result[bool] - True if relationship removed
-        """
-        exercise_uid = admitted.exercise_uid
-        result = await self.backend.unlink_from_curriculum(exercise_uid, curriculum_uid)
-        if result.is_ok:
-            self.logger.info(f"Unlinked exercise {exercise_uid} from curriculum {curriculum_uid}")
-        return result
 
     @with_error_handling("get_required_knowledge", error_type="database")
     async def get_required_knowledge(
@@ -689,13 +238,10 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
     ) -> Result[list[RequiredKnowledgeResult]]:
         """The Kus an exercise requires, read by a caller in the exercise's audience.
 
-        The audience is the SCOPE_AWARE rule this service declares, the one
-        ``get_exercise_for_user`` applies — a uid that names no exercise and one
-        outside the caller's audience answer the same not-found, so the answer
-        never confirms that an exercise exists. The unscoped
-        ``get_required_knowledge`` stays for reads that already admitted the
-        caller (the owner's authoring view, the daily plan over the user's own
-        context).
+        The audience is the one ``get_exercise_for_user`` applies, so a uid that
+        names no exercise is not-found and an exercise with no requirements an
+        empty list. The unscoped ``get_required_knowledge`` serves reads that
+        start from the user's own context (the daily plan).
 
         Backend: ExerciseBackend.get_required_knowledge_for_user
         """
@@ -739,9 +285,8 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         """
         The exercises requiring a curriculum KU that this user may read.
 
-        Enables the reverse lookup: "what exercises practice this knowledge?" —
-        scoped to the SCOPE_AWARE audience this service declares, so an exercise
-        the caller may not open is absent from the list rather than refused.
+        Enables the reverse lookup: "what exercises practice this knowledge?" — a
+        discovery listing, so a draft exercise is unlisted.
 
         Args:
             curriculum_uid: Curriculum KU UID
@@ -904,33 +449,3 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         )
         score = (len(prereqs) - len(unmastered)) / len(prereqs)
         return (unmastered, score)
-
-    # ========================================================================
-    # QUERY LAYER (FilteredContextProvider)
-    # ========================================================================
-
-    async def get_filtered_context(
-        self,
-        user_uid: UserUID,
-        status_filter: str = "all",
-        sort_by: str = "title",
-    ) -> Result[ListContext]:
-        """Get filtered and sorted exercises with pre-filter stats."""
-
-        async def fetch_all() -> Result[list[Any]]:
-            return await self.list_user_exercises(user_uid)
-
-        def apply_filters(all_exercises: list[Any]) -> list[Any]:
-            try:
-                scope = ExerciseScope(status_filter)
-            except ValueError:
-                return all_exercises
-            return [e for e in all_exercises if getattr(e, "scope", None) == scope]
-
-        return await build_filtered_context(
-            fetch_all=fetch_all,
-            compute_stats=_compute_exercise_stats,
-            apply_filters=apply_filters,
-            apply_sort=_apply_exercise_sort,
-            sort_by=sort_by,
-        )

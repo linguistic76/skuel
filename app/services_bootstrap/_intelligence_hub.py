@@ -17,7 +17,6 @@ logger = get_logger("skuel.bootstrap")
 def _filtered_context_providers(
     activity_services: Mapping[str, object],
     learning_services: Mapping[str, object],
-    exercises: object,
 ) -> dict[str, FilteredContextProvider]:
     """Map each domain name to the facade that serves its filtered context.
 
@@ -39,7 +38,6 @@ def _filtered_context_providers(
         "principles": activity_services["principles"],
         "ps": learning_services["ps"],
         "learning_paths": learning_services["learning_paths"],
-        "exercises": exercises,
     }
     providers: dict[str, FilteredContextProvider] = {}
     for domain, facade in candidates.items():
@@ -156,9 +154,7 @@ def _create_intelligence_hub(
             "compose_services must wire ExerciseService before _create_intelligence_hub."
         )
     # Intelligence services ask a provider by domain name for its filtered view.
-    filtered_providers = _filtered_context_providers(
-        activity_services, learning_services, services.exercises
-    )
+    filtered_providers = _filtered_context_providers(activity_services, learning_services)
     context_intelligence_factory = UserContextIntelligenceFactory(
         # Activity Domains (6) — facade services (not .relationships)
         tasks=activity_services["tasks"],

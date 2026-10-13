@@ -3024,7 +3024,6 @@ class ExerciseWithSubmissionCounts(TypedDict, total=False):
 
     uid: str
     title: str
-    scope: str
     created_at: str
     total_count: int
     reviewed_count: int
@@ -3834,7 +3833,6 @@ class CurriculumExerciseResult(TypedDict, total=False):
 
     uid: str
     title: str
-    scope: str
     due_date: str | None
     status: str | None
     form_schema: str | None
@@ -3857,7 +3855,6 @@ class ExerciseStatusRow(TypedDict):
     title: str
     description: str | None
     due_date: str | None
-    group_name: str
     has_submission: bool
     submission_uid: str | None
     submission_status: str | None

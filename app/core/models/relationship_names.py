@@ -342,9 +342,8 @@ class RelationshipName(StrEnum):
     # fragment (ADR-088 §2 — two link kinds, never crossed).
     SUBMITTED_TO_GROUP = "SUBMITTED_TO_GROUP"
     # (UserEntry)-[:SUBMITTED_TO_TEACHER {submitted_at}]->(User) - A feedback request to
-    # one teacher directly: the exercise's teacher — its REVIEWED_BY teacher, or the owner
-    # of a PERSONAL exercise anchored to a published PathStep — that the entry turns in
-    # against. Read only by that teacher's teacher-side readers, never by the audience
+    # one teacher directly: the teacher of the exercise the entry turns in against — its
+    # REVIEWED_BY teacher. Read only by that teacher's teacher-side readers, never by the audience
     # fragment (ADR-088 §9, ADR-091 S3).
     SUBMITTED_TO_TEACHER = "SUBMITTED_TO_TEACHER"
     # (Exercise)-[:REVIEWED_BY]->(User) - The exercise's teacher, named by its vault

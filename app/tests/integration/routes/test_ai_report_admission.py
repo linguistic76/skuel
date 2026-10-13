@@ -15,9 +15,9 @@ not ask is refused like any other user (ADR-088 §2).
 
 Every refusal is a 404 that reads the same as a uid naming nothing.
 
-The world is built at the app's real doors: the teacher creates a group, adds the
-student, assigns an exercise to the group; the student turns work in to that
-group. The reviewer is FULL-tier and calls an LLM, so the route's tier gate is
+The world is built at the app's real doors: the exercises enter through the
+content-vault sync naming the teacher, the teacher creates a group and adds the
+student, the student starts the exercises' step and turns work in to that group. The reviewer is FULL-tier and calls an LLM, so the route's tier gate is
 forced to FULL and ``generate_report`` is replaced by a recording stub — a
 refusal is "the stub was never reached", an admission is "it was, with exactly
 this entry and exercise". Nothing calls a model.
@@ -38,7 +38,12 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.user_enums import UserRole
 from core.services.report.entry_report_service import AdmittedReport
 from core.utils.result_simplified import Result
-from tests.integration._activity_link_rig import create, edges_between, signed_in_client
+from tests.integration._activity_link_rig import (
+    create,
+    edges_between,
+    signed_in_client,
+    sync_vault_exercises,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -65,6 +70,7 @@ TEACHER = f"user_{TEACHER_MARK}"  # owns the group the entry was submitted to
 OUTSIDER = f"user_{OUTSIDER_MARK}"  # a teacher with the student in a group of their own
 ADMIN = f"user_{ADMIN_MARK}"  # no tie to the student or the entry
 ROLES = {STUDENT: "member", TEACHER: "teacher", OUTSIDER: "teacher", ADMIN: "admin"}
+STEP = f"ps.{MARK}.step"
 MISSING_ENTRY = f"ue_{MARK}_missing"
 MISSING_EXERCISE = f"ex_{MARK}_missing"
 REPORT = "/api/exercises/report"
@@ -84,10 +90,15 @@ async def _set_role(driver: AsyncDriver, uid: str, role: str) -> None:
 
 
 async def _delete_owned(driver: AsyncDriver, users: list[str]) -> None:
-    """Groups and exercises carry no mark in their generated uids — remove them by owner."""
+    """Groups carry no mark in their generated uids — remove them by owner; the vault's
+    step, exercises and tracker rows carry the mark."""
     async with driver.session() as session:
         await session.run(
             "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users DETACH DELETE n", users=users
+        )
+        await session.run(
+            "MATCH (n) WHERE n.uid CONTAINS $mark OR n.entity_uid CONTAINS $mark DETACH DELETE n",
+            mark=MARK,
         )
 
 
@@ -96,18 +107,6 @@ async def _group_with_student(client: httpx.AsyncClient, name: str) -> str:
     added = await client.post(f"/api/groups/{group}/members/add", json={"user_uid": STUDENT})
     assert added.status_code == 200, added.text
     return group
-
-
-async def _assigned_exercise(client: httpx.AsyncClient, group: str, name: str) -> str:
-    return await create(
-        client,
-        "exercises",
-        name,
-        name=name,
-        instructions=f"{name} instructions",
-        scope="assigned",
-        group_uid=group,
-    )
 
 
 def _uidless(body: str, *uids: str) -> str:
@@ -136,7 +135,10 @@ class World:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-app
+async def world(
+    skuel_app: Any,  # boundary: fasthtml-app
+    tmp_path_factory: pytest.TempPathFactory,
+) -> AsyncIterator[World]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     async with (
         signed_in_client(skuel_app, STUDENT, STUDENT_MARK) as student,
@@ -149,8 +151,18 @@ async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-a
         try:
             group = await _group_with_student(teacher, f"{MARK}-class")
             await _group_with_student(outsider, f"{MARK}-other-class")
-            exercise = await _assigned_exercise(teacher, group, f"{MARK}-essay")
-            other_exercise = await _assigned_exercise(teacher, group, f"{MARK}-quiz")
+            exercise, other_exercise = f"ex.{MARK}.essay", f"ex.{MARK}.quiz"
+            await sync_vault_exercises(
+                driver,
+                tmp_path_factory.mktemp("content_vault"),
+                step_uid=STEP,
+                exercises={exercise: f"{MARK} essay", other_exercise: f"{MARK} quiz"},
+                teacher_uid=TEACHER,
+            )
+            started = await student.post(
+                f"/explore/ps/{STEP}/progress", data={"state": "learning", "review": "true"}
+            )
+            assert started.status_code == 200, started.text
 
             turned_in = await student.post(
                 "/api/user-entries/upload",

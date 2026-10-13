@@ -2,12 +2,9 @@
 Exercises API - Domain-Specific Routes
 ========================================
 
-CRUD routes are config-driven via CRUDRouteConfig in exercises_routes.py.
-Exercise creation (POST /api/exercises/create) is handled by the CRUD factory
-using ConversionServiceV2.exercise_create_to_pure.
-
-This file contains domain-specific manual routes: report generation and
-curriculum linking.
+An exercise is authored only in the content vault (ADR-091 S4), so this API
+writes no exercise: it serves the learner's AI-report summons, the reads of an
+exercise's required knowledge, and the worksheet download.
 """
 
 from typing import Any
@@ -19,10 +16,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from core.config.intelligence_tier import IntelligenceTier
-from core.models.exercises.exercise_request import (
-    ExerciseKnowledgeRequest,
-    ReportGenerateRequest,
-)
+from core.models.exercises.exercise_request import ReportGenerateRequest
 from core.models.type_hints import UserUID
 from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
 from core.services.exercises.exercise_service import ExerciseService
@@ -171,71 +165,8 @@ def create_exercises_api_routes(
         )
 
     # ========================================================================
-    # CURRICULUM LINKING ROUTES
+    # CURRICULUM LINK READS
     # ========================================================================
-
-    @rt("/api/exercises/require-knowledge", methods=["POST"])
-    @csrf_protected
-    @require_teacher(get_user_service)
-    @boundary_handler()
-    async def require_knowledge(request: Request, current_user: Any = None) -> Result[bool]:
-        """
-        Link an exercise to a curriculum KU via REQUIRES_KNOWLEDGE.
-
-        Access: the exercise's owner, or an ADMIN on any exercise — an ownerless
-        CURRICULUM exercise is an ADMIN's only
-        (``ExerciseService.admit_requirement_change``).
-
-        Body (JSON):
-        - exercise_uid: Exercise UID (required)
-        - curriculum_uid: Curriculum KU UID (required)
-
-        Returns:
-        - 200: Relationship created
-        - 404: Exercise or curriculum KU not found — also an exercise the caller
-          may not change
-        """
-        result = await parse_json_body(request, ExerciseKnowledgeRequest)
-        if result.is_error:
-            return Result.fail(result)
-        req = result.value
-
-        admitted = await exercises_service.admit_requirement_change(
-            req.exercise_uid, UserUID(current_user.uid), current_user.role
-        )
-        if admitted.is_error:
-            return Result.fail(admitted)
-        return await exercises_service.link_to_curriculum(admitted.value, req.curriculum_uid)
-
-    @rt("/api/exercises/unrequire-knowledge", methods=["POST"])
-    @csrf_protected
-    @require_teacher(get_user_service)
-    @boundary_handler()
-    async def unrequire_knowledge(request: Request, current_user: Any = None) -> Result[bool]:
-        """
-        Remove REQUIRES_KNOWLEDGE relationship between exercise and curriculum KU.
-
-        Access: as for ``require-knowledge`` — the exercise's owner, or an ADMIN.
-
-        Body (JSON):
-        - exercise_uid: Exercise UID (required)
-        - curriculum_uid: Curriculum KU UID (required)
-
-        Returns:
-        - 200: Relationship removed
-        - 404: Relationship not found — also an exercise the caller may not change
-        """
-        result = await parse_json_body(request, ExerciseKnowledgeRequest)
-        if result.is_error:
-            return Result.fail(result)
-        req = result.value
-
-        admitted = await exercises_service.admit_requirement_change(
-            req.exercise_uid, UserUID(current_user.uid), current_user.role
-        )
-        if admitted.is_error:
-            return Result.fail(admitted)
-        return await exercises_service.unlink_from_curriculum(admitted.value, req.curriculum_uid)
 
     @rt("/api/exercises/required-knowledge", methods=["GET"])
     @require_teacher(get_user_service)
@@ -244,14 +175,14 @@ def create_exercises_api_routes(
         request: Request, current_user: Any = None
     ) -> Result[list[RequiredKnowledgeResult]]:
         """
-        Get the curriculum KUs required by an exercise the caller may read.
+        Get the curriculum KUs an exercise requires.
 
         Query params:
         - uid: Exercise UID (required)
 
         Returns:
         - 200: List of required curriculum KUs
-        - 404: Exercise not found — also an exercise outside the caller's audience
+        - 404: Exercise not found
         """
         uid = request.query_params.get("uid")
         if not uid:
@@ -268,14 +199,14 @@ def create_exercises_api_routes(
         request: Request, current_user: Any = None
     ) -> Result[list[CurriculumExerciseResult]]:
         """
-        Get the exercises requiring a specific curriculum KU that the caller may read.
+        Get the exercises requiring a specific curriculum KU.
 
         Query params:
         - curriculum_uid: Curriculum KU UID (required)
 
         Returns:
-        - 200: List of exercises requiring this curriculum KU, scoped to the
-          caller's audience — an exercise the caller may not open is absent
+        - 200: List of exercises requiring this curriculum KU — a discovery
+          listing, so a draft exercise is unlisted
         """
         curriculum_uid = request.query_params.get("curriculum_uid")
         if not curriculum_uid:
@@ -296,9 +227,8 @@ def create_exercises_api_routes(
 
         user_uid = require_authenticated_user(request)
 
-        # Same audience check as the detail fragment — this route hands back the
-        # exercise body as a file, so an unscoped read here would leak exactly
-        # what the scoped read next door refuses.
+        # The read the detail fragment makes, through the domain's declared
+        # audience, so the file and the page agree on what a learner may open.
         result = await exercises_service.get_exercise_for_user(uid, user_uid)
         if result.is_error or not result.value:
             return Response(
@@ -321,4 +251,4 @@ def create_exercises_api_routes(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    logger.info("Exercises API routes registered (Factory pattern + curriculum linking)")
+    logger.info("Exercises API routes registered")

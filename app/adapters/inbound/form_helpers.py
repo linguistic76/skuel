@@ -151,7 +151,7 @@ async def parse_body[T: BaseModel](
 
     Example::
 
-        parsed = await parse_body(request, ExerciseCreateRequest)
+        parsed = await parse_body(request, TaskCreateRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
@@ -219,7 +219,7 @@ async def parse_form_body[T: BaseModel](
 
     Example::
 
-        result = await parse_form_body(request, ExerciseCreateRequest)
+        result = await parse_form_body(request, ReportGenerateRequest)
         if result.is_error:
             return result
         req = result.value

@@ -1,19 +1,15 @@
 """
-Unit Tests for ExerciseScope.CURRICULUM and the optional PathStep anchor
-=========================================================================
+Unit Tests for ExerciseScope.CURRICULUM — the one exercise scope
+=================================================================
 
-Covers the 2026-07-03 scope-semantics ruling:
-- CURRICULUM is the scope for content-vault-authored shared exercises
-  (no user OWNS edge; anchored via ``exercise_uids`` in PathStep YAML).
-- PERSONAL exercises no longer require a PathStep anchor — unanchored
-  personal templates (the /submit save-template flow) are legitimate.
-- The API rejects CURRICULUM (vault-ingested only); ingestion rejects
-  everything EXCEPT curriculum (no owner mechanism at the file boundary).
+An exercise is authored only in the content vault, owned by no user (ADR-091 S2,
+S4): CURRICULUM is the one scope, the model's default, and the only value the
+ingestion boundary admits.
 
 Test Categories:
-1. Enum + model validity (Exercise.is_valid across scopes)
-2. API boundary (ExerciseCreateRequest model_validator)
-3. Ingestion boundary (validate_entity_data guard + config scope default)
+1. Enum + model (the one scope, the default, is_valid)
+2. Ingestion boundary (validate_entity_data guard + config scope default)
+3. Batch item preparation (edge-source survival)
 """
 
 from __future__ import annotations
@@ -21,19 +17,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.exercises.exercise import Exercise
-from core.models.exercises.exercise_request import ExerciseCreateRequest
-from core.services.exercises.exercise_service import ExerciseService
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 # ============================================================================
-# 1. ENUM + MODEL VALIDITY
+# 1. ENUM + MODEL
 # ============================================================================
 
 
@@ -48,91 +41,22 @@ def _exercise(**overrides: object) -> Exercise:
     return Exercise(**defaults)  # type: ignore[arg-type]
 
 
-def test_curriculum_scope_exists() -> None:
-    assert ExerciseScope.CURRICULUM.value == "curriculum"
-    assert ExerciseScope("curriculum") is ExerciseScope.CURRICULUM
+def test_curriculum_is_the_one_scope() -> None:
+    assert [member.value for member in ExerciseScope] == ["curriculum"]
 
 
-def test_personal_exercise_valid_without_path_step_anchor() -> None:
-    """The bless: unanchored personal templates are legitimate."""
-    exercise = _exercise(scope=ExerciseScope.PERSONAL)
-    assert exercise.path_step_uid is None
+def test_an_exercise_is_curriculum_by_default_and_valid() -> None:
+    exercise = _exercise()
+    assert exercise.scope is ExerciseScope.CURRICULUM
     assert exercise.is_valid()
 
 
-def test_curriculum_exercise_valid_without_owner_or_anchor() -> None:
-    exercise = _exercise(scope=ExerciseScope.CURRICULUM)
-    assert exercise.owner_uid is None
-    assert exercise.is_valid()
-
-
-def test_assigned_exercise_still_requires_group() -> None:
-    assert not _exercise(scope=ExerciseScope.ASSIGNED).is_valid()
-    assert _exercise(scope=ExerciseScope.ASSIGNED, group_uid="group_x").is_valid()
-
-
-def test_assessment_exercise_still_requires_rubric() -> None:
-    assert not _exercise(scope=ExerciseScope.ASSESSMENT).is_valid()
-    assert _exercise(
-        scope=ExerciseScope.ASSESSMENT,
-        scoring_rubric=({"name": "clarity", "weight": 1.0},),
-    ).is_valid()
+def test_an_exercise_without_instructions_is_not_valid() -> None:
+    assert not _exercise(instructions=None).is_valid()
 
 
 # ============================================================================
-# 2. API BOUNDARY
-# ============================================================================
-
-
-def test_api_accepts_unanchored_personal() -> None:
-    request = ExerciseCreateRequest(name="My template", instructions="Reflect.")
-    assert request.scope is ExerciseScope.PERSONAL
-    assert request.path_step_uid is None
-
-
-def test_api_rejects_curriculum_scope() -> None:
-    with pytest.raises(ValidationError, match="content vault"):
-        ExerciseCreateRequest(
-            name="Vault thing",
-            instructions="Nope.",
-            scope=ExerciseScope.CURRICULUM,
-        )
-
-
-def test_api_still_enforces_assigned_group() -> None:
-    with pytest.raises(ValidationError, match="group_uid"):
-        ExerciseCreateRequest(
-            name="Class task",
-            instructions="Do.",
-            scope=ExerciseScope.ASSIGNED,
-        )
-
-
-def test_api_rejects_invalid_domain() -> None:
-    """Conversion does ``Domain(schema.domain)`` — an unvalidated string used to
-    surface as a 500 there instead of a 422 here."""
-    with pytest.raises(ValidationError, match="invalid domain"):
-        ExerciseCreateRequest(
-            name="Bad domain",
-            instructions="Do.",
-            domain="Activity Domains",
-        )
-
-
-def test_api_accepts_valid_domain() -> None:
-    request = ExerciseCreateRequest(name="Tasks list", instructions="List.", domain="tasks")
-    assert request.domain == "tasks"
-
-
-def test_update_api_rejects_invalid_domain() -> None:
-    from core.models.exercises.exercise_request import ExerciseUpdateRequest
-
-    with pytest.raises(ValidationError, match="invalid domain"):
-        ExerciseUpdateRequest(domain="not-a-domain")
-
-
-# ============================================================================
-# 3. INGESTION BOUNDARY
+# 2. INGESTION BOUNDARY
 # ============================================================================
 
 _FILE = Path("exercise_sample.md")
@@ -144,8 +68,6 @@ def _prepared(data: dict[str, object]) -> dict[str, object]:
 
 
 def test_ingestion_defaults_absent_scope_to_curriculum() -> None:
-    """Config default wins over the model default (PERSONAL), which would
-    create an ownerless 'personal' exercise no view can surface."""
     prepared = _prepared({"title": "Sample", "instructions": "Do.", "teacher": _TEACHER})
     assert prepared["scope"] == "curriculum"
     result = validate_entity_data(EntityType.EXERCISE, prepared, _FILE)
@@ -171,7 +93,8 @@ def test_ingestion_requires_the_exercise_to_name_its_teacher() -> None:
 
 
 @pytest.mark.parametrize("scope", ["personal", "assigned", "assessment"])
-def test_ingestion_rejects_owner_bound_scopes(scope: str) -> None:
+def test_ingestion_rejects_any_other_scope(scope: str) -> None:
+    """CURRICULUM is the one scope (ADR-091 S4); the retired values are refused."""
     prepared = _prepared({"title": "Sample", "instructions": "Do.", "scope": scope})
     result = validate_entity_data(EntityType.EXERCISE, prepared, _FILE)
     assert result.is_error
@@ -179,56 +102,7 @@ def test_ingestion_rejects_owner_bound_scopes(scope: str) -> None:
 
 
 # ============================================================================
-# 4. UPDATE PATHS PUBLISH EMBEDDING REFRESH (ADR-074)
-# ============================================================================
-
-
-def _service_with_mocked_super() -> ExerciseService:
-    from unittest.mock import MagicMock
-
-    service = ExerciseService.__new__(ExerciseService)
-    service.event_bus = MagicMock()
-    service.logger = MagicMock()
-    return service
-
-
-@pytest.mark.parametrize("method", ["update", "update_for_user"])
-@pytest.mark.asyncio
-async def test_both_update_paths_publish_embedding_refresh(method: str) -> None:
-    """The CRUD route factory calls update_for_user() for exercises
-    (ContentScope.USER_OWNED), and update() elsewhere — BOTH must publish the
-    ADR-074 embedding event (Kody #496: only update() did)."""
-    from unittest.mock import AsyncMock, patch
-
-    from core.models.update_contracts import RawChanges
-    from core.services.mixins.crud_operations_mixin import CrudOperationsMixin
-
-    service = _service_with_mocked_super()
-    exercise = _exercise(scope=ExerciseScope.PERSONAL)
-    updates = RawChanges({"instructions": "New text."})
-
-    from core.utils.result_simplified import Result
-
-    with (
-        patch.object(CrudOperationsMixin, method, AsyncMock(return_value=Result.ok(exercise))),
-        patch(
-            "core.events.embedding_publisher.publish_embedding_requested", new_callable=AsyncMock
-        ) as publish,
-    ):
-        if method == "update":
-            result = await service.update("ex.test.sample", updates)
-        else:
-            result = await service.update_for_user("ex.test.sample", updates, "user_test")
-
-    assert result.is_ok
-    publish.assert_awaited_once()
-    assert publish.await_args is not None
-    assert publish.await_args.args[1] is EntityType.EXERCISE
-    assert set(publish.await_args.kwargs["changed_fields"]) == {"instructions"}
-
-
-# ============================================================================
-# 5. BATCH ITEM PREPARATION (edge-source survival)
+# 3. BATCH ITEM PREPARATION (edge-source survival)
 # ============================================================================
 
 

@@ -101,12 +101,9 @@ teacher's report is owned by the student whose work it answers, with the teacher
 teacher also owns the groups they run (ADR-040), and a group's owning teachers review what is
 submitted to the group (ADR-088 §2).
 
-**Not yet true in code for owned exercises.** ADR-091's implementing changes build this
-([§ Implementation](../decisions/ADR-091-one-door-for-curriculum.md#implementation)).
-Every vault exercise names its teacher (change 3): a feedback request on it goes to its
-`REVIEWED_BY` teacher, and it has no owner. Until change 4 lands, a teacher-created PERSONAL
-exercise is still owned through `:OWNS`, and that owner still receives the feedback requests on
-it when it is anchored to a published PathStep (ADR-088 §9).
+For exercises this is the code ([ADR-091 § Implementation](../decisions/ADR-091-one-door-for-curriculum.md#implementation),
+changes 3 and 4): every exercise is a vault file naming its teacher, a feedback request on it goes
+to its `REVIEWED_BY` teacher, and no user owns one.
 
 ## Architecture
 

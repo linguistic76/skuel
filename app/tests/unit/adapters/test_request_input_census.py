@@ -230,7 +230,7 @@ def test_the_census_walks_the_handlers() -> None:
     names = {name for name, _ in registered}
     assert "list_users" in names, "a decorated handler"
     assert "update" in names, "a handler registered as rt(...)(update)"
-    assert ("exercises_dashboard", "/exercises") in registered, "a handler under @app.get"
+    assert ("exercise_detail", "/exercises/get") in registered, "a handler under @app.get"
     assert len(registered) > 400
 
 

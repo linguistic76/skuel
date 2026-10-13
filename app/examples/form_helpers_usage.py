@@ -83,10 +83,10 @@ async def json_body_example(request):
 # ✅ parse_form_body — HTML form data → Pydantic model → Result[T]
 async def form_body_example(request):
     """Replaces manual (body.get("field") or "").strip() + enum try/except chains."""
-    from core.models.exercises.exercise_request import ExerciseCreateRequest
+    from core.models.exercises.exercise_request import ReportGenerateRequest
 
-    result = await parse_form_body(request, ExerciseCreateRequest)
+    result = await parse_form_body(request, ReportGenerateRequest)
     if result.is_error:
         return result  # 400 with validation details (ErrorCategory.VALIDATION)
     req = result.value
-    return {"name": req.name, "scope": req.scope.value}
+    return {"submission_uid": req.submission_uid, "temperature": req.temperature}

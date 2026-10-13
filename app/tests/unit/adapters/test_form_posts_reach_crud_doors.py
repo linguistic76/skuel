@@ -1,9 +1,8 @@
 """The HTMX forms that post to CRUD-factory doors are answered — driven as they post.
 
-The exercise editor (``ui/exercises/editor.py``), the exercise card's Delete
-(``ui/exercises/cards.py``) and the teacher's New Group modal
-(``adapters/inbound/teaching_ui.py``) each post a browser form encoding to a door
-the CRUD factory registers (``/create``, ``/update?uid=``, ``/delete?uid=``). The
+The teacher's New Group modal (``adapters/inbound/teaching_ui.py``) posts a
+browser form encoding to a door the CRUD factory registers (``/create``; the
+same factory serves ``/update?uid=`` and ``/delete?uid=``). The
 door reads the body by Content-Type (``parse_body``), so the form's fields reach
 the service exactly as a JSON client's would. These tests post the encoding htmx
 sends — multipart for a ``Form`` (FastHTML's default enctype), an empty url-encoded
@@ -28,14 +27,12 @@ from adapters.inbound.boundary import (
     install_malformed_multipart_guard,
 )
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.exercises_routes import EXERCISES_CONFIG
 from adapters.inbound.groups_routes import GROUPS_CONFIG
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.models.enums import UserRole
 from core.utils.result_simplified import Errors, Result
 
 _USER_UID = "user_teacher"
-_EXERCISE_UID = "ex_abc123"
 
 
 def _fake_auth(request: object) -> str:
@@ -67,7 +64,7 @@ def _make_harness(monkeypatch: pytest.MonkeyPatch, config: DomainRouteConfig) ->
     services.user.get_user = AsyncMock(return_value=Result.ok(_caller(UserRole.TEACHER)))
     primary = getattr(services, config.primary_service_attr)
     primary.create = AsyncMock(return_value=Result.ok({"uid": "created"}))
-    primary.update_for_user = AsyncMock(return_value=Result.ok({"uid": _EXERCISE_UID}))
+    primary.update_for_user = AsyncMock(return_value=Result.ok({"uid": "updated"}))
     primary.delete_for_user = AsyncMock(return_value=Result.ok(True))
 
     register_domain_routes(app, rt, services, config)
@@ -90,75 +87,29 @@ def _post_form(client: TestClient, path: str, fields: dict[str, str] | None = No
     )
 
 
-# The editor's fields, as its inputs are named.
-_EDITOR_FIELDS = {
-    "name": "Daily Reflection",
-    "instructions": "Ask me one clarifying question.",
-    "model": "claude-sonnet-4-6",
-    "context_notes": "Be gentle\nBe curious",
-    "domain": "knowledge",
-}
+_GROUP_UID = "group_abc123"
+_GROUP_FIELDS = {"name": "Physics 101", "description": "", "max_members": "30"}
 
 
-class TestExerciseEditor:
-    def test_create_form_reaches_the_service_as_an_exercise(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
-
-        response = _post_form(harness.client, "/api/exercises/create", _EDITOR_FIELDS)
-
-        assert response.status_code == 201, response.text
-        (entity,), _kwargs = harness.services.exercises.create.await_args
-        assert entity.title == "Daily Reflection"
-        assert entity.instructions == "Ask me one clarifying question."
-        assert tuple(entity.context_notes) == ("Be gentle", "Be curious")
-        assert entity.owner_uid == _USER_UID
-
-    def test_edit_form_renames_through_title(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """The request speaks ``name``; the entity stores ``title``. The patch the
-        service receives carries the field the graph has."""
-        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
-
-        response = _post_form(
-            harness.client, f"/api/exercises/update?uid={_EXERCISE_UID}", _EDITOR_FIELDS
-        )
-
-        assert response.status_code == 200, response.text
-        (uid, changes, user_uid), _kwargs = harness.services.exercises.update_for_user.await_args
-        assert (uid, user_uid) == (_EXERCISE_UID, _USER_UID)
-        patch = changes.to_changes()
-        assert patch["title"] == "Daily Reflection"
-        assert "name" not in patch
-        assert patch["context_notes"] == ["Be gentle", "Be curious"]
-        assert patch["domain"] == "knowledge"  # the select always submits a domain
-
-    def test_delete_button_posts_and_is_answered(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
-
-        response = _post_form(harness.client, f"/api/exercises/delete?uid={_EXERCISE_UID}")
-
-        assert response.status_code == 200, response.text
-        harness.services.exercises.delete_for_user.assert_awaited_once_with(
-            _EXERCISE_UID, _USER_UID, cascade=True
-        )
+class TestCrudDoorBodies:
+    """What every CRUD door owes a form post, driven at the group doors."""
 
     def test_the_delete_door_is_a_post_not_a_delete(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Why the hx_* guard holds a target to its verb: the same path, the other verb."""
-        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
+        harness = _make_harness(monkeypatch, GROUPS_CONFIG)
 
-        response = harness.client.delete(f"/api/exercises/delete?uid={_EXERCISE_UID}")
+        response = harness.client.delete(f"/api/groups/delete?uid={_GROUP_UID}")
 
         assert response.status_code == 405
-        harness.services.exercises.delete_for_user.assert_not_awaited()
+        harness.services.groups.delete_for_user.assert_not_awaited()
 
     def test_a_foreign_uid_still_answers_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
-        harness.services.exercises.update_for_user = AsyncMock(
-            return_value=Result.fail(Errors.not_found("Exercise", "ex_theirs"))
+        harness = _make_harness(monkeypatch, GROUPS_CONFIG)
+        harness.services.groups.update_for_user = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Group", "group_theirs"))
         )
 
-        response = _post_form(harness.client, "/api/exercises/update?uid=ex_theirs", _EDITOR_FIELDS)
+        response = _post_form(harness.client, "/api/groups/update?uid=group_theirs", _GROUP_FIELDS)
 
         assert response.status_code == 404
 
@@ -168,12 +119,12 @@ class TestExerciseEditor:
         """The body fails inside FastHTML's parameter extraction, BEFORE the handler
         and its ``boundary_handler`` run — so the app-level multipart guard is what
         answers, and it answers here, at a CRUD door, not only on a bare route."""
-        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
+        harness = _make_harness(monkeypatch, GROUPS_CONFIG)
         token = mint_token()
         harness.client.cookies.set(CSRF_COOKIE_NAME, token)
 
         response = harness.client.post(
-            "/api/exercises/create",
+            "/api/groups/create",
             content=b"garbage without any boundary markers",
             headers={
                 CSRF_HEADER_NAME: token,
@@ -183,7 +134,7 @@ class TestExerciseEditor:
 
         assert response.status_code == 400, response.text
         assert response.json()["category"] == "validation"
-        harness.services.exercises.create.assert_not_awaited()
+        harness.services.groups.create.assert_not_awaited()
 
     def test_a_multipart_body_too_short_for_the_pre_parse_is_400_too(
         self, monkeypatch: pytest.MonkeyPatch
@@ -192,12 +143,12 @@ class TestExerciseEditor:
         this one is first read inside the handler — by ``parse_form_body``, which
         answers the same validation 400 rather than letting the parser's error
         reach ``boundary_handler``'s 500."""
-        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
+        harness = _make_harness(monkeypatch, GROUPS_CONFIG)
         token = mint_token()
         harness.client.cookies.set(CSRF_COOKIE_NAME, token)
 
         response = harness.client.post(
-            "/api/exercises/create",
+            "/api/groups/create",
             content=b"garbage",
             headers={
                 CSRF_HEADER_NAME: token,
@@ -207,18 +158,18 @@ class TestExerciseEditor:
 
         assert response.status_code == 400, response.text
         assert response.json()["category"] == "validation"
-        harness.services.exercises.create.assert_not_awaited()
+        harness.services.groups.create.assert_not_awaited()
 
     def test_a_rejected_form_is_400_naming_the_field(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
+        harness = _make_harness(monkeypatch, GROUPS_CONFIG)
 
         response = _post_form(
-            harness.client, "/api/exercises/create", {**_EDITOR_FIELDS, "domain": "work"}
+            harness.client, "/api/groups/create", {**_GROUP_FIELDS, "max_members": "many"}
         )
 
         assert response.status_code == 400
-        assert "domain" in response.json()["message"]
-        harness.services.exercises.create.assert_not_awaited()
+        assert "max_members" in response.json()["message"]
+        harness.services.groups.create.assert_not_awaited()
 
 
 class TestNewGroupModal:

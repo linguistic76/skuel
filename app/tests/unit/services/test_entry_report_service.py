@@ -53,7 +53,6 @@ def _make_exercise(
         instructions=instructions,
         model=model,
         mastery_impact=mastery_impact,
-        path_step_uid="ps_001",
     )
 
 

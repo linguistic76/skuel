@@ -16,7 +16,6 @@ import pytest
 from core.ports.filtered_context_protocols import FilteredContextProvider
 from core.services.choices_service import ChoicesService
 from core.services.events_service import EventsService
-from core.services.exercises.exercise_service import ExerciseService
 from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
 from core.services.ku_service import KuService
@@ -68,9 +67,7 @@ def _classes_defining_get_filtered_context() -> set[str]:
 
 
 def test_every_registered_facade_is_a_provider() -> None:
-    providers = _filtered_context_providers(
-        _activity_services(), _learning_services(), _bare(ExerciseService)
-    )
+    providers = _filtered_context_providers(_activity_services(), _learning_services())
 
     assert providers
     for domain, facade in providers.items():
@@ -78,9 +75,7 @@ def test_every_registered_facade_is_a_provider() -> None:
 
 
 def test_the_registry_is_exactly_the_facades_that_implement_it() -> None:
-    providers = _filtered_context_providers(
-        _activity_services(), _learning_services(), _bare(ExerciseService)
-    )
+    providers = _filtered_context_providers(_activity_services(), _learning_services())
 
     registered = {type(facade).__name__ for facade in providers.values()}
     assert registered == _classes_defining_get_filtered_context()
@@ -89,9 +84,7 @@ def test_the_registry_is_exactly_the_facades_that_implement_it() -> None:
 
 def test_the_ku_facade_is_not_a_provider() -> None:
     assert not isinstance(_bare(KuService), FilteredContextProvider)
-    providers = _filtered_context_providers(
-        _activity_services(), _learning_services(), _bare(ExerciseService)
-    )
+    providers = _filtered_context_providers(_activity_services(), _learning_services())
     assert "ku" not in providers
 
 
@@ -100,4 +93,4 @@ def test_a_facade_without_the_method_stops_the_boot() -> None:
     learning["ps"] = _bare(KuService)
 
     with pytest.raises(RuntimeError, match=r"filtered_providers\['ps'\] is a KuService"):
-        _filtered_context_providers(_activity_services(), learning, _bare(ExerciseService))
+        _filtered_context_providers(_activity_services(), learning)

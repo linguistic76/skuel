@@ -501,9 +501,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         how a check like that leaks:
 
         - ``n.user_uid`` — ``UserOwnedEntity`` (the 6 activity domains, UserEntry, ...)
-        - ``n.owner_uid`` — ``Exercise`` and ``Group``, which are NOT UserOwnedEntity;
-          a PERSONAL exercise read through ``user_uid`` alone looks unowned
-        - ``(:User)-[:OWNS]->(n)`` — the canonical edge, written for exercises, revised
+        - ``n.owner_uid`` — ``Group``, which is NOT a UserOwnedEntity; a group read
+          through ``user_uid`` alone looks unowned
+        - ``(:User)-[:OWNS]->(n)`` — the canonical edge, written for revised
           exercises, form submissions, feedback and groups
 
         Only nodes with at least one of the three appear in the map. Genuinely shared

@@ -23,22 +23,13 @@ class SubmissionModality(StrEnum):
 
 class ExerciseScope(StrEnum):
     """
-    Scope of an exercise (instruction template) — who the template is for, and who owns it.
+    Scope of an exercise (instruction template) — the vault grammar's ``scope:`` field.
 
-    PERSONAL: User's own AI feedback template (default) — always OWNS-linked to a real user.
-        Anchored to a PathStep (``path_step_uid`` + HAS_EXERCISE), it is contributed to
-        that step: while the step is published, every learner may read it, and a learner
-        in progress on the step may turn in against it. Unanchored, it is its owner's.
-    ASSIGNED: Teacher-created, assigned to a group (ADR-040)
-    ASSESSMENT: Formal test/exam with scoring rubric and pass/fail criteria
-    CURRICULUM: Owned by the curriculum itself, for everyone — authored in the content
-        vault, no user OWNS edge. Anchored to PathSteps via HAS_EXERCISE
-        (``exercise_uids`` in PathStep YAML frontmatter). Not creatable via the API.
+    CURRICULUM is the one scope: an exercise is authored only in the content vault,
+    owned by no user, and anchored to PathSteps via HAS_EXERCISE (``exercise_uids``
+    in PathStep frontmatter) — ADR-091 S2, S4. Ingestion refuses any other value.
     """
 
-    PERSONAL = "personal"
-    ASSIGNED = "assigned"
-    ASSESSMENT = "assessment"
     CURRICULUM = "curriculum"
 
 

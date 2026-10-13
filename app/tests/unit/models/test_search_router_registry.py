@@ -130,13 +130,6 @@ class TestOwnerOnlyDomainsCarryTheScopingProperty:
     that keeps every declaration pointing at a real model field.
     """
 
-    # The one domain that legitimately keys on owner_uid WITHOUT declaring it
-    # via ownership_property: Exercise's owned half rides inside SCOPE_AWARE,
-    # whose composition hardcodes the owner_uid claim + :OWNS edge dual read.
-    # Its exemption is verified below rather than asserted, so the set cannot
-    # quietly grow.
-    _OWNER_UID_EXEMPT = frozenset({EntityType.EXERCISE})
-
     # THE config that governs each searchable domain's search scoping — the
     # class whose ``search_visibility`` / ``ownership_property`` properties
     # feed the search mixin. Facades and their search sub-services build
@@ -174,19 +167,6 @@ class TestOwnerOnlyDomainsCarryTheScopingProperty:
             EntityType.USER_ENTRY: UserEntryService,
         }
 
-    def test_the_owner_uid_exemption_is_earned_not_declared(self) -> None:
-        """Exercise may key on ``owner_uid`` only because it declares SCOPE_AWARE."""
-        from core.services.exercises.exercise_service import ExerciseService
-
-        assert EntityType.EXERCISE in self._OWNER_UID_EXEMPT
-        assert len(self._OWNER_UID_EXEMPT) == 1, (
-            "the exemption set must not grow silently — each member needs its own "
-            "earned justification, like the SCOPE_AWARE check below"
-        )
-        assert ExerciseService._config.get_search_visibility() is SearchVisibility.SCOPE_AWARE, (
-            "Exercise's exemption below rests on it NOT being OWNER_ONLY"
-        )
-
     def test_every_searchable_owner_only_domain_declares_a_real_property(self) -> None:
         """The declared ownership_property must exist on the domain's model.
 
@@ -211,8 +191,6 @@ class TestOwnerOnlyDomainsCarryTheScopingProperty:
         offenders: list[str] = []
         examined: list[EntityType] = []
         for entity_type in SearchRouter._SEARCHABLE_DOMAINS:
-            if entity_type in self._OWNER_UID_EXEMPT:
-                continue
             config = service_by_type[entity_type]._config
             if config.get_search_visibility() is not SearchVisibility.OWNER_ONLY:
                 # PUBLIC curriculum carries no owner — the OWNER_ONLY clause

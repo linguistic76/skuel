@@ -13,12 +13,10 @@ Coverage:
 - Activity (Task, OWNER_ONLY): every strategy hides other users' content,
   positive controls prove the owner still finds their own.
 - No-user calls fail closed: user-owned domains contribute nothing.
-- Exercise (SCOPE_AWARE) matrix: CURRICULUM visible to strangers,
-  PERSONAL owner-only, ASSIGNED reachable through group membership
-  (MEMBER_OF + SHARED_WITH_GROUP) — ADR-038/040 semantics.
-- Faceted single-domain exercise path honors the same matrix (the
-  pre-existing OWNS-only seam hid CURRICULUM exercises entirely), and the
-  faceted OWNER_ONLY path is cross-user scoped like the other strategies.
+- Exercise (PUBLIC — curriculum, owned by no user, ADR-091 S2): a published
+  exercise is visible to every caller, signed in or not; a draft one to none
+  (the publication gate), on the strategies and the faceted path alike.
+- The faceted OWNER_ONLY path is cross-user scoped like the other strategies.
 """
 
 from __future__ import annotations
@@ -26,7 +24,7 @@ from __future__ import annotations
 import pytest
 
 from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
-from core.models.enums import EntityStatus, ExerciseScope
+from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.exercise import Exercise
@@ -119,43 +117,27 @@ async def _seed_tasks(neo4j_driver, tasks_service) -> dict[str, str]:
     return created
 
 
-async def _seed_exercises(exercise_service) -> dict[str, str]:
-    """The exercise visibility matrix: curriculum / personal / assigned."""
-    specs = [
-        # key, scope, owner, group
-        ("curriculum", ExerciseScope.CURRICULUM, None, None),
-        ("personal", ExerciseScope.PERSONAL, OWNER, None),
-        ("assigned", ExerciseScope.ASSIGNED, TEACHER, GROUP_UID),
-    ]
-    created: dict[str, str] = {}
-    for key, scope, owner, group in specs:
-        exercise = Exercise(
-            uid=f"exercise_scope_{key}",
-            title=f"Nebula {key} drill",
-            entity_type=EntityType.EXERCISE,
-            instructions="advanced_search scoping fixture",
-            scope=scope,
-            owner_uid=owner,
-            group_uid=group,
-        )
-        result = await exercise_service.create(exercise)
-        assert result.is_ok, result.expect_error()
-        created[key] = exercise.uid
-    return created
-
-
-async def _seed_assigned_share(neo4j_driver, exercise_uid: str) -> None:
-    """ExerciseService.create writes SHARED_WITH_GROUP via the sharing
-    service (not wired here) — seed the ADR-040 edge directly."""
+async def _seed_exercises(neo4j_driver) -> dict[str, str]:
+    """A published and a draft exercise, as the content-vault sync writes them:
+    ownerless curriculum, no ``:OWNS`` edge."""
+    created = {"published": "exercise_scope_published", "draft": "exercise_scope_draft"}
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MATCH (e:Exercise {uid: $uid}), (g:Group {uid: $group_uid})
-            MERGE (e)-[:SHARED_WITH_GROUP]->(g)
+            UNWIND $rows AS row
+            CREATE (:Entity:Exercise {
+                uid: row.uid, entity_type: 'exercise', scope: 'curriculum',
+                title: 'Nebula ' + row.key + ' drill', status: 'active',
+                instructions: 'advanced_search scoping fixture',
+                publication_state: row.state, created_at: datetime()
+            })
             """,
-            uid=exercise_uid,
-            group_uid=GROUP_UID,
+            rows=[
+                {"key": "published", "uid": created["published"], "state": "published"},
+                {"key": "draft", "uid": created["draft"], "state": "draft"},
+            ],
         )
+    return created
 
 
 def _uids(result, entity_type) -> set[str]:
@@ -400,80 +382,38 @@ async def test_owner_only_text_search_refuses_without_a_user(
 
 
 # ============================================================================
-# Exercise matrix (SCOPE_AWARE — the design ruling)
+# Exercise (PUBLIC — every exercise is curriculum, ADR-091 S2)
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_exercise_matrix_for_group_member_stranger(
-    clean_neo4j, neo4j_driver, exercise_service, search_router
+@pytest.mark.parametrize("caller", [STRANGER, None])
+async def test_a_published_exercise_is_everyones_and_a_draft_nobodys(
+    clean_neo4j, neo4j_driver, search_router, caller
 ) -> None:
-    """A non-owner group member sees CURRICULUM + their group's ASSIGNED
-    exercise, never someone else's PERSONAL exercise."""
+    """Signed in or anonymous, the caller finds the published exercise (the
+    control) and never the draft one."""
     await _seed_users_and_group(neo4j_driver)
-    created = await _seed_exercises(exercise_service)
-    await _seed_assigned_share(neo4j_driver, created["assigned"])
+    created = await _seed_exercises(neo4j_driver)
 
     request = SearchRequest(
-        query_text="Nebula", entity_types=[EntityType.EXERCISE], user_uid=STRANGER
+        query_text="Nebula", entity_types=[EntityType.EXERCISE], user_uid=caller
     )
     result = await search_router.advanced_search(request)
     assert result.is_ok, result.expect_error()
-    uids = _uids(result, EntityType.EXERCISE)
-    assert created["curriculum"] in uids
-    assert created["assigned"] in uids
-    assert created["personal"] not in uids
+    assert _uids(result, EntityType.EXERCISE) == {created["published"]}
 
 
 @pytest.mark.asyncio
-async def test_exercise_matrix_for_owner(
-    clean_neo4j, neo4j_driver, exercise_service, search_router
+async def test_faceted_exercise_path_lists_the_published_exercise_only(
+    clean_neo4j, neo4j_driver, search_router
 ) -> None:
-    """The personal-exercise owner (not a group member) sees CURRICULUM +
-    their own PERSONAL exercise, not the group's ASSIGNED one."""
+    """The /search single-domain faceted path applies the same gate."""
     await _seed_users_and_group(neo4j_driver)
-    created = await _seed_exercises(exercise_service)
-    await _seed_assigned_share(neo4j_driver, created["assigned"])
-
-    request = SearchRequest(query_text="Nebula", entity_types=[EntityType.EXERCISE], user_uid=OWNER)
-    result = await search_router.advanced_search(request)
-    assert result.is_ok, result.expect_error()
-    uids = _uids(result, EntityType.EXERCISE)
-    assert created["curriculum"] in uids
-    assert created["personal"] in uids
-    assert created["assigned"] not in uids
-
-
-@pytest.mark.asyncio
-async def test_exercise_unscoped_call_returns_curriculum_only(
-    clean_neo4j, neo4j_driver, exercise_service, search_router
-) -> None:
-    """Shared content is the fail-closed floor for SCOPE_AWARE domains."""
-    await _seed_users_and_group(neo4j_driver)
-    created = await _seed_exercises(exercise_service)
-
-    request = SearchRequest(query_text="Nebula", entity_types=[EntityType.EXERCISE])
-    result = await search_router.advanced_search(request)
-    assert result.is_ok, result.expect_error()
-    uids = _uids(result, EntityType.EXERCISE)
-    assert uids == {created["curriculum"]}
-
-
-@pytest.mark.asyncio
-async def test_faceted_exercise_path_honors_scope_matrix(
-    clean_neo4j, neo4j_driver, exercise_service, search_router
-) -> None:
-    """The /search single-domain faceted path: CURRICULUM must not vanish
-    (the pre-existing OWNS-only MATCH hid it from everyone), and group
-    membership grants the ASSIGNED exercise."""
-    await _seed_users_and_group(neo4j_driver)
-    created = await _seed_exercises(exercise_service)
-    await _seed_assigned_share(neo4j_driver, created["assigned"])
+    created = await _seed_exercises(neo4j_driver)
 
     request = SearchRequest(query_text="Nebula", entity_types=[EntityType.EXERCISE])
     result = await search_router.faceted_search(request, user_uid=STRANGER)
     assert result.is_ok, result.expect_error()
     uids = {r.get("uid") for r in result.value.results}
-    assert created["curriculum"] in uids
-    assert created["assigned"] in uids
-    assert created["personal"] not in uids
+    assert uids == {created["published"]}

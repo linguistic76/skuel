@@ -322,8 +322,9 @@ def test_the_walker_reads_every_spelling() -> None:
     ("target", "verb", "expected"),
     [
         ("/api/tasks/{x}/status", "POST", True),  # factory route the static view cannot see
-        ("/api/exercises/delete?uid=abc", "POST", True),  # CRUD delete is a POST
-        ("/api/exercises/delete?uid=abc", "DELETE", False),  # …and never the DELETE verb
+        ("/api/groups/delete?uid=abc", "POST", True),  # CRUD delete is a POST
+        ("/api/groups/delete?uid=abc", "DELETE", False),  # …and never the DELETE verb
+        ("/api/exercises/delete?uid=abc", "POST", False),  # exercises have no CRUD door
         ("/api/admin/users/{x}/role", "POST", False),  # a path-uid door the admin API never had
         ("/admin/users/partial", "GET", True),
     ],

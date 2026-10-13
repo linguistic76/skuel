@@ -206,11 +206,11 @@ RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
 ORDER BY root.title
 LIMIT $limit
 
-// ExerciseBackend — type-gated linking with WHERE guard
-MATCH (exercise:Entity {uid: $exercise_uid, entity_type: 'exercise'})
-MATCH (curriculum:Entity {uid: $curriculum_uid})
-WHERE curriculum.entity_type IN ['ku', 'resource']
-MERGE (exercise)-[r:REQUIRES_KNOWLEDGE]->(curriculum)
+// RevisedExerciseBackend.link_to_report — type-gated linking with WHERE guard
+MATCH (re:Entity {uid: $re_uid, entity_type: 'revised_exercise'})
+MATCH (fb:Entity {uid: $report_uid})
+WHERE fb.entity_type IN ['entry_report', 'activity_report']
+MERGE (re)-[r:RESPONDS_TO_REPORT]->(fb)
 ON CREATE SET r.created_at = datetime()
 RETURN true AS success
 ```
@@ -220,7 +220,7 @@ RETURN true AS success
 - Two-step `WHERE NOT EXISTS` + `OPTIONAL MATCH` avoids cartesian products
 - `ON CREATE SET` adds metadata only on first creation (unlike `SET` which always runs)
 
-**Real-world usage**: `_OrganizesMixin.list_root_organizers()`, `ExerciseBackend.link_to_curriculum()`, `ExerciseBackend.link_to_path_step()`
+**Real-world usage**: `_OrganizesMixin.list_root_organizers()`, `RevisedExerciseBackend.link_to_report()`, `RevisedExerciseBackend.link_to_exercise()`
 
 ---
 

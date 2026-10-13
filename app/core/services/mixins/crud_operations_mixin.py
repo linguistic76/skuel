@@ -252,11 +252,11 @@ class CrudOperationsMixin(Generic[B, T, U]):
 
         entity = result.value
 
-        # Check ownership. User-owned domains carry ``user_uid``; owner-bound
-        # curriculum (Exercise) carries ``owner_uid`` — both are the same claim.
-        # A type with neither field (KU, LP) cannot be owner-verified at all — a
-        # programming error. A type with a field and no value (an ownerless
-        # CURRICULUM exercise) is owned by nobody, so nobody's claim holds.
+        # Check ownership. User-owned domains carry ``user_uid``; a Group carries
+        # ``owner_uid`` — both are the same claim. A type with neither field
+        # (KU, LP, Exercise) cannot be owner-verified at all — a programming
+        # error. A type with a field and no value is owned by nobody, so
+        # nobody's claim holds.
         user_field = getattr(entity, "user_uid", _NO_OWNER_FIELD)
         owner_field = getattr(entity, "owner_uid", _NO_OWNER_FIELD)
         if user_field is _NO_OWNER_FIELD and owner_field is _NO_OWNER_FIELD:

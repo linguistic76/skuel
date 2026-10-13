@@ -131,7 +131,7 @@ skills:
 
   - name: vis-network
     description: Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
-    last_reviewed: "2026-10-12"
+    last_reviewed: "2026-10-13"
     foundation: []
     dependencies: []
     library_package: null  # Self-hosted vendor library
@@ -191,7 +191,7 @@ skills:
 
   - name: ui-browser
     description: SKUEL browser interactivity — HTMX for server communication + Alpine.js for client-side state
-    last_reviewed: "2026-10-10"
+    last_reviewed: "2026-10-13"
     foundation: [fasthtml]
     dependencies: [fasthtml]
     library_package: null  # Vendored static files
@@ -228,7 +228,7 @@ skills:
 
   - name: skuel-ui
     description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
-    last_reviewed: "2026-10-10"
+    last_reviewed: "2026-10-13"
     foundation: [fasthtml, ui-css, ui-browser, pydantic]
     dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library
@@ -247,7 +247,7 @@ skills:
 
   - name: ui-error-handling
     description: Expert guide for UI error handling patterns and user feedback
-    last_reviewed: "2026-10-12"
+    last_reviewed: "2026-10-13"
     foundation: [result-pattern, ui-css]
     dependencies: [result-pattern, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -373,7 +373,7 @@ skills:
 
   - name: security
     description: Security posture, route checklist, and code review security checks
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-10-13"
     foundation: []
     dependencies: [python]
     library_package: null  # Cross-cutting concern, not a single library
@@ -417,7 +417,7 @@ skills:
 
   - name: base-analytics-service
     description: BaseAnalyticsService for domain analytics
-    last_reviewed: "2026-10-12"
+    last_reviewed: "2026-10-13"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -439,7 +439,7 @@ skills:
 
   - name: base-ai-service
     description: BaseAIService for AI/LLM features (optional)
-    last_reviewed: "2026-10-10"
+    last_reviewed: "2026-10-13"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern]
     library_package: openai
@@ -519,7 +519,7 @@ skills:
 
   - name: skuel-search-architecture
     description: SKUEL's unified search architecture and SearchRouter
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-10-13"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library

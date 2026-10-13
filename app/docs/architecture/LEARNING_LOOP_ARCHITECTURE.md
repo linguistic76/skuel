@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-10-12
+updated: 2026-10-13
 status: current
 category: architecture
 related:
@@ -21,21 +21,20 @@ act, decide, and live. SKUEL models this through four phases: **how you practise
 (Exercise), **what you produce** (UserEntry), **what the system says back**
 (EntryReport), and **how the teacher guides revision** (RevisedExercise). PathStep
 is the *curriculum anchor* — the knowledge the loop exists to transmit — linked via
-`(PathStep)-[:HAS_EXERCISE]->(Exercise)` (denormalized as `Exercise.path_step_uid` for
-PERSONAL scope). It sits outside the cycle as context, not as a phase.
+`(PathStep)-[:HAS_EXERCISE]->(Exercise)`. It sits outside the cycle as context, not as a phase.
 
 Every layer is a frozen Python dataclass. Every connection is a Neo4j graph relationship.
 Every measurement flows from real user behaviour, not self-reported progress.
 
 > **Superseded in part by [ADR-091](../decisions/ADR-091-one-door-for-curriculum.md)
-> (2026-10-12; implementation pending).** Every exercise is a content-vault file naming its teacher:
+> (2026-10-12).** Every exercise is a content-vault file naming its teacher:
 > Mike writes it into the content vault (another teacher sends theirs to him), and it enters SKUEL
 > through the content-vault sync, not through the app. A teacher's reply (the report, the revision
 > request, the approve action) stays on the review page. A revision request always names an
 > exercise and goes to that exercise's teacher, and a sent revision is not edited or deleted. The
-> doors that go (the exercise create and edit doors, group assignment, the report-only revision,
-> `POST /api/revised-exercises/update` and `POST /api/revised-exercises/delete`) stay live until
-> the ADR-091 change that removes each one merges.
+> exercise create and edit doors and group assignment are gone (change 4); the report-only
+> revision, `POST /api/revised-exercises/update` and `POST /api/revised-exercises/delete` stay
+> live until change 5 removes them.
 
 ---
 
@@ -120,9 +119,8 @@ for the full hierarchy.
 
 **What:** THE curriculum content entity — composes atomic Kus into coherent narrative and
 sits within LearningPaths. Admin-created and shared across all users. PathStep-anchored
-Exercises link via `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (anchored PERSONAL exercises
-also denormalize `Exercise.path_step_uid`; CURRICULUM exercises anchor via `exercise_uids:`
-in PathStep YAML; unanchored PERSONAL templates are free-standing in the user's library).
+Exercises link via `(PathStep)-[:HAS_EXERCISE]->(Exercise)`, written by the content-vault
+sync from `exercise_uids:` in PathStep YAML.
 PathSteps compose atomic Kus via `(PathStep)-[:USES_KU]->(Ku)`.
 
 **Historical note:** The former `Lesson` entity type was merged into `PathStep` in April 2026.
@@ -136,65 +134,17 @@ curriculum anchor, not a phase of the loop; it supplies context the four phases 
 
 ### PathStep ↔ Exercise Storage Design
 
-The connection between PathStep and Exercise is stored in two forms simultaneously — one for
-each lookup direction. Understanding why both exist (and why PathStep has no `exercise_uid`
-property) is important for anyone working in this area.
+The connection between PathStep and Exercise is the graph edge
+`(PathStep)-[:HAS_EXERCISE]->(Exercise)`, written by the content-vault sync from the step's
+`exercise_uids:` list. It is the authoritative link: following a relationship edge in Neo4j is
+a constant-time pointer lookup, so "which exercises belong to this PathStep?" needs no
+property on the PathStep. A PathStep can anchor several exercises, which a scalar property
+could not hold.
 
-**From PathStep → Exercise: the graph edge**
-
-```
-(PathStep)-[:HAS_EXERCISE]->(Exercise)
-```
-
-This is the authoritative link. In Neo4j, following a direct relationship edge is a constant-time
-pointer lookup — it is not a table scan. Asking "which exercises belong to this PathStep?"
-traverses `HAS_EXERCISE` outgoing edges. No property on PathStep is needed because the edge
-*is* the fast lookup.
-
-PathStep also has no `exercise_uid` property (singular) because the relationship is
-one-to-many: a single PathStep can anchor multiple Exercises. A scalar property would break
-with the second exercise; the graph edge handles any cardinality naturally.
-
-**From Exercise → PathStep: the denormalized property**
-
-```
-Exercise.path_step_uid  (stored on the Exercise node itself)
-```
-
-This covers the reverse direction without traversal. Asking "which PathStep does this Exercise
-belong to?" reads `path_step_uid` directly off the Exercise node — no graph hop required.
-This property is only present for anchored `ExerciseScope.PERSONAL` exercises — the anchor is
-optional, and unanchored personal templates (the /submit save-template flow) carry neither the
-property nor the edge.
-
-**The dual-write**
-
-When an anchored PERSONAL Exercise is created, `ExerciseService.create()` writes both forms in
-one operation:
-
-1. The `path_step_uid` property is stored on the Exercise node (forward: Exercise → PathStep)
-2. The `HAS_EXERCISE` edge is created from PathStep to Exercise (forward: PathStep → Exercise)
-
-Both are written at creation time. Neither is derived lazily at read time. If either write
-fails, the creation fails. The result is that both lookup directions are always available
-without extra queries.
-
-| Question | Storage used | Mechanism |
-|---|---|---|
-| Which exercises does this PathStep have? | `HAS_EXERCISE` edge | Graph traversal (constant-time pointer) |
-| Which PathStep does this Exercise belong to? | `Exercise.path_step_uid` | Direct node property (no traversal) |
-
-**Contrast with Activity Domain DERIVED fields**
-
-Activity Domain models use a different pattern for cross-domain UID fields. For example,
-`Task.reinforces_habit_uid` and `Habit.supports_goal_uid` are marked `# DERIVED FROM EDGE`
-— they are read back by an enrich step at read time and never stored as node properties
-(the mapper's `RELATIONSHIP_SKIP_FIELDS` enforces this). `Task.reinforces_habit_uid` is
-additionally the *input* the create path writes its edge from — see
-`CROSS_DOMAIN_UID_PATTERNS.md § edge carrier` — but the property still never exists.
-The Exercise/PathStep dual-write is a deliberate divergence from this pattern: an anchored
-PERSONAL exercise is 1:1 with its PathStep and is queried from both directions in the learning
-loop, so the cost of materialising the reverse pointer at write time is worth the simpler reads.
+An exercise's vault file may also set `path_step_uid`, a reverse pointer read straight off
+the Exercise node. Nothing writes it in the app (an exercise is authored only in the
+content vault, ADR-091 S4), so the edge is the membership and the property is an optional
+convenience the author keeps in step.
 
 ### Layer 1: What You Can Learn
 
@@ -392,12 +342,10 @@ curriculum recommendations and the SEL journey are served as JSON (`/api/path-st
 
 ## Phase 1: Exercise — The Assignment
 
-*Exercises become content-vault files only, each naming its teacher, and the `PERSONAL` and
-`ASSIGNED` scopes below go (ADR-091 S3, S4; both stay live until those changes merge).*
-
 **What:** The teacher's directive. Instructions for what students should produce, with an
-LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-directed) and
-`ASSIGNED` (classroom with a Group target and due date).
+LLM prompt embedded for AI-assisted feedback. Every exercise is a content-vault file naming
+its teacher (`(Exercise)-[:REVIEWED_BY]->(User)`), hanging from the PathSteps that list it,
+and owned by no user (ADR-091 S2–S4); the app reads it and has no door to create or edit it.
 
 **EntityType:** `EntityType.EXERCISE`
 **Loop role:** The *how* — operationalises PathStep content into a concrete task. The `instructions`
@@ -732,6 +680,6 @@ See: `docs/user-guides/zpd.md`, `docs/user-guides/learning-loop.md`
 | [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) | Canonical report reference — all services, APIs, graph patterns, ReportSource taxonomy |
 | [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md) | How the loop fits the Entity Type Architecture |
 | [ADR-038: Content Sharing](../decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
-| [ADR-040: Teacher Exercise Workflow](../decisions/ADR-040-teacher-exercise-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |
+| [ADR-040: Teacher Exercise Workflow](../decisions/ADR-040-teacher-exercise-workflow.md) | Teacher review queue (its in-app exercise authoring and group assignment superseded by ADR-091) |
 | `.claude/skills/learning-loop/SKILL.md` | Developer guide — implementation details, service architecture, anti-patterns |
 | `.claude/skills/zpd/SKILL.md` | ZPD intelligence layer — readiness scoring, compound evidence, recommended actions |

@@ -71,7 +71,7 @@ wired, the embedding-coverage counts. A failure of either read fails the report.
 `embedding` is null; it is a graph read, not an embedding client.
 
 Two rules `KnowledgeHealthService` illustrates: a corpus gauge **excludes user-generated data**
-(learner-state edges; PERSONAL, ASSIGNED and ASSESSMENT exercises), and it **matches knowledge
+(learner-state edges), and it **matches knowledge
 nodes by `entity_type`, not by domain label** — an API-created path step is
 `:Entity {entity_type: 'path_step'}`, so a label-only match drops it.
 

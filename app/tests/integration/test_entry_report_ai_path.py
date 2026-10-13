@@ -115,7 +115,6 @@ def _make_exercise() -> Exercise:
         entity_type=EntityType.EXERCISE,
         instructions="Evaluate the student's reasoning.",
         model="claude-sonnet-4-6",
-        path_step_uid="ps:test:week-3",  # PERSONAL scope requires a PathStep link
     )
 
 

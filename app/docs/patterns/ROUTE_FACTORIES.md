@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-10-12'
+updated: '2026-10-13'
 category: patterns
 related_skills:
 - domain-route-config
@@ -129,9 +129,8 @@ Guarded by `tests/unit/test_route_create_via_primitive.py`.
 **Update body → typed update value (ADR-066).** The update route validates the body with
 `update_schema` (read by Content-Type as above), then builds the service's update value
 generically: if the validated schema is `SupportsToIntent` (every Activity Domain
-`*UpdateRequest` is — Tasks, Goals, Habits, Events, Choices, Principles — and
-`ExerciseUpdateRequest`, whose `to_intent()` is a `RawChanges` that writes its `name` as
-the entity's `title`), the factory calls `schema.to_intent()`; otherwise (the other
+`*UpdateRequest` is — Tasks, Goals, Habits, Events, Choices, Principles), the factory
+calls `schema.to_intent()`; otherwise (the other
 curriculum requests, forms, groups, templates) it falls back to a `RawChanges` patch from
 `model_dump()`. Either way the value satisfies `SupportsToChanges`,
 so the shared base materializes it once at `backend.update(uid, updates.to_changes())`. No

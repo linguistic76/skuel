@@ -146,7 +146,7 @@ the route doesn't register answers 405. A route registered without `methods=` al
 <div hx-get="/sibling" hx-swap="afterend">Sibling added after</div>
 
 <!-- delete — remove the target element, whatever the (2xx) response body -->
-<button hx-post="/api/exercises/delete?uid=ex_1" hx-target="#exercise-ex_1" hx-swap="delete">Removes the card</button>
+<button hx-post="/api/groups/delete?uid=group_1" hx-target="#group-group_1" hx-swap="delete">Removes the card</button>
 
 <!-- none — side effects only (analytics, etc.) -->
 <button hx-post="/track" hx-swap="none">Track only</button>

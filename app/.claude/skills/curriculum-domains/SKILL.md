@@ -21,7 +21,7 @@
 | **Ku** | `ku.{ns}.{slug}` authored; `ku_{slug}_{random}` generated (`KuService.create_ku`) | Atom | Atomic knowledge unit (concept, state, principle, practice) | `KuService` |
 | **PS (PathStep)** | `ps.{namespace}.{slug}` authored | Unit | THE curriculum content entity — composed knowledge built on Kus | `PsService` |
 | **LP (LearningPath)** | `lp.{namespace}.{slug}` authored | Path | Organisational structure — sequences PathSteps | `LpService` |
-| **Exercise** | `ex.{ns}.{slug}` authored; `ex_{slug}_{random}` API (`POST /api/exercises/create`) | Instruction | Applied knowledge — instruction template anchored below PathStep | `ExerciseService` |
+| **Exercise** | `ex.{ns}.{slug}` authored (content vault only, ADR-091 S4) | Instruction | Applied knowledge — instruction template anchored below PathStep | `ExerciseService` |
 
 Authored UIDs are stored verbatim in dot form; the colon spelling is retired and a colon-spelled entity uid fails ingestion's prefix check. Both Ku spellings are sanctioned — never infer an entity's kind from its UID string (ADR-013, SKUEL034); read the label, `entity_type` or an edge.
 
@@ -39,8 +39,8 @@ Curriculum entities are **World Layer** nodes — they exist independently of an
 
 | Layer | Nodes |
 |-------|-------|
-| **World (shared, stable)** | Ku, PathStep, LearningPath, CURRICULUM-scope Exercise, Resource |
-| **User (contextual, dynamic)** | UserEntry, EntryReport, PERSONAL / ASSIGNED / ASSESSMENT Exercises (owned by their creator), and all Activity Domains |
+| **World (shared, stable)** | Ku, PathStep, LearningPath, Exercise, Resource |
+| **User (contextual, dynamic)** | UserEntry, EntryReport, and all Activity Domains |
 
 The interaction edge between layers is where SKUEL's power emerges:
 ```cypher
@@ -64,7 +64,7 @@ DomainConfig(user_ownership_relationship=None, ...)
 This means:
 - Ku, PathStep and LearningPath carry no per-user ownership check: a published one is readable by every user. A `draft` `publication_state` (on `Ku` and every `Curriculum` subtype) is withheld from learner-facing reads (`build_publication_clause`)
 - They have no CRUD API. They enter through content-vault ingestion (the admin "Sync content vault" door), and `KuService.create_ku` mints generated Kus for the EXTRACT_ACTIVITIES pipeline. The PathStep write routes (`/api/path-steps/organize`, `/content`, `/tags`, …) are `@require_admin`
-- Exercise is the exception: its CRUD routes use `ContentScope.USER_OWNED` with `require_role=UserRole.TEACHER`, and CURRICULUM-scope exercises come from the vault only
+- Exercise follows the same rule: no CRUD API, authored only in the content vault (ADR-091 S4); `ExerciseService` declares `user_ownership_relationship=None`, so its audience is PUBLIC
 - User progress is tracked via separate user → content edges (VIEWED, IN_PROGRESS, MASTERED, …)
 
 ## Architecture Overview

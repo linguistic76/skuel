@@ -62,7 +62,7 @@ class _UserEntryLifecycleMixin:
     # ========================================================================
 
     async def get_exercise_context(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get exercise scope, addressed student and group info for submission processing.
+        """Get the exercise's type, addressed student and revised original for submission processing.
 
         An exercise's teacher is not read here: it is its ``REVIEWED_BY`` user
         (ADR-091 S1, S3), resolved by the audience step.
@@ -70,19 +70,16 @@ class _UserEntryLifecycleMixin:
         query = """
         MATCH (exercise:Entity {uid: $exercise_uid})
         WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
-        OPTIONAL MATCH (exercise)-[:SHARED_WITH_GROUP]->(g:Group)
         OPTIONAL MATCH (exercise)-[:REVISES_EXERCISE]->(original:Entity {entity_type: 'exercise'})
         RETURN exercise.entity_type as exercise_entity_type,
-               exercise.scope as scope,
                exercise.student_uid as student_uid,
                exercise.title as exercise_title,
-               g.uid as group_uid,
                original.uid as original_exercise_uid
         """
         return await self.execute_query(query, {"exercise_uid": exercise_uid})
 
     # ========================================================================
-    # OWNERSHIP & GROUP MEMBERSHIP
+    # OWNERSHIP
     # ========================================================================
 
     async def get_entry_owner(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
@@ -98,17 +95,6 @@ class _UserEntryLifecycleMixin:
                entry.turn_in_exercise_title AS turn_in_exercise_title
         """
         return await self.execute_query(query, {"entry_uid": entry_uid})
-
-    async def verify_student_group_membership(
-        self, entry_uid: str, group_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Check student owns entry AND is member of group."""
-        query = """
-        MATCH (student:User)-[:OWNS]->(entry:Entity {uid: $entry_uid})
-        OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
-        RETURN student.uid as student_uid, g.uid as member_of_group
-        """
-        return await self.execute_query(query, {"entry_uid": entry_uid, "group_uid": group_uid})
 
     # ========================================================================
     # EXERCISE LINKING

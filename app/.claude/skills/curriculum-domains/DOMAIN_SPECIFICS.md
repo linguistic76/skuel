@@ -196,37 +196,23 @@ await lp_service.create_path(user_uid, title, description, steps)
 
 **Purpose:** The instruction template that closes the learning loop. Without Exercise, the loop (Exercise → UserEntry → EntryReport → RevisedExercise) cannot start. Exercise is applied knowledge, subordinate to PathStep in the hierarchy (`is_applied_knowledge()`), though it is a full EntityType of its own.
 
-**Four scopes:**
+**One scope, one door (ADR-091 S2, S4):** an exercise is curriculum — authored and edited only in the content vault, owned by no user. `CURRICULUM` is its one scope (`ExerciseScope`, the model default; ingestion refuses any other value). Its vault file names its teacher (`teacher:` → `(Exercise)-[:REVIEWED_BY]->(User)`, a TEACHER or higher), and a PathStep lists it (`exercise_uids:` → `HAS_EXERCISE`). The app has no create, edit or requirement door for it.
 
-| Scope | Who creates | Anchor | Requirement |
-|-------|-------------|--------|-------------|
-| `PERSONAL` | TEACHER+ (the CRUD create route and the exercises UI are both teacher-gated) | `path_step_uid` optional | When set, writes `Exercise.path_step_uid` **and** `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (dual-write) — anchored, it is the step's: every learner reads it while the step is published and submits once in progress; unset = free-standing template in the user's library |
-| `ASSIGNED` | TEACHER+ | `group_uid` required | Shared via `SHARED_WITH_GROUP` (ADR-040) |
-| `ASSESSMENT` | TEACHER+ | `scoring_rubric` required | `pass_threshold` defaults to 0.7 |
-| `CURRICULUM` | Content vault (ingestion only) | `exercise_uids:` in PathStep YAML | Shared content, no user OWNS edge; API create rejected; ingestion rejects every other scope (no owner mechanism at the file boundary) |
-
-**Service:** `ExerciseService` — flat (no sub-service decomposition). CRUD plus domain-specific methods:
-- `create(entity: Exercise)` — canonical creation with all side effects (OWNS + HAS_EXERCISE + SHARED_WITH_GROUP); the CRUD route reaches it through the `ConversionServiceV2` registry
-- `admit_requirement_change(exercise_uid, caller_uid, caller_role)` → `AdmittedRequirementChange` — the exercise's `OWNS` owner, or an ADMIN (the only caller for an ownerless CURRICULUM exercise); any other caller is not-found
-- `link_to_curriculum(admitted, curriculum_uid)` / `unlink_from_curriculum(admitted, ...)` — REQUIRES_KNOWLEDGE to Ku/Resource; take only the admission proof
-- `get_required_knowledge(exercise_uid)` — all Kus required by this exercise (unscoped; for a caller already admitted — the owner's authoring view, the daily plan)
-- `get_required_knowledge_for_user(exercise_uid, user_uid)` — the same, behind the SCOPE_AWARE audience (`GET /api/exercises/required-knowledge`); out of audience ≡ missing, not-found
-- `get_exercises_for_curriculum(curriculum_uid, user_uid)` — reverse lookup, scoped to what the caller may read (an unreadable exercise is absent)
-- `get_exercises_for_path_steps(...)`, `get_student_exercises_with_status(...)`, `list_group_exercises(...)`, `get_filtered_context(...)`
-
-`ExerciseBackend.link_to_path_step(exercise_uid, path_step_uid)` writes/repairs the `HAS_EXERCISE` edge.
+**Service:** `ExerciseService` — flat (no sub-service decomposition), reads only; its declared audience is PUBLIC (no owner, a draft unlisted by the publication gate):
+- `get_exercise(uid)` / `get_exercise_for_user(uid, user_uid)` — by-UID reads; the second through the declared audience (`/exercises/get`, the worksheet download)
+- `get_required_knowledge(exercise_uid)` — all Kus required by this exercise (the daily plan)
+- `get_required_knowledge_for_user(exercise_uid, user_uid)` — the same through the declared audience (`GET /api/exercises/required-knowledge`); a uid naming nothing is not-found
+- `get_exercises_for_curriculum(curriculum_uid, user_uid)` — reverse lookup, a listing (drafts unlisted)
+- `get_student_exercises_with_status(...)` / `get_exercises_for_path_step_with_status(...)` — the exercises of the steps the learner is on, with submission status
+- `get_exercises_for_path_steps(...)`, `get_actionable_exercises_for_user(...)`, `get_pending_revisions_for_user(...)`
 
 **Key Relationships:**
-- `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — curriculum anchor (anchored PERSONAL + CURRICULUM scopes)
-- `(User)-[:OWNS]->(Exercise)` — creator ownership (app-created exercises only; a vault exercise has no owner)
+- `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — curriculum anchor, from the step's `exercise_uids`
 - `(Exercise)-[:REVIEWED_BY]->(User)` — the teacher a vault exercise's `teacher:` field names; feedback requests on it go there (ADR-091 S3)
-- `(Exercise)-[:SHARED_WITH_GROUP]->(Group)` — ASSIGNED scope distribution
-- `(Exercise)-[:REQUIRES_KNOWLEDGE]->(Ku)` — declared prerequisites
+- `(Exercise)-[:REQUIRES_KNOWLEDGE]->(Ku)` — declared prerequisites (read here; no app door writes them)
 - `(UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)` — user work linkage (incoming)
 
-**UID Format:** `ex.{ns}.{slug}` authored (CURRICULUM scope, content vault); `ex_{slug}_{random}` generated for API creates.
-
-**Creation via CRUD factory:** `ExerciseCreateRequest` is registered in `ConversionServiceV2.CONVERTER_REGISTRY`. Route: `POST /api/exercises/create` (`ContentScope.USER_OWNED`, `require_role=UserRole.TEACHER`). `ExerciseService.create()` handles all relationship writes after the node is persisted.
+**UID Format:** `ex.{ns}.{slug}`, authored in the content vault.
 
 ---
 
@@ -240,8 +226,8 @@ await lp_service.create_path(user_uid, title, description, steps)
 | **Complexity** | Highest | Lowest | Medium | Low |
 | **User Progress** | Learning state (VIEWED / IN_PROGRESS / MASTERED) | Studying / understood (IN_PROGRESS / MASTERED) + `PINNED` bookmark | Enrollment + mastery | `FULFILLS_EXERCISE` submission tracking |
 | **Key Relationship** | `USES_KU`, `HAS_STEP` (incoming) | (composed into PS) | `HAS_STEP` | `HAS_EXERCISE` ← PathStep, `REQUIRES_KNOWLEDGE` → Ku |
-| **Special Pattern** | Substance + Organization + Activity integration | Atomic reference | Validation + adaptive | Four-scope model + learning loop anchor |
-| **Navigation** | Point lookup + non-linear (ORGANIZES) | Referenced from PathSteps | Linear path | Anchored to PathStep (PERSONAL) or Group (ASSIGNED) |
+| **Special Pattern** | Substance + Organization + Activity integration | Atomic reference | Validation + adaptive | Vault-authored, names its teacher; learning loop anchor |
+| **Navigation** | Point lookup + non-linear (ORGANIZES) | Referenced from PathSteps | Linear path | Anchored to PathStep (`HAS_EXERCISE`) |
 | **Cross-Domain Dep** | None | None | PsService | None |
 
 **Activity integration lives directly on PathSteps** (no intermediate Lesson node), authored as `habit_uids`, `task_uids`, `event_uids`, `goal_uids`, `principle_uids`, `choice_uids`:

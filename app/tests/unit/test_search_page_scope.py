@@ -216,7 +216,7 @@ class TestScopedSweep:
         ps = _graph_aware_service([{"uid": "ps_1", "title": "P", "_domain": "path_step"}])
         exercises = _graph_aware_service(
             [{"uid": "ex_1", "title": "E", "_domain": "exercise"}],
-            visibility=SearchVisibility.SCOPE_AWARE,
+            visibility=SearchVisibility.PUBLIC,
         )
         tasks = _graph_aware_service(
             [{"uid": "task_1", "title": "T", "_domain": "task"}],

@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-10-11
+updated: 2026-10-13
 status: current
 category: architecture
 version: 2.0.0
@@ -184,7 +184,7 @@ Complex relationship Cypher that is domain-specific belongs on the domain backen
 | `KuBackend` | `organize()`, `unorganize()`, `reorder()`, `get_organized_children()`, `find_organizers()`, `list_root_organizers()`, `is_organizer()` |
 | `SharingBackend` (entity-agnostic, ADR-042) | `create_share()`, `delete_share()`, `update_visibility()`, `query_ownership_and_status()`, `query_shared_with_me()` (the Shared-with-you union, gated by `build_audience_fragment`), `query_shared_by_me()` (Your wall), `query_co_members()`, `create_group_share()`, `delete_group_share()`, `create_group_submission()` |
 | `LpBackend` | `get_paths_containing_ku()`, `record_enrollment_progress()` |
-| `ExerciseBackend` | `link_to_curriculum()`, `unlink_from_curriculum()`, `get_required_knowledge()` |
+| `ExerciseBackend` | `get_required_knowledge()`, `get_exercises_for_curriculum()` (reads only — no app door writes `REQUIRES_KNOWLEDGE`, ADR-091 S4) |
 
 **Note:** Cross-domain relationship creation (task→knowledge, goal→habit, goal→principle, etc.) is handled by `UnifiedRelationshipService`, not domain backends. Service facades delegate to `self.relationships` (UnifiedRelationshipService).
 

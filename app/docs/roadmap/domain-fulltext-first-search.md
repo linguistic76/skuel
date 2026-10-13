@@ -1,6 +1,6 @@
 ---
 title: "Domain-level fulltext-first text search (D1(b) follow-on)"
-updated: 2026-10-10
+updated: 2026-10-13
 status: "ruled deferred (twice)"
 registered: 2026-08-16
 ruled: 2026-08-25
@@ -58,9 +58,8 @@ The follow-on, in rough order of value:
 - **CORE-tier text story** — fulltext needs no embeddings, so a fulltext-only rung (skip the
   vector half) would give CORE-tier relevance-ranked search too. Decide whether that lives in
   `text_search_raw` (above) or as a CORE branch of the SearchRouter rung.
-- **Exercise** — SCOPE_AWARE visibility (curriculum scope public, owned scopes via
-  OWNS/SHARES_WITH/group membership) needs the same user_uid threading, plus Exercise has no
-  vector index (add it alongside, or run fulltext-only).
+- **Exercise** — PUBLIC visibility (every exercise is curriculum, ADR-091 S2), but Exercise
+  has no vector index (add it alongside, or run fulltext-only).
 
 **Enable when**: a consumer wants relevance-ranked text search beyond the curriculum
 domains on `/api/search/unified` — the `/search` page included. Product need, not a

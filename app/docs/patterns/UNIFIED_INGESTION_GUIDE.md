@@ -190,7 +190,7 @@ Keywords are case-insensitive; the part after the colon is kept verbatim (a user
 
 | Value | Meaning |
 |-------|---------|
-| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's groups the uploader belongs to, or, in none of them, to the exercise's teacher directly (`SUBMITTED_TO_TEACHER`): the teacher its vault file names (ADR-091 S3), or the owner of a PERSONAL exercise anchored to a published PathStep (ADR-088 §9, until ADR-091 change 4 lands); without one, to every group they are a student of — read by those groups' teachers, never their members. A vault note's copy is filed on `teacher_review` when its audience names a teacher (`teachers` / `teacher:`), otherwise on `none`. A request that would reach no teacher is refused before the write. |
+| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's teacher directly (`SUBMITTED_TO_TEACHER`): the teacher its vault file names (ADR-091 S3); without one, to every group they are a student of — read by those groups' teachers, never their members. A vault note's copy is filed on `teacher_review` when its audience names a teacher (`teachers` / `teacher:`), otherwise on `none`. A request that would reach no teacher is refused before the write. |
 | `teacher:<group_uid>` | A feedback request to that one group's teachers (the per-teacher route). |
 | `group:<group_uid>` | A **share** (`SHARED_WITH_GROUP`) with exactly one group — every member and owner may open it. Always a share, never a feedback request. |
 | `user:<username>` | A **share** (`SHARES_WITH`) with one person who shares a group with you (R8 — co-membership through the default group counts only via its owner). An unknown and a non-co-member username get one not-found. |
@@ -852,9 +852,8 @@ visible to everyone. The user a file names as its `teacher:` reviews work on it
 ownership of an exercise materializes on their engagement chain (their `OWNS`ed
 UserEntry `-[:FULFILLS_EXERCISE]->` the shared exercise, plus its report/revision
 nodes), never as an `:OWNS` edge on the template. One authoritative template per
-exercise keeps content-vault edits propagating to every learner; a user who wants a
-template of their own creates a fresh PERSONAL exercise via the Submit page's
-save-template flow.
+exercise keeps content-vault edits propagating to every learner. There is no
+user-owned exercise: every exercise is authored in the content vault (ADR-091 S4).
 
 **Authored enum values are canonicalized at the preparer.** `canonicalize_enum_values()`
 resolves, against

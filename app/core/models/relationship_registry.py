@@ -2010,7 +2010,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,  # Exercise is a :Entity node with entity_type='exercise'
     dto_class=ExerciseDTO,
     model_class=Entity,
-    is_shared_content=False,  # Exercises are teacher-owned
+    is_shared_content=True,  # Curriculum: authored in the content vault, owned by no user
     relationships=(
         # Outgoing: Exercise → Curriculum (what knowledge this exercise requires)
         UnifiedRelationshipDefinition(
@@ -2020,15 +2020,6 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
             "required_knowledge",
             "required_knowledge",
             fields=("uid", "title", "complexity", "learning_level"),
-        ),
-        # Outgoing: Exercise → Group (teacher assigns to group via unified sharing, ADR-053)
-        UnifiedRelationshipDefinition(
-            RelationshipName.SHARED_WITH_GROUP,
-            "Group",
-            "outgoing",
-            "shared_groups",
-            "shared_groups",
-            fields=("uid", "name"),
         ),
         # Incoming: Submission → Exercise (student submissions fulfilling this exercise)
         UnifiedRelationshipDefinition(

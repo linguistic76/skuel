@@ -360,6 +360,42 @@ async def sync_vault(
     return stats
 
 
+async def sync_vault_exercises(
+    driver: AsyncDriver,
+    vault: Path,
+    *,
+    step_uid: str,
+    exercises: dict[str, str],
+    teacher_uid: str,
+    teacher_of: dict[str, str] | None = None,
+) -> None:
+    """Author a PathStep and its exercises in ``vault`` and sync them — the one door.
+
+    ``exercises`` maps each exercise uid to its title; every exercise names
+    ``teacher_uid`` unless ``teacher_of`` names another for it (each must already
+    hold the TEACHER role — the sync refuses anyone else), and hangs from
+    ``step_uid`` through the step's ``exercise_uids``.
+    """
+    step = vault / f"{step_uid}.md"
+    step.write_text(
+        "---\n"
+        f"type: ps\nuid: {step_uid}\ntitle: {step_uid}\n"
+        "exercise_uids:\n" + "".join(f"  - {uid}\n" for uid in exercises) + "---\nA lesson.\n"
+    )
+    touch_forward(step)
+    for uid, title in exercises.items():
+        path = vault / f"{uid}.md"
+        path.write_text(
+            "---\n"
+            f"type: exercise\nuid: {uid}\ntitle: {title}\nscope: curriculum\n"
+            f"instructions: {title} instructions\n"
+            f"teacher: {(teacher_of or {}).get(uid, teacher_uid)}\n"
+            "---\n"
+        )
+        touch_forward(path)
+    await sync_vault(driver, vault)
+
+
 def under_heading(html: str, heading: str, closing: str = "</ul>") -> str:
     """The markup between ``heading`` and the first ``closing`` tag after it."""
     start = html.find(heading)

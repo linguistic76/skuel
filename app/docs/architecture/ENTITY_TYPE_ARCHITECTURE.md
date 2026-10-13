@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-10-10
+updated: 2026-10-13
 status: current
 category: architecture
 version: 8.1.0
@@ -196,7 +196,7 @@ Naming discipline is load-bearing in a graph — it determines the readability o
 |-----------|-----------------|----------|
 | **EntityType** | Noun, or adjective / past-participle + noun — a compound noun denoting a *kind of thing* | `Exercise`, `UserEntry`, `EntryReport`, `RevisedExercise`, `LearningPath`, `PathStep` |
 | **Relationship (edge)** | Active verb phrase | `FULFILLS_EXERCISE`, `REVISES_EXERCISE`, `RESPONDS_TO_REPORT`, `ORGANIZES`, `USES_KU` |
-| **Variant within an entity** | Enum field on that entity | `Pipeline` (on `UserEntry`), `ReportSource` + `AssessmentOutcome` (on `EntryReport`), `ExerciseScope` (on `Exercise`), `FeedbackCategory` (on `RevisedExercise.feedback_points`) |
+| **Variant within an entity** | Enum field on that entity | `Pipeline` (on `UserEntry`), `ReportSource` + `AssessmentOutcome` (on `EntryReport`), `FeedbackCategory` (on `RevisedExercise.feedback_points`) |
 
 ### Two-part test for "does this justify a new EntityType?"
 
@@ -340,24 +340,17 @@ LpService (facade) — 5 sub-services via create_lp_sub_services()
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 
-### Exercise Scope — Four Modes of Ownership and Assessment
+### Exercise — One Door, One Scope
 
-Exercise is a single entity type serving four distinct pedagogical roles via `ExerciseScope`:
+Every exercise is curriculum (ADR-091 S2, S4): authored and edited only in the content vault,
+owned by no user, naming its teacher (`(Exercise)-[:REVIEWED_BY]->(User)`), and anchored by the
+PathSteps that list it. `ExerciseScope.CURRICULUM` is its one scope.
 
-| Scope | Purpose | Key Fields | Mastery Signal |
-|-------|---------|------------|----------------|
-| `PERSONAL` | User's own AI feedback template (default) | `instructions`, `model`; `path_step_uid` optional anchor | Soft — AI-evaluated |
-| `ASSIGNED` | Teacher assigns to a group | `group_uid` (required), `due_date` | Medium — teacher-approved |
-| `ASSESSMENT` | Formal test/exam with scoring rubric | `scoring_rubric` (required), `pass_threshold` | Hard — objective score |
-| `CURRICULUM` | Content-vault-authored shared exercise — owned by the curriculum, no user OWNS edge | Anchored via `exercise_uids:` in PathStep YAML; not creatable via API | Soft — AI-evaluated |
-
-**ASSESSMENT scope** adds two fields to Exercise:
+An exercise may carry a **scoring rubric** in its vault file:
 - `scoring_rubric`: List of criteria, each with `name`, `weight` (must sum to 1.0), and optional `description`
-- `pass_threshold`: Minimum score (0.0-1.0) to pass; defaults to 0.7
+- `pass_threshold`: Minimum score (0.0-1.0) to pass
 
-**EntryReport** carries `assessment_score` (0.0-1.0) for ASSESSMENT-scope exercises — the numeric result evaluated against the rubric. This is the **objective measurement layer** that substance tracking and EntryReports don't otherwise provide.
-
-**Design rationale:** A Test is an Exercise with `scope=ASSESSMENT` and a scoring rubric — not a separate entity type. The learning loop (`Exercise → UserEntry → EntryReport → RevisedExercise`) applies identically to all scopes. What differs is the evaluation mechanism (AI feedback vs teacher review vs rubric scoring) and the strength of the mastery signal.
+**EntryReport** carries `assessment_score` (0.0-1.0) — the numeric result evaluated against the rubric.
 
 ### FormTemplate + FormSubmission — General-Purpose Forms
 
@@ -398,7 +391,7 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> EntryReport -> Revis
 
 **Revision lives on the edge, not the node.** The `revision_number` field that used to sit on `ExerciseSubmission` now lives on `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Re-submitting the same exercise creates a new `UserEntry` node carrying its own `FULFILLS_EXERCISE {revision: N+1}` edge.
 
-**Key structural note:** `EntryReport` has 7 report-specific fields (`processed_content`, `report_generated_at`, `subject_uid`, `processor_type`, `assessment_outcome`, `report_file_path`, `assessment_score`) plus `author_uid`, but no file/processing fields. The report body lives on `processed_content` (written by `create_report_node`); the inherited `Entity.content` is reserved for user-drafted text. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text. `assessment_score` (0.0-1.0) carries the numeric result for ASSESSMENT-scope exercises.
+**Key structural note:** `EntryReport` has 7 report-specific fields (`processed_content`, `report_generated_at`, `subject_uid`, `processor_type`, `assessment_outcome`, `report_file_path`, `assessment_score`) plus `author_uid`, but no file/processing fields. The report body lives on `processed_content` (written by `create_report_node`); the inherited `Entity.content` is reserved for user-drafted text. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text. `assessment_score` (0.0-1.0) carries the numeric result against an exercise's scoring rubric.
 
 `ACTIVITY_REPORT` also inherits `UserOwnedEntity` directly — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 

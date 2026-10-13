@@ -1,6 +1,6 @@
 ---
 title: SearchService Pattern for Activity Domains
-updated: 2026-10-11
+updated: 2026-10-13
 category: patterns
 related_skills:
 - base-analytics-service
@@ -471,7 +471,7 @@ SearchRouter (uses _GRAPH_AWARE_DOMAINS — all 12 searchable domains):
 ```
 
 **graph_aware_faceted_search()** is implemented across all 12 searchable domains:
-- Visibility scoping per each domain's `DomainConfig.search_visibility` (`OWNER_ONLY` / `PUBLIC` / `SCOPE_AWARE`) via `build_search_visibility_clause()`
+- Visibility scoping per each domain's `DomainConfig.search_visibility` (`OWNER_ONLY` / `PUBLIC`) via `build_search_visibility_clause()`
 - Property filters from SearchRequest
 - **SearchRequest graph patterns** (`ready_to_learn`, `supports_goals`, etc.)
 - Graph pattern enrichment with domain-specific relationships

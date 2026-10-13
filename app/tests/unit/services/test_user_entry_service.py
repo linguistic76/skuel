@@ -14,6 +14,7 @@ from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryUpdateRequest,
 )
+from core.ports.sharing_protocols import SharingBackendOperations
 from core.services.user_entry.user_entry_service import ShareOutcome, UserEntryService
 from core.utils.result_simplified import Errors, Result
 
@@ -49,16 +50,16 @@ def _make_sharing_service() -> MagicMock:
     svc.share_with_group = AsyncMock(return_value=Result.ok(True))
     # The feedback request (SUBMITTED_TO_GROUP); the bool is ``created``.
     svc.submit_to_group = AsyncMock(return_value=Result.ok(True))
-    backend = MagicMock()
-    # An exercise turn-in reaches one class by default: ``teachers`` must
-    # resolve to a group or the request is refused before the write. Tests
-    # about the empty intersection narrow this themselves.
-    backend.query_exercise_groups_for_member = AsyncMock(
-        return_value=Result.ok([{"group_uid": "g_class"}])
+    # The feedback request to one teacher (SUBMITTED_TO_TEACHER); the bool is ``created``.
+    svc.submit_to_teacher = AsyncMock(return_value=Result.ok(True))
+    # spec_set: a read the backend does not have cannot be faked into existence.
+    backend = MagicMock(spec_set=SharingBackendOperations)
+    # An exercise turn-in reaches the exercise's named teacher by default (ADR-091
+    # S3): ``teachers`` must resolve to a teacher or the request is refused before
+    # the write. Tests about an exercise naming no teacher narrow this themselves.
+    backend.query_exercise_teacher = AsyncMock(
+        return_value=Result.ok([{"teacher_uid": "user_teacher"}])
     )
-    # The exercise's own teacher: the empty intersection triggers this second
-    # lookup; default = the exercise names no teacher.
-    backend.query_exercise_teacher = AsyncMock(return_value=Result.ok([]))
     backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
     # Default: referenced predecessor entry is owned by the canonical test user
     # (user_1), so validate_references' TRANSFORMS ownership check passes.
@@ -130,9 +131,6 @@ class TestValidateAudience:
     @pytest.mark.asyncio
     async def test_teacher_review_with_exercise_uid_passes(self):
         sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(
-            return_value=Result.ok([{"group_uid": "g_class"}])
-        )
         service = _make_service(sharing_service=sharing)
         request = UserEntryCreateRequest(
             title="Exercise turn-in",
@@ -653,9 +651,6 @@ class TestSharedWithTeacherTransition:
     async def test_successful_teacher_share_records_transition(self):
         interaction_svc = _make_interaction_service()
         sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(
-            return_value=Result.ok([{"group_uid": "teacher_group_1"}])
-        )
         service = _make_service(
             sharing_service=sharing,
             interaction_service=interaction_svc,
@@ -674,11 +669,11 @@ class TestSharedWithTeacherTransition:
 
     @pytest.mark.asyncio
     async def test_no_transition_when_the_request_reaches_nobody(self):
-        """TEACHER_REVIEW resolving to zero groups is refused before the write,
-        so no Interaction exists to transition."""
+        """TEACHER_REVIEW reaching no teacher is refused before the write, so no
+        Interaction exists to transition."""
         interaction_svc = _make_interaction_service()
         sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
+        sharing.backend.query_exercise_teacher = AsyncMock(return_value=Result.ok([]))
         service = _make_service(
             sharing_service=sharing,
             interaction_service=interaction_svc,
@@ -741,14 +736,11 @@ class TestAudienceResolution:
         assert sharing.share.await_args.kwargs["recipient_uid"] == "user_peer"
 
     @pytest.mark.asyncio
-    async def test_teacher_review_submits_to_exercise_groups(self):
+    async def test_teacher_review_submits_to_the_exercises_teacher(self):
         """TEACHER_REVIEW + exercise + no explicit feedback target → the request
-        is filed (SUBMITTED_TO_GROUP) with the intersection of exercise groups
-        and uploader membership — never shared (SHARED_WITH_GROUP)."""
+        is filed (SUBMITTED_TO_TEACHER) with the exercise's named teacher —
+        never to a group, never shared (SHARED_WITH_GROUP)."""
         sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(
-            return_value=Result.ok([{"group_uid": "teacher_group_1"}])
-        )
         service = _make_service(sharing_service=sharing)
         request = UserEntryCreateRequest(
             title="Auto turn-in",
@@ -756,19 +748,19 @@ class TestAudienceResolution:
             fulfills_exercise_uid="ex_1",
         )
         await service.create_entry(request, user_uid="user_1")
-        sharing.backend.query_exercise_groups_for_member.assert_awaited_once_with(
+        sharing.backend.query_exercise_teacher.assert_awaited_once_with(
             exercise_uid="ex_1", user_uid="user_1"
         )
-        sharing.submit_to_group.assert_awaited_once()
-        kwargs = sharing.submit_to_group.await_args.kwargs
-        assert kwargs["group_uid"] == "teacher_group_1"
+        sharing.submit_to_teacher.assert_awaited_once()
+        assert sharing.submit_to_teacher.await_args.kwargs["teacher_uid"] == "user_teacher"
+        sharing.submit_to_group.assert_not_called()
         sharing.share_with_group.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_explicit_feedback_target_skips_exercise_groups(self):
         """``teacher:<group_uid>`` on TEACHER_REVIEW is the per-teacher route:
         it files the request with that group alone and bypasses the
-        exercise's groups."""
+        exercise's teacher."""
         sharing = _make_sharing_service()
         service = _make_service(sharing_service=sharing)
         request = UserEntryCreateRequest(
@@ -778,7 +770,7 @@ class TestAudienceResolution:
             audience="teacher:explicit_group",
         )
         await service.create_entry(request, user_uid="user_1")
-        sharing.backend.query_exercise_groups_for_member.assert_not_called()
+        sharing.backend.query_exercise_teacher.assert_not_called()
         sharing.submit_to_group.assert_awaited_once()
         sharing.share_with_group.assert_not_called()
 
@@ -788,9 +780,6 @@ class TestAudienceResolution:
         feedback request requires TEACHER_REVIEW, so neither a request nor a
         share is written."""
         sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(
-            return_value=Result.ok([{"group_uid": "teacher_group_1"}])
-        )
         service = _make_service(sharing_service=sharing)
         request = UserEntryCreateRequest(
             title="AI run",
@@ -803,8 +792,9 @@ class TestAudienceResolution:
         _entry, outcome = result.value
         assert outcome == ShareOutcome()
         sharing.submit_to_group.assert_not_called()
+        sharing.submit_to_teacher.assert_not_called()
         sharing.share_with_group.assert_not_called()
-        sharing.backend.query_exercise_groups_for_member.assert_not_called()
+        sharing.backend.query_exercise_teacher.assert_not_called()
 
 
 class TestPublicVisibilityGate:
@@ -1078,11 +1068,8 @@ class TestShareOutcome:
     async def test_a_landed_share_beside_a_refused_request_still_compensates(self):
         backend = _make_backend()
         sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(
-            return_value=Result.ok([{"group_uid": "g1"}])
-        )
-        sharing.submit_to_group = AsyncMock(
-            return_value=Result.fail(Errors.not_found("Group", "g1"))
+        sharing.submit_to_teacher = AsyncMock(
+            return_value=Result.fail(Errors.forbidden(action="submit", reason="not the teacher"))
         )
         service = _make_service(backend=backend, sharing_service=sharing)
         request = UserEntryCreateRequest(
@@ -1102,7 +1089,7 @@ class TestShareOutcome:
         so there is nothing to compensate."""
         backend = _make_backend()
         sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(
+        sharing.backend.query_exercise_teacher = AsyncMock(
             return_value=Result.fail(Errors.database(operation="cypher", message="resolve failed"))
         )
         service = _make_service(backend=backend, sharing_service=sharing)

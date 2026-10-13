@@ -644,29 +644,28 @@ class _KnowledgeContextMixin:
         """Get the exercises linked to a PathStep via HAS_EXERCISE that an anonymous reader may see.
 
         The step page's listing for a visitor who is not signed in, so it
-        composes the SCOPE_AWARE audience predicate with no user
-        (``build_search_visibility_clause``): the fail-closed floor is published
-        CURRICULUM alone — a teacher's PERSONAL or a group's ASSIGNED exercise
-        hanging from the step is never listed here. The signed-in listing is
+        composes Exercise's audience predicate (PUBLIC) with the publication
+        gate on (``build_search_visibility_clause``): a draft exercise hanging
+        from the step is never listed here. The signed-in listing is
         ``ExerciseBackend.get_ps_exercises_with_status``.
 
-        Returns basic exercise details (uid, title, scope, estimated_time_minutes)
+        Returns basic exercise details (uid, title, estimated_time_minutes)
         so the PathStep detail page can render an exercises section with submit links.
 
         Args:
             ps_uid: PathStep UID.
 
         Returns:
-            List of records with exercise uid, title, scope, estimated_time_minutes.
+            List of records with exercise uid, title, estimated_time_minutes.
         """
         visibility_scope = build_search_visibility_clause(
-            SearchVisibility.SCOPE_AWARE, entity_alias="e", has_user=False
+            SearchVisibility.PUBLIC, entity_alias="e", has_user=False
         )
         audience_where, scope_params = visibility_scope or ("true", {})
         query = f"""
         MATCH (ps:Entity {{uid: $ps_uid, entity_type: 'path_step'}})-[:HAS_EXERCISE]->(e:Entity {{entity_type: 'exercise'}})
         WHERE {audience_where}
-        RETURN e.uid AS uid, e.title AS title, e.scope AS scope,
+        RETURN e.uid AS uid, e.title AS title,
                e.estimated_time_minutes AS estimated_time_minutes
         ORDER BY e.title
         """

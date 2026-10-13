@@ -763,5 +763,5 @@ class TestRealServicesQualify:
         }
 
     def test_exercise_is_deliberately_absent(self) -> None:
-        """Exercise is SCOPE_AWARE — admitting it needs user_uid threading (D1(b))."""
+        """Exercise is left to the D1(b) domain-level follow-on."""
         assert EntityType.EXERCISE.value not in SearchRouter._HYBRID_TEXT_DOMAIN_VALUES

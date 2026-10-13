@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from adapters.persistence.neo4j.query.cypher.crud_queries import (
-    build_anchored_exercise_clause,
-    build_audience_fragment,
-)
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_audience_fragment
 from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
     build_review_standing_subquery,
 )
@@ -61,21 +58,15 @@ def _exercise_teacher_match(*, pin_teacher: bool = False) -> tuple[str, dict[str
 
     ``$exercise_uid`` names an exercise, or a RevisedExercise, which resolves to the
     exercise it revises — work on a revision goes to the original exercise's
-    teacher (ADR-091 N8). The exercise's teacher is reached by one of two arms:
+    teacher (ADR-091 N8). The exercise's teacher is its ``REVIEWED_BY`` teacher,
+    the user its vault file names (ADR-091 S3).
 
-    - its ``REVIEWED_BY`` teacher, the user its vault file names (ADR-091 S3);
-    - for a PERSONAL exercise anchored to a published PathStep
-      (``build_anchored_exercise_clause``, the rule the SCOPE_AWARE read admits by),
-      its owner by the ``:OWNS`` edge (ADR-088 §9 — an Exercise carries
-      ``owner_uid``, never ``user_uid``, ADR-086).
-
-    Either way ``teacher`` holds a reviewer role, is active, and is not
+    ``teacher`` holds a reviewer role, is active, and is not
     ``$user_uid`` — a submitter never asks themselves. No row when any of it fails.
     Composed by the resolving read and by the write, so the write decides by the
     rule the read resolved by; ``pin_teacher`` (the write) also requires
     ``teacher`` to be ``$teacher_uid``.
     """
-    anchored, anchored_params = build_anchored_exercise_clause("ex")
     teacher = "teacher:User {uid: $teacher_uid}" if pin_teacher else "teacher:User"
     return (
         f"""
@@ -83,21 +74,13 @@ def _exercise_teacher_match(*, pin_teacher: bool = False) -> tuple[str, dict[str
         OPTIONAL MATCH (target)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig:Entity {{entity_type: $exercise_type}})
         WITH coalesce(orig, target) AS ex
         WHERE ex.entity_type = $exercise_type
-        CALL (ex) {{
-            MATCH (ex)-[:{RelationshipName.REVIEWED_BY.value}]->({teacher})
-            RETURN teacher
-          UNION
-            MATCH ({teacher})-[:{RelationshipName.OWNS.value}]->(ex)
-            WHERE {anchored}
-            RETURN teacher
-        }}
+        MATCH (ex)-[:{RelationshipName.REVIEWED_BY.value}]->({teacher})
         WITH teacher
         WHERE teacher.role IN $reviewer_roles
           AND coalesce(teacher.is_active, true) = true
           AND teacher.uid <> $user_uid
         """,
         {
-            **anchored_params,
             "exercise_type": EntityType.EXERCISE.value,
             "reviewer_roles": list(REVIEWER_ROLES),
         },
@@ -297,9 +280,8 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         share rule reads (ADR-088 §1); null on every other label.
 
         Ownership lives in two shapes: user-owned domains stamp a ``user_uid``
-        property; curriculum entities (e.g. Exercise) stamp ``owner_uid`` and
-        dual-write the canonical ``:OWNS`` edge (a failed edge write now fails
-        the create — ADR-086 — but property-without-edge nodes predate that).
+        property; a Group stamps ``owner_uid`` and dual-writes the canonical
+        ``:OWNS`` edge (a failed edge write fails the create — ADR-086).
         Resolve user_uid → owner_uid → edge,
         mirroring ``verify_ownership`` in crud_operations_mixin — the two
         layers must agree on who owns a node. Neither → unowned, unshareable.
@@ -603,40 +585,6 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    async def query_exercise_groups_for_member(
-        self,
-        exercise_uid: EntityUID,
-        user_uid: UserUID,
-    ) -> Result[list[Neo4jProperties]]:
-        """Return the groups the exercise is shared with AND the user belongs to.
-
-        Used for auto-share scoping: when a submission fulfills an exercise
-        that was assigned to multiple groups, only fan out to the ones the
-        submitter is actually in. A RevisedExercise target resolves to the
-        exercise it revises — a revision is never assigned to a group itself,
-        so a turn-in against it reaches the root exercise's reviewers.
-        """
-        result = await self.execute_query(
-            f"""
-            MATCH (target:Entity {{uid: $exercise_uid}})
-            OPTIONAL MATCH (target)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig:Entity {{entity_type: $exercise_type}})
-            WITH coalesce(orig, target) AS ex
-            MATCH (ex)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group)
-            WHERE coalesce(g.is_active, true) = true
-            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(g)
-            WHERE coalesce(u.is_active, true) = true
-            RETURN g.uid AS group_uid
-            """,
-            {
-                "exercise_uid": exercise_uid,
-                "user_uid": user_uid,
-                "exercise_type": EntityType.EXERCISE.value,
-            },
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
     async def query_exercise_teacher(
         self,
         exercise_uid: EntityUID,
@@ -645,11 +593,10 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         """The teacher a turn-in on the exercise asks for feedback, one ``{teacher_uid}`` row or none.
 
         The direct feedback target: the exercise's ``REVIEWED_BY`` teacher
-        (ADR-091 S3), or the owner of a PERSONAL exercise anchored to a published
-        PathStep (ADR-088 §9) — ``_exercise_teacher_match``. No row for an exercise
-        with neither, an anchored exercise whose step is a draft, a teacher without
-        a reviewer role, or a submitter who is the teacher — the caller refuses on
-        absence, so a fake that answers nothing refuses too.
+        (ADR-091 S3) — ``_exercise_teacher_match``. No row for an exercise naming
+        no teacher, a teacher without a reviewer role, or a submitter who is the
+        teacher — the caller refuses on absence, so a fake that answers nothing
+        refuses too.
         """
         head, params = _exercise_teacher_match()
         result = await self.execute_query(
@@ -718,11 +665,9 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         """Verify the user has a legitimate relationship to an exercise.
 
         True if any hold:
-          - user ``OWNS`` the exercise (its author) — read from the edge, the
-            canonical ownership claim: an Exercise carries ``owner_uid``, never
-            ``user_uid`` (ADR-086), and a RevisedExercise's author holds the
-            edge too
-          - exercise is SHARED_WITH_GROUP with a group the user is a member of
+          - user ``OWNS`` the target — read from the edge, the canonical ownership
+            claim (ADR-086); no user owns an Exercise (ADR-091 S2), so this is a
+            RevisedExercise's author
           - exercise is linked to a PathStep the user is currently in progress on
           - the target is a RevisedExercise addressed to the user (its
             ``student_uid``) — a revision is answered by the student it names
@@ -733,13 +678,11 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         result = await self.execute_query(
             f"""
             MATCH (ex:Entity {{uid: $exercise_uid}})
-            OPTIONAL MATCH (ex)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group)<-[:{RelationshipName.MEMBER_OF.value}]-(:User {{uid: $user_uid}})
             OPTIONAL MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS.value}]->(ps:Entity)-[:{RelationshipName.HAS_EXERCISE.value}]->(ex)
             WITH EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(ex) }} AS is_owner,
-                 count(g) > 0 AS via_group,
                  count(ps) > 0 AS via_progress,
                  (ex.entity_type = $revised_exercise_type AND ex.student_uid = $user_uid) AS is_revision_target
-            RETURN (is_owner OR via_group OR via_progress OR is_revision_target) AS allowed
+            RETURN (is_owner OR via_progress OR is_revision_target) AS allowed
             """,
             {
                 "exercise_uid": exercise_uid,

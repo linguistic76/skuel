@@ -8,9 +8,8 @@ Three seams, all raw-Cypher and therefore invisible to the mock-only suites:
 2. ``SharingBackend.query_exercise_teacher`` — a CURRICULUM exercise's
    feedback request goes to the teacher its vault file names (``REVIEWED_BY``,
    ADR-091 S3), never to the learner's default group. A revision resolves to
-   the exercise it revises in this lookup and in
-   ``query_exercise_groups_for_member``, so a turn-in against a revision
-   reaches the root exercise's reviewers (N8).
+   the exercise it revises in this lookup, so a turn-in against a revision
+   reaches the root exercise's teacher (N8).
 3. ``PsBackend.count_in_progress_path_steps`` — the basis of the enrollment
    cap counts IN_PROGRESS edges to :PathStep nodes only; a :Ku edge must
    not inflate the cap.
@@ -41,10 +40,8 @@ _NEWER_ADMIN_UID = f"user_zz_newer_admin_{_RUN}"
 
 # --- (b) default-group fixtures --------------------------------------------
 _CURRICULUM_EX_UID = f"ex.test.dtg.{_RUN}"
-_PERSONAL_EX_UID = f"ex_test_personal_{_RUN}"
-_ASSIGNED_EX_UID = f"ex_test_assigned_{_RUN}"
+_UNNAMED_EX_UID = f"ex.test.dtg-unnamed.{_RUN}"
 _CURRICULUM_REVISION_UID = f"re_test_curriculum_{_RUN}"
-_ASSIGNED_REVISION_UID = f"re_test_assigned_{_RUN}"
 _ORPHAN_REVISION_UID = f"re_test_orphan_{_RUN}"
 _STUDENT_UID = f"user_zz_student_{_RUN}"
 _LONER_UID = f"user_zz_loner_{_RUN}"  # in no default group
@@ -90,7 +87,8 @@ async def admin_pick_graph(neo4j_driver):
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def default_group_graph(neo4j_driver):
-    """Curriculum + personal Exercises, a default group, one member, one loner."""
+    """Two curriculum Exercises (one naming a teacher), a default group, one member,
+    one loner."""
     async with neo4j_driver.session() as session:
         await session.run(
             """
@@ -104,11 +102,11 @@ async def default_group_graph(neo4j_driver):
         await session.run(
             """
             MERGE (ex:Entity:Exercise {uid: $uid})
-            SET ex.title = 'DTG personal exercise',
+            SET ex.title = 'DTG exercise naming no teacher',
                 ex.entity_type = 'exercise',
-                ex.scope = 'personal'
+                ex.scope = 'curriculum'
             """,
-            uid=_PERSONAL_EX_UID,
+            uid=_UNNAMED_EX_UID,
         )
         for user_uid in (_STUDENT_UID, _LONER_UID):
             await session.run(
@@ -138,41 +136,26 @@ async def default_group_graph(neo4j_driver):
             user_uid=_STUDENT_UID,
         )
 
-        # Revisions: one of the curriculum exercise, one of an exercise
-        # assigned to the default group, one whose original is gone.
+        # Revisions: one of the curriculum exercise, one whose original is gone.
         await session.run(
             """
             MATCH (curriculum:Entity:Exercise {uid: $curriculum_uid})
-            MATCH (g:Group {uid: $group_uid})
-            MERGE (assigned:Entity:Exercise {uid: $assigned_uid})
-            SET assigned.title = 'DTG assigned exercise',
-                assigned.entity_type = 'exercise',
-                assigned.scope = 'assigned'
-            MERGE (assigned)-[:SHARED_WITH_GROUP]->(g)
             MERGE (rc:Entity:RevisedExercise {uid: $curriculum_revision_uid})
             SET rc.entity_type = 'revised_exercise', rc.student_uid = $student_uid
             MERGE (rc)-[:REVISES_EXERCISE]->(curriculum)
-            MERGE (ra:Entity:RevisedExercise {uid: $assigned_revision_uid})
-            SET ra.entity_type = 'revised_exercise'
-            MERGE (ra)-[:REVISES_EXERCISE]->(assigned)
             MERGE (ro:Entity:RevisedExercise {uid: $orphan_revision_uid})
             SET ro.entity_type = 'revised_exercise'
             """,
             curriculum_uid=_CURRICULUM_EX_UID,
-            group_uid=_DEFAULT_GROUP_UID,
             student_uid=_STUDENT_UID,
-            assigned_uid=_ASSIGNED_EX_UID,
             curriculum_revision_uid=_CURRICULUM_REVISION_UID,
-            assigned_revision_uid=_ASSIGNED_REVISION_UID,
             orphan_revision_uid=_ORPHAN_REVISION_UID,
         )
 
     yield {
         "curriculum_ex": _CURRICULUM_EX_UID,
-        "personal_ex": _PERSONAL_EX_UID,
-        "assigned_ex": _ASSIGNED_EX_UID,
+        "unnamed_ex": _UNNAMED_EX_UID,
         "curriculum_revision": _CURRICULUM_REVISION_UID,
-        "assigned_revision": _ASSIGNED_REVISION_UID,
         "orphan_revision": _ORPHAN_REVISION_UID,
         "student": _STUDENT_UID,
         "loner": _LONER_UID,
@@ -185,10 +168,8 @@ async def default_group_graph(neo4j_driver):
             "MATCH (n) WHERE n.uid IN $uids DETACH DELETE n",
             uids=[
                 _CURRICULUM_EX_UID,
-                _PERSONAL_EX_UID,
-                _ASSIGNED_EX_UID,
+                _UNNAMED_EX_UID,
                 _CURRICULUM_REVISION_UID,
-                _ASSIGNED_REVISION_UID,
                 _ORPHAN_REVISION_UID,
                 _STUDENT_UID,
                 _LONER_UID,
@@ -287,7 +268,7 @@ async def test_a_curriculum_exercise_asks_its_named_teacher(neo4j_driver, defaul
 async def test_an_exercise_naming_no_teacher_asks_nobody(neo4j_driver, default_group_graph):
     assert (
         await _teachers(
-            neo4j_driver, default_group_graph["personal_ex"], default_group_graph["student"]
+            neo4j_driver, default_group_graph["unnamed_ex"], default_group_graph["student"]
         )
         == []
     )
@@ -322,34 +303,9 @@ async def test_revision_with_no_original_asks_nobody(neo4j_driver, default_group
     )
 
 
-async def test_revision_of_an_assigned_exercise_reaches_its_groups(
-    neo4j_driver, default_group_graph
-):
-    """The assignment intersection resolves a revision to its root too."""
-    backend = _sharing_backend(neo4j_driver)
-
-    direct = await backend.query_exercise_groups_for_member(
-        exercise_uid=default_group_graph["assigned_ex"],
-        user_uid=default_group_graph["student"],
-    )
-    via_revision = await backend.query_exercise_groups_for_member(
-        exercise_uid=default_group_graph["assigned_revision"],
-        user_uid=default_group_graph["student"],
-    )
-    loner = await backend.query_exercise_groups_for_member(
-        exercise_uid=default_group_graph["assigned_revision"],
-        user_uid=default_group_graph["loner"],
-    )
-
-    assert direct.is_ok and via_revision.is_ok and loner.is_ok
-    assert [row["group_uid"] for row in direct.value or []] == [default_group_graph["group"]]
-    assert [row["group_uid"] for row in via_revision.value or []] == [default_group_graph["group"]]
-    assert (loner.value or []) == []
-
-
 async def test_a_revision_is_usable_by_the_student_it_names(neo4j_driver, default_group_graph):
-    """The exercise-use check: a revision is never group-assigned or owned by
-    its student, so the claim is the revision's own ``student_uid``."""
+    """The exercise-use check: a revision is never owned by its student, so the
+    claim is the revision's own ``student_uid``."""
     backend = _sharing_backend(neo4j_driver)
 
     named = await backend.query_user_can_use_exercise(

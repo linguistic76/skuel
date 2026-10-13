@@ -16,7 +16,7 @@ The universal ownership edge and the sharing model (ADR-038).
 | `SHARES_WITH` | User | Entity | Manual sharing (`shared_at`, `role`, `share_version` props) |
 | `SHARED_WITH_GROUP` | Entity | Group | Group-scoped sharing — every member and owner of an active group |
 | `SUBMITTED_TO_GROUP` | UserEntry / FormSubmission | Group | A feedback request (`submitted_at`) — read only under `(teacher)-[:OWNS]->(g {is_active: true})`, never by members (ADR-088 §2) |
-| `SUBMITTED_TO_TEACHER` | UserEntry | User | A feedback request to one teacher (`submitted_at`) — the exercise's teacher (its `REVIEWED_BY` user, or an anchored PERSONAL exercise's owner); read only by that teacher (`asks_teacher`, ADR-088 §9) |
+| `SUBMITTED_TO_TEACHER` | UserEntry | User | A feedback request to one teacher (`submitted_at`) — the exercise's teacher (its `REVIEWED_BY` user); read only by that teacher (`asks_teacher`, ADR-088 §9) |
 | `REVIEWED_BY` | Exercise | User | The exercise's teacher, named by its vault file's `teacher` field — never `OWNS`; the exercise stays ownerless (ADR-091 S3) |
 | `MEMBER_OF` | User | Group | Group membership |
 | `ENROLLED_IN` | User | LearningPath | LP enrollment (`enrolled_at`, `status` — `'completed'` marks completion) |
