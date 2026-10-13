@@ -3,10 +3,9 @@
 The content vault is the one door for curriculum, and publishing is one marker in it:
 a file synced with ``publication_state: draft`` is withheld from the learner's
 PathStep catalogue, and the same file re-synced with ``publication_state: published``
-is listed. There is no in-app publish door: the two routes that once wrote a
-PathStep's ``status`` (``POST /api/ps/{uid}/publish`` and
-``POST /explore/ps/{uid}/publish``, with the ``publish-state`` fragment beside it)
-answer as routes that do not exist, even to a teacher, and write nothing.
+is listed. There is no in-app publish door: ``POST /api/ps/{uid}/publish``,
+``POST /explore/ps/{uid}/publish`` and the ``publish-state`` fragment answer as routes
+that do not exist, even to a teacher, and write nothing.
 
 The step is made by a real sync of a real file; the learner and the teacher read and
 post through the bootstrapped app's routes.
