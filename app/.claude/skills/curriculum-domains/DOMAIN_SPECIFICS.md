@@ -218,7 +218,8 @@ await lp_service.create_path(user_uid, title, description, steps)
 
 **Key Relationships:**
 - `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — curriculum anchor (anchored PERSONAL + CURRICULUM scopes)
-- `(User)-[:OWNS]->(Exercise)` — creator ownership
+- `(User)-[:OWNS]->(Exercise)` — creator ownership (app-created exercises only; a vault exercise has no owner)
+- `(Exercise)-[:REVIEWED_BY]->(User)` — the teacher a vault exercise's `teacher:` field names; feedback requests on it go there (ADR-091 S3)
 - `(Exercise)-[:SHARED_WITH_GROUP]->(Group)` — ASSIGNED scope distribution
 - `(Exercise)-[:REQUIRES_KNOWLEDGE]->(Ku)` — declared prerequisites
 - `(UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)` — user work linkage (incoming)

@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-10-11
+updated: 2026-10-13
 status: current
 category: architecture
 version: 3.2.0
@@ -120,7 +120,8 @@ Exercise (scope=ASSIGNED)
        v
 5. The feedback request (teacher_review + exercise link): FULFILLS_EXERCISE {revision}
        |   + SUBMITTED_TO_GROUP to the exercise's assigned groups (UnifiedSharingService.submit_to_group),
-       |     or SUBMITTED_TO_TEACHER to an anchored PERSONAL exercise's owner (submit_to_teacher, ADR-088 §9)
+       |     or SUBMITTED_TO_TEACHER to the exercise's teacher — its REVIEWED_BY user (ADR-091 S3)
+       |     or an anchored PERSONAL exercise's owner (submit_to_teacher, ADR-088 §9)
        v
 6. Teacher reviews via the group-based queue → writes ENTRY_REPORT
        |   submit_report:    SUBMITTED/ACTIVE   → COMPLETED          (Cypher guard)

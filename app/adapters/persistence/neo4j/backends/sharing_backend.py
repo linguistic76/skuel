@@ -14,7 +14,6 @@ from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.enums.user_enums import UserRole
 from core.models.group.group import DEFAULT_GROUP_UID_PREFIX
 from core.models.relationship_names import RelationshipName
@@ -57,18 +56,24 @@ REVIEWER_ROLES: tuple[str, ...] = tuple(
 )
 
 
-def _anchored_exercise_teacher_match(*, pin_teacher: bool = False) -> tuple[str, dict[str, object]]:
-    """The statement head binding ``teacher``: the reviewer of a turn-in on an anchored PERSONAL exercise.
+def _exercise_teacher_match(*, pin_teacher: bool = False) -> tuple[str, dict[str, object]]:
+    """The statement head binding ``teacher``: who a feedback request on the exercise goes to.
 
-    ``$exercise_uid`` (a RevisedExercise resolves to the exercise it revises, as
-    the curriculum fallback does) must be a PERSONAL exercise anchored to a
-    published PathStep (``build_anchored_exercise_clause``, the same rule the
-    SCOPE_AWARE read admits by); ``teacher`` is its owner by the ``:OWNS`` edge
-    (an Exercise carries ``owner_uid``, never ``user_uid`` — ADR-086), holding a
-    reviewer role, active, and not ``$user_uid`` — a submitter never asks
-    themselves. No row when any of it fails. Composed by the resolving read and
-    by the write, so the write decides by the rule the read resolved by;
-    ``pin_teacher`` (the write) also requires ``teacher`` to be ``$teacher_uid``.
+    ``$exercise_uid`` names an exercise, or a RevisedExercise, which resolves to the
+    exercise it revises — work on a revision goes to the original exercise's
+    teacher (ADR-091 N8). The exercise's teacher is reached by one of two arms:
+
+    - its ``REVIEWED_BY`` teacher, the user its vault file names (ADR-091 S3);
+    - for a PERSONAL exercise anchored to a published PathStep
+      (``build_anchored_exercise_clause``, the rule the SCOPE_AWARE read admits by),
+      its owner by the ``:OWNS`` edge (ADR-088 §9 — an Exercise carries
+      ``owner_uid``, never ``user_uid``, ADR-086).
+
+    Either way ``teacher`` holds a reviewer role, is active, and is not
+    ``$user_uid`` — a submitter never asks themselves. No row when any of it fails.
+    Composed by the resolving read and by the write, so the write decides by the
+    rule the read resolved by; ``pin_teacher`` (the write) also requires
+    ``teacher`` to be ``$teacher_uid``.
     """
     anchored, anchored_params = build_anchored_exercise_clause("ex")
     teacher = "teacher:User {uid: $teacher_uid}" if pin_teacher else "teacher:User"
@@ -77,8 +82,16 @@ def _anchored_exercise_teacher_match(*, pin_teacher: bool = False) -> tuple[str,
         MATCH (target:Entity {{uid: $exercise_uid}})
         OPTIONAL MATCH (target)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig:Entity {{entity_type: $exercise_type}})
         WITH coalesce(orig, target) AS ex
-        WHERE ex.entity_type = $exercise_type AND {anchored}
-        MATCH ({teacher})-[:{RelationshipName.OWNS.value}]->(ex)
+        WHERE ex.entity_type = $exercise_type
+        CALL (ex) {{
+            MATCH (ex)-[:{RelationshipName.REVIEWED_BY.value}]->({teacher})
+            RETURN teacher
+          UNION
+            MATCH ({teacher})-[:{RelationshipName.OWNS.value}]->(ex)
+            WHERE {anchored}
+            RETURN teacher
+        }}
+        WITH teacher
         WHERE teacher.role IN $reviewer_roles
           AND coalesce(teacher.is_active, true) = true
           AND teacher.uid <> $user_uid
@@ -624,63 +637,21 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    async def query_default_groups_for_curriculum_submission(
+    async def query_exercise_teacher(
         self,
         exercise_uid: EntityUID,
         user_uid: UserUID,
     ) -> Result[list[Neo4jProperties]]:
-        """Fallback review route for CURRICULUM exercises: the submitter's default group(s).
+        """The teacher a turn-in on the exercise asks for feedback, one ``{teacher_uid}`` row or none.
 
-        Curriculum exercises are vault-authored and never ASSIGNED to a group,
-        so the assignment-intersection auto-share resolves to nothing and a
-        teacher_review submission would dissolve unseen. Ruled 2026-07-04:
-        such submissions share with the submitter's default group (the group
-        every enrolled student auto-joins, recognised by
-        ``DEFAULT_GROUP_UID_PREFIX`` and owned by the default teacher). Scope-gated in Cypher: a non-curriculum
-        exercise returns zero rows, so PERSONAL submissions can never leak to
-        the default group through this path. A RevisedExercise target resolves
-        to the exercise it revises, so a revision of a curriculum exercise
-        takes the same route; a revision whose original is gone resolves to
-        nothing.
-        """
-        result = await self.execute_query(
-            f"""
-            MATCH (target:Entity {{uid: $exercise_uid}})
-            OPTIONAL MATCH (target)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig:Entity {{entity_type: $exercise_type}})
-            WITH coalesce(orig, target) AS ex
-            WHERE ex.entity_type = $exercise_type AND ex.scope = $curriculum_scope
-            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(g:Group)
-            WHERE g.uid STARTS WITH $default_group_prefix
-              AND coalesce(g.is_active, true) = true
-            RETURN g.uid AS group_uid
-            """,
-            {
-                "exercise_uid": exercise_uid,
-                "user_uid": user_uid,
-                "exercise_type": EntityType.EXERCISE.value,
-                "curriculum_scope": ExerciseScope.CURRICULUM.value,
-                "default_group_prefix": DEFAULT_GROUP_UID_PREFIX,
-            },
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
-    async def query_anchored_exercise_teacher(
-        self,
-        exercise_uid: EntityUID,
-        user_uid: UserUID,
-    ) -> Result[list[Neo4jProperties]]:
-        """The teacher a turn-in on an anchored PERSONAL exercise asks for feedback, one ``{teacher_uid}`` row or none.
-
-        The direct feedback target (ADR-088 §9): a PERSONAL exercise anchored to
-        a published PathStep belongs to no group, so a ``teacher_review``
-        turn-in on it is filed to the exercise's owner. No row for any other
-        scope, an unanchored or draft-anchored exercise, an owner without a
-        reviewer role, or a submitter who is the owner — the caller refuses on
+        The direct feedback target: the exercise's ``REVIEWED_BY`` teacher
+        (ADR-091 S3), or the owner of a PERSONAL exercise anchored to a published
+        PathStep (ADR-088 §9) — ``_exercise_teacher_match``. No row for an exercise
+        with neither, an anchored exercise whose step is a draft, a teacher without
+        a reviewer role, or a submitter who is the teacher — the caller refuses on
         absence, so a fake that answers nothing refuses too.
         """
-        head, params = _anchored_exercise_teacher_match()
+        head, params = _exercise_teacher_match()
         result = await self.execute_query(
             f"""
             {head}
@@ -702,18 +673,18 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     ) -> Result[list[Neo4jProperties]]:
         """File a feedback request with one teacher directly: an idempotent ``SUBMITTED_TO_TEACHER`` MERGE.
 
-        The sibling of ``create_group_submission`` (ADR-088 §9). The statement
-        re-decides its own authority: ``teacher_uid`` must be the reviewer
-        ``_anchored_exercise_teacher_match`` resolves for ``exercise_uid`` and
-        the submitter ``owner_uid`` — the anchored PERSONAL exercise's owner,
-        a reviewer, not the submitter. Otherwise no row comes back, and that
-        empty result is the forbidden failure.
+        The sibling of ``create_group_submission`` (ADR-088 §9, ADR-091 S3). The
+        statement re-decides its own authority: ``teacher_uid`` must be the
+        reviewer ``_exercise_teacher_match`` resolves for ``exercise_uid`` and
+        the submitter ``owner_uid`` — the exercise's teacher, a reviewer, not the
+        submitter. Otherwise no row comes back, and that empty result is the
+        forbidden failure.
 
         A row is the success, and it carries ``created``: ``true`` when this
         call wrote the edge, ``false`` when the request already stood.
         ``submitted_at`` is stamped only on create.
         """
-        head, params = _anchored_exercise_teacher_match(pin_teacher=True)
+        head, params = _exercise_teacher_match(pin_teacher=True)
         result = await self.execute_query(
             f"""
             MATCH (entity:Entity {{uid: $entity_uid}})

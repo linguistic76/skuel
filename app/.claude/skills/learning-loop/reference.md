@@ -774,7 +774,8 @@ RelationshipName.FULFILLS_REVISED_EXERCISE  # UserEntry → RevisedExercise (rev
 RelationshipName.REPORT_FOR              # EntryReport → UserEntry
 RelationshipName.SHARES_WITH             # User → RevisedExercise (auto-share to student)
 RelationshipName.SUBMITTED_TO_GROUP      # UserEntry → Group (the feedback request — teachers who OWN the group, ADR-088 §2)
-RelationshipName.SUBMITTED_TO_TEACHER    # UserEntry → User (the feedback request to one teacher — an anchored PERSONAL exercise's owner, ADR-088 §9)
+RelationshipName.SUBMITTED_TO_TEACHER    # UserEntry → User (the feedback request to one teacher — the exercise's teacher, ADR-088 §9, ADR-091 S3)
+RelationshipName.REVIEWED_BY             # Exercise → User (the teacher its vault file names — never OWNS, ADR-091 S3)
 RelationshipName.SHARED_WITH_GROUP       # UserEntry → Group (a share — every member; never queues)
 RelationshipName.RESPONDS_TO_REPORT     # RevisedExercise → EntryReport
 RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise

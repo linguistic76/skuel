@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-10-12'
+updated: '2026-10-13'
 category: patterns
 related_skills:
 - activity-domains
@@ -93,7 +93,7 @@ Three different words, never mixed
 | Word | Means | Recorded as |
 |---|---|---|
 | **Owner** | Whose private content it is. Curriculum has no owner. | `(User)-[:OWNS]->(entity)` (ADR-086) |
-| **Teacher** | Who reviews work on an exercise | Named in the exercise's vault file (ADR-091 S3) |
+| **Teacher** | Who reviews work on an exercise | Named in the exercise's vault file: `(Exercise)-[:REVIEWED_BY]->(User)` (ADR-091 S3) |
 | **Addressed to** | Which student a revised exercise or a teacher report is for | The student whose submission it answers (a revision's `student_uid`) |
 
 A revised exercise is owned by its teacher and addressed to one student (`student_uid`); a
@@ -101,11 +101,12 @@ teacher's report is owned by the student whose work it answers, with the teacher
 teacher also owns the groups they run (ADR-040), and a group's owning teachers review what is
 submitted to the group (ADR-088 §2).
 
-**Not yet true in code.** ADR-091's implementing changes build this
+**Not yet true in code for owned exercises.** ADR-091's implementing changes build this
 ([§ Implementation](../decisions/ADR-091-one-door-for-curriculum.md#implementation)).
-Until they merge, no exercise file names a teacher; a teacher-created PERSONAL exercise is still
-owned through `:OWNS`, and that owner still receives the feedback requests on it when it is
-anchored to a published PathStep (ADR-088 §9). Curriculum exercises already have no owner.
+Every vault exercise names its teacher (change 3): a feedback request on it goes to its
+`REVIEWED_BY` teacher, and it has no owner. Until change 4 lands, a teacher-created PERSONAL
+exercise is still owned through `:OWNS`, and that owner still receives the feedback requests on
+it when it is anchored to a published PathStep (ADR-088 §9).
 
 ## Architecture
 

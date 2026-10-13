@@ -2039,6 +2039,19 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
             "submissions",
             fields=("uid", "title", "status", "user_uid"),
         ),
+        # Outgoing: Exercise → User (the teacher its vault file names — ADR-091 S3).
+        # Written by ingestion from the required ``teacher`` field; never OWNS.
+        UnifiedRelationshipDefinition(
+            RelationshipName.REVIEWED_BY,
+            "User",
+            "outgoing",
+            "teacher",
+            "teacher",
+            fields=("uid", "display_name"),
+            single=True,
+            is_cross_domain_mapping=False,
+            yaml_field_path="teacher",
+        ),
     ),
     prerequisite_relationship_names=(RelationshipName.REQUIRES_KNOWLEDGE,),
     enables_relationship_names=(),

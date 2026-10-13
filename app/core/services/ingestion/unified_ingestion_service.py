@@ -94,6 +94,7 @@ from .config import (
     resolve_chunking_params,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
+from .exercise_teacher import refuse_unqualified_teachers
 from .ingestion_tracker import IngestionTracker
 from .moc_links import extract_moc_link_suffixes, frontmatter_organizes_targets
 from .parser import parse_markdown, parse_yaml
@@ -1225,6 +1226,22 @@ class UnifiedIngestionService:
         validation_result = validate_entity_data(entity_type, entity_data, file_path)
         if validation_result.is_error:
             return Result.fail(validation_result)
+
+        # Every exercise names its teacher (ADR-091 S3) — admitted before anything is
+        # written, as the directory door does.
+        if entity_type is EntityType.EXERCISE:
+            refused_teacher = await refuse_unqualified_teachers(self._write_backend, [entity_data])
+            if refused_teacher.is_error:
+                return Result.fail(refused_teacher)
+            if refused_teacher.value:
+                _entity, reason = refused_teacher.value[0]
+                return Result.fail(
+                    Errors.validation(
+                        reason,
+                        field="teacher",
+                        user_message=f"File {file_path.name}: {reason}",
+                    )
+                )
 
         # MOC edge pass input (``moc: true`` files): the transient link-suffix
         # list must never persist as a node property — pop before the upsert,

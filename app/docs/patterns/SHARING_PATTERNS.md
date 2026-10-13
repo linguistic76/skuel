@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-10-11'
+updated: '2026-10-13'
 category: patterns
 related_skills:
 - pytest
@@ -58,9 +58,11 @@ entry ──SHARED_WITH_GROUP {shared_at, share_version}──▶ Group ◀─ME
   pipeline a feedback target (`teachers`, the exercise auto-target) writes **no link**. Every
   FormSubmission group target is a feedback request. The returned bool is `created` — a
   re-filed request is a success, not zero reach; only the created subset rings a teacher.
-- `submit_to_teacher()` files a feedback request with one teacher directly (ADR-088 §9): the
-  owner of a PERSONAL exercise anchored to a published PathStep, when no group reaches a teacher
-  for the turn-in. The target is the exercise's `:OWNS` owner, a TEACHER or higher, never the
+- `submit_to_teacher()` files a feedback request with one teacher directly (ADR-088 §9,
+  ADR-091 S3) when no assigned group reaches a teacher for the turn-in: the exercise's teacher —
+  the user its vault file names (`(Exercise)-[:REVIEWED_BY]->(User)`), or, until ADR-091 change 4
+  lands, the `:OWNS` owner of a PERSONAL exercise anchored to a published PathStep. A revision
+  resolves to the exercise it revises. The target is a TEACHER or higher, active, never the
   submitter. The write statement decides the same rule again
   (`SharingBackend.create_teacher_submission`), and it returns `created` like its sibling.
 - `share_with_group()` shares with every member and owner of an active group. It never puts an
@@ -201,10 +203,10 @@ never the copy's live links).
 #   INTERSECTION of the exercise's assigned groups and the submitter's memberships
 #   (query_exercise_groups_for_member — prevents leaking a submission to a group
 #   the submitter has no relationship with)
-# - NEW 2026-07-04: when that intersection is empty AND the exercise is
-#   CURRICULUM-scope (vault-authored, never group-ASSIGNED), share to the
-#   submitter's default group(s) (query_default_groups_for_curriculum_submission,
-#   scope-gated in Cypher so personal exercises can never leak)
+# - When that intersection is empty, the request goes to the exercise's teacher
+#   directly, SUBMITTED_TO_TEACHER (query_exercise_teacher): the teacher its vault
+#   file names (REVIEWED_BY, ADR-091 S3), or an anchored PERSONAL exercise's owner
+#   (ADR-088 §9). Never to the submitter's default group.
 # - A RevisedExercise target resolves to the exercise it revises in both lookups,
 #   so a turn-in against a revision reaches the root exercise's reviewers
 

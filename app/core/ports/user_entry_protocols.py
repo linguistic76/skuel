@@ -221,7 +221,7 @@ class UserEntryLifecycleOperations(Protocol):
     """
 
     async def get_exercise_context(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
-        """Exercise scope, teacher, group info for entry creation."""
+        """Exercise scope, addressed student and group info for entry creation."""
         ...
 
     async def get_entry_owner(self, entry_uid: str) -> Result[list[Neo4jProperties]]:

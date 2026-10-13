@@ -528,15 +528,15 @@ class UnifiedSharingService:
         teacher_uid: str,
         exercise_uid: str,
     ) -> Result[bool]:
-        """File a feedback request with one teacher directly (ADR-088 §9).
+        """File a feedback request with one teacher directly (ADR-088 §9, ADR-091 S3).
 
         Writes ``SUBMITTED_TO_TEACHER``: the teacher sees the entity in their
         review surfaces, as a group's owner sees a request to the group. The
-        target is the owner of the anchored PERSONAL exercise ``exercise_uid``
-        (a published PathStep's, so it belongs to no group); the backend
-        statement re-decides that — the exercise anchored and PERSONAL, the
-        teacher its owner with a reviewer role, never the submitter — and an
-        empty result is the forbidden refusal.
+        target is the teacher of the exercise ``exercise_uid``: the user its
+        vault file names (``REVIEWED_BY``), or the owner of a PERSONAL exercise
+        anchored to a published PathStep. The backend statement re-decides
+        that — the teacher one of those, with a reviewer role, never the
+        submitter — and an empty result is the forbidden refusal.
 
         The returned bool is ``created``, exactly as ``submit_to_group``'s.
 

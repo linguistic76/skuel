@@ -481,8 +481,9 @@ class _UserEntryAssessmentMixin:
         (``feedback_requests_subquery`` — an active owned group, or the teacher
         directly). ``total_students`` counts the requesters in the teacher's
         classroom only (``in_classroom``) — the students list's own rule.
-        ``total_exercises`` + ``total_groups`` are scoped via direct ``OWNS``
-        from the teacher (already correct pre-fix).
+        ``total_exercises`` counts the exercises the teacher teaches — named
+        their teacher (``REVIEWED_BY``, ADR-091 S3) or owned — and
+        ``total_groups`` the groups they own.
 
         ``pending_count`` is the review queue's badge twin and reads the
         queue's one supersede rule (``SUPERSEDED_COPY``): a pending copy
@@ -509,7 +510,13 @@ class _UserEntryAssessmentMixin:
         RETURN
           pending_count,
           total_students,
-          COUNT {{ (teacher)-[:{RelationshipName.OWNS.value}]->(:Entity:Exercise) }} AS total_exercises,
+          COUNT {{
+              MATCH (ex:Entity:Exercise)-[:{RelationshipName.REVIEWED_BY.value}]->(teacher)
+              RETURN ex
+            UNION
+              MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
+              RETURN ex
+          }} AS total_exercises,
           COUNT {{ (teacher)-[:{RelationshipName.OWNS.value}]->(:Group) }} AS total_groups
         """
         return await self.execute_query(

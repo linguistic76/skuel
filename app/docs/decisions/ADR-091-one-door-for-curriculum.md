@@ -334,7 +334,9 @@ enrolment's docstring to the reason it keeps (N9).
 **Order between changes 3 and 4.** Until change 4 merges, a teacher can still create an owned
 exercise that has no vault file and so names no teacher. Change 3 must not leave such an exercise
 with no feedback target: either it keeps the owner route for owned exercises until change 4 removes
-them, or the two land together. (Live on 2026-10-12 there were no owned exercises.)
+them, or the two land together. (Live on 2026-10-12 there were no owned exercises.) Change 3
+took the first: it routes a request on an exercise to its `REVIEWED_BY` teacher and retires the
+default-group fallback, and keeps the owner route for owned exercises until change 4 removes them.
 
 ---
 

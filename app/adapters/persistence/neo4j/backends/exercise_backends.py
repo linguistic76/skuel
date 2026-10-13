@@ -578,13 +578,22 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     ) -> Result[list[Neo4jProperties]]:
         """Get teacher's exercises with submission and reviewed counts.
 
-        A turn-in counts only when it asks the teacher for feedback
+        The teacher's exercises are the ones they teach: each exercise whose
+        vault file names them (``REVIEWED_BY``, ADR-091 S3), and each exercise
+        they own. A turn-in counts only when it asks the teacher for feedback
         (``asks_teacher``: an active group the teacher owns, or the teacher
         directly — ADR-088 §2-§3, §9) — a deactivated group's work is not
         pending anywhere.
         """
         query = f"""
-        MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
+        MATCH (user:User {{uid: $teacher_uid}})
+        CALL (user) {{
+            MATCH (exercise:Entity:Exercise)-[:{RelationshipName.REVIEWED_BY.value}]->(user)
+            RETURN exercise
+          UNION
+            MATCH (user)-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
+            RETURN exercise
+        }}
         OPTIONAL MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
           WHERE s.pipeline = $pipeline
             AND {asks_teacher("s", "user")}

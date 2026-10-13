@@ -221,11 +221,13 @@ fulfils — refusals are 404; surfaced as the "Request AI feedback" button on
 
 **Teacher transition:** students auto-join the default teacher group
 (`group_default_{admin_uid}`, the oldest admin) on PathStep enrollment. A `teacher_review` turn-in whose audience is `teachers`
-resolves to the exercise's assigned groups the submitter belongs to; a
-CURRICULUM-scope exercise is never assigned, so it falls back to the submitter's
-default group; a PERSONAL exercise anchored to a published PathStep is in no
-group, so it goes to the exercise's owner directly (`AudienceResolver._expand_teachers` in
-`core/services/user_entry/audience_resolver.py`). The write is a feedback request
+resolves to the exercise's assigned groups the submitter belongs to; an exercise in
+no such group goes to its teacher directly — the teacher its vault file names
+(`teacher:` frontmatter → `(Exercise)-[:REVIEWED_BY]->(User)`, ADR-091 S3; a revision
+goes to the exercise it revises), or, until ADR-091 change 4 lands, the owner of a
+PERSONAL exercise anchored to a published PathStep (`AudienceResolver._expand_teachers` in
+`core/services/user_entry/audience_resolver.py`). The curriculum default-group
+fallback is retired. The write is a feedback request
 (`SUBMITTED_TO_GROUP`, ADR-088 §2, or `SUBMITTED_TO_TEACHER`, §9), not a share, and it
 lands in `/teaching/queue`. A direct request opens the exchange thread and the report
 download for that teacher, never the student page or its knowledge tab (classroom only).

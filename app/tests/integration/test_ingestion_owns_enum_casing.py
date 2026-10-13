@@ -29,8 +29,24 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 
 OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
+# Every exercise file names its teacher (ADR-091 S3); ingestion admits a user with the
+# TEACHER role or higher.
+EXERCISE_TEACHER_UID = "user_test_owns_casing_teacher"
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def exercise_teacher(neo4j_driver):
+    """The teacher the exercise files name — minted here, so removed here."""
+    async with neo4j_driver.session() as session:
+        await session.run(
+            "MERGE (u:User {uid: $uid}) SET u.role = 'teacher'", uid=EXERCISE_TEACHER_UID
+        )
+    yield EXERCISE_TEACHER_UID
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (u:User {uid: $uid}) DETACH DELETE u", uid=EXERCISE_TEACHER_UID)
 
 
 def _write_task_file(directory: Path, slug: str, extra_frontmatter: str = "") -> Path:
@@ -61,6 +77,7 @@ instructions: Reflect on the practice and describe one concrete observation.
 scope: CURRICULUM
 learning_level: BEGINNER
 sel_category: SELF_AWARENESS
+teacher: {EXERCISE_TEACHER_UID}
 ---
 
 Exercise body.

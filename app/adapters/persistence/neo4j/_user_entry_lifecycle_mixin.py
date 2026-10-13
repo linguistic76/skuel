@@ -62,16 +62,18 @@ class _UserEntryLifecycleMixin:
     # ========================================================================
 
     async def get_exercise_context(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get exercise scope, teacher, group info for submission processing."""
+        """Get exercise scope, addressed student and group info for submission processing.
+
+        An exercise's teacher is not read here: it is its ``REVIEWED_BY`` user
+        (ADR-091 S1, S3), resolved by the audience step.
+        """
         query = """
         MATCH (exercise:Entity {uid: $exercise_uid})
         WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
-        OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
         OPTIONAL MATCH (exercise)-[:SHARED_WITH_GROUP]->(g:Group)
         OPTIONAL MATCH (exercise)-[:REVISES_EXERCISE]->(original:Entity {entity_type: 'exercise'})
         RETURN exercise.entity_type as exercise_entity_type,
                exercise.scope as scope,
-               COALESCE(teacher.uid, exercise.user_uid) as teacher_uid,
                exercise.student_uid as student_uid,
                exercise.title as exercise_title,
                g.uid as group_uid,

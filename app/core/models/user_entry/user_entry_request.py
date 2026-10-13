@@ -8,8 +8,8 @@ used by the journal and exercise submission flows.
 
 Audience is first-class on create, in one vocabulary (ADR-088): `audience`
 is an `AudienceSpec` — `teachers` / `teacher:<group_uid>` file a feedback
-request (`SUBMITTED_TO_GROUP`, or `SUBMITTED_TO_TEACHER` for an anchored
-PERSONAL exercise — TEACHER_REVIEW only), `group:<uid>` /
+request (`SUBMITTED_TO_GROUP`, or `SUBMITTED_TO_TEACHER` to the exercise's
+own teacher — TEACHER_REVIEW only), `group:<uid>` /
 `user:<username>` share, `public` publishes, `private` names no one. An
 absent audience on `pipeline=TEACHER_REVIEW` means `teachers`. There is no
 implicit role-based audience inference.
@@ -117,8 +117,9 @@ class UserEntryCreateRequest(CreateRequestBase):
             "Exercise this entry fulfills. With pipeline=TEACHER_REVIEW, "
             "`teachers` (the default) files the feedback request with the "
             "exercise's assigned groups the submitter belongs to "
-            "(SUBMITTED_TO_GROUP), or with the owner of a PERSONAL exercise anchored "
-            "to a published path step (SUBMITTED_TO_TEACHER)."
+            "(SUBMITTED_TO_GROUP), or else with the exercise's own teacher — the "
+            "teacher its vault file names, or the owner of a PERSONAL exercise "
+            "anchored to a published path step (SUBMITTED_TO_TEACHER)."
         ),
     )
     about_path_step_uid: EntityUID | None = Field(

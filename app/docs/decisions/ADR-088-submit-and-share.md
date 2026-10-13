@@ -1,6 +1,6 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-10-12
+updated: 2026-10-13
 status: implemented
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
@@ -15,13 +15,13 @@ below was built by the Submit & Share arc, PRs 1–8 (the last merged 2026-09-26
 walk-through verified it live on 2026-09-27 (arc doc § Verification, after the three pre-flight
 fixes #1427–#1429).
 **Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md)
-(2026-10-12; implementation pending):** every exercise names its teacher, and a feedback request on
+(2026-10-12; change 3 implemented):** every exercise names its teacher, and a feedback request on
 an exercise goes directly to that teacher (ADR-091 S3). That replaces §8's curriculum default-group
 fallback and §9's route to the owner of an anchored PERSONAL exercise; the `teachers` row of the
 audience table changes with them. Work submitted against a revised exercise goes to the named
 teacher of the exercise it revises (ADR-091 N8). The two verbs, both group-link kinds, `teacher:<group_uid>` and
-sharing are unchanged. **§8's fallback and §9's owner route stay live until the ADR-091 change that
-replaces them merges.**
+sharing are unchanged. **§8's curriculum fallback is retired (ADR-091 change 3); §9's owner route
+stays live for owned exercises until ADR-091 change 4 removes them.**
 **Date:** 2026-09-24
 **Deciders:** MCF
 **Decision Type:** ☑ Graph Schema  ☑ Pattern/Practice
@@ -216,8 +216,8 @@ touch a `SUBMITTED_TO_GROUP` feedback request.
 
 ### 8. `teacher:<group_uid>` — per-teacher targeting (Refinement 2)
 
-*The curriculum default-group fallback below is superseded by ADR-091 S3 (implementation pending;
-live until its change merges).*
+*The curriculum default-group fallback below is superseded by ADR-091 S3 and retired (change 3): a
+feedback request on a curriculum exercise goes to the teacher its vault file names.*
 
 A student in several classes can already direct a feedback request to one teacher's group (the
 review queue pins the read side of this). That route is named `teacher:<group_uid>`: a
@@ -231,8 +231,8 @@ request.
 ### 9. Submit has two targets: a group or one teacher (amended 2026-10-10)
 
 *The route to the owner of an anchored PERSONAL exercise is superseded by ADR-091 S3: a feedback
-request on an exercise goes to the teacher its vault file names (implementation pending; live until
-its change merges).*
+request on an exercise goes to the teacher its vault file names (`REVIEWED_BY`, change 3). The owner
+route stays live for owned exercises until ADR-091 change 4 removes them.*
 
 ```
 entry ──SUBMITTED_TO_GROUP {submitted_at}───▶ Group ◀─OWNS── teacher   read by the group's owning teachers

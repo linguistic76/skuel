@@ -32,11 +32,10 @@ Create flow
    step 2 wrote anything) — skipped for a living entry, which names none:
      - ``pipeline=TEACHER_REVIEW`` → a feedback request, ``SUBMITTED_TO_GROUP``:
        ``teacher:<group_uid>`` targets, and ``teachers`` (the default) as
-       the exercise's assigned groups the submitter belongs to (curriculum
-       exercise: the submitter's default group; a PERSONAL exercise anchored
-       to a published PathStep: ``SUBMITTED_TO_TEACHER`` to its owner,
-       ADR-088 §9; no exercise: every group
-       they study in). A request that would reach no teacher is refused
+       the exercise's assigned groups the submitter belongs to (else
+       ``SUBMITTED_TO_TEACHER`` to the exercise's teacher — the one its vault
+       file names, ADR-091 S3, or an anchored PERSONAL exercise's owner,
+       ADR-088 §9; no exercise: every group they study in). A request that would reach no teacher is refused
        before the write (ADR-054 §3: no silent no-audience turn-ins).
      - every pipeline → ``group:`` / ``user:`` are shares; a feedback
        target on a pipeline other than TEACHER_REVIEW writes no link
