@@ -24,12 +24,10 @@ from fasthtml.common import (
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from core.models.enums.user_entry_enums import ExerciseScope
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
 from ui.exercises.inline_form import render_inline_exercise_form
 from ui.feedback import Badge, BadgeT
-from ui.layout import Size
 
 logger = get_logger("skuel.routes.ku.ui")
 
@@ -123,13 +121,10 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
                 )
             )
         else:
-            scope = e.get("scope", "personal")
-            scope_variant = BadgeT.secondary if scope == ExerciseScope.ASSIGNED else BadgeT.ghost
             due = e.get("due_date")
             due_span = Span(f" · due {due}", cls="text-xs text-muted-foreground") if due else None
             row_parts: list[Any] = [
                 Span(e.get("title", "Untitled Exercise"), cls="text-sm font-medium"),
-                Badge(scope.title(), variant=scope_variant, size=Size.sm, cls="ml-2"),
             ]
             if due_span:
                 row_parts.append(due_span)

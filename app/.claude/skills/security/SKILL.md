@@ -247,7 +247,7 @@ When adding a new route, verify:
 
 | Check | Rule | Details |
 |-------|------|---------|
-| No raw string role/scope/status comparisons | — | Use `UserRole` enum (not `== "admin"`), `ExerciseScope` enum (not `== "assigned"`), `EntityStatus` enum (not `== "completed"`) |
+| No raw string role/scope/status comparisons | — | Use `UserRole` enum (not `== "admin"`), `Pipeline` enum (not `== "teacher_review"`), `EntityStatus` enum (not `== "completed"`) |
 | No raw Cypher formatting | CYP003 | All values parameterized |
 | No Cypher above the boundary | SKUEL021 | Cypher lives in `adapters/persistence/neo4j/` only |
 | No auth call inside a role-gated handler | SKUEL036 | `@require_*` already authenticated — `UserUID(current_user.uid)` |

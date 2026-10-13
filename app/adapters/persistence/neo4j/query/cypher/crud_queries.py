@@ -18,7 +18,7 @@ from dataclasses import fields, is_dataclass
 from typing import Any, get_origin, get_type_hints
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
-from core.models.enums import EntityType, ExerciseScope, PublicationState, SearchVisibility
+from core.models.enums import EntityType, PublicationState, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, Neo4jValue, UserUID
@@ -232,42 +232,6 @@ def build_publication_clause(entity_alias: str = "n") -> tuple[str, dict[str, st
         f"({entity_alias}.publication_state IS NULL"
         f" OR {entity_alias}.publication_state <> $publication_draft)",
         {"publication_draft": PublicationState.DRAFT.value},
-    )
-
-
-def build_anchored_exercise_clause(
-    entity_alias: str,
-    *,
-    step_alias: str = "anchor_step",
-    scope_param: str = "anchored_personal_scope",
-) -> tuple[str, dict[str, str]]:
-    """Build THE anchored-exercise predicate: a PERSONAL exercise anchored to a published PathStep.
-
-    A teacher who hangs a PERSONAL exercise from a shared PathStep
-    (``(:PathStep)-[:HAS_EXERCISE]->(exercise)``) contributes it to the step: the
-    step's publication decides who may read it (the SCOPE_AWARE clause) and who
-    its owner reviews for (a feedback request filed directly to that owner,
-    ``SUBMITTED_TO_TEACHER`` — ADR-088 §9). Every reader of the rule composes this
-    one function, never a restatement. A draft step anchors nothing; any other
-    scope is never admitted by the anchor.
-
-    ``step_alias`` names the anchoring step inside the ``EXISTS`` and
-    ``scope_param`` the scope parameter, so a statement composing the predicate
-    twice keeps its names apart.
-
-    Returns:
-        ``(fragment, params)`` — a parenthesized WHERE fragment plus the
-        parameters it introduces.
-    """
-    validate_identifier(entity_alias, context="entity alias")
-    validate_identifier(step_alias, context="step alias")
-    validate_identifier(scope_param, context="scope parameter")
-    step_published, params = build_publication_clause(step_alias)
-    return (
-        f"({entity_alias}.scope = ${scope_param}"
-        f" AND EXISTS {{ MATCH ({step_alias}:{NeoLabel.PATH_STEP.value})"
-        f"-[:{RelationshipName.HAS_EXERCISE.value}]->({entity_alias}) WHERE {step_published} }})",
-        {**params, scope_param: ExerciseScope.PERSONAL.value},
     )
 
 
@@ -516,8 +480,8 @@ def build_search_visibility_clause(
     fragment references
     ``$user_uid`` when ``has_user`` is True; callers must add it to params
     (they own the value). Constants the clause itself references (the
-    curriculum scope literal) come back in the returned params dict —
-    merge it into the query params verbatim.
+    publication literal) come back in the returned params dict — merge it
+    into the query params verbatim.
 
     Semantics per SearchVisibility:
         None: no declaration — falls back to OWNER_ONLY when a user is
@@ -540,26 +504,6 @@ def build_search_visibility_clause(
             Deriving ``has_user`` from ``user_uid is not None`` inverts that
             into a cross-user disclosure — it drops the predicate exactly
             when it is needed.
-        SCOPE_AWARE: CURRICULUM-scope entities are always visible; owned
-            scopes require the ``owner_uid`` claim, :OWNS, :SHARES_WITH, or
-            group membership (:MEMBER_OF + :SHARED_WITH_GROUP). A PERSONAL
-            entity anchored to a published PathStep (``(:PathStep)-[:HAS_EXERCISE]->``)
-            is the step's, so any signed-in user (a non-null ``$user_uid``)
-            reads it: the step's publication decides the audience, so it
-            applies even with the gate off, and the entity's own draft state
-            follows the gate as CURRICULUM's does. Without a user, only CURRICULUM survives — shared content
-            is the fail-closed floor.
-
-            ``owner_uid`` is checked alongside the :OWNS edge because the two
-            are a dual write whose halves can be split in stored data: on
-            Exercise the node persists first, and until the ADR-086 hardening
-            (2026-08-28) a failed OWNS write only *warned*, so an owner could
-            hold a create that reported success while the edge was missing.
-            ``create()`` now returns that failure, but nodes written before it
-            remain. Trusting the edge alone hides such an entity from its own
-            owner. Reading either half keeps the owner's claim whole; both
-            halves are written only by paths that already own the entity, so
-            this widens the audience by nothing else.
         OWNER_OR_AUDIENCE: the owner arm (``ownership_property``) OR the
             audience fragment (``build_audience_fragment``: a direct
             :SHARES_WITH, or :MEMBER_OF / :OWNS of an active group the entity
@@ -583,15 +527,10 @@ def build_search_visibility_clause(
     # domains (Activities, UserEntry) are excluded deliberately: they are not
     # curriculum, carry no publication_state, and their owner sees their own
     # work regardless of how finished it is.
-    gated = apply_publication_gate and visibility in (
-        SearchVisibility.PUBLIC,
-        SearchVisibility.SCOPE_AWARE,
-    )
-    published, published_params = build_publication_clause(entity_alias) if gated else ("", {})
-    if gated and visibility is SearchVisibility.PUBLIC:
-        return published, published_params
+    if visibility is SearchVisibility.PUBLIC:
+        return build_publication_clause(entity_alias) if apply_publication_gate else None
 
-    if visibility is None or visibility is SearchVisibility.PUBLIC:
+    if visibility is None:
         return None
 
     validate_identifier(entity_alias, context="entity alias")
@@ -610,53 +549,7 @@ def build_search_visibility_clause(
         audience = build_audience_fragment(alias)
         return f"({alias}.{ownership_property} = $user_uid OR {audience})", {}
 
-    if visibility is not SearchVisibility.SCOPE_AWARE:
-        raise ValueError(f"build_search_visibility_clause: no audience rule for {visibility!r}")
-
-    # SCOPE_AWARE — the scope value rides as a parameter (SKUEL021: only
-    # identifiers that Cypher cannot parameterize, like relationship types
-    # and labels, are interpolated — property VALUES never are).
-    #
-    # The publication gate binds to the shared half only: shared content must be
-    # finished to face an audience, but an owner always sees their own
-    # unfinished work (gating the owned half would hide a user's draft from
-    # the user who is drafting it).
-    scope_params = {
-        "visibility_curriculum_scope": ExerciseScope.CURRICULUM.value,
-        **published_params,
-    }
-    curriculum_scope = f"{alias}.scope = $visibility_curriculum_scope"
-    if not has_user:
-        floor = f"({curriculum_scope} AND {published})" if gated else f"({curriculum_scope})"
-        return f"({floor})", scope_params
-    owns = RelationshipName.OWNS.value
-    shares = RelationshipName.SHARES_WITH.value
-    member_of = RelationshipName.MEMBER_OF.value
-    shared_with_group = RelationshipName.SHARED_WITH_GROUP.value
-    group_label = NeoLabel.GROUP.value
-    # The shared half: CURRICULUM, or a PERSONAL exercise anchored to a PathStep — the
-    # step's, so any signed-in learner reads it while the step is published. Signed in
-    # is the bound user, so a caller passing a null user (the fail-closed spelling) is
-    # floored at CURRICULUM as an anonymous one is. The step's publication decides the
-    # audience, so it holds whatever the gate flag says; the exercise's own draft state
-    # is the gate's, as CURRICULUM's is.
-    anchored_clause, anchored_params = build_anchored_exercise_clause(
-        alias, step_alias="visibility_anchor_step", scope_param="visibility_personal_scope"
-    )
-    scope_params.update(anchored_params)
-    anchored = f"({anchored_clause} AND $user_uid IS NOT NULL)"
-    shared = f"({curriculum_scope} OR {anchored})"
-    if gated:
-        shared = f"({shared} AND {published})"
-    return (
-        f"({shared}"
-        f" OR {alias}.owner_uid = $user_uid"
-        f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{owns}]->({alias}) }}"
-        f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{shares}]->({alias}) }}"
-        f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{member_of}]->"
-        f"(:{group_label})<-[:{shared_with_group}]-({alias}) }})",
-        scope_params,
-    )
+    raise ValueError(f"build_search_visibility_clause: no audience rule for {visibility!r}")
 
 
 def build_text_search_query(

@@ -40,7 +40,7 @@ Both take the domain model class first — the Cypher label is derived from it (
 > Omit them and the builder emits **no** `target.user_uid` predicate — for an `OWNER_ONLY`
 > domain that is an IDOR. Pass the domain's `SearchVisibility` (from its `DomainConfig`)
 > and the requesting user's UID on every user-facing search. `OWNER_ONLY` = Activities +
-> UserEntry; `PUBLIC` = Ku/PS/LP; `SCOPE_AWARE` = Exercise.
+> UserEntry; `PUBLIC` = Ku/PS/LP/Exercise.
 
 ```python
 from adapters.persistence.neo4j.query.cypher import (

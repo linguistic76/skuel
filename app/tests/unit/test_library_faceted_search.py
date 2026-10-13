@@ -531,19 +531,6 @@ class TestTagVocabularyScope:
         assert tasks.search.scopes_received == ["user_alice"]
 
     @pytest.mark.asyncio
-    async def test_scope_aware_domain_is_skipped_rather_than_property_scoped(self) -> None:
-        # SCOPE_AWARE scope lives in :OWNS / :SHARES_WITH / group edges, which
-        # a `user_uid` property filter cannot express — it would silently drop
-        # shared rows and misreport the rest. Refusing beats answering wrongly.
-        exercises = _TagDomain({"drill": 1}, SearchVisibility.SCOPE_AWARE)
-        router = SearchRouter(ku=_TagDomain({"breath": 1}), exercises=exercises)
-
-        result = await router.list_tags((EntityType.KU, EntityType.EXERCISE), "user_alice")
-
-        assert result.value == ["breath"]
-        assert exercises.search.scopes_received == []
-
-    @pytest.mark.asyncio
     async def test_a_domain_scoping_another_property_is_refused(self) -> None:
         # The vocabulary query scopes on `user_uid` specifically. A domain that
         # declares a different ownership property (Group: `owner_uid`, ADR-086)

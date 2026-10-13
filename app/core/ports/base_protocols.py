@@ -942,7 +942,7 @@ class RelationshipCrudOperations(Protocol):
         """Owners of each node, for many nodes in one query (uid -> owning user UIDs).
 
         Resolves all three spellings of ownership — ``user_uid`` (UserOwnedEntity),
-        ``owner_uid`` (Exercise, Group) and the ``OWNS`` edge. Only owned nodes appear:
+        ``owner_uid`` (Group) and the ``OWNS`` edge. Only owned nodes appear:
         shared content (Ku, PathStep, LearningPath) has none of the three and is absent.
         Callers turning request-supplied UIDs into edges use this to refuse cross-user
         endpoints, asking whether the caller is AMONG the owners.

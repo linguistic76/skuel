@@ -336,7 +336,8 @@ exercise that has no vault file and so names no teacher. Change 3 must not leave
 with no feedback target: either it keeps the owner route for owned exercises until change 4 removes
 them, or the two land together. (Live on 2026-10-12 there were no owned exercises.) Change 3
 took the first: it routes a request on an exercise to its `REVIEWED_BY` teacher and retires the
-default-group fallback, and keeps the owner route for owned exercises until change 4 removes them.
+default-group fallback. Change 4 removed owned exercises and the owner route with them, so
+`SUBMITTED_TO_TEACHER` now always names the exercise's `REVIEWED_BY` teacher.
 
 ---
 
@@ -362,3 +363,4 @@ Every note says the old behaviour stays live until the change that replaces it m
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-10-12 | MCF | Accepted: the commitment and rulings S1–S9, then the split (S5 and S6 withdrawn) and N1–N9; supersession notes added to the records above, each live until its implementing change | 1.0 |
+| 2026-10-13 | Claude Code | Change 4 implemented: the in-app exercise doors, the PERSONAL/ASSIGNED/ASSESSMENT scopes, group assignment, the owner route and the `group_assigned_*` reader are gone; Exercise's audience is PUBLIC | 1.1 |

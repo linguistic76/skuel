@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-10-11
+updated: 2026-10-13
 status: current
 category: architecture
 tags:
@@ -62,7 +62,7 @@ param → `Services` field, so `supports_search()` can't lie).
 |-------|---------|-----------|-------------|
 | Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | `OWNER_ONLY` | Graph-Aware |
 | Curriculum (3) | Ku, PS, LP | `PUBLIC` (shared, no filter) | Graph-Aware |
-| Learning Loop (3) | Exercise (`SCOPE_AWARE`), RevisedExercise + UserEntry (`OWNER_ONLY`) | mixed | Graph-Aware |
+| Learning Loop (3) | Exercise (`PUBLIC` — curriculum, ADR-091 S2), RevisedExercise + UserEntry (`OWNER_ONLY`) | mixed | Graph-Aware |
 
 **Ku inclusion (July 2026):** Ku joined `_SEARCHABLE_DOMAINS` once the content
 campaigns made Kus full lessons (bodies + NOUS topic membership). The old
@@ -136,14 +136,13 @@ attendance (implemented only when the attendee surface wires).
 `DomainConfig.search_visibility` (`core/models/enums/metadata_enums.py`) is THE
 scoping declaration for text, tags, graph-traversal, and faceted search alike.
 `DomainConfig.get_search_visibility()` derives it when unset — an ownership
-relationship implies `OWNER_ONLY`, its absence implies `PUBLIC` — so only
-genuinely instance-scoped domains declare it explicitly.
+relationship implies `OWNER_ONLY`, its absence implies `PUBLIC` — so a domain
+declares it explicitly only where the derivation is wrong.
 
 | Value | Domains | Semantics |
 |-------|---------|-----------|
-| `PUBLIC` | PS, LP, KU | No filter — shared curriculum content |
+| `PUBLIC` | PS, LP, KU, Exercise | No ownership filter — shared curriculum content (every exercise is curriculum, authored in the content vault, ADR-091 S2, S4); discovery applies the publication gate |
 | `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.{ownership_property} = $user_uid` on the domain's declared `DomainConfig.ownership_property` (default `user_uid`; Group declares `owner_uid` — ADR-086) — **every** strategy, faceted included (see the convergence note below) |
-| `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; a PERSONAL exercise anchored to a published PathStep (`(:PathStep)-[:HAS_EXERCISE]->`) is the step's and visible to every signed-in user; otherwise owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's unanchored PERSONAL template. Without a user, CURRICULUM alone |
 | `OWNER_OR_AUDIENCE` | UserEntry — as its `read_visibility` only | The owner arm OR the **audience fragment** (`build_audience_fragment`, ADR-088 §3): a direct `:SHARES_WITH`, or `:MEMBER_OF` / `:OWNS` of an **active** group the entry is `:SHARED_WITH_GROUP` to (strict `is_active = true`). A feedback request (`:SUBMITTED_TO_GROUP`) admits nobody here. Never a search declaration — `DomainConfig` refuses it |
 
 ### Opening by UID follows `read_visibility` (ADR-088 §5)
@@ -198,7 +197,7 @@ reads it per domain and decides the scope:
 |---|---|
 | `PUBLIC` | counted corpus-wide |
 | `OWNER_ONLY` | counted for the caller ALONE; **skipped entirely without a `user_uid`** |
-| `SCOPE_AWARE` | **skipped** — its scope lives in `:OWNS`/`:SHARES_WITH`/group edges, which a property filter cannot express. Refusing beats answering wrongly |
+| anything else | **skipped** — an audience in share edges is something a property filter cannot express. Refusing beats answering wrongly |
 
 Two properties keep this inside ADR-085's spirit rather than beside it: the decision input
 is the same declaration (never a second notion of ownership), and **every failure direction
@@ -289,13 +288,13 @@ the builder list, so a sixth builder inherits it) and
 
 **Fail-closed rules:**
 - `advanced_search` without `request.user_uid` skips user-owned domains
-  entirely and returns curriculum-only for `SCOPE_AWARE` — shared content is
-  the unscoped floor. `/api/search/unified` always passes the authenticated uid.
+  entirely and returns the `PUBLIC` domains — shared content is the unscoped
+  floor. `/api/search/unified` always passes the authenticated uid.
 - A raw-layer caller passing `user_uid` with no visibility declaration gets
   `OWNER_ONLY` scoping by default (scoping-by-default; PUBLIC must be declared).
 - **`SearchRouter.search()` refuses an `OWNER_ONLY` domain with no user** —
-  the text strategy's chokepoint. Only `PUBLIC` (shared curriculum) and
-  `SCOPE_AWARE` (floors at CURRICULUM) may be searched anonymously; a service
+  the text strategy's chokepoint. Only `PUBLIC` (shared curriculum) may be
+  searched anonymously; a service
   that declares nothing is refused too (default-deny). Every aggregate caller
   — `search_domains`, `_cross_domain_search`, `_simple_domain_search` — already
   treats a failed domain result as "contributes nothing", so refusing reads as
@@ -393,8 +392,7 @@ response = await search_router.faceted_search(request, user_uid)
 2. Domain service executes `graph_aware_faceted_search(request, user_uid, driver)`
 3. Builds Cypher with:
    - Visibility scoping per the domain's `SearchVisibility` declaration
-     (`OWNER_ONLY`: ownership MATCH; `PUBLIC`: none for KU/PS/LP;
-     `SCOPE_AWARE`: Exercise scope/sharing WHERE fragment)
+     (`OWNER_ONLY`: ownership MATCH; `PUBLIC`: the publication gate only)
    - Property filters from `SearchRequest`
    - Graph pattern filters (`ready_to_learn`, `supports_goals`, etc.)
 4. Enriches results with `_graph_context` (prerequisites, enables, relationships, learning state)
@@ -860,9 +858,8 @@ Measured limits of the fulltext half (Neo4j 2026.06.0):
 
 Both visibility halves are deliberate redundancy: the allowlist alone would not notice
 a domain's `SearchVisibility` changing, and the live read alone would admit any PUBLIC
-domain the arc never reviewed. **Exercise is deliberately excluded** — its
-`SCOPE_AWARE` visibility needs `user_uid` threading, deferred to the D1(b) follow-on
-in `docs/roadmap/deferred-work.md`.
+domain the arc never reviewed. **Exercise is not in the allowlist** — admitting it is
+left to the D1(b) follow-on in `docs/roadmap/deferred-work.md`.
 
 **Publication gating:** `VectorSearchBackend.query_fulltext_index` composes
 `build_publication_clause` exactly as its vector twin does — hybrid search reads both

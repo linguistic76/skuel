@@ -33,8 +33,6 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest
-from core.models.exercises.exercise import Exercise
-from core.models.exercises.exercise_request import ExerciseCreateRequest
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
 from core.models.forms.form_template import FormTemplate
@@ -299,32 +297,6 @@ class ConversionServiceV2:
         """Convert FormTemplateCreateRequest to FormTemplate using generic method."""
         return cls.create_to_pure(schema, FormTemplate, uid, **kwargs)
 
-    # --- Exercise Conversions --
-    @classmethod
-    def exercise_create_to_pure(
-        cls, schema: ExerciseCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> Exercise:
-        """Convert ExerciseCreateRequest to Exercise.
-
-        Handles: name→title, user_uid kwarg→owner_uid, domain str→enum.
-        """
-        from core.models.enums import Domain
-        from core.models.enums.entity_enums import EntityType
-
-        extra_fields: dict[str, Any] = {
-            "entity_type": EntityType.EXERCISE,
-            "title": schema.name,
-            "domain": Domain(schema.domain) if schema.domain else Domain.KNOWLEDGE,
-            # Exercise.context_notes is a non-optional tuple — schema None maps to ()
-            "context_notes": schema.context_notes or (),
-        }
-        # Ownership's single source: the authenticated user_uid kwarg (injected
-        # by CRUDRouteFactory). The schema deliberately carries no user_uid.
-        if "user_uid" in kwargs:
-            extra_fields["owner_uid"] = kwargs.pop("user_uid")
-        extra_fields.update(kwargs)
-        return cls.create_to_pure(schema, Exercise, uid, **extra_fields)
-
     # --- RevisedExercise Conversions --
     @classmethod
     def revisedexercise_create_to_pure(
@@ -502,7 +474,6 @@ ConversionServiceV2.CONVERTER_REGISTRY = {
     PrincipleCreateRequest: ConversionServiceV2.principle_create_to_pure,
     ChoiceCreateRequest: ConversionServiceV2.choice_create_to_pure,
     FormTemplateCreateRequest: ConversionServiceV2.formtemplate_create_to_pure,
-    ExerciseCreateRequest: ConversionServiceV2.exercise_create_to_pure,
     RevisedExerciseCreateRequest: ConversionServiceV2.revisedexercise_create_to_pure,
     GroupCreateRequest: ConversionServiceV2.group_create_to_pure,
     # Activity Templates (Phase 5 — May 2026)

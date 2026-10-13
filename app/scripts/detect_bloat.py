@@ -246,21 +246,6 @@ PLANNED_EVENTS: dict[str, PlannedEntry] = {
         since=date(2026, 6, 10),
         blocked_by="HabitMissed — Publisher-less Chain",
     ),
-    # Exercises dead-code campaign (2026-06): ADR-040 teacher-assignment
-    # notification hook. Neither published nor subscribed — its sibling
-    # ExerciseSubmitted was deleted (superseded by the live UserEntryCreated
-    # after the ADR-054 UserEntry collapse), but the assignment-notification
-    # moment ExerciseCreated marks has no live equivalent.
-    "ExerciseCreated": PlannedEntry(
-        Readiness.DELAYED,
-        "teacher-assignment notification + calendar-integration hook staged "
-        "(ADR-040) — publish side (notify group members + calendar due-date on "
-        "exercise assignment) never built and no subscriber wired; same staged "
-        "assignment-notification family as review_queue.request_review — wire "
-        "when the assignment-notification / "
-        "Messaging surface lands, or delete the chain",
-        since=date(2026, 6, 13),
-    ),
     # Campaign 18 (2026-06): events with subscribers but no publisher — staging
     "KnowledgeCreated": PlannedEntry(
         Readiness.DELAYED,
@@ -762,30 +747,6 @@ _MIXIN_ARRAY_SEARCH = PlannedEntry(
     "into the search box (Mike ruled PLANNED 2026-06-13)",
     since=date(2026, 6, 13),
 )
-# Exercises dead-code campaign (2026-06, campaign 17): teacher-management half
-# of the exercise lifecycle. delete_exercise was DELETED (superseded by the
-# generic CRUDRouteFactory delete route → ownership-verified service.delete_for_user),
-# but these two have no live winner — the live exercise-listing family
-# (get_student_exercises_with_status) is a STUDENT view, and no route archives an exercise.
-_EXERCISES_GROUP_LISTING = PlannedEntry(
-    Readiness.DELAYED,
-    "teacher group-roster listing staged — 'all ASSIGNED exercises for a group' "
-    "(find_by group_uid, scope='assigned'); the live "
-    "get_student_exercises_with_status read is the STUDENT view (a learner's "
-    "exercises across their groups, via MEMBER_OF + SHARED_WITH_GROUP), a "
-    "different job with no superseded loser. Wire a teacher group-detail "
-    "exercises panel consuming it (Mike ruled PLANNED 2026-06-13)",
-    since=date(2026, 6, 13),
-)
-_EXERCISES_ARCHIVE = PlannedEntry(
-    Readiness.DELAYED,
-    "exercise archive soft-delete staged — writes status='archived'; the live "
-    "delete path is the generic ownership-verified hard delete (CRUDRouteFactory "
-    "→ service.delete_for_user) and ExerciseUpdateRequest carries no status field "
-    "(only is_active), so no live route reaches archiving. Wire an archive/restore "
-    "control on the exercise detail page (Mike ruled PLANNED 2026-06-13)",
-    since=date(2026, 6, 13),
-)
 # Keyed "relative/path.py::method_name".
 # NOTE (ADR-075): AgentSession.call / AgentChannelRegistry.get were PLANNED here
 # between B2 and B3; the detector stopped flagging them (test coverage + name
@@ -886,8 +847,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # _MIXIN_ARRAY_SEARCH); still genuinely unwired, tracked in that comment.
     "core/services/mixins/search_operations_mixin.py::search_array_field": _MIXIN_ARRAY_SEARCH,
     # --- Exercises: teacher-management half (campaign 17) ---
-    "core/services/exercises/exercise_service.py::list_group_exercises": (_EXERCISES_GROUP_LISTING),
-    "core/services/exercises/exercise_service.py::deactivate_exercise": _EXERCISES_ARCHIVE,
     # --- Habits: due-today machinery (get_all_habits_due_today + by_frequency remain unwired
     # — admin/scheduler scope, not per-user API) ---
     "core/services/habits_service.py::get_all_habits_due_today": _HABITS_DUE_TODAY,

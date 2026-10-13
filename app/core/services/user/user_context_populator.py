@@ -636,20 +636,13 @@ class UserContextPopulator:
         context.life_path_goal_uids = set(rich_data.get("life_path_goal_uids") or [])
 
     def populate_group_awareness(self, context: UserContext, data: dict[str, Any]) -> None:
-        """Populate group membership, ownership, and group-assigned curriculum fields.
+        """Populate group membership and ownership fields.
 
         data: dict from UserContextQueryExecutor.fetch_user_groups() with keys
-        user_groups, teacher_groups, group_assigned_{exercise,path_step,learning_path}_uids.
+        user_groups and teacher_groups.
         """
         context.user_groups = list(data.get("user_groups") or [])
         context.teacher_groups = list(data.get("teacher_groups") or [])
-        context.group_assigned_exercise_uids = list(data.get("group_assigned_exercise_uids") or [])
-        context.group_assigned_path_step_uids = list(
-            data.get("group_assigned_path_step_uids") or []
-        )
-        context.group_assigned_learning_path_uids = list(
-            data.get("group_assigned_learning_path_uids") or []
-        )
 
     def populate_activity_report(self, context: UserContext, record: dict[str, Any] | None) -> None:
         """Populate latest activity report reference fields.

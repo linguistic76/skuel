@@ -2,10 +2,9 @@
 Exercise Routes - Configuration-Driven Registration
 ======================================================
 
-Wires Exercise API and UI routes using DomainRouteConfig.
-Exercises provide reusable LLM instruction templates for any submission type.
-
-Formerly assignments_routes.py — renamed per of Ku hierarchy refactoring.
+Wires Exercise API and UI routes using DomainRouteConfig. An exercise is authored
+only in the content vault (ADR-091 S4), so the domain registers no CRUD routes:
+the app reads exercises and records what learners do with them.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -13,14 +12,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.exercises_api import create_exercises_api_routes
 from adapters.inbound.exercises_ui import create_exercises_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
-from adapters.inbound.route_factories import (
-    CRUDRouteConfig,
-    DomainRouteConfig,
-    register_domain_routes,
-)
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
-from core.models.exercises.exercise_request import ExerciseCreateRequest, ExerciseUpdateRequest
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
@@ -36,18 +28,6 @@ EXERCISES_CONFIG = DomainRouteConfig(
         "user_service": "user",
         "intelligence_tier": "intelligence_tier",
     },
-    ui_related_services={
-        "transcript_service": "content_enrichment",
-        "user_service": "user",
-    },
-    crud=CRUDRouteConfig(
-        create_schema=ExerciseCreateRequest,
-        update_schema=ExerciseUpdateRequest,
-        uid_prefix="ex",
-        scope=ContentScope.USER_OWNED,
-        require_role=UserRole.TEACHER,
-        user_service_attr="user",
-    ),
 )
 
 

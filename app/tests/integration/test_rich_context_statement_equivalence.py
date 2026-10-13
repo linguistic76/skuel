@@ -30,7 +30,7 @@ string on the node, which no Cypher projection iterates).
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Any
 
 import pytest
@@ -45,7 +45,9 @@ from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, toda
 from core.utils.zone_context import current_zone
 
 _USER_UID = UserUID("user_test")
-_SEEDED_AT = datetime(2026, 9, 13, 12, 0, 0)
+# Noon yesterday: inside every activity window the reads apply (a fixed calendar
+# date ages out of the 30-day window and drops the in-window rows the test pins).
+_SEEDED_AT = datetime.combine(datetime.now().date() - timedelta(days=1), time(12, 0))
 
 _SEED = """
 MATCH (u:User {uid: $user_uid})

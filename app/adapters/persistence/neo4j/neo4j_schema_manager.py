@@ -523,8 +523,8 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
 
         # User uid uniqueness (ADR-086 / ownership bundle): every ownership
         # read anchors on (u:User {uid: $user_uid}) — MEGA-QUERY, the
-        # get_user_entities list path, the GDPR cascade, the SCOPE_AWARE
-        # disjuncts — yet uid carried no index, so each anchor was a
+        # get_user_entities list path, the GDPR cascade, the audience
+        # fragment — yet uid carried no index, so each anchor was a
         # NodeByLabelScan. The constraint doubles as the seek index and pins
         # the identity invariant every :OWNS write door assumes (measured
         # live 2026-08-21: 6 users, zero duplicate uids — builds cleanly).

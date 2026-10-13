@@ -41,7 +41,7 @@ async def test_review_queue_isolates_by_group_ownership(
     student_b = await seed_user("user_student_b", name="Student B")
     group_b = await seed_group("group.b", teacher_b)
     await seed_membership(student_b, group_b)
-    exercise_b = await seed_exercise("exercise.b", group_uid=group_b)
+    exercise_b = await seed_exercise("exercise.b", teacher_uid=teacher_b, learner_uids=(student_b,))
 
     # --- Submissions ---
     # 1. Student A → classroom A (teacher_review) — should land in A's queue only
@@ -50,6 +50,7 @@ async def test_review_queue_isolates_by_group_ownership(
             title="A1",
             pipeline=Pipeline.TEACHER_REVIEW,
             fulfills_exercise_uid=ctx_a["exercise_uid"],
+            audience=f"teacher:{ctx_a['group_uid']}",
         ),
         user_uid=ctx_a["student_uid"],
     )
@@ -61,6 +62,7 @@ async def test_review_queue_isolates_by_group_ownership(
             title="B1",
             pipeline=Pipeline.TEACHER_REVIEW,
             fulfills_exercise_uid=exercise_b,
+            audience=f"teacher:{group_b}",
         ),
         user_uid=student_b,
     )
@@ -109,23 +111,25 @@ async def test_a_request_to_two_classes_of_one_teacher_lists_once(
     seed_membership,
     seed_exercise,
 ) -> None:
-    """An exercise assigned to two of a teacher's classes, answered by a
-    student in both: ``teachers`` files one ``SUBMITTED_TO_GROUP`` per class,
-    and the teacher's queue and detail read still see one feedback request."""
+    """A student in two of a teacher's classes sends one turn-in to both:
+    one ``SUBMITTED_TO_GROUP`` per class, and the teacher's queue and detail
+    read still see one feedback request."""
     teacher = await seed_user("user_teacher_two_classes", name="Teacher")
     student = await seed_user("user_student_two_classes", name="Student")
     class_1 = await seed_group("group.two-classes-1", teacher)
     class_2 = await seed_group("group.two-classes-2", teacher)
     await seed_membership(student, class_1)
     await seed_membership(student, class_2)
-    exercise = await seed_exercise("exercise.two-classes", group_uid=class_1)
-    await seed_exercise("exercise.two-classes", group_uid=class_2)
+    exercise = await seed_exercise(
+        "exercise.two-classes", teacher_uid=teacher, learner_uids=(student,)
+    )
 
     created = await user_entry_service.create_entry(
         request=UserEntryCreateRequest(
             title="Two classes",
             pipeline=Pipeline.TEACHER_REVIEW,
             fulfills_exercise_uid=exercise,
+            audience=[f"teacher:{class_1}", f"teacher:{class_2}"],
         ),
         user_uid=student,
     )

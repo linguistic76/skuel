@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-10-12
+updated: 2026-10-13
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -19,11 +19,10 @@ mechanism as built; the record is
 in which task state was outbound-only (2026-08-24 → 2026-09-16) is in the Changelog.
 
 **Decision 10 partially superseded by
-[ADR-091](ADR-091-one-door-for-curriculum.md) (2026-10-12; implementation
-pending):** its in-app exception, user-scoped exercises, goes (ADR-091 S4), and so does the
-prerequisite-suggestion approval that writes an Edge YAML into the content vault from the app
-(N3): Mike writes edge files himself. Both stay live until the ADR-091 change that removes them
-merges.
+[ADR-091](ADR-091-one-door-for-curriculum.md) (2026-10-12):** its in-app exception,
+user-scoped exercises, is gone (ADR-091 S4, change 4), and so goes the prerequisite-suggestion
+approval that writes an Edge YAML into the content vault from the app (N3): Mike writes edge
+files himself. The approval door stays live until ADR-091 change 7 removes it.
 
 **Date:** 2026-06-16
 
@@ -335,7 +334,7 @@ edges — plus CURRICULUM-scope Exercises. Verified 2026-09-03:
 
 **What SKUEL does author in-app** (the sole-author claim stops here): PERSONAL / ASSIGNED /
 ASSESSMENT exercises, which are user-owned. *(Superseded by ADR-091 S4: exercises are authored only
-in the content vault — implementation pending; live until its change merges.)* The six PathStep-owned Activity Templates keep a
+in the content vault — implemented, change 4.)* The six PathStep-owned Activity Templates keep a
 `/api/pathstep-{domain}-templates/*` JSON CRUD (TEACHER+), but the vault is their author.
 
 > **Amended 2026-09-05 — Activity Templates are no longer an exception.** Decision 10 named them

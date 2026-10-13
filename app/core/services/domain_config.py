@@ -161,7 +161,7 @@ class DomainConfig:
     # Search-result visibility (THE scoping declaration for every search
     # strategy — text, tags, graph traversal, faceted). None derives from
     # user_ownership_relationship via get_search_visibility(); set explicitly
-    # only when the derivation is wrong (Exercise: SCOPE_AWARE).
+    # only when the derivation is wrong.
     search_visibility: SearchVisibility | None = None
 
     # By-UID read visibility (the audience of ``get_visible_to_user``, ADR-085

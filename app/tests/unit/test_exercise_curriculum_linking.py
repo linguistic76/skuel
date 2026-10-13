@@ -2,9 +2,9 @@
 Exercise-Curriculum Linking Tests
 ==================================
 
-Validates of Ku hierarchy refactoring:
+Validates:
 - EXERCISE_CONFIG in relationship registry
-- ExerciseService curriculum linking methods
+- ExerciseService curriculum-link reads (the vault writes the links, ADR-091 S4)
 - ExerciseOperations protocol compliance
 """
 
@@ -13,7 +13,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.user_enums import UserRole
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
     ENTITY_TYPE_TO_LABEL,
@@ -23,14 +22,10 @@ from core.models.relationship_registry import (
 )
 from core.models.type_hints import UserUID
 from core.ports.curriculum_protocols import ExerciseOperations
-from core.services.exercises.exercise_service import AdmittedRequirementChange, ExerciseService
+from core.services.exercises.exercise_service import ExerciseService
 from core.utils.result_simplified import ErrorCategory, Result
 
 _OWNER = UserUID("user_owner")
-
-
-def _admitted(exercise_uid: str) -> AdmittedRequirementChange:
-    return AdmittedRequirementChange(exercise_uid, _OWNER)
 
 
 # =========================================================================
@@ -64,11 +59,11 @@ class TestExerciseRegistryConfig:
         rel_names = [r.relationship for r in outgoing]
         assert RelationshipName.REQUIRES_KNOWLEDGE in rel_names
 
-    def test_exercise_config_has_shared_with_group(self):
-        """EXERCISE_CONFIG should have SHARED_WITH_GROUP outgoing (ADR-053)."""
+    def test_exercise_config_has_no_group_assignment(self):
+        """No exercise is assigned to a group (ADR-091 S4): no SHARED_WITH_GROUP."""
         outgoing = EXERCISE_CONFIG.get_outgoing_relationships()
         rel_names = [r.relationship for r in outgoing]
-        assert RelationshipName.SHARED_WITH_GROUP in rel_names
+        assert RelationshipName.SHARED_WITH_GROUP not in rel_names
 
     def test_exercise_config_has_fulfills_exercise_incoming(self):
         """EXERCISE_CONFIG should have FULFILLS_EXERCISE incoming (submissions)."""
@@ -90,7 +85,7 @@ class TestExerciseRegistryConfig:
         """EXERCISE_CONFIG should expose expected method keys."""
         keys = EXERCISE_CONFIG.get_all_relationship_methods()
         assert "required_knowledge" in keys
-        assert "shared_groups" in keys
+        assert "shared_groups" not in keys
         assert "submissions" in keys
 
 
@@ -100,112 +95,13 @@ class TestExerciseRegistryConfig:
 
 
 class TestExerciseServiceCurriculumLinking:
-    """Test ExerciseService.link_to_curriculum and related methods."""
+    """Test ExerciseService's curriculum-link reads."""
 
     def _make_service(self) -> tuple[ExerciseService, AsyncMock]:
         """Create ExerciseService with mocked backend."""
         backend = AsyncMock()
         service = ExerciseService(backend=backend)
         return service, backend
-
-    @pytest.mark.anyio
-    @pytest.mark.parametrize(
-        ("owners", "caller", "role", "admitted"),
-        [
-            ([_OWNER], _OWNER, UserRole.TEACHER, True),
-            ([_OWNER], UserUID("user_other"), UserRole.TEACHER, False),
-            ([_OWNER], UserUID("user_admin"), UserRole.ADMIN, True),
-            ([], _OWNER, UserRole.TEACHER, False),  # ownerless CURRICULUM exercise
-            ([], UserUID("user_admin"), UserRole.ADMIN, True),
-            (None, _OWNER, UserRole.TEACHER, False),  # no such exercise
-            (None, UserUID("user_admin"), UserRole.ADMIN, False),
-        ],
-    )
-    async def test_admit_requirement_change(self, owners, caller, role, admitted):
-        """The owner, or an ADMIN on an exercise that exists; anyone else is not-found."""
-        service, backend = self._make_service()
-        backend.get_exercise_owners.return_value = Result.ok(owners)
-
-        result = await service.admit_requirement_change("ex_test_123", caller, role)
-
-        if admitted:
-            assert result.value == AdmittedRequirementChange("ex_test_123", caller)
-        else:
-            assert result.is_error
-            assert result.expect_error().category is ErrorCategory.NOT_FOUND
-        backend.get_exercise_owners.assert_awaited_once_with("ex_test_123")
-
-    @pytest.mark.anyio
-    async def test_an_unreadable_owner_admits_nobody(self):
-        """A failed owner read is propagated — an ADMIN is not admitted past it."""
-        service, backend = self._make_service()
-        from core.utils.result_simplified import Errors
-
-        backend.get_exercise_owners.return_value = Result.fail(
-            Errors.database("get_exercise_owners", "down")
-        )
-
-        result = await service.admit_requirement_change(
-            "ex_test_123", UserUID("user_admin"), UserRole.ADMIN
-        )
-
-        assert result.is_error
-
-    @pytest.mark.anyio
-    async def test_link_to_curriculum_success(self):
-        """link_to_curriculum should delegate to backend.link_to_curriculum."""
-        service, backend = self._make_service()
-        backend.link_to_curriculum.return_value = Result.ok(True)
-
-        result = await service.link_to_curriculum(_admitted("ex_test_123"), "ku_python_abc")
-
-        assert result.is_ok
-        assert result.value is True
-        backend.link_to_curriculum.assert_called_once_with("ex_test_123", "ku_python_abc")
-
-    @pytest.mark.anyio
-    async def test_link_to_curriculum_not_found(self):
-        """link_to_curriculum should propagate NotFound from backend."""
-        service, backend = self._make_service()
-        from core.utils.result_simplified import Errors
-
-        backend.link_to_curriculum.return_value = Result.fail(
-            Errors.not_found(
-                resource="Exercise or Curriculum KU", identifier="ex_missing -> ku_missing"
-            )
-        )
-
-        result = await service.link_to_curriculum(_admitted("ex_missing"), "ku_missing")
-
-        assert result.is_error
-
-    @pytest.mark.anyio
-    async def test_unlink_from_curriculum_success(self):
-        """unlink_from_curriculum should delegate to backend.unlink_from_curriculum."""
-        service, backend = self._make_service()
-        backend.unlink_from_curriculum.return_value = Result.ok(True)
-
-        result = await service.unlink_from_curriculum(_admitted("ex_test_123"), "ku_python_abc")
-
-        assert result.is_ok
-        assert result.value is True
-        backend.unlink_from_curriculum.assert_called_once_with("ex_test_123", "ku_python_abc")
-
-    @pytest.mark.anyio
-    async def test_unlink_from_curriculum_not_found(self):
-        """unlink_from_curriculum should propagate NotFound from backend."""
-        service, backend = self._make_service()
-        from core.utils.result_simplified import Errors
-
-        backend.unlink_from_curriculum.return_value = Result.fail(
-            Errors.not_found(
-                resource="REQUIRES_KNOWLEDGE relationship", identifier="ex_test_123 -> ku_missing"
-            )
-        )
-
-        result = await service.unlink_from_curriculum(_admitted("ex_test_123"), "ku_missing")
-
-        assert result.is_error
 
     @pytest.mark.anyio
     async def test_get_required_knowledge_success(self):
@@ -285,7 +181,7 @@ class TestExerciseServiceCurriculumLinking:
 
     @pytest.mark.anyio
     async def test_get_required_knowledge_for_user_passes_the_caller_to_the_backend(self):
-        """The audience-scoped read hands the backend the exercise AND the caller."""
+        """The audience read hands the backend the exercise AND the caller."""
         service, backend = self._make_service()
         backend.get_required_knowledge_for_user.return_value = Result.ok(
             [
@@ -306,8 +202,8 @@ class TestExerciseServiceCurriculumLinking:
         backend.get_required_knowledge_for_user.assert_called_once_with("ex_test_123", _OWNER)
 
     @pytest.mark.anyio
-    async def test_get_required_knowledge_for_user_is_not_found_outside_the_audience(self):
-        """The backend's None (absent OR out of audience) is one not-found of the exercise."""
+    async def test_get_required_knowledge_for_user_is_not_found_for_a_missing_exercise(self):
+        """The backend's None (no such exercise) is a not-found of the exercise."""
         service, backend = self._make_service()
         backend.get_required_knowledge_for_user.return_value = Result.ok(None)
 
@@ -325,19 +221,17 @@ class TestExerciseServiceCurriculumLinking:
 
 
 class TestExerciseOperationsProtocol:
-    """Verify ExerciseOperations protocol includes curriculum linking methods."""
+    """Verify ExerciseOperations declares the curriculum-link reads and no writers."""
 
-    def test_protocol_has_admit_requirement_change(self):
-        """ExerciseOperations should declare admit_requirement_change."""
-        assert hasattr(ExerciseOperations, "admit_requirement_change")
-
-    def test_protocol_has_link_to_curriculum(self):
-        """ExerciseOperations should declare link_to_curriculum."""
-        assert hasattr(ExerciseOperations, "link_to_curriculum")
-
-    def test_protocol_has_unlink_from_curriculum(self):
-        """ExerciseOperations should declare unlink_from_curriculum."""
-        assert hasattr(ExerciseOperations, "unlink_from_curriculum")
+    @pytest.mark.parametrize(
+        "writer",
+        ["admit_requirement_change", "link_to_curriculum", "unlink_from_curriculum"],
+    )
+    def test_protocol_has_no_requirement_writer(self, writer):
+        """No app door writes what an exercise requires (ADR-091 S4)."""
+        absent = object()
+        assert getattr(ExerciseOperations, writer, absent) is absent
+        assert getattr(ExerciseService, writer, absent) is absent
 
     def test_protocol_has_get_required_knowledge(self):
         """ExerciseOperations should declare get_required_knowledge."""

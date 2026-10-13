@@ -10,10 +10,11 @@ and recorded hardening the soft ones as open work:
 - **Door 2, bulk ingestion** — the owner is ``MATCH``ed inside a row-preserving
   unit ``CALL`` subquery *after* the node persists, so an unknown owner used to
   yield a property-only node while the ingest reported success.
-- **Door 4, hand-written writers** — Exercise and Group persist the node, then
-  write the edge in a *separate* query and only ``logger.warning`` when it
-  fails, returning ok. (FormSubmission, also filed under door 4, is actually
-  structural: one atomic ``MATCH``+``CREATE``, no record → fail.)
+- **Door 4, hand-written writers** — Group persists the node, then writes the
+  edge in a *separate* query; a failed edge write fails the create (pinned in
+  ``tests/unit/test_group_service.py``). FormSubmission, also filed under door 4,
+  is structural: one atomic ``MATCH``+``CREATE``, no record → fail. Exercise has
+  no in-app writer (ADR-091 S4).
 
 Both directions orphan data rather than disclose it — a property-only node
 names a user who does not exist, so no live requester's property-scoped read
@@ -30,92 +31,14 @@ See: /docs/decisions/ADR-086-universal-owns-and-attends-attendance.md
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
 from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
-from core.models.enums import EntityType, ExerciseScope
-from core.models.exercises.exercise import Exercise
-from core.services.exercises.exercise_service import ExerciseService
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 pytestmark = pytest.mark.anyio
-
-
-# ============================================================================
-# Door 4 — Exercise: the edge write is load-bearing, not advisory
-# ============================================================================
-
-
-def _exercise(**overrides: object) -> Exercise:
-    defaults: dict[str, object] = {
-        "uid": "ex.test.owned",
-        "entity_type": EntityType.EXERCISE,
-        "title": "Sample",
-        "instructions": "Do the thing.",
-        "scope": ExerciseScope.ASSESSMENT,
-        "owner_uid": "user_owner",
-    }
-    defaults.update(overrides)
-    return Exercise(**defaults)  # type: ignore[arg-type]
-
-
-class TestExerciseOwnsDoor:
-    async def test_owns_failure_fails_the_create(self) -> None:
-        """A failed OWNS write is returned, not warned about.
-
-        The node is already persisted when the edge write runs, so the old
-        warn-and-return-ok left an owner holding a create that reported success
-        while the edge was missing — invisible to every :OWNS-traversing read
-        (MEGA-QUERY anchors, the teacher's exercise list, the GDPR cascade).
-        """
-        exercise = _exercise()
-        backend = AsyncMock()
-        backend.create = AsyncMock(return_value=Result.ok(exercise))
-        backend.create_owns_relationship = AsyncMock(
-            return_value=Result.fail(Errors.database(operation="owns", message="boom"))
-        )
-        service = ExerciseService(backend=backend)
-
-        result = await service.create(exercise)
-
-        assert result.is_error
-        backend.create_owns_relationship.assert_awaited_once()
-
-    async def test_owns_success_still_returns_the_exercise(self) -> None:
-        """Positive control — the failure path above is not simply 'create is broken'."""
-        exercise = _exercise()
-        backend = AsyncMock()
-        backend.create = AsyncMock(return_value=Result.ok(exercise))
-        backend.create_owns_relationship = AsyncMock(return_value=Result.ok([]))
-        service = ExerciseService(backend=backend)
-
-        result = await service.create(exercise)
-
-        assert result.is_ok
-        assert result.value.uid == exercise.uid
-
-    async def test_ownerless_curriculum_never_reaches_the_edge_write(self) -> None:
-        """CURRICULUM exercises carry no owner — no edge is owed, so none is attempted.
-
-        Without this the hardening above would break file-ingested curriculum
-        content, which is deliberately ownerless (the validator forces
-        ``scope: curriculum`` and no owner).
-        """
-        exercise = _exercise(uid="ex.test.curriculum", scope=ExerciseScope.CURRICULUM)
-        object.__setattr__(exercise, "owner_uid", None)
-        backend = AsyncMock()
-        backend.create = AsyncMock(return_value=Result.ok(exercise))
-        backend.create_owns_relationship = AsyncMock(
-            return_value=Result.fail(Errors.database(operation="owns", message="boom"))
-        )
-        service = ExerciseService(backend=backend)
-
-        result = await service.create(exercise)
-
-        assert result.is_ok
-        backend.create_owns_relationship.assert_not_awaited()
 
 
 # ============================================================================

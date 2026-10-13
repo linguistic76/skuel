@@ -221,7 +221,7 @@ class UserEntryLifecycleOperations(Protocol):
     """
 
     async def get_exercise_context(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
-        """Exercise scope, addressed student and group info for entry creation."""
+        """Exercise type, addressed student and revised original for entry creation."""
         ...
 
     async def get_entry_owner(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
@@ -229,12 +229,6 @@ class UserEntryLifecycleOperations(Protocol):
 
         Backend: UserEntryBackend.get_entry_owner
         """
-        ...
-
-    async def verify_student_group_membership(
-        self, entry_uid: str, group_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Check student owns entry AND is member of group."""
         ...
 
     async def create_with_exercise_link(

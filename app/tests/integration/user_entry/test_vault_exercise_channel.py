@@ -12,7 +12,7 @@ The living/submit channel end-to-end against a real Neo4j container:
         → exactly one frozen copy to the note's audience (teachers by
           default): with an exercise, through the turn-in machinery (fresh
           node, FULFILLS_EXERCISE {revision}, Interaction); a feedback
-          request routes SUBMITTED_TO_GROUP to the teacher's group; the copy
+          request routes SUBMITTED_TO_TEACHER to the exercise's teacher; the copy
           records its note (submitted_from_uid) and a fingerprint
     idle re-sync while submitted → no second copy (the fingerprint matches)
     edit while submitted + sync  → a new copy; prior copy intact
@@ -256,17 +256,17 @@ async def test_submit_flip_files_one_frozen_copy(
     # Interaction audit record minted for the turn-in (and only the turn-in)
     assert snap["interactions"] == 1
 
-    # Routed to the teacher's group
+    # Routed to the teacher the exercise names (ADR-091 S3)
     async with neo4j_driver.session() as session:
         row = await (
             await session.run(
                 """
                 MATCH (copy:Entity:UserEntry {uid: $copy_uid})
-                      -[:SUBMITTED_TO_GROUP]->(g:Group {uid: $group_uid})
-                RETURN count(g) AS n
+                      -[:SUBMITTED_TO_TEACHER]->(t:User {uid: $teacher_uid})
+                RETURN count(t) AS n
                 """,
                 copy_uid=copy_uid,
-                group_uid=ctx["group_uid"],
+                teacher_uid=ctx["teacher_uid"],
             )
         ).single()
         assert row["n"] == 1
@@ -333,22 +333,10 @@ async def test_unreachable_teacher_surfaces_error_and_compensates(
     clean_neo4j, channel_service, neo4j_driver, seed_user, seed_exercise
 ) -> None:
     """A submitted copy that reaches no teacher/group is never written and is
-    reported — the living entry stays. (Owner-passes-guard shape: a PERSONAL
-    exercise with no group share.)"""
+    reported — the living entry stays. (The student is in progress on the
+    exercise's step, so the use-guard passes; the exercise names no teacher.)"""
     student = await seed_user("user_ue_loner", name="Loner")
-    exercise_uid = await seed_exercise("exercise.ue_personal", group_uid=None)
-    async with neo4j_driver.session() as session:
-        # Owner passes the use-guard; no group to submit to → no reviewer. The
-        # create door's shape: the OWNS edge plus ``owner_uid`` (ADR-086).
-        await session.run(
-            """
-            MATCH (ex:Entity {uid: $uid}), (u:User {uid: $owner})
-            MERGE (u)-[:OWNS]->(ex)
-            SET ex.owner_uid = $owner
-            """,
-            uid=exercise_uid,
-            owner=student,
-        )
+    exercise_uid = await seed_exercise("exercise.ue_unreviewed", learner_uids=(student,))
 
     result = await _sync(
         channel_service,
@@ -621,25 +609,16 @@ async def test_stop_sharing_a_copy_stays_durable_until_the_note_changes(
 
 
 async def _student_status_rows(neo4j_driver, student_uid: str) -> list[dict[str, Any]]:
-    """Rows from the chip-feeding backend query (assigned-exercise variant)."""
+    """Rows from the chip-feeding backend query (the steps the student is on)."""
     backend = ExerciseBackend(
         driver=neo4j_driver,
         label=NeoLabel.EXERCISE,
         entity_class=Exercise,
         base_label=NeoLabel.ENTITY,
     )
-    result = await backend.get_student_exercises_with_status(student_uid)
+    result = await backend.get_enrolled_ps_exercises_with_status(student_uid)
     assert result.is_ok, result.expect_error()
     return [dict(r) for r in (result.value or [])]
-
-
-async def _mark_assigned(neo4j_driver, exercise_uid: str) -> None:
-    """The status query filters on scope='assigned' (seed helper leaves it unset)."""
-    async with neo4j_driver.session() as session:
-        await session.run(
-            "MATCH (ex:Entity {uid: $uid}) SET ex.scope = 'assigned'",
-            uid=exercise_uid,
-        )
 
 
 @pytest.mark.asyncio
@@ -650,7 +629,6 @@ async def test_living_intent_surfaces_as_in_progress_row(
     the exercise chips render from; a turn-in copy then sets has_submission
     while has_in_progress stays truthful (the living entry keeps its intent)."""
     ctx = await seed_classroom()
-    await _mark_assigned(neo4j_driver, ctx["exercise_uid"])
 
     # No entry at all → neither flag
     rows = await _student_status_rows(neo4j_driver, ctx["student_uid"])
@@ -689,14 +667,13 @@ async def test_living_intent_surfaces_as_in_progress_row(
 
 @pytest.mark.asyncio
 async def test_another_users_living_entry_is_invisible(
-    clean_neo4j, channel_service, neo4j_driver, seed_classroom, seed_user, seed_membership
+    clean_neo4j, channel_service, neo4j_driver, seed_classroom, seed_user, seed_exercise
 ) -> None:
     """Ownership scope: student B's status rows never reflect student A's
-    living entry against the same assigned exercise."""
+    living entry against the same exercise."""
     ctx = await seed_classroom()
-    await _mark_assigned(neo4j_driver, ctx["exercise_uid"])
     other = await seed_user("user_ue_other", name="Other")
-    await seed_membership(other, ctx["group_uid"])
+    await seed_exercise(ctx["exercise_uid"], learner_uids=(other,))
 
     result = await _sync(
         channel_service, ctx["student_uid"], _living_file_data(ctx["exercise_uid"])

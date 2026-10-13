@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-12
+updated: 2026-10-13
 related_skills: [learning-loop]
 ---
 
@@ -13,7 +13,7 @@ related_skills: [learning-loop]
 >
 > **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2a).** The `TEAM` visibility value this ADR reserved for a future phase is deleted: `Visibility` is `{PRIVATE, PUBLIC}`, and group audience is the `SHARED_WITH_GROUP` edge, never a property value.
 >
-> **2026-10-12 — Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md); implementation pending.** Exercises are created and edited only in the content vault: the in-app exercise authoring (§2's PERSONAL and ASSIGNED scopes, created by a teacher) and group assignment go (ADR-091 S4). The review page and a teacher's replies on it stay: the `.md` report upload, the revision form and the approve action. A revision request always names an exercise, so the report-only revision on work with no exercise goes (N7), and `scripts/import_reports.py` (§ CLI-Based Offline Review Workflow) goes (N1). Groups and teacher review of what is submitted to a group stay. **Every behaviour this note retires stays live until the ADR-091 change that removes it merges.**
+> **2026-10-12 — Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md); change 4 implemented.** Exercises are created and edited only in the content vault: the in-app exercise authoring (§2's PERSONAL and ASSIGNED scopes, created by a teacher) and group assignment go (ADR-091 S4). The review page and a teacher's replies on it stay: the `.md` report upload, the revision form and the approve action. A revision request always names an exercise, so the report-only revision on work with no exercise goes (N7), and `scripts/import_reports.py` (§ CLI-Based Offline Review Workflow) goes (N1). Groups and teacher review of what is submitted to a group stay. **The in-app authoring and group assignment are gone (ADR-091 change 4); the report-only revision and the import script stay live until change 5 removes them.**
 
 **Status:** Accepted
 **Date:** 2026-02-06

@@ -604,7 +604,7 @@ class TeacherReviewService:
             teacher_uid: Teacher UID
 
         Returns:
-            Result containing list of exercise dicts with uid, title, scope,
+            Result containing list of exercise dicts with uid, title,
             created_at, total_count, reviewed_count, pending_count
         """
         result = await self.exercise_backend.get_exercises_with_submission_counts(teacher_uid)
@@ -615,7 +615,6 @@ class TeacherReviewService:
             {
                 "uid": record["uid"],
                 "title": record["title"],
-                "scope": record["scope"],
                 "created_at": record["created_at"],
                 "total_count": record["total_count"],
                 "reviewed_count": record["reviewed_count"],

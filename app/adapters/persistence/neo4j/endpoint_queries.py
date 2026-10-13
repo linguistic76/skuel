@@ -73,7 +73,7 @@ RETURN uid, labels(n) AS labels
 """
 
 # uid -> owning user uids, for owned nodes only. Ownership is spelled three ways in
-# this graph — ``n.user_uid`` (UserOwnedEntity), ``n.owner_uid`` (Exercise, Group) and
+# this graph — ``n.user_uid`` (UserOwnedEntity), ``n.owner_uid`` (Group) and
 # ``(:User)-[:OWNS]->(n)`` — and all three are read. A node with none of them (shared
 # curriculum) is absent from the result, which is what lets a caller say "must match if
 # owned, allowed if shared" without listing which types are user-owned.

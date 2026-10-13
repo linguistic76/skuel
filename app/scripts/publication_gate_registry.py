@@ -159,10 +159,8 @@ SURFACES: tuple[Surface, ...] = (
         "_KnowledgeContextMixin.get_exercises_for_path_step",
         Disposition.GATED,
         "The step page's exercise listing for a visitor who is not signed in: "
-        "the SCOPE_AWARE audience predicate with no user, so the floor is "
-        "published CURRICULUM alone — a teacher's PERSONAL or a group's ASSIGNED "
-        "exercise hanging from the step is withheld, as is a draft-marked one. "
-        "The step itself is the caller's anchor and is not gated here, as the "
+        "Exercise's PUBLIC audience predicate with the gate on, so a draft-marked "
+        "exercise hanging from the step is withheld. The step itself is the caller's anchor and is not gated here, as the "
         "page that embeds the listing opens a step by uid.",
     ),
     Surface(
@@ -415,20 +413,17 @@ SURFACES: tuple[Surface, ...] = (
         "ExerciseBackend.get_exercises_for_curriculum",
         Disposition.GATED,
         "The reverse lookup behind GET /api/exercises/for-curriculum — which "
-        "exercises require this Ku. A discovery listing, so the SCOPE_AWARE "
-        "audience predicate with the gate on: another user's unanchored PERSONAL "
-        "exercise and a draft-marked shared one are absent, not refused.",
+        "exercises require this Ku. A discovery listing, so Exercise's PUBLIC "
+        "audience predicate with the gate on: a draft-marked exercise is absent, "
+        "not refused.",
     ),
     Surface(
         "adapters.persistence.neo4j.backends.exercise_backends",
         "ExerciseBackend.get_ps_exercises_with_status",
         Disposition.GATED,
         "The signed-in step page's exercise listing (the learning-loop fragment). "
-        "Every row links to the by-UID exercise read, so the listing composes the "
-        "same SCOPE_AWARE audience predicate, gate on: a PERSONAL exercise hanging "
-        "from a DRAFT step is listed to its owner only (the anchor admits it once "
-        "the step is published), a draft-marked exercise to its owner only. The "
-        "step is the caller's anchor and is not gated, as the embedding page opens "
+        "A listing, so Exercise's PUBLIC audience predicate with the gate on: a "
+        "draft-marked exercise is unlisted. The step is the caller's anchor and is not gated, as the embedding page opens "
         "a step by uid.",
     ),
     Surface(
@@ -436,22 +431,9 @@ SURFACES: tuple[Surface, ...] = (
         "ExerciseBackend.get_required_knowledge_for_user",
         Disposition.ANCHORED,
         "The by-UID read behind GET /api/exercises/required-knowledge: the "
-        "exercise behind the SCOPE_AWARE audience predicate with the gate off — "
-        "the caller named it, and an owner lists what their own draft requires — "
-        "with its REQUIRES_KNOWLEDGE far ends riding along as the contents of a "
-        "container the caller may open. Absent and out of audience are one "
-        "outcome.",
-    ),
-    Surface(
-        "adapters.persistence.neo4j.backends.sharing_backend",
-        "_exercise_teacher_match",
-        Disposition.ADMISSION,
-        "The direct feedback target's rule (ADR-088 §9, ADR-091 S3), composed by the "
-        "resolving read and by the SUBMITTED_TO_TEACHER write: a turn-in reaches the "
-        "exercise's REVIEWED_BY teacher, or a PERSONAL exercise's owner only while the "
-        "anchoring PathStep is published (build_anchored_exercise_clause), so a draft "
-        "step's owned exercise asks nobody. It returns a teacher uid or whether the "
-        "edge landed — no curriculum the caller did not name.",
+        "exercise behind Exercise's PUBLIC audience predicate with the gate off — "
+        "the caller named it — with its REQUIRES_KNOWLEDGE far ends riding "
+        "along. A uid naming no exercise is absent.",
     ),
     Surface(
         "adapters.persistence.neo4j.connection_fetch_backend",

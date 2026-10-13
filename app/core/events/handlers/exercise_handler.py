@@ -4,12 +4,11 @@ Exercise Submission Handler
 
 Listens for ``UserEntryCreated`` events with a ``fulfills_exercise_uid``.
 When present, calls ``UserEntryExerciseLinker.process_exercise_submission()``
-to validate scope/group membership. The ``FULFILLS_EXERCISE`` edge, the
-turn-in snapshot and the title are already written atomically by
+to validate the link (a revision's addressed student). The ``FULFILLS_EXERCISE``
+edge, the turn-in snapshot and the title are already written atomically by
 ``UserEntryBackend.create_with_exercise_link`` at creation time; the handler
 writes nothing.
 
-See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 See: /docs/decisions/ADR-054-user-entry-unified-hub.md
 """
 
@@ -20,7 +19,7 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.events.exercise_handler")
 
 # Outcomes that indicate a genuine configuration problem the teacher should know about.
-_WARN_OUTCOMES = {ProcessingOutcome.NOT_IN_GROUP}
+_WARN_OUTCOMES = {ProcessingOutcome.WRONG_STUDENT}
 
 
 async def handle_exercise_submission(
@@ -32,9 +31,7 @@ async def handle_exercise_submission(
     When ``fulfills_exercise_uid`` is present, delegates to
     ``exercise_linker.process_exercise_submission()`` and logs the outcome:
       PROCESSED      → info  (success)
-      NOT_ASSIGNED   → debug (expected no-op for personal/assessment exercises)
       NOT_EXERCISE   → debug (exercise uid not found — probably a stale uid)
-      NOT_IN_GROUP   → warning (student not in the exercise's group)
       WRONG_STUDENT  → warning (RevisedExercise targets a different student)
 
     Args:
@@ -63,9 +60,9 @@ async def handle_exercise_submission(
     ctx = f"entry={event.entity_uid} exercise={event.fulfills_exercise_uid}"
 
     if outcome == ProcessingOutcome.PROCESSED:
-        logger.info(f"Exercise submission routed to teacher queue: {ctx}")
+        logger.info(f"Exercise submission linked: {ctx}")
     elif outcome in _WARN_OUTCOMES:
         logger.warning(f"Exercise submission not routed [{outcome}]: {ctx}")
     else:
-        # NOT_EXERCISE, NOT_ASSIGNED, WRONG_STUDENT — expected no-ops
+        # NOT_EXERCISE — an expected no-op
         logger.debug(f"Exercise submission skipped [{outcome}]: {ctx}")

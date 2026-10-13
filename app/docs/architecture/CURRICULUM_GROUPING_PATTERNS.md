@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-10-11
+updated: 2026-10-13
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -290,9 +290,9 @@ subordinate to PathStep in the hierarchy.
 PathStep and Exercise are NOT peers. Exercise is anchored below PathStep in the same
 structural relationship as a sub-goal under a parent goal. This is why:
 
-- `Exercise.path_step_uid` is a persisted **hierarchy-membership property** — not a
-  scoring or enrichment field. It identifies which knowledge unit this instruction belongs
-  to, and is written at creation time alongside the `HAS_EXERCISE` edge (dual-write).
+- The `HAS_EXERCISE` edge is the **hierarchy membership** — not a scoring or enrichment
+  field. The PathStep's vault file lists its exercises (`exercise_uids:`), and the
+  content-vault sync writes the edge from that list.
 - `EntityType.EXERCISE.is_applied_knowledge()` returns `True`.
 - `EntityType.EXERCISE.is_curriculum_structure()` returns `False` — Exercise is not
   organisational structure.
@@ -303,19 +303,11 @@ Exercise shares substance tracking, learning metadata, and confidence fields wit
 and LearningPath — that is the only reason they share the `Curriculum` base class. Shared
 base class does not mean structural peers.
 
-**One PathStep per Exercise (PERSONAL scope):**
-
-A PERSONAL-scope Exercise hangs from at most one PathStep — the canonical loop anchor —
-or from none, as a free-standing template in its owner's library. ASSIGNED-scope
-Exercises (teacher → group) omit `path_step_uid` and use a `group_uid` instead.
-
-**Anchoring contributes the exercise to the step.** A teacher who anchors their PERSONAL
-exercise to a shared PathStep gives it to that step's learners: while the step is
-published, every signed-in learner may read it — the step page lists it, and the learner
-detail read (`/exercises/get`, the SCOPE_AWARE audience) and exercise search open it —
-and a learner in progress on the step may turn in against it. A draft step contributes
-nothing. The owner keeps the authoring view (`/exercises/{uid}/view`) and the edit door;
-an unanchored PERSONAL exercise is its owner's.
+**One door (ADR-091 S2, S4):** an exercise is authored and edited only in the content
+vault, owned by no user, and names its teacher (`(Exercise)-[:REVIEWED_BY]->(User)`). A
+PathStep that lists it contributes it to the step's learners: the step page lists it while
+it is published, any signed-in learner opens it (`/exercises/get`), and a learner in
+progress on the step may turn in against it.
 
 **Graph Role:** Exercise is the applied-knowledge anchor — the bridge between curriculum
 knowledge (PathStep) and user practice (UserEntry → EntryReport → RevisedExercise).
@@ -575,7 +567,7 @@ Curriculum Domains use domain backend subclasses where relationship-specific Cyp
 | KU | `KuBackend` (extends `UniversalNeo4jBackend[Ku]`) | 22 methods: ORGANIZES, alias search, substance, relationships, prereqs, learning state | Flat (appropriate for atomic domain) |
 | PS | `PsBackend` (extends `UniversalNeo4jBackend[PathStep]`) | 71+ methods via 5 mixins: organizes, learning state, semantic, knowledge context, adaptive + 4 search queries | 5 domain-specific mixins |
 | LP | `LpBackend` (extends `UniversalNeo4jBackend[LearningPath]`) | 28 methods via 3 mixins: step CRUD (14), progress + search (6), intelligence + adaptive (8) | 3 domain-specific mixins |
-| Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` | Flat |
+| Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `get_required_knowledge`, `get_exercises_for_curriculum`, `get_ps_exercises_with_status` (reads only) | Flat |
 
 Ku/Ps/Lp backends in: `/adapters/persistence/neo4j/backends/curriculum_backends.py`
 Exercise/RevisedExercise/EntryReport backends in: `/adapters/persistence/neo4j/backends/exercise_backends.py`

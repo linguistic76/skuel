@@ -102,8 +102,8 @@ class EntryReportService:
                 report-node creator shared with TeacherReviewService so AI
                 and teacher reports go through the same Cypher.
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
-                after feedback is persisted, closing the mastery loop for PERSONAL scope
-                exercises where no teacher approval step exists
+                after feedback is persisted, closing the mastery loop where no teacher
+                approval step exists
             report_mastery_service: Optional — explicit mastery propagation service
             entry_service: Optional — UserEntryService facade used by
                 ``generate_entry_response`` for the ownership-verified entry
@@ -701,9 +701,9 @@ class EntryReportService:
         get_teacher_score(). The MASTERED Cypher uses CASE WHEN new > existing,
         so teacher approval later will correctly upgrade the AI score.
 
-        This closes the mastery loop for PERSONAL scope exercises where there
-        is no teacher approval step. For ASSIGNED scope exercises, both this
-        and approve_report() may run — the higher teacher score wins.
+        This closes the mastery loop where there is no teacher approval step.
+        Where a teacher also reviews the work, both this and approve_report()
+        may run — the higher teacher score wins.
 
         Failure is logged but never propagates — mastery update is best-effort
         and must not abort the feedback response.

@@ -1,7 +1,7 @@
 ---
 title: Type Safety Design Philosophy
 created: 2026-03-27
-updated: 2026-08-11
+updated: 2026-10-13
 status: active
 audience: all
 tags: [architecture, type-safety, philosophy, ontology, security, dsl]
@@ -100,7 +100,6 @@ def get_user_context(user_uid: UserUID) -> Result[UserContext]: ...
 | Privilege escalation | `UserRole` enum — REGISTERED/MEMBER/TEACHER/ADMIN ordered |
 | Invalid state transitions | `EntityStatus.can_transition_to()` — typed state machine |
 | Content origin confusion | `ContentOrigin` enum — CURATED vs USER_CREATED can't be mixed |
-| Exercise scope confusion | `ExerciseScope` enum — PERSONAL vs ASSIGNED enforced at Pydantic boundary and all comparisons |
 
 **The principle:** Every security boundary that can be expressed as a type *should* be expressed as a type. Runtime checks are the fallback for what types can't reach (network boundaries, database queries). Types are the first line of defense.
 

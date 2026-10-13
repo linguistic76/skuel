@@ -505,14 +505,6 @@ class UserContext:
     # Empty for non-teachers.
     teacher_groups: list[GroupSummary] = field(default_factory=list)
 
-    # Curriculum shared with this user's groups via SHARED_WITH_GROUP.
-    # Populated by the MEGA-QUERY from
-    # (user)-[:MEMBER_OF]->(g)<-[:SHARED_WITH_GROUP]-(entity:Entity)
-    # filtered by entity_type.
-    group_assigned_exercise_uids: list[str] = field(default_factory=list)
-    group_assigned_path_step_uids: list[str] = field(default_factory=list)
-    group_assigned_learning_path_uids: list[str] = field(default_factory=list)
-
     # =========================================================================
     # RICH GRAPH CONTEXT (Optional - November 22, 2025)
     # =========================================================================

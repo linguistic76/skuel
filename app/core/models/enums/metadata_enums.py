@@ -287,19 +287,13 @@ class SearchVisibility(StrEnum):
     ``read_visibility`` (default: the search declaration) scopes the by-UID
     audience read, ``get_visible_to_user`` (ADR-085 §2, ADR-088 §5). Distinct
     from ``Visibility`` (per-entity publication, public or not): SearchVisibility
-    is the type-level rule; instance-level scope/sharing edges are what
-    SCOPE_AWARE and OWNER_OR_AUDIENCE evaluate.
+    is the type-level rule; instance-level sharing edges are what
+    OWNER_OR_AUDIENCE evaluates.
 
-    PUBLIC: Shared content (PS, LP, Ku) — no ownership filter.
+    PUBLIC: Shared content (PS, LP, Ku, Exercise) — no ownership filter.
     OWNER_ONLY: User-owned content (Activities, UserEntry) — property-scoped
         on ``user_uid`` (every user-owned node persists it; :OWNS edges are
         incomplete in live data, so the property is the reliable scope key).
-    SCOPE_AWARE: Instance-scoped content (Exercise) — CURRICULUM scope is
-        visible to everyone; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT)
-        visible via :OWNS, :SHARES_WITH, or group membership
-        (:MEMBER_OF + :SHARED_WITH_GROUP); a PERSONAL one anchored to a
-        published PathStep (:HAS_EXERCISE) is the step's, visible to every
-        signed-in user. ADR-038/040 semantics.
     OWNER_OR_AUDIENCE: The owner, or a recipient the share links name — a
         direct :SHARES_WITH, or :MEMBER_OF / :OWNS of an active group the
         entity is :SHARED_WITH_GROUP to (the audience fragment, ADR-088 §3).
@@ -313,7 +307,6 @@ class SearchVisibility(StrEnum):
 
     PUBLIC = "public"
     OWNER_ONLY = "owner_only"
-    SCOPE_AWARE = "scope_aware"
     OWNER_OR_AUDIENCE = "owner_or_audience"
 
 

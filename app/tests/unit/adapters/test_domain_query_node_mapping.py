@@ -45,8 +45,7 @@ def _exercise_node() -> dict[str, object]:
         "uid": "ex_abc123",
         "title": "Arc exercise",
         "entity_type": "exercise",
-        "owner_uid": "user_teacher_01",
-        "scope": "assigned",
+        "scope": "curriculum",
         "instructions": "Write one paragraph.",
         **_EMBEDDING_BOOKKEEPING,
     }
@@ -81,7 +80,7 @@ def test_mapper_keeps_a_node_carrying_embedding_bookkeeping(
 def test_mapped_exercise_carries_its_scope_as_the_enum() -> None:
     exercise = from_neo4j_node(_exercise_node(), Exercise)
 
-    assert exercise.scope is ExerciseScope.ASSIGNED
+    assert exercise.scope is ExerciseScope.CURRICULUM
 
 
 @pytest.mark.parametrize(

@@ -52,7 +52,6 @@ def _make_sharing_service(*, co_members: dict[str, str] | None = None, reachable
     svc.reachable_groups = AsyncMock(side_effect=_reachable)
     # spec_set: a read the backend does not have cannot be faked into existence.
     backend = MagicMock(spec_set=SharingBackendOperations)
-    backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
     backend.query_exercise_teacher = AsyncMock(return_value=Result.ok([]))
     backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
     backend.query_entity_owner = AsyncMock(return_value=Result.ok(USER))
@@ -286,32 +285,15 @@ class TestValidateReferencesTeachers:
         groups.get_user_groups.assert_awaited_once_with(USER, role="student")
 
     @pytest.mark.asyncio
-    async def test_with_an_exercise_teachers_is_the_member_intersection(self):
-        sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(
-            return_value=Result.ok([{"group_uid": "g_a"}, {"group_uid": "g_b"}])
-        )
-        groups = _make_group_service([_group("g_other")])
-        resolver = AudienceResolver(sharing_service=sharing, group_service=groups)
-
-        result = await resolver.validate_references(
-            USER, _req(Pipeline.TEACHER_REVIEW, "teachers", fulfills_exercise_uid="ex_1")
-        )
-
-        assert result.is_ok
-        assert result.value.submit_groups == ("g_a", "g_b")
-        groups.get_user_groups.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_an_exercise_in_no_shared_group_asks_its_teacher_directly(self):
-        """ADR-091 S3 / ADR-088 §9: in no group the owner shares, the request goes
-        to the exercise's teacher — a teacher target, no group, never a default
-        group."""
+    async def test_with_an_exercise_teachers_is_its_teacher_directly(self):
+        """ADR-091 S3: the request goes to the exercise's named teacher — a teacher
+        target, no group, never the learner's groups or a default group."""
         sharing = _make_sharing_service()
         sharing.backend.query_exercise_teacher = AsyncMock(
             return_value=Result.ok([{"teacher_uid": "user_teacher"}])
         )
-        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+        groups = _make_group_service([_group("g_other")])
+        resolver = AudienceResolver(sharing_service=sharing, group_service=groups)
 
         result = await resolver.validate_references(
             USER, _req(Pipeline.TEACHER_REVIEW, fulfills_exercise_uid="ex_curriculum")
@@ -325,29 +307,12 @@ class TestValidateReferencesTeachers:
         sharing.backend.query_exercise_teacher.assert_awaited_once_with(
             exercise_uid="ex_curriculum", user_uid=USER
         )
+        groups.get_user_groups.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_a_group_route_wins_over_the_direct_one(self):
-        """The direct target is asked only when no assigned group reaches a teacher."""
-        sharing = _make_sharing_service()
-        sharing.backend.query_exercise_groups_for_member = AsyncMock(
-            return_value=Result.ok([{"group_uid": "g1"}])
-        )
-        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
-
-        result = await resolver.validate_references(
-            USER, _req(Pipeline.TEACHER_REVIEW, fulfills_exercise_uid="ex_1")
-        )
-
-        assert result.value.submit_groups == ("g1",)
-        assert result.value.submit_teachers == ()
-        sharing.backend.query_exercise_teacher.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_an_exercise_reaching_no_group_and_no_teacher_is_refused(self):
-        """The direct read answers nothing for an exercise naming no teacher, an
-        unanchored or draft-anchored owned one, or the submitter's own — the
-        request has no target and is refused."""
+    async def test_an_exercise_reaching_no_teacher_is_refused(self):
+        """The direct read answers nothing for an exercise naming no teacher, or
+        the submitter's own — the request has no target and is refused."""
         sharing = _make_sharing_service()
         resolver = AudienceResolver(sharing_service=sharing, group_service=None)
 

@@ -26,7 +26,6 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import KnowledgeHealth
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
-from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
@@ -1374,12 +1373,10 @@ CALL () {
     RETURN count{ (a)-[:__ENABLEMENT__]->(b) WHERE __KA__ AND __KB__ } AS enablement_edge_count
 }
 CALL () {
-    // Practice coverage counts CURRICULUM-scoped exercises only: PERSONAL (and
-    // ASSIGNED/ASSESSMENT) exercises dual-write the same HAS_EXERCISE edge, so an
-    // unscoped check would count learner/teacher practice templates as corpus
-    // authoring coverage and hide missing curriculum exercises.
+    // Practice coverage: every exercise is curriculum (ADR-091 S2), authored in the
+    // content vault and anchored by the step's own exercise_uids.
     MATCH (ps:Entity {entity_type: __ET_PS__})
-    WHERE exists{ (ps)-[:__HAS_EXERCISE__]->(ex:Entity {entity_type: __ET_EX__}) WHERE ex.scope = __CURRICULUM_SCOPE__ }
+    WHERE exists{ (ps)-[:__HAS_EXERCISE__]->(:Entity {entity_type: __ET_EX__}) }
     RETURN count(ps) AS path_steps_with_exercise
 }
 CALL () {
@@ -1422,7 +1419,6 @@ def _build_knowledge_health_query() -> str:
         "__ENABLEMENT__": _ENABLEMENT_EDGES,
         "__REQUIRES_STEP__": RelationshipName.REQUIRES_STEP.value,
         "__HAS_EXERCISE__": RelationshipName.HAS_EXERCISE.value,
-        "__CURRICULUM_SCOPE__": f"'{ExerciseScope.CURRICULUM.value}'",
         "__TELEMETRY__": _TELEMETRY_EDGE_LIST,
         "__DEPTH__": str(KnowledgeHealth.PREREQUISITE_DEPTH_CAP),
         "__ET_KU__": f"'{EntityType.KU.value}'",

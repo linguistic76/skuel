@@ -1733,14 +1733,11 @@ class UserContextQueryExecutor:
     @with_error_handling("fetch_user_groups", error_type="database", uid_param="user_uid")
     async def fetch_user_groups(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
-        Fetch group memberships, ownerships, and curriculum shared with the user's groups.
+        Fetch group memberships and ownerships.
 
         Returns a dict with:
         - user_groups: groups the user is a MEMBER_OF (student role)
         - teacher_groups: groups the user OWNS (teacher role) with member counts
-        - group_assigned_exercise_uids / group_assigned_path_step_uids /
-          group_assigned_learning_path_uids: curriculum shared to any of the
-          user's groups via SHARED_WITH_GROUP (ADR-053).
         """
         query = """
         MATCH (user:User {uid: $user_uid})
@@ -1764,19 +1761,9 @@ class UserContextQueryExecutor:
                  member_count: member_count,
                  is_active: coalesce(og.is_active, true)
              } END) AS teacher_groups_raw
-        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise'})
-        WITH user, member_groups_raw, teacher_groups_raw,
-             collect(DISTINCT ex.uid) AS exercise_uids
-        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g2:Group)<-[:SHARED_WITH_GROUP]-(ps:Entity {entity_type: 'path_step'})
-        WITH user, member_groups_raw, teacher_groups_raw, exercise_uids,
-             collect(DISTINCT ps.uid) AS path_step_uids
-        OPTIONAL MATCH (user)-[:MEMBER_OF|OWNS]->(g3:Group)<-[:SHARED_WITH_GROUP]-(lp:Entity {entity_type: 'learning_path'})
         RETURN
             [x IN member_groups_raw WHERE x.uid IS NOT NULL] AS user_groups,
-            [x IN teacher_groups_raw WHERE x IS NOT NULL AND x.uid IS NOT NULL] AS teacher_groups,
-            exercise_uids AS group_assigned_exercise_uids,
-            path_step_uids AS group_assigned_path_step_uids,
-            collect(DISTINCT lp.uid) AS group_assigned_learning_path_uids
+            [x IN teacher_groups_raw WHERE x IS NOT NULL AND x.uid IS NOT NULL] AS teacher_groups
         """
         result = await self.executor.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
@@ -1787,9 +1774,6 @@ class UserContextQueryExecutor:
                 {
                     "user_groups": [],
                     "teacher_groups": [],
-                    "group_assigned_exercise_uids": [],
-                    "group_assigned_path_step_uids": [],
-                    "group_assigned_learning_path_uids": [],
                 }
             )
         record = records[0]
@@ -1814,15 +1798,6 @@ class UserContextQueryExecutor:
                         is_active=bool(g.get("is_active", True)),
                     )
                     for g in (record.get("teacher_groups") or [])
-                ],
-                "group_assigned_exercise_uids": [
-                    str(u) for u in (record.get("group_assigned_exercise_uids") or []) if u
-                ],
-                "group_assigned_path_step_uids": [
-                    str(u) for u in (record.get("group_assigned_path_step_uids") or []) if u
-                ],
-                "group_assigned_learning_path_uids": [
-                    str(u) for u in (record.get("group_assigned_learning_path_uids") or []) if u
                 ],
             }
         )

@@ -568,8 +568,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Combines:
         1. Visibility scoping per the domain's search_visibility declaration
-           (OWNER_ONLY: ownership MATCH; PUBLIC: none; SCOPE_AWARE: scope/
-           sharing WHERE fragment)
+           (OWNER_ONLY: ownership MATCH; PUBLIC: the publication gate only)
         2. Property filters from request.to_property_filters()
         3. Text search on _search_fields
         4. Graph pattern enrichment from _graph_enrichment_patterns

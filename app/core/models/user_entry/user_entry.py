@@ -156,8 +156,7 @@ class UserEntry(UserOwnedEntity):
     # the turn-in truth stays on the ``FULFILLS_EXERCISE {revision}`` edge,
     # which only frozen submission copies carry. A living vault entry has
     # the property and never the edge; removing the frontmatter line removes
-    # the property on the next sync (intent withdrawn). Mirrors the
-    # ``Exercise.path_step_uid`` membership-property precedent.
+    # the property on the next sync (intent withdrawn).
     fulfills_exercise_uid: str | None = None
 
     # =========================================================================

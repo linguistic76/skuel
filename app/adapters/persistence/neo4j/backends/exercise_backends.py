@@ -3,8 +3,8 @@
 The three entities that drive the four-phase learning loop:
 Exercise → UserEntry → EntryReport → RevisedExercise → …
 
-PathStep is the curriculum anchor, linked via (PathStep)-[:HAS_EXERCISE]->(Exercise)
-(denormalized as Exercise.path_step_uid for PERSONAL scope).
+PathStep is the curriculum anchor, linked via (PathStep)-[:HAS_EXERCISE]->(Exercise),
+which the content-vault sync writes from the step's ``exercise_uids``.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def _link_outcome(
 ) -> Result[bool]:
     """Collapse a ``RETURN true as success`` link/unlink query into ``Result[bool]``.
 
-    The five MERGE/DELETE edge writers all guard the same way: propagate a driver
+    The MERGE edge writers all guard the same way: propagate a driver
     error, and treat "no rows" as "one of the endpoints (or the edge) was not
     there" — a not-found, not a silent success.
 
@@ -57,14 +57,8 @@ def _link_outcome(
     return Result.ok(True)
 
 
-def _exercise_status_tail(
-    *,
-    carry_group: bool,
-    group_name: str,
-    order_by: str,
-    limit_clause: str = "",
-) -> str:
-    """The shared status tail of the three ExerciseStatusRow queries.
+def _exercise_status_tail(*, order_by: str, limit_clause: str = "") -> str:
+    """The shared status tail of the two ExerciseStatusRow queries.
 
     Every head that binds ``user`` (the learner) and ``exercise`` can append this
     to produce an ``ExerciseStatusRow``-compatible projection. The tail resolves,
@@ -78,28 +72,23 @@ def _exercise_status_tail(
       so property-without-edge is exactly the work-in-progress file).
 
     Args:
-        carry_group: Keep a head-bound ``group`` in scope through the WITH chain.
-            Required whenever *group_name* reads from it.
-        group_name: Cypher expression projected as ``group_name`` (``group.title``
-            for the group-assigned channel, ``''`` for the PathStep channels).
         order_by: Cypher expression for the final ORDER BY.
         limit_clause: ``"LIMIT $limit"`` or ``""``.
     """
-    group_var = "group, " if carry_group else ""
     return f"""
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
-            WITH user, exercise, {group_var}sub, report
+            WITH user, exercise, sub, report
             ORDER BY datetime(sub.created_at) DESC
-            WITH user, exercise, {group_var}
+            WITH user, exercise,
                  collect(sub)[0] AS latest_sub,
                  collect(report)[0] AS latest_report
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(living:Entity {{entity_type: 'user_entry'}})
             WHERE living.fulfills_exercise_uid = exercise.uid
               AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
-            WITH exercise, {group_var}latest_sub, latest_report, living
+            WITH exercise, latest_sub, latest_report, living
             ORDER BY datetime(living.updated_at) DESC
-            WITH exercise, {group_var}latest_sub, latest_report,
+            WITH exercise, latest_sub, latest_report,
                  collect(living)[0] AS latest_living
             RETURN exercise,
                    latest_sub.uid AS submission_uid,
@@ -109,8 +98,7 @@ def _exercise_status_tail(
                    latest_report.assessment_outcome AS report_outcome,
                    latest_report IS NOT NULL AS has_report,
                    latest_living.uid AS in_progress_uid,
-                   latest_living IS NOT NULL AS has_in_progress,
-                   {group_name} AS group_name
+                   latest_living IS NOT NULL AS has_in_progress
             ORDER BY {order_by}
             {limit_clause}
             """
@@ -120,122 +108,14 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     """
     Domain backend for Exercise entities.
 
-    Extends UniversalNeo4jBackend[Exercise] with the exercise-specific Cypher:
-    ownership and curriculum links, the student's exercise lists with their
+    Extends UniversalNeo4jBackend[Exercise] with the exercise-specific reads:
+    the knowledge an exercise requires, the student's exercise lists with their
     submission status, and the reverse lookups from a submission, a Ku or a
     PathStep — issued by ExerciseService — plus the teacher's per-exercise
     submission counts (``get_exercises_with_submission_counts``, read by
-    TeacherReviewService). Owner lists go through the inherited
-    ``get_user_entities``, which maps each node to an ``Exercise``.
+    TeacherReviewService). It writes no exercise: the content-vault sync is
+    the one writer (ADR-091 S4).
     """
-
-    async def link_to_path_step(self, exercise_uid: str, path_step_uid: str) -> Result[bool]:
-        """
-        Create HAS_EXERCISE relationship from PathStep to Exercise.
-
-        Dual-write partner for Exercise.path_step_uid — keeps the denormalized
-        field and the graph edge in sync. Called during create_exercise() for
-        PERSONAL-scope exercises.
-
-        Args:
-            exercise_uid: Exercise UID (entity_type='exercise')
-            path_step_uid: PathStep UID (entity_type='path_step')
-
-        Returns:
-            Result[bool] - True if relationship created or already exists
-        """
-        result = await self.execute_query(
-            f"""
-            MATCH (ps:Entity {{uid: $path_step_uid, entity_type: 'path_step'}})
-            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-            MERGE (ps)-[r:{RelationshipName.HAS_EXERCISE}]->(exercise)
-            ON CREATE SET r.created_at = datetime()
-            RETURN true as success
-            """,
-            {"exercise_uid": exercise_uid, "path_step_uid": path_step_uid},
-        )
-        return _link_outcome(
-            result,
-            resource="PathStep or Exercise",
-            identifier=f"{path_step_uid} -> {exercise_uid}",
-        )
-
-    async def get_exercise_owners(self, exercise_uid: str) -> Result[list[UserUID] | None]:
-        """The users who ``OWNS`` the exercise, or ``None`` when the uid names no exercise.
-
-        An ownerless exercise (CURRICULUM scope) answers an empty list. Ownership is
-        read from the ``OWNS`` edge alone, the canonical ownership edge (ADR-086).
-        """
-        result = await self.execute_query(
-            f"""
-            MATCH (exercise:Entity:Exercise {{uid: $exercise_uid}})
-            RETURN [(owner:User)-[:{RelationshipName.OWNS.value}]->(exercise) | owner.uid]
-                   AS owners
-            LIMIT 1
-            """,
-            {"exercise_uid": exercise_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        rows = result.value or []
-        if not rows:
-            return Result.ok(None)
-        return Result.ok([UserUID(uid) for uid in rows[0]["owners"]])
-
-    async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
-        """
-        Create REQUIRES_KNOWLEDGE relationship from exercise to curriculum KU.
-
-        Args:
-            exercise_uid: Exercise UID (entity_type='exercise')
-            curriculum_uid: Curriculum KU UID (entity_type='ku' or 'resource')
-
-        Returns:
-            Result[bool] - True if relationship created
-        """
-        result = await self.execute_query(
-            f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-            MATCH (curriculum:Entity {{uid: $curriculum_uid}})
-            WHERE curriculum.entity_type IN ['ku', 'resource']
-            MERGE (exercise)-[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->(curriculum)
-            ON CREATE SET r.created_at = datetime()
-            RETURN true as success
-            """,
-            {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
-        )
-        return _link_outcome(
-            result,
-            resource="Exercise or Curriculum KU",
-            identifier=f"{exercise_uid} -> {curriculum_uid}",
-        )
-
-    async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
-        """
-        Remove REQUIRES_KNOWLEDGE relationship between exercise and curriculum KU.
-
-        Args:
-            exercise_uid: Exercise UID
-            curriculum_uid: Curriculum KU UID
-
-        Returns:
-            Result[bool] - True if relationship removed
-        """
-        result = await self.execute_query(
-            f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-                  -[r:{RelationshipName.REQUIRES_KNOWLEDGE}]->
-                  (curriculum:Entity {{uid: $curriculum_uid}})
-            DELETE r
-            RETURN true as success
-            """,
-            {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
-        )
-        return _link_outcome(
-            result,
-            resource="REQUIRES_KNOWLEDGE relationship",
-            identifier=f"{exercise_uid} -> {curriculum_uid}",
-        )
 
     async def get_required_knowledge(
         self, exercise_uid: str
@@ -273,21 +153,19 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     async def get_required_knowledge_for_user(
         self, exercise_uid: str, user_uid: UserUID
     ) -> Result[list[RequiredKnowledgeResult] | None]:
-        """The Kus an exercise requires, read only if this user is in the exercise's audience.
+        """The Kus an exercise requires, read through the exercise's audience.
 
-        One statement: the exercise is matched behind the SCOPE_AWARE audience
-        predicate (``build_search_visibility_clause`` — the same composition as
-        ``_CrudMixin.get_visible_to_user``), and its ``REQUIRES_KNOWLEDGE`` far
-        ends ride along as the contents of a container the caller may open. The
-        caller NAMED the exercise, so the publication gate is off, as on every
-        by-UID read: an owner lists what their own draft requires.
+        One statement: the exercise is matched behind the domain's audience
+        predicate (``build_search_visibility_clause`` with Exercise's PUBLIC
+        declaration — the same composition as ``_CrudMixin.get_visible_to_user``),
+        and its ``REQUIRES_KNOWLEDGE`` far ends ride along. The caller NAMED the
+        exercise, so the publication gate is off, as on every by-UID read.
 
-        ``None`` when the uid names no exercise OR one outside the caller's
-        audience — the two are deliberately one outcome. An admitted exercise
-        with no requirements answers an empty list.
+        ``None`` when the uid names no exercise. An exercise with no
+        requirements answers an empty list.
         """
         visibility_scope = build_search_visibility_clause(
-            SearchVisibility.SCOPE_AWARE,
+            SearchVisibility.PUBLIC,
             entity_alias="exercise",
             has_user=True,
             apply_publication_gate=False,
@@ -317,49 +195,14 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         ]
         return Result.ok(items)
 
-    async def create_owns_relationship(
-        self, user_uid: UserUID, exercise_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create OWNS relationship from user to exercise.
-
-        Args:
-            user_uid: User who owns this exercise
-            exercise_uid: Exercise UID
-
-        Returns:
-            Result containing query records
-        """
-        return await self.execute_query(
-            f"""
-            MATCH (u:User {{uid: $user_uid}})
-            MATCH (e:Entity {{uid: $exercise_uid}})
-            MERGE (u)-[:{RelationshipName.OWNS.value}]->(e)
-            RETURN true as success
-            """,
-            {"user_uid": user_uid, "exercise_uid": exercise_uid},
-        )
-
-    async def get_student_exercises_with_status(
+    async def get_enrolled_ps_exercises_with_status(
         self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[Neo4jProperties]]:
-        """Get assigned exercises with submission + report status for a student.
+        """Get the exercises hanging from the PathSteps the user is in progress on.
 
-        Returns exercise properties enriched with:
-        - has_submission: bool
-        - submission_uid: str | None (most recent submission)
-        - submission_status: str | None
-        - has_report: bool
-        - report_uid: str | None (most recent report)
-        - report_outcome: str | None (assessment_outcome on the report)
-        - has_in_progress: bool (vault living entry declares this exercise)
-        - in_progress_uid: str | None (newest living entry)
-        - group_name: str
-
-        The living-entry match is the vault exercise channel's declared intent:
-        an owned UserEntry whose ``fulfills_exercise_uid`` property names the
-        exercise but which carries NO FULFILLS_EXERCISE edge — the edge is
-        exclusive to frozen turn-in copies, so property-without-edge is exactly
-        the work-in-progress file.
+        Exercises are discovered via
+        ``(user)-[:IN_PROGRESS]->(ps)-[:HAS_EXERCISE]->(exercise)`` and enriched
+        with the learner's submission status (``ExerciseStatusRow`` shape).
 
         Args:
             user_uid: Student UID
@@ -369,42 +212,6 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             Result containing enriched exercise records
         """
         tail = _exercise_status_tail(
-            carry_group=True,
-            group_name="group.title",
-            order_by="exercise.due_date ASC, datetime(exercise.created_at) DESC",
-            limit_clause="LIMIT $limit" if limit is not None else "",
-        )
-        return await self.execute_query(
-            f"""
-            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.SHARED_WITH_GROUP}]->(group)
-            WHERE exercise.scope = 'assigned'
-            {tail}
-            """,
-            {"user_uid": user_uid, "limit": limit},
-        )
-
-    async def get_enrolled_ps_exercises_with_status(
-        self, user_uid: UserUID, limit: int | None = None
-    ) -> Result[list[Neo4jProperties]]:
-        """Get personal + curriculum exercises linked to PathSteps the user is enrolled in.
-
-        Returns the same shape as get_student_exercises_with_status() so results
-        can be merged at the service layer. Exercises are discovered via:
-            (user)-[:IN_PROGRESS]->(ps)-[:HAS_EXERCISE]->(exercise)
-        covering the user's own PathStep-anchored templates (scope=personal) and
-        vault-authored shared exercises (scope=curriculum).
-
-        Args:
-            user_uid: Student UID
-            limit: Cap the number of returned records; ``None`` returns all
-
-        Returns:
-            Result containing enriched exercise records (group_name is empty string)
-        """
-        tail = _exercise_status_tail(
-            carry_group=False,
-            group_name="''",
             order_by="datetime(exercise.created_at) DESC",
             limit_clause="LIMIT $limit" if limit is not None else "",
         )
@@ -412,7 +219,6 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS}]->(ps:Entity)
             MATCH (ps)-[:{RelationshipName.HAS_EXERCISE}]->(exercise:Entity {{entity_type: 'exercise'}})
-            WHERE exercise.scope IN ['personal', 'curriculum']
             WITH DISTINCT user, exercise
             {tail}
             """,
@@ -427,14 +233,11 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         Scoped version of get_enrolled_ps_exercises_with_status() — returns the same
         shape (compatible with ExerciseStatusRow) but for a single PathStep.
 
-        Lists only the exercises this user may open: each row is rendered as a link
-        to the by-UID read, so the listing composes the same SCOPE_AWARE audience
-        predicate (``build_search_visibility_clause``). The step is the caller's
-        anchor and is not gated here, exactly as the step page that embeds this
-        listing opens a step by uid — but a PERSONAL exercise hanging from a
-        DRAFT step is the step's only once the step is published, so a non-owner
-        does not see it listed. A draft-marked exercise is unlisted to everyone
-        but its owner, as in search.
+        A listing, so it composes the domain's audience predicate with the
+        publication gate on (``build_search_visibility_clause``, PUBLIC): a
+        draft-marked exercise is unlisted, as in search. The step is the
+        caller's anchor and is not gated here, exactly as the step page that
+        embeds this listing opens a step by uid.
 
         ``user`` is bound with OPTIONAL MATCH, not MATCH: the PathStep's exercises
         are listed even when the learner has no User node, exactly as before the
@@ -442,14 +245,10 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         field, since OPTIONAL MATCH from a null node yields nulls).
         """
         visibility_scope = build_search_visibility_clause(
-            SearchVisibility.SCOPE_AWARE, entity_alias="exercise", has_user=True
+            SearchVisibility.PUBLIC, entity_alias="exercise", has_user=True
         )
         audience_where, scope_params = visibility_scope or ("true", {})
-        tail = _exercise_status_tail(
-            carry_group=False,
-            group_name="''",
-            order_by="exercise.title",
-        )
+        tail = _exercise_status_tail(order_by="exercise.title")
         return await self.execute_query(
             f"""
             MATCH (ps:Entity {{uid: $ps_uid}})-[:{RelationshipName.HAS_EXERCISE}]->(exercise:Entity {{entity_type: 'exercise'}})
@@ -463,25 +262,22 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str, user_uid: UserUID
     ) -> Result[list[CurriculumExerciseResult]]:
-        """The exercises requiring a curriculum Ku that this user may read.
+        """The exercises requiring a curriculum Ku.
 
         A discovery listing — "what exercises practice this knowledge?" — so it
-        composes the SCOPE_AWARE audience predicate with the publication gate on
-        (``build_search_visibility_clause``): CURRICULUM for everyone, the
-        caller's own, what is shared with them or their groups, and a PERSONAL
-        exercise anchored to a published PathStep; a draft-marked shared
-        exercise is unlisted. Another teacher's unanchored PERSONAL exercise is
-        absent, not refused — the list says nothing about what it withholds.
+        composes the domain's audience predicate with the publication gate on
+        (``build_search_visibility_clause``, PUBLIC): a draft-marked exercise is
+        unlisted.
 
         Args:
             curriculum_uid: Curriculum KU UID
-            user_uid: The requesting user, referenced by the audience predicate
+            user_uid: The requesting user
 
         Returns:
             Result containing exercise summary records
         """
         visibility_scope = build_search_visibility_clause(
-            SearchVisibility.SCOPE_AWARE, entity_alias="exercise", has_user=True
+            SearchVisibility.PUBLIC, entity_alias="exercise", has_user=True
         )
         audience_where, scope_params = visibility_scope or ("true", {})
         result = await self.execute_query(
@@ -492,7 +288,6 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             WHERE {audience_where}
             RETURN exercise.uid as uid,
                    exercise.title as title,
-                   exercise.scope as scope,
                    exercise.due_date as due_date,
                    exercise.status as status,
                    exercise.form_schema as form_schema
@@ -579,28 +374,21 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         """Get teacher's exercises with submission and reviewed counts.
 
         The teacher's exercises are the ones they teach: each exercise whose
-        vault file names them (``REVIEWED_BY``, ADR-091 S3), and each exercise
-        they own. A turn-in counts only when it asks the teacher for feedback
+        vault file names them (``REVIEWED_BY``, ADR-091 S3). A turn-in counts only when it asks the teacher for feedback
         (``asks_teacher``: an active group the teacher owns, or the teacher
         directly — ADR-088 §2-§3, §9) — a deactivated group's work is not
         pending anywhere.
         """
         query = f"""
         MATCH (user:User {{uid: $teacher_uid}})
-        CALL (user) {{
-            MATCH (exercise:Entity:Exercise)-[:{RelationshipName.REVIEWED_BY.value}]->(user)
-            RETURN exercise
-          UNION
-            MATCH (user)-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
-            RETURN exercise
-        }}
+        MATCH (exercise:Entity:Exercise)-[:{RelationshipName.REVIEWED_BY.value}]->(user)
         OPTIONAL MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
           WHERE s.pipeline = $pipeline
             AND {asks_teacher("s", "user")}
         WITH exercise, count(DISTINCT s) AS total_count,
              count(DISTINCT CASE WHEN s.status = 'completed' THEN s.uid END) AS reviewed_count
         RETURN exercise.uid AS uid, exercise.title AS title,
-               exercise.scope AS scope, exercise.created_at AS created_at,
+               exercise.created_at AS created_at,
                total_count, reviewed_count,
                total_count - reviewed_count AS pending_count
         ORDER BY datetime(created_at) DESC

@@ -59,10 +59,8 @@ entry ──SHARED_WITH_GROUP {shared_at, share_version}──▶ Group ◀─ME
   FormSubmission group target is a feedback request. The returned bool is `created` — a
   re-filed request is a success, not zero reach; only the created subset rings a teacher.
 - `submit_to_teacher()` files a feedback request with one teacher directly (ADR-088 §9,
-  ADR-091 S3) when no assigned group reaches a teacher for the turn-in: the exercise's teacher —
-  the user its vault file names (`(Exercise)-[:REVIEWED_BY]->(User)`), or, until ADR-091 change 4
-  lands, the `:OWNS` owner of a PERSONAL exercise anchored to a published PathStep. A revision
-  resolves to the exercise it revises. The target is a TEACHER or higher, active, never the
+  ADR-091 S3) — `teachers` on a turn-in: the exercise's teacher, the user its vault file names
+  (`(Exercise)-[:REVIEWED_BY]->(User)`). A revision resolves to the exercise it revises. The target is a TEACHER or higher, active, never the
   submitter. The write statement decides the same rule again
   (`SharingBackend.create_teacher_submission`), and it returns `created` like its sibling.
 - `share_with_group()` shares with every member and owner of an active group. It never puts an
@@ -187,28 +185,25 @@ never the copy's live links).
 
 ---
 
-### Pattern 2: Teacher Assignment Auto-Sharing (ADR-040)
+### Pattern 2: A Turn-In Asks Its Exercise's Teacher
 
-**Use Case:** Teacher assigns work to a group. When a student submits, the entry is automatically shared with the relevant group(s) so it lands in the teacher's review queue.
+**Use Case:** A student turns in work on an exercise. The feedback request lands in the
+review queue of the teacher the exercise's vault file names (ADR-091 S3), or of a class the
+student names. No exercise is assigned to a group (ADR-091 S4).
 
 ```python
-# Step 1: Teacher creates assigned Exercise (targets a group)
-# (handled by ExerciseService with scope=ASSIGNED)
+# Step 1: The exercise enters through the content-vault sync, naming its teacher
+# ((Exercise)-[:REVIEWED_BY]->(User))
 
-# Step 2: Student submits against assigned Exercise
-# UserEntryService.create_entry() → AudienceResolver auto-shares at submit time:
+# Step 2: Student submits against the exercise
+# UserEntryService.create_entry() → AudienceResolver files the request at submit time:
 # - An explicit teacher:<group_uid> names the one group the request goes to
 # - Otherwise (teachers, or nothing named), pipeline=teacher_review +
-#   fulfills_exercise_uid files the request with the
-#   INTERSECTION of the exercise's assigned groups and the submitter's memberships
-#   (query_exercise_groups_for_member — prevents leaking a submission to a group
-#   the submitter has no relationship with)
-# - When that intersection is empty, the request goes to the exercise's teacher
-#   directly, SUBMITTED_TO_TEACHER (query_exercise_teacher): the teacher its vault
-#   file names (REVIEWED_BY, ADR-091 S3), or an anchored PERSONAL exercise's owner
-#   (ADR-088 §9). Never to the submitter's default group.
-# - A RevisedExercise target resolves to the exercise it revises in both lookups,
-#   so a turn-in against a revision reaches the root exercise's reviewers
+#   fulfills_exercise_uid files it with the exercise's teacher directly,
+#   SUBMITTED_TO_TEACHER (query_exercise_teacher) — never the submitter's
+#   default group
+# - A RevisedExercise target resolves to the exercise it revises, so a turn-in
+#   against a revision reaches the root exercise's teacher
 
 # Step 3: Teacher views review queue (every feedback request to the teacher)
 queue_result = await teacher_review.get_review_queue(teacher_uid)
@@ -222,14 +217,13 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
 
 **Graph Pattern:**
 ```cypher
-// Exercise structure
-(teacher:User)-[:OWNS]->(group:Group)
-(student:User)-[:MEMBER_OF]->(group:Group)
-(exercise:Exercise {scope: "assigned"})-[:SHARED_WITH_GROUP]->(group:Group)
+// Exercise structure (from its vault file)
+(exercise:Exercise)-[:REVIEWED_BY]->(teacher:User)
 
-// On student submission (the feedback request, filed by AudienceResolver — ADR-088 §2)
+// On student submission (the feedback request, filed by AudienceResolver — ADR-088 §2, §9)
 (submission:Entity)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
-(submission:Entity)-[:SUBMITTED_TO_GROUP {submitted_at}]->(group:Group)
+(submission:Entity)-[:SUBMITTED_TO_TEACHER {submitted_at}]->(teacher:User)
+// or, when the student names a class: -[:SUBMITTED_TO_GROUP {submitted_at}]->(group:Group)
 ```
 
 **Key Differences from Manual Sharing:**
@@ -409,7 +403,6 @@ records left with the submissions API (2026-04-17) and have no successors.
 | `GET /gradebook/{uid}/share-panel` | The Share panel's body: candidate groups (joined as a student or owned, active) and people (R8 co-members), the entry's current audience marked; `?preselect=reviewers` (the GradeBook nudge) checks the offered groups the entry was submitted to for feedback | `get_share_candidate_people`, `get_shared_by_me(entity_uid=…)` |
 | Vault door (`./dev vault-sync`, the Sync buttons) — a note's `audience:` frontmatter + `status: submitted` | The note is a draft, never shared (R9); `status: submitted` files a frozen copy through the same request, built by `user_entry_ingestion.py`, to that audience — once per authored snapshot (the fingerprint) | `share`, `share_with_group`, `submit_to_group` |
 | `POST /api/form-submissions/share` — `{uid, group_uid?, recipient_uids?, share_with_admin?}` | The forms' post-submit widening door | `share`, `share_with_group` |
-| Exercise assignment (ADR-040, `ExerciseService`) | Auto-shares an ASSIGNED exercise with its group | `share_with_group` |
 | `GET /profile/shared`, `GET /profile/shared/list-fragment` | The Shared page — *Shared with you* (Type · Shared by · Via filters) and *Your wall* | `get_shared_with_me`, `get_shared_by_me` |
 | `GET /api/groups/{group_uid}/shared/preview`, `GET /groups/{group_uid}` | A member's read of one group's shared entries — the same reader narrowed by `via` | `get_shared_with_me(via=group_uid)` |
 | `GET /gradebook/{uid}`, `GET /gradebook/{uid}/download` | The owner's page (with the Share button), or a recipient's card / `.md` file | none — `UserEntryService.get_visible_to_user` composes the audience fragment (ADR-088 §5) |

@@ -11,7 +11,7 @@ stamping.
 Covers:
 - The generic engine (uid/user_uid stamping, timestamp auto-stamp + override,
   uuid4 fallback, silent field filtering)
-- Domain-specific converters (Habit, Principle, Choice, Exercise, Group)
+- Domain-specific converters (Habit, Principle, Choice, Group)
 - Activity Template converters (RelativeOffsetDTO → RelativeOffset,
   list → tuple coercion, deliberate Phase-7 complex-field deferral)
 - CONVERTER_REGISTRY completeness and the exact CRUDRouteFactory calling
@@ -27,11 +27,8 @@ import pytest
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceOptionRequest
-from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event_request import EventCreateRequest
-from core.models.exercises.exercise import Exercise
-from core.models.exercises.exercise_request import ExerciseCreateRequest
 from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
 from core.models.forms.form_template_request import FormTemplateCreateRequest
 from core.models.goal.goal_request import GoalCreateRequest
@@ -269,67 +266,6 @@ class TestChoiceConversion:
 
 
 # =============================================================================
-# EXERCISE
-# =============================================================================
-
-
-class TestExerciseConversion:
-    def make_request(self, **overrides: object) -> ExerciseCreateRequest:
-        payload: dict[str, object] = {
-            "name": "Daily Reflection",
-            "instructions": "Reflect on the day.",
-        }
-        payload.update(overrides)
-        return ExerciseCreateRequest.model_validate(payload)
-
-    def test_title_from_name_and_entity_type_forced(self) -> None:
-        exercise = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="ex_e1", user_uid="user_owner"
-        )
-
-        assert type(exercise) is Exercise
-        assert exercise.title == "Daily Reflection"  # schema.name → title
-        assert exercise.entity_type == EntityType.EXERCISE
-
-    def test_domain_string_becomes_enum_and_defaults_to_knowledge(self) -> None:
-        with_domain = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(domain="personal"), uid="ex_e1", user_uid="user_owner"
-        )
-        without_domain = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="ex_e2", user_uid="user_owner"
-        )
-
-        assert with_domain.domain == Domain.PERSONAL
-        assert without_domain.domain == Domain.KNOWLEDGE
-
-    def test_context_notes_default_empty_tuple(self) -> None:
-        exercise = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="ex_e1", user_uid="user_owner"
-        )
-
-        assert exercise.context_notes == ()
-
-    def test_user_uid_kwarg_maps_to_owner_uid(self) -> None:
-        # Exercise has owner_uid, not user_uid (it is Curriculum, not
-        # UserOwnedEntity). Ownership's single source is the user_uid KWARG
-        # (auth context) — ExerciseCreateRequest carries no user_uid field.
-        exercise = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="ex_e1", user_uid="user_owner"
-        )
-
-        assert exercise.owner_uid == "user_owner"
-        assert "user_uid" not in field_names(exercise)
-
-    def test_without_user_uid_kwarg_owner_uid_is_none(self) -> None:
-        # Without the user_uid kwarg there is no ownership source, so
-        # owner_uid stays at its None default — same convention as every
-        # other converter (CRUDRouteFactory always supplies the kwarg).
-        exercise = ConversionServiceV2.exercise_create_to_pure(self.make_request(), uid="ex_e1")
-
-        assert exercise.owner_uid is None
-
-
-# =============================================================================
 # GROUP
 # =============================================================================
 
@@ -449,7 +385,6 @@ ALL_REGISTERED_REQUEST_TYPES = (
     PrincipleCreateRequest,
     ChoiceCreateRequest,
     FormTemplateCreateRequest,
-    ExerciseCreateRequest,
     RevisedExerciseCreateRequest,
     GroupCreateRequest,
     TaskTemplateCreateRequest,
@@ -462,8 +397,8 @@ ALL_REGISTERED_REQUEST_TYPES = (
 
 
 class TestConverterRegistry:
-    def test_registry_has_exactly_16_entries(self) -> None:
-        assert len(ConversionServiceV2.CONVERTER_REGISTRY) == 16
+    def test_registry_has_exactly_15_entries(self) -> None:
+        assert len(ConversionServiceV2.CONVERTER_REGISTRY) == 15
         assert set(ConversionServiceV2.CONVERTER_REGISTRY) == set(ALL_REGISTERED_REQUEST_TYPES)
 
     @pytest.mark.parametrize("request_type", ALL_REGISTERED_REQUEST_TYPES)

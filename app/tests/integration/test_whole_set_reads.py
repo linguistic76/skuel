@@ -39,7 +39,6 @@ from adapters.persistence.neo4j.backends.activity_backends import (
     TasksBackend,
 )
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
-from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
@@ -49,7 +48,6 @@ from core.models.enums.learning_enums import SELCategory
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.event.event import Event
-from core.models.exercises.exercise import Exercise
 from core.models.finance.invoice import InvoicePure, InvoiceType
 from core.models.goal.goal import Goal
 from core.models.habit.completion import HabitCompletion
@@ -66,7 +64,6 @@ from core.services.events.events_core_service import EventsCoreService
 from core.services.events.events_habit_integration_service import EventsHabitIntegrationService
 from core.services.events.events_intelligence_service import EventsIntelligenceService
 from core.services.events.events_learning_service import EventsLearningService
-from core.services.exercises.exercise_service import ExerciseService
 from core.services.finance.finance_invoice_service import FinanceInvoiceService
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_scheduling_service import GoalsSchedulingService
@@ -105,7 +102,6 @@ SEEDED = 130  # past the 100-row page
 SEEDED_COMPLETED_TASKS = 39  # 30% of SEEDED
 STRANGER_ROWS = 5
 
-GROUP = "group_whole_set"
 SEL_CATEGORY = SELCategory.SELF_AWARENESS
 
 type ActivityBackend = (
@@ -367,35 +363,6 @@ class TestFiguresCountEveryRow:
 @pytest.mark.asyncio
 class TestCurriculumSetsAreWhole:
     """A corpus read scoped by a filter returns every node the filter matches."""
-
-    async def test_group_exercise_list(self, neo4j_driver, clean_neo4j):
-        async with neo4j_driver.session() as session:
-            await session.run(
-                """
-                UNWIND range(1, $count) AS i
-                CREATE (:Entity:Exercise {
-                    uid: 'exercise_whole_set_' + toString(i),
-                    entity_type: 'exercise',
-                    title: 'Exercise ' + toString(i),
-                    status: 'active',
-                    scope: 'assigned',
-                    group_uid: $group,
-                    created_at: $now,
-                    updated_at: $now
-                })
-                """,
-                count=SEEDED,
-                group=GROUP,
-                now=datetime.now(UTC).isoformat(),
-            )
-        backend = ExerciseBackend(
-            neo4j_driver, NeoLabel.EXERCISE, Exercise, base_label=NeoLabel.ENTITY
-        )
-
-        result = await ExerciseService(backend=backend).list_group_exercises(GROUP)
-
-        assert result.is_ok, result
-        assert len(result.value) == SEEDED
 
     async def test_sel_category_step_total(self, neo4j_driver, clean_neo4j):
         """The category's ``total_steps`` is the progress denominator."""

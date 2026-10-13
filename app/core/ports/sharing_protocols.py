@@ -162,12 +162,6 @@ class SharingBackendOperations(Protocol):
         entity_uid: EntityUID,
     ) -> Result[str | None]: ...
 
-    async def query_exercise_groups_for_member(
-        self,
-        exercise_uid: EntityUID,
-        user_uid: UserUID,
-    ) -> Result[list[Neo4jProperties]]: ...
-
     async def query_exercise_teacher(
         self,
         exercise_uid: EntityUID,
@@ -325,8 +319,7 @@ class SharingOperations(Protocol):
     ) -> Result[bool]:
         """File a feedback request with one teacher directly — the teacher of the
         exercise the entry turns in against: its ``REVIEWED_BY`` teacher
-        (ADR-091 S3), or the owner of an anchored PERSONAL exercise (ADR-088 §9)
-        (``SUBMITTED_TO_TEACHER``). The bool is ``created``, as for
+        (ADR-091 S3) (``SUBMITTED_TO_TEACHER``). The bool is ``created``, as for
         ``submit_to_group``; a teacher that is not that exercise's reviewer is
         the error.
         """

@@ -65,6 +65,7 @@ STUDENT = "user_6b_student"
 GROUP = "group_6b_class"
 EXERCISE_A = "ex_6b_first"
 EXERCISE_B = "ex_6b_second"
+STEP = "ps.6b.step"
 
 NATIVE = "ZONED DATETIME NOT NULL"
 STRING = "STRING NOT NULL"
@@ -110,25 +111,36 @@ def _entity_uids(rows: Sequence[Mapping[str, object]]) -> list[str]:
 
 async def _seed_classroom(driver: AsyncDriver) -> None:
     """The structure the writers need, none of it a stamp under test: two users,
-    the teacher's group with the student in it, two exercises assigned to it."""
+    the teacher's group with the student in it, and two exercises as the content-vault
+    sync writes them — curriculum, naming the teacher (``REVIEWED_BY``), hanging from a
+    published step the student is in progress on."""
     async with driver.session() as session:
         await session.run(
             """
-            MERGE (t:User {uid: $teacher}) SET t.display_name = 'Teacher', t.title = 'teacher'
+            MERGE (t:User {uid: $teacher})
+            SET t.display_name = 'Teacher', t.title = 'teacher', t.role = 'teacher'
             MERGE (s:User {uid: $student}) SET s.display_name = 'Student', s.title = 'student'
             MERGE (g:Group {uid: $group}) SET g.name = 'Class', g.is_active = true
             MERGE (t)-[:OWNS]->(g)
             MERGE (s)-[:MEMBER_OF]->(g)
-            WITH g
+            MERGE (ps:Entity:PathStep {uid: $step})
+            SET ps.title = $step, ps.entity_type = 'path_step', ps.status = 'active',
+                ps.publication_state = 'published'
+            MERGE (s)-[ip:IN_PROGRESS]->(ps)
+            SET ip.started_at = datetime(), ip.last_activity_at = datetime(),
+                ip.progress_score = 0.0
+            WITH t, ps
             UNWIND $exercises AS exercise_uid
             MERGE (ex:Entity:Exercise {uid: exercise_uid})
             SET ex.title = exercise_uid, ex.entity_type = 'exercise',
-                ex.status = 'active', ex.visibility = 'private', ex.scope = 'assigned'
-            MERGE (ex)-[:SHARED_WITH_GROUP]->(g)
+                ex.status = 'active', ex.visibility = 'private', ex.scope = 'curriculum'
+            MERGE (ex)-[:REVIEWED_BY]->(t)
+            MERGE (ps)-[:HAS_EXERCISE]->(ex)
             """,
             teacher=TEACHER,
             student=STUDENT,
             group=GROUP,
+            step=STEP,
             exercises=[EXERCISE_A, EXERCISE_B],
         )
 

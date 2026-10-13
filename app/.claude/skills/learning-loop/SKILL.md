@@ -68,7 +68,7 @@ The cycle repeats until the teacher approves or the student reaches mastery.
 ║  SUBSTRATE                                                               ║
 ║  ────────────────────────────────────────────────────────────────────    ║
 ║  [Ku] — the knowledge to be transmitted                                  ║
-║  [PathStep] — the loop anchor (PERSONAL exercises live here)             ║
+║  [PathStep] — the loop anchor (its exercises hang from it)               ║
 ║                                                                          ║
 ║  THE LOOP (iterates until mastered)                                      ║
 ║  ────────────────────────────────────────────────────────────────────    ║
@@ -204,7 +204,7 @@ they are demonstrating engagement with specific Ku content.
 
 The full mechanics of each loop phase live in **[reference.md](reference.md)**:
 
-- **Phase 1 — Exercise** (the directive): fields, scopes, submission modes, PathStep anchor, worksheet download, graph patterns.
+- **Phase 1 — Exercise** (the directive): fields, the one door (the content vault), submission modes, PathStep anchor, worksheet download, graph patterns.
 - **Phase 2 — UserEntry** (the student's work): processing pipeline, status transitions, modality vs pipeline, backend Cypher.
 - **The Interaction Contract** — curriculum context captured at submission time (ADR-051).
 - **Phase 3 — EntryReport** (the response): teacher vs AI sources, revision cycle, status guards.
@@ -220,14 +220,13 @@ fulfils — refusals are 404; surfaced as the "Request AI feedback" button on
 `/gradebook/{uid}`).
 
 **Teacher transition:** students auto-join the default teacher group
-(`group_default_{admin_uid}`, the oldest admin) on PathStep enrollment. A `teacher_review` turn-in whose audience is `teachers`
-resolves to the exercise's assigned groups the submitter belongs to; an exercise in
-no such group goes to its teacher directly — the teacher its vault file names
-(`teacher:` frontmatter → `(Exercise)-[:REVIEWED_BY]->(User)`, ADR-091 S3; a revision
-goes to the exercise it revises), or, until ADR-091 change 4 lands, the owner of a
-PERSONAL exercise anchored to a published PathStep (`AudienceResolver._expand_teachers` in
-`core/services/user_entry/audience_resolver.py`). The curriculum default-group
-fallback is retired. The write is a feedback request
+(`group_default_{admin_uid}`, the oldest admin) on PathStep enrollment, so work with no
+exercise can ask that teacher and be shared with the group (ADR-091 N9). A `teacher_review`
+turn-in on an exercise whose audience is `teachers` goes to its teacher directly — the
+teacher its vault file names (`teacher:` frontmatter → `(Exercise)-[:REVIEWED_BY]->(User)`,
+ADR-091 S3; a revision goes to the exercise it revises; `AudienceResolver._expand_teachers`
+in `core/services/user_entry/audience_resolver.py`); a learner may instead send it to a
+class (`teacher:<group_uid>`). The write is a feedback request
 (`SUBMITTED_TO_GROUP`, ADR-088 §2, or `SUBMITTED_TO_TEACHER`, §9), not a share, and it
 lands in `/teaching/queue`. A direct request opens the exchange thread and the report
 download for that teacher, never the student page or its knowledge tab (classroom only).
@@ -393,15 +392,14 @@ class ProgressReportGenerator:
         # (ActivityReportGeneratorBackendOperations) — no Cypher in the service
 ```
 
-### Don't confuse Exercise scope
+### Don't author an exercise in the app
 
 ```python
-# WRONG — PERSONAL exercises don't target groups
-exercise = Exercise(scope=ExerciseScope.PERSONAL, group_uid="group_123")  # Nonsense
+# WRONG — there is no in-app create, edit or requirement door (ADR-091 S4)
+await exercises_service.create(Exercise(...))
 
-# CORRECT — scope determines whether group_uid is valid
-if exercise.scope == ExerciseScope.ASSIGNED:
-    assert exercise.group_uid is not None
+# CORRECT — write the exercise's vault file (title, instructions, teacher) and sync
+# the content vault; the PathStep's `exercise_uids` anchors it with HAS_EXERCISE
 ```
 
 ### Don't let ReportSource drift

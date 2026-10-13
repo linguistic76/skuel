@@ -17,9 +17,10 @@ not ask is refused like any other user (ADR-088 §2).
 Every refusal is a 404 that reads the same as a report uid naming nothing, and the
 exercise is looked at only once the entry is admitted.
 
-The world is built at the app's real doors: the teacher creates a group, adds the
-student, assigns two exercises to the group; the student turns work in to that
-group against one of them; the teacher files a feedback report on it.
+The world is built at the app's real doors: two exercises enter through the
+content-vault sync naming the teacher; the teacher creates a group and adds the
+student; the student starts the exercises' step and turns work in to that group
+against one of them; the teacher files a feedback report on it.
 """
 
 from __future__ import annotations
@@ -33,7 +34,12 @@ import pytest_asyncio
 import adapters.inbound.teaching_api as teaching_api
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
-from tests.integration._activity_link_rig import create, edges_between, signed_in_client
+from tests.integration._activity_link_rig import (
+    create,
+    edges_between,
+    signed_in_client,
+    sync_vault_exercises,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -60,6 +66,7 @@ TEACHER = f"user_{TEACHER_MARK}"  # owns the group the entry was submitted to
 OUTSIDER = f"user_{OUTSIDER_MARK}"  # a teacher with the student in a group of their own
 ADMIN = f"user_{ADMIN_MARK}"  # no tie to the student or the entry
 ROLES = {STUDENT: "member", TEACHER: "teacher", OUTSIDER: "teacher", ADMIN: "admin"}
+STEP = f"ps.{MARK}.step"
 MISSING_REPORT = f"er_{MARK}_missing"
 MISSING_EXERCISE = f"ex_{MARK}_missing"
 CREATE = "/api/revised-exercises/create"
@@ -79,11 +86,15 @@ async def _set_role(driver: AsyncDriver, uid: str, role: str) -> None:
 
 
 async def _delete_owned(driver: AsyncDriver, users: list[str]) -> None:
-    """Groups, exercises and reports carry no mark in their generated uids — remove
-    them by owner."""
+    """Groups and reports carry no mark in their generated uids — remove them by
+    owner; the vault's step, exercises and tracker rows carry the mark."""
     async with driver.session() as session:
         await session.run(
             "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users DETACH DELETE n", users=users
+        )
+        await session.run(
+            "MATCH (n) WHERE n.uid CONTAINS $mark OR n.entity_uid CONTAINS $mark DETACH DELETE n",
+            mark=MARK,
         )
 
 
@@ -92,18 +103,6 @@ async def _group_with_student(client: httpx.AsyncClient, name: str) -> str:
     added = await client.post(f"/api/groups/{group}/members/add", json={"user_uid": STUDENT})
     assert added.status_code == 200, added.text
     return group
-
-
-async def _assigned_exercise(client: httpx.AsyncClient, group: str, name: str) -> str:
-    return await create(
-        client,
-        "exercises",
-        name,
-        name=name,
-        instructions=f"{name} instructions",
-        scope="assigned",
-        group_uid=group,
-    )
 
 
 async def _report_on(driver: AsyncDriver, entry: str) -> str:
@@ -187,8 +186,18 @@ async def world(
             try:
                 group = await _group_with_student(teacher, f"{MARK}-class")
                 await _group_with_student(outsider, f"{MARK}-other-class")
-                exercise = await _assigned_exercise(teacher, group, f"{MARK}-essay")
-                other_exercise = await _assigned_exercise(teacher, group, f"{MARK}-quiz")
+                exercise, other_exercise = f"ex.{MARK}.essay", f"ex.{MARK}.quiz"
+                await sync_vault_exercises(
+                    driver,
+                    tmp_path_factory.mktemp("content_vault"),
+                    step_uid=STEP,
+                    exercises={exercise: f"{MARK} essay", other_exercise: f"{MARK} quiz"},
+                    teacher_uid=TEACHER,
+                )
+                started = await student.post(
+                    f"/explore/ps/{STEP}/progress", data={"state": "learning", "review": "true"}
+                )
+                assert started.status_code == 200, started.text
 
                 turned_in = await student.post(
                     "/api/user-entries/upload",

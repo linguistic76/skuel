@@ -533,10 +533,9 @@ class UnifiedSharingService:
         Writes ``SUBMITTED_TO_TEACHER``: the teacher sees the entity in their
         review surfaces, as a group's owner sees a request to the group. The
         target is the teacher of the exercise ``exercise_uid``: the user its
-        vault file names (``REVIEWED_BY``), or the owner of a PERSONAL exercise
-        anchored to a published PathStep. The backend statement re-decides
-        that — the teacher one of those, with a reviewer role, never the
-        submitter — and an empty result is the forbidden refusal.
+        vault file names (``REVIEWED_BY``). The backend statement re-decides
+        that — that teacher, with a reviewer role, never the submitter — and
+        an empty result is the forbidden refusal.
 
         The returned bool is ``created``, exactly as ``submit_to_group``'s.
 

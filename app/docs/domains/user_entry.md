@@ -190,11 +190,10 @@ Creation then auto-records an `Interaction` audit row (turn-ins only), wires an
 optional `TRANSFORMS` edge for multi-stage pipelines, and — for every path but the
 living entry — resolves audience through `UnifiedSharingService`:
 
-- `pipeline=TEACHER_REVIEW` → a feedback request (`SUBMITTED_TO_GROUP`): `teacher:<group_uid>`
-  targets, and `teachers` (the default when nothing is named) as the exercise's assigned groups
-  the submitter belongs to (in none of them: `SUBMITTED_TO_TEACHER` to the exercise's teacher —
-  the one its vault file names, ADR-091 S3, or an anchored PERSONAL exercise's owner, ADR-088 §9;
-  no exercise: every group they study in). A request that would reach no teacher is **refused before the write**
+- `pipeline=TEACHER_REVIEW` → a feedback request: `teacher:<group_uid>` targets
+  (`SUBMITTED_TO_GROUP`), and `teachers` (the default when nothing is named) as
+  `SUBMITTED_TO_TEACHER` to the exercise's teacher — the one its vault file names, ADR-091 S3
+  (no exercise: every group they study in, `SUBMITTED_TO_GROUP`). A request that would reach no teacher is **refused before the write**
   (ADR-054 §3: no silent no-audience turn-ins).
 - every pipeline → `group:<uid>` / `user:<username>` are shares (`SHARED_WITH_GROUP` /
   `SHARES_WITH`); a feedback target on any other pipeline writes no link.

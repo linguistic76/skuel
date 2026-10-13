@@ -3,10 +3,14 @@ PathStep Enrollment Handler
 ============================
 
 Listens for PathStepEnrolled events and auto-enrols the student in the admin's
-default group. This ensures ASSIGNED exercises shared to that group via
-SHARED_WITH_GROUP are accessible to all enrolled students, even before a
-teacher explicitly adds them.
+default group, so every learner on a PathStep has a group and a teacher before
+anyone adds them to a class. Membership lets the learner ask that teacher for
+feedback on work that answers no exercise (a ``teachers`` request without an
+exercise goes to the learner's groups) and share work with the group. A
+feedback request on an exercise goes to the teacher its vault file names, not
+here (ADR-091 S3).
 
+See: /docs/decisions/ADR-091-one-door-for-curriculum.md (N9)
 See: /docs/decisions/ADR-053-groups-first-class-and-unified-sharing.md
 """
 
@@ -26,7 +30,7 @@ async def handle_path_step_enrolled(
 ) -> None:
     """Auto-enrol a student in the admin's default group on PathStep enrolment.
 
-    1. Fetch the oldest admin user (fallback teacher for YAML-ingested content).
+    1. Fetch the oldest admin user (the default group's teacher).
     2. MERGE the admin's default group.
     3. MERGE the student's MEMBER_OF relationship.
 

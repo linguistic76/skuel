@@ -116,10 +116,8 @@ class UserEntryCreateRequest(CreateRequestBase):
         description=(
             "Exercise this entry fulfills. With pipeline=TEACHER_REVIEW, "
             "`teachers` (the default) files the feedback request with the "
-            "exercise's assigned groups the submitter belongs to "
-            "(SUBMITTED_TO_GROUP), or else with the exercise's own teacher — the "
-            "teacher its vault file names, or the owner of a PERSONAL exercise "
-            "anchored to a published path step (SUBMITTED_TO_TEACHER)."
+            "exercise's teacher — the teacher its vault file names "
+            "(SUBMITTED_TO_TEACHER)."
         ),
     )
     about_path_step_uid: EntityUID | None = Field(

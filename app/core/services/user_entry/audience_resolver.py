@@ -16,8 +16,8 @@ Three steps, in the order ``create_entry`` runs them:
                                  first write: exercise / predecessor claims,
                                  ``user:`` co-membership (R8), ``group:`` /
                                  ``teacher:`` reachability, and ``teachers``
-                                 expanded to concrete groups or to the
-                                 exercise's teacher
+                                 expanded to the exercise's teacher, or
+                                 without an exercise to concrete groups
     3. ``resolve_and_share``   — the post-persist writes, of validated targets only
 
 Public surface:
@@ -60,8 +60,8 @@ class TeacherTarget:
     """A feedback request filed with one teacher directly (ADR-088 §9, ADR-091 S3).
 
     ``teacher_uid`` is the teacher of the exercise ``exercise_uid`` the entry
-    turns in against — its ``REVIEWED_BY`` teacher, or an anchored PERSONAL
-    exercise's owner — the reviewer the write re-decides from it.
+    turns in against — its ``REVIEWED_BY`` teacher, the reviewer the write
+    re-decides from it.
     """
 
     teacher_uid: str
@@ -75,8 +75,8 @@ class ResolvedAudience:
     ``teacher_groups`` are the explicit ``teacher:<group_uid>`` targets and
     ``teachers_groups`` the ``teachers`` expansion — together
     ``submit_groups``, where a feedback request goes; ``submit_teachers`` the
-    ``teachers`` expansion's direct target, the exercise's teacher, when the
-    exercise is in no group the owner shares (ADR-088 §9, ADR-091 S3); ``share_groups`` the
+    ``teachers`` expansion's direct target, the exercise's teacher
+    (ADR-091 S3); ``share_groups`` the
     ``group:`` targets; ``share_users`` the ``user:`` targets as
     ``(username, uid)`` pairs, each a verified co-member. ``public`` is the
     portfolio flag. Every uid here passed its authorisation check.
@@ -288,12 +288,10 @@ class AudienceResolver:
           - ``group:`` / ``teacher:``: exists, active, and the owner is a
             member or owner — one uniform not-found otherwise.
           - ``teachers`` (explicit, or the TEACHER_REVIEW default): with an
-            exercise, the exercise's groups the owner belongs to, else the
-            exercise's teacher directly — the teacher its vault file names
-            (ADR-091 S3), or the owner of a PERSONAL exercise anchored to a
-            published PathStep (ADR-088 §9); a revision's is the exercise it
-            revises (N8); a reviewer, never the submitter. Without an
-            exercise, every group the owner is a student of. Expanded only on TEACHER_REVIEW —
+            exercise, the exercise's teacher directly — the teacher its vault
+            file names (ADR-091 S3); a revision's is the exercise it revises
+            (N8); a reviewer, never the submitter. Without an exercise, every
+            group the owner is a student of. Expanded only on TEACHER_REVIEW —
             elsewhere it names a reviewer the pipeline never has and writes
             nothing. Explicit ``teacher:`` targets are validated on every
             pipeline.
@@ -354,8 +352,7 @@ class AudienceResolver:
                     Errors.validation(
                         "Submission reached no teacher: "
                         + (
-                            "you belong to none of the groups this exercise is assigned to, "
-                            "and no teacher reviews it for you"
+                            "no teacher reviews this exercise for you"
                             if request.fulfills_exercise_uid
                             else "you are a student in no group"
                         )
@@ -463,9 +460,9 @@ class AudienceResolver:
                     Errors.forbidden(
                         action="submit for exercise",
                         reason=(
-                            f"Exercise {fulfills_exercise_uid} is not assigned to "
-                            "any of your groups, you are not its owner, and it is "
-                            "not a revision addressed to you."
+                            f"Exercise {fulfills_exercise_uid} belongs to no PathStep "
+                            "you are in progress on, and it is not a revision "
+                            "addressed to you."
                         ),
                     )
                 )
@@ -507,8 +504,7 @@ class AudienceResolver:
 
         Returns ``(groups, teachers)``; at most one of the two is non-empty.
 
-        Backend: SharingBackend.query_exercise_groups_for_member,
-        SharingBackend.query_exercise_teacher;
+        Backend: SharingBackend.query_exercise_teacher;
         GroupService.get_user_groups (student role) without an exercise.
         """
         assert self.sharing_service is not None  # caller gates
@@ -523,41 +519,23 @@ class AudienceResolver:
                 return Result.fail(groups)
             return Result.ok((tuple(g.uid for g in (groups.value or [])), ()))
 
-        # Scoped to the intersection of the exercise's assigned groups and the
-        # owner's memberships: an exercise assigned to groups A and B never
-        # files a request from a member of A with B's teacher.
-        groups_result = await backend.query_exercise_groups_for_member(
+        # The exercise's teacher, asked directly: the teacher its vault file names
+        # (REVIEWED_BY, ADR-091 S3). A revision resolves to the exercise it revises
+        # (N8). The backend read is the whole rule (reviewer role, active, not the
+        # submitter): zero rows for anything else, which leaves the request with no
+        # target and refused.
+        direct = await backend.query_exercise_teacher(
             exercise_uid=EntityUID(exercise_uid),
             user_uid=user_uid,
         )
-        if groups_result.is_error:
-            return Result.fail(groups_result)
-        records = list(groups_result.value or [])
-        if not records:
-            # The exercise's teacher, asked directly: the teacher its vault file
-            # names (REVIEWED_BY, ADR-091 S3), or the owner of a PERSONAL exercise
-            # anchored to a published PathStep (ADR-088 §9). A revision resolves to
-            # the exercise it revises (N8). The backend read is the whole rule
-            # (reviewer role, active, not the submitter): zero rows for anything
-            # else, which leaves the request with no target and refused.
-            direct = await backend.query_exercise_teacher(
-                exercise_uid=EntityUID(exercise_uid),
-                user_uid=user_uid,
-            )
-            if direct.is_error:
-                return Result.fail(direct)
-            teachers: list[TeacherTarget] = []
-            for record in direct.value or []:
-                raw = record.get("teacher_uid") if isinstance(record, dict) else None
-                if raw and all(t.teacher_uid != str(raw) for t in teachers):
-                    teachers.append(TeacherTarget(teacher_uid=str(raw), exercise_uid=exercise_uid))
-            return Result.ok(((), tuple(teachers)))
-        out: list[str] = []
-        for record in records:
-            raw = record.get("group_uid") if isinstance(record, dict) else None
-            if raw and str(raw) not in out:
-                out.append(str(raw))
-        return Result.ok((tuple(out), ()))
+        if direct.is_error:
+            return Result.fail(direct)
+        teachers: list[TeacherTarget] = []
+        for record in direct.value or []:
+            raw = record.get("teacher_uid") if isinstance(record, dict) else None
+            if raw and all(t.teacher_uid != str(raw) for t in teachers):
+                teachers.append(TeacherTarget(teacher_uid=str(raw), exercise_uid=exercise_uid))
+        return Result.ok(((), tuple(teachers)))
 
     # =========================================================================
     # 3. RESOLVE & SHARE — the post-persist writes

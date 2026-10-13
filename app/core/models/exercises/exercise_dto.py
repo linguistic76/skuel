@@ -2,13 +2,13 @@
 ExerciseDTO - Exercise-Specific DTO (Tier 2 - Transfer)
 =========================================================
 
-Extends CurriculumDTO with 9 exercise-specific fields matching the
+Extends CurriculumDTO with the exercise-specific fields matching the
 Exercise frozen dataclass (Tier 3): instruction templates for LLM feedback.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── CurriculumDTO(EntityDTO) +21 curriculum-specific fields
-        └── ExerciseDTO(CurriculumDTO) +9 exercise-specific fields
+        └── ExerciseDTO(CurriculumDTO) + exercise-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -34,13 +34,11 @@ class ExerciseDTO(CurriculumDTO):
     """
     Mutable DTO for exercises (EntityType.EXERCISE).
 
-    Extends CurriculumDTO with 9 exercise-specific fields:
-    - path_step_uid: PathStep anchor (required for PERSONAL scope)
+    Extends CurriculumDTO with the exercise-specific fields, among them:
     - instructions: LLM prompt for processing
     - model: Which LLM to use
-    - scope: PERSONAL or ASSIGNED
-    - due_date: Due date for ASSIGNED scope
-    - group_uid: Target group for ASSIGNED scope
+    - scope: CURRICULUM, the one scope
+    - due_date: Optional due date
     - enrichment_mode: Processing strategy
     - context_notes: Reference materials
     - form_schema: Optional inline form definition
@@ -53,14 +51,12 @@ class ExerciseDTO(CurriculumDTO):
     # =========================================================================
     # EXERCISE-SPECIFIC FIELDS
     # =========================================================================
-    path_step_uid: str | None = None  # PathStep anchor — required for PERSONAL scope
-    owner_uid: str | None = None  # UID of the user who created this exercise
+    path_step_uid: str | None = None  # Optional reverse anchor, authored in the vault file
     exercise_number: int | None = None
     instructions: str | None = None
     model: str = "claude-sonnet-4-6"
-    scope: ExerciseScope = ExerciseScope.PERSONAL
+    scope: ExerciseScope = ExerciseScope.CURRICULUM
     due_date: date | None = None
-    group_uid: str | None = None
     enrichment_mode: str | None = None
     context_notes: list[str] = field(default_factory=list)
     form_schema: list[dict[str, Any]] | None = None  # Inline form definition
@@ -198,7 +194,6 @@ class ExerciseDTO(CurriculumDTO):
                 "model",
                 "scope",
                 "due_date",
-                "group_uid",
                 "enrichment_mode",
                 "context_notes",
                 "form_schema",

@@ -147,9 +147,8 @@ class EntityType(StrEnum):
         Applied knowledge entities are subordinate to PathStep in the knowledge
         hierarchy: PathStep IS knowledge; Exercise and RevisedExercise are how
         that knowledge is practised and revised. This is the same structural
-        relationship as Goal.fulfills_goal_uid (sub-goal under parent goal) —
-        Exercise.path_step_uid is a hierarchy-membership property, not a
-        scoring/enrichment field.
+        relationship as Goal.fulfills_goal_uid (sub-goal under parent goal),
+        held by the ``HAS_EXERCISE`` edge rather than a scoring/enrichment field.
         """
         return self in _APPLIED_KNOWLEDGE_TYPES
 

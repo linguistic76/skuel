@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 168, with_contract: 91}
+    relationships: {total: 168, with_contract: 90}
     labels: {total: 60, with_contract: 16}
   legacy_label_config_aliases: []
 
@@ -722,10 +722,7 @@ relationships:
           - {direction: incoming, target: Entity, context_field: submissions, method: submissions, fields: [uid, title, status, user_uid]}
   SHARED_WITH_GROUP:
     traits: [access]
-    contract:
-      - config: Exercise
-        definitions:
-          - {direction: outgoing, target: Group, context_field: shared_groups, method: shared_groups, fields: [uid, name]}
+    contract: null
   SUBMITTED_TO_GROUP:
     traits: [access]
     contract: null
@@ -1138,9 +1135,9 @@ labels:
     entity_types: [exercise]
     contract:
       domain: knowledge
+      shared_content: true
       relationships:
         - REQUIRES_KNOWLEDGE
-        - SHARED_WITH_GROUP
         - FULFILLS_EXERCISE
         - REVIEWED_BY
       semantic_types: ["learn:requires_theoretical_understanding", "learn:provides_practical_application"]

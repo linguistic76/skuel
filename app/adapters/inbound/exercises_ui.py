@@ -1,35 +1,25 @@
 """
-Exercises UI Routes - Transparent Feedback System
-===================================================
+Exercises UI Routes — the learner's exercise page
+==================================================
 
-UI for exercises (instruction templates) following SKUEL's transparency principles:
-- Visible, editable instructions
-- User-controlled model selection
-- Side-by-side entry + feedback view
-- No black boxes
-
-Uses SKUEL Tailwind components for clean, consistent design.
-
-Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
+An exercise is authored only in the content vault (ADR-091 S4), so the UI has
+no authoring surface: ``/exercises/get`` is the one page, open to any signed-in
+learner in the exercise's audience, with its instructions shown in full
+(no black box) and the doors to download the worksheet and turn in work.
 """
 
-from functools import partial
 from typing import Any
 
 from fasthtml.common import FT, Div, P
 
-from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import ui_boundary_handler
-from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.utils.logging import get_logger
 from ui.components import ButtonT
-from ui.exercises.cards import render_exercises_list
-from ui.exercises.detail import render_exercise_student_detail, render_exercise_view
-from ui.exercises.editor import render_exercise_editor
+from ui.exercises.detail import render_exercise_student_detail
 from ui.layouts.base_page import BasePage
-from ui.patterns.error_banner import render_error_banner, render_inline_error
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
@@ -38,140 +28,13 @@ from ui.tokens import Container, Spacing
 logger = get_logger("skuel.routes.exercises.ui")
 
 
-def _authoring_shell(request: Request, content: FT, title: str) -> FT:
-    """The editor and view are fragments of the dashboard's ``#main-content`` — an HTMX
-    request gets the fragment, a navigation gets it in the dashboard's page shell."""
-    if request.headers.get("HX-Request"):
-        return content
-    return BasePage(
-        content=Div(content, id="main-content"),
-        title=title,
-        request=request,
-        active_page="curriculum",
-    )
-
-
-def _authoring_refusal(request: Request, message: str) -> FT:
-    return _authoring_shell(request, render_inline_error(message), "Exercise")
-
-
 # ============================================================================
 # ROUTE HANDLERS
 # ============================================================================
 
 
-def create_exercises_ui_routes(
-    app,
-    rt,
-    exercises_service,
-    transcript_service=None,
-    user_service=None,
-    **related_services: Any,
-) -> None:
-    """
-    Create exercises UI routes.
-
-    The dashboard is open to any authenticated user and lists only the
-    exercises the caller owns; shared and assigned exercises open on the
-    learner surface (``/exercises/get``).
-    Create/edit/delete routes are TEACHER+ gated *and* owner-scoped — the role
-    decides who may author, the owner check decides which exercise.
-    """
-
-    get_user_service = make_service_getter(user_service)
-
-    @app.get("/exercises")
-    @ui_boundary_handler("Error loading exercises")
-    def exercises_dashboard(request) -> Any:
-        """Exercises dashboard — shell renders immediately, content loads via HTMX."""
-        require_authenticated_user(request)
-
-        content = Div(
-            PageHeader(
-                "Exercises",
-                subtitle="Practice with exercises linked to path steps and knowledge units",
-            ),
-            content_loading_placeholder("/exercises/content", "exercises-content"),
-            id="main-content",
-        )
-        return BasePage(
-            content=content,
-            title="Exercises",
-            request=request,
-            active_page="curriculum",
-        )
-
-    @app.get("/exercises/content")
-    @ui_boundary_handler("Error loading exercises", fragment_id="exercises-content")
-    async def exercises_content_fragment(request: Request) -> FT:
-        """HTMX fragment: the caller's own exercises — a failed read says so."""
-        user_uid = require_authenticated_user(request)
-        result = await exercises_service.list_user_exercises(user_uid)
-        if result.is_error:
-            return Div(render_error_banner("Error loading exercises"), id="exercises-content")
-        return Div(render_exercises_list(result.value), id="exercises-content")
-
-    @app.get("/exercises/new")
-    @require_teacher(get_user_service)
-    def new_exercise_form(request: Request, current_user: Any = None) -> Any:
-        """New exercise form — ownership comes from the session at POST time."""
-        return _authoring_shell(request, render_exercise_editor(mode="create"), "New Exercise")
-
-    @app.get("/exercises/{uid}/edit")
-    @require_teacher(get_user_service)
-    @ui_boundary_handler("Error loading exercise")
-    async def edit_exercise_form(request: Request, uid: str, current_user: Any = None) -> Any:
-        """Edit exercise form — the teacher's own exercises only.
-
-        TEACHER gates whether you may author exercises at all, never *whose*:
-        ADR-042 §3 puts teachers on the same footing as anyone else for another
-        user's content, and PERSONAL exercises belong to students as much as to
-        teachers. Role and ownership are orthogonal and both apply — which is
-        already what this domain's write half declares
-        (``EXERCISES_CONFIG.crud``: scope=USER_OWNED + require_role=TEACHER).
-
-        Owner rather than the wider audience the student fragment serves,
-        because the write half is owner-scoped (``POST /api/exercises/update?uid=``
-        through ``EXERCISES_CONFIG.crud``). Any read audience wider than the write
-        audience renders an editable form whose Save can only fail.
-        """
-        found = require_found(
-            await exercises_service.verify_ownership(uid, current_user.uid), "Exercise", uid
-        )
-        if found.is_error:
-            return refuse(found.expect_error(), partial(_authoring_refusal, request), "Exercise")
-
-        return _authoring_shell(
-            request, render_exercise_editor(exercise=found.value, mode="edit"), "Edit Exercise"
-        )
-
-    @app.get("/exercises/{uid}/view")
-    @require_teacher(get_user_service)
-    @ui_boundary_handler("Error viewing exercise")
-    async def view_exercise(request: Request, uid: str, current_user: Any = None) -> Any:
-        """View exercise with transparency and required Ku foundation.
-
-        The authoring surface's read view — it links straight to the editor
-        above, so it carries the same owner audience. This is deliberately
-        narrower than the learner's ``/exercises/get`` detail, which serves the
-        full SCOPE_AWARE audience; reading shared curriculum, a group's
-        assigned exercise or an exercise anchored to a published PathStep is
-        that surface's job, not this one's.
-        """
-        found = require_found(
-            await exercises_service.verify_ownership(uid, current_user.uid), "Exercise", uid
-        )
-        if found.is_error:
-            return refuse(found.expect_error(), partial(_authoring_refusal, request), "Exercise")
-
-        knowledge_result = await exercises_service.get_required_knowledge(uid)
-        required_knowledge = knowledge_result.value if knowledge_result.is_ok else []
-
-        return _authoring_shell(
-            request,
-            render_exercise_view(found.value, required_knowledge=required_knowledge),
-            "Exercise",
-        )
+def create_exercises_ui_routes(app, rt, exercises_service) -> None:
+    """Create the learner's exercise page and its content fragment."""
 
     @app.get("/exercises/get")
     @ui_boundary_handler("Error loading exercise")
@@ -214,9 +77,9 @@ def create_exercises_ui_routes(
         """HTMX fragment: exercise detail content.
 
         This fragment is where the read actually happens — the /exercises/get
-        shell only echoes the uid into this URL — so the audience check belongs
-        here. A foreign PERSONAL exercise renders the same not-found banner as
-        a nonexistent uid — and carries the same 404.
+        shell only echoes the uid into this URL — so the domain's declared
+        audience is applied here; a uid naming no exercise renders the
+        not-found banner with a 404.
         """
         user_uid = require_authenticated_user(request)
 

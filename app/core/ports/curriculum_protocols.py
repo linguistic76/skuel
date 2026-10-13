@@ -134,17 +134,13 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from datetime import date
 
     from core.infrastructure.relationships.semantic_relationships import (
         SemanticRelationshipType,
         SemanticTriple,
     )
     from core.models.context_types import ContextualExercise
-    from core.models.enums import Domain
     from core.models.enums.neo_labels import NeoLabel
-    from core.models.enums.user_entry_enums import ExerciseScope
-    from core.models.enums.user_enums import UserRole
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.ku.ku import Ku
@@ -152,7 +148,6 @@ if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
-    from core.services.exercises.exercise_service import AdmittedRequirementChange
     from core.services.user.unified_user_context import RichUserContext
     from core.utils.result_simplified import Result
 
@@ -1828,36 +1823,6 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
     Consumer: ExerciseService.__init__
     """
 
-    # -- Curriculum linkage --------------------------------------------------
-
-    async def link_to_path_step(self, exercise_uid: str, path_step_uid: str) -> Result[bool]:
-        """Anchor a PERSONAL exercise to its PathStep — (PathStep)-[:HAS_EXERCISE]->(Exercise).
-
-        Idempotent (MERGE); the mirror of the ``Exercise.path_step_uid`` property
-        written in the same operation.
-        """
-        ...
-
-    async def get_exercise_owners(self, exercise_uid: str) -> Result[list[UserUID] | None]:
-        """The users who ``OWNS`` the exercise; ``None`` when the uid names no exercise."""
-        ...
-
-    async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
-        """Attach an exercise to a curriculum entity. Idempotent (MERGE)."""
-        ...
-
-    async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
-        """Detach an exercise from a curriculum entity; a missing edge is a no-op."""
-        ...
-
-    # -- Ownership -----------------------------------------------------------
-
-    async def create_owns_relationship(
-        self, user_uid: UserUID, exercise_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Record ownership — (User)-[:OWNS]->(Exercise). Idempotent (MERGE)."""
-        ...
-
     # -- Reads ---------------------------------------------------------------
 
     async def get_required_knowledge(
@@ -1869,14 +1834,8 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
     async def get_required_knowledge_for_user(
         self, exercise_uid: str, user_uid: UserUID
     ) -> Result[list[RequiredKnowledgeResult] | None]:
-        """The Kus an exercise requires, only if this user is in the exercise's audience
-        (SCOPE_AWARE); None when absent or out of audience — one outcome."""
-        ...
-
-    async def get_student_exercises_with_status(
-        self, user_uid: UserUID, limit: int | None = None
-    ) -> Result[list[Neo4jProperties]]:
-        """A student's exercises, each carrying its submission status."""
+        """The Kus an exercise requires, read through the exercise's audience
+        (PUBLIC); None when the uid names no exercise."""
         ...
 
     async def get_enrolled_ps_exercises_with_status(
@@ -1894,7 +1853,7 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str, user_uid: UserUID
     ) -> Result[list[CurriculumExerciseResult]]:
-        """The exercises requiring one curriculum entity that this user may read."""
+        """The exercises requiring one curriculum entity — a listing, drafts unlisted."""
         ...
 
     async def get_exercise_for_submission(
@@ -1917,69 +1876,27 @@ class ExerciseOperations(Protocol):
     Exercise is a Curriculum subclass (EntityType.EXERCISE) — instruction
     templates for LLM-based feedback on student submissions.
 
-    Route consumer: exercises_api.py (via CRUDRouteFactory)
+    Route consumer: exercises_api.py
     Implementation: ExerciseService
 
-    See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
-    """
+    An exercise is authored only in the content vault, so the service writes
+    none (ADR-091 S4).
 
-    async def create_exercise(
-        self,
-        user_uid: UserUID,
-        name: str,
-        instructions: str,
-        model: str = "claude-sonnet-4-6",
-        context_notes: list[str] | None = None,
-        domain: Domain | None = None,
-        scope: ExerciseScope = ...,
-        due_date: date | None = None,
-        group_uid: str | None = None,
-    ) -> Result[Exercise]:
-        """Create an Exercise. Returns Result[Exercise]."""
-        ...
+    See: /docs/decisions/ADR-091-one-door-for-curriculum.md
+    """
 
     async def get_exercise(self, uid: str) -> Result[Exercise]:
         """Get exercise by UID, unscoped. Returns Result[Exercise], or not-found error.
 
-        Reads every scope. Routes serving a user-supplied UID want
-        get_exercise_for_user() instead.
+        Routes serving a user-supplied UID want get_exercise_for_user() instead.
         """
         ...
 
     async def get_exercise_for_user(self, uid: str, user_uid: UserUID) -> Result[Exercise]:
-        """Get exercise by UID only if the user is in its audience.
+        """Get exercise by UID through the domain's declared audience (PUBLIC).
 
-        CURRICULUM is visible to everyone; PERSONAL/ASSIGNED/ASSESSMENT require
-        OWNS, SHARES_WITH, or group membership. Out-of-audience reads return the
-        same not-found error as a missing UID.
+        A missing UID returns a not-found error.
         """
-        ...
-
-    async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
-        """Every exercise the user owns, newest first."""
-        ...
-
-    async def update(self, uid: str, updates: RawChanges) -> Result[Exercise]:
-        """Update an exercise (generic CRUD patch + ADR-074 embedding refresh)."""
-        ...
-
-    # Curriculum linking
-    async def admit_requirement_change(
-        self, exercise_uid: str, caller_uid: UserUID, caller_role: UserRole
-    ) -> Result[AdmittedRequirementChange]:
-        """Admit the exercise's owner or an ADMIN; any other caller is not-found."""
-        ...
-
-    async def link_to_curriculum(
-        self, admitted: AdmittedRequirementChange, curriculum_uid: str
-    ) -> Result[bool]:
-        """Link an admitted exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
-        ...
-
-    async def unlink_from_curriculum(
-        self, admitted: AdmittedRequirementChange, curriculum_uid: str
-    ) -> Result[bool]:
-        """Remove an admitted exercise's REQUIRES_KNOWLEDGE relationship."""
         ...
 
     async def get_required_knowledge(
@@ -1991,13 +1908,13 @@ class ExerciseOperations(Protocol):
     async def get_required_knowledge_for_user(
         self, exercise_uid: str, user_uid: UserUID
     ) -> Result[list[RequiredKnowledgeResult]]:
-        """The Kus an exercise requires, for a caller in its audience; not-found otherwise."""
+        """The Kus an exercise requires; not-found when the uid names no exercise."""
         ...
 
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str, user_uid: UserUID
     ) -> Result[list[CurriculumExerciseResult]]:
-        """The exercises requiring a curriculum KU that this user may read."""
+        """The exercises requiring a curriculum KU — a listing, drafts unlisted."""
         ...
 
     async def get_actionable_exercises_for_user(

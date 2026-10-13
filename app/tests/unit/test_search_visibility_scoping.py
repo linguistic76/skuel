@@ -11,7 +11,7 @@ Unit coverage for the SearchVisibility mechanism (the #512 follow-up):
 2b. The faceted path composes the same clause for EVERY visibility —
    including OWNER_ONLY, which used to anchor on the ``:OWNS`` edge instead.
 3. ``DomainConfig.get_search_visibility`` derivation + the live domain
-   declarations (Exercise SCOPE_AWARE, PS PUBLIC, Tasks OWNER_ONLY).
+   declarations (Exercise PUBLIC, PS PUBLIC, Tasks OWNER_ONLY).
 4. ``SearchRouter.advanced_search`` — fail-closed skip without a user,
    ``request.user_uid`` forwarded to every strategy, and string
    entity_types normalized back to enums (the ``use_enum_values`` 500).
@@ -104,40 +104,15 @@ class TestVisibilityClause:
         """The gate is DISCOVERY-only — a by-UID read opts out (unlisted, not forbidden).
 
         PUBLIC falls back to "no predicate at all", restoring the documented
-        ``as open as get()`` contract that ``get_visible_to_user`` relies on;
-        SCOPE_AWARE keeps its ownership scoping with no publication term.
+        ``as open as get()`` contract that ``get_visible_to_user`` relies on.
         """
-        assert (
-            build_search_visibility_clause(
-                SearchVisibility.PUBLIC, has_user=True, apply_publication_gate=False
+        for has_user in (True, False):
+            assert (
+                build_search_visibility_clause(
+                    SearchVisibility.PUBLIC, has_user=has_user, apply_publication_gate=False
+                )
+                is None
             )
-            is None
-        )
-        clause, params = build_search_visibility_clause(
-            SearchVisibility.SCOPE_AWARE, has_user=False, apply_publication_gate=False
-        )
-        assert clause == "((n.scope = $visibility_curriculum_scope))"
-        assert "publication_state" not in clause
-        assert "publication_draft" not in params
-
-    def test_an_anchored_exercise_needs_a_published_step_with_the_gate_off(self) -> None:
-        """The by-UID read turns the gate off; the anchor's step must be
-        published — a draft step admits no one — while the exercise's own draft
-        state is the gate's, and the gate is off."""
-        scope = build_search_visibility_clause(
-            SearchVisibility.SCOPE_AWARE, has_user=True, apply_publication_gate=False
-        )
-        assert scope is not None
-        clause, params = scope
-        assert (
-            "((n.scope = $visibility_personal_scope"
-            " AND EXISTS { MATCH (visibility_anchor_step:PathStep)-[:HAS_EXERCISE]->(n)"
-            " WHERE (visibility_anchor_step.publication_state IS NULL"
-            " OR visibility_anchor_step.publication_state <> $publication_draft) })"
-            " AND $user_uid IS NOT NULL)" in clause
-        )
-        assert "n.publication_state" not in clause
-        assert params["publication_draft"] == "draft"
 
     def test_publication_state_survives_the_dto_round_trip(self) -> None:
         """Codex #1006 P2: listing a name in ``enum_fields`` does not declare a field.
@@ -205,55 +180,6 @@ class TestVisibilityClause:
         # internal callers keep pre-#512 semantics.
         assert build_search_visibility_clause(SearchVisibility.OWNER_ONLY, has_user=False) is None
 
-    def test_scope_aware_with_user_covers_all_access_paths(self) -> None:
-        scope = build_search_visibility_clause(SearchVisibility.SCOPE_AWARE, has_user=True)
-        assert scope is not None
-        clause, params = scope
-        assert clause.startswith("(") and clause.endswith(")")
-        # Scope value rides as a parameter, never a string literal (SKUEL021).
-        assert "n.scope = $visibility_curriculum_scope" in clause
-        assert params == {
-            "visibility_curriculum_scope": "curriculum",
-            "visibility_personal_scope": "personal",
-            "publication_draft": "draft",
-        }
-        # The shared half — CURRICULUM, or a PERSONAL exercise anchored to a
-        # published PathStep (the step's) — carries the publication gate; the
-        # owned arms do not, so an owner sees their own unfinished work.
-        assert clause.startswith(
-            "(((n.scope = $visibility_curriculum_scope"
-            " OR ((n.scope = $visibility_personal_scope"
-            " AND EXISTS { MATCH (visibility_anchor_step:PathStep)-[:HAS_EXERCISE]->(n)"
-            " WHERE (visibility_anchor_step.publication_state IS NULL"
-            " OR visibility_anchor_step.publication_state <> $publication_draft) })"
-            " AND $user_uid IS NOT NULL))"
-            " AND (n.publication_state IS NULL OR n.publication_state <> $publication_draft))"
-            " OR n.owner_uid = $user_uid"
-        )
-        assert "-[:OWNS]->" in clause
-        assert "-[:SHARES_WITH]->" in clause
-        assert "-[:MEMBER_OF]->" in clause
-        assert "<-[:SHARED_WITH_GROUP]-" in clause
-        # The owner_uid half of the OWNS dual write. Exercise.create() persists
-        # the node and only warns when the OWNS edge fails, so an owner can hold
-        # a create that reported success with no edge — the edge alone would
-        # hide that entity from its own owner.
-        assert "n.owner_uid = $user_uid" in clause
-
-    def test_scope_aware_without_user_is_published_curriculum_only(self) -> None:
-        clause, params = build_search_visibility_clause(
-            SearchVisibility.SCOPE_AWARE, has_user=False
-        )
-        assert clause == (
-            "((n.scope = $visibility_curriculum_scope"
-            " AND (n.publication_state IS NULL"
-            " OR n.publication_state <> $publication_draft)))"
-        )
-        assert params == {
-            "visibility_curriculum_scope": "curriculum",
-            "publication_draft": "draft",
-        }
-
     def test_audience_fragment_is_the_share_links_and_nothing_else(self) -> None:
         """ADR-088 §3: a direct SHARES_WITH, or MEMBER_OF / OWNS of an ACTIVE group
         the entity is SHARED_WITH_GROUP to. No owner arm, no feedback-request edge,
@@ -311,15 +237,13 @@ class TestVisibilityClause:
         scope = build_search_visibility_clause(member, has_user=has_user)
         if member is SearchVisibility.PUBLIC:
             assert scope is not None and "user_uid" not in scope[0]
-        elif member is SearchVisibility.SCOPE_AWARE:
-            assert scope is not None and ("$user_uid" in scope[0]) is has_user
         elif has_user:
             assert scope is not None and "$user_uid" in scope[0]
         else:
             assert scope is None
 
     def test_an_unknown_member_raises_instead_of_falling_through(self) -> None:
-        """A new SearchVisibility value is a new audience rule — never silently SCOPE_AWARE."""
+        """A new SearchVisibility value is a new audience rule — never silently an existing one."""
         unknown = MagicMock(spec=SearchVisibility)
         with pytest.raises(ValueError, match="no audience rule"):
             build_search_visibility_clause(unknown, has_user=True)
@@ -517,33 +441,6 @@ class TestQueryBuilderComposition:
         )
         assert "(n.user_uid = $user_uid) AND (ANY(" in cypher
         assert "user_uid" in params and params["user_uid"] is None
-
-    def test_scope_aware_without_user_still_filters_to_curriculum(self) -> None:
-        """Anonymous SCOPE_AWARE still floors at published curriculum.
-
-        Since the builders fail closed (has_user=True unconditionally), the
-        anonymous clause now carries the owned disjuncts too with $user_uid
-        bound to None. That does not widen the audience: every one of them is
-        a null comparison, and a null comparison selects no row — measured on
-        the live engine, ``n.owner_uid = null``, ``MATCH (n {user_uid: null})``
-        and ``EXISTS { MATCH (:User {uid: null})-[:OWNS]->(n) }`` each match 0
-        of 337 entities where a real uid matches 145. The curriculum disjunct
-        is the only one that can fire, exactly as before.
-        """
-        cypher, params = build_text_search_query(
-            Task,  # any dataclass with title works for the builder
-            "alpha",
-            search_fields=("title",),
-            label="Entity",
-            visibility=SearchVisibility.SCOPE_AWARE,
-            user_uid=None,
-        )
-        assert "n.scope = $visibility_curriculum_scope" in cypher
-        assert params["visibility_curriculum_scope"] == "curriculum"
-        assert params["user_uid"] is None
-        # Anonymous callers see published curriculum only.
-        assert "publication_state" in cypher
-        assert params["publication_draft"] == "draft"
 
 
 # ============================================================================
@@ -757,8 +654,8 @@ class TestFacetedPathComposesTheClause:
     async def test_public_still_carries_the_publication_gate(self) -> None:
         """Codex #1006 P1, re-asserted behaviourally.
 
-        The faceted path once composed the clause only for SCOPE_AWARE, so
-        PUBLIC domains (Ku/PathStep/LearningPath) got a plain MATCH and no
+        The faceted path once composed the clause only for a scope-aware
+        declaration, so PUBLIC domains (Ku/PathStep/LearningPath) got a plain MATCH and no
         WHERE — the primary /api/explore/search catalogue listed draft
         curriculum while search and the listing withheld it.
         """
@@ -767,22 +664,6 @@ class TestFacetedPathComposesTheClause:
 
         assert "publication_state" in store["query"]
         assert store["params"]["publication_draft"] == "draft"
-
-    @pytest.mark.asyncio
-    async def test_scope_aware_keeps_its_sharing_fragment(self) -> None:
-        """Exercise is unaffected: it keys on ``owner_uid``, not ``user_uid``."""
-        store: CapturedQuery = {}
-        await run_faceted(
-            store,
-            user_uid="user_alice",
-            label=NeoLabel.EXERCISE,
-            visibility=SearchVisibility.SCOPE_AWARE,
-        )
-
-        query = store["query"]
-        assert "$visibility_curriculum_scope" in query
-        assert "entity.owner_uid = $user_uid" in query
-        assert "entity.user_uid" not in query
 
 
 # ============================================================================
@@ -812,9 +693,9 @@ class TestDomainConfigDerivation:
             dto_class=_FakeDTO,
             model_class=Task,
             user_ownership_relationship=RelationshipName.OWNS,
-            search_visibility=SearchVisibility.SCOPE_AWARE,
+            search_visibility=SearchVisibility.PUBLIC,
         )
-        assert config.get_search_visibility() is SearchVisibility.SCOPE_AWARE
+        assert config.get_search_visibility() is SearchVisibility.PUBLIC
 
     def test_live_domain_declarations(self) -> None:
         from core.services.exercises.exercise_service import ExerciseService
@@ -822,7 +703,7 @@ class TestDomainConfigDerivation:
         from core.services.tasks.tasks_search_service import TasksSearchService
         from core.services.user_entry.user_entry_service import UserEntryService
 
-        assert ExerciseService._config.get_search_visibility() is SearchVisibility.SCOPE_AWARE
+        assert ExerciseService._config.get_search_visibility() is SearchVisibility.PUBLIC
         assert PsSearchService._config.get_search_visibility() is SearchVisibility.PUBLIC
         assert TasksSearchService._config.get_search_visibility() is SearchVisibility.OWNER_ONLY
         assert UserEntryService._config.get_search_visibility() is SearchVisibility.OWNER_ONLY
@@ -834,9 +715,9 @@ class TestDomainConfigDerivation:
         explicit = DomainConfig(
             dto_class=_FakeDTO,
             model_class=Task,
-            search_visibility=SearchVisibility.SCOPE_AWARE,
+            search_visibility=SearchVisibility.PUBLIC,
         )
-        assert explicit.get_read_visibility() is SearchVisibility.SCOPE_AWARE
+        assert explicit.get_read_visibility() is SearchVisibility.PUBLIC
         declared = DomainConfig(
             dto_class=_FakeDTO,
             model_class=Task,

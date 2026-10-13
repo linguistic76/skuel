@@ -114,9 +114,8 @@ async def seed_group(neo4j_driver) -> Callable[..., Awaitable[str]]:
 async def seed_membership(neo4j_driver) -> Callable[..., Awaitable[None]]:
     """MERGE a ``(:User)-[:MEMBER_OF]->(:Group)`` edge.
 
-    Required for auto-share fan-out: ``query_exercise_groups_for_member``
-    only returns groups the submitter is an active member of (commit 7dc89f3f,
-    "security(upload): close UserEntry authorization holes").
+    A ``teacher:<group_uid>`` feedback target and a ``group:`` share each
+    require the submitter to be a member of the group.
     """
 
     async def _seed(user_uid: str, group_uid: str) -> None:
@@ -136,12 +135,20 @@ async def seed_membership(neo4j_driver) -> Callable[..., Awaitable[None]]:
 
 @pytest_asyncio.fixture
 async def seed_exercise(neo4j_driver) -> Callable[..., Awaitable[str]]:
-    """MERGE an ``(:Entity:Exercise)`` node and SHARED_WITH_GROUP to a group."""
+    """MERGE an exercise as the content-vault sync writes it (ADR-091 S2-S4).
+
+    Ownerless curriculum (``scope: curriculum``, no ``:OWNS``), hanging from a
+    published PathStep (``HAS_EXERCISE``). ``teacher_uid`` is the teacher its file
+    names (``REVIEWED_BY``; the sync admits only a TEACHER, so the role is set);
+    each of ``learner_uids`` is in progress on the step, the tie that admits a
+    turn-in.
+    """
 
     async def _seed(
         exercise_uid: str,
         title: str = "Test Exercise",
-        group_uid: str | None = None,
+        teacher_uid: str | None = None,
+        learner_uids: tuple[str, ...] = (),
     ) -> str:
         now_iso = datetime.now().isoformat()
         async with neo4j_driver.session() as session:
@@ -150,27 +157,41 @@ async def seed_exercise(neo4j_driver) -> Callable[..., Awaitable[str]]:
                 MERGE (ex:Entity:Exercise {uid: $exercise_uid})
                 ON CREATE SET ex.title = $title,
                               ex.entity_type = 'exercise',
+                              ex.scope = 'curriculum',
                               ex.status = 'active',
                               ex.visibility = 'private',
                               ex.created_at = datetime($now),
                               ex.updated_at = datetime($now)
+                MERGE (ps:Entity:PathStep {uid: $step_uid})
+                ON CREATE SET ps.title = $step_uid,
+                              ps.entity_type = 'path_step',
+                              ps.status = 'active',
+                              ps.publication_state = 'published'
+                MERGE (ps)-[:HAS_EXERCISE]->(ex)
+                WITH ex, ps
+                UNWIND $learners AS learner_uid
+                MATCH (learner:User {uid: learner_uid})
+                MERGE (learner)-[ip:IN_PROGRESS]->(ps)
+                ON CREATE SET ip.started_at = datetime($now),
+                              ip.last_activity_at = datetime($now),
+                              ip.progress_score = 0.0
                 """,
                 exercise_uid=exercise_uid,
+                step_uid=f"ps.{exercise_uid}",
                 title=title,
+                learners=list(learner_uids),
                 now=now_iso,
             )
-            if group_uid is not None:
+            if teacher_uid is not None:
                 await session.run(
                     """
                     MATCH (ex:Entity:Exercise {uid: $exercise_uid})
-                    MATCH (g:Group {uid: $group_uid})
-                    MERGE (ex)-[r:SHARED_WITH_GROUP]->(g)
-                    ON CREATE SET r.shared_at = datetime($now),
-                                  r.share_version = 'original'
+                    MATCH (t:User {uid: $teacher_uid})
+                    SET t.role = 'teacher'
+                    MERGE (ex)-[:REVIEWED_BY]->(t)
                     """,
                     exercise_uid=exercise_uid,
-                    group_uid=group_uid,
-                    now=now_iso,
+                    teacher_uid=teacher_uid,
                 )
         return exercise_uid
 
@@ -186,8 +207,10 @@ async def seed_classroom(
 ) -> Callable[..., Awaitable[dict[str, Any]]]:
     """Compose one teacher + one group + one exercise + one student.
 
-    Returns a dict with ``teacher_uid``, ``student_uid``, ``group_uid``,
-    ``exercise_uid`` suitable for the flow tests to submit against.
+    The exercise names the teacher, and the student is in progress on its step
+    and a member of the teacher's group. Returns a dict with ``teacher_uid``,
+    ``student_uid``, ``group_uid``, ``exercise_uid`` suitable for the flow tests
+    to submit against.
     """
 
     async def _seed(
@@ -201,7 +224,7 @@ async def seed_classroom(
         await seed_user(student_uid, name="Student")
         await seed_group(group_uid, teacher_uid)
         await seed_membership(student_uid, group_uid)
-        await seed_exercise(exercise_uid, group_uid=group_uid)
+        await seed_exercise(exercise_uid, teacher_uid=teacher_uid, learner_uids=(student_uid,))
         return {
             "teacher_uid": teacher_uid,
             "student_uid": student_uid,

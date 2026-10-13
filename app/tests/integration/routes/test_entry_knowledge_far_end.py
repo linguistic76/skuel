@@ -5,12 +5,12 @@ A reference writes ``(entry)-[:APPLIES_KNOWLEDGE]->(far end)`` and credits the f
 ``times_reflected_in_entries`` (``KnowledgeReflectedInEntry`` → ``KuBackend.increment_substance``).
 So the far end must be shared curriculum a learner can read — a published Ku or
 PathStep (``UserEntryService.link_applied_knowledge``). Anything else — another user's
-Task or exercise, the caller's own Task, a draft, a uid that names nothing — writes no
+Task, an exercise, the caller's own Task, a draft, a uid that names nothing — writes no
 edge, credits nothing, and lands in the run's ``link_errors`` as the same line a missing
 uid gets, so the summary does not tell a foreign node from an absent one.
 
-Entries and the other user's Task and exercise are made at the real create doors; the
-Kus and PathSteps are seeded, since neither has an HTTP create door.
+Entries and the other user's Task are made at the real create doors and the exercise
+at the content-vault sync, its one door; the Kus and PathSteps are seeded.
 """
 
 from __future__ import annotations
@@ -22,7 +22,12 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
-from tests.integration._activity_link_rig import create, edges_between, signed_in_client
+from tests.integration._activity_link_rig import (
+    create,
+    edges_between,
+    signed_in_client,
+    sync_vault_exercises,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -43,7 +48,7 @@ MARK = "zzzentryknow"
 LEARNER_MARK = f"{MARK}l"
 OTHER_MARK = f"{MARK}o"
 LEARNER = f"user_{LEARNER_MARK}"  # a member who writes the entries
-OTHER = f"user_{OTHER_MARK}"  # a teacher, so it owns an exercise through the create door
+OTHER = f"user_{OTHER_MARK}"  # a teacher, named by the vault exercise
 ROLES = {LEARNER: "member", OTHER: "teacher"}
 KU_PUBLISHED = f"ku.{LEARNER_MARK}.published"
 KU_DRAFT = f"ku.{LEARNER_MARK}.draft"
@@ -88,10 +93,15 @@ async def _seed(driver: AsyncDriver) -> None:
 
 
 async def _delete_owned(driver: AsyncDriver, users: list[str]) -> None:
-    """Generated uids carry no mark — remove what the users own by owner."""
+    """Generated uids carry no mark — remove what the users own by owner; the vault's
+    step, exercise and tracker rows carry the mark."""
     async with driver.session() as session:
         await session.run(
             "MATCH (u:User)-[:OWNS]->(n) WHERE u.uid IN $users DETACH DELETE n", users=users
+        )
+        await session.run(
+            "MATCH (n) WHERE n.uid CONTAINS $mark OR n.entity_uid CONTAINS $mark DETACH DELETE n",
+            mark=MARK,
         )
 
 
@@ -102,13 +112,13 @@ class World:
         learner: httpx.AsyncClient,
         learner_task: str,
         other_task: str,
-        other_exercise: str,
+        exercise: str,
     ) -> None:
         self.driver = driver
         self.learner = learner
         self.learner_task = learner_task
         self.other_task = other_task
-        self.other_exercise = other_exercise
+        self.exercise = exercise
 
     async def reflect(self, link: str) -> tuple[str, list[str]]:
         """Write and process one entry whose line references ``link``; returns the
@@ -148,7 +158,10 @@ class World:
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
-async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-app
+async def world(
+    skuel_app: Any,  # boundary: fasthtml-app
+    tmp_path_factory: pytest.TempPathFactory,
+) -> AsyncIterator[World]:
     driver: AsyncDriver = skuel_app.state.services.neo4j_driver
     async with (
         signed_in_client(skuel_app, LEARNER, LEARNER_MARK) as learner,
@@ -160,10 +173,15 @@ async def world(skuel_app: Any) -> AsyncIterator[World]:  # boundary: fasthtml-a
             await _seed(driver)
             learner_task = await create(learner, "tasks", f"{MARK}-own-task")
             other_task = await create(other, "tasks", f"{MARK}-other-task")
-            other_exercise = await create(
-                other, "exercises", f"{MARK}-essay", name=f"{MARK}-essay", instructions="essay"
+            exercise = f"ex.{MARK}.essay"
+            await sync_vault_exercises(
+                driver,
+                tmp_path_factory.mktemp("content_vault"),
+                step_uid=f"ps.{MARK}.exercise-step",
+                exercises={exercise: f"{MARK} essay"},
+                teacher_uid=OTHER,
             )
-            yield World(driver, learner, learner_task, other_task, other_exercise)
+            yield World(driver, learner, learner_task, other_task, exercise)
         finally:
             await _delete_owned(driver, list(ROLES))
 
@@ -192,8 +210,8 @@ def _refusal_line(link_errors: list[str], entry_uid: str, far_uid: str) -> str:
 
 @pytest.mark.parametrize(
     "far",
-    ["other_task", "other_exercise", "learner_task", KU_DRAFT, PS_DRAFT],
-    ids=["other-users-task", "other-users-exercise", "own-task", "draft-ku", "draft-path-step"],
+    ["other_task", "exercise", "learner_task", KU_DRAFT, PS_DRAFT],
+    ids=["other-users-task", "an-exercise", "own-task", "draft-ku", "draft-path-step"],
 )
 async def test_anything_else_is_refused_like_a_missing_uid(world: World, far: str) -> None:
     far_uid = getattr(world, far, far)

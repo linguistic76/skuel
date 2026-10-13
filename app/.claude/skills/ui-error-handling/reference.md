@@ -151,19 +151,28 @@ failure lands where the content would have, and navigation still works:
 
 ```python
 # adapters/inbound/exercises_ui.py
-@app.get("/exercises/content")
-@ui_boundary_handler("Error loading exercises", fragment_id="exercises-content")
-async def exercises_content_fragment(request: Request) -> FT:
-    """HTMX fragment: the caller's own exercises — a failed read says so."""
+@app.get("/exercises/get/content")
+@ui_boundary_handler("Error loading exercise", fragment_id="exercise-detail-content")
+async def exercise_detail_content_fragment(request, uid: str, from_ps: str = "") -> Any:
     user_uid = require_authenticated_user(request)
-    result = await exercises_service.list_user_exercises(user_uid)
+
+    def render_refusal(message: str) -> FT:
+        return Div(
+            render_error_banner(message),
+            ButtonLink("← Back to Library", href="/library", cls=ButtonT.ghost),
+            id="exercise-detail-content",
+        )
+
+    result = await exercises_service.get_exercise_for_user(uid, user_uid)
     if result.is_error:
-        return Div(render_error_banner("Error loading exercises"), id="exercises-content")
-    return Div(render_exercises_list(result.value), id="exercises-content")
+        return refuse(result.expect_error(), render_refusal, "Exercise")
+    if not result.value:
+        return refuse_not_found(render_refusal("Exercise not found"))
+    return render_exercise_student_detail(result.value, from_ps=from_ps)
 ```
 
-The shell (`GET /exercises`) is a `BasePage` holding
-`content_loading_placeholder("/exercises/content", "exercises-content")`.
+The shell (`GET /exercises/get?uid=`) is a `BasePage` holding
+`content_loading_placeholder(f"/exercises/get/content?uid={uid}", "exercise-detail-content")`.
 `@ui_boundary_handler` catches what escapes the handler and renders the same banner under the same
 id.
 

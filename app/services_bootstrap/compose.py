@@ -936,7 +936,7 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
 
-        exercise_service = ExerciseService(backend=exercise_backend, event_bus=event_bus)
+        exercise_service = ExerciseService(backend=exercise_backend)
 
         # EntryReportService: always created so typed reads (get,
         # list_for_submission) work in both CORE and FULL tiers. AI report
@@ -1066,11 +1066,8 @@ async def compose_services(
         )
         unified_sharing_service = UnifiedSharingService(backend=sharing_backend)
 
-        # Wire sharing into services that were created earlier without sharing.
-        # Both ExerciseService (ASSIGNED scope -> SHARED_WITH_GROUP, ADR-053)
-        # and FormSubmissionService need the sharing service post-hoc.
+        # Wire sharing into FormSubmissionService, created earlier without it.
         form_submission_service.sharing_service = unified_sharing_service
-        exercise_service.sharing_service = unified_sharing_service
 
         # LIFEPATH SERVICE (Domain #14: The Destination)
         # "Everything flows toward the life path"

@@ -52,13 +52,13 @@ SearchRouter (THE orchestrator):
 |-------|----------|--------------------|
 | **Activity (6)** | Task, Goal, Habit, Event, Choice, Principle | `OWNER_ONLY` |
 | **Curriculum (3)** | Ku, PathStep, LearningPath | `PUBLIC` |
-| **Learning Loop (3)** | Exercise, RevisedExercise, UserEntry | Exercise `SCOPE_AWARE`; RevisedExercise, UserEntry `OWNER_ONLY` |
+| **Learning Loop (3)** | Exercise, RevisedExercise, UserEntry | Exercise `PUBLIC` (curriculum); RevisedExercise, UserEntry `OWNER_ONLY` |
 
 - MOC is NOT a searchable domain — emergent identity (any Entity with `ORGANIZES` edges). Group and Finance are not in `_SEARCHABLE_DOMAINS`.
 - Ku, PS and LP expose the sub-service as `.search`; the Learning Loop services implement `SupportsGraphAwareSearch` / `SupportsTextSearch` directly (no `.search` attribute) — `SearchRouter._get_search_service` resolves both shapes.
 - Registry completeness (registry key → constructor parameter → `Services` field) is held by `tests/unit/models/test_search_router_registry.py`.
 
-**Owner-scope gate:** `SearchRouter.search()` REQUIRES `user_uid` for **every** `OWNER_ONLY` domain and refuses without it (`_admits_anonymous_search`) — `build_search_visibility_clause` emits no ownership predicate when there is no user, so an unscoped call would return every user's rows. Only `PUBLIC` and `SCOPE_AWARE` may be searched anonymously; a service that declares nothing is refused too (default-deny). Every aggregate caller treats a refused domain as "contributes nothing".
+**Owner-scope gate:** `SearchRouter.search()` REQUIRES `user_uid` for **every** `OWNER_ONLY` domain and refuses without it (`_admits_anonymous_search`) — `build_search_visibility_clause` emits no ownership predicate when there is no user, so an unscoped call would return every user's rows. Only `PUBLIC` may be searched anonymously; a service that declares nothing is refused too (default-deny). Every aggregate caller treats a refused domain as "contributes nothing".
 
 **UserEntry aggregation rules:** excluded from the default "All Types" sweep and from `advanced_search` aggregation; it participates only when explicitly requested AND user-scoped. `faceted_search` keeps a by-name `user_entry` refusal at the entry point.
 
@@ -214,7 +214,7 @@ Curriculum similarity is `rank_similar_curriculum` (`core/services/curriculum_si
 3. **MOC is not a searchable domain** — emergent identity via `ORGANIZES` edges.
 4. **Every OWNER_ONLY search requires `user_uid`** — refused unscoped; UserEntry is additionally excluded from cross-domain sweeps.
 5. **Every strategy is visibility-scoped** — `build_search_visibility_clause()` is THE single Cypher composition point; never add a per-strategy ownership filter. Every clause-composing builder passes `has_user=True` unconditionally (a null uid yields a null predicate matching nothing — fail-closed). See SEARCH_ARCHITECTURE § Ownership Scoping.
-6. **A facet's VOCABULARY is scoped by the same declaration through a different builder** — `tag_frequencies` returns distinct strings via `build_distinct_values_query`, and the router applies each domain's `SearchVisibility` itself: PUBLIC counted corpus-wide, OWNER_ONLY counted for the caller alone and **skipped without a `user_uid`**, SCOPE_AWARE skipped. Same declaration, closed failure direction, not a second mechanism.
+6. **A facet's VOCABULARY is scoped by the same declaration through a different builder** — `tag_frequencies` returns distinct strings via `build_distinct_values_query`, and the router applies each domain's `SearchVisibility` itself: PUBLIC counted corpus-wide, OWNER_ONLY counted for the caller alone and **skipped without a `user_uid`**, anything else skipped. Same declaration, closed failure direction, not a second mechanism.
 7. **`search_domains` returns a bare `UnifiedSearchResult`**; `search`, `intelligent_search`, `advanced_search`, `faceted_search` return `Result`.
 
 ## Measuring a Facet Vocabulary

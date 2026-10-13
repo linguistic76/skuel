@@ -248,7 +248,7 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
 | `category_field` | `"category"` | `get_by_category` / `list_*_categories` |
 | `date_field` | `"created_at"` | Temporal queries |
 | `user_ownership_relationship` | `RelationshipName.OWNS` | `None` for shared curriculum — derives `PUBLIC` |
-| `search_visibility` / `read_visibility` | `None` → derived | Explicit for `SCOPE_AWARE` (Exercise) / `OWNER_OR_AUDIENCE` (UserEntry read) |
+| `search_visibility` / `read_visibility` | `None` → derived | Explicit for `OWNER_OR_AUDIENCE` (UserEntry read) |
 | `ownership_property` | `"user_uid"` | The property the OWNER_ONLY clause filters on (Group declares `owner_uid`) |
 | `completed_statuses` | `()` | Excluded from `get_active` |
 

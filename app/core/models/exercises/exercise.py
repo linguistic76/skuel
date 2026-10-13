@@ -10,10 +10,8 @@ that knowledge is practised. This hierarchy is fundamental to SKUEL:
 
 PathStep and Exercise are NOT peers. Exercise is subordinate to PathStep in the
 same structural relationship as a sub-goal under a parent goal (Goal.fulfills_goal_uid).
-Exercise.path_step_uid is a hierarchy-membership property — it identifies which
-knowledge unit this instruction template belongs to — not a scoring or enrichment
-field. Both the graph edge and Exercise.path_step_uid are written at creation time
-(dual-write) so both lookup directions are always available without extra queries.
+The membership lives in the edge: the PathStep's vault file lists its exercises
+(``exercise_uids``), and the content-vault sync writes ``HAS_EXERCISE`` from them.
 
 Exercise inherits from Curriculum because it shares substance tracking, learning
 metadata, and confidence fields with PathStep and LearningPath — not because it
@@ -30,22 +28,22 @@ Exercise initiates the four-phase learning loop as the applied-knowledge anchor:
         ↓  auto-shared with teacher
     EntryReport (teacher's response — EntityType.ENTRY_REPORT)
 
-The Exercise belongs to curriculum (shared, admin/teacher-created).
+The Exercise belongs to curriculum: authored only in the content vault, owned by no
+user, and naming in its file the teacher who reviews work on it (ADR-091 S2-S4).
 The UserEntry is entirely user-owned the moment it is created.
 
 Terminology
 -----------
-- Exercise = what the teacher/admin creates (instruction template, scope=ASSIGNED)
-             or what a user creates for personal AI feedback (scope=PERSONAL)
+- Exercise = the instruction template a vault file declares
 - UserEntry = the user's work product in response to an Exercise (ADR-054)
 - EntryReport = the teacher's or AI's response to the UserEntry
 
 Hierarchy:
     Entity (~29 fields)
     └── Curriculum(Entity) +21 fields
-        └── Exercise(Curriculum) +9 fields
+        └── Exercise(Curriculum) + exercise-specific fields
 
-See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
+See: /docs/decisions/ADR-091-one-door-for-curriculum.md
 """
 
 import json
@@ -80,23 +78,20 @@ class Exercise(Curriculum):
     - User controls the model
     - EntryReport = instructions + entry content -> LLM -> response
 
-    Exercise-specific fields (13):
-    - path_step_uid: Optional PathStep anchor (mirrors HAS_EXERCISE edge when set; anchored
-      PERSONAL exercises appear on their PathStep's learning-loop page, unanchored ones are
-      free-standing templates in the user's library)
-    - owner_uid: UID of the user who created this exercise (None for CURRICULUM scope)
+    Exercise-specific fields:
+    - path_step_uid: Optional reverse anchor a vault file may author beside the step's
+      ``HAS_EXERCISE`` edge (the edge is the membership)
+    - exercise_number: Human-readable exercise number (embedded in the downloaded .md)
     - instructions: LLM prompt for processing
     - model: Which LLM to use
-    - scope: ExerciseScope.PERSONAL (user's own template), ASSIGNED (teacher → group),
-      ASSESSMENT (formal test), or CURRICULUM (vault-authored shared content, no user owner)
-    - due_date: Due date for ASSIGNED/ASSESSMENT scope
-    - group_uid: Target group for ASSIGNED scope
+    - scope: ExerciseScope.CURRICULUM — the one scope, the vault's
+    - due_date: Optional due date
     - enrichment_mode: Processing strategy
     - context_notes: Reference materials
     - form_schema: Optional inline form definition for structured submissions
     - expected_modality: What submission format this exercise expects (FILE_UPLOAD or STRUCTURED_FORM)
     - mastery_impact: How aggressively completing this exercise advances mastery (MINOR → CERTIFICATION)
-    - scoring_rubric: Assessment criteria with weights (required for ASSESSMENT scope)
+    - scoring_rubric: Assessment criteria with weights
     - pass_threshold: Minimum score (0.0-1.0) to pass an assessment
     """
 
@@ -143,20 +138,16 @@ class Exercise(Curriculum):
             object.__setattr__(self, "expected_modality", derived)
 
     # =========================================================================
-    # EXERCISE-SPECIFIC FIELDS (14)
+    # EXERCISE-SPECIFIC FIELDS
     # =========================================================================
-    path_step_uid: str | None = (
-        None  # Optional PathStep anchor (mirrors HAS_EXERCISE edge when set)
-    )
-    owner_uid: str | None = None  # UID of the user who created this exercise
+    path_step_uid: str | None = None  # Optional reverse anchor, authored in the vault file
     exercise_number: int | None = (
         None  # Human-readable exercise number (set in YAML, embedded in downloaded .md)
     )
     instructions: str | None = None  # LLM prompt for processing
     model: str = "claude-sonnet-4-6"  # Which LLM to use
-    scope: ExerciseScope = ExerciseScope.PERSONAL
+    scope: ExerciseScope = ExerciseScope.CURRICULUM
     due_date: date | None = None
-    group_uid: str | None = None  # Target group for ASSIGNED scope
     enrichment_mode: EnrichmentMode | None = None
     context_notes: tuple[str, ...] = ()  # Reference materials (tuple, not list — frozen)
     form_schema: tuple[dict[str, Any], ...] | None = None  # Inline form definition
@@ -205,27 +196,8 @@ class Exercise(Curriculum):
         return self.expected_modality == SubmissionModality.STRUCTURED_FORM
 
     def is_valid(self) -> bool:
-        """Check if exercise has minimum required fields.
-
-        Scope-specific constraints:
-        - PERSONAL/CURRICULUM: no extra fields (the PathStep anchor is optional)
-        - ASSIGNED: requires group_uid (teacher assigns to a class)
-        - ASSESSMENT: requires scoring_rubric (formal test with grading criteria)
-        """
-        base_valid = bool(self.title and self.instructions and self.model)
-        if self.scope == ExerciseScope.ASSIGNED:
-            return base_valid and bool(self.group_uid)
-        if self.scope == ExerciseScope.ASSESSMENT:
-            return base_valid and bool(self.scoring_rubric)
-        return base_valid
-
-    def is_assigned(self) -> bool:
-        """Check if this is a teacher-assigned exercise (scope == ASSIGNED)."""
-        return self.scope == ExerciseScope.ASSIGNED
-
-    def is_assessment(self) -> bool:
-        """Check if this is a formal assessment/test (scope == ASSESSMENT)."""
-        return self.scope == ExerciseScope.ASSESSMENT
+        """Check if exercise has minimum required fields: a title, instructions and a model."""
+        return bool(self.title and self.instructions and self.model)
 
     def is_overdue(self) -> bool:
         """Check if exercise is past due date."""
