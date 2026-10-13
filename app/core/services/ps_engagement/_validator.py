@@ -180,7 +180,7 @@ class _PsValidator:
                 referenced_uid=None,
                 hint=(
                     f"template status is {tmpl.status!r}; "
-                    "must be ACTIVE before the PathStep can be published or engaged"
+                    "must be ACTIVE before the PathStep can be engaged"
                 ),
             )
             for tmpl in all_templates

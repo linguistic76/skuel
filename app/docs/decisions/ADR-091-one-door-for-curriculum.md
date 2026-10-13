@@ -1,6 +1,6 @@
 ---
 title: "ADR-091: One Door for Curriculum"
-updated: 2026-10-12
+updated: 2026-10-13
 status: accepted
 category: decisions
 tags: [adr, decisions, curriculum, content-vault, ingestion, exercises, teacher-review, ownership, publication]
@@ -160,8 +160,8 @@ S8). A teacher's reply is a message, so it goes through the review page (N6, N7,
 ### S7. Publish is one marker, set in the vault
 
 Published means shared with SKUEL's users; draft means a work in progress, not shared. The vault's
-`publication_state` is the one switch. The in-app publish button (`POST /api/ps/{ps_uid}/publish`
-and `POST /explore/ps/{uid}/publish`) goes, and a PathStep's `status` stops meaning "published".
+`publication_state` is the one switch. The in-app publish button (`POST /api/ps/{ps_uid}/publish` <!-- historical -->
+and `POST /explore/ps/{uid}/publish` <!-- historical -->) goes, and a PathStep's `status` stops meaning "published".
 
 **Why.** Two fields for one fact disagreed, and the one the button wrote was not the one learners
 are gated by. One marker decides.

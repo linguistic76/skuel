@@ -149,8 +149,8 @@ def create_learning_loop_detail_routes(
         _app: FastHTML application instance.
         rt: Route decorator.
         orchestrator: ExploreOrchestrator for cross-service reads.
-        user_service: The viewer's mastery check-ins and role (the teacher
-            publish button on /explore/ps/{uid}), and the rich context the
+        user_service: The viewer's mastery check-ins and role (the TEACHER+
+            Activity Templates panel on /explore/ps/{uid}), and the rich context the
             Knowledge check-in and "Where you can apply this" read (cached).
         context_intelligence: Creates the hub for a rich context — its method 3
             answers "Where you can apply this" on /explore/ku/{uid}.

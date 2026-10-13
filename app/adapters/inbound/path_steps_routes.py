@@ -26,7 +26,6 @@ PS_CONFIG = DomainRouteConfig(
     },
     ui_related_services={
         "ps_engagement_service": "ps_engagement",
-        "user_service": "user",
         "tasks_service": "tasks",
     },
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),

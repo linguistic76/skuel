@@ -36,7 +36,6 @@ logger = get_logger("skuel.bootstrap")
 def _create_template_services(
     *,
     executor: Neo4jQueryExecutor,
-    ps_service: Any,
     # Template backends (one per Activity Template entity type)
     task_template_backend: BackendOperations[TaskTemplate],
     goal_template_backend: BackendOperations[GoalTemplate],
@@ -61,7 +60,7 @@ def _create_template_services(
       helpers backed by the shared executor.
 
     Builds (Phase 4):
-    - ``ps_engagement``: PsEngagementService — 4-transition lifecycle facade.
+    - ``ps_engagement``: PsEngagementService — 3-transition lifecycle facade.
     """
     from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
     from adapters.persistence.neo4j.template_attachment_backend import TemplateAttachmentBackend
@@ -89,7 +88,6 @@ def _create_template_services(
 
     ps_engagement = PsEngagementService(
         backend=PsEngagementBackend(executor),
-        ps_service=ps_service,
         task_template_backend=task_template_backend,
         goal_template_backend=goal_template_backend,
         habit_template_backend=habit_template_backend,

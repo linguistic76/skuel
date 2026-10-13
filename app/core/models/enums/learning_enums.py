@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from .entity_enums import EntityStatus
-
 
 class MasteryImpact(StrEnum):
     """
@@ -424,28 +422,6 @@ _MASTERY_STATUS_SORT_ORDERS: dict[MasteryStatus, int] = {
     MasteryStatus.REVIEWING: 5,
     MasteryStatus.MASTERED: 6,
 }
-
-
-class KnowledgeStatus(StrEnum):
-    """
-    Domain-specific status for knowledge units.
-    Maps to EntityStatus where applicable for consistency.
-    """
-
-    DRAFT = "draft"  # Maps to EntityStatus.DRAFT
-    PUBLISHED = "published"  # Knowledge-specific (maps to COMPLETED)
-    ARCHIVED = "archived"  # Maps to EntityStatus.ARCHIVED
-    UNDER_REVIEW = "under_review"  # Knowledge-specific (maps to IN_PROGRESS)
-
-    def to_activity_status(self) -> EntityStatus:
-        """Convert to base activity status when needed for cross-domain operations"""
-        mapping = {
-            KnowledgeStatus.DRAFT: EntityStatus.DRAFT,
-            KnowledgeStatus.PUBLISHED: EntityStatus.COMPLETED,
-            KnowledgeStatus.ARCHIVED: EntityStatus.ARCHIVED,
-            KnowledgeStatus.UNDER_REVIEW: EntityStatus.ACTIVE,
-        }
-        return mapping.get(self, EntityStatus.DRAFT)
 
 
 class ContentType(StrEnum):

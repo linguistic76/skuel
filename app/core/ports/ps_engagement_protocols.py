@@ -3,7 +3,7 @@ PS Engagement Backend Protocol
 ==============================
 
 Persistence port for the PathStep engagement lifecycle (ADR-059). All Cypher for
-the 4-transition lifecycle (publish / engage / complete / abandon) plus its reads
+the 3-transition lifecycle (engage / complete / abandon) plus its reads
 lives below the boundary in
 ``adapters/persistence/neo4j/ps_engagement_backend.py``; ``PsEngagementService``
 and its private helpers (``_EngagementGateway``, ``_TemplateLoader``) depend on
@@ -43,12 +43,7 @@ class PsEngagementOperations(Protocol):
         self, ps_uid: str, rel_value: str, template_label: str
     ) -> Result[list[dict[str, Any]]]: ...
 
-    # PathStep status (T1 publish)
-    async def set_pathstep_published(
-        self, ps_uid: str, status: str, updated_at: str
-    ) -> Result[list[dict[str, Any]]]: ...
-
-    # Spawned-instance lifecycle (T3 complete / T4 abandon)
+    # Spawned-instance lifecycle (T2 complete / T3 abandon)
     async def delete_instance(
         self, instance_uid: str, operation: str
     ) -> Result[list[dict[str, Any]]]: ...

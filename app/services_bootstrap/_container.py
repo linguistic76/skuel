@@ -233,7 +233,7 @@ class Services:
     lp: LpService | None = None  # LpService - All path management
     ps: PsService | None = None  # PsService - Dedicated path step management
     # PS+Activity Templates lifecycle facade (Phase 4 — May 2026)
-    # Owns 4 transitions: publish/engage/complete/abandon over PS templates.
+    # Owns 3 transitions: engage/complete/abandon over PS templates.
     ps_engagement: PsEngagementService | None = None
 
     # PS+Activity Templates CRUD services (Phase 5 — May 2026).
