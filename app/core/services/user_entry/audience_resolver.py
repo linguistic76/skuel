@@ -16,8 +16,8 @@ Three steps, in the order ``create_entry`` runs them:
                                  first write: exercise / predecessor claims,
                                  ``user:`` co-membership (R8), ``group:`` /
                                  ``teacher:`` reachability, and ``teachers``
-                                 expanded to concrete groups or, for an
-                                 anchored PERSONAL exercise, its teacher
+                                 expanded to concrete groups or to the
+                                 exercise's teacher
     3. ``resolve_and_share``   — the post-persist writes, of validated targets only
 
 Public surface:
@@ -57,10 +57,11 @@ FEEDBACK_TARGET_FIELD = "feedback_target"
 
 @dataclass(frozen=True)
 class TeacherTarget:
-    """A feedback request filed with one teacher directly (ADR-088 §9).
+    """A feedback request filed with one teacher directly (ADR-088 §9, ADR-091 S3).
 
-    ``teacher_uid`` owns the anchored PERSONAL exercise ``exercise_uid`` the
-    entry turns in against — the reviewer the write re-decides from it.
+    ``teacher_uid`` is the teacher of the exercise ``exercise_uid`` the entry
+    turns in against — its ``REVIEWED_BY`` teacher, or an anchored PERSONAL
+    exercise's owner — the reviewer the write re-decides from it.
     """
 
     teacher_uid: str
@@ -74,8 +75,8 @@ class ResolvedAudience:
     ``teacher_groups`` are the explicit ``teacher:<group_uid>`` targets and
     ``teachers_groups`` the ``teachers`` expansion — together
     ``submit_groups``, where a feedback request goes; ``submit_teachers`` the
-    ``teachers`` expansion's direct target, when the exercise is an anchored
-    PERSONAL one in no group the owner shares (ADR-088 §9); ``share_groups`` the
+    ``teachers`` expansion's direct target, the exercise's teacher, when the
+    exercise is in no group the owner shares (ADR-088 §9, ADR-091 S3); ``share_groups`` the
     ``group:`` targets; ``share_users`` the ``user:`` targets as
     ``(username, uid)`` pairs, each a verified co-member. ``public`` is the
     portfolio flag. Every uid here passed its authorisation check.
@@ -287,12 +288,12 @@ class AudienceResolver:
           - ``group:`` / ``teacher:``: exists, active, and the owner is a
             member or owner — one uniform not-found otherwise.
           - ``teachers`` (explicit, or the TEACHER_REVIEW default): with an
-            exercise, the exercise's groups the owner belongs to, falling
-            back to the owner's default group for a curriculum exercise
-            (ruled 2026-07-04), and for a PERSONAL exercise anchored to a
-            published PathStep to the exercise's owner directly (ADR-088
-            §9 — a reviewer, never the submitter); without one, every group
-            the owner is a student of. Expanded only on TEACHER_REVIEW —
+            exercise, the exercise's groups the owner belongs to, else the
+            exercise's teacher directly — the teacher its vault file names
+            (ADR-091 S3), or the owner of a PERSONAL exercise anchored to a
+            published PathStep (ADR-088 §9); a revision's is the exercise it
+            revises (N8); a reviewer, never the submitter. Without an
+            exercise, every group the owner is a student of. Expanded only on TEACHER_REVIEW —
             elsewhere it names a reviewer the pipeline never has and writes
             nothing. Explicit ``teacher:`` targets are validated on every
             pipeline.
@@ -507,8 +508,7 @@ class AudienceResolver:
         Returns ``(groups, teachers)``; at most one of the two is non-empty.
 
         Backend: SharingBackend.query_exercise_groups_for_member,
-        SharingBackend.query_default_groups_for_curriculum_submission,
-        SharingBackend.query_anchored_exercise_teacher;
+        SharingBackend.query_exercise_teacher;
         GroupService.get_user_groups (student role) without an exercise.
         """
         assert self.sharing_service is not None  # caller gates
@@ -534,28 +534,13 @@ class AudienceResolver:
             return Result.fail(groups_result)
         records = list(groups_result.value or [])
         if not records:
-            # Curriculum fallback (ruled 2026-07-04): vault-authored exercises
-            # are never assigned to a group, so the intersection is empty and
-            # the request would dissolve with no reviewer. It goes to the
-            # owner's default group — under SUBMITTED_TO_GROUP it reaches only
-            # that group's owner. The backend read is scope-gated: zero rows
-            # for a non-curriculum exercise.
-            fallback = await backend.query_default_groups_for_curriculum_submission(
-                exercise_uid=EntityUID(exercise_uid),
-                user_uid=user_uid,
-            )
-            if fallback.is_error:
-                return Result.fail(fallback)
-            records = list(fallback.value or [])
-        if not records:
-            # Anchored PERSONAL route (ADR-088 §9): a PERSONAL exercise anchored
-            # to a published PathStep is the step's, so any learner on the step
-            # turns in against it — and it is in no group. The request goes to
-            # the exercise's owner directly. The backend read is the whole rule
-            # (scope, published anchor, owner by OWNS, reviewer role, not the
-            # submitter): zero rows for anything else, which leaves the request
-            # with no target and refused.
-            direct = await backend.query_anchored_exercise_teacher(
+            # The exercise's teacher, asked directly: the teacher its vault file
+            # names (REVIEWED_BY, ADR-091 S3), or the owner of a PERSONAL exercise
+            # anchored to a published PathStep (ADR-088 §9). A revision resolves to
+            # the exercise it revises (N8). The backend read is the whole rule
+            # (reviewer role, active, not the submitter): zero rows for anything
+            # else, which leaves the request with no target and refused.
+            direct = await backend.query_exercise_teacher(
                 exercise_uid=EntityUID(exercise_uid),
                 user_uid=user_uid,
             )

@@ -150,6 +150,14 @@ class IngestionWriteOperations(Protocol):
         """
         ...
 
+    async def get_user_roles_batch(self, uids: list[str]) -> Result[dict[str, str]]:
+        """uid -> role for each uid that names a ``:User`` (absent = names no user).
+
+        The read an exercise file's ``teacher`` is admitted by (ADR-091 S3) —
+        Result-shaped so the admission fails closed on a failed read.
+        """
+        ...
+
     async def create_group_ownership(self, owner_uid: str, group_uid: str) -> int:
         """Assert the owner's ``:OWNS`` edge onto a persisted Group (idempotent)
         and return how many edges the write touched — 0 means the owner has no

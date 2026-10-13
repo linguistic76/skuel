@@ -52,6 +52,7 @@ from .config import (
     collect_files_detailed,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
+from .exercise_teacher import refuse_unqualified_teachers
 from .ingestion_tracker import IngestionTracker, edge_identity
 from .moc_links import frontmatter_organizes_targets
 from .parser import parse_markdown, parse_yaml
@@ -1112,6 +1113,41 @@ async def ingest_directory(
     # "add pipeline: knowledge to promote" hint reaches the sync UI/API,
     # plus any move-detection degradation from the pre-pass above.
     validation_warnings: list[str] = list(collection_skips.warnings) + move_warnings
+
+    # Every exercise names its teacher (ADR-091 S3): a file whose ``teacher`` is not a
+    # user with the TEACHER role or higher writes nothing and is reported by name. It
+    # is an error, not an ignored note — the uid is checked against the users in the
+    # graph, so the fix may lie outside the file. A failed read writes nothing.
+    exercise_entities = entities_by_type.get(EntityType.EXERCISE, [])
+    if exercise_entities:
+        if write_backend is None:
+            return Result.fail(
+                Errors.system(
+                    "Exercise files need the ingestion write backend to read their teacher"
+                )
+            )
+        refused_teachers = await refuse_unqualified_teachers(write_backend, exercise_entities)
+        if refused_teachers.is_error:
+            return Result.fail(refused_teachers)
+        refused_ids = {id(entity) for entity, _reason in refused_teachers.value}
+        for entity, reason in refused_teachers.value:
+            refused_path = str(entity.get("_file_path", ""))
+            errors.append(
+                create_error(
+                    file_path=Path(refused_path),
+                    error=f"File {Path(refused_path).name}: {reason}",
+                    stage="exercise_teacher",
+                    error_type="validation",
+                    entity_type=EntityType.EXERCISE.value,
+                    field="teacher",
+                ).to_dict()
+            )
+            file_entity_map.pop(refused_path, None)
+        entities_by_type[EntityType.EXERCISE] = [
+            entity for entity in exercise_entities if id(entity) not in refused_ids
+        ]
+        if not entities_by_type[EntityType.EXERCISE]:
+            del entities_by_type[EntityType.EXERCISE]
 
     # A personal vault's frontmatter targets (ADR-070 Decision 11): admitted BEFORE any node
     # lands, so a refused target never reaches an edge or a property. The uids

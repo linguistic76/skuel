@@ -56,9 +56,9 @@ def _make_sharing_service() -> MagicMock:
     backend.query_exercise_groups_for_member = AsyncMock(
         return_value=Result.ok([{"group_uid": "g_class"}])
     )
-    # Curriculum default-group fallback: the empty intersection triggers this
-    # second lookup; default = no default group.
-    backend.query_default_groups_for_curriculum_submission = AsyncMock(return_value=Result.ok([]))
+    # The exercise's own teacher: the empty intersection triggers this second
+    # lookup; default = the exercise names no teacher.
+    backend.query_exercise_teacher = AsyncMock(return_value=Result.ok([]))
     backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
     # Default: referenced predecessor entry is owned by the canonical test user
     # (user_1), so validate_references' TRANSFORMS ownership check passes.

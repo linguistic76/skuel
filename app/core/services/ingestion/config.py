@@ -203,7 +203,11 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
     EntityType.EXERCISE: EntityIngestionConfig(
         entity_label="Exercise",
         uid_prefix="ex",
-        required_fields=("title", "instructions"),
+        # ``teacher`` names the user who reviews work on the exercise (ADR-091 S3):
+        # the registry turns it into (Exercise)-[:REVIEWED_BY]->(User), and both
+        # ingest doors refuse a uid that is not a user with the TEACHER role or
+        # higher (``exercise_teacher.refuse_unqualified_teachers``).
+        required_fields=("title", "instructions", "teacher"),
         relationship_config=generate_ingestion_relationship_config(EntityType.EXERCISE),
         # File-ingested exercises are shared curriculum content — no user OWNS
         # edge, so PERSONAL/ASSIGNED/ASSESSMENT (all owner- or group-bound) are

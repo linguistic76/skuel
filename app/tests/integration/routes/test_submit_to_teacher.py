@@ -15,11 +15,12 @@ and the students list stay with the classroom, so a teacher reached only by a di
 request finds the learner in none of them (ruled with ADR-088 §9). The exchange thread
 opens for them, scoped to the entries that asked them — never the learner's other work.
 
-The direct target is the anchored-PERSONAL route only. An unanchored PERSONAL exercise
-is its owner's alone; one anchored to a draft step has no audience; an ASSIGNED exercise
-reaches its group's teacher and a CURRICULUM one the learner's default group, as before;
-an owner turning in against their own exercise has nobody to ask, and an owner without
-the teacher role is nobody's reviewer.
+An owned exercise reaches its owner only by the anchored-PERSONAL route. An unanchored
+PERSONAL exercise is its owner's alone; one anchored to a draft step has no audience; an
+ASSIGNED exercise reaches its group's teacher, as before; a CURRICULUM one reaches the
+teacher its vault file names (``REVIEWED_BY``, ADR-091 S3), never the learner's default
+group; an owner turning in against their own exercise has nobody to ask, and an owner
+without the teacher role is nobody's reviewer.
 
 Every exercise and the group are made at the real create doors; the learner starts the
 step at the real progress door and turns in at the real upload door.
@@ -120,8 +121,9 @@ async def _seed_draft_path_step(driver: AsyncDriver, uid: str) -> None:
 
 
 async def _seed_curriculum_route(driver: AsyncDriver) -> None:
-    """A vault-authored CURRICULUM exercise on the published step (no door creates one),
-    and the learner's default group — the curriculum fallback's target."""
+    """A vault-authored CURRICULUM exercise on the published step, naming STRANGER its
+    teacher as the vault door writes it (``REVIEWED_BY``), and the learner's default
+    group — which a request on the exercise does not reach."""
     async with driver.session() as session:
         await session.run(
             """
@@ -131,7 +133,10 @@ async def _seed_curriculum_route(driver: AsyncDriver) -> None:
             WITH ex
             MATCH (s:Entity:PathStep {uid: $ps})
             MERGE (s)-[:HAS_EXERCISE]->(ex)
-            WITH s
+            WITH ex
+            MATCH (named:User {uid: $named})
+            MERGE (ex)-[:REVIEWED_BY]->(named)
+            WITH ex
             MATCH (owner:User {uid: $owner}), (learner:User {uid: $learner})
             MERGE (g:Group {uid: $group})
             SET g.name = $group, g.is_active = true, g.owner_uid = $owner
@@ -140,6 +145,7 @@ async def _seed_curriculum_route(driver: AsyncDriver) -> None:
             """,
             ex=CURRICULUM_EX,
             ps=PS_PUBLISHED,
+            named=STRANGER,
             owner=OUTSIDER,
             learner=LEARNER,
             group=DEFAULT_GROUP,
@@ -480,11 +486,15 @@ async def test_an_assigned_exercise_still_reaches_its_group(world: World) -> Non
     assert entry not in await world.queue(TEACHER)
 
 
-async def test_a_curriculum_exercise_still_reaches_the_default_group(world: World) -> None:
+async def test_a_curriculum_exercise_reaches_its_named_teacher_not_the_default_group(
+    world: World,
+) -> None:
     turned_in = await _turn_in(world.clients[LEARNER], CURRICULUM_EX, "curriculum")
     assert turned_in.status_code == 201, turned_in.text
     entry = str(turned_in.json()["user_entry"]["uid"])
-    assert await _feedback_edges(world.driver, entry) == {("SUBMITTED_TO_GROUP", DEFAULT_GROUP)}
+    assert await _feedback_edges(world.driver, entry) == {("SUBMITTED_TO_TEACHER", STRANGER)}
+    assert entry in await world.queue(STRANGER)
+    assert entry not in await world.queue(OUTSIDER)
 
 
 # =============================================================================

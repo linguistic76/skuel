@@ -5,12 +5,12 @@ Three seams, all raw-Cypher and therefore invisible to the mock-only suites:
 
 1. ``UserEntryBackend.get_admin_uid`` — the default-teacher pick is the
    oldest admin, by ``created_at``.
-2. ``SharingBackend.query_default_groups_for_curriculum_submission`` — the
-   fallback review route for CURRICULUM exercises is scope-gated in Cypher:
-   personal exercises must resolve to zero rows so they can never leak to
-   the default group. A revision resolves to the exercise it revises in
-   this lookup and in ``query_exercise_groups_for_member``, so a turn-in
-   against a revision reaches the root exercise's reviewers.
+2. ``SharingBackend.query_exercise_teacher`` — a CURRICULUM exercise's
+   feedback request goes to the teacher its vault file names (``REVIEWED_BY``,
+   ADR-091 S3), never to the learner's default group. A revision resolves to
+   the exercise it revises in this lookup and in
+   ``query_exercise_groups_for_member``, so a turn-in against a revision
+   reaches the root exercise's reviewers (N8).
 3. ``PsBackend.count_in_progress_path_steps`` — the basis of the enrollment
    cap counts IN_PROGRESS edges to :PathStep nodes only; a :Ku edge must
    not inflate the cap.
@@ -48,6 +48,7 @@ _ASSIGNED_REVISION_UID = f"re_test_assigned_{_RUN}"
 _ORPHAN_REVISION_UID = f"re_test_orphan_{_RUN}"
 _STUDENT_UID = f"user_zz_student_{_RUN}"
 _LONER_UID = f"user_zz_loner_{_RUN}"  # in no default group
+_NAMED_TEACHER_UID = f"user_zz_named_teacher_{_RUN}"  # the curriculum exercise's teacher
 _DEFAULT_GROUP_UID = f"group_default_user_zz_admin_{_RUN}"
 
 # --- (c) enrollment-cap fixtures --------------------------------------------
@@ -114,6 +115,17 @@ async def default_group_graph(neo4j_driver):
                 "MERGE (u:User {uid: $uid}) SET u.title = $uid",
                 uid=user_uid,
             )
+        # The curriculum exercise names its teacher, as the vault door writes it.
+        await session.run(
+            """
+            MATCH (ex:Entity:Exercise {uid: $ex})
+            MERGE (t:User {uid: $teacher})
+            SET t.title = $teacher, t.role = 'teacher'
+            MERGE (ex)-[:REVIEWED_BY]->(t)
+            """,
+            ex=_CURRICULUM_EX_UID,
+            teacher=_NAMED_TEACHER_UID,
+        )
         await session.run(
             """
             MERGE (g:Group {uid: $group_uid})
@@ -165,6 +177,7 @@ async def default_group_graph(neo4j_driver):
         "student": _STUDENT_UID,
         "loner": _LONER_UID,
         "group": _DEFAULT_GROUP_UID,
+        "teacher": _NAMED_TEACHER_UID,
     }
 
     async with neo4j_driver.session() as session:
@@ -180,6 +193,7 @@ async def default_group_graph(neo4j_driver):
                 _STUDENT_UID,
                 _LONER_UID,
                 _DEFAULT_GROUP_UID,
+                _NAMED_TEACHER_UID,
             ],
         )
 
@@ -246,7 +260,7 @@ async def test_get_admin_uid_picks_the_oldest_admin(neo4j_driver, admin_pick_gra
 
 
 # ============================================================================
-# (b) query_default_groups_for_curriculum_submission — the scope gate
+# (b) query_exercise_teacher — a curriculum exercise asks the teacher it names
 # ============================================================================
 
 
@@ -255,79 +269,57 @@ def _sharing_backend(neo4j_driver) -> SharingBackend:
     return SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity)
 
 
-async def test_curriculum_exercise_routes_to_default_group(neo4j_driver, default_group_graph):
-    backend = _sharing_backend(neo4j_driver)
-
-    result = await backend.query_default_groups_for_curriculum_submission(
-        exercise_uid=default_group_graph["curriculum_ex"],
-        user_uid=default_group_graph["student"],
+async def _teachers(neo4j_driver, exercise_uid: str, user_uid: str) -> list[str]:
+    result = await _sharing_backend(neo4j_driver).query_exercise_teacher(
+        exercise_uid=exercise_uid, user_uid=user_uid
     )
-
     assert result.is_ok, f"Query failed: {result.error}"
-    group_uids = [row["group_uid"] for row in result.value or []]
-    assert group_uids == [default_group_graph["group"]], (
-        "A curriculum exercise from a default-group member must resolve to "
-        "exactly that default group"
+    return [row["teacher_uid"] for row in result.value or []]
+
+
+async def test_a_curriculum_exercise_asks_its_named_teacher(neo4j_driver, default_group_graph):
+    """The student is in a default group; the request still goes to the named teacher."""
+    assert await _teachers(
+        neo4j_driver, default_group_graph["curriculum_ex"], default_group_graph["student"]
+    ) == [default_group_graph["teacher"]]
+
+
+async def test_an_exercise_naming_no_teacher_asks_nobody(neo4j_driver, default_group_graph):
+    assert (
+        await _teachers(
+            neo4j_driver, default_group_graph["personal_ex"], default_group_graph["student"]
+        )
+        == []
     )
 
 
-async def test_personal_exercise_never_leaks_to_default_group(neo4j_driver, default_group_graph):
-    """The scope gate: scope='personal' must yield ZERO rows even though the
-    submitter IS in a default group."""
-    backend = _sharing_backend(neo4j_driver)
-
-    result = await backend.query_default_groups_for_curriculum_submission(
-        exercise_uid=default_group_graph["personal_ex"],
-        user_uid=default_group_graph["student"],
-    )
-
-    assert result.is_ok, f"Query failed: {result.error}"
-    assert (result.value or []) == [], (
-        "PERSONAL submissions must never route to the default group — "
-        "the Cypher scope gate is the only thing preventing the leak"
+async def test_the_named_teacher_never_asks_themselves(neo4j_driver, default_group_graph):
+    assert (
+        await _teachers(
+            neo4j_driver, default_group_graph["curriculum_ex"], default_group_graph["teacher"]
+        )
+        == []
     )
 
 
-async def test_user_without_default_group_gets_zero_rows(neo4j_driver, default_group_graph):
-    backend = _sharing_backend(neo4j_driver)
-
-    result = await backend.query_default_groups_for_curriculum_submission(
-        exercise_uid=default_group_graph["curriculum_ex"],
-        user_uid=default_group_graph["loner"],
-    )
-
-    assert result.is_ok, f"Query failed: {result.error}"
-    assert (result.value or []) == [], (
-        "A user in no default group must resolve to zero rows, not an error"
-    )
-
-
-async def test_revision_of_a_curriculum_exercise_routes_like_its_root(
+async def test_revision_of_a_curriculum_exercise_asks_its_roots_teacher(
     neo4j_driver, default_group_graph
 ):
-    """A revision is never assigned to a group and carries no scope; the
-    fallback resolves it to the exercise it revises."""
-    backend = _sharing_backend(neo4j_driver)
+    """A revision names no teacher of its own; it resolves to the exercise it revises."""
+    assert await _teachers(
+        neo4j_driver,
+        default_group_graph["curriculum_revision"],
+        default_group_graph["student"],
+    ) == [default_group_graph["teacher"]]
 
-    result = await backend.query_default_groups_for_curriculum_submission(
-        exercise_uid=default_group_graph["curriculum_revision"],
-        user_uid=default_group_graph["student"],
+
+async def test_revision_with_no_original_asks_nobody(neo4j_driver, default_group_graph):
+    assert (
+        await _teachers(
+            neo4j_driver, default_group_graph["orphan_revision"], default_group_graph["student"]
+        )
+        == []
     )
-
-    assert result.is_ok, f"Query failed: {result.error}"
-    assert [row["group_uid"] for row in result.value or []] == [default_group_graph["group"]]
-
-
-async def test_revision_with_no_original_resolves_to_nothing(neo4j_driver, default_group_graph):
-    backend = _sharing_backend(neo4j_driver)
-
-    result = await backend.query_default_groups_for_curriculum_submission(
-        exercise_uid=default_group_graph["orphan_revision"],
-        user_uid=default_group_graph["student"],
-    )
-
-    assert result.is_ok, f"Query failed: {result.error}"
-    assert (result.value or []) == []
 
 
 async def test_revision_of_an_assigned_exercise_reaches_its_groups(

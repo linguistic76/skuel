@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-10-11
+updated: 2026-10-13
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -192,9 +192,9 @@ living entry — resolves audience through `UnifiedSharingService`:
 
 - `pipeline=TEACHER_REVIEW` → a feedback request (`SUBMITTED_TO_GROUP`): `teacher:<group_uid>`
   targets, and `teachers` (the default when nothing is named) as the exercise's assigned groups
-  the submitter belongs to (a curriculum exercise: the default group; a PERSONAL exercise
-  anchored to a published PathStep, in none of them: `SUBMITTED_TO_TEACHER` to its owner,
-  ADR-088 §9; no exercise: every group they study in). A request that would reach no teacher is **refused before the write**
+  the submitter belongs to (in none of them: `SUBMITTED_TO_TEACHER` to the exercise's teacher —
+  the one its vault file names, ADR-091 S3, or an anchored PERSONAL exercise's owner, ADR-088 §9;
+  no exercise: every group they study in). A request that would reach no teacher is **refused before the write**
   (ADR-054 §3: no silent no-audience turn-ins).
 - every pipeline → `group:<uid>` / `user:<username>` are shares (`SHARED_WITH_GROUP` /
   `SHARES_WITH`); a feedback target on any other pipeline writes no link.

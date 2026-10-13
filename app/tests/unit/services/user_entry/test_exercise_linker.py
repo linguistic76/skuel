@@ -39,7 +39,6 @@ class TestProcessExerciseSubmission:
                 {
                     "exercise_entity_type": "exercise",
                     "scope": "assigned",
-                    "teacher_uid": "teacher_1",
                     "student_uid": None,
                     "exercise_title": "Write Essay",
                     "group_uid": "grp_1",
@@ -70,7 +69,6 @@ class TestProcessExerciseSubmission:
                 {
                     "exercise_entity_type": "exercise",
                     "scope": "shared",
-                    "teacher_uid": "teacher_1",
                     "student_uid": None,
                     "exercise_title": "Shared Ex",
                     "group_uid": None,
@@ -114,7 +112,6 @@ class TestProcessExerciseSubmission:
                 {
                     "exercise_entity_type": "revised_exercise",
                     "scope": None,
-                    "teacher_uid": "teacher_1",
                     "student_uid": "user_1",
                     "exercise_title": "Revision",
                     "group_uid": None,
@@ -141,7 +138,6 @@ class TestProcessExerciseSubmission:
                 {
                     "exercise_entity_type": "revised_exercise",
                     "scope": None,
-                    "teacher_uid": "teacher_1",
                     "student_uid": "user_2",
                     "exercise_title": "Revision",
                     "group_uid": None,
@@ -167,7 +163,6 @@ class TestProcessExerciseSubmission:
                 {
                     "exercise_entity_type": "exercise",
                     "scope": "assigned",
-                    "teacher_uid": "teacher_1",
                     "student_uid": None,
                     "exercise_title": "Essay",
                     "group_uid": "grp_1",
@@ -193,7 +188,6 @@ class TestProcessExerciseSubmission:
                 {
                     "exercise_entity_type": "exercise",
                     "scope": "assigned",
-                    "teacher_uid": "teacher_1",
                     "student_uid": None,
                     "exercise_title": "Write Essay",
                     "group_uid": "grp_1",

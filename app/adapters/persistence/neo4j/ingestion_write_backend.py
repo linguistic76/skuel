@@ -210,6 +210,26 @@ class IngestionWriteBackend:
             return Result.fail(Errors.database("get_published_uids_batch", str(e)))
         return Result.ok(frozenset(str(r["uid"]) for r in records))
 
+    async def get_user_roles_batch(self, uids: list[str]) -> Result[dict[str, str]]:
+        """uid -> role for each uid that names a ``:User``; the exercise-teacher read.
+
+        A uid that names no user is absent. A user with no role reads as an empty
+        string, which no role check admits. Result-shaped for the reason
+        ``get_node_labels_batch`` is.
+        """
+        try:
+            records, _, _ = await self._driver.execute_query(
+                """
+                UNWIND $uids AS uid
+                MATCH (u:User {uid: uid})
+                RETURN u.uid AS uid, coalesce(u.role, '') AS role
+                """,
+                uids=uids,
+            )
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(Errors.database("get_user_roles_batch", str(e)))
+        return Result.ok({str(r["uid"]): str(r["role"]) for r in records})
+
     async def create_group_ownership(self, owner_uid: str, group_uid: str) -> int:
         """MERGE the (User)-[:OWNS]->(Group) edge; return how many edges the
         statement touched (ADR-053, ADR-086 § 1 door 5).
@@ -318,16 +338,18 @@ class IngestionWriteBackend:
         so an edge of the same type to any other target — or one an app door
         wrote to a target the file still declares — cannot be reached. The type
         arrives as a ``RelationshipName`` and is compared as a parameter
-        (``type(r) = edge.rel_type``), never interpolated. A missing edge simply
-        matches nothing.
+        (``type(r) = edge.rel_type``), never interpolated. The target is any
+        node — an ``:Entity``, or the ``:User`` an exercise's ``teacher`` names.
+        A missing edge simply matches nothing.
         """
         if not edges:
             return 0
         records, _, _ = await self._driver.execute_query(
             """
             UNWIND $edges AS edge
-            MATCH (s:Entity {uid: $source_uid})-[r]-(t:Entity {uid: edge.target_uid})
-            WHERE type(r) = edge.rel_type
+            MATCH (s:Entity {uid: $source_uid})-[r]-(t)
+            WHERE t.uid = edge.target_uid
+              AND type(r) = edge.rel_type
               AND (
                 (edge.direction = 'outgoing' AND startNode(r) = s)
                 OR (edge.direction = 'incoming' AND endNode(r) = s)

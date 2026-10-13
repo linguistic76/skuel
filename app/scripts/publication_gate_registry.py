@@ -444,14 +444,14 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.sharing_backend",
-        "_anchored_exercise_teacher_match",
+        "_exercise_teacher_match",
         Disposition.ADMISSION,
-        "The direct feedback target's rule (ADR-088 §9), composed by the resolving "
-        "read and by the SUBMITTED_TO_TEACHER write: a turn-in on a PERSONAL exercise "
-        "reaches its owner only while the anchoring PathStep is published "
-        "(build_anchored_exercise_clause), so a draft step's exercise asks nobody. "
-        "It returns a teacher uid or whether the edge landed — no curriculum the "
-        "caller did not name.",
+        "The direct feedback target's rule (ADR-088 §9, ADR-091 S3), composed by the "
+        "resolving read and by the SUBMITTED_TO_TEACHER write: a turn-in reaches the "
+        "exercise's REVIEWED_BY teacher, or a PERSONAL exercise's owner only while the "
+        "anchoring PathStep is published (build_anchored_exercise_clause), so a draft "
+        "step's owned exercise asks nobody. It returns a teacher uid or whether the "
+        "edge landed — no curriculum the caller did not name.",
     ),
     Surface(
         "adapters.persistence.neo4j.connection_fetch_backend",

@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 167, with_contract: 90}
+    relationships: {total: 168, with_contract: 91}
     labels: {total: 60, with_contract: 16}
   legacy_label_config_aliases: []
 
@@ -732,6 +732,11 @@ relationships:
   SUBMITTED_TO_TEACHER:
     traits: [access]
     contract: null
+  REVIEWED_BY:
+    contract:
+      - config: Exercise
+        definitions:
+          - {direction: outgoing, target: User, context_field: teacher, method: teacher, fields: [uid, display_name], single: true, ingestion_field: teacher}
   RESPONDS_TO_REPORT:
     contract:
       - config: RevisedExercise
@@ -1137,6 +1142,7 @@ labels:
         - REQUIRES_KNOWLEDGE
         - SHARED_WITH_GROUP
         - FULFILLS_EXERCISE
+        - REVIEWED_BY
       semantic_types: ["learn:requires_theoretical_understanding", "learn:provides_practical_application"]
   RevisedExercise:
     entity_types: [revised_exercise]

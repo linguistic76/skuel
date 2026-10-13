@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-22
+updated: 2026-10-13
 ---
 
 # Curriculum Developer Guide
@@ -285,7 +285,7 @@ where do you feel the breath most?
 
 An Exercise is a practice prompt attached to a PathStep. It closes the learning loop: the learner responds, the system (teacher or AI) evaluates, and targeted revision follows. Exercises are the third authoring primitive — alongside Kus and PathSteps — because they are what turn a reading into a *doing*.
 
-An Exercise is a YAML file with an `instructions` field (the LLM prompt that processes the learner's submission) and an optional `form_schema` (for structured form responses rather than free-form uploads).
+An Exercise is a YAML file with an `instructions` field (the LLM prompt that processes the learner's submission), a `teacher` field (the uid of the user who reviews the work — a TEACHER or higher; the sync refuses an exercise without one, ADR-091 S3) and an optional `form_schema` (for structured form responses rather than free-form uploads).
 
 ```yaml
 version: 1.0
@@ -295,6 +295,7 @@ uid: ex.sel.know-yourself-check-in
 title: Know Yourself Check-In
 description: A structured self-awareness reflection exercise
 scope: curriculum
+teacher: user_your_teacher   # required: who reviews the work (REVIEWED_BY)
 model: claude-sonnet-4-6
 mastery_impact: moderate
 sel_category: SELF_AWARENESS

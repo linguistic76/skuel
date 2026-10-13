@@ -136,6 +136,7 @@ def test_update_api_rejects_invalid_domain() -> None:
 # ============================================================================
 
 _FILE = Path("exercise_sample.md")
+_TEACHER = "user_teacher"
 
 
 def _prepared(data: dict[str, object]) -> dict[str, object]:
@@ -145,16 +146,28 @@ def _prepared(data: dict[str, object]) -> dict[str, object]:
 def test_ingestion_defaults_absent_scope_to_curriculum() -> None:
     """Config default wins over the model default (PERSONAL), which would
     create an ownerless 'personal' exercise no view can surface."""
-    prepared = _prepared({"title": "Sample", "instructions": "Do."})
+    prepared = _prepared({"title": "Sample", "instructions": "Do.", "teacher": _TEACHER})
     assert prepared["scope"] == "curriculum"
     result = validate_entity_data(EntityType.EXERCISE, prepared, _FILE)
     assert result.is_ok
 
 
 def test_ingestion_accepts_explicit_curriculum_scope() -> None:
-    prepared = _prepared({"title": "Sample", "instructions": "Do.", "scope": "curriculum"})
+    prepared = _prepared(
+        {"title": "Sample", "instructions": "Do.", "scope": "curriculum", "teacher": _TEACHER}
+    )
     result = validate_entity_data(EntityType.EXERCISE, prepared, _FILE)
     assert result.is_ok
+
+
+def test_ingestion_requires_the_exercise_to_name_its_teacher() -> None:
+    """ADR-091 S3: every exercise file names its teacher; the refusal names the file."""
+    prepared = _prepared({"title": "Sample", "instructions": "Do."})
+    result = validate_entity_data(EntityType.EXERCISE, prepared, _FILE)
+    assert result.is_error
+    error = result.expect_error()
+    assert error.details["field"] == "teacher"
+    assert _FILE.name in error.display_message
 
 
 @pytest.mark.parametrize("scope", ["personal", "assigned", "assessment"])

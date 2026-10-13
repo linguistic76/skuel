@@ -12,6 +12,7 @@ import pytest
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.ports.sharing_protocols import SharingBackendOperations
 from core.services.user_entry.audience_resolver import (
     FEEDBACK_TARGET_FIELD,
     AudienceResolver,
@@ -49,10 +50,10 @@ def _make_sharing_service(*, co_members: dict[str, str] | None = None, reachable
 
     svc.resolve_co_member = AsyncMock(side_effect=_resolve)
     svc.reachable_groups = AsyncMock(side_effect=_reachable)
-    backend = MagicMock()
+    # spec_set: a read the backend does not have cannot be faked into existence.
+    backend = MagicMock(spec_set=SharingBackendOperations)
     backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
-    backend.query_default_groups_for_curriculum_submission = AsyncMock(return_value=Result.ok([]))
-    backend.query_anchored_exercise_teacher = AsyncMock(return_value=Result.ok([]))
+    backend.query_exercise_teacher = AsyncMock(return_value=Result.ok([]))
     backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
     backend.query_entity_owner = AsyncMock(return_value=Result.ok(USER))
     svc.backend = backend
@@ -302,12 +303,13 @@ class TestValidateReferencesTeachers:
         groups.get_user_groups.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_a_curriculum_exercise_falls_back_to_the_default_group(self):
-        """Ruled 2026-07-04, kept: the curriculum turn-in reaches the default
-        group's owner (never its members, under SUBMITTED_TO_GROUP)."""
+    async def test_an_exercise_in_no_shared_group_asks_its_teacher_directly(self):
+        """ADR-091 S3 / ADR-088 §9: in no group the owner shares, the request goes
+        to the exercise's teacher — a teacher target, no group, never a default
+        group."""
         sharing = _make_sharing_service()
-        sharing.backend.query_default_groups_for_curriculum_submission = AsyncMock(
-            return_value=Result.ok([{"group_uid": "group_default_admin"}])
+        sharing.backend.query_exercise_teacher = AsyncMock(
+            return_value=Result.ok([{"teacher_uid": "user_teacher"}])
         )
         resolver = AudienceResolver(sharing_service=sharing, group_service=None)
 
@@ -316,42 +318,20 @@ class TestValidateReferencesTeachers:
         )
 
         assert result.is_ok
-        assert result.value.submit_groups == ("group_default_admin",)
-
-    @pytest.mark.asyncio
-    async def test_an_anchored_personal_exercise_asks_its_owner_directly(self):
-        """ADR-088 §9: in no group the owner shares and not curriculum, the
-        anchored PERSONAL route names the exercise's owner — a teacher target,
-        no group."""
-        sharing = _make_sharing_service()
-        sharing.backend.query_anchored_exercise_teacher = AsyncMock(
-            return_value=Result.ok([{"teacher_uid": "user_teacher"}])
-        )
-        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
-
-        result = await resolver.validate_references(
-            USER, _req(Pipeline.TEACHER_REVIEW, fulfills_exercise_uid="ex_anchored")
-        )
-
-        assert result.is_ok
         assert result.value.submit_groups == ()
         assert result.value.submit_teachers == (
-            TeacherTarget(teacher_uid="user_teacher", exercise_uid="ex_anchored"),
+            TeacherTarget(teacher_uid="user_teacher", exercise_uid="ex_curriculum"),
         )
-        sharing.backend.query_anchored_exercise_teacher.assert_awaited_once_with(
-            exercise_uid="ex_anchored", user_uid=USER
+        sharing.backend.query_exercise_teacher.assert_awaited_once_with(
+            exercise_uid="ex_curriculum", user_uid=USER
         )
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "groups_read",
-        ["query_exercise_groups_for_member", "query_default_groups_for_curriculum_submission"],
-    )
-    async def test_a_group_route_wins_over_the_direct_one(self, groups_read):
-        """The direct target is asked only when no group reaches a teacher."""
+    async def test_a_group_route_wins_over_the_direct_one(self):
+        """The direct target is asked only when no assigned group reaches a teacher."""
         sharing = _make_sharing_service()
-        setattr(
-            sharing.backend, groups_read, AsyncMock(return_value=Result.ok([{"group_uid": "g1"}]))
+        sharing.backend.query_exercise_groups_for_member = AsyncMock(
+            return_value=Result.ok([{"group_uid": "g1"}])
         )
         resolver = AudienceResolver(sharing_service=sharing, group_service=None)
 
@@ -361,12 +341,13 @@ class TestValidateReferencesTeachers:
 
         assert result.value.submit_groups == ("g1",)
         assert result.value.submit_teachers == ()
-        sharing.backend.query_anchored_exercise_teacher.assert_not_called()
+        sharing.backend.query_exercise_teacher.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_an_exercise_reaching_no_group_and_no_teacher_is_refused(self):
-        """The direct read answers nothing for an unanchored, draft-anchored or
-        self-owned exercise — the request has no target and is refused."""
+        """The direct read answers nothing for an exercise naming no teacher, an
+        unanchored or draft-anchored owned one, or the submitter's own — the
+        request has no target and is refused."""
         sharing = _make_sharing_service()
         resolver = AudienceResolver(sharing_service=sharing, group_service=None)
 
@@ -381,7 +362,7 @@ class TestValidateReferencesTeachers:
     @pytest.mark.asyncio
     async def test_a_failed_direct_lookup_is_returned_not_swallowed(self):
         sharing = _make_sharing_service()
-        sharing.backend.query_anchored_exercise_teacher = AsyncMock(
+        sharing.backend.query_exercise_teacher = AsyncMock(
             return_value=Result.fail(Errors.database("read", "boom"))
         )
         resolver = AudienceResolver(sharing_service=sharing, group_service=None)

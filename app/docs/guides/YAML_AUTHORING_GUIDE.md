@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-10-06
+updated: 2026-10-13
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -87,7 +87,8 @@ type: Exercise
 uid: ex.sel.know-yourself-check-in
 title: Know Yourself Check-In
 description: A structured self-awareness exercise
-scope: personal
+scope: curriculum
+teacher: user_your_teacher   # required: who reviews the work (ADR-091 S3)
 model: claude-sonnet-4-6
 mastery_impact: moderate
 sel_category: SELF_AWARENESS

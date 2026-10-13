@@ -21,7 +21,7 @@ The "hips" of SKUEL - stability through clarity. Connects content (MD/YAML) to t
 The vault is a mixed authoring space — a file **opts in** to ingestion; anything without the opt-in is a plain note. For a `.md`/`.yaml`/`.yml` file to become a graph entity, its YAML frontmatter (markdown) or YAML body needs:
 
 1. **`type:` — non-empty, an accepted entity type.** One of: `ku`, `ps`, `lp`, `exercise`, `resource`, `user_entry`, `task`, `goal`, `habit`, `event`, `choice`, `principle`, `group`, `lifepath`, `interaction` (aliases like `lesson`/`pathstep`/`learningpath` also resolve — `TYPE_MAPPING` in `core/services/ingestion/detector.py`). No `type:` (or an empty one) → non-entity note, skipped. **A frontmatter fence that does not parse is NOT a non-entity note** — authoring `---` is the opt-in gesture, so a fence whose YAML is broken is a broken opt-in and is reported (`parsing` stage) rather than set aside; a file with no fence at all stays a plain note. Two exceptions/rejections: `moc: true` ingests without a type (as a PathStep — see § MOC files; a personal vault refuses it, § What a personal vault may hold), and the retired strings `je_input`/`je_output`/`exercise_submission` (ADR-054) and `expense`/`finance` (ADR-052) are rejected with a pointer, never aliased.
-2. **The type's required fields** — see § Entity Configuration for the full table. Most types need only `title`, which auto-falls back to the filename (`name:` is accepted as an alias). Notable extras: `exercise` → `instructions`, `principle` → `statement`, `group` → `name`, `interaction` → `interaction_type` + `target_uid`; `user_entry` files additionally need an explicit `pipeline:` (door-level rule, § UserEntry YAMLs).
+2. **The type's required fields** — see § Entity Configuration for the full table. Most types need only `title`, which auto-falls back to the filename (`name:` is accepted as an alias). Notable extras: `exercise` → `instructions` + `teacher` (§ An exercise names its teacher), `principle` → `statement`, `group` → `name`, `interaction` → `interaction_type` + `target_uid`; `user_entry` files additionally need an explicit `pipeline:` (door-level rule, § UserEntry YAMLs).
 3. **`uid:` is optional.** Omit it to auto-generate `{prefix}.{filename}` — in the content vault; in a personal vault a uid-less Activity or life-path file takes its own `{prefix}_{slug}_{8 hex}` (derived from its owner and path) and keeps it through its tracker row (§ What a personal vault may hold). If declared, it must be non-empty and start with the type's prefix (`ku.` for a Ku, etc. — § UID Format Validation). An empty `uid:` line is never silently replaced with a generated one — the file is ignored with that reason. **`user_entry` differs on both halves** (its branch bypasses the preparer): a declared uid is an opaque join key with no prefix check (ADR-013 never-sniff), and an omitted `uid:` resolves to a derived periodic uid (`ue:daily:{user}:{date}`), the tracker's prior path-keyed uid, or a service-minted random `ue_` uid — never `{prefix}.{filename}` (§ Optional field: `uid`, § Path-keyed identity). A vault sync still ignores a `user_entry` file whose `uid:` line is present but empty (the batch parse stage runs the preparer's guard).
 
 4. **Registered enum fields must use the field's vocabulary.** Every field in `ENUM_FIELD_TYPES` (`core/models/enum_field_registry.py`, ~30 fields: `status`, `event_type`, `learning_level`, `sel_category`, ...) is membership-checked by `validate_entity_data` after preparation. The preparer first resolves everything the read boundary sanctions (`canonicalize_enum_values`, mirroring `parse_enum_field` — #513/#536): casing (`BEGINNER` → `beginner`), each enum's own `from_string` aliases (`status: pending` → `draft`, stored canonical — aliases are input-only), and the authored absence marker `none` on enums without such a member (`sel_category: none` → property dropped; deliberately-unassigned is valid). A value outside all of that (`event_type: practice`, `learning_level: grandmaster`) rejects the file with the full member list in the reason. **Vault-independent** (unlike dangling MOC links, whose posture varies by vault): an unsanctioned value is a content fault in the file itself and never becomes valid later — persisted, it would hide from every exact-match filter until a data migration (the 2026-08 `event_type` cleanup). The read side deliberately stays `str`-tolerant so pre-existing strays still load; this door is where the vocabulary is enforced. **`user_entry` files are exempt** (the same shape as their `uid:` exemption in criterion 3): their ADR-054 branch owns their frontmatter with its own alias-aware parsers (unknown pipelines/statuses still fail loudly there), so the gate never runs for them on any door.
@@ -80,6 +80,24 @@ button in the app.
   `publication_state: published` (or `none`) and sync.
 - **`status:` is lifecycle, not publication.** A PathStep's `status` defaults to `active`;
   `status: draft` does not withhold it from anyone, and `published` is not a status.
+
+### An exercise names its teacher (ADR-091 S3)
+
+Every `exercise` file carries `teacher:` — one user uid, naming a user with the TEACHER role
+or higher. Ingestion writes it as `(Exercise)-[:REVIEWED_BY]->(User)`, never `OWNS`: the
+exercise stays ownerless. A learner's feedback request on the exercise (or on a revision of
+it) goes to that teacher directly (`SUBMITTED_TO_TEACHER`), and the exercise is in that
+teacher's exercise list (`GET /api/teaching/exercises`) and dashboard count.
+
+| The file | The sync |
+|---|---|
+| `teacher: user_x`, a teacher or admin | writes the edge |
+| no `teacher:` line | refuses the file — a missing required field, listed with the file's name |
+| `teacher:` names no user, or a user below TEACHER, or is not one uid | refuses the file — a sync error naming the file (stage `exercise_teacher`) |
+| `teacher:` changed | moves the edge on the next sync (the old one is retracted with the file's authored edges) |
+
+Both ingest doors check the uid before anything is written
+(`core/services/ingestion/exercise_teacher.py`).
 
 ---
 
@@ -172,7 +190,7 @@ Keywords are case-insensitive; the part after the colon is kept verbatim (a user
 
 | Value | Meaning |
 |-------|---------|
-| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's groups the uploader belongs to (a curriculum exercise: the uploader's default group; a PERSONAL exercise anchored to a published PathStep, in none of them: its owner directly, `SUBMITTED_TO_TEACHER` — ADR-088 §9); without one, to every group they are a student of — read by those groups' teachers, never their members. A vault note's copy is filed on `teacher_review` when its audience names a teacher (`teachers` / `teacher:`), otherwise on `none`. A request that would reach no teacher is refused before the write. |
+| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's groups the uploader belongs to, or, in none of them, to the exercise's teacher directly (`SUBMITTED_TO_TEACHER`): the teacher its vault file names (ADR-091 S3), or the owner of a PERSONAL exercise anchored to a published PathStep (ADR-088 §9, until ADR-091 change 4 lands); without one, to every group they are a student of — read by those groups' teachers, never their members. A vault note's copy is filed on `teacher_review` when its audience names a teacher (`teachers` / `teacher:`), otherwise on `none`. A request that would reach no teacher is refused before the write. |
 | `teacher:<group_uid>` | A feedback request to that one group's teachers (the per-teacher route). |
 | `group:<group_uid>` | A **share** (`SHARED_WITH_GROUP`) with exactly one group — every member and owner may open it. Always a share, never a feedback request. |
 | `user:<username>` | A **share** (`SHARES_WITH`) with one person who shares a group with you (R8 — co-membership through the default group counts only via its owner). An unknown and a non-co-member username get one not-found. |
@@ -829,7 +847,8 @@ failure text names the cause to check — a deleted user, a stale vault descript
 a mistyped `SKUEL_DEFAULT_USER_UID`. Curriculum types never carry `user_uid`, so they
 name no owner and skip the check entirely. Ingested exercises are
 validated to `scope: curriculum`: shared templates owned by the curriculum itself,
-visible to everyone. That is the shared-node model, not a missing owner — a user's
+visible to everyone. The user a file names as its `teacher:` reviews work on it
+(`REVIEWED_BY`), which is not ownership (ADR-091 S1). That is the shared-node model, not a missing owner — a user's
 ownership of an exercise materializes on their engagement chain (their `OWNS`ed
 UserEntry `-[:FULFILLS_EXERCISE]->` the shared exercise, plus its report/revision
 nodes), never as an `:OWNS` edge on the template. One authoritative template per
@@ -990,7 +1009,7 @@ also auto-fall back to the filename.
 
 | Entity Type | Prefix | Neo4j Labels | Required Fields | Example File |
 |-------------|--------|-------------|-----------------|--------------|
-| `exercise` | `ex.` | `:Entity:Exercise` | title, instructions | `exercise_know-yourself.yaml` |
+| `exercise` | `ex.` | `:Entity:Exercise` | title, instructions, teacher | `exercise_know-yourself.yaml` |
 | `ku` | `ku.` | `:Entity:Ku` | title | `ku_python-basics.md` |
 | `ps` | `ps.` | `:Entity:PathStep` | title | `ps_learn-variables.md` |
 | `lp` | `lp.` | `:Entity:LearningPath` | title | `lp_python-journey.yaml` |
