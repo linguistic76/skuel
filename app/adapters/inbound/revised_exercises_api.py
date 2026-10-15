@@ -22,7 +22,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
+    from core.ports.curriculum_protocols import RevisedExerciseOperations
 
 logger = get_logger(__name__)
 
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 def create_revised_exercises_api_routes(
     app: Any,
     rt: Any,
-    revised_exercise_service: RevisedExerciseService,
+    revised_exercise_service: RevisedExerciseOperations,
     user_service: Any = None,
 ) -> None:
     """Create revised exercises domain-specific API routes."""

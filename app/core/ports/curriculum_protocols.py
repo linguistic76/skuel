@@ -1959,8 +1959,10 @@ class RevisedExerciseOperations(Protocol):
 
     Reads only: a revision is sent from the review page
     (``TeacherReviewService.request_revision``) and is never edited or
-    deleted afterwards (ADR-091 N2). ``get`` is inherited from
-    CrudOperationsMixin via BaseService; domain-specific: list_for_student,
+    deleted afterwards (ADR-091 N2). Every consumer holds this protocol, never
+    the concrete service, so the writers its ``BaseService`` base carries are
+    out of reach. ``get`` is inherited from CrudOperationsMixin via
+    BaseService; domain-specific: get_by_report_uid, list_for_student,
     get_revision_chain.
 
     Route consumer: revised_exercises_api.py
@@ -1969,6 +1971,10 @@ class RevisedExerciseOperations(Protocol):
 
     async def get(self, uid: str) -> Result[RevisedExercise]:
         """Get revised exercise by UID."""
+        ...
+
+    async def get_by_report_uid(self, report_uid: str) -> Result[RevisedExercise | None]:
+        """The revision that answers one report, or ``None``."""
         ...
 
     async def list_for_student(

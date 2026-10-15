@@ -81,7 +81,6 @@ def create_teaching_api_routes(
     user_service: Any,
     exercises_service: Any,
     user_entry_service: Any = None,
-    revised_exercise_service: Any = None,
     entry_report_service: EntryReportOperations | None = None,
 ) -> None:
     """
@@ -93,7 +92,6 @@ def create_teaching_api_routes(
         teacher_review_service: TeacherReviewService instance
         user_service: UserService for role checks
         user_entry_service: UserEntryService — teacher-authorized entry deletion (ADR-054)
-        revised_exercise_service: Retained for DomainRouteConfig signature compatibility
     """
 
     get_user_service = make_service_getter(user_service)

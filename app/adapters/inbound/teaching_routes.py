@@ -35,7 +35,6 @@ TEACHING_API_CONFIG = DomainRouteConfig(
         "user_service": "user",
         "exercises_service": "exercises",
         "user_entry_service": "user_entry",
-        "revised_exercise_service": "revised_exercises",
         "entry_report_service": "entry_report",
     },
 )
