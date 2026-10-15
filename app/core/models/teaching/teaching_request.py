@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 class RequestRevisionRequest(BaseModel):
     """Request to ask a student to revise their work with structured feedback.
 
-    The exercise is not a field: the route reads it from the gated detail of the
+    The exercise is not a field: the service reads it from the gated detail of the
     submission under review, so a request cannot name another exercise.
     """
 

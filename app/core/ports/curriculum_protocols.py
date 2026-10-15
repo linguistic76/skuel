@@ -99,7 +99,6 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from core.models.enums.activity_enums import ActivitySortKey
 from core.models.type_hints import Neo4jProperties, UserUID
-from core.models.update_contracts import RawChanges
 from core.ports.query_types import (
     CurriculumExerciseResult,
     EnrollmentProgressGapRow,
@@ -123,7 +122,6 @@ from core.ports.query_types import (
     ReinforcementCandidateResult,
     RequiredKnowledgeResult,
     RevisionChainResult,
-    RevisionTargetRow,
     RootOrganizerResult,
     StepMasteryGapRow,
     UserMasteryResult,
@@ -1937,23 +1935,6 @@ class RevisedExerciseBackendOperations(BackendOperations["RevisedExercise"], Pro
     Consumer: RevisedExerciseService.__init__
     """
 
-    async def link_to_report(self, re_uid: str, report_uid: str) -> Result[bool]: ...
-
-    async def link_to_exercise(self, re_uid: str, exercise_uid: str) -> Result[bool]: ...
-
-    async def get_revision_target(
-        self,
-        report_uid: str,
-        student_uid: str,
-    ) -> Result[RevisionTargetRow | None]: ...
-
-    async def auto_share_with_student(
-        self,
-        student_uid: str,
-        re_uid: str,
-        shared_at: str,
-    ) -> Result[list[Neo4jProperties]]: ...
-
     async def list_for_student(
         self,
         student_uid: str,
@@ -1962,18 +1943,12 @@ class RevisedExerciseBackendOperations(BackendOperations["RevisedExercise"], Pro
 
     async def get_by_report_uid(self, report_uid: str) -> Result[RevisedExercise | None]: ...
 
-    async def get_original_exercise_modality(self, exercise_uid: str) -> Result[str | None]: ...
-
     async def get_revision_chain(
         self,
         exercise_uid: str,
         teacher_uid: str,
         student_uid: str | None = None,
     ) -> Result[list[RevisionChainResult]]: ...
-
-    async def get_next_revision_number(
-        self, exercise_uid: str, student_uid: str
-    ) -> Result[int]: ...
 
 
 class RevisedExerciseOperations(Protocol):
@@ -1982,27 +1957,24 @@ class RevisedExerciseOperations(Protocol):
     RevisedExercise is a UserOwnedEntity (teacher-owned, student-targeted)
     that provides targeted revision instructions after EntryReport.
 
-    CRUD: Inherited from CrudOperationsMixin via BaseService (create, get, update, delete, list).
-    Domain-specific: list_for_student, get_revision_chain.
+    Reads only: a revision is sent from the review page
+    (``TeacherReviewService.request_revision``) and is never edited or
+    deleted afterwards (ADR-091 N2). Every consumer holds this protocol, never
+    the concrete service, so the writers its ``BaseService`` base carries are
+    out of reach. ``get`` is inherited from CrudOperationsMixin via
+    BaseService; domain-specific: get_by_report_uid, list_for_student,
+    get_revision_chain.
 
-    Route consumer: revised_exercises_api.py (CRUDRouteFactory + domain-specific routes)
+    Route consumer: revised_exercises_api.py
     Implementation: RevisedExerciseService
     """
-
-    async def create(self, entity: RevisedExercise) -> Result[RevisedExercise]:
-        """Create a RevisedExercise with authority verification and relationships."""
-        ...
 
     async def get(self, uid: str) -> Result[RevisedExercise]:
         """Get revised exercise by UID."""
         ...
 
-    async def update(self, uid: str, updates: RawChanges) -> Result[RevisedExercise]:
-        """Update a revised exercise."""
-        ...
-
-    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
-        """Delete a revised exercise with cascade."""
+    async def get_by_report_uid(self, report_uid: str) -> Result[RevisedExercise | None]:
+        """The revision that answers one report, or ``None``."""
         ...
 
     async def list_for_student(

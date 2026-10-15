@@ -60,70 +60,63 @@ def render_feedback_submission_form(submission_uid: str, result_id: str) -> Any:
     )
 
 
-def render_revision_request_form(submission_uid: str, has_exercise: bool, result_id: str) -> Any:
+def render_revision_request_form(submission_uid: str, result_id: str) -> Any:
     """The one revision request form — the review page and the per-student panel.
 
-    Posts ``instructions`` (required), and for a turn-in the feedback points
-    (the ``revisionForm`` Alpine rows, ``fp_count``) and an optional
-    ``revision_rationale``: the route reads the exercise from the gated detail
-    and files a RevisedExercise beside the report. Without an exercise the
-    instructions reach the student as a revision-requested report only.
+    Posts ``instructions`` (required), the feedback points (the
+    ``revisionForm`` Alpine rows, ``fp_count``) and an optional
+    ``revision_rationale``: the route files a RevisedExercise beside the
+    report, on the exercise the gated detail names. Offered only where the
+    teacher may request a revision (``render_review_actions``).
     """
     dom = safe_id(submission_uid)
-    exercise_fields: list[Any] = []
-    if has_exercise:
-        exercise_fields = [
-            Div(
-                Label("Feedback points", cls="text-sm font-medium mb-1 block"),
-                P(
-                    "Categorize the specific gaps in the student's work.",
-                    cls="text-xs text-muted-foreground mb-2",
-                ),
-                Div(id=f"fp-rows-{dom}", **{"x-ref": "fpRows"}),
-                Div(
-                    Button(
-                        "+ Add feedback point",
-                        cls=ButtonT.ghost,
-                        size="sm",
-                        type="button",
-                        **{"@click": "addPoint()"},  # fasthtml dynamic-attr splat
-                    ),
-                    cls="mb-2",
-                ),
-                Input(
-                    type="hidden",
-                    name="fp_count",
-                    value="0",
-                    **{"x-bind:value": "points.length"},
-                ),
-                cls="mb-3",
-                **{"x-data": "revisionForm()"},
+    exercise_fields: list[Any] = [
+        Div(
+            Label("Feedback points", cls="text-sm font-medium mb-1 block"),
+            P(
+                "Categorize the specific gaps in the student's work.",
+                cls="text-xs text-muted-foreground mb-2",
             ),
+            Div(id=f"fp-rows-{dom}", **{"x-ref": "fpRows"}),
             Div(
-                Label(
-                    "Revision rationale",
-                    fr=f"revision_rationale_{dom}",
-                    cls="text-sm font-medium mb-1 block",
+                Button(
+                    "+ Add feedback point",
+                    cls=ButtonT.ghost,
+                    size="sm",
+                    type="button",
+                    **{"@click": "addPoint()"},  # fasthtml dynamic-attr splat
                 ),
-                P(
-                    "Optional: explain why this revision is needed.",
-                    cls="text-xs text-muted-foreground mb-1",
-                ),
-                Textarea(
-                    name="revision_rationale",
-                    id=f"revision_rationale_{dom}",
-                    placeholder="Why is this revision needed?",
-                    cls="h-16",
-                ),
-                cls="mb-3",
+                cls="mb-2",
             ),
-        ]
-        intro = "Ask the student to revise — they get revised instructions to answer."
-    else:
-        intro = (
-            "Ask the student to revise. With no exercise behind this work, your "
-            "instructions reach them as feedback; no revised exercise is created."
-        )
+            Input(
+                type="hidden",
+                name="fp_count",
+                value="0",
+                **{"x-bind:value": "points.length"},
+            ),
+            cls="mb-3",
+            **{"x-data": "revisionForm()"},
+        ),
+        Div(
+            Label(
+                "Revision rationale",
+                fr=f"revision_rationale_{dom}",
+                cls="text-sm font-medium mb-1 block",
+            ),
+            P(
+                "Optional: explain why this revision is needed.",
+                cls="text-xs text-muted-foreground mb-1",
+            ),
+            Textarea(
+                name="revision_rationale",
+                id=f"revision_rationale_{dom}",
+                placeholder="Why is this revision needed?",
+                cls="h-16",
+            ),
+            cls="mb-3",
+        ),
+    ]
+    intro = "Ask the student to revise — they get revised instructions to answer."
 
     return Card(
         CardBody(
@@ -186,16 +179,19 @@ def render_waiting_actions(submission_uid: str, result_id: str) -> Any:
 
 
 def render_review_actions(
-    submission_uid: str, status: str, has_exercise: bool, superseded: bool
+    submission_uid: str, status: str, revision_refusal: str | None, superseded: bool
 ) -> Any:
     """The one action rule for a submission under review — both teacher surfaces.
 
-    Actions follow the writers' status guards, so no form is offered that the
+    Actions follow the writers' guards, so no form is offered that the
     service must refuse: feedback and a revision request from
-    ``REVIEWABLE_ENTRY_STATUSES``, Approve from ``revision_requested``. A
-    superseded copy — a newer version the teacher can see was handed in — is
-    history and takes none. Every form reports into the one result target this
-    renders, keyed by the submission so two panels on a page never collide.
+    ``REVIEWABLE_ENTRY_STATUSES``, Approve from ``revision_requested``. The
+    revision form is replaced by ``revision_refusal``, the service's sentence
+    for why this teacher may not request one (no exercise, or the exercise
+    names another teacher). A superseded copy — a newer version the teacher
+    can see was handed in — is history and takes none. Every form reports into
+    the one result target this renders, keyed by the submission so two panels
+    on a page never collide.
     """
     result_id = f"review-result-{safe_id(submission_uid)}"
     if superseded:
@@ -206,7 +202,9 @@ def render_review_actions(
     if status in _REVIEWABLE_VALUES:
         actions: Any = Div(
             render_feedback_submission_form(submission_uid, result_id),
-            render_revision_request_form(submission_uid, has_exercise, result_id),
+            render_revision_request_form(submission_uid, result_id)
+            if revision_refusal is None
+            else P(revision_refusal, cls="text-sm text-muted-foreground italic"),
         )
     elif status == EntityStatus.REVISION_REQUESTED.value:
         actions = render_waiting_actions(submission_uid, result_id)

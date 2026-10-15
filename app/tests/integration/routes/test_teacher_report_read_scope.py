@@ -362,7 +362,10 @@ class TestReviewShowsTheStudentsWork:
         markup = to_xml(await handler(_make_request(IN_TEACHER), uid=SUB_UID))
         assert STUDENT_WORK in markup
         assert f"by {STUDENT_NAME} · Exercise: {SNAPSHOT_TITLE} · v3" in markup
-        assert 'name="instructions"' in markup
+        # The snapshot's exercise is gone, so the work gets a report and no
+        # revision (ADR-091 N7).
+        assert 'name="feedback_file"' in markup
+        assert 'name="instructions"' not in markup
 
     async def test_another_classroom_reads_none_of_it(
         self, ui_handlers, api_handlers, seeded, path, surface
@@ -383,7 +386,7 @@ class TestReviewShowsTheStudentsWork:
         assert f"/api/teaching/review/{SUB_UID}/report" not in older
 
         newer = to_xml(await handler(_make_request(IN_TEACHER), uid=NEWER_UID))
-        assert f"/api/teaching/review/{NEWER_UID}/revision" in newer
+        assert f"/api/teaching/review/{NEWER_UID}/report" in newer
 
 
 # ============================================================================
@@ -455,32 +458,59 @@ class TestTheWritesRefuseHistory:
     async def test_a_revision_on_history_writes_nothing(
         self, seeded_newer_copy, neo4j_driver
     ) -> None:
+        """With the exercise live and naming the teacher (so only supersession can
+        refuse), the history copy writes nothing and the newer copy's revision lands."""
         from core.models.enums import EntityType
         from core.models.exercises.revised_exercise import RevisedExercise
 
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                MATCH (teacher:User {uid: $teacher})
+                CREATE (ex:Entity:Exercise {
+                    uid: 'ex_trs_snapshot', entity_type: 'exercise', title: $title,
+                    status: 'active', created_at: datetime(), updated_at: datetime()
+                })
+                MERGE (ex)-[:REVIEWED_BY]->(teacher)
+                WITH ex
+                MATCH (copy:Entity:UserEntry) WHERE copy.uid IN [$old, $newer]
+                MERGE (copy)-[:FULFILLS_EXERCISE]->(ex)
+                """,
+                teacher=IN_TEACHER,
+                title=SNAPSHOT_TITLE,
+                old=SUB_UID,
+                newer=NEWER_UID,
+            )
+
         backend = _report_backend(neo4j_driver)
-        re_entity = RevisedExercise(
-            uid="re_trs_guard",
-            entity_type=EntityType.REVISED_EXERCISE,
-            title="",
-            user_uid=IN_TEACHER,
-            original_exercise_uid="ex_trs_snapshot",
-            report_uid="er_trs_guard_rev",
-            instructions="revise",
-        )
-        result = await backend.create_report_and_revised_exercise(
-            _report_params(
-                SUB_UID,
-                "er_trs_guard_rev",
-                submission_status="revision_requested",
-                assessment_outcome="needs_revision",
-                reviewing_teacher_uid=IN_TEACHER,
-                re_uid="re_trs_guard",
+
+        async def revise(submission_uid: str, suffix: str) -> list[Any]:  # boundary: rows
+            re_entity = RevisedExercise(
+                uid=f"re_trs_guard_{suffix}",
+                entity_type=EntityType.REVISED_EXERCISE,
+                title="",
+                user_uid=IN_TEACHER,
                 original_exercise_uid="ex_trs_snapshot",
-            ),
-            re_entity,
-        )
-        assert result.is_ok and result.value == []
+                report_uid=f"er_trs_guard_rev_{suffix}",
+                instructions="revise",
+            )
+            result = await backend.create_report_and_revised_exercise(
+                _report_params(
+                    submission_uid,
+                    f"er_trs_guard_rev_{suffix}",
+                    submission_status="revision_requested",
+                    assessment_outcome="needs_revision",
+                    reviewing_teacher_uid=IN_TEACHER,
+                    re_uid=f"re_trs_guard_{suffix}",
+                    original_exercise_uid="ex_trs_snapshot",
+                ),
+                re_entity,
+            )
+            assert result.is_ok, result
+            return list(result.value)
+
+        assert await revise(SUB_UID, "old") == []
+        assert len(await revise(NEWER_UID, "new")) == 1
 
     async def test_approve_on_history_writes_nothing(self, seeded_newer_copy, neo4j_driver) -> None:
         backend = UserEntryBackend(driver=neo4j_driver)

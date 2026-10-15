@@ -172,7 +172,7 @@ skills:
 
   - name: domain-route-config
     description: Configuration-driven route registration for *_routes.py files using DomainRouteConfig
-    last_reviewed: "2026-10-12"
+    last_reviewed: "2026-10-15"
     foundation: [fasthtml, python]
     dependencies: [fasthtml, python]
     library_package: null  # SKUEL pattern, not external library
@@ -282,7 +282,7 @@ skills:
 
   - name: neo4j-cypher-patterns
     description: Neo4j Cypher queries and SKUEL's graph patterns
-    last_reviewed: "2026-10-13"
+    last_reviewed: "2026-10-15"
     foundation: []
     dependencies: []
     library_package: neo4j
@@ -561,7 +561,7 @@ skills:
 
   - name: learning-loop
     description: SKUEL's Learning Loop — the development lens for PathStep, Exercise, UserEntry, Report, RevisedExercise, Interaction; every feature must strengthen a loop phase
-    last_reviewed: "2026-10-13"
+    last_reviewed: "2026-10-15"
     foundation: [curriculum-domains, activity-domains]
     dependencies: [curriculum-domains, activity-domains]
     library_package: null  # SKUEL pattern, not external library

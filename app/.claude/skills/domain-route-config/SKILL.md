@@ -365,13 +365,6 @@ crud=CRUDRouteConfig(
     user_service_attr="user",  # Services.user
 )
 
-# Teacher-only user-owned (Exercises, RevisedExercise)
-crud=CRUDRouteConfig(
-    scope=ContentScope.USER_OWNED,
-    require_role=UserRole.TEACHER,
-    user_service_attr="user",  # Services.user
-)
-
 # Teacher mutations, any-auth reads (Groups)
 crud=CRUDRouteConfig(
     scope=ContentScope.USER_OWNED,
@@ -381,7 +374,7 @@ crud=CRUDRouteConfig(
 )
 ```
 
-**Exemplars:** `groups_routes.py`, `exercises_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`, `_pathstep_template_routes_helpers.py`
+**Exemplars:** `groups_routes.py`, `form_templates_routes.py`, `_pathstep_template_routes_helpers.py`
 
 **Intelligence without CRUD:** Ku, PathStep and LearningPath register only the two
 shared intelligence routes — context and insights; a `SHARED` config has no

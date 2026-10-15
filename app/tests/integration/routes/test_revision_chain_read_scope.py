@@ -3,17 +3,15 @@
 ``GET /api/revised-exercises/chain`` was scoped by ``@require_teacher``
 alone — the role gate answers "may you review at all", never "whose
 revisions" (the #887 blind spot; template PR #893). The *write* that mints a
-revision is narrower: ``request_revision`` runs
-``verify_entry_asks_teacher``, so only a teacher the entry asks for feedback
-(``SUBMITTED_TO_GROUP`` an active group they own, or ``SUBMITTED_TO_TEACHER``)
-may author one. The chain read lists revisions across students, beyond any one
+revision is narrower: ``request_revision`` admits only the teacher the
+exercise names (``REVIEWED_BY``, ADR-091 N8), on an entry that asks them for
+feedback. The chain read lists revisions across students, beyond any one
 request, so these tests pin it to the *classroom* audience instead: a teacher
 sees an exercise's revisions only for students in active groups they OWN, with
 an optional in-classroom ``student_uid`` filter.
 
-They also pin ``revision_number`` to per-(exercise, student). Both writers —
-``RevisedExerciseService.create`` and the atomic
-``create_report_and_revised_exercise`` Cypher — must mint
+They also pin ``revision_number`` to per-(exercise, student). The one writer,
+the atomic ``create_report_and_revised_exercise`` Cypher, must mint
 ``max(existing for the pair) + 1``: not a global per-exercise count (which
 numbers one student's first revision by the whole classroom's total), and
 not ``len + 1`` (which collides with legacy gap-numbered chains; the seeds
@@ -41,7 +39,6 @@ from adapters.persistence.neo4j.backends.exercise_backends import (
     EntryReportBackend,
     RevisedExerciseBackend,
 )
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from core.models.enums import UserRole
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome
@@ -51,7 +48,6 @@ from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.report.entry_report import EntryReport
 from core.models.user.user import User
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
-from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils.result_simplified import Errors, Result
 
 STUDENT_A = "user_rcs_student_a"  # in the group IN_TEACHER owns
@@ -130,8 +126,7 @@ def revised_service(neo4j_driver) -> RevisedExerciseService:
         entity_class=RevisedExercise,
         base_label=NeoLabel.ENTITY,
     )
-    entries = UserEntryService(backend=UserEntryBackend(neo4j_driver))  # type: ignore[arg-type]
-    return RevisedExerciseService(backend=backend, entry_service=entries)
+    return RevisedExerciseService(backend=backend)
 
 
 @pytest.fixture
@@ -211,6 +206,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             })
             MERGE (sb)-[:OWNS]->(subB)
             MERGE (sb)-[:OWNS]->(subB2)
+            MERGE (ex)-[:REVIEWED_BY]->(outT)
             MERGE (subB)-[:FULFILLS_EXERCISE]->(ex)
             MERGE (subB2)-[:FULFILLS_EXERCISE]->(ex)
             MERGE (subB)-[:SUBMITTED_TO_GROUP]->(gb)
@@ -301,35 +297,16 @@ class TestRevisionChainScope:
 
 
 class TestRevisionOrdinalPerStudent:
-    """Both revision writers mint max(pair) + 1, never a global count."""
+    """The revision writer mints max(pair) + 1, never a global count."""
 
-    async def test_service_create_mints_per_student_max_plus_one(
-        self, revised_service, seeded
+    async def test_atomic_create_mints_per_student_max_plus_one(
+        self, report_backend, seeded
     ) -> None:
         """STUDENT_B's chain is {4}: the next ordinal is 5.
 
         A global count would mint 4 (three existing revisions on the
         exercise); a per-student len+1 would mint 2. Both are wrong.
         """
-        entity = RevisedExercise(
-            uid="re_rcs_new_service",
-            entity_type=EntityType.REVISED_EXERCISE,
-            title="",
-            user_uid=OUT_TEACHER,
-            student_uid=STUDENT_B,
-            report_uid=REPORT_B,
-            original_exercise_uid=EXERCISE_UID,
-            instructions="Address the gaps",
-        )
-        result = await revised_service.create(entity)
-        assert result.is_ok, f"create failed: {result}"
-        assert result.value.revision_number == 5
-        assert result.value.title == "Revision 5"
-
-    async def test_atomic_create_mints_per_student_max_plus_one(
-        self, report_backend, seeded
-    ) -> None:
-        """The atomic report+revision Cypher numbers the same way."""
         re_entity = RevisedExercise(
             uid="re_rcs_new_atomic",
             entity_type=EntityType.REVISED_EXERCISE,

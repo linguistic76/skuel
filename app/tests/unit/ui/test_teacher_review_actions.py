@@ -5,8 +5,10 @@ The review page (``/teaching/review/{uid}/content``) and the per-student panel
 (``ui.teaching.detail.render_review_body``). These pin its contracts:
 
 - the revision form posts the fields ``RequestRevisionRequest`` reads —
-  ``instructions`` among them — and never an exercise uid (the route reads the
+  ``instructions`` among them — and never an exercise uid (the service reads the
   exercise from the gated detail);
+- where the teacher may not request a revision (no exercise, or the exercise
+  names another teacher), the service's sentence replaces the form;
 - the actions follow the writers' status guards and the queue's supersession:
   feedback + revision from ``REVIEWABLE_ENTRY_STATUSES``, Approve from
   ``revision_requested``, nothing on a superseded copy;
@@ -16,6 +18,7 @@ The review page (``/teaching/review/{uid}/content``) and the per-student panel
 
 from __future__ import annotations
 
+import html as html_lib
 import re
 from pathlib import Path
 
@@ -24,6 +27,10 @@ from fasthtml.common import to_xml
 
 from core.models.enums.learning_enums import FeedbackCategory
 from core.models.teaching.teaching_request import RequestRevisionRequest
+from core.services.report.teacher_review_service import (
+    REVISION_NAMED_TEACHER_ONLY,
+    REVISION_NEEDS_EXERCISE,
+)
 from ui.teaching.detail import render_review_body, render_submission_content
 from ui.teaching.forms import render_review_actions
 from ui.teaching.types import submission_detail_from_dict
@@ -34,8 +41,8 @@ _APPROVE_POST = f"/api/teaching/review/{UID}/approve"
 _SKUEL_JS = Path(__file__).resolve().parents[3] / "static" / "js" / "skuel.js"
 
 
-def _html(status: str, *, has_exercise: bool = True, superseded: bool = False) -> str:
-    return to_xml(render_review_actions(UID, status, has_exercise, superseded))
+def _html(status: str, *, revision_refusal: str | None = None, superseded: bool = False) -> str:
+    return to_xml(render_review_actions(UID, status, revision_refusal, superseded))
 
 
 def _revision_form(html: str) -> str:
@@ -50,9 +57,8 @@ def _field_names(form_html: str) -> set[str]:
 
 
 class TestRevisionFormPostsWhatTheRouteReads:
-    @pytest.mark.parametrize("has_exercise", [True, False], ids=["turn-in", "no-exercise"])
-    def test_every_posted_name_is_a_request_field(self, has_exercise: bool) -> None:
-        names = _field_names(_revision_form(_html("submitted", has_exercise=has_exercise)))
+    def test_every_posted_name_is_a_request_field(self) -> None:
+        names = _field_names(_revision_form(_html("submitted")))
 
         assert "instructions" in names
         assert names <= set(RequestRevisionRequest.model_fields)
@@ -63,12 +69,18 @@ class TestRevisionFormPostsWhatTheRouteReads:
         textarea = re.search(r'<textarea\b[^>]*name="instructions"[^>]*>', form)
         assert textarea is not None and "required" in textarea.group(0)
 
-    def test_feedback_points_and_rationale_only_for_a_turn_in(self) -> None:
-        with_exercise = _field_names(_revision_form(_html("submitted", has_exercise=True)))
-        without = _field_names(_revision_form(_html("submitted", has_exercise=False)))
+    def test_the_form_carries_feedback_points_and_rationale(self) -> None:
+        assert {"fp_count", "revision_rationale"} <= _field_names(
+            _revision_form(_html("submitted"))
+        )
 
-        assert {"fp_count", "revision_rationale"} <= with_exercise
-        assert not {"fp_count", "revision_rationale"} & without
+    @pytest.mark.parametrize("reason", [REVISION_NEEDS_EXERCISE, REVISION_NAMED_TEACHER_ONLY])
+    def test_a_refusal_replaces_the_form_and_keeps_the_report(self, reason: str) -> None:
+        html = _html("submitted", revision_refusal=reason)
+
+        assert f'hx-post="{_REVISION_POST}"' not in html
+        assert reason in html_lib.unescape(html)
+        assert 'name="feedback_file"' in html
 
     def test_the_alpine_rows_post_the_names_the_route_reads(self) -> None:
         """``fp_category_{i}`` / ``fp_detail_{i}`` are emitted by skuel.js, not the

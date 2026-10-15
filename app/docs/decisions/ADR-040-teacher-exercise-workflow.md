@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-13
+updated: 2026-10-15
 related_skills: [learning-loop]
 ---
 
@@ -13,7 +13,7 @@ related_skills: [learning-loop]
 >
 > **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2a).** The `TEAM` visibility value this ADR reserved for a future phase is deleted: `Visibility` is `{PRIVATE, PUBLIC}`, and group audience is the `SHARED_WITH_GROUP` edge, never a property value.
 >
-> **2026-10-12 — Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md); change 4 implemented.** Exercises are created and edited only in the content vault: the in-app exercise authoring (§2's PERSONAL and ASSIGNED scopes, created by a teacher) and group assignment go (ADR-091 S4). The review page and a teacher's replies on it stay: the `.md` report upload, the revision form and the approve action. A revision request always names an exercise, so the report-only revision on work with no exercise goes (N7), and `scripts/import_reports.py` (§ CLI-Based Offline Review Workflow) goes (N1). Groups and teacher review of what is submitted to a group stay. **The in-app authoring and group assignment are gone (ADR-091 change 4); the report-only revision and the import script stay live until change 5 removes them.**
+> **2026-10-12 — Partially superseded by [ADR-091](ADR-091-one-door-for-curriculum.md); changes 4 and 5 implemented.** Exercises are created and edited only in the content vault: the in-app exercise authoring (§2's PERSONAL and ASSIGNED scopes, created by a teacher) and group assignment go (ADR-091 S4). The review page and a teacher's replies on it stay: the `.md` report upload, the revision form and the approve action. A revision request always names an exercise, so the report-only revision on work with no exercise goes (N7), and `scripts/import_reports.py` (§ CLI-Based Offline Review Workflow) goes (N1). Groups and teacher review of what is submitted to a group stay. **The in-app authoring and group assignment are gone (ADR-091 change 4). The report-only revision, the import script and its export twin, and the revised-exercise create, update and delete doors are gone (change 5); a revision is sent only by the exercise's named teacher (N8).**
 
 **Status:** Accepted
 **Date:** 2026-02-06
@@ -196,7 +196,7 @@ as pending. `verify_teacher_authority()` evaluates the teacher's active group go
 | Action | Method | Sets Submission To | Requires Submission In |
 |--------|--------|--------------------|------------------------|
 | Submit feedback | `submit_report()` | `COMPLETED` | `SUBMITTED`, `ACTIVE` |
-| Request revision | `request_revision_with_exercise()` (a turn-in) / `request_revision()` (no exercise) | `REVISION_REQUESTED` | `SUBMITTED`, `ACTIVE` |
+| Request revision | `request_revision()` (a turn-in, by the exercise's named teacher — ADR-091 N7, N8) | `REVISION_REQUESTED` | `SUBMITTED`, `ACTIVE` |
 | Approve | `approve_report()` | `COMPLETED` | `REVISION_REQUESTED` |
 
 - `SUBMITTED` — newly submitted by student (initial submission)
@@ -232,10 +232,14 @@ to write rich, structured feedback in Obsidian or any text editor before submitt
 and for a turn-in the categorized feedback points and an optional rationale, to
 `/api/teaching/review/{uid}/revision`. The route reads the exercise from the gated detail of
 the submission — never from the form — and files an EntryReport plus a RevisedExercise
-against it; work with no exercise gets a revision-requested report only.
+against it. *(ADR-091 N7, N8: work with no exercise gets a report and no revision, and only the
+exercise's named teacher may send one; the review page shows the reason in place of the form.)*
 `SubmitReportRequest` was removed; feedback ingestion is now file-only for HUMAN reports.
 
 ### CLI-Based Offline Review Workflow (2026-04-02)
+
+> **Superseded by [ADR-091](ADR-091-one-door-for-curriculum.md) N1 (change 5).** Both scripts are
+> deleted: a teacher's reply is sent from the review page. The section below is the record.
 
 Teachers can export their entire review queue to local markdown files, review and
 annotate offline (in Obsidian or any text editor), then import the reports back in

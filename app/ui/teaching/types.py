@@ -57,7 +57,8 @@ class SubmissionDetail:
 
     ``exercise_uid`` is the turn-in's root exercise (the snapshot once the
     exercise is deleted); ``superseded`` marks a copy with a newer sibling
-    this teacher can see, which takes no action.
+    this teacher can see, which takes no action. ``revision_refusal`` is why
+    this teacher may not request a revision on it, ``None`` when they may.
     """
 
     title: str = "Untitled"
@@ -72,6 +73,7 @@ class SubmissionDetail:
     content: str | None = None
     original_filename: str | None = None
     superseded: bool = False
+    revision_refusal: str | None = None
 
 
 @dataclass(frozen=True)
@@ -156,4 +158,5 @@ def submission_detail_from_dict(d: Mapping[str, Any]) -> SubmissionDetail:
         content=d.get("content"),
         original_filename=d.get("original_filename"),
         superseded=bool(d.get("superseded")),
+        revision_refusal=d.get("revision_refusal"),
     )

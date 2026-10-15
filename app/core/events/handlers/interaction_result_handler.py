@@ -94,9 +94,8 @@ async def handle_revision_requested(
 ) -> None:
     """Revision report created → REPORT_GENERATED (non-terminal).
 
-    Both revision paths (``request_revision`` and
-    ``request_revision_with_exercise``) persist an EntryReport before
-    publishing this event; the loop continues and terminal COMPLETED
+    The one revision door (``TeacherReviewService.request_revision``)
+    persists an EntryReport before publishing this event; the loop continues and terminal COMPLETED
     arrives later via UserEntryApproved (``approve_report``).
     """
     await _record(interaction_service, event.entity_uid, InteractionResult.REPORT_GENERATED)

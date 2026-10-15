@@ -58,7 +58,6 @@ from core.ports.query_types import (
     ReportSummary,
     ReviewRequestResult,
     RevisionRequestResult,
-    RevisionWithExerciseResult,
     StudentSubmissionItem,
     StudentSummaryItem,
     SubmissionChain,
@@ -568,23 +567,13 @@ class TeacherReviewOperations(Protocol):
 
     async def request_revision(
         self,
-        report_uid: str,
-        teacher_uid: str,
-        notes: str,
-    ) -> Result[RevisionRequestResult]:
-        """Request revision for a student report."""
-        ...
-
-    async def request_revision_with_exercise(
-        self,
         submission_uid: str,
         teacher_uid: str,
         notes: str,
-        original_exercise_uid: str,
         feedback_points: list[dict[str, str]],
         revision_rationale: str | None,
-    ) -> Result[RevisionWithExerciseResult]:
-        """Atomically create EntryReport + RevisedExercise in one transaction."""
+    ) -> Result[RevisionRequestResult]:
+        """File an EntryReport + RevisedExercise in one transaction, by the exercise's named teacher."""
         ...
 
     async def approve_report(

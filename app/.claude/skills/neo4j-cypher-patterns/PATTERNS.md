@@ -206,13 +206,12 @@ RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
 ORDER BY root.title
 LIMIT $limit
 
-// RevisedExerciseBackend.link_to_report — type-gated linking with WHERE guard
-MATCH (re:Entity {uid: $re_uid, entity_type: 'revised_exercise'})
-MATCH (fb:Entity {uid: $report_uid})
-WHERE fb.entity_type IN ['entry_report', 'activity_report']
-MERGE (re)-[r:RESPONDS_TO_REPORT]->(fb)
-ON CREATE SET r.created_at = datetime()
-RETURN true AS success
+// _LearningStateMixin.mark_as_read — guarded far end, stamp on first creation
+MATCH (user:User {uid: $user_uid})
+MATCH (ps:Entity:PathStep {uid: $step_uid}) WHERE <published>  // _MATCH_PUBLISHED_STEP
+MERGE (user)-[r:MARKED_AS_READ]->(ps)
+ON CREATE SET r.marked_at = datetime()
+RETURN r
 ```
 
 **Trade-offs**:
@@ -220,7 +219,7 @@ RETURN true AS success
 - Two-step `WHERE NOT EXISTS` + `OPTIONAL MATCH` avoids cartesian products
 - `ON CREATE SET` adds metadata only on first creation (unlike `SET` which always runs)
 
-**Real-world usage**: `_OrganizesMixin.list_root_organizers()`, `RevisedExerciseBackend.link_to_report()`, `RevisedExerciseBackend.link_to_exercise()`
+**Real-world usage**: `_OrganizesMixin.list_root_organizers()`, `_LearningStateMixin.mark_as_read()`
 
 ---
 
@@ -585,7 +584,7 @@ the same instant differing only in storage type and asserts the bounded `find_by
 | Cypher Type | Location | Example |
 |-------------|----------|---------|
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
-| Domain-specific relationships | Domain backend in `backends/` | `RevisedExerciseBackend.link_to_exercise()` |
+| Domain-specific relationships | Domain backend in `backends/` | `SharingBackend.create_teacher_submission()` |
 | Atomic multi-entity creation | Domain backend in `backends/` | `EntryReportBackend.create_report_and_revised_exercise()` — single Cypher creates EntryReport + RevisedExercise + all relationships |
 | PS-specific Cypher | 5 PsBackend mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | `adapters/persistence/neo4j/user_context_queries.py` (`RICH_CONTEXT_STATEMENTS`, one plan-cached statement per read family), `CrossDomainBackend` | The MEGA-QUERY; `CrossDomainQueryService`'s targeted reads |

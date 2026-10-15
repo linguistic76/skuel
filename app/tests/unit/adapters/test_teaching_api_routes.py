@@ -11,6 +11,7 @@ status code. Harness mirrors ``test_choices_api_routes.py``.
 
 from __future__ import annotations
 
+import html
 from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock
 
@@ -22,6 +23,10 @@ from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.teaching_api import _save_report_file as _real_save_report_file
 from adapters.inbound.teaching_api import create_teaching_api_routes
 from core.models.enums import UserRole
+from core.services.report.teacher_review_service import (
+    REVISION_NAMED_TEACHER_ONLY,
+    REVISION_NEEDS_EXERCISE,
+)
 from core.utils.result_simplified import Errors, Result
 
 _TEACHER_UID = "user_teacher"
@@ -61,13 +66,11 @@ def _make_harness(
     review_service = MagicMock()
     review_service.get_review_queue = AsyncMock(return_value=Result.ok([]))
     review_service.submit_report = AsyncMock(return_value=Result.ok(True))
-    review_service.request_revision = AsyncMock(return_value=Result.ok(True))
-    review_service.request_revision_with_exercise = AsyncMock(
+    review_service.request_revision = AsyncMock(
         return_value=Result.ok({"revised_exercise_uid": "revised_exercise_1"})
     )
     review_service.approve_report = AsyncMock(return_value=Result.ok(True))
-    # The gated detail read the revision and panel doors make first; by default
-    # a submission with no exercise (the report-only path).
+    # The gated detail read the panel door makes first.
     review_service.get_submission_detail = AsyncMock(
         return_value=Result.ok({"uid": _SUBMISSION_UID, "status": "submitted"})
     )
@@ -287,40 +290,12 @@ def _multipart(fields: dict[str, str]) -> dict[str, tuple[None, str]]:
 
 
 class TestRequestRevision:
-    def test_report_only_when_the_detail_has_no_exercise(
+    def test_the_form_reaches_the_one_writer_without_an_exercise(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """A posted ``exercise_uid`` is ignored: the service reads the exercise
+        from the gated detail, so the route never passes one."""
         harness = _make_harness(monkeypatch)
-
-        response = harness.client.post(
-            f"/api/teaching/review/{_SUBMISSION_UID}/revision",
-            headers=_csrf(harness.client),
-            files=_multipart({"instructions": "Cite your sources."}),
-        )
-
-        assert response.status_code == 200
-        assert "Revision requested" in response.text
-        harness.review.get_submission_detail.assert_awaited_once_with(
-            submission_uid=_SUBMISSION_UID, teacher_uid=_TEACHER_UID
-        )
-        harness.review.request_revision.assert_awaited_once_with(
-            report_uid=_SUBMISSION_UID,
-            teacher_uid=_TEACHER_UID,
-            notes="Cite your sources.",
-        )
-        harness.review.request_revision_with_exercise.assert_not_awaited()
-
-    def test_the_exercise_comes_from_the_detail_never_the_form(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """A forged ``exercise_uid`` in the post is ignored: the RevisedExercise
-        revises the exercise the submission turned in, read under the gate."""
-        harness = _make_harness(monkeypatch)
-        harness.review.get_submission_detail = AsyncMock(
-            return_value=Result.ok(
-                {"uid": _SUBMISSION_UID, "status": "submitted", "exercise_uid": "ex.root"}
-            )
-        )
 
         response = harness.client.post(
             f"/api/teaching/review/{_SUBMISSION_UID}/revision",
@@ -339,19 +314,36 @@ class TestRequestRevision:
 
         assert response.status_code == 200
         assert "/revised-exercises/detail?uid=revised_exercise_1" in response.text
-        harness.review.request_revision_with_exercise.assert_awaited_once_with(
+        harness.review.request_revision.assert_awaited_once_with(
             submission_uid=_SUBMISSION_UID,
             teacher_uid=_TEACHER_UID,
             notes="Tighten the argument.",
-            original_exercise_uid="ex.root",
             feedback_points=[{"category": "accuracy", "detail": "The date is wrong."}],
             revision_rationale="One fix away.",
         )
-        harness.review.request_revision.assert_not_awaited()
 
-    def test_a_denied_detail_touches_neither_writer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize("reason", [REVISION_NEEDS_EXERCISE, REVISION_NAMED_TEACHER_ONLY])
+    def test_a_refused_revision_says_why(
+        self, monkeypatch: pytest.MonkeyPatch, reason: str
+    ) -> None:
         harness = _make_harness(monkeypatch)
-        harness.review.get_submission_detail = AsyncMock(
+        harness.review.request_revision = AsyncMock(
+            return_value=Result.fail(Errors.business(rule="revision_door", message=reason))
+        )
+
+        response = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/revision",
+            headers=_csrf(harness.client),
+            files=_multipart({"instructions": "Anything."}),
+        )
+
+        assert response.status_code == 200
+        assert reason in html.unescape(response.text)
+        assert "Revision requested" not in response.text
+
+    def test_a_denied_submission_is_one_not_found(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+        harness.review.request_revision = AsyncMock(
             return_value=Result.fail(Errors.not_found("Submission", "entry_1"))
         )
 
@@ -363,14 +355,12 @@ class TestRequestRevision:
 
         assert response.status_code == 200
         assert "Submission not found." in response.text
-        harness.review.request_revision.assert_not_awaited()
-        harness.review.request_revision_with_exercise.assert_not_awaited()
 
     def test_a_backend_fault_is_not_reported_as_not_found(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         harness = _make_harness(monkeypatch)
-        harness.review.get_submission_detail = AsyncMock(
+        harness.review.request_revision = AsyncMock(
             return_value=Result.fail(
                 Errors.database(
                     operation="get_entry_detail_for_teacher", message="Neo4j unavailable"
@@ -386,15 +376,13 @@ class TestRequestRevision:
 
         assert response.status_code == 200
         assert "not found" not in response.text.lower()
-        harness.review.request_revision.assert_not_awaited()
-        harness.review.request_revision_with_exercise.assert_not_awaited()
 
-    def test_missing_instructions_is_refused_before_any_read(
+    def test_missing_instructions_is_refused_before_the_writer(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A body without ``instructions`` (``notes`` is no alias) is refused at
-        parse, before the gated detail read — the rendered form's names are
-        pinned in ``tests/unit/ui/test_teacher_review_actions.py``."""
+        parse, before the writer — the rendered form's names are pinned in
+        ``tests/unit/ui/test_teacher_review_actions.py``."""
         harness = _make_harness(monkeypatch)
 
         response = harness.client.post(
@@ -405,7 +393,6 @@ class TestRequestRevision:
 
         assert response.status_code == 200
         assert "instructions" in response.text and "Field required" in response.text
-        harness.review.get_submission_detail.assert_not_awaited()
         harness.review.request_revision.assert_not_awaited()
 
 
@@ -439,6 +426,22 @@ class TestReviewPanel:
         assert 'name="instructions"' in body
         assert 'name="fp_count"' in body
         assert f"/api/teaching/review/{_SUBMISSION_UID}/approve" not in body
+
+    def test_a_refused_revision_shows_why_in_place_of_the_form(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        body = self._panel(
+            monkeypatch,
+            {
+                "uid": _SUBMISSION_UID,
+                "status": "submitted",
+                "content": "x",
+                "revision_refusal": REVISION_NEEDS_EXERCISE,
+            },
+        )
+        assert "this work gets a report" in body
+        assert 'name="instructions"' not in body
+        assert 'name="feedback_file"' in body
 
     def test_a_revision_requested_row_offers_approve(self, monkeypatch: pytest.MonkeyPatch) -> None:
         body = self._panel(

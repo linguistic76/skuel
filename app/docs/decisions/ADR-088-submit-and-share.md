@@ -1,6 +1,6 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-10-13
+updated: 2026-10-15
 status: implemented
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
@@ -125,13 +125,14 @@ entry ──SHARED_WITH_GROUP───▶ Group ◀─MEMBER_OF|OWNS─       sh
   reader census is the full list — reads it through `(teacher)-[:OWNS]->(group)`.
 - **Review authority is the asked teacher's, and an admin is not a reviewer.** The review writes
   — the AI report (`EntryReportService.admit_report`) and the revised exercise
-  (`RevisedExerciseService.admit_revision`) — admit the entry's owner or a teacher the entry asks
+  (`TeacherReviewService.request_revision`) — admit the entry's owner or a teacher the entry asks
   (here, or directly — §9) and nobody else: an ADMIN with no such request is refused exactly as
-  any other user is, not-found. A revision lands in the student's inbox as pedagogy from their
+  any other user is, not-found. *(ADR-091 N8 narrows the revision further: of the teachers the
+  entry asks, only the one its exercise names may send it.)* A revision lands in the student's inbox as pedagogy from their
   teacher, and an AI report spends quota on work the student sent to someone else; an admin who
   must read student work for support needs a read-only admin view, a different door (ruled
   2026-10-10). Pinned by `tests/integration/routes/test_ai_report_admission.py` and
-  `test_revision_create_admission.py`.
+  `test_revision_door.py`.
 - `SHARED_WITH_GROUP` is a share with every member. The curriculum direction (Exercise, PathStep,
   LearningPath → group, ADR-053) keeps this edge unchanged.
 - Every FormSubmission group target is a feedback request.

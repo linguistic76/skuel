@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
     from core.models.report.entry_report import EntryReport
     from core.models.user_entry.user_entry import UserEntry
+    from core.ports.curriculum_protocols import RevisedExerciseOperations
     from core.ports.query_types import (
         AnnotationResult,
         ExchangeThread,
@@ -39,7 +40,6 @@ if TYPE_CHECKING:
     from core.services.report.entry_report_service import EntryReportService
     from core.services.report.report_relationship_service import ReportRelationshipService
     from core.services.report.teacher_review_service import TeacherReviewService
-    from core.services.revised_exercises import RevisedExerciseService
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
@@ -80,7 +80,7 @@ class UserEntryOrchestrator:
         teacher_review_service: TeacherReviewService,
         user_service: UserService,
         activity_report_service: ActivityReportService,
-        revised_exercise_service: RevisedExerciseService,
+        revised_exercise_service: RevisedExerciseOperations,
         entry_report_service: EntryReportService,
         report_relationship_service: ReportRelationshipService,
     ) -> None:

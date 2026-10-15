@@ -2,10 +2,8 @@
 Revised Exercises API - Four-Phase Learning Loop
 ==================================================
 
-Domain-specific API routes for RevisedExercise operations. CRUD routes
-(create, get, list, update, delete) are handled by CRUDRouteFactory.
-
-Remaining routes:
+The RevisedExercise read routes. A revision is written only from the review
+page, beside its report, and never edited or deleted (ADR-091 N2):
 - list_for_student: Teacher-scoped listing by student
 - get_revision_chain: Revision chain for an exercise
 - my_revisions: Student-facing listing
@@ -24,7 +22,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
+    from core.ports.curriculum_protocols import RevisedExerciseOperations
 
 logger = get_logger(__name__)
 
@@ -32,7 +30,7 @@ logger = get_logger(__name__)
 def create_revised_exercises_api_routes(
     app: Any,
     rt: Any,
-    revised_exercise_service: RevisedExerciseService,
+    revised_exercise_service: RevisedExerciseOperations,
     user_service: Any = None,
 ) -> None:
     """Create revised exercises domain-specific API routes."""

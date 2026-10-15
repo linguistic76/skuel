@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-10-13
+updated: 2026-10-15
 status: current
 category: architecture
 related:
@@ -31,10 +31,9 @@ Every measurement flows from real user behaviour, not self-reported progress.
 > Mike writes it into the content vault (another teacher sends theirs to him), and it enters SKUEL
 > through the content-vault sync, not through the app. A teacher's reply (the report, the revision
 > request, the approve action) stays on the review page. A revision request always names an
-> exercise and goes to that exercise's teacher, and a sent revision is not edited or deleted. The
-> exercise create and edit doors and group assignment are gone (change 4); the report-only
-> revision, `POST /api/revised-exercises/update` and `POST /api/revised-exercises/delete` stay
-> live until change 5 removes them.
+> exercise and is sent by that exercise's teacher, and a sent revision is not edited or deleted.
+> The exercise create and edit doors and group assignment are gone (change 4); the report-only
+> revision and the revised-exercise create, update and delete doors are gone (change 5).
 
 ---
 
@@ -469,8 +468,8 @@ canonical taxonomy, all services, API routes, ReportSource table, graph patterns
 ## Phase 4: RevisedExercise — The Targeted Revision
 
 *A revision request always names an exercise, its teacher is that exercise's named teacher, and
-work submitted against it goes to that teacher; the update and delete routes below go (ADR-091 N2,
-N7, N8; all stay live until that change merges).*
+work submitted against it goes to that teacher; nothing edits or deletes a sent revision (ADR-091
+N2, N7, N8).*
 
 **What:** A teacher-created revision of an Exercise that addresses specific gaps identified
 in `EntryReport`. The teacher creates targeted, revised instructions for a specific
@@ -495,10 +494,10 @@ revision cycle explicitly rather than implicitly.
 - Inherits `UserOwnedEntity` (NOT Curriculum) — needs `user_uid` but not 21 Curriculum fields
 - `ContentOrigin.USER_CREATED` — teacher-authored content targeted at a specific student, not shared curriculum
 - Teacher-owned, student-targeted (student visibility via `student_uid` field)
-- `revision_number` auto-determined per-(exercise, student): `max(existing for the pair) + 1` — never a global per-exercise count (which would number one student's first revision of a shared exercise by the whole classroom's total), and never `len + 1` (which mints duplicate ordinals into gap-numbered chains after deletions). Both writers agree: `RevisedExerciseService.create()` via `get_next_revision_number`, and the atomic `create_report_and_revised_exercise` Cypher
+- `revision_number` auto-determined per-(exercise, student): `max(existing for the pair) + 1` — never a global per-exercise count (which would number one student's first revision of a shared exercise by the whole classroom's total), and never `len + 1` (which mints duplicate ordinals into gap-numbered chains after deletions), computed by the one writer, the atomic `create_report_and_revised_exercise` Cypher
 - `feedback_points` carries typed `FeedbackPoint` objects (`FeedbackCategory` + free-text detail) — enables pattern tracking across submissions
-- `expected_modality` and `submission_uid` auto-resolved by service on creation from the original Exercise and authority check
-- `parent_entity_uid` set to `report_uid` at `create()` time — the EntryReport is the direct derivation parent. Mirror of the `RESPONDS_TO_REPORT` graph edge; makes the chain Python-model-readable without a graph query.
+- `expected_modality` and `submission_uid` resolved by the write from the original Exercise and the entry
+- `parent_entity_uid` set to `report_uid` at creation — the EntryReport is the direct derivation parent. Mirror of the `RESPONDS_TO_REPORT` graph edge; makes the chain Python-model-readable without a graph query.
 
 **Graph relationships:**
 ```cypher
@@ -519,32 +518,30 @@ revision cycle explicitly rather than implicitly.
 
 **Services:**
 ```python
-services.revised_exercises              # RevisedExerciseService (standalone CRUD)
-services.teacher_review                 # TeacherReviewService.request_revision_with_exercise()
-# ^ Atomic path: creates EntryReport + RevisedExercise in one Neo4j transaction
+services.revised_exercises              # RevisedExerciseService (reads only)
+services.teacher_review                 # TeacherReviewService.request_revision() — the one writer
+# ^ Creates EntryReport + RevisedExercise in one Neo4j transaction
 #   via EntryReportBackend.create_report_and_revised_exercise()
 ```
 
-**API routes (teacher, CRUDRouteFactory):** `POST /api/revised-exercises/create`,
-`GET /api/revised-exercises/get?uid=`, `GET /api/revised-exercises/list`,
-`POST /api/revised-exercises/update?uid=`, `POST /api/revised-exercises/delete?uid=`.
-**API routes (teacher, domain-specific):** `GET /api/revised-exercises/for-student?student_uid=`,
+**The revision door:** `POST /api/teaching/review/{uid}/revision`, the review page's form.
+There is no CRUD block under `/api/revised-exercises`: nothing creates, edits or deletes a
+revision there (ADR-091 N2).
+**API routes (teacher, reads):** `GET /api/revised-exercises/for-student?student_uid=`,
 `GET /api/revised-exercises/chain?exercise_uid=[&student_uid=]` (classroom-scoped: revisions for
-students in active groups the requesting teacher owns — the same audience the revision write uses;
-an out-of-classroom read is an empty chain, indistinguishable from a nonexistent exercise).
+students in active groups the requesting teacher owns; an out-of-classroom read is an empty chain, indistinguishable from a nonexistent exercise).
 **API routes (student):** `GET /api/revised-exercises/my-revisions` (list targeting current user),
 `GET /api/revised-exercises/view?uid=` (view if student or owning teacher).
 **Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation.
 
-**Access control:** `create()` (overrides `CrudOperationsMixin.create`) runs
-`RevisedExerciseService.admit_revision` before its first write: the report's entry must be
-owned by `student_uid`, must ask this teacher for feedback — `SUBMITTED_TO_GROUP` an active
-group the teacher owns, or `SUBMITTED_TO_TEACHER` the teacher (ADR-088 §2, §9, via
-`UserEntryService.teacher_has_feedback_authority`) —
-and `original_exercise_uid` must be the exercise that entry FULFILLS. The role gate
-(`@require_role(UserRole.TEACHER)`) alone admits nothing, an ADMIN included. Every refusal is a
-404 that reads as a missing report, and the exercise is judged only once the entry is admitted;
-`submission_uid` is always the admitted entry. Teacher-facing *reads* are
+**Access control:** `TeacherReviewService.request_revision` admits a teacher the entry asks for
+feedback — `SUBMITTED_TO_GROUP` an active group the teacher owns, or `SUBMITTED_TO_TEACHER` the
+teacher (ADR-088 §2, §9) — and refuses anyone else with one not-found, an ADMIN included. The
+exercise comes from the gated detail, never from the form, and must name this teacher
+(`REVIEWED_BY`, ADR-091 N8): work with no exercise gets a report only (N7), and another teacher
+holding the work through a group is told "Only this exercise's teacher can request a revision."
+The review page shows the same sentence in place of the form (`revision_refusal`), and the write
+statement re-decides both rules. Teacher-facing *reads* are
 scoped beyond the role gate (#887 class): `/chain` to the requesting teacher's classrooms,
 `/for-student` to revisions the requesting teacher owns.
 

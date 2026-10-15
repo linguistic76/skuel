@@ -81,7 +81,6 @@ def create_teaching_api_routes(
     user_service: Any,
     exercises_service: Any,
     user_entry_service: Any = None,
-    revised_exercise_service: Any = None,
     entry_report_service: EntryReportOperations | None = None,
 ) -> None:
     """
@@ -93,7 +92,6 @@ def create_teaching_api_routes(
         teacher_review_service: TeacherReviewService instance
         user_service: UserService for role checks
         user_entry_service: UserEntryService — teacher-authorized entry deletion (ADR-054)
-        revised_exercise_service: Retained for DomainRouteConfig signature compatibility
     """
 
     get_user_service = make_service_getter(user_service)
@@ -155,82 +153,51 @@ def create_teaching_api_routes(
     async def request_revision(request: Request, uid: str, current_user: Any = None) -> Any:
         """Request revision for a student submission with structured feedback.
 
-        The exercise comes from the gated detail read, never from the form: a
-        turn-in (its root exercise, or the snapshot once the root is deleted)
-        files EntryReport + RevisedExercise atomically in one transaction;
-        work with no exercise gets a report-only revision request. A submission
-        outside the teacher's feedback requests is one not-found.
+        Files EntryReport + RevisedExercise atomically. The service reads the
+        exercise from the gated detail, never from the form, and refuses work
+        with no exercise (it gets a report only) and a teacher the exercise
+        does not name (ADR-091 N7, N8). A submission outside the teacher's
+        feedback requests is one not-found.
         """
         from fasthtml.common import Div, P
 
-        # Parse form data
         result = await parse_form_body(request, RequestRevisionRequest)
         if result.is_error:
             error = result.expect_error()
             return Div(P(error.message, cls="text-sm text-destructive"))
-
         form_data = result.value
 
-        detail_result = await teacher_review_service.get_submission_detail(
-            submission_uid=uid, teacher_uid=current_user.uid
-        )
-        if detail_result.is_error:
-            # A denied or missing submission is one not-found; a backend fault
-            # is not an access decision, so it says what failed.
-            detail_error = detail_result.expect_error()
-            message = (
-                "Submission not found." if is_not_found(detail_error) else detail_error.message
-            )
-            return Div(P(message, cls="text-sm text-destructive"))
-        exercise_uid = detail_result.value.get("exercise_uid")
+        raw_form = await request.form()
+        feedback_points: list[dict[str, str]] = []
+        for i in range(form_data.fp_count):
+            category = raw_form.get(f"fp_category_{i}", "")
+            detail = raw_form.get(f"fp_detail_{i}", "")
+            if category and detail:
+                feedback_points.append({"category": str(category), "detail": str(detail)})
 
-        # Atomic path: EntryReport + RevisedExercise in one transaction
-        if exercise_uid:
-            # Parse feedback points from form arrays
-            raw_form = await request.form()
-            feedback_points: list[dict[str, str]] = []
-            for i in range(form_data.fp_count):
-                category = raw_form.get(f"fp_category_{i}", "")
-                detail = raw_form.get(f"fp_detail_{i}", "")
-                if category and detail:
-                    feedback_points.append({"category": str(category), "detail": str(detail)})
-
-            atomic_result = await teacher_review_service.request_revision_with_exercise(
-                submission_uid=uid,
-                teacher_uid=current_user.uid,
-                notes=form_data.instructions,
-                original_exercise_uid=exercise_uid,
-                feedback_points=feedback_points,
-                revision_rationale=form_data.revision_rationale,
-            )
-            if atomic_result.is_error:
-                error = atomic_result.expect_error()
-                return Div(P(error.message, cls="text-sm text-destructive"))
-
-            re_uid = atomic_result.value["revised_exercise_uid"]
-            return Div(
-                P("Revision requested.", cls="text-sm text-amber-600 font-medium"),
-                ButtonLink(
-                    "View revision instructions →",
-                    href=f"/revised-exercises/detail?uid={re_uid}",
-                    cls=(ButtonT.ghost, "mt-1"),
-                    size="sm",
-                ),
-                cls="p-3 bg-amber-50 rounded-sm border border-amber-200",
-            )
-
-        # Fallback: report-only revision (no exercise context)
         revision_result = await teacher_review_service.request_revision(
-            report_uid=uid,
+            submission_uid=uid,
             teacher_uid=current_user.uid,
             notes=form_data.instructions,
+            feedback_points=feedback_points,
+            revision_rationale=form_data.revision_rationale,
         )
         if revision_result.is_error:
+            # A denied or missing submission is one not-found; any other refusal
+            # (no exercise, another teacher's exercise, a status) says why.
             error = revision_result.expect_error()
-            return Div(P(error.message, cls="text-sm text-destructive"))
+            message = "Submission not found." if is_not_found(error) else error.message
+            return Div(P(message, cls="text-sm text-destructive"))
 
+        re_uid = revision_result.value["revised_exercise_uid"]
         return Div(
             P("Revision requested.", cls="text-sm text-amber-600 font-medium"),
+            ButtonLink(
+                "View revision instructions →",
+                href=f"/revised-exercises/detail?uid={re_uid}",
+                cls=(ButtonT.ghost, "mt-1"),
+                size="sm",
+            ),
             cls="p-3 bg-amber-50 rounded-sm border border-amber-200",
         )
 

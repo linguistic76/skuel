@@ -30,10 +30,6 @@ from neo4j import AsyncDriver
 from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend, TasksBackend
 from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
 from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
-from adapters.persistence.neo4j.backends.exercise_backends import (
-    EntryReportBackend,
-    RevisedExerciseBackend,
-)
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from adapters.persistence.neo4j.bulk_upsert_backend import BulkUpsertBackend
@@ -45,17 +41,12 @@ from core.models.entity import Entity
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
-from core.models.enums.pipeline import Pipeline
-from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.group.group import Group
 from core.models.ku.ku import Ku
-from core.models.report.entry_report import EntryReport
 from core.models.task.task import Task
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.groups.group_service import GroupService
-from core.services.report.teacher_review_service import TeacherReviewService
-from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
 from core.services.search_event_recorder import SearchEventRecorder
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
 from core.services.user_entry.user_entry_service import UserEntryService
@@ -283,97 +274,6 @@ async def test_curriculum_searches_list_by_last_update(
     assert _uids(text.value) == newest_first
     assert _uids(tags.value) == newest_first
     assert _entity_uids(faceted.value) == newest_first
-
-
-# ============================================================================
-# RevisedExercise.created_at — the service's create (string), the combined
-# report-and-revision write (native)
-# ============================================================================
-
-
-@pytest.mark.parametrize("newer_is_native", [True, False])
-async def test_revisions_for_a_student_list_newest_first(
-    clean_neo4j, neo4j_driver, newer_is_native
-) -> None:
-    await _seed_classroom(neo4j_driver)
-    user_entries = UserEntryBackend(neo4j_driver)
-    sharing = UnifiedSharingService(backend=SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity))
-    entries = UserEntryService(backend=user_entries, sharing_service=sharing)  # type: ignore[arg-type]
-    revisions = RevisedExerciseBackend(
-        neo4j_driver, NeoLabel.REVISED_EXERCISE, RevisedExercise, base_label=NeoLabel.ENTITY
-    )
-    review = TeacherReviewService(
-        user_entry_backend=user_entries,
-        report_backend=EntryReportBackend(
-            driver=neo4j_driver,
-            label=NeoLabel.ENTRY_REPORT,
-            entity_class=EntryReport,
-            base_label=NeoLabel.ENTITY,
-        ),
-        exercise_backend=None,  # type: ignore[arg-type]
-        group_backend=None,  # type: ignore[arg-type]
-        ku_interaction_service=None,  # type: ignore[arg-type]
-        report_mastery_service=None,  # type: ignore[arg-type]
-        event_bus=None,  # type: ignore[arg-type]
-    )
-    native_at, string_at = _instants(newer_is_native)
-    turned_in = native_at - timedelta(days=5)
-
-    turn_ins: dict[str, str] = {}
-    for exercise in (EXERCISE_A, EXERCISE_B):
-        with _at(turned_in):
-            created = await entries.create_entry(
-                UserEntryCreateRequest(
-                    title=f"Work on {exercise}",
-                    content="An answer.",
-                    pipeline=Pipeline.TEACHER_REVIEW,
-                    fulfills_exercise_uid=exercise,
-                ),
-                UserUID(STUDENT),
-            )
-        assert created.is_ok, created.expect_error()
-        turn_ins[exercise] = created.value[0].uid
-
-    with _at(turned_in + timedelta(hours=1)):
-        report = await review.submit_report(turn_ins[EXERCISE_A], TEACHER, "Say more.")
-    assert report.is_ok, report.expect_error()
-    with _at(string_at):
-        string_revision = await RevisedExerciseService(
-            backend=revisions, entry_service=entries
-        ).create(
-            RevisedExercise(
-                uid="re_6b_string",
-                entity_type=EntityType.REVISED_EXERCISE,
-                title="",
-                user_uid=UserUID(TEACHER),
-                report_uid=report.value["report_uid"],
-                student_uid=STUDENT,
-                original_exercise_uid=EXERCISE_A,
-                instructions="Revise the opening.",
-            )
-        )
-    assert string_revision.is_ok, string_revision.expect_error()
-    with _at(native_at):
-        native_revision = await review.request_revision_with_exercise(
-            turn_ins[EXERCISE_B], TEACHER, "Revise the ending.", EXERCISE_B, [], None
-        )
-    assert native_revision.is_ok, native_revision.expect_error()
-    native_uid = str(native_revision.value["revised_exercise_uid"])
-
-    assert await _stamp_types(neo4j_driver, "created_at", ["re_6b_string", native_uid]) == {
-        "re_6b_string": STRING,
-        native_uid: NATIVE,
-    }
-    newest_first = [native_uid, "re_6b_string"]
-    if not newer_is_native:
-        newest_first.reverse()
-
-    listed = await revisions.list_for_student(STUDENT)
-    listed_by_teacher = await revisions.list_for_student(STUDENT, teacher_uid=TEACHER)
-
-    assert listed.is_ok and listed_by_teacher.is_ok
-    assert _uids(listed.value) == newest_first
-    assert _uids(listed_by_teacher.value) == newest_first
 
 
 # ============================================================================

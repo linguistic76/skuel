@@ -426,7 +426,10 @@ class _UserEntryAssessmentMixin:
         an entry submitted to several of the teacher's groups is still one
         detail. ``superseded`` applies the queue's collapse rule
         (``SUPERSEDED_COPY``): a copy with a newer sibling this teacher can see
-        is history, which the review page offers no action on. Empty result
+        is history, which the review page offers no action on.
+        ``exercise_teacher_uid`` is the live exercise's ``REVIEWED_BY`` teacher
+        (ADR-091 S3), the one teacher who may request a revision on it (N8);
+        null when the work has no live exercise. Empty result
         when the entry asks none of the
         teacher's groups for feedback — service-layer callers (``get_submission_detail``)
         map empty to ``Errors.not_found`` (404) so a teacher outside the
@@ -440,8 +443,9 @@ class _UserEntryAssessmentMixin:
           AND {asks_teacher("s", "teacher")}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: s.turn_in_exercise_uid}})
+        OPTIONAL MATCH (ex)-[:{RelationshipName.REVIEWED_BY.value}]->(exercise_teacher:User)
         OPTIONAL MATCH (s)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
-        WITH teacher, s, student, ex,
+        WITH teacher, s, student, ex, exercise_teacher,
              s.uid AS copy_uid,
              s.turn_in_exercise_uid AS copy_lineage,
              s.submitted_from_uid AS copy_note,
@@ -462,6 +466,7 @@ class _UserEntryAssessmentMixin:
                coalesce(ex.title, s.turn_in_exercise_title) AS exercise_title,
                s.turn_in_revision AS revision,
                ex.instructions AS exercise_instructions,
+               exercise_teacher.uid AS exercise_teacher_uid,
                {SUPERSEDED_COPY} AS superseded
         """
         return await self.execute_query(
@@ -482,7 +487,7 @@ class _UserEntryAssessmentMixin:
         directly). ``total_students`` counts the requesters in the teacher's
         classroom only (``in_classroom``) — the students list's own rule.
         ``total_exercises`` counts the exercises the teacher teaches — named
-        their teacher (``REVIEWED_BY``, ADR-091 S3) or owned — and
+        their teacher (``REVIEWED_BY``, ADR-091 S3) — and
         ``total_groups`` the groups they own.
 
         ``pending_count`` is the review queue's badge twin and reads the
@@ -511,11 +516,7 @@ class _UserEntryAssessmentMixin:
           pending_count,
           total_students,
           COUNT {{
-              MATCH (ex:Entity:Exercise)-[:{RelationshipName.REVIEWED_BY.value}]->(teacher)
-              RETURN ex
-            UNION
-              MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
-              RETURN ex
+              (:Entity:Exercise)-[:{RelationshipName.REVIEWED_BY.value}]->(teacher)
           }} AS total_exercises,
           COUNT {{ (teacher)-[:{RelationshipName.OWNS.value}]->(:Group) }} AS total_groups
         """

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-12
+updated: 2026-10-15
 ---
 
 # Feedback-Loop Staged Directions — Peer Feedback, Reply Artifact, Read-State
@@ -43,8 +43,8 @@ re-litigate them outside the item's own future elicitation.
   the filter model. The Shared-With-Me Shared-by filter derives its options from live
   data and genuinely needs nothing.
 - `SHARES_WITH` edges all carry `shared_at` + `role`; `share_version` exists **only** on
-  the generic `UnifiedSharingService.share` door — the report/revision Cyphers and
-  `auto_share_with_student` write edges without it. `created_by` names the author and is
+  the generic `UnifiedSharingService.share` door — the report/revision Cyphers write edges
+  without it. `created_by` names the author and is
   stamped by every **user-authored** writer; the Shared-With-Me sharer attribution and the
   Shared-by filter read the shared entity's owner (`user_uid`), not `created_by`.
   AI-generated reports pass `author_uid=None` *by design* (`created_by` is null;

@@ -128,9 +128,9 @@ async def handle_revision_requested(
         )
         return
 
-    # The bell opens the EntryReport that carries the teacher's notes. Both
-    # publishers (request_revision, request_revision_with_exercise) put its uid
-    # in ``metadata["report_uid"]``; an event without one is a publisher bug,
+    # The bell opens the EntryReport that carries the teacher's notes. The
+    # publisher (``TeacherReviewService.request_revision``) puts its uid in
+    # ``metadata["report_uid"]``; an event without one is a publisher bug,
     # and ringing with the entry's uid under an ENTRY_REPORT source would open
     # nothing — refuse loudly instead.
     report_uid = str((event.metadata or {}).get("report_uid") or "")

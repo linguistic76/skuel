@@ -9,7 +9,12 @@ from core.events.learning_loop_events import (
     UserEntryApproved,
     UserEntryRevisionRequested,
 )
-from core.services.report.teacher_review_service import TeacherReviewService
+from core.services.report.teacher_review_service import (
+    REVISION_NAMED_TEACHER_ONLY,
+    REVISION_NEEDS_EXERCISE,
+    TeacherReviewService,
+    revision_refusal,
+)
 from core.utils.result_simplified import Errors, Result
 
 TEACHER_UID = "user_teacher_abc"
@@ -169,7 +174,7 @@ class TestGroupMembershipRejection:
         backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
-        result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
+        result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes", [], None)
 
         assert result.is_error
         assert "has no review access" in result.error.details["reason"]
@@ -208,9 +213,9 @@ class TestSupersededCopyTakesNoAction:
     @pytest.mark.parametrize("writer", ["submit_report", "request_revision", "approve_report"])
     async def test_the_writer_refuses_a_history_copy(self, writer: str) -> None:
         service, backend, report_backend = self._service()
-        args = {
+        args: tuple[object, ...] = {
             "submit_report": (SUBMISSION_UID, TEACHER_UID, "feedback"),
-            "request_revision": (SUBMISSION_UID, TEACHER_UID, "notes"),
+            "request_revision": (SUBMISSION_UID, TEACHER_UID, "notes", [], None),
             "approve_report": (SUBMISSION_UID, TEACHER_UID),
         }[writer]
 
@@ -219,24 +224,8 @@ class TestSupersededCopyTakesNoAction:
         assert result.is_error
         assert result.expect_error().code == "BUSINESS_SUPERSEDED_COPY"
         report_backend.create_report_node.assert_not_called()
-        backend.approve_and_get_linked_kus.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_a_revision_with_exercise_refuses_a_history_copy(self) -> None:
-        service, _backend, report_backend = self._service()
-
-        result = await service.request_revision_with_exercise(
-            submission_uid=SUBMISSION_UID,
-            teacher_uid=TEACHER_UID,
-            notes="notes",
-            original_exercise_uid="ex.root",
-            feedback_points=[],
-            revision_rationale=None,
-        )
-
-        assert result.is_error
-        assert result.expect_error().code == "BUSINESS_SUPERSEDED_COPY"
         report_backend.create_report_and_revised_exercise.assert_not_called()
+        backend.approve_and_get_linked_kus.assert_not_called()
 
 
 # ========================================================================
@@ -369,30 +358,105 @@ class TestSubmitReport:
 # ========================================================================
 
 
+def _revision_service(
+    detail: dict | None = None,
+    write_rows: list | None = None,
+    event_bus: MagicMock | None = None,
+) -> tuple[TeacherReviewService, MagicMock]:
+    """A service whose entry asks the teacher, with one teacher-detail row.
+
+    The default row is a turn-in on ``EXERCISE_UID`` that names
+    ``TEACHER_UID`` its teacher, so the request is admitted.
+    """
+    backend = _make_user_entry_backend()
+    backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
+    row = (
+        detail
+        if detail is not None
+        else {
+            "uid": SUBMISSION_UID,
+            "superseded": False,
+            "exercise_uid": EXERCISE_UID,
+            "exercise_teacher_uid": TEACHER_UID,
+        }
+    )
+    backend.get_entry_detail_for_teacher.return_value = Result.ok([row] if row else [])
+    report_backend = _make_report_backend()
+    report_backend.create_report_and_revised_exercise.return_value = Result.ok(
+        write_rows
+        if write_rows is not None
+        else [
+            {
+                "uid": SUBMISSION_UID,
+                "status": "revision_requested",
+                "student_uid": STUDENT_UID,
+                "revision_number": 1,
+            }
+        ]
+    )
+    service = _make_service(
+        user_entry_backend=backend,
+        report_backend=report_backend,
+        event_bus=event_bus,
+    )
+    return service, report_backend
+
+
+async def _request(service: TeacherReviewService, notes: str = "notes"):
+    return await service.request_revision(
+        submission_uid=SUBMISSION_UID,
+        teacher_uid=TEACHER_UID,
+        notes=notes,
+        feedback_points=[],
+        revision_rationale=None,
+    )
+
+
 class TestRequestRevision:
     @pytest.mark.asyncio
-    async def test_success(self):
-        backend = _make_user_entry_backend()
-        report_backend = _make_report_backend()
-        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
-        report_backend.create_report_node.return_value = Result.ok(
-            [
-                {
-                    "uid": SUBMISSION_UID,
-                    "status": "revision_requested",
-                    "student_uid": STUDENT_UID,
-                    "report_entity_uid": REPORT_UID,
-                }
-            ]
-        )
-        service = _make_service(user_entry_backend=backend, report_backend=report_backend)
+    async def test_the_named_teacher_files_a_revision_on_the_entrys_exercise(self):
+        service, report_backend = _revision_service()
 
-        result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "Fix section 2")
+        result = await _request(service, "Tighten the argument")
 
         assert not result.is_error
         assert result.value["submission_uid"] == SUBMISSION_UID
-        assert result.value["revision_requested"] is True
-        assert "report_uid" in result.value
+        params, re_entity = report_backend.create_report_and_revised_exercise.call_args[0]
+        assert params["original_exercise_uid"] == EXERCISE_UID
+        assert params["author_uid"] == TEACHER_UID
+        # The Shared-With-Me inbox resolves sharer attribution from created_by.
+        assert re_entity.created_by == TEACHER_UID
+        assert re_entity.user_uid == TEACHER_UID
+
+    @pytest.mark.asyncio
+    async def test_work_with_no_exercise_is_refused_and_nothing_is_written(self):
+        service, report_backend = _revision_service(
+            detail={"uid": SUBMISSION_UID, "superseded": False, "exercise_uid": None}
+        )
+
+        result = await _request(service)
+
+        assert result.is_error
+        assert result.expect_error().message == REVISION_NEEDS_EXERCISE
+        report_backend.create_report_and_revised_exercise.assert_not_called()
+        report_backend.create_report_node.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_teacher_the_exercise_does_not_name_is_refused(self):
+        service, report_backend = _revision_service(
+            detail={
+                "uid": SUBMISSION_UID,
+                "superseded": False,
+                "exercise_uid": EXERCISE_UID,
+                "exercise_teacher_uid": "user_other_teacher",
+            }
+        )
+
+        result = await _request(service)
+
+        assert result.is_error
+        assert result.expect_error().message == REVISION_NAMED_TEACHER_ONLY
+        report_backend.create_report_and_revised_exercise.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_access_denied(self):
@@ -400,7 +464,7 @@ class TestRequestRevision:
         backend.verify_entry_asks_teacher.return_value = Result.ok([])
         service = _make_service(user_entry_backend=backend)
 
-        result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
+        result = await _request(service)
 
         assert result.is_error
         assert "has no review access" in result.error.details["reason"]
@@ -408,123 +472,49 @@ class TestRequestRevision:
     @pytest.mark.asyncio
     async def test_main_query_db_error(self):
         db_error = Errors.database("execute_query", "timeout")
-        backend = _make_user_entry_backend()
-        report_backend = _make_report_backend()
-        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
-        report_backend.create_report_node.return_value = Result.fail(db_error)
-        service = _make_service(user_entry_backend=backend, report_backend=report_backend)
+        service, report_backend = _revision_service()
+        report_backend.create_report_and_revised_exercise.return_value = Result.fail(db_error)
 
-        result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
+        result = await _request(service)
 
         assert result.is_error
         assert result.error is db_error
 
     @pytest.mark.asyncio
     async def test_empty_records_returns_invalid_transition(self):
-        """Empty results after access check = status guard rejected the transition."""
-        backend = _make_user_entry_backend()
-        report_backend = _make_report_backend()
-        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
-        report_backend.create_report_node.return_value = Result.ok([])
-        service = _make_service(user_entry_backend=backend, report_backend=report_backend)
+        """Empty results after the checks = the write's own guards refused it."""
+        service, _report_backend = _revision_service(write_rows=[])
 
-        result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
+        result = await _request(service)
 
         assert result.is_error
         assert "revisable status" in str(result.error)
 
     @pytest.mark.asyncio
     async def test_publishes_revision_requested_event(self):
-        backend = _make_user_entry_backend()
-        report_backend = _make_report_backend()
-        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
-        report_backend.create_report_node.return_value = Result.ok(
-            [
-                {
-                    "uid": SUBMISSION_UID,
-                    "status": "revision_requested",
-                    "student_uid": STUDENT_UID,
-                    "report_entity_uid": REPORT_UID,
-                }
-            ]
-        )
         event_bus = _make_event_bus()
-        service = _make_service(
-            user_entry_backend=backend, report_backend=report_backend, event_bus=event_bus
-        )
+        service, _report_backend = _revision_service(event_bus=event_bus)
 
-        await service.request_revision(SUBMISSION_UID, TEACHER_UID, "Fix section 2")
+        await _request(service, "Fix section 2")
 
-        event_bus.publish_async.assert_awaited_once()
-        event = event_bus.publish_async.call_args[0][0]
-        assert isinstance(event, UserEntryRevisionRequested)
-        assert event.entity_uid == SUBMISSION_UID
-        assert event.revision_notes == "Fix section 2"
-
-    @pytest.mark.asyncio
-    async def test_null_student_uid_defaults_to_empty(self):
-        backend = _make_user_entry_backend()
-        report_backend = _make_report_backend()
-        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
-        report_backend.create_report_node.return_value = Result.ok(
-            [
-                {
-                    "uid": SUBMISSION_UID,
-                    "status": "revision_requested",
-                    "student_uid": None,
-                    "report_entity_uid": REPORT_UID,
-                }
-            ]
-        )
-        event_bus = _make_event_bus()
-        service = _make_service(
-            user_entry_backend=backend, report_backend=report_backend, event_bus=event_bus
-        )
-
-        await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
-
-        event = event_bus.publish_async.call_args[0][0]
-        assert event.student_uid == ""
+        events = [call[0][0] for call in event_bus.publish_async.call_args_list]
+        requested = [e for e in events if isinstance(e, UserEntryRevisionRequested)]
+        assert len(requested) == 1
+        assert requested[0].entity_uid == SUBMISSION_UID
+        assert requested[0].revision_notes == "Fix section 2"
 
 
-# ========================================================================
-# TestRequestRevisionWithExercise
-# ========================================================================
+class TestRevisionRefusal:
+    """The one rule both the write and the review page read (ADR-091 N7, N8)."""
 
+    def test_no_exercise_teacher_means_no_exercise(self):
+        assert revision_refusal(None, TEACHER_UID) == REVISION_NEEDS_EXERCISE
 
-class TestRequestRevisionWithExercise:
-    @pytest.mark.asyncio
-    async def test_revised_exercise_stamped_with_teacher_as_creator(self):
-        """The RE entity crosses the boundary with created_by = the teacher —
-        the Shared-With-Me inbox resolves sharer attribution from it (arc 2 C4)."""
-        backend = _make_user_entry_backend()
-        report_backend = _make_report_backend()
-        backend.verify_entry_asks_teacher.return_value = Result.ok([{"has_access": True}])
-        report_backend.create_report_and_revised_exercise.return_value = Result.ok(
-            [
-                {
-                    "uid": SUBMISSION_UID,
-                    "status": "revision_requested",
-                    "student_uid": STUDENT_UID,
-                    "revision_number": 1,
-                }
-            ]
-        )
-        service = _make_service(user_entry_backend=backend, report_backend=report_backend)
+    def test_another_teacher_is_refused(self):
+        assert revision_refusal("user_other_teacher", TEACHER_UID) == REVISION_NAMED_TEACHER_ONLY
 
-        result = await service.request_revision_with_exercise(
-            submission_uid=SUBMISSION_UID,
-            teacher_uid=TEACHER_UID,
-            notes="Tighten the argument",
-            original_exercise_uid=EXERCISE_UID,
-            feedback_points=[],
-            revision_rationale=None,
-        )
-
-        assert not result.is_error
-        re_entity = report_backend.create_report_and_revised_exercise.call_args[0][1]
-        assert re_entity.created_by == TEACHER_UID
-        assert re_entity.user_uid == TEACHER_UID
+    def test_the_named_teacher_may(self):
+        assert revision_refusal(TEACHER_UID, TEACHER_UID) is None
 
 
 # ========================================================================
