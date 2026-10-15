@@ -318,7 +318,7 @@ that never closes the loop.
 | `core/models/ku/ku.py` | substrate | Ku frozen dataclass |
 | `core/models/exercises/exercise.py` | 1 | Exercise frozen dataclass |
 | `core/models/exercises/revised_exercise.py` | 4 | RevisedExercise frozen dataclass |
-| `core/services/revised_exercises/revised_exercise_service.py` | 4 | RevisedExercise CRUD + chain queries |
+| `core/services/revised_exercises/revised_exercise_service.py` | 4 | RevisedExercise reads + chain queries |
 | `adapters/inbound/revised_exercises_api.py` | 4 | RevisedExercise API routes (teacher + student-facing) |
 | `adapters/inbound/revised_exercises_ui.py` | 4 | RevisedExercise detail + hub preview (GradeBook shell) |
 | `adapters/inbound/entry_reports_ui.py` | 3 | EntryReport UI routes (list + detail page) |
