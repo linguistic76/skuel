@@ -1150,11 +1150,7 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
             base_label=NeoLabel.ENTITY,
         )
-        revised_exercise_service = RevisedExerciseService(
-            backend=revised_exercise_backend,
-            entry_service=user_entry_service,  # admit_revision's feedback authority
-            event_bus=event_bus,
-        )
+        revised_exercise_service = RevisedExerciseService(backend=revised_exercise_backend)
         logger.info("✅ RevisedExerciseService created (four-phase learning loop)")
 
         # The post-create Share / Stop-sharing door (ADR-088 §6): the create

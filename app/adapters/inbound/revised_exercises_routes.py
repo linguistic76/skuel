@@ -2,8 +2,10 @@
 Revised Exercise Routes - Configuration-Driven Registration
 =============================================================
 
-Wires RevisedExercise API routes using DomainRouteConfig.
-CRUD via CRUDRouteFactory (teacher-only), domain-specific routes via API factory.
+Wires the RevisedExercise read routes using DomainRouteConfig. There is no
+CRUD block: a revision is sent from the review page
+(``POST /api/teaching/review/{uid}/revision``) and is never edited or deleted
+afterwards (ADR-091 N2).
 Part of the four-phase learning loop: Exercise → UserEntry → EntryReport → RevisedExercise → ...
 """
 
@@ -11,17 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.revised_exercises_api import create_revised_exercises_api_routes
-from adapters.inbound.route_factories import (
-    CRUDRouteConfig,
-    DomainRouteConfig,
-    register_domain_routes,
-)
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
-from core.models.exercises.revised_exercise_request import (
-    RevisedExerciseCreateRequest,
-    RevisedExerciseUpdateRequest,
-)
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
@@ -34,14 +26,6 @@ REVISED_EXERCISES_CONFIG = DomainRouteConfig(
     api_related_services={
         "user_service": "user",
     },
-    crud=CRUDRouteConfig(
-        create_schema=RevisedExerciseCreateRequest,
-        update_schema=RevisedExerciseUpdateRequest,
-        uid_prefix="re",
-        scope=ContentScope.USER_OWNED,
-        require_role=UserRole.TEACHER,
-        user_service_attr="user",
-    ),
 )
 
 

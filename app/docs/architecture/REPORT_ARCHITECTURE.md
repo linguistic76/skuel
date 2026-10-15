@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-10-13
+updated: 2026-10-15
 status: current
 category: architecture
 version: 3.2.0
@@ -315,13 +315,13 @@ sharing incomplete/failed work).
 | `UserEntryService` | concrete facade (backend port `UserEntryOperations`) | UserEntry creation (`create_entry`), exercise linking, audience resolution |
 | `UserEntryProcessingService` | `UserEntryProcessingOperations` | Pipeline dispatcher: reads `entry.pipeline`, routes to transcription / LLM processors |
 | `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP shares, SUBMITTED_TO_GROUP feedback requests |
-| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `UserEntryBackend`, `EntryReportBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision_with_exercise()` creates EntryReport + RevisedExercise in a single Neo4j transaction (all-or-nothing). |
+| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `UserEntryBackend`, `EntryReportBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision()` creates EntryReport + RevisedExercise in a single Neo4j transaction (all-or-nothing), sent only by the exercise's named teacher on work with an exercise (ADR-091 N7, N8). |
 
 **Report producers:**
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
-| `TeacherReviewService` | `TeacherReviewOperations` | `EntryReport` (HUMAN) | Teacher feedback on a submission (`submit_report`, `request_revision_with_exercise`); `REPORT_FOR`-anchored; verifies group membership. |
+| `TeacherReviewService` | `TeacherReviewOperations` | `EntryReport` (HUMAN) | Teacher feedback on a submission (`submit_report`, `request_revision`); `REPORT_FOR`-anchored; verifies the entry asks this teacher for feedback. |
 | `EntryReportService` | `EntryReportOperations` (service) + `EntryReportBackendOperations` (backend) | `EntryReport` (LLM) | AI evaluation via Exercise instructions (`UnifiedLLMCaller`). Also owns typed report reads: `get_for_user` (the owner read, ADR-088 §3) and `list_for_submission` → `list[EntryReport]` (delegates to `EntryReportBackend`, which returns typed entities via `from_neo4j_node` — no TypedDict projection). Writes produce `:Entity:EntryReport` dual-labeled nodes; reads discriminate AI vs teacher via `EntryReport.processor_type` on the typed model |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |

@@ -30,7 +30,7 @@ from core.events.learning_loop_events import (
 from core.models.enums.entity_enums import REVIEWABLE_ENTRY_STATUSES, EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.enums.pipeline import ReportSource
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     GroupMemberProgress,
@@ -38,7 +38,6 @@ from core.ports.query_types import (
     ReportSubmitResult,
     ReviewQueueItem,
     RevisionRequestResult,
-    RevisionWithExerciseResult,
     StudentSubmissionItem,
     StudentSummaryItem,
     SubmissionDetailResult,
@@ -63,6 +62,26 @@ if TYPE_CHECKING:
     from core.services.report.report_mastery_service import ReportMasteryService
 
 logger = get_logger("skuel.services.teacher_review")
+
+#: Why a teacher cannot request a revision (ADR-091 N7, N8). The review page
+#: shows the same sentence in place of the revision form.
+REVISION_NEEDS_EXERCISE = "A revision request needs an exercise; this work gets a report."
+REVISION_NAMED_TEACHER_ONLY = "Only this exercise's teacher can request a revision."
+
+
+def revision_refusal(exercise_teacher_uid: str | None, teacher_uid: str) -> str | None:
+    """Why ``teacher_uid`` may not request a revision on the work, or ``None`` when they may.
+
+    A revision revises the work's exercise, so work with no live exercise gets
+    a report only (N7); and only the teacher that exercise names (its
+    ``REVIEWED_BY`` teacher) may send one (N8). ``exercise_teacher_uid`` is
+    the teacher detail read's column of that name.
+    """
+    if not exercise_teacher_uid:
+        return REVISION_NEEDS_EXERCISE
+    if exercise_teacher_uid != teacher_uid:
+        return REVISION_NAMED_TEACHER_ONLY
+    return None
 
 
 class TeacherReviewService:
@@ -137,8 +156,7 @@ class TeacherReviewService:
 
         # Remap backend keys (entry_uid, exercise_title) to the ReviewQueueItem
         # public shape (submission_uid, exercise_name) — the one surface UI
-        # consumers (ui/teaching/types.queue_item_from_dict,
-        # scripts/export_submissions) read.
+        # consumers (ui/teaching/types.queue_item_from_dict) read.
         # boundary: neo4j-rows — heterogeneous dict columns vary per query
         # (execute_query's own return type); viewed as dict[str, Any] so the typed
         # literal below builds without per-value casts.
@@ -258,116 +276,27 @@ class TeacherReviewService:
 
     async def request_revision(
         self,
-        report_uid: str,
-        teacher_uid: str,
-        notes: str,
-    ) -> Result[RevisionRequestResult]:
-        """
-        Request revision for a student submission.
-
-        Creates an ENTRY_REPORT Entity node with revision notes, linked via REPORT_FOR.
-        Sets submission status to REVISION_REQUESTED.
-
-        Args:
-            report_uid: Submission UID needing revision
-            teacher_uid: Teacher requesting revision
-            notes: Revision notes/instructions
-
-        Returns:
-            Result containing revision info
-        """
-        access_check = await self._verify_entry_asks_teacher(report_uid, teacher_uid)
-        if access_check.is_error:
-            return Result.fail(access_check)
-        current = await self._refuse_superseded_copy(report_uid, teacher_uid)
-        if current.is_error:
-            return Result.fail(current)
-
-        report_entity_uid = UIDGenerator.generate_uid("er")
-        now = datetime.now().isoformat()
-
-        allowed_from = [status.value for status in REVIEWABLE_ENTRY_STATUSES]
-        result = await self.report_backend.create_report_node(
-            {
-                "report_uid": report_uid,
-                "report_entity_uid": report_entity_uid,
-                "author_uid": teacher_uid,
-                "feedback": notes,
-                "report_file_path": None,
-                # Composed backend-side into "Revision requested on '{subject}'" (C3).
-                "title_prefix": "Revision requested on",
-                "entity_type": EntityType.ENTRY_REPORT.value,
-                "submission_status": EntityStatus.REVISION_REQUESTED.value,
-                "completed_status": EntityStatus.COMPLETED.value,
-                "processor_type": ReportSource.HUMAN.value,
-                "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
-                "allowed_from_statuses": allowed_from,
-                "reviewing_teacher_uid": teacher_uid,
-                "now": now,
-            }
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        records = result.value
-        if not records:
-            return Result.fail(
-                Errors.validation(
-                    message=(
-                        f"Cannot request revision: submission {report_uid} is not in a "
-                        f"revisable status (expected one of {allowed_from})"
-                    ),
-                    field="status",
-                )
-            )
-
-        student_uid = str(records[0]["student_uid"] or "")
-        logger.info(
-            f"Teacher {teacher_uid} requested revision {report_entity_uid} for submission {report_uid}"
-        )
-
-        await publish_event(
-            self.event_bus,
-            UserEntryRevisionRequested(
-                entity_uid=report_uid,
-                teacher_uid=teacher_uid,
-                student_uid=student_uid,
-                revision_notes=notes,
-                metadata={"report_uid": report_entity_uid},
-            ),
-            logger,
-        )
-
-        return Result.ok(
-            {
-                "submission_uid": str(records[0]["uid"]),
-                "status": str(records[0]["status"]),
-                "report_uid": report_entity_uid,
-                "revision_requested": True,
-                "student_uid": str(student_uid),
-            }
-        )
-
-    async def request_revision_with_exercise(
-        self,
         submission_uid: str,
         teacher_uid: str,
         notes: str,
-        original_exercise_uid: str,
         feedback_points: list[dict[str, str]],
         revision_rationale: str | None,
-    ) -> Result[RevisionWithExerciseResult]:
-        """Atomically create EntryReport + RevisedExercise in one transaction.
+    ) -> Result[RevisionRequestResult]:
+        """Ask the student to revise: an EntryReport and a RevisedExercise in one transaction.
 
-        Combines the two-phase revision request into a single backend call.
-        If anything fails, no partial state is left behind — the student never
-        sees "Revision Requested" without revision instructions.
+        The one revision door (ADR-091 N7, N8). The work must turn in against an
+        exercise, read from the gated detail and never from the caller, and that
+        exercise must name this teacher (``REVIEWED_BY``); otherwise the request
+        is refused with ``revision_refusal``'s sentence, the one the review page
+        shows in place of the form. Work with no exercise gets a report only. The
+        write statement decides the same rule again. If anything fails, no
+        partial state is left behind: the student never sees "Revision
+        Requested" without revision instructions.
 
         Args:
             submission_uid: Submission UID needing revision
             teacher_uid: Teacher requesting revision
             notes: Revision instructions text
-            original_exercise_uid: UID of the original Exercise
             feedback_points: List of {category, detail} dicts
             revision_rationale: Why this revision was created
         """
@@ -377,6 +306,18 @@ class TeacherReviewService:
         current = await self._refuse_superseded_copy(submission_uid, teacher_uid)
         if current.is_error:
             return Result.fail(current)
+        detail = current.value
+        if detail is None:
+            return Result.fail(
+                Errors.not_found(
+                    "Submission", submission_uid, reason="not awaiting this teacher's review"
+                )
+            )
+        exercise_teacher = detail.get("exercise_teacher_uid")
+        refusal = revision_refusal(str(exercise_teacher) if exercise_teacher else None, teacher_uid)
+        if refusal is not None:
+            return Result.fail(Errors.business(rule="revision_door", message=refusal))
+        original_exercise_uid = str(detail["exercise_uid"])
 
         from core.models.enums.learning_enums import FeedbackCategory
         from core.models.exercises.revised_exercise import FeedbackPoint, RevisedExercise
@@ -445,7 +386,8 @@ class TeacherReviewService:
                 Errors.validation(
                     message=(
                         f"Cannot request revision: submission {submission_uid} is not in a "
-                        f"revisable status (expected one of {allowed_from})"
+                        f"revisable status (expected one of {allowed_from}), or its "
+                        "exercise no longer names this teacher"
                     ),
                     field="status",
                 )
@@ -805,6 +747,7 @@ class TeacherReviewService:
             "exercise_instructions": record["exercise_instructions"],
             "file_path": record.get("file_path"),
             "superseded": bool(record.get("superseded")),
+            "revision_refusal": revision_refusal(record.get("exercise_teacher_uid"), teacher_uid),
         }
         return Result.ok(detail)
 
@@ -816,7 +759,7 @@ class TeacherReviewService:
         Get at-a-glance stats for the teacher dashboard.
 
         Returns pending review count, total submissions, distinct students,
-        exercises owned, and groups owned.
+        the exercises naming them their teacher, and groups owned.
 
         Args:
             teacher_uid: Teacher UID
@@ -940,7 +883,9 @@ class TeacherReviewService:
         """
         return await self.user_entry_backend.get_report_file_path(report_uid, teacher_uid)
 
-    async def _refuse_superseded_copy(self, submission_uid: str, teacher_uid: str) -> Result[bool]:
+    async def _refuse_superseded_copy(
+        self, submission_uid: str, teacher_uid: str
+    ) -> Result[Neo4jProperties | None]:
         """A copy with a newer version this teacher can see is history — no review action lands on it.
 
         The review writers (feedback, a revision request, Approve) call this after
@@ -950,6 +895,9 @@ class TeacherReviewService:
         detail (``superseded``). The write statements hold the same rule
         themselves (``SUPERSEDED_COPY`` for ``reviewing_teacher_uid``), so a
         newer copy filed between this read and the write still refuses it.
+        On a current copy it returns the teacher detail row it read (``None``
+        when the detail read has none), so a writer needing more of the row
+        reads it once.
 
         Backend: UserEntryBackend.get_entry_detail_for_teacher
         """
@@ -969,7 +917,7 @@ class TeacherReviewService:
                     ),
                 )
             )
-        return Result.ok(True)
+        return Result.ok(rows[0] if rows else None)
 
     async def _verify_entry_asks_teacher(
         self,

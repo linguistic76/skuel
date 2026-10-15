@@ -2,75 +2,44 @@
 RevisedExercise Service
 ========================
 
-CRUD operations for RevisedExercises — targeted revision instructions that
-address specific feedback gaps in the four-phase learning loop.
+Reads of RevisedExercises — targeted revision instructions that address
+specific feedback gaps in the four-phase learning loop.
 
 The flow:
     Exercise → UserEntry → EntryReport → RevisedExercise → UserEntry v2 → ...
 
-A teacher creates a RevisedExercise after reviewing EntryReport, providing
-targeted instructions for the student to address specific gaps. The student
-submits a new UserEntry against the RevisedExercise via FULFILLS_EXERCISE
-(anchored to the root Exercise) plus FULFILLS_REVISED_EXERCISE.
-
-Implements CRUDOperations via BaseService inheritance (CrudOperationsMixin).
-Overrides create/delete to add authority checks, relationships, events, and cascade.
+A teacher sends a RevisedExercise from the review page, beside the report it
+answers (``TeacherReviewService.request_revision``, ADR-091 N7, N8); nothing
+edits or deletes it afterwards (N2). The student submits a new UserEntry
+against the RevisedExercise via FULFILLS_EXERCISE (anchored to the root
+Exercise) plus FULFILLS_REVISED_EXERCISE.
 """
 
-import contextlib
-import dataclasses
-from datetime import datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
-from core.events import publish_event
-from core.events.embedding_publisher import publish_embedding_requested
-from core.events.learning_loop_events import RevisedExerciseCreated
-from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
-from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID
 from core.ports.curriculum_protocols import RevisedExerciseBackendOperations
 from core.ports.query_types import RevisionChainResult
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.ports.infrastructure_protocols import EventBusOperations
-    from core.services.user_entry.user_entry_service import UserEntryService
+from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
 
 
-@dataclasses.dataclass(frozen=True)
-class AdmittedRevision:
-    """Proof that a teacher may file a revision on one report's entry.
-
-    Returned only by ``RevisedExerciseService.admit_revision``: the entry the
-    report is about (``submission_uid``) belongs to the named student, asks this
-    teacher for feedback, and fulfils the exercise being revised.
-    """
-
-    submission_uid: str
-
-
 class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, RevisedExercise]):
     """
-    CRUD service for RevisedExercises (targeted revision instructions).
+    Read service for RevisedExercises (targeted revision instructions).
 
     RevisedExercises are teacher-owned but student-targeted. They are stored
     as :Entity:RevisedExercise nodes with entity_type='revised_exercise'.
-
-    Inherits CRUDOperations from CrudOperationsMixin (via BaseService):
-    create, get, update, delete, list, get_for_user, update_for_user, delete_for_user.
-
-    Overrides create/delete to add authority verification, graph relationships,
-    auto-sharing, and domain events.
+    ``get`` is inherited from CrudOperationsMixin (via BaseService); the
+    revision itself is written by the review page's one door.
     """
 
     _config = DomainConfig(
@@ -107,212 +76,12 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
     def __init__(
         self,
         backend: RevisedExerciseBackendOperations,
-        entry_service: UserEntryService,
-        event_bus: EventBusOperations | None = None,
     ) -> None:
-        """Initialize with backend, the UserEntry facade, and optional event bus.
-
-        ``entry_service`` answers whether an entry asks a teacher for feedback —
-        the authority ``admit_revision`` requires before anything is written.
-        """
+        """Initialize with the RevisedExercise backend."""
         super().__init__(backend, "revised_exercises")
         self.backend = backend
-        self.entry_service = entry_service
-        self.event_bus = event_bus
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("RevisedExerciseService initialized")
-
-    # ========================================================================
-    # CRUD OVERRIDES (authority checks, relationships, events)
-    # ========================================================================
-
-    async def create(self, entity: RevisedExercise) -> Result[RevisedExercise]:
-        """
-        Create a new RevisedExercise with authority verification and relationships.
-
-        Creates the entity plus three relationships:
-        - OWNS (teacher → revised_exercise)
-        - RESPONDS_TO_REPORT (revised_exercise → report)
-        - REVISES_EXERCISE (revised_exercise → original exercise)
-
-        Also auto-shares with the student and publishes domain events.
-
-        Access control: ``admit_revision`` decides before the first write — the
-        teacher must be one the report's entry asks for feedback, the student its
-        owner, and the exercise the one it fulfils. Every refusal is not-found.
-        """
-        teacher_uid = entity.user_uid
-
-        # Required-field guard: these are nullable on the model (frozen-base
-        # field-ordering forces defaults) but a RevisedExercise cannot be
-        # created without them. Bind validated str locals for the rest of the flow.
-        report_uid = entity.report_uid
-        student_uid = entity.student_uid
-        original_exercise_uid = entity.original_exercise_uid
-        if not report_uid or not student_uid or not original_exercise_uid:
-            return Result.fail(
-                Errors.validation(
-                    "RevisedExercise requires report_uid, student_uid, and original_exercise_uid.",
-                    field="report_uid",
-                )
-            )
-
-        admitted = await self.admit_revision(
-            teacher_uid, report_uid, student_uid, original_exercise_uid
-        )
-        if admitted.is_error:
-            return Result.fail(admitted)
-        submission_uid = admitted.value.submission_uid
-
-        # Auto-resolve expected_modality from the original Exercise, so a revision
-        # asks the learner for the same kind of artefact as the exercise it revises
-        # (the combined report+revision write resolves the same field in Cypher).
-        expected_modality = entity.expected_modality
-        if not expected_modality:
-            modality_result = await self.backend.get_original_exercise_modality(
-                original_exercise_uid
-            )
-            raw_modality = modality_result.value if modality_result.is_ok else None
-            if raw_modality:
-                with contextlib.suppress(ValueError):
-                    expected_modality = SubmissionModality(raw_modality)
-
-        # Next per-(exercise, student) ordinal — max+1, never a global count
-        number_result = await self.backend.get_next_revision_number(
-            original_exercise_uid, student_uid
-        )
-        if number_result.is_error:
-            return Result.fail(number_result)
-        revision_number = number_result.value
-
-        # Enrich entity with computed fields; created_by names the teacher who
-        # wrote the revision.
-        display_title = entity.title or f"Revision {revision_number}"
-        enriched = dataclasses.replace(
-            entity,
-            revision_number=revision_number,
-            title=display_title,
-            submission_uid=submission_uid,
-            expected_modality=expected_modality,
-            parent_entity_uid=EntityUID(report_uid),
-            created_by=entity.created_by or teacher_uid,
-        )
-
-        result = await self.backend.create(enriched)
-        if result.is_error:
-            self.logger.error(f"Failed to create revised exercise: {result.error}")
-            return result
-
-        uid = enriched.uid
-
-        # The (teacher)-[:OWNS]->(revised_exercise) edge is already written, in the
-        # same statement as the node: RevisedExercise is a UserOwnedEntity and
-        # ``teacher_uid`` IS ``entity.user_uid`` (bound above), so the CRUD door's
-        # owner write covers it. A second create_owns_relationship() call here would
-        # MERGE the identical edge — a redundant round-trip, and a warning-only one
-        # that made the load-bearing write look optional.
-
-        # Create RESPONDS_TO_REPORT relationship
-        feedback_result = await self.backend.link_to_report(uid, report_uid)
-        if feedback_result.is_error:
-            self.logger.warning(f"Failed to create RESPONDS_TO_REPORT: {feedback_result.error}")
-
-        # Create REVISES_EXERCISE relationship
-        revises_result = await self.backend.link_to_exercise(uid, original_exercise_uid)
-        if revises_result.is_error:
-            self.logger.warning(f"Failed to create REVISES_EXERCISE: {revises_result.error}")
-
-        # Auto-share with student so it appears in their "Shared With Me" inbox.
-        # Same pattern as assignment auto-sharing (ADR-040).
-        share_result = await self.backend.auto_share_with_student(
-            student_uid, uid, datetime.now().isoformat()
-        )
-        if share_result.is_error:
-            self.logger.warning(f"Failed to auto-share with student: {share_result.error}")
-
-        self.logger.info(
-            f"RevisedExercise created: {uid} (revision {revision_number} "
-            f"of {enriched.original_exercise_uid} for {enriched.student_uid})"
-        )
-
-        # Publish event for downstream coordination (notifications, dashboard)
-        await publish_event(
-            self.event_bus,
-            RevisedExerciseCreated(
-                revised_exercise_uid=uid,
-                teacher_uid=teacher_uid,
-                student_uid=student_uid,
-                original_exercise_uid=original_exercise_uid,
-                report_uid=report_uid,
-                revision_number=revision_number,
-            ),
-            self.logger,
-        )
-
-        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
-        await publish_embedding_requested(
-            self.event_bus, EntityType.REVISED_EXERCISE, enriched, self.logger
-        )
-
-        return Result.ok(enriched)
-
-    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
-        """Delete a RevisedExercise with cascade to remove all relationships."""
-        result = await super().delete(uid, cascade=True)
-        if result.is_error:
-            return result
-        self.logger.info(f"RevisedExercise deleted: {uid}")
-        return result
-
-    # ========================================================================
-    # INTERNAL HELPERS
-    # ========================================================================
-
-    async def admit_revision(
-        self,
-        teacher_uid: str,
-        report_uid: str,
-        student_uid: str,
-        original_exercise_uid: str,
-    ) -> Result[AdmittedRevision]:
-        """Decide whether a teacher may file a revision on a report's entry.
-
-        A revision is written into the student's space — it answers their report,
-        revises their exercise and lands in their inbox — so it is admitted only
-        when all three hold:
-
-        - the report is about an entry the named student owns;
-        - that entry asks this teacher for feedback: it was ``SUBMITTED_TO_GROUP``
-          an active group the teacher owns, or ``SUBMITTED_TO_TEACHER`` the
-          teacher (ADR-088 §2, §9). Having the student in one
-          of the teacher's groups is not enough, and neither is a role alone —
-          an ADMIN with no such request is refused like any other user;
-        - the exercise being revised is the one that entry FULFILLS.
-
-        Every refusal is not-found, and the exercise is looked at only once the
-        entry is admitted: a report uid naming nothing, another teacher's
-        student's report, the wrong student and an exercise the entry does not
-        fulfil each answer the same as missing.
-        """
-        target = await self.backend.get_revision_target(report_uid, student_uid)
-        if target.is_error:
-            return Result.fail(target)
-        if target.value is None:
-            return Result.fail(Errors.not_found("EntryReport", report_uid))
-        submission_uid = target.value["submission_uid"]
-
-        authority = await self.entry_service.teacher_has_feedback_authority(
-            submission_uid, teacher_uid
-        )
-        if authority.is_error:
-            return Result.fail(authority)
-        if not authority.value:
-            return Result.fail(Errors.not_found("EntryReport", report_uid))
-
-        if original_exercise_uid not in target.value["exercise_uids"]:
-            return Result.fail(Errors.not_found("Exercise", original_exercise_uid))
-
-        return Result.ok(AdmittedRevision(submission_uid=submission_uid))
 
     # ========================================================================
     # DOMAIN-SPECIFIC QUERIES (not part of CRUDOperations)

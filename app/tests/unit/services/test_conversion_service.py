@@ -29,7 +29,6 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceOptionRequest
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event_request import EventCreateRequest
-from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
 from core.models.forms.form_template_request import FormTemplateCreateRequest
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.group.group import Group
@@ -385,7 +384,6 @@ ALL_REGISTERED_REQUEST_TYPES = (
     PrincipleCreateRequest,
     ChoiceCreateRequest,
     FormTemplateCreateRequest,
-    RevisedExerciseCreateRequest,
     GroupCreateRequest,
     TaskTemplateCreateRequest,
     GoalTemplateCreateRequest,
@@ -397,8 +395,8 @@ ALL_REGISTERED_REQUEST_TYPES = (
 
 
 class TestConverterRegistry:
-    def test_registry_has_exactly_15_entries(self) -> None:
-        assert len(ConversionServiceV2.CONVERTER_REGISTRY) == 15
+    def test_registry_has_exactly_14_entries(self) -> None:
+        assert len(ConversionServiceV2.CONVERTER_REGISTRY) == 14
         assert set(ConversionServiceV2.CONVERTER_REGISTRY) == set(ALL_REGISTERED_REQUEST_TYPES)
 
     @pytest.mark.parametrize("request_type", ALL_REGISTERED_REQUEST_TYPES)
@@ -407,7 +405,7 @@ class TestConverterRegistry:
 
         assert converter is ConversionServiceV2.CONVERTER_REGISTRY[request_type]
         assert callable(converter)
-        # Naming convention holds for all 16: FooCreateRequest → foo_create_to_pure
+        # Naming convention holds for all 14: FooCreateRequest → foo_create_to_pure
         expected_name = request_type.__name__.removesuffix("CreateRequest").lower()
         assert converter.__name__ == f"{expected_name}_create_to_pure"
 

@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-10-13
+updated: 2026-10-15
 category: patterns
 related_skills:
 - pydantic
@@ -187,12 +187,10 @@ async def request_revision(request: Request, uid: str, current_user: Any = None)
         return Div(P(parsed.expect_error().message, cls="text-sm text-destructive"))
     req = parsed.value
 
-    # The exercise comes from the gated detail read, never from the form.
-    detail = await teacher_review_service.get_submission_detail(
-        submission_uid=uid, teacher_uid=current_user.uid
+    # The service reads the exercise from the gated detail, never from the form.
+    result = await teacher_review_service.request_revision(
+        submission_uid=uid, teacher_uid=current_user.uid, notes=req.instructions, ...
     )
-    ...  # a turn-in → request_revision_with_exercise(..., notes=req.instructions, ...);
-         # no exercise → request_revision(report_uid=uid, teacher_uid=..., notes=req.instructions)
 ```
 
 **Ownership-verified POSTs** verify the owner uid wherever it travels. When it is a model field (`TrackHabitRequest.habit_uid`): `parse_json_body`, then `verify_entity_ownership(habits_service, req.habit_uid, user_uid, "habit")` (`adapters/inbound/habits_api.py`, `POST /api/habits/track`). When it is in the query string (`POST /api/principles/link?uid=`): verify first, then parse — that model's `target_uid` is the link *target*, admitted by the service that writes the edge (exists, right kind, the caller's own or shared content). The JSON readers read the body's bytes (`read_json_body` in `form_helpers.py`): FastHTML merges the query string into the JSON body it parses and caches, so `await request.json()` hands back `?uid=` in place of the body's `uid`. No route calls it (`tests/unit/adapters/test_request_input_census.py`); a JSON body read by hand is `await read_json_body(request)`.

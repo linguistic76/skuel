@@ -119,7 +119,7 @@ def render_review_body(uid: str, detail: SubmissionDetail, history: list[EntryRe
     return Div(
         render_submission_content(detail),
         history_section,
-        render_review_actions(uid, detail.status, bool(detail.exercise_uid), detail.superseded),
+        render_review_actions(uid, detail.status, detail.revision_refusal, detail.superseded),
     )
 
 

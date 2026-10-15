@@ -33,8 +33,6 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest
-from core.models.exercises.revised_exercise import RevisedExercise
-from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_request import FormTemplateCreateRequest
 from core.models.goal.goal import Goal
@@ -297,14 +295,6 @@ class ConversionServiceV2:
         """Convert FormTemplateCreateRequest to FormTemplate using generic method."""
         return cls.create_to_pure(schema, FormTemplate, uid, **kwargs)
 
-    # --- RevisedExercise Conversions --
-    @classmethod
-    def revisedexercise_create_to_pure(
-        cls, schema: RevisedExerciseCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> RevisedExercise:
-        """Convert RevisedExerciseCreateRequest to RevisedExercise using generic method."""
-        return cls.create_to_pure(schema, RevisedExercise, uid, **kwargs)
-
     # --- Group Conversions --
     @classmethod
     def group_create_to_pure(
@@ -474,7 +464,6 @@ ConversionServiceV2.CONVERTER_REGISTRY = {
     PrincipleCreateRequest: ConversionServiceV2.principle_create_to_pure,
     ChoiceCreateRequest: ConversionServiceV2.choice_create_to_pure,
     FormTemplateCreateRequest: ConversionServiceV2.formtemplate_create_to_pure,
-    RevisedExerciseCreateRequest: ConversionServiceV2.revisedexercise_create_to_pure,
     GroupCreateRequest: ConversionServiceV2.group_create_to_pure,
     # Activity Templates (Phase 5 — May 2026)
     TaskTemplateCreateRequest: ConversionServiceV2.tasktemplate_create_to_pure,

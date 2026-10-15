@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-10-13'
+updated: '2026-10-15'
 category: patterns
 related_skills:
 - pytest
@@ -234,9 +234,9 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
   `pipeline='teacher_review'`)
 - Visibility is NOT changed — teacher access is gated on the entry's own feedback request (`asks_teacher`: a group the teacher owns, or the teacher directly)
 - Entity ownership stays with the student
-- `verify_entry_asks_teacher()` — the review-write gate — requires the entry's own feedback request (`asks_teacher`): `(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:SUBMITTED_TO_GROUP]-(submission)`, or `(submission)-[:SUBMITTED_TO_TEACHER]->(teacher)` (ADR-088 §2, §9). Sharing a classroom with the *student* is not enough; a teacher writes on exactly what the queue and the detail read let them open. The AI reviewer and the standalone revision create door admit a teacher by the same gate (`EntryReportService.admit_report`, `RevisedExerciseService.admit_revision`, both via `UserEntryService.teacher_has_feedback_authority`). Others get 404 — an ADMIN the entry does not ask included: review authority is the asked teacher's, and an admin is not a reviewer (ADR-088 §2)
+- `verify_entry_asks_teacher()` — the review-write gate — requires the entry's own feedback request (`asks_teacher`): `(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:SUBMITTED_TO_GROUP]-(submission)`, or `(submission)-[:SUBMITTED_TO_TEACHER]->(teacher)` (ADR-088 §2, §9). Sharing a classroom with the *student* is not enough; a teacher writes on exactly what the queue and the detail read let them open. The AI reviewer admits a teacher by the same gate (`EntryReportService.admit_report`, via `UserEntryService.teacher_has_feedback_authority`); a revision request further needs the exercise to name this teacher (`REVIEWED_BY`, ADR-091 N8). Others get 404 — an ADMIN the entry does not ask included: review authority is the asked teacher's, and an admin is not a reviewer (ADR-088 §2)
 
-**CLI alternative:** Teachers can bypass the web UI entirely. `scripts/export_submissions.py --teacher-uid <uid>` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; after writing reports to `done/`, `scripts/import_reports.py` posts them back via the same service methods. See ADR-040.
+The review page is the one door for a teacher's reply (ADR-091 N1): the teacher writes it on their own computer and uploads it there.
 
 **See:** `/docs/decisions/ADR-040-teacher-exercise-workflow.md`
 

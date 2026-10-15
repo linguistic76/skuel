@@ -16,7 +16,7 @@ Routes:
 - GET /revised-exercises/detail?uid=            — Revision detail with feedback points + submit link
 
 Renderers: ui/learning_loop/revised_exercise.py
-Teacher creation: TeacherReviewService.request_revision_with_exercise()
+Teacher creation: TeacherReviewService.request_revision() (the review page)
 See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """

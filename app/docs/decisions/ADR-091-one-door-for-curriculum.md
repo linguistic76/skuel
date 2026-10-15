@@ -1,6 +1,6 @@
 ---
 title: "ADR-091: One Door for Curriculum"
-updated: 2026-10-13
+updated: 2026-10-15
 status: accepted
 category: decisions
 tags: [adr, decisions, curriculum, content-vault, ingestion, exercises, teacher-review, ownership, publication]
@@ -208,10 +208,13 @@ same day (round 2):
 
 - **N1. `scripts/import_reports.py` goes.** It posted reports, revisions and approvals through
   `TeacherReviewService` from local files, a second door beside the review page.
-  (`scripts/export_submissions.py` only reads the review queue.)
+  `scripts/export_submissions.py` goes with it (Mike, 2026-10-15): it only read the review
+  queue, but its `done/` and `imported/` folders and its manifest existed to feed the import.
 - **N2. The revised-exercise update and delete doors go** (`POST /api/revised-exercises/update` and
   `POST /api/revised-exercises/delete`). A revision is sent from the review page; nothing edits it
-  afterwards.
+  afterwards. The create door beside them, `POST /api/revised-exercises/create`, goes too (Mike,
+  2026-10-15): it filed a revision against an existing report without the review page, a second
+  revision door that N8 would otherwise have had to guard separately.
 - **N3. Prerequisite-suggestion approval goes** (`POST /admin/prereq-suggestions/approve`, which
   writes an Edge YAML file into the content vault from the app). It is in-app curriculum authoring
   (S8); Mike writes the edge file himself.
@@ -226,7 +229,10 @@ same day (round 2):
 - **N7. Every revision request names an exercise.** The path that requests a revision on work with no
   exercise goes; work with no exercise gets a report only.
 - **N8. A revision's teacher is the original exercise's named teacher** (S3), and work submitted
-  against a revision goes to that teacher. Kept simple on purpose.
+  against a revision goes to that teacher. Kept simple on purpose. Another teacher who holds the
+  same work through their group may still send a report, but a revision request from them is
+  refused with a sentence saying so, not a not-found, since they can already open the work
+  (Mike, 2026-10-15).
 - **N9. Default-group enrolment on PathStep progress is unchanged** (`handle_path_step_enrolled`).
   The reasons ADR-040 and ADR-088 §8 record for it (access to ASSIGNED exercises, the curriculum
   fallback) retire under S4 and S3; its remaining reason is feedback on work with no exercise and
@@ -364,3 +370,4 @@ Every note says the old behaviour stays live until the change that replaces it m
 |------|--------|--------|---------|
 | 2026-10-12 | MCF | Accepted: the commitment and rulings S1–S9, then the split (S5 and S6 withdrawn) and N1–N9; supersession notes added to the records above, each live until its implementing change | 1.0 |
 | 2026-10-13 | Claude Code | Change 4 implemented: the in-app exercise doors, the PERSONAL/ASSIGNED/ASSESSMENT scopes, group assignment, the owner route and the `group_assigned_*` reader are gone; Exercise's audience is PUBLIC | 1.1 |
+| 2026-10-15 | Claude Code | Change 5 implemented: one revision door, the review page's `request_revision`, sent only by the exercise's named teacher on work with an exercise (the write re-decides both; the page shows the refusal in place of the form); the report-only revision, the revised-exercise create/get/update/delete/list CRUD doors, `scripts/import_reports.py` and its export twin `scripts/export_submissions.py` are gone | 1.2 |

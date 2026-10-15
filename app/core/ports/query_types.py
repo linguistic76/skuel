@@ -1705,6 +1705,7 @@ class SubmissionDetailResult(TypedDict, total=False):
     exercise_instructions: str
     file_path: str | None
     superseded: bool  # a newer copy in its lineage is visible to this teacher — history
+    revision_refusal: str | None  # why this teacher may not request a revision; None when they may
 
 
 class TeacherDashboardStats(TypedDict, total=False):
@@ -2985,21 +2986,10 @@ class ReportSubmitResult(TypedDict, total=False):
     feedback_submitted: bool
 
 
-class RevisionRequestResult(TypedDict, total=False):
-    """Return shape for TeacherReviewService.request_revision()."""
+class RevisionRequestResult(TypedDict):
+    """Return shape for TeacherReviewService.request_revision().
 
-    submission_uid: str
-    status: str
-    report_uid: str
-    revision_requested: bool
-    student_uid: str
-
-
-class RevisionWithExerciseResult(TypedDict):
-    """Return shape for TeacherReviewService.request_revision_with_exercise().
-
-    Atomic operation that creates both EntryReport and RevisedExercise
-    in a single Neo4j transaction.
+    The EntryReport and the RevisedExercise it files in one Neo4j transaction.
     """
 
     submission_uid: str
@@ -3883,18 +3873,6 @@ class PathStepSubmissionRow(TypedDict):
     report_outcome: str | None
 
 
-class RevisionTargetRow(TypedDict):
-    """Return shape for RevisedExerciseBackend.get_revision_target().
-
-    The entry a report is about (``submission_uid``) and the exercises that entry
-    fulfils. A row exists only when the entry is the named student's own, so the
-    caller reads ``None`` as "no such target" rather than testing a null field.
-    """
-
-    submission_uid: str
-    exercise_uids: list[str]
-
-
 class RevisionChainResult(TypedDict):
     """Return shape for RevisedExerciseBackend.get_revision_chain()."""
 
@@ -4756,7 +4734,6 @@ __all__ = [
     "ReferenceChunkHit",
     "RequiredKnowledgeResult",
     "CurriculumExerciseResult",
-    "RevisionTargetRow",
     "RevisionChainResult",
     # Notification Backend Result Types
     "NotificationRow",

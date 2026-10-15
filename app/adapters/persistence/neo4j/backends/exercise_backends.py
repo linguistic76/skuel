@@ -31,7 +31,6 @@ from core.ports.query_types import (
     CurriculumExerciseResult,
     RequiredKnowledgeResult,
     RevisionChainResult,
-    RevisionTargetRow,
 )
 from core.utils.result_simplified import Errors, Result
 
@@ -402,114 +401,13 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     """
     Domain backend for RevisedExercise entities.
 
-    Provides relationship-specific Cypher for the four-phase learning loop:
-    - get_revision_target        — Resolve a report's entry for its owning student
-    - auto_share_with_student    — MERGE SHARES_WITH (student -> revised exercise)
+    Provides the read Cypher for the four-phase learning loop; a revision is
+    written only by ``EntryReportBackend.create_report_and_revised_exercise``,
+    beside its report:
     - list_for_student           — Query revisions targeting a student
-    - link_to_report             — MERGE RESPONDS_TO_REPORT relationship
-    - link_to_exercise           — MERGE REVISES_EXERCISE relationship
+    - get_by_report_uid          — The revision answering one report
     - get_revision_chain         — Query all revisions of an original exercise
     """
-
-    async def link_to_report(self, re_uid: str, report_uid: str) -> Result[bool]:
-        """Create RESPONDS_TO_REPORT relationship from revised exercise to report."""
-        result = await self.execute_query(
-            f"""
-            MATCH (re:Entity {{uid: $re_uid, entity_type: 'revised_exercise'}})
-            MATCH (fb:Entity {{uid: $report_uid}})
-            WHERE fb.entity_type IN ['entry_report', 'activity_report']
-            MERGE (re)-[r:{RelationshipName.RESPONDS_TO_REPORT}]->(fb)
-            ON CREATE SET r.created_at = datetime()
-            RETURN true as success
-            """,
-            {"re_uid": re_uid, "report_uid": report_uid},
-        )
-        return _link_outcome(
-            result,
-            resource="RESPONDS_TO_REPORT relationship",
-            identifier=f"{re_uid} -> {report_uid}",
-        )
-
-    async def link_to_exercise(self, re_uid: str, exercise_uid: str) -> Result[bool]:
-        """Create REVISES_EXERCISE relationship from revised exercise to original exercise."""
-        result = await self.execute_query(
-            f"""
-            MATCH (re:Entity {{uid: $re_uid, entity_type: 'revised_exercise'}})
-            MATCH (ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-            MERGE (re)-[r:{RelationshipName.REVISES_EXERCISE}]->(ex)
-            ON CREATE SET r.created_at = datetime()
-            RETURN true as success
-            """,
-            {"re_uid": re_uid, "exercise_uid": exercise_uid},
-        )
-        return _link_outcome(
-            result,
-            resource="REVISES_EXERCISE relationship",
-            identifier=f"{re_uid} -> {exercise_uid}",
-        )
-
-    async def get_revision_target(
-        self, report_uid: str, student_uid: str
-    ) -> Result[RevisionTargetRow | None]:
-        """Resolve the entry a report is about, when that entry is the student's own.
-
-        Follows ``REPORT_FOR`` from the report to its UserEntry, requires the
-        student to ``OWNS`` that entry, and returns its uid with the uids of the
-        exercises it ``FULFILLS_EXERCISE``. ``None`` when the report names no
-        report, is about no entry, or the entry is not the student's — the
-        caller cannot tell those apart, and must not.
-
-        Says nothing about the teacher: whether the entry asks the teacher for
-        feedback is ``UserEntryBackend.verify_entry_asks_teacher``.
-        """
-        result = await self.execute_query(
-            f"""
-            MATCH (report:Entity {{uid: $report_uid}})
-                  -[:{RelationshipName.REPORT_FOR.value}]->(entry:Entity:UserEntry)
-            MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(entry)
-            RETURN entry.uid AS submission_uid,
-                   [(entry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
-                    | ex.uid] AS exercise_uids
-            LIMIT 1
-            """,
-            {"report_uid": report_uid, "student_uid": student_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.ok(None)
-        return Result.ok(cast("RevisionTargetRow", dict(records[0])))
-
-    async def auto_share_with_student(
-        self, student_uid: str, re_uid: str, shared_at: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Auto-share revised exercise with student via SHARES_WITH.
-
-        Same pattern as assignment auto-sharing (ADR-040).
-
-        Args:
-            student_uid: Student user UID
-            re_uid: Revised exercise UID
-            shared_at: ISO timestamp for the share
-
-        Returns:
-            Result containing query records
-        """
-        return await self.execute_query(
-            f"""
-            MATCH (student:User {{uid: $student_uid}})
-            MATCH (re:Entity {{uid: $re_uid}})
-            MERGE (student)-[r:{RelationshipName.SHARES_WITH.value}]->(re)
-            ON CREATE SET r.shared_at = $shared_at, r.role = 'student'
-            RETURN true as success
-            """,
-            {
-                "student_uid": student_uid,
-                "re_uid": re_uid,
-                "shared_at": shared_at,
-            },
-        )
 
     async def list_for_student(
         self, student_uid: str, teacher_uid: str | None = None
@@ -641,62 +539,6 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             cast("RevisionChainResult", dict(record)) for record in (result.value or [])
         ]
         return Result.ok(items)
-
-    async def get_original_exercise_modality(self, exercise_uid: str) -> Result[str | None]:
-        """Read the submission modality the original Exercise expects.
-
-        A RevisedExercise inherits its parent Exercise's modality so the learner
-        is asked for the same kind of artefact on the retry. The combined
-        report+revision write resolves this in one Cypher pass; this is the same
-        read for the two-step service path, which cannot reach an ``:Exercise``
-        through the ``:RevisedExercise``-labelled by-UID read.
-
-        Returns ok(None) when the exercise is absent or carries no modality —
-        the caller keeps whatever the entity already declared.
-        """
-        result = await self.execute_query(
-            """
-            MATCH (ex:Entity {uid: $exercise_uid, entity_type: $exercise_type})
-            RETURN ex.expected_modality AS expected_modality
-            """,
-            {"exercise_uid": exercise_uid, "exercise_type": EntityType.EXERCISE.value},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.ok(None)
-        modality = records[0].get("expected_modality")
-        return Result.ok(str(modality) if modality is not None else None)
-
-    async def get_next_revision_number(self, exercise_uid: str, student_uid: str) -> Result[int]:
-        """
-        Compute the next per-(exercise, student) revision ordinal.
-
-        max(existing) + 1 rather than count + 1: deleted revisions and
-        legacy globally-numbered chains leave gaps, and a count would mint
-        a duplicate ordinal into such a chain.
-        """
-        result = await self.execute_query(
-            f"""
-            MATCH (re:Entity {{entity_type: $re_type, student_uid: $student_uid}})
-                  -[:{RelationshipName.REVISES_EXERCISE}]->
-                  (ex:Entity {{uid: $exercise_uid, entity_type: $exercise_type}})
-            RETURN coalesce(max(re.revision_number), 0) + 1 AS next_revision_number
-            """,
-            {
-                "exercise_uid": exercise_uid,
-                "student_uid": student_uid,
-                "re_type": EntityType.REVISED_EXERCISE.value,
-                "exercise_type": EntityType.EXERCISE.value,
-            },
-        )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.ok(1)
-        return Result.ok(int(records[0]["next_revision_number"]))
 
     async def get_for_teacher(
         self, teacher_uid: str, limit: int = 50
@@ -882,6 +724,12 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
                 by the write), now
             Phase 2 (RevisedExercise): re_props (from to_neo4j_node), re_uid,
                 original_exercise_uid
+
+        The statement decides who may write: the submission must
+        ``FULFILLS_EXERCISE`` ``original_exercise_uid``, and that exercise must
+        name ``author_uid`` its teacher (``REVIEWED_BY``, ADR-091 N7, N8). Any
+        guard failing (status, supersession, exercise, teacher) returns no
+        row and writes nothing.
         """
         params = {
             **params,
@@ -896,14 +744,19 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         MATCH (teacher:User {{uid: $reviewing_teacher_uid}})
         MATCH (submission:Entity {{uid: $report_uid}})
         WHERE submission.status IN $allowed_from_statuses
+        // The work turns in against the exercise being revised, and that
+        // exercise names the author its teacher (ADR-091 N7, N8).
+        MATCH (submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->
+              (orig_exercise:Entity {{uid: $original_exercise_uid, entity_type: $exercise_entity_type}})
+              -[:{RelationshipName.REVIEWED_BY.value}]->(:User {{uid: $author_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
-        WITH submission, student, teacher, {superseded_copy_bindings("submission")}
+        WITH submission, student, teacher, orig_exercise, {superseded_copy_bindings("submission")}
         WHERE NOT {SUPERSEDED_COPY}
 
         // Title subject: fulfilled exercise's title, else the turn-in
         // snapshot's, else the submission's own title (same composition rule
         // as create_report_node — C3).
-        WITH submission, student,
+        WITH submission, student, orig_exercise,
              coalesce(
                  head([(submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(subject_ex:Entity)
                        WHERE subject_ex.title IS NOT NULL AND subject_ex.title <> ''
@@ -935,28 +788,23 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             updated_at: datetime($now)
         }})
 
-        WITH submission, student, fb
+        WITH submission, student, orig_exercise, fb
         MATCH (author:User {{uid: $author_uid}})
-        WITH submission, student, fb, author,
+        WITH submission, student, orig_exercise, fb, author,
              CASE WHEN student IS NOT NULL THEN student ELSE author END AS owner
         CREATE (owner)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         // Phase 2: Next per-(exercise, student) ordinal — max+1, so deleted or
         // legacy gap-numbered revisions can never mint a duplicate ordinal
-        WITH submission, student, fb, author
+        WITH submission, student, orig_exercise, fb, author
         OPTIONAL MATCH (existing_re:Entity {{entity_type: $re_entity_type}})
-                       -[:{RelationshipName.REVISES_EXERCISE.value}]->
-                       (orig_ex:Entity {{uid: $original_exercise_uid, entity_type: $exercise_entity_type}})
+                       -[:{RelationshipName.REVISES_EXERCISE.value}]->(orig_exercise)
         WHERE existing_re.student_uid = student.uid
-        WITH submission, student, fb, author,
+        WITH submission, student, orig_exercise, fb, author,
              coalesce(max(existing_re.revision_number), 0) + 1 AS revision_number
 
-        // Resolve expected_modality from original exercise
-        OPTIONAL MATCH (orig_exercise:Entity {{uid: $original_exercise_uid, entity_type: $exercise_entity_type}})
-
-        // Create RevisedExercise node
-        WITH submission, student, fb, author, revision_number, orig_exercise
+        // Create RevisedExercise node; expected_modality from the original exercise
         CREATE (re:Entity:RevisedExercise $re_props)
         SET re.uid = $re_uid,
             re.revision_number = revision_number,
@@ -970,11 +818,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         // RevisedExercise relationships
         MERGE (author)-[:{RelationshipName.OWNS.value}]->(re)
         MERGE (re)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
-
-        WITH submission, student, fb, re, revision_number, orig_exercise
-        FOREACH (_ IN CASE WHEN orig_exercise IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (re)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig_exercise)
-        )
+        MERGE (re)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig_exercise)
 
         // Auto-share RevisedExercise with student — the one SHARES_WITH the
         // learning loop writes (the student is not its owner; the teacher is).
