@@ -64,6 +64,11 @@ id = "PYSEC-2026-3483"
 ignoreUntil = 2026-11-07
 reason = "mcp 1.22.0 — fix lands in 1.28.1; pinned by fastmcp 2.13.x; same upstream block"
 
+[[IgnoredVulns]]
+id = "GHSA-84m7-p3x7-pcfv"
+ignoreUntil = 2026-11-07
+reason = "mcp 1.22.0 — fix lands in 1.30.0 (StreamableHTTP session accumulation; published 2026-10-15); pinned by fastmcp 2.13.x; same upstream block"
+
 # ── braces (JS, build-time only). @tailwindcss/cli → @parcel/watcher →
 #    micromatch 4.0.8 → braces ^3.0.3; 3.0.3 is the LATEST release and the
 #    advisory covers "through 3.0.3" — no fixed release exists. braces expands the glob patterns of Tailwind's own content
