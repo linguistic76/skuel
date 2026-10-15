@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-10-13'
+updated: '2026-10-15'
 category: patterns
 related_skills:
 - domain-route-config
@@ -171,7 +171,6 @@ The domains that register a `CRUDRouteFactory` (census: `crud=CRUDRouteConfig(` 
 | Domains | scope | require_role |
 |---------|-------|--------------|
 | Tasks, Goals, Habits, Events, Choices, Principles | `ContentScope.USER_OWNED` | — |
-| Exercises, RevisedExercises | `ContentScope.USER_OWNED` | `UserRole.TEACHER` |
 | Groups | `ContentScope.USER_OWNED` | `UserRole.TEACHER`, `role_gates_reads=False` |
 | FormTemplates | `ContentScope.SHARED` | `UserRole.ADMIN` |
 

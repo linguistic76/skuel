@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-10-12
+updated: 2026-10-15
 category: patterns
 related_skills:
 - fasthtml
@@ -140,7 +140,7 @@ When sub-configs are present, `register_domain_routes()` executes in this order:
 - Factories with static params declared once in config
 - Manual routes and dynamic factories remain flexible
 
-**Adoption:** All 6 Activity Domains + FormTemplate (`scope=ContentScope.SHARED`, `require_role=UserRole.ADMIN`) + RevisedExercise (`scope=ContentScope.USER_OWNED`, `require_role=UserRole.TEACHER`) + Groups (`require_role=UserRole.TEACHER`, `role_gates_reads=False`) migrated. Curriculum domains (KU, PS, LP) use `IntelligenceRouteConfig` only — no `CRUDRouteConfig` since they are created via ingestion.
+**Adoption:** All 6 Activity Domains + FormTemplate (`scope=ContentScope.SHARED`, `require_role=UserRole.ADMIN`) + Groups (`require_role=UserRole.TEACHER`, `role_gates_reads=False`) migrated. Curriculum domains (KU, PS, LP) use `IntelligenceRouteConfig` only — no `CRUDRouteConfig` since they are created via ingestion; Exercise and RevisedExercise register read routes only (ADR-091 S4, N2).
 
 ### Recent Updates
 

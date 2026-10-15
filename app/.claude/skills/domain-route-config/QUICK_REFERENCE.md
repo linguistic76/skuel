@@ -251,7 +251,7 @@ def create_{domain}_routes(app: FastHTMLApp, rt: RouteDecorator, services: Servi
 __all__ = ["create_{domain}_routes"]
 ```
 
-**Exemplars:** `groups_routes.py` (role_gates_reads=False), `form_templates_routes.py` (SHARED+ADMIN), `revised_exercises_routes.py` (USER_OWNED+TEACHER), `exercises_routes.py` (USER_OWNED+TEACHER), `_pathstep_template_routes_helpers.py` (SHARED+TEACHER, the six PathStep activity templates)
+**Exemplars:** `groups_routes.py` (role_gates_reads=False), `form_templates_routes.py` (SHARED+ADMIN), `_pathstep_template_routes_helpers.py` (SHARED+TEACHER, the six PathStep activity templates)
 
 **Adding Intelligence routes:** `intelligence=IntelligenceRouteConfig(scope=...)` registers the intelligence routes — context and insights at either scope, analytics at `USER_OWNED` alone. Ku, PathStep and LearningPath carry it, `SHARED` (context + insights), with no `crud=` — curriculum is created by ingestion:
 
