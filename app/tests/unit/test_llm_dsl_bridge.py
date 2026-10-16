@@ -114,6 +114,58 @@ async def test_bridge_output_carries_no_link_tag():
         assert parsed.value.links == []
 
 
+@pytest.mark.asyncio
+async def test_bridge_output_carries_no_ku_tag():
+    # Knowledge links are the user's own or the grounding service's: a @ku value
+    # is a Ku uid the model has no source for, so any @ku it emits is dropped —
+    # in any case, as the parser reads tag names — while the line and its other
+    # tags survive. A model-written @Link goes the same way.
+    port = _port(
+        "- @context(task) Study dataframes @ku(ku.tech.pandas) @priority(2)\n"
+        "- @context(task) Read the docs @KU(pandas) @when(2026-10-20)\n"
+        "- @context(habit) Practise daily @Link(goal:goal_x) @repeat(daily)"
+    )
+    bridge = LLMDSLBridgeService(chat_port=port)
+
+    result = await bridge.transform("Study pandas and practise daily.")
+
+    assert result.is_ok
+    assert result.value.activity_lines == [
+        "- @context(task) Study dataframes @priority(2)",
+        "- @context(task) Read the docs @when(2026-10-20)",
+        "- @context(habit) Practise daily @repeat(daily)",
+    ]
+    for line in result.value.activity_lines:
+        parsed = parse_activity_line(line)
+        assert parsed.is_ok
+        assert parsed.value.primary_ku is None
+        assert parsed.value.links == []
+    # Control: the parser reads a @ku on the same line when one is there.
+    kept = parse_activity_line("- @context(task) Study dataframes @ku(ku.tech.pandas)")
+    assert kept.is_ok
+    assert kept.value.primary_ku == "ku.tech.pandas"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("compact", [False, True])
+async def test_bridge_prompt_offers_no_link_tag(compact: bool):
+    # Neither prompt teaches the model a tag that names a uid: no @ku, no @link.
+    port = _port("")
+    bridge = LLMDSLBridgeService(chat_port=port, use_compact_prompt=compact)
+
+    await bridge.transform("I want to learn Python for data science.")
+
+    prompt = port.complete.call_args.args[0][0]["content"]
+    assert _uid_tags_offered(prompt) == set()
+    # Control: the same reader finds a uid tag when one is offered.
+    assert _uid_tags_offered(prompt + "\nATTRS: @priority, @ku\n") == {"ku"}
+
+
+def _uid_tags_offered(prompt: str) -> set[str]:
+    """The uid-naming tags (``@ku``, ``@link``) a prompt mentions, in any case."""
+    return {name.lower() for name in re.findall(r"@(ku|link)\b", prompt, flags=re.IGNORECASE)}
+
+
 def _curriculum_names(prompt: str) -> set[str]:
     """Every context the prompt offers (``@context(x)`` tags and the DOMAINS list) that is curriculum."""
     offered = re.findall(r"@context\((\w+)\)", prompt)
@@ -156,7 +208,7 @@ async def test_bridge_drops_a_curriculum_line_the_model_emits():
 
     assert result.is_ok
     assert result.value.activity_lines == [
-        "- @context(task) Work through the pandas tutorial @ku(ku.tech.pandas)",
+        "- @context(task) Work through the pandas tutorial",
         "- @context(goal) Learn Python for data science @priority(2)",
     ]
     assert result.value.activities_identified == 2

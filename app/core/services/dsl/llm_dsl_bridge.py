@@ -60,8 +60,9 @@ from core.utils.text_truncation import truncate_to_budget
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
 
-# ``@link(...)`` as the parser's TAG_PATTERN reads it; ``_parse_llm_output`` drops it.
-_LINK_TAG_RE = re.compile(r"\s*@link\([^)]*\)")
+# ``@link(...)`` and ``@ku(...)`` as the parser's TAG_PATTERN reads them (tag names
+# in any case); ``_parse_llm_output`` drops both.
+_LINK_TAG_RE = re.compile(r"\s*@(?:link|ku)\([^)]*\)", re.IGNORECASE)
 _CONTEXT_TAG_RE = re.compile(r"@context\(([^)]*)\)", re.IGNORECASE)
 
 
@@ -371,10 +372,11 @@ class LLMDSLBridgeService:
     def _parse_llm_output(self, output: str) -> list[str]:
         """Parse LLM output into individual activity lines.
 
-        A bridge line carries no ``@link``: a link's id is a UID, and the model
-        has no source for one (grounding passes titles), so any ``@link`` it
-        emits is dropped here and the line reaches the parser link-free. Links
-        on both bridge paths are the user's own.
+        A bridge line carries no ``@link`` and no ``@ku``: each names a UID, and
+        the model has no source for one (grounding passes titles), so any it
+        emits is dropped here and the line reaches the parser link-free. Goal
+        links on both bridge paths are the user's own; knowledge links are the
+        user's own or ``EntryGroundingService``'s.
 
         A bridge line names no curriculum context either: curriculum is authored
         in the content vault (ADR-091 S8), so a line the model writes with

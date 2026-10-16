@@ -1,11 +1,11 @@
 ---
 title: "DSL-Bridge Grounding — Principles/Recent-Topics"
-updated: 2026-10-06
+updated: 2026-10-16
 status: "registered"
 registered: 2026-08-28
 ruled: 2026-09-02
 trigger: "the keyed A/B on the next bridge touch, or Mike schedules it"
-check: "each argument in BOTH callers or NEITHER (git grep -c per file); git grep -n \"@link\" -- core/prompts/templates/ stays empty"
+check: "each argument in BOTH callers or NEITHER (git grep -c per file); git grep -n -E \"@(link|ku)\\b\" -- core/prompts/templates/ stays empty"
 ---
 
 # DSL-Bridge Grounding — Principles/Recent-Topics
@@ -26,9 +26,10 @@ registered.
    generation from an explicit parent goal — are outside this ruling; none of them is an LLM
    inference over prose.)
    Grounding is title-only and recognition-only — it disambiguates what the model recognises
-   and never resolves a title to a UID — and the bridge output carries no `@link`
+   and never resolves a title to a UID — and the bridge output carries no `@link` and no `@ku`
    (`LLMDSLBridgeService._parse_llm_output` drops any the model emits, and the templates in
-   `core/prompts/templates/dsl_*` teach none), so the model has no channel to a goal link. The
+   `core/prompts/templates/dsl_*` teach neither), so the model has no channel to a goal or
+   knowledge link. The
    2026-08-28 measurement (56 extracted tasks, 0 with any edge
    to a Goal; the 2 live task → goal edges hand-authored) is the accepted design, not a
    parked cost: an edge the user did not author is a different kind of write. Do not build

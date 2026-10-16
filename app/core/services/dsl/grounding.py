@@ -5,8 +5,8 @@ Grounding is recognition-only: the titles of the user's active goals go to the
 bridge so prose is recognised against the goals the user actually holds, and
 recognition is all that comes back. A goal link on the bridge paths has one
 source, the user's own ``@link(goal:<uid>)`` — the bridge output carries no
-``@link`` (``LLMDSLBridgeService._parse_llm_output`` drops any the model
-emits). Ruled 2026-09-02; ADR-069 § Decision 1.1 holds the record.
+``@link`` and no ``@ku`` (``LLMDSLBridgeService._parse_llm_output`` drops any
+the model emits). ADR-069 § Decision 1.1 holds the record.
 
 Both bridge entry points ground ``transform_with_context`` through this one
 builder, so they can never drift to different grounding:

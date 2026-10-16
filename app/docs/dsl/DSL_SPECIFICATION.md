@@ -329,6 +329,12 @@ Slug ::= Identifier ("-" Identifier)*
 generated `ku_…` or colon `ku:…` form — is dropped, and the line's `tag_warnings` report it in
 the run summary (ADR-013 amendment, 2026-10-16).
 
+**Authorship:** `@ku()` is written by the user, never by the LLM bridge — the same rule as
+`@link()` below. The bridge prompts offer no `@ku`, and the bridge drops any `@ku` the model
+writes before the line reaches the parser. Besides the user's own `@ku()` / `@link(ku:…)`, the
+one other writer of an entry's knowledge links is `EntryGroundingService` (ADR-069 § Decision 1,
+amendment 2026-10-16).
+
 ---
 
 ### `@link()` - Secondary Relationships

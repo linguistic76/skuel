@@ -4,7 +4,7 @@ DOMAINS: task, habit, goal, event, principle, choice, finance, calendar, lifepat
 (something to learn is a goal or a task)
 
 SYNTAX: - @context(type) description @attr(value)...
-ATTRS: @priority, @when, @repeat, @duration, @energy, @amount, @goal, @principle, @ku
+ATTRS: @priority, @when, @repeat, @duration, @energy, @amount, @goal, @principle
 
 A USER CONTEXT section (if present) is background only — never extract activity
 lines from it; use it solely to recognise/classify items in the JOURNAL.
