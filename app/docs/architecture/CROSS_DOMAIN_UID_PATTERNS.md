@@ -1,6 +1,6 @@
 ---
 title: "Cross-Domain UID Patterns: Structural Anchors vs Enrichment Links"
-updated: 2026-10-06
+updated: 2026-10-16
 status: current
 category: architecture
 tags: [architecture, uid-patterns, cross-domain, structural-anchor, enrichment-link]
@@ -99,9 +99,9 @@ This field appears on all 6 Activity Domains and deserves a precise statement be
                                └─[:SPAWNED_FROM]──>(ActivityTemplate)
 ```
 
-The `SPAWNED_FROM` edge encodes the template relationship. `source_path_step_uid` is a **read-optimization** — it saves a 2-hop traversal to find the owning PS. Since templates are immutable at engagement time (status `PUBLISHED`), the two cannot diverge.
+The `SPAWNED_FROM` edge encodes the template relationship. `source_path_step_uid` is a **read-optimization** — it saves a 2-hop traversal to find the owning PS. A template has no in-app writer (ADR-091 S8): its PathStep changes only when the content vault moves it, and that is the one way the field and the edge part (§ Which is authoritative?).
 
-**2. Non-template scheduling path** (teacher or user creates an Activity tied to a PathStep directly):
+**2. Non-template scheduling path** (a user creates an Activity naming a PathStep directly):
 
 ```
 (Activity) — source_path_step_uid = ps_uid
@@ -113,7 +113,7 @@ Here the field is the **only** back-reference. There is no `SPAWNED_FROM` edge t
 
 ### Which is authoritative?
 
-`source_path_step_uid` records the **spawn-time PS**. The `SPAWNED_FROM` edge reflects **current template ownership**. For a PUBLISHED template that was never moved, the two are identical. For non-template activities, only the field exists. Read the field; traverse the edge only when you need to interrogate the template itself.
+`source_path_step_uid` records the **spawn-time PS**. The `SPAWNED_FROM` edge reflects **current template ownership**. For a template that was never moved, the two are identical. For non-template activities, only the field exists. Read the field; traverse the edge only when you need to interrogate the template itself.
 
 ### What the field may show
 

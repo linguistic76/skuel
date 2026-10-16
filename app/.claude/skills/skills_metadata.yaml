@@ -58,7 +58,7 @@ skills:
 
   - name: python
     description: Python development patterns in SKUEL
-    last_reviewed: "2026-10-10"
+    last_reviewed: "2026-10-16"
     foundation: []
     dependencies: []
     library_package: null  # Language, not a package
@@ -85,7 +85,7 @@ skills:
 
   - name: pydantic
     description: Pydantic V2 validation models
-    last_reviewed: "2026-10-15"
+    last_reviewed: "2026-10-16"
     foundation: []
     dependencies: []
     library_package: pydantic
@@ -102,7 +102,7 @@ skills:
 
   - name: ui-css
     description: SKUEL CSS layer — Tailwind + ui.components (SKUEL-owned pure-Tailwind layer, ADR-071)
-    last_reviewed: "2026-10-10"
+    last_reviewed: "2026-10-16"
     foundation: []
     dependencies: []
     library_package: null  # CDN/static, not PyPI package
@@ -214,7 +214,7 @@ skills:
 
   - name: accessibility-guide
     description: Expert guide for building accessible web applications following WCAG standards
-    last_reviewed: "2026-10-10"
+    last_reviewed: "2026-10-16"
     foundation: [ui-browser, ui-css]
     dependencies: [ui-browser, ui-css]
     library_package: null  # SKUEL pattern, not external library
@@ -228,7 +228,7 @@ skills:
 
   - name: skuel-ui
     description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
-    last_reviewed: "2026-10-13"
+    last_reviewed: "2026-10-16"
     foundation: [fasthtml, ui-css, ui-browser, pydantic]
     dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library
@@ -373,7 +373,7 @@ skills:
 
   - name: security
     description: Security posture, route checklist, and code review security checks
-    last_reviewed: "2026-10-13"
+    last_reviewed: "2026-10-16"
     foundation: []
     dependencies: [python]
     library_package: null  # Cross-cutting concern, not a single library
@@ -417,7 +417,7 @@ skills:
 
   - name: base-analytics-service
     description: BaseAnalyticsService for domain analytics
-    last_reviewed: "2026-10-13"
+    last_reviewed: "2026-10-16"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -538,7 +538,7 @@ skills:
 
   - name: user-context-intelligence
     description: UserContextIntelligence - central cross-domain intelligence hub
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-10-16"
     foundation: [base-analytics-service]
     dependencies: [base-analytics-service, python, result-pattern, activity-domains]
     library_package: null  # SKUEL pattern, not external library

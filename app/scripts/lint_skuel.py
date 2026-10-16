@@ -7146,14 +7146,7 @@ class SkuelLinter:
     # bug — the fix is to repoint or delete the reader, which changes query
     # semantics and belongs in its own PR.
     #
-    # EMPTY as of the semantic-relationship-layer roadmap Phase 1 (2026-07-20):
-    # the last two entries (EXTENDS_PATTERN / DEEPENS_UNDERSTANDING in
-    # _knowledge_context_mixin.py) were NOT writer-less after all — the semantic
-    # layer's live admin writer (POST /api/path-steps/relationships →
-    # build_semantic_merge) emitted them. Phase 1 made to_neo4j_name() return a
-    # RelationshipName, so those edges now persist as RELATED_TO (the coarse
-    # bucket) with the precise predicate in the `semantic_type` property, and the
-    # reader was repointed to RELATED_TO. See CYPHER_VOCABULARY_FINDINGS.md §9.
+    # EMPTY: every known finding is resolved.
     #
     # Entries are (file, name) pairs, NOT bare names — scoping to the file that
     # already has the finding keeps a NEW bad name elsewhere failing (Codex P2 on

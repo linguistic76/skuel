@@ -224,7 +224,8 @@ class CRUDRouteFactory[T]:
                           the handler owns the audience scoping (ADR-085 G7).
             scope: Content ownership model (default: ContentScope.USER_OWNED).
                   - ContentScope.USER_OWNED: User-specific content with ownership verification
-                  - ContentScope.SHARED: Public/shared content (KU, PS, LP)
+                  - ContentScope.SHARED: Public/shared content (FormTemplate — curated;
+                    curriculum has no CRUD door, it is authored in the content vault)
 
                   IMPORTANT: When SHARED, list() passes user_uid=None for
                   unauthenticated requests. Your service MUST handle this:

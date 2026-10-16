@@ -5,7 +5,7 @@ status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum]
 related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md]
-related_skills: [neo4j-cypher-patterns, curriculum-domains]
+related_skills: [neo4j-cypher-patterns, curriculum-domains, learning-loop]
 ---
 
 # ADR-013: KU UID Flat Identity Design

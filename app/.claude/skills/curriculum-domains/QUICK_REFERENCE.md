@@ -53,7 +53,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 ### KU Sub-services (`core/services/ku/`)
 | Service | Purpose |
 |---------|---------|
-| `ku_core_service.py` | CRUD operations for atomic knowledge units |
+| `ku_core_service.py` | Reads of atomic knowledge units (a Ku is authored in the content vault) |
 | `ku_search_service.py` | Text search, filtering |
 | `ku_intelligence_service.py` | Usage summary, substance metrics |
 
