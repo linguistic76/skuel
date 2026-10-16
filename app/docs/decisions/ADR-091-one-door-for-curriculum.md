@@ -5,7 +5,7 @@ status: implemented
 category: decisions
 tags: [adr, decisions, curriculum, content-vault, ingestion, exercises, teacher-review, ownership, publication]
 related: [ADR-018, ADR-040, ADR-053, ADR-054, ADR-070, ADR-085, ADR-086, ADR-088]
-related_skills: [learning-loop, curriculum-domains]
+related_skills: [learning-loop, curriculum-domains, security]
 ---
 
 # ADR-091: One Door for Curriculum

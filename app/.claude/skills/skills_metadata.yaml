@@ -191,7 +191,7 @@ skills:
 
   - name: ui-browser
     description: SKUEL browser interactivity — HTMX for server communication + Alpine.js for client-side state
-    last_reviewed: "2026-10-13"
+    last_reviewed: "2026-10-16"
     foundation: [fasthtml]
     dependencies: [fasthtml]
     library_package: null  # Vendored static files
@@ -388,6 +388,7 @@ skills:
       - ADR-085  # Ownership read-enforcement contract
       - ADR-086  # Universal :OWNS edge + ATTENDS attendance
       - ADR-088  # Submit and share (links are the only audience record; R8 co-membership)
+      - ADR-091  # One door for curriculum (an exercise's named teacher receives its feedback requests)
     patterns:
       - /docs/patterns/ERROR_HANDLING.md
       - /docs/security/COOKIES_AND_CSRF.md
