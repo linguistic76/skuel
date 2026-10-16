@@ -218,9 +218,15 @@ def test_two_edges_never_share_a_filename(one: tuple[str, str], other: tuple[str
     assert edge_filename(*one, rel) != edge_filename(*other, rel)
 
 
-def test_an_edge_filename_fits_a_filesystem_component() -> None:
-    name = edge_filename("ku." + "a" * 200, "ku." + "b" * 200, RelationshipName.COMPLEMENTARY_TO)
+@pytest.mark.parametrize("letter", ["a", "界"], ids=["ascii", "non-ascii"])
+def test_an_edge_filename_fits_a_filesystem_component(letter: str) -> None:
+    """Under 160 bytes, encoded, whatever the uids carry: a name past the
+    255-byte component limit could not be saved."""
+    name = edge_filename(
+        "ku." + letter * 200, "ku." + letter * 199, RelationshipName.COMPLEMENTARY_TO
+    )
 
+    assert name.isascii()
     assert len(name.encode()) < 160
 
 

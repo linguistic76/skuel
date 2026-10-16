@@ -192,9 +192,11 @@ _SLUG_MAX = 60
 
 def _uid_slug(uid: str) -> str:
     """The readable part of a filename for a Ku UID: lowercased, any character
-    outside ``[a-z0-9._-]`` replaced by ``-``, cut to ``_SLUG_MAX``. Lossy on
-    purpose — ``edge_filename``'s hash is what keeps names apart."""
-    slug = "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in uid.lower())
+    outside ASCII ``[a-z0-9._-]`` replaced by ``-``, cut to ``_SLUG_MAX`` (one byte
+    each). Lossy on purpose — ``edge_filename``'s hash is what keeps names apart."""
+    slug = "".join(
+        ch if (ch.isascii() and ch.isalnum()) or ch in "._-" else "-" for ch in uid.lower()
+    )
     return slug[:_SLUG_MAX] or "ku"
 
 
