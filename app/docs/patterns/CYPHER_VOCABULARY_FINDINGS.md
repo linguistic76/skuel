@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-16
 ---
 
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
@@ -554,7 +554,7 @@ them as Neo4j edge types, which no writer creates." There *is* a writer, and it
 is HTTP-reachable:
 
 ```
-POST /api/path-steps/relationships   (@require_admin, live route)
+POST /api/path-steps/relationships   (@require_admin; retired by ADR-091 S8)
   -> path_steps_api.py  create_step_relationship(relationship_type=req.type)
   -> ps_service.py      add_semantic_relationship(predicate=...)
   -> ps_semantic_service.py  repo.create_semantic_relationship(triple)

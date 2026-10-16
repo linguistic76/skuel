@@ -22,7 +22,7 @@ in which task state was outbound-only (2026-08-24 → 2026-09-16) is in the Chan
 [ADR-091](ADR-091-one-door-for-curriculum.md) (2026-10-12):** its in-app exception,
 user-scoped exercises, is gone (ADR-091 S4, change 4), and so goes the prerequisite-suggestion
 approval that writes an Edge YAML into the content vault from the app (N3): Mike writes edge
-files himself. The approval door stays live until ADR-091 change 7 removes it.
+files himself. The approval door is gone (ADR-091 change 7c).
 
 **Date:** 2026-06-16
 

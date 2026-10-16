@@ -350,6 +350,7 @@ Use for Neo4j property-dict timestamp helpers: `update_properties()` (updates), 
 
 One-way pipeline: Markdown/YAML → Neo4j; most EntityTypes are file-ingestible.
 
+- **Curriculum's one door (ADR-091):** the content-vault sync is the only writer of Ku, PathStep, LearningPath, Exercise and the six Activity Templates — the app authors none. An exercise file names its `teacher:`; a file's `publication_state` is the one publish switch. **See:** `/docs/decisions/ADR-091-one-door-for-curriculum.md`.
 - **Human-initiated per event** (ADR-070 Decision 9 — no background watcher). Three doors: the personal-vault "Sync" button, the admin "Sync content vault" button (`POST /api/vault/sync/content`, the one directory-ingest path), and one-shot `./dev vault-sync` (`scripts/vault_bridge_sync.py`, in-process reconciler).
 - **Deletions propagate** on incremental/smart runs (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards). A target dropped from a registered frontmatter field loses its edge on the file's next ingest (both doors) — only edges the file itself authored are retracted, diffed from the `authored_edges` fingerprint on its tracker row. A 🆔 task line deleted from a *surviving* note retires its `EXTRACTED_FROM` edge on the file's re-ingest (extraction pre-pass; gone = 🆔 absent AND digest on no 🆔-less line — a stripped token is re-minted, not retired); **the task stays, stamped** (`retired_vault_id` — the one-sync grace): a 🆔 that reappears within one sync re-links, an OPEN task whose line stays gone is CANCELLED by the next sync's sweep, a terminal one is untouched (ADR-070 Decision 1, R4). **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § Line-level deletion.
 - **Force re-ingest** (`force=True` engine flag / route `{"force": true}` / `./dev vault-sync --force`) re-processes unchanged files for re-chunk/migration campaigns but keeps the wall + deletion reconciliation (force ≠ full).
@@ -445,7 +446,7 @@ Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONL
 |------|-------|-------------|
 | REGISTERED | 0 | Free trial |
 | MEMBER | 1 | Paid subscription |
-| TEACHER | 2 | Member + create curriculum |
+| TEACHER | 2 | Member + reviews submitted work (the exercises that name them, the groups they own); authors no curriculum (ADR-091) |
 | ADMIN | 3 | Teacher + user management |
 
 Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.auth`); role gates like `@require_admin(get_user_service)` take a named function, not a lambda (SKUEL012). A role-gated handler takes `request` first and declares the injected user as `current_user: Any = None` — `require_role` publishes the handler's signature without `current_user` (FastHTML never binds it from the request) and refuses any other spelling, or any other first parameter, at decoration.
@@ -459,8 +460,10 @@ Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.a
 | Pattern | Domains | Create | Read | Ownership Check |
 |---------|---------|--------|------|-----------------|
 | **USER_OWNED** | Activities, UserEntry | User | Owner only | Yes (returns 404) |
-| **SHARED** | KU, PS, LP | Admin only | All users | No (public) |
+| **SHARED** | KU, PS, LP, Exercise | Content-vault sync only | All users (a draft is unlisted) | No (public) |
 | **ADMIN_ONLY** | Finance | Admin only | Admin only | No (admin-gated) |
+
+**Owner, teacher, addressed to (ADR-091 S1):** three words, never mixed — `:OWNS` is a user's private content (curriculum has none); an exercise's teacher is its `REVIEWED_BY` edge; a revised exercise or report is addressed to the student whose submission it answers. **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md § Owner, teacher, addressed to`.
 
 **Route helpers** (`from adapters.inbound.route_factories`):
 - `verify_entity_ownership(service, uid, user_uid, domain)` — API routes. Returns error `Result` or `None`.
@@ -509,7 +512,7 @@ POST (Create) → 201, GET/PUT/DELETE → 200, POST (Action) → 200
 | IntelligenceRouteFactory | Context + insights; analytics on user-owned domains only |
 | create_activity_field_api_routes | Inline field updates incl. status (`POST /api/{domain}/{uid}/{field}`) |
 | create_activity_hierarchy_api_routes / create_activity_link_api_routes | Activity hierarchy block; cross-domain link POSTs (owner verified at the route; the far end of every link admitted by the service that writes the edge) |
-`CRUDRouteFactory` and `CommonQueryRouteFactory` take `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`); `CRUDRouteFactory`'s `role_gates_reads=False` allows role-gated mutations with open reads (Groups pattern). Scope and role are orthogonal — both ownership verification and role checks apply independently. The `create_activity_*` functions take neither: Activity-Domain-only, always authenticated, always ownership-verified.
+`CRUDRouteFactory` and `CommonQueryRouteFactory` take `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (public content — today only FormTemplate's CRUD, with `require_role=UserRole.ADMIN`; curriculum has no CRUD door, ADR-091); `CRUDRouteFactory`'s `role_gates_reads=False` allows role-gated mutations with open reads (Groups pattern). Scope and role are orthogonal — both ownership verification and role checks apply independently. The `create_activity_*` functions take neither: Activity-Domain-only, always authenticated, always ownership-verified.
 
 **See:** `/docs/patterns/ROUTE_FACTORIES.md`
 
@@ -578,7 +581,7 @@ All three load CSS through `build_head()` (pre-compiled Tailwind + vendored JS).
 
 ### Lateral Relationships & Vis.js Graph Visualization
 
-Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP).
+Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP) — written only on the 6 Activity domains; a KU/PS/LP lateral is a content-vault edge, read-only in the app (ADR-091 S8).
 
 **Three Components:** BlockingChainView (vertical flow), AlternativesComparisonGrid (side-by-side), RelationshipGraphView (Vis.js force-directed graph).
 

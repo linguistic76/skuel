@@ -113,7 +113,8 @@ service can hold lives there instead — the AI reviewer's owner-or-teacher admi
 
 **Teacher reads (ADR-088).** A teacher reads a student's entry only through the entry's own
 feedback request — `SUBMITTED_TO_GROUP` an active group the teacher `OWNS`, or
-`SUBMITTED_TO_TEACHER` the teacher (§9) — composed as `asks_teacher`. Student-level surfaces
+`SUBMITTED_TO_TEACHER` the teacher (the exercise's named teacher, ADR-091 S3) — composed as
+`asks_teacher`. Student-level surfaces
 (the student page, its knowledge tab, the students list) are a different gate, `in_classroom`:
 a direct request never opens them. A `SHARES_WITH`
 from the teacher is a share, never a review grant, and sharing a classroom with the author

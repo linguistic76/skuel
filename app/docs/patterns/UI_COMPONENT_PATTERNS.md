@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-13'
+updated: '2026-10-16'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -1426,7 +1426,7 @@ TypedDicts in `/ui/page_contexts.py` define route → UI contracts with typed en
 - `/ui/explore/ku_detail.py`, `/ui/explore/ps_detail.py` — extracted from `explore_ui.py`
 
 **Exercises & learning loop:**
-- `/ui/exercises/cards.py`, `/ui/exercises/editor.py`, `/ui/exercises/detail.py`
+- `/ui/exercises/detail.py`, `/ui/exercises/inline_form.py`
 - `/ui/learning_loop/` — exercise status pills, PS submissions/feedback renderers (shared with Library)
 
 **Teaching:**

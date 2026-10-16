@@ -1,19 +1,19 @@
 ---
 title: "ADR-091: One Door for Curriculum"
 updated: 2026-10-16
-status: accepted
+status: implemented
 category: decisions
 tags: [adr, decisions, curriculum, content-vault, ingestion, exercises, teacher-review, ownership, publication]
 related: [ADR-018, ADR-040, ADR-053, ADR-054, ADR-070, ADR-085, ADR-086, ADR-088]
-related_skills: [learning-loop, curriculum-domains]
+related_skills: [learning-loop, curriculum-domains, security]
 ---
 
 # ADR-091: One Door for Curriculum
 
-**Status:** Accepted — founder-ratified 2026-10-12. **Implementation pending:** the decisions below
-are built by the changes listed in [§ Implementation](#implementation), one at a time. Until the
-change that removes a door has merged, that door still answers, and the records marked in
-[§ Records this ADR supersedes](#records-this-adr-supersedes) still describe the live code.
+**Status:** Accepted — founder-ratified 2026-10-12. **Implemented 2026-10-16:** every change listed
+in [§ Implementation](#implementation) has merged; no door these decisions remove still answers,
+and the parts of the records in [§ Records this ADR supersedes](#records-this-adr-supersedes) that
+it names no longer describe the code.
 **Date:** 2026-10-12
 **Deciders:** MCF
 **Decision Type:** ☑ Graph Schema  ☑ Pattern/Practice
@@ -318,8 +318,7 @@ group, owned by the oldest admin account that is not a service account.
 
 ## Implementation
 
-Each change below lands on its own. A door named in S1–S9 or N1–N9 keeps answering until its change
-merges; the records listed in § Records this ADR supersedes say so in their own words.
+Each change below landed on its own; all have merged.
 
 | # | Change | Decisions |
 |---|--------|-----------|
@@ -349,10 +348,10 @@ default-group fallback. Change 4 removed owned exercises and the owner route wit
 
 ## Records this ADR supersedes
 
-Each record below carries a note, added with this ADR, at its head or beside the part superseded.
-Every note says the old behaviour stays live until the change that replaces it merges.
+Each record below carries a note at its head or beside the part superseded, naming what ADR-091
+replaced.
 
-| Record | What it decides today | What ADR-091 changes | Live until change |
+| Record | What it decided | What ADR-091 changed | Replaced by change |
 |---|---|---|---|
 | ADR-018 — Four-Tier User Role System | TEACHER: "create/edit KU, LP, MOC" | A teacher reviews work; curriculum is authored in the content vault (S2, S8) | 2, 4, 7 |
 | ADR-040 — Teacher Exercise Workflow | A teacher creates PERSONAL and ASSIGNED exercises and assigns them to a group; reviews can be imported from local files; a revision can be requested on work with no exercise | Exercises are vault files and group assignment goes (S4); the import script goes (N1); every revision request names an exercise (N7). The review page and its replies stay | 4, 5 |
@@ -377,3 +376,4 @@ Every note says the old behaviour stays live until the change that replaces it m
 | 2026-10-16 | Claude Code | Change 7c implemented: the Ku, PathStep and LearningPath lateral routes register reads only, and every lateral write takes an ownership verifier; a `@context(ku\|ps\|lp)` line creates nothing and is reported in `creation_errors`; prerequisite approval is gone, and the review queue shows each ready Edge file to copy into the vault | 1.6 |
 | 2026-10-16 | Claude Code | Change 7d implemented: the DSL bridge offers and emits no curriculum line; the task-pattern pipeline that built Ku drafts on every task completion is gone with its manual trigger; the generated `ku_{slug}_{random}` uid form is retired (ADR-013 amendment) and an `@ku()` reference in another spelling links nothing and is reported | 1.7 |
 | 2026-10-16 | Claude Code | Change 7e implemented: the DSL bridge emits no `@ku` (ADR-069 § Decision 1, amendment 2026-10-16), so a knowledge link is the user's own `@ku` / `@link(ku:…)` or `EntryGroundingService`'s | 1.8 |
+| 2026-10-16 | Claude Code | Change 8 implemented, the ADR is implemented: CLAUDE.md, the skills and the docs describe the result, and the supersession notes in ADR-018 and ADR-070 say their parts are replaced | 1.9 |
