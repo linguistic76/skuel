@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Usage Guide
-updated: 2026-09-15
+updated: 2026-10-16
 status: current
 category: dsl
 tags: [dsl, examples, patterns, guide, usage, periodic-notes]
@@ -105,7 +105,8 @@ round-trip like any other: its 🆔 is its identity when it moves (R4), and its
   section-heading→domain mapping — ruled out permanently, not deferred.
 - **The FULL-tier LLM pre-pass — gated off for periodic notes.** For other
   EXTRACT_ACTIVITIES entries the FULL tier runs an LLM bridge that tags
-  untagged prose before parsing. Periodic entries bypass that bridge
+  untagged prose before parsing, writing a relative date ("tomorrow") as the
+  ISO day it names counted from your local today. Periodic entries bypass that bridge
   entirely (`UserEntryProcessingService._run_extract_activities`, gated on
   `UserEntry.is_periodic_note()`), so **CORE and FULL tier behave
   identically for periodic notes**: entities are never inferred from your

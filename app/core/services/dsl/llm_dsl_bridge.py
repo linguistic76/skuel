@@ -14,11 +14,12 @@ Users write naturally:
 
 **The Solution:**
 
-LLM recognizes activities and adds @context tags:
-    - @context(task) Finish the quarterly report @when(Friday) @priority(high)
-    - @context(habit) Meditate daily @repeat(daily) @duration(10)
-    - @context(choice) Decide on job offer @when(soon)
-    - @context(finance) Groceries $150 @when(today)
+LLM recognizes activities and adds @context tags, resolving each relative date
+against the reference date it is given (here 2026-10-14, a Wednesday):
+    - @context(task) Finish the quarterly report @when(2026-10-16) @priority(1)
+    - @context(habit) Meditate daily @repeat(daily) @duration(10m)
+    - @context(choice) Decide on job offer
+    - @context(finance) Groceries $150 @when(2026-10-14)
 
 **Integration Point:**
 
@@ -45,7 +46,7 @@ The bridge uses a two-phase approach:
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import PromptInput
@@ -64,6 +65,17 @@ if TYPE_CHECKING:
 # in any case); ``_parse_llm_output`` drops both.
 _LINK_TAG_RE = re.compile(r"\s*@(?:link|ku)\([^)]*\)", re.IGNORECASE)
 _CONTEXT_TAG_RE = re.compile(r"@context\(([^)]*)\)", re.IGNORECASE)
+
+_WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+
+def _reference_date_text(day: date) -> str:
+    """The prompt's reference date: ISO day and its weekday name, e.g. ``2026-10-16 (Friday)``.
+
+    The weekday is spelled from a fixed English list, never the process locale,
+    so "by Friday" resolves against the same name the prompt's examples use.
+    """
+    return f"{day.isoformat()} ({_WEEKDAY_NAMES[day.weekday()]})"
 
 
 def _names_curriculum(line: str) -> bool:
@@ -173,13 +185,14 @@ class LLMDSLBridgeService:
     # Transform natural text to DSL
     result = await bridge.transform(
         text="I need to finish the report by Friday and start exercising daily.",
-        user_uid="user:mike",
+        reference_date=date(2026, 10, 14),
+        user_uid="user_mike",
     )
 
     if result.is_ok:
         transform = result.value
         print(transform.transformed_text)
-        # - @context(task) Finish the report @when(Friday) @priority(high)
+        # - @context(task) Finish the report @when(2026-10-16) @priority(1)
         # - @context(habit) Exercise @repeat(daily)
     ```
 
@@ -223,6 +236,8 @@ class LLMDSLBridgeService:
         self,
         text: str,
         user_uid: UserUID | None = None,
+        *,
+        reference_date: date,
         context_block: str = "",
     ) -> Result[DSLTransformResult]:
         """
@@ -234,6 +249,10 @@ class LLMDSLBridgeService:
             text: Natural language journal text — the ONLY material extracted into
                 activity lines.
             user_uid: Optional user UID for personalization
+            reference_date: The day the text's relative dates ("tomorrow",
+                "Friday") resolve against — the writer's local day. The model
+                writes every ``@when`` as an ISO date relative to it, and omits
+                ``@when`` where the text names no single day.
             context_block: Optional pre-rendered "USER CONTEXT" block (built by
                 ``transform_with_context`` from active goals / topics / principles).
                 Rendered into a SEPARATE, explicitly non-extractable prompt slot so
@@ -280,6 +299,7 @@ class LLMDSLBridgeService:
             template_id,
             journal_text=truncate_to_budget(text, PromptInput.DOCUMENT_MAX_CHARS),
             user_context=context_block,
+            reference_date=_reference_date_text(reference_date),
         )
 
         # Call LLM
@@ -313,6 +333,8 @@ class LLMDSLBridgeService:
         self,
         text: str,
         user_uid: UserUID,
+        *,
+        reference_date: date,
         active_goals: list[dict[str, str]] | None = None,
         recent_topics: list[str] | None = None,
         user_principles: list[str] | None = None,
@@ -328,6 +350,8 @@ class LLMDSLBridgeService:
         Args:
             text: Natural language journal text
             user_uid: User UID
+            reference_date: The writer's local day, which relative dates resolve
+                against (see ``transform``)
             active_goals: User's active goals (titles; recognition only)
             recent_topics: Recent topics the user has journaled about
             user_principles: User's stated principles
@@ -343,7 +367,9 @@ class LLMDSLBridgeService:
             user_principles=user_principles,
         )
 
-        return await self.transform(text, user_uid, context_block=context_block)
+        return await self.transform(
+            text, reference_date=reference_date, user_uid=user_uid, context_block=context_block
+        )
 
     # ========================================================================
     # PRIVATE METHODS

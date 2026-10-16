@@ -1274,6 +1274,7 @@ async def compose_services(
             activity_extractor=activity_extractor,
             dsl_bridge=dsl_bridge,
             goals_service=activity_services["goals"],
+            user_service=user_service,
         )
 
         # Wire the processor into the ingestion service so a `pipeline:

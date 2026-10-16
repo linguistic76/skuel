@@ -30,11 +30,13 @@ Neo4j.
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import pytest
+import time_machine
 
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
@@ -48,6 +50,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
+    from core.services.user_service import UserService
 
 
 class _GraphTasksStub:
@@ -106,7 +109,12 @@ class _RewordingBridgeStub:
         self.calls = 0
 
     async def transform_with_context(
-        self, text: str, user_uid: str | None = None, active_goals: Any = None
+        self,
+        text: str,
+        user_uid: str | None = None,
+        *,
+        reference_date: date | None = None,
+        active_goals: list[dict[str, str]] | None = None,
     ) -> Result[Any]:
         self.calls += 1
         return Result.ok(
@@ -115,10 +123,12 @@ class _RewordingBridgeStub:
 
 
 class _FixedChatPort:
-    """Chat port double: the model answers with the same text on every call."""
+    """Chat port double: the model answers with the same text on every call,
+    and keeps every prompt it was sent."""
 
     def __init__(self, text: str) -> None:
         self.text = text
+        self.prompts: list[str] = []
 
     async def complete(
         self,
@@ -129,6 +139,7 @@ class _FixedChatPort:
         temperature: float = 0.7,
         max_tokens: int = 500,
     ) -> Result[LLMCompletion]:
+        self.prompts.extend(str(message["content"]) for message in messages)
         return Result.ok(LLMCompletion(text=self.text, model="fixed"))
 
 
@@ -155,6 +166,18 @@ async def _create_entry(user_entry_service: Any, user_uid: str, content: str) ->
     assert result.is_ok, f"entry create failed: {result.error}"
     entry, _share = result.value
     return entry
+
+
+async def _register_owner(user_service: UserService, tag: str, zone: str | None = None) -> str:
+    """An entry owner as the register door writes one: a bridge run reads the
+    owner's zone, so the owner must load as a User (a bare seeded node does not)."""
+    created = await user_service.create_user(f"extract_{tag}_{uuid4().hex[:6]}")
+    assert created.is_ok, created
+    user_uid = created.value.uid
+    if zone is not None:
+        chosen = await user_service.update_preferences(user_uid, {"timezone": zone})
+        assert chosen.is_ok, chosen
+    return user_uid
 
 
 @pytest.mark.integration
@@ -317,12 +340,12 @@ class TestExtractActivitiesPipeline:
 
     @pytest.mark.asyncio
     async def test_a_bridge_ku_links_nothing_while_the_users_ku_links(
-        self, neo4j_driver, user_entry_service, seed_user
+        self, neo4j_driver, user_entry_service, user_service
     ):
         """The model has no source for a Ku uid, so a ``@ku()`` on a bridge line
         is dropped before the parser: the line still creates its task, and only
         the reference the user typed reaches APPLIES_KNOWLEDGE."""
-        user_uid = await seed_user(f"user_bridgeku_{uuid4().hex[:6]}")
+        user_uid = await _register_owner(user_service, "bridgeku")
         token = uuid4().hex[:6]
         users_ku = await _seed_ku(neo4j_driver, f"ku.it.users-{token}")
         models_ku = await _seed_ku(neo4j_driver, f"ku.it.models-{token}")
@@ -342,6 +365,7 @@ class TestExtractActivitiesPipeline:
             entry_service=user_entry_service,
             activity_extractor=ActivityExtractorService(tasks_service=tasks_stub),
             dsl_bridge=bridge,
+            user_service=user_service,
         )
         result = await dispatcher.process(entry)
         assert result.is_ok, f"process failed: {result.error}"
@@ -359,6 +383,33 @@ class TestExtractActivitiesPipeline:
             )
             ku_rows = await res.data()
         assert [row["ku_uid"] for row in ku_rows] == [users_ku]
+
+    @pytest.mark.asyncio
+    async def test_a_bridge_resolves_dates_against_the_owners_local_today(
+        self, neo4j_driver, user_entry_service, user_service
+    ):
+        """The bridge is told the day the owner is living, in the owner's chosen
+        zone: at 12:00 UTC on 2026-10-16 an owner in Kiritimati (UTC+14) is on
+        the 17th, so that is the day "tomorrow" resolves against."""
+        user_uid = await _register_owner(user_service, "zone", zone="Pacific/Kiritimati")
+        entry = await _create_entry(user_entry_service, user_uid, "Call the bank tomorrow.\n")
+
+        port = _FixedChatPort("- @context(task) Call the bank @when(2026-10-18)")
+        dispatcher = UserEntryProcessingService(
+            entry_service=user_entry_service,
+            activity_extractor=ActivityExtractorService(
+                tasks_service=_GraphTasksStub(neo4j_driver)
+            ),
+            dsl_bridge=LLMDSLBridgeService(chat_port=port),
+            user_service=user_service,
+        )
+        with time_machine.travel(datetime(2026, 10, 16, 12, 0, tzinfo=UTC), tick=False):
+            result = await dispatcher.process(entry)
+
+        assert result.is_ok, f"process failed: {result.error}"
+        assert len(port.prompts) == 1, "the bridge was not asked"
+        reference = port.prompts[0].split("## REFERENCE DATE", 1)[1].split("##", 1)[0]
+        assert reference.strip() == "2026-10-17 (Saturday)"
 
     @pytest.mark.asyncio
     async def test_reprocess_is_noop_and_force_is_duplicate_free(
@@ -406,7 +457,7 @@ class TestExtractActivitiesPipeline:
 
     @pytest.mark.asyncio
     async def test_rewording_bridge_reruns_merge_instead_of_duplicating(
-        self, neo4j_driver, user_entry_service, seed_user
+        self, neo4j_driver, user_entry_service, user_service
     ):
         """Guard 3 (R3): twice over one entry, node count stays stable.
 
@@ -414,7 +465,7 @@ class TestExtractActivitiesPipeline:
         Guard-2 hash, same semantic title) — exactly the live G8 signature
         that created "meditate" x3 from one entry.
         """
-        user_uid = await seed_user(f"user_extract_{uuid4().hex[:6]}")
+        user_uid = await _register_owner(user_service, "reword")
         entry = await _create_entry(
             user_entry_service, user_uid, "I want to build a meditation practice.\n"
         )
@@ -425,6 +476,7 @@ class TestExtractActivitiesPipeline:
             entry_service=user_entry_service,
             activity_extractor=ActivityExtractorService(habits_service=habits_stub),
             dsl_bridge=bridge_stub,
+            user_service=user_service,
         )
 
         first = await dispatcher.process(entry)

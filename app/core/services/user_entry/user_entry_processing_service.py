@@ -59,16 +59,18 @@ from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
+from core.utils.timestamp_helpers import today_in
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.transcription_protocols import TranscriptionPort
     from core.services.dsl.activity_extractor import ActivityExtractorService
-    from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
+    from core.services.dsl.llm_dsl_bridge import DSLTransformResult, LLMDSLBridgeService
     from core.services.goals_service import GoalsService
     from core.services.llm_caller import UnifiedLLMCaller
     from core.services.output.instruction_resolver import InstructionResolver
     from core.services.user_entry.user_entry_service import UserEntryService
+    from core.services.user_service import UserService
 
 # Matches any markdown checkbox line (ADR-070 double-extraction guard).
 _CHECKBOX_RE = re.compile(r"^[-*]\s*\[[xX ]?\]")
@@ -92,6 +94,7 @@ class UserEntryProcessingService:
         activity_extractor: ActivityExtractorService | None = None,
         dsl_bridge: LLMDSLBridgeService | None = None,
         goals_service: GoalsService | None = None,
+        user_service: UserService | None = None,
     ) -> None:
         self.entry_service = entry_service
         self.transcription_adapter = transcription_adapter
@@ -105,6 +108,9 @@ class UserEntryProcessingService:
         # entity-creating path and the preview path recognise prose against the
         # identical context (core.services.dsl.grounding). None → ungrounded.
         self.goals_service = goals_service
+        # Resolves the entry owner's zone for the bridge pre-pass's reference
+        # date (``_run_bridge``). None → the pre-pass degrades to parser-only.
+        self.user_service = user_service
         self.logger = get_logger("skuel.services.user_entry.processing")
 
     # =========================================================================
@@ -389,12 +395,44 @@ class UserEntryProcessingService:
                 return False
         return isinstance(summary, dict) and summary.get("status") == "completed"
 
+    async def _run_bridge(
+        self, bridge: LLMDSLBridgeService, entry: UserEntry, bridge_text: str
+    ) -> Result[DSLTransformResult]:
+        """The bridge pre-pass over ``bridge_text``, grounded and dated for the entry's owner.
+
+        Grounding is the owner's active goals, through the shared builder —
+        recognition-only and soft, both stated once in core.services.dsl.grounding.
+        The reference date the text's relative dates resolve against is the
+        owner's local today, in the owner's own zone, whichever door started the
+        run (a request, a personal-vault sync, the content vault). A run that
+        cannot resolve the zone fails here rather than date lines in a guessed
+        one; the caller degrades to parser-only, as for any bridge failure.
+        """
+        if self.user_service is None:
+            return Result.fail(
+                Errors.system(
+                    message="No user service to resolve the entry owner's zone for the "
+                    "bridge's reference date",
+                )
+            )
+        zone = await self.user_service.get_user_zone(entry.user_uid)
+        if zone.is_error:
+            return Result.fail(zone)
+        grounding_titles = await fetch_active_goal_titles(self.goals_service, entry.user_uid)
+        return await bridge.transform_with_context(
+            bridge_text,
+            user_uid=entry.user_uid,
+            reference_date=today_in(zone.value),
+            active_goals=goals_as_context(grounding_titles),
+        )
+
     async def _run_extract_activities(self, entry: UserEntry) -> Result[UserEntry]:
         """DSL extraction: text → parsed Activity Lines → real entities.
 
         Analog-complete with graceful Digital enhancement:
-        1. Optional bridge pre-pass (FULL tier) tags untagged prose; a bridge
-           *failure* degrades to parser-only over the original text
+        1. Optional bridge pre-pass (FULL tier) tags untagged prose, dating
+           relative words against the owner's local today (``_run_bridge``); a
+           bridge *failure* degrades to parser-only over the original text
            (ProgressReportGenerator precedent), a bridge *absence* is silent.
         2. Guards 2+3 of the three-guard idempotency: lines whose hash already
            has an EXTRACTED_FROM edge to this entry are skipped by the
@@ -472,17 +510,7 @@ class UserEntryProcessingService:
             # produce phantom entities regardless of this guard.) The Analog
             # parser still runs over the original checkbox text below.
             if bridge_text.strip():
-                # Ground the pre-pass in the user's active goals through the
-                # shared builder — recognition-only and soft, both stated once in
-                # core.services.dsl.grounding.
-                grounding_titles = await fetch_active_goal_titles(
-                    self.goals_service, entry.user_uid
-                )
-                bridge_result = await self.dsl_bridge.transform_with_context(
-                    bridge_text,
-                    user_uid=entry.user_uid,
-                    active_goals=goals_as_context(grounding_titles),
-                )
+                bridge_result = await self._run_bridge(self.dsl_bridge, entry, bridge_text)
                 if bridge_result.is_error:
                     # Degrade, don't fail: the Analog parser still runs over the
                     # original text; tagged lines extract regardless.

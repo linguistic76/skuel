@@ -51,6 +51,8 @@ on the unified ingestion path — the original submission-metadata wiring
 # === PHASE 1: LLM Bridge (Natural Text -> DSL) ===
 # The bridge depends only on a ChatCompletionPort; the factory that builds the
 # OpenAI chat adapter lives below the boundary (W1 / SKUEL022).
+from datetime import date
+
 from adapters.external.llm import create_llm_dsl_bridge
 
 bridge = create_llm_dsl_bridge()  # Uses OPENAI_API_KEY from env
@@ -58,11 +60,12 @@ bridge = create_llm_dsl_bridge()  # Uses OPENAI_API_KEY from env
 # Transform natural text to DSL format
 result = await bridge.transform(
     text="I need to finish the report by Friday and start exercising daily.",
-    user_uid="user:mike",
+    reference_date=date(2026, 10, 14),  # the writer's local day (a Wednesday)
+    user_uid="user_mike",
 )
 if result.is_ok:
     dsl_text = result.value.transformed_text
-    # - @context(task) Finish the report @when(Friday) @priority(high)
+    # - @context(task) Finish the report @when(2026-10-16) @priority(1)
     # - @context(habit) Exercise @repeat(daily)
 
 # === PHASE 2: DSL Parsing (DSL -> ParsedActivities with EntityType/NonKuDomain) ===

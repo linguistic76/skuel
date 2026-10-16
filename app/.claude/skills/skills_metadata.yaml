@@ -457,7 +457,7 @@ skills:
 
   - name: prompt-templates
     description: SKUEL's centralized LLM prompt template registry (PROMPT_REGISTRY) connecting services to templates
-    last_reviewed: "2026-05-21"
+    last_reviewed: "2026-10-16"
     foundation: [base-ai-service]
     dependencies: [base-ai-service]
     library_package: null  # SKUEL pattern, not external library

@@ -9,9 +9,12 @@ driven with mocked ``DeepgramAdapter`` + ``UnifiedLLMCaller`` +
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
+from zoneinfo import ZoneInfo
 
 import pytest
+import time_machine
 
 from core.events.base import BaseEvent
 from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
@@ -86,6 +89,7 @@ def _make_dispatcher(
     llm_caller: MagicMock | None = None,
     instruction_resolver: MagicMock | None = None,
     event_bus: MagicMock | None = None,
+    user_service: MagicMock | None = None,
 ) -> UserEntryProcessingService:
     return UserEntryProcessingService(
         entry_service=entry_service or MagicMock(),
@@ -93,7 +97,15 @@ def _make_dispatcher(
         llm_caller=llm_caller,
         instruction_resolver=instruction_resolver,
         event_bus=event_bus,
+        user_service=user_service or _user_service_in(ZoneInfo("UTC")),
     )
+
+
+def _user_service_in(zone: ZoneInfo) -> MagicMock:
+    """A user service whose every user lives in ``zone``."""
+    svc = MagicMock()
+    svc.get_user_zone = AsyncMock(return_value=Result.ok(zone))
+    return svc
 
 
 def _entry_service_with_updated(updated_entry: UserEntry) -> MagicMock:
@@ -990,6 +1002,78 @@ class TestExtractActivities:
         assert result.is_ok
         _, kwargs = bridge.transform_with_context.call_args
         assert kwargs["active_goals"] is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("zone", "owner_today"),
+        [
+            # 12:00 UTC on 2026-10-16 is already the 17th at UTC+14.
+            (ZoneInfo("Pacific/Kiritimati"), date(2026, 10, 17)),
+            (ZoneInfo("UTC"), date(2026, 10, 16)),
+            # ...and still the 16th in Vancouver (05:00).
+            (ZoneInfo("America/Vancouver"), date(2026, 10, 16)),
+        ],
+    )
+    async def test_bridge_reference_date_is_the_owners_local_today(
+        self, zone: ZoneInfo, owner_today: date
+    ):
+        # The text's "tomorrow" resolves against the day the owner is living,
+        # read in the owner's own zone, never the host's or the door's.
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="call the bank tomorrow")
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock(return_value=Result.ok(_dsl_result_empty()))
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+        users = _user_service_in(zone)
+
+        dispatcher = _make_dispatcher(entry_service=svc, user_service=users)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        with time_machine.travel(datetime(2026, 10, 16, 12, 0, tzinfo=UTC), tick=False):
+            result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        users.get_user_zone.assert_awaited_once_with("user_1")
+        _, kwargs = bridge.transform_with_context.call_args
+        assert kwargs["reference_date"] == owner_today
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("zone_source", ["lookup_fails", "no_user_service"])
+    async def test_bridge_is_skipped_when_the_owners_zone_is_unknown(self, zone_source: str):
+        # A date resolved in a guessed zone is a wrong date, so the bridge does
+        # not run; the parser still runs over the original text and the run
+        # records why the bridge did not.
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="call the bank tomorrow")
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock(return_value=Result.ok(_dsl_result_empty()))
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+        users = MagicMock()
+        users.get_user_zone = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="get_user", message="down"))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc, user_service=users)
+        if zone_source == "no_user_service":
+            dispatcher.user_service = None
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        bridge.transform_with_context.assert_not_called()
+        assert extractor.extract_and_create.await_args.kwargs["content_override"] == entry.content
+        updates = svc.update_processing_state.await_args.args[1]
+        assert "DSL bridge degraded to parser-only" in updates["processing_error"]
+        assert updates["metadata"]["activity_extraction"]["status"] == "completed"
 
     @pytest.mark.asyncio
     async def test_existing_hashes_are_read_and_threaded(self):
