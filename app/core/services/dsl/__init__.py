@@ -10,7 +10,8 @@ SKUEL entities across all SKUEL domains.
 
 **Domains:**
 - Activity Domains (6): Tasks, Habits, Goals, Events, Principles, Choices
-- Curriculum Domains (3): KnowledgeUnit (KU), PathStep (PS), LearningPath (LP)
+- Curriculum Domains (3): KnowledgeUnit (KU), PathStep (PS), LearningPath (LP) — parsed
+  and reported, never created (curriculum is authored in the content vault, ADR-091 S8)
 - Non-Ku Domains: Finance, Calendar, Learning (modifier)
 - The Destination (+1): LifePath
 
@@ -96,7 +97,6 @@ from core.services.dsl import ActivityExtractorService
 extractor = ActivityExtractorService(
     tasks_service=tasks_service,
     habits_service=habits_service,
-    ku_service=ku_service,
 )
 result = await extractor.extract_and_create(entry, user_uid)
 ```
