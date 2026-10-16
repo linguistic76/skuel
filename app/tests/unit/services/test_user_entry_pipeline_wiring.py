@@ -439,6 +439,7 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
     svc.repoint_extracted_from_link = AsyncMock(return_value=Result.ok(True))
     svc.revive_extracted_from_link = AsyncMock(return_value=Result.ok(True))
     svc.link_applied_knowledge = AsyncMock(side_effect=_link_every_reference)
+    svc.retract_unnamed_knowledge = AsyncMock(return_value=Result.ok([]))
     svc.get_entry = AsyncMock(return_value=Result.ok(updated_entry))
     return svc
 
@@ -508,6 +509,7 @@ class TestExtractActivities:
         svc.link_applied_knowledge.assert_awaited_once_with(
             entry.uid, entry.user_uid, ["ku:tech/x"]
         )
+        svc.retract_unnamed_knowledge.assert_awaited_once_with(entry.uid, ["ku:tech/x"])
         svc.update_processing_state.assert_awaited_once()
         updates = svc.update_processing_state.await_args.args[1]
         assert updates["metadata"]["activity_extraction"]["status"] == "completed"
@@ -1324,6 +1326,32 @@ class TestExtractActivities:
             f"APPLIES_KNOWLEDGE {entry.uid} -> ku.b",
         ]
         assert not [e for e in captured if isinstance(e, KnowledgeReflectedInEntry)]
+        # A reference that could not be linked is still named: nothing is retracted for it.
+        svc.retract_unnamed_knowledge.assert_awaited_once_with(entry.uid, ["ku.a", "ku.b"])
+
+    @pytest.mark.asyncio
+    async def test_a_failed_retraction_is_recorded_not_fatal(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        svc = _extract_entry_service(entry)
+        svc.retract_unnamed_knowledge = AsyncMock(
+            return_value=Result.fail(Errors.database("retract_unnamed_knowledge", "unreachable"))
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid, referenced_ku_uids=["ku.a"]))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        updates = svc.update_processing_state.await_args.args[1]
+        assert updates["status"] == EntityStatus.COMPLETED.value
+        link_errors = updates["metadata"]["activity_extraction"]["link_errors"]
+        assert [line.split(":")[0] for line in link_errors] == [
+            f"APPLIES_KNOWLEDGE {entry.uid} retraction"
+        ]
 
 
 def _capturing_bus() -> tuple[MagicMock, list[BaseEvent]]:

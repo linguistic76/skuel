@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-10-13
+updated: 2026-10-16
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -165,7 +165,7 @@ feedback (Submit & Share arc R12). A living vault entry carries neither.
 |-----|--------------|--------|-------------|
 | `source_entry` | `TRANSFORMS` | UserEntry | Multi-stage pipelines. ⚠️ The edge runs **derived → source**: the LLM-structured child is written with `transforms_of_uid` pointing back at the transcript it came from, so traversing `TRANSFORMS` outward walks *up* the pipeline, not down. The field name is the tell |
 | `exercise` | `FULFILLS_EXERCISE` | Exercise | What the entry answers; carries `revision` |
-| `applied_knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied/reflected in the entry — THE substance/ZPD contract edge. **Two writers, one event:** explicit `@ku()` refs via the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and vector grounding via `EntryGroundingService`, which stamps `inferred: true` + `confidence` + `grounded_at` so an inferred edge stays distinguishable from an authored one (and removable on its own terms) |
+| `applied_knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied/reflected in the entry — THE substance/ZPD contract edge. **Two writers, one event:** explicit `@ku()` refs via the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and vector grounding via `EntryGroundingService`, which stamps `inferred: true` + `confidence` + `grounded_at` so an inferred edge stays distinguishable from an authored one (and removable on its own terms). An authored edge lives as long as the text names it: deleting the `@ku` retracts it on the next extraction (`UserEntryService.retract_unnamed_knowledge`), recorded in `grounding_rejected_ku_uids` like a removed inferred one |
 
 ### Incoming (Other → UserEntry)
 

@@ -385,13 +385,18 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
     again, and an inferred edge the owner now names loses its inference stamp
     (`inferred`, `confidence`, `grounded_at`) and reads as explicit. A pair the owner
     once removed (`grounding_rejected_ku_uids`) is linked again without a second
-    credit — it was credited when first made
+    credit — it was credited when first made. The text is where the owner unnames
+    knowledge: on the next extraction, a link they named whose reference is gone
+    from the text is retracted and recorded in `grounding_rejected_ku_uids`
+    (`UserEntryService.retract_unnamed_knowledge`); an inferred edge is not the
+    text's to retract
   - `EntryGroundingService` — once per genuinely NEW inferred edge
     (`inferred: true`, `confidence: <similarity>`, `grounded_at`) written by the
     vector grounding pass over `pipeline: knowledge` entries, to published Kus only (knowledge/ and
-    je_pro/ doors — Entry-Enrichment PR 3). Existing edges and user-rejected
-    links never re-publish; removals via the grounding remove route are
-    calibration data for the threshold.
+    je_pro/ doors — Entry-Enrichment PR 3). Existing edges never re-publish, and a
+    pair the owner removed (`grounding_rejected_ku_uids`) is refused under the
+    entry's write-lock, so it is never re-made; removals via the grounding remove
+    route are calibration data for the threshold.
   - **Credited once per entry and knowledge, whichever writer came first.** Both
     writers take the entry's write-lock before deciding whether the edge is new,
     so of two racing on one pair exactly one creates it and publishes. A removal

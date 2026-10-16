@@ -459,7 +459,9 @@ class UserEntryProcessingService:
            edge. An edge the write creates publishes ``KnowledgeReflectedInEntry``
            (substance fan-out) — once per entry and knowledge, whichever writer
            made the edge first and feeds UserContext.entry_knowledge_applied
-           + the ZPD entry_application signal on read.
+           + the ZPD entry_application signal on read. A link the owner named
+           whose reference is gone from the text is retracted and recorded as
+           removed (``UserEntryService.retract_unnamed_knowledge``).
         5. Run summary persisted under ``entry.metadata["activity_extraction"]``.
         """
         if self.activity_extractor is None:
@@ -741,6 +743,16 @@ class UserEntryProcessingService:
             link_errors.append(message)
             reason = error.details.get("reason")
             self.logger.warning(message + (f" ({reason})" if reason else ""))
+        # The owner unnames knowledge by deleting its reference from the text.
+        retracted = await self.entry_service.retract_unnamed_knowledge(entry.uid, ku_uids)
+        if retracted.is_error:
+            message = (
+                f"APPLIES_KNOWLEDGE {entry.uid} retraction: {retracted.expect_error().message}"
+            )
+            link_errors.append(message)
+            self.logger.warning(message)
+        elif retracted.value:
+            self.logger.info(f"Unnamed knowledge retracted from {entry.uid}: {retracted.value}")
         for ku_uid in credited:
             # Substance fan-out: PsService increments times_reflected_in_entries
             # on the Ku (+ connected PathSteps) — knowledge_substance_philosophy.

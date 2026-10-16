@@ -108,6 +108,10 @@ class EntryGroundingBackend:
         order the owner's ``@ku`` writer (``UserEntryBackend.write_applied_knowledge``)
         takes it in: the two writers of one pair serialize on the entry instead
         of deadlocking, and exactly one of them creates the edge.
+
+        A pair the owner removed (``grounding_rejected_ku_uids``, written by the
+        remove door and by an unnamed ``@ku``) is refused under that lock, so a pass that
+        read the entry before the removal cannot re-make it.
         """
         published, published_params = build_publication_clause("k")
         result = await self._executor.execute_query(
@@ -116,6 +120,7 @@ class EntryGroundingBackend:
             SET e.`_sg_lock` = $lock_token
             REMOVE e.`_sg_lock`
             WITH e
+            WHERE NOT $ku_uid IN coalesce(e.grounding_rejected_ku_uids, [])
             MATCH (k:Ku {{uid: $ku_uid}}) WHERE NOT k:Content AND {published}
             MERGE (e)-[r:APPLIES_KNOWLEDGE]->(k)
             ON CREATE SET r.inferred = true,
@@ -138,7 +143,8 @@ class EntryGroundingBackend:
             return Result.fail(result)
         rows = result.value or []
         if not rows:
-            # The entry or the Ku is gone, or the Ku is a draft.
+            # The entry or the Ku is gone, the Ku is a draft, or the owner
+            # removed the pair.
             return Result.ok(False)
         return Result.ok(bool(rows[0].get("created")))
 
