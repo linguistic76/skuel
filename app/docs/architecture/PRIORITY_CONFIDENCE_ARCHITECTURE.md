@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-10-16
 ---
 
 # Priority & Confidence Architecture
@@ -84,7 +84,7 @@ Priority.from_search_text("urgent")          # → [Priority.HIGH]
 
 **File:** `core/models/curriculum.py`
 
-**Request models:** `core/models/pathways/pathways_request.py` (PathStepCreateRequest, LpCreateRequest) — used by ingestion, not CRUD routes
+Curriculum has no request models: it is authored in the content vault (ADR-091).
 
 **Domains:** KU, PS (PathStep), LP (LearningPath)
 

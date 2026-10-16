@@ -7,7 +7,7 @@ Handles all graph operations for path steps.
 
 **Responsibilities:**
 - Graph traversal (prerequisites, next steps)
-- Relationship management (create, link, query)
+- Relationship queries
 - Knowledge gap analysis
 - Learning recommendations
 - Prerequisite chains
@@ -145,70 +145,6 @@ class PsGraphService:
 
         self.logger.debug(f"Found {len(next_steps)} next steps for {uid}")
         return Result.ok(next_steps)
-
-    # ========================================================================
-    # RELATIONSHIP MANAGEMENT
-    # ========================================================================
-
-    @with_error_handling("link_prerequisite", error_type="database", uid_param="unit_uid")
-    async def link_prerequisite(
-        self, unit_uid: str, prerequisite_uid: str, is_mandatory: bool = True
-    ) -> Result[bool]:
-        """
-        Create a prerequisite relationship between path steps.
-
-        Args:
-            unit_uid: Target path step UID,
-            prerequisite_uid: Prerequisite path step UID,
-            is_mandatory: Whether prerequisite is mandatory
-
-        Returns:
-            Result indicating success
-        """
-        # Verify both units exist
-        unit_result = await self.repo.get(unit_uid)
-        if not unit_result.is_ok or not unit_result.value:
-            return Result.fail(Errors.not_found("PathStep", unit_uid))
-
-        prereq_result = await self.repo.get(prerequisite_uid)
-        if not prereq_result.is_ok or not prereq_result.value:
-            return Result.fail(
-                Errors.not_found("PathStep", prerequisite_uid, reason="prerequisite step")
-            )
-
-        await self.repo.link_prerequisite(unit_uid, prerequisite_uid, is_mandatory)
-
-        self.logger.info(
-            f"Linked prerequisite: {unit_uid} REQUIRES_KNOWLEDGE {prerequisite_uid} "
-            f"(mandatory={is_mandatory})"
-        )
-        return Result.ok(True)
-
-    @with_error_handling("link_parent_child", error_type="database", uid_param="parent_uid")
-    async def link_parent_child(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """
-        Create a parent-child hierarchy relationship.
-
-        Args:
-            parent_uid: Parent path step UID,
-            child_uid: Child path step UID
-
-        Returns:
-            Result indicating success
-        """
-        # Verify both units exist
-        parent_result = await self.repo.get(parent_uid)
-        if not parent_result.is_ok or not parent_result.value:
-            return Result.fail(Errors.not_found("PathStep", parent_uid, reason="parent step"))
-
-        child_result = await self.repo.get(child_uid)
-        if not child_result.is_ok or not child_result.value:
-            return Result.fail(Errors.not_found("PathStep", child_uid, reason="child step"))
-
-        await self.repo.link_parent_child(parent_uid, child_uid)
-
-        self.logger.info(f"Linked parent-child: {parent_uid} HAS_NARROWER {child_uid}")
-        return Result.ok(True)
 
     # ========================================================================
     # ANALYSIS & RECOMMENDATIONS

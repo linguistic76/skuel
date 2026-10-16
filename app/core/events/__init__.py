@@ -89,10 +89,7 @@ from core.events.chunk_events import (
 # NOTE: MOC events removed January 2026 - MOC is now KU-based
 from core.events.curriculum_events import (
     PathStepCompleted,
-    PathStepCreated,
-    PathStepDeleted,
     PathStepEnrolled,
-    PathStepUpdated,
 )
 
 # Embedding events (async background generation)
@@ -169,7 +166,6 @@ from core.events.learning_events import (
     KnowledgeCreated,
     KnowledgeMastered,
     LearningPathCompleted,
-    LearningPathCreated,
     LearningPathProgressUpdated,
     LearningPathStarted,
     LearningRecommendationGenerated,
@@ -308,18 +304,14 @@ __all__ = [
     "KnowledgeReflectedInEntry",
     "KuEmbeddingRequested",
     "LearningPathCompleted",
-    "LearningPathCreated",
     "LearningPathEmbeddingRequested",
     "LearningPathProgressUpdated",
     "LearningPathStarted",
     "LearningRecommendationGenerated",
     "PathStepCompleted",
-    "PathStepCreated",
-    "PathStepDeleted",
     "PathStepEmbeddingRequested",
     "PathStepEnrolled",
     "PathStepProgressUpdated",
-    "PathStepUpdated",
     "PrincipleAlignmentAssessed",
     "PrincipleConflictRevealed",
     "PrincipleCreated",

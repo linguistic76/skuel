@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-10-10
+updated: 2026-10-16
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -105,7 +105,7 @@ See `docs/roadmap/done/substance-write-grain.md` § The closure record.
 
 **Distinct from substance:** Confidence is about *content quality* (admin assessment); substance is about *knowledge application* (user behavior). A PathStep can have HIGH confidence (well-written, accurate) but LOW substance (nobody has applied it yet).
 
-**Wiring:** Stored on Curriculum model, round-trips through `CurriculumDTO` (`confidence: Confidence | None`), ingestible via `PathStepCreateRequest`.
+**Wiring:** Stored on Curriculum model, round-trips through `CurriculumDTO` (`confidence: Confidence | None`).
 
 ---
 

@@ -40,15 +40,13 @@ source for those signatures. ``PsIntelligenceBackendOperations`` still stands
 alone — ``PsIntelligenceService`` types ``self.backend`` against
 ``BackendOperations[PathStep]`` and takes that slice as a *separate* handle.
 
-``PsOperations`` is a BACKEND protocol, single-layer (2026-08-20). It was
-documented as dual-layer from PR #826 (2026-07-26) until a census falsified
-the premise: it declares ``execute_query``, ``find_by``, ``create_step_node``
-and ~116 other persistence methods, and of its 142 public callables the
-``PsService`` facade carries 8. The one consumer said to hold the facade —
-``EntityExtractor.knowledge_service`` — needed a single method (``get``) and
-was fed through an ``Any``-typed deps container, so the claim was never
-checked. That consumer now types against ``EntityLookup``
-(``core/services/askesis/types.py``).
+``PsOperations`` is a BACKEND protocol, single-layer: it declares
+``execute_query``, ``find_by``, ``list_steps_raw`` and the other persistence
+methods ``PsBackend`` satisfies, and the ``PsService`` facade shares only 16 of
+its 131 public callable names. A consumer that needs one read of the facade
+types against a narrow protocol such as ``EntityLookup``
+(``core/services/askesis/types.py``), never against ``PsOperations``.
+See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
 
 Protocol Hierarchy
 ------------------
@@ -110,7 +108,6 @@ from core.ports.query_types import (
     MasteredWriteRow,
     OrganizerResult,
     PrereqMasteryResult,
-    PsDeleteStepRow,
     PsGuidanceCountsRow,
     PsKnowledgeSummaryResult,
     PsPracticeCountsRow,
@@ -135,7 +132,6 @@ if TYPE_CHECKING:
 
     from core.infrastructure.relationships.semantic_relationships import (
         SemanticRelationshipType,
-        SemanticTriple,
     )
     from core.models.context_types import ContextualExercise
     from core.models.enums.neo_labels import NeoLabel
@@ -527,12 +523,12 @@ class KuOperations(BackendOperations["Ku"], Protocol):
 
 @runtime_checkable
 class PsOrganizesBackendOperations(Protocol):
-    """ORGANIZES relationship management — the backend-layer slice.
+    """ORGANIZES relationship reads — the backend-layer slice.
 
     MOC is emergent identity: any Entity with outgoing ORGANIZES edges is an
     organizer. This ISP slice is what ``PsOrganizationService`` types
     ``self.backend`` against — deliberately narrow, and deliberately *backend*
-    layer. ``PsOperations`` inherits it, so these seven signatures have one
+    layer. ``PsOperations`` inherits it, so these four signatures have one
     source. The service's own ``get_organization_view`` composes these reads with
     ``PsCoreService`` lookups and is NOT a backend operation; declaring it on a
     backend protocol is what made the wider contract unsatisfiable.
@@ -540,18 +536,6 @@ class PsOrganizesBackendOperations(Protocol):
     Implementation: ``_OrganizesMixin`` (shared with ``UserEntryBackend`` —
     see ``UserEntryOrganizesOperations`` for that domain's read-only slice).
     """
-
-    async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two entities."""
-        ...
-
-    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two entities."""
-        ...
-
-    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child entity within its parent."""
-        ...
 
     async def is_organizer(
         self, entity_uid: str, *, child_types: Sequence[str] | None = None
@@ -815,17 +799,6 @@ class PsOperations(
         """
         ...
 
-    async def get_next_step_sequence(self, path_uid: str) -> Result[int]:
-        """Next free ``HAS_STEP`` sequence number for a path; 0 when it has none.
-
-        Declared 2026-08-20. ``PsService.attach_step_to_path`` has always called
-        it and ``PsBackend`` has always implemented it — the port never said so,
-        and nothing noticed while the handle was ``Any``.
-
-        Backend: PsBackend.get_next_step_sequence
-        """
-        ...
-
     async def is_standalone(self, uid: str) -> Result[bool]:
         """
         Check if this step exists independently (not part of a path).
@@ -917,9 +890,8 @@ class PsOperations(
     # ORGANIZATION (ORGANIZES relationships)
     # =========================================================================
     # Inherited verbatim from ``PsOrganizesBackendOperations`` — one source for
-    # the seven signatures. The ``entity_uid`` / no-``limit`` shapes that used to
-    # be re-declared here were the *facade*'s, kept for a consumer that never
-    # called them; see the class docstring.
+    # the four signatures (backend shapes, never the facade's; see the class
+    # docstring).
 
     # =========================================================================
     # PRACTICE + AI    # =========================================================================
@@ -1003,26 +975,8 @@ class PsOperations(
         ...
 
     # =========================================================================
-    # SEMANTIC OPERATIONS    # =========================================================================
-
-    async def create_semantic_relationship(
-        self, triple: SemanticTriple
-    ) -> Result[list[dict[str, Any]]]:  # boundary: neo4j record shape
-        """Persist one semantic triple, keyed by its precise predicate.
-
-        Idempotent per PREDICATE, not per edge type: two predicates that
-        collapse onto the same coarse ``RelationshipName`` (both ``RELATED_TO``,
-        say) coexist as two distinct edges between the same pair, each keeping
-        its own meaning. Re-persisting the same triple updates that one edge's
-        metadata instead of duplicating it or overwriting a sibling's.
-
-        Creates the endpoint nodes if they are absent, unlike the registry-
-        validated ``create_relationship``.
-
-        Takes the domain triple; the adapter authors the Cypher below the
-        hexagonal boundary (ADR-044).
-        """
-        ...
+    # SEMANTIC READS
+    # =========================================================================
 
     async def query_semantic_neighborhood(
         self,
@@ -1032,16 +986,6 @@ class PsOperations(
         min_confidence: float,
     ) -> Result[list[dict[str, Any]]]:  # boundary: variable-depth graph traversal
         """Query semantic neighborhood."""
-        ...
-
-    async def delete_semantic_relationship(
-        self,
-        rel_name: str,
-        subject_uid: str,
-        object_uid: str,
-        semantic_type: str | None = None,
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {deleted}
-        """Delete a semantic relationship between two entities."""
         ...
 
     async def query_relationships_by_type(
@@ -1067,19 +1011,8 @@ class PsOperations(
         ...
 
     # =========================================================================
-    # GRAPH    # =========================================================================
-
-    async def link_prerequisite(
-        self, unit_uid: str, prereq_uid: str, is_mandatory: bool
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns relationship properties
-        """Create REQUIRES_KNOWLEDGE relationship."""
-        ...
-
-    async def link_parent_child(
-        self, parent_uid: str, child_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns relationship properties
-        """Create HAS_NARROWER hierarchy relationship."""
-        ...
+    # GRAPH
+    # =========================================================================
 
     async def query_user_mastery_for_prereqs(
         self, user_uid: UserUID, prereq_uids: list[str]
@@ -1146,32 +1079,11 @@ class PsOperations(
     # ``find_path_steps_for_ku`` — one source for both signatures.
 
     # =========================================================================
-    # CORE CRUD QUERIES (backend-level Cypher)
+    # CORE READS
     # =========================================================================
-    # boundary: LP CRUD methods return list[dict[str, Any]] — raw Cypher node
-    # properties from CREATE/SET/DELETE operations with variable RETURN clauses.
-
-    async def create_step_node(
-        self,
-        params: dict[str, Any],
-        has_knowledge: bool = False,
-        path_uid: str | None = None,
-    ) -> Result[list[dict[str, Any]]]:
-        """Create step node with conditional knowledge and path relationships."""
-        ...
 
     async def get_step_with_knowledge(self, uid: str) -> Result[PathStep | None]:
         """Get a step (with its CONTAINS_KNOWLEDGE UIDs) as a typed model, or None."""
-        ...
-
-    async def update_step_fields(
-        self, uid: str, set_clauses: list[str], params: dict[str, Any]
-    ) -> Result[PathStep | None]:
-        """Update step fields; return the updated step as a typed model (None if absent)."""
-        ...
-
-    async def delete_step_node(self, uid: str) -> Result[list[PsDeleteStepRow]]:
-        """Delete a step node and return deletion count."""
         ...
 
     async def list_steps_raw(
@@ -1435,29 +1347,15 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
         ...
 
     # =========================================================================
-    # STEP MANAGEMENT (HAS_STEP edges)
+    # STEP READS (HAS_STEP edges)
     # =========================================================================
 
     async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:
         """Get ordered steps as typed models."""
         ...
 
-    async def add_step_to_path(
-        self, path_uid: str, step_uid: str, sequence: int, order: int = 0
-    ) -> Result[bool]:
-        """Create HAS_STEP relationship between path and step."""
-        ...
-
-    async def remove_step_from_path(self, path_uid: str, step_uid: str) -> Result[bool]:
-        """Remove HAS_STEP relationship and reorder remaining steps."""
-        ...
-
-    async def reorder_steps(self, path_uid: str, step_uids: list[str]) -> Result[bool]:
-        """Batch reorder all steps in a path."""
-        ...
-
     # =========================================================================
-    # PATH CRUD (steps composed into metadata["steps"])
+    # PATH READS (steps composed into metadata["steps"])
     # =========================================================================
     # These return paths with their HAS_STEP steps eagerly loaded into
     # ``metadata["steps"]`` — the composed shape LpCoreService reads and returns.
@@ -1478,31 +1376,6 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
         offset: int = 0,
     ) -> Result[list[LearningPath]]:
         """List all paths uid-ordered, paginated, steps in ``metadata["steps"]``."""
-        ...
-
-    async def update_path_properties(
-        self,
-        set_clauses: list[str],
-        # boundary: heterogeneous Neo4j query params (uid + mixed-type SET values)
-        params: dict[str, Any],
-    ) -> Result[LearningPath | None]:
-        """Apply pre-validated SET clauses; return the updated path, or None."""
-        ...
-
-    async def delete_path_cascade(
-        self, path_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {deleted_count}
-        """Delete a path and cascade-delete its step nodes; rows carry deleted_count."""
-        ...
-
-    async def persist_path_with_steps(
-        self,
-        user_uid: UserUID,
-        # boundary: heterogeneous Neo4j node-property dicts (mixed-type values)
-        path_params: dict[str, Any],
-        steps_params: list[dict[str, Any]],
-    ) -> Result[bool]:
-        """Persist a path node (+ User edge), its step nodes, and PS→KU edges."""
         ...
 
     # =========================================================================

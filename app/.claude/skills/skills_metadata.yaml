@@ -151,7 +151,7 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
-    last_reviewed: "2026-10-12"
+    last_reviewed: "2026-10-15"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
@@ -316,7 +316,7 @@ skills:
 
   - name: prometheus-grafana
     description: Prometheus metrics and Grafana dashboards in SKUEL
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-10-15"
     foundation: []
     dependencies: []
     library_package: prometheus-client
@@ -498,7 +498,7 @@ skills:
 
   - name: curriculum-domains
     description: Curriculum domain patterns (KU, PS, LP)
-    last_reviewed: "2026-10-13"
+    last_reviewed: "2026-10-15"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library

@@ -1522,8 +1522,8 @@ def build_prerequisite_chain_query(
     arrow = direction_clause("outgoing", None, f"{rel_pattern}*1..{depth}")
     # `WHERE n <> start` guards against a prerequisite cycle (A→B→A) binding the
     # traversal back to the start node — which would otherwise return the requested
-    # entity as its own prerequisite and inflate the totals. (link_prerequisite does
-    # not reject cycles, so the query must.)
+    # entity as its own prerequisite and inflate the totals. (The content-vault edge
+    # writer does not reject cycles, so the query must.)
     query = f"""
     MATCH (start:{label} {{uid: $uid}})
     MATCH path = (start){arrow}(n:{label})

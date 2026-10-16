@@ -172,47 +172,6 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             [from_neo4j_node(dict(record["ft"]), FormTemplate) for record in (result.value or [])]
         )
 
-    async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
-        """Create EMBEDS_FORM relationship from path step to form template."""
-        result = await self.execute_query(
-            f"""
-            MATCH (a:Entity {{uid: $ps_uid}})
-            WHERE a.entity_type IN ['path_step', 'ku']
-            MATCH (ft:Entity {{uid: $ft_uid, entity_type: 'form_template'}})
-            MERGE (a)-[r:{RelationshipName.EMBEDS_FORM}]->(ft)
-            ON CREATE SET r.created_at = datetime()
-            RETURN true as success
-            """,
-            {"ps_uid": ps_uid, "ft_uid": form_template_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(
-                    resource="PathStep or FormTemplate",
-                    identifier=f"{ps_uid} -> {form_template_uid}",
-                )
-            )
-        return Result.ok(True)
-
-    async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
-        """Remove EMBEDS_FORM relationship."""
-        result = await self.execute_query(
-            f"""
-            MATCH (a:Entity {{uid: $ps_uid}})
-                  -[r:{RelationshipName.EMBEDS_FORM}]->
-                  (ft:Entity {{uid: $ft_uid}})
-            DELETE r
-            RETURN true as success
-            """,
-            {"ps_uid": ps_uid, "ft_uid": form_template_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(True)
-
 
 class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
     """

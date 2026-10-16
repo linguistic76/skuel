@@ -1,6 +1,6 @@
 ---
 title: "LP Adaptive Reads Await an Edge-Weight Writer"
-updated: 2026-10-10
+updated: 2026-10-16
 status: "registered"
 registered: 2026-10-10
 ruled: "2026-10-10 — the founder: the three LP adaptive reads are staged (PLANNED), not deleted"
@@ -86,13 +86,8 @@ of that question. They are not a second home for it.
 - **What is authorable today:**
   - `confidence`: by Edge YAML. It is on the preparer's property allowlist
     (`core/services/ingestion/preparer.py`, the optional-evidence-fields loop).
-  - `strength`: by no file. It is not on the allowlist. The admin door
-    `POST /api/path-steps/relationships` writes it (and `confidence`, at the
-    facade's fixed 0.9) through `PsSemanticService.add_semantic_relationship`,
-    when the semantic `type` maps to `ENABLES_KNOWLEDGE` or `REQUIRES_KNOWLEDGE`
-    (for example `PROVIDES_FOUNDATION_FOR` or `REQUIRES_CONCEPTUAL_FOUNDATION`).
-    It looks both endpoints up through the PathStep backend before writing.
-    It is a single-edge admin API, not an authoring surface.
+  - `strength`: by no door. It is not on the allowlist, and the admin door that
+    wrote it on a semantic edge between path steps is retired (ADR-091).
   - `difficulty_gap`, `semantic_distance`, `typical_learning_order`: no door
     writes them.
 - **The completing change**, either of:

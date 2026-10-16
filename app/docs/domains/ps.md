@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-10-11
+updated: 2026-10-16
 status: current
 category: domains
 tags:
@@ -25,7 +25,7 @@ related_skills:
 
 **Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
 
-PathStep is THE curriculum content entity in SKUEL. It composes atomic Kus into a coherent learning experience with practice opportunities (habits, tasks, events, goals, principles, choices) wired directly on the step. As of 2026-04, the former `Lesson` entity has been merged into `PathStep`.
+PathStep is THE curriculum content entity in SKUEL. It composes atomic Kus into a coherent learning experience with practice opportunities (habits, tasks, events, goals, principles, choices) wired directly on the step. A step is authored only in the content vault (ADR-091); the app reads it and records what learners do with it. As of 2026-04, the former `Lesson` entity has been merged into `PathStep`.
 
 ## Service Architecture (ADR-030)
 
@@ -33,10 +33,10 @@ PsService coordinates 12 factory-built sub-services plus `progress` (built in th
 
 | Sub-service | Class | Purpose |
 |-------------|-------|---------|
-| `.core` | PsCoreService | CRUD operations |
+| `.core` | PsCoreService | Step reads |
 | `.search` | PsSearchService | Discovery operations |
 | `.graph` | PsGraphService | Graph navigation and relationship reads |
-| `.semantic` | PsSemanticService | Semantic relationships (takes `intelligence`) |
+| `.semantic` | PsSemanticService | Semantic relationship reads (takes `intelligence`) |
 | `.practice` | PsPracticeService | Practice integration (habits, tasks, events) |
 | `.mastery` | PsMasteryService | Mastery tracking |
 | `.relationships` | UnifiedRelationshipService | Step-path associations |
@@ -44,7 +44,7 @@ PsService coordinates 12 factory-built sub-services plus `progress` (built in th
 | `.adaptive` | PsAdaptiveService | Personalized curriculum delivery |
 | `.application_discovery` | PsApplicationDiscoveryService | Reverse queries: where a step's knowledge is applied |
 | `.context_service` | PsContextService | Context-first recommendations from UserContext |
-| `.organization` | PsOrganizationService | ORGANIZES hierarchy (takes `core`) |
+| `.organization` | PsOrganizationService | ORGANIZES hierarchy reads (takes `core`) |
 | `.progress` | PsProgressService | Event-driven progress (facade-built) |
 
 **Initialization:** `create_ps_sub_services()` in `core/services/curriculum_domain_config.py` (`PsSubServices` dataclass, fixed creation order — see `SERVICE_CONSOLIDATION_PATTERNS.md` § 6)
@@ -68,7 +68,7 @@ ps_service = PsService(
 )
 
 # Access sub-services
-await ps_service.core.create_step(step)
+await ps_service.core.get_step(step_uid)
 await ps_service.search.search(query)
 await ps_service.relationships.get_related_uids("in_paths", step_uid)
 await ps_service.intelligence.is_ready(step_uid, completed_steps)

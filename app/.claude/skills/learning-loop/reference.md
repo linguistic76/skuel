@@ -100,9 +100,9 @@ is the vault living entry's `fulfills_exercise_uid` intent property with no `FUL
 edge (`has_in_progress` / `in_progress_uid` on `ExerciseStatusRow`); its action link opens the
 living entry at `/gradebook/{uid}`.
 
-Forms are linked to PathSteps via `(PathStep)-[:EMBEDS_FORM]->(FormTemplate)`. Admin wires the relationship via
-`POST /api/form-templates/link-path-step`. The (staged) forms fragment returns an empty `<div>` when no forms are
-linked.
+Forms are linked to PathSteps via `(PathStep)-[:EMBEDS_FORM]->(FormTemplate)`, authored in the content vault as an
+Edge YAML file (`relationship: EMBEDS_FORM`, ADR-091). The (staged) forms fragment returns an empty `<div>` when no
+forms are linked.
 
 Submissions are discovered via the Interaction graph:
 `(user)-[:OWNS]->(sub)-[:RECORDS]<-(interaction)-[:INTERACTION_DURING]->(ps)`.

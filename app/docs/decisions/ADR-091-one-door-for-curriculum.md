@@ -1,6 +1,6 @@
 ---
 title: "ADR-091: One Door for Curriculum"
-updated: 2026-10-15
+updated: 2026-10-16
 status: accepted
 category: decisions
 tags: [adr, decisions, curriculum, content-vault, ingestion, exercises, teacher-review, ownership, publication]
@@ -132,9 +132,9 @@ changing the field retracts the old edge on the next sync.
 
 ### S4. Exercises are created and edited only in the vault
 
-- The in-app create and edit doors go (the CRUD API in `exercises_routes.py`, `/exercises/new` and
-  `/exercises/{uid}/edit`), and so do `POST /api/exercises/require-knowledge` and
-  `POST /api/exercises/unrequire-knowledge`.
+- The in-app create and edit doors go (the CRUD API in `exercises_routes.py`, `/exercises/new` and <!-- historical -->
+  `/exercises/{uid}/edit`), and so do `POST /api/exercises/require-knowledge` and <!-- historical -->
+  `POST /api/exercises/unrequire-knowledge`. <!-- historical -->
 - The PERSONAL, ASSIGNED and ASSESSMENT scopes go.
 - Group assignment (ADR-040) goes. Groups still submit to their teachers and share.
 
@@ -180,8 +180,8 @@ now. It covers:
   LearningPath, and `POST /api/ku/{uid}/lateral/enables`). Activity-domain laterals stay: those are
   users' private content;
 - `@ku(...)` Ku creation from journal entries. A reference to an existing Ku stays (ADR-069);
-- form-template link and unlink to a PathStep (`POST /api/form-templates/link-path-step` and
-  `POST /api/form-templates/unlink-path-step`);
+- form-template link and unlink to a PathStep (`POST /api/form-templates/link-path-step` and <!-- historical -->
+  `POST /api/form-templates/unlink-path-step`); <!-- historical -->
 - the uncalled `LpCoreService` authoring methods (`create_path`, `update_path`, `delete_path`,
   `add_step_to_path`, `remove_step_from_path`, `reorder_steps`).
 
@@ -210,9 +210,9 @@ same day (round 2):
   `TeacherReviewService` from local files, a second door beside the review page.
   `scripts/export_submissions.py` goes with it (Mike, 2026-10-15): it only read the review
   queue, but its `done/` and `imported/` folders and its manifest existed to feed the import.
-- **N2. The revised-exercise update and delete doors go** (`POST /api/revised-exercises/update` and
-  `POST /api/revised-exercises/delete`). A revision is sent from the review page; nothing edits it
-  afterwards. The create door beside them, `POST /api/revised-exercises/create`, goes too (Mike,
+- **N2. The revised-exercise update and delete doors go** (`POST /api/revised-exercises/update` and <!-- historical -->
+  `POST /api/revised-exercises/delete`). A revision is sent from the review page; nothing edits it <!-- historical -->
+  afterwards. The create door beside them, `POST /api/revised-exercises/create`, goes too (Mike, <!-- historical -->
   2026-10-15): it filed a revision against an existing report without the review page, a second
   revision door that N8 would otherwise have had to guard separately.
 - **N3. Prerequisite-suggestion approval goes** (`POST /admin/prereq-suggestions/approve`, which
@@ -371,3 +371,4 @@ Every note says the old behaviour stays live until the change that replaces it m
 | 2026-10-12 | MCF | Accepted: the commitment and rulings S1–S9, then the split (S5 and S6 withdrawn) and N1–N9; supersession notes added to the records above, each live until its implementing change | 1.0 |
 | 2026-10-13 | Claude Code | Change 4 implemented: the in-app exercise doors, the PERSONAL/ASSIGNED/ASSESSMENT scopes, group assignment, the owner route and the `group_assigned_*` reader are gone; Exercise's audience is PUBLIC | 1.1 |
 | 2026-10-15 | Claude Code | Change 5 implemented: one revision door, the review page's `request_revision`, sent only by the exercise's named teacher on work with an exercise (the write re-decides both; the page shows the refusal in place of the form); the report-only revision, the revised-exercise create/get/update/delete/list CRUD doors, `scripts/import_reports.py` and its export twin `scripts/export_submissions.py` are gone | 1.2 |
+| 2026-10-15 | Claude Code | Change 7a implemented: the admin PathStep doors (attach/detach to a path, semantic relationship, content, tags, organize/unorganize/reorder), the form-template link/unlink to a PathStep, the uncalled `PsService`/`LpService` authoring methods down through their backends, and the four creation/update/deletion events only they published are gone; an `EMBEDS_FORM` edge is an Edge YAML file | 1.3 |

@@ -80,13 +80,9 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         KnowledgeCreated,
         KnowledgeMastered,
         LearningPathCompleted,
-        LearningPathCreated,
         LearningPathProgressUpdated,
         LearningPathStarted,
         PathStepCompleted,
-        PathStepCreated,
-        PathStepDeleted,
-        PathStepUpdated,
         PrincipleAlignmentAssessed,
         PrincipleCreated,
         PrincipleDeleted,
@@ -194,13 +190,9 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         # Curriculum / learning
         KnowledgeCreated: 1,
         KnowledgeMastered: 6,  # invalidate + LP/PS-mastery/PS-progress chains + recs + x-domain
-        LearningPathCreated: 1,  # invalidate
         LearningPathStarted: 2,  # invalidate + LP progress init on enrollment
         LearningPathCompleted: 4,  # invalidate + recommendations + x-domain + analytics report
         LearningPathProgressUpdated: 1,
-        PathStepCreated: 1,
-        PathStepUpdated: 1,
-        PathStepDeleted: 1,
         PathStepCompleted: 2,  # invalidate + PS→LP progress chain
         PathStepEnrolled: 1,
         # Knowledge substance tracking

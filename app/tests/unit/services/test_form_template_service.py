@@ -249,26 +249,3 @@ class TestDelete:
         event = event_bus.publish_async.call_args[0][0]
         assert event.event_type == "form_template.deleted"
         assert event.template_uid == "ft_test_123"
-
-
-class TestPathStepLinking:
-    @pytest.mark.asyncio
-    async def test_link_to_path_step(self):
-        backend = MagicMock()
-        backend.link_to_path_step = AsyncMock(return_value=Result.ok(True))
-        service = _make_service(backend=backend)
-
-        result = await service.link_to_path_step("ft_1", "ps:1")
-
-        assert result.is_ok
-        backend.link_to_path_step.assert_awaited_once_with("ft_1", "ps:1")
-
-    @pytest.mark.asyncio
-    async def test_unlink_from_path_step(self):
-        backend = MagicMock()
-        backend.unlink_from_path_step = AsyncMock(return_value=Result.ok(True))
-        service = _make_service(backend=backend)
-
-        result = await service.unlink_from_path_step("ft_1", "ps:1")
-
-        assert result.is_ok

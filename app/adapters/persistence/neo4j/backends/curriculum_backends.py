@@ -5,7 +5,7 @@ The Exercise/RevisedExercise/EntryReport trio lives in ``exercise_backends.py``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j._adaptive_mixin import _AdaptiveMixin
 from adapters.persistence.neo4j._knowledge_context_mixin import _KnowledgeContextMixin
@@ -36,7 +36,6 @@ from core.ports.query_types import (
     KnowledgeKuLessStep,
     KnowledgeOrphanKu,
     MasteredWriteRow,
-    PsDeleteStepRow,
     PsEngagementCountsRow,
     PsKnowledgeSummaryResult,
 )
@@ -651,14 +650,14 @@ class PsBackend(
     """Domain backend for PathStep entities.
 
     Extends UniversalNeo4jBackend[PathStep] with:
-    - Knowledge relationship CRUD (CONTAINS_KNOWLEDGE / USES_KU edges)
+    - Knowledge relationship reads (CONTAINS_KNOWLEDGE / USES_KU edges)
     - KU completion progress tracking
-    - ``_OrganizesMixin`` — ORGANIZES relationship management (12 methods)
+    - ``_OrganizesMixin`` — ORGANIZES relationship reads
     - ``_LearningStateMixin`` — user progress tracking: VIEWED, IN_PROGRESS,
-      MASTERED, BOOKMARKED, MARKED_AS_READ (13 methods)
-    - ``_SemanticMixin`` — semantic relationships + graph analysis (11 methods)
-    - ``_KnowledgeContextMixin`` — context, discovery, readiness (17 methods)
-    - ``_AdaptiveMixin`` — practice + adaptive mastery tracking (6 methods)
+      MASTERED, BOOKMARKED, MARKED_AS_READ
+    - ``_SemanticMixin`` — semantic relationships + graph analysis
+    - ``_KnowledgeContextMixin`` — context, discovery, readiness
+    - ``_AdaptiveMixin`` — practice + adaptive mastery tracking
     """
 
     # ========================================================================
@@ -801,23 +800,6 @@ class PsBackend(
         return await self.execute_query(*_nous_subtopic_pairs_query(NeoLabel.PATH_STEP))
 
     # ========================================================================
-    # STEP SEQUENCE (for attach_step_to_path)
-    # ========================================================================
-
-    async def get_next_step_sequence(self, path_uid: str) -> Result[int]:
-        """Get the next available sequence number for a path's steps."""
-        query = """
-        MATCH (p:Entity {uid: $path_uid})-[r:HAS_STEP]->()
-        RETURN coalesce(max(r.sequence), -1) + 1 as next_sequence
-        """
-        result = await self.execute_query(query, {"path_uid": path_uid})
-        if result.is_error:
-            return Result.fail(result)
-        if not result.value:
-            return Result.ok(0)
-        return Result.ok(result.value[0].get("next_sequence", 0))
-
-    # ========================================================================
     # KNOWLEDGE RELATIONSHIPS (CONTAINS_KNOWLEDGE edges — written at ingestion)
     # ========================================================================
 
@@ -896,59 +878,8 @@ class PsBackend(
         return Result.ok([record["ps_uid"] for record in (result.value or [])])
 
     # ========================================================================
-    # CORE CRUD QUERIES (migrated from PsCoreService)
+    # CORE READS
     # ========================================================================
-
-    async def create_step_node(
-        self,
-        params: dict[str, Any],
-        has_knowledge: bool = False,
-        path_uid: str | None = None,
-    ) -> Result[list[dict[str, Any]]]:
-        """Create step node with conditional knowledge and path relationships.
-
-        Multi-label (:Entity:PathStep) like every other Entity writer — an
-        Entity-only node is invisible to every label-matched instrument (the
-        embedding worker's store, the backfill, the coverage gauge), so its
-        embedding request would silently match zero rows (Codex #1068 P1).
-        """
-        query = """
-        CREATE (s:Entity:PathStep {
-            uid: $uid,
-            entity_type: 'path_step',
-            title: $title,
-            intent: $intent,
-            description: $description,
-            learning_path_uid: $learning_path_uid,
-            sequence: $sequence,
-            mastery_threshold: $mastery_threshold,
-            estimated_hours: $estimated_hours,
-            step_difficulty: $step_difficulty,
-            status: $status,
-            completed: $completed,
-            domain: $domain
-        })
-        """
-        if has_knowledge:
-            query += """
-            WITH s
-            UNWIND $knowledge_uids AS ku_uid
-            MATCH (ku:Entity {uid: ku_uid})
-            MERGE (s)-[r:CONTAINS_KNOWLEDGE]->(ku)
-            ON CREATE SET r.created_at = datetime()
-            """
-        if path_uid:
-            query += """
-            WITH s
-            MATCH (p:Entity {uid: $path_uid})
-            MERGE (p)-[r:HAS_STEP]->(s)
-            ON CREATE SET r.sequence = $sequence
-            """
-        query += """
-        WITH s
-        RETURN s
-        """
-        return await self.execute_query(query, params)
 
     @staticmethod
     def _step_with_knowledge_to_model(record: dict[str, Any]) -> PathStep:
@@ -986,37 +917,6 @@ class PsBackend(
         if not records:
             return Result.ok(None)
         return Result.ok(self._step_with_knowledge_to_model(records[0]))
-
-    async def update_step_fields(
-        self, _uid: str, set_clauses: list[str], params: dict[str, Any]
-    ) -> Result[PathStep | None]:
-        """Update step fields; return the updated step as a typed model (None if absent)."""
-        query = f"""
-        MATCH (s:Entity {{uid: $uid}})
-        SET {", ".join(set_clauses)}
-        WITH s
-        OPTIONAL MATCH (s)-[:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        RETURN s, collect(ku.uid) as knowledge_uids
-        """
-        result = await self.execute_query(query, params)
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.ok(None)
-        return Result.ok(self._step_with_knowledge_to_model(records[0]))
-
-    async def delete_step_node(self, uid: str) -> Result[list[PsDeleteStepRow]]:
-        """Delete a step node and return deletion count."""
-        query = """
-        MATCH (s:Entity {uid: $uid})
-        DETACH DELETE s
-        RETURN count(s) as deleted_count
-        """
-        return cast(
-            "Result[list[PsDeleteStepRow]]",
-            await self.execute_query(query, {"uid": uid}),
-        )
 
     async def list_steps_raw(
         self,
@@ -1182,9 +1082,9 @@ class LpBackend(
     """Domain backend for LearningPath entities.
 
     Extends UniversalNeo4jBackend[LearningPath] with:
-    - ``_LpStepMixin`` — step management CRUD + path CRUD + exercise traversal (12 methods)
-    - ``_LpProgressMixin`` — KU mastery progress + search queries (6 methods)
-    - ``_LpIntelligenceMixin`` — intelligence + adaptive learning + knowledge scope (10 methods)
+    - ``_LpStepMixin`` — step and path reads + exercise traversal
+    - ``_LpProgressMixin`` — KU mastery progress + search queries
+    - ``_LpIntelligenceMixin`` — intelligence + adaptive learning + knowledge scope
     """
 
 
@@ -1267,11 +1167,10 @@ _LATERAL_EDGES = "|".join(
 _ENABLEMENT_EDGES = "|".join(
     (RelationshipName.LATERAL_ENABLES.value, RelationshipName.LATERAL_ENABLED_BY.value)
 )
-# The gauge matches knowledge nodes by ``entity_type``, NOT by domain label:
-# ``create_step_node`` (and other API-create paths) persist ``:Entity {entity_type:
-# 'path_step'}`` WITHOUT the ``:PathStep`` label, and the rest of this file reads
-# PathSteps the same entity_type way. Label-only matching would silently drop those
-# legitimate steps from the corpus census and coverage (Codex #770 P2).
+# The gauge matches knowledge nodes by ``entity_type``, NOT by domain label, the
+# way the rest of this file reads PathSteps: ``entity_type`` is the discriminator
+# every writer sets, so a node missing its domain label is still counted in the
+# corpus census and coverage.
 _KNOWLEDGE_ENTITY_TYPES = (
     EntityType.KU.value,
     EntityType.PATH_STEP.value,

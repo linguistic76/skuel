@@ -17,12 +17,12 @@ Features:
 Integration:
 - UserActivityService owns the cache instance
 - Domain events (TaskCompleted, GoalAchieved, etc.) trigger invalidate_context()
-- Event subscriptions wired in services_bootstrap.py
+- Event subscriptions wired in services_bootstrap/_event_wiring.py
 - Use get_valid_context/cache_context for cache access
 
 Architecture:
 - UserActivityService._context_cache holds the cache instance
-- invalidate_context() called by event handlers (see services_bootstrap.py)
+- invalidate_context() called by event handlers (see services_bootstrap/_event_wiring.py)
 - Context building happens in UserContextBuilder
 
 CACHING POLICY
@@ -38,19 +38,10 @@ Rationale:
 
 When Cache is Invalidated:
 --------------------------
-The cache is invalidated IMMEDIATELY when any of these domain events occur:
-
-    - TaskCreated, TaskCompleted, TaskUpdated, TaskDeleted
-    - GoalCreated, GoalAchieved, GoalMilestoneReached, GoalProgressUpdated
-    - HabitCreated, HabitCompleted, HabitStreakBroken, HabitStreakMilestone
-    - EventCreated, EventCompleted, EventUpdated, EventDeleted
-    - ChoiceCreated, ChoiceUpdated, ChoiceDeleted
-    - PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged
-    - JournalCreated, JournalUpdated, JournalDeleted
-    - KnowledgeCreated, LearningPathCreated, LearningPathStarted, LearningPathCompleted
-
-Event subscriptions are wired in services_bootstrap.py:
-    event_bus.subscribe(TaskCompleted, user_activity_service.invalidate_context)
+The cache is invalidated when a domain event about the user's state occurs
+(a task completed, a goal achieved, a learning path started, ...). The event
+list is ``services_bootstrap/_event_wiring.py`` (``activity_context_events``
+and ``learning_context_events``), the one place it is kept.
 
 Storage: In-Memory (Per-Process)
 --------------------------------
@@ -181,24 +172,6 @@ class UserContextCache:
             "valid_count": len(self._cache) - expired_count,
             "expired_count": expired_count,
         }
-
-
-# =========================================================================
-# EVENT-DRIVEN INVALIDATION (COMPLETED)
-# =========================================================================
-#
-# Integration completed 2025-12-07:
-# - UserActivityService._context_cache holds the cache instance
-# - invalidate_context() calls self._context_cache.invalidate(user_uid)
-# - Event subscriptions in services_bootstrap.py wire domain events:
-#   - TaskCreated, TaskCompleted
-#   - GoalCreated, GoalAchieved, GoalMilestoneReached, GoalProgressUpdated
-#   - HabitCreated, HabitCompleted, HabitStreakBroken, HabitStreakMilestone
-#   - PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged
-#   - ChoiceCreated, ChoiceUpdated, ChoiceDeleted
-#   - CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, etc.
-#   - JournalCreated, JournalUpdated, JournalDeleted
-#   - KnowledgeCreated, LearningPathCreated, LearningPathStarted
 
 
 __all__ = ["UserContextCache"]

@@ -1,8 +1,8 @@
 """
-PathStep Organization Service — ORGANIZES Relationship Management
-==================================================================
+PathStep Organization Service — ORGANIZES Relationship Reads
+=============================================================
 
-Manages hierarchical organization of PathSteps via ORGANIZES relationships.
+Reads the hierarchical organization of PathSteps via ORGANIZES relationships.
 
 Any PathStep can organize other PathSteps — this is emergent identity,
 not a type discriminator. A PathStep "is an organizer" when it has outgoing
@@ -102,18 +102,17 @@ class PsOrganizationService:
     Any PathStep can organize other PathSteps — not limited to a specific EntityType.
     This service provides convenient access patterns for hierarchical navigation.
 
-    Two guards make it safe behind the unauthenticated PathStep API:
+    It reads only: an ORGANIZES edge between path steps is authored in the content
+    vault (``moc: true`` body links or an ``organizes:`` list, ADR-091). Two guards make it safe behind the
+    unauthenticated PathStep API:
 
-    - **The subject is a PathStep.** Every read and the create resolve their uid
-      through ``ps_core`` (a ``:PathStep`` match) and answer not-found for any
-      other entity, so a user-owned entity is never the subject of a read here.
+    - **The subject is a PathStep.** Every read resolves its uid through
+      ``ps_core`` (a ``:PathStep`` match) and answers not-found for any other
+      entity, so a user-owned entity is never the subject of a read here.
     - **The other end is shared curriculum.** Organizers, children and roots are
       scoped to ``SHARED_CURRICULUM_TYPES`` on the backend query, so a personal
       map that organizes a PathStep is not returned as its organizer and never
       appears as a root.
-
-    ``unorganize`` and ``reorder`` act on an existing edge by its two uids and
-    carry no guard — they are admin-only at the route.
     """
 
     def __init__(
@@ -130,7 +129,7 @@ class PsOrganizationService:
     # =========================================================================
 
     async def _require_path_step(self, ps_uid: str) -> Result[PathStep]:
-        """The subject of a read or a create, or not-found when it is not a PathStep."""
+        """The subject of a read, or not-found when it is not a PathStep."""
         ps_result = await self.ps_core.get(ps_uid)
         if ps_result.is_error:
             return Result.fail(ps_result)
@@ -210,34 +209,6 @@ class PsOrganizationService:
             total += 1 + grandchild_count
 
         return children, total
-
-    # =========================================================================
-    # ORGANIZATION OPERATIONS
-    # =========================================================================
-
-    async def organize(
-        self,
-        parent_uid: str,
-        child_uid: str,
-        order: int = 0,
-    ) -> Result[bool]:
-        """Organize a PathStep under another PathStep (create ORGANIZES relationship)."""
-        parent = await self._require_path_step(parent_uid)
-        if parent.is_error:
-            return Result.fail(parent)
-        child = await self._require_path_step(child_uid)
-        if child.is_error:
-            return Result.fail(child)
-
-        return await self.backend.organize(parent_uid, child_uid, order)
-
-    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove organization relationship between PathSteps."""
-        return await self.backend.unorganize(parent_uid, child_uid)
-
-    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child PathStep within its parent."""
-        return await self.backend.reorder(parent_uid, child_uid, new_order)
 
     # =========================================================================
     # DISCOVERY OPERATIONS

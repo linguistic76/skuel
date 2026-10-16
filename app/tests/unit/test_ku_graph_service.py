@@ -142,55 +142,6 @@ class TestGraphTraversal:
         assert len(result.value) == 2
 
 
-class TestRelationshipManagement:
-    """Test relationship creation and management."""
-
-    @pytest.fixture
-    def service(self) -> PsGraphService:
-        """Create service with mocked dependencies."""
-        repo = MagicMock()
-        return PsGraphService(repo=repo)
-
-    @pytest.mark.asyncio
-    async def test_link_prerequisite_unit_not_found(self, service):
-        """Test link_prerequisite fails when unit doesn't exist."""
-        service.repo.get = AsyncMock(return_value=Result.fail(MagicMock()))
-
-        result = await service.link_prerequisite("ku.test.1", "ku.prereq.1")
-
-        assert not result.is_ok
-
-    @pytest.mark.asyncio
-    async def test_link_prerequisite_success(self, service):
-        """Test successful prerequisite linking."""
-        # Mock both units exist
-        service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto()))
-
-        # Mock backend method
-        service.repo.link_prerequisite = AsyncMock(return_value=Result.ok([]))
-
-        result = await service.link_prerequisite("ku.test.1", "ku.prereq.1", is_mandatory=True)
-
-        assert result.is_ok
-        assert result.value is True
-        service.repo.link_prerequisite.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_link_parent_child_success(self, service):
-        """Test successful parent-child linking."""
-        # Mock both units exist
-        service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto()))
-
-        # Mock backend method
-        service.repo.link_parent_child = AsyncMock(return_value=Result.ok([]))
-
-        result = await service.link_parent_child("ku.parent.1", "ku.child.1")
-
-        assert result.is_ok
-        assert result.value is True
-        service.repo.link_parent_child.assert_called_once()
-
-
 class TestAnalysisRecommendations:
     """Test analysis and recommendation operations."""
 

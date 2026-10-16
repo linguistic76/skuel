@@ -317,7 +317,7 @@ class PsUpdatePayload(BaseUpdatePayload, total=False):
             "is_completed": True,
             "completed_at": "2026-01-21T10:00:00Z",
         }
-        result = await ps_service.update(uid, updates)
+        result = await backend.update(uid, updates)
     """
 
     order_index: int
@@ -345,7 +345,7 @@ class LpUpdatePayload(BaseUpdatePayload, total=False):
             "progress": 0.5,
             "goal": "Master Python async programming",
         }
-        result = await lp_service.update(uid, updates)
+        result = await backend.update(uid, updates)
     """
 
     goal: str
@@ -3911,21 +3911,6 @@ class NotificationRow(TypedDict):
 
 
 # ============================================================================
-# PS BACKEND RESULT TYPES
-# ============================================================================
-# TypedDicts for stable Cypher RETURN shapes from PsBackend domain methods.
-
-
-# --- Row-level result types ---
-
-
-class PsDeleteStepRow(TypedDict):
-    """Return shape for PsBackend.delete_step_node()."""
-
-    deleted_count: int
-
-
-# ============================================================================
 # LATERAL RELATIONSHIP BACKEND RESULT TYPES
 # ============================================================================
 # TypedDicts for stable Cypher RETURN shapes from LateralRelationshipBackend.
@@ -4738,7 +4723,6 @@ __all__ = [
     # Notification Backend Result Types
     "NotificationRow",
     # PS Backend Result Types
-    "PsDeleteStepRow",
     # PS Intelligence Result Types
     "PsDomainInsights",
     # PsIntelligenceBackendOperations raw Cypher rows

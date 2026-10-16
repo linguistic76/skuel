@@ -4,7 +4,7 @@ Semantic Mixin
 
 Semantic relationship and graph analysis operations for domain backends.
 
-Provides semantic relationship CRUD (create, delete, query by type, discover
+Provides semantic relationship reads (neighborhood, query by type, discover
 bridges, infer transitive) and graph analysis (hub scores, foundational
 knowledge, prerequisite chains, next steps, time-aware paths).
 
@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 
     from core.infrastructure.relationships.semantic_relationships import (
         SemanticRelationshipType,
-        SemanticTriple,
     )
     from core.models.type_hints import Neo4jProperties
 
@@ -59,19 +58,6 @@ class _SemanticMixin:
     # SEMANTIC RELATIONSHIP OPERATIONS
     # ========================================================================
 
-    async def create_semantic_relationship(
-        self, triple: SemanticTriple
-    ) -> Result[list[Neo4jProperties]]:
-        """Persist a single semantic triple as a MERGE'd relationship.
-
-        The triple (a domain object) is handed down from the service; the
-        Cypher is authored here, below the hexagonal boundary (ADR-044).
-        """
-        from adapters.persistence.neo4j.query import build_semantic_merge
-
-        query, params = build_semantic_merge(triple)
-        return await self.execute_query(query, params)
-
     async def query_semantic_neighborhood(
         self,
         uid: str,
@@ -89,39 +75,6 @@ class _SemanticMixin:
             min_confidence=min_confidence,
         )
         return await self.execute_query(query, params)
-
-    async def delete_semantic_relationship(
-        self,
-        rel_name: str,
-        subject_uid: str,
-        object_uid: str,
-        semantic_type: str | None = None,
-    ) -> Result[list[Neo4jProperties]]:
-        """Delete a semantic relationship between two entities.
-
-        ``rel_name`` is the coarse ``RelationshipName`` edge type; pass
-        ``semantic_type`` (the precise namespaced predicate) to delete only the
-        edge with that meaning. Without it a targeted delete would remove every
-        edge that shares the collapsed edge type between the two nodes (roadmap
-        Phase 1). See ``build_semantic_merge``.
-        """
-        _validate_rel_name(rel_name)
-        query = f"""
-        MATCH (s:Entity {{uid: $subject_uid}})
-              -[r:{rel_name}]->
-              (o:Entity {{uid: $object_uid}})
-        WHERE $semantic_type IS NULL OR r.semantic_type = $semantic_type
-        DELETE r
-        RETURN count(r) as deleted
-        """
-        return await self.execute_query(
-            query,
-            {
-                "subject_uid": subject_uid,
-                "object_uid": object_uid,
-                "semantic_type": semantic_type,
-            },
-        )
 
     async def query_relationships_by_type(
         self,

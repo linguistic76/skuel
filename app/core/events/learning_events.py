@@ -119,34 +119,12 @@ class KnowledgeCreated(BaseEvent):
 
 
 @dataclass(frozen=True)
-class LearningPathCreated(BaseEvent):
-    """
-    Published when a learning path is created (``LpCoreService``) — the path
-    exists; nobody is enrolled in it yet.
-
-    Subscribers:
-    - the metrics handler (entities_created for lp)
-    - UserService (invalidate context)
-    """
-
-    path_uid: str
-    user_uid: UserUID
-
-    # Path details
-    path_title: str
-    estimated_duration_hours: int | None = None
-    total_kus: int = 0
-
-    event_type: ClassVar[str] = "learning_path.created"
-
-
-@dataclass(frozen=True)
 class LearningPathStarted(BaseEvent):
     """
     Published when a user's enrollment in a learning path is created — once per
     (user, path) edge, by the enrollment door (``UserProgressRecorderService``),
-    for the call that created the edge. Creating a path is a different event
-    (``LearningPathCreated``): it enrolls no one.
+    for the call that created the edge. A path is written by the content-vault
+    sync, which enrolls no one.
 
     Subscribers:
     - LpProgressService (initialize the enrollment's progress from the Kus the

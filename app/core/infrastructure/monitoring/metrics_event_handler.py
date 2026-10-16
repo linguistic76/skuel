@@ -74,13 +74,12 @@ class MetricsEventHandler:
 
         self.event_bus.subscribe(TranscriptionCreated, self._on_transcription_created)
 
-        # Curriculum domains (3)
-        from core.events.curriculum_events import PathStepCreated
-        from core.events.learning_events import KnowledgeCreated, LearningPathCreated
+        # Curriculum: KnowledgeCreated is staged with no publisher yet (PLANNED_EVENTS in
+        # scripts/detect_bloat.py). PathSteps and learning paths are written by the
+        # content-vault sync, which publishes no creation event.
+        from core.events.learning_events import KnowledgeCreated
 
         self.event_bus.subscribe(KnowledgeCreated, self._on_knowledge_created)
-        self.event_bus.subscribe(PathStepCreated, self._on_ls_created)
-        self.event_bus.subscribe(LearningPathCreated, self._on_lp_created)
 
         # UserEntry domain (ADR-054 — replaces legacy SubmissionCreated)
         from core.events.user_entry_events import UserEntryCreated
@@ -137,16 +136,6 @@ class MetricsEventHandler:
         """Track KU creation."""
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="ku").inc()
-
-    def _on_ls_created(self, event) -> None:
-        """Track PS creation."""
-
-        self.prometheus_metrics.domains.entities_created.labels(entity_type="ps").inc()
-
-    def _on_lp_created(self, event) -> None:
-        """Track LP creation (an enrollment is LearningPathStarted, not a creation)."""
-
-        self.prometheus_metrics.domains.entities_created.labels(entity_type="lp").inc()
 
     def _on_user_entry_created(self, event) -> None:
         """Track UserEntry creation (any pipeline)."""

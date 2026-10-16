@@ -66,8 +66,8 @@ path — always pass explicit `methods=` when a path serves more than one verb
 ### HTTP Method Specificity
 
 ```python
-@rt("/api/path-steps/organize", methods=["POST"])
-async def organize_route(request: Request): ...
+@rt("/api/user/pins/reorder", methods=["POST"])
+async def reorder_pins(request: Request): ...
 
 @rt("/api/reports/{report_uid}/download", methods=["GET"])
 async def download_report_file(request: Request, report_uid: str): ...
@@ -78,8 +78,11 @@ async def delete_transcription(request: Request, uid: str): ...
 @rt("/api/goals/{uid}", methods=["PATCH"])              # inline title edit (HierarchyRouteFactory)
 async def update_node(request: Request, uid: str): ...
 
-@rt("/api/path-steps/tags", methods=["DELETE", "POST"])  # two verbs, one path
-async def tags_route(request: Request): ...
+@rt("/forgot-password", methods=["GET"])               # two verbs, one path:
+def forgot_password_page(_request: Request): ...      # one registration each
+
+@rt("/forgot-password", methods=["POST"])
+async def forgot_password_submit(request: Request): ...
 ```
 
 There is no `PUT` route in SKUEL; updates are `POST /api/{domain}/update` or the field door.

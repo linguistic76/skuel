@@ -31,23 +31,6 @@ class CategorizeEntityRequest(BaseModel):
     )
 
 
-class AddTagsRequest(BaseModel):
-    """Request to add tags to an entity."""
-
-    tags: list[str] = Field(
-        ...,
-        min_length=1,
-        description="List of tags to add",
-        examples=[["work", "priority", "review"]],
-    )
-
-
-class RemoveTagsRequest(BaseModel):
-    """Request to remove tags from an entity."""
-
-    tags: list[str] = Field(..., min_length=1, description="List of tags to remove")
-
-
 class BulkCategorizeRequest(BaseModel):
     """Request to categorize multiple entities."""
 

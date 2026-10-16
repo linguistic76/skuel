@@ -46,10 +46,6 @@ class FormTemplateBackendOperations(BackendOperations["FormTemplate"], Protocol)
     Consumer: FormTemplateService.__init__
     """
 
-    async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]: ...
-
-    async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]: ...
-
     async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]: ...
 
     async def count_submissions(
@@ -104,9 +100,9 @@ class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Proto
 
 
 class FormTemplateOperations(Protocol):
-    """Form template operations — CRUDOperations + PathStep embedding.
+    """Form template operations — CRUDOperations + the PathStep embedding read.
 
-    Route consumer: form_templates_api.py, CRUDRouteFactory
+    Route consumer: CRUDRouteFactory
     Implementation: FormTemplateService (extends BaseService)
     """
 
@@ -131,10 +127,6 @@ class FormTemplateOperations(Protocol):
     ) -> Result[tuple[builtins.list[FormTemplate], int]]: ...
 
     async def get_forms_for_path_step(self, ps_uid: str) -> Result[builtins.list[FormTemplate]]: ...
-
-    async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]: ...
-
-    async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]: ...
 
     async def count_submissions(
         self, template_uid: str, teacher_uid: UserUID | None

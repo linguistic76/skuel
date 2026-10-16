@@ -69,10 +69,3 @@ class FormTemplateUpdateRequest(BaseModel):
         if v is None:
             return None
         return validate_form_field_specs(v)
-
-
-class FormPathStepLinkRequest(BaseModel):
-    """Request to link/unlink a FormTemplate to/from a PathStep."""
-
-    form_template_uid: str = Field(..., description="FormTemplate UID")
-    ps_uid: str = Field(..., description="PathStep UID")

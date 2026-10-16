@@ -2,14 +2,14 @@
 Form Template Routes - Configuration-Driven Registration
 ==========================================================
 
-Wires FormTemplate API routes using DomainRouteConfig.
-Admin-only CRUD (via CRUDRouteFactory) + PathStep linking (manual).
+Wires FormTemplate API routes using DomainRouteConfig: admin-only CRUD via
+CRUDRouteFactory. A form is embedded in a PathStep by the content vault
+(an Edge YAML file with `relationship: EMBEDS_FORM`, ADR-091), never in the app.
 """
 
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
-from adapters.inbound.form_templates_api import create_form_templates_api_routes
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
     DomainRouteConfig,
@@ -28,11 +28,7 @@ if TYPE_CHECKING:
 FORM_TEMPLATES_CONFIG = DomainRouteConfig(
     domain_name="form-templates",
     primary_service_attr="form_templates",
-    api_factory=create_form_templates_api_routes,
     ui_factory=None,  # No dedicated UI routes — forms render inline in path steps
-    api_related_services={
-        "user_service": "user",
-    },
     crud=CRUDRouteConfig(
         create_schema=FormTemplateCreateRequest,
         update_schema=FormTemplateUpdateRequest,

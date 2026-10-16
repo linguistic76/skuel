@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-10-10
+updated: 2026-10-16
 status: current
 category: domains
 tags:
@@ -26,7 +26,7 @@ related_skills:
 
 **Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
 
-Learning Paths represent complete, sequential learning journeys. They organize Path Steps into a coherent curriculum with validation, adaptive sequencing, and progress tracking.
+Learning Paths represent complete, sequential learning journeys. They organize Path Steps into a coherent curriculum with validation, adaptive sequencing, and progress tracking. A path is authored only in the content vault (`connections.contains_steps` writes `HAS_STEP`, ADR-091); the app reads it.
 
 ## Service Architecture (ADR-030, ADR-031)
 
@@ -34,13 +34,13 @@ LpService coordinates 5 sub-services:
 
 | Sub-service | Class | Purpose |
 |-------------|-------|---------|
-| `.core` | LpCoreService | CRUD operations |
+| `.core` | LpCoreService | Path and step reads |
 | `.search` | LpSearchService | Discovery operations |
 | `.relationships` | UnifiedRelationshipService | Path-step associations |
 | `.intelligence` | LpIntelligenceService | ALL intelligence operations (created internally) |
 | `.progress` | LpProgressService | Event-driven tracking |
 
-**Initialization:** Manual (non-standard core signature requires `ps_service`)
+**Initialization:** Manual (the facade requires `ps_service`; the intelligence sub-service reads `ps_service.intelligence`)
 **Intelligence:** Created internally by LpService (January 2026 - unified pattern)
 **graph_intel:** REQUIRED — gates the inherited mechanism-B `get_with_context` (fail-fast validation)
 
@@ -50,7 +50,7 @@ from core.services.lp_service import LpService
 # In services_bootstrap/compose.py
 lp_service = LpService(
     backend=lp_backend,
-    ps_service=ps_service,           # REQUIRED - for step operations
+    ps_service=ps_service,           # REQUIRED - for step reads
     graph_intel=graph_intelligence,  # REQUIRED
     event_bus=event_bus,
     progress_backend=progress_backend,
@@ -58,7 +58,7 @@ lp_service = LpService(
 )
 
 # Access sub-services
-await lp_service.core.create_path(...)
+await lp_service.core.get_learning_path(path_uid)
 await lp_service.search.search(query)
 await lp_service.relationships.get_related_uids("steps", path_uid)
 await lp_service.intelligence.analyze_learning_state(user_context)
@@ -77,7 +77,7 @@ class LpCoreService(BaseService["LpOperations", Lp]):
     _user_ownership_relationship = None  # Shared curriculum content
     # Type-narrowed to LpOperations (July 2026) — retired the attr-defined
     # ignores that the generic BackendOperations[Lp] forced on every
-    # get_path_with_steps()/persist_path_with_steps()/… call
+    # get_path_with_steps()/list_all_paths_with_steps()/… call
     ...
 
 class LpSearchService(BaseService["LpOperations", Lp]):
@@ -89,21 +89,14 @@ class LpSearchService(BaseService["LpOperations", Lp]):
 
 ## Backend Methods (LpBackend)
 
-All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3 focused mixins — `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`). LpCoreService and LpSearchService call typed backend methods — no inline Cypher in services.
+All Cypher queries are encapsulated in `LpBackend` (decomposed into 3 focused mixins — `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`). LpCoreService and LpSearchService call typed backend methods — no inline Cypher in services.
 
 | Method | Purpose |
 |--------|---------|
 | `get_path_with_steps(uid)` | Single LP + HAS_STEP steps |
 | `list_user_paths_with_steps(user_uid, limit)` | User's LPs with steps |
 | `list_all_paths_with_steps(limit, offset)` | All LPs, fixed `ORDER BY p.uid ASC` — the catalogue publishes no sort key |
-| `update_path_properties(set_clauses, params)` | Dynamic SET update |
-| `delete_path_cascade(uid)` | Cascade delete LP + step nodes |
-| `persist_path_with_steps(user_uid, path_params, steps_params)` | Create LP node (`:Entity:LearningPath`) + User relationship + step nodes (`:Entity:PathStep`) + PS→KU `USES_KU` edges from each step's `knowledge_uids` |
-| `entity_exists(uid)` | An `:Entity` carries the uid — the universal CRUD primitive (`_CrudMixin`, every backend), the step check reads it here |
 | `get_steps_raw(path_uid, depth)` | Ordered steps as raw dicts |
-| `add_step_to_path(path_uid, step_uid, sequence, order)` | HAS_STEP creation (idempotent) |
-| `remove_step_from_path(path_uid, step_uid)` | HAS_STEP removal + reorder |
-| `reorder_steps(path_uid, step_uids)` | Batch step reordering |
 | `get_paths_containing_ku(ku_uid)` | LPs that include a KU |
 | `record_enrollment_progress(user_uid, lp_uid, now)` | Recounts the learner's mastered Kus in the path and records progress / completion on the `ENROLLED_IN` edge, one statement under its lock |
 | `get_paths_aligned_with_goal(goal_uid)` | LPs aligned with a goal |

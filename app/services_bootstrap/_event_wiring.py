@@ -60,13 +60,9 @@ def _wire_event_subscribers(
         KnowledgeCreated,
         KnowledgeMastered,
         LearningPathCompleted,
-        LearningPathCreated,
         LearningPathProgressUpdated,
         LearningPathStarted,
         PathStepCompleted,
-        PathStepCreated,
-        PathStepDeleted,
-        PathStepUpdated,
         PrincipleAlignmentAssessed,
         PrincipleCreated,
         PrincipleDeleted,
@@ -351,13 +347,9 @@ def _wire_event_subscribers(
     learning_context_events = [
         KnowledgeCreated,
         KnowledgeMastered,
-        LearningPathCreated,
         LearningPathStarted,
         LearningPathCompleted,
         LearningPathProgressUpdated,
-        PathStepCreated,
-        PathStepUpdated,
-        PathStepDeleted,
         PathStepCompleted,
     ]
     for event_type in learning_context_events:

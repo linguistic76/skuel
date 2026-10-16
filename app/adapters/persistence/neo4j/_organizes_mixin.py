@@ -2,10 +2,11 @@
 Organizes Mixin
 ===============
 
-ORGANIZES relationship management for domain backends.
+ORGANIZES relationship reads for domain backends.
 
-Provides hierarchy operations via ORGANIZES relationships: create, delete,
-reorder, traverse, cycle detection, and root discovery. Used by PsBackend
+Provides hierarchy reads over ORGANIZES relationships: traverse, cycle
+detection, and root discovery. The edges are written by the vault sync
+(``moc: true`` body links and the ``organizes:`` field, ADR-091). Used by PsBackend
 for content organization and by UserEntryBackend for MOC reads (a user
 entry with ORGANIZES edges is an emergent MOC — its children render on
 /gradebook/{uid}).
@@ -92,59 +93,6 @@ class _OrganizesMixin:
         if not record["entity_exists"]:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
         return Result.ok(record["is_organizer"])
-
-    async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two entities."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})
-        MATCH (child:Entity {uid: $child_uid})
-        MERGE (parent)-[r:ORGANIZES]->(child)
-        SET r.order = $order
-        RETURN true AS success
-        """
-        result = await self.execute_query(
-            query,
-            {"parent_uid": parent_uid, "child_uid": child_uid, "order": order},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        success = bool(result.value and result.value[0]["success"])
-        if success:
-            self.logger.info(f"Organized {child_uid} under {parent_uid} at position {order}")
-        return Result.ok(success)
-
-    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two entities."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
-        DELETE r
-        RETURN true AS success
-        """
-        result = await self.execute_query(
-            query,
-            {"parent_uid": parent_uid, "child_uid": child_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        success = bool(result.value and result.value[0]["success"])
-        if success:
-            self.logger.info(f"Removed organization of {child_uid} from {parent_uid}")
-        return Result.ok(success)
-
-    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child entity within its parent organizer."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
-        SET r.order = $new_order
-        RETURN true AS success
-        """
-        result = await self.execute_query(
-            query,
-            {"parent_uid": parent_uid, "child_uid": child_uid, "new_order": new_order},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(bool(result.value and result.value[0]["success"]))
 
     async def get_organized_children(
         self,

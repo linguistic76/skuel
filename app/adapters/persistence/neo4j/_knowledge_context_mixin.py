@@ -4,9 +4,9 @@ Knowledge Context Mixin
 
 Context, discovery, and readiness operations for domain backends.
 
-Provides USES_KU linking, application discovery (connected activities, PS/LP
-containing KU), and learning readiness (ready to learn, gaps, reinforcement, recommendations,
-prerequisite linking).
+Provides USES_KU reads, application discovery (connected activities, PS/LP
+containing KU), and learning readiness (ready to learn, gaps, reinforcement,
+recommendations).
 
 Requires on concrete class:
     execute_query, logger  (provided by UniversalNeo4jBackend)
@@ -39,7 +39,7 @@ from core.ports.query_types import (
     ReinforcementCandidateResult,
     UsedKuRow,
 )
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     import builtins
@@ -205,25 +205,8 @@ class _KnowledgeContextMixin:
         ) -> Result[builtins.list[dict[str, Any]]]: ...
 
     # ========================================================================
-    # PATHSTEP-KU LINKING
+    # PATHSTEP-KU COMPOSITION (read)
     # ========================================================================
-
-    async def link_to_ku(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """Create USES_KU relationship from PathStep to atomic Ku."""
-        query = """
-        MATCH (ps:Entity {uid: $ps_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (ps)-[r:USES_KU]->(ku)
-        RETURN true AS success
-        """
-        result = await self.execute_query(query, {"ps_uid": ps_uid, "ku_uid": ku_uid})
-        if result.is_error:
-            return Result.fail(result)
-        if not result.value:
-            return Result.fail(
-                Errors.not_found(resource="PathStep or Ku", identifier=f"{ps_uid} / {ku_uid}")
-            )
-        return Result.ok(True)
 
     async def get_used_kus(self, ps_uid: str) -> Result[list[UsedKuRow] | None]:
         """Get the atomic Kus a PathStep composes via USES_KU, title-ordered.
@@ -515,35 +498,6 @@ class _KnowledgeContextMixin:
         if result.is_error:
             return Result.fail(result)
         return Result.ok(_to_reinforcement_candidate_rows(result.value))
-
-    async def link_prerequisite(
-        self, unit_uid: str, prereq_uid: str, is_mandatory: bool
-    ) -> Result[list[Neo4jProperties]]:
-        """Create REQUIRES_KNOWLEDGE relationship between two entities."""
-        query = """
-        MATCH (unit:Entity {uid: $unit_uid})
-        MATCH (prereq:Entity {uid: $prereq_uid})
-        MERGE (unit)-[r:REQUIRES_KNOWLEDGE]->(prereq)
-        SET r.is_mandatory = $is_mandatory
-        SET r.created_at = datetime()
-        RETURN r
-        """
-        return await self.execute_query(
-            query, {"unit_uid": unit_uid, "prereq_uid": prereq_uid, "is_mandatory": is_mandatory}
-        )
-
-    async def link_parent_child(
-        self, parent_uid: str, child_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create HAS_NARROWER hierarchy relationship."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})
-        MATCH (child:Entity {uid: $child_uid})
-        MERGE (parent)-[r:HAS_NARROWER]->(child)
-        SET r.created_at = datetime()
-        RETURN r
-        """
-        return await self.execute_query(query, {"parent_uid": parent_uid, "child_uid": child_uid})
 
     async def query_user_mastery_for_prereqs(
         self, user_uid: UserUID, prereq_uids: list[str]
