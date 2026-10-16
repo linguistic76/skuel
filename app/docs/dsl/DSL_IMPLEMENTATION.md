@@ -512,7 +512,7 @@ Conversion is per-domain standalone functions, not a dispatch class. Each
 `Result[ConversionResult]` (`TaskCreateRequest | dict`):
 
 - `activity_domain_converters.py` — Task, Habit, Goal, Event, Principle, Choice
-- `specialized_domain_converters.py` — Finance, KU, PS, LP, Report, Calendar, LifePath
+- `specialized_domain_converters.py` — Finance, Calendar, LifePath
 
 Graph connections ride the create request: link UIDs from `@ku()` / `@link()`
 are emitted as request fields (`applies_knowledge_uids`, `contributes_to_goal_uids`,
@@ -715,5 +715,5 @@ def parse_line_with_validation(self, line: str) -> Result[ParsedActivityLine]:
 - **Formal Grammar:** `DSL_SPECIFICATION.md`
 - **Usage Examples:** `DSL_USAGE_GUIDE.md`
 - **Parser Implementation:** `/core/services/dsl/activity_dsl_parser.py`
-- **Entity Converters:** `/core/services/dsl/activity_domain_converters.py` (activity domains), `/core/services/dsl/specialized_domain_converters.py` (curriculum/meta/finance/lifepath), `/core/services/dsl/dsl_mappings.py` (shared mappings)
+- **Entity Converters:** `/core/services/dsl/activity_domain_converters.py` (activity domains), `/core/services/dsl/specialized_domain_converters.py` (finance, calendar, lifepath), `/core/services/dsl/dsl_mappings.py` (shared mappings)
 - **EntityType Enum:** `/core/models/enums/entity_enums.py`

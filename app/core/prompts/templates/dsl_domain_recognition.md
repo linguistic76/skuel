@@ -26,9 +26,6 @@ Each activity line should include:
 - @repeat(daily | weekly:Mon,Wed | monthly:1,15 | every:3d) - Optional: For habits
 - @duration(90m | 1h | 1h30m) - Optional: Time estimate with units
 - @energy(focus|light|social|physical|creative|rest|spiritual|emotion) - Optional: Energy states, comma-separated
-- @amount(number) - Optional: For finance items
-- @goal(goal_description) - Optional: Link to a goal
-- @principle(principle_name) - Optional: Link to a principle
 
 ## EXAMPLES
 
@@ -42,13 +39,13 @@ Input: "Thinking about whether to take that new job offer. Spent $150 on groceri
 
 Output:
 - @context(choice) Decide on job offer @priority(2)
-- @context(finance) Groceries @amount(150) @when(today)
+- @context(finance) Groceries $150 @when(today)
 
 Input: "I want to learn Python for data science. Need to master pandas first."
 
 Output:
 - @context(goal) Learn Python for data science @priority(2)
-- @context(task) Work through the pandas fundamentals @goal(Learn Python for data science)
+- @context(task) Work through the pandas fundamentals
 
 Input: "Meeting with Sarah at 3pm tomorrow. Life goal: become a respected teacher who inspires others."
 

@@ -13,7 +13,7 @@ each into the checkbox form documented in
 ``/docs/user-guides/context-dsl-cheatsheet.md`` (``- [ ] <desc> @context(<type>) …``).
 
 **Metadata is preserved, not normalised.** The bridge prompt produces loosely
-shaped tags (``@when(Friday)``, ``@priority(high)``, ``@amount(150)``) that the
+shaped tags (``@when(Friday)``, ``@priority(high)``, ``@duration(10)``) that the
 strict parser cannot turn into ISO dates / numeric priorities. Rather than drop
 them, the bridge's tags are carried through verbatim — the user refines them
 when curating. Only the shape (checkbox, description-first, context-first) is
@@ -50,8 +50,8 @@ def render_suggestion_line(activity: ParsedActivityLine) -> str:
     """Render a parsed activity into checkbox DSL, preserving the bridge's tags.
 
     Produces ``- [ ] <description> @context(<type>) <remaining tags verbatim>``.
-    Tags the bridge inferred are kept as-is (deadlines, priorities, durations,
-    amounts) so nothing is silently lost; only the checkbox + description-first
+    Tags the bridge inferred are kept as-is (deadlines, priorities, durations)
+    so nothing is silently lost; only the checkbox + description-first
     + context-first *shape* is normalised, and the ``@context`` value is
     canonicalised to its EntityType/NonKuDomain form.
     """

@@ -190,6 +190,61 @@ async def test_bridge_prompt_offers_no_curriculum_context(compact: bool):
     assert _curriculum_names(prompt + "\nDOMAINS: task, ku\n") == {"ku"}
 
 
+# The tags ActivityDSLParser reads: the ``tags.get(...)`` / ``tags[...]`` calls in
+# its line parser (``core/services/dsl/activity_dsl_parser.py``). A tag outside
+# this set is dropped silently, so a prompt that offers one teaches the model a
+# tag that does nothing.
+_PARSER_READ_TAGS = frozenset(
+    {"context", "when", "priority", "duration", "energy", "repeat", "ku", "link"}
+)
+
+# The compact prompt's SYNTAX line writes ``@attr(value)`` as a placeholder for
+# any of the ATTRS, not as a tag of its own.
+_SYNTAX_PLACEHOLDER = "attr"
+
+
+def _tags_offered(prompt: str) -> set[str]:
+    """Every ``@name`` a prompt mentions, lowercased as the parser reads tag names."""
+    names = {name.lower() for name in re.findall(r"@(\w+)", prompt)}
+    return names - {_SYNTAX_PLACEHOLDER}
+
+
+async def _rendered_prompt(compact: bool) -> str:
+    port = _port("")
+    bridge = LLMDSLBridgeService(chat_port=port, use_compact_prompt=compact)
+    await bridge.transform("I want to learn Python for data science.")
+    return port.complete.call_args.args[0][0]["content"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("compact", [False, True])
+async def test_bridge_prompt_offers_only_tags_the_parser_reads(compact: bool):
+    prompt = await _rendered_prompt(compact)
+
+    assert _tags_offered(prompt) - _PARSER_READ_TAGS == set()
+    # Control: the same reader catches a tag the parser does not read.
+    assert _tags_offered(prompt + "\nATTRS: @priority, @amount\n") - _PARSER_READ_TAGS == {"amount"}
+
+
+@pytest.mark.asyncio
+async def test_bridge_prompt_finance_example_amount_is_readable():
+    # A finance amount is read from the description, so the example writes it there.
+    prompt = await _rendered_prompt(compact=False)
+    examples = prompt.split("## EXAMPLES", 1)[1].split("## INSTRUCTIONS", 1)[0]
+    finance_lines = [
+        line for line in examples.splitlines() if line.startswith("- @context(finance)")
+    ]
+    assert len(finance_lines) == 1
+
+    parsed = parse_activity_line(finance_lines[0])
+    assert parsed.is_ok
+    assert parsed.value.get_amount() == 150.0
+    # Control: an amount written as a tag is stripped with the tag, so nothing reads it.
+    tagged = parse_activity_line("- @context(finance) Groceries @amount(150) @when(today)")
+    assert tagged.is_ok
+    assert tagged.value.get_amount() is None
+
+
 @pytest.mark.asyncio
 async def test_bridge_drops_a_curriculum_line_the_model_emits():
     # A model may still write a curriculum line; the bridge suggests none, in any
