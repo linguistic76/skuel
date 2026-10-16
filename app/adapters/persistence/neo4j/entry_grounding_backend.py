@@ -171,25 +171,28 @@ class EntryGroundingBackend:
     async def remove_grounded_edge(
         self, entry_uid: str, ku_uid: str, user_uid: UserUID
     ) -> Result[GroundingRemovalRow | None]:
-        """Ownership-scoped edge delete + rejection record.
+        """Ownership-scoped delete of an inferred edge + rejection record.
 
         The ``(User)-[:OWNS]->`` anchor makes the delete ownership-verified in
-        one query — no match (not owned, or edge absent) returns None so the
-        route can 404 (never 403). The removed ku_uid is appended to
+        one query. Only an edge the grounding pass inferred (``inferred``) is
+        removed here: a link the owner named with ``@ku`` is unnamed in the
+        text, and removing it here would only see it re-made on the next
+        extraction. No match (not owned, edge absent, or named) returns None so
+        the route answers 404 alike (never 403). The removed ku_uid is appended to
         ``grounding_rejected_ku_uids`` so a future grounding pass (including
         ``--force``) never re-infers the pair or double-counts its substance
-        event; the returned confidence/inferred pair is calibration data.
+        event; the returned confidence is calibration data.
         """
         result = await self._executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:UserEntry {uid: $entry_uid})
                   -[r:APPLIES_KNOWLEDGE]->(k {uid: $ku_uid})
-            WHERE NOT e:Content AND NOT k:Content
-            WITH e, k, r.confidence AS confidence, coalesce(r.inferred, false) AS inferred, r
+            WHERE NOT e:Content AND NOT k:Content AND coalesce(r.inferred, false)
+            WITH e, k, r.confidence AS confidence, r
             DELETE r
             SET e.grounding_rejected_ku_uids =
                 [x IN coalesce(e.grounding_rejected_ku_uids, []) WHERE x <> $ku_uid] + $ku_uid
-            RETURN k.uid AS ku_uid, confidence, inferred
+            RETURN k.uid AS ku_uid, confidence
             """,
             {"user_uid": user_uid, "entry_uid": entry_uid, "ku_uid": ku_uid},
         )
@@ -204,6 +207,5 @@ class EntryGroundingBackend:
             GroundingRemovalRow(
                 ku_uid=str(row.get("ku_uid") or ku_uid),
                 confidence=float(raw_confidence) if raw_confidence is not None else None,
-                inferred=bool(row.get("inferred")),
             )
         )

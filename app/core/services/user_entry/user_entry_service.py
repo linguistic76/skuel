@@ -92,6 +92,7 @@ if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import (
         ExtractionTwinRow,
+        KnowledgeChip,
         KnowledgeEntryGroundingRow,
         OrganizerResult,
         VaultIdTaskRow,
@@ -663,6 +664,20 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])
+
+    @with_error_handling("list_entry_knowledge_chips")
+    async def list_entry_knowledge_chips(
+        self, entry_uid: str, user_uid: UserUID
+    ) -> Result[list[KnowledgeChip]]:
+        """The knowledge an entry the user owns is linked to, as chips.
+
+        Both writers' links: the ones the owner named with ``@ku`` and the ones
+        the grounding pass inferred (only those carry ``inferred`` and can be
+        removed by the owner). A graph read, so it needs no grounding service.
+
+        Backend: _UserEntryContentMixin.get_entry_knowledge_chips.
+        """
+        return await self.backend.get_entry_knowledge_chips(entry_uid, user_uid)
 
     @with_error_handling("get_latest_copy_of_note")
     async def get_latest_copy_of_note(

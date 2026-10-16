@@ -65,6 +65,7 @@ from adapters.persistence.neo4j.backends.curriculum_backends import (
     PsBackend,
 )
 from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
+from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from adapters.persistence.neo4j.connection_fetch_backend import ConnectionFetchBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -134,6 +135,10 @@ KU_FAR_DRAFT = "ku.gate-far-draft"
 # withhold the draft and keep the published one.
 EXERCISE_SHARED = "ex.gate-shared"
 EXERCISE_DRAFT = "ex.gate-draft"
+
+# A note of the user's linked to the shared KU, the draft KU and the draft step:
+# its knowledge chips must show the shared KU alone.
+ENTRY = "ue.gate-entry"
 
 DRAFT_UIDS = frozenset(
     {
@@ -253,6 +258,14 @@ CREATE (s_pub)-[:HAS_EXERCISE]->(ex_shared)
 CREATE (s_pub)-[:HAS_EXERCISE]->(ex_draft)
 CREATE (ex_shared)-[:REQUIRES_KNOWLEDGE]->(ku_shared)
 CREATE (ex_draft)-[:REQUIRES_KNOWLEDGE]->(ku_shared)
+
+CREATE (entry:Entity:UserEntry {uid: $entry, entity_type: 'user_entry',
+                                pipeline: 'extract_activities', title: 'Gate probe note',
+                                user_uid: $user, created_at: '2026-01-05'})
+CREATE (u)-[:OWNS]->(entry)
+CREATE (entry)-[:APPLIES_KNOWLEDGE]->(ku_shared)
+CREATE (entry)-[:APPLIES_KNOWLEDGE {inferred: true, confidence: 0.8}]->(ku_d)
+CREATE (entry)-[:APPLIES_KNOWLEDGE]->(s_draft)
 """
 
 SEED_PARAMS = {
@@ -272,6 +285,7 @@ SEED_PARAMS = {
     "ku_far_draft": KU_FAR_DRAFT,
     "exercise_shared": EXERCISE_SHARED,
     "exercise_draft": EXERCISE_DRAFT,
+    "entry": ENTRY,
 }
 
 # A limit far above the fixture corpus: a small LIMIT masks the delta, because
@@ -317,6 +331,7 @@ GATE_CONSUMERS = (
     "adapters.persistence.neo4j._lp_step_mixin",
     "adapters.persistence.neo4j._organizes_mixin",
     "adapters.persistence.neo4j._semantic_mixin",
+    "adapters.persistence.neo4j._user_entry_content_mixin",
     "adapters.persistence.neo4j.connection_fetch_backend",
     "adapters.persistence.neo4j.cross_domain_backend",
     "adapters.persistence.neo4j.vector_search_backend",
@@ -383,6 +398,7 @@ async def gate_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDriver]:
         await session.run(
             "MATCH (n) WHERE n.uid STARTS WITH 'lp.gate-' OR n.uid STARTS WITH 'ps.gate-' "
             "OR n.uid STARTS WITH 'ku.gate-' OR n.uid STARTS WITH 'ex.gate-' "
+            "OR n.uid STARTS WITH 'ue.gate-' "
             "OR n.uid IN [$user, $goal] DETACH DELETE n",
             {"user": USER, "goal": GOAL},
         )
@@ -395,6 +411,7 @@ async def gate_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDriver]:
         await session.run(
             "MATCH (n) WHERE n.uid STARTS WITH 'lp.gate-' OR n.uid STARTS WITH 'ps.gate-' "
             "OR n.uid STARTS WITH 'ku.gate-' OR n.uid STARTS WITH 'ex.gate-' "
+            "OR n.uid STARTS WITH 'ue.gate-' "
             "OR n.uid IN [$user, $goal] DETACH DELETE n",
             {"user": USER, "goal": GOAL},
         )
@@ -485,6 +502,7 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
     vs = VectorSearchBackend(Neo4jQueryExecutor(driver))
     cf = ConnectionFetchBackend(Neo4jQueryExecutor(driver))
     lateral = LateralRelationshipBackend(Neo4jQueryExecutor(driver))
+    entries = UserEntryBackend(driver)
     hub_params = {"min_confidence": 0.0, "min_connections": 0, "limit": LIMIT}
 
     async def source_step() -> Result[Payload]:
@@ -497,6 +515,12 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
             "adapters.persistence.neo4j.connection_fetch_backend",
             "ConnectionFetchBackend.fetch_source_pathstep",
         ): source_step,
+        # The clause both knowledge-chip readers compose; measured through the
+        # one-entry read.
+        (
+            "adapters.persistence.neo4j._user_entry_content_mixin",
+            "_knowledge_chips_clause",
+        ): partial(entries.get_entry_knowledge_chips, ENTRY, USER),
         # The shared KU's RELATED_TO neighbours include the draft KU: the far-node
         # rule withholds it from the caller, who owns neither.
         (
@@ -818,6 +842,7 @@ _COVERED_KEYS = (
         "adapters.persistence.neo4j.connection_fetch_backend",
         "ConnectionFetchBackend.fetch_source_pathstep",
     ),
+    ("adapters.persistence.neo4j._user_entry_content_mixin", "_knowledge_chips_clause"),
     (
         "adapters.persistence.neo4j.backends.collab_backends",
         "LateralRelationshipBackend.get_relationships",

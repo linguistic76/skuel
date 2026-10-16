@@ -463,11 +463,12 @@ class EntryGroundingService:
     # ------------------------------------------------------------------
 
     async def remove(self, entry_uid: str, ku_uid: str, user_uid: UserUID) -> Result[bool]:
-        """Remove one ``APPLIES_KNOWLEDGE`` edge from an entry the user OWNS.
+        """Remove one inferred ``APPLIES_KNOWLEDGE`` edge from an entry the user OWNS.
 
         Backend: EntryGroundingBackend.remove_grounded_edge — the ownership
-        anchor lives in the delete query itself, so a non-owned entry (or an
-        absent edge) returns False and the route 404s. The removal is recorded
+        anchor lives in the delete query itself, so a non-owned entry, an
+        absent edge, or a link the owner named (unnamed in the text, not here)
+        returns False and the route 404s. The removal is recorded
         on the entry so no future pass re-infers the pair, and the removed
         edge's confidence is logged as threshold-calibration data.
         """
@@ -479,7 +480,7 @@ class EntryGroundingService:
             return Result.ok(False)
         self.logger.info(
             f"Grounding removal (calibration): {entry_uid} -/-> {removal['ku_uid']} "
-            f"(inferred={removal['inferred']}, confidence={removal['confidence']}, "
+            f"(confidence={removal['confidence']}, "
             f"threshold={self.config.threshold})"
         )
         return Result.ok(True)

@@ -57,6 +57,7 @@ from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 # SharedWithMeItem — typing.get_type_hints() and PEP 649 lazy evaluation —
 # resolves the annotation instead of raising NameError.
 from core.models.entity_dto import EntityDTO
+from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
@@ -853,7 +854,7 @@ class GroundingEntryRow(TypedDict):
 
 
 class GroundingRemovalRow(TypedDict):
-    """Provenance of one removed ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge.
+    """Provenance of one removed inferred ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge.
 
     Returned by ``EntryGroundingBackend.remove_grounded_edge`` so removals can
     be logged as threshold-calibration data (Mike's ruling 2026-07-11: the
@@ -862,7 +863,6 @@ class GroundingRemovalRow(TypedDict):
 
     ku_uid: str
     confidence: float | None
-    inferred: bool
 
 
 class AppliedKnowledgeWriteRow(TypedDict):
@@ -879,15 +879,17 @@ class AppliedKnowledgeWriteRow(TypedDict):
     was_removed: bool
 
 
-class GroundedKuChip(TypedDict):
-    """One ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` chip on a knowledge entry.
+class KnowledgeChip(TypedDict):
+    """One ``(entry)-[:APPLIES_KNOWLEDGE]->(knowledge)`` link, shown as a chip.
 
-    ``confidence``/``inferred`` are absent (None) on explicit
-    EXTRACT_ACTIVITIES edges; vector-grounded edges carry both.
+    The far end is a published Ku or PathStep (``entity_type`` says which).
+    ``inferred``/``confidence`` are set on a link the grounding pass inferred;
+    a link the owner named with ``@ku`` carries neither (None).
     """
 
-    ku_uid: str
-    ku_title: str | None
+    uid: str
+    title: str | None
+    entity_type: EntityType
     confidence: float | None
     inferred: bool | None
 
@@ -903,7 +905,37 @@ class KnowledgeEntryGroundingRow(TypedDict):
     uid: str
     title: str | None
     created_at: str | None
-    grounded_kus: list[GroundedKuChip]
+    chips: list[KnowledgeChip]
+
+
+def to_knowledge_chips(
+    raw_chips: object,
+) -> list[KnowledgeChip]:
+    """Narrow a collected chip list (``uid``/``title``/``entity_type``/``confidence``/
+    ``inferred`` maps) to typed chips; a chip without a uid or a known type is dropped."""
+    chips: list[KnowledgeChip] = []
+    if not isinstance(raw_chips, list):
+        return chips
+    for chip in raw_chips:
+        if not isinstance(chip, dict):
+            continue
+        uid = chip.get("uid")
+        entity_type = EntityType.from_string(str(chip.get("entity_type") or ""))
+        if not isinstance(uid, str) or not uid or entity_type is None:
+            continue
+        title = chip.get("title")
+        confidence = chip.get("confidence")
+        inferred = chip.get("inferred")
+        chips.append(
+            KnowledgeChip(
+                uid=uid,
+                title=str(title) if title is not None else None,
+                entity_type=entity_type,
+                confidence=float(confidence) if isinstance(confidence, (int, float)) else None,
+                inferred=bool(inferred) if inferred is not None else None,
+            )
+        )
+    return chips
 
 
 def to_knowledge_entry_grounding_rows(
@@ -917,27 +949,6 @@ def to_knowledge_entry_grounding_rows(
         uid = record.get("uid")
         if not isinstance(uid, str) or not uid:
             continue
-        raw_chips = record.get("grounded_kus")
-        chips: list[GroundedKuChip] = []
-        if isinstance(raw_chips, list):
-            for chip in raw_chips:
-                ku_uid = chip.get("ku_uid") if isinstance(chip, dict) else None
-                if not isinstance(ku_uid, str) or not ku_uid:
-                    continue
-                confidence = chip.get("confidence")
-                inferred = chip.get("inferred")
-                chips.append(
-                    GroundedKuChip(
-                        ku_uid=ku_uid,
-                        ku_title=str(chip["ku_title"])
-                        if chip.get("ku_title") is not None
-                        else None,
-                        confidence=float(confidence)
-                        if isinstance(confidence, (int, float))
-                        else None,
-                        inferred=bool(inferred) if inferred is not None else None,
-                    )
-                )
         title = record.get("title")
         created_at = record.get("created_at")
         rows.append(
@@ -945,7 +956,7 @@ def to_knowledge_entry_grounding_rows(
                 uid=uid,
                 title=str(title) if title is not None else None,
                 created_at=str(created_at) if created_at is not None else None,
-                grounded_kus=chips,
+                chips=to_knowledge_chips(record.get("chips")),
             )
         )
     return rows

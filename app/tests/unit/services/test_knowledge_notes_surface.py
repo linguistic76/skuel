@@ -1,9 +1,10 @@
-"""Knowledge-notes surface (Entry-Enrichment PR 4).
+"""Knowledge chips — ``/submissions/knowledge`` and ``/journals/{uid}``.
 
 Covers the read path behind ``/submissions/knowledge`` (service delegation
-to the backend grounding-list query) and the chip renderer contract: the
-per-chip remove button must call PR 3's remove route with both uids, inferred chips
-show confidence, explicit chips (no ``confidence`` property) don't.
+to the backend grounding-list query), the narrowing of collected chips, and
+the chip renderer contract: an inferred chip shows its confidence and a remove
+button that calls the remove route with both uids; a chip the owner named
+shows neither; a PathStep chip opens its own reading page.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -11,42 +12,46 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fasthtml.common import to_xml
 
+from core.models.enums.entity_enums import EntityType
 from core.ports.query_types import (
-    GroundedKuChip,
+    KnowledgeChip,
     KnowledgeEntryGroundingRow,
     to_knowledge_entry_grounding_rows,
 )
 from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils.result_simplified import Errors, Result
-from ui.user_entry.knowledge_notes import render_knowledge_notes_list
+from ui.user_entry.knowledge_notes import EntryKnowledgeChips, render_knowledge_notes_list
 
 
 def _make_service(backend: MagicMock) -> UserEntryService:
     return UserEntryService(backend=backend)
 
 
-_EXPLICIT_CHIP = GroundedKuChip(
-    ku_uid="ku.mind.explicit",
-    ku_title="Explicit Ref",
+_EXPLICIT_CHIP = KnowledgeChip(
+    uid="ku.mind.explicit",
+    title="Explicit Ref",
+    entity_type=EntityType.KU,
+    confidence=None,
+    inferred=None,
+)
+_INFERRED_CHIP = KnowledgeChip(
+    uid="ku.mind.sel", title="Sel", entity_type=EntityType.KU, confidence=0.81, inferred=True
+)
+_PATH_STEP_CHIP = KnowledgeChip(
+    uid="ps.mind.step",
+    title="Step",
+    entity_type=EntityType.PATH_STEP,
     confidence=None,
     inferred=None,
 )
 
 
-def _row(grounded_kus: list[GroundedKuChip] | None = None) -> KnowledgeEntryGroundingRow:
-    chips = (
-        grounded_kus
-        if grounded_kus is not None
-        else [
-            GroundedKuChip(ku_uid="ku.mind.sel", ku_title="Sel", confidence=0.81, inferred=True),
-            _EXPLICIT_CHIP,
-        ]
-    )
+def _row(chips: list[KnowledgeChip] | None = None) -> KnowledgeEntryGroundingRow:
     return KnowledgeEntryGroundingRow(
         uid="ue_note_1",
         title="Mindfulness note",
         created_at="2026-07-10T09:00:00",
-        grounded_kus=chips,
+        chips=chips if chips is not None else [_INFERRED_CHIP, _EXPLICIT_CHIP],
     )
 
 
@@ -99,11 +104,25 @@ class TestToKnowledgeEntryGroundingRows:
                     "uid": "ue_1",
                     "title": "Note",
                     "created_at": "2026-07-10T09:00:00",
-                    "grounded_kus": [
-                        {"ku_uid": "ku.a", "ku_title": "A", "confidence": 0.9, "inferred": True},
+                    "chips": [
                         {
-                            "ku_uid": None,
-                            "ku_title": "dropped",
+                            "uid": "ku.a",
+                            "title": "A",
+                            "entity_type": "ku",
+                            "confidence": 0.9,
+                            "inferred": True,
+                        },
+                        {
+                            "uid": None,
+                            "title": "uid-less chip dropped",
+                            "entity_type": "ku",
+                            "confidence": None,
+                            "inferred": None,
+                        },
+                        {
+                            "uid": "x.a",
+                            "title": "unknown kind dropped",
+                            "entity_type": "not_a_type",
                             "confidence": None,
                             "inferred": None,
                         },
@@ -114,8 +133,9 @@ class TestToKnowledgeEntryGroundingRows:
         )
         assert len(rows) == 1
         assert rows[0]["uid"] == "ue_1"
-        assert len(rows[0]["grounded_kus"]) == 1
-        chip = rows[0]["grounded_kus"][0]
+        assert len(rows[0]["chips"]) == 1
+        chip = rows[0]["chips"][0]
+        assert chip["entity_type"] is EntityType.KU
         assert chip["confidence"] == 0.9
         assert chip["inferred"] is True
 
@@ -126,13 +146,20 @@ class TestToKnowledgeEntryGroundingRows:
                     "uid": "ue_1",
                     "title": None,
                     "created_at": None,
-                    "grounded_kus": [
-                        {"ku_uid": "ku.a", "ku_title": None, "confidence": None, "inferred": None}
+                    "chips": [
+                        {
+                            "uid": "ps.a",
+                            "title": None,
+                            "entity_type": "path_step",
+                            "confidence": None,
+                            "inferred": None,
+                        }
                     ],
                 }
             ]
         )
-        chip = rows[0]["grounded_kus"][0]
+        chip = rows[0]["chips"][0]
+        assert chip["entity_type"] is EntityType.PATH_STEP
         assert chip["confidence"] is None
         assert chip["inferred"] is None
         assert rows[0]["title"] is None
@@ -152,7 +179,7 @@ class TestKnowledgeNotesRenderer:
         assert "81%" in html
 
     def test_explicit_chip_shows_no_percent(self):
-        row = _row(grounded_kus=[_EXPLICIT_CHIP])
+        row = _row(chips=[_EXPLICIT_CHIP])
         html = to_xml(render_knowledge_notes_list([row]))
         assert "%" not in html.split("Explicit Ref")[1].split("</span>")[0]
         assert "Explicit Ref" in html
@@ -162,9 +189,37 @@ class TestKnowledgeNotesRenderer:
         assert 'href="/explore/ku/ku.mind.sel"' in html
 
     def test_entry_without_chips_shows_muted_note(self):
-        html = to_xml(render_knowledge_notes_list([_row(grounded_kus=[])]))
+        html = to_xml(render_knowledge_notes_list([_row(chips=[])]))
         assert "No grounded concepts yet." in html
 
     def test_empty_rows_render_empty_state(self):
         html = to_xml(render_knowledge_notes_list([]))
         assert "No knowledge notes yet" in html
+
+    def test_only_an_inferred_chip_can_be_removed(self):
+        html = to_xml(render_knowledge_notes_list([_row([_EXPLICIT_CHIP, _PATH_STEP_CHIP])]))
+
+        assert "grounding/remove" not in html
+        # Control: the inferred chip carries the remove button.
+        assert "grounding/remove" in to_xml(render_knowledge_notes_list([_row([_INFERRED_CHIP])]))
+
+    def test_a_path_step_chip_opens_its_reading_page(self):
+        html = to_xml(render_knowledge_notes_list([_row([_PATH_STEP_CHIP])]))
+        assert 'href="/explore/ps/ps.mind.step"' in html
+
+
+class TestEntryKnowledgeChips:
+    """The section under a periodic note's editor."""
+
+    def test_renders_each_chip(self):
+        html = to_xml(EntryKnowledgeChips("ue_note_1", [_INFERRED_CHIP, _PATH_STEP_CHIP]))
+        assert "Knowledge in this note" in html
+        assert "/api/user-entries/grounding/remove?uid=ue_note_1&amp;ku_uid=ku.mind.sel" in html
+        assert 'href="/explore/ps/ps.mind.step"' in html
+
+    def test_no_links_renders_nothing(self):
+        assert EntryKnowledgeChips("ue_note_1", []) is None
+
+    def test_a_failed_read_says_so(self):
+        html = to_xml(EntryKnowledgeChips("ue_note_1", None))
+        assert "Could not load this note's knowledge links." in html

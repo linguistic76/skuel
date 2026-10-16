@@ -18,18 +18,51 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_publication_clause
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
-from core.ports.query_types import KnowledgeEntryGroundingRow, to_knowledge_entry_grounding_rows
+from core.ports.query_types import (
+    KnowledgeChip,
+    KnowledgeEntryGroundingRow,
+    to_knowledge_chips,
+    to_knowledge_entry_grounding_rows,
+)
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
-    from core.models.enums.neo_labels import NeoLabel
-
 _USER_ENTRY = EntityType.USER_ENTRY.value
+
+
+def _knowledge_chips_clause() -> tuple[str, dict[str, str]]:
+    """The tail that collects entry ``e``'s knowledge links as ``chips``.
+
+    One chip per ``APPLIES_KNOWLEDGE`` edge to a published Ku or PathStep (a
+    draft is unfinished curriculum no learner is shown), ordered by edge
+    confidence; a link the owner named has no ``confidence`` and sorts first
+    (coalesced to 1.0). Leaves ``e`` and ``chips`` in scope. Shared by every
+    reader that shows an entry's knowledge links, so they show the same set.
+    """
+    published, params = build_publication_clause("k")
+    return (
+        f"""
+        OPTIONAL MATCH (e)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity)
+        WHERE (k:{NeoLabel.KU.value} OR k:{NeoLabel.PATH_STEP.value}) AND {published}
+        WITH e, r, k
+        ORDER BY coalesce(r.confidence, 1.0) DESC, k.title
+        WITH e, [c IN collect({{
+            uid: k.uid,
+            title: k.title,
+            entity_type: k.entity_type,
+            confidence: r.confidence,
+            inferred: r.inferred
+        }}) WHERE c.uid IS NOT NULL] AS chips
+        """,
+        params,
+    )
 
 
 class _UserEntryContentMixin:
@@ -178,39 +211,55 @@ class _UserEntryContentMixin:
         user_uid: UserUID,
         limit: int,
     ) -> Result[list[KnowledgeEntryGroundingRow]]:
-        """Knowledge-pipeline entries with their grounded-Ku chips.
+        """Knowledge-pipeline entries with their knowledge-link chips.
 
         One row per ``pipeline: knowledge`` entry the user OWNS, newest first,
-        each carrying a ``grounded_kus`` list built from its outgoing
-        ``APPLIES_KNOWLEDGE`` edges (both writers: EXTRACT_ACTIVITIES explicit
-        refs and vector grounding). Chips are ordered by edge confidence;
-        explicit edges have no ``confidence`` property and sort first
-        (coalesced to 1.0 — an explicit reference outranks any inference).
+        each carrying its ``chips`` (``_knowledge_chips_clause``).
         """
+        chips, chip_params = _knowledge_chips_clause()
         query = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity {{entity_type: $entry_type}})
         WHERE e.pipeline = 'knowledge'
-        OPTIONAL MATCH (e)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity:Ku)
-        WITH e, r, ku
-        ORDER BY coalesce(r.confidence, 1.0) DESC, ku.title
-        WITH e, [g IN collect({{
-            ku_uid: ku.uid,
-            ku_title: ku.title,
-            confidence: r.confidence,
-            inferred: r.inferred
-        }}) WHERE g.ku_uid IS NOT NULL] AS grounded_kus
-        RETURN e.uid AS uid, e.title AS title, e.created_at AS created_at,
-               grounded_kus
+        {chips}
+        RETURN e.uid AS uid, e.title AS title, e.created_at AS created_at, chips
         ORDER BY datetime(e.created_at) DESC
         LIMIT $limit
         """
         result = await self.execute_query(
             query,
-            {"user_uid": user_uid, "entry_type": _USER_ENTRY, "limit": limit},
+            {"user_uid": user_uid, "entry_type": _USER_ENTRY, "limit": limit, **chip_params},
         )
         if result.is_error:
             return Result.fail(result)
         return Result.ok(to_knowledge_entry_grounding_rows(result.value))
+
+    async def get_entry_knowledge_chips(
+        self, entry_uid: str, user_uid: UserUID
+    ) -> Result[list[KnowledgeChip]]:
+        """One owned entry's knowledge-link chips (``_knowledge_chips_clause``).
+
+        Anchored on the owner's ``OWNS`` edge: an entry the user does not own,
+        or one that does not exist, has no chips (an empty list).
+        """
+        chips, chip_params = _knowledge_chips_clause()
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity {{uid: $entry_uid, entity_type: $entry_type}})
+        {chips}
+        RETURN chips
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "entry_uid": entry_uid,
+                "entry_type": _USER_ENTRY,
+                **chip_params,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(to_knowledge_chips(rows[0]["chips"]) if rows else [])
 
     async def get_entries_for_path_step(
         self,

@@ -315,9 +315,7 @@ async def test_judge_incomplete_coverage_fails_entry() -> None:
 async def test_remove_returns_true_on_backend_row() -> None:
     backend = _backend([])
     backend.remove_grounded_edge = AsyncMock(
-        return_value=Result.ok(
-            GroundingRemovalRow(ku_uid="ku.a.one", confidence=0.74, inferred=True)
-        )
+        return_value=Result.ok(GroundingRemovalRow(ku_uid="ku.a.one", confidence=0.74))
     )
     service = _service(backend, _vector([]))
 
