@@ -70,6 +70,7 @@ from core.services.dsl.activity_dsl_parser import (
     VAULT_AUTHORED_CONTEXTS,
     ActivityDSLParser,
     ParsedActivityLine,
+    named_knowledge_uids,
 )
 from core.services.dsl.line_reconciliation import reconcile_task_line
 from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
@@ -361,6 +362,10 @@ class ActivityExtractionResult:
     # Deduped Ku UIDs referenced via @ku()/linked-knowledge tags on any parsed
     # line (including dedup-skipped ones) — APPLIES_KNOWLEDGE candidates.
     referenced_ku_uids: list[str] = field(default_factory=list)
+    # Every knowledge uid the text names with @ku()/@link(), on any line, valid
+    # or not (``named_knowledge_uids``) — a superset of referenced_ku_uids; a
+    # link the owner named is kept while its uid is here.
+    named_knowledge_uids: list[str] = field(default_factory=list)
     # Lines skipped because their hash already has an EXTRACTED_FROM edge.
     lines_skipped_existing: int = 0
     # Bridge-generated lines merged into an existing entity via the semantic
@@ -696,6 +701,7 @@ class ActivityExtractorService:
                 if ku_uid not in seen_refs:
                     seen_refs.add(ku_uid)
                     extraction.referenced_ku_uids.append(ku_uid)
+        extraction.named_knowledge_uids = named_knowledge_uids(content)
 
         # ================================================================
         # Count by type - all entity types

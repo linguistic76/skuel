@@ -387,7 +387,7 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
     once removed (`grounding_rejected_ku_uids`) is linked again without a second
     credit — it was credited when first made. The text is where the owner unnames
     knowledge: on the next extraction, a link they named whose reference is gone
-    from the text is retracted and recorded in `grounding_rejected_ku_uids`
+    from the text (`named_knowledge_uids` reads every line, parsed or not) is retracted and recorded in `grounding_rejected_ku_uids`
     (`UserEntryService.retract_unnamed_knowledge`); an inferred edge is not the
     text's to retract
   - `EntryGroundingService` — once per genuinely NEW inferred edge

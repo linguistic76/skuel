@@ -7,8 +7,8 @@ reference is gone, the link is retracted and recorded as removed
 
 - an unnamed link is gone, and a link the text still names stays;
 - a link the grounding pass inferred is not the text's to retract;
-- a reference the text still makes keeps its link even when it can no longer be
-  linked (the Ku became a draft);
+- a reference the text still makes keeps its link even when its line no longer
+  parses, or the Ku became a draft and can no longer be linked;
 - naming it again relinks it without a second substance credit;
 - the grounding pass never re-makes a removed pair, even one whose caller read
   the entry before the removal.
@@ -185,3 +185,30 @@ class TestUnnamedKnowledgeRetracted:
         assert await _edges(neo4j_driver, entry.uid, removed) == []
         # Control: a pair the owner never removed is still written.
         assert (await grounding.write_applies_knowledge(entry.uid, other, 0.74)).value is True
+
+    @pytest.mark.asyncio
+    async def test_a_line_that_no_longer_parses_still_names_its_knowledge(
+        self, neo4j_driver, user_entry_service, seed_user
+    ):
+        user_uid = await seed_user(f"user_unname_{uuid4().hex[:6]}")
+        named = await _seed_ku(neo4j_driver, f"ku.it.broken-{uuid4().hex[:6]}")
+        dropped = await _seed_ku(neo4j_driver, f"ku.it.dropped-{uuid4().hex[:6]}")
+        entry = await _entry(
+            user_entry_service,
+            user_uid,
+            f"- [ ] Read on it @context(task) @ku({named})\n"
+            f"- [ ] Read on more @context(task) @ku({dropped})\n",
+        )
+        await _process(neo4j_driver, user_entry_service, entry)
+
+        entry = await _rewrite(
+            user_entry_service,
+            entry,
+            f"- [ ] Read on it @context(bogus) @ku({named})\n- [ ] Read on more @context(task)\n",
+        )
+        await _process(neo4j_driver, user_entry_service, entry)
+
+        assert await _edges(neo4j_driver, entry.uid, named) == [_NAMED]
+        # Control: the reference deleted in the same edit is retracted.
+        assert await _edges(neo4j_driver, entry.uid, dropped) == []
+        assert await _rejected(neo4j_driver, entry.uid) == [dropped]

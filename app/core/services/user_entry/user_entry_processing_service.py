@@ -743,8 +743,11 @@ class UserEntryProcessingService:
             link_errors.append(message)
             reason = error.details.get("reason")
             self.logger.warning(message + (f" ({reason})" if reason else ""))
-        # The owner unnames knowledge by deleting its reference from the text.
-        retracted = await self.entry_service.retract_unnamed_knowledge(entry.uid, ku_uids)
+        # The owner unnames knowledge by deleting its reference from the text;
+        # a line that no longer parses still names what its tags name.
+        retracted = await self.entry_service.retract_unnamed_knowledge(
+            entry.uid, extraction.named_knowledge_uids
+        )
         if retracted.is_error:
             message = (
                 f"APPLIES_KNOWLEDGE {entry.uid} retraction: {retracted.expect_error().message}"
