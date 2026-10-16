@@ -390,6 +390,36 @@ async def test_personal_vault_ingests_life_path_as_its_owner(env, door) -> None:
         assert rows[0]["user_uid"] == str(ALICE) and rows[0]["owners"] == [str(ALICE)], rows
 
 
+@pytest.mark.parametrize("missing", ["absent", "empty"])
+@pytest.mark.parametrize("door", DOORS)
+async def test_an_online_event_file_needs_a_meeting_url(env, door, missing) -> None:
+    """An online event file with no URL (or an empty one) is refused, naming the
+    field, and writes no node; the preview lists it the same way. The same file
+    with a URL syncs (the control)."""
+    d = env["driver"]
+    title = f"Online call {door} {missing}"
+    url_line = 'meeting_url: ""\n' if missing == "empty" else ""
+    path = _write(
+        env["alice"] / "knowledge" / "call.md", _md("event", title, f"is_online: true\n{url_line}")
+    )
+
+    preview = await env["reconciler"].preview(VaultKind.PERSONAL, ALICE)
+    assert preview.is_ok, preview
+    assert any(
+        "call.md" in line and "'meeting_url'" in line
+        for line in preview.value.would_ignore_examples
+    ), preview.value
+    outcome = await _sync(env, "alice", door)
+    assert "'meeting_url'" in outcome.refused.get("call.md", ""), (outcome.refused, outcome.failed)
+    assert await _uids_titled(d, title) == []
+
+    _write(path, _md("event", title, "is_online: true\nmeeting_url: https://example.com/call\n"))
+    outcome = await _sync(env, "alice", door)
+    assert outcome.refused == {} and outcome.failed == {}, (outcome.refused, outcome.failed)
+    (row,) = await _uids_titled(d, title)
+    assert row["owners"] == [str(ALICE)], row
+
+
 # ---------------------------------------------------------------------------
 # Part 2 — the upsert never changes a node's owner
 # ---------------------------------------------------------------------------
