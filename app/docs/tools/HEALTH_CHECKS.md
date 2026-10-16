@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-10-10
+updated: 2026-10-16
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -120,7 +120,7 @@ directory tree import it?** Three scoping rules, all deliberate:
 - **Packages holding no code are skipped** — a docstring-only namespace
   directory (`ui/curriculum`, `ui/study`). This is deliberately *not* "every
   `__init__`-only package": an `__init__.py` can be the implementation —
-  `core/services/templates` defines seven service classes in 230 lines with no
+  `core/services/templates` defines all its service classes there, with no
   module beside it — and skipping those would make them permanently invisible.
   Re-export-only facades are checked too: a facade nothing imports is exactly
   what this pass is for.

@@ -48,10 +48,9 @@ class ActivityTemplateOperations(Protocol):
 
     Creation, update and attachment are the vault's job (an ``_tmpl.md`` file plus
     the step's ``{domain}_template_uids:`` frontmatter; ADR-091 S8). The concrete
-    services still inherit ``BaseService``'s generic writers, so no consumer holds
-    the concrete class: the ``Services`` container fields and the templates panel
-    on the PS detail page type every template service as this protocol, and no
-    writer is reachable by type.
+    services carry this one read and nothing else, and the ``Services`` container
+    fields and the templates panel on the PS detail page hold them as this
+    protocol.
 
     Not generic in the template type — every member here returns property dicts
     read back from the graph, so no template model appears in the signature.

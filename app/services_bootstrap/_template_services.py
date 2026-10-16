@@ -36,7 +36,7 @@ logger = get_logger("skuel.bootstrap")
 def _create_template_services(
     *,
     executor: Neo4jQueryExecutor,
-    # Template backends (one per Activity Template entity type)
+    # Template backends (one per Activity Template entity type), read by the spawn
     task_template_backend: BackendOperations[TaskTemplate],
     goal_template_backend: BackendOperations[GoalTemplate],
     habit_template_backend: BackendOperations[HabitTemplate],
@@ -56,8 +56,10 @@ def _create_template_services(
 
     Builds (Phase 5):
     - 6 ``*TemplateService`` read services — one per Activity Template kind.
-      Each wraps its UniversalNeo4jBackend and reads the templates attached to a
-      PathStep through the shared executor. Templates are vault-authored.
+      Each reads the templates attached to a PathStep through the shared
+      attachment backend and holds nothing else. Templates are vault-authored.
+      The template backends go to the engagement service, which loads a
+      PathStep's templates to spawn from them.
 
     Builds (Phase 4):
     - ``ps_engagement``: PsEngagementService — 3-transition lifecycle facade.
@@ -77,14 +79,12 @@ def _create_template_services(
     # One shared attachment backend — stateless, the edge type is passed per call.
     attachment = TemplateAttachmentBackend(executor)
 
-    task_templates = TaskTemplateService(backend=task_template_backend, attachment=attachment)
-    goal_templates = GoalTemplateService(backend=goal_template_backend, attachment=attachment)
-    habit_templates = HabitTemplateService(backend=habit_template_backend, attachment=attachment)
-    event_templates = EventTemplateService(backend=event_template_backend, attachment=attachment)
-    choice_templates = ChoiceTemplateService(backend=choice_template_backend, attachment=attachment)
-    principle_templates = PrincipleTemplateService(
-        backend=principle_template_backend, attachment=attachment
-    )
+    task_templates = TaskTemplateService(attachment)
+    goal_templates = GoalTemplateService(attachment)
+    habit_templates = HabitTemplateService(attachment)
+    event_templates = EventTemplateService(attachment)
+    choice_templates = ChoiceTemplateService(attachment)
+    principle_templates = PrincipleTemplateService(attachment)
 
     ps_engagement = PsEngagementService(
         backend=PsEngagementBackend(executor),

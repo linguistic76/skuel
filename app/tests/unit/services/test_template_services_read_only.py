@@ -1,9 +1,9 @@
 """Every Activity Template service consumer holds the read-only protocol.
 
 Templates are authored only in the content vault (ADR-091 S8). The six template
-services still inherit ``BaseService``'s generic writers, so no consumer may hold the
-concrete class: the ``Services`` container fields are typed
-``ActivityTemplateOperations``, which names one read, and only the composition root
+services hold the attachment port and one read: no ``BaseService`` base, so no
+generic writer exists on them. The ``Services`` container fields are typed
+``ActivityTemplateOperations``, which names that read, and only the composition root
 imports the concrete services.
 """
 
@@ -71,3 +71,28 @@ def test_only_the_composition_root_imports_the_concrete_services() -> None:
         if _imports_concrete_services(path)
     }
     assert importers == {COMPOSITION_ROOT.relative_to(APP_ROOT).as_posix()}
+
+
+def _template_service_classes() -> list[type]:
+    import core.services.templates as templates
+
+    return [getattr(templates, name) for name in templates.__all__]
+
+
+@pytest.mark.parametrize("service_cls", _template_service_classes(), ids=lambda cls: cls.__name__)
+def test_no_template_service_inherits_base_service(service_cls: type) -> None:
+    from core.services.base_service import BaseService
+
+    assert not issubclass(service_cls, BaseService), service_cls.__mro__
+
+
+@pytest.mark.parametrize("service_cls", _template_service_classes(), ids=lambda cls: cls.__name__)
+def test_every_template_service_has_only_the_one_read(service_cls: type) -> None:
+    public = {
+        name
+        for klass in service_cls.__mro__
+        if klass is not object
+        for name in vars(klass)
+        if not name.startswith("_")
+    }
+    assert public == {"list_for_pathstep"}

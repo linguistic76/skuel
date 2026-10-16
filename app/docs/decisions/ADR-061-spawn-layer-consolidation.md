@@ -1,6 +1,6 @@
 ---
 title: "ADR-061: Spawn-Layer Consolidation — DomainSpawnSpec Registry"
-updated: 2026-09-21
+updated: 2026-10-16
 status: current
 category: decisions
 tags: [adr, decisions, ps-engagement, spawn, activity-templates, dry, type-safety]
@@ -51,7 +51,7 @@ The audit did surface redundancy in three places:
 
 2. **Six-fold fan-out in the spawn layer.** Adding or changing an activity
    domain touches ~8 locations: the six near-identical `_build_*` functions
-   (`_spawn_orchestrator.py:429-613`; the pre-decision tree — today the file <!-- historical -->
+   (in the pre-decision `_spawn_orchestrator.py` — today the file
    holds the `SPAWN_REGISTRY` of `DomainSpawnSpec`s this ADR decides), the per-domain pre-allocate loop
    (`:198-212`), the four explicit spawn blocks (`:214-291`), the
    `*_OFFSET_REWRITES` / `*_FIELD_REWRITES` / `*_CROSS_EDGES` tables

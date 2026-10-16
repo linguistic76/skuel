@@ -29,7 +29,7 @@ import pytest
 
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.metadata_enums import Visibility
-from core.models.task.task import Task
+from core.models.goal.goal_request import GoalCreateRequest
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.event_template import EventTemplate
 from core.models.templates.goal_template import GoalTemplate
@@ -45,7 +45,6 @@ from core.services.ps_engagement._spawn_orchestrator import (
     PRINCIPLE_SPEC,
     SPAWN_REGISTRY,
     TASK_SPEC,
-    DomainSpawnSpec,
     _build,
     _compute_cross_edges,
     _validate_spawn_registry,
@@ -343,14 +342,14 @@ class TestRegistry:
             _validate_spawn_registry((bad,))
 
     def test_validation_rejects_bad_collection_attr(self) -> None:
-        bad = DomainSpawnSpec(
-            instance_cls=Task,
-            template_cls=TaskTemplate,
-            layer=4,
-            collection_attr="nonexistent",
-            uid_prefix="task",
-        )
+        bad = replace(TASK_SPEC, collection_attr="nonexistent")
         with pytest.raises(ValueError, match="collection_attr 'nonexistent'"):
+            _validate_spawn_registry((bad,))
+
+    def test_validation_rejects_another_domains_create_request(self) -> None:
+        """A template is checked against its own instance's caps, never another's."""
+        bad = replace(TASK_SPEC, create_request=GoalCreateRequest)
+        with pytest.raises(ValueError, match="create_request is GoalCreateRequest"):
             _validate_spawn_registry((bad,))
 
     def test_validation_rejects_mismatched_template_instance_pair(self) -> None:
