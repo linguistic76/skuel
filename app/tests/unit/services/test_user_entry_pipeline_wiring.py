@@ -428,7 +428,6 @@ class TestTranscribeAndStructure:
 def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
     """Entry-service mock with the service surfaces the extraction branch uses."""
     svc = _entry_service_with_updated(updated_entry)
-    svc.get_relationships = AsyncMock(return_value=Result.ok([]))
     svc.get_extracted_entities = AsyncMock(return_value=Result.ok([]))
     svc.get_user_active_extraction_twins = AsyncMock(return_value=Result.ok([]))
     svc.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
@@ -448,7 +447,8 @@ async def _link_every_reference(
     entry_uid: str, owner_uid: str, knowledge_uids: list[str]
 ) -> Result[AppliedKnowledgeLinks]:
     """The entry service admitting and linking every reference it is handed."""
-    return Result.ok(AppliedKnowledgeLinks(linked=tuple(knowledge_uids), unlinked={}))
+    linked = tuple(knowledge_uids)
+    return Result.ok(AppliedKnowledgeLinks(linked=linked, credited=linked, unlinked={}))
 
 
 def _extraction_result(
@@ -1212,6 +1212,7 @@ class TestExtractActivities:
             return_value=Result.ok(
                 AppliedKnowledgeLinks(
                     linked=(),
+                    credited=(),
                     unlinked={"ku:typo/x": Errors.not_found("Knowledge", "ku:typo/x")},
                 )
             )
@@ -1244,6 +1245,7 @@ class TestExtractActivities:
             return_value=Result.ok(
                 AppliedKnowledgeLinks(
                     linked=("ku.shared",),
+                    credited=("ku.shared",),
                     unlinked={"task_someone": Errors.not_found("Knowledge", "task_someone")},
                 )
             )
@@ -1263,6 +1265,35 @@ class TestExtractActivities:
         assert result.is_ok
         reflected = [e for e in captured if isinstance(e, KnowledgeReflectedInEntry)]
         assert [e.knowledge_uid for e in reflected] == ["ku.shared"]
+
+    @pytest.mark.asyncio
+    async def test_a_linked_pair_the_write_did_not_credit_publishes_nothing(self):
+        """An edge that already stood — the grounding pass's inference, or a link
+        the owner removed — is linked again but credited once, when it was made."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        svc = _extract_entry_service(entry)
+        svc.link_applied_knowledge = AsyncMock(
+            return_value=Result.ok(
+                AppliedKnowledgeLinks(
+                    linked=("ku.inferred", "ku.new"), credited=("ku.new",), unlinked={}
+                )
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(entry.uid, referenced_ku_uids=["ku.inferred", "ku.new"])
+            )
+        )
+        bus, captured = _capturing_bus()
+
+        dispatcher = _make_dispatcher(entry_service=svc, event_bus=bus)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        reflected = [e for e in captured if isinstance(e, KnowledgeReflectedInEntry)]
+        assert [e.knowledge_uid for e in reflected] == ["ku.new"]
 
     @pytest.mark.asyncio
     async def test_unreadable_admission_links_nothing_and_fails_nothing(self):

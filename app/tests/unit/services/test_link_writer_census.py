@@ -1,7 +1,9 @@
 """Every edge writer under ``core/services/`` says how its far end is admitted.
 
-Five calls turn two uids into an edge: ``create_relationship``,
-``create_relationships_batch``, ``replace_relationships``, ``write_guarded_links`` and
+Seven calls turn two uids into an edge: ``create_relationship``,
+``create_relationships_batch``, ``replace_relationships``, ``write_guarded_links``,
+the two dedicated ``APPLIES_KNOWLEDGE`` writers of an entry (``write_applied_knowledge``
+for a reference its owner wrote, ``write_applies_knowledge`` for the grounding pass) and
 ``add_relationship`` — the last through the
 ``relate(backend, uid).via(...).to(...).create()`` builder, so a ``relate(`` call is
 a write site too. A call that hands any of them a uid from a request without
@@ -33,6 +35,8 @@ _WRITER_METHODS = {
     "create_relationships_batch",
     "replace_relationships",
     "write_guarded_links",
+    "write_applied_knowledge",
+    "write_applies_knowledge",
     "add_relationship",
 }
 _BUILDER = "relate"
@@ -92,6 +96,11 @@ OTHERWISE_ADMITTED: dict[str, str] = {
     "mixins/relationship_operations_mixin.py::add_prerequisite": (
         "no caller (staged — PLANNED in scripts/detect_bloat.py); a door that reaches it "
         "admits the prerequisite before this write, which checks the uid's shape only"
+    ),
+    "entry_grounding_service.py::_ground_entry": (
+        "the far end is a Ku the vector index returned for the entry, and the write "
+        "matches only a published Ku (EntryGroundingBackend.write_applies_knowledge); "
+        "the entry is one the pending read found through its owner's OWNS edge"
     ),
     "infrastructure/semantic_relationship_linker.py::create_semantic_relationship": (
         "no door: every caller is a facade's create_semantic_*_relationship (PLANNED in "
@@ -185,6 +194,7 @@ def test_the_census_sees_the_writers() -> None:
     assert "relationship_builder.py::create" in keys
     assert "user_entry/user_entry_service.py::create_entry" in keys
     assert "user_entry/user_entry_service.py::link_applied_knowledge" in keys
+    assert "entry_grounding_service.py::_ground_entry" in keys
     assert len(_SITES) >= 35
 
 

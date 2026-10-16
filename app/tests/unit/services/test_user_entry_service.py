@@ -14,6 +14,7 @@ from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryUpdateRequest,
 )
+from core.ports.query_types import AppliedKnowledgeWriteRow
 from core.ports.sharing_protocols import SharingBackendOperations
 from core.services.user_entry.user_entry_service import ShareOutcome, UserEntryService
 from core.utils.result_simplified import Errors, Result
@@ -1344,14 +1345,14 @@ class TestLinkAppliedKnowledge:
             calls.append("read")
             return Result.ok(published & set(uids))
 
-        async def _write(**kwargs: object) -> Result[bool]:
+        async def _write(entry_uid: str, knowledge_uid: str) -> Result[AppliedKnowledgeWriteRow]:
             calls.append("write")
-            return Result.ok(True)
+            return Result.ok(AppliedKnowledgeWriteRow(created=True, was_removed=False))
 
         backend.get_node_labels_batch = AsyncMock(side_effect=_labels)
         backend.get_owner_uids_batch = AsyncMock(side_effect=_owners)
         backend.get_published_uids_batch = AsyncMock(side_effect=_published)
-        backend.add_relationship = AsyncMock(side_effect=_write)
+        backend.write_applied_knowledge = AsyncMock(side_effect=_write)
         backend.calls = calls
         return backend
 
@@ -1365,7 +1366,8 @@ class TestLinkAppliedKnowledge:
 
         assert result.is_ok
         assert result.value.linked == ("ku.shared", "ps.shared")
-        written = [call.kwargs["to_uid"] for call in backend.add_relationship.await_args_list]
+        assert result.value.credited == ("ku.shared", "ps.shared")
+        written = [call.args[1] for call in backend.write_applied_knowledge.await_args_list]
         assert written == ["ku.shared", "ps.shared"]
         assert backend.calls == ["read", "read", "read", "write", "write"]
         messages = {
@@ -1385,4 +1387,64 @@ class TestLinkAppliedKnowledge:
         result = await service.link_applied_knowledge("ue_test_1", "user_1", ["ku.shared"])
 
         assert result.is_error
-        backend.add_relationship.assert_not_called()
+        backend.write_applied_knowledge.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_pair_is_credited_only_when_the_write_made_it_and_it_was_never_removed(
+        self,
+    ) -> None:
+        """The write reports what it found; ``credited`` follows it, never the reference."""
+        backend = self._backend()
+        found = {
+            "ku.shared": AppliedKnowledgeWriteRow(created=True, was_removed=False),
+            "ps.shared": AppliedKnowledgeWriteRow(created=False, was_removed=False),
+        }
+
+        async def _write(entry_uid: str, knowledge_uid: str) -> Result[AppliedKnowledgeWriteRow]:
+            return Result.ok(found[knowledge_uid])
+
+        backend.write_applied_knowledge = AsyncMock(side_effect=_write)
+        service = UserEntryService(backend=backend)
+
+        result = await service.link_applied_knowledge(
+            "ue_test_1", "user_1", ["ku.shared", "ps.shared"]
+        )
+
+        assert result.is_ok
+        assert result.value.linked == ("ku.shared", "ps.shared")
+        assert result.value.credited == ("ku.shared",)
+
+    @pytest.mark.asyncio
+    async def test_a_removed_pair_relinks_without_credit(self) -> None:
+        backend = self._backend()
+        backend.write_applied_knowledge = AsyncMock(
+            return_value=Result.ok(AppliedKnowledgeWriteRow(created=True, was_removed=True))
+        )
+        service = UserEntryService(backend=backend)
+
+        result = await service.link_applied_knowledge("ue_test_1", "user_1", ["ku.shared"])
+
+        assert result.is_ok
+        assert result.value.linked == ("ku.shared",)
+        assert result.value.credited == ()
+
+    @pytest.mark.asyncio
+    async def test_a_far_end_gone_before_the_write_is_refused_like_the_rest(self) -> None:
+        backend = self._backend()
+        backend.write_applied_knowledge = AsyncMock(return_value=Result.ok(None))
+        service = UserEntryService(backend=backend)
+
+        result = await service.link_applied_knowledge(
+            "ue_test_1", "user_1", ["ku.shared", "ku.gone"]
+        )
+
+        assert result.is_ok
+        assert result.value.linked == ()
+        assert result.value.credited == ()
+        messages = {
+            uid: error.message.replace(uid, "<uid>") for uid, error in result.value.unlinked.items()
+        }
+        assert messages == {
+            "ku.shared": "Knowledge not found: <uid>",
+            "ku.gone": "Knowledge not found: <uid>",
+        }

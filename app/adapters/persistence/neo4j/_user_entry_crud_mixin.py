@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from adapters.persistence.neo4j.neo4j_mapper import (
     from_neo4j_node,
@@ -23,10 +24,16 @@ from adapters.persistence.neo4j.neo4j_mapper import (
     without_embedding_props,
 )
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
-from core.ports.query_types import ExtractionTwinRow, VaultIdTaskRow, VaultRetiredTaskRow
+from core.ports.query_types import (
+    AppliedKnowledgeWriteRow,
+    ExtractionTwinRow,
+    VaultIdTaskRow,
+    VaultRetiredTaskRow,
+)
 from core.ports.user_entry_protocols import UPSERT_UID_TAKEN
 from core.utils.result_simplified import Errors, Result
 
@@ -35,7 +42,6 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver, Record
 
-    from core.models.enums.neo_labels import NeoLabel
     from core.models.user_entry.user_entry import UserEntry
 
 _USER_ENTRY = EntityType.USER_ENTRY.value
@@ -585,6 +591,60 @@ class _UserEntryCrudMixin:
         now = rows[0]["now"]
         # The driver hands back its own DateTime; ``to_native`` keeps the offset.
         return Result.ok(now.to_native() if not isinstance(now, datetime) else now)
+
+    async def write_applied_knowledge(
+        self, entry_uid: str, knowledge_uid: str
+    ) -> Result[AppliedKnowledgeWriteRow | None]:
+        """MERGE ``(entry)-[:APPLIES_KNOWLEDGE]->(knowledge)`` for a reference the owner wrote.
+
+        The entry's write-lock is taken first (the ``_sg_lock`` sentinel,
+        ADR-087), so the existence read and the MERGE see one state: of two
+        writers of the same pair — this one and the grounding pass's
+        ``EntryGroundingBackend.write_applies_knowledge``, whose relationship
+        create waits on the same lock — exactly one reports ``created``.
+
+        A matched edge loses its inference stamp (``inferred``, ``confidence``,
+        ``grounded_at``): the owner has now named the knowledge, so the link is
+        theirs and reads as explicit: no ``confidence`` (which the context build
+        reads as 1.0) and no ``inferred``.
+
+        ``was_removed`` reports whether the owner once removed a link to this
+        knowledge from this entry (``grounding_rejected_ku_uids``). Returns
+        ``None`` when the entry or the knowledge is absent. The far end is
+        admitted by the caller (``UserEntryService.link_applied_knowledge``).
+        """
+        query = f"""
+        MATCH (e:{NeoLabel.USER_ENTRY.value} {{uid: $entry_uid}}) WHERE NOT e:Content
+        SET e.`_sg_lock` = $lock_token
+        REMOVE e.`_sg_lock`
+        WITH e
+        MATCH (k:Entity {{uid: $knowledge_uid}}) WHERE NOT k:Content
+        WITH e, k,
+             NOT EXISTS {{ (e)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k) }} AS created
+        MERGE (e)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k)
+        REMOVE r.inferred, r.confidence, r.grounded_at
+        RETURN created,
+               $knowledge_uid IN coalesce(e.grounding_rejected_ku_uids, []) AS was_removed
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "entry_uid": entry_uid,
+                "knowledge_uid": knowledge_uid,
+                "lock_token": uuid4().hex,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows:
+            return Result.ok(None)
+        return Result.ok(
+            AppliedKnowledgeWriteRow(
+                created=bool(rows[0]["created"]),
+                was_removed=bool(rows[0]["was_removed"]),
+            )
+        )
 
     async def get_user_active_extraction_twins(
         self, user_uid: UserUID, labels: list[str]

@@ -27,6 +27,7 @@ Protocol: core/ports/user_entry_protocols.py EntryGroundingBackendOperations
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_publication_clause
 from core.ports.query_types import (
@@ -102,11 +103,19 @@ class EntryGroundingBackend:
         unfinished curriculum no learner is shown, so it is no entry's
         knowledge — it matches nothing and writes nothing, like a Ku that is
         gone.
+
+        The entry's write-lock is taken first (the ``_sg_lock`` sentinel), the
+        order the owner's ``@ku`` writer (``UserEntryBackend.write_applied_knowledge``)
+        takes it in: the two writers of one pair serialize on the entry instead
+        of deadlocking, and exactly one of them creates the edge.
         """
         published, published_params = build_publication_clause("k")
         result = await self._executor.execute_query(
             f"""
             MATCH (e:UserEntry {{uid: $entry_uid}}) WHERE NOT e:Content
+            SET e.`_sg_lock` = $lock_token
+            REMOVE e.`_sg_lock`
+            WITH e
             MATCH (k:Ku {{uid: $ku_uid}}) WHERE NOT k:Content AND {published}
             MERGE (e)-[r:APPLIES_KNOWLEDGE]->(k)
             ON CREATE SET r.inferred = true,
@@ -121,6 +130,7 @@ class EntryGroundingBackend:
                 "entry_uid": entry_uid,
                 "ku_uid": ku_uid,
                 "confidence": confidence,
+                "lock_token": uuid4().hex,
                 **published_params,
             },
         )
