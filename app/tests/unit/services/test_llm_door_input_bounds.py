@@ -19,6 +19,7 @@ over-long text whole.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -165,7 +166,9 @@ async def _entry_response(port: ScriptedChatCaller, text: str) -> object:
 
 
 async def _dsl_transform(port: ScriptedChatCaller, text: str) -> object:
-    return await LLMDSLBridgeService(chat_port=port).transform(text, USER)
+    return await LLMDSLBridgeService(chat_port=port).transform(
+        text, USER, reference_date=date(2026, 10, 14)
+    )
 
 
 async def _vision(port: ScriptedChatCaller, text: str) -> object:

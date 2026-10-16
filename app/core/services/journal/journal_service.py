@@ -37,6 +37,8 @@ from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.goal.goal import Goal
@@ -296,8 +298,13 @@ class JournalService:
             titles_result = await self.active_goal_titles(user_uid)
             active_goal_titles = titles_result.value if titles_result.is_ok else []
 
+        # The panel runs inside the writer's request, so its zone is theirs and
+        # "tomorrow" in the reflection resolves against their local today.
         transform = await self._dsl_bridge.transform_with_context(
-            content, user_uid, active_goals=goals_as_context(active_goal_titles)
+            content,
+            user_uid,
+            reference_date=today_in(current_zone()),
+            active_goals=goals_as_context(active_goal_titles),
         )
         if transform.is_error:
             return Result.fail(transform)

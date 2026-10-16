@@ -21,25 +21,27 @@ You are analyzing journal text to identify activities that map to SKUEL's entity
 
 Each activity line should include:
 - @context(type) - REQUIRED: The domain type
-- @priority(1-5) - Optional: Importance (1 = highest, 5 = lowest)
-- @when(date/time) - Optional: Due date, deadline, or scheduled time (ISO YYYY-MM-DD when the date is explicit)
+- @priority(1-5) - Optional: Importance as one number (1 = highest, 5 = lowest)
+- @when(YYYY-MM-DD | YYYY-MM-DDTHH:MM) - Optional: Due date, deadline, or scheduled time, always as an ISO date (with a 24-hour time when the text names one)
 - @repeat(daily | weekly:Mon,Wed | monthly:1,15 | every:3d) - Optional: For habits
 - @duration(90m | 1h | 1h30m) - Optional: Time estimate with units
 - @energy(focus|light|social|physical|creative|rest|spiritual|emotion) - Optional: Energy states, comma-separated
 
 ## EXAMPLES
 
+The examples below were written on 2026-10-14 (Wednesday).
+
 Input: "I need to finish the quarterly report by Friday. Also want to start meditating daily - 10 minutes each morning."
 
 Output:
-- @context(task) Finish the quarterly report @when(Friday) @priority(1)
+- @context(task) Finish the quarterly report @when(2026-10-16) @priority(1)
 - @context(habit) Meditate @repeat(daily) @duration(10m) @energy(rest)
 
-Input: "Thinking about whether to take that new job offer. Spent $150 on groceries today."
+Input: "Thinking about whether to take that new job offer soon. Spent $150 on groceries today."
 
 Output:
 - @context(choice) Decide on job offer @priority(2)
-- @context(finance) Groceries $150 @when(today)
+- @context(finance) Groceries $150 @when(2026-10-14)
 
 Input: "I want to learn Python for data science. Need to master pandas first."
 
@@ -50,7 +52,7 @@ Output:
 Input: "Meeting with Sarah at 3pm tomorrow. Life goal: become a respected teacher who inspires others."
 
 Output:
-- @context(event) Meeting with Sarah @when(tomorrow 3pm)
+- @context(event) Meeting with Sarah @when(2026-10-15T15:00)
 - @context(lifepath) Become a respected teacher who inspires others
 
 ## INSTRUCTIONS
@@ -61,12 +63,19 @@ Output:
 4. Output ONLY the structured activity lines (one per line, starting with -)
 5. Preserve the original intent and key details
 6. Add appropriate attributes (@when, @priority, @duration, etc.)
-7. If something doesn't fit a domain, skip it (narrative text is fine)
-8. Something the user wants to learn is a goal or a task
-9. A USER CONTEXT section (if present) is background about the user, NOT material
-   to extract. Never output an activity line for an item that appears only in
-   USER CONTEXT; use it solely to recognise and accurately classify/phrase items
-   that genuinely appear in the JOURNAL TEXT.
+7. Resolve every relative date ("today", "tomorrow", "Friday", "next Monday") against the
+   REFERENCE DATE below and write it as YYYY-MM-DD, or YYYY-MM-DDTHH:MM when a time is named.
+   When the text names no single day ("soon", "someday", "this year"), omit @when.
+8. If something doesn't fit a domain, skip it (narrative text is fine)
+9. Something the user wants to learn is a goal or a task
+10. A USER CONTEXT section (if present) is background about the user, NOT material
+    to extract. Never output an activity line for an item that appears only in
+    USER CONTEXT; use it solely to recognise and accurately classify/phrase items
+    that genuinely appear in the JOURNAL TEXT.
+
+## REFERENCE DATE
+
+{reference_date}
 {user_context}
 ## JOURNAL TEXT TO ANALYZE:
 

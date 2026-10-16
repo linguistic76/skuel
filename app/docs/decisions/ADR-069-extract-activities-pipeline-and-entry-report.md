@@ -144,6 +144,20 @@ journal privacy norm does not extend to it (Ruling 2 scope).
    writers: the user's own `@ku(…)` / `@link(ku:…)`, and `EntryGroundingService`
    (vector candidates plus the FULL-tier judge)
    (`tests/unit/test_llm_dsl_bridge.py::test_bridge_output_carries_no_ku_tag`).
+   *Amendment 2026-10-16 (ruling R7e.2):* **the bridge is told the writer's day.**
+   The parser reads `@when` only as an ISO date (`YYYY-MM-DD`, `YYYY-MM-DDTHH:MM`)
+   and `@duration` only with units (`10m`, `1h30m`), so a model asked to date
+   "by Friday" needs a day to count from. Both prompts carry a
+   `{reference_date}` slot (`2026-10-16 (Friday)`) and tell the model to resolve
+   relative dates against it and to omit `@when` when the text names no single
+   day ("soon"); every value the prompts and the bridge's docstrings show
+   parses. The day is the writer's local today: the suggestions panel reads the
+   request's zone, and the extraction pre-pass reads the entry owner's zone
+   (`UserService.get_user_zone`) whichever door started the run. A pre-pass that
+   cannot resolve the owner's zone skips the bridge and runs parser-only rather
+   than date lines in a guessed zone
+   (`tests/unit/test_llm_dsl_bridge.py::test_every_prompt_value_parses`,
+   `tests/integration/user_entry/test_extract_activities_pipeline.py::TestExtractActivitiesPipeline::test_a_bridge_resolves_dates_against_the_owners_local_today`).
 3. **Deterministic extraction (Analog layer):**
    `ActivityExtractorService.extract_and_create()` over the working text. The
    parser matches explicit `@context(...)` lines plus, via a second pass,

@@ -4,15 +4,19 @@ Covers the pure builder/renderer (`core/services/journal/suggestion.py`) and
 `JournalService.suggest_activities` (bridge orchestration + tier/error handling).
 """
 
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
+from zoneinfo import ZoneInfo
 
 import pytest
+import time_machine
 
 from core.services.dsl.activity_dsl_parser import ActivityDSLParser
 from core.services.dsl.llm_dsl_bridge import DSLTransformResult
 from core.services.journal.journal_service import JournalService
 from core.services.journal.suggestion import build_suggestions, render_suggestion_line
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import current_zone_var
 
 # ---------------------------------------------------------------------------
 # Pure builder / renderer
@@ -188,6 +192,35 @@ class TestSuggestActivities:
         _, kwargs = bridge.transform_with_context.call_args
         assert kwargs["active_goals"] == [{"title": "Run a marathon"}]
         goals_service.get_active.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("zone", "writer_today"),
+        [
+            # 12:00 UTC on 2026-10-16 is already the 17th at UTC+14...
+            ("Pacific/Kiritimati", date(2026, 10, 17)),
+            # ...and still the 16th in Vancouver (05:00).
+            ("America/Vancouver", date(2026, 10, 16)),
+        ],
+    )
+    async def test_reference_date_is_the_writers_local_today(self, zone: str, writer_today: date):
+        # The panel runs inside the writer's request: the middleware has set
+        # the request's zone to theirs, and "tomorrow" in the reflection
+        # resolves against their local today.
+        transform = DSLTransformResult(original_text="x", transformed_text="", activity_lines=[])
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock(return_value=Result.ok(transform))
+        service = _make_service(dsl_bridge=bridge)
+
+        token = current_zone_var.set(ZoneInfo(zone))
+        try:
+            with time_machine.travel(datetime(2026, 10, 16, 12, 0, tzinfo=UTC), tick=False):
+                await service.suggest_activities("call the bank tomorrow", "user_mike", [])
+        finally:
+            current_zone_var.reset(token)
+
+        _, kwargs = bridge.transform_with_context.call_args
+        assert kwargs["reference_date"] == writer_today
 
 
 class TestSuggestionsAvailable:

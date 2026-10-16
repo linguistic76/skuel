@@ -6,6 +6,7 @@ OpenAI chat adapter lives below the boundary in adapters/external/llm/.
 """
 
 import re
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,13 +14,20 @@ import pytest
 from adapters.external.llm import create_llm_dsl_bridge
 from adapters.external.llm.openai_adapter import OpenAIChatAdapter
 from core.ports.llm_protocols import LLMCompletion
+from core.prompts import PROMPT_REGISTRY
+from core.services import dsl as dsl_package
+from core.services.dsl import llm_dsl_bridge
 from core.services.dsl.activity_dsl_parser import (
     VAULT_AUTHORED_CONTEXTS,
+    ActivityDSLParser,
     parse_activity_line,
     resolve_context_value,
 )
 from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
 from core.utils.result_simplified import Result
+
+# The writer's local day the tests resolve against (a Wednesday).
+_REFERENCE_DATE = date(2026, 10, 14)
 
 
 def _port(text: str):
@@ -33,7 +41,9 @@ async def test_transform_delegates_to_chat_port_and_parses_dsl():
     port = _port("- @context(task) Finish the report @when(Friday)")
     bridge = LLMDSLBridgeService(chat_port=port)
 
-    result = await bridge.transform("I need to finish the report by Friday.")
+    result = await bridge.transform(
+        "I need to finish the report by Friday.", reference_date=_REFERENCE_DATE
+    )
 
     assert result.is_ok
     assert result.value.activities_identified == 1
@@ -57,6 +67,7 @@ async def test_transform_with_context_grounds_in_separate_nonextractable_slot():
     result = await bridge.transform_with_context(
         "Need to email the landlord.",
         user_uid="user_mike",
+        reference_date=_REFERENCE_DATE,
         active_goals=[{"title": "Run a marathon"}],
     )
 
@@ -79,7 +90,10 @@ async def test_transform_with_context_ungrounded_omits_context_section():
     bridge = LLMDSLBridgeService(chat_port=port)
 
     result = await bridge.transform_with_context(
-        "Need to email the landlord.", user_uid="user_mike", active_goals=None
+        "Need to email the landlord.",
+        user_uid="user_mike",
+        reference_date=_REFERENCE_DATE,
+        active_goals=None,
     )
 
     assert result.is_ok
@@ -101,7 +115,7 @@ async def test_bridge_output_carries_no_link_tag():
     )
     bridge = LLMDSLBridgeService(chat_port=port)
 
-    result = await bridge.transform("Work out and meditate.")
+    result = await bridge.transform("Work out and meditate.", reference_date=_REFERENCE_DATE)
 
     assert result.is_ok
     assert result.value.activity_lines == [
@@ -127,7 +141,9 @@ async def test_bridge_output_carries_no_ku_tag():
     )
     bridge = LLMDSLBridgeService(chat_port=port)
 
-    result = await bridge.transform("Study pandas and practise daily.")
+    result = await bridge.transform(
+        "Study pandas and practise daily.", reference_date=_REFERENCE_DATE
+    )
 
     assert result.is_ok
     assert result.value.activity_lines == [
@@ -153,7 +169,9 @@ async def test_bridge_prompt_offers_no_link_tag(compact: bool):
     port = _port("")
     bridge = LLMDSLBridgeService(chat_port=port, use_compact_prompt=compact)
 
-    await bridge.transform("I want to learn Python for data science.")
+    await bridge.transform(
+        "I want to learn Python for data science.", reference_date=_REFERENCE_DATE
+    )
 
     prompt = port.complete.call_args.args[0][0]["content"]
     assert _uid_tags_offered(prompt) == set()
@@ -182,7 +200,9 @@ async def test_bridge_prompt_offers_no_curriculum_context(compact: bool):
     port = _port("")
     bridge = LLMDSLBridgeService(chat_port=port, use_compact_prompt=compact)
 
-    await bridge.transform("I want to learn Python for data science.")
+    await bridge.transform(
+        "I want to learn Python for data science.", reference_date=_REFERENCE_DATE
+    )
 
     prompt = port.complete.call_args.args[0][0]["content"]
     assert _curriculum_names(prompt) == set()
@@ -212,7 +232,9 @@ def _tags_offered(prompt: str) -> set[str]:
 async def _rendered_prompt(compact: bool) -> str:
     port = _port("")
     bridge = LLMDSLBridgeService(chat_port=port, use_compact_prompt=compact)
-    await bridge.transform("I want to learn Python for data science.")
+    await bridge.transform(
+        "I want to learn Python for data science.", reference_date=_REFERENCE_DATE
+    )
     return port.complete.call_args.args[0][0]["content"]
 
 
@@ -259,7 +281,9 @@ async def test_bridge_drops_a_curriculum_line_the_model_emits():
     )
     bridge = LLMDSLBridgeService(chat_port=port)
 
-    result = await bridge.transform("I want to learn Python for data science.")
+    result = await bridge.transform(
+        "I want to learn Python for data science.", reference_date=_REFERENCE_DATE
+    )
 
     assert result.is_ok
     assert result.value.activity_lines == [
@@ -270,10 +294,93 @@ async def test_bridge_drops_a_curriculum_line_the_model_emits():
     assert "kus" not in result.value.to_dict()["breakdown"]
 
 
+# The values the prompts write as a value's SHAPE for the model, not as a value:
+# the DSL SYNTAX lines of the full prompt and the VALUES line of the compact one.
+_VALUE_PATTERNS = frozenset(
+    {
+        "1-5",
+        "YYYY-MM-DD | YYYY-MM-DDTHH:MM",
+        "90m | 1h | 1h30m",
+        "1-5, 1 = highest",
+        "YYYY-MM-DD or YYYY-MM-DDTHH:MM",
+        "30m, 1h, 1h30m",
+    }
+)
+
+_PARSER = ActivityDSLParser()
+_VALUE_READERS = {
+    "when": _PARSER._parse_when,
+    "duration": _PARSER._parse_duration,
+    "priority": _PARSER._parse_priority,
+}
+
+
+def _unparsed_values(text: str) -> set[tuple[str, str]]:
+    """Every ``@when`` / ``@duration`` / ``@priority`` value in ``text`` the parser drops."""
+    return {
+        (name.lower(), value)
+        for name, value in re.findall(
+            r"@(when|duration|priority)\(([^)]*)\)", text, flags=re.IGNORECASE
+        )
+        if value not in _VALUE_PATTERNS and _VALUE_READERS[name.lower()](value) is None
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("compact", [False, True])
+async def test_every_prompt_value_parses(compact: bool):
+    # A value the parser drops teaches the model a value that does nothing: the
+    # line's schedule, estimate or priority is lost with a tag warning.
+    prompt = await _rendered_prompt(compact)
+
+    assert _unparsed_values(prompt) == set()
+    # Control: the same reader catches a value the parser drops.
+    assert _unparsed_values(prompt + "\n- @context(task) Ship it @when(Friday)\n") == {
+        ("when", "Friday")
+    }
+
+
+def test_every_bridge_docstring_value_parses():
+    # The bridge's docstrings (and the dsl package's walk-through of it) show
+    # what the model writes, so they write what parses.
+    docstrings = "\n".join(
+        doc or ""
+        for doc in (
+            dsl_package.__doc__,
+            llm_dsl_bridge.__doc__,
+            LLMDSLBridgeService.__doc__,
+            LLMDSLBridgeService.transform.__doc__,
+        )
+    )
+    assert "@when(" in docstrings
+
+    assert _unparsed_values(docstrings) == set()
+    # Control: the same reader catches an unparseable duration.
+    assert _unparsed_values(docstrings + " @duration(10)") == {("duration", "10")}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("compact", [False, True])
+async def test_rendered_prompt_carries_the_reference_date(compact: bool):
+    # Relative dates resolve against the day the bridge is given, so the model
+    # sees that day, with its weekday for "by Friday".
+    port = _port("")
+    bridge = LLMDSLBridgeService(chat_port=port, use_compact_prompt=compact)
+
+    await bridge.transform("Call the bank tomorrow.", reference_date=date(2026, 10, 17))
+
+    prompt = port.complete.call_args.args[0][0]["content"]
+    assert "2026-10-17 (Saturday)" in prompt
+    # Control: the template's slot is required, so a render without a date fails.
+    template_id = "dsl_domain_recognition_compact" if compact else "dsl_domain_recognition"
+    with pytest.raises(KeyError, match="reference_date"):
+        PROMPT_REGISTRY.render(template_id, journal_text="x", user_context="")
+
+
 @pytest.mark.asyncio
 async def test_transform_without_chat_port_fails():
     bridge = LLMDSLBridgeService(chat_port=None)
-    result = await bridge.transform("anything")
+    result = await bridge.transform("anything", reference_date=_REFERENCE_DATE)
     assert result.is_error
     assert "chat adapter" in str(result.expect_error()).lower()
 
@@ -281,7 +388,7 @@ async def test_transform_without_chat_port_fails():
 @pytest.mark.asyncio
 async def test_transform_empty_text_is_ok_noop():
     bridge = LLMDSLBridgeService(chat_port=_port("ignored"))
-    result = await bridge.transform("   ")
+    result = await bridge.transform("   ", reference_date=_REFERENCE_DATE)
     assert result.is_ok
     assert result.value.transformed_text == ""
 

@@ -12,11 +12,11 @@ lines (tag-first, no checkbox); this module parses them with the canonical
 each into the checkbox form documented in
 ``/docs/user-guides/context-dsl-cheatsheet.md`` (``- [ ] <desc> @context(<type>) …``).
 
-**Metadata is preserved, not normalised.** The bridge prompt produces loosely
-shaped tags (``@when(Friday)``, ``@priority(high)``, ``@duration(10)``) that the
-strict parser cannot turn into ISO dates / numeric priorities. Rather than drop
-them, the bridge's tags are carried through verbatim — the user refines them
-when curating. Only the shape (checkbox, description-first, context-first) is
+**Metadata is preserved, not normalised.** The bridge prompt teaches the values
+the parser reads (ISO dates, durations with units, priorities 1-5), but a model
+can still write one it cannot read (``@when(soon)``). Rather than drop it, the
+bridge's tags are carried through verbatim — the user refines them when
+curating. Only the shape (checkbox, description-first, context-first) is
 normalised; lines that don't parse at all are dropped.
 """
 
