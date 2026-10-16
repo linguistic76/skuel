@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-16
 ---
 
 # Service Architecture: File Organization & Topology
@@ -101,7 +101,7 @@ Standalone services without subfolders.
 | **Analytics** | `analytics_service.py`, `cross_domain_analytics_service.py` |
 | **Knowledge Analytics** | `knowledge/knowledge_pattern_analyzer.py` (generic 5-pattern engine), `tasks/task_knowledge_analyzer.py` (Task-specific, composes generic) |
 | **Askesis Secondary** | `askesis_citation_service.py` |
-| **KU Generation Pipeline** | `entity_chunking_service.py`, `insight/insight_generation_service.py` (shell + 3 mixins, July 2026 decomposition), `entity_inference_service.py`, `ku_intelligence_service.py` |
+| **Knowledge Support** | `entity_chunking_service.py`, `entity_inference_service.py`, `ku_intelligence_service.py` (no service generates a Ku: curriculum is authored in the content vault, ADR-091 S8) |
 | **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` (shell + `calendar_optimization_strategies.py` mixin, July 2026 decomposition; models in `core/models/calendar_optimization.py`) |
 | **Content** | `conversion_service.py`, `content_enrichment_service.py` |
 | **User Secondary** | `user_progress_service.py`, `user_relationship_service.py` |
@@ -543,8 +543,8 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
        ▼                         - UserContextService (update stats)
    Neo4j UPDATE              - TaskKnowledgeAnalyzer (track mastery)
                              - TaskEventHandlerService
-                                 (handle_task_completed →
-                                  step 4: _trigger_knowledge_generation)
+                                 (handle_task_completed: duration
+                                  calibration, principle alignment)
 ```
 
 **Key Observations:**

@@ -196,7 +196,7 @@ DELETED: dict[str, str] = {
     "planning_mixin.ActivityDataReader": "absorbed into UserContextBuilder",
     # Deleted public attributes
     "TasksService.analytics_engine": "removed — TaskKnowledgeAnalyzer now private in TasksIntelligenceService as self._knowledge_analyzer",
-    "TasksService.ku_generation_service": "removed — now private as self._ku_generation_service",
+    "TasksService.ku_generation_service": "deleted — no Ku is generated from tasks; curriculum is authored in the content vault (ADR-091 S8)",
     # Deleted classes / concepts
     "ProfileLayout": "deleted — use BasePage(page_type=PageType.CUSTOM)",
     # The scheduled-report producer (retired 2026-09; calendar-priority-lens arc E3):
@@ -392,6 +392,13 @@ DELETED: dict[str, str] = {
     "components.goals": "components/ deleted — use ui.goals.views",
     "components.habits": "components/ deleted — use ui.habits.views",
     "components.events": "components/ deleted — use ui.events.views",
+    # Curriculum is authored in the content vault (ADR-091 S8): no Ku is generated
+    # from task patterns, and the generated `ku_{slug}_{random}` uid form is retired.
+    "InsightGenerationService": "deleted — no Ku is generated from tasks; curriculum is authored in the content vault (ADR-091 S8)",
+    "ku_generation_service": "deleted — no Ku is generated from tasks; curriculum is authored in the content vault (ADR-091 S8)",
+    "trigger_manual_knowledge_generation": "deleted — no Ku is generated from tasks (ADR-091 S8)",
+    "_trigger_knowledge_generation": "deleted — no Ku is generated from tasks (ADR-091 S8)",
+    "generate_knowledge_uid": "deleted — a Ku uid is authored in the vault as ku.{ns}.{slug} (ADR-013, amended 2026-10-16)",
     "components.choices": "components/ deleted — use ui.choices.views",
     "components.principles": "components/ deleted — use ui.principles.views",
 }
@@ -531,6 +538,7 @@ _three_tier = (
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
 _links_arc = "the Activity Links arc's record of the principle ↔ goal, principle ↔ choice, task ↔ goal and event ↔ principle collapses -- ADR-090, the arc document, ADR-090's INDEX row, the older ADRs that keep the names (ADR-001's 2025 single-query record, ADR-015's 2025-12 rich-query record and its amendment notes, ADR-057's Context paragraph, ADR-026's 2026-02 ingestion record), the closed case files in roadmap/done/ and the closed Cypher-vocabulary sweep name the edge types the arc retired"
 _moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
+_m_kuuid = "migration record -- the January 2026 UID migration's inventory and test names the Ku minter the 2026-10-16 ADR-013 amendment retired"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/TROUBLESHOOTING.md": {
@@ -764,6 +772,15 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (218, "sel_routes"): Allow(_m_selux),
         (381, "sel_routes"): Allow(_m_selux, hits=2),
         (390, "sel_routes"): Allow(_m_selux),
+    },
+    "docs/migrations/UID_STANDARDIZATION_MIGRATION_2026-01-30.md": {
+        (39, "generate_knowledge_uid"): Allow(_m_kuuid),
+        (124, "generate_knowledge_uid"): Allow(_m_kuuid),
+        (594, "generate_knowledge_uid"): Allow(_m_kuuid),
+        (596, "generate_knowledge_uid"): Allow(_m_kuuid),
+    },
+    "docs/migrations/UNIVERSAL_HIERARCHICAL_PATTERN_FINAL_2026-01-30.md": {
+        (262, "generate_knowledge_uid"): Allow(_m_kuuid),
     },
     "docs/migrations/USER_UID_CANONICALIZATION_2026-05.md": {
         (42, "Entity.user_uid"): Allow(_m_useruid),

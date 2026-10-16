@@ -7,7 +7,8 @@ Neo4j container and asserts the graph contracts:
 
 - created entities carry ``(created)-[:EXTRACTED_FROM {extracted_at,
   source_line_hash}]->(entry)`` provenance edges,
-- resolved ``@ku()`` references write ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)``,
+- resolved ``@ku()`` references write ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)``; a
+  reference in any spelling but ``ku.{ns}.{slug}`` links nothing and is reported,
 - ``@link(ku:<uid>)`` — the multi-Ku door — resolves the same way: the id after
   the prefix is the stored uid, so the edge lands with no ``@ku()`` on the line,
 - the run summary lands in ``entry.metadata["activity_extraction"]``,
@@ -141,7 +142,7 @@ class TestExtractActivitiesPipeline:
         self, neo4j_driver, user_entry_service, seed_user
     ):
         user_uid = await seed_user(f"user_extract_{uuid4().hex[:6]}")
-        ku_uid = await _seed_ku(neo4j_driver, f"ku_extract_it_{uuid4().hex[:6]}")
+        ku_uid = await _seed_ku(neo4j_driver, f"ku.it.extract-{uuid4().hex[:6]}")
 
         content = (
             "Morning notes.\n\n"
@@ -218,7 +219,7 @@ class TestExtractActivitiesPipeline:
         the entry gets its APPLIES_KNOWLEDGE edge and the run reports no
         link error — with no ``@ku()`` on the line."""
         user_uid = await seed_user(f"user_link_{uuid4().hex[:6]}")
-        ku_uid = await _seed_ku(neo4j_driver, f"ku_link_it_{uuid4().hex[:6]}")
+        ku_uid = await _seed_ku(neo4j_driver, f"ku.it.link-{uuid4().hex[:6]}")
         content = f"- [ ] Practice decorators @context(task) @link(ku:{ku_uid})\n"
         entry = await _create_entry(user_entry_service, user_uid, content)
 
@@ -246,6 +247,51 @@ class TestExtractActivitiesPipeline:
         assert [row["ku_uid"] for row in ku_rows] == [ku_uid], (
             "the @link(ku:…) reference must resolve to the stored uid and write the edge"
         )
+
+    @pytest.mark.asyncio
+    async def test_a_ku_reference_in_another_spelling_links_nothing_and_says_so(
+        self, neo4j_driver, user_entry_service, seed_user
+    ):
+        """A Ku uid has one spelling, ``ku.{ns}.{slug}`` (ADR-013): ``@ku(ku_…)``
+        names no Ku even when a node with that exact uid is in the graph, so the
+        entry gains no APPLIES_KNOWLEDGE edge and the run reports the dropped
+        reference. The authored reference on the next line still links."""
+        user_uid = await seed_user(f"user_kuform_{uuid4().hex[:6]}")
+        token = uuid4().hex[:6]
+        generated = await _seed_ku(neo4j_driver, f"ku_generated_{token}")
+        authored = await _seed_ku(neo4j_driver, f"ku.it.authored-{token}")
+        content = (
+            f"- [ ] Old spelling @context(task) @ku({generated})\n"
+            f"- [ ] Authored spelling @context(task) @ku({authored})\n"
+        )
+        entry = await _create_entry(user_entry_service, user_uid, content)
+
+        dispatcher = UserEntryProcessingService(
+            entry_service=user_entry_service,
+            activity_extractor=ActivityExtractorService(
+                tasks_service=_GraphTasksStub(neo4j_driver)
+            ),
+        )
+        result = await dispatcher.process(entry)
+        assert result.is_ok, f"process failed: {result.error}"
+        summary = (result.value.metadata or {}).get("activity_extraction")
+        assert isinstance(summary, dict), f"summary missing/unparsed: {summary!r}"
+        assert summary["tasks_created"] == 2
+        assert summary["tag_warnings"] == [
+            f"'Old spelling': @ku({generated}) is not a knowledge unit uid — "
+            "reference dropped (a Ku uid is spelled ku.<namespace>.<slug>)"
+        ]
+
+        async with neo4j_driver.session() as session:
+            res = await session.run(
+                """
+                MATCH (e:UserEntry {uid: $uid})-[:APPLIES_KNOWLEDGE]->(k:Ku)
+                RETURN k.uid AS ku_uid
+                """,
+                uid=entry.uid,
+            )
+            ku_rows = await res.data()
+        assert [row["ku_uid"] for row in ku_rows] == [authored]
 
     @pytest.mark.asyncio
     async def test_reprocess_is_noop_and_force_is_duplicate_free(

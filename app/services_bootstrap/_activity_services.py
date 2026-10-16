@@ -22,7 +22,6 @@ def _create_activity_services(
     event_bus: Any = None,
     # Tasks-specific optional dependencies
     ku_inference_service: Any = None,
-    ku_generation_service: Any = None,
     # Event-driven insights
     insight_store: Any = None,
     # Knowledge intelligence (shared singleton for all 6 domains)
@@ -36,13 +35,13 @@ def _create_activity_services(
         - event_bus: Domain event publishing (optional)
 
     Domain-specific dependencies:
-        - Tasks: ku_inference_service, ku_generation_service
+        - Tasks: ku_inference_service
         - Habits: completions_backend (for achievements)
 
     All facades embed intelligence (access via facade.intelligence).
 
     Tasks-specific dependencies:
-        - ku_inference_service, ku_generation_service (passed through to TasksService)
+        - ku_inference_service (passed through to TasksService)
 
     Note: analytics_engine removed — TasksIntelligenceService owns it directly.
     """
@@ -59,7 +58,6 @@ def _create_activity_services(
             cross_domain_query=cross_domain_query,
             graph_intel=graph_intelligence,
             ku_inference_service=ku_inference_service,
-            ku_generation_service=ku_generation_service,
             event_bus=event_bus,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,

@@ -1188,9 +1188,9 @@ form reads. On that path both singular and plural names are flagged. Not hypothe
 first cut of this rule measured zero and MISSED a live violation,
 `"programming" in str(user_context.mastered_knowledge_uids)` in
 `learning_state_analyzer.py`, feeding recommendation relevance scoring (Codex, #1194). It
-matched authored `ku.programming.*` uids and never the API-generated `ku_{slug}_{random}`
-for the same concept, so a learner's "technical affinity" split on PROVENANCE rather than
-on anything they had done — ADR-013's failure mode exactly.
+matched only the `ku.programming.*` uids an author happened to group under that namespace,
+so a learner's "technical affinity" read an author's GROUPING HINT rather than anything
+they had done — ADR-013's failure mode exactly.
 
 WHERE THE ENUMERATION STOPS, and why it is an enumeration at all. Covered: the
 builtins (`str`/`repr`/`format`, either arity), the method spellings
@@ -1312,8 +1312,8 @@ File-level: # skuel-lint: disable-file=SKUEL034 -- <reason>""",
 by_area: dict[str, list[Mastery]] = defaultdict(list)
 for mastery in self.current_masteries.values():
     by_area[mastery.sel_category].append(mastery)""",
-        "bad": """# Invents a Domain out of uid spelling. "ku.finance.budgeting" and the
-# API-generated "ku_budgeting_a1b2c3" describe the same entity and land in
+        "bad": """# Invents a Domain out of uid spelling. "ku.finance.budgeting" and
+# "ku.household.budgeting" are grouped by two authors' namespaces and land in
 # different buckets — and neither carries a Domain at all.
 if "tech" in knowledge_uid.lower() or "python" in knowledge_uid.lower():
     return Domain.TECHNOLOGY

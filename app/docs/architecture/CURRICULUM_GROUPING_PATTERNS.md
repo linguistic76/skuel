@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-10-13
+updated: 2026-10-16
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -58,7 +58,7 @@ Type safety doesn't restrict - it **channels energy** so it flows and feeds back
 
 | Pattern | UID (authored = stored) | Grouping Style | Topology | Metaphor |
 |---------|------------|----------------|----------|----------|
-| **KU** | `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atomic unit | Point | A single concept/fact |
+| **KU** | `ku.{ns}.{slug}` | Atomic unit | Point | A single concept/fact |
 | **PS** | `ps.{namespace}.{slug}` | Unit for learning | Unit | A step that composes Kus into content |
 | **LP** | `lp.{namespace}.{slug}` | Linear sequence | Path | An ordered sequence of PathSteps |
 
@@ -109,7 +109,8 @@ Two clarifications the grammar hangs on:
   one Ku belongs to many families at once, which no string can encode. Hierarchy-in-edges is
   what makes multiple parents possible.
 - **Separator spelling is provenance** — dot says "authored/curated", underscore says
-  "API-generated". It carries no type information and no behavior.
+  "generated" (an Activity's `task_…`; curriculum is authored only, so a Ku, PathStep or
+  LearningPath uid is always dotted). It carries no type information and no behavior.
 
 **Supersession note:** the January 2026 migration plan
 (`/docs/migrations/UID_STANDARDIZATION_MIGRATION_2026-01-30.md`) assigned dots the job of
@@ -173,22 +174,20 @@ content: |
 
 **Graph Role:** KU is the leaf node - all other patterns ultimately reference KUs.
 
-#### Two Sanctioned UID Forms — the Never-Sniff Rule
+#### One KU UID Form — the Never-Sniff Rule
 
-Both KU UID spellings are sanctioned (ADR-013, explicit `uid:` override; ruling
-reaffirmed 2026-07-03):
+A KU uid has one form (ADR-013, amended 2026-10-16):
 
 | Form | Format | Provenance |
 |------|--------|------------|
 | Authored | `ku.{namespace}.{slug}` | Vault/editorial — validator-enforced (`core/services/ingestion/validator.py` requires `"{prefix}."`); authored in dot form directly (colon spelling retired 2026-08-14, its `normalize_uid` input shim deleted with it — a colon-spelled entity uid now fails prefix validation loudly, per § Authoring Spelling) |
-| Generated | `ku_{slug}_{random}` | API — the Universal flat format shared with all Activity domains |
 
-**No migration between them, ever.** UID spelling is provenance (curated vs
-generated), not type information. **Entity kind is determined by label,
-`entity_type`, or edge — NEVER by UID string prefix.** A `startswith("ku_")`
-check silently drops every authored KU (and vice versa); consumers that need
-to split mixed UID lists take the `entity_type` field the MEGA-QUERY carries
-on `knowledge_relationships`, or resolve by lookup.
+The generated `ku_{slug}_{random}` form is retired: a Ku is authored only in the content vault
+(ADR-091 S8), nothing mints the form, and an `@ku(ku_…)` reference links nothing and is
+reported in the run's `tag_warnings`. The never-sniff rule stays, for every type:
+**entity kind is determined by label, `entity_type`, or edge — NEVER by UID string
+prefix.** Consumers that need to split mixed UID lists take the `entity_type` field the
+MEGA-QUERY carries on `knowledge_relationships`, or resolve by lookup.
 
 **Lint-enforced since 2026-08-30 (SKUEL034, ERROR).** The rule was prose-only until a real
 violation lived from the initial commit to 2026-08-27: `_get_knowledge_domain` grouped
@@ -200,8 +199,8 @@ but that exemption does **not** survive serialization: `str(uids)`, `f"{uids}"`,
 `", ".join(uids)` render the collection back into one string, and `in` against the result
 reads uid spelling exactly as the singular form does. That shape was live and unnoticed until
 #1194: `"programming" in str(user_context.mastered_knowledge_uids)` gave a learner a higher
-"technical affinity" for holding an *authored* `ku.programming.*` uid, and never for the
-API-generated `ku_{slug}_{random}` naming the same concept.
+"technical affinity" for holding a `ku.programming.*` uid — the namespace an author happened
+to choose — and never for a Ku on the same concept grouped under another.
 
 Prefix and segment reads are **deliberately out of the rule's scope**, because their
 legitimacy depends on what the branch does with the answer. All four live sites are

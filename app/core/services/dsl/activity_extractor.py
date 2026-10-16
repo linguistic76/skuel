@@ -67,6 +67,7 @@ from core.services.dsl.activity_domain_converters import (
     activity_to_task_request,
 )
 from core.services.dsl.activity_dsl_parser import (
+    VAULT_AUTHORED_CONTEXTS,
     ActivityDSLParser,
     ParsedActivityLine,
 )
@@ -82,12 +83,6 @@ from core.services.dsl.specialized_domain_converters import (
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, Errors, Result
-
-#: Contexts a line may name but never create from an entry: curriculum is
-#: authored in the content vault (ADR-091 S8).
-_VAULT_AUTHORED_CONTEXTS: frozenset[EntityType | NonKuDomain] = frozenset(
-    {EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH}
-)
 
 # ============================================================================
 # LINE PROVENANCE
@@ -885,7 +880,7 @@ class ActivityExtractorService:
                 for c in activity.contexts
                 if c not in routable
                 and c is not NonKuDomain.LEARNING
-                and c not in _VAULT_AUTHORED_CONTEXTS
+                and c not in VAULT_AUTHORED_CONTEXTS
             ]
             if not skipped:
                 continue

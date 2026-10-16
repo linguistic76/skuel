@@ -673,3 +673,40 @@ class TestBootNamesItsOwners:
 
         assert result.is_error
         assert "SKUEL_DEFAULT_USER_UID" in result.expect_error().message
+
+
+class TestTaskCompletionReadsNoTaskPatterns:
+    """A task completion, wired as the app composes it, reads no task history.
+
+    Curriculum is authored in the content vault (ADR-091 S8), so nothing on the
+    completion path mines the user's tasks for knowledge. The test composes the
+    real app, counts every ``get_user_tasks`` read on the tasks facade, and runs
+    the composed completion handler with its two graph-writing steps stubbed.
+    """
+
+    async def test_a_completion_reads_no_tasks(
+        self, monkeypatch, compose_config, startup_calls, hermetic_credentials
+    ) -> None:
+        from unittest.mock import AsyncMock
+
+        from core.events.task_events import TaskCompleted
+        from core.models.type_hints import UserUID
+
+        monkeypatch.setenv("INTELLIGENCE_TIER", "core")
+        services, _ = await _compose(compose_config)
+        assert services.tasks is not None
+
+        task_reads = AsyncMock(return_value=Result.ok([]))
+        monkeypatch.setattr(services.tasks, "get_user_tasks", task_reads)
+        handler = services.tasks.event_handler
+        calibrate = AsyncMock()
+        monkeypatch.setattr(handler, "_calibrate_duration", calibrate)
+        monkeypatch.setattr(handler, "_check_principle_alignment", AsyncMock())
+
+        await handler.handle_task_completed(
+            TaskCompleted(task_uid="task_done", user_uid=UserUID("user_learner"))
+        )
+
+        # The handler ran (control), and nothing on its path read the tasks.
+        calibrate.assert_awaited_once()
+        task_reads.assert_not_awaited()

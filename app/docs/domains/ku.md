@@ -17,7 +17,7 @@ related_skills:
 # KU (Knowledge Unit) Domain
 
 **Type:** Curriculum Domain (1 of 4)
-**UID:** `ku.{ns}.{slug}` authored, `ku_{slug}_{random}` generated — flat either way; hierarchy lives in ORGANIZES relationships
+**UID:** `ku.{ns}.{slug}`, authored in the content vault — flat; hierarchy lives in ORGANIZES relationships
 **Entity Label:** `Ku`
 **Topology:** Point (atomic content)
 
@@ -29,16 +29,17 @@ Knowledge Units are atomic pieces of knowledge content. They represent the funda
 
 ## UID Format
 
-Two sanctioned spellings, both valid, both opaque — never sniff the kind of entity from the prefix (ADR-013):
+One spelling, opaque — never sniff the kind of entity from the prefix (ADR-013):
 
 ```
 ku.{ns}.{slug}          # authored in the content vault — stored verbatim (dot form)
-ku_{slug}_{random}      # generated form — still valid; no door mints it (ADR-091 S8)
 ```
 
-**Examples:**
-- `ku.sel.empathy`
-- `ku_python-basics_e5f6g7h8`
+The generated `ku_{slug}_{random}` form is retired (ADR-013 amendment, 2026-10-16): a Ku is
+authored only in the vault (ADR-091 S8), and an `@ku(ku_…)` reference links nothing and is
+reported in the run summary's `tag_warnings`.
+
+**Example:** `ku.sel.empathy`
 
 The middle segment of an authored uid is a human-readable grouping hint, machine-opaque; hierarchy is in `ORGANIZES` edges, never in the string. **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar.
 
@@ -235,16 +236,12 @@ slots above.
 ```python
 # Via KuService facade - harmonious relationship access
 ku_service = services.ku
-resources = await ku_service.get_cited_resources("ku_advanced-python_a1b2")
+resources = await ku_service.get_cited_resources("ku.tech.advanced-python")
 
-# Via sub-services - the generic edge writer (no Ku-specific method exists)
-await ku_service.relationships.add_relationship(
-    "ku_python_f7g8", RelationshipName.ORGANIZES, "ku_advanced-python_a1b2",
-    {"order": 1},
-)
+# ORGANIZES edges are authored in the vault (`organizes:` / `moc: true`), not written here
 
 # Via sub-services - intelligence operations
-usage = await ku_service.intelligence.get_usage_summary("ku_python_f7g8")
+usage = await ku_service.intelligence.get_usage_summary("ku.tech.python")
 
 # Prerequisite chains and semantics live on PathStep
 prereq_chain = await services.ps.get_prerequisite_chain("ps.core.advanced-python")

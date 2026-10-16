@@ -10,7 +10,9 @@ related_skills: [neo4j-cypher-patterns, curriculum-domains]
 
 # ADR-013: KU UID Flat Identity Design
 
-**Status:** Implemented (Universal Hierarchical Pattern - 2026-01-30)
+**Status:** Implemented (Universal Hierarchical Pattern - 2026-01-30). **Amended 2026-10-16:**
+one Ku uid form, authored `ku.{ns}.{slug}`; the generated `ku_{slug}_{random}` form below is
+retired, and the never-sniff rule stays — see [§ Amendment (2026-10-16)](#amendment-2026-10-16-one-ku-uid-form).
 
 **Date:** 2025-12-03 (Decision) | 2026-01-30 (Implementation)
 
@@ -63,6 +65,11 @@ Encoding ONE path in the UID implies that's THE primary location, but knowledge 
 ## Decision
 
 **KU UIDs are FLAT: Identity independent of location**
+
+> **Amended 2026-10-16.** The flat, location-free identity stands. The generated format in
+> § UID Format is retired: a Ku is authored only in the content vault (ADR-091 S8), so its uid
+> is the authored `ku.{ns}.{slug}`, and nothing in the app mints `ku_{slug}_{random}`. See
+> [§ Amendment (2026-10-16)](#amendment-2026-10-16-one-ku-uid-form).
 
 **Universal Hierarchical Pattern (2026-01-30):** KU UIDs use the same flat format as Activity domains (Tasks, Goals, Habits), with hierarchy stored in ORGANIZES relationships.
 
@@ -232,77 +239,28 @@ If two files produce the same UID, the second sync overwrites the first. This is
 ### Code Location
 
 **Primary files** (function names, not line pins — lines drift):
-- `/core/utils/uid_generator.py` — `generate_knowledge_uid()`, flat UID generation
-- `/core/services/ku/ku_core_service.py` — `create()`, KU creation
+- `/core/services/ingestion/` — the unified ingestion pipeline: a Ku file's `uid:` is stored
+  verbatim; with none, the filename-fallback uid is `ku.{file-stem}` (`preparer.py`); the
+  MERGE upsert lives below `adapters/persistence/neo4j/`
 - `/adapters/persistence/neo4j/backends/curriculum_backends.py` — `KuBackend`, the ORGANIZES
   Cypher (MOC); read back through `/core/services/ku/ku_intelligence_service.py`
 - `/core/models/relationship_names.py` — ORGANIZES relationship
+- `/core/services/dsl/activity_dsl_parser.py` — `_parse_ku`: an `@ku()` reference accepts only
+  `ku.…`; any other spelling is dropped and reported in the line's `tag_warnings`
 
-**Related files:**
-- `/core/services/ingestion/` — the unified ingestion pipeline (successor to the retired
-  `markdown_sync_service` / `bulk_ingestion`); filename-fallback UID in
-  `preparer.py`, MERGE upsert below `adapters/persistence/neo4j/`
-
-### UID Generation Code (2026-01-30)
-
-```python
-# core/utils/uid_generator.py:67-92
-@classmethod
-def generate_knowledge_uid(cls, title: str) -> str:
-    """
-    Generate a flat knowledge unit UID.
-
-    Format: ku_{slug}_{random}
-    Hierarchy stored in ORGANIZES relationships.
-    """
-    slug = cls.slugify(title)
-    random_suffix = uuid.uuid4().hex[:8]
-    return f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}"
-```
-
-### KU Creation with Hierarchy
-
-```python
-# core/services/ku/ku_core_service.py
-async def create(self, title: str, body: str, **metadata) -> Result[CurriculumDTO]:
-    # Generate flat UID
-    uid = UIDGenerator.generate_knowledge_uid(title=title)
-
-    # Store KU node
-    await self.backend.create(unit_data)
-
-    # Handle parent organization if specified
-    parent_uid = metadata.get("parent_uid")
-    if parent_uid:
-        await self.organize_lesson(
-            parent_uid=parent_uid,
-            child_uid=uid,
-            order=metadata.get("order", 0),
-            importance=metadata.get("importance", "normal")
-        )
-```
-
-### Hierarchical Service Methods
-
-```python
-# Added 2026-01-30
-await lesson_core.get_children(parent_uid, depth=1)  # Get children
-await lesson_core.get_parents(ku_uid)               # Get parents (can be multiple!)
-await lesson_core.get_hierarchy(ku_uid)             # Full context
-await lesson_core.organize_lesson(parent, child, ...)  # Create relationship
-await lesson_core.unorganize_lesson(parent, child)     # Remove relationship
-```
+No service creates a Ku, and `core/utils/uid_generator.py` mints no Ku uid (amendment
+2026-10-16).
 
 ### ORGANIZES Relationship
 
+Hierarchy is authored in the vault (`organizes:` or `moc: true` frontmatter) and ingested as:
+
 ```cypher
 // Cypher pattern
-MATCH (parent:Curriculum {uid: "ku_yoga_abc"})
-MATCH (child:Curriculum {uid: "ku_meditation_xyz"})
+MATCH (parent:Entity {uid: "ku.yoga.fundamentals"})
+MATCH (child:Entity {uid: "ku.yoga.meditation"})
 MERGE (parent)-[r:ORGANIZES]->(child)
-SET r.order = 1,
-    r.importance = 'core',
-    r.created_at = datetime()
+SET r.order = 1
 ```
 
 ---
@@ -342,7 +300,7 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of aut
 (not "the canonical format" — there is no single canonical spelling; see the Addendum):
 - Colon notation (`ku:filename`) is REJECTED — the auto-convert input alias was deleted 2026-08-14
 - Ingestion's filename-fallback UID is dot form (`ku.{file-stem}`)
-- API-generated UIDs remain underscore form (`ku_{slug}_{random}`)
+- The generated underscore form (`ku_{slug}_{random}`) is retired (amendment 2026-10-16)
 - Separator law: `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar
 
 ---
@@ -356,6 +314,7 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of aut
 | 2026-01-30 | Claude | Implemented Universal Hierarchical Pattern | 2.0 |
 | 2026-01-30 | Claude | Updated with underscore format & ORGANIZES | 2.1 |
 | 2026-08-14 | Mike + Claude | Separator grammar ratified (dot = authored provenance, hierarchy in edges); fixed stale citations, "canonical dot format" claim, and the "backward compatibility" framing of the authored form | 2.2 |
+| 2026-10-16 | Mike + Claude | Amendment: one Ku uid form, authored `ku.{ns}.{slug}`; the generated `ku_{slug}_{random}` form is retired with its minter, and an `@ku()` reference in another spelling links nothing and is reported. The never-sniff rule stays (ADR-091 S8) | 3.0 |
 
 ---
 
@@ -364,14 +323,11 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of aut
 ### Content Creator Workflow
 
 **Creating a KU:** a Ku is authored only in the content vault (ADR-091 S8); no service
-creates one. The generated `ku_{slug}_{random}` form stays a valid uid, but nothing mints it.
-Placement under a parent is an `ORGANIZES` edge, authored in the vault through `organizes:` or
-`moc: true` frontmatter — see
+creates one, and its uid is the authored `ku.{ns}.{slug}`. Placement under a parent is an
+`ORGANIZES` edge, authored in the vault through `organizes:` or `moc: true` frontmatter — see
 [../patterns/UNIFIED_INGESTION_GUIDE.md](../patterns/UNIFIED_INGESTION_GUIDE.md) § MOC files.
 
-**Creating a KU via Markdown:**
-
-1. Create markdown file in Obsidian vault:
+1. Create a markdown file in the content vault:
    ```
    0vault/meditation/meditation-basics.md
    ```
@@ -379,72 +335,45 @@ Placement under a parent is an `ORGANIZES` edge, authored in the vault through `
 2. Add frontmatter:
    ```yaml
    ---
+   type: ku
+   uid: ku.wellness.meditation-basics
    title: Meditation Basics
-   domain: wellness
    tags: [meditation, mindfulness]
    ---
    ```
 
-3. Sync via MarkdownSyncService:
-   ```python
-   await markdown_sync.sync_file(path)
+3. Sync the content vault: the admin "Sync content vault" button
+   (`POST /api/vault/sync/content`) or `./dev vault-sync`.
+
+4. Result in Neo4j:
+   ```
+   (:Entity:Ku {uid: "ku.wellness.meditation-basics", title: "Meditation Basics", ...})
    ```
 
-4. Result in Neo4j (legacy dot format):
-   ```
-   (:Curriculum {uid: "ku.meditation-basics", title: "Meditation Basics", ...})
-   ```
+### Hierarchical Organization
 
-**Note:** Markdown ingestion still uses `ku.{filename}` format for backward compatibility. New service-created KUs use `ku_{slug}_{random}` format.
+A Ku can sit under several parents (a DAG, not a tree), and moving it never changes its uid:
+each placement is one `ORGANIZES` edge from a parent file, retracted when the file drops the
+target. A `moc: true` file's body links become those edges; a link resolves through the
+target's file path to its uid.
 
-### Hierarchical Organization Example
-
-**Before (2026-01-30 - Hierarchical UIDs):**
-```python
-# Parent encoded in UID - WRONG!
-uid = generate_knowledge_uid(
-    title="Meditation",
-    parent_uid="ku.yoga",
-    domain_uid="dom.wellness"
-)
-# Result: "ku.yoga.meditation" - hierarchy in UID string
+```yaml
+# 0vault/moc/ai-fundamentals.md
+---
+type: ku
+uid: ku.tech.ai-fundamentals
+moc: true
+---
+- [[machine-learning]]
 ```
 
-**After (2026-01-30 - Universal Hierarchical Pattern):**
-```python
-# Flat UID + relationship - CORRECT!
-uid = generate_knowledge_uid(title="Meditation")
-# Result: "ku_meditation_a1b2c3d4" - flat, stable
-
-# Hierarchy via ORGANIZES
-await lesson_core.organize_lesson(
-    parent_uid="ku_yoga-fundamentals_abc123",
-    child_uid="ku_meditation_a1b2c3d4",
-    order=1,
-    importance="core"
-)
-# Creates: (parent)-[:ORGANIZES {order: 1, importance: "core"}]->(child)
-```
-
-**Multiple Parents (DAG):**
-```python
-# Same KU can be in multiple MOCs
-await lesson_core.organize_lesson("ku_ai-fundamentals_xyz", "ku_ml_abc", order=1)
-await lesson_core.organize_lesson("ku_data-science_def", "ku_ml_abc", order=2)
-await lesson_core.organize_lesson("ku_python-advanced_ghi", "ku_ml_abc", order=3)
-
-# Machine Learning appears in 3 different organizational contexts!
-```
-
-**Reorganization Safety:**
-```python
-# Moving KU to different parent - UID unchanged!
-await lesson_core.unorganize_lesson(old_parent_uid, ku_uid)
-await lesson_core.organize_lesson(new_parent_uid, ku_uid, order=1)
-# All references to ku_uid remain valid
-```
+The same `machine-learning.md` Ku can be linked from another MOC as well; every reference to its
+uid stays valid.
 
 ## Addendum (2026-07-04, Arc F/G12): the two-form reality in today's graph
+
+> **Superseded by the [amendment of 2026-10-16](#amendment-2026-10-16-one-ku-uid-form):** the
+> generated form below is retired. Kept as the record of the two-form ruling.
 
 Both UID forms remain sanctioned, but they are provenance, not a migration plan:
 
@@ -460,3 +389,19 @@ via vault ingestion. That is expected, not drift — the flat format activates w
 KUs are created through the API. No migration between the forms, ever; entity kind
 is determined by label/`entity_type`/edge, never by UID spelling (the never-sniff
 rule, reaffirmed 2026-07-03).
+
+## Amendment (2026-10-16): one Ku uid form
+
+**Ruled by Mike, 2026-10-16** (on the curriculum sync-only chain, ADR-091 S8).
+
+- **One form.** A Ku uid is the authored `ku.{ns}.{slug}`, written in the content vault. The
+  generated `ku_{slug}_{random}` form is retired: curriculum is authored only in the content
+  vault, so nothing creates a Ku in the app, and the uid generator's Ku minter is gone.
+  The live graph held no generated Ku (0 of 121 on 2026-10-16), so nothing migrates.
+- **A reference in another spelling links nothing, visibly.** `@ku(ku_…)` (and the colon
+  `@ku(ku:…)`) names no Ku, even if a node with that exact uid existed: the parser drops the
+  reference and the line's `tag_warnings` report it in the run summary.
+- **The never-sniff rule stays.** It governs every type: entity kind comes from the label,
+  `entity_type` or an edge, never from a uid's spelling, and a uid's middle segment stays a
+  human grouping hint, never machine meaning (SKUEL034).
+- **Flat identity stands.** Hierarchy is still `ORGANIZES` edges, never the uid.

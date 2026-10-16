@@ -1,6 +1,7 @@
 Analyze this journal and extract activities into SKUEL DSL format.
 
-DOMAINS: task, habit, goal, event, principle, choice, finance, ku, ps, lp, calendar, lifepath
+DOMAINS: task, habit, goal, event, principle, choice, finance, calendar, lifepath
+(something to learn is a goal or a task)
 
 SYNTAX: - @context(type) description @attr(value)...
 ATTRS: @priority, @when, @repeat, @duration, @energy, @amount, @goal, @principle, @ku

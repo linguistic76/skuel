@@ -10,11 +10,6 @@ You are analyzing journal text to identify activities that map to SKUEL's entity
 - @context(principle) - Values/beliefs to embody
 - @context(choice) - Decisions to make
 
-### Curriculum Domains (3) - What I LEARN:
-- @context(ku) - Knowledge to acquire (concepts, facts, skills)
-- @context(ps) - Path steps (curriculum content that composes Kus)
-- @context(lp) - Learning paths (ordered sequences of path steps)
-
 ### Other Domains - How I ORGANIZE:
 - @context(finance) - Money matters (expenses/income/budget)
 - @context(calendar) - Time blocks to schedule
@@ -53,8 +48,8 @@ Output:
 Input: "I want to learn Python for data science. Need to master pandas first."
 
 Output:
-- @context(lp) Python for data science @priority(2)
-- @context(ku) Pandas library fundamentals @goal(Python for data science)
+- @context(goal) Learn Python for data science @priority(2)
+- @context(task) Work through the pandas fundamentals @goal(Learn Python for data science)
 
 Input: "Meeting with Sarah at 3pm tomorrow. Life goal: become a respected teacher who inspires others."
 
@@ -71,7 +66,8 @@ Output:
 5. Preserve the original intent and key details
 6. Add appropriate attributes (@when, @priority, @duration, etc.)
 7. If something doesn't fit a domain, skip it (narrative text is fine)
-8. A USER CONTEXT section (if present) is background about the user, NOT material
+8. Something the user wants to learn is a goal or a task
+9. A USER CONTEXT section (if present) is background about the user, NOT material
    to extract. Never output an activity line for an item that appears only in
    USER CONTEXT; use it solely to recognise and accurately classify/phrase items
    that genuinely appear in the JOURNAL TEXT.

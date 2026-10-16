@@ -51,6 +51,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import PromptInput
 from core.models.type_hints import UserUID
 from core.prompts import PROMPT_REGISTRY
+from core.services.dsl.activity_dsl_parser import VAULT_AUTHORED_CONTEXTS, resolve_context_value
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -61,6 +62,17 @@ if TYPE_CHECKING:
 
 # ``@link(...)`` as the parser's TAG_PATTERN reads it; ``_parse_llm_output`` drops it.
 _LINK_TAG_RE = re.compile(r"\s*@link\([^)]*\)")
+_CONTEXT_TAG_RE = re.compile(r"@context\(([^)]*)\)", re.IGNORECASE)
+
+
+def _names_curriculum(line: str) -> bool:
+    """True when a line's ``@context()`` names a type authored only in the content vault."""
+    return any(
+        resolve_context_value(value) in VAULT_AUTHORED_CONTEXTS
+        for match in _CONTEXT_TAG_RE.finditer(line)
+        for value in match.group(1).split(",")
+    )
+
 
 # ============================================================================
 # TRANSFORMATION RESULT
@@ -96,9 +108,6 @@ class DSLTransformResult:
     principles_identified: int = 0
     choices_identified: int = 0
     finances_identified: int = 0
-    kus_identified: int = 0
-    path_steps_identified: int = 0
-    learning_paths_identified: int = 0
     reports_identified: int = 0
     analytics_identified: int = 0
     calendar_items_identified: int = 0
@@ -126,10 +135,6 @@ class DSLTransformResult:
                 "principles": self.principles_identified,
                 "choices": self.choices_identified,
                 "finances": self.finances_identified,
-                # Curriculum Domains (3)
-                "kus": self.kus_identified,
-                "path_steps": self.path_steps_identified,
-                "learning_paths": self.learning_paths_identified,
                 # Meta Domains (3)
                 "reports": self.reports_identified,
                 "analytics": self.analytics_identified,
@@ -370,6 +375,10 @@ class LLMDSLBridgeService:
         has no source for one (grounding passes titles), so any ``@link`` it
         emits is dropped here and the line reaches the parser link-free. Links
         on both bridge paths are the user's own.
+
+        A bridge line names no curriculum context either: curriculum is authored
+        in the content vault (ADR-091 S8), so a line the model writes with
+        ``@context(ku|ps|lp)`` is dropped whole rather than suggested.
         """
         lines = []
 
@@ -386,6 +395,9 @@ class LLMDSLBridgeService:
 
             # Skip lines without @context
             if "@context(" not in line:
+                continue
+
+            if _names_curriculum(line):
                 continue
 
             line = _LINK_TAG_RE.sub("", line).strip()
@@ -418,14 +430,6 @@ class LLMDSLBridgeService:
                 result.choices_identified += 1
             elif "@context(finance)" in line_lower:
                 result.finances_identified += 1
-
-            # Curriculum Domains (3)
-            elif "@context(ku)" in line_lower:
-                result.kus_identified += 1
-            elif "@context(ls)" in line_lower:
-                result.path_steps_identified += 1
-            elif "@context(lp)" in line_lower:
-                result.learning_paths_identified += 1
 
             # Meta Domains (3)
             elif "@context(report)" in line_lower:

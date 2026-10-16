@@ -33,7 +33,7 @@ from core.events.task_events import (
 from core.models.enums import EntityStatus, Priority
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import EntityUID
 from core.models.update_contracts import StatusWriteGuard
 from core.services.insight import persist_principle_alignment_insight
 from core.services.whole_set_read import find_all_by
@@ -45,7 +45,6 @@ from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
-    from core.services.insight.insight_generation_service import InsightGenerationService
     from core.services.insight.insight_store import InsightStore
     from core.services.relationships import UnifiedRelationshipService
 
@@ -117,7 +116,6 @@ class TaskEventHandlerService:
         relationship_service: UnifiedRelationshipService | None = None,
         insight_store: InsightStore | None = None,
         event_bus: Any = None,
-        ku_generation_service: InsightGenerationService | None = None,
     ) -> None:
         """Initialize task event handler service.
 
@@ -126,12 +124,10 @@ class TaskEventHandlerService:
             relationship_service: For querying related entities (optional)
             insight_store: For persisting event-driven insights (optional)
             event_bus: Event bus (accepted for factory uniformity, not used)
-            ku_generation_service: For automatic knowledge generation on task completion (optional)
         """
         self.backend = backend
         self.relationships = relationship_service
         self.insight_store = insight_store
-        self.ku_generation_service = ku_generation_service
         self.logger = get_logger("skuel.services.tasks.event_handler")
 
     # ========================================================================
@@ -201,10 +197,6 @@ class TaskEventHandlerService:
             if self.relationships:
                 await self._check_principle_alignment(event)
 
-            # 4. Knowledge generation (fire-and-forget — errors logged, not propagated)
-            if self.ku_generation_service:
-                await self._trigger_knowledge_generation(event.user_uid)
-
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error handling task completion: {e}",
@@ -221,7 +213,7 @@ class TaskEventHandlerService:
         The one graph write a task completion cascades into, and the reason it is
         its own subscriber rather than a step of :meth:`handle_task_completed`: that
         handler exits through one boundary when an optional intelligence step
-        (duration calibration, principle alignment, knowledge generation) raises,
+        (duration calibration, principle alignment) raises,
         and a dependent must not stay unscheduled behind a completion that reported
         success. The bus runs subscribers in isolation, so nothing this raises can
         reach another handler or the completing request.
@@ -572,47 +564,3 @@ class TaskEventHandlerService:
                     self.logger.warning(
                         f"Failed to persist inflation insight: {create_result.error}"
                     )
-
-    async def _trigger_knowledge_generation(self, user_uid: UserUID) -> None:
-        """Extract and auto-publish knowledge from the user's recent completed tasks.
-
-        Fire-and-forget — errors are logged, never propagated. Runs as part of
-        handle_task_completed so knowledge generation is a named event consequence,
-        not a hidden side effect inside the orchestration layer.
-        """
-        if not self.ku_generation_service:
-            return
-
-        try:
-            knowledge_result = (
-                await self.ku_generation_service.extract_knowledge_from_completed_tasks(
-                    user_uid=user_uid, days_back=30, min_tasks=3
-                )
-            )
-
-            if not (knowledge_result.is_ok and knowledge_result.value):
-                return
-
-            curation_result = self.ku_generation_service.curate_generated_knowledge(
-                knowledge_result.value
-            )
-
-            if curation_result.is_ok:
-                auto_published = curation_result.value.get("auto_publish", [])
-                for knowledge_dto in auto_published:
-                    if self.ku_generation_service.ku_service:
-                        summary = (
-                            (knowledge_dto.content or "")[:200] + "..."
-                            if len(knowledge_dto.content or "") > 200
-                            else (knowledge_dto.content or "")
-                        )
-                        await self.ku_generation_service.ku_service.create(
-                            title=knowledge_dto.title,
-                            body=knowledge_dto.content,
-                            summary=summary,
-                            tags=knowledge_dto.tags,
-                            domain=str(knowledge_dto.domain.value),
-                            **knowledge_dto.metadata,
-                        )
-        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            self.logger.warning(f"Knowledge generation failed for user {user_uid}: {e}")

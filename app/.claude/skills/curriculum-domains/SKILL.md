@@ -18,7 +18,7 @@
 
 | Domain | UID Format | Topology | Role | Service |
 |--------|-----------|----------|------|---------|
-| **Ku** | `ku.{ns}.{slug}` authored; `ku_{slug}_{random}` generated (still valid; nothing mints it) | Atom | Atomic knowledge unit (concept, state, principle, practice) | `KuService` |
+| **Ku** | `ku.{ns}.{slug}` (one form; the generated `ku_…` form is retired) | Atom | Atomic knowledge unit (concept, state, principle, practice) | `KuService` |
 | **PS (PathStep)** | `ps.{namespace}.{slug}` authored | Unit | THE curriculum content entity — composed knowledge built on Kus | `PsService` |
 | **LP (LearningPath)** | `lp.{namespace}.{slug}` authored | Path | Organisational structure — sequences PathSteps | `LpService` |
 | **Exercise** | `ex.{ns}.{slug}` authored (content vault only, ADR-091 S4) | Instruction | Applied knowledge — instruction template anchored below PathStep | `ExerciseService` |

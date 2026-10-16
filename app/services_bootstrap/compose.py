@@ -495,13 +495,11 @@ async def compose_services(
         graph_intelligence = GraphIntelligenceService(cross_domain_backend)
         logger.info("✅ GraphIntelligenceService created")
 
-        # Create inference services (passed through to TasksService)
+        # Create the inference service (passed through to TasksService)
         from core.services.entity_inference_service import EntityInferenceService
-        from core.services.insight.insight_generation_service import InsightGenerationService
 
         ku_inference_service = EntityInferenceService()
-        ku_generation_service = InsightGenerationService()
-        logger.info("✅ Inference services created (ku_inference, ku_generation)")
+        logger.info("✅ Inference service created (ku_inference)")
 
         # Create InsightStore
         from adapters.persistence.neo4j.insight_backend import InsightBackend
@@ -561,7 +559,6 @@ async def compose_services(
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             ku_inference_service=ku_inference_service,
-            ku_generation_service=ku_generation_service,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
@@ -609,15 +606,6 @@ async def compose_services(
         # Wire tasks_service into context_service for context-aware operations
         context_service.tasks_service = tasks_service
         logger.info("✅ UserContextService wired with TasksService")
-
-        # Late-wire tasks_service into the knowledge generator. True circular
-        # dependency: the generator is constructed before TasksService (which holds a
-        # reference to it), so it cannot receive tasks_service at construction. Without
-        # this back-reference the APPLIES_KNOWLEDGE pattern detector and completed-task
-        # knowledge extraction have no relationship/task access and degrade to no-ops.
-        # See: /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md
-        ku_generation_service.tasks_service = tasks_service
-        logger.info("✅ InsightGenerationService wired with TasksService")
 
         # Note: TranscriptionService is already created in core_services with Deepgram wiring
         # Note: MarkdownSyncService DELETED (January 2026) - use UnifiedIngestionService

@@ -24,7 +24,7 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Choices | `Choice` | `choice_{slug}_{random}` | `choice_accept-offer_jkl345` |
 | Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
 | **Curriculum (4) — shared content** | | | |
-| Knowledge Units | `Ku` | `ku.{ns}.{slug}` (vault) or `ku_{slug}_{random}` (API) — both sanctioned, never sniff (ADR-013) | `ku.stoicism.dichotomy-of-control` |
+| Knowledge Units | `Ku` | `ku.{ns}.{slug}` (vault-authored; one form) — never sniff (ADR-013) | `ku.stoicism.dichotomy-of-control` |
 | Path Steps | `PathStep` | `ps.{namespace}.{slug}` (authored = stored, dot form) | `ps.python.intro` |
 | Learning Paths | `LearningPath` | `lp.{namespace}.{slug}` (authored = stored, dot form) | `lp.python.developer` |
 | Exercises | `Exercise` | `ex.{ns}.{slug}` (vault) or `ex_{slug}_{random}` (API) | |

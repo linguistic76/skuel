@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Implementation Guide
-updated: 2026-10-10
+updated: 2026-10-16
 status: current
 category: dsl
 tags: [dsl, implementation, parser, architecture, regex]
@@ -302,20 +302,20 @@ parse_energy("focus, creative")
 
 ### `@ku()` Parsing
 
-`@ku()` carries a Ku uid in one of the two sanctioned spellings — authored
-`ku.{ns}.{slug}` or generated `ku_{slug}_{random}` — and the parser returns it
-verbatim. The retired colon spelling is rejected (a warning, no reference), never
-rewritten; a value with no prefix is leniently given the authored dot form.
+`@ku()` carries a Ku uid in its one spelling, authored `ku.{ns}.{slug}`, and the
+parser returns it verbatim. A value spelled as a uid any other way — the retired
+generated `ku_…` or colon `ku:…` form — is dropped, never rewritten, and the line's
+`tag_warnings` report it in the run summary; a value with no prefix is leniently given
+the authored dot form.
 
 ```python
 def _parse_ku(self, value: str | None) -> str | None:
     """@ku() → the Ku uid string; None when the value is unusable."""
     value = value.strip()
-    if value.startswith(("ku.", "ku_")):
+    if value.startswith("ku."):
         return value
-    if value.startswith("ku:"):
-        self.logger.warning(f"Rejected retired colon-spelled KU reference: {value}")
-        return None
+    if value.startswith(("ku_", "ku:")):
+        return None  # the line's tag_warnings report the dropped reference
     return f"ku.{value}"
 ```
 
@@ -323,8 +323,8 @@ def _parse_ku(self, value: str | None) -> str | None:
 ```python
 _parse_ku("ku.teens-yoga.focus-lesson")
 # Result: "ku.teens-yoga.focus-lesson"
-_parse_ku("ku:teens-yoga/focus-lesson")
-# Result: None (warning logged)
+_parse_ku("ku_focus-lesson_a1b2c3d4")
+# Result: None (reported in tag_warnings)
 ```
 
 ---

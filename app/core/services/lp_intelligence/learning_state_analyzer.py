@@ -526,14 +526,10 @@ class LearningStateAnalyzer:
             # Placeholder for content affinity calculation
             # In real implementation, this would compare learning_style_vector
             # against content type embeddings
-            # "technical" used to be 0.8/0.5 on `"programming" in
-            # str(mastered_knowledge_uids)` — an affinity read off uid SPELLING
-            # (ADR-013 never-sniff, SKUEL034). Stringifying the set turned a
-            # collection back into one string, so the test matched authored
-            # `ku.programming.*` uids and never the API-generated
-            # `ku_{slug}_{random}` for the same concept: the score split on
-            # provenance, not on anything the learner had done. Uniform with the
-            # rest of the placeholder until the real comparison above lands.
+            # No affinity is read off uid spelling (ADR-013 never-sniff,
+            # SKUEL034): a uid's namespace is an author's grouping hint, not
+            # anything the learner did. Uniform with the rest of the placeholder
+            # until the real comparison above lands.
             return {
                 "technical": 0.5,
                 "conceptual": 0.7,

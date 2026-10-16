@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-19
+updated: 2026-10-16
 ---
 
 # Service Decomposition Rule
@@ -105,11 +105,7 @@ A full class with its own backend access, injected as `self.progress`, `self.sch
 | Choices | ✅ 3 mixins | `_option_management_mixin`, `_enrichment_mixin` |
 | Principles | ✅ 3 mixins | `_embodiment_mixin`, `_gravity_mixin`, `_enrichment_mixin` |
 
-Beyond the six domains: `insight_generation_service.py` (1120 lines, four separable
-concerns) was decomposed July 2026 into `core/services/insight/` — shell +
-`_pattern_analysis_mixin` / `_insight_synthesis_mixin` / `_quality_curation_mixin`,
-with its transient models moved to `core/models/insight/generated_insight.py`.
-`lp/lp_intelligence_service.py` (970 lines) had its directly-implemented path-analysis
+Beyond the six domains: `lp/lp_intelligence_service.py` (970 lines) had its directly-implemented path-analysis
 block (validation, blockers, optimal path, knowledge scope, practice gaps + the two
 module-level helpers serving only that block) extracted July 2026 into
 `lp/_path_analysis_mixin.py` (~435 lines). Deliberately NOT extracted: the adaptive

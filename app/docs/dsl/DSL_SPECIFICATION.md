@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-10-10
+updated: 2026-10-16
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -311,8 +311,7 @@ emotion    → emotional check-in, EQ practice
 **Grammar:**
 ```
 KuTag ::= "@ku(" KuIdentifier ")"
-KuIdentifier ::= "ku." Namespace "." Slug      (authored, vault)
-               | "ku_" Slug "_" Random          (generated, API)
+KuIdentifier ::= "ku." Namespace "." Slug      (authored, vault — the one form)
 Namespace ::= Identifier
 Slug ::= Identifier ("-" Identifier)*
 ```
@@ -326,6 +325,10 @@ Slug ::= Identifier ("-" Identifier)*
 
 **Constraint:** One `@ku()` per Activity Line (v0.3). Multiple KU links use `@link()`.
 
+**Another spelling names no Ku.** A value spelled as a uid in any other way — the retired
+generated `ku_…` or colon `ku:…` form — is dropped, and the line's `tag_warnings` report it in
+the run summary (ADR-013 amendment, 2026-10-16).
+
 ---
 
 ### `@link()` - Secondary Relationships
@@ -336,9 +339,9 @@ Slug ::= Identifier ("-" Identifier)*
 (Kus, PathSteps, LearningPaths) that already exist.
 
 **The id is the stored uid.** What follows the prefix is the entity's uid, copied verbatim
-from where it lives (the entity page, or the vault file's `uid:`), in either sanctioned
-spelling — authored `goal.{grouping}.{slug}` / `ku.{ns}.{slug}` or generated
-`goal_{random}` / `ku_{slug}_{random}`. The prefix only names which label the sink checks;
+from where it lives (the entity page, or the vault file's `uid:`) — authored
+`goal.{grouping}.{slug}` / `ku.{ns}.{slug}` or generated `goal_{random}` (a Ku uid is
+authored only). The prefix only names which label the sink checks;
 it is never prepended, and nothing resolves a title, a slug or a path to a uid. A `@link`
 whose uid names no node writes no edge — the sync reports it as a link error.
 
@@ -370,7 +373,7 @@ ku:  ps:    → applies_knowledge_uids (+ the entry's APPLIES_KNOWLEDGE edge) �
               for Kus beyond the one @ku() a line may carry. The entry's edge lands only on
               a published Ku or PathStep; any other uid is a link_errors line in the run
               summary, the same line a uid that names nothing gets, and credits nothing
-lp:         → the learning-path anchor of a @context(ps) line
+lp:         → no sink: a @context(ps) line creates nothing (ADR-091 S8), so nothing anchors
 ```
 Any other prefix parses but reaches no sink, and so does a `principle:` link on a line of any other
 context — `@context(choice) @link(principle:…)` writes no `INFORMS_CHOICE` edge (choice create has

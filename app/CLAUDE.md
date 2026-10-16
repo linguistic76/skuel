@@ -88,7 +88,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 | Pattern | UID (authored = stored) | Topology | Metaphor |
 |---------|-----------|----------|----------|
-| Ku | `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atom | A single concept/fact |
+| Ku | `ku.{ns}.{slug}` | Atom | A single concept/fact |
 | PS | `ps.{namespace}.{slug}` | Content Unit | THE curriculum content entity (composes Kus) |
 | LP | `lp.{namespace}.{slug}` | Path | An ordered sequence of path steps |
 
@@ -98,7 +98,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 **Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships. Authoring surface: `moc: true` frontmatter on any ingestible file → body links become `ORGANIZES {order}` edges (dangling links: silent in personal vaults, warned in content vault). **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
 
-**Ku UID is flat & opaque** — hierarchy lives in `(parent)-[:ORGANIZES {order}]->(child)` edges (multiple parents allowed), not in the UID. Two sanctioned forms — authored `ku.{ns}.{slug}` (vault) and generated `ku_{slug}_{random}` (API) — are BOTH valid; **never sniff type from the prefix** (spelling is provenance, not type information; determine entity kind by label/`entity_type`/edge).
+**Ku UID is flat & opaque** — hierarchy lives in `(parent)-[:ORGANIZES {order}]->(child)` edges (multiple parents allowed), not in the UID. One form, authored `ku.{ns}.{slug}` in the content vault; the generated `ku_{slug}_{random}` form is retired (ADR-013 amendment 2026-10-16) and a `@ku(ku_…)` reference links nothing and is reported. **Never sniff type from the prefix** — the rule governs every type: determine entity kind by label/`entity_type`/edge.
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/decisions/ADR-013-ku-uid-flat-identity.md`
 

@@ -481,13 +481,6 @@ _TASKS_BEHAVIORAL_INSIGHTS = PlannedEntry(
     "a completion time",
     since=date(2026, 6, 11),
 )
-_TASKS_KU_ORCHESTRATION = PlannedEntry(
-    Readiness.DELAYED,
-    "manual knowledge-generation trigger staged — the automatic TaskCompleted "
-    "event-handler path is live; this variant returns curated results for review "
-    "instead of auto-creating; wire an admin/review route",
-    since=date(2026, 6, 11),
-)
 _TASKS_GRAVITY = PlannedEntry(
     Readiness.DELAYED,
     "semantic task/Ku link staged — the plain task→Ku edges are live "
@@ -967,10 +960,6 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # generate_task_breakdown wired: POST /api/tasks/ai/breakdown (Theme F)
     # suggest_priority wired: POST /api/tasks/ai/priority-suggestion (Theme F)
     "core/services/tasks/_orchestration_mixin.py::analyze_task_knowledge_impact": (_TASKS_INSIGHTS),
-    # --- Tasks: manual knowledge-generation trigger ---
-    "core/services/tasks/_orchestration_mixin.py::trigger_manual_knowledge_generation": (
-        _TASKS_KU_ORCHESTRATION
-    ),
     # --- Tasks: gravity links (inlined into facade) ---
     # create_task_dependency + delete_task_dependency wired live: the task-detail
     # Dependencies section (GET/POST /tasks/{uid}/dependencies*) authors DEPENDS_ON.
