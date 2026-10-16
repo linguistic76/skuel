@@ -1,9 +1,9 @@
-"""The ``/performance/*`` admin routes are gone; the admin surface beside them is not.
+"""No ``/performance/*`` path is routed; the admin surface beside it answers.
 
 Live performance is ``/metrics`` (Prometheus) and ``/health/ready``. An admin who asks
-for any of the four former ``/performance/*`` paths gets a 404, while another admin
-route on the same client still answers — the control that proves the 404s come from
-the missing routes, not from a client that cannot reach the app.
+for ``/performance/metrics``, ``/cache-stats``, ``/optimize`` or ``/scale-test`` gets a
+404, while another admin route on the same client answers 200 — the control that
+proves the 404s come from unrouted paths, not from a client that cannot reach the app.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ pytestmark = [
 MARK = "perfgone"
 ADMIN = f"user_{MARK}_admin"
 
-RETIRED = [
+PERFORMANCE_PATHS = [
     ("GET", "/performance/metrics"),
     ("GET", "/performance/cache-stats"),
     ("POST", "/performance/optimize"),
@@ -62,14 +62,16 @@ async def admin(skuel_app: Any) -> AsyncIterator[httpx.AsyncClient]:  # boundary
         yield client
 
 
-@pytest.mark.parametrize(("method", "path"), RETIRED, ids=[path for _, path in RETIRED])
-async def test_a_retired_performance_route_answers_404(
+@pytest.mark.parametrize(
+    ("method", "path"), PERFORMANCE_PATHS, ids=[path for _, path in PERFORMANCE_PATHS]
+)
+async def test_a_performance_path_answers_404(
     admin: httpx.AsyncClient, method: str, path: str
 ) -> None:
     response = await admin.request(method, path)
     assert response.status_code == 404, (method, path, response.status_code)
 
 
-async def test_another_admin_route_still_answers(admin: httpx.AsyncClient) -> None:
+async def test_another_admin_route_answers(admin: httpx.AsyncClient) -> None:
     response = await admin.get("/api/admin/users")
     assert response.status_code == 200, response.text
