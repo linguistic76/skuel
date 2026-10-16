@@ -206,8 +206,8 @@ await event_bus.publish(TaskCreated(task_uid=uid, user_uid=user_uid))
 
 **Tracked Events** (ground truth: `core/infrastructure/monitoring/metrics_event_handler.py`):
 - **Creation**: `TaskCreated`, `GoalCreated`, `HabitCreated`, `CalendarEventCreated`, `ChoiceCreated`,
-  `PrincipleCreated`, `TranscriptionCreated`, `KnowledgeCreated` (→ `ku`), `PathStepCreated` (→ `ps`),
-  `LearningPathStarted` (→ `lp`), `UserEntryCreated` (journals are UserEntry per ADR-054 —
+  `PrincipleCreated`, `TranscriptionCreated`, `KnowledgeCreated` (→ `ku`, staged: no publisher yet),
+  `UserEntryCreated` (journals are UserEntry per ADR-054 —
   no separate `journal` series)
 - **Completion**: `TaskCompleted` (skips a repeat complete — a monotonic counter has no
   un-increment), `HabitCompleted`. `TasksBulkCompleted` is deliberately NOT tracked:

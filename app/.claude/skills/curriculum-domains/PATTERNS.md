@@ -79,21 +79,19 @@ ku_uids = await ps_service.relationships.get_related_uids("uses_ku", ps_uid)  # 
 summary = await ps_service.core.get_knowledge_summary(ps_uid)  # CONTAINS_KNOWLEDGE {count, uids}
 ```
 
-`LpBackend.persist_path_with_steps` is the one programmatic `USES_KU` writer: it draws the edges
-from each new step's `knowledge_uids` when an LP is created with its steps.
+The content-vault sync is the one `USES_KU` writer: a step file's `uses_kus:` list draws the
+edges (ADR-091).
 
 ---
 
-## Pattern: LP Step Management (Backend-Delegated)
+## Pattern: LP Step Reads (Backend-Delegated)
 
-Step relationships (HAS_STEP) are managed via `LpBackend` — services delegate:
+Step relationships (HAS_STEP) are written by the content-vault sync from a path file's
+`connections.contains_steps`; `LpBackend` reads them and services delegate:
 
 ```python
 # Backend (LpBackend, _LpStepMixin) — owns the Cypher and maps nodes to models
 steps = await backend.get_steps_raw(path_uid, depth=1)      # Result[list[PathStep]]
-await backend.add_step_to_path(path_uid, step_uid, sequence=0)
-await backend.remove_step_from_path(path_uid, step_uid)      # auto-reorders remaining
-await backend.reorder_steps(path_uid, ["ps.python.control-flow", "ps.python.first-program"])
 
 # Service (LpCoreService) — delegates; despite the `_raw` suffix, the values are typed models
 async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:

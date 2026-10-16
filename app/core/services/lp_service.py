@@ -7,7 +7,7 @@ THE single owner for all learning path management in SKUEL.
 Delegates to specialized sub-services following the unified domain pattern.
 
 Sub-Services:
-- LpCoreService: CRUD operations + persistence (extends BaseService)
+- LpCoreService: reads (extends BaseService)
 - LpSearchService: Search operations (extends BaseService)
 - LpProgressService: Progress tracking (event-driven)
 - UnifiedRelationshipService: Path-step associations (shared with other domains)
@@ -38,7 +38,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
-    from core.models.enums.entity_enums import Domain
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
     from core.ports import EventBusOperations
@@ -92,24 +91,26 @@ class LpService:
 
     **January 2026 - LP Consolidation (ADR-031):**
     Consolidated from 8 sub-services to 4:
-    - Core: CRUD operations (non-standard: requires ps_service)
+    - Core: reads
     - Search: Discovery operations
     - Relationships: Path-step associations (via UnifiedRelationshipService)
     - Intelligence: ALL validation/analysis/adaptive/context operations
     - Progress: Progress tracking (event-driven)
 
+    A learning path is authored only in the content vault (ADR-091); this facade
+    reads it and the learner's progress through it.
+
     Explicit Delegations:
-    - Core: create_path_from_knowledge_units, create_path,
-            get_learning_path, list_user_paths, list_all_paths, get_path_steps,
-            get_current_step, update_path, delete_path
+    - Core: get_learning_path, list_user_paths, list_all_paths, get_path_steps,
+            get_current_step
     - Intelligence: validate_path_prerequisites, identify_path_blockers,
             get_optimal_path_recommendation, analyze_path_knowledge_scope,
             identify_practice_gaps, find_learning_sequence, get_next_adaptive_step,
             get_recommended_path_steps
 
     Explicit Methods (custom logic):
-    - Step operations: create_step, get_step, update_step, delete_step, list_steps (ps_service guard)
-    - CRUD compatibility: create, get, update, delete
+    - Step reads: get_step, list_steps (ps_service guard)
+    - get, the generic read
     """
 
     def __init__(
@@ -133,7 +134,7 @@ class LpService:
 
         **January 2026 - Factory Pattern (Architecture Consistency Review):**
         Uses create_lp_sub_services() factory for consistent initialization.
-        Factory handles cross-domain dependency: LpCoreService requires ps_service.
+        Factory handles cross-domain dependency: LpIntelligenceService reads ps_service.intelligence.
 
         Args:
             backend: BackendOperations for LP entities (REQUIRED — created by composition root)
@@ -198,41 +199,8 @@ class LpService:
         )
 
     # ============================================================================
-    # CORE CRUD OPERATIONS - Delegated to LpCoreService
+    # CORE READS - Delegated to LpCoreService
     # ============================================================================
-
-    async def create_path_from_knowledge_units(
-        self,
-        user_uid: UserUID,
-        knowledge_units: list[Any],
-        title: str | None = None,
-        description: str | None = None,
-    ) -> Result[LearningPath]:
-        """Create a learning path from knowledge units."""
-        return await self.core.create_path_from_knowledge_units(
-            user_uid, knowledge_units, title, description
-        )
-
-    async def create_path(
-        self,
-        user_uid: UserUID,
-        title: str,
-        description: str,
-        steps: list[PathStep],
-        domain: Domain | None = None,
-    ) -> Result[LearningPath]:
-        """Create a learning path."""
-        if domain is None:
-            from core.models.enums import Domain
-
-            domain = Domain.LEARNING
-        return await self.core.create_path(
-            user_uid=user_uid,
-            title=title,
-            description=description,
-            steps=steps,
-            domain=domain,
-        )
 
     async def get_learning_path(self, uid: str) -> Result[LearningPath | None]:
         """Get a learning path by UID."""
@@ -264,14 +232,6 @@ class LpService:
     async def get_current_step(self, path_uid: str) -> Result[PathStep | None]:
         """Get current step for a user in a learning path."""
         return await self.core.get_current_step(path_uid)
-
-    async def update_path(self, uid: str, updates: dict[str, Any]) -> Result[LearningPath]:
-        """Update a learning path."""
-        return await self.core.update_path(uid, updates)
-
-    async def delete_path(self, uid: str) -> Result[bool]:
-        """Delete a learning path."""
-        return await self.core.delete_path(uid)
 
     # ============================================================================
     # INTELLIGENCE OPERATIONS - Delegated to LpIntelligenceService
@@ -329,16 +289,6 @@ class LpService:
     # ============================================================================
     # Note: These require ps_service guard, kept explicit.
 
-    async def create_step(self, step: PathStep, path_uid: str | None = None) -> Result[PathStep]:
-        """Create a path step. Delegates to PsService."""
-        if not self.ps_service:
-            from core.utils.result_simplified import Errors
-
-            return Result.fail(
-                Errors.system(message="PsService not available", operation="create_step")
-            )
-        return await self.ps_service.create_step(step, path_uid)
-
     async def get_step(self, step_uid: str) -> Result[PathStep | None]:
         """Get a path step by UID. Delegates to PsService."""
         if not self.ps_service:
@@ -348,26 +298,6 @@ class LpService:
                 Errors.system(message="PsService not available", operation="get_step")
             )
         return await self.ps_service.get_step(step_uid)
-
-    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[PathStep]:
-        """Update a path step. Delegates to PsService."""
-        if not self.ps_service:
-            from core.utils.result_simplified import Errors
-
-            return Result.fail(
-                Errors.system(message="PsService not available", operation="update_step")
-            )
-        return await self.ps_service.update_step(step_uid, updates)
-
-    async def delete_step(self, step_uid: str) -> Result[bool]:
-        """Delete a path step. Delegates to PsService."""
-        if not self.ps_service:
-            from core.utils.result_simplified import Errors
-
-            return Result.fail(
-                Errors.system(message="PsService not available", operation="delete_step")
-            )
-        return await self.ps_service.delete_step(step_uid)
 
     async def list_steps(
         self, path_uid: str | None = None, limit: int = 100
@@ -574,32 +504,12 @@ class LpService:
         return Result.ok(analytics)
 
     # ============================================================================
-    # CRUD OPERATIONS PROTOCOL COMPATIBILITY
+    # GENERIC READ
     # ============================================================================
 
-    async def create(self, entity: LearningPath) -> Result[LearningPath]:
-        """Create method for CRUDRouteFactory compatibility."""
-        user_uid = UserUID(str(getattr(entity, "user_uid", "demo_user")))
-        steps = entity.metadata.get("steps", []) if entity.metadata else []
-        return await self.create_path(
-            user_uid=user_uid,
-            title=entity.title,
-            description=entity.description or "",
-            steps=steps,
-            domain=entity.domain,
-        )
-
     async def get(self, uid: str) -> Result[LearningPath | None]:
-        """Get method for CRUDRouteFactory compatibility."""
+        """Get a learning path by uid (the generic read callers such as Askesis use)."""
         return await self.get_learning_path(uid)
-
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[LearningPath]:
-        """Update method for CRUDRouteFactory compatibility."""
-        return await self.update_path(uid, updates)
-
-    async def delete(self, uid: str) -> Result[bool]:
-        """Delete method for CRUDRouteFactory compatibility."""
-        return await self.delete_path(uid)
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)

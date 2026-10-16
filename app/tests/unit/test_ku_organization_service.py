@@ -9,7 +9,6 @@ Any PathStep can organize other PathSteps via ORGANIZES relationships (emergent 
 This test suite covers:
 - Organizer identity operations (is_organizer)
 - Organization view operations (get hierarchical view)
-- Organization operations (organize, unorganize, reorder)
 - Discovery operations (find_organizers, list_root_organizers, get_organized_children)
 """
 
@@ -175,63 +174,6 @@ async def test_get_organization_view_not_found(organization_service, mock_ku_ser
 # ============================================================================
 # ORGANIZATION OPERATION TESTS
 # ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_organize_success(organization_service, mock_ku_service, mock_backend, sample_ku):
-    """Test organize creates ORGANIZES relationship."""
-    child_ku = Mock()
-    child_ku.uid = "ku.python-basics"
-    child_ku.title = "Python Basics"
-
-    mock_ku_service.get.side_effect = [
-        Result.ok(sample_ku),
-        Result.ok(child_ku),
-    ]
-
-    mock_backend.organize.return_value = Result.ok(True)
-
-    result = await organization_service.organize("ku.python-reference", "ku.python-basics", order=1)
-
-    assert result.is_ok
-    assert result.value is True
-    mock_backend.organize.assert_called_once_with("ku.python-reference", "ku.python-basics", 1)
-
-
-@pytest.mark.asyncio
-async def test_organize_parent_not_found(organization_service, mock_ku_service):
-    """Test organize fails when parent Ku doesn't exist."""
-    mock_ku_service.get.return_value = Result.ok(None)
-
-    result = await organization_service.organize("ku.nonexistent", "ku.python-basics")
-
-    assert result.is_error
-
-
-@pytest.mark.asyncio
-async def test_unorganize_success(organization_service, mock_backend):
-    """Test unorganize removes ORGANIZES relationship."""
-    mock_backend.unorganize.return_value = Result.ok(True)
-
-    result = await organization_service.unorganize("ku.python-reference", "ku.python-basics")
-
-    assert result.is_ok
-    assert result.value is True
-    mock_backend.unorganize.assert_called_once_with("ku.python-reference", "ku.python-basics")
-
-
-@pytest.mark.asyncio
-async def test_reorder_success(organization_service, mock_backend):
-    """Test reorder updates relationship order."""
-    mock_backend.reorder.return_value = Result.ok(True)
-
-    result = await organization_service.reorder(
-        "ku.python-reference", "ku.python-basics", new_order=5
-    )
-
-    assert result.is_ok
-    assert result.value is True
-    mock_backend.reorder.assert_called_once_with("ku.python-reference", "ku.python-basics", 5)
 
 
 # ============================================================================

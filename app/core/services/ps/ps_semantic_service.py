@@ -1,14 +1,12 @@
 """
-Path Step Semantic Service - Semantic Relationship Management
-==============================================================
+Path Step Semantic Service - Semantic Relationship Reads
+=========================================================
 
 Clean rewrite following CLAUDE.md patterns.
 Handles all semantic relationship operations for path steps.
 
 **Responsibilities:**
-- Create path steps with semantic relationships
-- Query semantic neighborhoods
-- Manage semantic relationships (add, remove, update)
+- Query semantic neighborhoods and relationships by type
 - Discover relationship patterns
 - Cross-domain semantic bridges
 
@@ -20,11 +18,8 @@ Handles all semantic relationship operations for path steps.
 from typing import Any
 
 from core.infrastructure.relationships.semantic_relationships import (
-    RelationshipMetadata,
     SemanticRelationshipType,
-    SemanticTriple,
 )
-from core.models.curriculum_dto import CurriculumDTO
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -51,121 +46,6 @@ class PsSemanticService:
         self.intelligence = intelligence
 
         self.logger = get_logger("skuel.services.ps.semantic")
-
-    # ========================================================================
-    # CREATE WITH RELATIONSHIPS
-    # ========================================================================
-
-    @with_error_handling("create_with_semantic_relationships", error_type="database")
-    async def create_with_semantic_relationships(
-        self, ku_data: dict[str, Any], relationships: list[SemanticTriple]
-    ) -> Result[CurriculumDTO]:
-        """
-        Create a path step with semantic relationships.
-
-        Every object endpoint is checked before the step is written, and a link
-        refused after the write (an endpoint gone since the check, or a failed
-        write) deletes the step again — the graph holds either the step with all
-        its links or nothing.
-
-        Args:
-            ku_data: Path step data (title, content, domain, etc.),
-            relationships: List of semantic triples to create
-
-        Returns:
-            Result containing created CurriculumDTO with relationships, or the
-            refusal (not-found naming the absent endpoint; a database error when
-            the rollback itself failed)
-        """
-        # Every object endpoint must exist BEFORE the step is written: the step
-        # and its triples are separate statements, so a refusal after the create
-        # would leave the step committed without the link it was created with.
-        for object_uid in dict.fromkeys(triple.object for triple in relationships):
-            exists = await self.repo.entity_exists(object_uid)
-            if exists.is_error:
-                return Result.fail(exists)
-            if not exists.value:
-                return Result.fail(
-                    Errors.not_found("Entity", object_uid, reason="semantic triple endpoint absent")
-                )
-
-        # Then create the path step
-        create_result = await self.repo.create(ku_data)
-        if not create_result.is_ok or not create_result.value:
-            return Result.fail(
-                Errors.database(
-                    operation="create_with_semantic_relationships",
-                    message="Failed to create path step",
-                )
-            )
-
-        ku_dto = create_result.value
-        uid = ku_dto.uid
-
-        # Create semantic relationships
-        for triple in relationships:
-            # Update subject to be the newly created unit
-            triple_to_create = SemanticTriple(
-                subject=uid,
-                predicate=triple.predicate,
-                object=triple.object,
-                metadata=triple.metadata,
-            )
-
-            # Create relationship in Neo4j. The step committed in its own
-            # statement, so a refused link (an endpoint gone since the check, or
-            # a failed write) takes the step back with it — nothing half-made
-            # stays behind, and the refusal names the endpoint the triple could
-            # not reach.
-            link_result = await self._create_semantic_relationship(triple_to_create)
-            if link_result.is_error:
-                rollback = await self.repo.delete(uid, cascade=True)
-                if rollback.is_error:
-                    self.logger.error(
-                        f"Path step {uid} kept after a refused semantic link "
-                        f"({link_result.error}): rollback failed ({rollback.error})"
-                    )
-                    return Result.fail(rollback)
-                return Result.fail(link_result)
-
-        self.logger.info(
-            f"Created path step {uid} with {len(relationships)} semantic relationships"
-        )
-
-        # Refresh DTO to include relationships
-        refresh_result = await self.repo.get(uid)
-        if refresh_result.is_ok and refresh_result.value:
-            return Result.ok(refresh_result.value)
-
-        return Result.ok(ku_dto)
-
-    @with_error_handling("_create_semantic_relationship", error_type="database")
-    async def _create_semantic_relationship(self, triple: SemanticTriple) -> Result[bool]:
-        """
-        Internal method to create a single semantic relationship.
-
-        The backend merges only the edge, between two endpoints it binds as
-        entities; it returns no row when either endpoint names nothing. That
-        empty result is a not-found here — the triple is never half-written.
-        The caller checks every endpoint before the step is created; this is
-        the backstop for an endpoint deleted between that check and the write.
-
-        Args:
-            triple: Semantic triple to create
-
-        Returns:
-            Result indicating success, or not-found naming the absent object
-        """
-        result = await self.repo.create_semantic_relationship(triple)
-        if result.is_error:
-            return Result.fail(result)
-        if not result.value:
-            return Result.fail(
-                Errors.not_found("Entity", triple.object, reason="semantic triple endpoint absent")
-            )
-
-        self.logger.debug(f"Created semantic relationship: {triple}")
-        return Result.ok(True)
 
     # ========================================================================
     # SEMANTIC NEIGHBORHOOD
@@ -263,102 +143,8 @@ class PsSemanticService:
         return Result.ok(neighborhood)
 
     # ========================================================================
-    # RELATIONSHIP MANAGEMENT
+    # RELATIONSHIP QUERIES
     # ========================================================================
-
-    @with_error_handling(
-        "add_semantic_relationship", error_type="database", uid_param="subject_uid"
-    )
-    async def add_semantic_relationship(
-        self,
-        subject_uid: str,
-        predicate: SemanticRelationshipType,
-        object_uid: str,
-        confidence: float = 1.0,
-        strength: float = 1.0,
-        notes: str | None = None,
-    ) -> Result[bool]:
-        """
-        Add a semantic relationship between two path steps.
-
-        Args:
-            subject_uid: Subject path step UID,
-            predicate: Semantic relationship type,
-            object_uid: Object path step UID,
-            confidence: Confidence in relationship (0.0-1.0),
-            strength: Strength of relationship (0.0-1.0),
-            notes: Optional notes about the relationship
-
-        Returns:
-            Result indicating success
-        """
-        # Verify both units exist
-        subject_result = await self.repo.get(subject_uid)
-        if not subject_result.is_ok or not subject_result.value:
-            return Result.fail(Errors.not_found("PathStep", subject_uid, reason="subject step"))
-
-        object_result = await self.repo.get(object_uid)
-        if not object_result.is_ok or not object_result.value:
-            return Result.fail(Errors.not_found("PathStep", object_uid, reason="object step"))
-
-        # Create semantic triple
-        metadata = RelationshipMetadata(confidence=confidence, strength=strength, notes=notes)
-
-        triple = SemanticTriple(
-            subject=subject_uid, predicate=predicate, object=object_uid, metadata=metadata
-        )
-
-        # Create relationship
-        result = await self._create_semantic_relationship(triple)
-        if not result.is_ok:
-            return result
-
-        self.logger.info(
-            f"Added semantic relationship: {subject_uid} --[{predicate.value}]--> {object_uid}"
-        )
-        return Result.ok(True)
-
-    @with_error_handling(
-        "remove_semantic_relationship", error_type="database", uid_param="subject_uid"
-    )
-    async def remove_semantic_relationship(
-        self, subject_uid: str, predicate: SemanticRelationshipType, object_uid: str
-    ) -> Result[bool]:
-        """
-        Remove a semantic relationship between two path steps.
-
-        Args:
-            subject_uid: Subject path step UID,
-            predicate: Semantic relationship type,
-            object_uid: Object path step UID
-
-        Returns:
-            Result indicating success
-        """
-        # Coarse edge type + precise predicate: delete only the edge whose
-        # semantic_type matches, not every edge that collapsed onto rel_name.
-        rel_name = predicate.to_neo4j_name()
-
-        results = await self.repo.delete_semantic_relationship(
-            rel_name, subject_uid, object_uid, semantic_type=predicate.value
-        )
-
-        if results.is_error:
-            return Result.fail(results)
-
-        deleted_count = results.value[0].get("deleted", 0) if results.value else 0
-
-        if deleted_count > 0:
-            self.logger.info(
-                f"Removed semantic relationship: {subject_uid} --[{predicate.value}]--> {object_uid}"
-            )
-            return Result.ok(True)
-        else:
-            return Result.fail(
-                Errors.not_found(
-                    "Relationship", f"{subject_uid} --[{predicate.value}]--> {object_uid}"
-                )
-            )
 
     @with_error_handling("get_relationships_by_type", error_type="database", uid_param="uid")
     async def get_relationships_by_type(

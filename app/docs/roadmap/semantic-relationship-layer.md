@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-16
 ---
 
 # Semantic Relationship Layer — Development Roadmap
@@ -86,8 +86,8 @@ The precondition for everything else: one edge name, one owner. **Shipped.**
   baseline fixture rewritten to inject a synthetic entry.
 
 **What the audit changed for later phases:** §9 turned out NOT to be a writer-less read —
-the live admin route `POST /api/path-steps/relationships` reaches `build_semantic_merge`,
-so the semantic layer was a *second live emitter*, not dead code. That strengthens the
+the admin route `POST /api/path-steps/relationships` (retired by ADR-091, 2026-10) reached
+`build_semantic_merge`, so the semantic layer was a *second emitter*, not dead code. That strengthens the
 case for Phase 2 (register the edges) and Phase 4 (reason over them): the write path is
 real, only unexercised (0 live rows). The `semantic_type` property Phase 1 introduced is
 the natural key for the registry work in Phase 2 and the confidence-weighted traversal in
@@ -162,8 +162,8 @@ demand** (staged ≠ abandoned — One Path Forward). The three Phase-4 *consump
 (Askesis namespace-prefix retrieval, `get_inverse()` consumption, semantic-confidence ranking)
 are future features with **no code yet**, so there is nothing to register in the bloat detector.
 What *is* staged-and-registered is the semantic **write path** — `create_semantic_*_relationship`
-(the four domain facades), `remove_semantic_relationship`, and `infer_relationships` all sit in
-`scripts/detect_bloat.py` PLANNED tiers, and `./dev bloat` reports no structurally-dead findings.
+(the four domain facades) and `infer_relationships` sit in `scripts/detect_bloat.py` PLANNED
+tiers, and `./dev bloat` reports no structurally-dead findings.
 The staged **read** side is the trio in `query/cypher/semantic_queries.py` —
 `build_prerequisite_chain`, `build_semantic_traversal`, `build_hierarchical_context` — kept with
 no production caller by design (ruled 2026-10-10) as Phase 4's readers; unit-tested
@@ -214,10 +214,10 @@ readers, no data).**
 *already* read by several **live** paths that all handle the 0-row case correctly:
 `vector_search_backend.py` (`COALESCE(r.semantic_type, type(r))`), the choices filter
 (`find_uids_by_semantic_filter`), and the `get_relationships_by_type` query-by-type path behind
-`GET /api/path-steps/relationships`. The matching **write** path (`POST` on the same endpoint →
-`create_step_relationship`, admin-only) is live but unexercised. The *delete*-by-type path
-(`remove_semantic_relationship`) is **staged, not live** — it has no DELETE route and stays in the
-bloat detector's PLANNED tier. So the vocabulary is not merely staged — its read side is threaded
+`GET /api/path-steps/relationships`. Its curriculum **write** path is gone: ADR-091 retired the
+admin `POST` on the same endpoint with the delete-by-type path behind it, so a semantic edge
+between path steps is authored in the content vault, and `build_semantic_merge` (the triple
+writer) has no production caller until a vault door states a `semantic_type`. So the vocabulary is not merely staged — its read side is threaded
 through real readers. The gap is exclusively **a reasoner consumer + data**, not plumbing.
 
 **Net — what unblocks Phase 4 consumption (do these *together*, not before):**

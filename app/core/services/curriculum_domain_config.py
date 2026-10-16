@@ -189,7 +189,7 @@ def create_ps_sub_services(
     )
 
     # Step 3: Create core
-    core = PsCoreService(backend=backend, event_bus=event_bus)
+    core = PsCoreService(backend=backend)
 
     # Step 4: Create search
     search = PsSearchService(backend=backend)
@@ -274,12 +274,12 @@ def create_lp_sub_services(
     """
     Factory function to create all 5 LpService sub-services.
 
-    Handles cross-domain dependency: LpCoreService requires ps_service.
+    Handles cross-domain dependency: LpIntelligenceService reads ps_service.intelligence.
 
     Creation Order:
     1. LpSearchService (backend)
     2. UnifiedRelationshipService (backend, config, graph_intel)
-    3. LpCoreService (backend, ps_service, event_bus)
+    3. LpCoreService (backend)
     4. LpProgressService (backend, event_bus)
     5. LpIntelligenceService (backend, graph_intel, progress_backend, event_bus, user_service)
 
@@ -311,12 +311,8 @@ def create_lp_sub_services(
         event_bus=event_bus,
     )
 
-    # Step 3: Create core (requires ps_service)
-    core = LpCoreService(
-        backend=backend,
-        ps_service=ps_service,
-        event_bus=event_bus,
-    )
+    # Step 3: Create core
+    core = LpCoreService(backend=backend)
 
     # Step 4: Create progress
     progress = LpProgressService(backend=backend, event_bus=event_bus)

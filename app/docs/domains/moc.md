@@ -1,7 +1,7 @@
 ---
 title: MOC (Map of Content) - Emergent Organization via ORGANIZES
 created: 2025-12-04
-updated: 2026-09-20
+updated: 2026-10-16
 status: current
 category: domains
 tags:
@@ -61,7 +61,7 @@ Sequential learning                   /    |    \
 
 ## Service Architecture
 
-ORGANIZES operations are the `organization` slot of the PathStep facade — `PsService.organization` is a `PsOrganizationService` (`core/services/ps/ps_organization_service.py`), and the facade delegates every method. The backend is `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`), mixed into `PsBackend` and `UserEntryBackend`; its statements match `:Entity` by uid. The service narrows that for the unauthenticated PathStep door: every read (`is_organizer`, `get_organization_view`, `get_navigation`, `find_organizers`, `get_organized_children`) and the **create** `organize()` resolve their subject through `ps_core.get()`, which matches `:PathStep`, and answer not-found for any other entity; and the other end of a read — organizers, children, roots — is scoped to `SHARED_CURRICULUM_TYPES` on the query (`list_root_organizers` carries the scope on every call, being the one unanchored read). The facade and the API therefore create PathStep → PathStep edges only and never return a user-owned entity. `unorganize()` and `reorder()` go straight to the mixin and act on any existing `ORGANIZES` edge, including a vault-authored PathStep → Ku edge. Cross-entity edges — a PathStep organizing a Ku, a UserEntry knowledge map — are authored in the vault and written by ingestion on `:Entity`: `moc: true` body links through `IngestionWriteBackend.refresh_moc_organizes` (any ingestible file), or an `organizes:` frontmatter list through the relationship-registry edge writer (a **PathStep** field — `generate_ingestion_relationship_config` emits `organizes` for `EntityType.PATH_STEP` only; a Ku or UserEntry authors through `moc: true`).
+ORGANIZES reads are the `organization` slot of the PathStep facade — `PsService.organization` is a `PsOrganizationService` (`core/services/ps/ps_organization_service.py`), and the facade delegates every method. The backend is `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`), mixed into `PsBackend` and `UserEntryBackend`; its statements match `:Entity` by uid. The service narrows that for the unauthenticated PathStep door: every read (`is_organizer`, `get_organization_view`, `get_navigation`, `find_organizers`, `get_organized_children`) resolves its subject through `ps_core.get()`, which matches `:PathStep`, and answers not-found for any other entity; and the other end of a read — organizers, children, roots — is scoped to `SHARED_CURRICULUM_TYPES` on the query (`list_root_organizers` carries the scope on every call, being the one unanchored read). The facade and the API therefore never return a user-owned entity, and neither writes an edge. Every `ORGANIZES` edge — PathStep → PathStep, a PathStep organizing a Ku, a UserEntry knowledge map — is authored in a vault and written by ingestion on `:Entity` (ADR-091 for curriculum): `moc: true` body links through `IngestionWriteBackend.refresh_moc_organizes` (any ingestible file), or an `organizes:` frontmatter list through the relationship-registry edge writer (a **PathStep** field — `generate_ingestion_relationship_config` emits `organizes` for `EntityType.PATH_STEP` only; a Ku or UserEntry authors through `moc: true`).
 
 ```python
 ps_service = services.ps  # PsService
@@ -71,12 +71,6 @@ is_moc = await ps_service.is_organizer("ps.core.python-reference")
 
 # The organizer with its organized children, depth-limited — PathStep roots only
 view = await ps_service.get_organization_view("ps.core.python-reference", max_depth=3)
-
-# Create — both uids must be PathSteps (a Ku or UserEntry uid is not found)
-await ps_service.organize("ps.core.python-reference", "ps.core.python-basics", order=1)
-# Reorder / remove — any existing edge, whatever the child's entity type
-await ps_service.reorder("ps.core.python-reference", "ku.sel.empathy", new_order=2)
-await ps_service.unorganize("ps.core.python-reference", "ku.sel.empathy")
 
 # Navigate
 parents = await ps_service.find_organizers("ps.core.python-basics")
@@ -139,7 +133,7 @@ PS: "Python Reference" (root MOC)
 
 ## API Endpoints
 
-All in `adapters/inbound/path_steps_api.py`. The three writes are admin-only and CSRF-protected. The reads carry no authentication — curriculum is shared content — and two guards in `PsOrganizationService` keep a user-owned entity out of them, because the `ORGANIZES` edge joins any two entities and a personal-vault `moc: true` map organizes PathSteps too: the **subject** of every read resolves through `ps_core.get()` (a `:PathStep` match; a UserEntry or Ku uid is not-found), and the **other end** — organizers, children, roots — is scoped to `SHARED_CURRICULUM_TYPES` (every `ContentOrigin.CURRICULUM` entity type, derived from the enum) on the backend query. So `organizers` on a PathStep does not return the private note that links to it, and `root-organizers` never lists one. The private map keeps its owner-verified read on `/gradebook/{uid}`, where `UserEntryBackend` reaches the same mixin without the scope. Pinned by `tests/integration/test_organizes_reads_curriculum_scope.py`.
+All in `adapters/inbound/path_steps_api.py`, and all reads: an `ORGANIZES` edge is written only by the content-vault sync (ADR-091). The reads carry no authentication — curriculum is shared content — and two guards in `PsOrganizationService` keep a user-owned entity out of them, because the `ORGANIZES` edge joins any two entities and a personal-vault `moc: true` map organizes PathSteps too: the **subject** of every read resolves through `ps_core.get()` (a `:PathStep` match; a UserEntry or Ku uid is not-found), and the **other end** — organizers, children, roots — is scoped to `SHARED_CURRICULUM_TYPES` (every `ContentOrigin.CURRICULUM` entity type, derived from the enum) on the backend query. So `organizers` on a PathStep does not return the private note that links to it, and `root-organizers` never lists one. The private map keeps its owner-verified read on `/gradebook/{uid}`, where `UserEntryBackend` reaches the same mixin without the scope. Pinned by `tests/integration/test_organizes_reads_curriculum_scope.py`.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -148,11 +142,8 @@ All in `adapters/inbound/path_steps_api.py`. The three writes are admin-only and
 | `/api/path-steps/{uid}/organizers` | GET | Parents that organize this entity |
 | `/api/path-steps/{uid}/organized-children` | GET | Direct organized children, in order |
 | `/api/path-steps/root-organizers?limit=50` | GET | Root MOCs (organize others, organized by nothing) |
-| `/api/path-steps/organize` | POST | Create an `ORGANIZES` edge between two PathSteps (`StepOrganizeRequest`: `parent_uid`, `child_uid`, `order`) — admin |
-| `/api/path-steps/unorganize` | POST | Remove an existing `ORGANIZES` edge, any entity types — admin |
-| `/api/path-steps/reorder` | POST | Change a child's order on an existing edge, any entity types (`StepReorderRequest`: `parent_uid`, `child_uid`, `new_order`) — admin |
 
-There is no MOC-specific create door: organizers and children are ordinary entities, created through vault ingestion or their own domain's API. An edge whose parent or child is not a PathStep is *created* in the vault, never through `organize`; once it exists, `reorder` and `unorganize` act on it like any other.
+There is no MOC door in the app: organizers and children are ordinary entities, and the edge between them is authored in a vault file (`moc: true` body links or an `organizes:` list). The next sync writes it, renumbers its `order` and, when the file drops it, retracts it.
 
 ## Properties
 

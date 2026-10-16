@@ -2,7 +2,9 @@
 Curriculum Events (PS)
 ==============================
 
-Events published by curriculum services (PsService).
+Events about a learner's engagement with path steps. A path step is authored in
+the content vault (ADR-091); its sync publishes no creation, update or deletion
+event.
 
 These events complement learning_events.py which covers KU and LP events.
 
@@ -13,7 +15,7 @@ The classes below are the catalog. For consumers read the wiring modules
 (``services_bootstrap/_event_wiring.py``, ``_intelligence_hub.py``).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import ClassVar
 
 from core.events.base import BaseEvent
@@ -22,66 +24,6 @@ from core.models.type_hints import UserUID
 # ============================================================================
 # LEARNING STEP EVENTS
 # ============================================================================
-
-
-@dataclass(frozen=True)
-class PathStepCreated(BaseEvent):
-    """
-    Published when a new path step is created.
-
-    Subscribers:
-    - SearchService (index for discovery)
-    - LpService (update path structure if linked to LP)
-    """
-
-    ps_uid: str
-    title: str
-
-    # Step context
-    intent: str | None = None
-    linked_lp_uid: str | None = None
-    linked_ku_uids: tuple[str, ...] = field(default_factory=tuple)
-    sequence_order: int | None = None
-
-    event_type: ClassVar[str] = "path_step.created"
-
-
-@dataclass(frozen=True)
-class PathStepUpdated(BaseEvent):
-    """
-    Published when a path step is updated.
-
-    Subscribers:
-    - SearchService (update index)
-    - LpService (update path if relevant)
-    """
-
-    ps_uid: str
-
-    # Update context
-    updated_fields: tuple[str, ...] = field(default_factory=tuple)
-    linked_lp_uid: str | None = None
-
-    event_type: ClassVar[str] = "path_step.updated"
-
-
-@dataclass(frozen=True)
-class PathStepDeleted(BaseEvent):
-    """
-    Published when a path step is deleted.
-
-    Subscribers:
-    - SearchService (remove from index)
-    - LpService (update path structure)
-    """
-
-    ps_uid: str
-
-    # Deletion context
-    linked_lp_uid: str | None = None
-    had_ku_links: bool = False
-
-    event_type: ClassVar[str] = "path_step.deleted"
 
 
 @dataclass(frozen=True)

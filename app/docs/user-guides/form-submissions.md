@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-24
+updated: 2026-10-16
 ---
 
 # Form Templates & Submissions — Admin/Builder Guide
@@ -86,25 +86,21 @@ A FormTemplate's `form_schema` is a list of field specifications. Each field is 
 
 FormTemplates are linked to PathSteps via the `EMBEDS_FORM` relationship. When a user reads a PathStep, any embedded forms render inline after the PathStep content.
 
-### Linking via API
+### Linking in the content vault
 
-```
-POST /api/form-templates/link-path-step
-{
-  "form_template_uid": "ft_weekly_reflection_abc123",
-  "path_step_uid": "ps.intro-to-python.basics"
-}
+The link is curriculum, so it is authored in the content vault (ADR-091), as an Edge
+YAML file the next sync writes:
+
+```yaml
+---
+type: Edge
+from: ps.intro-to-python.basics
+to: ft_weekly_reflection_abc123
+relationship: EMBEDS_FORM
+---
 ```
 
-### Unlinking
-
-```
-POST /api/form-templates/unlink-path-step
-{
-  "form_template_uid": "ft_weekly_reflection_abc123",
-  "path_step_uid": "ps.intro-to-python.basics"
-}
-```
+Delete the file to remove the link: the next sync retracts the edge.
 
 A PathStep can embed multiple FormTemplates. A FormTemplate can be embedded in multiple PathSteps.
 
@@ -174,8 +170,6 @@ Users can delete their own submissions from the detail page. The delete is owner
 | GET | `/api/form-templates/list` | List all FormTemplates |
 | POST | `/api/form-templates/update?uid=` | Update a FormTemplate |
 | POST | `/api/form-templates/delete?uid=` | Delete a FormTemplate |
-| POST | `/api/form-templates/link-path-step` | Link FormTemplate to PathStep |
-| POST | `/api/form-templates/unlink-path-step` | Unlink FormTemplate from PathStep |
 
 ### FormSubmission (User)
 

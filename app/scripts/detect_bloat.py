@@ -497,13 +497,6 @@ _TASKS_GRAVITY = PlannedEntry(
     "relationship routes",
     since=date(2026, 6, 11),
 )
-_PS_SEMANTIC_DELETE = PlannedEntry(
-    Readiness.READY,
-    "semantic-edge delete counterpart staged — the ADD path is LIVE (create_step_relationship "
-    "route in path_steps_api.py + hierarchy_routes string-dispatch → add_semantic_relationship); "
-    "wire a delete-step-relationship route for write-path symmetry",
-    since=date(2026, 6, 11),
-)
 _PS_SEMANTIC_INFER = PlannedEntry(
     Readiness.DELAYED,
     "transitive-inference lens staged (confidence-filtered reasoning chains over semantic "
@@ -991,8 +984,7 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/tasks/_productivity_mixin.py::generate_task_knowledge_insights": (
         _TASKS_LEARNING_METRICS
     ),
-    # --- PS: semantic write-path symmetry + inference lens ---
-    "core/services/ps/ps_semantic_service.py::remove_semantic_relationship": (_PS_SEMANTIC_DELETE),
+    # --- PS: semantic inference lens ---
     "core/services/ps/ps_semantic_service.py::infer_relationships": _PS_SEMANTIC_INFER,
     # --- PS: guidance-strength intelligence lens ---
     "core/services/ps/ps_intelligence_service.py::calculate_guidance_strength": _PS_GUIDANCE,
@@ -1225,9 +1217,8 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "adapters/inbound/learning_loop_routes.py::get_ps_embedded_forms": _EMBEDDED_FORMS_FRAGMENT,
     "adapters/inbound/learning_loop_routes.py::submit_embedded_form": _EMBEDDED_FORMS_FRAGMENT,
     # --- ORGANIZES cycle guard: written, never called (ruled staged) ---
-    # Neither ORGANIZES writer consults it — `organize()` (HTTP: POST
-    # /api/path-steps/organize) and the MOC body-link ingest MERGE unguarded, so
-    # the graph can cycle today.
+    # The vault sync is the only ORGANIZES writer (``moc: true`` body links and the
+    # ``organizes:`` frontmatter field); both MERGE unguarded, so the graph can cycle.
     # --- Activity whole-set counts ---
     "core/services/tasks/tasks_core_service.py::get_stats_for_user": _ACTIVITY_STATS_FOR_USER,
     "core/services/goals/goals_core_service.py::get_stats_for_user": _ACTIVITY_STATS_FOR_USER,
@@ -1246,9 +1237,10 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         Readiness.DELAYED,
         "cycle probe for a would-be parent→child ORGANIZES edge; its Cypher is "
         "correct for paths of length >= 1 but misses a self-loop (parent == child) "
-        "— wire it into organize() once two things are ruled: what a refused edge "
-        "returns (a business failure vs. a skipped write), and whether the MOC "
-        "ingest door (ingestion_write_backend, a batch UNWIND) shares the guard",
+        "— wire it into the vault sync, the only ORGANIZES writer (the MOC body-link "
+        "batch UNWIND in ingestion_write_backend and the organizes: frontmatter edge "
+        "writer), once it is ruled what a refused edge does there (a sync error "
+        "naming the file vs. a skipped edge)",
         since=date(2026, 9, 22),
     ),
 }

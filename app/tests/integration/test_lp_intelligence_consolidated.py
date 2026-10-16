@@ -706,44 +706,33 @@ class TestPracticeGaps:
 
 
 # ============================================================================
-# create_path → USES_KU persistence → knowledge-scope round trip
+# USES_KU composition → knowledge scope and knowledge search
 #
-# Guards the fix for the deferred Codex P1 on #753: the programmatic create
-# path (`create_path` / `create_path_from_knowledge_units`) dropped each step's
-# knowledge_uids at persist time, so `persist_path_with_steps` wrote HAS_STEP
-# step nodes but NO PS→KU edges — leaving every LP-intel query (scope included)
-# reporting 0 KUs for API-created paths. These tests prove the USES_KU edges now
-# land end-to-end by reading them back through analyze_path_knowledge_scope.
+# A path step composes Kus through USES_KU edges only (no CONTAINS_KNOWLEDGE),
+# the shape the content-vault sync writes. The scope read and the public
+# knowledge search must both traverse it, and a step with no Ku still counts.
 # ============================================================================
 
-_CREATE_USER = "user_lpcreate"
-_CREATE_KU_A = "ku_lpcreate_a"
-_CREATE_KU_B = "ku_lpcreate_b"
-_CREATE_KU_C = "ku_lpcreate_c"
-_CREATE_KU_GHOST = "ku_lpcreate_ghost"  # deliberately never seeded
-_CREATE_KUS = [_CREATE_KU_A, _CREATE_KU_B, _CREATE_KU_C]
-
-
-async def _cleanup_create_graph(session):
-    """Delete this user's paths+steps (auto-generated UIDs) and the seed Kus."""
-    await session.run(
-        """
-        MATCH (u:User {uid: $user})
-        OPTIONAL MATCH (u)-[:HAS_PATH]->(p:Entity)
-        OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Entity)
-        DETACH DELETE u, p, s
-        """,
-        user=_CREATE_USER,
-    )
-    await session.run("MATCH (k:Entity) WHERE k.uid IN $uids DETACH DELETE k", uids=_CREATE_KUS)
+_COMPOSED_LP = "lp.test.lpcompose.path"
+_COMPOSED_KU_A = "ku_lpcompose_a"
+_COMPOSED_KU_B = "ku_lpcompose_b"
+_COMPOSED_KU_C = "ku_lpcompose_c"
+_COMPOSED_KUS = [_COMPOSED_KU_A, _COMPOSED_KU_B, _COMPOSED_KU_C]
+# step uid → the Kus it composes: multi-KU, single-KU, and KU-less
+_COMPOSED_STEPS = {
+    "ps.test.lpcompose.1": [_COMPOSED_KU_A, _COMPOSED_KU_B],
+    "ps.test.lpcompose.2": [_COMPOSED_KU_C],
+    "ps.test.lpcompose.3": [],
+}
+_COMPOSED_UIDS = [_COMPOSED_LP, *_COMPOSED_STEPS, *_COMPOSED_KUS]
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def create_scope_graph(neo4j_driver):
-    """Seed only bare Ku nodes; the LP + steps come from create_path itself."""
+async def composed_path_graph(neo4j_driver):
+    """One LP whose three steps compose Kus through USES_KU edges alone."""
     async with neo4j_driver.session() as session:
-        await _cleanup_create_graph(session)
-        for ku_uid in _CREATE_KUS:
+        await session.run("MATCH (n) WHERE n.uid IN $uids DETACH DELETE n", uids=_COMPOSED_UIDS)
+        for ku_uid in _COMPOSED_KUS:
             await session.run(
                 """
                 MERGE (k:Entity:Ku {uid: $uid})
@@ -751,107 +740,56 @@ async def create_scope_graph(neo4j_driver):
                 """,
                 uid=ku_uid,
             )
+        await session.run(
+            """
+            MERGE (lp:Entity:LearningPath {uid: $uid})
+            SET lp.title = 'Composed Path', lp.entity_type = 'learning_path',
+                lp.status = 'active'
+            """,
+            uid=_COMPOSED_LP,
+        )
+        for sequence, (ps_uid, ku_uids) in enumerate(_COMPOSED_STEPS.items(), start=1):
+            await session.run(
+                """
+                MATCH (lp:Entity {uid: $lp_uid})
+                MERGE (ps:Entity:PathStep {uid: $ps_uid})
+                SET ps.title = $ps_uid, ps.entity_type = 'path_step', ps.status = 'active'
+                MERGE (lp)-[:HAS_STEP {sequence: $sequence}]->(ps)
+                WITH ps
+                UNWIND $ku_uids AS ku_uid
+                MATCH (ku:Entity {uid: ku_uid})
+                MERGE (ps)-[:USES_KU]->(ku)
+                """,
+                lp_uid=_COMPOSED_LP,
+                ps_uid=ps_uid,
+                ku_uids=ku_uids,
+                sequence=sequence,
+            )
     yield neo4j_driver
     async with neo4j_driver.session() as session:
-        await _cleanup_create_graph(session)
+        await session.run("MATCH (n) WHERE n.uid IN $uids DETACH DELETE n", uids=_COMPOSED_UIDS)
 
 
-def _step(uid: str, sequence: int, knowledge_uids: tuple[str, ...]):
-    """Build a minimal PathStep carrying the given KU references."""
-    from core.constants import MasteryLevel
-    from core.models.pathways.path_step import PathStep
-
-    return PathStep(
-        uid=uid,
-        title=f"Step {sequence + 1}",
-        intent="Complete this path step",
-        knowledge_uids=knowledge_uids,
-        sequence=sequence,
-        estimated_hours=2,
-        mastery_threshold=MasteryLevel.PROFICIENT,
-    )
-
-
-class TestCreatePathKnowledgeScopeRoundTrip:
-    async def test_create_path_persists_uses_ku_edges(self, services, create_scope_graph):
-        """create_path with multi-KU, single-KU, and KU-less steps: the scope
-        query reads back exactly the composed KUs, and the KU-less step still
-        counts (an empty UNWIND must not drop the step node)."""
-        created = await services.lp.create_path(
-            user_uid=_CREATE_USER,
-            title="Create Path Scope Round Trip",
-            description="programmatic path exercising USES_KU persistence",
-            steps=[
-                _step("ps_lpcreate_1", 0, (_CREATE_KU_A, _CREATE_KU_B)),  # multi-KU
-                _step("ps_lpcreate_2", 1, (_CREATE_KU_C,)),  # single-KU
-                _step("ps_lpcreate_3", 2, ()),  # KU-less — empty UNWIND
-            ],
-        )
-        assert created.is_ok, f"create_path failed: {created.error}"
-        path_uid = created.value.uid
-
-        scope = await services.lp.analyze_path_knowledge_scope(path_uid)
+class TestUsesKuComposition:
+    async def test_scope_reads_uses_ku_edges(self, services, composed_path_graph):
+        """The scope reads back exactly the composed Kus, and the KU-less step
+        still counts (an empty USES_KU match must not drop the step)."""
+        scope = await services.lp.analyze_path_knowledge_scope(_COMPOSED_LP)
         assert scope.is_ok, f"scope failed: {scope.error}"
-        assert scope.value["total_steps"] == 3  # KU-less step still counted
+        assert scope.value["total_steps"] == 3
         assert scope.value["total_unique_kus"] == 3
-        assert scope.value["all_knowledge_uids"] == sorted(_CREATE_KUS)
+        assert scope.value["all_knowledge_uids"] == sorted(_COMPOSED_KUS)
 
-    async def test_missing_ku_yields_no_edge_and_no_placeholder(self, services, create_scope_graph):
-        """A knowledge_uid with no matching Ku node links nothing and — because
-        the backend MATCHes rather than MERGEs the Ku — creates no placeholder."""
-        created = await services.lp.create_path(
-            user_uid=_CREATE_USER,
-            title="Create Path Missing KU",
-            description="one real KU, one dangling reference",
-            steps=[_step("ps_lpcreate_1", 0, (_CREATE_KU_A, _CREATE_KU_GHOST))],
-        )
-        assert created.is_ok, f"create_path failed: {created.error}"
-
-        scope = await services.lp.analyze_path_knowledge_scope(created.value.uid)
-        assert scope.is_ok
-        assert scope.value["all_knowledge_uids"] == [_CREATE_KU_A]  # ghost absent
-
-        async with create_scope_graph.session() as session:
-            result = await session.run(
-                "MATCH (k:Entity {uid: $uid}) RETURN count(k) AS n", uid=_CREATE_KU_GHOST
-            )
-            record = await result.single()
-        assert record["n"] == 0  # no placeholder Ku was created
-
-    async def test_create_path_from_knowledge_units_persists_edges(
-        self, services, create_scope_graph
-    ):
-        """The single-KU-per-step entrypoint also writes USES_KU edges."""
-        created = await services.lp.create_path_from_knowledge_units(
-            user_uid=_CREATE_USER,
-            knowledge_units=[_CREATE_KU_A, _CREATE_KU_B],
-        )
-        assert created.is_ok, f"create failed: {created.error}"
-
-        scope = await services.lp.analyze_path_knowledge_scope(created.value.uid)
-        assert scope.is_ok, f"scope failed: {scope.error}"
-        assert scope.value["total_steps"] == 2
-        assert scope.value["total_unique_kus"] == 2
-        assert scope.value["all_knowledge_uids"] == [_CREATE_KU_A, _CREATE_KU_B]
-
-    async def test_created_path_is_discoverable_by_knowledge_search(
-        self, services, create_scope_graph
-    ):
-        """A path created via create_path (USES_KU edges only) is found by the
-        public knowledge search — get_by_knowledge must traverse the full PS→KU
-        union, not CONTAINS_KNOWLEDGE alone, or API-created paths are invisible."""
-        created = await services.lp.create_path(
-            user_uid=_CREATE_USER,
-            title="Create Path Search Discoverable",
-            description="discoverable via USES_KU",
-            steps=[_step("ps_lpcreate_1", 0, (_CREATE_KU_A,))],
-        )
-        assert created.is_ok, f"create_path failed: {created.error}"
-
-        found = await services.lp.search.get_by_knowledge(_CREATE_KU_A)
+    async def test_path_is_discoverable_by_knowledge_search(self, services, composed_path_graph):
+        """A path whose steps compose Kus through USES_KU only is found by the
+        public knowledge search: get_by_knowledge traverses the full PS→KU union,
+        not CONTAINS_KNOWLEDGE alone."""
+        found = await services.lp.search.get_by_knowledge(_COMPOSED_KU_A)
         assert found.is_ok, f"search failed: {found.error}"
-        assert created.value.uid in {p.uid for p in found.value}
+        assert _COMPOSED_LP in {p.uid for p in found.value}
 
+
+class TestPracticeGapsUnknownPath:
     async def test_unknown_path_is_not_found(self, services, lpintel_graph):
         from core.utils.result_simplified import ErrorCategory
 

@@ -2,10 +2,11 @@
 Path Steps API — Domain-Specific Routes
 =========================================
 
-CRUD and Intelligence routes are config-driven via DomainRouteConfig
-in path_steps_routes.py. This file contains domain-specific manual routes:
-relationships, content, search, organization, analytics, adaptive curriculum,
-and ORGANIZES hierarchy operations.
+Intelligence routes are config-driven via DomainRouteConfig in
+path_steps_routes.py. This file contains the domain-specific reads:
+prerequisites, relationships, search, analytics, adaptive curriculum and the
+ORGANIZES hierarchy. Every route here reads; a path step is authored only in
+the content vault (ADR-091).
 """
 
 from typing import Any
@@ -13,11 +14,9 @@ from typing import Any
 from fasthtml.common import FT, Div, P
 from starlette.responses import Response
 
-from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import (
     parse_float_param_strict,
@@ -25,16 +24,8 @@ from adapters.inbound.route_factories import (
     refuse_malformed,
 )
 from core.constants import GraphDepth
-from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
 from core.models.pathways.learning_progress import LearningJourney
 from core.models.pathways.path_step import PathStep
-from core.models.pathways.pathways_request import (
-    PathStepPathRequest,
-    StepContentUpdateRequest,
-    StepOrganizeRequest,
-    StepRelationshipCreateRequest,
-    StepReorderRequest,
-)
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
     OrganizerResult,
@@ -56,13 +47,9 @@ def create_path_steps_api_routes(
     rt: Any,
     ps_service: PsService,
     user_progress_service: UserProgressService,
-    user_service: Any = None,
 ) -> None:
     """
     Create path steps API routes using factory pattern.
-
-    SECURITY: CRUD write operations (create, update, delete) require ADMIN role.
-    Read operations (get, list) are public.
 
     Args:
         app: FastHTML application instance
@@ -71,44 +58,7 @@ def create_path_steps_api_routes(
         user_progress_service: UserProgressService for per-caller mastery annotation
             on the prerequisite-chain read (REQUIRED — a missing progress service
             would silently mark every prerequisite unmastered; fail-fast instead)
-        user_service: User service for admin role verification
     """
-
-    get_user_service = make_service_getter(user_service)
-
-    # ========================================================================
-    # STEP-PATH RELATIONSHIPS
-    # ========================================================================
-
-    @rt("/api/path-steps/attach-to-path", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def attach_step_to_path_route(
-        request: Request, step_uid: str, current_user: Any = None
-    ) -> Result[bool]:
-        """Attach a path step to a learning path. Requires ADMIN role (curriculum write)."""
-        result = await parse_json_body(request, PathStepPathRequest)
-        if result.is_error:
-            return result  # type: ignore[return-value]
-
-        return await ps_service.attach_step_to_path(
-            step_uid, result.value.path_uid, result.value.sequence
-        )
-
-    @rt("/api/path-steps/detach-from-path", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def detach_step_from_path_route(
-        request: Request, step_uid: str, current_user: Any = None
-    ) -> Result[bool]:
-        """Detach a path step from a learning path. Requires ADMIN role (curriculum write)."""
-        result = await parse_json_body(request, PathStepPathRequest)
-        if result.is_error:
-            return result  # type: ignore[return-value]
-
-        return await ps_service.detach_step_from_path(step_uid, result.value.path_uid)
 
     # Step Prerequisites
     # ------------------
@@ -199,31 +149,6 @@ def create_path_steps_api_routes(
     # SEMANTIC RELATIONSHIPS
     # ========================================================================
 
-    @rt("/api/path-steps/relationships", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def create_step_relationship_route(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Result[bool]:
-        """Create a semantic relationship between path steps. Requires ADMIN role."""
-        result = await parse_json_body(request, StepRelationshipCreateRequest)
-        if result.is_error:
-            return result  # type: ignore[return-value]
-        req = result.value
-
-        # Keyword args: req.description maps to `notes`; `confidence` keeps
-        # the service default. The prior positional call passed strength as
-        # confidence and description as strength — a real bug, latent only
-        # because the endpoint was rarely exercised.
-        return await ps_service.create_step_relationship(
-            source_uid=uid,
-            target_uid=req.target_uid,
-            relationship_type=req.type,
-            strength=req.strength,
-            notes=req.description or None,
-        )
-
     @rt("/api/path-steps/relationships", methods=["GET"])
     @boundary_handler()
     async def get_step_relationships_route(
@@ -240,52 +165,6 @@ def create_path_steps_api_routes(
     async def get_step_dependencies_route(request: Request, uid: str) -> Result[list[PathStep]]:
         """Get what depends on this path step."""
         return await ps_service.get_step_dependencies(uid)
-
-    # ========================================================================
-    # CONTENT OPERATIONS
-    # ========================================================================
-
-    @rt("/api/path-steps/content", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def update_step_content_route(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Result[PathStep]:
-        """Update path step content. Requires ADMIN role."""
-        result = await parse_json_body(request, StepContentUpdateRequest)
-        if result.is_error:
-            return result  # type: ignore[return-value]
-
-        return await ps_service.update_step_content(uid, result.value.content, result.value.title)
-
-    @rt("/api/path-steps/tags", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def add_step_tags_route(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Result[PathStep]:
-        """Add tags to a path step. Requires ADMIN role."""
-        result = await parse_json_body(request, AddTagsRequest)
-        if result.is_error:
-            return result  # type: ignore[return-value]
-
-        return await ps_service.add_step_tags(uid, result.value.tags)
-
-    @rt("/api/path-steps/tags", methods=["DELETE"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def remove_step_tags_route(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Result[PathStep]:
-        """Remove tags from a path step. Requires ADMIN role."""
-        result = await parse_json_body(request, RemoveTagsRequest)
-        if result.is_error:
-            return result  # type: ignore[return-value]
-
-        return await ps_service.remove_step_tags(uid, result.value.tags)
 
     # ========================================================================
     # SEARCH & DISCOVERY
@@ -512,61 +391,6 @@ def create_path_steps_api_routes(
             return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
         return Result.ok(result.value.to_dict())
 
-    # Organization Operations (ADMIN ONLY)
-    # -------------------------------------
-
-    @rt("/api/path-steps/organize", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler(success_status=201)
-    async def organize_route(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
-        """Organize a path step under another (create ORGANIZES relationship)."""
-        parsed = await parse_json_body(request, StepOrganizeRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-
-        result = await ps_service.organize(req.parent_uid, req.child_uid, req.order)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(
-            {"success": result.value, "parent_uid": req.parent_uid, "child_uid": req.child_uid}
-        )
-
-    @rt("/api/path-steps/unorganize", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def unorganize_route(
-        request: Request, current_user: Any = None
-    ) -> Result[dict[str, Any]]:
-        """Remove organization relationship between path steps."""
-        parsed = await parse_json_body(request, StepOrganizeRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-
-        result = await ps_service.unorganize(req.parent_uid, req.child_uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"success": result.value})
-
-    @rt("/api/path-steps/reorder", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def reorder_route(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
-        """Change the order of a child path step within its parent."""
-        parsed = await parse_json_body(request, StepReorderRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-
-        result = await ps_service.reorder(req.parent_uid, req.child_uid, req.new_order)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"success": result.value})
-
     # Discovery Operations
     # --------------------
 
@@ -596,7 +420,7 @@ def create_path_steps_api_routes(
 
     logger.info(
         "Path Steps domain routes registered "
-        "(step-path, semantic, content, search, organization, analytics, ORGANIZES hierarchy)"
+        "(prerequisites, semantic, search, analytics, ORGANIZES hierarchy)"
     )
 
 

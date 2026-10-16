@@ -1,6 +1,6 @@
 ---
 title: "Embedded Forms Fragment — staged behind the PathStep page that dropped it"
-updated: 2026-09-20
+updated: 2026-10-16
 status: "staged — Mike's ruling 2026-09-20: PLANNED tier, not deletion"
 registered: 2026-09-20
 ruled: 2026-09-20
@@ -24,7 +24,7 @@ the forms section out of the redesign (`917946df4`). The route handlers are reac
 liveness tool reports them; the record of their consumer-less state is this file and the two
 `PLANNED_METHODS` entries in `scripts/detect_bloat.py`.
 
-**What stays live around it:** the `EMBEDS_FORM` edge and its writer (`link_to_path_step`), the
+**What stays live around it:** the `EMBEDS_FORM` edge and its writer (an Edge YAML file in the content vault, ADR-091), the
 `FormTemplate` / `FormSubmission` domain, the teacher form pages (`/teaching/forms`,
 `/teaching/forms/detail`, `/teaching/forms/submission`) and the forms API. Only the learner-side
 inline surface is staged.

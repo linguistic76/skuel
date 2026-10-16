@@ -2,14 +2,15 @@
 PathStep Service - Facade
 ==========================
 
-THE single owner for all path step management in SKUEL.
-Covers all path step management including CRUD, search, and curriculum delivery.
+THE single owner for all path step management in SKUEL: reads, search,
+curriculum delivery and learner engagement. A path step is authored only in the
+content vault (ADR-091); this facade writes no curriculum.
 
 Delegates to specialized sub-services:
-- PsCoreService: CRUD operations + persistence (extends BaseService)
+- PsCoreService: reads (extends BaseService)
 - PsSearchService: Search and discovery
 - PsGraphService: Graph navigation and relationships
-- PsSemanticService: Semantic relationship management
+- PsSemanticService: Semantic relationship reads
 - PsPracticeService: Event-driven practice tracking
 - PsMasteryService: Pedagogical tracking (VIEWED->IN_PROGRESS->MASTERED)
 - PsIntelligenceService: Intelligence and analytics
@@ -17,7 +18,7 @@ Delegates to specialized sub-services:
 - PsApplicationDiscoveryService: Reverse relationship queries
 - PsContextService: Context-first knowledge recommendations
 - PsOrganizationService: ORGANIZES relationships
-- UnifiedRelationshipService: All relationship operations
+- UnifiedRelationshipService: Relationship reads
 - PsProgressService: KU completion progress
 """
 
@@ -28,12 +29,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import EntityStatus
 from core.models.enums.curriculum_enums import PublicationState
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
-from core.models.update_contracts import RawChanges
 from core.ports.base_protocols import HasUID
 from core.ports.query_types import (
     ListContext,
@@ -66,7 +65,6 @@ from core.utils.sort_functions import get_created_at_attr, get_second_item, get_
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from core.infrastructure.relationships.semantic_relationships import SemanticTriple
     from core.models.context_types import ContextualKnowledge
     from core.models.enums.learning_enums import SELCategory
     from core.models.pathways.learning_progress import LearningJourney
@@ -150,18 +148,18 @@ class PsService:
     """Facade for path step management.
 
     Coordinates 12 sub-services (via create_ps_sub_services factory):
-    - Core: CRUD operations + persistence
+    - Core: reads
     - Search: Discovery operations
     - Graph: Graph navigation and relationships
-    - Semantic: Semantic relationship management
+    - Semantic: Semantic relationship reads
     - Practice: Event-driven practice tracking
     - Mastery: Pedagogical tracking
-    - Relationships: Step-path associations
+    - Relationships: Step-path association reads
     - Intelligence: Readiness assessment, practice analysis
     - Adaptive: Personalized curriculum
     - ApplicationDiscovery: Reverse relationship queries
     - ContextService: Context-first knowledge recommendations
-    - Organization: ORGANIZES relationships
+    - Organization: ORGANIZES reads
     """
 
     def __init__(
@@ -266,24 +264,12 @@ class PsService:
         logger.debug("PsService facade initialized with 12 sub-services")
 
     # ============================================================================
-    # CORE CRUD OPERATIONS - Delegated to PsCoreService
+    # CORE READS - Delegated to PsCoreService
     # ============================================================================
-
-    async def create_step(self, step: PathStep, path_uid: str | None = None) -> Result[PathStep]:
-        """Create a path step."""
-        return await self.core.create_step(step, path_uid)
 
     async def get_step(self, step_uid: str) -> Result[PathStep | None]:
         """Get a path step by UID."""
         return await self.core.get_step(step_uid)
-
-    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[PathStep]:
-        """Update a path step."""
-        return await self.core.update_step(step_uid, updates)
-
-    async def delete_step(self, step_uid: str) -> Result[bool]:
-        """Delete a path step."""
-        return await self.core.delete_step(step_uid)
 
     async def list_steps(
         self, path_uid: str | None = None, limit: int = 100, **kwargs: Any
@@ -291,20 +277,9 @@ class PsService:
         """List path steps."""
         return await self.core.list_steps(path_uid=path_uid, limit=limit, **kwargs)
 
-    # ============================================================================
-    # CRUD OPERATIONS PROTOCOL COMPATIBILITY
-    # ============================================================================
-
     async def get(self, uid: str) -> Result[PathStep]:
         """Get a path step by UID."""
         return await self.core.get(uid)
-
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[PathStep]:
-        """Update a path step."""
-        return await self.core.update(uid, RawChanges(updates))
-
-    async def delete(self, uid: str) -> Result[bool]:
-        return await self.core.delete(uid)
 
     async def get_all_user_knowledge_status(
         self, user_uid: UserUID
@@ -409,14 +384,6 @@ class PsService:
 
     async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[PathStep]]:
         return await self.graph.find_next_steps(uid, limit)
-
-    async def link_prerequisite(
-        self, unit_uid: str, prerequisite_uid: str, is_mandatory: bool = True
-    ) -> Result[bool]:
-        return await self.graph.link_prerequisite(unit_uid, prerequisite_uid, is_mandatory)
-
-    async def link_parent_child(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        return await self.graph.link_parent_child(parent_uid, child_uid)
 
     async def analyze_knowledge_gaps(
         self, target_uid: str, user_uid: UserUID
@@ -565,11 +532,6 @@ class PsService:
     # SEMANTIC OPERATIONS - Delegated to PsSemanticService
     # ============================================================================
 
-    async def create_with_semantic_relationships(
-        self, data: dict[str, Any], relationships: list[SemanticTriple]
-    ) -> Result[CurriculumDTO]:
-        return await self.semantic.create_with_semantic_relationships(data, relationships)
-
     async def get_semantic_neighborhood(
         self,
         uid: str,
@@ -579,25 +541,6 @@ class PsService:
     ) -> Result[dict[str, Any]]:
         return await self.semantic.get_semantic_neighborhood(
             uid, depth, semantic_types, min_confidence
-        )
-
-    async def create_step_relationship(
-        self,
-        source_uid: str,
-        target_uid: str,
-        relationship_type: SemanticRelationshipType,
-        confidence: float = 0.9,
-        strength: float = 1.0,
-        notes: str | None = None,
-    ) -> Result[bool]:
-        """Create a semantic relationship between two path steps."""
-        return await self.semantic.add_semantic_relationship(
-            subject_uid=source_uid,
-            predicate=relationship_type,
-            object_uid=target_uid,
-            confidence=confidence,
-            strength=strength,
-            notes=notes,
         )
 
     async def get_step_relationships(
@@ -664,21 +607,6 @@ class PsService:
 
     _ORG_UNAVAILABLE = Errors.system("Organization service is not available")
 
-    async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        if self.organization is None:
-            return Result.fail(self._ORG_UNAVAILABLE)
-        return await self.organization.organize(parent_uid, child_uid, order)
-
-    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        if self.organization is None:
-            return Result.fail(self._ORG_UNAVAILABLE)
-        return await self.organization.unorganize(parent_uid, child_uid)
-
-    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        if self.organization is None:
-            return Result.fail(self._ORG_UNAVAILABLE)
-        return await self.organization.reorder(parent_uid, child_uid, new_order)
-
     async def is_organizer(self, entity_uid: str) -> Result[bool]:
         if self.organization is None:
             return Result.fail(self._ORG_UNAVAILABLE)
@@ -738,32 +666,6 @@ class PsService:
         return await self.mastery.get_bookmarked_kus(user_uid)
 
     # ============================================================================
-    # STEP-PATH RELATIONSHIP OPERATIONS (UnifiedRelationshipService)
-    # ============================================================================
-
-    async def attach_step_to_path(
-        self, step_uid: str, path_uid: str, sequence: int | None = None
-    ) -> Result[bool]:
-        """Attach an existing path step to a learning path."""
-        if sequence is None:
-            seq_result = await self.repo.get_next_step_sequence(path_uid)
-            sequence = 0 if seq_result.is_error else seq_result.value
-        return await self.relationships.create_relationship_with_properties(
-            relationship_key="in_paths",
-            from_uid=step_uid,
-            to_uid=path_uid,
-            edge_properties={"sequence": sequence, "completed": False},
-        )
-
-    async def detach_step_from_path(self, step_uid: str, path_uid: str) -> Result[bool]:
-        """Detach a path step from a learning path."""
-        return await self.relationships.delete_relationship(
-            relationship_key="in_paths",
-            from_uid=step_uid,
-            to_uid=path_uid,
-        )
-
-    # ============================================================================
     # LEARNER ENGAGEMENT (per-user reads over ownerless curriculum)
     # ============================================================================
 
@@ -798,10 +700,6 @@ class PsService:
     # KU COMPOSITION (PathStep → atomic Ku via USES_KU)
     # ============================================================================
 
-    async def link_to_ku(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """Link this PathStep to an atomic Ku via USES_KU."""
-        return await self.core.backend.link_to_ku(ps_uid, ku_uid)  # type: ignore[attr-defined]
-
     async def get_used_kus(self, ps_uid: str) -> Result[list[UsedKuRow] | None]:
         """The atomic Kus this PathStep composes, or None when the uid names no PathStep."""
         return await self.core.backend.get_used_kus(ps_uid)  # type: ignore[attr-defined]
@@ -831,43 +729,6 @@ class PsService:
                 merged["locator"] = loc
             out.append(merged)
         return Result.ok(out)
-
-    # ============================================================================
-    # CONTENT AND TAG MANAGEMENT
-    # ============================================================================
-
-    async def update_step_content(
-        self, uid: str, content: str, title: str | None = None
-    ) -> Result[PathStep]:
-        """Update a path step's content."""
-        updates: dict[str, Any] = {"content": content}
-        if title:
-            updates["title"] = title
-        return await self.core.update(uid, RawChanges(updates))
-
-    async def add_step_tags(self, uid: str, tags: list[str]) -> Result[PathStep]:
-        """Add tags to a path step."""
-        result = await self.core.get(uid)
-        if result.is_error:
-            return Result.fail(result)
-        entity = result.value
-        if not entity:
-            return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
-        current_tags = list(entity.tags or [])
-        updated_tags = list(set(current_tags + tags))
-        return await self.core.update(uid, RawChanges({"tags": updated_tags}))
-
-    async def remove_step_tags(self, uid: str, tags: list[str]) -> Result[PathStep]:
-        """Remove tags from a path step."""
-        result = await self.core.get(uid)
-        if result.is_error:
-            return Result.fail(result)
-        entity = result.value
-        if not entity:
-            return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
-        current_tags = list(entity.tags or [])
-        updated_tags = [t for t in current_tags if t not in tags]
-        return await self.core.update(uid, RawChanges({"tags": updated_tags}))
 
     # ============================================================================
     # SUBSTANCE TRACKING EVENT LISTENERS

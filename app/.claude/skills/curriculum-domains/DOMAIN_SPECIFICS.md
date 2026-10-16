@@ -173,10 +173,10 @@ await lp_service.intelligence.identify_path_blockers(lp_uid, user_uid)
 
 # Get optimal path recommendation
 await lp_service.intelligence.get_optimal_path_recommendation(user_uid, goal_domain)
-
-# Create a path from PathStep models
-await lp_service.create_path(user_uid, title, description, steps)
 ```
+
+A learning path is authored in the content vault (`connections.contains_steps` writes `HAS_STEP`);
+`LpService` only reads it (ADR-091).
 
 **Relationships:**
 - `HAS_STEP` — path structure (ordered).

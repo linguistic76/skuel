@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-10-11
+updated: 2026-10-16
 category: patterns
 related_skills: []
 related_docs:
@@ -213,8 +213,8 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 
 | Backend | Methods Added |
 |---------|-------------|
-| `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
-| `LpBackend` | 4 HAS_STEP methods: `get_steps_raw`, `add_step_to_path`, `remove_step_from_path`, `reorder_steps` |
+| `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: ~~`create_step_node`~~, `get_step_with_knowledge`, ~~`update_step_fields`~~, ~~`delete_step_node`~~, `list_steps_raw` (the three writers deleted with the in-app curriculum writers, ADR-091) |
+| `LpBackend` | 4 HAS_STEP methods: `get_steps_raw`, ~~`add_step_to_path`~~, ~~`remove_step_from_path`~~, ~~`reorder_steps`~~ (the three writers deleted with the in-app curriculum writers, ADR-091) |
 | `GoalsBackend` | 8 progress-helper methods: `find_contributed_goals`, `recompute_progress_from_contributions`, `get_contribution_tally`, `list_task_based_goals`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits`, `get_supporting_habit_windows`, `get_required_knowledge_tally` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`; `get_contribution_tally` is the plain read of the contribution tally, running the statement the contribution recompute counts with — `query/cypher/goal_tally_queries.py`; `list_task_based_goals` feeds `./dev reconcile-goal-tallies`; the last two are the progress dashboard's habit-adherence and required-knowledge reads — `core/services/goals/dashboard_figures.py`) |
 | `KuBackend` | 2 substance methods: `batch_increment_substance`, `increment_substance` |
 
@@ -349,7 +349,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `PrinciplesBackend` | `get_choice_influence_stats` | `PrinciplesIntelligenceService` |
 | `SubmissionsBackend` | `get_submissions_for_path_step` | `SubmissionsSearchService` |
 | `SubmissionsBackend` | `create_goal_support_relationships` | `SubmissionsRelationshipService` |
-| `_LpStepMixin` | `get_next_step_sequence` | `PsSearchService` |
+| `_LpStepMixin` | ~~`get_next_step_sequence`~~ | none — deleted with the in-app curriculum writers (ADR-091) |
 | `_TraversalMixin` | `get_citation_export` | `KuCoreService` |
 | `_TraversalMixin` | `find_uids_by_semantic_filter` | `GraphIntelligenceService` |
 | `_TraversalMixin` | `get_batch_cross_domain_context` | none — no production caller ([findings §13](CYPHER_VOCABULARY_FINDINGS.md)) |
@@ -423,7 +423,7 @@ Hardened 3 backend methods against Cypher injection and migrated 17 inline Cyphe
 - `_validate_rel_name()` — rejects relationship names with non-`[A-Z0-9_]` characters
 - `_ALLOWED_ORDER_BY` — whitelist for `ORDER BY` field names (prevents injection via order_by parameter)
 - `find_connected_activities()` — `node_label` typed `NeoLabel`, `rel_types` typed `list[RelationshipName | str]`, `limit` parameterized as `$limit`
-- `delete_semantic_relationship()` / `query_relationships_by_type()` — `rel_name` validated, `direction` typed `Literal["outgoing", "incoming", "both"]`
+- `query_relationships_by_type()` — `rel_name` validated, `direction` typed `Literal["outgoing", "incoming", "both"]`
 
 *Query builders (`_helpers.py` — shared by the query builder modules):*
 - `validate_label()` — checks against `NeoLabel` enum allowlist before label interpolation
@@ -470,9 +470,11 @@ The largest single migration — 35 inline Cypher queries from 8 PathStep servic
 > practice + adaptive mastery only (6 methods).
 | **Application Discovery (3)** | `find_connected_activities`, `find_path_steps_containing_ku`, `find_learning_paths_teaching_ku` | `_KnowledgeContextMixin` |
 | **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | `_KnowledgeContextMixin` |
-| **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | `_SemanticMixin` |
-| **Graph (8)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps` | `_SemanticMixin` + `_KnowledgeContextMixin` |
+| **Semantic (6)** | ~~`create_semantic_relationship`~~, `query_semantic_neighborhood`, ~~`delete_semantic_relationship`~~, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | `_SemanticMixin` |
+| **Graph (8)** | ~~`link_prerequisite`~~, ~~`link_parent_child`~~, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps` | `_SemanticMixin` + `_KnowledgeContextMixin` |
 | **Adaptive (3)** | `query_user_masteries`, `query_active_learning_paths`, `query_completed_learning_paths` (~~`track_mastery_completion`~~ — deleted: a PathStep's `MASTERED` edge is written by `_LearningStateMixin.mark_mastered`, the Ku edge's writer, from `PsMasteryService.handle_knowledge_mastered`) | `_AdaptiveMixin` |
+
+Struck through: the in-app curriculum writers, deleted when curriculum became vault-only (ADR-091).
 
 **Protocol:** 31 new methods added to the curriculum protocol (then named `LessonOperations`, now `PsOperations`) in `curriculum_protocols.py`.
 

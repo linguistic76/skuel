@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-10-10
+updated: 2026-10-16
 status: current
 category: reference
 tags: [protocol, reference]
@@ -424,7 +424,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 | `user_entry_protocols.py` | 9 protocols | `user_entry_api.py`, `user_entry_routes.py`, `progress_report_api.py` |
 | `sharing_protocols.py` | 2 protocols | `user_entry_routes.py` (sharing endpoints) |
 | `report_protocols.py` | 7 protocols | `exercises_api.py`, `progress_report_api.py`, `teaching_api.py` |
-| `form_protocols.py` | 4 protocols | `form_templates_api.py`, `form_submissions_api.py` |
+| `form_protocols.py` | 4 protocols | `form_templates_routes.py` (CRUD factory), `form_submissions_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
 | `service_protocols.py` | 14 protocols | `orchestration_routes.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
@@ -488,14 +488,14 @@ Two-tier protocols for the general-purpose form system.
 
 | Protocol | Consumer | Methods |
 |----------|----------|---------|
-| `FormTemplateBackendOperations` | `FormTemplateService.__init__` | BackendOperations[FormTemplate] + `link_to_path_step`, `unlink_from_path_step`, `get_forms_for_path_step` |
+| `FormTemplateBackendOperations` | `FormTemplateService.__init__` | BackendOperations[FormTemplate] + `get_forms_for_path_step`, `count_submissions` |
 | `FormSubmissionBackendOperations` | `FormSubmissionService.__init__` | BackendOperations[FormSubmission] + `create_with_relationships`, `list_by_user`, `get_submissions_for_template` |
 
 **Route-level** (typed service in routes):
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `FormTemplateOperations` | `form_template_service` | 7 (create, get, list, update, delete, link/unlink path_step) | `form_templates_api.py` |
+| `FormTemplateOperations` | `form_template_service` | 7 (create, get, update, delete, list, get_forms_for_path_step, count_submissions) | `form_templates_routes.py` (CRUD factory) |
 | `FormSubmissionOperations` | `form_submission_service` | 5 (submit, get, list_mine, delete, share) | `form_submissions_api.py` |
 
 ### Group Protocols (2) — `group_protocols.py`

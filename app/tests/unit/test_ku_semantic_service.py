@@ -5,20 +5,17 @@ Test KU Semantic Service
 Tests for the PsSemanticService focused sub-service.
 """
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from core.infrastructure.relationships.semantic_relationships import (
-    RelationshipMetadata,
     SemanticRelationshipType,
-    SemanticTriple,
 )
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityType
 from core.services.ps.ps_semantic_service import PsSemanticService
-from core.utils.result_simplified import ErrorCategory, Errors, Result
+from core.utils.result_simplified import Result
 
 
 def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
@@ -62,145 +59,6 @@ class TestKuSemanticServiceInitialization:
         """Test that initialization fails without required repo."""
         with pytest.raises(ValueError, match="repository is required"):
             PsSemanticService(repo=None)
-
-
-class TestCreateWithSemanticRelationships:
-    """Test creating knowledge units with semantic relationships."""
-
-    @pytest.fixture
-    def service(self) -> PsSemanticService:
-        """Create service with mocked dependencies."""
-        repo = MagicMock()
-        return PsSemanticService(repo=repo)
-
-    @pytest.mark.asyncio
-    async def test_create_with_relationships_success(self, service):
-        """Test successful creation with semantic relationships."""
-        # Mock repo.create to return new KU
-        service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
-
-        # Mock repo.get to return refreshed KU
-        service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
-
-        # Mock backend methods
-        service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
-        service.repo.create_semantic_relationship = AsyncMock(
-            return_value=Result.ok([{"semantic_type": "learn:requires_theoretical_understanding"}])
-        )
-
-        # Create relationships
-        metadata = RelationshipMetadata(confidence=0.9)
-        relationships = [
-            SemanticTriple(
-                subject="ku.placeholder",  # Will be replaced with new UID
-                predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-                object="ku.prereq.1",
-                metadata=metadata,
-            )
-        ]
-
-        ku_data = {"title": "New Unit", "content": "Test content", "domain": "tech"}
-
-        result = await service.create_with_semantic_relationships(
-            ku_data=ku_data, relationships=relationships
-        )
-
-        assert result.is_ok
-        assert result.value.uid == "ku.new.1"
-        service.repo.create_semantic_relationship.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_create_fails_when_ku_creation_fails(self, service):
-        """Test that creation fails gracefully when KU creation fails."""
-        # Mock repo.create to fail
-        service.repo.create = AsyncMock(return_value=Result.fail(MagicMock()))
-
-        ku_data = {"title": "Test", "content": "Content", "domain": "tech"}
-        relationships: list[Any] = []
-
-        result = await service.create_with_semantic_relationships(
-            ku_data=ku_data, relationships=relationships
-        )
-
-        assert not result.is_ok
-
-    @pytest.mark.asyncio
-    async def test_create_refuses_before_writing_when_an_endpoint_is_absent(self, service):
-        """An absent object endpoint is refused before the step is created — nothing commits."""
-        service.repo.entity_exists = AsyncMock(return_value=Result.ok(False))
-        service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
-        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
-
-        result = await service.create_with_semantic_relationships(
-            ku_data={"title": "New Unit", "content": "Test content", "domain": "tech"},
-            relationships=[
-                SemanticTriple(
-                    subject="ku.placeholder",
-                    predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-                    object="ku.absent",
-                    metadata=RelationshipMetadata(confidence=0.9),
-                )
-            ],
-        )
-
-        error = result.expect_error()
-        assert error.category == ErrorCategory.NOT_FOUND
-        assert error.details["identifier"] == "ku.absent"
-        service.repo.entity_exists.assert_awaited_once_with("ku.absent")
-        service.repo.create.assert_not_called()
-        service.repo.create_semantic_relationship.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_a_link_refused_after_the_write_takes_the_step_back(self, service):
-        """An endpoint gone since the check: the writer's empty row refuses, the step is deleted."""
-        service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
-        service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
-        service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
-        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
-        service.repo.delete = AsyncMock(return_value=Result.ok(True))
-
-        result = await service.create_with_semantic_relationships(
-            ku_data={"title": "New Unit", "content": "Test content", "domain": "tech"},
-            relationships=[
-                SemanticTriple(
-                    subject="ku.placeholder",
-                    predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-                    object="ku.absent",
-                    metadata=RelationshipMetadata(confidence=0.9),
-                )
-            ],
-        )
-
-        error = result.expect_error()
-        assert error.category == ErrorCategory.NOT_FOUND
-        assert error.details["identifier"] == "ku.absent"
-        service.repo.delete.assert_awaited_once_with("ku.new.1", cascade=True)
-
-    @pytest.mark.asyncio
-    async def test_a_failed_rollback_is_the_error_returned(self, service):
-        """When the step cannot be taken back, the caller hears about the state that is wrong."""
-        service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
-        service.repo.create = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
-        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
-        service.repo.delete = AsyncMock(
-            return_value=Result.fail(Errors.database("delete", "lock timeout"))
-        )
-
-        result = await service.create_with_semantic_relationships(
-            ku_data={"title": "New Unit", "content": "Test content", "domain": "tech"},
-            relationships=[
-                SemanticTriple(
-                    subject="ku.placeholder",
-                    predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-                    object="ku.absent",
-                    metadata=RelationshipMetadata(confidence=0.9),
-                )
-            ],
-        )
-
-        error = result.expect_error()
-        assert error.category == ErrorCategory.DATABASE
-        service.repo.delete.assert_awaited_once_with("ku.new.1", cascade=True)
 
 
 class TestSemanticNeighborhood:
@@ -299,77 +157,6 @@ class TestRelationshipManagement:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         return PsSemanticService(repo=repo)
-
-    @pytest.mark.asyncio
-    async def test_add_semantic_relationship_success(self, service):
-        """Test successful semantic relationship addition."""
-        # Mock both units exist
-        service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto()))
-
-        # Mock backend methods
-        service.repo.entity_exists = AsyncMock(return_value=Result.ok(True))
-        service.repo.create_semantic_relationship = AsyncMock(
-            return_value=Result.ok([{"semantic_type": "learn:requires_theoretical_understanding"}])
-        )
-
-        result = await service.add_semantic_relationship(
-            subject_uid="ku.test.1",
-            predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-            object_uid="ku.prereq.1",
-            confidence=0.9,
-            strength=0.8,
-            notes="Test relationship",
-        )
-
-        assert result.is_ok
-        assert result.value is True
-        service.repo.create_semantic_relationship.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_add_semantic_relationship_subject_not_found(self, service):
-        """Test add relationship fails when subject doesn't exist."""
-        service.repo.get = AsyncMock(return_value=Result.fail(MagicMock()))
-
-        result = await service.add_semantic_relationship(
-            subject_uid="ku.nonexistent",
-            predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-            object_uid="ku.prereq.1",
-        )
-
-        assert not result.is_ok
-
-    @pytest.mark.asyncio
-    async def test_remove_semantic_relationship_success(self, service):
-        """Test successful semantic relationship removal."""
-        # Mock backend delete returns count
-        service.repo.delete_semantic_relationship = AsyncMock(
-            return_value=Result.ok([{"deleted": 1}])
-        )
-
-        result = await service.remove_semantic_relationship(
-            subject_uid="ku.test.1",
-            predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-            object_uid="ku.prereq.1",
-        )
-
-        assert result.is_ok
-        assert result.value is True
-
-    @pytest.mark.asyncio
-    async def test_remove_semantic_relationship_not_found(self, service):
-        """Test remove relationship fails when relationship doesn't exist."""
-        # Mock backend delete returns 0 deleted
-        service.repo.delete_semantic_relationship = AsyncMock(
-            return_value=Result.ok([{"deleted": 0}])
-        )
-
-        result = await service.remove_semantic_relationship(
-            subject_uid="ku.test.1",
-            predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-            object_uid="ku.prereq.1",
-        )
-
-        assert not result.is_ok
 
     @pytest.mark.asyncio
     async def test_get_relationships_by_type_outgoing(self, service):
@@ -535,7 +322,6 @@ class TestFacadeDelegation:
         from core.services.ps_service import PsService
 
         # Verify all semantic methods exist on facade
-        assert callable(getattr(PsService, "create_with_semantic_relationships", None))
         assert callable(getattr(PsService, "get_semantic_neighborhood", None))
 
 

@@ -90,8 +90,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 - `POST /explore/ps/{uid}/progress` — update progress state (`state=learning|read`)
 - `POST /explore/ps/{uid}/bookmark` — toggle bookmark (`on=true|false`)
 - `GET /learning-loop/ps/{ps_uid}/exercises`, `/learning-loop/ps/{ps_uid}/submissions-and-feedback` — the HTMX fragments the PathStep page loads for the learning loop (`ui/explore/ps_detail.py`); `/learning-loop/ps/{ps_uid}/forms` (+ `POST …/forms/{template_uid}/submit`) is registered but no page loads it — PLANNED tier, `docs/roadmap/embedded-forms-fragment-staged.md`
-- `POST /api/path-steps/organize` — ORGANIZES hierarchy (admin)
-- `POST /api/path-steps/content` — content updates (admin)
+- Every `/api/path-steps/*` route reads (prerequisites, relationships, organizers, organized children, …); a PathStep, its ORGANIZES edges and its place in a path are written only by the content-vault sync (ADR-091 S8)
 
 **Ku UI Routes:**
 - `GET /explore/library` — the full Ku/PathStep catalog (search + bento grid); `GET /library/ku` is the signed-in user's bookmarked Kus (`PINNED`), not an index
@@ -227,7 +226,7 @@ learning_paths = LpService(
 
 ```python
 # PS — the sub-service slots, read off PsService.__init__
-ps_service.core.create_step(step)
+ps_service.core.get_step(ps_uid)
 ps_service.search.search(query)                      # BaseService search
 ps_service.intelligence.is_ready(ps_uid, completed_step_uids)
 ps_service.adaptive.get_sel_journey(user_uid)

@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-10-10
+updated: 2026-10-16
 category: patterns
 related_skills:
 - python
@@ -366,8 +366,9 @@ See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive v
 `InvoiceUpdateRequest`, `LineItemInput` — the invoice is SKUEL's one native finance model;
 bookkeeping is a Firefly III sidecar (ADR-052).
 
-**Curriculum Domain** (`core/models/pathways/pathways_request.py`):
-- `PathStepCreateRequest`, `LearningPathCreateRequest` (used by ingestion, not CRUD routes)
+**Curriculum Domain:** no create or update request models — curriculum is authored in the
+content vault (ADR-091); `core/models/pathways/pathways_request.py` holds the learner-side
+filter and progress requests.
 
 **Activity Domain Request Models** (domain-specific packages):
 - `TaskCreateRequest`, `TaskUpdateRequest` (`core/models/task/task_request.py`)

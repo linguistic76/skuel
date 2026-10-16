@@ -2,7 +2,9 @@
 FormTemplate Service
 ====================
 
-CRUD + PathStep linking for admin-created form templates.
+CRUD for admin-created form templates, and the read of the forms a PathStep
+embeds. The embedding itself (EMBEDS_FORM) is authored in the content vault
+(ADR-091).
 FormTemplates are shared content (no user_uid).
 
 Implements CRUDOperations via BaseService inheritance (CrudOperationsMixin).
@@ -194,17 +196,9 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         return await self.backend.count_submissions(template_uid, teacher_uid=None)
 
     # ========================================================================
-    # PATH STEP LINKING (domain-specific, not part of CRUDOperations)
+    # PATH STEP EMBEDDING (read; the edge is authored in the content vault)
     # ========================================================================
 
     async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]:
         """Return all FormTemplates embedded in a PathStep via EMBEDS_FORM."""
         return await self.backend.get_forms_for_path_step(ps_uid)
-
-    async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
-        """Link a FormTemplate to a PathStep via EMBEDS_FORM."""
-        return await self.backend.link_to_path_step(form_template_uid, ps_uid)
-
-    async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
-        """Remove EMBEDS_FORM link between FormTemplate and PathStep."""
-        return await self.backend.unlink_from_path_step(form_template_uid, ps_uid)

@@ -341,8 +341,8 @@ class _LearningStateMixin:
         ``USES_KU``/``CONTAINS_KNOWLEDGE`` (its content) does — a step whose
         objectives are unmastered is not complete.
 
-        The composition targets counted are ``:Ku`` only: the edge writer
-        (``create_step_node``) matches its target by uid alone, so a step can
+        The composition targets counted are ``:Ku`` only: the edge writer (the
+        content-vault sync's) matches its target by uid alone, so a step can
         point one of these edges at another step, and a step's mastery is
         announced as ``PathStepCompleted`` — never ``KnowledgeMastered`` — so
         a non-Ku target in the tally would leave the parent underivable. The
