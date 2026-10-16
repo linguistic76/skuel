@@ -1,6 +1,6 @@
 ---
 title: "ADR-018: Four-Tier User Role System"
-updated: 2026-10-12
+updated: 2026-10-16
 status: current
 category: decisions
 tags: [adr, decisions, user, roles, authorization, authentication]
@@ -59,7 +59,7 @@ Key constraints:
 
 1. **UserRole Enum** (`/core/models/enums/user_enums.py`):
    - Hierarchy-aware permission checking
-   - Helper methods: `is_subscriber()`, `can_create_curriculum()`, `can_manage_users()`
+   - Helper methods: `is_subscriber()`, `is_teacher()`, `can_manage_users()`
 
 2. **User Model** (`/core/models/user/user.py`):
    - Added `role: UserRole` field (default: REGISTERED)
@@ -215,10 +215,10 @@ async def list_users(request: Request, current_user: Any = None):
 
 ```python
 # Permission check in services
-if not user.can_create_curriculum():
+if not user.is_teacher():
     return Result.fail(Errors.business(
         rule="teacher_required",
-        message="Teacher role required to create curriculum"
+        message="Teacher role required"
     ))
 ```
 

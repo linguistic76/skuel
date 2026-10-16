@@ -40,6 +40,7 @@ from core.models.relationship_names import RelationshipName
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
+from tests.helpers.lateral_verifiers import ADMITS_ALL, CALLER
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -137,7 +138,11 @@ class TestLateralWriterAndReads:
         service = LateralRelationshipService(backend=backend)
 
         created = await service.create_lateral_relationship(
-            KU_WITH_BODY, KU_PLAIN, RelationshipName.PREREQUISITE_FOR
+            KU_WITH_BODY,
+            KU_PLAIN,
+            RelationshipName.PREREQUISITE_FOR,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         assert created.is_ok, created
 
@@ -157,7 +162,11 @@ class TestLateralWriterAndReads:
 
         # The delete reaches the one edge and reports the one it deleted.
         deleted = await service.delete_lateral_relationship(
-            KU_WITH_BODY, KU_PLAIN, RelationshipName.PREREQUISITE_FOR
+            KU_WITH_BODY,
+            KU_PLAIN,
+            RelationshipName.PREREQUISITE_FOR,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         assert deleted.is_ok, deleted
         assert await _scalar(neo4j_driver, _EDGES_BETWEEN, a=KU_WITH_BODY, b=KU_PLAIN, rel=rel) == 0

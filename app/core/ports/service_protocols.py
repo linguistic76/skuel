@@ -622,8 +622,9 @@ class LateralRelationshipOperations(Protocol):
         metadata: Neo4jProperties | None = None,
         validate: bool = True,
         auto_inverse: bool = True,
-        user_uid: UserUID | None = None,
-        domain_service: OwnershipVerifier | None = None,
+        *,
+        user_uid: UserUID,
+        domain_service: OwnershipVerifier,
     ) -> Result[bool]: ...
 
     async def delete_lateral_relationship(
@@ -632,8 +633,9 @@ class LateralRelationshipOperations(Protocol):
         target_uid: str,
         relationship_type: RelationshipName,
         delete_inverse: bool = True,
-        user_uid: UserUID | None = None,
-        domain_service: OwnershipVerifier | None = None,
+        *,
+        user_uid: UserUID,
+        domain_service: OwnershipVerifier,
     ) -> Result[bool]: ...
 
     async def get_lateral_relationships(
@@ -757,7 +759,6 @@ class LateralRelationshipBackendOperations(Protocol):
         self,
         source_uid: str,
         target_uid: str,
-        entity_types: Collection[EntityType] | None = None,
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {source_count, target_count}
 
     async def check_same_parent(

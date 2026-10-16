@@ -58,6 +58,7 @@ from core.services.ingestion.preparer import prepare_edge_data
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
+from tests.helpers.lateral_verifiers import ADMITS_ALL, CALLER
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -82,8 +83,8 @@ def service(neo4j_driver) -> LateralRelationshipService:
 async def two_children(neo4j_driver):
     """Two Kus under one parent.
 
-    Kus because the service is called with no ownership verifier, and that
-    path joins curriculum endpoints only. The shared parent is load-bearing:
+    The verifier admits every uid (``ADMITS_ALL``): the subject here is the
+    stamp, not access. The shared parent is load-bearing:
     ``BLOCKS`` declares ``requires_same_parent``, so without it validation
     refuses and every test below would pass vacuously on an edge that was
     never written.
@@ -137,6 +138,8 @@ class TestTheValueIsARealInstant:
             source_uid=SOURCE_UID,
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         assert not created.is_error, created.expect_error()
 
@@ -157,6 +160,8 @@ class TestTheValueIsARealInstant:
             source_uid=SOURCE_UID,
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
 
         forward = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
@@ -190,6 +195,8 @@ class TestTheValueIsARealInstant:
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
             auto_inverse=False,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         forward_first = await _read_edge(
             neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID
@@ -213,6 +220,8 @@ class TestTheValueIsARealInstant:
             source_uid=SOURCE_UID,
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
 
         forward_second = await _read_edge(
@@ -242,6 +251,8 @@ class TestTheRepresentationIsAnISOString:
             source_uid=SOURCE_UID,
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
 
         found = await service.get_lateral_relationships(
@@ -272,6 +283,8 @@ class TestTheRepresentationIsAnISOString:
             source_uid=SOURCE_UID,
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         record = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
         lateral_stamp = record["props"]["created_at"]
@@ -300,6 +313,8 @@ class TestTheStampRecordsFirstCreation:
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
             metadata={"reason": "first assertion"},
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         first = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
 
@@ -308,6 +323,8 @@ class TestTheStampRecordsFirstCreation:
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
             metadata={"reason": "second assertion"},
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         second = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
 
@@ -338,6 +355,8 @@ class TestTheCallerCannotSupplyTheStamp:
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
             metadata={"created_at": LITERAL_DEFECT, "reason": "forged stamp"},
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         record = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
 
@@ -354,6 +373,8 @@ class TestTheCallerCannotSupplyTheStamp:
             source_uid=SOURCE_UID,
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         first = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
 
@@ -362,6 +383,8 @@ class TestTheCallerCannotSupplyTheStamp:
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
             metadata={"created_at": "1999-01-01T00:00:00", "reason": "re-asserted"},
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         second = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
 
@@ -376,5 +399,7 @@ class TestTheCallerCannotSupplyTheStamp:
             target_uid=TARGET_UID,
             relationship_type=RelationshipName.BLOCKS,
             metadata=caller_metadata,
+            user_uid=CALLER,
+            domain_service=ADMITS_ALL,
         )
         assert caller_metadata == {"reason": "mine"}

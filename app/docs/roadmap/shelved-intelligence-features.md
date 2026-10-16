@@ -1,6 +1,6 @@
 ---
 title: "Shelved Intelligence Features — Semantic Analysis residue, Discovery Analytics Phases 2+, Real-time Intelligence"
-updated: 2026-09-21
+updated: 2026-10-16
 status: "shelved"
 trigger: "engagement edges exist (Semantic residue); 1,000+ :SearchEvent (Discovery Phases 2+); DAU ≥ 10 for 2+ weeks (Real-time)"
 check: "Ku engagement edge count > 0; MATCH (e:SearchEvent) RETURN count(e); Grafana skuel_daily_active_users"
@@ -40,8 +40,9 @@ recipe was buried outright, One Path Forward ruling, same date):
    (on-demand `find_similar_to_node`, `ku_similar_min_score=0.72` full-corpus-derived;
    read-time lens, no persistence, no auto-created edges).
 2. **Prerequisite inference** — #599: mid-band candidates → LLM judge →
-   `/admin/prereq-suggestions` queue → approve writes one Edge YAML into the content
-   vault's `edges/` (authored edges stay canonical; suggestions never auto-write).
+   `/admin/prereq-suggestions` queue → each row shows the ready Edge YAML for the admin to
+   copy into the content vault's `edges/` (authored edges stay canonical; the app writes
+   nothing, ADR-091 N3).
 3. **Askesis/ZPD gap feed** — #600 (shipped-as-scoped): ONE UserContextBuilder (the
    capstone now reaches the daily-plan path), ENABLES-proximal (both enabler
    vocabularies + the PS-enabler bridge; enablers never gate), "Related to your next

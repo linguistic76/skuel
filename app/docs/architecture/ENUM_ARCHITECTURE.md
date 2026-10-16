@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-13
+updated: 2026-10-16
 ---
 
 # Enum Architecture
@@ -496,7 +496,7 @@ UserRole uses numeric levels for permission checking:
 ```python
 UserRole.MEMBER.has_permission(UserRole.REGISTERED)  # → True (1 >= 0)
 UserRole.MEMBER.has_permission(UserRole.ADMIN)        # → False (1 < 3)
-UserRole.TEACHER.can_create_curriculum()              # → True
+UserRole.TEACHER.is_teacher()                        # → True
 ```
 
 ### 6. Cross-Enum Conversion

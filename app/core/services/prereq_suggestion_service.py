@@ -2,11 +2,11 @@
 Prerequisite-Edge Suggestion Service
 ====================================
 
-Discovery Analytics PR 4: candidates → LLM judge → admin queue → approve
-writes one Edge YAML file into the content vault (the first sanctioned
-vault-write — Mike's ruling 2026-07-10). Reject is stateless in v1: a
-rejected suggestion simply reappears on regeneration. Suggestions are
-EPHEMERAL — computed on demand, never persisted as nodes.
+Discovery Analytics PR 4: candidates → LLM judge → admin queue → a ready Edge
+YAML file per row, which the admin copies into the content vault. The app
+writes nothing: curriculum is authored in the vault (ADR-091 N3). Reject is
+stateless: a rejected suggestion simply reappears on regeneration.
+Suggestions are EPHEMERAL — computed on demand, never persisted as nodes.
 
 Candidate stage (Analog — works on CORE if embeddings exist on Ku nodes):
     Pairwise cosine over stored Ku embeddings, kept in a MID-similarity band.
@@ -25,11 +25,11 @@ Judge stage (Digital — FULL tier only):
     (Analog-complete). Phase A found NO structural direction heuristic beats
     a coin-flip in this corpus, which is why direction is judged, not derived.
 
-Approve stage:
-    Writes exactly one Edge YAML file (authored format, colon-form UIDs
-    reverse-normalized, ``source: inferred-approved``) via
-    ``EdgeFileWriterPort``. NO graph writes — the edge lands in the graph
-    when the admin runs the existing content-vault sync.
+Ready-file stage (pure):
+    ``ready_edge_files`` renders, for each way to record a pair, the Edge
+    YAML file in the authored format (``source: inferred-approved``). The
+    admin copies the chosen one into the vault's ``edges/``; the edge lands
+    in the graph on the next content-vault sync.
 
 Backend: PrereqCandidateBackend (read-only).
 See: /docs/roadmap/done/SEMANTIC_ANALYSIS_ROADMAP.md
@@ -52,14 +52,13 @@ from core.utils.vector_math import dot, l2_normalize
 
 if TYPE_CHECKING:
     from core.ports.curriculum_protocols import PrereqSuggestionBackendOperations
-    from core.ports.edge_file_writer_protocol import EdgeFileWriterPort
     from core.ports.llm_protocols import ChatMessage
     from core.ports.query_types import KuEmbeddingRow
     from core.services.llm_service import LLMService
 
 
 # =============================================================================
-# Verdicts + approvable relationships
+# Verdicts + the ways to record a pair
 # =============================================================================
 
 
@@ -72,16 +71,26 @@ class JudgeVerdict(StrEnum):
     SKIP = "skip"
 
 
-#: The only relationships an admin may approve into an Edge YAML file.
-#: Direction is expressed by from/to ordering, so PREREQUISITE_FOR covers
-#: both A→B and B→A; the symmetric pair covers "connected but unordered".
-APPROVABLE_RELATIONSHIPS: dict[str, RelationshipName] = {
-    RelationshipName.PREREQUISITE_FOR.value: RelationshipName.PREREQUISITE_FOR,
-    RelationshipName.RELATED_TO.value: RelationshipName.RELATED_TO,
-    RelationshipName.COMPLEMENTARY_TO.value: RelationshipName.COMPLEMENTARY_TO,
+class EdgeChoice(StrEnum):
+    """One way to record a suggested pair (A/B as the queue shows them)."""
+
+    PREREQ_A_TO_B = "prereq_a_to_b"
+    PREREQ_B_TO_A = "prereq_b_to_a"
+    RELATED = "related"
+    COMPLEMENTARY = "complementary"
+
+
+#: Each choice → (swap A/B into from/to, relationship). Direction is expressed
+#: by from/to ordering, so both prereq choices are PREREQUISITE_FOR; the
+#: symmetric pair covers "connected but unordered".
+_EDGE_CHOICES: dict[EdgeChoice, tuple[bool, RelationshipName]] = {
+    EdgeChoice.PREREQ_A_TO_B: (False, RelationshipName.PREREQUISITE_FOR),
+    EdgeChoice.PREREQ_B_TO_A: (True, RelationshipName.PREREQUISITE_FOR),
+    EdgeChoice.RELATED: (False, RelationshipName.RELATED_TO),
+    EdgeChoice.COMPLEMENTARY: (False, RelationshipName.COMPLEMENTARY_TO),
 }
 
-#: Filename token per approvable relationship (authored-vault convention:
+#: Filename token per relationship a choice records (authored-vault convention:
 #: edge_attention-prereq-labeling.md).
 _REL_FILENAME_TOKENS: dict[RelationshipName, str] = {
     RelationshipName.PREREQUISITE_FOR: "prereq",
@@ -90,17 +99,16 @@ _REL_FILENAME_TOKENS: dict[RelationshipName, str] = {
 }
 
 #: Symmetric relationships carry no direction — from/to is canonicalized to
-#: sorted-UID order at approve time, so the same pair always yields the same
-#: file regardless of which A/B order a generate run happened to emit
-#: (otherwise re-approving after a regeneration could write a reverse
-#: duplicate the no-overwrite guard cannot see).
+#: sorted-UID order, so the same pair always yields the same file whichever
+#: A/B order a generate run happened to emit (a reverse duplicate would be a
+#: second file for one edge).
 _SYMMETRIC_RELATIONSHIPS: frozenset[RelationshipName] = frozenset(
     {RelationshipName.RELATED_TO, RelationshipName.COMPLEMENTARY_TO}
 )
 
 
 # =============================================================================
-# Data shapes (ephemeral — round-trip through the admin queue's form fields)
+# Data shapes (ephemeral — computed per generate run, held in the page)
 # =============================================================================
 
 
@@ -182,8 +190,7 @@ def _uid_slug(uid: str) -> str:
 
     ``ku.mindfulness.attention`` → ``attention`` (authored-vault filename
     convention); a dotless UID sanitizes whole. Cosmetic only — the UID's
-    meaning stays in the file body, and the writer's no-overwrite guard
-    catches any slug collision.
+    meaning stays in the file body.
     """
     tail = uid.rsplit(".", 1)[-1].lower()
     slug = "".join(ch if ch.isalnum() or ch == "-" else "-" for ch in tail)
@@ -210,11 +217,10 @@ def render_edge_yaml(
 ) -> str:
     """Render the exact authored Edge YAML format.
 
-    UIDs are written in stored (dot) form — authored = stored since the
-    colon spelling was retired 2026-08-14. Matches the vault edge-file
-    shape (comment header, ``type: Edge``, from/to/relationship) plus the
-    ``source: inferred-approved`` provenance stamp Mike ruled for
-    app-written edges.
+    UIDs are written in stored (dot) form (authored = stored). Matches the
+    vault edge-file shape (comment header, ``type: Edge``, from/to/
+    relationship) plus the ``source: inferred-approved`` provenance stamp: the
+    app suggested the edge and the admin approved it by copying the file in.
     """
     lines = [
         "---",
@@ -237,35 +243,62 @@ def render_edge_yaml(
     return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class ReadyEdgeFile:
+    """One Edge YAML file ready to copy into the content vault's ``edges/``."""
+
+    choice: EdgeChoice
+    filename: str
+    content: str
+
+
+def ready_edge_files(suggestion: PrereqSuggestion) -> tuple[ReadyEdgeFile, ...]:
+    """The Edge YAML file for each way to record a suggested pair, in ``EdgeChoice`` order.
+
+    A symmetric relationship's from/to is sorted, so the file is the same
+    whichever A/B order the run emitted.
+    """
+    files = []
+    for choice, (swap, relationship) in _EDGE_CHOICES.items():
+        from_uid, to_uid = (
+            (suggestion.b_uid, suggestion.a_uid) if swap else (suggestion.a_uid, suggestion.b_uid)
+        )
+        if relationship in _SYMMETRIC_RELATIONSHIPS:
+            from_uid, to_uid = sorted((from_uid, to_uid))
+        files.append(
+            ReadyEdgeFile(
+                choice=choice,
+                filename=edge_filename(from_uid, to_uid, relationship),
+                content=render_edge_yaml(
+                    from_uid, to_uid, relationship, rationale=suggestion.rationale
+                ),
+            )
+        )
+    return tuple(files)
+
+
 # =============================================================================
 # Service
 # =============================================================================
 
 
 class PrereqSuggestionService:
-    """Candidates → optional LLM judge → approve-to-Edge-YAML.
-
-    Read-only against the graph; the ONLY write anywhere in this feature is
-    ``approve()``'s single Edge YAML file through ``EdgeFileWriterPort``.
-    """
+    """Candidates → optional LLM judge. Read-only: it writes nothing anywhere."""
 
     def __init__(
         self,
         backend: PrereqSuggestionBackendOperations,
-        edge_writer: EdgeFileWriterPort,
         llm_service: LLMService | None = None,
         config: PrereqSuggestionConfig | None = None,
     ) -> None:
         """
         Args:
             backend: Read-only Ku embedding/edge reads.
-            edge_writer: Content-vault Edge YAML writer (approve path).
             llm_service: FULL-tier judge; ``None`` on CORE — the queue then
                 serves undirected pairs for the admin to classify himself.
             config: Band/judge knobs (defaults are the Phase A derivation).
         """
         self.backend = backend
-        self._edge_writer = edge_writer
         self._llm = llm_service
         self._config = config or PrereqSuggestionConfig()
         self.logger = get_logger("skuel.services.prereq_suggestions")
@@ -565,61 +598,3 @@ class PrereqSuggestionService:
                 )
             )
         return suggestions, skipped, failures
-
-    # ------------------------------------------------------------------
-    # Approve stage — the ONLY write in this feature
-    # ------------------------------------------------------------------
-
-    async def approve(
-        self,
-        *,
-        from_uid: str,
-        to_uid: str,
-        relationship: str,
-        rationale: str | None = None,
-    ) -> Result[str]:
-        """Write one Edge YAML file into the content vault's ``edges/``.
-
-        The direction is already resolved by the caller (from/to ordering).
-        Both UIDs must exist as Kus (Backend: PrereqCandidateBackend
-        .get_ku_titles); the relationship must be one of
-        ``APPROVABLE_RELATIONSHIPS``. Never overwrites — an existing target
-        file is refused by the writer.
-
-        Returns:
-            Absolute path of the written file.
-        """
-        rel = APPROVABLE_RELATIONSHIPS.get(relationship)
-        if rel is None:
-            return Result.fail(
-                Errors.validation(
-                    f"Relationship {relationship!r} is not approvable — expected one of "
-                    f"{sorted(APPROVABLE_RELATIONSHIPS)}",
-                    field="relationship",
-                )
-            )
-        if from_uid == to_uid or not from_uid or not to_uid:
-            return Result.fail(
-                Errors.validation("from/to must be two distinct Ku uids", field="to_uid")
-            )
-        if rel in _SYMMETRIC_RELATIONSHIPS:
-            from_uid, to_uid = sorted((from_uid, to_uid))
-
-        titles_result = await self.backend.get_ku_titles([from_uid, to_uid])
-        if titles_result.is_error:
-            return Result.fail(titles_result)
-        missing = [uid for uid in (from_uid, to_uid) if uid not in titles_result.value]
-        if missing:
-            return Result.fail(Errors.not_found(resource="Ku", identifier=", ".join(missing)))
-
-        filename = edge_filename(from_uid, to_uid, rel)
-        content = render_edge_yaml(from_uid, to_uid, rel, rationale=rationale)
-        write_result = await self._edge_writer.write_edge_file(filename, content)
-        if write_result.is_error:
-            return Result.fail(write_result)
-
-        self.logger.info(
-            f"Approved prereq suggestion → wrote {filename} "
-            f"({from_uid})-[:{rel.value}]->({to_uid}); lands in the graph on next content sync"
-        )
-        return Result.ok(write_result.value)

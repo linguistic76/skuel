@@ -2,18 +2,18 @@
 
 A real ``fast_app`` with session middleware, reached through
 ``httpx.ASGITransport``, with the routes registered through
-``create_lateral_routes`` — the bootstrap's own entry point — so the role, the
-verifier and the curriculum marker reach ``LateralRouteFactory`` exactly as they
-do in the app. The service and the backend are real; only the user service and
-the six Activity verifiers are stand-ins, and both keep their real contracts (a
-``User`` record with a role; ``verify_ownership`` answering not-found).
+``create_lateral_routes`` — the bootstrap's own entry point — so the verifier
+and the curriculum marker reach ``LateralRouteFactory`` exactly as they do in the
+app. The service and the backend are real; only the six Activity verifiers are
+stand-ins, and they keep their real contract (``verify_ownership`` answering
+not-found).
 
-Shared by the curriculum lateral write-gate and read-anchor tests.
+Used by the curriculum lateral read-anchor tests.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from types import SimpleNamespace
 
 import httpx
@@ -26,8 +26,6 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.lateral_routes import create_lateral_routes
 from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from core.models.enums import UserRole
-from core.models.user.user import User
 from core.orchestrator.lateral_relationships_orchestrator import (
     LateralRelationshipsOrchestrator,
 )
@@ -35,25 +33,6 @@ from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from core.utils.result_simplified import Errors, Result
-
-
-@dataclass
-class RoleUserService:
-    """Real ``User`` records, so the role hierarchy check runs for real.
-
-    ``calls`` records every uid looked up — an Activity route that consults no
-    role leaves it empty.
-    """
-
-    roles: dict[str, UserRole]
-    calls: list[str] = field(default_factory=list)
-
-    async def get_user(self, user_uid: str) -> Result[User]:
-        self.calls.append(user_uid)
-        role = self.roles.get(user_uid)
-        if role is None:
-            return Result.fail(Errors.not_found("User"))
-        return Result.ok(User(uid=user_uid, title=user_uid, role=role))
 
 
 @dataclass(frozen=True)
@@ -78,7 +57,6 @@ class TaskVerifier:
 
 def lateral_client(
     neo4j_driver: AsyncDriver,
-    user_service: RoleUserService,
     task_owners: dict[str, str],
     secret_key: str,
 ) -> httpx.AsyncClient:
@@ -103,7 +81,7 @@ def lateral_client(
         tasks,  # type: ignore[arg-type]
         tasks,  # type: ignore[arg-type]
     )
-    services = SimpleNamespace(lateral_orchestrator=orchestrator, user=user_service)
+    services = SimpleNamespace(lateral_orchestrator=orchestrator)
     create_lateral_routes(app, rt, services)
 
     @rt("/sign-in/{uid}")

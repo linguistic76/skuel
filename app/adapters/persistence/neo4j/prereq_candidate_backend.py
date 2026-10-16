@@ -9,9 +9,9 @@ can compute candidate pairs in Python (pairwise cosine over ~121 Kus is
 trivial in-process — no vector-index round-trips needed, and the candidate
 band is MID-similarity 0.40-0.72, below the 0.72 "related concepts" knob).
 
-This backend is READ-ONLY: the feature never writes to the graph — the only
-write is the Edge YAML file the admin approves into the content vault
-(``ContentVaultEdgeWriter``), which lands in the graph via content sync.
+This backend is READ-ONLY, and the feature writes nothing: the admin copies
+the queue's ready Edge YAML file into the content vault, and the edge lands in
+the graph via content sync.
 
 Like :SearchEvent's backend, this takes a Neo4jQueryExecutor directly
 (InsightBackend precedent) — it reads across Kus rather than serving one
@@ -70,22 +70,3 @@ class PrereqCandidateBackend:
         if result.is_error:
             return Result.fail(result)
         return Result.ok(to_ku_edge_rows(result.value or []))
-
-    async def get_ku_titles(self, uids: list[str]) -> Result[dict[str, str]]:
-        """Titles of the given Ku uids — doubles as the approve-time existence check."""
-        result = await self._executor.execute_query(
-            """
-            MATCH (k:Ku)
-            WHERE k.uid IN $uids
-            RETURN k.uid AS uid, k.title AS title
-            """,
-            {"uids": uids},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        titles: dict[str, str] = {}
-        for record in result.value or []:
-            uid = record.get("uid")
-            if isinstance(uid, str):
-                titles[uid] = str(record.get("title") or uid)
-        return Result.ok(titles)

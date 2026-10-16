@@ -177,7 +177,7 @@ now. It covers:
   `POST /api/pathstep-task-templates/create` and `POST /api/pathstep-task-templates/attach`; the other <!-- historical -->
   five follow the same pattern);
 - lateral writes between curriculum items (`lateral_route_factory.py` for Ku, PathStep and
-  LearningPath, and `POST /api/ku/{uid}/lateral/enables`). Activity-domain laterals stay: those are
+  LearningPath, and `POST /api/ku/{uid}/lateral/enables`). Activity-domain laterals stay: those are <!-- historical -->
   users' private content;
 - `@ku(...)` Ku creation from journal entries. A reference to an existing Ku stays (ADR-069);
 - form-template link and unlink to a PathStep (`POST /api/form-templates/link-path-step` and <!-- historical -->
@@ -215,7 +215,7 @@ same day (round 2):
   afterwards. The create door beside them, `POST /api/revised-exercises/create`, goes too (Mike, <!-- historical -->
   2026-10-15): it filed a revision against an existing report without the review page, a second
   revision door that N8 would otherwise have had to guard separately.
-- **N3. Prerequisite-suggestion approval goes** (`POST /admin/prereq-suggestions/approve`, which
+- **N3. Prerequisite-suggestion approval goes** (`POST /admin/prereq-suggestions/approve`, which <!-- historical -->
   writes an Edge YAML file into the content vault from the app). It is in-app curriculum authoring
   (S8); Mike writes the edge file himself.
 - **N4. The user-context reader of group-shared curriculum goes:** the three `group_assigned_*`

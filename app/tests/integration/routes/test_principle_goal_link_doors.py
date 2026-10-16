@@ -144,7 +144,6 @@ async def _note_line_door(env: Env, name: str) -> tuple[str, str]:
     processor = UserEntryProcessingService(
         entry_service=env.services.user_entry,
         activity_extractor=env.services.user_entry_processor.activity_extractor,
-        user_service=env.services.user_entry_processor.user_service,
     )
     processed = await processor.process(entry.value[0])
     assert processed.is_ok, processed

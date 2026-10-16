@@ -723,10 +723,9 @@ class LateralRelationshipBackend:
     ) -> Result[list[Neo4jProperties]]:
         """Count one entity — the anchor of a read — as present or not.
 
-        ``entity_types`` narrows what counts as present exactly as it does for
-        ``check_entities_exist``: an entity whose ``entity_type`` is outside
-        the set counts 0, like an absent one, so the caller cannot tell the
-        two apart. ``None`` counts any entity. The aggregate always yields one
+        ``entity_types`` narrows what counts as present: an entity whose
+        ``entity_type`` is outside the set counts 0, like an absent one, so the
+        caller cannot tell the two apart. ``None`` counts any entity. The aggregate always yields one
         row, so a missing entity is a count of 0, not an empty result.
         """
         # :Entity for the same reason as below — a :Content shadow shares its
@@ -749,17 +748,12 @@ class LateralRelationshipBackend:
         self,
         source_uid: str,
         target_uid: str,
-        entity_types: Collection[EntityType] | None = None,
     ) -> Result[list[Neo4jProperties]]:
         """Count each endpoint on its own, so the caller can name which one is missing.
 
         OPTIONAL on both: two plain MATCHes yield no row when either endpoint is
         absent, zeroing BOTH counts — a missing target would read as a missing
         source.
-
-        ``entity_types`` narrows what counts as present: an endpoint whose
-        ``entity_type`` is outside the set counts 0, exactly like an absent one,
-        so the caller cannot tell the two apart. ``None`` counts any entity.
         """
         # :Entity throughout this validation block — a :Content shadow shares
         # its entity's uid, so unlabeled uid MATCHes double-count/misvalidate
@@ -767,18 +761,10 @@ class LateralRelationshipBackend:
         return await self.executor.execute_query(
             """
             OPTIONAL MATCH (source:Entity {uid: $source_uid})
-            WHERE $entity_types IS NULL OR source.entity_type IN $entity_types
             OPTIONAL MATCH (target:Entity {uid: $target_uid})
-            WHERE $entity_types IS NULL OR target.entity_type IN $entity_types
             RETURN count(source) as source_count, count(target) as target_count
             """,
-            {
-                "source_uid": source_uid,
-                "target_uid": target_uid,
-                "entity_types": (
-                    None if entity_types is None else sorted(t.value for t in entity_types)
-                ),
-            },
+            {"source_uid": source_uid, "target_uid": target_uid},
         )
 
     async def check_same_parent(

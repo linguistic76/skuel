@@ -9,8 +9,10 @@ SKUEL entities:
 - Tasks, Habits, Goals, Events (original 4)
 - Principles, Choices, Finance (added for 7-domain completeness)
 
-**Curriculum Domains (3) - What I LEARN:**
-- KnowledgeUnit (KU), PathStep (PS), LearningPath (LP)
+**Curriculum Domains (3) - What I LEARN:** recognised, never created.
+- KnowledgeUnit (KU), PathStep (PS), LearningPath (LP) are authored in the
+  content vault (ADR-091 S8). A `@context(ku|ps|lp)` line creates nothing and
+  is reported in `creation_errors`.
 
 **Meta Domain (1) - How I ORGANIZE:**
 - Calendar
@@ -38,9 +40,9 @@ SKUEL entities:
 3. **Graph-aware**: Creates entities connected to the user's ownership graph;
    the caller writes `(created)-[:EXTRACTED_FROM]->(entry)` provenance from
    `ActivityExtractionResult.created_links`.
-4. **Ownership-gated**: curriculum (`@context(ku|ls|lp)`) *creation* lines
-   require `allow_curriculum_creation` (teacher/admin —
-   `User.can_create_curriculum()`); `@ku()` *references* always resolve.
+4. **Curriculum is referenced, never created**: a `@context(ku|ps|lp)` line
+   from anyone is reported as authored in the content vault (ADR-091 S8);
+   `@ku()` *references* to an existing Ku always resolve (ADR-069).
 
 Wired as the `Pipeline.EXTRACT_ACTIVITIES` branch of
 `UserEntryProcessingService.process()` (ADR-069 Decision 1).
@@ -74,16 +76,18 @@ from core.services.dsl.specialized_domain_converters import (
     # Meta Domains (2)
     activity_to_calendar_dict,
     activity_to_finance_dict,
-    # Curriculum Domains (3)
-    activity_to_ku_dict,
     # The Destination (+1)
     activity_to_lifepath_dict,
-    activity_to_lp_dict,
-    activity_to_ps_dict,
 )
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, Errors, Result
+
+#: Contexts a line may name but never create from an entry: curriculum is
+#: authored in the content vault (ADR-091 S8).
+_VAULT_AUTHORED_CONTEXTS: frozenset[EntityType | NonKuDomain] = frozenset(
+    {EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH}
+)
 
 # ============================================================================
 # LINE PROVENANCE
@@ -223,7 +227,7 @@ class ActivityExtractionResult:
 
     **Domain Categories:**
     - Activity Domains (7): Tasks, Habits, Goals, Events, Principles, Choices, Finance
-    - Curriculum Domains (3): KU, PS, LP
+    - Curriculum Domains (3): KU, PS, LP — counted as found, never created
     - Meta Domain (1): Calendar
     - The Destination (+1): LifePath
     """
@@ -270,11 +274,6 @@ class ActivityExtractionResult:
     choices_created: int = 0
     finances_created: int = 0
 
-    # Curriculum Domains (3)
-    kus_created: int = 0
-    path_steps_created: int = 0
-    learning_paths_created: int = 0
-
     # Meta Domain (1)
     calendar_items_created: int = 0
 
@@ -293,11 +292,6 @@ class ActivityExtractionResult:
     created_principle_uids: list[str] = field(default_factory=list)
     created_choice_uids: list[str] = field(default_factory=list)
     created_finance_uids: list[str] = field(default_factory=list)
-
-    # Curriculum Domains (3)
-    created_ku_uids: list[str] = field(default_factory=list)
-    created_ps_uids: list[str] = field(default_factory=list)
-    created_lp_uids: list[str] = field(default_factory=list)
 
     # Meta Domain (1)
     created_calendar_uids: list[str] = field(default_factory=list)
@@ -412,10 +406,6 @@ class ActivityExtractionResult:
             + self.principles_created
             + self.choices_created
             + self.finances_created
-            # Curriculum Domains (3)
-            + self.kus_created
-            + self.path_steps_created
-            + self.learning_paths_created
             # Meta Domain (1)
             + self.calendar_items_created
             # The Destination (+1)
@@ -459,10 +449,6 @@ class ActivityExtractionResult:
             "principles_created": self.principles_created,
             "choices_created": self.choices_created,
             "finances_created": self.finances_created,
-            # Curriculum Domains (3)
-            "kus_created": self.kus_created,
-            "path_steps_created": self.path_steps_created,
-            "learning_paths_created": self.learning_paths_created,
             # Meta Domain (1)
             "calendar_items_created": self.calendar_items_created,
             # The Destination (+1)
@@ -477,10 +463,6 @@ class ActivityExtractionResult:
             "created_principle_uids": self.created_principle_uids,
             "created_choice_uids": self.created_choice_uids,
             "created_finance_uids": self.created_finance_uids,
-            # Curriculum Domains (3)
-            "created_ku_uids": self.created_ku_uids,
-            "created_ps_uids": self.created_ps_uids,
-            "created_lp_uids": self.created_lp_uids,
             # Meta Domain (1)
             "created_calendar_uids": self.created_calendar_uids,
             # The Destination (+1)
@@ -541,10 +523,8 @@ class ActivityExtractorService:
     - Choices: Decisions to make
     - Finance: Money matters (expenses/income)
 
-    **Curriculum Domains (3) - What I LEARN:**
-    - KnowledgeUnit (KU): Atomic unit of knowledge content
-    - PathStep (PS): Single step in a learning journey
-    - LearningPath (LP): Complete learning sequence
+    **Curriculum Domains (3) - What I LEARN:** recognised, never created — a
+    KU, PS or LP is authored in the content vault (ADR-091 S8).
 
     **Meta Domain (1) - How I ORGANIZE:**
     - Calendar: Scheduled activity views
@@ -575,10 +555,6 @@ class ActivityExtractorService:
         principles_service: Any = None,  # PrinciplesService facade
         choices_service: Any = None,  # ChoicesService facade
         finance_service: Any = None,  # no create-capable service exists (ADR-052)
-        # Curriculum Domains (3)
-        ku_service: Any = None,  # KuService facade
-        ps_service: Any = None,  # no dict-create surface exists today
-        lp_service: Any = None,  # no dict-create surface exists today
         # Meta Domain (1)
         calendar_service: Any = None,  # read/aggregate-only today
         # The Destination (+1)
@@ -599,11 +575,6 @@ class ActivityExtractorService:
         self.choices_service = choices_service
         self.finance_service = finance_service
 
-        # Curriculum Domains (3)
-        self.ku_service = ku_service
-        self.ps_service = ps_service
-        self.lp_service = lp_service
-
         # Meta Domain (1)
         self.calendar_service = calendar_service
 
@@ -623,7 +594,6 @@ class ActivityExtractorService:
         user_uid: UserUID,
         *,
         content_override: str | None = None,
-        allow_curriculum_creation: bool = True,
         existing_line_hashes: frozenset[str] = frozenset(),
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
@@ -641,9 +611,6 @@ class ActivityExtractorService:
             content_override: Parse this text instead of the entry's content
                 (the LLM bridge pre-pass hands its augmented working text here
                 without mutating the entry)
-            allow_curriculum_creation: Whether curriculum (`ku`/`ls`/`lp`)
-                *creation* lines may create entities — teacher/admin only.
-                `@ku()` references are unaffected.
             existing_line_hashes: `source_line_hash` values already carrying an
                 EXTRACTED_FROM edge to this entry; matching lines are skipped
                 (Guard 2, exact).
@@ -792,9 +759,6 @@ class ActivityExtractorService:
             (self.principles_service, EntityType.PRINCIPLE),
             (self.choices_service, EntityType.CHOICE),
             (self.finance_service, NonKuDomain.FINANCE),
-            (self.ku_service, EntityType.KU),
-            (self.ps_service, EntityType.PATH_STEP),
-            (self.lp_service, EntityType.LEARNING_PATH),
             (self.calendar_service, NonKuDomain.CALENDAR),
             (self.lifepath_service, EntityType.LIFE_PATH),
         ]
@@ -914,9 +878,14 @@ class ActivityExtractorService:
                     extraction.tag_warnings.append(f"'{activity.description[:40]}': {tag_warning}")
             # Per-context, not per-line: @context(task,finance) creates the
             # Task, but the skipped finance context must still be reported.
-            # LEARNING is a pure modifier — never routable, never a skip.
+            # LEARNING is a pure modifier — never routable, never a skip. A
+            # curriculum context is reported in creation_errors instead.
             skipped = [
-                c for c in activity.contexts if c not in routable and c is not NonKuDomain.LEARNING
+                c
+                for c in activity.contexts
+                if c not in routable
+                and c is not NonKuDomain.LEARNING
+                and c not in _VAULT_AUTHORED_CONTEXTS
             ]
             if not skipped:
                 continue
@@ -1057,67 +1026,14 @@ class ActivityExtractorService:
 
         # ================================================================
         # CURRICULUM DOMAINS (3) - What I LEARN
-        # Creation is SHARED-tier (teacher/admin) — the role gate fires
-        # BEFORE the service-availability check so non-privileged users get
-        # an explicit creation_error instead of a silent skip.
+        # Never created here: curriculum is authored in the content vault
+        # (ADR-091 S8). Each line is reported, from any user, so the writer
+        # sees why nothing was made.
         # ================================================================
 
-        if extraction.kus_found > 0:
-            if not allow_curriculum_creation:
-                self._record_curriculum_gate(parsed.get_knowledge_units(), "KU", extraction)
-            elif self.ku_service:
-                created, uids = await self._create_for_domain(
-                    parsed.get_knowledge_units(),
-                    self._create_ku,
-                    "KU",
-                    user_uid,
-                    extraction,
-                    existing_line_hashes,
-                    bridge_line_hashes,
-                    existing_extracted,
-                    user_owned_semantic,
-                    existing_vault_ids,
-                )
-                extraction.kus_created += created
-                extraction.created_ku_uids.extend(uids)
-
-        if extraction.path_steps_found > 0:
-            if not allow_curriculum_creation:
-                self._record_curriculum_gate(parsed.get_path_steps(), "PS", extraction)
-            elif self.ps_service:
-                created, uids = await self._create_for_domain(
-                    parsed.get_path_steps(),
-                    self._create_ls,
-                    "PS",
-                    user_uid,
-                    extraction,
-                    existing_line_hashes,
-                    bridge_line_hashes,
-                    existing_extracted,
-                    user_owned_semantic,
-                    existing_vault_ids,
-                )
-                extraction.path_steps_created += created
-                extraction.created_ps_uids.extend(uids)
-
-        if extraction.learning_paths_found > 0:
-            if not allow_curriculum_creation:
-                self._record_curriculum_gate(parsed.get_learning_paths(), "LP", extraction)
-            elif self.lp_service:
-                created, uids = await self._create_for_domain(
-                    parsed.get_learning_paths(),
-                    self._create_lp,
-                    "LP",
-                    user_uid,
-                    extraction,
-                    existing_line_hashes,
-                    bridge_line_hashes,
-                    existing_extracted,
-                    user_owned_semantic,
-                    existing_vault_ids,
-                )
-                extraction.learning_paths_created += created
-                extraction.created_lp_uids.extend(uids)
+        self._record_vault_authored(parsed.get_knowledge_units(), "KU", extraction)
+        self._record_vault_authored(parsed.get_path_steps(), "PS", extraction)
+        self._record_vault_authored(parsed.get_learning_paths(), "LP", extraction)
 
         # ================================================================
         # META DOMAIN (1) - How I ORGANIZE
@@ -1458,17 +1374,17 @@ class ActivityExtractorService:
             extraction.lines_rehashed += 1
         extraction.advanced_links.append((edge.entity_uid, current_hash, vault_id, theirs_line))
 
-    def _record_curriculum_gate(
+    def _record_vault_authored(
         self,
         activities: list[ParsedActivityLine],
         label: str,
         extraction: ActivityExtractionResult,
     ) -> None:
-        """Record gate errors for curriculum creation lines (non-teacher user)."""
+        """Report each curriculum line: it creates nothing, and says where curriculum is made."""
         for activity in activities:
             extraction.creation_errors.append(
                 f"{label} '{activity.description[:30]}...': "
-                "curriculum creation requires teacher/admin role"
+                "curriculum is authored in the content vault, not from an entry"
             )
 
     # ========================================================================
@@ -1643,126 +1559,6 @@ class ActivityExtractorService:
         return Result.ok(expense_uid)
 
     # ========================================================================
-    # CURRICULUM DOMAIN CREATION METHODS (3) - What I LEARN
-    # ========================================================================
-
-    @with_error_handling(error_type="system", operation="create_ku")
-    async def _create_ku(
-        self, activity: ParsedActivityLine, user_uid: UserUID
-    ) -> Result[str | None]:
-        """
-        Create a KnowledgeUnit from parsed activity.
-
-        Returns the created KU UID or None if creation failed.
-        """
-        convert_result = activity_to_ku_dict(activity)
-        if convert_result.is_error:
-            return Result.fail(convert_result)
-
-        # ConversionResult is a union; the ku converter always returns a dict.
-        raw = convert_result.value
-        ku_dict: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
-
-        # KuService.create_ku takes kwargs, not a dict. The converter's
-        # `complexity`/`prerequisites` keys have no create_ku parameter — the
-        # prerequisite edges are an ORGANIZES/graph concern, not a node field.
-        create_result = await self.ku_service.create_ku(
-            title=ku_dict["title"],
-            description=ku_dict.get("content"),
-            domain=ku_dict.get("domain"),
-            tags=ku_dict.get("tags"),
-        )
-
-        if create_result.is_error:
-            return Result.fail(create_result)
-
-        ku = create_result.value
-        if ku is None:
-            return Result.fail(
-                Errors.system(
-                    message="Created KU has no UID",
-                    operation="create_ku",
-                )
-            )
-        self.logger.debug(f"Created KU: {ku.uid}")
-        return Result.ok(ku.uid)
-
-    @with_error_handling(error_type="system", operation="create_ls")
-    async def _create_ls(
-        self, activity: ParsedActivityLine, user_uid: UserUID
-    ) -> Result[str | None]:
-        """
-        Create a PathStep from parsed activity.
-
-        Returns the created PathStep UID or None if creation failed.
-        """
-        convert_result = activity_to_ps_dict(activity)
-        if convert_result.is_error:
-            return Result.fail(convert_result)
-
-        ps_dict = convert_result.value
-
-        # No create-capable PS surface exists today — this probe is the seam a
-        # future dict-create method plugs into (the compose root injects None).
-        if getattr(self.ps_service, "create_ls", None):
-            create_result = await self.ps_service.create_ls(ps_dict, user_uid)
-        elif getattr(self.ps_service, "create", None):
-            create_result = await self.ps_service.create(ps_dict, user_uid)
-        else:
-            return Result.fail(
-                Errors.system(
-                    message="PS service has no create method",
-                    operation="create_ps",
-                )
-            )
-
-        if create_result.is_error:
-            return Result.fail(create_result)
-
-        ps = create_result.value
-        ps_uid = ps.uid if getattr(ps, "uid", None) else ps.get("uid")
-        self.logger.debug(f"Created PS: {ps_uid}")
-
-        return Result.ok(ps_uid)
-
-    @with_error_handling(error_type="system", operation="create_lp")
-    async def _create_lp(
-        self, activity: ParsedActivityLine, user_uid: UserUID
-    ) -> Result[str | None]:
-        """
-        Create a LearningPath from parsed activity.
-
-        Returns the created LP UID or None if creation failed.
-        """
-        convert_result = activity_to_lp_dict(activity)
-        if convert_result.is_error:
-            return Result.fail(convert_result)
-
-        lp_dict = convert_result.value
-
-        # No create-capable LP surface exists today — see _create_ls.
-        if getattr(self.lp_service, "create_lp", None):
-            create_result = await self.lp_service.create_lp(lp_dict, user_uid)
-        elif getattr(self.lp_service, "create", None):
-            create_result = await self.lp_service.create(lp_dict, user_uid)
-        else:
-            return Result.fail(
-                Errors.system(
-                    message="LP service has no create method",
-                    operation="create_lp",
-                )
-            )
-
-        if create_result.is_error:
-            return Result.fail(create_result)
-
-        lp = create_result.value
-        lp_uid = lp.uid if getattr(lp, "uid", None) else lp.get("uid")
-        self.logger.debug(f"Created LP: {lp_uid}")
-
-        return Result.ok(lp_uid)
-
-    # ========================================================================
     # META DOMAIN CREATION METHOD (1) - How I ORGANIZE
     # ========================================================================
 
@@ -1783,7 +1579,8 @@ class ActivityExtractorService:
 
         calendar_dict = convert_result.value
 
-        # CalendarService is read/aggregate-only today — see _create_ls.
+        # CalendarService is read/aggregate-only today: the getattr probe is
+        # the seam a future dict-create method plugs into.
         if getattr(self.calendar_service, "create_time_block", None):
             create_result = await self.calendar_service.create_time_block(calendar_dict, user_uid)
         elif getattr(self.calendar_service, "create", None):
@@ -1830,7 +1627,7 @@ class ActivityExtractorService:
 
         lifepath_dict = convert_result.value
 
-        # LifePathService has no DSL-shaped write surface today — see _create_ls.
+        # LifePathService has no DSL-shaped write surface today — see _create_calendar_item.
         if getattr(self.lifepath_service, "update_lifepath", None):
             create_result = await self.lifepath_service.update_lifepath(lifepath_dict, user_uid)
         elif getattr(self.lifepath_service, "create", None):

@@ -1267,7 +1267,7 @@ none is written even between two entities.
 - `confidence`: 0.0–1.0
 - `polarity`: -1, 0, or 1
 - `temporality`: minutes, hours, days, chronic
-- `source`: self_observation, research, teacher, clinical, inferred-approved (app-stamped by the `/admin/prereq-suggestions` approve action)
+- `source`: self_observation, research, teacher, clinical, inferred-approved (stamped on the ready file the `/admin/prereq-suggestions` queue renders for the admin to copy in)
 
 **Evidence relationship types:** `EXACERBATED_BY`, `REDUCED_BY`, `CORRELATED_WITH`, `CAUSES`, `PRECEDES`
 

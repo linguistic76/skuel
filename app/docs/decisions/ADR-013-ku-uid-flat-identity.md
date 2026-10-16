@@ -1,6 +1,6 @@
 ---
 title: "ADR-013: KU UID Flat Identity Design"
-updated: 2026-09-29
+updated: 2026-10-16
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum]
@@ -363,29 +363,13 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of aut
 
 ### Content Creator Workflow
 
-**Creating a new KU via Service (Primary):**
-
-```python
-# The service generates the flat UID from the title — callers never supply one.
-result = await ku_service.create_ku(
-    title="Meditation Basics",
-    aliases=["meditation-101"],
-    description="Introduction to seated practice",
-    tags=["meditation", "mindfulness"],
-)
-
-# Result: ku_meditation-basics_a1b2c3d4
-```
-
-Placement is a separate write with no Ku-specific method: the Ku facade exposes
-no `organize()`, and `PsService.organize()` requires a PathStep at both ends.
-Programmatically the edge goes through the generic writer —
-`ku_service.relationships.add_relationship(parent_uid, RelationshipName.ORGANIZES,
-child_uid, {"order": 1})`, which is unguarded by entity type. In practice Ku
-ORGANIZES edges are authored in the vault via `moc: true` frontmatter — see
+**Creating a KU:** a Ku is authored only in the content vault (ADR-091 S8); no service
+creates one. The generated `ku_{slug}_{random}` form stays a valid uid, but nothing mints it.
+Placement under a parent is an `ORGANIZES` edge, authored in the vault through `organizes:` or
+`moc: true` frontmatter — see
 [../patterns/UNIFIED_INGESTION_GUIDE.md](../patterns/UNIFIED_INGESTION_GUIDE.md) § MOC files.
 
-**Creating a KU via Markdown (Legacy Support):**
+**Creating a KU via Markdown:**
 
 1. Create markdown file in Obsidian vault:
    ```

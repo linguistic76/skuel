@@ -1,6 +1,7 @@
 """Curriculum lateral reads hold their anchor to curriculum.
 
-The ku / ps / lp lateral read routes have no owner to verify, so they pass
+The ku / ps / lp lateral routes are reads only (their edges are authored in the
+content vault, ADR-091 S8) and have no owner to verify, so they pass
 ``domain_service=None``. The anchor named in the URL must then be a Ku, a
 PathStep or a LearningPath by ``entity_type``; any other uid — another user's
 private task included — is answered exactly as a uid that does not exist, so a
@@ -14,10 +15,10 @@ The contract, pinned here over real HTTP against a real Neo4j
   status, same body — and nothing about the private entity or its neighbours
   reaches the response;
 - a curriculum anchor, a draft one included, answers 200 with its edges to a
-  MEMBER; reads consult no role;
+  MEMBER;
 - a curriculum anchor that does not exist is 404 on every read route, the
   graph route included;
-- an Activity read route is decided by its ownership gate and consults no role.
+- an Activity read route is decided by its ownership gate.
 """
 
 from __future__ import annotations
@@ -27,18 +28,12 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from core.models.enums import UserRole
-from tests.helpers.lateral_routes_client import (
-    RoleUserService,
-    lateral_client,
-    without_timestamp,
-)
+from tests.helpers.lateral_routes_client import lateral_client, without_timestamp
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 MEMBER = "user_f4b_member"
 OTHER = "user_f4b_other"  # owns the private tasks; never signs in
-ROLES = {MEMBER: UserRole.MEMBER, OTHER: UserRole.MEMBER}
 
 KU_PARENT = "ku.f4b.parent"
 KU_A = "ku.f4b.a"
@@ -78,7 +73,7 @@ STRANGER_STRINGS = (
 # The anchor each curriculum domain's routes are exercised on.
 ANCHORS = {"ku": KU_A, "ps": PS_A, "lp": LP_A}
 
-# Every read the factory registers per domain (the ten GETs).
+# Every read the factory registers for an Activity domain (the ten GETs).
 READS = [
     "blocking",
     "blocked",
@@ -93,12 +88,17 @@ READS = [
 ]
 
 
+# A curriculum domain registers the same reads but the manage list, whose only
+# use is its delete buttons.
+CURRICULUM_SUFFIXES = [suffix for suffix in READS if suffix != "manage"]
+
+
 def _curriculum_reads(anchor_for: dict[str, str]) -> list[str]:
     """Every curriculum read route, each aimed at ``anchor_for[domain]``."""
     paths = [
         f"/api/{domain}/{anchor_for[domain]}/lateral/{suffix}"
         for domain in ANCHORS
-        for suffix in READS
+        for suffix in CURRICULUM_SUFFIXES
     ]
     paths.append(f"/api/ku/{anchor_for['ku']}/lateral/enables")
     paths.append(f"/api/ku/{anchor_for['ku']}/lateral/enabled-by")
@@ -167,8 +167,8 @@ async def graph(neo4j_driver):
         await session.run("MATCH (n:Entity) WHERE n.uid IN $uids DETACH DELETE n", uids=_ALL_UIDS)
 
 
-def _client(neo4j_driver: AsyncDriver, user_service: RoleUserService) -> httpx.AsyncClient:
-    return lateral_client(neo4j_driver, user_service, TASK_OWNERS, secret_key="f4b-lateral-read")
+def _client(neo4j_driver: AsyncDriver) -> httpx.AsyncClient:
+    return lateral_client(neo4j_driver, TASK_OWNERS, secret_key="f4b-lateral-read")
 
 
 def _assert_nothing_of_the_stranger(response: httpx.Response) -> None:
@@ -185,7 +185,7 @@ class TestPrivateAnchorAnswersAsMissing:
     async def test_a_private_anchor_is_the_same_404_as_a_missing_one(
         self, neo4j_driver, private_path: str, missing_path: str
     ) -> None:
-        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
+        async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             private = await client.get(private_path)
             missing = await client.get(missing_path)
@@ -197,7 +197,7 @@ class TestPrivateAnchorAnswersAsMissing:
     @pytest.mark.parametrize("path", MISSING_READS)
     async def test_a_missing_anchor_is_404_on_every_read(self, neo4j_driver, path: str) -> None:
         """The graph route included: a missing center is 404, not a center-only graph."""
-        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
+        async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             response = await client.get(path)
 
@@ -211,17 +211,15 @@ class TestCurriculumAnchorReads:
     async def test_a_member_reads_every_route_on_a_curriculum_anchor(
         self, neo4j_driver, path: str
     ) -> None:
-        users = RoleUserService(ROLES)
-        async with _client(neo4j_driver, users) as client:
+        async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             response = await client.get(path)
 
         assert response.status_code == 200, response.text
-        assert users.calls == []
 
     @pytest.mark.parametrize("domain", list(ANCHORS))
     async def test_the_edges_come_back(self, neo4j_driver, domain: str) -> None:
-        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
+        async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             blocking = await client.get(f"/api/{domain}/{ANCHORS[domain]}/lateral/blocking")
             graph = await client.get(f"/api/{domain}/{ANCHORS[domain]}/lateral/graph")
@@ -232,7 +230,7 @@ class TestCurriculumAnchorReads:
 
     async def test_a_draft_anchor_answers(self, neo4j_driver) -> None:
         """A by-UID read is anchored: the caller named the draft, so it comes back."""
-        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
+        async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             blocking = await client.get(f"/api/ku/{KU_DRAFT}/lateral/blocking")
             chain = await client.get(f"/api/ku/{KU_DRAFT}/lateral/chain")
@@ -248,7 +246,7 @@ class TestCurriculumAnchorReads:
         RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage); this pins the
         current reach so a change to it is a decision, not a side effect.
         """
-        async with _client(neo4j_driver, RoleUserService(ROLES)) as client:
+        async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             response = await client.get(f"/api/ku/{KU_B}/lateral/graph?depth=1")
 
@@ -259,11 +257,10 @@ class TestCurriculumAnchorReads:
 @pytest.mark.integration
 @pytest.mark.usefixtures("graph")
 class TestActivityReadsOwnerGated:
-    """The ownership gate decides an Activity read; no role is consulted."""
+    """The ownership gate decides an Activity read."""
 
     async def test_a_member_reads_their_own_task(self, neo4j_driver) -> None:
-        users = RoleUserService(ROLES)
-        async with _client(neo4j_driver, users) as client:
+        async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             blocking = await client.get(f"/api/tasks/{MEMBER_TASK}/lateral/blocking")
             graph = await client.get(f"/api/tasks/{MEMBER_TASK}/lateral/graph")
@@ -271,14 +268,12 @@ class TestActivityReadsOwnerGated:
         assert blocking.status_code == 200, blocking.text
         assert [item["target_uid"] for item in blocking.json()["blocking"]] == [KU_B]
         assert graph.status_code == 200, graph.text
-        assert users.calls == []
 
     @pytest.mark.parametrize("suffix", READS)
     async def test_another_users_task_is_the_same_404_as_a_missing_one(
         self, neo4j_driver, suffix: str
     ) -> None:
-        users = RoleUserService(ROLES)
-        async with _client(neo4j_driver, users) as client:
+        async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             private = await client.get(f"/api/tasks/{PRIVATE_TASK}/lateral/{suffix}")
             missing = await client.get(f"/api/tasks/{MISSING}/lateral/{suffix}")
@@ -286,4 +281,3 @@ class TestActivityReadsOwnerGated:
         assert private.status_code == missing.status_code == 404, private.text
         assert without_timestamp(private) == without_timestamp(missing)
         _assert_nothing_of_the_stranger(private)
-        assert users.calls == []

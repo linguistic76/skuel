@@ -8,7 +8,8 @@ Covers:
   rationale newline sanitization (no frontmatter injection)
 - LLM judge: fenced-JSON parsing, verdict mapping (incl. skip), malformed
   batch fail-soft, all-batches-failed → integration error, CORE degrade
-- approve(): relationship allowlist, existence check, writer invocation
+- ready_edge_files(): one file per way to record a pair, direction kept,
+  symmetric pairs canonicalized; the queue row shows them and writes nothing
 """
 
 from __future__ import annotations
@@ -21,11 +22,13 @@ import pytest
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import KuEdgeRow, KuEmbeddingRow
 from core.services.prereq_suggestion_service import (
-    APPROVABLE_RELATIONSHIPS,
+    EdgeChoice,
     JudgeVerdict,
+    PrereqSuggestion,
     PrereqSuggestionConfig,
     PrereqSuggestionService,
     edge_filename,
+    ready_edge_files,
     render_edge_yaml,
 )
 from core.utils.result_simplified import Result
@@ -48,20 +51,11 @@ def _service(
     edges: list[KuEdgeRow] | None = None,
     llm: MagicMock | None = None,
     config: PrereqSuggestionConfig | None = None,
-    writer: MagicMock | None = None,
 ) -> PrereqSuggestionService:
     backend = MagicMock()
     backend.get_kus_with_embeddings = AsyncMock(return_value=Result.ok(kus))
     backend.get_ku_ku_edges = AsyncMock(return_value=Result.ok(edges or []))
-    backend.get_ku_titles = AsyncMock(
-        return_value=Result.ok({ku["uid"]: ku["title"] for ku in kus})
-    )
-    edge_writer = writer or MagicMock()
-    if writer is None:
-        edge_writer.write_edge_file = AsyncMock(return_value=Result.ok("/vault/edges/x.md"))
-    return PrereqSuggestionService(
-        backend=backend, edge_writer=edge_writer, llm_service=llm, config=config
-    )
+    return PrereqSuggestionService(backend=backend, llm_service=llm, config=config)
 
 
 def _llm_with_response(text: str) -> MagicMock:
@@ -311,107 +305,90 @@ async def test_core_degrade_returns_unjudged_suggestions() -> None:
 
 
 # ============================================================================
-# approve()
+# ready_edge_files()
 # ============================================================================
 
 
-@pytest.mark.anyio
-async def test_approve_writes_rendered_yaml_via_writer() -> None:
-    writer = MagicMock()
-    writer.write_edge_file = AsyncMock(
-        return_value=Result.ok("/vault/edges/edge_one-prereq-two.md")
-    )
-    service = _service(_TWO_KUS, writer=writer)
-
-    result = await service.approve(
-        from_uid="ku.a.one",
-        to_uid="ku.a.two",
-        relationship="PREREQUISITE_FOR",
-        rationale="One grounds Two",
-    )
-
-    assert not result.is_error
-    assert result.value == "/vault/edges/edge_one-prereq-two.md"
-    writer.write_edge_file.assert_awaited_once()
-    filename, content = writer.write_edge_file.await_args.args
-    assert filename == "edge_one-prereq-two.md"
-    assert "from: ku.a.one" in content
-    assert "to: ku.a.two" in content
-    assert "relationship: PREREQUISITE_FOR" in content
-    assert "source: inferred-approved" in content
-
-
-@pytest.mark.anyio
-async def test_approve_rejects_unlisted_relationship() -> None:
-    writer = MagicMock()
-    writer.write_edge_file = AsyncMock()
-    service = _service(_TWO_KUS, writer=writer)
-
-    result = await service.approve(from_uid="ku.a.one", to_uid="ku.a.two", relationship="ENABLES")
-
-    assert result.is_error
-    writer.write_edge_file.assert_not_awaited()
-
-
-@pytest.mark.anyio
-async def test_approve_rejects_unknown_ku() -> None:
-    writer = MagicMock()
-    writer.write_edge_file = AsyncMock()
-    service = _service(_TWO_KUS, writer=writer)
-
-    result = await service.approve(
-        from_uid="ku.a.one", to_uid="ku.a.ghost", relationship="RELATED_TO"
+def _suggestion(
+    a_uid: str = "ku.a.one",
+    b_uid: str = "ku.a.two",
+    verdict: JudgeVerdict | None = None,
+    rationale: str | None = "One grounds Two",
+) -> PrereqSuggestion:
+    return PrereqSuggestion(
+        a_uid=a_uid,
+        a_title=a_uid.rsplit(".", 1)[-1].title(),
+        b_uid=b_uid,
+        b_title=b_uid.rsplit(".", 1)[-1].title(),
+        similarity=0.55,
+        verdict=verdict,
+        rationale=rationale,
     )
 
-    assert result.is_error
-    assert result.expect_error().category.value == "not_found"
-    writer.write_edge_file.assert_not_awaited()
+
+def test_one_ready_file_per_choice_each_rendered_as_authored() -> None:
+    files = {f.choice: f for f in ready_edge_files(_suggestion())}
+
+    assert list(files) == list(EdgeChoice)
+    expected = {
+        EdgeChoice.PREREQ_A_TO_B: ("ku.a.one", "ku.a.two", RelationshipName.PREREQUISITE_FOR),
+        EdgeChoice.PREREQ_B_TO_A: ("ku.a.two", "ku.a.one", RelationshipName.PREREQUISITE_FOR),
+        EdgeChoice.RELATED: ("ku.a.one", "ku.a.two", RelationshipName.RELATED_TO),
+        EdgeChoice.COMPLEMENTARY: ("ku.a.one", "ku.a.two", RelationshipName.COMPLEMENTARY_TO),
+    }
+    for choice, (from_uid, to_uid, rel) in expected.items():
+        assert files[choice].filename == edge_filename(from_uid, to_uid, rel)
+        assert files[choice].content == render_edge_yaml(
+            from_uid, to_uid, rel, rationale="One grounds Two"
+        )
 
 
-@pytest.mark.anyio
-async def test_approve_rejects_self_edge() -> None:
-    writer = MagicMock()
-    writer.write_edge_file = AsyncMock()
-    service = _service(_TWO_KUS, writer=writer)
-
-    result = await service.approve(
-        from_uid="ku.a.one", to_uid="ku.a.one", relationship="RELATED_TO"
-    )
-
-    assert result.is_error
-    writer.write_edge_file.assert_not_awaited()
-
-
-def test_approvable_relationships_are_the_ruled_three() -> None:
-    assert set(APPROVABLE_RELATIONSHIPS) == {
-        "PREREQUISITE_FOR",
-        "RELATED_TO",
-        "COMPLEMENTARY_TO",
+def test_a_symmetric_file_is_the_same_whichever_order_the_run_emitted() -> None:
+    """A generate run can emit a pair in either order; one edge is one file."""
+    forward = {
+        f.choice: (f.filename, f.content)
+        for f in ready_edge_files(_suggestion("ku.a.one", "ku.a.two"))
+    }
+    reverse = {
+        f.choice: (f.filename, f.content)
+        for f in ready_edge_files(_suggestion("ku.a.two", "ku.a.one"))
     }
 
+    for choice in (EdgeChoice.RELATED, EdgeChoice.COMPLEMENTARY):
+        assert forward[choice] == reverse[choice]
+    # Direction is meaning: the prereq files swap with the pair.
+    assert forward[EdgeChoice.PREREQ_A_TO_B] == reverse[EdgeChoice.PREREQ_B_TO_A]
 
-def test_rendered_yaml_passes_sync_validation() -> None:
-    """The approved file must survive content-vault sync (Codex P1 #599).
 
-    validate_edge_data is the gate every Edge YAML passes at ingestion —
-    a rendered file that fails it would silently never land in the graph.
-    """
+def test_every_ready_file_passes_sync_validation() -> None:
+    """A ready file that failed the ingestion gate would never land in the graph."""
     import yaml
 
     from core.services.ingestion.validator import validate_edge_data
 
-    content = render_edge_yaml(
-        "ku.sel.empathy",
-        "ku.sel.compassion",
-        RelationshipName.PREREQUISITE_FOR,
-        rationale="Compassion is empathy plus the motivation to act.",
-    )
-    frontmatter = content.split("---")[1]
-    data = yaml.safe_load(frontmatter)
+    for ready in ready_edge_files(_suggestion()):
+        data = yaml.safe_load(ready.content.split("---")[1])
+        assert validate_edge_data(data).is_ok, ready.filename
+        assert data["source"] == "inferred-approved"
 
-    result = validate_edge_data(data)
-    assert result.is_ok, f"rendered Edge YAML failed sync validation: {result}"
-    assert data["source"] == "inferred-approved"
+
+def test_a_judged_row_shows_its_verdicts_file_and_writes_nothing() -> None:
+    """The row offers the ready files and a copy button; no form posts anywhere."""
+    from fasthtml.common import to_xml
+
+    from ui.admin.prereq_views import AdminPrereqComponents
+
+    suggestion = _suggestion(verdict=JudgeVerdict.PREREQ_B_TO_A)
+    html = to_xml(AdminPrereqComponents.render_suggestion_row(suggestion, 0))
+
+    assert "hx-post" not in html and "<form" not in html
+    assert "Copy file" in html
+    for ready in ready_edge_files(suggestion):
+        assert f"edges/{ready.filename}" in html
+        assert f"choice === &#x27;{ready.choice.value}&#x27;" in html or (
+            f"choice === '{ready.choice.value}'" in html
+        )
+    assert 'choice: "prereq_b_to_a"' in html.replace("&quot;", '"')
 
 
 @pytest.mark.anyio
@@ -442,43 +419,10 @@ async def test_stale_dimension_embeddings_dropped_not_crashed() -> None:
     assert uids  # the two healthy Kus still produced their mid-band pair
 
 
-@pytest.mark.anyio
-async def test_symmetric_approve_canonicalizes_pair_order() -> None:
-    """RELATED_TO approve must yield ONE filename regardless of A/B order (Codex P2 #599).
-
-    Generate runs can emit the same pair in either order; without
-    canonicalization the no-overwrite guard can't see a reverse duplicate.
-    """
-    writer = MagicMock()
-    writer.write_edge_file = AsyncMock(return_value=Result.ok("/vault/edges/x.md"))
-    service = _service(_TWO_KUS, writer=writer)
-
-    await service.approve(from_uid="ku.a.two", to_uid="ku.a.one", relationship="RELATED_TO")
-    reversed_call = writer.write_edge_file.await_args.args
-    await service.approve(from_uid="ku.a.one", to_uid="ku.a.two", relationship="RELATED_TO")
-    forward_call = writer.write_edge_file.await_args.args
-
-    assert reversed_call == forward_call  # same (filename, content) both ways
-
-
-@pytest.mark.anyio
-async def test_directional_approve_preserves_order() -> None:
-    """PREREQUISITE_FOR direction is meaning — canonicalization must NOT touch it."""
-    writer = MagicMock()
-    writer.write_edge_file = AsyncMock(return_value=Result.ok("/vault/edges/x.md"))
-    service = _service(_TWO_KUS, writer=writer)
-
-    await service.approve(from_uid="ku.a.two", to_uid="ku.a.one", relationship="PREREQUISITE_FOR")
-
-    filename = writer.write_edge_file.await_args.args[0]
-    assert "two" in filename.split("-prereq-")[0]
-
-
 def test_unjudged_row_renders_disabled_placeholder() -> None:
     """CORE-mode rows must not silently default to a directed prereq (Codex P2 #599)."""
     from fasthtml.common import to_xml
 
-    from core.services.prereq_suggestion_service import PrereqSuggestion
     from ui.admin.prereq_views import AdminPrereqComponents
 
     unjudged = PrereqSuggestion(

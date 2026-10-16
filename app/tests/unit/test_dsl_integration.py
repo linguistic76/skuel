@@ -289,38 +289,38 @@ Some reflections on the day...
         assert extraction.habits_found == 0
 
     @pytest.mark.asyncio
-    async def test_curriculum_creation_gated_for_non_teacher(self, mock_tasks_service):
-        """Non-teacher @context(ku) creation lines are recorded, not created."""
-        mock_ku_service = AsyncMock()
-        extractor = ActivityExtractorService(
-            tasks_service=mock_tasks_service,
-            ku_service=mock_ku_service,
-        )
+    async def test_a_curriculum_line_creates_nothing_and_says_why(self, mock_tasks_service):
+        """A @context(ku|ps|lp) line is reported as vault-authored, from any user."""
+        extractor = ActivityExtractorService(tasks_service=mock_tasks_service)
         entry = UserEntry(
             uid="ue_gate",
             title="Gate test",
-            user_uid="user_member",
+            user_uid="user_admin",
             entity_type=EntityType.USER_ENTRY,
             status=EntityStatus.COMPLETED,
             pipeline=Pipeline.EXTRACT_ACTIVITIES,
             content=(
                 "- [ ] Python decorators @context(ku)\n"
+                "- [ ] Decorator lesson @context(ps)\n"
+                "- [ ] Decorator path @context(lp)\n"
                 "- [ ] Practice decorators @context(task) @ku(ku.tech.decorators)\n"
             ),
         )
 
-        result = await extractor.extract_and_create(
-            entry, "user_member", allow_curriculum_creation=False
-        )
+        result = await extractor.extract_and_create(entry, "user_admin")
 
         assert result.is_ok
         extraction = result.value
-        assert extraction.kus_created == 0
-        mock_ku_service.create_ku.assert_not_called()
-        assert any(
-            "curriculum creation requires teacher/admin role" in e
+        assert (extraction.kus_found, extraction.path_steps_found) == (1, 1)
+        assert extraction.learning_paths_found == 1
+        vault_authored = [
+            e
             for e in extraction.creation_errors
-        )
+            if "curriculum is authored in the content vault" in e
+        ]
+        assert [e.split(" ", 1)[0] for e in vault_authored] == ["KU", "PS", "LP"]
+        # Reported once, not again as an unrouted context.
+        assert extraction.unrouted_lines == []
         # The @ku() reference on the task line still resolves
         assert "ku.tech.decorators" in extraction.referenced_ku_uids
         assert extraction.tasks_created == 1
@@ -363,9 +363,11 @@ Some reflections on the day...
             file_path="/tmp/unrouted.md",
             file_type="text/plain",
             file_size=100,
-            # ps is staged (ps_service unwired in this fixture AND production);
-            # the task line routes normally.
-            processed_content=("- [ ] Study step @context(ps)\n- [ ] Call bank @context(task)\n"),
+            # calendar is staged (calendar_service unwired in this fixture AND
+            # production); the task line routes normally.
+            processed_content=(
+                "- [ ] Study block @context(calendar)\n- [ ] Call bank @context(task)\n"
+            ),
         )
 
         result = await extractor.extract_and_create(entry, "user_mike")
@@ -374,14 +376,14 @@ Some reflections on the day...
         extraction = result.value
         assert extraction.tasks_created == 1
         assert len(extraction.unrouted_lines) == 1
-        assert "Study step" in extraction.unrouted_lines[0]
-        assert "path_step" in extraction.unrouted_lines[0]
+        assert "Study block" in extraction.unrouted_lines[0]
+        assert "calendar" in extraction.unrouted_lines[0]
         # Rides into the persisted summary the sync warnings read
         assert extraction.to_dict()["unrouted_lines"] == extraction.unrouted_lines
 
     @pytest.mark.asyncio
     async def test_mixed_context_reports_skipped_context(self, extractor):
-        """@context(task,ps): Task is created AND the skipped ps context is reported."""
+        """@context(task,calendar): Task is created AND the skipped context is reported."""
         entry = UserEntry(
             uid="ue_mixed",
             title="Mixed",
@@ -393,7 +395,7 @@ Some reflections on the day...
             file_path="/tmp/mixed.md",
             file_type="text/plain",
             file_size=100,
-            processed_content="- [ ] Draft lesson @context(task,ps)\n",
+            processed_content="- [ ] Draft lesson @context(task,calendar)\n",
         )
 
         result = await extractor.extract_and_create(entry, "user_mike")
@@ -403,7 +405,7 @@ Some reflections on the day...
         assert extraction.tasks_created == 1
         assert len(extraction.unrouted_lines) == 1
         warning = extraction.unrouted_lines[0]
-        assert "path_step" in warning and "skipped" in warning
+        assert "calendar" in warning and "skipped" in warning
         assert "task" in warning  # names what WAS created
 
     @pytest.mark.asyncio

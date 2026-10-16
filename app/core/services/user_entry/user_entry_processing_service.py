@@ -69,7 +69,6 @@ if TYPE_CHECKING:
     from core.services.llm_caller import UnifiedLLMCaller
     from core.services.output.instruction_resolver import InstructionResolver
     from core.services.user_entry.user_entry_service import UserEntryService
-    from core.services.user_service import UserService
 
 # Matches any markdown checkbox line (ADR-070 double-extraction guard).
 _CHECKBOX_RE = re.compile(r"^[-*]\s*\[[xX ]?\]")
@@ -92,7 +91,6 @@ class UserEntryProcessingService:
         event_bus: EventBusOperations | None = None,
         activity_extractor: ActivityExtractorService | None = None,
         dsl_bridge: LLMDSLBridgeService | None = None,
-        user_service: UserService | None = None,
         goals_service: GoalsService | None = None,
     ) -> None:
         self.entry_service = entry_service
@@ -102,7 +100,6 @@ class UserEntryProcessingService:
         self.event_bus = event_bus
         self.activity_extractor = activity_extractor
         self.dsl_bridge = dsl_bridge
-        self.user_service = user_service
         # Grounds the bridge pre-pass in the user's active goals — the same
         # grounding the inert journal "Suggested activities" panel uses, so the
         # entity-creating path and the preview path recognise prose against the
@@ -648,19 +645,11 @@ class UserEntryProcessingService:
             if (target_uid := rel.get("target_uid"))
         )
 
-        # --- Curriculum-creation gate (fail-closed) ---------------------------
-        allow_curriculum_creation = False
-        if self.user_service is not None:
-            user_result = await self.user_service.get_user(entry.user_uid)
-            if user_result.is_ok and user_result.value is not None:
-                allow_curriculum_creation = user_result.value.can_create_curriculum()
-
         # --- Extraction --------------------------------------------------------
         extract_result = await self.activity_extractor.extract_and_create(
             entry,
             entry.user_uid,
             content_override=working_text,
-            allow_curriculum_creation=allow_curriculum_creation,
             existing_line_hashes=existing_line_hashes,
             bridge_line_hashes=bridge_line_hashes,
             existing_extracted=existing_extracted,
@@ -723,7 +712,7 @@ class UserEntryProcessingService:
         # a draft, a non-curriculum node) must not fail the run — it lands in
         # the summary's link_errors instead, as the same line whichever it was.
         link_errors: list[str] = []
-        ku_uids = list(dict.fromkeys(extraction.created_ku_uids + extraction.referenced_ku_uids))
+        ku_uids = list(extraction.referenced_ku_uids)
         knowledge_result = await self.entry_service.link_applied_knowledge(
             entry.uid, entry.user_uid, ku_uids
         )
