@@ -379,13 +379,23 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
     `UserEntryService.link_applied_knowledge` admits each far end first: a
     published Ku or PathStep. Any other reference — another user's node, a draft,
     a uid naming nothing — writes no edge, publishes nothing, and is one
-    `link_errors` line, the same whichever it was
+    `link_errors` line, the same whichever it was. The write
+    (`UserEntryBackend.write_applied_knowledge`) reports whether it created the
+    edge, under the entry's write-lock; an edge that already stood is not credited
+    again, and an inferred edge the owner now names loses its inference stamp
+    (`inferred`, `confidence`, `grounded_at`) and reads as explicit. A pair the owner
+    once removed (`grounding_rejected_ku_uids`) is linked again without a second
+    credit — it was credited when first made
   - `EntryGroundingService` — once per genuinely NEW inferred edge
     (`inferred: true`, `confidence: <similarity>`, `grounded_at`) written by the
     vector grounding pass over `pipeline: knowledge` entries, to published Kus only (knowledge/ and
     je_pro/ doors — Entry-Enrichment PR 3). Existing edges and user-rejected
     links never re-publish; removals via the grounding remove route are
     calibration data for the threshold.
+  - **Credited once per entry and knowledge, whichever writer came first.** Both
+    writers take the entry's write-lock before deciding whether the edge is new,
+    so of two racing on one pair exactly one creates it and publishes. A removal
+    never takes a credit back.
 - **Rationale:** Written reflection is metacognition — consciously processing the knowledge
 
 ---

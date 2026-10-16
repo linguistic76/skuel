@@ -34,7 +34,9 @@ Substance + idempotency:
     same writer-agnostic event the EXTRACT_ACTIVITIES pipeline publishes
     (handler: KuBackend.increment_substance with PathStep fan-out,
     0.07/entry credit). Existing targets are read up front and the write
-    reports created-vs-matched, so neither a re-run nor a race double-counts.
+    reports created-vs-matched under the entry's write-lock — the lock the
+    owner's ``@ku`` writer takes too — so neither a re-run nor a race with
+    either writer double-counts.
 
 Re-ground trigger is HASH-based: an entry is pending while its
 ``grounded_text_hash`` differs from ``embedding_text_hash`` (ADR-074 §8

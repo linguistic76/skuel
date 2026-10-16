@@ -865,6 +865,20 @@ class GroundingRemovalRow(TypedDict):
     inferred: bool
 
 
+class AppliedKnowledgeWriteRow(TypedDict):
+    """What one explicit ``(entry)-[:APPLIES_KNOWLEDGE]->(knowledge)`` write found.
+
+    Returned by ``UserEntryBackend.write_applied_knowledge``. ``created`` is
+    decided by the write itself, under the entry's write-lock, so a concurrent
+    writer of the same pair cannot make both report a new edge. ``was_removed``
+    says the owner once removed a link to this knowledge from this entry
+    (``grounding_rejected_ku_uids``) — the pair was linked, and credited, before.
+    """
+
+    created: bool
+    was_removed: bool
+
+
 class GroundedKuChip(TypedDict):
     """One ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` chip on a knowledge entry.
 

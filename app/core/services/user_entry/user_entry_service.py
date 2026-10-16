@@ -115,11 +115,18 @@ class AppliedKnowledgeLinks:
     Attributes:
         linked: the far ends now joined to the entry by ``APPLIES_KNOWLEDGE``, in
             reference order.
+        credited: the linked far ends whose substance credit is due — the write
+            created the edge, and the owner never removed a link to it from this
+            entry. A pair is credited once: an edge that already stood (the
+            owner's earlier reference, or the grounding pass's inference) was
+            credited when it was made, and a removed link was credited before
+            its removal.
         unlinked: each reference that was not linked, with why — a refusal
             (``not_found``, alike for every reason) or the write's own error.
     """
 
     linked: tuple[str, ...]
+    credited: tuple[str, ...]
     unlinked: Mapping[str, ErrorContext]
 
 
@@ -937,6 +944,12 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         ``details`` only — so the refusal a caller records reads the same whichever
         it was. A refused reference writes nothing.
 
+        Each write decides on its own whether it created the edge
+        (``UserEntryBackend.write_applied_knowledge``, under the entry's
+        write-lock), so ``credited`` holds no pair whose edge already stood —
+        whichever writer made it. An inferred edge the owner now names becomes
+        the owner's own.
+
         Fails only when the admission read fails; then nothing is written.
         """
         candidates = [
@@ -958,15 +971,23 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             for candidate, reason in partition.value.refused
         }
         linked: list[str] = []
+        credited: list[str] = []
         for candidate in partition.value.kept:
-            written = await self.add_relationship(
-                entry_uid, RelationshipName.APPLIES_KNOWLEDGE, candidate.other_uid
-            )
+            written = await self.backend.write_applied_knowledge(entry_uid, candidate.other_uid)
             if written.is_error:
                 unlinked[candidate.other_uid] = written.expect_error()
-            else:
-                linked.append(candidate.other_uid)
-        return Result.ok(AppliedKnowledgeLinks(linked=tuple(linked), unlinked=unlinked))
+                continue
+            if written.value is None:
+                unlinked[candidate.other_uid] = Errors.not_found(
+                    "Knowledge", candidate.other_uid, reason="gone before the write"
+                )
+                continue
+            linked.append(candidate.other_uid)
+            if written.value["created"] and not written.value["was_removed"]:
+                credited.append(candidate.other_uid)
+        return Result.ok(
+            AppliedKnowledgeLinks(linked=tuple(linked), credited=tuple(credited), unlinked=unlinked)
+        )
 
     async def update_processing_state(
         self,

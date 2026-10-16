@@ -43,7 +43,6 @@ from core.events.user_entry_events import (
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import EnrichmentMode
-from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.dsl.activity_dsl_parser import parsed_vault_ids
@@ -457,8 +456,9 @@ class UserEntryProcessingService:
            created Ku and resolved ``@ku()`` reference whose far end is a
            published Ku or PathStep (``UserEntryService.link_applied_knowledge``;
            any other is a ``link_errors`` line) — the substance/ZPD
-           edge. Each new edge publishes ``KnowledgeReflectedInEntry``
-           (substance fan-out) and feeds UserContext.entry_knowledge_applied
+           edge. An edge the write creates publishes ``KnowledgeReflectedInEntry``
+           (substance fan-out) — once per entry and knowledge, whichever writer
+           made the edge first and feeds UserContext.entry_knowledge_applied
            + the ZPD entry_application signal on read.
         5. Run summary persisted under ``entry.metadata["activity_extraction"]``.
         """
@@ -656,23 +656,6 @@ class UserEntryProcessingService:
                     semantic_dedup_key(label, twin["title"]), twin["entity_uid"]
                 )
 
-        # --- Existing APPLIES_KNOWLEDGE targets (substance idempotency) --------
-        # The edge write below is MERGE-idempotent, but the substance event is
-        # NOT — publishing KnowledgeReflectedInEntry for an edge that already
-        # exists would double-count times_reflected_in_entries on a force re-run
-        # or a crash-recovery retry. Read the already-linked Kus up front and
-        # only emit the event for genuinely new links.
-        applied_result = await self.entry_service.get_relationships(
-            entry.uid, rel_type=RelationshipName.APPLIES_KNOWLEDGE, direction="outgoing"
-        )
-        if applied_result.is_error:
-            return await self._fail(entry, applied_result.expect_error(), phase="read_provenance")
-        already_applied_ku_uids = frozenset(
-            target_uid
-            for rel in applied_result.value or []
-            if (target_uid := rel.get("target_uid"))
-        )
-
         # --- Extraction --------------------------------------------------------
         extract_result = await self.activity_extractor.extract_and_create(
             entry,
@@ -748,23 +731,21 @@ class UserEntryProcessingService:
             # The admission read failed, so nothing was written: every reference
             # is unlinked for the same reason.
             error = knowledge_result.expect_error()
-            linked: tuple[str, ...] = ()
+            credited: tuple[str, ...] = ()
             unlinked = dict.fromkeys(ku_uids, error)
         else:
-            linked = knowledge_result.value.linked
+            credited = knowledge_result.value.credited
             unlinked = dict(knowledge_result.value.unlinked)
         for ku_uid, error in unlinked.items():
             message = f"APPLIES_KNOWLEDGE {entry.uid} -> {ku_uid}: {error.message}"
             link_errors.append(message)
             reason = error.details.get("reason")
             self.logger.warning(message + (f" ({reason})" if reason else ""))
-        for ku_uid in linked:
+        for ku_uid in credited:
             # Substance fan-out: PsService increments times_reflected_in_entries
             # on the Ku (+ connected PathSteps) — knowledge_substance_philosophy.
-            # Only for NEW links: the edge MERGE is idempotent but the counter
-            # increment is not, so skip knowledge already linked to this entry.
-            if ku_uid in already_applied_ku_uids:
-                continue
+            # The edge MERGE is idempotent but the counter is not, so only a
+            # pair the write itself reported as new is credited.
             if self.event_bus is not None:
                 await publish_event(
                     self.event_bus,

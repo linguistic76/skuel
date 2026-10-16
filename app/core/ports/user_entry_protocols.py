@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.query_types import (
+    AppliedKnowledgeWriteRow,
     ExtractionTwinRow,
     GroundingEntryRow,
     GroundingRemovalRow,
@@ -191,6 +192,17 @@ class UserEntryCrudOperations(Protocol):
         self, entry_uid: str, entity_uid: str, vault_id: str
     ) -> Result[bool]:
         """Set vault_id on an existing EXTRACTED_FROM edge (ADR-070 ID injection)."""
+        ...
+
+    async def write_applied_knowledge(
+        self, entry_uid: str, knowledge_uid: str
+    ) -> Result[AppliedKnowledgeWriteRow | None]:
+        """Link an entry to knowledge its owner named, and say what the write found.
+
+        Idempotent. An inferred link to the same knowledge becomes the owner's
+        own (its inference stamp is cleared). ``None`` when the entry or the
+        knowledge is absent. The far end is admitted by the caller.
+        """
         ...
 
     async def get_user_active_extraction_twins(
