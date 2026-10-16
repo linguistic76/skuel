@@ -183,4 +183,4 @@ load shows only in the console. Read the console first.
 
 - `tests/unit/test_lateral_graph_queries.py`: service graph and ownership gate (`TestOwnershipGate`)
 - `tests/integration/routes/test_lateral_route_ownership.py`: foreign entity → 404, owner → 200, curriculum → 200
-- `tests/integration/routes/test_curriculum_lateral_authoring_retired.py`: curriculum lateral writes are gone (404/405, graph unchanged); the vault's Edge YAML writes the edges; an Activity write still lands
+- `tests/integration/routes/test_curriculum_lateral_authoring_retired.py`: no curriculum lateral write is registered (404/405, graph unchanged); the vault's Edge YAML writes the edges; an Activity write still lands
