@@ -1,16 +1,15 @@
-"""Activity Templates are authored only in the content vault.
+"""Activity Templates are authored only in the content vault (ADR-091 S8).
 
-ADR-091 S8: the six template JSON doors are gone — create, get, update, delete and
-list, and the PathStep attach, detach and list-by-ps of each kind. Each answers 404
-or 405 to an admin, sent with a body the retired door accepted, and the graph is
-unchanged.
+No template JSON path is registered: for each kind, ``/api/pathstep-{kind}-templates/``
+create, get, update, delete and list, and the PathStep attach, detach and list-by-ps,
+answer 404 or 405 to an admin, sent a well-formed body, and leave the graph unchanged.
 
-Controls: the vault sync writes what those doors wrote — an ``_tmpl.md`` file writes
-the template node and a PathStep's ``{domain}_template_uids:`` writes its
-``HAS_*_TEMPLATE`` edge — and the teacher's templates panel still reads them. The
-panel and the engagement spawn's loader bind both ends of the edge by kind, so an
-edge written past the vault (by raw Cypher here) never hands either one another
-user's Goal.
+Controls: the vault sync writes the template and its edge — an ``_tmpl.md`` file
+writes the template node and a PathStep's ``{domain}_template_uids:`` writes its
+``HAS_*_TEMPLATE`` edge — and the teacher's templates panel reads them. The panel
+and the engagement spawn's loader bind both ends of the edge by kind, so an edge
+written past the vault (by raw Cypher here) never hands either one another user's
+Goal.
 """
 
 from __future__ import annotations
@@ -97,7 +96,7 @@ def _vault(vault: Path) -> None:
 
 async def _graph(driver: AsyncDriver) -> dict[str, Any]:  # boundary: raw graph read
     """Every marked node with its title, every edge between marked nodes, and the
-    number of template nodes in the graph — what any retired door would change.
+    number of template nodes in the graph — what any template write would change.
 
     The marked reads name no label in the pattern, so no ``uid`` index is planned
     for the ``CONTAINS`` while the boot's index sync may still be building one."""
@@ -175,10 +174,10 @@ async def world(
         yield World(driver, admin, foreign_goal, foreign_task)
 
 
-def _retired_doors() -> dict[str, tuple[str, str, dict[str, Any] | None]]:  # boundary: JSON
-    """Each retired door of each kind with a body it accepted, aimed at the vault's
-    templates: a spare to attach, the attached one to update, detach and delete.
-    ``delete`` runs last: each write must find the node or edge it would change."""
+def _unregistered_paths() -> dict[str, tuple[str, str, dict[str, Any] | None]]:  # boundary: JSON
+    """Each unregistered path of each kind with a well-formed body, aimed at the
+    vault's templates: a spare to attach, the attached one to update, detach and
+    delete. ``delete`` runs last, so each write finds the node or edge it names."""
     doors: dict[str, tuple[str, str, dict[str, Any] | None]] = {}  # boundary: JSON bodies
     for kind, prefix, _field, _edge in KINDS:
         base = f"/api/pathstep-{kind}-templates"
@@ -200,7 +199,7 @@ def _retired_doors() -> dict[str, tuple[str, str, dict[str, Any] | None]]:  # bo
     return doors
 
 
-RETIRED = _retired_doors()
+UNREGISTERED = _unregistered_paths()
 
 
 async def test_the_vault_writes_the_templates_and_their_edges(world: World) -> None:
@@ -214,9 +213,11 @@ async def test_the_vault_writes_the_templates_and_their_edges(world: World) -> N
         assert (PS, edge, spare(prefix)) not in edges
 
 
-@pytest.mark.parametrize("door", RETIRED)
-async def test_a_retired_door_answers_nothing_and_writes_nothing(world: World, door: str) -> None:
-    method, url, body = RETIRED[door]
+@pytest.mark.parametrize("door", UNREGISTERED)
+async def test_an_unregistered_path_answers_nothing_and_writes_nothing(
+    world: World, door: str
+) -> None:
+    method, url, body = UNREGISTERED[door]
     before = await _graph(world.driver)
 
     response = await world.admin.request(method, url, json=body)
