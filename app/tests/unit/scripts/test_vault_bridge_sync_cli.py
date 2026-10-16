@@ -37,9 +37,9 @@ def _run(monkeypatch: pytest.MonkeyPatch, *argv: str) -> tuple[int, AsyncMock, A
         pytest.param(
             ["--vault", "content", "--preview"],
             0,
-            ("content", "user:system"),
+            ("content", ""),
             None,
-            id="preview, content vault: dry run only, placeholder user",
+            id="preview, content vault: dry run only, no acting user",
         ),
         pytest.param(
             ["--user", "user_x", "--preview"],

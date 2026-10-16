@@ -47,11 +47,12 @@ from __future__ import annotations
 
 __version__ = "2.0"
 
+import asyncio
 import functools
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
     from pathlib import Path
 
     from core.ports.ingestion_protocols import (
@@ -84,8 +85,9 @@ from .authored_edges import (
     goals_losing_contributions,
     retracted_edges,
 )
-from .batch import ingest_directory
+from .batch import ingest_directory, parse_file_for_batch
 from .config import (
+    DEFAULT_MAX_CONCURRENT_PARSING,
     DEFAULT_MAX_FILE_SIZE_BYTES,
     ENTITY_CONFIGS,
     SyncAllowlist,
@@ -127,6 +129,7 @@ from .validator import (
 )
 from .vault_policy import (
     MINTED_IDENTITY_TYPES,
+    TrackedIdentity,
     admit_frontmatter_targets,
     personal_file_uid,
     read_tracked_identities,
@@ -1596,6 +1599,47 @@ class UnifiedIngestionService:
     # ========================================================================
     # VALIDATION - Delegate to validator module
     # ========================================================================
+
+    async def parse_refusals(
+        self, files: Sequence[Path], *, root: Path, user_uid: UserUID | None
+    ) -> Result[dict[Path, dict[str, Any]]]:  # boundary: IngestionError.to_dict rows
+        """The parse-stage refusal a directory sync would give each file, by path.
+
+        Runs the stage ``ingest_directory`` runs before any write (parse, detect,
+        prepare, validate), with the owner, vault kind and size cap that door
+        resolves for ``root``. Nothing is written. A file the stage accepts is
+        absent; a refused one maps to its ``IngestionError`` dict, whose
+        ``stage`` says whether the file's content or the system caused it. A
+        personal vault's uid-less files are parsed as first seen: the uid a file
+        takes changes no verdict.
+        """
+        owner = self._resolve_owner(root, user_uid)
+        vault_kind = self._resolve_vault_kind(root)
+        identities: dict[str, TrackedIdentity] | None = (
+            {} if vault_kind is VaultKind.PERSONAL else None
+        )
+        semaphore = asyncio.Semaphore(DEFAULT_MAX_CONCURRENT_PARSING)
+        parsed = await asyncio.gather(
+            *(
+                parse_file_for_batch(
+                    file_path,
+                    semaphore,
+                    owner,
+                    self.max_file_size_bytes,
+                    owner_is_authoritative=self._owner_is_authoritative,
+                    vault_kind=vault_kind,
+                    identities=identities,
+                )
+                for file_path in files
+            )
+        )
+        return Result.ok(
+            {
+                file_path: error
+                for file_path, (_type, _data, error) in zip(files, parsed, strict=True)
+                if error is not None
+            }
+        )
 
     async def validate_file(self, file_path: Path) -> Result[ValidationResult]:
         """

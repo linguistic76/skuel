@@ -134,10 +134,12 @@ class VaultSyncPreview:
     # gate sets them aside as non-entity notes, so they are excluded from every
     # would_ingest_* figure and reported here once, as one number.
     non_entity_notes: int = 0
-    # New/changed files this vault may not hold (``vault_policy.vault_refusal`` —
-    # an Edge, Group or curriculum file in a personal vault): the sync reports
-    # them as ignored-with-reason, so the preview lists them that way —
-    # "path — reason" lines — and leaves them out of every would_ingest_* figure.
+    # New/changed files the sync would refuse for their content — one this vault
+    # may not hold (``vault_policy.vault_refusal``: an Edge, Group or curriculum
+    # file in a personal vault), or one its parse stage refuses (a malformed
+    # field, a template over a spawn rule): the sync reports them as
+    # ignored-with-reason, so the preview lists them that way — "path — reason"
+    # lines — and leaves them out of every would_ingest_* figure.
     would_ignore_count: int = 0
     would_ignore_examples: tuple[str, ...] = ()
     would_delete_entities: int = 0
@@ -453,7 +455,9 @@ class VaultReconciler:
         ``filter_files_needing_ingestion``) — never the ingest path — then the
         ingest gate's own no-type verdict per pending file
         (``is_non_entity_note``), so loose untyped notes are set aside and
-        counted, not listed as pending ingests. Deletion
+        counted, not listed as pending ingests; and the sync's own parse stage
+        per remaining file (``parse_refusals``), so a file it would refuse for
+        its content is listed as ignored with the sync's reason. Deletion
         half: ``IngestionTracker.plan_deletions`` with the descriptor's
         allowlist + owner (the same scope ``sync``'s ingest passes when the
         registry governs the root). Neither the graph nor the vault is
@@ -540,6 +544,25 @@ class VaultReconciler:
                     )
                 else:
                     would_ingest.append(decision)
+            # A file the sync's own parse stage refuses for its content (a
+            # broken field, a value the vault may not hold) is reported as the
+            # sync reports it, ignored with the same reason, by running that
+            # stage here (``parse_refusals``) rather than restating its rules.
+            refusals = await self._ingestion.parse_refusals(
+                [d.file_path for d in would_ingest],
+                root=descriptor.root,
+                user_uid=descriptor.owner_uid,
+            )
+            if refusals.is_error:
+                return Result.fail(refusals)
+            accepted: list[IngestionDecision] = []
+            for decision in would_ingest:
+                error = refusals.value.get(decision.file_path)
+                if error is not None and error.get("stage") in _CONTENT_FAULT_STAGES:
+                    would_ignore.append(_format_ignored_file(error, descriptor.root))
+                else:
+                    accepted.append(decision)
+            would_ingest = accepted
             new_count = sum(1 for d in would_ingest if d.reason == "new")
             ingest_examples = tuple(
                 f"{display_path(d.file_path, descriptor.root)}"

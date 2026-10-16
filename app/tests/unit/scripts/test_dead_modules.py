@@ -98,8 +98,8 @@ class TestOrphanPackages:
         """
         The case Codex caught on #1087: __init__.py can BE the implementation.
 
-        core/services/templates is 230 lines defining seven service classes with
-        no module beside it. Skipping every __init__-only package would make it
+        core/services/templates defines all its service classes in its __init__.py,
+        with no module beside it. Skipping every __init__-only package would make it
         permanently invisible — its two outside imports could vanish and the
         check would stay green.
         """

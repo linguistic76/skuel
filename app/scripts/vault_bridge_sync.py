@@ -124,7 +124,7 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
             worker.subscribe()
 
         forced = " [FORCE — re-processing unchanged files]" if force else ""
-        print(f"Full VaultBridge sync ({kind.value}) as {user_uid}{forced} ...")
+        print(f"Full VaultBridge sync ({kind.value}) as {_acting(kind, user_uid)}{forced} ...")
         result = await reconciler.sync(kind, UserUID(user_uid), force=force)
 
         # Drain BEFORE the error check: sync() can fail after ingest persisted
@@ -218,6 +218,13 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         await adapter.close()
 
 
+def _acting(kind: VaultKind, user_uid: str) -> str:
+    """Who a sync of ``kind`` runs as: the content vault always runs as its own owner."""
+    from core.services.vault.vault_descriptor import VaultKind
+
+    return "the content-vault owner" if kind is VaultKind.CONTENT else user_uid
+
+
 def _print_examples(examples: tuple[str, ...], total: int) -> None:
     """The preview's vault-relative example paths, noting how many are unlisted."""
     for example in examples:
@@ -243,7 +250,8 @@ async def run_preview(vault: str, user_uid: str) -> int:
         _services, reconciler = composed
 
         print(
-            f"VaultBridge sync PREVIEW ({kind.value}) as {user_uid} — dry run, nothing written ..."
+            f"VaultBridge sync PREVIEW ({kind.value}) as {_acting(kind, user_uid)} — dry run, "
+            "nothing written ..."
         )
         result = await reconciler.preview(kind, UserUID(user_uid))
         if result.is_error:
@@ -261,6 +269,8 @@ async def run_preview(vault: str, user_uid: str) -> int:
             f"({preview.would_ingest_new} new, {preview.would_ingest_changed} changed)"
         )
         _print_examples(preview.would_ingest_examples, preview.would_ingest_count)
+        print(f"  would ignore (refused, with the sync's reason): {preview.would_ignore_count}")
+        _print_examples(preview.would_ignore_examples, preview.would_ignore_count)
         print(f"  set aside (no 'type:' field — not ingestible): {preview.non_entity_notes}")
         print(f"  would delete entities: {preview.would_delete_entities}")
         _print_examples(preview.would_delete_entity_examples, preview.would_delete_entities)
@@ -311,9 +321,9 @@ def main() -> None:
     if args.preview and args.force:
         parser.error("--preview is a dry run and --force is a sync knob — pick one")
 
-    # For content, the reconciler uses the fixed content-vault owner; the passed
-    # user is ignored, so any placeholder is fine.
-    user = args.user or "user:system"
+    # For content, the reconciler uses the fixed content-vault owner and ignores
+    # the acting user, so none is passed.
+    user = args.user or ""
     if args.preview:
         sys.exit(asyncio.run(run_preview(args.vault, user)))
     sys.exit(asyncio.run(run_sync(args.vault, user, force=args.force)))

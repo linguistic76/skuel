@@ -411,6 +411,18 @@ def preview_fragment(preview: VaultSyncPreview) -> Div:
                 f" notes ({_SET_ASIDE_HINT})",
             ),
         )
+    if preview.would_ignore_count:
+        # Right under the ingest line: files the sync reads and refuses, each
+        # with the reason the sync's own report will give.
+        items.insert(
+            1,
+            Li(
+                "ignore ",
+                Span(f"{preview.would_ignore_count}", cls="font-semibold"),
+                " files (each with the reason the sync would give)",
+                _example_list(preview.would_ignore_examples, preview.would_ignore_count),
+            ),
+        )
     if preview.would_delete_edges:
         items.append(
             Li(
@@ -446,6 +458,7 @@ def preview_fragment(preview: VaultSyncPreview) -> Div:
     # behind a harmless-sounding header (Kody #527).
     nothing_to_do = (
         not preview.would_ingest_count
+        and not preview.would_ignore_count
         and not preview.would_delete_entities
         and not preview.would_delete_edges
         and not preview.stale_cleanup_count

@@ -22,6 +22,11 @@ Each spec carries:
 - ``cross_edges`` — template refs realised as graph edges between spawned
   instances (e.g. ``(Goal)-[:INSPIRED_BY_CHOICE]->(Choice)``) rather than
   properties.
+- ``create_request`` — the model a user's own create of this instance passes.
+  The spawn does not construct it; its length caps bound what a template may
+  copy, and the content-vault sync refuses a template over one
+  (``copied_text_caps``), so a spawned instance holds only text its own create
+  door would accept.
 - ``creation_rule`` — the domain's own creation invariant, applied to the built
   instance before it is persisted. This door writes through the backend, not
   the domain service, so a rule the service create path enforces must be named
@@ -53,20 +58,29 @@ See: ``docs/decisions/ADR-061-spawn-layer-consolidation.md``.
 from __future__ import annotations
 
 import re
+import types
 from dataclasses import dataclass, field, fields, replace
 from operator import attrgetter
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, Union, get_args, get_origin
+
+from pydantic import BaseModel
 
 from core.models.choice.choice import Choice
+from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.entity import Entity
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
+from core.models.event.event_request import EventCreateRequest
 from core.models.goal.goal import Goal
+from core.models.goal.goal_request import GoalCreateRequest
 from core.models.habit.habit import Habit
+from core.models.habit.habit_request import HabitCreateRequest
 from core.models.principle.principle import Principle
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
+from core.models.task.task_request import TaskCreateRequest
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.event_template import EventTemplate
 from core.models.templates.goal_template import GoalTemplate
@@ -163,11 +177,12 @@ def _compute_cross_edges(
     return edges
 
 
-def _copy_through(template: Any, allowed_fields: set[str]) -> dict[str, Any]:
-    """Copy authoring-side fields verbatim from template → instance kwargs.
+def _copy_through(template: Any, allowed_fields: frozenset[str]) -> dict[str, Any]:
+    """Copy the template's ``allowed_fields`` verbatim into instance kwargs.
 
-    Filters out any field name the instance doesn't accept, so the constructor
-    call is safe regardless of which fields the template happens to carry.
+    ``allowed_fields`` is the spec's ``copied_fields()``: only fields the instance
+    accepts and the spawn does not set itself, so the constructor call is safe
+    whichever fields the template carries.
     """
     out: dict[str, Any] = {}
     for f in fields(template):
@@ -228,6 +243,7 @@ class DomainSpawnSpec(Generic[InstanceT]):
 
     instance_cls: type[InstanceT]
     template_cls: type[Entity]
+    create_request: type[BaseModel]
     layer: int
     collection_attr: str  # attribute name on both TemplateBundle and ActivityBackends
     uid_prefix: str  # UIDGenerator prefix for spawned instance UIDs
@@ -236,10 +252,36 @@ class DomainSpawnSpec(Generic[InstanceT]):
     cross_edges: tuple[tuple[str, RelationshipName], ...] = ()
     creation_rule: Callable[[InstanceT], InstanceT] | None = None
 
+    def copied_fields(self) -> frozenset[str]:
+        """The template fields a spawn copies verbatim onto the instance.
+
+        Every field the template and the instance share, except the ones the
+        spawn sets itself: the identity and owner, the engagement fields, the
+        lifecycle stamps, ``entity_type`` and ``visibility`` (see
+        ``_build_instance`` for why each is set rather than copied), and the
+        destinations of the offset and reference rewrites.
+        """
+        managed = {
+            "uid",
+            "user_uid",
+            "engagement_state",
+            "entity_type",
+            "source_path_step_uid",
+            "visibility",
+            "created_at",
+            "updated_at",
+            *(dst for _src, dst, _kind in self.offset_rewrites),
+            *self.field_rewrites.values(),
+        }
+        return frozenset(
+            _field_names(self.template_cls) & (_field_names(self.instance_cls) - managed)
+        )
+
 
 CHOICE_SPEC = DomainSpawnSpec(
     instance_cls=Choice,
     template_cls=ChoiceTemplate,
+    create_request=ChoiceCreateRequest,
     layer=1,
     collection_attr="choices",
     uid_prefix="choice",
@@ -248,6 +290,7 @@ CHOICE_SPEC = DomainSpawnSpec(
 HABIT_SPEC = DomainSpawnSpec(
     instance_cls=Habit,
     template_cls=HabitTemplate,
+    create_request=HabitCreateRequest,
     layer=1,
     collection_attr="habits",
     uid_prefix="habit",
@@ -256,6 +299,7 @@ HABIT_SPEC = DomainSpawnSpec(
 PRINCIPLE_SPEC = DomainSpawnSpec(
     instance_cls=Principle,
     template_cls=PrincipleTemplate,
+    create_request=PrincipleCreateRequest,
     layer=1,
     collection_attr="principles",
     uid_prefix="principle",
@@ -263,6 +307,7 @@ PRINCIPLE_SPEC = DomainSpawnSpec(
 GOAL_SPEC = DomainSpawnSpec(
     instance_cls=Goal,
     template_cls=GoalTemplate,
+    create_request=GoalCreateRequest,
     layer=2,
     collection_attr="goals",
     uid_prefix="goal",
@@ -280,6 +325,7 @@ GOAL_SPEC = DomainSpawnSpec(
 EVENT_SPEC = DomainSpawnSpec(
     instance_cls=Event,
     template_cls=EventTemplate,
+    create_request=EventCreateRequest,
     layer=3,
     collection_attr="events",
     uid_prefix="event",
@@ -297,6 +343,7 @@ EVENT_SPEC = DomainSpawnSpec(
 TASK_SPEC = DomainSpawnSpec(
     instance_cls=Task,
     template_cls=TaskTemplate,
+    create_request=TaskCreateRequest,
     layer=4,
     collection_attr="tasks",
     uid_prefix="task",
@@ -348,7 +395,8 @@ def _build(
 
     Pure — no I/O — so it unit-tests without backends. Replaces the six former
     ``_build_*`` functions; all per-domain variation now lives in the spec.
-    ``entity_type`` is left out of the copy-through so the instance keeps its own
+    ``entity_type`` is left out of the copy-through (``DomainSpawnSpec.copied_fields``)
+    so the instance keeps its own
     class default (``Task`` not ``TaskTemplate``). So are the lifecycle stamps:
     the instance is created at the engagement — ``created_at`` is the anchor,
     the same moment every offset resolves against — not when its template was
@@ -364,18 +412,6 @@ def _build(
     """
     anchor = as_stored_clock(anchor)
     zone = current_zone()
-    managed = {
-        "uid",
-        "user_uid",
-        "engagement_state",
-        "entity_type",
-        "source_path_step_uid",
-        "visibility",
-        "created_at",
-        "updated_at",
-        *(dst for _src, dst, _kind in spec.offset_rewrites),
-        *spec.field_rewrites.values(),
-    }
     # boundary: spawn kwargs span all six domains — heterogeneous by construction
     kwargs: dict[str, Any] = {
         "uid": template_to_instance[template.uid],
@@ -384,7 +420,7 @@ def _build(
         "source_path_step_uid": ps_uid,
         "created_at": anchor,
         "updated_at": anchor,
-        **_copy_through(template, _field_names(spec.instance_cls) - managed),
+        **_copy_through(template, spec.copied_fields()),
         **_resolve_offsets(template, spec.offset_rewrites, anchor, zone),
         **_resolve_refs(template, spec.field_rewrites, template_to_instance),
     }
@@ -401,6 +437,41 @@ def _class_name_to_entity_type(cls: type) -> EntityType | None:
         return None
 
 
+def _is_text(annotation: object) -> bool:
+    """True for a ``str`` or ``str | None`` field annotation."""
+    if annotation is str:
+        return True
+    if get_origin(annotation) in (Union, types.UnionType):
+        members = set(get_args(annotation))
+        return str in members and members <= {str, type(None)}
+    return False
+
+
+def copied_text_caps(template_type: EntityType) -> dict[str, int]:
+    """The length cap on each text field a ``template_type`` spawn copies.
+
+    A field is listed when the spawn copies it (``DomainSpawnSpec.copied_fields``)
+    and the instance's create request caps it as text. Lists capped by item
+    count are not text and are not listed. Empty for a type that spawns nothing.
+    Read by the content-vault sync, which refuses a template file whose text
+    would not fit the instance its spawn builds.
+    """
+    for spec in SPAWN_REGISTRY:
+        if _class_name_to_entity_type(spec.template_cls) is not template_type:
+            continue
+        copied = spec.copied_fields()
+        caps: dict[str, int] = {}
+        for name, model_field in spec.create_request.model_fields.items():
+            if name not in copied or not _is_text(model_field.annotation):
+                continue
+            for constraint in model_field.metadata:
+                max_length = getattr(constraint, "max_length", None)
+                if isinstance(max_length, int):
+                    caps[name] = max_length
+        return caps
+    return {}
+
+
 def _validate_spawn_registry(registry: tuple[DomainSpawnSpec[Any], ...]) -> None:
     """Fail-fast at import: every spec's rewrite/edge fields must resolve.
 
@@ -408,7 +479,9 @@ def _validate_spawn_registry(registry: tuple[DomainSpawnSpec[Any], ...]) -> None
     bad ``collection_attr``, or an unknown edge type surfaces at module load,
     not at first spawn. Also cross-checks each spec's template/instance class
     pair against ``EntityType.instance_type()`` to catch mis-wired registry
-    entries that would silently spawn the wrong instance type.
+    entries that would silently spawn the wrong instance type, and its
+    ``create_request`` against the instance it names, so a template is never
+    checked against another domain's caps.
     """
     bundle_fields = _field_names(TemplateBundle)
     backend_fields = _field_names(ActivityBackends)
@@ -428,6 +501,11 @@ def _validate_spawn_registry(registry: tuple[DomainSpawnSpec[Any], ...]) -> None
                     f"{where}: {tmpl}.instance_type() is {expected_inst_et!r} "
                     f"but spec.instance_cls maps to {inst_et!r}"
                 )
+        if spec.create_request.__name__ != f"{inst}CreateRequest":
+            raise ValueError(
+                f"{where}: create_request is {spec.create_request.__name__}, "
+                f"not {inst}CreateRequest"
+            )
         if spec.collection_attr not in bundle_fields:
             raise ValueError(
                 f"{where}: collection_attr '{spec.collection_attr}' is not a TemplateBundle field"
@@ -581,5 +659,6 @@ __all__ = [
     "DomainSpawnSpec",
     "SpawnResult",
     "_SpawnOrchestrator",
+    "copied_text_caps",
     "replace",
 ]

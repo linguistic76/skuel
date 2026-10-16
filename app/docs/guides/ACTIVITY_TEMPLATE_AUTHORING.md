@@ -402,6 +402,11 @@ Two failures are **silent** — the sync reports success and you get less than y
 | the panel shows one fewer template than you attached | the template did not exist when the PathStep was last ingested — its file was added later, or failed validation on that run | re-sync the PathStep (any edit to its file, or `--force`), then re-check the count |
 | a `milestones` / `options` list comes back as a JSON string | an item is missing its nested `uid:` | add `uid:` to every item and re-sync |
 
+The sync itself refuses a file it could not store as authored: an off-vocabulary value, an
+unparseable offset, an online event with no `meeting_url`, a copied text field over its
+cap. The file is listed as *ignored*, with the file, the field and the reason, and nothing
+is written; `--preview` lists it the same way before any sync.
+
 **Start any diagnosis at the panel**, not the sync log: `/explore/ps/{uid}` shows what the
 graph actually holds, which is the only thing engagement reads.
 
@@ -441,6 +446,10 @@ A field the model types as a plain string may still be **enum-checked at the ing
 door** — `event_type` and `recurrence_pattern` both are. The Type column below is the
 authoring vocabulary, not the Python annotation; an off-vocabulary value fails the file
 with the accepted list in the message.
+
+A text field the spawn copies is **length-checked at the ingest door** against the cap the
+instance's own create form sets on it (a TaskTemplate's `title` is held to a Task's title
+cap). A file over a cap fails, naming the field, its length and the cap.
 
 ### TaskTemplate — `type: task_template`
 
@@ -593,7 +602,7 @@ reinforces_habit_template_uid: ht.mindfulness.daily-2min-breath
 | `event_type` | `meeting`/`conference`/`workshop`/`deadline`/`reminder`/`personal`/`work`/`social`/`learning`/`health` | Kind of event — enum-checked at ingest even though the model types it as a string |
 | `location` | string | Where |
 | `is_online` | bool | Online or in person |
-| `meeting_url` | string | Join link — needed when `is_online` is true. Ingestion does not check the pair, so an authored online template with no URL spawns a URL-less online event for every learner |
+| `meeting_url` | string | Join link — required when `is_online` is true: the sync refuses an online template with no URL (an empty one counts as missing) |
 | `recurrence_pattern` | same values as TaskTemplate | How often — enum-checked at ingest even though the model types it as a string |
 | `recurrence_end_offset` | offset map | When recurrence ends |
 | `reminder_minutes` | int | Lead time |

@@ -310,7 +310,7 @@ def package_has_code(pkg_dir: Path) -> bool:
 
     A package with modules obviously does. A package that is only an
     ``__init__.py`` still does when that file carries the implementation —
-    core/services/templates defines seven service classes in 230 lines and no
+    core/services/templates defines all its service classes there, with no
     module beside it, so skipping every __init__-only package would have made
     it permanently invisible to the reachability check (Codex, #1087).
 
@@ -354,7 +354,7 @@ def find_orphan_packages(
     2. Packages holding no code are skipped — see package_has_code. That means
        a docstring-only namespace directory, NOT every __init__-only package:
        an __init__.py can be the implementation, and core/services/templates
-       is 230 lines of exactly that.
+       is exactly that.
     3. Packages holding an ENTRY_POINTS / CONVENTION_LOADED / STAGED_MODULES
        file are skipped, mirroring the module pass. Those are reached by
        execution or registration, never by import, so "nobody imports it" says

@@ -31,7 +31,9 @@ from core.models.templates.offset_helpers import (
     authored_offset_to_jsonable,
 )
 from core.models.type_hints import UserUID
+from core.models.validation_rules import ONLINE_URL_REQUIRED
 from core.services.completion_stamp import validate_status_target
+from core.services.ps_engagement._spawn_orchestrator import copied_text_caps
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -353,6 +355,47 @@ def validate_entity_data(
                 ),
             )
         )
+
+    # Activity-Template spawn rules. A template is authored only in the content
+    # vault (ADR-091 S8), and its spawn builds the instance directly, past the
+    # create request a user's own create passes. So this door holds the two rules
+    # that request would apply to what the spawn copies: an online event needs a
+    # URL, and each copied text field fits its cap (``copied_text_caps``, derived
+    # from the request models).
+    if entity_type is EntityType.EVENT_TEMPLATE and (
+        entity_data.get("is_online") and not entity_data.get("meeting_url")
+    ):
+        return Result.fail(
+            Errors.validation(
+                ONLINE_URL_REQUIRED,
+                field="meeting_url",
+                user_message=(
+                    f"File {file_path.name} ({entity_type.value}): 'meeting_url' is required "
+                    "when 'is_online' is true. Add the URL, or set 'is_online: false'."
+                ),
+            )
+        )
+    if isinstance(entity_type, EntityType) and entity_type.is_activity_template():
+        over_cap = [
+            (name, len(value), cap)
+            for name, cap in copied_text_caps(entity_type).items()
+            if isinstance(value := entity_data.get(name), str) and len(value) > cap
+        ]
+        if over_cap:
+            details = "; ".join(
+                f"'{name}' is {length} characters; its cap is {cap}"
+                for name, length, cap in over_cap
+            )
+            return Result.fail(
+                Errors.validation(
+                    f"Text over the spawned instance's cap: {details}",
+                    field=over_cap[0][0],
+                    user_message=(
+                        f"File {file_path.name} ({entity_type.value}): {details}. "
+                        "A spawned instance copies this text, so shorten it to fit."
+                    ),
+                )
+            )
 
     # An exercise is curriculum, owned by no user (ADR-091 S2, S4): CURRICULUM is
     # the one scope, and the vault refuses any other value rather than store a

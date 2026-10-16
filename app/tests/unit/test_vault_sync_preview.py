@@ -167,6 +167,9 @@ def _preview_harness(tmp_path, *, consented: bool = True):
 
     ingestion = MagicMock()
     ingestion.ingestion_backend = backend
+    # The parse stage accepts every file here; the refusal path is driven through
+    # the real ingestion service in the integration tier.
+    ingestion.parse_refusals = AsyncMock(return_value=Result.ok({}))
 
     user = SimpleNamespace(preferences=SimpleNamespace(vault_write_consent=consented))
     user_service = MagicMock()
@@ -239,7 +242,8 @@ class TestVaultPreview:
         calls it "new" on every preview, forever. The ingest gate sets it aside,
         so the preview must too — one count, no phantom pending ingest — while
         a typed note still counts (it DOES ingest), a declared-but-unknown type
-        still counts (the sync reports that typo), and a typeless ``moc: true``
+        passes this verdict (the parse stage, stubbed here, is what refuses it),
+        and a typeless ``moc: true``
         file — a PathStep, which a personal vault refuses (ADR-070 Decision 11) — is listed as
         ignored, with the reason the sync will give."""
         reconciler, backend, notes = _preview_harness(tmp_path)
@@ -264,6 +268,40 @@ class TestVaultPreview:
         (ignored,) = preview.would_ignore_examples
         assert ignored.startswith("periodic_notes/moc.md — ")
         assert "type: user_entry" in ignored
+        _assert_no_deletes(backend)
+
+    @pytest.mark.asyncio
+    async def test_preview_lists_a_parse_stage_content_refusal_as_ignored(self, tmp_path) -> None:
+        """A file the sync's parse stage refuses for its content is listed as the
+        sync lists it, ignored with the stage's reason; a system-caused refusal is
+        not the file's fault, so the file stays a pending ingest the sync attempts."""
+        reconciler, backend, notes = _preview_harness(tmp_path)
+        refused = notes / "refused.md"
+        refused.write_text("---\ntype: user_entry\npipeline: knowledge\n---\nbody")
+        unreadable = notes / "unreadable.md"
+        unreadable.write_text("---\ntype: user_entry\npipeline: knowledge\n---\nbody")
+        reconciler._ingestion.parse_refusals = AsyncMock(
+            return_value=Result.ok(
+                {
+                    refused: {
+                        "file": str(refused),
+                        "error": "'status' must be one of: active; got 'banana'",
+                        "stage": "validation",
+                        "entity_type": "user_entry",
+                    },
+                    unreadable: {"file": str(unreadable), "error": "denied", "stage": "file_io"},
+                }
+            )
+        )
+
+        result = await reconciler.preview(VaultKind.PERSONAL, "user_owner")
+        assert result.is_ok
+        preview = result.value
+        assert preview.would_ignore_examples == (
+            "periodic_notes/refused.md — declared 'type: user_entry' but not ingested: "
+            "'status' must be one of: active; got 'banana'",
+        )
+        assert preview.would_ingest_examples == ("periodic_notes/unreadable.md (new)",)
         _assert_no_deletes(backend)
 
     @pytest.mark.asyncio
@@ -372,6 +410,57 @@ class TestPreviewFragmentSetAside:
         ],
     )
     def test_set_aside_count_per_rendering_state(
+        self,
+        state: str,
+        preview: VaultSyncPreview,
+        present: tuple[str, ...],
+        absent: tuple[str, ...],
+    ) -> None:
+        html = to_xml(preview_fragment(preview))
+        for text in present:
+            assert text in html, f"{state}: expected {text!r}"
+        for text in absent:
+            assert text not in html, f"{state}: did not expect {text!r}"
+
+
+_IGNORED_LINE = "Habits/a_tmpl.md — declared 'type: habit_template' but not ingested: too long"
+
+
+class TestPreviewFragmentIgnored:
+    """Every rendering state of the would-ignore row."""
+
+    @pytest.mark.parametrize(
+        ("state", "preview", "present", "absent"),
+        [
+            pytest.param(
+                "only_ignored",
+                VaultSyncPreview(would_ignore_count=1, would_ignore_examples=(_IGNORED_LINE,)),
+                ("This sync would:", "ignore ", _IGNORED_LINE),
+                ("already in sync",),
+                id="only_ignored: a refused file is never hidden behind 'in sync'",
+            ),
+            pytest.param(
+                "beside_ingests",
+                VaultSyncPreview(
+                    would_ingest_count=1,
+                    would_ingest_new=1,
+                    would_ignore_count=1,
+                    would_ignore_examples=(_IGNORED_LINE,),
+                ),
+                ("This sync would:", "ignore ", _IGNORED_LINE),
+                ("already in sync",),
+                id="beside_ingests: listed with its reason under the ingest line",
+            ),
+            pytest.param(
+                "none_ignored",
+                VaultSyncPreview(would_ingest_count=1, would_ingest_new=1),
+                ("This sync would:",),
+                ("ignore ",),
+                id="none_ignored: no permanent '0 files' row",
+            ),
+        ],
+    )
+    def test_ignored_row_per_rendering_state(
         self,
         state: str,
         preview: VaultSyncPreview,
