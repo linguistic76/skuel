@@ -1,6 +1,6 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-10-10
+updated: 2026-10-16
 status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a and 6b merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
@@ -998,7 +998,6 @@ list, sort and window; forced `TZ=America/Vancouver` unit tests on the touched d
     - the embedding worker's uptime;
     - the system health latency;
     - `UserContext.is_cached_valid`;
-    - `performance_optimization_service`'s caches;
     - the schema-change history.
   - Parse-boundary fallbacks to a naive now, for PR 7: `ps_adaptive_service`'s masteries,
     `notification_service._coerce_created_at`, `PersistedInsight.from_dict`, `completion_dto`,

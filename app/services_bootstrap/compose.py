@@ -1660,7 +1660,6 @@ async def compose_services(
 
         # Create advanced services
         advanced = _create_advanced_services(driver, cross_domain_backend=cross_domain_backend)
-        await advanced["performance_optimization"].initialize()
         logger.info("✅ Advanced services created")
 
         from core.orchestrator.calendar_optimization_orchestrator import (
@@ -1834,8 +1833,6 @@ async def compose_services(
             lateral_orchestrator=lateral_orchestrator,
             calendar_optimization_orchestrator=calendar_optimization_orchestrator,
             today_orchestrator=today_orchestrator,
-            # Advanced
-            performance_optimization=advanced["performance_optimization"],
             # Journal domain — DNWF three-stage workflow (FULL tier only)
             journal=journal_service,
             journal_batch=journal_batch_service,

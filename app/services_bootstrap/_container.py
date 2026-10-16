@@ -46,7 +46,6 @@ if TYPE_CHECKING:
     from core.services.lp_service import LpService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
-    from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.prereq_suggestion_service import PrereqSuggestionService
     from core.services.principles_service import PrinciplesService
     from core.services.ps_engagement import PsEngagementService
@@ -309,9 +308,6 @@ class Services:
     lateral_orchestrator: LateralRelationshipsOrchestrator | None = None
     calendar_optimization_orchestrator: CalendarOptimizationOrchestrator | None = None
     today_orchestrator: TodayOrchestrator | None = None
-
-    # Advanced services
-    performance_optimization: PerformanceOptimizationService | None = None
 
     # Infrastructure - Neo4j driver and query executor
     neo4j_driver: AsyncDriver | None = None
