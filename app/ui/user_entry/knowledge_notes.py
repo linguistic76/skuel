@@ -116,7 +116,7 @@ def EntryKnowledgeChips(entry_uid: str, chips: list[KnowledgeChip] | None) -> An
 
 
 def _entry_row(row: KnowledgeEntryGroundingRow) -> Any:
-    """One knowledge entry: title, date, and its grounded-Ku chips."""
+    """One knowledge entry: title, date, and its knowledge chips."""
     uid = row["uid"]
     title = row["title"] or "Untitled"
     created_str = format_date(row["created_at"])

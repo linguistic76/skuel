@@ -651,12 +651,12 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         user_uid: UserUID,
         limit: int = 500,
     ) -> Result[list[KnowledgeEntryGroundingRow]]:
-        """Knowledge-pipeline entries with their grounded-Ku chips.
+        """Knowledge-pipeline entries with their knowledge chips.
 
         The read behind the knowledge-notes surface — the user reviews (and
         prunes) what SKUEL inferred about their notes; grounding edges are
         eager writes, the user is editor, not approver (ruling 2026-07-11).
-        Each row carries a confidence-ordered ``grounded_kus`` list.
+        Each row carries its confidence-ordered ``chips``.
 
         Backend: _UserEntryContentMixin.get_knowledge_entries_with_grounding.
         """

@@ -144,7 +144,7 @@ class UserEntryOrchestrator:
     async def list_knowledge_entries_with_grounding(
         self, user_uid: UserUID, limit: int = 500
     ) -> Result[list[KnowledgeEntryGroundingRow]]:
-        """Knowledge-pipeline entries + their grounded-Ku chips (newest first)."""
+        """Knowledge-pipeline entries + their knowledge chips (newest first)."""
         return await self._entries.list_knowledge_entries_with_grounding(user_uid, limit)
 
     async def get_entry_organized_children(self, uid: str) -> Result[list[OrganizerResult]]:
