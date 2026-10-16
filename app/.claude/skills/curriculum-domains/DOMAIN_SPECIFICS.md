@@ -115,8 +115,8 @@ await ps_service.semantic.get_semantic_neighborhood(ps_uid)
 
 **Key Methods:**
 ```python
-# Ku has no CRUD API; the service mints generated Kus (EXTRACT_ACTIVITIES)
-await ku_service.create_ku(title="Python basics", aliases=["py-basics"])
+# Ku is authored in the content vault only (ADR-091 S8); the service creates none
+await ku_service.get_ku(ku_uid)
 await ku_service.search.search(query)
 
 # Learning state is Ku-native (KuBackend) — Ku never depends on PsService

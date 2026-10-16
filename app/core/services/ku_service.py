@@ -100,27 +100,8 @@ class KuService:
         logger.debug("KuService facade initialized with 4 sub-services via factory")
 
     # =========================================================================
-    # CRUD (delegated to core)
+    # Reads (delegated to core)
     # =========================================================================
-
-    async def create_ku(
-        self,
-        title: str,
-        aliases: list[str] | None = None,
-        description: str | None = None,
-        summary: str | None = None,
-        domain: str | None = None,
-        tags: list[str] | None = None,
-    ) -> Result[Ku | None]:
-        """Create a new atomic Knowledge Unit."""
-        return await self.core.create_ku(
-            title=title,
-            aliases=aliases,
-            description=description,
-            summary=summary,
-            domain=domain,
-            tags=tags,
-        )
 
     async def get_ku(self, uid: str) -> Result[Ku | None]:
         """Get a Knowledge Unit by UID."""

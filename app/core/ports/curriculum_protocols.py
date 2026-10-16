@@ -1888,8 +1888,8 @@ class PrereqSuggestionBackendOperations(Protocol):
     Backend contract for the prerequisite-edge suggestion read side.
 
     Read-only: candidate generation computes pairwise cosine in Python over
-    stored Ku embeddings — this feature never writes to the graph (the only
-    write is the Edge YAML file the admin approves into the content vault).
+    stored Ku embeddings — this feature writes nothing (the admin copies the
+    ready Edge YAML file into the content vault).
 
     Backend: adapters/persistence/neo4j/prereq_candidate_backend.py
     """
@@ -1900,10 +1900,6 @@ class PrereqSuggestionBackendOperations(Protocol):
 
     async def get_ku_ku_edges(self) -> Result[list[KuEdgeRow]]:
         """All directed Ku→Ku relationships of any type (for pair exclusion)."""
-        ...
-
-    async def get_ku_titles(self, uids: list[str]) -> Result[dict[str, str]]:
-        """Titles of the given Ku uids — doubles as the approve-time existence check."""
         ...
 
 

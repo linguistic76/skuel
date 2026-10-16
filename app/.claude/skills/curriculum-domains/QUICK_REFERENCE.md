@@ -106,7 +106,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 
 | Domain | Format (authored = stored) | Example |
 |--------|--------|---------|
-| KU | `ku.{ns}.{slug}` authored; `ku_{slug}_{random}` API-generated | `ku.sel.empathy`, `ku_meditation-basics_x9y8z7w6` |
+| KU | `ku.{ns}.{slug}` authored; `ku_{slug}_{random}` generated (nothing mints it now) | `ku.sel.empathy`, `ku_meditation-basics_x9y8z7w6` |
 | PS | `ps.{namespace}.{slug}` | `ps.core.meditation-basics` |
 | LP | `lp.{namespace}.{slug}` | `lp.core.intro-mindfulness` |
 
@@ -235,7 +235,7 @@ ps_service.mastery.mark_mastered(user_uid, ku_uid, mastery_score, method="report
 # ps_service.progress is event-driven (handle_knowledge_mastered) — nothing to call
 
 # KU — 4 sub-services
-ku_service.core.create_ku(...)
+ku_service.core.get_ku(ku_uid)
 ku_service.search.search(...)
 ku_service.intelligence.get_usage_summary(ku_uid)
 

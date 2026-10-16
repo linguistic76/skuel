@@ -208,7 +208,6 @@ async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
     processor = UserEntryProcessingService(
         entry_service=user_entry_service,
         activity_extractor=ActivityExtractorService(tasks_service=tasks_service),
-        user_service=user_service,
     )
     ingestion = make_unified_ingestion_service(
         driver=neo4j_driver,

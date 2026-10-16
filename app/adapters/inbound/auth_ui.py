@@ -247,13 +247,13 @@ def create_auth_ui_routes(
                 user_uid=session_data["user_uid"],
                 session_token=session_data["session_token"],
                 is_admin=user.can_manage_users(),
-                is_teacher=user.can_create_curriculum(),
+                is_teacher=user.is_teacher(),
             )
 
             is_admin = user.can_manage_users()
             logger.info(
                 f"User registered and logged in: {reg.username} "
-                f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
+                f"(admin={is_admin}, teacher={user.is_teacher()})"
             )
             return RedirectResponse("/today", status_code=303)
 
@@ -359,13 +359,13 @@ def create_auth_ui_routes(
                 user_uid=session_data["user_uid"],
                 session_token=session_data["session_token"],
                 is_admin=user.can_manage_users(),
-                is_teacher=user.can_create_curriculum(),
+                is_teacher=user.is_teacher(),
             )
 
             is_admin = user.can_manage_users()
             logger.info(
                 f"User logged in: {email} ({session_data['user_uid']}) "
-                f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
+                f"(admin={is_admin}, teacher={user.is_teacher()})"
             )
             return RedirectResponse("/today", status_code=303)
 

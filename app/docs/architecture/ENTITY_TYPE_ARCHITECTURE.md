@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-10-13
+updated: 2026-10-16
 status: current
 category: architecture
 version: 8.1.0
@@ -513,6 +513,10 @@ The Activity DSL enables natural language parsing into entity types:
 - [ ] Master async programming   @context(lp)        @link(goal:goal.python.expert)
 - [ ] Embody wisdom and service  @context(lifepath)  @link(principle:principle.sel.service)
 ```
+
+The `ku` / `ps` / `lp` lines parse, but extraction creates nothing from them: curriculum is
+authored in the content vault (ADR-091 S8), and each is reported in the run's
+`creation_errors`. An `@ku(uid)` reference on any line still links the entry to that Ku.
 
 **Processing pipeline (staged — PLANNED tier; wiring retired with the journal pipeline, ADR-054):**
 ```

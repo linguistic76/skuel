@@ -4,21 +4,23 @@ LateralRouteFactory - Unified API Routes for Lateral Relationships
 
 Provides HTMX-friendly endpoints for lateral relationships across all domains.
 
-Generic endpoints work for all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP):
-- POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
+Read endpoints for all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP):
 - GET /api/{domain}/{uid}/lateral/blocking - Get relationships that block this entity
 - GET /api/{domain}/{uid}/lateral/blocked - Get relationships blocked by this entity
-- POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite relationship
 - GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisite relationships
-- POST /api/{domain}/{uid}/lateral/alternatives - Create alternative relationship
 - GET /api/{domain}/{uid}/lateral/alternatives - Get alternative relationships
-- POST /api/{domain}/{uid}/lateral/complementary - Create complementary relationship
 - GET /api/{domain}/{uid}/lateral/complementary - Get complementary relationships
 - GET /api/{domain}/{uid}/lateral/siblings - Get sibling relationships (derived from hierarchy)
-- DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid} - Delete relationship
 - GET /api/{domain}/{uid}/lateral/chain - Blocking chain (HTML fragment)
 - GET /api/{domain}/{uid}/lateral/alternatives/compare - Alternatives grid (HTML fragment)
 - GET /api/{domain}/{uid}/lateral/graph - Relationship graph (Vis.js format)
+
+Write endpoints for the 6 Activity Domains only (each endpoint ownership-verified):
+- POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
+- POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite relationship
+- POST /api/{domain}/{uid}/lateral/alternatives - Create alternative relationship
+- POST /api/{domain}/{uid}/lateral/complementary - Create complementary relationship
+- DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid} - Delete relationship
 - GET /api/{domain}/{uid}/lateral/manage - Deletable edge list (HTML fragment)
 
 Domain-specific routes can be added separately for unique relationship types:
@@ -35,15 +37,13 @@ Usage:
     )
     factory.register_routes(app, rt)
 
-A curriculum domain (ku / ps / lp) passes ``domain_service=None`` and must pass
-``require_role`` with a ``user_service_getter``: the role gates its five write
-routes (the four creates and the DELETE); its reads stay open to every user, on
-an anchor the service holds to curriculum.
+A curriculum domain (ku / ps / lp) passes ``domain_service=None`` and gets the
+reads only, on an anchor the service holds to curriculum. Its edges are authored
+in the content vault (ADR-091 S8).
 
 See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 from fasthtml.common import FT
@@ -53,12 +53,10 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import (
-    check_required_role,
     parse_float_param_strict,
     parse_int_param_strict,
 )
 from core.constants import GraphDepth
-from core.models.enums import UserRole
 from core.models.enums.activity_enums import Priority
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties
@@ -200,112 +198,44 @@ class LateralRouteFactory:
         domain: str,  # "goals", "tasks", "habits", etc.
         lateral_service: LateralRelationshipOperations,
         entity_name: str,  # "Goal", "Task", "Habit", etc.
-        domain_service: OwnershipVerifier | None = None,  # None = shared/curriculum
-        require_role: UserRole | None = None,  # gates the write routes only
-        user_service_getter: Callable[[], Any] | None = None,
+        domain_service: OwnershipVerifier | None = None,  # None = curriculum, reads only
     ) -> None:
-        # A write with no ownership verifier touches shared content, so it is
-        # gated by role instead — never by nothing.
-        if domain_service is None and require_role is None:
-            raise ValueError(
-                f"LateralRouteFactory({domain!r}): a domain with no domain_service "
-                "must set require_role for its write routes"
-            )
-        if require_role is not None and user_service_getter is None:
-            raise ValueError("user_service_getter is required when require_role is set")
         self.domain = domain
         self.lateral_service = lateral_service
         self.entity_name = entity_name
         self.domain_service = domain_service
-        self.require_role = require_role
-        self.user_service_getter = user_service_getter
-
-    async def _check_write_role(self, request: Request) -> Result[None]:
-        """The factory's role gate for a write route; ok when no role is set."""
-        return await check_required_role(
-            request, self.require_role, self.user_service_getter, self.domain
-        )
 
     def register_routes(self, _app, rt) -> None:
-        """Register all lateral relationship routes for this domain."""
+        """Register this domain's lateral routes.
+
+        Every domain gets the reads. Only a domain with an ownership verifier
+        gets the writes and the manage list: a write joins two entities the
+        caller owns, and curriculum has no owner (its edges are authored in the
+        content vault, ADR-091 S8).
+        """
         self._create_blocking_routes(rt)
         self._create_prerequisite_routes(rt)
         self._create_alternative_routes(rt)
         self._create_complementary_routes(rt)
         self._create_sibling_route(rt)
-        self._create_delete_route(rt)
         # Enhanced UX routes
         self._create_chain_route(rt)
         self._create_comparison_route(rt)
         self._create_graph_route(rt)
+
+        verifier = self.domain_service
+        if verifier is None:
+            return
+        self._create_blocking_write_route(rt, verifier)
+        self._create_prerequisite_write_route(rt, verifier)
+        self._create_alternative_write_route(rt, verifier)
+        self._create_complementary_write_route(rt, verifier)
+        self._create_delete_route(rt, verifier)
         # Authoring: flat, deletable edit list
-        self._create_manage_route(rt)
+        self._create_manage_route(rt, verifier)
 
     def _create_blocking_routes(self, rt) -> None:
         """Create BLOCKS relationship routes."""
-
-        # POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
-        @rt(f"/api/{self.domain}/{{uid}}/lateral/blocks", methods=["POST"])
-        @csrf_protected
-        @boundary_handler(success_status=201)
-        async def create_blocking(
-            request: Request,
-            uid: str,
-            target_uid: str,
-            reason: str,
-            severity: str = "required",
-            confidence: str | float | None = None,
-            priority: str = "medium",
-        ) -> Result[BlockingCreatedPayload]:
-            """
-            Create BLOCKS relationship.
-
-            Args:
-                uid: Blocker entity UID
-                target_uid: Blocked entity UID
-                reason: Why blocker must complete first
-                severity: "required", "recommended", or "suggested"
-                confidence: Certainty of this constraint (0.0-1.0; default 1.0 — hard constraints are explicit; anything else is refused)
-                priority: Relative importance of this relationship (low/medium/high)
-            """
-            role_check = await self._check_write_role(request)
-            if role_check.is_error:
-                return Result.fail(role_check)
-            user_uid = require_authenticated_user(request)
-            edge_priority = _lateral_priority(priority)
-            if edge_priority.is_error:
-                return Result.fail(edge_priority)
-            confidence_score = parse_edge_score(confidence, "confidence", 1.0)
-            if confidence_score.is_error:
-                return Result.fail(confidence_score)
-
-            result = await self.lateral_service.create_lateral_relationship(
-                source_uid=uid,
-                target_uid=target_uid,
-                relationship_type=RelationshipName.BLOCKS,
-                metadata={
-                    "reason": reason,
-                    "severity": severity,
-                    "confidence": confidence_score.value,
-                    "priority": edge_priority.value,
-                    "domain": self.domain,
-                    "created_by": user_uid,
-                },
-                user_uid=user_uid,
-                domain_service=self.domain_service,
-            )
-
-            if result.is_error:
-                return Result.fail(result)
-
-            return Result.ok(
-                {
-                    "message": f"{self.entity_name} blocking relationship created",
-                    "blocker_uid": uid,
-                    "blocked_uid": target_uid,
-                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
-                }
-            )
 
         # GET /api/{domain}/{uid}/lateral/blocking - Get entities that block this one
         @rt(f"/api/{self.domain}/{{uid}}/lateral/blocking", methods=["GET"])
@@ -360,74 +290,6 @@ class LateralRouteFactory:
     def _create_prerequisite_routes(self, rt) -> None:
         """Create PREREQUISITE_FOR relationship routes."""
 
-        # POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite relationship
-        @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["POST"])
-        @csrf_protected
-        @boundary_handler(success_status=201)
-        async def create_prerequisite(
-            request: Request,
-            uid: str,
-            target_uid: str,
-            strength: str | float | None = None,
-            reasoning: str | None = None,
-            confidence: str | float | None = None,
-            priority: str = "medium",
-        ) -> Result[PrerequisiteCreatedPayload]:
-            """
-            Create PREREQUISITE_FOR relationship.
-
-            Args:
-                uid: Prerequisite entity UID
-                target_uid: Dependent entity UID
-                strength: How essential prerequisite is (0.0-1.0; default 0.8)
-                reasoning: Optional explanation
-                confidence: Certainty of this prerequisite (0.0-1.0; default 1.0 — asserting a hard requirement)
-
-            A score that is not a number in 0.0-1.0 is refused (400), nothing written.
-                priority: Relative importance of this relationship (low/medium/high)
-            """
-            role_check = await self._check_write_role(request)
-            if role_check.is_error:
-                return Result.fail(role_check)
-            user_uid = require_authenticated_user(request)
-            edge_priority = _lateral_priority(priority)
-            if edge_priority.is_error:
-                return Result.fail(edge_priority)
-            strength_score = parse_edge_score(strength, "strength", 0.8)
-            if strength_score.is_error:
-                return Result.fail(strength_score)
-            confidence_score = parse_edge_score(confidence, "confidence", 1.0)
-            if confidence_score.is_error:
-                return Result.fail(confidence_score)
-
-            result = await self.lateral_service.create_lateral_relationship(
-                source_uid=uid,
-                target_uid=target_uid,
-                relationship_type=RelationshipName.PREREQUISITE_FOR,
-                metadata={
-                    "strength": strength_score.value,
-                    "reasoning": reasoning,
-                    "confidence": confidence_score.value,
-                    "priority": edge_priority.value,
-                    "domain": self.domain,
-                    "created_by": user_uid,
-                },
-                user_uid=user_uid,
-                domain_service=self.domain_service,
-            )
-
-            if result.is_error:
-                return Result.fail(result)
-
-            return Result.ok(
-                {
-                    "message": f"{self.entity_name} prerequisite relationship created",
-                    "prerequisite_uid": uid,
-                    "dependent_uid": target_uid,
-                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
-                }
-            )
-
         # GET /api/{domain}/{uid}/lateral/prerequisites - Get prerequisite entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["GET"])
         @boundary_handler()
@@ -459,94 +321,6 @@ class LateralRouteFactory:
     def _create_alternative_routes(self, rt) -> None:
         """Create ALTERNATIVE_TO relationship routes."""
 
-        # POST /api/{domain}/{uid}/lateral/alternatives - Create alternative relationship
-        @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["POST"])
-        @csrf_protected
-        @boundary_handler(success_status=201)
-        async def create_alternative(
-            request: Request,
-            uid: str,
-            target_uid: str,
-            comparison_criteria: str,
-            tradeoffs: list[str] | None = None,
-            confidence: str | float | None = None,
-            priority: str = "medium",
-            timeframe: str = "",
-            difficulty: str = "",
-            resources: str = "",
-        ) -> Result[PairCreatedPayload]:
-            """
-            Create ALTERNATIVE_TO relationship.
-
-            ``timeframe`` / ``difficulty`` / ``resources`` are the comparison
-            axis the alternatives grid renders as criteria rows — free text,
-            compared side by side rather than parsed. They describe
-            ``target_uid``, the alternative being added.
-
-            A blank criterion is sent as ``None`` rather than omitted. The
-            backend upserts with ``MERGE`` + ``SET r += $metadata``, so an
-            omitted key would leave a previously authored value in place when
-            the same pair is submitted again; a null removes the property, and
-            the grid returns to "N/A".
-
-            Args:
-                uid: First entity UID
-                target_uid: Alternative entity UID
-                comparison_criteria: How to compare alternatives
-                tradeoffs: Optional list of tradeoffs
-                confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion; anything else is refused)
-                priority: Relative importance of this relationship (low/medium/high)
-                timeframe: How long this alternative takes (e.g. "about 18 months")
-                difficulty: How hard it is (e.g. "steep at first")
-                resources: What it costs to pursue (e.g. "one mentor plus a rowing machine")
-            """
-            role_check = await self._check_write_role(request)
-            if role_check.is_error:
-                return Result.fail(role_check)
-            user_uid = require_authenticated_user(request)
-            edge_priority = _lateral_priority(priority)
-            if edge_priority.is_error:
-                return Result.fail(edge_priority)
-            confidence_score = parse_edge_score(confidence, "confidence", 0.8)
-            if confidence_score.is_error:
-                return Result.fail(confidence_score)
-
-            tradeoffs_widened: list[str | int | float] = list(tradeoffs) if tradeoffs else []
-            metadata: Neo4jProperties = {
-                "comparison_criteria": comparison_criteria,
-                "tradeoffs": tradeoffs_widened,
-                "confidence": confidence_score.value,
-                "priority": edge_priority.value,
-                "domain": self.domain,
-                "created_by": user_uid,
-            }
-            for criterion, value in (
-                ("timeframe", timeframe),
-                ("difficulty", difficulty),
-                ("resources", resources),
-            ):
-                metadata[criterion] = value or None
-            result = await self.lateral_service.create_lateral_relationship(
-                source_uid=uid,
-                target_uid=target_uid,
-                relationship_type=RelationshipName.ALTERNATIVE_TO,
-                metadata=metadata,
-                user_uid=user_uid,
-                domain_service=self.domain_service,
-            )
-
-            if result.is_error:
-                return Result.fail(result)
-
-            return Result.ok(
-                {
-                    "message": f"{self.entity_name} alternative relationship created",
-                    "entity_a_uid": uid,
-                    "entity_b_uid": target_uid,
-                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
-                }
-            )
-
         # GET /api/{domain}/{uid}/lateral/alternatives - Get alternative entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["GET"])
         @boundary_handler()
@@ -574,74 +348,6 @@ class LateralRouteFactory:
 
     def _create_complementary_routes(self, rt) -> None:
         """Create COMPLEMENTARY_TO relationship routes."""
-
-        # POST /api/{domain}/{uid}/lateral/complementary - Create complementary relationship
-        @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["POST"])
-        @csrf_protected
-        @boundary_handler(success_status=201)
-        async def create_complementary(
-            request: Request,
-            uid: str,
-            target_uid: str,
-            synergy_description: str,
-            synergy_score: str | float | None = None,
-            confidence: str | float | None = None,
-            priority: str = "medium",
-        ) -> Result[PairCreatedPayload]:
-            """
-            Create COMPLEMENTARY_TO relationship.
-
-            Args:
-                uid: First entity UID
-                target_uid: Complementary entity UID
-                synergy_description: How entities complement each other
-                synergy_score: Strength of synergy (0.0-1.0; default 0.7)
-                confidence: Certainty of this synergy (0.0-1.0; default 0.8 — softer assertion)
-
-            A score that is not a number in 0.0-1.0 is refused (400), nothing written.
-                priority: Relative importance of this relationship (low/medium/high)
-            """
-            role_check = await self._check_write_role(request)
-            if role_check.is_error:
-                return Result.fail(role_check)
-            user_uid = require_authenticated_user(request)
-            edge_priority = _lateral_priority(priority)
-            if edge_priority.is_error:
-                return Result.fail(edge_priority)
-            synergy = parse_edge_score(synergy_score, "synergy_score", 0.7)
-            if synergy.is_error:
-                return Result.fail(synergy)
-            confidence_score = parse_edge_score(confidence, "confidence", 0.8)
-            if confidence_score.is_error:
-                return Result.fail(confidence_score)
-
-            result = await self.lateral_service.create_lateral_relationship(
-                source_uid=uid,
-                target_uid=target_uid,
-                relationship_type=RelationshipName.COMPLEMENTARY_TO,
-                metadata={
-                    "synergy_description": synergy_description,
-                    "synergy_score": synergy.value,
-                    "confidence": confidence_score.value,
-                    "priority": edge_priority.value,
-                    "domain": self.domain,
-                    "created_by": user_uid,
-                },
-                user_uid=user_uid,
-                domain_service=self.domain_service,
-            )
-
-            if result.is_error:
-                return Result.fail(result)
-
-            return Result.ok(
-                {
-                    "message": f"{self.entity_name} complementary relationship created",
-                    "entity_a_uid": uid,
-                    "entity_b_uid": target_uid,
-                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
-                }
-            )
 
         # GET /api/{domain}/{uid}/lateral/complementary - Get complementary entities
         @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["GET"])
@@ -694,7 +400,294 @@ class LateralRouteFactory:
                 }
             )
 
-    def _create_delete_route(self, rt) -> None:
+    def _create_blocking_write_route(self, rt, verifier: OwnershipVerifier) -> None:
+        """Create the blocking write route (an owned domain only)."""
+
+        # POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/blocks", methods=["POST"])
+        @csrf_protected
+        @boundary_handler(success_status=201)
+        async def create_blocking(
+            request: Request,
+            uid: str,
+            target_uid: str,
+            reason: str,
+            severity: str = "required",
+            confidence: str | float | None = None,
+            priority: str = "medium",
+        ) -> Result[BlockingCreatedPayload]:
+            """
+            Create BLOCKS relationship.
+
+            Args:
+                uid: Blocker entity UID
+                target_uid: Blocked entity UID
+                reason: Why blocker must complete first
+                severity: "required", "recommended", or "suggested"
+                confidence: Certainty of this constraint (0.0-1.0; default 1.0 — hard constraints are explicit; anything else is refused)
+                priority: Relative importance of this relationship (low/medium/high)
+            """
+            user_uid = require_authenticated_user(request)
+            edge_priority = _lateral_priority(priority)
+            if edge_priority.is_error:
+                return Result.fail(edge_priority)
+            confidence_score = parse_edge_score(confidence, "confidence", 1.0)
+            if confidence_score.is_error:
+                return Result.fail(confidence_score)
+
+            result = await self.lateral_service.create_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=RelationshipName.BLOCKS,
+                metadata={
+                    "reason": reason,
+                    "severity": severity,
+                    "confidence": confidence_score.value,
+                    "priority": edge_priority.value,
+                    "domain": self.domain,
+                    "created_by": user_uid,
+                },
+                user_uid=user_uid,
+                domain_service=verifier,
+            )
+
+            if result.is_error:
+                return Result.fail(result)
+
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} blocking relationship created",
+                    "blocker_uid": uid,
+                    "blocked_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
+                }
+            )
+
+    def _create_prerequisite_write_route(self, rt, verifier: OwnershipVerifier) -> None:
+        """Create the prerequisite write route (an owned domain only)."""
+
+        # POST /api/{domain}/{uid}/lateral/prerequisites - Create prerequisite relationship
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/prerequisites", methods=["POST"])
+        @csrf_protected
+        @boundary_handler(success_status=201)
+        async def create_prerequisite(
+            request: Request,
+            uid: str,
+            target_uid: str,
+            strength: str | float | None = None,
+            reasoning: str | None = None,
+            confidence: str | float | None = None,
+            priority: str = "medium",
+        ) -> Result[PrerequisiteCreatedPayload]:
+            """
+            Create PREREQUISITE_FOR relationship.
+
+            Args:
+                uid: Prerequisite entity UID
+                target_uid: Dependent entity UID
+                strength: How essential prerequisite is (0.0-1.0; default 0.8)
+                reasoning: Optional explanation
+                confidence: Certainty of this prerequisite (0.0-1.0; default 1.0 — asserting a hard requirement)
+
+            A score that is not a number in 0.0-1.0 is refused (400), nothing written.
+                priority: Relative importance of this relationship (low/medium/high)
+            """
+            user_uid = require_authenticated_user(request)
+            edge_priority = _lateral_priority(priority)
+            if edge_priority.is_error:
+                return Result.fail(edge_priority)
+            strength_score = parse_edge_score(strength, "strength", 0.8)
+            if strength_score.is_error:
+                return Result.fail(strength_score)
+            confidence_score = parse_edge_score(confidence, "confidence", 1.0)
+            if confidence_score.is_error:
+                return Result.fail(confidence_score)
+
+            result = await self.lateral_service.create_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=RelationshipName.PREREQUISITE_FOR,
+                metadata={
+                    "strength": strength_score.value,
+                    "reasoning": reasoning,
+                    "confidence": confidence_score.value,
+                    "priority": edge_priority.value,
+                    "domain": self.domain,
+                    "created_by": user_uid,
+                },
+                user_uid=user_uid,
+                domain_service=verifier,
+            )
+
+            if result.is_error:
+                return Result.fail(result)
+
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} prerequisite relationship created",
+                    "prerequisite_uid": uid,
+                    "dependent_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
+                }
+            )
+
+    def _create_alternative_write_route(self, rt, verifier: OwnershipVerifier) -> None:
+        """Create the alternative write route (an owned domain only)."""
+
+        # POST /api/{domain}/{uid}/lateral/alternatives - Create alternative relationship
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/alternatives", methods=["POST"])
+        @csrf_protected
+        @boundary_handler(success_status=201)
+        async def create_alternative(
+            request: Request,
+            uid: str,
+            target_uid: str,
+            comparison_criteria: str,
+            tradeoffs: list[str] | None = None,
+            confidence: str | float | None = None,
+            priority: str = "medium",
+            timeframe: str = "",
+            difficulty: str = "",
+            resources: str = "",
+        ) -> Result[PairCreatedPayload]:
+            """
+            Create ALTERNATIVE_TO relationship.
+
+            ``timeframe`` / ``difficulty`` / ``resources`` are the comparison
+            axis the alternatives grid renders as criteria rows — free text,
+            compared side by side rather than parsed. They describe
+            ``target_uid``, the alternative being added.
+
+            A blank criterion is sent as ``None`` rather than omitted. The
+            backend upserts with ``MERGE`` + ``SET r += $metadata``, so an
+            omitted key would leave a previously authored value in place when
+            the same pair is submitted again; a null removes the property, and
+            the grid returns to "N/A".
+
+            Args:
+                uid: First entity UID
+                target_uid: Alternative entity UID
+                comparison_criteria: How to compare alternatives
+                tradeoffs: Optional list of tradeoffs
+                confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion; anything else is refused)
+                priority: Relative importance of this relationship (low/medium/high)
+                timeframe: How long this alternative takes (e.g. "about 18 months")
+                difficulty: How hard it is (e.g. "steep at first")
+                resources: What it costs to pursue (e.g. "one mentor plus a rowing machine")
+            """
+            user_uid = require_authenticated_user(request)
+            edge_priority = _lateral_priority(priority)
+            if edge_priority.is_error:
+                return Result.fail(edge_priority)
+            confidence_score = parse_edge_score(confidence, "confidence", 0.8)
+            if confidence_score.is_error:
+                return Result.fail(confidence_score)
+
+            tradeoffs_widened: list[str | int | float] = list(tradeoffs) if tradeoffs else []
+            metadata: Neo4jProperties = {
+                "comparison_criteria": comparison_criteria,
+                "tradeoffs": tradeoffs_widened,
+                "confidence": confidence_score.value,
+                "priority": edge_priority.value,
+                "domain": self.domain,
+                "created_by": user_uid,
+            }
+            for criterion, value in (
+                ("timeframe", timeframe),
+                ("difficulty", difficulty),
+                ("resources", resources),
+            ):
+                metadata[criterion] = value or None
+            result = await self.lateral_service.create_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=RelationshipName.ALTERNATIVE_TO,
+                metadata=metadata,
+                user_uid=user_uid,
+                domain_service=verifier,
+            )
+
+            if result.is_error:
+                return Result.fail(result)
+
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} alternative relationship created",
+                    "entity_a_uid": uid,
+                    "entity_b_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
+                }
+            )
+
+    def _create_complementary_write_route(self, rt, verifier: OwnershipVerifier) -> None:
+        """Create the complementary write route (an owned domain only)."""
+
+        # POST /api/{domain}/{uid}/lateral/complementary - Create complementary relationship
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/complementary", methods=["POST"])
+        @csrf_protected
+        @boundary_handler(success_status=201)
+        async def create_complementary(
+            request: Request,
+            uid: str,
+            target_uid: str,
+            synergy_description: str,
+            synergy_score: str | float | None = None,
+            confidence: str | float | None = None,
+            priority: str = "medium",
+        ) -> Result[PairCreatedPayload]:
+            """
+            Create COMPLEMENTARY_TO relationship.
+
+            Args:
+                uid: First entity UID
+                target_uid: Complementary entity UID
+                synergy_description: How entities complement each other
+                synergy_score: Strength of synergy (0.0-1.0; default 0.7)
+                confidence: Certainty of this synergy (0.0-1.0; default 0.8 — softer assertion)
+
+            A score that is not a number in 0.0-1.0 is refused (400), nothing written.
+                priority: Relative importance of this relationship (low/medium/high)
+            """
+            user_uid = require_authenticated_user(request)
+            edge_priority = _lateral_priority(priority)
+            if edge_priority.is_error:
+                return Result.fail(edge_priority)
+            synergy = parse_edge_score(synergy_score, "synergy_score", 0.7)
+            if synergy.is_error:
+                return Result.fail(synergy)
+            confidence_score = parse_edge_score(confidence, "confidence", 0.8)
+            if confidence_score.is_error:
+                return Result.fail(confidence_score)
+
+            result = await self.lateral_service.create_lateral_relationship(
+                source_uid=uid,
+                target_uid=target_uid,
+                relationship_type=RelationshipName.COMPLEMENTARY_TO,
+                metadata={
+                    "synergy_description": synergy_description,
+                    "synergy_score": synergy.value,
+                    "confidence": confidence_score.value,
+                    "priority": edge_priority.value,
+                    "domain": self.domain,
+                    "created_by": user_uid,
+                },
+                user_uid=user_uid,
+                domain_service=verifier,
+            )
+
+            if result.is_error:
+                return Result.fail(result)
+
+            return Result.ok(
+                {
+                    "message": f"{self.entity_name} complementary relationship created",
+                    "entity_a_uid": uid,
+                    "entity_b_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
+                }
+            )
+
+    def _create_delete_route(self, rt, verifier: OwnershipVerifier) -> None:
         """Create route to delete lateral relationships."""
 
         # DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid} - Delete relationship
@@ -718,9 +711,6 @@ class LateralRouteFactory:
                 relationship_type: Type (blocks, prerequisites, alternatives, complementary)
                 target_uid: Target entity UID
             """
-            role_check = await self._check_write_role(request)
-            if role_check.is_error:
-                return Result.fail(role_check)
             user_uid = require_authenticated_user(request)
 
             # Map route type to RelationshipName
@@ -742,7 +732,7 @@ class LateralRouteFactory:
                 target_uid=target_uid,
                 relationship_type=rel_name,
                 user_uid=user_uid,
-                domain_service=self.domain_service,
+                domain_service=verifier,
             )
 
             if result.is_error:
@@ -902,7 +892,7 @@ class LateralRouteFactory:
             # Return Vis.js format directly (includes nodes and edges)
             return Result.ok(result.value)
 
-    def _create_manage_route(self, rt) -> None:
+    def _create_manage_route(self, rt, verifier: OwnershipVerifier) -> None:
         """Create the flat, deletable relationship-management list route (authoring)."""
 
         # GET /api/{domain}/{uid}/lateral/manage - Flat list of direct lateral edges
@@ -922,7 +912,7 @@ class LateralRouteFactory:
                 relationship_types=list(MANAGEABLE_TYPES),
                 direction="both",
                 user_uid=user_uid,
-                domain_service=self.domain_service,
+                domain_service=verifier,
             )
 
             if result.is_error:

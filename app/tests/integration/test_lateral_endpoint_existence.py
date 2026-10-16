@@ -7,9 +7,9 @@ missing target — so each count must stand on its own. Real Neo4j, because the
 property lives in the query's row semantics, which a mocked backend would simply
 restate.
 
-The service is called with no ownership verifier — the shared-content path,
-which joins curriculum only — so the fixture is a Ku, and an endpoint of any
-other kind is named exactly as a missing one is.
+Every write carries an ownership verifier. The one here admits the present
+uids, so the existence check is what answers; an endpoint it refuses is named
+exactly as a missing one is.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
 from core.utils.result_simplified import ErrorCategory
+from tests.helpers.lateral_verifiers import CALLER, AdmitsAllBut
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -32,6 +33,7 @@ PRESENT_UID = "ku.existence.present"
 ABSENT_UID = "ku.existence.absent"
 OTHER_ABSENT_UID = "ku.existence.absent-2"
 PRIVATE_UID = "task_existence_private"
+VERIFIER = AdmitsAllBut(PRIVATE_UID)
 
 
 @pytest.fixture
@@ -67,7 +69,11 @@ class TestMissingEndpointIsNamed:
         self, service: LateralRelationshipService
     ) -> None:
         result = await service.create_lateral_relationship(
-            PRESENT_UID, ABSENT_UID, RelationshipName.BLOCKS
+            PRESENT_UID,
+            ABSENT_UID,
+            RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=VERIFIER,
         )
 
         error = result.expect_error()
@@ -79,7 +85,11 @@ class TestMissingEndpointIsNamed:
         self, service: LateralRelationshipService
     ) -> None:
         result = await service.create_lateral_relationship(
-            ABSENT_UID, PRESENT_UID, RelationshipName.BLOCKS
+            ABSENT_UID,
+            PRESENT_UID,
+            RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=VERIFIER,
         )
 
         error = result.expect_error()
@@ -90,24 +100,37 @@ class TestMissingEndpointIsNamed:
         self, service: LateralRelationshipService
     ) -> None:
         result = await service.create_lateral_relationship(
-            ABSENT_UID, OTHER_ABSENT_UID, RelationshipName.BLOCKS
+            ABSENT_UID,
+            OTHER_ABSENT_UID,
+            RelationshipName.BLOCKS,
+            user_uid=CALLER,
+            domain_service=VERIFIER,
         )
 
         error = result.expect_error()
         assert error.details["identifier"] == ABSENT_UID
         assert error.details["reason"] == "source"
 
-    async def test_a_non_curriculum_target_is_named_as_a_missing_one(
+    async def test_an_unowned_target_is_refused_as_a_missing_one(
         self, service: LateralRelationshipService
     ) -> None:
+        refusing = AdmitsAllBut(PRIVATE_UID, ABSENT_UID)
         private = (
             await service.create_lateral_relationship(
-                PRESENT_UID, PRIVATE_UID, RelationshipName.COMPLEMENTARY_TO
+                PRESENT_UID,
+                PRIVATE_UID,
+                RelationshipName.COMPLEMENTARY_TO,
+                user_uid=CALLER,
+                domain_service=refusing,
             )
         ).expect_error()
         missing = (
             await service.create_lateral_relationship(
-                PRESENT_UID, ABSENT_UID, RelationshipName.COMPLEMENTARY_TO
+                PRESENT_UID,
+                ABSENT_UID,
+                RelationshipName.COMPLEMENTARY_TO,
+                user_uid=CALLER,
+                domain_service=refusing,
             )
         ).expect_error()
 
@@ -115,7 +138,7 @@ class TestMissingEndpointIsNamed:
         assert private.message.replace(PRIVATE_UID, "<uid>") == missing.message.replace(
             ABSENT_UID, "<uid>"
         )
-        assert private.details["reason"] == missing.details["reason"] == "target"
+        assert private.details == {**missing.details, "identifier": PRIVATE_UID}
 
 
 @pytest.mark.integration

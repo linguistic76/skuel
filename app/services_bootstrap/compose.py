@@ -1259,10 +1259,10 @@ async def compose_services(
         logger.info("✅ JournalBatchService created (je_in/upload → je_out pipeline)")
 
         # DSL activity extractor (ADR-069 — Pipeline.EXTRACT_ACTIVITIES).
-        # Domain facades are the create surfaces; ps/lp/calendar/lifepath
-        # carry no create-capable method today and finance was retired with
-        # ADR-052, so those inject None (their parsed lines count in *_found
-        # and skip cleanly).
+        # Domain facades are the create surfaces; calendar, lifepath and finance
+        # have no create-capable service (finance: ADR-052), so those inject
+        # None (their parsed lines count in *_found and skip cleanly).
+        # Curriculum lines create nothing (ADR-091 S8).
         from core.services.dsl import ActivityExtractorService
 
         activity_extractor = ActivityExtractorService(
@@ -1273,9 +1273,6 @@ async def compose_services(
             principles_service=activity_services["principles"],
             choices_service=activity_services["choices"],
             finance_service=None,
-            ku_service=learning_services["atomic_ku_service"],
-            ps_service=None,
-            lp_service=None,
             calendar_service=None,
             lifepath_service=None,
         )
@@ -1288,7 +1285,6 @@ async def compose_services(
             event_bus=event_bus,
             activity_extractor=activity_extractor,
             dsl_bridge=dsl_bridge,
-            user_service=user_service,
             goals_service=activity_services["goals"],
         )
 
@@ -1601,17 +1597,15 @@ async def compose_services(
         logger.info("✅ Admin Orchestrator created")
 
         # Prerequisite-edge suggestions (Discovery Analytics PR 4) — read-only
-        # candidate backend + the ONE sanctioned vault-write adapter (approve
-        # writes an Edge YAML into {INGESTION_PATH}/edges/, never the graph).
+        # candidate backend; the queue shows each pair's ready Edge YAML for the
+        # admin to copy into the vault, and writes nothing (ADR-091 N3).
         # Tier-independent construction: llm_service is None on CORE, where the
         # queue degrades to undirected pairs the admin classifies himself.
         from adapters.persistence.neo4j.prereq_candidate_backend import PrereqCandidateBackend
-        from adapters.vault.content_edge_writer import ContentVaultEdgeWriter
         from core.services.prereq_suggestion_service import PrereqSuggestionService
 
         prereq_suggestions = PrereqSuggestionService(
             backend=PrereqCandidateBackend(query_executor),
-            edge_writer=ContentVaultEdgeWriter(config.vault.ingestion_path),
             llm_service=llm_service,
         )
         logger.info("✅ PrereqSuggestionService created (admin edge-suggestion queue)")

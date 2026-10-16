@@ -16,7 +16,8 @@ Neo4j container and asserts the graph contracts:
 - guard 3 (semantic dedup, R3): a bridge that REWORDS its lines every run —
   the live LLM behavior that caused G8's duplicates — merges into the
   existing entity instead of duplicating,
-- non-teacher ``@context(ku)`` creation lines are gated into creation_errors.
+- a ``@context(ku)`` line creates no Ku — curriculum is authored in the content
+  vault (ADR-091 S8) — and the run says so in creation_errors.
 
 Entity creation itself goes through a thin graph-writing stub (the facade
 create paths have their own suites); everything from the extractor outward —
@@ -28,7 +29,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -109,14 +109,6 @@ class _RewordingBridgeStub:
         )
 
 
-def _user_service(can_create_curriculum: bool) -> MagicMock:
-    user = MagicMock()
-    user.can_create_curriculum = MagicMock(return_value=can_create_curriculum)
-    svc = MagicMock()
-    svc.get_user = AsyncMock(return_value=Result.ok(user))
-    return svc
-
-
 async def _seed_ku(driver: Any, uid: str) -> str:
     async with driver.session() as session:
         await session.run(
@@ -163,7 +155,6 @@ class TestExtractActivitiesPipeline:
         dispatcher = UserEntryProcessingService(
             entry_service=user_entry_service,
             activity_extractor=ActivityExtractorService(tasks_service=tasks_stub),
-            user_service=_user_service(can_create_curriculum=False),
         )
 
         result = await dispatcher.process(entry)
@@ -175,12 +166,20 @@ class TestExtractActivitiesPipeline:
         assert isinstance(summary, dict), f"summary missing/unparsed: {summary!r}"
         assert summary["status"] == "completed"
         assert summary["tasks_created"] == 2
-        # Non-teacher @context(ku) creation line gated, not created.
-        assert summary["kus_created"] == 0
-        assert any(
-            "curriculum creation requires teacher/admin role" in e
-            for e in summary["creation_errors"]
-        )
+        # The @context(ku) line creates nothing and says where curriculum is made.
+        assert summary["kus_found"] == 1
+        assert [e for e in summary["creation_errors"] if e.startswith("KU ")] == [
+            "KU 'New concept...': curriculum is authored in the content vault, not from an entry"
+        ]
+        async with neo4j_driver.session() as session:
+            record = await (
+                await session.run(
+                    "MATCH (k:Ku) WHERE k.title = 'New concept' "
+                    "OR (k)-[:EXTRACTED_FROM]->(:UserEntry {uid: $uid}) RETURN count(k) AS n",
+                    uid=entry.uid,
+                )
+            ).single()
+        assert record is not None and record["n"] == 0
 
         # --- EXTRACTED_FROM provenance edges ----------------------------------
         async with neo4j_driver.session() as session:
@@ -228,7 +227,6 @@ class TestExtractActivitiesPipeline:
             activity_extractor=ActivityExtractorService(
                 tasks_service=_GraphTasksStub(neo4j_driver)
             ),
-            user_service=_user_service(can_create_curriculum=False),
         )
         result = await dispatcher.process(entry)
         assert result.is_ok, f"process failed: {result.error}"
@@ -261,7 +259,6 @@ class TestExtractActivitiesPipeline:
         dispatcher = UserEntryProcessingService(
             entry_service=user_entry_service,
             activity_extractor=ActivityExtractorService(tasks_service=tasks_stub),
-            user_service=_user_service(can_create_curriculum=False),
         )
 
         first = await dispatcher.process(entry)
@@ -314,7 +311,6 @@ class TestExtractActivitiesPipeline:
         dispatcher = UserEntryProcessingService(
             entry_service=user_entry_service,
             activity_extractor=ActivityExtractorService(habits_service=habits_stub),
-            user_service=_user_service(can_create_curriculum=False),
             dsl_bridge=bridge_stub,
         )
 

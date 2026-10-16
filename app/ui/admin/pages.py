@@ -501,7 +501,7 @@ def prereq_suggestions_page(judge_available: bool) -> Any:
     return Div(
         PageHeader(
             "Prereq Suggestions",
-            subtitle="Inferred Ku↔Ku edges awaiting review — approve writes Edge YAML",
+            subtitle="Inferred Ku↔Ku edges awaiting review — copy each ready Edge YAML into the vault",
         ),
         AdminPrereqComponents.render_page(judge_available),
     )

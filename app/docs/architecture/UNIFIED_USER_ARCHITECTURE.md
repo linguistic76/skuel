@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-10-10
+updated: 2026-10-16
 status: current
 category: architecture
 tags:
@@ -54,7 +54,7 @@ Username is stored in the inherited `title` field from `BaseEntity`. Use `user.t
 **Role methods:**
 ```python
 user.has_permission(UserRole.TEACHER)  # hierarchy-aware check
-user.can_create_curriculum()           # TEACHER+
+user.is_teacher()                      # TEACHER+
 user.can_manage_users()                # ADMIN only
 user.is_subscriber()                   # MEMBER+ (paid)
 user.is_trial()                        # REGISTERED only

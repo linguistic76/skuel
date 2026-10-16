@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.service_protocols import (
@@ -91,35 +91,40 @@ class LateralRelationshipsOrchestrator:
         metadata: dict[str, Any],
         message: str,
         response_extra: dict[str, Any],
-        domain_service: OwnershipVerifier | None = None,
     ) -> Result[dict[str, Any]]:
-        """Create a domain-specific lateral relationship with optional ownership check.
+        """Create a domain-specific lateral relationship between two owned entities.
+
+        The write is ownership-verified through the domain's service. Only an
+        Activity Domain has one; curriculum lateral edges are authored in the
+        content vault (ADR-091 S8).
 
         Args:
             user_uid: Authenticated user (injected by route before calling).
             uid: Source entity UID.
             target_uid: Target entity UID.
             relationship_type: The RelationshipName to create.
-            domain: Domain slug added to relationship metadata.
+            domain: Activity Domain slug; names the verifier and is added to
+                the relationship metadata.
             metadata: Domain-specific metadata fields.
             message: Human-readable success message.
             response_extra: Additional fields merged into the success response.
-            domain_service: Activity Domain service for ownership verification.
-                None for curriculum domains (shared, no ownership check).
         """
-        full_metadata: dict[str, Any] = {**metadata, "domain": domain}
-        create_kwargs: dict[str, Any] = {
-            "source_uid": uid,
-            "target_uid": target_uid,
-            "relationship_type": relationship_type,
-            "metadata": full_metadata,
-        }
-        if domain_service is not None:
-            full_metadata["created_by"] = user_uid
-            create_kwargs["user_uid"] = user_uid
-            create_kwargs["domain_service"] = domain_service
-
-        result = await self._lateral.create_lateral_relationship(**create_kwargs)
+        verifier = self._domain_services.get(domain)
+        if verifier is None:
+            return Result.fail(
+                Errors.system(
+                    message=f"No ownership verifier for lateral domain {domain!r}",
+                    operation="create_relationship",
+                )
+            )
+        result = await self._lateral.create_lateral_relationship(
+            source_uid=uid,
+            target_uid=target_uid,
+            relationship_type=relationship_type,
+            metadata={**metadata, "domain": domain, "created_by": user_uid},
+            user_uid=user_uid,
+            domain_service=verifier,
+        )
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"message": message, **response_extra})

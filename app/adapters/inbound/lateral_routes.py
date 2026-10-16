@@ -10,12 +10,11 @@ Each domain gets a full set of lateral relationship endpoints via LateralRouteFa
 Domain-specific routes (habit stacking, event conflicts, KU enables) delegate to
 LateralRelationshipsOrchestrator, which holds all required services.
 
-Activity writes are ownership-verified per endpoint. Curriculum writes have no
-owner to verify: they are gated at TEACHER (ADMIN passes through the role
-hierarchy), and the service refuses any endpoint that is not curriculum. Reads
-consult no role: an Activity anchor is ownership-verified; a curriculum anchor
-is open to any authenticated user, and must itself be curriculum — any other uid
-answers as missing.
+Activity writes are ownership-verified per endpoint. Curriculum (ku / ps / lp)
+registers reads only: its lateral edges are authored in the content vault
+(ADR-091 S8). Reads consult no role: an Activity anchor is ownership-verified; a
+curriculum anchor is open to any authenticated user, and must itself be
+curriculum — any other uid answers as missing.
 
 See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
@@ -23,7 +22,6 @@ See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.auth.roles import make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
@@ -31,9 +29,7 @@ from adapters.inbound.route_factories.lateral_route_factory import (
     LateralRouteFactory,
     parse_edge_score,
 )
-from core.models.enums import UserRole
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -41,7 +37,6 @@ if TYPE_CHECKING:
     from core.orchestrator.lateral_relationships_orchestrator import (
         LateralRelationshipsOrchestrator,
     )
-    from core.services.user_service import UserService
 
 logger = get_logger(__name__)
 
@@ -58,9 +53,6 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
     ("lp", "Learning Path", None),
 ]
 
-# Who may write a lateral edge between curriculum entities (ku / ps / lp).
-_CURRICULUM_WRITE_ROLE = UserRole.TEACHER
-
 
 # ============================================================================
 # API Factory
@@ -71,11 +63,8 @@ def create_lateral_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: LateralRelationshipsOrchestrator,
-    user_service: UserService,
 ) -> None:
     """Register lateral relationship routes for all 9 domains."""
-    get_user_service = make_service_getter(user_service)
-
     # Register standard lateral routes for all 9 domains
     for domain, entity_name, service_attr in _LATERAL_DOMAINS:
         domain_service = orchestrator.get_domain_service(service_attr) if service_attr else None
@@ -84,8 +73,6 @@ def create_lateral_api_routes(
             lateral_service=orchestrator.lateral_service,
             entity_name=entity_name,
             domain_service=domain_service,
-            require_role=None if domain_service else _CURRICULUM_WRITE_ROLE,
-            user_service_getter=get_user_service,
         )
         factory.register_routes(app, rt)
 
@@ -129,7 +116,6 @@ def create_lateral_api_routes(
                 "second_habit_uid": target_uid,
                 "trigger": trigger,
             },
-            domain_service=orchestrator.get_domain_service("habits"),
         )
 
     @rt("/api/habits/{uid}/lateral/stack", methods=["GET"])
@@ -173,7 +159,6 @@ def create_lateral_api_routes(
                 "event_b_uid": target_uid,
                 "conflict_type": conflict_type,
             },
-            domain_service=orchestrator.get_domain_service("events"),
         )
 
     @rt("/api/events/{uid}/lateral/conflicts", methods=["GET"])
@@ -217,7 +202,6 @@ def create_lateral_api_routes(
                 "choice_b_uid": target_uid,
                 "conflict_type": conflict_type,
             },
-            domain_service=orchestrator.get_domain_service("choices"),
         )
 
     @rt("/api/choices/{uid}/lateral/conflicts", methods=["GET"])
@@ -266,7 +250,6 @@ def create_lateral_api_routes(
                 "principle_b_uid": target_uid,
                 "conflict_type": conflict_type,
             },
-            domain_service=orchestrator.get_domain_service("principles"),
         )
 
     @rt("/api/principles/{uid}/lateral/conflicts", methods=["GET"])
@@ -283,38 +266,7 @@ def create_lateral_api_routes(
             domain_service=orchestrator.get_domain_service("principles"),
         )
 
-    # --- KU: ENABLES Relationships ---
-
-    @rt("/api/ku/{uid}/lateral/enables", methods=["POST"])
-    @csrf_protected
-    @require_role(_CURRICULUM_WRITE_ROLE, get_user_service)
-    @boundary_handler(success_status=201)
-    async def create_entity_enables(
-        request: Request,
-        uid: str,
-        target_uid: str,
-        confidence: str | float | None = None,
-        topic_domain: str | None = None,
-        current_user: Any = None,
-    ) -> Result[dict[str, Any]]:
-        """Create LATERAL_ENABLES relationship (learning A unlocks B).
-
-        ``confidence`` is 0.0-1.0 (default 0.8); anything else is refused (400),
-        nothing written.
-        """
-        confidence_score = parse_edge_score(confidence, "confidence", 0.8)
-        if confidence_score.is_error:
-            return Result.fail(confidence_score)
-        return await orchestrator.create_relationship(
-            user_uid=UserUID(current_user.uid),
-            uid=uid,
-            target_uid=target_uid,
-            relationship_type=RelationshipName.LATERAL_ENABLES,
-            domain="ku",
-            metadata={"confidence": confidence_score.value, "topic_domain": topic_domain},
-            message="KU enables relationship created",
-            response_extra={"enabler_uid": uid, "enabled_uid": target_uid},
-        )
+    # --- KU: ENABLES Relationships (reads; the edges are authored in the vault) ---
 
     @rt("/api/ku/{uid}/lateral/enables", methods=["GET"])
     @boundary_handler()
@@ -354,14 +306,10 @@ def create_lateral_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
 ) -> None:
     """Wire lateral relationship routes via LateralRelationshipsOrchestrator."""
-    if not services or not services.lateral_orchestrator or not services.user:
-        logger.warning(
-            "LateralRelationshipsOrchestrator or UserService not available — lateral routes skipped"
-        )
+    if not services or not services.lateral_orchestrator:
+        logger.warning("LateralRelationshipsOrchestrator not available — lateral routes skipped")
         return
-    create_lateral_api_routes(
-        app, rt, orchestrator=services.lateral_orchestrator, user_service=services.user
-    )
+    create_lateral_api_routes(app, rt, orchestrator=services.lateral_orchestrator)
 
 
 __all__ = ["create_lateral_routes"]

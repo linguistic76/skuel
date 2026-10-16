@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-09
+updated: 2026-10-16
 related_skills: [learning-loop, prompt-templates, zpd]
 ---
 
@@ -232,8 +232,9 @@ extractor docstring's idempotency claim is rewritten to describe this mechanism.
 
 ### 1.4 Un-reserving the substance channel + the ZPD 4th signal
 
-The contract is **one edge**: when extraction resolves a Ku reference (a
-`@context(ku)` line or `@ku(...)` attribute on an activity), it writes
+The contract is **one edge**: when extraction resolves a Ku reference (an
+`@ku(...)` attribute on an activity — a `@context(ku)` line creates no Ku, since
+curriculum is authored in the content vault, ADR-091 S8), it writes
 
 ```
 (source:UserEntry)-[:APPLIES_KNOWLEDGE]->(ku:Ku)

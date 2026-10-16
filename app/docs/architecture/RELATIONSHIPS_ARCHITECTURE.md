@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-10-13
+updated: 2026-10-16
 status: current
 category: architecture
 version: 2.0.0
@@ -335,7 +335,7 @@ and in the tables above. A check keyed on `.name` reads the wire name as unknown
 _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
     ("tasks", "Task", "tasks"),          # 3rd item = ownership-verifier attr
     ...
-    ("ku", "Knowledge Unit", None),      # curriculum: no owner — writes are role-gated
+    ("ku", "Knowledge Unit", None),      # curriculum: no owner — reads only
 ]
 
 factory = LateralRouteFactory(
@@ -343,8 +343,6 @@ factory = LateralRouteFactory(
     lateral_service=orchestrator.lateral_service,  # the one LateralRelationshipService
     entity_name=entity_name,
     domain_service=domain_service,                 # OwnershipVerifier | None
-    require_role=None if domain_service else _CURRICULUM_WRITE_ROLE,  # TEACHER
-    user_service_getter=get_user_service,
 )
 ```
 
@@ -362,11 +360,11 @@ self._domain_services: dict[str, OwnershipVerifier] = {
 }
 ```
 
-`get_domain_service()` is a plain `.get(domain)`, so a slug absent from that map returns `None` **silently** — and `None` means "shared/curriculum, no ownership check". For a **user-owned** domain you must also add the service to the orchestrator's constructor and map, and wire it in the composition root. Registering the route entry alone would put the new domain's reads and writes on the curriculum path (reads refuse any non-curriculum anchor; writes are TEACHER-gated and refuse any non-curriculum endpoint) — its own entities could not be read or linked at all.
+`get_domain_service()` is a plain `.get(domain)`, so a slug absent from that map returns `None` **silently** — and `None` means "shared/curriculum, no ownership check". For a **user-owned** domain you must also add the service to the orchestrator's constructor and map, and wire it in the composition root. Registering the route entry alone would put the new domain on the curriculum path (reads only, and they refuse any non-curriculum anchor) — its own entities could not be read or linked at all.
 
 ### Ownership Coverage
 
-`LateralRouteFactory` threads `domain_service` on **15 of its 15 routes** — all writes, the delete, every `get_lateral_relationships`-backed read (`blocking`, `blocked`, `prerequisites`, `alternatives`, `complementary`, `siblings`, `manage`), and the three enhanced-UX reads (`chain`, `alternatives/compare`, `graph`).
+`LateralRouteFactory` threads `domain_service` on **every route it registers**. Every domain gets the nine reads: each `get_lateral_relationships`-backed read (`blocking`, `blocked`, `prerequisites`, `alternatives`, `complementary`, `siblings`) and the three enhanced-UX reads (`chain`, `alternatives/compare`, `graph`). Only a domain with a verifier also gets the four creates, the delete and the `manage` list, whose writes take the verifier as a required argument (ADR-091 S8).
 
 The last three were the gap: each called `require_authenticated_user(request)` and **discarded the return value**, because the service methods behind them accepted no verifier, so any authenticated user could read another user's blocking chain, alternatives, or relationship graph by entity UID. Closed by adding the `user_uid` / `domain_service` pair to those three service methods and threading it from the factory. Regression cover: `tests/integration/routes/test_lateral_route_ownership.py` (foreign entity → 404, owner → 200, curriculum anchor → 200, non-curriculum anchor on a curriculum route → 404) and `TestOwnershipGate` in `tests/unit/test_lateral_graph_queries.py`.
 
@@ -375,7 +373,7 @@ Two properties the fix preserves, both asserted:
 - **`domain_service is None` stays open for reads — on a curriculum anchor.** Curriculum KU/PS/LP are shared content (`_LATERAL_DOMAINS` passes `None`), so every user keeps reading them, a draft included — and the anchor named in the URL must itself be a Ku, PathStep or LearningPath: a ku / ps / lp route anchored on any other uid (a stranger's private task, say) answers the same 404 as a missing one, so it neither lists that entity's neighbours nor says whether it exists. The anchor gate is what keeps a private entity's blockers, alternatives and title out of a curriculum route's answer: the chain, comparison and graph queries carry no audience filter of their own. A missing curriculum anchor is 404 on every read, the graph route included. The graph route's second job, the knowledge-dependency view (`?types=REQUIRES_KNOWLEDGE,ENABLES_KNOWLEDGE`), is served the same way; no page sends it today. Regression cover: `tests/integration/routes/test_curriculum_lateral_read_anchor.py`.
 - **Not-found, never forbidden.** A foreign entity returns 404 with the same error code and message as one that does not exist, so a UID cannot be probed for existence.
 
-**Curriculum writes are TEACHER-gated.** A ku / ps / lp factory is built with `require_role=UserRole.TEACHER` (ADMIN passes through the role hierarchy), and the factory refuses to construct a domain with no verifier and no role. The gate covers its five writes — the four `POST` creates and the `DELETE` — through `check_required_role`, the same helper `CRUDRouteFactory` uses; `POST /api/ku/{uid}/lateral/enables` carries `@require_role(UserRole.TEACHER, …)`. A MEMBER gets 403 before the service is reached. Behind the gate, the service holds both endpoints to curriculum (above), so a teacher naming another user's private entity gets the same 404 as for a uid that does not exist, and no edge is written or removed. Activity writes consult no role — the ownership check decides. Regression cover: `tests/integration/routes/test_curriculum_lateral_write_gate.py`.
+**Curriculum lateral edges are authored in the content vault** (ADR-091 S8), as Edge YAML files. A ku / ps / lp factory registers no write route and no `manage` list, and the Ku `enables` route is a read only. The service's two writers take `user_uid` and an `OwnershipVerifier` as required keyword arguments and check both endpoints through it, so no write path runs without an ownership check; an endpoint the caller does not own answers the same 404 as a missing one. Regression cover: `tests/integration/routes/test_curriculum_lateral_authoring_retired.py` (each curriculum write path 404/405 with the graph unchanged; the vault writes the edges; an Activity write still lands).
 
 Scope of the graph check: the **center** entity alone is gated (owned, or curriculum on the shared path). The depth-limited traversal is not owner-filtered, so a neighbour reached from a held center is returned whoever owns it — a Ku that blocks a stranger's task draws that task. The chain and comparison queries have the same reach. Narrowing that is a separate change to the traversal Cypher, not to this gate.
 
@@ -431,11 +429,11 @@ ORDER BY complementary.synergy_score DESC
 - `GET /api/{domain}/{uid}/lateral/chain` — Blocking chain (HTML fragment)
 - `GET /api/{domain}/{uid}/lateral/alternatives/compare` — Comparison (HTML fragment)
 - `GET /api/{domain}/{uid}/lateral/graph` — Vis.js format (nodes + edges, JSON)
-- `GET /api/{domain}/{uid}/lateral/manage` — Flat deletable edge list (HTML fragment)
-- `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` — Create (emits `HX-Trigger: relationships-changed`)
-- `DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid}` — Delete (emits `HX-Trigger: relationships-changed`)
+- `GET /api/{domain}/{uid}/lateral/manage` — Flat deletable edge list (HTML fragment; Activity domains only)
+- `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` — Create (emits `HX-Trigger: relationships-changed`; Activity domains only)
+- `DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid}` — Delete (emits `HX-Trigger: relationships-changed`; Activity domains only)
 
-**Authoring** (add/delete UI) is live on all **6 Activity** detail pages (Tasks/Goals/Habits/Events/Choices/Principles) via `EntityRelationshipsSection(authoring=True)`, gated by `PICKER_TYPES`. Curriculum KU/PS/LP have no authoring UI (not in `PICKER_TYPES`); their write routes are the TEACHER-gated API doors above. The `DEPENDS_ON` scheduling edge has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`), kept distinct from `BLOCKS` (see the task-relationships-authoring plan, R1). See [LATERAL_RELATIONSHIPS_VISUALIZATION.md](../patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) § Authoring.
+**Authoring** (add/delete UI) is live on all **6 Activity** detail pages (Tasks/Goals/Habits/Events/Choices/Principles) via `EntityRelationshipsSection(authoring=True)`, gated by `PICKER_TYPES`. Curriculum KU/PS/LP have no authoring UI (not in `PICKER_TYPES`) and no write routes: their lateral edges are authored in the content vault. The `DEPENDS_ON` scheduling edge has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`), kept distinct from `BLOCKS` (see the task-relationships-authoring plan, R1). See [LATERAL_RELATIONSHIPS_VISUALIZATION.md](../patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) § Authoring.
 
 ---
 

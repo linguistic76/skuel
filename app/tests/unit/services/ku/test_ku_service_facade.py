@@ -76,22 +76,6 @@ class TestKuServiceDelegation:
         return service, mock_common
 
     @pytest.mark.asyncio
-    async def test_create_ku_delegates_to_core(self):
-        service, common = self._make_service()
-        common.core.create_ku.return_value = Result.ok(None)
-
-        await service.create_ku(title="caffeine", aliases=["coffee"])
-
-        common.core.create_ku.assert_awaited_once_with(
-            title="caffeine",
-            aliases=["coffee"],
-            description=None,
-            summary=None,
-            domain=None,
-            tags=None,
-        )
-
-    @pytest.mark.asyncio
     async def test_get_ku_delegates_to_core(self):
         service, common = self._make_service()
         common.core.get_ku.return_value = Result.ok(None)

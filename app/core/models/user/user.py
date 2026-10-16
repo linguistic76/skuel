@@ -247,13 +247,14 @@ class User:
         """
         return self.role.has_permission(required_role)
 
-    def can_create_curriculum(self) -> bool:
+    def is_teacher(self) -> bool:
         """
-        Check if user can create curriculum content (KU, LP, MOC).
+        Check if user is a teacher: TEACHER role or higher.
 
-        Requires TEACHER role or higher.
+        Curriculum is authored in the content vault (ADR-091 S8), so this
+        grants no authoring; it sets the session's teacher flag.
         """
-        return self.role.can_create_curriculum()
+        return self.role.is_teacher()
 
     def can_manage_users(self) -> bool:
         """

@@ -180,41 +180,6 @@ class TestCreateForDomainGuards:
 
 
 @pytest.mark.asyncio
-class TestCurriculumBranchThreading:
-    async def test_ku_branch_threads_guard3(self):
-        """Kody #501 medium: the KU/PS/LP branches must thread Guard 3 too —
-        a teacher force-rerun with reworded bridge KU lines must merge."""
-        from types import SimpleNamespace
-        from unittest.mock import AsyncMock, MagicMock
-
-        from core.models.user_entry.user_entry import UserEntry
-
-        ku_service = MagicMock()
-        ku_service.create_ku = AsyncMock(
-            return_value=Result.ok(SimpleNamespace(uid="ku_should_not_create"))
-        )
-        extractor = ActivityExtractorService(ku_service=ku_service)
-        entry = UserEntry(uid="ue_x", title="t", user_uid="user_x", content="x")
-        line = "- [ ] New concept @context(ku)"
-
-        result = await extractor.extract_and_create(
-            entry,
-            "user_x",
-            content_override=line,
-            allow_curriculum_creation=True,
-            bridge_line_hashes=frozenset({normalized_line_hash(line)}),
-            existing_extracted={("Ku", "new concept"): "ku_existing"},
-        )
-
-        assert result.is_ok
-        extraction = result.value
-        assert extraction.kus_found == 1
-        assert extraction.kus_created == 0
-        assert extraction.lines_merged_existing == 1
-        ku_service.create_ku.assert_not_awaited()
-
-
-@pytest.mark.asyncio
 class TestCrossEntryGuard:
     """Guard 4 (cross-entry, F4): a line matching an ACTIVE owned twin merges.
 

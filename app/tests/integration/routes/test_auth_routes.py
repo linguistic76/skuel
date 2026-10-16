@@ -74,7 +74,7 @@ def _signed_in(user_uid: str = "user_alice") -> Result:
     """What ``sign_in`` returns on success."""
     user = MagicMock()
     user.can_manage_users.return_value = False
-    user.can_create_curriculum.return_value = False
+    user.is_teacher.return_value = False
     return Result.ok({"user_uid": user_uid, "session_token": "tok-new", "user": user})
 
 

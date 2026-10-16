@@ -106,8 +106,8 @@ class UserRole(StrEnum):
         """
         return self._hierarchy_level >= required_role._hierarchy_level
 
-    def can_create_curriculum(self) -> bool:
-        """Check if role can create KU, LP, MOC content."""
+    def is_teacher(self) -> bool:
+        """Check if role is TEACHER or higher (ADMIN passes through the hierarchy)."""
         return self.has_permission(UserRole.TEACHER)
 
     def can_manage_users(self) -> bool:

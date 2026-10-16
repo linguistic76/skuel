@@ -868,8 +868,9 @@ async def validate_relationship_targets(
 
 _VALID_POLARITIES = {-1, 0, 1}
 _VALID_TEMPORALITIES = {"minutes", "hours", "days", "chronic"}
-# "inferred-approved" = machine-suggested edge explicitly approved by an admin
-# via /admin/prereq-suggestions (ContentVaultEdgeWriter stamps it on the YAML)
+# "inferred-approved" = machine-suggested edge an admin approved: the
+# /admin/prereq-suggestions queue renders the YAML with this stamp, and the
+# admin copies it into the vault
 _VALID_SOURCES = {"self_observation", "research", "teacher", "clinical", "inferred-approved"}
 
 

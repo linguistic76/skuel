@@ -121,7 +121,7 @@ def create_curriculum_sub_services(
         relationship_service=relationships,
     )
 
-    core = KuCoreService(backend=backend, event_bus=event_bus)
+    core = KuCoreService(backend=backend)
 
     search = KuSearchService(backend=backend)
 

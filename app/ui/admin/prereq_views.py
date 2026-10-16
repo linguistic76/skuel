@@ -3,36 +3,40 @@ Prerequisite-Edge Suggestion Queue Components
 =============================================
 
 UI for /admin/prereq-suggestions (Discovery Analytics PR 4): an interactive
-admin queue — generate suggestions on demand, review each candidate pair,
-approve into an Edge YAML file in the content vault, or reject client-side
-(stateless v1: a rejected suggestion simply reappears on regeneration).
+admin queue — generate suggestions on demand, review each candidate pair, and
+copy the ready Edge YAML file for the chosen relation into the content vault,
+or reject client-side (a rejected suggestion simply reappears on
+regeneration). The page writes nothing (ADR-091 N3).
 
 FULL tier: rows arrive pre-classified by the LLM judge (verdict + one-line
 rationale) with the judged direction preselected. CORE tier: undirected
-pairs — the admin chooses relation + direction himself before approving.
+pairs — the admin chooses relation + direction himself before copying.
 
 Usage:
     from ui.admin.prereq_views import AdminPrereqComponents
 """
 
+import json
 from typing import Any
 
-from fasthtml.common import Div, Form, Input, Option, P, Span
+from fasthtml.common import Div, Form, Option, P, Pre, Span
 
 from core.services.prereq_suggestion_service import (
+    EdgeChoice,
     JudgeVerdict,
     PrereqSuggestion,
     PrereqSuggestionRun,
+    ready_edge_files,
 )
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Loading
 from ui.forms import Select
 
-#: Queue-form choice values → human labels. The route maps these to
-#: (from_uid, to_uid, relationship) — see admin_dashboard_ui.APPROVE_CHOICES.
-CHOICE_PREREQ_A_TO_B = "prereq_a_to_b"
-CHOICE_PREREQ_B_TO_A = "prereq_b_to_a"
-CHOICE_RELATED = "related"
-CHOICE_COMPLEMENTARY = "complementary"
+#: The judge's verdict → the relation the row opens on.
+_PRESELECT: dict[JudgeVerdict, EdgeChoice] = {
+    JudgeVerdict.PREREQ_A_TO_B: EdgeChoice.PREREQ_A_TO_B,
+    JudgeVerdict.PREREQ_B_TO_A: EdgeChoice.PREREQ_B_TO_A,
+    JudgeVerdict.RELATED: EdgeChoice.RELATED,
+}
 
 
 class AdminPrereqComponents:
@@ -43,10 +47,10 @@ class AdminPrereqComponents:
         """The queue page shell: explanation, generate button, empty queue target."""
         judge_line = (
             "Each pair is classified by the LLM judge (prerequisite direction, "
-            "related, or skip) with a one-line rationale — review and approve below."
+            "related, or skip) with a one-line rationale — review and copy below."
             if judge_available
             else "LLM judge unavailable (CORE tier) — pairs are undirected; choose "
-            "the relation and direction yourself before approving."
+            "the relation and direction yourself before copying."
         )
         return Div(
             Card(
@@ -55,9 +59,10 @@ class AdminPrereqComponents:
                     P(
                         "Candidate Ku pairs from mid-band embedding similarity "
                         "(unedged, not transitively covered by an authored path). "
-                        "Approving writes ONE Edge YAML file into the content vault's "
-                        "edges/ directory — the edge lands in the graph on the next "
-                        "content-vault sync. Nothing here writes to the graph directly.",
+                        "Each row shows the Edge YAML file for the relation you choose: "
+                        "copy it into the content vault's edges/ folder, and the edge "
+                        "lands in the graph on the next content-vault sync. This page "
+                        "writes nothing.",
                         cls="text-sm text-muted-foreground mb-2",
                     ),
                     P(judge_line, cls="text-sm text-muted-foreground mb-4"),
@@ -118,45 +123,41 @@ class AdminPrereqComponents:
 
     @staticmethod
     def render_suggestion_row(suggestion: PrereqSuggestion, index: int) -> Any:
-        """One reviewable pair: titles, similarity, rationale, approve form, reject."""
+        """One reviewable pair: titles, similarity, rationale, the ready file, copy, reject."""
         s = suggestion
-        preselect = (
-            {
-                JudgeVerdict.PREREQ_A_TO_B: CHOICE_PREREQ_A_TO_B,
-                JudgeVerdict.PREREQ_B_TO_A: CHOICE_PREREQ_B_TO_A,
-                JudgeVerdict.RELATED: CHOICE_RELATED,
-            }.get(s.verdict)
-            if s.verdict
-            else None
-        )
+        preselect = _PRESELECT.get(s.verdict) if s.verdict else None
 
         # Unjudged row (CORE mode or judge skip): a disabled placeholder keeps
-        # the browser from silently submitting the first option — approving
-        # without an explicit choice would write an arbitrary DIRECTED edge.
+        # the row from opening on an arbitrary DIRECTED edge — no file shows,
+        # and copy stays off, until the admin chooses.
         placeholder = (
             [Option("Choose relation…", value="", selected=True, disabled=True)]
             if preselect is None
             else []
         )
+        labels = {
+            EdgeChoice.PREREQ_A_TO_B: f"Prerequisite: {s.a_title} → {s.b_title}",
+            EdgeChoice.PREREQ_B_TO_A: f"Prerequisite: {s.b_title} → {s.a_title}",
+            EdgeChoice.RELATED: "Related (undirected)",
+            EdgeChoice.COMPLEMENTARY: "Complementary (undirected)",
+        }
         options = [
             *placeholder,
-            Option(
-                f"Prerequisite: {s.a_title} → {s.b_title}",
-                value=CHOICE_PREREQ_A_TO_B,
-                selected=preselect == CHOICE_PREREQ_A_TO_B,
+            *(
+                Option(label, value=choice.value, selected=preselect == choice)
+                for choice, label in labels.items()
             ),
-            Option(
-                f"Prerequisite: {s.b_title} → {s.a_title}",
-                value=CHOICE_PREREQ_B_TO_A,
-                selected=preselect == CHOICE_PREREQ_B_TO_A,
-            ),
-            Option(
-                "Related (undirected)",
-                value=CHOICE_RELATED,
-                selected=preselect == CHOICE_RELATED,
-            ),
-            Option("Complementary (undirected)", value=CHOICE_COMPLEMENTARY),
         ]
+
+        files = ready_edge_files(s)
+        alpine_data = (
+            "{ gone: false, copied: false,"
+            f" choice: {json.dumps(preselect.value if preselect else '')},"
+            f" files: {json.dumps({f.choice.value: f.content for f in files})},"
+            "  copy() { navigator.clipboard.writeText(this.files[this.choice])"
+            "    .then(() => { this.copied = true;"
+            "      setTimeout(() => this.copied = false, 2000); }); } }"
+        )
 
         rationale_line = (
             P(f"Judge: {s.rationale}", cls="text-sm italic text-muted-foreground mt-1")
@@ -174,18 +175,23 @@ class AdminPrereqComponents:
             P(f"{s.a_uid} ↔ {s.b_uid}", cls="text-xs text-muted-foreground"),
             rationale_line,
             Div(
-                Form(
-                    Input(type="hidden", name="a_uid", value=s.a_uid),
-                    Input(type="hidden", name="b_uid", value=s.b_uid),
-                    Input(type="hidden", name="a_title", value=s.a_title),
-                    Input(type="hidden", name="b_title", value=s.b_title),
-                    Input(type="hidden", name="rationale", value=s.rationale or ""),
-                    Select(*options, name="choice", required=True, full_width=False, cls="text-sm"),
-                    Button("Approve", type="submit", cls=(ButtonT.primary, "ml-2")),
-                    hx_post="/admin/prereq-suggestions/approve",
-                    hx_target="closest .prereq-row",
-                    hx_swap="outerHTML",
-                    cls="flex items-center gap-2",
+                Select(
+                    *options,
+                    name="choice",
+                    x_model="choice",
+                    full_width=False,
+                    cls="text-sm",
+                ),
+                Button(
+                    "Copy file",
+                    type="button",
+                    cls=ButtonT.primary,
+                    **{"@click": "copy()", ":disabled": "!choice"},  # fasthtml dynamic-attr splat
+                ),
+                Span(
+                    "Copied!",
+                    cls="text-xs text-success",
+                    **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
                 ),
                 Button(
                     "Reject",
@@ -193,40 +199,24 @@ class AdminPrereqComponents:
                     cls=ButtonT.ghost,
                     **{"@click": "gone = true"},  # fasthtml dynamic-attr splat
                 ),
-                cls="flex items-center gap-3 mt-2",
+                cls="flex flex-wrap items-center gap-3 mt-2",
+            ),
+            *(
+                Div(
+                    P(f"edges/{f.filename}", cls="font-mono text-xs mt-2"),
+                    Pre(
+                        f.content,
+                        cls="font-mono text-xs whitespace-pre-wrap bg-muted rounded p-2 mt-1",
+                    ),
+                    **{
+                        "x-show": f"choice === '{f.choice.value}'",
+                        "x-cloak": True,
+                    },  # boundary: fasthtml-elements
+                )
+                for f in files
             ),
             id=f"prereq-row-{index}",
             cls="prereq-row border border-border rounded-lg p-3 mb-2",
-            x_data="{gone: false}",
+            x_data=alpine_data,
             x_show="!gone",
-        )
-
-    @staticmethod
-    def render_approved_row(filename: str, a_title: str, b_title: str) -> Div:
-        """Replacement row after a successful approve (file written, not yet synced)."""
-        return Div(
-            P(
-                Span("✅ Written ", cls="font-medium"),
-                Span(f"edges/{filename}", cls="font-mono text-sm"),
-                Span(f" — {a_title} / {b_title}. ", cls=""),
-                Span(
-                    "Lands in the graph on the next content-vault sync.",
-                    cls="text-muted-foreground",
-                ),
-                cls="text-sm",
-            ),
-            cls="prereq-row border border-success/40 bg-success/5 rounded-lg p-3 mb-2",
-        )
-
-    @staticmethod
-    def render_row_error(message: str, a_title: str = "", b_title: str = "") -> Div:
-        """Replacement row on approve failure — regenerate to retry the pair."""
-        pair = f"{a_title} / {b_title} — " if a_title or b_title else ""
-        return Div(
-            P(f"⚠ {pair}{message}", cls="text-sm text-destructive"),
-            P(
-                "Regenerate suggestions to retry this pair.",
-                cls="text-xs text-muted-foreground",
-            ),
-            cls="prereq-row border border-destructive/40 rounded-lg p-3 mb-2",
         )

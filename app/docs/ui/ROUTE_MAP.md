@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-16
 ---
 
 # Route Map
@@ -16,7 +16,7 @@ An admin sees the one chrome every role sees (`ui/layouts/navbar.py`) — there 
 
 ### `/admin/prereq-suggestions` — Prerequisite-Edge Suggestion Queue
 
-Admin-only interactive queue (sidebar: "Prereq Edges"). "Generate suggestions" runs the on-demand pipeline (mid-band Ku-pair candidates → LLM judge on FULL tier; undirected pairs on CORE). Each row: pair titles + cosine + judge rationale, a relation/direction select, **Approve** (writes ONE Edge YAML into the content vault's `edges/` — lands in the graph on the next content sync) and **Reject** (client-side only; stateless v1). Routes in `adapters/inbound/admin_dashboard_ui.py`; components in `ui/admin/prereq_views.py`.
+Admin-only interactive queue (sidebar: "Prereq Edges"). "Generate suggestions" runs the on-demand pipeline (mid-band Ku-pair candidates → LLM judge on FULL tier; undirected pairs on CORE). Each row: pair titles + cosine + judge rationale, a relation/direction select that shows the ready Edge YAML file for that choice, **Copy file** (to the clipboard — the admin saves it in the content vault's `edges/`, and it lands in the graph on the next content sync) and **Reject** (client-side only). The page writes nothing (ADR-091 N3). Routes in `adapters/inbound/admin_dashboard_ui.py`; components in `ui/admin/prereq_views.py`.
 
 ### `/admin/knowledge-health` — Knowledge-Subgraph Structural Health
 

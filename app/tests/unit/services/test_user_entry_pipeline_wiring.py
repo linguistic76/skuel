@@ -448,7 +448,6 @@ def _extraction_result(
     merged_links: list[tuple[str, str, str | None, str | None]] | None = None,
     retired_links: list[tuple[str, str]] | None = None,
     reconciliation_errors: list[str] | None = None,
-    created_ku_uids: list[str] | None = None,
     referenced_ku_uids: list[str] | None = None,
 ) -> ActivityExtractionResult:
     return ActivityExtractionResult(
@@ -460,7 +459,6 @@ def _extraction_result(
         merged_links=merged_links or [],
         retired_links=retired_links or [],
         reconciliation_errors=reconciliation_errors or [],
-        created_ku_uids=created_ku_uids or [],
         referenced_ku_uids=referenced_ku_uids or [],
     )
 
@@ -468,14 +466,6 @@ def _extraction_result(
 def _dsl_result_empty() -> DSLTransformResult:
     """A bridge result that recognised nothing (no activity lines appended)."""
     return DSLTransformResult(original_text="", transformed_text="", activity_lines=[])
-
-
-def _teacher_user_service(can_create: bool = True) -> MagicMock:
-    user = MagicMock()
-    user.can_create_curriculum = MagicMock(return_value=can_create)
-    svc = MagicMock()
-    svc.get_user = AsyncMock(return_value=Result.ok(user))
-    return svc
 
 
 class TestExtractActivities:
@@ -497,7 +487,6 @@ class TestExtractActivities:
 
         dispatcher = _make_dispatcher(entry_service=svc)
         dispatcher.activity_extractor = extractor
-        dispatcher.user_service = _teacher_user_service()
         result = await dispatcher.process(entry)
 
         assert result.is_ok
@@ -549,7 +538,6 @@ class TestExtractActivities:
 
         dispatcher = _make_dispatcher(entry_service=svc)
         dispatcher.activity_extractor = extractor
-        dispatcher.user_service = _teacher_user_service()
         result = await dispatcher.process(entry)
 
         assert result.is_ok
@@ -598,7 +586,6 @@ class TestExtractActivities:
 
         dispatcher = _make_dispatcher(entry_service=svc)
         dispatcher.activity_extractor = extractor
-        dispatcher.user_service = _teacher_user_service()
         result = await dispatcher.process(entry)
 
         assert result.is_ok
@@ -646,7 +633,6 @@ class TestExtractActivities:
 
         dispatcher = _make_dispatcher(entry_service=svc)
         dispatcher.activity_extractor = extractor
-        dispatcher.user_service = _teacher_user_service()
         result = await dispatcher.process(entry)
 
         assert result.is_ok
@@ -1004,24 +990,6 @@ class TestExtractActivities:
         assert result.is_ok
         _, kwargs = bridge.transform_with_context.call_args
         assert kwargs["active_goals"] is None
-
-    @pytest.mark.asyncio
-    async def test_curriculum_gate_threads_fail_closed(self):
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(ku) X")
-        svc = _extract_entry_service(entry)
-        extractor = MagicMock()
-        extractor.extract_and_create = AsyncMock(
-            return_value=Result.ok(_extraction_result(entry.uid))
-        )
-
-        # No user_service at all → gate stays closed.
-        dispatcher = _make_dispatcher(entry_service=svc)
-        dispatcher.activity_extractor = extractor
-        result = await dispatcher.process(entry)
-
-        assert result.is_ok
-        kwargs = extractor.extract_and_create.await_args.kwargs
-        assert kwargs["allow_curriculum_creation"] is False
 
     @pytest.mark.asyncio
     async def test_existing_hashes_are_read_and_threaded(self):

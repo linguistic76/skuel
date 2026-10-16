@@ -83,24 +83,22 @@ for domain, entity_name, service_attr in _LATERAL_DOMAINS:
         lateral_service=orchestrator.lateral_service,
         entity_name=entity_name,
         domain_service=domain_service,  # OwnershipVerifier; None for ku/ps/lp
-        require_role=None if domain_service else _CURRICULUM_WRITE_ROLE,  # TEACHER
-        user_service_getter=get_user_service,
     ).register_routes(app, rt)          # @rt registers — nothing is returned
 ```
 
-Each factory registers 15 routes, every one threading `domain_service`. On `ku` / `ps` / `lp`
-the five writes (the POSTs and the DELETE) are also TEACHER-gated, and the service refuses any
-endpoint that is not a Ku, PathStep or LearningPath with the same 404 as a missing uid; the
-reads stay open:
+Each factory threads `domain_service` on every route it registers. An Activity domain gets all
+15; `ku` / `ps` / `lp` get the nine reads only (no POST, no DELETE, no `manage`): curriculum
+lateral edges are authored in the content vault (ADR-091 S8). A curriculum read refuses any
+anchor that is not a Ku, PathStep or LearningPath with the same 404 as a missing uid:
 
 | Route | Method | Answers |
 |-------|--------|---------|
-| `.../lateral/{blocks,prerequisites,alternatives,complementary}` | POST | create; `HX-Trigger: relationships-changed` |
-| `.../lateral/{relationship_type}/{target_uid}` | DELETE | delete; `HX-Trigger: relationships-changed` |
+| `.../lateral/{blocks,prerequisites,alternatives,complementary}` | POST | create; `HX-Trigger: relationships-changed` (Activity only) |
+| `.../lateral/{relationship_type}/{target_uid}` | DELETE | delete; `HX-Trigger: relationships-changed` (Activity only) |
 | `.../lateral/{blocking,blocked,prerequisites,alternatives,complementary,siblings}` | GET | JSON lists |
 | `.../lateral/chain` | GET | **HTML** fragment (`render_chain_fragment`) |
 | `.../lateral/alternatives/compare` | GET | **HTML** fragment (`render_alternatives_fragment`) |
-| `.../lateral/manage` | GET | **HTML** fragment (the deletable edge list) |
+| `.../lateral/manage` | GET | **HTML** fragment (the deletable edge list; Activity only) |
 | `.../lateral/graph` | GET | **JSON** in Vis.js shape |
 
 The graph route:

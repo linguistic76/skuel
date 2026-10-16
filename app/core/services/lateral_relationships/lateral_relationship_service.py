@@ -26,7 +26,7 @@ Usage:
         relationship_type=RelationshipName.BLOCKS,
         metadata={"reason": "Must complete setup first", "severity": "required"},
         user_uid=user_uid,
-        domain_service=goals_service,  # None only for curriculum ↔ curriculum
+        domain_service=goals_service,  # every write verifies ownership
     )
 
 See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
@@ -57,10 +57,10 @@ from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
-# What a call with no ownership verifier may reach — the anchor of a read, each
-# endpoint of a write: the three curriculum domains that carry lateral routes
-# (ku / ps / lp), and nothing a user owns. Not every ContentOrigin.CURRICULUM
-# type — an Exercise can be user-owned.
+# What a read with no ownership verifier may anchor on: the three curriculum
+# domains that carry lateral read routes (ku / ps / lp), and nothing a user
+# owns. A write always carries a verifier — curriculum lateral edges are
+# authored in the content vault (ADR-091 S8).
 _SHARED_ENDPOINT_TYPES = frozenset({EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH})
 
 
@@ -91,8 +91,9 @@ class LateralRelationshipService:
         metadata: dict[str, Any] | None = None,
         validate: bool = True,
         auto_inverse: bool = True,
-        user_uid: UserUID | None = None,
-        domain_service: OwnershipVerifier | None = None,
+        *,
+        user_uid: UserUID,
+        domain_service: OwnershipVerifier,
     ) -> Result[bool]:
         """
         Create explicit lateral relationship between two entities.
@@ -104,9 +105,8 @@ class LateralRelationshipService:
             metadata: Optional relationship properties (strength, reason, etc.)
             validate: Perform validation checks before creation
             auto_inverse: Auto-create inverse relationship if asymmetric
-            user_uid: User creating the relationship (for ownership verification)
-            domain_service: Domain service with verify_ownership() (None = shared
-                content: both endpoints must be curriculum)
+            user_uid: User creating the relationship; must own both endpoints
+            domain_service: Domain service with verify_ownership()
 
         Returns:
             Result[bool]: Success if relationship created
@@ -205,8 +205,9 @@ class LateralRelationshipService:
         target_uid: str,
         relationship_type: RelationshipName,
         delete_inverse: bool = True,
-        user_uid: UserUID | None = None,
-        domain_service: OwnershipVerifier | None = None,
+        *,
+        user_uid: UserUID,
+        domain_service: OwnershipVerifier,
     ) -> Result[bool]:
         """
         Delete explicit lateral relationship.
@@ -216,9 +217,8 @@ class LateralRelationshipService:
             target_uid: Target entity UID
             relationship_type: Type of relationship to delete
             delete_inverse: Also delete inverse relationship if asymmetric
-            user_uid: User deleting the relationship (for ownership verification)
-            domain_service: Domain service with verify_ownership() (None = shared
-                content: both endpoints must be curriculum)
+            user_uid: User deleting the relationship; must own both endpoints
+            domain_service: Domain service with verify_ownership()
 
         Returns:
             Result[bool]: Success if relationship deleted
@@ -440,8 +440,7 @@ class LateralRelationshipService:
     ) -> Result[bool]:
         """Confirm the caller may reach this entity, or refuse it as not-found.
 
-        The anchor gate for every read on this service, and the per-endpoint
-        gate for a write that carries a verifier (``_verify_write_endpoints``).
+        The anchor gate for every read on this service.
 
         ``domain_service=None`` is the shared-content path: the entity must be
         curriculum (Ku, PathStep, LearningPath), decided by ``entity_type``,
@@ -489,27 +488,19 @@ class LateralRelationshipService:
         self,
         source_uid: str,
         target_uid: str,
-        user_uid: UserUID | None,
-        domain_service: OwnershipVerifier | None,
+        user_uid: UserUID,
+        domain_service: OwnershipVerifier,
     ) -> Result[bool]:
-        """Confirm the caller may join (or part) these two endpoints.
+        """Confirm the caller owns both endpoints it would join (or part).
 
-        With a verifier, each endpoint goes through ``_verify_entity_access``.
-        Without one — the shared-content path — both endpoints must be
-        curriculum (Ku, PathStep, LearningPath), decided by ``entity_type``. An
-        endpoint of any other kind is refused by the same branch, with the same
-        error, as an endpoint that does not exist, so the answer never tells a
-        caller whether a uid it cannot reach is in the graph.
+        An endpoint the caller does not own is refused as not-found rather than
+        forbidden, so the answer never tells a caller whether a uid it cannot
+        reach is in the graph.
         """
-        if domain_service is None:
-            return await self._check_entities_exist(
-                source_uid, target_uid, entity_types=_SHARED_ENDPOINT_TYPES
-            )
-
         for uid in (source_uid, target_uid):
-            access = await self._verify_entity_access(uid, user_uid, domain_service)
-            if access.is_error:
-                return Result.fail(access)
+            ownership = await domain_service.verify_ownership(uid, user_uid)
+            if ownership.is_error:
+                return Result.fail(Errors.not_found("Entity", uid))
         return Result.ok(True)
 
     async def _validate_lateral_relationship(
@@ -565,11 +556,9 @@ class LateralRelationshipService:
         self,
         source_uid: str,
         target_uid: str,
-        entity_types: frozenset[EntityType] | None = None,
     ) -> Result[bool]:
-        """Verify both entities exist in the graph (and, given ``entity_types``,
-        are of one of those kinds — any other kind is reported as missing)."""
-        result = await self.backend.check_entities_exist(source_uid, target_uid, entity_types)
+        """Verify both entities exist in the graph, naming the one that is missing."""
+        result = await self.backend.check_entities_exist(source_uid, target_uid)
 
         if result.is_error:
             return Result.fail(result)
