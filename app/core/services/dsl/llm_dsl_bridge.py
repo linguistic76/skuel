@@ -18,7 +18,7 @@ LLM recognizes activities and adds @context tags:
     - @context(task) Finish the quarterly report @when(Friday) @priority(high)
     - @context(habit) Meditate daily @repeat(daily) @duration(10)
     - @context(choice) Decide on job offer @when(soon)
-    - @context(finance) Groceries @amount(150) @when(today)
+    - @context(finance) Groceries $150 @when(today)
 
 **Integration Point:**
 

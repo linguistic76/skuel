@@ -21,8 +21,8 @@ registered.
 1. **Goal-LINK persistence — RETIRED 2026-09-02 (Mike): goal links stay user-authored only.**
    On the extraction path a task's goal edge (`CONTRIBUTES_TO_GOAL`) comes from one source only: an explicit
    `@link(goal:<uid>)` the user wrote (`ActivityDSLParser.get_linked_goals`,
-   `core/services/dsl/activity_dsl_parser.py`); `@goal(...)` stays a dropped attribute and the
-   bridge never infers a link. (Goal links written elsewhere — the task form, goal→task
+   `core/services/dsl/activity_dsl_parser.py`); `@goal(...)` is not a tag the parser reads, the
+   bridge prompts do not offer it, and the bridge never infers a link. (Goal links written elsewhere — the task form, goal→task
    generation from an explicit parent goal — are outside this ruling; none of them is an LLM
    inference over prose.)
    Grounding is title-only and recognition-only — it disambiguates what the model recognises
