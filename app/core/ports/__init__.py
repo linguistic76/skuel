@@ -75,7 +75,6 @@ from .base_protocols import (
     # Timestamp Protocols (3)
     HasCreatedAt,
     HasLogger,
-    HasMetadata,
     # Priority/Sorting Protocols (3)
     HasPriority,
     HasRelevanceScore,
@@ -84,7 +83,6 @@ from .base_protocols import (
     # Query/Optimizer Protocols (3)
     HasSeverity,
     HasStrategy,
-    HasSummary,
     HasToNumeric,
     # Entity Attribute Protocols - Core (6)
     HasUID,
@@ -351,7 +349,6 @@ __all__ = [
     # ========== TIMESTAMP PROTOCOLS (3) ==========
     "HasCreatedAt",
     "HasLogger",
-    "HasMetadata",
     # ========== PRIORITY/SORTING PROTOCOLS (3) ==========
     "HasPriority",
     "HasRelevanceScore",
@@ -360,7 +357,6 @@ __all__ = [
     # ========== QUERY/OPTIMIZER PROTOCOLS (3) ==========
     "HasSeverity",
     "HasStrategy",
-    "HasSummary",
     "HasToNumeric",
     # ========== ENTITY ATTRIBUTE PROTOCOLS (6) ==========
     "HasUID",

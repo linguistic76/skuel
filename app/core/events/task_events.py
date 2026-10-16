@@ -69,7 +69,7 @@ class TaskCompleted(BaseEvent):
     overdue and alignment insight appends, the Prometheus ``entities_completed{task}``
     counter, the productivity completion moment) count each genuine completion once,
     and recompute-shaped ones (PS engagement auto-complete, dependent
-    scheduling, knowledge generation, context invalidation) converge on their own.
+    scheduling, context invalidation) converge on their own.
 
     A task completed away from the app carries its own ``completion_date`` as
     ``occurred_at`` — the born-completed create door and the vault door both —

@@ -761,9 +761,7 @@ class ContextRetriever:
         ps_knowledge block. Prerequisite/enabled KU neighbors (REQUIRES_KNOWLEDGE/
         ENABLES_KNOWLEDGE) stay out of ``bundle.kus`` — they are neighborhood
         context, not this step's target knowledge. Entity kind comes from the
-        graph label, never from UID prefix — both sanctioned KU UID forms
-        (authored ``ku.{ns}.{slug}`` and generated ``ku_{slug}_{random}``)
-        pass through here (ADR-013 never-sniff rule).
+        graph label, never from UID prefix (ADR-013 never-sniff rule).
         """
         if not self.ku_service:
             return []

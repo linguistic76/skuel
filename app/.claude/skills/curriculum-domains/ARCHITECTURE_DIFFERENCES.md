@@ -8,7 +8,7 @@
 |--------|------------------|-------------------|
 | **Ownership** | User-owned | Shared global content |
 | **`DomainConfig.user_ownership_relationship`** | `RelationshipName.OWNS` | `None` |
-| **Creation** | Any authenticated user (forms, API, vault sync) | Content-vault ingestion; generated Kus from `KuService.create_ku`. No CRUD API |
+| **Creation** | Any authenticated user (forms, API, vault sync) | Content-vault ingestion only (ADR-091 S8). No CRUD API |
 | **Access** | Owner only (multi-tenant) | All users (a `draft` `publication_state` is withheld from learner-facing reads) |
 | **Filtering** | Always by `user_uid` | No user filter |
 

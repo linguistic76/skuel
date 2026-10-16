@@ -199,6 +199,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [KNOWLEDGE_APPLICATION_TRACKING.md](patterns/KNOWLEDGE_APPLICATION_TRACKING.md)
 
 **ADRs:**
+- [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md)
 - [ADR-038](decisions/ADR-038-content-sharing-model.md)
 - [ADR-040](decisions/ADR-040-teacher-exercise-workflow.md)
 - [ADR-043](decisions/ADR-043-intelligence-tier-toggle.md)
@@ -578,7 +579,7 @@ For each documentation category, this section shows which skills are relevant.
 ### ADRs (Architecture Decision Records)
 
 - [ADR-003](decisions/ADR-003-journals-service-query.md) → @journals
-- [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md) → @curriculum-domains, @neo4j-cypher-patterns
+- [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md) → @curriculum-domains, @learning-loop, @neo4j-cypher-patterns
 - [ADR-020](decisions/ADR-020-fasthtml-route-registration-pattern.md) → @domain-route-config, @fasthtml
 - [ADR-021](decisions/ADR-021-user-context-intelligence-modularization.md) → @user-context-intelligence
 - [ADR-022](decisions/ADR-022-graph-native-authentication.md) → @result-pattern, @security

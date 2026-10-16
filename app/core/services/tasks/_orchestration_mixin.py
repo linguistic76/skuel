@@ -2,24 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
-from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.models.type_hints import UserUID
+from core.utils.result_simplified import Result
 
 
 class _OrchestrationMixin:
     """Orchestration methods for TasksService."""
 
-    progress: Any
     relationships: Any
-    intelligence: Any
-    logger: Any
-    event_handler: Any
     get_task: Any  # Provided by TasksService facade
 
     async def analyze_task_knowledge_impact(self, task_uid: str) -> Result[dict[str, Any]]:
@@ -51,77 +42,3 @@ class _OrchestrationMixin:
         }
 
         return Result.ok(impact_analysis)
-
-    async def trigger_manual_knowledge_generation(
-        self, user_uid: UserUID, days_back: int = 30, min_tasks: int = 3
-    ) -> Result[dict[str, Any]]:
-        """
-        Manually trigger knowledge generation and return results for review.
-
-        Args:
-            user_uid: User whose tasks to analyze
-            days_back: Days of history to analyze
-            min_tasks: Minimum completed tasks needed
-
-        Returns:
-            Result containing generation summary and knowledge units
-        """
-        ku_generation_service = self.event_handler.ku_generation_service
-        if not ku_generation_service:
-            return Result.fail(
-                Errors.system(
-                    message="Knowledge generation service not available",
-                    operation="trigger_manual_knowledge_generation",
-                )
-            )
-
-        try:
-            knowledge_result = await ku_generation_service.extract_knowledge_from_completed_tasks(
-                user_uid=user_uid, days_back=days_back, min_tasks=min_tasks
-            )
-
-            if knowledge_result.is_error:
-                return Result.fail(knowledge_result)
-
-            generated_knowledge = knowledge_result.value
-
-            if not generated_knowledge:
-                return Result.ok(
-                    {
-                        "message": "No knowledge could be generated from completed tasks",
-                        "generated_count": 0,
-                        "curated_knowledge": {},
-                    }
-                )
-
-            curation_result = ku_generation_service.curate_generated_knowledge(generated_knowledge)
-
-            if curation_result.is_error:
-                return curation_result
-
-            curated_knowledge = curation_result.value
-
-            return Result.ok(
-                {
-                    "user_uid": user_uid,
-                    "analysis_period_days": days_back,
-                    "generated_knowledge_count": len(generated_knowledge),
-                    "curated_knowledge": curated_knowledge,
-                    "statistics": {
-                        "auto_publish_ready": len(curated_knowledge.get("auto_publish", [])),
-                        "review_recommended": len(curated_knowledge.get("review_recommended", [])),
-                        "needs_improvement": len(curated_knowledge.get("needs_improvement", [])),
-                        "low_quality": len(curated_knowledge.get("low_quality", [])),
-                    },
-                    "generation_timestamp": datetime.now().isoformat(),
-                }
-            )
-
-        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            self.logger.error(f"Manual knowledge generation failed for user {user_uid}: {e}")
-            return Result.fail(
-                Errors.system(
-                    message=f"Knowledge generation failed: {e!s}",
-                    operation="trigger_manual_knowledge_generation",
-                )
-            )

@@ -376,7 +376,6 @@ class FastInferenceEngine:
                 ],
             },
             "confidence": confidence,
-            "related_knowledge": [f"ku_{detected_domain}_{i}" for i in range(3)],
             "computation_path": ["domain_detection", "relevance_scoring", "action_generation"],
         }
 

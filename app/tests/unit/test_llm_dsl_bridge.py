@@ -5,6 +5,7 @@ The bridge now delegates to a ChatCompletionPort; the factory that builds the
 OpenAI chat adapter lives below the boundary in adapters/external/llm/.
 """
 
+import re
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,7 +13,11 @@ import pytest
 from adapters.external.llm import create_llm_dsl_bridge
 from adapters.external.llm.openai_adapter import OpenAIChatAdapter
 from core.ports.llm_protocols import LLMCompletion
-from core.services.dsl.activity_dsl_parser import parse_activity_line
+from core.services.dsl.activity_dsl_parser import (
+    VAULT_AUTHORED_CONTEXTS,
+    parse_activity_line,
+    resolve_context_value,
+)
 from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
 from core.utils.result_simplified import Result
 
@@ -107,6 +112,55 @@ async def test_bridge_output_carries_no_link_tag():
         parsed = parse_activity_line(line)
         assert parsed.is_ok
         assert parsed.value.links == []
+
+
+def _curriculum_names(prompt: str) -> set[str]:
+    """Every context the prompt offers (``@context(x)`` tags and the DOMAINS list) that is curriculum."""
+    offered = re.findall(r"@context\((\w+)\)", prompt)
+    for domains_line in re.findall(r"^DOMAINS:(.*)$", prompt, flags=re.MULTILINE):
+        offered.extend(name.strip() for name in domains_line.split(","))
+    return {name for name in offered if resolve_context_value(name) in VAULT_AUTHORED_CONTEXTS}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("compact", [False, True])
+async def test_bridge_prompt_offers_no_curriculum_context(compact: bool):
+    # Curriculum is authored in the content vault (ADR-091 S8), so neither prompt
+    # offers the model a Ku, PathStep or LearningPath context to emit.
+    port = _port("")
+    bridge = LLMDSLBridgeService(chat_port=port, use_compact_prompt=compact)
+
+    await bridge.transform("I want to learn Python for data science.")
+
+    prompt = port.complete.call_args.args[0][0]["content"]
+    assert _curriculum_names(prompt) == set()
+    # Control: the same reader finds a curriculum name when one is offered.
+    assert _curriculum_names(prompt + "\nDOMAINS: task, ku\n") == {"ku"}
+
+
+@pytest.mark.asyncio
+async def test_bridge_drops_a_curriculum_line_the_model_emits():
+    # A model may still write a curriculum line; the bridge suggests none, in any
+    # spelling or alongside another context, and keeps every other line whole.
+    port = _port(
+        "- @context(ku) Pandas library fundamentals\n"
+        "- @context(PS) Dataframes step\n"
+        "- @context(task,lp) Python for data science\n"
+        "- @context(learningpath) Data path\n"
+        "- @context(task) Work through the pandas tutorial @ku(ku.tech.pandas)\n"
+        "- @context(goal) Learn Python for data science @priority(2)"
+    )
+    bridge = LLMDSLBridgeService(chat_port=port)
+
+    result = await bridge.transform("I want to learn Python for data science.")
+
+    assert result.is_ok
+    assert result.value.activity_lines == [
+        "- @context(task) Work through the pandas tutorial @ku(ku.tech.pandas)",
+        "- @context(goal) Learn Python for data science @priority(2)",
+    ]
+    assert result.value.activities_identified == 2
+    assert "kus" not in result.value.to_dict()["breakdown"]
 
 
 @pytest.mark.asyncio

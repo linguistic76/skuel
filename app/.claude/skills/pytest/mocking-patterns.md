@@ -111,7 +111,7 @@ service = create_tasks_service_for_testing(
 my_backend = create_mock_backend({"create": Result.ok(task)})
 service = create_tasks_service_for_testing(backend=my_backend)
 # Keyword deps it accepts: backend, cross_domain_query, ku_inference_service,
-# ku_generation_service, graph_intel, event_bus, backend_behavior — a TasksService facade.
+# graph_intel, event_bus, backend_behavior — a TasksService facade.
 ```
 
 ## LLM and embeddings doubles — keep the real shape

@@ -162,7 +162,7 @@ content a learner reads (`(PathStep)-[:USES_KU]->(Ku)`).
 **EntityType:** `EntityType.KU`
 **Model:** `core/models/ku/ku.py` — `Ku(Entity)` frozen dataclass (not `Curriculum`)
 **DTO:** `core/models/ku/ku_dto.py`
-**UID format:** `ku.{ns}.{slug}` authored (content vault); `ku_{slug}_{random}` generated (`KuService.create_ku`)
+**UID format:** `ku.{ns}.{slug}`, authored in the content vault (one form; ADR-013 amendment 2026-10-16)
 **Neo4j label:** `:Entity:Ku`
 
 **Ku-specific fields** (read the full set off `dataclasses.fields(Ku)`):

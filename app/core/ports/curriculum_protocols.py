@@ -349,7 +349,7 @@ class KuOperations(BackendOperations["Ku"], Protocol):
     - Learning state management (IN_PROGRESS, MASTERED)
 
     Neo4j: KU nodes are :Entity:Ku{entity_type='ku'}
-    UID Format: "ku_{slug}_{random}"
+    UID Format: "ku.{ns}.{slug}" (authored in the content vault)
     """
 
     # =========================================================================

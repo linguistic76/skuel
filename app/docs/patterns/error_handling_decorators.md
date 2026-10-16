@@ -1,6 +1,6 @@
 ---
 title: Error Handling Decorators - DRY Pattern Guide
-updated: '2026-08-21'
+updated: 2026-10-16
 category: patterns
 related_skills:
 - result-pattern
@@ -324,7 +324,6 @@ Keep manual try-except for:
 | user_progress_service | ✅ Complete | 5 methods |
 | unified_progress_service | ✅ Complete | 2 methods |
 | semantic_analytics_service | ✅ Complete | 5 methods |
-| insight_generation_service | ✅ Complete | 5 methods |
 | entity_inference_service | ✅ Complete | 4 methods |
 | event_logger_service | ✅ Complete | 5 methods |
 | **Schema Services** | | |

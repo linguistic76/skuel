@@ -167,7 +167,6 @@ common = create_common_sub_services(
 self.core = TasksCoreService(
     backend=backend, ku_inference_service=ku_inference_service, event_bus=event_bus
 )
-# Tasks also builds its own event_handler, to wire ku_generation_service into it
 ```
 
 ## Adding New Facade Methods

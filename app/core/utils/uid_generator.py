@@ -4,14 +4,15 @@ UID Generation Utilities
 
 UID generation for SKUEL entities with consistent naming conventions.
 
-UID Format Rules (2026-01-30 Universal Hierarchical Pattern):
-- ALL domains: {type}_{identifier}_{random} (underscore separator)
+UID Format Rules (Universal Hierarchical Pattern):
+- Generated UIDs: {type}_{identifier}_{random} or {type}_{random} (underscore separator)
 - Hierarchy stored in graph relationships, NEVER in UIDs
+- Curriculum is never generated: a Ku, PathStep or LearningPath uid is authored in
+  the content vault (``ku.{ns}.{slug}``), and no caller passes a curriculum prefix
 
 Examples:
 - task_implement-auth_a1b2c3d4    (Task - flat UID)
 - goal_complete-project_x7y8z9w0  (Goal - flat UID)
-- ku_meditation-basics_def45678   (Knowledge Unit - NOW FLAT!)
 - habit_daily-exercise_abc12345   (Habit - flat UID)
 - user_mike                        (User - no random suffix for named entities)
 
@@ -30,18 +31,15 @@ from core.models.type_hints import EntityUID
 
 class UIDGenerator:
     """
-    Generate flat UIDs for all SKUEL entities.
+    Generate flat UIDs for SKUEL's generated entities.
 
-    Universal Hierarchical Pattern (2026-01-30):
-    - All UIDs are FLAT: {type}_{name}_{random}
+    Universal Hierarchical Pattern:
+    - All generated UIDs are FLAT: {type}_{name}_{random}
     - Hierarchy stored in graph relationships, NOT UIDs
     - Identity independent of location/organization
 
     See: /docs/decisions/ADR-013-ku-uid-flat-identity.md
     """
-
-    # Prefixes for different entity types
-    KNOWLEDGE_PREFIX = "ku"
 
     @staticmethod
     def slugify(text: str) -> str:
@@ -76,45 +74,11 @@ class UIDGenerator:
         return text.strip("-")
 
     @classmethod
-    def generate_knowledge_uid(cls, title: str) -> EntityUID:
-        """
-        Generate a flat knowledge unit UID.
-
-        Universal Hierarchical Pattern: UIDs are FLAT, hierarchy is in
-        ORGANIZES relationships. Identity is independent of location.
-
-        Args:
-            title: Knowledge unit title
-
-        Returns:
-            Flat UID with format: ku_{slug}_{random}
-
-        Examples:
-            >>> generate_knowledge_uid("Meditation Basics")
-            'ku_meditation-basics_a1b2c3d4'
-            >>> generate_knowledge_uid("Python Functions")
-            'ku_python-functions_x7y8z9w0'
-
-        Note:
-            - Hierarchy stored in (ku)-[:ORGANIZES]->(ku) relationships
-            - No Ku-specific writer: every PsService ORGANIZES method is
-              PathStep-subject only. Write one with the generic edge writer,
-              KuService.relationships.add_relationship(parent,
-              RelationshipName.ORGANIZES, child, {"order": n}); in practice
-              they are authored in the vault via `moc: true` frontmatter.
-            - See: /docs/decisions/ADR-013-ku-uid-flat-identity.md
-        """
-        slug = cls.slugify(title)
-        random_suffix = uuid.uuid4().hex[:8]
-        return EntityUID(f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}")
-
-    @classmethod
-    def generate_random_uid(cls, prefix: str = "ku") -> EntityUID:
+    def generate_random_uid(cls, prefix: str) -> EntityUID:
         """
         Generate a random UID for non-hierarchical entities.
 
         Uses underscore notation for activity domains and infrastructure entities.
-        Knowledge units should use generate_knowledge_uid for semantic slugs.
 
         Args:
             prefix: Entity type prefix (task, goal, habit, user, askesis, etc.)

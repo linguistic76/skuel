@@ -217,6 +217,29 @@ class TestKnowledgeAndLinks:
         assert result.is_ok
         assert result.value.primary_ku == "ku.sel.mindfulness-intro"
 
+    @pytest.mark.parametrize("written", ["ku_mindfulness_a1b2c3d4", "ku:sel/mindfulness-intro"])
+    def test_parse_ku_not_authored_form_is_dropped_and_reported(self, written: str):
+        """A Ku uid has one spelling, ``ku.{ns}.{slug}`` (ADR-013): a generated
+        ``ku_…`` or colon ``ku:…`` value names no Ku, so the reference is dropped
+        and the line's tag_warnings say so — never a silent miss."""
+        result = parse_activity_line(f"- [ ] Study mindfulness @context(task) @ku({written})")
+
+        assert result.is_ok
+        assert result.value.primary_ku is None
+        assert result.value.tag_warnings == [
+            f"@ku({written}) is not a knowledge unit uid — reference dropped "
+            "(a Ku uid is spelled ku.<namespace>.<slug>)"
+        ]
+
+    def test_parse_ku_authored_form_reports_nothing(self):
+        """Control: the authored spelling is kept and warns nothing."""
+        result = parse_activity_line(
+            "- [ ] Study mindfulness @context(task) @ku(ku.sel.mindfulness-intro)"
+        )
+
+        assert result.value.primary_ku == "ku.sel.mindfulness-intro"
+        assert result.value.tag_warnings == []
+
     def test_parse_ku_colon_spelling_rejected(self):
         """The retired colon spelling is OMITTED (None), never rewritten —
         the old lenient fallback minted garbage (``ku.ku:…``) that parsed

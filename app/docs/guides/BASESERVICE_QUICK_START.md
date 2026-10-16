@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-03
+updated: 2026-10-16
 ---
 
 # BaseService Quick Start Guide
@@ -199,8 +199,7 @@ result = await tasks_service.update_task(
 2. Records completion time and quality
 3. Updates UserContext statistics
 4. Checks and unblocks dependent tasks
-5. Triggers knowledge generation (if configured)
-6. Publishes TaskCompleted event
+5. Publishes TaskCompleted event
 
 ---
 

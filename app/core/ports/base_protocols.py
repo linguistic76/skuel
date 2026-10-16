@@ -225,13 +225,6 @@ class HasUID(Protocol):
 
 
 @runtime_checkable
-class HasMetadata(Protocol):
-    """Protocol for objects with metadata."""
-
-    metadata: dict[str, Any]
-
-
-@runtime_checkable
 class HasTitle(Protocol):
     """Protocol for objects with a readable title.
 
@@ -243,13 +236,6 @@ class HasTitle(Protocol):
 
     @property
     def title(self) -> str: ...
-
-
-@runtime_checkable
-class HasSummary(Protocol):
-    """Protocol for objects with summary field."""
-
-    summary: str | None
 
 
 @runtime_checkable
@@ -1606,7 +1592,6 @@ __all__ = [
     # Timestamp Protocols (3)
     "HasCreatedAt",
     "HasLogger",
-    "HasMetadata",
     # Priority/Sorting Protocols (3)
     "HasPriority",
     "HasRelevanceScore",
@@ -1615,7 +1600,6 @@ __all__ = [
     # Query/Optimizer Protocols (3)
     "HasSeverity",
     "HasStrategy",
-    "HasSummary",
     "HasToNumeric",
     # Entity Attribute Protocols - Core (6)
     "HasUID",

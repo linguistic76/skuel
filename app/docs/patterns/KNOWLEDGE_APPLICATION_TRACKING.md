@@ -1,6 +1,6 @@
 ---
 title: Knowledge Application Tracking
-updated: '2026-10-11'
+updated: 2026-10-16
 category: patterns
 related_skills:
 - activity-domains
@@ -93,10 +93,6 @@ result = await backend.get_related_uids(task_uid, RelationshipName.APPLIES_KNOWL
 
 ## Consumers (why this matters)
 
-- **Insight generation** — `InsightGenerationService._analyze_knowledge_application_patterns`
-  partitions completed tasks into the knowledge-applying cohort and emits a
-  `PatternType.KNOWLEDGE_APPLICATION` pattern (→ `InsightCategory.LEARNING` insight) when
-  that cohort is >10% more efficient. This is the "applied knowledge compounds" signal.
 - **ZPD** — `ZPDBackend` traverses `APPLIES_KNOWLEDGE` edges to position the learner.
 - **Learning relevance** — `tasks_learning_service.get_learning_relevant_tasks` scores
   tasks by the knowledge they apply.
@@ -118,6 +114,5 @@ can apply knowledge (Goal, Habit, Event, Choice, Principle). The YAML ingestion 
 2. Reading via that domain's `*Relationships` container or `get_related_uids("knowledge", uid)`.
 
 **See:** `core/services/tasks/task_relationships.py`,
-`core/services/insight/_pattern_analysis_mixin.py`,
 [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md),
 `@activity-domains`, `@learning-loop`.

@@ -13,8 +13,8 @@ Hierarchy:
     └── Ku(Entity) +6 fields  ← EntityType.KU (this file)
 
 UID Format (flat, opaque — identity not classification, ADR-013):
-    ku_{slug}_{random} (API-generated) or ku.{ns}.{slug} (vault-authored).
-    e.g., ku_buzzing_a1b2c3d4 — never parse the UID to infer type or grouping.
+    ku.{ns}.{slug}, authored in the content vault.
+    e.g., ku.sel.mindfulness — never parse the UID to infer type or grouping.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """

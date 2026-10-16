@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-10-10
+updated: 2026-10-16
 status: current
 category: domains
 tags:
@@ -92,9 +92,9 @@ class TasksService(BaseService[TasksOperations, Task]):
 | `handle_task_priority_changed` | `inflation_ratio > 0.6` | `IMBALANCE_DETECTED` | HIGH |
 | `handle_task_completed` | Principle alignment found | `PRINCIPLE_ALIGNMENT` | LOW |
 
-Also handles: duration calibration (EMA on User node), cascade impact analysis, batch pattern classification, and **automatic knowledge generation** (`_trigger_knowledge_generation` — step 4 of `handle_task_completed`, runs when `ku_generation_service` is wired in).
+Also handles: duration calibration (EMA on User node), cascade impact analysis and batch pattern classification. A completion generates no Ku: curriculum is authored in the content vault (ADR-091 S8).
 
-**Constructor note:** `TasksService` constructs `TaskEventHandlerService` manually (not via the `create_common_sub_services()` factory) to pass `ku_generation_service`. This is the same pattern used for `core` and `intelligence`.
+**Constructor note:** `TasksService` takes its `event_handler` from the `create_common_sub_services()` factory, like the other five domains; only `core` and `intelligence` are built in the facade.
 
 ## Model Fields
 

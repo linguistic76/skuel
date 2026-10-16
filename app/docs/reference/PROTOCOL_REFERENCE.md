@@ -113,9 +113,8 @@ class HasTitle(Protocol):
 
 ⚠️ **Read-only on purpose.** A bare `title: str` declares a *settable* member, and
 no frozen domain dataclass satisfies that — bound that way, every `Entity` subtype
-is rejected with `must be a subtype of "HasTitle"`. The mutable-attribute siblings
-(`HasUID`, `HasSummary`, `HasMetadata`) predate this and would fail the same way if
-used as a type-parameter bound. Declare new attribute protocols read-only unless a
+is rejected with `must be a subtype of "HasTitle"`. The mutable-attribute sibling
+`HasUID` predates this and would fail the same way if used as a type-parameter bound. Declare new attribute protocols read-only unless a
 consumer genuinely assigns.
 
 ---

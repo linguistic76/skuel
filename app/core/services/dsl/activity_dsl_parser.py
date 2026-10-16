@@ -92,6 +92,30 @@ _DSL_CONTEXT_VOCABULARY: frozenset[EntityType | NonKuDomain] = frozenset(
     }
 )
 
+#: Contexts a line may name but never create from: curriculum is authored in
+#: the content vault (ADR-091 S8). The extractor reports such a line, and the
+#: LLM bridge never emits one.
+VAULT_AUTHORED_CONTEXTS: frozenset[EntityType | NonKuDomain] = frozenset(
+    {EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH}
+)
+
+
+def resolve_context_value(value: str) -> EntityType | NonKuDomain | None:
+    """Resolve one ``@context()`` value (a name or an alias) to its enum member.
+
+    DSL aliases first (``learningstep``), then ``EntityType`` and ``NonKuDomain``.
+    Returns ``None`` for a value neither resolves; whether the member is in the
+    DSL vocabulary is the caller's check.
+    """
+    v = value.strip().lower()
+    resolved: EntityType | NonKuDomain | None = _DSL_CONTEXT_ALIASES.get(v)
+    if resolved is None:
+        resolved = EntityType.from_string(v)
+    if resolved is None:
+        resolved = NonKuDomain.from_string(v)
+    return resolved
+
+
 # ============================================================================
 # PARSED ACTIVITY LINE (Intermediate Representation)
 # ============================================================================
@@ -742,6 +766,11 @@ class ActivityDSLParser:
                     f"@repeat({tags['repeat']}) unknown pattern — dropped "
                     "(daily, weekly:Mon,Wed, monthly:1,15, every:3d)"
                 )
+            if tags.get("ku") and primary_ku is None:
+                tag_warnings.append(
+                    f"@ku({tags['ku']}) is not a knowledge unit uid — reference dropped "
+                    "(a Ku uid is spelled ku.<namespace>.<slug>)"
+                )
 
             activity = ParsedActivityLine(
                 description=description,
@@ -967,12 +996,7 @@ class ActivityDSLParser:
             if not v:
                 continue
 
-            # Resolve: DSL aliases first (e.g. "learningstep"), then the enums.
-            resolved: EntityType | NonKuDomain | None = _DSL_CONTEXT_ALIASES.get(v)
-            if resolved is None:
-                resolved = EntityType.from_string(v)
-            if resolved is None:
-                resolved = NonKuDomain.from_string(v)
+            resolved = resolve_context_value(v)
 
             # A value that resolves to an enum member OUTSIDE the DSL
             # vocabulary (e.g. "interaction", "form_template") is just as
@@ -1183,13 +1207,13 @@ class ActivityDSLParser:
         """
         Parse @ku() knowledge unit reference.
 
-        Accepted forms: the two sanctioned spellings — generated
-        ``ku_{slug}_{random}`` (ADR-013) and authored ``ku.{ns}.{slug}``.
-        Returns the full UID string. The retired colon spelling
-        (``ku:…``) is REJECTED (returns None with a warning) — never
-        rewritten, never double-prefixed. The lenient missing-prefix
-        fallback emits the authored dot form: machine channels speak
-        canonical spellings (emission rule).
+        A Ku uid has one spelling, authored ``ku.{ns}.{slug}`` (ADR-013), and
+        the full uid is returned. A value spelled as a uid in any other way —
+        the retired generated ``ku_…`` or colon ``ku:…`` forms — names no Ku:
+        it returns None (the line's tag_warnings report it), never rewritten,
+        never double-prefixed. The lenient missing-prefix fallback emits the
+        authored dot form: machine channels speak canonical spellings
+        (emission rule).
         """
         if not value:
             return None
@@ -1197,14 +1221,13 @@ class ActivityDSLParser:
         # Clean up the value
         value = value.strip()
 
-        if value.startswith(("ku.", "ku_")):
+        if value.startswith("ku."):
             return value
 
-        if value.startswith("ku:"):
-            # Retired colon spelling (input alias deleted 2026-08-14) —
-            # prefixing it would mint garbage (``ku.ku:…``) that silently
-            # misses the intended Ku; omit the reference and say why.
-            self.logger.warning(f"Rejected retired colon-spelled KU reference: {value}")
+        if value.startswith(("ku_", "ku:")):
+            # Prefixing either would mint garbage (``ku.ku_…``) that silently
+            # misses every Ku; omit the reference and say why.
+            self.logger.warning(f"Rejected KU reference not spelled ku.{{ns}}.{{slug}}: {value}")
             return None
 
         self.logger.warning(f"Invalid KU format (missing ku prefix): {value}")
@@ -1215,10 +1238,9 @@ class ActivityDSLParser:
         """
         Parse @link() connections: ``type:uid[, type:uid...]``.
 
-        The id after the prefix IS the entity's stored uid, in either
-        sanctioned spelling — authored ``goal.{grouping}.{slug}`` /
-        ``ku.{ns}.{slug}`` or generated ``goal_{random}`` /
-        ``ku_{slug}_{random}`` — and it is stored bare. The prefix only names
+        The id after the prefix IS the entity's stored uid — authored
+        ``goal.{grouping}.{slug}`` / ``ku.{ns}.{slug}`` or generated
+        ``goal_{random}`` (a Ku is authored only) — and it is stored bare. The prefix only names
         the label a sink checks (``EntityType.from_string`` resolves aliases
         such as ``lp``); it is never prepended and nothing resolves a title
         or a path to a uid. Every sink admits the id against the graph (the

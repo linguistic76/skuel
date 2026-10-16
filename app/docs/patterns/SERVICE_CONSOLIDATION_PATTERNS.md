@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-10-11
+updated: 2026-10-16
 category: patterns
 related_skills:
 - base-analytics-service
@@ -35,7 +35,7 @@ For hands-on implementation:
 
 ## Foundational Principle: Harmony Without Over-Generalization
 
-The tactical patterns below (DomainConfig, explicit delegation, factory-created sub-services, etc.) exist in service of one design decision: **all 6 Activity Domains share the same seven common sub-services, and no domain opts out.** `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence` — every facade fills all seven. `create_common_sub_services()` builds `search`, `relationships`, `event_handler` and `learning` for all six (`event_handler` and `learning` are not skippable), `core` for all but Tasks (`skip={"core"}` — its core takes `ku_inference_service`), and `intelligence` only for the domain whose config declares an `intelligence_class` (Principles) — the other five construct theirs in the facade to pass `cross_domain_query` or a sibling sub-service. Tasks also discards the factory's `event_handler` and installs one wired with `ku_generation_service`.
+The tactical patterns below (DomainConfig, explicit delegation, factory-created sub-services, etc.) exist in service of one design decision: **all 6 Activity Domains share the same seven common sub-services, and no domain opts out.** `core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence` — every facade fills all seven. `create_common_sub_services()` builds `search`, `relationships`, `event_handler` and `learning` for all six (`event_handler` and `learning` are not skippable), `core` for all but Tasks (`skip={"core"}` — its core takes `ku_inference_service`), and `intelligence` only for the domain whose config declares an `intelligence_class` (Principles) — the other five construct theirs in the facade to pass `cross_domain_query` or a sibling sub-service.
 
 **The shared shape is a contract for interconnectivity, not a cage.** Unified search, user context aggregation, cross-domain relationship queries, the knowledge substance pipeline, ZPD assessment — these all work because every domain exposes the same surface in the same place. When the system asks "what is this user working on today," the answer doesn't care whether it comes from Tasks, Habits, or Events.
 

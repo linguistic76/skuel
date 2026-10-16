@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.entity_inference_service import EntityInferenceService
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
-    from core.services.insight.insight_generation_service import InsightGenerationService
     from core.services.insight.insight_store import InsightStore
     from core.services.tasks.tasks_ai_service import TasksAIService
 
@@ -82,7 +81,6 @@ from core.services.tasks import (
 from core.services.tasks._orchestration_mixin import _OrchestrationMixin
 from core.utils.activity_stats import compute_task_stats
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
-from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
     get_created_at_attr,
@@ -330,7 +328,6 @@ class TasksService(
         cross_domain_query: CrossDomainQueryService,
         graph_intel: GraphIntelligenceService,
         ku_inference_service: EntityInferenceService | None = None,
-        ku_generation_service: InsightGenerationService | None = None,
         event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
@@ -344,7 +341,6 @@ class TasksService(
             cross_domain_query: Cross-domain query service (REQUIRED)
             graph_intel: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             ku_inference_service: Service for automatic knowledge inference (optional)
-            ku_generation_service: InsightGenerationService for knowledge generation (optional)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: For persisting event-driven insights (optional)
             activity_knowledge_intelligence: Shared knowledge intelligence singleton (optional)
@@ -358,8 +354,6 @@ class TasksService(
 
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: TasksAIService | None = ai_service
-
-        self.logger = get_logger("skuel.services.tasks")  # structlog BoundLogger
 
         # Use factory for search, relationships, event_handler, learning, and
         # knowledge_intelligence. core and intelligence need domain-specific
@@ -411,16 +405,8 @@ class TasksService(
             relationship_service=self.relationships,
         )
 
-        # Event-driven reactive handlers (fire-and-forget).
-        # Constructed manually (not via factory) to wire ku_generation_service — knowledge
-        # generation is a named TaskCompleted consequence, not a hidden orchestration side effect.
-        self.event_handler: TaskEventHandlerService = TaskEventHandlerService(
-            backend=backend,
-            relationship_service=self.relationships,
-            insight_store=insight_store,
-            event_bus=event_bus,
-            ku_generation_service=ku_generation_service,
-        )
+        # Event-driven reactive handlers (fire-and-forget)
+        self.event_handler: TaskEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
         self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap

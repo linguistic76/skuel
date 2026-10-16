@@ -385,8 +385,6 @@ service layer translates it to/from edges.
   does `SET n += $changes`.
 - **Read:** `TaskRelationships.fetch(uid, service.relationships)` or
   `get_related_uids("knowledge", uid)` — never a node attribute.
-- **Consume:** `InsightGenerationService._analyze_knowledge_application_patterns` emits a
-  `KNOWLEDGE_APPLICATION` pattern when knowledge-applying tasks are >10% more efficient.
 
 **See:** `/docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md`.
 

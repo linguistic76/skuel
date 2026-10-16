@@ -106,7 +106,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 
 | Domain | Format (authored = stored) | Example |
 |--------|--------|---------|
-| KU | `ku.{ns}.{slug}` authored; `ku_{slug}_{random}` generated (nothing mints it now) | `ku.sel.empathy`, `ku_meditation-basics_x9y8z7w6` |
+| KU | `ku.{ns}.{slug}` (one form; the generated `ku_…` form is retired) | `ku.sel.empathy` |
 | PS | `ps.{namespace}.{slug}` | `ps.core.meditation-basics` |
 | LP | `lp.{namespace}.{slug}` | `lp.core.intro-mindfulness` |
 
