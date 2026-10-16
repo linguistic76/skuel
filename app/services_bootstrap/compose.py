@@ -1259,10 +1259,10 @@ async def compose_services(
         logger.info("✅ JournalBatchService created (je_in/upload → je_out pipeline)")
 
         # DSL activity extractor (ADR-069 — Pipeline.EXTRACT_ACTIVITIES).
-        # Domain facades are the create surfaces; calendar/lifepath carry no
-        # create-capable method today and finance was retired with ADR-052, so
-        # those inject None (their parsed lines count in *_found and skip
-        # cleanly). Curriculum lines create nothing (ADR-091 S8).
+        # Domain facades are the create surfaces; calendar, lifepath and finance
+        # have no create-capable service (finance: ADR-052), so those inject
+        # None (their parsed lines count in *_found and skip cleanly).
+        # Curriculum lines create nothing (ADR-091 S8).
         from core.services.dsl import ActivityExtractorService
 
         activity_extractor = ActivityExtractorService(

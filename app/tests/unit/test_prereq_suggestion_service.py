@@ -190,15 +190,25 @@ def test_rationale_newlines_cannot_inject_frontmatter() -> None:
     assert "# evil from: ku.x.y to: ku.z.w" in content
 
 
-def test_edge_filename_slugs() -> None:
+def test_edge_filename_names_the_whole_uids() -> None:
     assert (
         edge_filename("ku.mind.attention", "ku.mind.labeling", RelationshipName.PREREQUISITE_FOR)
-        == "edge_attention-prereq-labeling.md"
+        == "edge_ku.mind.attention__prereq__ku.mind.labeling.md"
     )
     assert (
         edge_filename("ku.a.one", "ku.b.two", RelationshipName.COMPLEMENTARY_TO)
-        == "edge_one-complements-two.md"
+        == "edge_ku.a.one__complements__ku.b.two.md"
     )
+
+
+def test_two_edges_never_share_a_filename() -> None:
+    """Pairs whose last segments match are different edges, so different files:
+    a shared name would have the admin's copy overwrite the first edge's file."""
+    rel = RelationshipName.PREREQUISITE_FOR
+    math = edge_filename("ku.math.attention", "ku.math.labeling", rel)
+    sel = edge_filename("ku.sel.attention", "ku.sel.labeling", rel)
+
+    assert math != sel
 
 
 # ============================================================================

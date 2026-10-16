@@ -90,8 +90,8 @@ _EDGE_CHOICES: dict[EdgeChoice, tuple[bool, RelationshipName]] = {
     EdgeChoice.COMPLEMENTARY: (False, RelationshipName.COMPLEMENTARY_TO),
 }
 
-#: Filename token per relationship a choice records (authored-vault convention:
-#: edge_attention-prereq-labeling.md).
+#: Filename token per relationship a choice records
+#: (edge_ku.mind.attention__prereq__ku.mind.labeling.md).
 _REL_FILENAME_TOKENS: dict[RelationshipName, str] = {
     RelationshipName.PREREQUISITE_FOR: "prereq",
     RelationshipName.RELATED_TO: "related",
@@ -186,21 +186,24 @@ class PrereqSuggestionRun:
 
 
 def _uid_slug(uid: str) -> str:
-    """Filename slug for a Ku UID: last dot segment, sanitized to ``[a-z0-9-]``.
+    """Filename slug for a Ku UID: the whole uid, any character outside
+    ``[a-z0-9._-]`` replaced by ``-``.
 
-    ``ku.mindfulness.attention`` → ``attention`` (authored-vault filename
-    convention); a dotless UID sanitizes whole. Cosmetic only — the UID's
-    meaning stays in the file body.
+    The whole uid, not its last segment: ``ku.math.attention`` and
+    ``ku.sel.attention`` are different Kus, and a shared filename would have
+    the admin's copy overwrite the other edge's file in the vault.
     """
-    tail = uid.rsplit(".", 1)[-1].lower()
-    slug = "".join(ch if ch.isalnum() or ch == "-" else "-" for ch in tail)
-    return slug.strip("-") or "ku"
+    return "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in uid.lower()) or "ku"
 
 
 def edge_filename(from_uid: str, to_uid: str, relationship: RelationshipName) -> str:
-    """``edge_{from-slug}-{rel-token}-{to-slug}.md`` (authored-vault pattern)."""
+    """``edge_{from-uid}__{rel-token}__{to-uid}.md`` — one name per edge.
+
+    ``__`` separates the parts because an authored uid never carries it (its
+    segments join with ``.`` and ``-``).
+    """
     token = _REL_FILENAME_TOKENS[relationship]
-    return f"edge_{_uid_slug(from_uid)}-{token}-{_uid_slug(to_uid)}.md"
+    return f"edge_{_uid_slug(from_uid)}__{token}__{_uid_slug(to_uid)}.md"
 
 
 def _comment_line(text: str) -> str:

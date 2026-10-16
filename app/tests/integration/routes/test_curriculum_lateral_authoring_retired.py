@@ -6,9 +6,11 @@ them, and ``/api/ku/{uid}/lateral/enables`` answers GET only. Each such request
 answers 404 or 405 to an admin, sent a well-formed body naming nodes it could
 join, and leaves the graph unchanged.
 
-Controls: the vault sync writes the edges those doors wrote (Edge YAML files), the
-curriculum reads still answer, and an Activity lateral write between the admin's
-own tasks still lands — the factory keeps the writes of a domain with an owner.
+Controls: the vault sync writes the curriculum lateral edges (Edge YAML files, one
+of them the ready file the prereq-suggestion queue renders for the admin to copy),
+the curriculum reads still answer, and an Activity lateral write between the
+admin's own tasks still lands — the factory keeps the writes of a domain with an
+owner.
 """
 
 from __future__ import annotations
@@ -21,6 +23,11 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from core.services.prereq_suggestion_service import (
+    EdgeChoice,
+    PrereqSuggestion,
+    ready_edge_files,
+)
 from tests.integration._activity_link_rig import (
     create,
     edges_between,
@@ -50,6 +57,7 @@ PARENT = f"ps.{MARK}.parent"
 KU_A = f"ku.{MARK}.a"
 KU_B = f"ku.{MARK}.b"  # what a create would join: no vault edge reaches it
 KU_C = f"ku.{MARK}.c"  # the far end of every vault-authored lateral edge
+KU_D = f"ku.{MARK}.d"  # the far end of the queue's ready prerequisite file
 STEP = f"ps.{MARK}.step"
 PATH = f"lp.{MARK}.path"
 ANCHORS = {"ku": KU_A, "ps": STEP, "lp": PATH}
@@ -72,7 +80,7 @@ def _write(vault: Path, name: str, text: str) -> None:
 def _vault(vault: Path) -> None:
     """Every anchor under one parent, so a create's same-parent and same-depth
     rules hold: each body below is well-formed for the nodes it names."""
-    for uid, name in ((KU_A, "a"), (KU_B, "b"), (KU_C, "c")):
+    for uid, name in ((KU_A, "a"), (KU_B, "b"), (KU_C, "c"), (KU_D, "d")):
         _write(vault, f"{name}.md", f"---\ntype: ku\nuid: {uid}\ntitle: {MARK} {name}\n---\nA.\n")
     _write(vault, "step.md", f"---\ntype: ps\nuid: {STEP}\ntitle: {MARK} step\n---\nA step.\n")
     _write(vault, "path.md", f"---\ntype: lp\nuid: {PATH}\ntitle: {MARK} path\n---\nA path.\n")
@@ -84,6 +92,11 @@ def _vault(vault: Path) -> None:
     )
     for index, (source, edge_type, target) in enumerate(VAULT_EDGES):
         write_edge_file(vault, f"edge-{index}", source=source, edge_type=edge_type, target=target)
+    # The file the prereq-suggestion queue renders for "Prerequisite: C → D", saved
+    # under the name it shows — the one door for an approved suggestion.
+    suggestion = PrereqSuggestion(KU_C, "C", KU_D, "D", 0.5, None, "C grounds D")
+    ready = next(f for f in ready_edge_files(suggestion) if f.choice is EdgeChoice.PREREQ_A_TO_B)
+    _write(vault, ready.filename, ready.content)
 
 
 async def _graph(driver: AsyncDriver) -> list[list[Any]]:  # boundary: raw graph read
@@ -168,6 +181,7 @@ async def test_the_vault_writes_the_curriculum_lateral_edges(world: World) -> No
     edges = {(row[0], row[1], row[2]) for row in await _graph(world.driver)}
 
     assert set(VAULT_EDGES) <= edges
+    assert (KU_C, "PREREQUISITE_FOR", KU_D) in edges
     assert {(PARENT, "ORGANIZES", uid) for uid in (KU_A, KU_B, KU_C, STEP, PATH)} <= edges
 
 
