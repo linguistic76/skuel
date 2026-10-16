@@ -190,25 +190,38 @@ def test_rationale_newlines_cannot_inject_frontmatter() -> None:
     assert "# evil from: ku.x.y to: ku.z.w" in content
 
 
-def test_edge_filename_names_the_whole_uids() -> None:
-    assert (
-        edge_filename("ku.mind.attention", "ku.mind.labeling", RelationshipName.PREREQUISITE_FOR)
-        == "edge_ku.mind.attention__prereq__ku.mind.labeling.md"
-    )
-    assert (
-        edge_filename("ku.a.one", "ku.b.two", RelationshipName.COMPLEMENTARY_TO)
-        == "edge_ku.a.one__complements__ku.b.two.md"
+def test_edge_filename_spells_out_the_edge() -> None:
+    name = edge_filename("ku.mind.attention", "ku.mind.labeling", RelationshipName.PREREQUISITE_FOR)
+
+    assert name.startswith("edge_ku.mind.attention__prereq__ku.mind.labeling_")
+    assert name.endswith(".md")
+    # The same edge always gets the same name.
+    assert name == edge_filename(
+        "ku.mind.attention", "ku.mind.labeling", RelationshipName.PREREQUISITE_FOR
     )
 
 
-def test_two_edges_never_share_a_filename() -> None:
-    """Pairs whose last segments match are different edges, so different files:
-    a shared name would have the admin's copy overwrite the first edge's file."""
+@pytest.mark.parametrize(
+    ("one", "other"),
+    [
+        (("ku.math.attention", "ku.math.labeling"), ("ku.sel.attention", "ku.sel.labeling")),
+        (("ku.Topic.foo", "ku.a.b"), ("ku.topic.foo", "ku.a.b")),
+        (("ku.a/foo", "ku.a.b"), ("ku.a?foo", "ku.a.b")),
+        (("ku.x." + "a" * 80 + "1", "ku.y"), ("ku.x." + "a" * 80 + "2", "ku.y")),
+    ],
+    ids=["same-last-segment", "case", "collapsed-character", "past-the-slug"],
+)
+def test_two_edges_never_share_a_filename(one: tuple[str, str], other: tuple[str, str]) -> None:
+    """A shared name would have the admin's copy overwrite the other edge's file."""
     rel = RelationshipName.PREREQUISITE_FOR
-    math = edge_filename("ku.math.attention", "ku.math.labeling", rel)
-    sel = edge_filename("ku.sel.attention", "ku.sel.labeling", rel)
 
-    assert math != sel
+    assert edge_filename(*one, rel) != edge_filename(*other, rel)
+
+
+def test_an_edge_filename_fits_a_filesystem_component() -> None:
+    name = edge_filename("ku." + "a" * 200, "ku." + "b" * 200, RelationshipName.COMPLEMENTARY_TO)
+
+    assert len(name.encode()) < 160
 
 
 # ============================================================================

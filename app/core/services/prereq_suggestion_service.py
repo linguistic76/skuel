@@ -38,6 +38,7 @@ See: /docs/roadmap/done/SEMANTIC_ANALYSIS_ROADMAP.md
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections import Counter
 from dataclasses import dataclass
@@ -91,7 +92,7 @@ _EDGE_CHOICES: dict[EdgeChoice, tuple[bool, RelationshipName]] = {
 }
 
 #: Filename token per relationship a choice records
-#: (edge_ku.mind.attention__prereq__ku.mind.labeling.md).
+#: (edge_ku.mind.attention__prereq__ku.mind.labeling_1a2b3c4d.md).
 _REL_FILENAME_TOKENS: dict[RelationshipName, str] = {
     RelationshipName.PREREQUISITE_FOR: "prereq",
     RelationshipName.RELATED_TO: "related",
@@ -185,25 +186,28 @@ class PrereqSuggestionRun:
 # =============================================================================
 
 
-def _uid_slug(uid: str) -> str:
-    """Filename slug for a Ku UID: the whole uid, any character outside
-    ``[a-z0-9._-]`` replaced by ``-``.
+#: The most of each uid a filename spells out; the hash carries the rest.
+_SLUG_MAX = 60
 
-    The whole uid, not its last segment: ``ku.math.attention`` and
-    ``ku.sel.attention`` are different Kus, and a shared filename would have
-    the admin's copy overwrite the other edge's file in the vault.
-    """
-    return "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in uid.lower()) or "ku"
+
+def _uid_slug(uid: str) -> str:
+    """The readable part of a filename for a Ku UID: lowercased, any character
+    outside ``[a-z0-9._-]`` replaced by ``-``, cut to ``_SLUG_MAX``. Lossy on
+    purpose — ``edge_filename``'s hash is what keeps names apart."""
+    slug = "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in uid.lower())
+    return slug[:_SLUG_MAX] or "ku"
 
 
 def edge_filename(from_uid: str, to_uid: str, relationship: RelationshipName) -> str:
-    """``edge_{from-uid}__{rel-token}__{to-uid}.md`` — one name per edge.
+    """``edge_{from}__{rel-token}__{to}_{hash}.md`` — one name per edge, bounded.
 
-    ``__`` separates the parts because an authored uid never carries it (its
-    segments join with ``.`` and ``-``).
+    The slugs make the name readable; the hash of the exact (from, relationship,
+    to) makes it the edge's own, so two edges never share a file and a copy into
+    the vault never replaces another edge's. Under 160 bytes whatever the uids.
     """
     token = _REL_FILENAME_TOKENS[relationship]
-    return f"edge_{_uid_slug(from_uid)}__{token}__{_uid_slug(to_uid)}.md"
+    digest = hashlib.sha256(f"{from_uid}\n{relationship.value}\n{to_uid}".encode()).hexdigest()
+    return f"edge_{_uid_slug(from_uid)}__{token}__{_uid_slug(to_uid)}_{digest[:8]}.md"
 
 
 def _comment_line(text: str) -> str:
