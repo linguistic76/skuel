@@ -1,6 +1,6 @@
 ---
 title: "ADR-044: Neo4j as Committed Architectural Choice"
-updated: 2026-09-15
+updated: 2026-10-16
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, hexagonal]
@@ -190,7 +190,7 @@ keep orchestration + result-shaping and call backend methods:
 | `user_relationship_service` *(false "Direct Driver" docstring)* | `UserRelationshipBackend` + `UserRelationshipOperations` |
 | `analytics_relationship_service` *(false "Direct Driver" docstring)* | `AnalyticsRelationshipBackend` + `AnalyticsRelationshipOperations` — **both since deleted** (2026-07, SKUEL030 findings §1: the backend queried a purged `:Report` label and had no callers) |
 | `schema_service` | `Neo4jSchemaService` (relocated) |
-| `templates/__init__` attach/detach/list | `TemplateAttachmentBackend` + `TemplateAttachmentOperations` |
+| `templates/__init__` PathStep template read | `TemplateAttachmentBackend` + `TemplateAttachmentOperations` |
 | `infrastructure/graph_query_builder` | `query/graph_context_query_builder` (backend builds by intent) |
 | `ps_engagement/*` (service, gateway, loader) | `PsEngagementBackend` + `PsEngagementOperations` |
 | `ingestion/*` (service, batch, validator) | `IngestionWriteBackend` |

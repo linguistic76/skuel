@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-10-13
+updated: 2026-10-16
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -506,8 +506,8 @@ to the instance spawned alongside it. `status:` is stamped `active` at the inges
 **See: [Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md)** — its Part 1
 walks one template from file to verified-in-the-graph; Part 3 is the complete field
 reference for all six kinds, and Part 4 is what spawning does and does not let you change
-afterwards. The JSON API (`POST /api/pathstep-task-templates/` and its `/attach`, one
-route file per kind) remains a second door.
+afterwards. The vault is the only template door: the app has no template create, edit or
+attach (ADR-091 S8).
 
 ### PathStep YAML with `task_uids` (Static Approach)
 

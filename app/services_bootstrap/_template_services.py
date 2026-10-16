@@ -1,6 +1,6 @@
 """Template + engagement service builder (Phases 4-5 of PS+Activity Templates).
 
-Holds the wiring for the 6 Activity Template CRUD services and
+Holds the wiring for the 6 Activity Template read services and
 :class:`PsEngagementService`. Kept separate from
 ``_activity_services.py`` because templates are PS-owned curriculum (no
 per-user state), not activity instances — different ownership model,
@@ -55,9 +55,9 @@ def _create_template_services(
     """Construct the template + engagement layer.
 
     Builds (Phase 5):
-    - 6 ``*TemplateService`` CRUD facades — one per Activity Template kind.
-      Each wraps its UniversalNeo4jBackend and exposes attach/detach/list-for-PS
-      helpers backed by the shared executor.
+    - 6 ``*TemplateService`` read services — one per Activity Template kind.
+      Each wraps its UniversalNeo4jBackend and reads the templates attached to a
+      PathStep through the shared executor. Templates are vault-authored.
 
     Builds (Phase 4):
     - ``ps_engagement``: PsEngagementService — 3-transition lifecycle facade.
@@ -103,7 +103,7 @@ def _create_template_services(
         event_bus=event_bus,
     )
     logger.info(
-        "✅ Template services created: 6 CRUD facades (Phase 5) + PsEngagementService (Phase 4)"
+        "✅ Template services created: 6 read services (Phase 5) + PsEngagementService (Phase 4)"
     )
 
     return {

@@ -90,11 +90,11 @@ def default_completion_date_when_completed(self) -> TaskCreateRequest:
     return self
 ```
 
-A requirement shared by several models is a model-validator helper (see
+A conditional requirement is a model-validator helper (see
 [Model Validator Factories](#model-validator-factories)):
 
 ```python
-# core/models/event/event_request.py — EventCreateRequest (EventTemplateCreateRequest too)
+# core/models/event/event_request.py — EventCreateRequest
 @model_validator(mode="after")
 def _require_url_when_online(self) -> Self:
     return validate_url_when_online("meeting_url", "is_online")(self)

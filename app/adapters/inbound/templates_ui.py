@@ -9,9 +9,8 @@ them; it does not author them.
   ``GET /teaching/ps/{ps_uid}/templates`` — the templates attached to the PS,
   grouped by Activity Domain.
 
-The create/edit/detach web forms were deleted with the arc's PR-3, the same
-trade the 6 Activity instances made in March 2026: the vault becomes the
-authoring layer, the service facades and JSON CRUD stay.
+The app has no template write door of any kind (ADR-091 S8): the vault is the
+one author of templates and of their attachment to a PathStep.
 
 See: /docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md
 """
@@ -19,7 +18,7 @@ See: /docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
@@ -32,23 +31,6 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 logger = get_logger("skuel.routes.templates_ui")
-
-
-# ----------------------------------------------------------------------------
-# Service mapping
-# ----------------------------------------------------------------------------
-# Maps the URL ``{domain}`` segment to the Services attribute holding the
-# matching template service. Kept here (not in the panel file) so the UI module
-# doesn't depend on the bootstrap container.
-
-_DOMAIN_TO_SERVICE_ATTR: dict[str, str] = {
-    "task": "task_templates",
-    "goal": "goal_templates",
-    "habit": "habit_templates",
-    "event": "event_templates",
-    "choice": "choice_templates",
-    "principle": "principle_templates",
-}
 
 
 def create_templates_ui_routes(
@@ -66,18 +48,24 @@ def create_templates_ui_routes(
         logger.warning("Template UI routes registered without services")
         return
 
-    raw_services = {
-        domain: getattr(services, attr, None) for domain, attr in _DOMAIN_TO_SERVICE_ATTR.items()
+    # The URL-facing domain name → its template service, read-only by type.
+    raw_services: dict[str, ActivityTemplateOperations | None] = {
+        "task": services.task_templates,
+        "goal": services.goal_templates,
+        "habit": services.habit_templates,
+        "event": services.event_templates,
+        "choice": services.choice_templates,
+        "principle": services.principle_templates,
     }
-    if any(s is None for s in raw_services.values()):
+    template_services = {
+        domain: service for domain, service in raw_services.items() if service is not None
+    }
+    if len(template_services) != len(raw_services):
         logger.warning(
             "Template UI routes registered, but one or more template services is None "
             "— skipping registration"
         )
         return
-    template_services: dict[str, ActivityTemplateOperations] = cast(
-        "dict[str, ActivityTemplateOperations]", dict(raw_services)
-    )
 
     user_service = getattr(services, "user", None)
     get_user_service = make_service_getter(user_service)

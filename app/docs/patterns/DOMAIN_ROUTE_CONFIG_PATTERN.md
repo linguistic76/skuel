@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-10-15
+updated: 2026-10-16
 category: patterns
 related_skills:
 - fasthtml
@@ -987,13 +987,13 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
   - `register_domain_routes()` function (lines 132-250) - Registration with config-driven factories
   - `create_activity_domain_route_config()` function (lines 253-320) - Activity Domain convenience function
 
-### Current Users (40 files)
+### Current Users (34 files)
 
-40 route modules bind a module-level `DomainRouteConfig`. 37 are wired in Section 2 of `_wire_all_routes()` in `bootstrap.py`; the 3 Infrastructure ones are wired in Section 1. Registration is unguarded — the soft-fail in `register_domain_routes()` handles missing services — with one exception: `askesis_routes.py` sits behind `if services.askesis is not None:`.
+34 route modules bind a module-level `DomainRouteConfig`. 31 are wired in Section 2 of `_wire_all_routes()` in `bootstrap.py`; the 3 Infrastructure ones are wired in Section 1. Registration is unguarded — the soft-fail in `register_domain_routes()` handles missing services — with one exception: `askesis_routes.py` sits behind `if services.askesis is not None:`.
 
-Configs are constructed three ways: `DomainRouteConfig(...)` directly (28 files), `create_activity_domain_route_config()` (6 Activity files), and `make_pathstep_template_route_config()` (6 PS-template files).
+Configs are constructed two ways: `DomainRouteConfig(...)` directly (28 files) and `create_activity_domain_route_config()` (6 Activity files).
 
-**Adoption:** 37 of the 52 route modules in bootstrap Section 2 use the pattern — **71%**. Section 2 ("ENTITY DOMAIN ROUTES") is the only non-circular denominator available: Section 1 is infrastructure, Section 3 is manual by design, Section 4 is the PWA shell. See § Route Wiring Patterns for what the other 15 use instead.
+**Adoption:** 31 of the 46 route modules in bootstrap Section 2 use the pattern — **67%**. Section 2 ("ENTITY DOMAIN ROUTES") is the only non-circular denominator available: Section 1 is infrastructure, Section 3 is manual by design, Section 4 is the PWA shell. See § Route Wiring Patterns for what the other 15 use instead.
 
 **Activity (6):**
 1. `/adapters/inbound/tasks_routes.py`
@@ -1011,43 +1011,35 @@ Configs are constructed three ways: `DomainRouteConfig(...)` directly (28 files)
 11. `/adapters/inbound/path_steps_routes.py` - PS routes; `PS_CONFIG` is registered by `pathways_routes.py`, so bootstrap never imports this module directly
 12. `/adapters/inbound/askesis_routes.py`
 
-**PS + Activity Templates (6) — all via `make_pathstep_template_route_config()`:**
-13. `/adapters/inbound/pathstep_task_templates_routes.py`
-14. `/adapters/inbound/pathstep_goal_templates_routes.py`
-15. `/adapters/inbound/pathstep_habit_templates_routes.py`
-16. `/adapters/inbound/pathstep_event_templates_routes.py`
-17. `/adapters/inbound/pathstep_choice_templates_routes.py`
-18. `/adapters/inbound/pathstep_principle_templates_routes.py`
-
 **Forms / User Entry (3):**
-19. `/adapters/inbound/user_entry_routes.py` (ADR-054 — unified submissions + journals surface)
-20. `/adapters/inbound/form_templates_routes.py`
-21. `/adapters/inbound/form_submissions_routes.py`
+13. `/adapters/inbound/user_entry_routes.py` (ADR-054 — unified submissions + journals surface)
+14. `/adapters/inbound/form_templates_routes.py`
+15. `/adapters/inbound/form_submissions_routes.py`
 
 **Other Domains (12):**
-22. `/adapters/inbound/finance_routes.py`
-23. `/adapters/inbound/lifepath_routes.py`
-24. `/adapters/inbound/context_routes.py`
-25. `/adapters/inbound/insights_routes.py` (multi-factory)
-26. `/adapters/inbound/search_routes.py`
-27. `/adapters/inbound/analytics_routes.py`
-28. `/adapters/inbound/calendar_routes.py`
-29. `/adapters/inbound/ingestion_routes.py`
-30. `/adapters/inbound/notifications_routes.py`
-31. `/adapters/inbound/groups_routes.py`
-32. `/adapters/inbound/teaching_routes.py`
-33. `/adapters/inbound/transcription_routes.py`
+16. `/adapters/inbound/finance_routes.py`
+17. `/adapters/inbound/lifepath_routes.py`
+18. `/adapters/inbound/context_routes.py`
+19. `/adapters/inbound/insights_routes.py` (multi-factory)
+20. `/adapters/inbound/search_routes.py`
+21. `/adapters/inbound/analytics_routes.py`
+22. `/adapters/inbound/calendar_routes.py`
+23. `/adapters/inbound/ingestion_routes.py`
+24. `/adapters/inbound/notifications_routes.py`
+25. `/adapters/inbound/groups_routes.py`
+26. `/adapters/inbound/teaching_routes.py`
+27. `/adapters/inbound/transcription_routes.py`
 
 **Infrastructure (3) — wired in bootstrap Section 1, not Section 2:**
-34. `/adapters/inbound/system_routes.py`
-35. `/adapters/inbound/admin_routes.py`
-36. `/adapters/inbound/auth_routes.py`
+28. `/adapters/inbound/system_routes.py`
+29. `/adapters/inbound/admin_routes.py`
+30. `/adapters/inbound/auth_routes.py`
 
 **Graph/Visualization (4):**
-37. `/adapters/inbound/hierarchy_routes.py`
-38. `/adapters/inbound/visualization_routes.py`
-39. `/adapters/inbound/orchestration_routes.py` (multi-factory)
-40. `/adapters/inbound/advanced_routes.py` (multi-factory)
+31. `/adapters/inbound/hierarchy_routes.py`
+32. `/adapters/inbound/visualization_routes.py`
+33. `/adapters/inbound/orchestration_routes.py` (multi-factory)
+34. `/adapters/inbound/advanced_routes.py` (multi-factory)
 
 ### Justified Exceptions (1 file)
 

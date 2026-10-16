@@ -4,8 +4,8 @@ TaskTemplate — PS-Owned Task Spawn Blueprint
 
 Frozen dataclass for task templates (EntityType.TASK_TEMPLATE).
 
-A TaskTemplate is curriculum content authored by an admin/teacher and owned by
-a PathStep via the ``HAS_TASK_TEMPLATE`` edge. When a student engages the
+A TaskTemplate is curriculum content, authored as a content-vault file, and
+owned by a PathStep via the ``HAS_TASK_TEMPLATE`` edge. When a student engages the
 owning PathStep, the engagement service spawns a Task instance from this
 template.
 

@@ -135,7 +135,7 @@ def test_the_probe_writes_nothing_to_stdout(capsys: pytest.CaptureFixture[str]) 
         ("/{fname:path}.{ext:static}", "/{}"),
         ("/api/{domain}/{uid}", "/api/{}/{}"),
         ("/api/{domain}s/remove-child", "/api/{}/remove-child"),  # doc shorthand for a family
-        ("/api/pathstep-{domain}-templates/", "/api/{}"),
+        ("/api/family-{domain}-items/", "/api/{}"),
         ("tasks", None),
         ("", None),
     ],
@@ -219,10 +219,10 @@ def test_a_wildcard_never_covers_an_empty_segment() -> None:
 
 def test_doc_shorthand_families_match_their_members() -> None:
     """A brace anywhere in a segment is a family placeholder: `/api/{domain}s/x` and
-    `/api/pathstep-{domain}-templates/` are how docs name a route per domain."""
-    catalog = rc.RouteCatalog({"/api/tasks/remove-child", "/api/pathstep-task-templates"})
+    `/api/family-{domain}-items/` are how docs name a route per domain."""
+    catalog = rc.RouteCatalog({"/api/tasks/remove-child", "/api/family-task-items"})
     assert catalog.is_registered(rc.normalize("/api/{domain}s/remove-child") or "")
-    assert catalog.is_registered(rc.normalize("/api/pathstep-{domain}-templates/") or "")
+    assert catalog.is_registered(rc.normalize("/api/family-{domain}-items/") or "")
 
 
 def test_two_registrations_of_one_shape_pool_their_verbs() -> None:

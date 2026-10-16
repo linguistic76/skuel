@@ -57,8 +57,8 @@ COVERAGE BOUND (deliberate, not silent)
 Configs whose ``Services`` annotation is a **Protocol** (``*Operations``) are
 skipped: the concrete object the composition root builds is wider than the
 protocol names, so a miss there is ISP drift rather than an ``AttributeError``,
-and it cannot be adjudicated without resolving the composition root. At the time
-of writing that is 16 configs skipped against 41 factories checked.
+and it cannot be adjudicated without resolving the composition root. As measured
+for the floor below: 15 configs skipped against 33 factories checked.
 ``test_audit_coverage_floor`` pins the checked count so the audit cannot quietly
 go vacuous, and ``test_audit_detects_a_planted_missing_attribute`` proves the
 checker actually fires.
@@ -83,11 +83,11 @@ import adapters.inbound
 from adapters.inbound.route_factories import DomainRouteConfig
 from services_bootstrap._container import Services
 
-# Measured floor: 41 factories over 26 concrete-service configs (2026-07-27).
+# Measured: 33 factories over 20 concrete-service configs.
 # A floor, not an equality — new domains raise it, and a config migrating to a
 # Protocol annotation lowers it by one. If this trips, read the skip reasons in
 # the failure message before relaxing it.
-_MIN_CHECKED_FACTORIES = 35
+_MIN_CHECKED_FACTORIES = 30
 
 
 @dataclass(frozen=True)

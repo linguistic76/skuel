@@ -1,12 +1,11 @@
-"""Tests for RelativeOffset value type and its Pydantic DTO companion."""
+"""Tests for the RelativeOffset value type."""
 
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from pydantic import ValidationError
 
-from core.models.templates import RelativeOffset, RelativeOffsetDTO
+from core.models.templates import RelativeOffset
 
 VANCOUVER = ZoneInfo("America/Vancouver")
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -106,32 +105,3 @@ class TestRelativeOffsetResolution:
         anchor = datetime(2026, 5, 9, 16, 0)
         assert RelativeOffset().resolve_to_datetime(anchor) == anchor
         assert RelativeOffset().resolve_to_date(anchor, VANCOUVER) == date(2026, 5, 9)
-
-
-class TestRelativeOffsetDTO:
-    """Pydantic DTO mirrors and validates the value type for API boundaries."""
-
-    def test_default_is_zero(self):
-        dto = RelativeOffsetDTO()
-        assert dto.days == 0 and dto.hours == 0 and dto.minutes == 0
-
-    def test_serialization(self):
-        dto = RelativeOffsetDTO(days=7, hours=12, minutes=30)
-        assert dto.model_dump() == {"days": 7, "hours": 12, "minutes": 30}
-
-    def test_deserialization_from_dict(self):
-        dto = RelativeOffsetDTO.model_validate({"days": 3, "hours": 4, "minutes": 5})
-        assert (dto.days, dto.hours, dto.minutes) == (3, 4, 5)
-
-    def test_rejects_negative(self):
-        with pytest.raises(ValidationError):
-            RelativeOffsetDTO(days=-1)
-
-    def test_value_roundtrip(self):
-        original = RelativeOffset(days=7, hours=12, minutes=30)
-        dto = RelativeOffsetDTO.from_value(original)
-        assert dto.to_value() == original
-
-    def test_dto_to_value_to_dto(self):
-        dto = RelativeOffsetDTO(days=2, hours=4)
-        assert RelativeOffsetDTO.from_value(dto.to_value()) == dto

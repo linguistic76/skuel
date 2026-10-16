@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-10-13
+updated: 2026-10-16
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -421,15 +421,11 @@ edges that file authored are retracted.
 trip the mass-deletion refusal. The real sync detects the move by content hash and
 rewrites the tracker row instead.
 
-### The third door
+### No in-app door
 
-A JSON API exists too — one route file per kind, `POST /api/pathstep-{domain}-templates/`
-to create and `POST /api/pathstep-{domain}-templates/attach?ps_uid=…&template_uid=…` to
-attach, TEACHER+. `ps_uid` must name a PathStep and `template_uid` a template of that
-route's own kind (a GoalTemplate at `pathstep-goal-templates`); anything else answers
-404, exactly as a uid that names nothing does, and `/detach` refuses the same pairs. It
-works, but the vault is the door to use: it is the one with a diff, a history and a
-preview.
+The vault is the only way a template, or its attachment to a PathStep, enters SKUEL
+(ADR-091 S8): the app has no create, edit or delete door for a template and no attach or
+detach. The panel on the PathStep page reads what the last sync wrote.
 
 ---
 
@@ -597,7 +593,7 @@ reinforces_habit_template_uid: ht.mindfulness.daily-2min-breath
 | `event_type` | `meeting`/`conference`/`workshop`/`deadline`/`reminder`/`personal`/`work`/`social`/`learning`/`health` | Kind of event — enum-checked at ingest even though the model types it as a string |
 | `location` | string | Where |
 | `is_online` | bool | Online or in person |
-| `meeting_url` | string | Join link — needed when `is_online` is true: the template API refuses an online template without one, but ingestion does not check the pair, so an authored online template with no URL spawns a URL-less online event for every learner |
+| `meeting_url` | string | Join link — needed when `is_online` is true. Ingestion does not check the pair, so an authored online template with no URL spawns a URL-less online event for every learner |
 | `recurrence_pattern` | same values as TaskTemplate | How often — enum-checked at ingest even though the model types it as a string |
 | `recurrence_end_offset` | offset map | When recurrence ends |
 | `reminder_minutes` | int | Lead time |

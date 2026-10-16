@@ -357,14 +357,6 @@ crud=CRUDRouteConfig(
     user_service_attr="user",  # Services.user
 )
 
-# Teacher-authored shared content (the six PathStep activity templates,
-# via make_pathstep_template_route_config())
-crud=CRUDRouteConfig(
-    scope=ContentScope.SHARED,
-    require_role=UserRole.TEACHER,
-    user_service_attr="user",  # Services.user
-)
-
 # Teacher mutations, any-auth reads (Groups)
 crud=CRUDRouteConfig(
     scope=ContentScope.USER_OWNED,
@@ -374,7 +366,7 @@ crud=CRUDRouteConfig(
 )
 ```
 
-**Exemplars:** `groups_routes.py`, `form_templates_routes.py`, `_pathstep_template_routes_helpers.py`
+**Exemplars:** `groups_routes.py`, `form_templates_routes.py`
 
 **Intelligence without CRUD:** Ku, PathStep and LearningPath register only the two
 shared intelligence routes — context and insights; a `SHARED` config has no

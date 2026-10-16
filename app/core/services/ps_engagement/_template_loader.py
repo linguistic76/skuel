@@ -62,8 +62,8 @@ class _TemplateLoader:
         from core.models.templates.principle_template import PrincipleTemplate
         from core.models.templates.task_template import TaskTemplate
 
-        # Each edge with the label its far end must carry — the pair the attach door
-        # admits (``_BaseTemplateService._attachment_kind``), read back by the same pair.
+        # Each edge with the label its far end must carry — the same pair the
+        # templates panel reads by (``_BaseTemplateService._attachment_kind``).
         # boundary: six CrudOperations[T] backends over six template types
         edges: list[tuple[RelationshipName, NeoLabel, Any, type]] = [
             (RelationshipName.HAS_TASK_TEMPLATE, NeoLabel.TASK_TEMPLATE, self._tasks, TaskTemplate),
