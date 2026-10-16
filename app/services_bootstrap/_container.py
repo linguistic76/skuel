@@ -57,14 +57,6 @@ if TYPE_CHECKING:
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.resource_service import ResourceService
     from core.services.tasks_service import TasksService
-    from core.services.templates import (
-        ChoiceTemplateService,
-        EventTemplateService,
-        GoalTemplateService,
-        HabitTemplateService,
-        PrincipleTemplateService,
-        TaskTemplateService,
-    )
     from core.services.transcription.batch_transcription_service import BatchTranscriptionService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
@@ -81,6 +73,7 @@ if TYPE_CHECKING:
     from ui.today.orchestrator import TodayOrchestrator
 
 from core.ports import (
+    ActivityTemplateOperations,
     AskesisCoreOperations,
     AskesisOperations,
     AsyncCloseable,
@@ -236,15 +229,15 @@ class Services:
     # Owns 3 transitions: engage/complete/abandon over PS templates.
     ps_engagement: PsEngagementService | None = None
 
-    # PS+Activity Templates CRUD services (Phase 5 — May 2026).
-    # PS-owned curriculum (no per-user state). Routes wire SHARED scope +
-    # TEACHER role gate. Each service exposes attach/detach/list_for_pathstep.
-    task_templates: TaskTemplateService | None = None
-    goal_templates: GoalTemplateService | None = None
-    habit_templates: HabitTemplateService | None = None
-    event_templates: EventTemplateService | None = None
-    choice_templates: ChoiceTemplateService | None = None
-    principle_templates: PrincipleTemplateService | None = None
+    # PS+Activity Templates read services. PS-owned curriculum, authored only in
+    # the content vault (ADR-091 S8); each is held as the read-only protocol so no
+    # inherited BaseService writer is reachable.
+    task_templates: ActivityTemplateOperations | None = None
+    goal_templates: ActivityTemplateOperations | None = None
+    habit_templates: ActivityTemplateOperations | None = None
+    event_templates: ActivityTemplateOperations | None = None
+    choice_templates: ActivityTemplateOperations | None = None
+    principle_templates: ActivityTemplateOperations | None = None
     # ZPD service — Zone of Proximal Development (March 2026)
     # Created when INTELLIGENCE_TIER=FULL. None when CORE or curriculum graph < 3 KUs.
     # See: core/services/zpd/zpd_service.py, docs/roadmap/done/zpd-service-architecture.md

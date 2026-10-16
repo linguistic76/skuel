@@ -101,7 +101,7 @@ def test_template_without_type_rejected() -> None:
 def test_template_config_shape(entity_type: EntityType) -> None:
     config = ENTITY_CONFIGS[entity_type]
     assert config.uid_prefix == _EXPECTED_PREFIXES[entity_type]
-    assert config.required_fields == ("title",)  # matches TemplateCreateRequest
+    assert config.required_fields == ("title",)
     assert config.base_label == "Entity"  # :Entity:TaskTemplate, as _backends.py builds
     assert config.requires_user_uid is False  # PS-owned curriculum, no OWNS edge
     assert config.embeddable is False  # no EMBEDDING_FIELD_MAPS entry for templates
@@ -221,7 +221,7 @@ def test_authored_offset_canonicalized_to_storage_shape() -> None:
 
 
 def test_ingested_offset_matches_the_dto_write_path_byte_for_byte() -> None:
-    """Both doors must persist one shape — the vault and the JSON API.
+    """The vault persists the shape the template DTO writes and reads back.
 
     The mapper is the single ``json.dumps``; the preparer only normalizes the
     value it serializes.
@@ -236,9 +236,9 @@ def test_ingested_offset_matches_the_dto_write_path_byte_for_byte() -> None:
     from_vault = to_neo4j_node(prepared)["due_offset"]
 
     dto = TaskTemplateDTO(uid="tt.x", title="T", due_offset=RelativeOffset(days=7))
-    from_api = to_neo4j_node(dto.to_dict())["due_offset"]
+    from_dto = to_neo4j_node(dto.to_dict())["due_offset"]
 
-    assert from_vault == from_api
+    assert from_vault == from_dto
     assert jsonable_to_offset(from_vault) == RelativeOffset(days=7)
 
 

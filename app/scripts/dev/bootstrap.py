@@ -712,42 +712,14 @@ async def _wire_all_routes(
 
     create_user_entry_routes(app, rt, services, None)
 
-    # -- PS+Activity Templates (Phase 5) --
-    # 6 template CRUD route files + the engagement lifecycle endpoints. Templates
-    # are SHARED-scope curriculum content, role-gated to TEACHER (admins satisfy
-    # via has_permission). The engagement routes wrap PsEngagementService.
-    from adapters.inbound.pathstep_choice_templates_routes import (
-        create_pathstep_choice_templates_routes,
-    )
-    from adapters.inbound.pathstep_event_templates_routes import (
-        create_pathstep_event_templates_routes,
-    )
-    from adapters.inbound.pathstep_goal_templates_routes import (
-        create_pathstep_goal_templates_routes,
-    )
-    from adapters.inbound.pathstep_habit_templates_routes import (
-        create_pathstep_habit_templates_routes,
-    )
-    from adapters.inbound.pathstep_principle_templates_routes import (
-        create_pathstep_principle_templates_routes,
-    )
-    from adapters.inbound.pathstep_task_templates_routes import (
-        create_pathstep_task_templates_routes,
-    )
+    # -- PS+Activity Templates --
+    # Templates are vault-authored curriculum (ADR-091 S8): the app registers the
+    # engagement lifecycle endpoints (PsEngagementService) and the teacher's
+    # read-only templates panel on the PS detail page.
     from adapters.inbound.ps_engagement_routes import create_ps_engagement_routes
-
-    create_pathstep_task_templates_routes(app, rt, services)
-    create_pathstep_goal_templates_routes(app, rt, services)
-    create_pathstep_habit_templates_routes(app, rt, services)
-    create_pathstep_event_templates_routes(app, rt, services)
-    create_pathstep_choice_templates_routes(app, rt, services)
-    create_pathstep_principle_templates_routes(app, rt, services)
-    create_ps_engagement_routes(app, rt, services)
-
-    # Teacher-facing template authoring UI (panel on PS detail + full-page
-    # create/edit forms). Wraps the JSON CRUD with HTML forms.
     from adapters.inbound.templates_ui import create_templates_ui_routes
 
+    create_ps_engagement_routes(app, rt, services)
     create_templates_ui_routes(app, rt, services)
 
     # -- Forms --

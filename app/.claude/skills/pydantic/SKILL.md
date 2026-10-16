@@ -222,9 +222,9 @@ def default_completion_date_when_completed(self) -> TaskCreateRequest:
     return self
 ```
 
-A conditional *requirement* shared by several models is a model-validator helper —
-`validate_url_when_online` on `EventCreateRequest` and `EventTemplateCreateRequest`; an
-update request leaves the merged-state check to the service's `_validate_update` hook.
+A conditional *requirement* is a model-validator helper — `validate_url_when_online` on
+`EventCreateRequest`; an update request leaves the merged-state check to the service's
+`_validate_update` hook.
 Both in [validation-patterns.md](validation-patterns.md).
 
 `info.data` (`ValidationInfo`) still has its place: a check on a value that *was* sent,

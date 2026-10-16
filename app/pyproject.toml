@@ -952,9 +952,6 @@ fixable = ["ALL"]
 # it. (Three broader keys also suppress it, so it is documentation more than mechanism.)
 "core/services/goals/goals_progress_service.py" = ["ARG002"]       # FUTURE-IMPL-008: current_streak
 
-# FastHTML route handlers — request/current_user injected by decorators
-"adapters/inbound/_pathstep_template_routes_helpers.py" = ["ARG001"]
-
 # ============================================================================
 # SKUEL PATTERN EXCEPTIONS (January 2025)
 # ============================================================================

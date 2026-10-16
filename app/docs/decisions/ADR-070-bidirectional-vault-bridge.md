@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-10-13
+updated: 2026-10-16
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -334,8 +334,8 @@ edges — plus CURRICULUM-scope Exercises. Verified 2026-09-03:
 
 **What SKUEL does author in-app** (the sole-author claim stops here): PERSONAL / ASSIGNED /
 ASSESSMENT exercises, which are user-owned. *(Superseded by ADR-091 S4: exercises are authored only
-in the content vault — implemented, change 4.)* The six PathStep-owned Activity Templates keep a
-`/api/pathstep-{domain}-templates/*` JSON CRUD (TEACHER+), but the vault is their author.
+in the content vault — implemented, change 4.)* The six PathStep-owned Activity Templates keep a JSON
+CRUD (TEACHER+), but the vault is their author. *(Superseded by ADR-091 S8: the JSON CRUD is gone — implemented, change 7b.)*
 
 > **Amended 2026-09-05 — Activity Templates are no longer an exception.** Decision 10 named them
 > in-app-authored because the teaching UI was their only door. It was also the reason zero

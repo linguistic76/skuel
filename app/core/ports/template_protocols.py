@@ -3,11 +3,8 @@ Activity Template Protocols
 ============================
 
 Route-facing protocol for the 6 PS-owned Activity Template services
-(Task/Goal/Habit/Event/Choice/Principle). Captures only the methods called
-from ``adapters/inbound/templates_ui.py`` so that the route layer can iterate
-over a heterogeneous ``dict[str, ActivityTemplateOperations]`` without losing
-type information — one method, since templates are vault-authored and the
-route surface is the read-only PS panel.
+(Task/Goal/Habit/Event/Choice/Principle), plus the persistence port their one
+read delegates to. Templates are vault-authored, so both are read-only.
 
 Implemented by every ``_BaseTemplateService`` subclass in
 ``core/services/templates/__init__.py``.
@@ -24,45 +21,18 @@ from core.utils.result_simplified import Result
 
 @runtime_checkable
 class TemplateAttachmentOperations(Protocol):
-    """Persistence port for PS↔Activity-Template edge Cypher.
+    """Persistence port for the PS→Activity-Template edge read.
 
-    The 6 Activity Template services delegate their attach/detach/list Cypher
-    here so it lives below the hexagonal boundary (ADR-044). ``edge_name`` is a
-    typed ``RelationshipName`` (one of the ``HAS_*_TEMPLATE`` members) and
+    The 6 Activity Template services delegate their read here so the Cypher lives
+    below the hexagonal boundary (ADR-044). ``edge_name`` is a typed
+    ``RelationshipName`` (one of the ``HAS_*_TEMPLATE`` members) and
     ``template_label`` the matching template ``NeoLabel``, both supplied by the
     service — the enums, not caller discipline, keep the interpolation
-    injection-safe. Every member binds both ends by kind: the source is a PathStep
-    and the far end carries ``template_label``. Implemented by
+    injection-safe. The read binds both ends by kind: the source is a PathStep and
+    the far end carries ``template_label``. Read-only: the content-vault sync is
+    the one writer of these edges. Implemented by
     ``adapters/persistence/neo4j/template_attachment_backend.py``.
     """
-
-    async def attach(
-        self,
-        ps_uid: str,
-        template_uid: str,
-        edge_name: RelationshipName,
-        template_label: NeoLabel,
-    ) -> Result[list[dict[str, Any]]]:
-        """Attach a template to a PathStep under ``edge_name``; idempotent.
-
-        One row per attached pair — empty when either end is missing or not its
-        kind, which is how the caller tells "attached" apart from "no such node".
-        """
-        ...
-
-    async def detach(
-        self,
-        ps_uid: str,
-        template_uid: str,
-        edge_name: RelationshipName,
-        template_label: NeoLabel,
-    ) -> Result[list[dict[str, Any]]]:
-        """Detach a template from a PathStep; return one ``removed`` count row.
-
-        Empty when either end is missing or not its kind. Idempotent — detaching an
-        unattached right-kind pair reports zero removed.
-        """
-        ...
 
     async def list_for_pathstep(
         self, ps_uid: str, edge_name: RelationshipName, template_label: NeoLabel
@@ -73,13 +43,15 @@ class TemplateAttachmentOperations(Protocol):
 
 @runtime_checkable
 class ActivityTemplateOperations(Protocol):
-    """PS-attachment read surface shared by all 6 Activity Template services.
+    """The read surface of all 6 Activity Template services — the one type a
+    consumer holds.
 
-    Narrow by design (ISP): the one consumer is the read-only templates panel
-    on the PS detail page, which asks each of the six services what is attached
-    to a PathStep. Creation, update and attachment are the vault's job (an
-    ``_tmpl.md`` file plus the step's ``{domain}_template_uids:`` frontmatter);
-    the JSON CRUD calls the concrete services directly.
+    Creation, update and attachment are the vault's job (an ``_tmpl.md`` file plus
+    the step's ``{domain}_template_uids:`` frontmatter; ADR-091 S8). The concrete
+    services still inherit ``BaseService``'s generic writers, so no consumer holds
+    the concrete class: the ``Services`` container fields and the templates panel
+    on the PS detail page type every template service as this protocol, and no
+    writer is reachable by type.
 
     Not generic in the template type — every member here returns property dicts
     read back from the graph, so no template model appears in the signature.

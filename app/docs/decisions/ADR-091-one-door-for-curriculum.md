@@ -174,7 +174,7 @@ now. It covers:
 - the admin PathStep doors in `path_steps_api.py`: attach to and detach from a path, relationships,
   content, tags, organize, unorganize and reorder;
 - the CRUD doors of the six Activity Templates and their attach/detach (for the Task Template,
-  `POST /api/pathstep-task-templates/create` and `POST /api/pathstep-task-templates/attach`; the other
+  `POST /api/pathstep-task-templates/create` and `POST /api/pathstep-task-templates/attach`; the other <!-- historical -->
   five follow the same pattern);
 - lateral writes between curriculum items (`lateral_route_factory.py` for Ku, PathStep and
   LearningPath, and `POST /api/ku/{uid}/lateral/enables`). Activity-domain laterals stay: those are
@@ -372,3 +372,4 @@ Every note says the old behaviour stays live until the change that replaces it m
 | 2026-10-13 | Claude Code | Change 4 implemented: the in-app exercise doors, the PERSONAL/ASSIGNED/ASSESSMENT scopes, group assignment, the owner route and the `group_assigned_*` reader are gone; Exercise's audience is PUBLIC | 1.1 |
 | 2026-10-15 | Claude Code | Change 5 implemented: one revision door, the review page's `request_revision`, sent only by the exercise's named teacher on work with an exercise (the write re-decides both; the page shows the refusal in place of the form); the report-only revision, the revised-exercise create/get/update/delete/list CRUD doors, `scripts/import_reports.py` and its export twin `scripts/export_submissions.py` are gone | 1.2 |
 | 2026-10-15 | Claude Code | Change 7a implemented: the admin PathStep doors (attach/detach to a path, semantic relationship, content, tags, organize/unorganize/reorder), the form-template link/unlink to a PathStep, the uncalled `PsService`/`LpService` authoring methods down through their backends, and the four creation/update/deletion events only they published are gone; an `EMBEDS_FORM` edge is an Edge YAML file | 1.3 |
+| 2026-10-15 | Claude Code | Change 7b implemented: the six Activity Template doors (create, get, update, delete and list, and the PathStep attach, detach and list-by-ps of each kind) are gone with their request models; a template and its attachment are vault files only, and every template-service consumer holds the read-only `ActivityTemplateOperations` | 1.4 |

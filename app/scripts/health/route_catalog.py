@@ -89,9 +89,8 @@ def normalize(path: str) -> str | None:
 
     Query string and anchor are dropped, a trailing slash is dropped (``/`` itself
     stays), and every segment containing ``{`` becomes the wildcard ``{}``. Any brace,
-    not only a whole ``{name}``: a doc writes a family as ``/api/{domain}s/remove-child``
-    or ``/api/pathstep-{domain}-templates/``, and a Starlette converter is
-    ``{x:path}``. A segment like ``x{uid`` is a value a parameter serves, not a shape
+    not only a whole ``{name}``: a doc writes a family as ``/api/{domain}s/remove-child``,
+    and a Starlette converter is ``{x:path}``. A segment like ``x{uid`` is a value a parameter serves, not a shape
     the catalog can refuse.
     """
     path = path.split("#")[0].split("?")[0].strip()

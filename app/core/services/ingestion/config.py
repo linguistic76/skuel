@@ -358,8 +358,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
     # PS-owned curriculum content that spawns Activity instances on engagement.
     # Vault-authored like every other curriculum type; the PS attaches them via
     # its ``{domain}_template_uids`` frontmatter (HAS_*_TEMPLATE edges in the
-    # relationship registry). uid_prefix matches the prefix the JSON API's
-    # generated uids already use, so both doors mint the same shape.
+    # relationship registry).
     #
     # ``status: active`` by default: PsEngagementService REFUSES to spawn from a
     # non-ACTIVE template (``_validator._check_template_statuses``), and a vault
@@ -367,9 +366,8 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
     # DTO then reads DRAFT and the template silently never spawns. Same reason
     # PathStep stamps ACTIVE here; an authored ``status:`` still wins.
     #
-    # Only ``title`` is required, matching the web door's TemplateCreateRequest
-    # (every other field is optional on all six) — the vault door adds no
-    # authoring constraint the form did not already have.
+    # Only ``title`` is required; every other field is optional on all six. The
+    # vault is the one template door (ADR-091 S8).
     #
     # Not ``embeddable``: templates have no EMBEDDING_FIELD_MAPS entry and stay
     # out of SearchRouter for this arc, so there is nothing to embed for.

@@ -2,16 +2,15 @@
 
 The rule has two halves in ``core.models.validation_rules``:
 
-- ``validate_url_when_online`` — a model-validator helper on the two create
-  requests (``EventCreateRequest``, ``EventTemplateCreateRequest``). A field
-  validator on ``meeting_url`` would never run for a request that omits the key,
-  because Pydantic does not validate an omitted field's default; the model
-  validator sees every field, sent or defaulted.
-- ``patch_leaves_online_without_url`` — the update hooks
-  (``EventsCoreService._validate_update``, ``EventTemplateService._validate_update``)
-  judge a partial patch on its merged state, and only when the patch names
-  ``is_online`` or ``meeting_url``: a status change or a reschedule of an event
-  already stored online without a URL is not refused.
+- ``validate_url_when_online`` — a model-validator helper on the create request
+  (``EventCreateRequest``). A field validator on ``meeting_url`` would never run
+  for a request that omits the key, because Pydantic does not validate an omitted
+  field's default; the model validator sees every field, sent or defaulted.
+- ``patch_leaves_online_without_url`` — the update hook
+  (``EventsCoreService._validate_update``) judges a partial patch on its merged
+  state, and only when the patch names ``is_online`` or ``meeting_url``: a status
+  change or a reschedule of an event already stored online without a URL is not
+  refused.
 
 The two staged creators that build an Event from another event's logistics
 (``create_event_with_context``, ``create_recurring_instances``) carry the URL
@@ -38,20 +37,15 @@ from core.models.enums import RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest, RecurringInstancesRequest
 from core.models.event.event_update_intent import EventUpdateIntent
-from core.models.templates.event_template import EventTemplate
-from core.models.templates.event_template_request import EventTemplateCreateRequest
-from core.models.update_contracts import RawChanges
 from core.models.validation_rules import ONLINE_URL_REQUIRED
 from core.services.events._orchestration_mixin import _OrchestrationMixin
 from core.services.events._scheduling_mixin import _SchedulingMixin
 from core.services.events.events_core_service import EventsCoreService
-from core.services.templates import EventTemplateService
 from core.utils.result_simplified import Result
 from tests.helpers.status_guarded_backend import StatusGuardedWriteRecorder, guarded_backend
 
 USER = "user_online_url"
 EVENT = "event_online_url"
-TEMPLATE = "et.online-url.weekly-call"
 URL = "https://meet.example.com/abc"
 BOOKED = date.today() + timedelta(days=5)
 
@@ -87,25 +81,6 @@ class TestEventCreateRequest:
         request = EventCreateRequest.model_validate(_EVENT_BODY)
         assert request.is_online is False
         assert request.meeting_url is None
-
-
-class TestEventTemplateCreateRequest:
-    @pytest.mark.parametrize("missing", _MISSING_URL, ids=["omitted", "none", "empty"])
-    def test_online_without_a_url_is_refused(self, missing: dict[str, object]) -> None:
-        with pytest.raises(ValidationError, match=ONLINE_URL_REQUIRED):
-            EventTemplateCreateRequest.model_validate(
-                {"title": "Weekly call", "is_online": True, **missing}
-            )
-
-    def test_online_with_a_url_is_accepted(self) -> None:
-        request = EventTemplateCreateRequest.model_validate(
-            {"title": "Weekly call", "is_online": True, "meeting_url": URL}
-        )
-        assert request.meeting_url == URL
-
-    def test_offline_needs_no_url(self) -> None:
-        request = EventTemplateCreateRequest.model_validate({"title": "Weekly call"})
-        assert request.is_online is False
 
 
 # =============================================================================
@@ -287,79 +262,6 @@ class TestEventUpdate:
 
         assert result.is_ok, result
         assert len(recorder.calls) == 1
-
-
-# =============================================================================
-# EventTemplate update — the same rule through the inherited CRUD update
-# =============================================================================
-
-
-def _template(*, is_online: bool, meeting_url: str | None) -> EventTemplate:
-    return EventTemplate(
-        uid=TEMPLATE, title="Weekly call", is_online=is_online, meeting_url=meeting_url
-    )
-
-
-def _template_service(stored: EventTemplate) -> tuple[EventTemplateService, AsyncMock]:
-    backend = MagicMock()
-    backend.get = AsyncMock(return_value=Result.ok(stored))
-    update = AsyncMock(return_value=Result.ok(stored))
-    backend.update = update
-    return EventTemplateService(backend=backend, attachment=MagicMock()), update
-
-
-@pytest.mark.asyncio
-class TestEventTemplateUpdate:
-    @pytest.mark.parametrize(
-        ("stored", "patch"),
-        [
-            pytest.param(
-                _template(is_online=True, meeting_url=URL),
-                {"meeting_url": None},
-                id="clearing-the-url-of-an-online-template",
-            ),
-            pytest.param(
-                _template(is_online=False, meeting_url=None),
-                {"is_online": True},
-                id="turning-online-with-no-url-stored",
-            ),
-        ],
-    )
-    async def test_a_patch_leaving_it_online_without_a_url_is_refused(
-        self, stored: EventTemplate, patch: dict[str, object]
-    ) -> None:
-        service, update = _template_service(stored)
-
-        result = await service.update(TEMPLATE, RawChanges(patch))
-
-        assert result.is_error
-        assert result.expect_error().message == ONLINE_URL_REQUIRED
-        update.assert_not_awaited()
-
-    @pytest.mark.parametrize(
-        ("stored", "patch"),
-        [
-            pytest.param(
-                _template(is_online=False, meeting_url=None),
-                {"is_online": True, "meeting_url": URL},
-                id="turning-online-with-a-url",
-            ),
-            pytest.param(
-                _template(is_online=True, meeting_url=None),
-                {"title": "Weekly call (renamed)"},
-                id="a-title-edit-of-a-url-less-online-template",
-            ),
-        ],
-    )
-    async def test_a_patch_leaving_the_pair_consistent_or_untouched_is_written(
-        self, stored: EventTemplate, patch: dict[str, object]
-    ) -> None:
-        service, update = _template_service(stored)
-
-        result = await service.update(TEMPLATE, RawChanges(patch))
-
-        assert result.is_ok, result
-        update.assert_awaited_once()
 
 
 # =============================================================================

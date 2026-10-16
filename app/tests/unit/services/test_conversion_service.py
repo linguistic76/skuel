@@ -12,8 +12,6 @@ Covers:
 - The generic engine (uid/user_uid stamping, timestamp auto-stamp + override,
   uuid4 fallback, silent field filtering)
 - Domain-specific converters (Habit, Principle, Choice, Group)
-- Activity Template converters (RelativeOffsetDTO → RelativeOffset,
-  list → tuple coercion, deliberate Phase-7 complex-field deferral)
 - CONVERTER_REGISTRY completeness and the exact CRUDRouteFactory calling
   convention (adapters/inbound/route_factories/crud_route_factory.py ~L394-400)
 """
@@ -39,17 +37,6 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
-from core.models.templates.choice_template import ChoiceTemplate
-from core.models.templates.choice_template_request import ChoiceTemplateCreateRequest
-from core.models.templates.event_template_request import EventTemplateCreateRequest
-from core.models.templates.goal_template import GoalTemplate
-from core.models.templates.goal_template_request import GoalTemplateCreateRequest
-from core.models.templates.habit_template_request import HabitTemplateCreateRequest
-from core.models.templates.principle_template_request import PrincipleTemplateCreateRequest
-from core.models.templates.relative_offset import RelativeOffset
-from core.models.templates.relative_offset_dto import RelativeOffsetDTO
-from core.models.templates.task_template import TaskTemplate
-from core.models.templates.task_template_request import TaskTemplateCreateRequest
 from core.services.conversion_service import ConversionServiceV2
 
 FIXED_CREATED_AT = datetime(2026, 1, 2, 3, 4, 5)
@@ -282,96 +269,6 @@ class TestGroupConversion:
 
 
 # =============================================================================
-# ACTIVITY TEMPLATES
-# =============================================================================
-
-
-class TestTaskTemplateConversion:
-    def test_offsets_converted_and_none_offsets_stay_none(self) -> None:
-        template = ConversionServiceV2.tasktemplate_create_to_pure(
-            TaskTemplateCreateRequest(
-                title="Weekly review",
-                due_offset=RelativeOffsetDTO(days=7),
-                tags=["review"],
-            ),
-            uid="tasktemplate:tt1",
-        )
-
-        assert type(template) is TaskTemplate
-        assert template.due_offset == RelativeOffset(days=7)  # DTO → value via to_value()
-        assert template.scheduled_offset is None
-        assert template.recurrence_end_offset is None
-        assert template.tags == ("review",)  # str-list → tuple
-
-    def test_injected_user_uid_kwarg_silently_filtered(self) -> None:
-        # Templates are PS-owned curriculum — no user_uid field. The
-        # CRUDRouteFactory always injects user_uid=...; the generic filter
-        # drops it rather than raising.
-        template = ConversionServiceV2.tasktemplate_create_to_pure(
-            TaskTemplateCreateRequest(title="Weekly review"),
-            uid="tasktemplate:tt1",
-            user_uid="user_1",
-        )
-
-        assert "user_uid" not in field_names(template)
-
-
-class TestGoalTemplateConversion:
-    def test_offsets_str_tuples_and_milestones_deferred(self) -> None:
-        template = ConversionServiceV2.goaltemplate_create_to_pure(
-            GoalTemplateCreateRequest(
-                title="Learn Cypher",
-                start_offset=RelativeOffsetDTO(days=1),
-                # Authored milestones supplied but deliberately dropped below.
-                milestones=[{"title": "First query"}],
-                potential_obstacles=["time"],
-                strategies=["daily practice"],
-                tags=["learning"],
-            ),
-            uid="goaltemplate:gt1",
-        )
-
-        assert type(template) is GoalTemplate
-        assert template.start_offset == RelativeOffset(days=1)
-        assert template.target_offset is None
-        assert template.potential_obstacles == ("time",)
-        assert template.strategies == ("daily practice",)
-        assert template.tags == ("learning",)
-        # Phase-7 deferral (deliberate): complex_tuple_fields are ALWAYS forced
-        # to () even when the request supplies values — nested authoring lands
-        # with FormGenerator nested-dataclass support (Phase 7), so V1 refuses
-        # to half-convert list[dict] milestones into Milestone instances.
-        assert template.milestones == ()
-
-
-class TestChoiceTemplateConversion:
-    def test_offsets_str_tuples_and_options_deferred(self) -> None:
-        template = ConversionServiceV2.choicetemplate_create_to_pure(
-            ChoiceTemplateCreateRequest(
-                title="Pick a stack",
-                decision_deadline_offset=RelativeOffsetDTO(days=3, hours=2),
-                # Authored options supplied but deliberately dropped below.
-                options=[{"title": "Option A"}],
-                decision_criteria=["fit"],
-                constraints=["budget"],
-                stakeholders=["team"],
-                tags=["decision"],
-            ),
-            uid="choicetemplate:ct1",
-        )
-
-        assert type(template) is ChoiceTemplate
-        assert template.decision_deadline_offset == RelativeOffset(days=3, hours=2)
-        assert template.decision_criteria == ("fit",)
-        assert template.constraints == ("budget",)
-        assert template.stakeholders == ("team",)
-        assert template.tags == ("decision",)
-        # Phase-7 deferral (deliberate): options forced to empty tuple — see
-        # _template_create_to_pure complex_tuple_fields docstring.
-        assert template.options == ()
-
-
-# =============================================================================
 # CONVERTER REGISTRY
 # =============================================================================
 
@@ -385,18 +282,12 @@ ALL_REGISTERED_REQUEST_TYPES = (
     ChoiceCreateRequest,
     FormTemplateCreateRequest,
     GroupCreateRequest,
-    TaskTemplateCreateRequest,
-    GoalTemplateCreateRequest,
-    HabitTemplateCreateRequest,
-    EventTemplateCreateRequest,
-    ChoiceTemplateCreateRequest,
-    PrincipleTemplateCreateRequest,
 )
 
 
 class TestConverterRegistry:
-    def test_registry_has_exactly_14_entries(self) -> None:
-        assert len(ConversionServiceV2.CONVERTER_REGISTRY) == 14
+    def test_registry_has_exactly_8_entries(self) -> None:
+        assert len(ConversionServiceV2.CONVERTER_REGISTRY) == 8
         assert set(ConversionServiceV2.CONVERTER_REGISTRY) == set(ALL_REGISTERED_REQUEST_TYPES)
 
     @pytest.mark.parametrize("request_type", ALL_REGISTERED_REQUEST_TYPES)
@@ -405,13 +296,12 @@ class TestConverterRegistry:
 
         assert converter is ConversionServiceV2.CONVERTER_REGISTRY[request_type]
         assert callable(converter)
-        # Naming convention holds for all 14: FooCreateRequest → foo_create_to_pure
+        # Naming convention holds for all 8: FooCreateRequest → foo_create_to_pure
         expected_name = request_type.__name__.removesuffix("CreateRequest").lower()
         assert converter.__name__ == f"{expected_name}_create_to_pure"
 
     def test_get_converter_returns_none_for_unregistered_types(self) -> None:
         assert ConversionServiceV2.get_converter(dict) is None
-        assert ConversionServiceV2.get_converter(RelativeOffsetDTO) is None
 
 
 # =============================================================================
