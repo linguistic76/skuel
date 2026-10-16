@@ -137,6 +137,7 @@ one entry per domain.
 class DomainSpawnSpec(Generic[InstanceT]):
     instance_cls:    type[InstanceT]                           # Task, Goal, Habit, …
     template_cls:    type[Entity]                              # TaskTemplate, GoalTemplate, …
+    create_request:  type[BaseModel]                           # TaskCreateRequest, … (caps the copy)
     layer:           int                                       # 1–4 — spawn order
     collection_attr: str                                       # "tasks", "goals", … (TemplateBundle + ActivityBackends)
     uid_prefix:      str                                       # UIDGenerator prefix
@@ -144,7 +145,16 @@ class DomainSpawnSpec(Generic[InstanceT]):
     field_rewrites:  dict[str, str]                           = field(default_factory=dict)
     cross_edges:     tuple[tuple[str, RelationshipName], ...] = ()
     creation_rule:   Callable[[InstanceT], InstanceT] | None  = None
+
+    def copied_fields(self) -> frozenset[str]: ...             # what the spawn copies verbatim
 ```
+
+`copied_fields()` is the one copy set: every field the template and the instance share,
+except what the spawn sets itself (identity, owner, engagement fields, stamps,
+`entity_type`, `visibility`, and the rewrite destinations). `create_request` is not
+constructed by the spawn: `copied_text_caps(template_type)` reads its `max_length` caps on
+the copied text fields, and the content-vault sync refuses a template over one (and an
+online event template with no `meeting_url`) — `validate_entity_data`, ADR-091 S8.
 
 `creation_rule` runs on the built instance. `TASK_SPEC` sets it to
 `Task.with_creation_due_date`, so a template with neither a due nor a scheduled offset
@@ -231,6 +241,7 @@ counterpart on the instance for these.
 - `cross_edges` source field doesn't exist, or edge type isn't a `RelationshipName`
 - `collection_attr` isn't a field on both `TemplateBundle` and `ActivityBackends`
 - `template_cls` / `instance_cls` pair doesn't match `EntityType.instance_type()` — catches mis-wired entries where the wrong instance class is paired with a template
+- `create_request` isn't the instance's own `{Instance}CreateRequest` — a template is never checked against another domain's caps
 
 A typo or mis-wiring is a startup crash, not a silent runtime failure (ADR-056
 fail-fast pattern).
@@ -316,7 +327,8 @@ The registry is the single change point. Steps:
    `core/models/x/`.
 2. Add `EntityType.X_TEMPLATE` and `EntityType.X` to `entity_enums.py` with
    valid status sets.
-3. Add `X_SPEC = DomainSpawnSpec(...)` and append it to `SPAWN_REGISTRY`.
+3. Add `X_SPEC = DomainSpawnSpec(...)` (with `create_request=XCreateRequest`) and append
+   it to `SPAWN_REGISTRY`.
    Set `layer` based on what the new domain references:
    - References nothing → Layer 1.
    - References Layer-N entities → Layer N+1.
