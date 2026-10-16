@@ -114,10 +114,8 @@ def _create_advanced_services(
     """Create advanced services."""
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.cross_domain_analytics_service import CrossDomainAnalyticsService
-    from core.services.performance_optimization_service import PerformanceOptimizationService
 
     return {
         "calendar_optimization": CalendarOptimizationService(),
-        "performance_optimization": PerformanceOptimizationService(),
         "cross_domain_analytics": CrossDomainAnalyticsService(backend=cross_domain_backend),
     }

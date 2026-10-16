@@ -30,7 +30,6 @@ from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 from adapters.persistence.neo4j.session_backend import SessionBackend
 from core.config.unified_config import UnifiedConfig
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
-from core.services.performance_optimization_service import PerformanceOptimizationService
 from core.utils.result_simplified import Result
 from services_bootstrap._container import Services
 from services_bootstrap.compose import compose_services
@@ -407,13 +406,6 @@ def startup_calls(monkeypatch, tmp_path) -> dict[str, int]:
         SessionBackend, "cleanup_expired_tokens", _make_cleanup_stub("cleanup_expired_tokens")
     )
 
-    # initialize() starts background asyncio tasks — construction is what's
-    # under test, so keep the loop clean.
-    async def _fake_perf_initialize(self: PerformanceOptimizationService) -> None:
-        _record("performance_optimization.initialize")
-
-    monkeypatch.setattr(PerformanceOptimizationService, "initialize", _fake_perf_initialize)
-
     # get_connection() lazily creates a REAL env-configured driver singleton;
     # keep the unit test hermetic (content/reference-chunk adapters only store it).
     fake_connection = _FakeConnection(_NoDatabaseDriver())
@@ -454,7 +446,6 @@ EXPECTED_STARTUP_CALLS_CORE = {
     "drop_stale_indexes",
     "cleanup_expired_sessions",
     "cleanup_expired_tokens",
-    "performance_optimization.initialize",
 }
 EXPECTED_STARTUP_CALLS_FULL = EXPECTED_STARTUP_CALLS_CORE | {"sync_vector_indexes"}
 

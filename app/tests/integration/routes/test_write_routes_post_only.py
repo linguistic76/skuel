@@ -72,7 +72,6 @@ CSRF_WRITES: dict[str, tuple[str, ...]] = {
     ),
     "settings": ("/settings/save",),
     "pathways": ("/api/pathways/progress",),
-    "performance": ("/performance/optimize",),
     "auth": (
         "/register/submit",
         "/login/submit",

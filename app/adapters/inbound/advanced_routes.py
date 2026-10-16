@@ -1,34 +1,24 @@
 """
-Advanced Routes - Optional Services
+Advanced Routes - Calendar Optimization
 ============================================
 
-Wires advanced API routes using DomainRouteConfig (Multi-Factory variant).
+Wires the calendar optimization API routes using DomainRouteConfig.
 
 Primary service: calendar_optimization_orchestrator (Calendar cognitive-load balancing)
-Extension factory:
-- create_performance_routes: Scale & speed optimization (4 endpoints)
 
 Routes:
 - GET /cal/optimize - Optimize calendar with cognitive load balancing
 - GET /cal/cognitive-load - Analyze cognitive load for a date
-- GET /performance/metrics - Current performance metrics
-- GET /performance/cache-stats - Cache performance statistics
-- POST /performance/optimize - Trigger optimization analysis
-- GET /performance/scale-test - Run scale testing simulation
 """
 
 from typing import Any
 
-from fasthtml.common import JSONResponse
-
-from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
     parse_date_param_strict,
-    parse_int_param_strict,
     register_domain_routes,
 )
 from core.models.calendar_optimization import (
@@ -128,83 +118,7 @@ def create_calendar_optimization_routes(
 
 
 # ---------------------------------------------------------------------------
-# Performance Optimization - Scale & Speed (extension)
-# ---------------------------------------------------------------------------
-
-
-def create_performance_routes(
-    _app: FastHTMLApp, rt: RouteDecorator, performance_optimization: Any, user_service: Any
-) -> None:
-    """Register performance optimization endpoints (ADMIN-gated ops/diagnostics)."""
-
-    get_user_service = make_service_getter(user_service)
-
-    @rt("/performance/metrics")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def metrics(request: Request, current_user: Any = None) -> JSONResponse:
-        """Get current performance metrics (response time, throughput, cache hit rate, etc.)."""
-        return await performance_optimization.get_current_metrics()
-
-    @rt("/performance/cache-stats")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def cache_stats(
-        request: Request, current_user: Any = None
-    ) -> Result[
-        Any
-    ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
-        """Get cache performance statistics (hit rate, size, evictions, efficiency)."""
-        stats = performance_optimization.inference_engine.get_cache_stats()
-        return Result.ok(stats)
-
-    @rt("/performance/optimize", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def optimize_performance(request: Request, current_user: Any = None) -> JSONResponse:
-        """Trigger performance optimization analysis and tuning."""
-        return await performance_optimization.optimize_performance()
-
-    @rt("/performance/scale-test")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def scale_test(  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
-        request: Request,
-        current_user: Any = None,
-    ) -> Result[dict[str, Any]]:
-        """
-        Run scale testing simulation.
-
-        Query Parameters:
-            concurrent_users: Number of concurrent users to simulate (default 100)
-            duration_seconds: Test duration (default 60)
-
-        A missing value is its default; an unreadable one, or one below 1, is a 400.
-        """
-        params = request.query_params
-        concurrent_users = parse_int_param_strict(
-            params.get("concurrent_users"), "concurrent_users", 1, default=100
-        )
-        if concurrent_users.is_error:
-            return Result.fail(concurrent_users)
-        duration_seconds = parse_int_param_strict(
-            params.get("duration_seconds"), "duration_seconds", 1, default=60
-        )
-        if duration_seconds.is_error:
-            return Result.fail(duration_seconds)
-        return Result.ok(
-            {
-                "message": "Scale test initiated",
-                "concurrent_users": concurrent_users.value,
-                "duration_seconds": duration_seconds.value,
-                "status": "running",
-            }
-        )
-
-
-# ---------------------------------------------------------------------------
-# DomainRouteConfig + Multi-Factory wiring
+# DomainRouteConfig wiring
 # ---------------------------------------------------------------------------
 
 ADVANCED_CONFIG = DomainRouteConfig(
@@ -218,18 +132,11 @@ def create_advanced_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
 ) -> None:
     """
-    Wire advanced API routes using DomainRouteConfig (Multi-Factory variant).
-
-    Primary: calendar_optimization_orchestrator routes via DomainRouteConfig.
-    Extension: the performance_optimization factory, appended conditionally
-    after primary registration.
+    Wire the calendar optimization routes using DomainRouteConfig.
 
     See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
     register_domain_routes(app, rt, services, ADVANCED_CONFIG)
-
-    if services and services.performance_optimization:
-        create_performance_routes(app, rt, services.performance_optimization, services.user)
 
 
 __all__ = ["create_advanced_routes"]

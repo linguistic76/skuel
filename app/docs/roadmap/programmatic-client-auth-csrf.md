@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-28
+updated: 2026-10-16
 ---
 
 # Programmatic-Client Auth — Token Path for CSRF-Exempt Endpoints
@@ -82,11 +82,6 @@ CLI (`scripts/batch_transcribe.py`) obtains a `csrf_token` transparently (a GET
 mints one via `CSRFMiddleware`) and echoes it — so a session cookie alone works,
 no manual token handling. The bearer-token migration below still applies as the
 end-state; it would let token-authenticated calls skip CSRF entirely.
-
-**Related:** the `advanced_routes` admin endpoint `/performance/optimize` is
-`@csrf_protected` (closing the admin-browser-CSRF vector). It has no programmatic
-caller today; when an ops client is wired up, it should authenticate via a bearer
-token (this scheme) rather than carrying a CSRF token.
 
 ## What to do
 

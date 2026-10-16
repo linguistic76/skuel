@@ -872,7 +872,7 @@ A route file groups endpoints by service rather than by domain. Each group is in
 
 ---
 
-### Example 13: Multi-Factory — Orchestrator Primary + Extension Factory (Advanced)
+### Example 13: Orchestrator Primary (Advanced)
 
 **File:** `/adapters/inbound/advanced_routes.py`
 
@@ -886,15 +886,10 @@ ADVANCED_CONFIG = DomainRouteConfig(
 
 def create_advanced_routes(app, rt, services, _sync_service=None):
     register_domain_routes(app, rt, services, ADVANCED_CONFIG)
-
-    if services and services.performance_optimization:
-        create_performance_routes(app, rt, services.performance_optimization, services.user)
 ```
 
 **Key features:**
 - **The primary is an orchestrator** (`CalendarOptimizationOrchestrator`) that owns the task/event reads the calendar endpoints need, so the config declares no `api_related_services`
-- The extension factory is self-contained (it closes over its service plus the user service its admin gate reads)
-- Config-driven registration for the primary, manual registration for the extension
 
 **Migration:** 2026-02-03 (Phase 6)
 
@@ -1039,7 +1034,7 @@ Configs are constructed two ways: `DomainRouteConfig(...)` directly (28 files) a
 31. `/adapters/inbound/hierarchy_routes.py`
 32. `/adapters/inbound/visualization_routes.py`
 33. `/adapters/inbound/orchestration_routes.py` (multi-factory)
-34. `/adapters/inbound/advanced_routes.py` (multi-factory)
+34. `/adapters/inbound/advanced_routes.py`
 
 ### Justified Exceptions (1 file)
 

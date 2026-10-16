@@ -112,8 +112,6 @@ _READS: list[tuple[str, str, str, str, dict[str, str]]] = [
     ("admin", "GET", "/api/admin/users?active_only=maybe", "", {}),
     ("admin", "GET", "/api/admin/users?limit=lots", "", {}),
     ("admin", "GET", "/api/admin/users?offset=x", "", {}),
-    ("admin", "GET", "/performance/scale-test?concurrent_users=many", "", {}),
-    ("admin", "GET", "/performance/scale-test?duration_seconds=x", "", {}),
     ("user", "POST", "/api/search/unified", "json", {"query": "x", "tags_match_all": "maybe"}),
     ("user", "POST", "/api/search/unified", "json", {"query": "x", "limit": "lots"}),
     ("user", "GET", "/search/results?query=x&limit=lots", "", {}),
