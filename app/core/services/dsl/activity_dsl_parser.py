@@ -1340,6 +1340,32 @@ def parsed_vault_ids(text: str) -> set[str]:
     return {activity.vault_id for activity in parsed.value.activities if activity.vault_id}
 
 
+def named_knowledge_uids(text: str) -> list[str]:
+    """Every knowledge uid the text names with ``@ku`` or ``@link(ku:…|ps:…)``, on any line.
+
+    Read the way an activity line reads its tags (code spans are literal text),
+    but on every line, valid or not: a line that fails to parse — an unknown
+    ``@context``, a missing description — still names what its tags name. So
+    this is never smaller than the references extraction links, and is what a
+    link the owner named is kept by: only deleting the reference from the text
+    unnames it. Deduplicated, in text order.
+    """
+    parser = ActivityDSLParser()
+    lines = text.split("\n")
+    named: dict[str, None] = {}
+    for line, masked in zip(lines, mask_code_spans_in_lines(lines), strict=True):
+        if "@" not in masked:
+            continue
+        tags = parser._extract_tags(line, masked)
+        ku_uid = parser._parse_ku(tags.get("ku"))
+        if ku_uid:
+            named[ku_uid] = None
+        for link in parser._parse_links(tags.get("link", "")):
+            if link["type"] in (EntityType.PATH_STEP.value, EntityType.KU.value):
+                named[link["id"]] = None
+    return list(named)
+
+
 def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
     """Blank every CommonMark code span, pairing backtick runs in DOCUMENT order.
 

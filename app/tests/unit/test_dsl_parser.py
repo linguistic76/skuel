@@ -16,6 +16,7 @@ from core.services.dsl import (
     parse_activity_line,
     parse_journal_text,
 )
+from core.services.dsl.activity_dsl_parser import ActivityDSLParser, named_knowledge_uids
 
 
 class TestActivityLineDetection:
@@ -866,3 +867,35 @@ class TestParsedVaultIds:
         from core.services.dsl.activity_dsl_parser import parsed_vault_ids
 
         assert parsed_vault_ids("") == set()
+
+
+class TestNamedKnowledgeUids:
+    """What the text names with @ku / @link(ku:|ps:) — on any line, valid or not."""
+
+    def test_a_line_that_fails_to_parse_still_names_its_knowledge(self):
+        text = (
+            "- [ ] Read @context(bogus) @ku(ku.it.broken)\n"
+            "- [ ] Read more @context(task) @ku(ku.it.valid)\n"
+        )
+        parsed = ActivityDSLParser().parse_journal(text)
+        assert parsed.is_ok
+        linked = [uid for a in parsed.value.activities for uid in a.get_linked_knowledge()]
+
+        # Control: the parse links only the valid line's reference.
+        assert linked == ["ku.it.valid"]
+        assert named_knowledge_uids(text) == ["ku.it.broken", "ku.it.valid"]
+
+    def test_links_name_kus_and_path_steps_only(self):
+        text = "Thinking about @link(ps:ps.it.step, goal:goal_abc, ku:ku.it.linked) today\n"
+
+        assert named_knowledge_uids(text) == ["ps.it.step", "ku.it.linked"]
+
+    def test_a_reference_inside_a_code_span_names_nothing(self):
+        text = "The syntax is `@ku(ku.it.example)`, and @ku(ku.it.real) is mine\n"
+
+        assert named_knowledge_uids(text) == ["ku.it.real"]
+
+    def test_repeats_are_named_once_in_text_order(self):
+        text = "@ku(ku.it.b)\n@ku(ku.it.a)\n@ku(ku.it.b)\n"
+
+        assert named_knowledge_uids(text) == ["ku.it.b", "ku.it.a"]

@@ -989,6 +989,22 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             AppliedKnowledgeLinks(linked=tuple(linked), credited=tuple(credited), unlinked=unlinked)
         )
 
+    async def retract_unnamed_knowledge(
+        self, entry_uid: str, named_uids: Sequence[str]
+    ) -> Result[list[str]]:
+        """Unlink the knowledge the owner no longer names in the entry's text.
+
+        The text is where the owner unnames knowledge: a link they named whose
+        reference is gone from ``named_uids`` (every reference the text still
+        makes, linkable or not) is retracted and recorded as removed, so the
+        grounding pass never re-infers it and naming it again relinks it
+        without a second substance credit. Links the grounding pass inferred
+        are not the text's to retract. Returns the retracted uids.
+
+        Backend: UserEntryBackend.retract_unnamed_knowledge.
+        """
+        return await self.backend.retract_unnamed_knowledge(entry_uid, list(named_uids))
+
     async def update_processing_state(
         self,
         uid: str,

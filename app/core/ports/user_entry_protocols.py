@@ -205,6 +205,17 @@ class UserEntryCrudOperations(Protocol):
         """
         ...
 
+    async def retract_unnamed_knowledge(
+        self, entry_uid: str, named_uids: list[str]
+    ) -> Result[list[str]]:
+        """Delete the owner's knowledge links the entry's text no longer names.
+
+        Only links the owner named (no inference stamp) are retracted, each
+        recorded as removed so it is neither re-inferred nor credited again.
+        Returns the retracted uids.
+        """
+        ...
+
     async def get_user_active_extraction_twins(
         self, user_uid: UserUID, labels: list[str]
     ) -> Result[list[ExtractionTwinRow]]:
@@ -697,7 +708,8 @@ class EntryGroundingBackendOperations(Protocol):
 
         True iff this call created the link — an explicit reference the user
         already authored is never restamped as inferred, and the caller publishes
-        the substance event only on True. A draft KU links nothing (False).
+        the substance event only on True. A draft KU, or a pair the owner
+        removed, links nothing (False).
         """
         ...
 

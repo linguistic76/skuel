@@ -646,6 +646,58 @@ class _UserEntryCrudMixin:
             )
         )
 
+    async def retract_unnamed_knowledge(
+        self, entry_uid: str, named_uids: list[str]
+    ) -> Result[list[str]]:
+        """Delete the owner's knowledge links that the entry's text no longer names.
+
+        An owner's link is an ``APPLIES_KNOWLEDGE`` edge with no inference stamp
+        (``inferred``): the ``@ku`` writer made it, or cleared the stamp when the
+        owner named an inferred link. Each such edge whose far end is not in
+        ``named_uids`` is deleted, and its uid recorded in
+        ``grounding_rejected_ku_uids`` — the record the owner's remove door writes — so the
+        grounding pass never re-infers the pair and a later ``@ku`` relinks it
+        without a second substance credit. Inferred edges are left alone: the
+        text never named them.
+
+        The entry's write-lock is taken first (the ``_sg_lock`` sentinel), the
+        order both link writers take it in. Returns the retracted uids (empty
+        when nothing was retracted, or the entry is absent); the rejection
+        record is written only when one was.
+        """
+        query = f"""
+        MATCH (e:{NeoLabel.USER_ENTRY.value} {{uid: $entry_uid}}) WHERE NOT e:Content
+        SET e.`_sg_lock` = $lock_token
+        REMOVE e.`_sg_lock`
+        WITH e
+        OPTIONAL MATCH (e)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity)
+        WHERE NOT k:Content
+          AND NOT coalesce(r.inferred, false)
+          AND NOT k.uid IN $named_uids
+        WITH e, collect(r) AS unnamed, collect(k.uid) AS retracted
+        FOREACH (r IN unnamed | DELETE r)
+        FOREACH (_ IN CASE WHEN size(retracted) > 0 THEN [1] ELSE [] END |
+            SET e.grounding_rejected_ku_uids =
+                [x IN coalesce(e.grounding_rejected_ku_uids, []) WHERE NOT x IN retracted]
+                + retracted
+        )
+        RETURN retracted
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "entry_uid": entry_uid,
+                "named_uids": named_uids,
+                "lock_token": uuid4().hex,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows:
+            return Result.ok([])
+        return Result.ok([str(uid) for uid in rows[0]["retracted"] or []])
+
     async def get_user_active_extraction_twins(
         self, user_uid: UserUID, labels: list[str]
     ) -> Result[list[ExtractionTwinRow]]:
