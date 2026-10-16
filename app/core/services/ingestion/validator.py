@@ -356,18 +356,16 @@ def validate_entity_data(
             )
         )
 
-    # Activity-Template spawn rules. A template is authored only in the content
-    # vault (ADR-091 S8), and its spawn builds the instance directly, past the
-    # create request a user's own create passes. So this door holds the two rules
-    # that request would apply to what the spawn copies: an online event needs a
-    # URL, and each copied text field fits its cap (``copied_text_caps``, derived
-    # from the request models).
-    if entity_type is EntityType.EVENT_TEMPLATE and (
+    # An online event needs a URL. A vault Event file is written past the Events
+    # service, and a template's spawn builds its Event directly; both pass by
+    # ``EventCreateRequest``, which holds this rule for an in-app create, so this
+    # door holds it for both files.
+    if entity_type in (EntityType.EVENT, EntityType.EVENT_TEMPLATE) and (
         entity_data.get("is_online") and not entity_data.get("meeting_url")
     ):
         return Result.fail(
             Errors.validation(
-                ONLINE_URL_REQUIRED,
+                f"{ONLINE_URL_REQUIRED}: 'meeting_url' is missing or empty",
                 field="meeting_url",
                 user_message=(
                     f"File {file_path.name} ({entity_type.value}): 'meeting_url' is required "
@@ -375,6 +373,10 @@ def validate_entity_data(
                 ),
             )
         )
+    # Activity-Template copy caps. A template is authored only in the content
+    # vault (ADR-091 S8), and its spawn copies text onto the instance past the
+    # create request a user's own create passes, so each copied text field must
+    # fit that request's cap (``copied_text_caps``, derived from the models).
     if isinstance(entity_type, EntityType) and entity_type.is_activity_template():
         over_cap = [
             (name, len(value), cap)
