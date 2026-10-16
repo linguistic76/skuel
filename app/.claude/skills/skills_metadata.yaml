@@ -602,7 +602,7 @@ skills:
 
   - name: journals
     description: "Implementation guide for Journals domain — STANDARD/FOUNDER tiers, DNWF stages, JournalService, instruction_loader, EnrichmentMode distinction"
-    last_reviewed: "2026-10-11"
+    last_reviewed: "2026-10-16"
     foundation: [python, learning-loop]
     dependencies: [user-context-intelligence]
     library_package: null  # SKUEL domain, not external library

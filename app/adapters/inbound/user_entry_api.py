@@ -570,13 +570,15 @@ def create_user_entry_api_routes(
     async def remove_grounded_knowledge_route(
         request: Request, uid: str, ku_uid: str
     ) -> Result[dict[str, Any]]:
-        """Remove one ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge from an owned entry.
+        """Remove one inferred ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge from an owned entry.
 
         The user is editor, not approver: inferred grounding edges write
         eagerly and are removed here — each removal is recorded on the entry
         so no future pass re-infers the pair, and logged as
-        threshold-calibration data. POST (not DELETE) matches this file's
-        mutation convention. Not owned / edge absent → 404, never 403.
+        threshold-calibration data. A link the owner named with ``@ku`` is not
+        removed here: the text is where they unname it. POST (not DELETE)
+        matches this file's mutation convention. Not owned / edge absent /
+        named → 404 alike, never 403.
         """
         user_uid = require_authenticated_user(request)
         if grounding_service is None:

@@ -528,6 +528,16 @@ SURFACES: tuple[Surface, ...] = (
         "curriculum the caller did not name.",
     ),
     Surface(
+        "adapters.persistence.neo4j._user_entry_content_mixin",
+        "_knowledge_chips_clause",
+        Disposition.GATED,
+        "An entry's knowledge links, shown as chips on /journals/{uid} and "
+        "/submissions/knowledge. The learner did not name a draft as a page to "
+        "open: a link to a Ku or PathStep that is (or became) a draft is "
+        "unfinished curriculum, so it is no chip. The edge stays; only the chip "
+        "is withheld.",
+    ),
+    Surface(
         "adapters.persistence.neo4j.entry_grounding_backend",
         "EntryGroundingBackend.write_applies_knowledge",
         Disposition.ADMISSION,

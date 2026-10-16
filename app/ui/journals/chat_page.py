@@ -92,7 +92,11 @@ def JournalsLandingPage(
     )
 
 
-def PeriodicNotePage(entry: UserEntry, initial_workspace: Any) -> Any:
+def PeriodicNotePage(
+    entry: UserEntry,
+    initial_workspace: Any,
+    knowledge_chips: Any = None,  # boundary: fasthtml-elements
+) -> Any:
     """The periodic note: its editor, with the period navigator beside it.
 
     Rendered inside the Tasks+ sidebar page, so the page's LEFT column is the
@@ -100,10 +104,11 @@ def PeriodicNotePage(entry: UserEntry, initial_workspace: Any) -> Any:
     plus the period rail (``_period_navigator``) — sits to the RIGHT of the
     editor. Below ``lg`` the navigator stacks under the editor. The page
     scrolls as one document; the navigator is sticky so it stays in reach
-    while a long note scrolls.
+    while a long note scrolls. ``knowledge_chips`` — the note's knowledge
+    links, when it has any — sits under the editor.
     """
     return Div(
-        Div(initial_workspace, cls="flex-1 min-w-0 flex flex-col"),
+        Div(initial_workspace, knowledge_chips, cls="flex-1 min-w-0 flex flex-col"),
         _period_navigator(entry),
         cls="flex flex-col lg:flex-row items-start gap-6",
     )

@@ -28,7 +28,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed, rate_limited
 from adapters.inbound.route_factories import parse_bool_param_strict, refuse_malformed
-from core.models.enums.pipeline import ProcessingMode
+from core.models.enums.pipeline import Pipeline, ProcessingMode
 from core.services.chat import DEFAULT_CHAT_MODEL
 from core.services.conversation import (
     build_source_selection,
@@ -1125,7 +1125,9 @@ def create_journals_routes(
         The page is the note's editor with its period navigator (mini month +
         period rail) beside it, wrapped in the Tasks+ sidebar page like the
         activity domains, the calendar views and Today — the sidebar's Journal
-        row is lit.
+        row is lit. An EXTRACT_ACTIVITIES note shows its knowledge links as
+        chips under the editor (``EntryKnowledgeChips``) — a graph read, in
+        both tiers.
         """
         from adapters.inbound.result_helpers import require_found
         from core.utils.result_simplified import ErrorCategory
@@ -1151,14 +1153,29 @@ def create_journals_routes(
         from ui.activities.nav import render_activity_sidebar_page
         from ui.journals import PeriodicNoteFragment
         from ui.journals.chat_page import PeriodicNotePage
+        from ui.user_entry.knowledge_notes import EntryKnowledgeChips
 
         initial_workspace = PeriodicNoteFragment(
             entry_uid=entry.uid,
             title=entry.title or "",
             content=entry.content or "",
         )
+        knowledge_chips: Any = None  # boundary: fasthtml-elements
+        if entry.pipeline == Pipeline.EXTRACT_ACTIVITIES:
+            chips_result = await user_entry_service.list_entry_knowledge_chips(entry.uid, user_uid)
+            if chips_result.is_error:
+                logger.error(
+                    "Knowledge chips failed for %s: %s", entry.uid, chips_result.expect_error()
+                )
+            knowledge_chips = EntryKnowledgeChips(
+                entry.uid, None if chips_result.is_error else chips_result.value
+            )
         return render_activity_sidebar_page(
-            content=PeriodicNotePage(entry=entry, initial_workspace=initial_workspace),
+            content=PeriodicNotePage(
+                entry=entry,
+                initial_workspace=initial_workspace,
+                knowledge_chips=knowledge_chips,
+            ),
             active="journals",
             request=request,
             title=entry.title or "Periodic Note",

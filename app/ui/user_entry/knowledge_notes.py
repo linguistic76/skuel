@@ -1,20 +1,24 @@
 """
-Knowledge Notes Surface
-=======================
+Knowledge Chips
+===============
 
-Renders the ``/submissions/knowledge`` list: every ``pipeline: knowledge``
-entry with its grounded-Ku chips. Grounding edges are eager writes — the
-user is editor, not approver — so each chip carries a one-click × that
-calls the grounding remove route and drops the chip in place. Removals
-are permanent: the pair is never re-inferred, and each removal is logged
-as threshold-calibration data.
+An entry's knowledge links (``APPLIES_KNOWLEDGE`` to a published Ku or
+PathStep), shown as chips. Two surfaces render the same chip:
 
-Chip anatomy: Ku title links to the reading page (``/explore/ku/{uid}``);
-inferred chips show the edge confidence as a percentage; explicit chips
-(EXTRACT_ACTIVITIES ``@ku()`` refs — no ``confidence`` property) show none.
-The × posts to ``POST /api/user-entries/grounding/remove`` with
-``hx-swap="none"`` — success removes the chip client-side, failure surfaces
-through the global X-Toast listener.
+- ``/submissions/knowledge`` — every ``pipeline: knowledge`` entry with its
+  chips (``render_knowledge_notes_list``);
+- ``/journals/{uid}`` — an EXTRACT_ACTIVITIES note's chips under its editor
+  (``EntryKnowledgeChips``).
+
+Chip anatomy: the title links to the reading page (``/explore/ku/{uid}`` or
+``/explore/ps/{uid}``). A chip the grounding pass inferred shows the edge
+confidence as a percentage and carries a one-click × — grounding edges are
+eager writes, the user is editor, not approver — which posts to
+``POST /api/user-entries/grounding/remove`` with ``hx-swap="none"``: success
+removes the chip client-side, failure surfaces through the global X-Toast
+listener. Removals are permanent: the pair is never re-inferred, and each is
+logged as threshold-calibration data. A chip the owner named with ``@ku`` has
+no confidence and no ×: the text is where they unname it.
 """
 
 from __future__ import annotations
@@ -23,18 +27,25 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Button, Div, P, Span
 
+from core.models.enums.entity_enums import EntityType
 from ui.components import Card, Icon
 from ui.learning_loop.report import format_date
 from ui.patterns.empty_state import EmptyState
 
 if TYPE_CHECKING:
-    from core.ports.query_types import GroundedKuChip, KnowledgeEntryGroundingRow
+    from core.ports.query_types import KnowledgeChip, KnowledgeEntryGroundingRow
+
+# The reading page a chip opens, by the kind of knowledge it links.
+_READING_PAGE = {
+    EntityType.KU: "/explore/ku/",
+    EntityType.PATH_STEP: "/explore/ps/",
+}
 
 
-def _grounding_chip(entry_uid: str, chip: GroundedKuChip) -> Any:
-    """One removable grounded-Ku chip."""
-    ku_uid = chip["ku_uid"]
-    ku_title = chip["ku_title"] or ku_uid
+def KnowledgeLinkChip(entry_uid: str, chip: KnowledgeChip) -> Any:
+    """One knowledge-link chip; removable only when the grounding pass inferred it."""
+    uid = chip["uid"]
+    title = chip["title"] or uid
     confidence = chip["confidence"]
 
     confidence_label: Any = None
@@ -44,19 +55,14 @@ def _grounding_chip(entry_uid: str, chip: GroundedKuChip) -> Any:
             cls="text-11 text-muted-foreground",
         )
 
-    return Span(
-        A(
-            ku_title,
-            href=f"/explore/ku/{ku_uid}",
-            cls="hover:underline",
-        ),
-        confidence_label,
-        Button(
+    remove_button: Any = None
+    if chip["inferred"]:
+        remove_button = Button(
             Icon("x", size=12),
             type="button",
-            hx_post=f"/api/user-entries/grounding/remove?uid={entry_uid}&ku_uid={ku_uid}",
+            hx_post=f"/api/user-entries/grounding/remove?uid={entry_uid}&ku_uid={uid}",
             hx_swap="none",
-            hx_confirm=(f'Remove "{ku_title}" from this note? The link will not be re-inferred.'),
+            hx_confirm=(f'Remove "{title}" from this note? The link will not be re-inferred.'),
             hx_disabled_elt="this",
             hx_on__after_request=(
                 "if(event.detail.successful) this.closest('[data-grounding-chip]').remove()"
@@ -65,8 +71,16 @@ def _grounding_chip(entry_uid: str, chip: GroundedKuChip) -> Any:
                 "inline-flex items-center justify-center w-4 h-4 rounded-full "
                 "text-muted-foreground hover:text-foreground hover:bg-accent"
             ),
-            aria_label=f"Remove grounded concept {ku_title}",
-        ),
+            aria_label=f"Remove grounded concept {title}",
+        )
+
+    reading_page = _READING_PAGE.get(chip["entity_type"])
+    return Span(
+        A(title, href=f"{reading_page}{uid}", cls="hover:underline")
+        if reading_page
+        else Span(title),
+        confidence_label,
+        remove_button,
         data_grounding_chip="1",
         cls=(
             "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border "
@@ -75,17 +89,43 @@ def _grounding_chip(entry_uid: str, chip: GroundedKuChip) -> Any:
     )
 
 
+def EntryKnowledgeChips(entry_uid: str, chips: list[KnowledgeChip] | None) -> Any:
+    """The knowledge an entry is linked to, under its editor.
+
+    ``chips`` is None when the read failed — said as such, never shown as an
+    entry linked to nothing. An entry with no links renders nothing.
+    """
+    if chips is None:
+        body: Any = P(
+            "Could not load this note's knowledge links.",
+            cls="text-xs text-destructive mb-0",
+        )
+    elif not chips:
+        return None
+    else:
+        body = Div(
+            *[KnowledgeLinkChip(entry_uid, c) for c in chips],
+            cls="flex flex-wrap gap-2",
+        )
+    return Div(
+        P("Knowledge in this note", cls="text-sm font-semibold text-foreground mb-2"),
+        body,
+        id="entry-knowledge-chips",
+        cls="max-w-[760px] mx-auto w-full px-6 pb-8",
+    )
+
+
 def _entry_row(row: KnowledgeEntryGroundingRow) -> Any:
-    """One knowledge entry: title, date, and its grounded-Ku chips."""
+    """One knowledge entry: title, date, and its knowledge chips."""
     uid = row["uid"]
     title = row["title"] or "Untitled"
     created_str = format_date(row["created_at"])
-    chips = row["grounded_kus"]
+    chips = row["chips"]
 
     chips_section: Any
     if chips:
         chips_section = Div(
-            *[_grounding_chip(uid, c) for c in chips],
+            *[KnowledgeLinkChip(uid, c) for c in chips],
             cls="flex flex-wrap gap-2 mt-2",
         )
     else:
@@ -121,4 +161,4 @@ def render_knowledge_notes_list(rows: list[KnowledgeEntryGroundingRow]) -> Any:
     return Div(*[_entry_row(r) for r in rows])
 
 
-__all__ = ["render_knowledge_notes_list"]
+__all__ = ["EntryKnowledgeChips", "KnowledgeLinkChip", "render_knowledge_notes_list"]

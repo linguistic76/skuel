@@ -44,6 +44,7 @@ from core.ports.query_types import (
     ExtractionTwinRow,
     GroundingEntryRow,
     GroundingRemovalRow,
+    KnowledgeChip,
     KnowledgeEntryGroundingRow,
     OrganizerResult,
     VaultIdTaskRow,
@@ -591,6 +592,12 @@ class UserEntryContentOperations(Protocol):
         """Knowledge-pipeline entries + their APPLIES_KNOWLEDGE chips (confidence-ordered)."""
         ...
 
+    async def get_entry_knowledge_chips(
+        self, entry_uid: str, user_uid: UserUID
+    ) -> Result[list[KnowledgeChip]]:
+        """One owned entry's knowledge-link chips; empty for an entry the user does not own."""
+        ...
+
 
 # ============================================================================
 # ISP parent 6 — ORGANIZES child reads (emergent MOC map)
@@ -720,5 +727,9 @@ class EntryGroundingBackendOperations(Protocol):
     async def remove_grounded_edge(
         self, entry_uid: str, ku_uid: str, user_uid: UserUID
     ) -> Result[GroundingRemovalRow | None]:
-        """Ownership-scoped edge delete + rejection record; None when nothing matched."""
+        """Ownership-scoped delete of an INFERRED edge + rejection record.
+
+        None when nothing matched: the entry is not the user's, the edge is
+        absent, or the owner named it (a named link is unnamed in the text).
+        """
         ...

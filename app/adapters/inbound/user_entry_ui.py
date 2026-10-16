@@ -17,7 +17,7 @@ Routes:
 - GET  /submissions/history              — Submission history (4th sidebar slot)
 - GET  /submissions/history/list         — HTMX fragment refresh
 - POST /submissions/history/delete       — HTMX row delete
-- GET  /submissions/knowledge            — Knowledge notes + grounded-Ku chips (5th slot)
+- GET  /submissions/knowledge            — Knowledge notes + their knowledge chips (5th slot)
 
 Journal upload routes (POST /journals/upload, POST /journals/folder-process) live
 in journals_routes.py. Those paths are zero-persistence (ADR-073) — they process
@@ -494,16 +494,16 @@ def create_user_entry_ui_routes(
         return Div()
 
     # =========================================================================
-    # KNOWLEDGE NOTES — grounded-Ku chips, visible + removable (PR 4)
+    # KNOWLEDGE NOTES — knowledge chips, inferred ones removable
     # =========================================================================
 
     @rt("/submissions/knowledge")
     async def submissions_knowledge(request: Request) -> Any:
-        """Knowledge notes with their grounded-Ku chips.
+        """Knowledge notes with their knowledge chips.
 
         The review surface for eager grounding writes (ruling 2026-07-11):
-        every ``pipeline: knowledge`` entry, each chip removable in place via
-        ``POST /api/user-entries/grounding/remove``.
+        every ``pipeline: knowledge`` entry, each inferred chip removable in
+        place via ``POST /api/user-entries/grounding/remove``.
         """
         user_uid = require_authenticated_user(request)
 
