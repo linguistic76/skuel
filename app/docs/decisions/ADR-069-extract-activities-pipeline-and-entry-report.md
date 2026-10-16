@@ -135,6 +135,15 @@ journal privacy norm does not extend to it (Ruling 2 scope).
    links stay user-authored). Structurally: `LLMDSLBridgeService._parse_llm_output`
    drops any `@link` the model emits, so a bridge line reaches the parser
    link-free (`tests/unit/test_llm_dsl_bridge.py::test_bridge_output_carries_no_link_tag`).
+   *Amendment 2026-10-16 (ADR-091, change 7e):* **the same holds for `@ku`.**
+   A `@ku` value is a Ku uid, which the model has no source for either; a
+   guessed one (`@ku(pandas)`) would reach the parser's lenient fallback as
+   `ku.pandas`, a reference to nothing. Neither bridge prompt offers `@ku`, and
+   `_parse_llm_output` drops any `@ku` (and any `@link`, in any case) the model
+   writes, keeping the line and its other tags. A knowledge link has two
+   writers: the user's own `@ku(…)` / `@link(ku:…)`, and `EntryGroundingService`
+   (vector candidates plus the FULL-tier judge)
+   (`tests/unit/test_llm_dsl_bridge.py::test_bridge_output_carries_no_ku_tag`).
 3. **Deterministic extraction (Analog layer):**
    `ActivityExtractorService.extract_and_create()` over the working text. The
    parser matches explicit `@context(...)` lines plus, via a second pass,

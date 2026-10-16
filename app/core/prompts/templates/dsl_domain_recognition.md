@@ -29,7 +29,6 @@ Each activity line should include:
 - @amount(number) - Optional: For finance items
 - @goal(goal_description) - Optional: Link to a goal
 - @principle(principle_name) - Optional: Link to a principle
-- @ku(knowledge_unit) - Optional: Link to knowledge
 
 ## EXAMPLES
 

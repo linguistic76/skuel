@@ -11,6 +11,8 @@ Neo4j container and asserts the graph contracts:
   reference in any spelling but ``ku.{ns}.{slug}`` links nothing and is reported,
 - ``@link(ku:<uid>)`` — the multi-Ku door — resolves the same way: the id after
   the prefix is the stored uid, so the edge lands with no ``@ku()`` on the line,
+- a knowledge link on a bridge line is the user's own: a ``@ku()`` the model
+  writes links nothing, while the user's ``@ku()`` in the same entry links,
 - the run summary lands in ``entry.metadata["activity_extraction"]``,
 - guard 1 (completed-run metadata) makes re-processing a no-op,
 - guard 2 (line-hash dedup) makes ``force`` re-runs duplicate-free,
@@ -36,7 +38,9 @@ import pytest
 
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.ports.llm_protocols import ChatMessage, LLMCompletion
 from core.services.dsl.activity_extractor import ActivityExtractorService
+from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
@@ -108,6 +112,24 @@ class _RewordingBridgeStub:
         return Result.ok(
             SimpleNamespace(activity_lines=[f"Meditate @context(habit) @priority({self.calls})"])
         )
+
+
+class _FixedChatPort:
+    """Chat port double: the model answers with the same text on every call."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    async def complete(
+        self,
+        messages: list[ChatMessage],
+        *,
+        system_prompt: str | None = None,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+    ) -> Result[LLMCompletion]:
+        return Result.ok(LLMCompletion(text=self.text, model="fixed"))
 
 
 async def _seed_ku(driver: Any, uid: str) -> str:
@@ -292,6 +314,51 @@ class TestExtractActivitiesPipeline:
             )
             ku_rows = await res.data()
         assert [row["ku_uid"] for row in ku_rows] == [authored]
+
+    @pytest.mark.asyncio
+    async def test_a_bridge_ku_links_nothing_while_the_users_ku_links(
+        self, neo4j_driver, user_entry_service, seed_user
+    ):
+        """The model has no source for a Ku uid, so a ``@ku()`` on a bridge line
+        is dropped before the parser: the line still creates its task, and only
+        the reference the user typed reaches APPLIES_KNOWLEDGE."""
+        user_uid = await seed_user(f"user_bridgeku_{uuid4().hex[:6]}")
+        token = uuid4().hex[:6]
+        users_ku = await _seed_ku(neo4j_driver, f"ku.it.users-{token}")
+        models_ku = await _seed_ku(neo4j_driver, f"ku.it.models-{token}")
+        content = (
+            "I want to get better at pandas.\n\n"
+            f"- [ ] Practice decorators @context(task) @ku({users_ku})\n"
+        )
+        entry = await _create_entry(user_entry_service, user_uid, content)
+
+        tasks_stub = _GraphTasksStub(neo4j_driver)
+        bridge = LLMDSLBridgeService(
+            chat_port=_FixedChatPort(
+                f"- @context(task) Work through dataframes @ku({models_ku}) @priority(2)"
+            )
+        )
+        dispatcher = UserEntryProcessingService(
+            entry_service=user_entry_service,
+            activity_extractor=ActivityExtractorService(tasks_service=tasks_stub),
+            dsl_bridge=bridge,
+        )
+        result = await dispatcher.process(entry)
+        assert result.is_ok, f"process failed: {result.error}"
+        summary = (result.value.metadata or {}).get("activity_extraction")
+        assert isinstance(summary, dict), f"summary missing/unparsed: {summary!r}"
+        assert summary["tasks_created"] == 2, "the bridge line must still create its task"
+
+        async with neo4j_driver.session() as session:
+            res = await session.run(
+                """
+                MATCH (e:UserEntry {uid: $uid})-[:APPLIES_KNOWLEDGE]->(k:Ku)
+                RETURN k.uid AS ku_uid
+                """,
+                uid=entry.uid,
+            )
+            ku_rows = await res.data()
+        assert [row["ku_uid"] for row in ku_rows] == [users_ku]
 
     @pytest.mark.asyncio
     async def test_reprocess_is_noop_and_force_is_duplicate_free(
