@@ -25,6 +25,7 @@ from adapters.persistence.neo4j.ingestion_service_factory import make_unified_in
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from tests.integration._activity_link_rig import (
     edges_between,
@@ -108,7 +109,9 @@ class World:
 
     async def applies(self, far_uid: str) -> bool:
         edges = await edges_between(self.driver, NOTE, far_uid)
-        return any(e.type == "APPLIES_KNOWLEDGE" and e.source == NOTE for e in edges)
+        return any(
+            e.type == RelationshipName.APPLIES_KNOWLEDGE.value and e.source == NOTE for e in edges
+        )
 
     async def remove(self, client: httpx.AsyncClient, ku_uid: str) -> int:
         response = await client.post(

@@ -22,6 +22,7 @@ import pytest_asyncio
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
+from core.models.relationship_names import RelationshipName
 from tests.integration._activity_link_rig import (
     create,
     edges_between,
@@ -154,7 +155,10 @@ class World:
 
     async def applies(self, entry_uid: str, far_uid: str) -> bool:
         edges = await edges_between(self.driver, entry_uid, far_uid)
-        return any(e.type == "APPLIES_KNOWLEDGE" and e.source == entry_uid for e in edges)
+        return any(
+            e.type == RelationshipName.APPLIES_KNOWLEDGE.value and e.source == entry_uid
+            for e in edges
+        )
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="module")
