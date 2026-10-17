@@ -136,7 +136,7 @@ services:
       - skuel-network
 
   firefly:
-    image: fireflyiii/core:version-6.5.9@sha256:fe4ecec4c2ba2b2978a32b3defaf270407f9fddf0e789a18648121ab84bb68d2
+    image: fireflyiii/core:version-6.7.9@sha256:a2b53539338d1cd04d341b229c3806cb178cf64c72459060e3ed34bec4167bd8
     container_name: skuel-firefly
     profiles: ["finance"]
     ports:

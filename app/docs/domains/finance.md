@@ -120,7 +120,7 @@ leaves the app compose images manual (`renovate.json`):
 
 | Service | Pin | Version |
 |---|---|---|
-| `firefly` | `fireflyiii/core:version-6.5.9@sha256:fe4ecec4…` | Firefly III v6.5.9 |
+| `firefly` | `fireflyiii/core:version-6.7.9@sha256:a2b53539…` | Firefly III v6.7.9 |
 | `firefly-db` | `mariadb:11.8.6@sha256:f5644a29…` | MariaDB 11.8.6 |
 
 The digest is part of the pin because a version tag is not immutable: Docker Hub's
