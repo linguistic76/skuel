@@ -120,4 +120,4 @@ SKUEL intends to close this gap with **field-level encryption**: encrypting sens
 
 ---
 
-*Last updated: 2026-10-16*
+*Last updated: 2026-10-17*
