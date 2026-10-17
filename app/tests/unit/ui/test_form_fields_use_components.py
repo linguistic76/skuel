@@ -33,7 +33,8 @@ def _is_fasthtml(module: str | None) -> bool:
 
 
 MODULE = "module"
-_SCOPE_NODES = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+_FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+_COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 
 
 def _import_kinds(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str | None]]:
@@ -66,23 +67,77 @@ def _import_kinds(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str | No
     return kinds
 
 
+def _declared_outside(function: ast.AST) -> set[str]:
+    """Names a function's own body declares ``global`` or ``nonlocal``."""
+    names: set[str] = set()
+    stack = list(ast.iter_child_nodes(function))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.Global, ast.Nonlocal)):
+            names.update(node.names)
+        elif not isinstance(node, (*_FUNCTIONS, ast.ClassDef)):
+            stack.extend(ast.iter_child_nodes(node))
+    return names
+
+
 class _ScopeScan:
-    """Each scope's imports, and each call with the chain of scopes around it."""
+    """Each scope's imports, and each call with the chain of scopes around it.
+
+    A scope's body runs in the new scope; everything a definition evaluates where
+    it stands — decorators, defaults, annotations, class bases and keywords, a
+    comprehension's first iterable — runs in the enclosing one. An import of a
+    name the function declares ``global`` / ``nonlocal`` binds the outer scope.
+    """
 
     def __init__(self, tree: ast.Module) -> None:
         self.imports: dict[int, list[tuple[int, str, str | None]]] = {}
         self.calls: list[tuple[ast.Call, tuple[ast.AST, ...]]] = []
-        self._visit(tree, (tree,))
+        self._outside: dict[int, set[str]] = {}
+        self._visit_all(tree.body, (tree,))
+
+    def _visit_all(self, nodes: list[ast.AST], chain: tuple[ast.AST, ...]) -> None:
+        for node in nodes:
+            self._visit(node, chain)
 
     def _visit(self, node: ast.AST, chain: tuple[ast.AST, ...]) -> None:
-        for child in ast.iter_child_nodes(node):
-            if isinstance(child, (ast.Import, ast.ImportFrom)):
-                self.imports.setdefault(id(chain[-1]), []).extend(
-                    (child.lineno, local, kind) for local, kind in _import_kinds(child)
-                )
-            elif isinstance(child, ast.Call):
-                self.calls.append((child, chain))
-            self._visit(child, (*chain, child) if isinstance(child, _SCOPE_NODES) else chain)
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for local, kind in _import_kinds(node):
+                self._bind_import(local, (node.lineno, local, kind), chain)
+            return
+        if isinstance(node, ast.Call):
+            self.calls.append((node, chain))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            self._visit_all([*node.decorator_list, node.args, *node.type_params], chain)
+            if node.returns:
+                self._visit(node.returns, chain)
+            self._outside[id(node)] = _declared_outside(node)
+            self._visit_all(node.body, (*chain, node))
+        elif isinstance(node, ast.Lambda):
+            self._visit(node.args, chain)
+            self._visit(node.body, (*chain, node))
+        elif isinstance(node, ast.ClassDef):
+            self._visit_all(
+                [*node.decorator_list, *node.bases, *node.keywords, *node.type_params], chain
+            )
+            self._visit_all(node.body, (*chain, node))
+        elif isinstance(node, _COMPREHENSIONS):
+            first, *rest = node.generators
+            self._visit(first.iter, chain)
+            inner = (*chain, node)
+            parts = [first.target, *first.ifs, *rest]
+            parts += [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
+            self._visit_all(parts, inner)
+        else:
+            self._visit_all(list(ast.iter_child_nodes(node)), chain)
+
+    def _bind_import(
+        self, local: str, binding: tuple[int, str, str | None], chain: tuple[ast.AST, ...]
+    ) -> None:
+        """Record an import in the scope that owns the name it binds."""
+        index = len(chain) - 1
+        if local in self._outside.get(id(chain[index]), set()):
+            index = 0  # global, or nonlocal resolved conservatively to the module
+        self.imports.setdefault(id(chain[index]), []).append(binding)
 
     def kind(self, name: str, line: int, chain: tuple[ast.AST, ...]) -> str | None:
         """What ``name`` holds at ``line``, resolved through the lexical scopes.
@@ -220,6 +275,40 @@ def test_no_raw_text_field_or_select_outside_the_components() -> None:
         (
             "def f():\n    Input()\nfrom fasthtml.common import Input",
             ["2: raw Input type=text (default)"],
+        ),
+        # Definition-time parts run in the enclosing scope.
+        (
+            "from fasthtml.common import Input\ndef f(x=Input()):\n    from ui.components import Input",
+            ["2: raw Input type=text (default)"],
+        ),
+        (
+            "from fasthtml.common import Select\n@deco(Select())\ndef f():\n"
+            "    from ui.components import Select",
+            ["2: raw Select"],
+        ),
+        (
+            "from fasthtml.common import Select\ndef f(x: Select() = 1) -> Select():\n"
+            "    from ui.components import Select",
+            ["2: raw Select", "2: raw Select"],
+        ),
+        (
+            "from fasthtml.common import Select\nclass C(Base, meta=Select()):\n"
+            "    from ui.components import Select",
+            ["2: raw Select"],
+        ),
+        ("from fasthtml.common import Select\nf = lambda x=Select(): x", ["2: raw Select"]),
+        # A comprehension in a class body skips the class's names but its first
+        # iterable does not.
+        (
+            "from fasthtml.common import Input\nclass C:\n    from ui.components import Input\n"
+            "    xs = [Input() for _ in range(2)]\n    ys = [y for y in Input()]",
+            ["4: raw Input type=text (default)"],
+        ),
+        # A global import binds the module, for every scope that reads it.
+        (
+            "from ui.components import Input\ndef f():\n    global Input\n"
+            "    from fasthtml.common import Input\ndef g():\n    Input(type='text')",
+            ["6: raw Input type=text"],
         ),
         (
             "import fasthtml.common as fh\nclass C:\n    from ui import components as fh\n    def m(self):\n"
