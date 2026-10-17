@@ -103,7 +103,9 @@ printf "base64:%s\n" "$(head -c 32 /dev/urandom | base64)"
 
 # Create users + PATs in the Firefly web UI
 open http://localhost:8081
-# For each user: Profile → OAuth → Personal Access Tokens → Create New Token → copy once
+# For each user: Profile → OAuth → Personal Access Tokens → Create New Token → copy once,
+# then store it the same way as the app key: FIREFLY_PAT_SKUEL / FIREFLY_PAT_PERSONAL in
+# ~/.config/skuel/secrets.env → uv run python scripts/migrate_secrets_to_keychain.py
 ```
 
 ⚠ A bare `docker compose --profile finance up` (no `with-secrets`) only warns that
@@ -132,7 +134,7 @@ read its upgrade notes, copy the tag's digest from Docker Hub, then recreate wit
 forward-only — dump the database first:
 
 ```bash
-./scripts/dev/with-secrets sh -c 'docker exec skuel-firefly-db mariadb-dump -ufirefly -p"$FIREFLY_DB_PASSWORD" firefly' > firefly-$(date +%F).sql
+./scripts/dev/with-secrets sh -c 'docker exec skuel-firefly-db mariadb-dump -ufirefly -p"${FIREFLY_DB_PASSWORD:-firefly-local-dev}" firefly' > firefly-$(date +%F).sql
 ```
 
 The image ships its own healthcheck (`curl` → `$HEALTHCHECK_PATH`, `/healthcheck`), and the
