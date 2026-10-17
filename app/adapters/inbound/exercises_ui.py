@@ -46,7 +46,7 @@ def create_exercises_ui_routes(app, rt, exercises_service) -> None:
             return BasePage(
                 Div(
                     PageHeader("Exercise Not Found"),
-                    P("Missing exercise UID.", cls="text-base-content/70"),
+                    P("Missing exercise UID.", cls="text-muted-foreground"),
                     ButtonLink(
                         "← Back to Library",
                         href="/library",

@@ -136,9 +136,9 @@ def create_vault_routes(
                     P(
                         "No personal vault is configured for your account, "
                         "so there is nothing to sync — and nothing is read.",
-                        cls="text-sm text-base-content/70",
+                        cls="text-sm text-muted-foreground",
                     ),
-                    cls="bg-base-200 border border-base-300 rounded-lg p-5",
+                    cls="bg-card border border-border rounded-lg p-5",
                 ),
             )
 
@@ -155,7 +155,7 @@ def create_vault_routes(
                 "SKUEL injects a ",
                 Span("🆔 sk_XXXXXX", cls="font-mono text-sm"),
                 " ID into each task line so completed tasks can be written back.",
-                cls="text-base-content/70 mb-6",
+                cls="text-muted-foreground mb-6",
             ),
             *sync_area,
             cls="max-w-2xl",

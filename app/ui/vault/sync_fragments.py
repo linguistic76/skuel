@@ -94,19 +94,19 @@ def privacy_wall_panel(description: VaultDescription) -> Div:
                 Li(Span(f"{folder}/", cls="font-mono text-sm"))
                 for folder in description.allowed_folders
             ],
-            cls="list-disc pl-4 space-y-1 text-sm text-base-content/80",
+            cls="list-disc pl-4 space-y-1 text-sm text-foreground/80",
         )
     else:
-        scope = P(*_read_scope_phrase(description), ".", cls="text-sm text-base-content/80")
+        scope = P(*_read_scope_phrase(description), ".", cls="text-sm text-foreground/80")
     return Div(
         H3("What SKUEL can see", cls="text-base font-semibold mb-2"),
         scope,
         P(
             "Everything else in your vault is never read, never searched, "
             "and never sent to an LLM.",
-            cls="text-xs text-base-content/60 mt-3",
+            cls="text-xs text-muted-foreground mt-3",
         ),
-        cls="bg-base-200 border border-base-300 rounded-lg p-5 mb-6",
+        cls="bg-card border border-border rounded-lg p-5 mb-6",
     )
 
 
@@ -147,7 +147,7 @@ def consent_form(
                 " again if you re-open the task in SKUEL. It only ever takes"
                 " back what it wrote — a box you tick yourself in Obsidian is"
                 " left alone. Nothing is read or written until you allow it.",
-                cls="text-base-content/70 mb-4",
+                cls="text-muted-foreground mb-4",
             ),
             Form(
                 Button(
@@ -161,7 +161,7 @@ def consent_form(
                 hx_indicator="#consent-spinner",
                 cls="flex items-center gap-2",
             ),
-            cls="bg-base-200 border border-base-300 rounded-lg p-5",
+            cls="bg-card border border-border rounded-lg p-5",
         ),
         id="vault-results",
     )
@@ -302,10 +302,10 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
         Div(
             H3(
                 "Ignored files (not ingested)",
-                cls="text-sm font-semibold text-base-content/70 mt-3 mb-1",
+                cls="text-sm font-semibold text-muted-foreground mt-3 mb-1",
             ),
             Ul(
-                *[Li(line, cls="text-xs text-base-content/60") for line in ignored],
+                *[Li(line, cls="text-xs text-muted-foreground") for line in ignored],
                 cls="list-disc pl-4",
             ),
         )
@@ -336,11 +336,11 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     return Div(
         Div(
             header,
-            Ul(*items, cls="list-disc pl-4 text-sm text-base-content/80 space-y-1"),
+            Ul(*items, cls="list-disc pl-4 text-sm text-foreground/80 space-y-1"),
             error_section,
             warning_section,
             ignored_section,
-            cls="bg-base-200 border border-base-300 rounded-lg p-5",
+            cls="bg-card border border-border rounded-lg p-5",
         ),
         sync_button("Sync again"),
         id="vault-results",
@@ -375,7 +375,7 @@ def _example_list(examples: tuple[str, ...], total: int) -> Any:
     items = [Li(Span(example, cls="font-mono text-xs")) for example in examples]
     if total > len(examples):
         items.append(Li(f"… and {total - len(examples)} more", cls="text-xs italic"))
-    return Ul(*items, cls="list-disc pl-6 space-y-0.5 text-base-content/70")
+    return Ul(*items, cls="list-disc pl-6 space-y-0.5 text-muted-foreground")
 
 
 # Why a set-aside note is not pending work: the ingest gate skips a file with
@@ -484,10 +484,10 @@ def preview_fragment(preview: VaultSyncPreview) -> Div:
             else Ul(
                 Li("This sync would:", cls="list-none -ml-4 font-medium"),
                 *items,
-                cls="list-disc pl-4 text-sm text-base-content/80 space-y-1",
+                cls="list-disc pl-4 text-sm text-foreground/80 space-y-1",
             ),
             warning_section,
-            cls="bg-base-200 border border-base-300 rounded-lg p-5",
+            cls="bg-card border border-border rounded-lg p-5",
         ),
         Div(
             sync_button("Run sync now"),

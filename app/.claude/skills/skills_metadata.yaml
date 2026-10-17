@@ -117,7 +117,7 @@ skills:
 
   - name: chartjs
     description: Chart.js data visualization in SKUEL
-    last_reviewed: "2026-09-29"
+    last_reviewed: "2026-10-17"
     foundation: []
     dependencies: []
     library_package: null  # Vendored static file
@@ -400,7 +400,7 @@ skills:
 
   - name: result-pattern
     description: Result[T] error handling pattern
-    last_reviewed: "2026-10-12"
+    last_reviewed: "2026-10-17"
     foundation: [python]
     dependencies: [python]
     library_package: null  # SKUEL pattern, not external library
