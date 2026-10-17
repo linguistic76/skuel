@@ -118,7 +118,17 @@ class _UserEntryCrudMixin:
         An entry that may hold no vector (``private``, or a pipeline that does
         not ``grounds_knowledge``) is the exception: its payload nulls all five,
         so a note that turns private or changes pipeline loses its stored vector
-        on that re-sync (canon P3). Like ``create()``, the
+        on that re-sync (canon P3). The same re-sync takes back what the
+        grounding pass inferred from that vector: every ``inferred``
+        ``APPLIES_KNOWLEDGE`` edge is deleted and its far end recorded in
+        ``grounding_rejected_ku_uids`` (the record the owner's remove door
+        writes), and ``grounded_text_hash`` is cleared — so a note that opts
+        back in is grounded afresh but never re-linked, or re-credited, to a
+        pair it held before. A link the owner named (``@ku``) is the text's
+        and stays. A move between two grounded pipelines keeps every link.
+        The retraction runs only when the write did, after the node's own
+        properties are set, so it holds the entry's write-lock before it
+        touches an edge (the order both link writers take). Like ``create()``, the
         ``(User)-[:OWNS]->(entry)`` edge is MERGEd in the SAME statement when
         ``entry`` carries a ``user_uid``, so the node and its owner edge are
         never separable: UserEntry is ``OWNER_ONLY``, and a property-only entry
@@ -133,7 +143,8 @@ class _UserEntryCrudMixin:
         # every re-sync. The embeddings writer stores those properties — drop them
         # here, unless the entry may hold no vector: then the nulls are the point.
         node_data = without_embedding_props(to_neo4j_node(entry))
-        if entry.private or not entry.pipeline.grounds_knowledge():
+        ungrounded = entry.private or not entry.pipeline.grounds_knowledge()
+        if ungrounded:
             node_data.update(dict.fromkeys(EMBEDDING_OWNED_PROPERTIES))
         node_data.update(self.default_filters)
         user_uid = node_data.get("user_uid")
@@ -173,7 +184,9 @@ class _UserEntryCrudMixin:
         # existing owner matches $owner AND the node is not a frozen
         # submission (UserEntry.is_frozen_submission — the same three tests),
         # else it is a no-op. A living entry's props never make a node frozen,
-        # so `frozen` read after the write is the node's state before it.
+        # so `frozen` read after the write is the node's state before it. The
+        # retraction of inferred links rides the same gate: it runs only where
+        # the write did.
         frozen = (
             "(n.turn_in_exercise_uid IS NOT NULL OR n.submitted_from_uid IS NOT NULL"
             " OR n.pipeline = $frozen_pipeline)"
@@ -185,6 +198,20 @@ class _UserEntryCrudMixin:
           ON MATCH SET n += (CASE WHEN n.user_uid = $owner AND NOT {frozen}
                                   THEN $on_match_props ELSE {{}} END)
         {owns_clause}
+        WITH n
+        CALL (n) {{
+          WITH n WHERE $ungrounded AND n.user_uid = $owner AND NOT {frozen}
+          OPTIONAL MATCH (n)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity)
+          WHERE NOT k:Content AND coalesce(r.inferred, false)
+          WITH n, collect(r) AS inferred, collect(k.uid) AS retracted
+          FOREACH (r IN inferred | DELETE r)
+          FOREACH (_ IN CASE WHEN size(retracted) > 0 THEN [1] ELSE [] END |
+              SET n.grounding_rejected_ku_uids =
+                  [x IN coalesce(n.grounding_rejected_ku_uids, []) WHERE NOT x IN retracted]
+                  + retracted
+          )
+          REMOVE n.grounded_text_hash
+        }}
         RETURN n, coalesce(n.user_uid = $owner, false) AS owned, {frozen} AS frozen
         """
 
@@ -195,6 +222,7 @@ class _UserEntryCrudMixin:
                 "props": node_data,
                 "on_match_props": on_match_props,
                 "owner": user_uid,
+                "ungrounded": ungrounded,
                 "frozen_pipeline": Pipeline.TEACHER_REVIEW.value,
                 **owns_params,
             },

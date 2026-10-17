@@ -122,8 +122,9 @@ class EntryGroundingBackend:
         of deadlocking, and exactly one of them creates the edge.
 
         A pair the owner removed (``grounding_rejected_ku_uids``, written by the
-        remove door and by an unnamed ``@ku``) is refused under that lock, so a pass that
-        read the entry before the removal cannot re-make it.
+        remove door, by an unnamed ``@ku`` and by the re-sync that opts the note
+        out of grounding) is refused under that lock, so a pass that read the
+        entry before the removal cannot re-make it.
         """
         published, published_params = build_publication_clause("k")
         result = await self._executor.execute_query(

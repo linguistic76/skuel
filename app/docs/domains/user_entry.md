@@ -165,7 +165,7 @@ feedback (Submit & Share arc R12). A living vault entry carries neither.
 |-----|--------------|--------|-------------|
 | `source_entry` | `TRANSFORMS` | UserEntry | Multi-stage pipelines. ⚠️ The edge runs **derived → source**: the LLM-structured child is written with `transforms_of_uid` pointing back at the transcript it came from, so traversing `TRANSFORMS` outward walks *up* the pipeline, not down. The field name is the tell |
 | `exercise` | `FULFILLS_EXERCISE` | Exercise | What the entry answers; carries `revision` |
-| `applied_knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied/reflected in the entry — THE substance/ZPD contract edge. **Two writers, one event:** explicit `@ku()` refs via the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and vector grounding via `EntryGroundingService`, which stamps `inferred: true` + `confidence` + `grounded_at` so an inferred edge stays distinguishable from an authored one (and removable on its own terms). An authored edge lives as long as the text names it: deleting the `@ku` retracts it on the next extraction (`UserEntryService.retract_unnamed_knowledge`), recorded in `grounding_rejected_ku_uids` like a removed inferred one |
+| `applied_knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied/reflected in the entry — THE substance/ZPD contract edge. **Two writers, one event:** explicit `@ku()` refs via the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and vector grounding via `EntryGroundingService`, which stamps `inferred: true` + `confidence` + `grounded_at` so an inferred edge stays distinguishable from an authored one (and removable on its own terms). An authored edge lives as long as the text names it: deleting the `@ku` retracts it on the next extraction (`UserEntryService.retract_unnamed_knowledge`), recorded in `grounding_rejected_ku_uids` like a removed inferred one. An inferred edge lives as long as the note is grounded: the re-sync that turns it `private: true` or moves it off the grounded pipelines (`Pipeline.grounds_knowledge`) deletes every inferred edge and records it the same way (`UserEntryBackend.upsert`) |
 
 ### Incoming (Other → UserEntry)
 
@@ -305,7 +305,14 @@ empty success to a misprogrammed caller.
 could quote it back: no entity embedding (the vault re-sync that marks a note
 private removes a stored one), no chunk subtree, no grounding pass
 (`EntryGroundingBackend.get_pending_entries` excludes it by name), and a hard
-`WHERE` exclusion in companion-retrieval Cypher. It is orthogonal to `visibility`
+`WHERE` exclusion in companion-retrieval Cypher. The same re-sync takes back
+what grounding inferred from the note (`UserEntryBackend.upsert`, which does the
+same for a note that leaves the grounded pipelines): every `inferred`
+`APPLIES_KNOWLEDGE` edge is deleted and its Ku recorded in
+`grounding_rejected_ku_uids`, so a note marked public again is grounded afresh
+but never re-linked to those Kus; its `grounded_text_hash` is cleared. Links the
+owner named with `@ku` stay — the text holds them. No substance credit is taken
+back. It is orthogonal to `visibility`
 (sharing) and to `je_use` (ingestion consent) — the owner's own surfaces
 (`/gradebook`, search) still show private notes.
 
