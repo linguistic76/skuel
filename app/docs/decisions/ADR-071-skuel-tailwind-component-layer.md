@@ -1,6 +1,6 @@
 ---
 title: "ADR-071: SKUEL-Owned Tailwind Component Layer"
-updated: 2026-09-21
+updated: 2026-10-17
 status: implemented
 category: decisions
 tags: [adr, decisions, ui, tailwind, alpine, components]
@@ -266,6 +266,8 @@ Approximate sequence (re-evaluated after Phase 1):
 | M9 ✅ | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
 | M10 ✅ | `uv remove monsterui`; delete vendor files; remove quality gate | Cleanup |
 | M11 ✅ | **DaisyUI removal** (2026-06-30 follow-up): `daisyui` dropped from `package.json` + `tailwind.config.js`; daisy color utilities (`text-error`, `bg-base-200`, …) re-homed as concrete tokens in the Tailwind config; 2 remaining daisy component-class sites (`ui/ingestion/dashboard.py`, `ui/search/components.py`) migrated to pure Tailwind. `output.css` ~195KB → ~98KB (30 baked-in themes removed). | Cleanup |
+
+**Amendment (2026-10-17):** the M11 compat palette is gone. The status names (`text-error`, `bg-success`, …) read theme-aware `--status-*` variables; the light-only `--color-base-200/300/content` tokens were deleted and every `base-*` utility moved onto the theme-aware tokens (`bg-muted`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`). `tests/unit/ui/test_a11y_semantics.py` refuses a `base-*` token or utility.
 
 M4 and M5 are large but mechanical — good candidates for fresh-context agents.
 M9 is the pivotal cutover: after it lands, UIkit is no longer loaded in any browser session.

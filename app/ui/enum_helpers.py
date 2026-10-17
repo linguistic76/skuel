@@ -63,7 +63,7 @@ def _enum_method[E: Enum](
 def get_status_badge_class(status: str) -> str:
     """Get Tailwind badge class for any entity status string."""
     return _enum_method(
-        status, EntityStatus, "get_badge_class", "bg-base-200 text-base-content/70 border-base-200"
+        status, EntityStatus, "get_badge_class", "bg-muted text-muted-foreground border-border"
     )
 
 
@@ -105,7 +105,7 @@ def get_essentiality_badge_class(essentiality: str) -> str:
         essentiality,
         HabitEssentiality,
         "get_badge_class",
-        "bg-base-200 text-base-content/70 border-base-200",
+        "bg-muted text-muted-foreground border-border",
     )
 
 

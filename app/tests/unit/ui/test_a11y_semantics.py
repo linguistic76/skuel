@@ -6,6 +6,10 @@
 - No class string puts status text on its own status tint (``bg-success/15
   text-success``): the light tokens fail AA on a tint of themselves (green-700 on
   its 15% tint is 4.09:1). A pill uses the Badge palette instead.
+- No light-only ``base-*`` colour: ``input.css`` defines no ``--color-base-*``
+  token and no ``.py`` or ``static/js`` file names a ``base-100/200/300/content``
+  utility. The text and surface pairs the panels and wells draw are AA in both
+  themes.
 - An error banner is ``role="alert"`` alone: an ``aria-live="polite"`` beside it
   contradicts the role's implicit assertive politeness.
 - ``Input`` and ``Select`` are 44px on phones and 40px from ``md`` up; with
@@ -102,6 +106,75 @@ def test_no_class_string_puts_status_text_on_its_own_tint() -> None:
                 if _TINTED_TEXT.search(line):
                     offenders.append(f"{path.relative_to(APP_ROOT)}:{lineno}")
     assert offenders == []
+
+
+_BASE_UTILITY = re.compile(r"\bbase-(100|200|300|content)\b")
+
+
+def _base_utility_offenders() -> list[str]:
+    offenders = [
+        f"static/css/input.css: {m.group(0)}"
+        for m in re.finditer(r"--color-base-[\w-]+", INPUT_CSS)
+    ]
+    sources = [p for root in ("ui", "adapters", "core") for p in (APP_ROOT / root).rglob("*.py")]
+    sources += (APP_ROOT / "static" / "js").rglob("*.js")
+    for path in sorted(sources):
+        for lineno, line in enumerate(path.read_text().splitlines(), 1):
+            if _BASE_UTILITY.search(line):
+                offenders.append(f"{path.relative_to(APP_ROOT)}:{lineno}")
+    return offenders
+
+
+def test_no_light_only_base_colour_token_or_utility() -> None:
+    assert _base_utility_offenders() == []
+
+
+def test_the_base_utility_scan_sees_a_class_string() -> None:
+    assert _BASE_UTILITY.search('cls="rounded bg-base-200 p-4"')
+    assert _BASE_UTILITY.search('cls="text-base-content/70"')
+    assert not _BASE_UTILITY.search('cls="text-base font-semibold"')
+
+
+# (text, alpha, surface) — every pair the panels and wells draw. A titled panel is
+# a card (the page background in both themes, so the status tokens hold on it);
+# faded text inside a muted well is foreground at an opacity, never
+# muted-foreground, which is 4.34:1 on light muted.
+_SURFACE_PAIRS = [
+    ("muted-foreground", 1.0, "card"),
+    ("foreground", 0.8, "card"),
+    ("foreground", 1.0, "muted"),
+    ("foreground", 0.6, "muted"),
+]
+
+
+def _mix(
+    top: tuple[float, float, float], under: tuple[float, float, float], alpha: float
+) -> tuple[float, float, float]:
+    r, g, b = (alpha * t + (1 - alpha) * u for t, u in zip(top, under, strict=True))
+    return (r, g, b)
+
+
+@pytest.mark.parametrize("theme", [":root", ".dark"])
+@pytest.mark.parametrize(("text", "alpha", "surface"), _SURFACE_PAIRS)
+def test_surface_text_pairs_are_aa(theme: str, text: str, alpha: float, surface: str) -> None:
+    block = _block(theme)
+    under = _hsl_rgb(_var(block, surface))
+    ratio = _contrast(_mix(_hsl_rgb(_var(block, text)), under, alpha), under)
+    assert ratio >= AA_TEXT, f"{theme} {text}/{alpha} on {surface} is {ratio:.2f}:1"
+
+
+@pytest.mark.parametrize("theme", [":root", ".dark"])
+def test_a_card_panel_is_the_page_background(theme: str) -> None:
+    block = _block(theme)
+    assert _var(block, "card") == _var(block, "background")
+
+
+@pytest.mark.parametrize("theme", [":root", ".dark"])
+def test_error_text_is_aa_on_a_faint_muted_well(theme: str) -> None:
+    block = _block(theme)
+    well = _mix(_hsl_rgb(_var(block, "muted")), _hsl_rgb(_var(block, "background")), 0.4)
+    ratio = _contrast(_hex_rgb(_var(block, "status-error")), well)
+    assert ratio >= AA_TEXT, f"{theme} --status-error is {ratio:.2f}:1 on muted/40"
 
 
 @pytest.mark.parametrize("severity", ["error", "warning"])

@@ -139,7 +139,7 @@ SKUEL's CSS is compiled by the **Tailwind CLI** (`./dev css-build`) into `static
 | **Tailwind utilities** | flex, p-4, grid, etc. | scanned + compiled to `output.css` |
 | **Semantic variables** | `--primary`, `--background`, `--card`, etc. | SKUEL-owned in `static/css/input.css` (`:root` and `.dark`) |
 | **Theme-aware color tokens** | `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-muted`, `border-border`, `bg-primary`, `text-destructive` | `input.css` `@theme inline`, each `hsl(var(--x))`, so they switch under `.dark` |
-| **Fixed compat tokens** | `text-error`, `bg-success`, `text-warning`, `text-info`, `bg-base-200`, `bg-base-300`, `text-base-content` | concrete hex in `@theme inline`, kept so pre-ADR-071 class strings compile. They do **not** change in dark mode. There is no `base-100`: `bg-base-100` compiles to nothing |
+| **Status tokens** | `text-error`, `bg-success`, `text-warning`, `text-info` | the DaisyUI names, kept so their class strings compile; theme-aware — `--status-*` on `:root` and `.dark`. There are no `base-*` tokens: a `base-100/200/300/content` utility compiles to nothing (`tests/unit/ui/test_a11y_semantics.py` refuses one) |
 
 **All pages load CSS through `build_head()` / `skuel_headers()`** (in `ui/theme.py`) — never hand-assemble `<link>` tags. Two layout functions:
 - `BasePage()` — authenticated pages (navbar + chrome)

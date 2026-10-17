@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-10-02
+updated: 2026-10-17
 category: patterns
 related_skills:
 - python
@@ -530,7 +530,7 @@ async def choice_detail_view(request, uid: str):
         return BasePage(
             content=Card(
                 H2("Choice Not Found", cls="text-xl font-bold text-error mb-4"),
-                P(f"Could not find choice: {uid}", cls="text-base-content/70"),
+                P(f"Could not find choice: {uid}", cls="text-muted-foreground"),
             ),
             title="Choice Not Found",
         )

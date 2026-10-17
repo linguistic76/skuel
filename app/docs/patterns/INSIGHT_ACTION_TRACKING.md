@@ -1,6 +1,6 @@
 ---
 title: Insight Action Tracking Pattern
-updated: '2026-10-11'
+updated: '2026-10-17'
 category: patterns
 related_skills:
 - chartjs
@@ -239,7 +239,7 @@ async def insights_history_page(request):
                 Span("Your notes: ", cls="font-semibold"),
                 Span(action_notes or "(No notes provided)", cls="italic"),
             ) if action_notes or insight.dismissed or insight.actioned else Div(),
-            cls="mb-2 p-3 bg-base-100 rounded-md"
+            cls="mb-2 p-3 bg-muted rounded-md"
         )
 
         # Wrap card with metadata

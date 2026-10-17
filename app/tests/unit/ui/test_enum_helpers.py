@@ -55,7 +55,7 @@ class TestStatusBridgeFunctions:
 
     def test_status_badge_class_invalid(self) -> None:
         result = get_status_badge_class("nonexistent_status")
-        assert result == "bg-base-200 text-base-content/70 border-base-200"
+        assert result == "bg-muted text-muted-foreground border-border"
 
     def test_status_text_class_active(self) -> None:
         result = get_status_text_class("active")
@@ -108,7 +108,7 @@ class TestEssentialityBridge:
 
     def test_essentiality_badge_class_invalid(self) -> None:
         result = get_essentiality_badge_class("invalid")
-        assert result == "bg-base-200 text-base-content/70 border-base-200"
+        assert result == "bg-muted text-muted-foreground border-border"
 
     def test_essentiality_styled_valid(self) -> None:
         emoji, border, bg = get_essentiality_styled("essential")
