@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-02
+updated: 2026-10-17
 ---
 
 # How Your Content Is Used — SKUEL.app
@@ -13,6 +13,7 @@ This guide explains what happens to everything you put into SKUEL: your tasks an
 - Everything you create in SKUEL is **private to you by default**.
 - You control what you share with teachers or peers — nothing is shared without your action. A synced vault note is a draft and always stays private; setting `status: submitted` files a frozen copy of it for the note's `audience:` (your teachers, when it names no one).
 - When you use an AI feature, the relevant content is sent to an external AI service for that request only. It is not retained by the AI service or used to train AI models.
+- When SKUEL's AI features are on, syncing your vault sends the text of your knowledge notes and activity notes (periodic notes included) to the AI service, so SKUEL can link each note to the lessons it engages. Mark a note `private: true` and it is not sent for that.
 - Your audio is transcribed by a third-party service (Deepgram). The audio is not stored by SKUEL after transcription.
 - SKUEL's own team cannot read your private content through the application.
 
@@ -56,7 +57,18 @@ The wall works retroactively: if you narrow it — remove a folder from the allo
 
 What a file in your vault can create is limited to your own things: your tasks, goals, habits, events, choices and principles, your life path, and your notes — journals, knowledge notes, and responses to exercises. Lessons and other curriculum, groups, and standalone link files belong to the shared content vault; if your vault holds one, the sync lists it as ignored and says why, and nothing is created from it. Whatever a vault file creates is yours alone: a file cannot take over or change another person's entry — even one with the same file name — and the links it declares reach only your own entries or shared lessons.
 
-Vault sync reads your vault and creates SKUEL entries. It writes back only task markers on the task lines you created from vault files: the `🆔 sk_<id>` that ties a line to its task, and `[x] ✅ date` when you complete that task in SKUEL — removed again if you reopen it.
+Vault sync reads your vault and creates SKUEL entries. When SKUEL's AI features are on, it also sends some of what it read to the AI service — the next section says what. It writes back only task markers on the task lines you created from vault files: the `🆔 sk_<id>` that ties a line to its task, and `[x] ✅ date` when you complete that task in SKUEL — removed again if you reopen it.
+
+#### What a vault sync sends out
+
+When SKUEL's AI features are on (see [Intelligence tier](intelligence-tier.md)), two kinds of synced note are sent to the AI service — **knowledge notes** (`pipeline: knowledge`, from `knowledge/` or a consented `je_pro/` file) and **activity notes** (`pipeline: extract_activities` — your daily, weekly and other periodic notes, when their frontmatter says so):
+
+- **Its title and text, to make its embedding** — the numeric fingerprint SKUEL uses to find related notes and lessons. A knowledge note's text is also sent in sections, for the journal companion to search. The text is sent again only when the note changes.
+- **Its title, its first 1,500 characters and the titles of up to eight lessons it most resembles**, after the sync, so the AI model can judge which of those lessons the note really engages. The lessons it judges you engaged appear as links under the note, each one removable.
+
+**`private: true` in a note's frontmatter keeps it out of both** — it is not embedded, not sent to judge lessons, and an embedding made before you marked it is removed on the next sync. Other entries from your vault — a plain note, an exercise response — are neither embedded nor sent to judge lessons.
+
+An activity note that is not a periodic note is also sent, without its task lines, so the AI model can recognize the activities in it — `private: true` does not stop this. A periodic note is never sent for that: its tasks come only from its own checkbox lines and `@context()` markers.
 
 ### Audio recordings
 
@@ -74,7 +86,8 @@ Deepgram processes audio under its own privacy terms. SKUEL uses Deepgram's API 
 | Request a journal AI response | Your discussion or upload text + a short context summary (goal/task/habit titles) | The configured AI provider — OpenAI or Anthropic, by the model selected |
 | Request an activity report | Aggregate activity data (counts, completion rates — not entry text) | The configured AI provider (OpenAI or Anthropic) |
 | Use Askesis | PathStep content + your learning context | The configured AI provider (OpenAI or Anthropic) |
-| Vault sync | Nothing — inbound read only | — |
+| Sync your vault, or edit a synced note in SKUEL (AI features on) | The title and text of each knowledge note and activity note, periodic notes included, to embed it; after a sync, its title, first 1,500 characters and up to eight lesson titles, to judge which lessons it engages; a non-periodic activity note's text without its task lines, to recognize activities. A `private: true` note is neither embedded nor judged | The configured AI provider — OpenAI for embeddings |
+| Sync your vault (AI features off) | Nothing — inbound read only | — |
 | All other SKUEL actions | Nothing leaves SKUEL | — |
 
 All external AI calls go to the configured AI provider — OpenAI or Anthropic, chosen per model by the deployment — and both are used under API terms that prohibit training on API-submitted data by default.
@@ -107,4 +120,4 @@ SKUEL intends to close this gap with **field-level encryption**: encrypting sens
 
 ---
 
-*Last updated: 2026-06-27*
+*Last updated: 2026-10-16*

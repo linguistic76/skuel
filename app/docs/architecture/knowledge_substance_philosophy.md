@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-10-16
+updated: 2026-10-17
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -197,11 +197,13 @@ Based on substance score:
 | **Principle** | `connections.grounded_in_knowledge` | `GROUNDED_IN_KNOWLEDGE` | Principles (0.07/principle, max 0.15) |
 | **UserEntry** | *(entry-driven, not YAML — see below)* | `APPLIES_KNOWLEDGE` | Entries (0.07/entry, max 0.20) |
 
-The entries channel is scoped to **grounded knowledge/je_pro entries** (Mike's ruling
-2026-07-11) and has TWO writers, both publishing the same `KnowledgeReflectedInEntry`
-event: explicit `@ku()` references in the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and
-vector grounding of `pipeline: knowledge` entries (`EntryGroundingService`,
-Entry-Enrichment PR 3). The handler is writer-agnostic — same event, same credit.
+The entries channel is scoped to **grounded knowledge notes and activity notes**
+(Mike's rulings 2026-07-11 and, adding activity notes, 2026-10-16) and has TWO writers,
+both publishing the same `KnowledgeReflectedInEntry` event: explicit `@ku()` references
+in the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and vector grounding
+(`EntryGroundingService`) of the entries on the pipelines `Pipeline.knowledge_grounded`
+names — `knowledge` and `extract_activities`, periodic notes included, never a
+`private: true` entry. The handler is writer-agnostic — same event, same credit.
 
 ### Examples
 
@@ -392,8 +394,9 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
     text's to retract
   - `EntryGroundingService` — once per genuinely NEW inferred edge
     (`inferred: true`, `confidence: <similarity>`, `grounded_at`) written by the
-    vector grounding pass over `pipeline: knowledge` entries, to published Kus only (knowledge/ and
-    je_pro/ doors — Entry-Enrichment PR 3). Existing edges never re-publish, and a
+    vector grounding pass over non-private `knowledge` and `extract_activities` entries
+    (knowledge/ and je_pro/ notes; activity notes, periodic notes included), to published
+    Kus only, run after a personal-vault sync. Existing edges never re-publish, and a
     pair the owner removed (`grounding_rejected_ku_uids`) is refused under the
     entry's write-lock, so it is never re-made; removals via the grounding remove
     route are calibration data for the threshold.

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-10-17
 ---
 
 # Journal Privacy — What SKUEL Stores, Who Can See It, and Our Commitment
@@ -20,11 +20,13 @@ What persists, and why:
 
 - **A saved chat** — only when you click **Save this chat**. It stores that discussion's turns and title under your account; nothing is saved until you click.
 - **The output file of an upload** — because you uploaded it. It lives in your vault's `je_out/` folder as a file for you to open in Obsidian, never in the database.
-- **Vault notes you sync** — because you put them in a sync doorway folder (`knowledge/`, your periodic notes). They are stored under your account as notes, and they always stay private: a note is a draft, and only the frozen copy that `status: submitted` files reaches the note's `audience:`. Mark one `private: true` and the journal companion will not read it.
+- **Vault notes you sync** — because you put them in a sync doorway folder (`knowledge/`, your periodic notes). They are stored under your account as notes, and they always stay private: a note is a draft, and only the frozen copy that `status: submitted` files reaches the note's `audience:`. Mark one `private: true` and the journal companion will not read it, and it is not sent to the AI provider to be embedded or linked to lessons (below).
 
 A saved chat is **never used to understand you**. It is not searched, embedded, or fed into the context the journal companion or Askesis works from — the only channel into that context is the vault notes you choose to sync.
 
 When you request an AI response, your text and a short summary of your active goals, tasks, and habits are sent to the configured AI model for that request only. The reply is shown to you and, unless you save the chat, discarded with the rest of the discussion; for an upload, the reply *is* the output file described above.
+
+**Synced notes are sent without a request.** When SKUEL's AI features are on, syncing your vault sends your knowledge notes and your activity notes — the periodic notes (daily, weekly, …) whose frontmatter says `pipeline: extract_activities` — to the AI provider: each note's title and text to make its embedding, and after the sync its title, its first 1,500 characters and the titles of up to eight lessons it resembles, so the AI model can judge which lessons the note engages. Those lessons appear as removable links under the note. A note marked `private: true` is neither embedded nor judged. The full list is in [How Your Content Is Used](how-your-content-is-used.md#what-a-vault-sync-sends-out).
 
 ---
 
@@ -57,7 +59,7 @@ SKUEL.app commits to the following:
 
 2. **Journals are excluded from administrative statistics.** The admin dashboard shows platform-level metrics (user counts, active goals, tasks created). Journal counts and content are not included in any admin view — and this is enforced in the codebase.
 
-3. **AI processing is request-scoped.** When you request an AI response, your journal text is transmitted to the configured AI provider's API for that request only. SKUEL does not log the content of a discussion or a note to application logs. Record identifiers and your account ID are logged for operational purposes (e.g., confirming a save succeeded), but never the text of what you wrote.
+3. **AI processing is request-scoped.** When you request an AI response, your journal text is transmitted to the configured AI provider's API for that request only. A synced knowledge or activity note is transmitted when it is synced, to embed it and to link it to lessons, and its text again when you edit it in SKUEL, as described above — unless it is marked `private: true`. SKUEL does not log the content of a discussion or a note to application logs. Record identifiers and your account ID are logged for operational purposes (e.g., confirming a save succeeded), but never the text of what you wrote.
 
 4. **AI provider data handling.** Journal content sent to the AI provider is subject to that provider's privacy policy and API terms of service. SKUEL uses provider APIs under terms that prohibit the provider from training on API-submitted data by default.
 
@@ -87,9 +89,10 @@ Until that is implemented, the protection rests on the combination of:
 | Other users cannot read your journals | ✅ Technically enforced |
 | Journal counts excluded from admin analytics | ✅ Technically enforced |
 | AI responses use your content for that request only | ✅ By design |
+| Synced knowledge and activity notes are sent to the AI provider to embed them and link them to lessons; `private: true` keeps a note out | ✅ By design |
 | SKUEL operators commit not to access journal content | ✅ Policy commitment (this document) |
 | Journal content encrypted at rest in the database | 🔲 Planned — field-level encryption |
 
 ---
 
-*Last updated: 2026-09-02*
+*Last updated: 2026-10-16*

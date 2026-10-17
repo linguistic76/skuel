@@ -12,6 +12,10 @@ payload carrying the model's ``None`` defaults wiped the vector on every
 re-sync and the worker re-embedded identical text (ADR-074 §8 broken for
 exactly this door).
 
+The exception is a note that may hold no vector — ``private: true``, or a
+pipeline that is not embedded (``Pipeline.grounds_knowledge``): its re-sync
+removes the stored vector and its metadata (canon P3).
+
 Fixtures mirror the writers' shapes: the vault door's request (deterministic
 uid, ``pipeline: knowledge``) and the embeddings writer's full store
 (vector + version + model + updated_at + text_hash), not a hand-set
@@ -25,6 +29,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+from adapters.persistence.neo4j.neo4j_mapper import EMBEDDING_OWNED_PROPERTIES
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.constants import EmbeddingGeometry
 from core.models.enums.entity_enums import EntityType
@@ -49,12 +54,15 @@ def _embeddings_service(neo4j_driver) -> EmbeddingsService:
     )
 
 
-def _note_request(content: str) -> UserEntryCreateRequest:
+def _note_request(
+    content: str, pipeline: Pipeline = Pipeline.KNOWLEDGE, private: bool = False
+) -> UserEntryCreateRequest:
     return UserEntryCreateRequest(
         uid=_UID,
         title="Decisions 0",
         content=content,
-        pipeline=Pipeline.KNOWLEDGE,
+        pipeline=pipeline,
+        private=private,
     )
 
 
@@ -81,13 +89,16 @@ async def _embed_as_the_writer(embeddings: EmbeddingsService, props: dict) -> st
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("pipeline", [Pipeline.KNOWLEDGE, Pipeline.EXTRACT_ACTIVITIES])
 async def test_identical_resync_keeps_vector_and_stays_hash_fresh(
-    clean_neo4j, user_entry_service, neo4j_driver, seed_user
+    clean_neo4j, user_entry_service, neo4j_driver, seed_user, pipeline: Pipeline
 ) -> None:
     owner = await seed_user("user_resync_owner")
     content = "A decision is when you have power to choose."
 
-    first = await user_entry_service.create_entry(request=_note_request(content), user_uid=owner)
+    first = await user_entry_service.create_entry(
+        request=_note_request(content, pipeline), user_uid=owner
+    )
     assert first.is_ok, first.expect_error()
     assert first.value[0].uid == _UID
 
@@ -97,7 +108,9 @@ async def test_identical_resync_keeps_vector_and_stays_hash_fresh(
     assert before.get("embedding") is not None
 
     # The re-sync: same uid, byte-identical content — the vault door's shape.
-    second = await user_entry_service.create_entry(request=_note_request(content), user_uid=owner)
+    second = await user_entry_service.create_entry(
+        request=_note_request(content, pipeline), user_uid=owner
+    )
     assert second.is_ok, second.expect_error()
 
     after = await _node_props(neo4j_driver, _UID)
@@ -143,3 +156,41 @@ async def test_edited_resync_refreshes_content_but_keeps_vector_until_the_worker
     fresh = await embeddings.verify_fresh_embeddings({_UID: new_text})
     assert fresh.is_ok, fresh.expect_error()
     assert fresh.value == set(), "changed text must re-embed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("pipeline", "private"),
+    [
+        (Pipeline.KNOWLEDGE, True),
+        (Pipeline.EXTRACT_ACTIVITIES, True),
+        (Pipeline.NONE, False),
+    ],
+    ids=["knowledge-turns-private", "activity-note-turns-private", "leaves-embedded-pipelines"],
+)
+async def test_resync_that_forbids_a_vector_removes_the_stored_one(
+    clean_neo4j, user_entry_service, neo4j_driver, seed_user, pipeline: Pipeline, private: bool
+) -> None:
+    """A note that turns ``private: true``, or moves to a pipeline that is not
+    embedded, may hold no vector (canon P3): the re-sync that says so removes the
+    vector and every property the embeddings writer stored beside it."""
+    owner = await seed_user("user_resync_owner")
+    content = "A decision is when you have power to choose."
+
+    first = await user_entry_service.create_entry(request=_note_request(content), user_uid=owner)
+    assert first.is_ok, first.expect_error()
+    await _embed_as_the_writer(
+        _embeddings_service(neo4j_driver), await _node_props(neo4j_driver, _UID)
+    )
+    assert (await _node_props(neo4j_driver, _UID)).get("embedding") is not None
+
+    second = await user_entry_service.create_entry(
+        request=_note_request(content, pipeline, private), user_uid=owner
+    )
+    assert second.is_ok, second.expect_error()
+
+    after = await _node_props(neo4j_driver, _UID)
+    assert after["pipeline"] == pipeline.value
+    assert after.get("private", False) is private
+    left = sorted(key for key in EMBEDDING_OWNED_PROPERTIES if key in after)
+    assert left == [], f"the re-sync left the embedding writer's {left}"

@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-10-16
+updated: 2026-10-17
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -36,9 +36,9 @@ decides what (if anything) happens after creation.
 | `TRANSCRIBE` | Audio → text (Deepgram) |
 | `TRANSCRIBE_AND_STRUCTURE` | Audio → transcribed entry → LLM-structured second entry. The enum calls it legacy, but the path is **live**, not read-only: a client can select it on `POST /api/user-entries` or as a `/api/user-entries/process` override, and `_run_transcribe_and_structure` still dispatches it (FULL tier) |
 | `LLM_SUMMARY` | Text/file → LLM summary |
-| `EXTRACT_ACTIVITIES` | Text → DSL parse → real entities with `EXTRACTED_FROM` provenance (ADR-069) |
+| `EXTRACT_ACTIVITIES` | Text → DSL parse → real entities with `EXTRACTED_FROM` provenance (ADR-069); embedded and grounded to Kus like `KNOWLEDGE` (`Pipeline.grounds_knowledge`) |
 | `TEACHER_REVIEW` | No processing; the entry waits in the teacher queue — but **only via `SUBMITTED_TO_GROUP`** (the feedback request, ADR-088 §2 — the one pipeline that writes it), see the trap below |
-| `KNOWLEDGE` | Grounded knowledge entry — the `je_pro` channel |
+| `KNOWLEDGE` | Grounded knowledge entry — the `knowledge/` and `je_pro` channel; embedded and grounded to Kus (`Pipeline.grounds_knowledge`) |
 | `REFERENCE` | Reserved; no producer today (ADR-073 §4) |
 
 `modality` (`SubmissionModality`: `FILE_UPLOAD` / `STRUCTURED_FORM`) is designed as
@@ -94,7 +94,7 @@ Inherits identity, content, status, sharing, meta and embedding fields from
 |-------|------|-------------|
 | `pipeline` | `Pipeline` | Dispatch discriminator (table above) |
 | `modality` | `SubmissionModality?` | A client-supplied hint, **not provenance** — nothing derives it; see above |
-| `private` | `bool` | Never grows a vector — no entity embedding, no `:ContentChunk` subtree, and a hard exclusion in companion-retrieval Cypher. Gates companion retrieval only; orthogonal to `visibility` |
+| `private` | `bool` | Never holds a vector — no entity embedding (a stored one is removed by the vault re-sync that marks it), no `:ContentChunk` subtree, no knowledge grounding, and a hard exclusion in companion-retrieval Cypher. Orthogonal to `visibility` |
 | `original_filename` | `str?` | Upload only |
 | `file_path` | `str?` | Upload only |
 | `file_size` | `int?` | Upload only |
@@ -302,8 +302,10 @@ empty success to a misprogrammed caller.
 ## Privacy
 
 `private: true` frontmatter keeps a note out of every retrieval surface that
-could quote it back: no entity embedding, no chunk subtree, and a hard `WHERE`
-exclusion in companion-retrieval Cypher. It is orthogonal to `visibility`
+could quote it back: no entity embedding (the vault re-sync that marks a note
+private removes a stored one), no chunk subtree, no grounding pass
+(`EntryGroundingBackend.get_pending_entries` excludes it by name), and a hard
+`WHERE` exclusion in companion-retrieval Cypher. It is orthogonal to `visibility`
 (sharing) and to `je_use` (ingestion consent) — the owner's own surfaces
 (`/gradebook`, search) still show private notes.
 

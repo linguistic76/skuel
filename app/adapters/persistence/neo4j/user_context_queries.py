@@ -1216,7 +1216,7 @@ ENTRY_KNOWLEDGE_APPLIED_QUERY: str = _tie_far_nodes(
 MATCH (user:User {uid: $user_uid})
 
 // ENTRY KNOWLEDGE APPLIED — (UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)
-// Written by the EXTRACT_ACTIVITIES pipeline (ADR-069); read here for the
+// Written by the owner's @ku references (ADR-069) and the grounding pass; read here for the
 // substance "entries" channel and the ZPD entry_application signal.
 // Same Ku-grain rollup as the MEGA-QUERY task subquery (ADR-046).
 OPTIONAL MATCH (user)-[:OWNS]->(entry:UserEntry)-[entry_app_rel:APPLIES_KNOWLEDGE]->(entry_applied:Entity)

@@ -125,9 +125,10 @@ class UserEntry(UserOwnedEntity):
     # PROCESSING
     # =========================================================================
     pipeline: Pipeline = Pipeline.NONE  # Dispatch discriminator
-    # ``private: true`` frontmatter — the note never grows a vector: no entity
-    # embedding, no :ContentChunk subtree, plus a hard WHERE exclusion in every
-    # companion-retrieval Cypher (canon P3) — and it cannot be shared: a
+    # ``private: true`` frontmatter — the note never holds a vector: no entity
+    # embedding (a stored one is removed on the re-sync that marks it), no
+    # :ContentChunk subtree, no knowledge grounding, plus a hard WHERE exclusion
+    # in every companion-retrieval Cypher (canon P3) — and it cannot be shared: a
     # ``group:`` / ``user:`` / ``public`` audience on it is refused at every
     # door, while a feedback request (``teachers`` / ``teacher:``) is still
     # allowed (ADR-088 §1). Orthogonal to ``je_use`` (ingestion consent); the

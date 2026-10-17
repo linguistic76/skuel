@@ -318,8 +318,8 @@ async def test_empty_subgraph_is_all_zeros(neo4j_driver, clean_neo4j) -> None:
 async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo4j) -> None:
     """``EmbeddingCoverageBackend`` counts total vs embedding-NULL per label.
 
-    The load-bearing halves: the UserEntry scope filter (only knowledge-pipeline,
-    non-private entries are gauge-visible — a vector may never exist for the
+    The load-bearing halves: the UserEntry scope filter (only non-private entries
+    on an embedded pipeline — knowledge, extract_activities — are gauge-visible — a vector may never exist for the
     rest, so they must count as neither total nor missing) and remedy
     assignment (ReferenceChunk has no backfill path).
     """
@@ -342,14 +342,22 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
             cc=P + "ec_cc1",
             rc=P + "ec_rc1",
         )
-        # UserEntry scope: only the knowledge-pipeline, non-private entry counts.
+        # UserEntry scope: only the non-private knowledge and activity entries count.
         await s.run(
             "CREATE (:Entity:UserEntry {uid:$u1, entity_type:'user_entry', pipeline:'knowledge'}),"
             " (:Entity:UserEntry {uid:$u2, entity_type:'user_entry', pipeline:'knowledge', private:true}),"
-            " (:Entity:UserEntry {uid:$u3, entity_type:'user_entry', pipeline:'exercise'})",
+            " (:Entity:UserEntry {uid:$u3, entity_type:'user_entry', pipeline:'exercise'}),"
+            " (:Entity:UserEntry {uid:$u4, entity_type:'user_entry',"
+            "  pipeline:'extract_activities'}),"
+            " (:Entity:UserEntry {uid:$u5, entity_type:'user_entry',"
+            "  pipeline:'extract_activities', private:true}),"
+            " (:Entity:UserEntry {uid:$u6, entity_type:'user_entry', pipeline:'none'})",
             u1=P + "ec_ue1",
             u2=P + "ec_ue2",
             u3=P + "ec_ue3",
+            u4=P + "ec_ue4",
+            u5=P + "ec_ue5",
+            u6=P + "ec_ue6",
         )
     backend = EmbeddingCoverageBackend(Neo4jQueryExecutor(neo4j_driver))
 
@@ -361,12 +369,12 @@ async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo
     assert by["Ku"].total == 2 and by["Ku"].missing == 1
     assert by["ContentChunk"].total == 1 and by["ContentChunk"].missing == 1
     assert by["ReferenceChunk"].total == 1 and by["ReferenceChunk"].missing == 0
-    # Scope filter: the private + non-knowledge entries are gauge-invisible.
-    assert by["UserEntry"].total == 1 and by["UserEntry"].missing == 1
+    # Scope filter: private entries and the other pipelines are gauge-invisible.
+    assert by["UserEntry"].total == 2 and by["UserEntry"].missing == 2
 
-    assert coverage.missing == 3  # ec_k2 + ec_cc1 + ec_ue1
+    assert coverage.missing == 4  # ec_k2 + ec_cc1 + ec_ue1 + ec_ue4
     assert coverage.missing_chunks == 1
-    assert coverage.missing_entities == 2
+    assert coverage.missing_entities == 3
     assert coverage.is_complete is False
 
     # Remedy assignment travels with the measurement.

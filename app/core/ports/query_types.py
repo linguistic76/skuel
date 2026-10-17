@@ -833,7 +833,7 @@ def to_ku_edge_rows(records: list[Neo4jProperties]) -> list[KuEdgeRow]:
 
 
 class GroundingEntryRow(TypedDict):
-    """One knowledge-pipeline UserEntry awaiting a Ku-grounding pass.
+    """One grounded-pipeline UserEntry awaiting a Ku-grounding pass.
 
     Read by ``EntryGroundingBackend.get_pending_entries`` — the candidate
     stage of entry→Ku grounding queries the Ku vector index with the entry's

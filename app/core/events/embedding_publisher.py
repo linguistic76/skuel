@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 # publish ResourceEmbeddingRequested through this chokepoint. ResourceService
 # stays read-only — there is no API create path for resources.
 # USER_ENTRY's ONE producer is UserEntryService (create_entry + update paths),
-# which gates on pipeline=knowledge before publishing — the ingestion door
+# which gates on ``Pipeline.grounds_knowledge`` and ``private`` before publishing — the ingestion door
 # routes user_entry files through create_entry, and ENTITY_CONFIGS deliberately
 # leaves UserEntry non-embeddable so ingestion never double-publishes.
 EMBEDDING_EVENT_TYPES: dict[EntityType, type[EmbeddingRequested]] = {

@@ -484,16 +484,16 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             f"fulfills_exercise={request.fulfills_exercise_uid or '-'})"
         )
 
-        # Post-persist embedding refresh (ADR-074) — pipeline-scoped: only
-        # knowledge entries (knowledge/ + consented je_pro/ notes) embed;
-        # turn-ins, teacher-review submissions, and LLM outputs never do.
-        # Private notes never do either (canon P3) — no vector may exist for
-        # them; the upsert's null-serializing `ON MATCH SET n +=` retracts a
-        # stale one on a flip-to-private re-sync.
+        # Post-persist embedding refresh (ADR-074) — pipeline-scoped
+        # (``Pipeline.grounds_knowledge``): knowledge notes and activity notes,
+        # periodic notes included, embed; turn-ins, teacher-review submissions
+        # and LLM outputs never do. Private notes never do either (canon P3) —
+        # no vector may exist for them, and the vault upsert retracts a stored
+        # one when a note turns private or leaves those pipelines.
         # Covers the living-channel upsert too (vault re-sync of an edited
         # note lands here); content-hash idempotency makes an unchanged
         # re-sync a no-op at the worker.
-        if created.pipeline == Pipeline.KNOWLEDGE and not created.private:
+        if created.pipeline.grounds_knowledge() and not created.private:
             await publish_embedding_requested(
                 self.event_bus, EntityType.USER_ENTRY, created, self.logger
             )
@@ -728,13 +728,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if processed_file_path:
             updates["processed_file_path"] = processed_file_path
         result = await self.backend.update(uid, updates)
-        if (
-            result.is_ok
-            and result.value.pipeline == Pipeline.KNOWLEDGE
-            and not result.value.private
-        ):
-            # Post-persist embedding refresh (ADR-074) — non-private knowledge
-            # entries only
+        if result.is_ok and result.value.pipeline.grounds_knowledge() and not result.value.private:
+            # Post-persist embedding refresh (ADR-074) — non-private entries on
+            # an embedded pipeline only
             await publish_embedding_requested(
                 self.event_bus,
                 EntityType.USER_ENTRY,
@@ -771,13 +767,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(Errors.validation("No updatable fields provided", field="request"))
         updates["updated_at"] = datetime.now()
         result = await self.backend.update(uid, updates)
-        if (
-            result.is_ok
-            and result.value.pipeline == Pipeline.KNOWLEDGE
-            and not result.value.private
-        ):
-            # Post-persist embedding refresh (ADR-074) — non-private knowledge
-            # entries only; the changed_fields gate skips tag/metadata-only edits.
+        if result.is_ok and result.value.pipeline.grounds_knowledge() and not result.value.private:
+            # Post-persist embedding refresh (ADR-074) — non-private entries on
+            # an embedded pipeline only; the changed_fields gate skips
+            # tag/metadata-only edits.
             await publish_embedding_requested(
                 self.event_bus,
                 EntityType.USER_ENTRY,

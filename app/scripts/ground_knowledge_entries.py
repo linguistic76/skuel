@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Ground ``pipeline: knowledge`` UserEntries to Kus, in-process (Entry-Enrichment PR 3).
+"""Ground UserEntries to Kus, in-process.
+
+The entries are those on a grounded pipeline (``Pipeline.knowledge_grounded``:
+knowledge notes and activity notes, periodic notes included) with a stored
+embedding; a ``private: true`` entry is never grounded.
 
 Composes the app's services and runs the exact grounding pass the post-sync
 trigger runs — as a backfill over every pending entry (or one user's), with a
@@ -121,7 +125,7 @@ async def run_grounding(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Ground knowledge-pipeline UserEntries to Kus (dry-run default)."
+        description="Ground UserEntries on a grounded pipeline to Kus (dry-run default)."
     )
     parser.add_argument("--user", help="scope the pass to one user_uid (default: all users)")
     parser.add_argument(
