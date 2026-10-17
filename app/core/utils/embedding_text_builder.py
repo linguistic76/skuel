@@ -56,7 +56,7 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.REVISED_EXERCISE: ("title", "instructions", "revision_rationale"),
     EntityType.EXERCISE: ("title", "instructions", "description"),
     EntityType.LEARNING_PATH: ("title", "description", "outcomes"),
-    # USER_ENTRY: knowledge entries hold their body in ``content``;
+    # USER_ENTRY: knowledge and activity notes hold their body in ``content``;
     # ``processed_content`` is pipeline-specific output. Filename is metadata,
     # not semantics — deliberately excluded.
     EntityType.USER_ENTRY: ("title", "content", "processed_content"),

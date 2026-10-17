@@ -694,7 +694,8 @@ class EntryGroundingBackendOperations(Protocol):
     """Persistence contract for entry→Ku grounding.
 
     Candidate reads + eager edge writes for ``EntryGroundingService``: which
-    knowledge-pipeline entries still need a grounding pass, the provenance-
+    entries on a grounded pipeline (``Pipeline.knowledge_grounded``) still need
+    a grounding pass, the provenance-
     stamped ``APPLIES_KNOWLEDGE`` write, the per-entry grounded stamp, and the
     ownership-scoped removal that records the user's rejection.
 
@@ -705,7 +706,10 @@ class EntryGroundingBackendOperations(Protocol):
     async def get_pending_entries(
         self, user_uid: str | None = None, force: bool = False
     ) -> Result[list[GroundingEntryRow]]:
-        """Knowledge entries with an embedding whose grounding stamp is missing or stale."""
+        """Non-private grounded-pipeline entries whose grounding stamp is missing or stale.
+
+        Only an entry with a stored embedding is pending — grounding reads it.
+        """
         ...
 
     async def write_applies_knowledge(

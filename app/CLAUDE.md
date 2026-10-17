@@ -51,7 +51,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **Core Principle:** "Applied knowledge, not pure theory"
 
-SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activity across Habits, UserEntry (grounded knowledge/je_pro entries — explicit `@ku()` refs via EXTRACT_ACTIVITIES ADR-069 + vector grounding via `EntryGroundingService`; two writers, one `KnowledgeReflectedInEntry` event), Choices, Principles, Events, and Tasks — each with a per-contribution weight and a per-domain cap. Total capped at 1.0.
+SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activity across Habits, UserEntry (grounded knowledge notes and activity notes — explicit `@ku()` refs via EXTRACT_ACTIVITIES ADR-069 + vector grounding via `EntryGroundingService` on both, never a `private: true` note; two writers, one `KnowledgeReflectedInEntry` event), Choices, Principles, Events, and Tasks — each with a per-contribution weight and a per-domain cap. Total capped at 1.0.
 
 **See:** `/docs/architecture/knowledge_substance_philosophy.md`
 

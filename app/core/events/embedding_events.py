@@ -128,10 +128,11 @@ class RevisedExerciseEmbeddingRequested(EmbeddingRequested):
 class UserEntryEmbeddingRequested(EmbeddingRequested):
     """UserEntry-specific embedding request.
 
-    Pipeline-scoped at the publisher: only ``pipeline=knowledge`` entries
-    (knowledge/ + consented je_pro/ notes) publish — UserEntryService gates
-    before calling the chokepoint, so exercise turn-ins, teacher-review
-    submissions, and LLM outputs never embed.
+    Pipeline-scoped at the publisher: only non-private entries on a
+    ``Pipeline.grounds_knowledge`` pipeline (knowledge notes and activity
+    notes, periodic notes included) publish — UserEntryService gates before
+    calling the chokepoint, so exercise turn-ins, teacher-review submissions,
+    and LLM outputs never embed.
     """
 
     event_type: ClassVar[str] = "user_entry.embedding_requested"

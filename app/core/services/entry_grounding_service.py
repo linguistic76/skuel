@@ -2,9 +2,11 @@
 Entry-Grounding Service
 =======================
 
-Grounds ``pipeline: knowledge`` UserEntries to Kus so the substance
-entries-channel and ZPD's ``entry_application`` signal light up for Mike's
-"teach SKUEL about me" notes (knowledge/ and je_pro/ doors alike).
+Grounds UserEntries to Kus so the substance entries-channel and ZPD's
+``entry_application`` signal light up for the notes a user syncs: knowledge
+notes ("teach SKUEL about me", knowledge/ and je_pro/ doors alike) and activity
+notes, periodic notes included — the pipelines ``Pipeline.knowledge_grounded``
+names. A ``private: true`` entry is never grounded.
 
 Candidate stage (Analog — CORE tier, no API key):
     Each pending entry's STORED embedding queries the Ku vector index
@@ -25,7 +27,8 @@ Eager write, no confirm gate:
     ``(entry)-[:APPLIES_KNOWLEDGE {inferred: true, confidence, grounded_at}]->(ku)``.
     The user is editor, not approver: edges are visible and one-click
     removable (``POST /api/user-entries/grounding/remove``; the chips live in
-    ``ui/user_entry/knowledge_notes.py``); removals are recorded on the
+    ``ui/user_entry/knowledge_notes.py``, on the knowledge-notes page and on a
+    periodic note's page); removals are recorded on the
     entry (``grounding_rejected_ku_uids``) as threshold-calibration data and
     are never re-inferred.
 
@@ -43,8 +46,9 @@ Re-ground trigger is HASH-based: an entry is pending while its
 pattern) — a re-embedded entry re-grounds on the next pass, an unchanged one
 never re-runs (``force`` overrides).
 
-Backend: EntryGroundingBackend. Triggers: post-sync pass in the vault sync
-doors + ``scripts/ground_knowledge_entries.py`` backfill (dry-run default).
+Backend: EntryGroundingBackend. Triggers: the post-sync pass of a personal-vault
+sync (its routes in ``vault_routes.py`` and ``scripts/vault_bridge_sync.py``)
++ ``scripts/ground_knowledge_entries.py`` backfill (dry-run default).
 See: /docs/architecture/knowledge_substance_philosophy.md
 """
 
@@ -184,7 +188,7 @@ class EntryGroundingService:
         force: bool = False,
         apply: bool = True,
     ) -> Result[GroundingRunReport]:
-        """Ground every pending knowledge entry (optionally scoped to one user).
+        """Ground every pending entry (optionally scoped to one user).
 
         Backend: EntryGroundingBackend.get_pending_entries. ``apply=False`` is
         the dry run: the full pipeline runs (including the judge on FULL) but

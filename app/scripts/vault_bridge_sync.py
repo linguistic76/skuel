@@ -44,9 +44,10 @@ step is skipped and this sync's new content is stored without embeddings
 (``./dev embed-backfill`` under FULL tier fills the gap). A FULL-tier run
 re-probes coverage AFTER the drain so the printed figures are post-drain.
 
-Grounding (Entry-Enrichment PR 3): after the drain, personal-vault syncs run
-an entry→Ku grounding pass over pending ``pipeline: knowledge`` entries —
-because the drain just stored their embeddings, this sync's entries ground
+Grounding: after the drain, personal-vault syncs run an entry→Ku grounding
+pass over pending entries on a grounded pipeline (knowledge notes and activity
+notes, periodic notes included; never a ``private: true`` one) — on FULL tier
+the drain just stored their embeddings, so this sync's entries ground
 immediately. ``scripts/ground_knowledge_entries.py`` is the backfill/dry-run
 counterpart.
 
@@ -150,15 +151,18 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
             print(f"ERROR: sync failed: {result.expect_error()}", file=sys.stderr)
             return 1
 
-        # Post-sync grounding pass (Entry-Enrichment PR 3): the drain above
-        # just stored this sync's UserEntry embeddings in-process, so unlike
-        # the app-process route doors this pass grounds THIS sync's entries
-        # immediately. Personal vaults only — the content vault has no
-        # UserEntries. Fail-soft: a grounding problem never fails the sync.
+        # Post-sync grounding pass. On FULL tier the drain above just stored
+        # this sync's UserEntry embeddings in-process, so unlike the app-process
+        # route doors this pass grounds THIS sync's entries immediately; on CORE
+        # nothing was embedded and the pass grounds only entries embedded
+        # before. Personal-vault syncs only: the content vault refuses no type,
+        # so it can hold UserEntries, but a content sync runs no grounding pass
+        # (scripts/ground_knowledge_entries.py grounds them). Fail-soft: a
+        # grounding problem never fails the sync.
         if kind is VaultKind.PERSONAL:
             grounding = services.entry_grounding
             if grounding is not None:
-                print("\nGrounding knowledge entries (post-sync pass) ...")
+                print("\nGrounding entries to knowledge (post-sync pass) ...")
                 grounded = await grounding.ground_pending(UserUID(user_uid))
                 if grounded.is_error:
                     print(f"WARNING: grounding pass failed: {grounded.expect_error()}")

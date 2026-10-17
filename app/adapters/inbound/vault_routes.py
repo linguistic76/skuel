@@ -76,7 +76,7 @@ def create_vault_routes(
     get_user_service = make_service_getter(user_service)
 
     async def _ground_after_sync(user_uid: UserUID) -> None:
-        """Post-sync entry→Ku grounding pass (Entry-Enrichment PR 3).
+        """Post-sync entry→Ku grounding pass over the user's grounded-pipeline entries.
 
         Fail-soft: grounding problems are logged, never surfaced as a sync
         failure. Eventual consistency by design — in the app process the

@@ -1189,9 +1189,11 @@ class TestDeleteEntryAsTeacher:
 
 
 class TestEmbeddingPublishGate:
-    """Post-persist embedding events are pipeline-scoped: knowledge entries
-    only (knowledge/ + consented je_pro/ notes). Turn-ins, teacher-review
-    submissions, and LLM outputs never publish UserEntryEmbeddingRequested.
+    """Post-persist embedding events are pipeline-scoped
+    (``Pipeline.grounds_knowledge``): knowledge notes (knowledge/ + consented
+    je_pro/ notes) and activity notes, periodic notes included. Turn-ins,
+    teacher-review submissions, and LLM outputs never publish
+    UserEntryEmbeddingRequested.
     Private notes never publish either (canon P3) — no vector may exist for
     a ``private: true`` note on any of the three publish paths."""
 
@@ -1212,12 +1214,21 @@ class TestEmbeddingPublishGate:
         service = UserEntryService(backend=_make_backend(entry), event_bus=bus)
         return service, bus
 
+    def test_the_embedded_pipelines_are_knowledge_and_activity_notes(self):
+        assert set(Pipeline.knowledge_grounded()) == {
+            Pipeline.KNOWLEDGE,
+            Pipeline.EXTRACT_ACTIVITIES,
+        }
+        for pipeline in Pipeline:
+            assert pipeline.grounds_knowledge() is (pipeline in Pipeline.knowledge_grounded())
+
     @pytest.mark.asyncio
-    async def test_knowledge_create_publishes_embedding_event(self):
-        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, content="Body of my note")
+    @pytest.mark.parametrize("pipeline", [Pipeline.KNOWLEDGE, Pipeline.EXTRACT_ACTIVITIES])
+    async def test_embedded_pipeline_create_publishes_embedding_event(self, pipeline):
+        entry = _make_entry(pipeline=pipeline, content="Body of my note")
         service, bus = self._service_with_bus(entry)
         request = UserEntryCreateRequest(
-            title="Entry", pipeline=Pipeline.KNOWLEDGE, content="Body of my note"
+            title="Entry", pipeline=pipeline, content="Body of my note"
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_ok
@@ -1236,8 +1247,9 @@ class TestEmbeddingPublishGate:
         assert self._embed_events(bus) == []
 
     @pytest.mark.asyncio
-    async def test_knowledge_content_update_publishes(self):
-        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, content="Edited body")
+    @pytest.mark.parametrize("pipeline", [Pipeline.KNOWLEDGE, Pipeline.EXTRACT_ACTIVITIES])
+    async def test_embedded_pipeline_content_update_publishes(self, pipeline):
+        entry = _make_entry(pipeline=pipeline, content="Edited body")
         service, bus = self._service_with_bus(entry)
         result = await service.update_entry(
             "ue_test_1", "user_1", UserEntryUpdateRequest(content="Edited body")
@@ -1273,11 +1285,12 @@ class TestEmbeddingPublishGate:
         assert len(self._embed_events(bus)) == 1
 
     @pytest.mark.asyncio
-    async def test_private_knowledge_create_does_not_publish(self):
-        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, content="Secret body", private=True)
+    @pytest.mark.parametrize("pipeline", [Pipeline.KNOWLEDGE, Pipeline.EXTRACT_ACTIVITIES])
+    async def test_private_create_does_not_publish(self, pipeline):
+        entry = _make_entry(pipeline=pipeline, content="Secret body", private=True)
         service, bus = self._service_with_bus(entry)
         request = UserEntryCreateRequest(
-            title="Secret", pipeline=Pipeline.KNOWLEDGE, content="Secret body", private=True
+            title="Secret", pipeline=pipeline, content="Secret body", private=True
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_ok

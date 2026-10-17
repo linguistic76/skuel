@@ -4,7 +4,8 @@ Entry-Grounding Backend
 
 Persistence side of entry→Ku grounding.
 
-Serves ``EntryGroundingService``: which knowledge-pipeline UserEntries still
+Serves ``EntryGroundingService``: which UserEntries on a grounded pipeline
+(``Pipeline.knowledge_grounded`` — knowledge notes and activity notes) still
 need a grounding pass, the provenance-stamped ``APPLIES_KNOWLEDGE`` write,
 the per-entry grounded stamp, and the ownership-scoped removal that records
 the user's rejection (threshold calibration data).
@@ -30,6 +31,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_publication_clause
+from core.models.enums.pipeline import Pipeline
 from core.ports.query_types import (
     GroundingEntryRow,
     GroundingRemovalRow,
@@ -51,19 +53,25 @@ class EntryGroundingBackend:
     async def get_pending_entries(
         self, user_uid: str | None = None, force: bool = False
     ) -> Result[list[GroundingEntryRow]]:
-        """Knowledge entries with an embedding whose grounding stamp is missing or stale.
+        """Grounded-pipeline entries with an embedding whose grounding stamp is missing or stale.
 
-        Pending = ``grounded_text_hash`` absent or differing from the stored
-        ``embedding_text_hash`` (the embedding changed since the last pass);
-        ``force`` sweeps every embedded knowledge entry regardless of stamp.
+        The pipelines are ``Pipeline.knowledge_grounded`` (knowledge notes and
+        activity notes, periodic notes included). A ``private: true`` entry is
+        never pending — excluded here by name, not only because the embedding
+        writer skips it. Pending = ``grounded_text_hash`` absent or differing
+        from the stored ``embedding_text_hash`` (the embedding changed since the
+        last pass); ``force`` sweeps every embedded, non-private entry on those
+        pipelines regardless of stamp.
         Ownership rides the canonical ``(User)-[:OWNS]->`` edge — the entry's
         ``user_uid`` in the row comes from the owner, and it is what the
         substance event carries.
         """
         result = await self._executor.execute_query(
             """
-            MATCH (owner:User)-[:OWNS]->(e:UserEntry {pipeline: 'knowledge'})
+            MATCH (owner:User)-[:OWNS]->(e:UserEntry)
             WHERE NOT e:Content
+              AND e.pipeline IN $pipelines
+              AND coalesce(e.private, false) = false
               AND e.embedding IS NOT NULL
               AND ($user_uid IS NULL OR owner.uid = $user_uid)
               AND ($force
@@ -81,7 +89,11 @@ class EntryGroundingBackend:
                    coalesce(e.grounding_rejected_ku_uids, []) AS rejected_ku_uids
             ORDER BY datetime(e.created_at)
             """,
-            {"user_uid": user_uid, "force": force},
+            {
+                "user_uid": user_uid,
+                "force": force,
+                "pipelines": [pipeline.value for pipeline in Pipeline.knowledge_grounded()],
+            },
         )
         if result.is_error:
             return Result.fail(result)

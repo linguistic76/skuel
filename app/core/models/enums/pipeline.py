@@ -110,6 +110,24 @@ class Pipeline(StrEnum):
         """The pipelines whose report-less entries count as awaiting a report."""
         return [pipeline for pipeline in cls if pipeline.awaits_report()]
 
+    def grounds_knowledge(self) -> bool:
+        """Whether an entry on this pipeline is embedded and grounded to Kus.
+
+        `KNOWLEDGE` (notes shared to teach SKUEL about the user) and
+        `EXTRACT_ACTIVITIES` (activity notes, periodic notes included): the
+        embedding writer stores their vector and `EntryGroundingService` links
+        them to the Kus they engage. A `private: true` entry is neither,
+        whatever its pipeline. Every other pipeline is a turn-in, a feedback
+        request or an LLM output whose knowledge links come only from its
+        author — those links feed mastery when a report is written.
+        """
+        return self in (Pipeline.KNOWLEDGE, Pipeline.EXTRACT_ACTIVITIES)
+
+    @classmethod
+    def knowledge_grounded(cls) -> list[Pipeline]:
+        """The pipelines whose entries are embedded and grounded to Kus."""
+        return [pipeline for pipeline in cls if pipeline.grounds_knowledge()]
+
 
 class JeUse(StrEnum):
     """

@@ -13,7 +13,9 @@ These tests pin the helper's exact key set and assert the two callers whose
 write is ``MERGE … ON MATCH SET n +=``: ``UserEntryBackend.upsert`` (the
 vault's living-note door) and ``prepare_batch_items`` (the bulk-ingest
 door). Asserting the caller, not just the helper: a helper nobody calls
-fixes nothing.
+fixes nothing. The upsert's one exception is an entry that may hold no vector
+(``private``, or a pipeline that is not ``grounds_knowledge``): its payload
+nulls every owned key, so the re-sync removes a stored vector (canon P3).
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from adapters.persistence.neo4j.neo4j_mapper import (
     to_neo4j_node,
     without_embedding_props,
 )
+from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 
 _OWNED = {
@@ -81,26 +84,40 @@ class TestWithoutEmbeddingProps:
         }
 
 
+async def _upsert_params(entry: UserEntry) -> tuple[str, dict[str, Any]]:
+    """Run ``UserEntryBackend.upsert`` against a capturing driver; return query + params."""
+    driver = Mock()
+    driver._closed = False
+    backend = UserEntryBackend(driver)
+    captured: dict[str, Any] = {}
+
+    async def _run_single(query: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        captured["query"] = query
+        captured["params"] = params or {}
+        return {"n": dict(captured["params"]["props"]), "owned": True, "frozen": False}
+
+    backend._run_single = _run_single  # type: ignore[method-assign]
+
+    result = await backend.upsert(entry)
+    assert result.is_ok, result.expect_error()
+    return captured["query"], captured["params"]
+
+
 class TestUserEntryUpsertCaller:
     @pytest.mark.asyncio
-    async def test_neither_create_nor_match_payload_carries_an_owned_key(self) -> None:
-        driver = Mock()
-        driver._closed = False
-        backend = UserEntryBackend(driver)
-        captured: dict[str, Any] = {}
+    @pytest.mark.parametrize("pipeline", [Pipeline.KNOWLEDGE, Pipeline.EXTRACT_ACTIVITIES])
+    async def test_neither_create_nor_match_payload_carries_an_owned_key(
+        self, pipeline: Pipeline
+    ) -> None:
+        entry = UserEntry(
+            uid="ue_resync01",
+            title="Decisions 0",
+            user_uid="user_x",
+            content="c",
+            pipeline=pipeline,
+        )
+        query, params = await _upsert_params(entry)
 
-        async def _run_single(query: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-            captured["query"] = query
-            captured["params"] = params or {}
-            return {"n": dict(captured["params"]["props"]), "owned": True, "frozen": False}
-
-        backend._run_single = _run_single  # type: ignore[method-assign]
-
-        entry = UserEntry(uid="ue_resync01", title="Decisions 0", user_uid="user_x", content="c")
-        result = await backend.upsert(entry)
-        assert result.is_ok, result.expect_error()
-
-        params = captured["params"]
         assert not _OWNED & set(params["props"])
         assert not _OWNED & set(params["on_match_props"])
         # Existing contracts stay: created_at is CREATE-only, the living channel's
@@ -108,7 +125,37 @@ class TestUserEntryUpsertCaller:
         assert "created_at" in params["props"]
         assert "created_at" not in params["on_match_props"]
         assert params["on_match_props"]["fulfills_exercise_uid"] is None
-        assert "n.user_uid = $owner" in captured["query"]
+        assert "n.user_uid = $owner" in query
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("pipeline", "private"),
+        [
+            (Pipeline.KNOWLEDGE, True),
+            (Pipeline.EXTRACT_ACTIVITIES, True),
+            (Pipeline.NONE, False),
+            (Pipeline.TEACHER_REVIEW, False),
+        ],
+    )
+    async def test_an_entry_that_may_hold_no_vector_nulls_every_owned_key(
+        self, pipeline: Pipeline, private: bool
+    ) -> None:
+        """Null-under-``+=`` removes: a private entry, or one on a pipeline that is
+        not embedded, takes the stored vector and its metadata off the node."""
+        entry = UserEntry(
+            uid="ue_resync01",
+            title="Decisions 0",
+            user_uid="user_x",
+            content="c",
+            pipeline=pipeline,
+            private=private,
+        )
+        _query, params = await _upsert_params(entry)
+
+        for payload in ("props", "on_match_props"):
+            assert {key: params[payload].get(key, "absent") for key in _OWNED} == dict.fromkeys(
+                _OWNED
+            ), payload
 
 
 @dataclass(frozen=True)

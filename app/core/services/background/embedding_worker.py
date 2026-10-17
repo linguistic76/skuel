@@ -161,8 +161,8 @@ class EmbeddingBackgroundWorker:
         # "publishable" and "subscribed" the same fact, so a type that gains an
         # event class is subscribed by that alone.
         # UserEntry rides this loop like the rest — it is pipeline-scoped at the
-        # PUBLISHER (UserEntryService gates on pipeline=knowledge), so everything
-        # that arrives here embeds.
+        # PUBLISHER (UserEntryService gates on Pipeline.grounds_knowledge), so
+        # everything that arrives here embeds.
         for event_cls in EMBEDDING_EVENT_TYPES.values():
             self.event_bus.subscribe(event_cls, self._queue_request)
 

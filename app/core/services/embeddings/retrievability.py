@@ -58,14 +58,16 @@ EMBEDDING_SCAN_LABELS: tuple[str, ...] = (
 
 # Per-label extra WHERE clauses, ANDed into every candidate query (all backfill
 # modes + hash stamping) AND both coverage counts. UserEntry embedding is
-# pipeline-scoped: only knowledge entries embed (the event path gates in
-# UserEntryService) — without this the backfill would embed every entry,
-# including exercise turn-ins and teacher-review submissions the event path
-# deliberately never publishes. Private notes never embed either (canon P3) —
-# no vector may exist for them, so the gauge must not count them as missing.
+# pipeline-scoped (``Pipeline.grounds_knowledge``: knowledge notes and activity
+# notes; the event path gates in UserEntryService) — without this the backfill
+# would embed every entry, including exercise turn-ins and teacher-review
+# submissions the event path deliberately never publishes. Private notes never
+# embed either (canon P3) — no vector may exist for them, so the gauge must not
+# count them as missing.
+_EMBEDDED_PIPELINES = ", ".join(f"'{p.value}'" for p in Pipeline.knowledge_grounded())
 LABEL_EXTRA_FILTERS: dict[str, str] = {
     NeoLabel.USER_ENTRY.value: (
-        f"n.pipeline = '{Pipeline.KNOWLEDGE.value}' AND coalesce(n.private, false) = false"
+        f"n.pipeline IN [{_EMBEDDED_PIPELINES}] AND coalesce(n.private, false) = false"
     ),
 }
 

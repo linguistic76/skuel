@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from adapters.persistence.neo4j.neo4j_mapper import (
+    EMBEDDING_OWNED_PROPERTIES,
     from_neo4j_node,
     to_neo4j_node,
     without_embedding_props,
@@ -114,7 +115,10 @@ class _UserEntryCrudMixin:
         version + text hash beside them) belong to the embeddings writer and are
         dropped from the payload, so a re-sync never blanks a note's vector —
         the worker re-embeds only when the content hash changes (ADR-074 §8).
-        Like ``create()``, the
+        An entry that may hold no vector (``private``, or a pipeline that does
+        not ``grounds_knowledge``) is the exception: its payload nulls all five,
+        so a note that turns private or changes pipeline loses its stored vector
+        on that re-sync (canon P3). Like ``create()``, the
         ``(User)-[:OWNS]->(entry)`` edge is MERGEd in the SAME statement when
         ``entry`` carries a ``user_uid``, so the node and its owner edge are
         never separable: UserEntry is ``OWNER_ONLY``, and a property-only entry
@@ -126,8 +130,11 @@ class _UserEntryCrudMixin:
         """
         # The model carries the embedding triple as None and the mapper keeps it as
         # an explicit null; under ``+=`` that null would REMOVE the stored vector on
-        # every re-sync. Those properties have one writer — drop them here.
+        # every re-sync. The embeddings writer stores those properties — drop them
+        # here, unless the entry may hold no vector: then the nulls are the point.
         node_data = without_embedding_props(to_neo4j_node(entry))
+        if entry.private or not entry.pipeline.grounds_knowledge():
+            node_data.update(dict.fromkeys(EMBEDDING_OWNED_PROPERTIES))
         node_data.update(self.default_filters)
         user_uid = node_data.get("user_uid")
 
