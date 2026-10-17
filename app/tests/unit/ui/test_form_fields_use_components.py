@@ -7,6 +7,14 @@ caller re-types every class by hand, so the guard fails on one anywhere in
 ``ui/`` or ``adapters/inbound/`` outside ``ui/components/`` — imported by name
 (aliased or not), by ``*``, or called through the module (``fh.Input``).
 
+A name is resolved through Python's lexical scopes, and within the scope that
+binds it, it is raw when ANY binding there is raw — an import, or an alias such
+as ``Field = fh.Input`` — whatever the order or the condition (``if
+TYPE_CHECKING``, ``try`` / ``except``) around it. A ``*`` import counts only where
+the scope binds the name nowhere else. A file that wants both spellings aliases
+the raw one (``from fasthtml.common import Input as FTInput``). Dynamic access
+(``getattr``, ``importlib``) is beyond an AST walk.
+
 A raw ``Input`` of type ``hidden``, ``checkbox``, ``radio`` or ``file`` is exempt
 by rule — none of them is a text field. The type must be readable from the call:
 an ``Input(**attrs)`` whose type lives in the dict is reported, and the fix is a
@@ -17,6 +25,7 @@ strings is invisible to an AST walk.
 """
 
 import ast
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -37,34 +46,49 @@ _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 
 
-def _import_kinds(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str | None]]:
-    """``(local name, kind)`` for each name an import binds.
+def _import_kinds(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str | None, bool]]:
+    """``(local name, kind, from a *)`` for each name an import binds.
 
     The kind is the guarded fasthtml name (``Input`` / ``Select``), ``MODULE`` for
     a fasthtml module (``import fasthtml.common`` binds its root, ``fasthtml``), or
-    None for a name from anywhere else — which shadows a raw one. A ``*`` from
-    fasthtml binds both guarded names.
+    None for a name from anywhere else. A ``*`` from fasthtml binds both guarded
+    names.
     """
     if isinstance(node, ast.Import):
         return [
-            (alias.asname or alias.name.split(".")[0], MODULE if _is_fasthtml(alias.name) else None)
+            (
+                alias.asname or alias.name.split(".")[0],
+                MODULE if _is_fasthtml(alias.name) else None,
+                False,
+            )
             for alias in node.names
         ]
     raw = _is_fasthtml(node.module)
-    kinds: list[tuple[str, str | None]] = []
+    kinds: list[tuple[str, str | None, bool]] = []
     for alias in node.names:
         if alias.name == "*":
             if raw:
-                kinds.extend((name, name) for name in GUARDED)
+                kinds.extend((name, name, True) for name in GUARDED)
             continue
         local = alias.asname or alias.name
         if raw and alias.name in GUARDED:
-            kinds.append((local, alias.name))
+            kinds.append((local, alias.name, False))
         elif raw and alias.name in ("common", "components"):
-            kinds.append((local, MODULE))
+            kinds.append((local, MODULE, False))
         else:
-            kinds.append((local, None))
+            kinds.append((local, None, False))
     return kinds
+
+
+@dataclass(frozen=True)
+class _Binding:
+    """One name bound in one scope: by an import (``kind``) or an alias (``value``)."""
+
+    name: str
+    kind: str | None = None
+    star: bool = False
+    value: ast.expr | None = None
+    chain: tuple[ast.AST, ...] = ()
 
 
 def _declared_outside(function: ast.AST) -> set[str]:
@@ -90,7 +114,7 @@ class _ScopeScan:
     """
 
     def __init__(self, tree: ast.Module) -> None:
-        self.imports: dict[int, list[tuple[int, str, str | None]]] = {}
+        self.bindings: dict[int, list[_Binding]] = {}
         self.calls: list[tuple[ast.Call, tuple[ast.AST, ...]]] = []
         self._outside: dict[int, set[str]] = {}
         self._visit_all(tree.body, (tree,))
@@ -101,9 +125,14 @@ class _ScopeScan:
 
     def _visit(self, node: ast.AST, chain: tuple[ast.AST, ...]) -> None:
         if isinstance(node, (ast.Import, ast.ImportFrom)):
-            for local, kind in _import_kinds(node):
-                self._bind_import(local, (node.lineno, local, kind), chain)
+            for local, kind, star in _import_kinds(node):
+                self._bind(_Binding(local, kind, star), chain)
             return
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    self._bind(_Binding(target.id, value=node.value, chain=chain), chain)
         if isinstance(node, ast.Call):
             self.calls.append((node, chain))
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -130,41 +159,52 @@ class _ScopeScan:
         else:
             self._visit_all(list(ast.iter_child_nodes(node)), chain)
 
-    def _bind_import(
-        self, local: str, binding: tuple[int, str, str | None], chain: tuple[ast.AST, ...]
-    ) -> None:
-        """Record an import in the scope that owns the name it binds."""
+    def _bind(self, binding: _Binding, chain: tuple[ast.AST, ...]) -> None:
+        """Record a binding in the scope that owns its name."""
         index = len(chain) - 1
-        if local in self._outside.get(id(chain[index]), set()):
+        if binding.name in self._outside.get(id(chain[index]), set()):
             index = 0  # global, or nonlocal resolved conservatively to the module
-        self.imports.setdefault(id(chain[index]), []).append(binding)
+        self.bindings.setdefault(id(chain[index]), []).append(binding)
 
-    def kind(self, name: str, line: int, chain: tuple[ast.AST, ...]) -> str | None:
-        """What ``name`` holds at ``line``, resolved through the lexical scopes.
+    def kind(self, name: str, chain: tuple[ast.AST, ...], depth: int = 0) -> str | None:
+        """What ``name`` may hold in a scope chain: a guarded name, ``MODULE`` or None.
 
-        The innermost scope binding the name wins; an enclosing class body is
-        skipped, as Python skips it. In the call's own scope the last import at or
-        before the line counts; an enclosing scope's binding is its last one, the
-        value a call made later at run time sees.
+        The innermost scope binding the name decides; an enclosing class body is
+        skipped, as Python skips it. Within that scope the name is raw when any of
+        its bindings is raw; a ``*`` binding counts only when it is the only kind.
         """
-        for depth, scope in enumerate(reversed(chain)):
-            if depth and isinstance(scope, ast.ClassDef):
+        if depth > 8:  # an alias cycle (``Input = Input``)
+            return None
+        for level, scope in enumerate(reversed(chain)):
+            if level and isinstance(scope, ast.ClassDef):
                 continue
-            hits = [b for b in self.imports.get(id(scope), []) if b[1] == name]
+            hits = [b for b in self.bindings.get(id(scope), []) if b.name == name]
             if not hits:
                 continue
-            if depth == 0:
-                before = [b for b in hits if b[0] <= line]
-                return (before or hits)[-1][2]
-            return hits[-1][2]
+            explicit = [b for b in hits if not b.star] or hits
+            kinds = {self._binding_kind(b, depth) for b in explicit}
+            guarded = sorted(kinds & GUARDED)
+            if guarded:
+                return guarded[0]
+            return MODULE if MODULE in kinds else None
         return None
 
+    def _binding_kind(self, binding: _Binding, depth: int) -> str | None:
+        if binding.value is None:
+            return binding.kind
+        return self.expr_kind(binding.value, binding.chain, depth + 1)
 
-def _root_name(expr: ast.expr) -> str | None:
-    """The name at the root of an attribute chain (``fasthtml`` in ``fasthtml.common``)."""
-    while isinstance(expr, ast.Attribute):
-        expr = expr.value
-    return expr.id if isinstance(expr, ast.Name) else None
+    def expr_kind(self, expr: ast.expr, chain: tuple[ast.AST, ...], depth: int = 0) -> str | None:
+        """What a name or attribute chain refers to: a guarded name, ``MODULE`` or None."""
+        if isinstance(expr, ast.Name):
+            return self.kind(expr.id, chain, depth)
+        if isinstance(expr, ast.Attribute):
+            if self.expr_kind(expr.value, chain, depth) != MODULE:
+                return None
+            if expr.attr in GUARDED:
+                return expr.attr
+            return MODULE if expr.attr in ("common", "components") else None
+        return None
 
 
 def _input_type(call: ast.Call) -> str | None:
@@ -186,15 +226,8 @@ def raw_field_calls(source: str) -> list[str]:
     scan = _ScopeScan(ast.parse(source))
     found: list[str] = []
     for node, chain in scan.calls:
-        func = node.func
-        raw: str | None = None
-        if isinstance(func, ast.Name):
-            kind = scan.kind(func.id, node.lineno, chain)
-            raw = kind if kind in GUARDED else None
-        elif isinstance(func, ast.Attribute) and func.attr in GUARDED:
-            root = _root_name(func.value)
-            if root and scan.kind(root, node.lineno, chain) == MODULE:
-                raw = func.attr
+        kind = scan.expr_kind(node.func, chain)
+        raw = kind if kind in GUARDED else None
         if raw is None:
             continue
         if raw == "Select":
@@ -275,6 +308,29 @@ def test_no_raw_text_field_or_select_outside_the_components() -> None:
         (
             "def f():\n    Input()\nfrom fasthtml.common import Input",
             ["2: raw Input type=text (default)"],
+        ),
+        # Any raw binding in the resolving scope makes the name raw, whatever the
+        # order or condition; an alias is a binding.
+        (
+            "from fasthtml.common import Input\nif TYPE_CHECKING:\n"
+            "    from ui.components import Input\nInput()",
+            ["4: raw Input type=text (default)"],
+        ),
+        (
+            "try:\n    from ui.components import Input\nexcept ImportError:\n"
+            "    from fasthtml.common import Input\nInput(name='q')",
+            ["5: raw Input type=text (default)"],
+        ),
+        (
+            "import fasthtml.common as fh\nField = fh.Input\nField(type='text')",
+            ["3: raw Input type=text"],
+        ),
+        ("from fasthtml.common import Select\nPick: Any = Select\nPick()", ["3: raw Select"]),
+        ("import fasthtml\nfh = fasthtml.common\nfh.Select()", ["3: raw Select"]),
+        ("from ui.components import Select\nPick = Select\nPick()", []),
+        (
+            "from fasthtml.common import Input\nInput = Input\nInput()",
+            ["3: raw Input type=text (default)"],
         ),
         # Definition-time parts run in the enclosing scope.
         (
