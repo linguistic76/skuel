@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # FormGenerator User Guide
@@ -261,7 +261,8 @@ By default, every form gets `x-data="formValidator"` and `@submit="validate($eve
 # Use a different Alpine component (must be registered in a /static/js/ bundle).
 # Clear @submit too: the default is "validate($event)", and a component that
 # does not implement validate() throws "validate is not defined" on submit.
-# revisionForm exposes points / categories / addPoint(), not validate.
+# revisionForm exposes added / addPoint() (and reads its fpRows / fpRowTemplate
+# refs), not validate.
 FormGenerator.from_model(
     ...,
     form_attrs={"x-data": "revisionForm", "@submit": None},
