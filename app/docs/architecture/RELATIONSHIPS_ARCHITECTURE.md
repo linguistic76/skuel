@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-10-16
+updated: 2026-10-17
 status: current
 category: architecture
 version: 2.0.0
@@ -370,28 +370,31 @@ The last three were the gap: each called `require_authenticated_user(request)` a
 
 Two properties the fix preserves, both asserted:
 
-- **`domain_service is None` stays open for reads — on a curriculum anchor.** Curriculum KU/PS/LP are shared content (`_LATERAL_DOMAINS` passes `None`), so every user keeps reading them, a draft included — and the anchor named in the URL must itself be a Ku, PathStep or LearningPath: a ku / ps / lp route anchored on any other uid (a stranger's private task, say) answers the same 404 as a missing one, so it neither lists that entity's neighbours nor says whether it exists. The anchor gate is what keeps a private entity's blockers, alternatives and title out of a curriculum route's answer: the chain, comparison and graph queries carry no audience filter of their own. A missing curriculum anchor is 404 on every read, the graph route included. The graph route's second job, the knowledge-dependency view (`?types=REQUIRES_KNOWLEDGE,ENABLES_KNOWLEDGE`), is served the same way; no page sends it today. Regression cover: `tests/integration/routes/test_curriculum_lateral_read_anchor.py`.
+- **`domain_service is None` stays open for reads — on a curriculum anchor.** Curriculum KU/PS/LP are shared content (`_LATERAL_DOMAINS` passes `None`), so every user keeps reading them, a draft included — and the anchor named in the URL must itself be a Ku, PathStep or LearningPath: a ku / ps / lp route anchored on any other uid (a stranger's private task, say) answers the same 404 as a missing one, so it neither lists that entity's neighbours nor says whether it exists. The anchor gate keeps a private anchor's neighbourhood out of a curriculum route's answer; the audience filter below keeps any stranger's entity out of what a held anchor reaches. A missing curriculum anchor is 404 on every read, the graph route included. The graph route's second job, the knowledge-dependency view (`?types=REQUIRES_KNOWLEDGE,ENABLES_KNOWLEDGE`), is served the same way; no page sends it today. Regression cover: `tests/integration/routes/test_curriculum_lateral_read_anchor.py`.
 - **Not-found, never forbidden.** A foreign entity returns 404 with the same error code and message as one that does not exist, so a UID cannot be probed for existence.
 
 **Curriculum lateral edges are authored in the content vault** (ADR-091 S8), as Edge YAML files. A ku / ps / lp factory registers no write route and no `manage` list, and the Ku `enables` route is a read only. The service's two writers take `user_uid` and an `OwnershipVerifier` as required keyword arguments and check both endpoints through it, so no write path runs without an ownership check; an endpoint the caller does not own answers the same 404 as a missing one. Regression cover: `tests/integration/routes/test_curriculum_lateral_authoring_retired.py` (each curriculum write path 404/405 with the graph unchanged; the vault writes the edges; an Activity write still lands).
 
-Scope of the graph check: the **center** entity alone is gated (owned, or curriculum on the shared path). The depth-limited traversal is not owner-filtered, so a neighbour reached from a held center is returned whoever owns it — a Ku that blocks a stranger's task draws that task. The chain and comparison queries have the same reach. Narrowing that is a separate change to the traversal Cypher, not to this gate.
+What a held anchor reaches is filtered too. The graph, the blocking chain and the alternatives comparison each keep a path only when every node on it past the anchor is one the caller may see (`build_path_audience_clause`, ADR-085 G4): the caller's own entity through any ownership spelling, or published shared content. A `User` node never passes, nor does another user's entity, so a Ku that blocks a stranger's task does not draw that task, and a path that runs through a stranger's journal entry is withheld whole — the graph's edge list would otherwise name the intermediate by uid. A draft is withheld as a far node; the anchor itself answers even as a draft, because the caller named it. A share link is not ownership here: an entry shared with the caller is read through its own audience doors, not through a traversal. The graph's `?types=` still accepts any `RelationshipName`, so the knowledge-dependency view is curriculum plus the caller's own. A blocker's `blocks_count` counts only the blocked nodes the caller may see. With no user, only published shared content is reached. Regression cover: `tests/integration/routes/test_lateral_traversal_audience.py`.
 
 ### Key Cypher Patterns
 
-**Transitive blocking chain:**
+**Transitive blocking chain** (`LateralRelationshipBackend.get_blocking_chain`) — every node past the anchor passes the audience clause:
 ```cypher
-MATCH path = (blocker)-[:BLOCKS*1..5]->(target {uid: $target_uid})
-RETURN [node in nodes(path) | {uid: node.uid, title: node.title}] AS chain,
-       length(path) AS depth
+MATCH path = (blocker)-[:BLOCKS*1..10]->(entity:Entity {uid: $uid})
+WHERE all(path_node IN nodes(path)[..-1] WHERE path_node:Entity AND <far-node clause>)
+RETURN blocker.uid, blocker.title, length(path) AS depth
 ORDER BY depth DESC
 ```
 
-**Alternatives with comparison:**
+**Alternatives with comparison** (`LateralRelationshipBackend.get_alternatives_comparison`):
 ```cypher
-MATCH (choice {uid: $choice_uid})-[:ALTERNATIVE_TO]-(alternative)
+MATCH (entity:Entity {uid: $uid})-[rel:ALTERNATIVE_TO]-(alternative)
+WHERE all(path_node IN [alternative] WHERE path_node:Entity AND <far-node clause>)
 RETURN alternative.uid, alternative.title, alternative.description
 ```
+
+`build_path_audience_clause` builds the `WHERE`; the far-node clause is `build_far_node_clause` with `[$user_uid]` as the owner list.
 
 **Complementary recommendations:**
 ```cypher

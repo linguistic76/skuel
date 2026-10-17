@@ -242,6 +242,8 @@ CREATE (u)-[:ENROLLED_IN]->(lp_enrolled)
 CREATE (ku_shared)-[:RELATED_TO {confidence: 0.9}]->(ku_d)
 CREATE (ku_shared)-[:RELATED_TO {confidence: 0.9}]->(ku_draft_only)
 CREATE (ku_d)-[:PREREQUISITE_FOR]->(ku_shared)
+CREATE (ku_d)-[:BLOCKS]->(ku_shared)
+CREATE (ku_shared)-[:ALTERNATIVE_TO]->(ku_d)
 
 CREATE (g)-[:REQUIRES_KNOWLEDGE]->(ku_shared)
 CREATE (g)-[:REQUIRES_KNOWLEDGE]->(ku_d)
@@ -527,6 +529,20 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
             "adapters.persistence.neo4j.backends.collab_backends",
             "LateralRelationshipBackend.get_relationships",
         ): partial(lateral.get_relationships, KU_SHARED, "RELATED_TO", "both", USER),
+        # The draft KU is the shared KU's RELATED_TO neighbour, its blocker and its
+        # alternative: each traversal withholds it from the caller, who owns neither.
+        (
+            "adapters.persistence.neo4j.backends.collab_backends",
+            "LateralRelationshipBackend.get_relationship_graph",
+        ): partial(lateral.get_relationship_graph, KU_SHARED, "RELATED_TO", 1, USER),
+        (
+            "adapters.persistence.neo4j.backends.collab_backends",
+            "LateralRelationshipBackend.get_blocking_chain",
+        ): partial(lateral.get_blocking_chain, KU_SHARED, USER),
+        (
+            "adapters.persistence.neo4j.backends.collab_backends",
+            "LateralRelationshipBackend.get_alternatives_comparison",
+        ): partial(lateral.get_alternatives_comparison, KU_SHARED, USER),
         (
             "adapters.persistence.neo4j.backends.curriculum_backends",
             "KuBackend.search_by_alias",
@@ -846,6 +862,18 @@ _COVERED_KEYS = (
     (
         "adapters.persistence.neo4j.backends.collab_backends",
         "LateralRelationshipBackend.get_relationships",
+    ),
+    (
+        "adapters.persistence.neo4j.backends.collab_backends",
+        "LateralRelationshipBackend.get_relationship_graph",
+    ),
+    (
+        "adapters.persistence.neo4j.backends.collab_backends",
+        "LateralRelationshipBackend.get_blocking_chain",
+    ),
+    (
+        "adapters.persistence.neo4j.backends.collab_backends",
+        "LateralRelationshipBackend.get_alternatives_comparison",
     ),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.search_by_alias"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.get_published_titles"),

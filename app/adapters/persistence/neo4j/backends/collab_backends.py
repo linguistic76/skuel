@@ -585,22 +585,40 @@ class LateralRelationshipBackend:
         ]
         return Result.ok(rows)
 
-    async def get_blocking_chain(self, entity_uid: EntityUID) -> Result[list[BlockingChainRow]]:
-        """Get transitive blocking chain with depth levels."""
+    async def get_blocking_chain(
+        self, entity_uid: EntityUID, user_uid: UserUID | None
+    ) -> Result[list[BlockingChainRow]]:
+        """Get the transitive blocking chain with depth levels, scoped to the caller.
+
+        Every blocker on a chain, and every node between it and the anchor, is one
+        the caller may see (``build_path_audience_clause``): a chain that runs
+        through another user's entity, a ``User`` node or a draft is withheld whole.
+        ``blocks_count`` counts only the blocked nodes the caller may see, so the
+        figure names nothing the chain withholds. With no user only published
+        shared content survives.
+        """
+        from adapters.persistence.neo4j.query.cypher import build_path_audience_clause
+
+        on_path, params = build_path_audience_clause("nodes(path)[..-1]")
+        blocked_seen, _ = build_path_audience_clause("[blocked]")
         result = await self.executor.execute_query(
-            """
-            MATCH path = (blocker)-[:BLOCKS*1..10]->(entity:Entity {uid: $uid})
-            WITH blocker, path, length(path) as depth
+            f"""
+            MATCH path = (blocker)-[:BLOCKS*1..10]->(entity:Entity {{uid: $uid}})
+            WHERE {on_path}
+            WITH entity, blocker, path, length(path) as depth
             RETURN
                 blocker.uid as uid,
                 blocker.title as title,
                 blocker.status as status,
                 labels(blocker)[0] as entity_type,
                 depth,
-                COUNT { (blocker)-[:BLOCKS]->() } as blocks_count
+                COUNT {{
+                    (blocker)-[:BLOCKS]->(blocked)
+                    WHERE blocked = entity OR {blocked_seen}
+                }} as blocks_count
             ORDER BY depth DESC
             """,
-            {"uid": entity_uid},
+            {"uid": entity_uid, "user_uid": user_uid, **params},
         )
         if result.is_error:
             return Result.fail(result)
@@ -618,7 +636,7 @@ class LateralRelationshipBackend:
         return Result.ok(rows)
 
     async def get_alternatives_comparison(
-        self, entity_uid: EntityUID
+        self, entity_uid: EntityUID, user_uid: UserUID | None
     ) -> Result[list[Neo4jProperties]]:
         """Get alternative entities with side-by-side comparison data.
 
@@ -636,14 +654,23 @@ class LateralRelationshipBackend:
         blank. Ordering by the describing edge and keeping the first collapses
         that, and gives each side the criteria authored about the other when
         both were authored.
+
+        Each alternative is one the caller may see (``build_path_audience_clause``):
+        the caller's own entity or published shared content — never another user's
+        entity, a ``User`` node or a draft. With no user only published shared
+        content survives.
         """
+        from adapters.persistence.neo4j.query.cypher import build_path_audience_clause
+
+        seen, params = build_path_audience_clause("[alternative]")
         return await self.executor.execute_query(
-            """
-            MATCH (entity:Entity {uid: $uid})-[rel:ALTERNATIVE_TO]-(alternative)
+            f"""
+            MATCH (entity:Entity {{uid: $uid}})-[rel:ALTERNATIVE_TO]-(alternative)
+            WHERE {seen}
             WITH alternative, rel, startNode(rel).uid = $uid AS describes_alternative
             ORDER BY describes_alternative DESC
             WITH alternative,
-                 head(collect({rel: rel, describes: describes_alternative})) AS chosen
+                 head(collect({{rel: rel, describes: describes_alternative}})) AS chosen
             RETURN
                 alternative.uid as uid,
                 alternative.title as title,
@@ -657,7 +684,7 @@ class LateralRelationshipBackend:
                 CASE WHEN chosen.describes THEN chosen.rel.difficulty END as difficulty,
                 CASE WHEN chosen.describes THEN chosen.rel.resources END as resources
             """,
-            {"uid": entity_uid},
+            {"uid": entity_uid, "user_uid": user_uid, **params},
         )
 
     async def get_relationship_graph(
@@ -665,11 +692,23 @@ class LateralRelationshipBackend:
         entity_uid: EntityUID,
         type_filter: str,
         depth: int,
+        user_uid: UserUID | None,
     ) -> Result[list[RelationshipGraphRow]]:
-        """Get relationship graph in Vis.js Network format."""
+        """Get the relationship graph in Vis.js Network format, scoped to the caller.
+
+        Every node on a returned path past the center is one the caller may see
+        (``build_path_audience_clause``) — the end node and each intermediate, which
+        the edge list names by uid. A path through another user's entity, a ``User``
+        node or a draft is withheld whole, whatever ``type_filter`` names. With no
+        user only published shared content survives.
+        """
+        from adapters.persistence.neo4j.query.cypher import build_path_audience_clause
+
+        on_path, params = build_path_audience_clause("nodes(path)[1..]")
         result = await self.executor.execute_query(
             f"""
             MATCH path = (center:Entity {{uid: $uid}})-[r:{type_filter}*1..{depth}]-(related)
+            WHERE {on_path}
             WITH center, r, related, length(path) as depth_level
             RETURN DISTINCT
                 center.uid as center_uid,
@@ -689,7 +728,7 @@ class LateralRelationshipBackend:
                 }}] as relationships,
                 depth_level
             """,
-            {"uid": entity_uid},
+            {"uid": entity_uid, "user_uid": user_uid, **params},
         )
         if result.is_error:
             return Result.fail(result)

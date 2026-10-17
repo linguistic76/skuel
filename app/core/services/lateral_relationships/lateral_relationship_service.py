@@ -710,7 +710,7 @@ class LateralRelationshipService:
         if access.is_error:
             return Result.fail(access)
 
-        result = await self.backend.get_blocking_chain(entity_uid)
+        result = await self.backend.get_blocking_chain(entity_uid, user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -804,7 +804,7 @@ class LateralRelationshipService:
         if access.is_error:
             return Result.fail(access)
 
-        result = await self.backend.get_alternatives_comparison(entity_uid)
+        result = await self.backend.get_alternatives_comparison(entity_uid, user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -857,12 +857,12 @@ class LateralRelationshipService:
         Returns nodes and edges for interactive force-directed graph visualization.
 
         The center is gated by ``_verify_entity_access`` (owned, or curriculum
-        on the shared path); the traversal itself is not owner-filtered, so a
-        neighbour reached from a held center is returned regardless of who owns
-        it. ``get_lateral_relationships`` filters its returned targets by the
-        caller's audience (ADR-085 G4); this graph traversal keeps its wider
-        reach — the census scoped G4 to the relationship read, and the
-        multi-hop audience question is not ruled here.
+        on the shared path). Every other node on a returned path — each end
+        node and each intermediate — is one the caller may see (ADR-085 G4):
+        the caller's own entity or published shared content, never a ``User``
+        node or another user's entity, whichever ``relationship_types`` are
+        asked for. A path through a node the caller may not see is withheld
+        whole. With ``user_uid=None`` only published shared content is reached.
 
         Args:
             entity_uid: Center entity UID
@@ -894,6 +894,7 @@ class LateralRelationshipService:
             entity_uid=entity_uid,
             type_filter=type_filter,
             depth=depth,
+            user_uid=user_uid,
         )
 
         if result.is_error:

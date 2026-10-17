@@ -307,8 +307,34 @@ SURFACES: tuple[Surface, ...] = (
         "build_far_node_clause (ADR-085 G4): the caller's own entity through any "
         "ownership spelling, or published shared content. The anchor itself rides "
         "along by uid; its draft NEIGHBOUR does not — a lateral edge carries a "
-        "title into every lateral panel and the relationship graph, and the "
-        "far-node rule withholds a draft's title across an edge from a reader.",
+        "title into every lateral panel, and the far-node rule withholds a "
+        "draft's title across an edge from a reader.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.collab_backends",
+        "LateralRelationshipBackend.get_relationship_graph",
+        Disposition.GATED,
+        "The relationship graph around a held center: every node on a returned "
+        "path past the center passes build_path_audience_clause — the caller's own "
+        "entity or published shared content — so a draft is withheld as an end "
+        "node and as an intermediate, whose uid the edge list would otherwise "
+        "name. The center itself rides along by uid.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.collab_backends",
+        "LateralRelationshipBackend.get_blocking_chain",
+        Disposition.GATED,
+        "The transitive blockers of a held anchor: every node on a chain but the "
+        "anchor passes build_path_audience_clause, so no draft blocker is named "
+        "and none is counted in a blocker's blocks_count.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.collab_backends",
+        "LateralRelationshipBackend.get_alternatives_comparison",
+        Disposition.GATED,
+        "The ALTERNATIVE_TO neighbours of a held anchor, each passing "
+        "build_path_audience_clause: a draft alternative's title and description "
+        "do not reach the comparison grid.",
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",

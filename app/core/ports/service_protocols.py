@@ -736,10 +736,12 @@ class LateralRelationshipBackendOperations(Protocol):
 
     async def get_cousins(self, entity_uid: EntityUID) -> Result[list[CousinRow]]: ...
 
-    async def get_blocking_chain(self, entity_uid: EntityUID) -> Result[list[BlockingChainRow]]: ...
+    async def get_blocking_chain(
+        self, entity_uid: EntityUID, user_uid: UserUID | None
+    ) -> Result[list[BlockingChainRow]]: ...
 
     async def get_alternatives_comparison(
-        self, entity_uid: EntityUID
+        self, entity_uid: EntityUID, user_uid: UserUID | None
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: raw ALTERNATIVE_TO comparison rows
 
     async def get_relationship_graph(
@@ -747,6 +749,7 @@ class LateralRelationshipBackendOperations(Protocol):
         entity_uid: EntityUID,
         type_filter: str,
         depth: int,
+        user_uid: UserUID | None,
     ) -> Result[list[RelationshipGraphRow]]: ...
 
     async def check_entity_exists(
