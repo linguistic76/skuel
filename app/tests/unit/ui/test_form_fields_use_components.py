@@ -60,9 +60,28 @@ def _bindings(tree: ast.Module) -> tuple[list[tuple[int, str, str | None]], set[
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 if _is_fasthtml(alias.name):
-                    module_aliases.add(alias.asname or alias.name)
+                    # ``import fasthtml.common`` binds the root name ``fasthtml``.
+                    module_aliases.add(alias.asname or alias.name.split(".")[0])
     bindings.sort(key=lambda binding: binding[0])
     return bindings, module_aliases
+
+
+def _dotted(expr: ast.expr) -> str | None:
+    """``a.b.c`` for a chain of names and attributes, None for anything else."""
+    if isinstance(expr, ast.Name):
+        return expr.id
+    if isinstance(expr, ast.Attribute):
+        head = _dotted(expr.value)
+        return f"{head}.{expr.attr}" if head else None
+    return None
+
+
+def _is_module_chain(expr: ast.expr, module_aliases: set[str]) -> bool:
+    """Whether ``expr`` names a fasthtml module (``fh``, ``fasthtml.common``, ...)."""
+    dotted = _dotted(expr)
+    return dotted is not None and any(
+        dotted == alias or dotted.startswith(f"{alias}.") for alias in module_aliases
+    )
 
 
 def _raw_name_at(bindings: list[tuple[int, str, str | None]], name: str, line: int) -> str | None:
@@ -102,8 +121,7 @@ def raw_field_calls(source: str) -> list[str]:
         elif (
             isinstance(func, ast.Attribute)
             and func.attr in GUARDED
-            and isinstance(func.value, ast.Name)
-            and func.value.id in module_aliases
+            and _is_module_chain(func.value, module_aliases)
         ):
             raw = func.attr
         if raw is None:
@@ -169,6 +187,9 @@ def test_no_raw_text_field_or_select_outside_the_components() -> None:
         ("from fasthtml.common import *\nSelect()", ["2: raw Select"]),
         ("import fasthtml.common as fh\nfh.Input(type='number')", ["2: raw Input type=number"]),
         ("from fasthtml import common as c\nc.Select()", ["2: raw Select"]),
+        ("import fasthtml.common\nfasthtml.common.Input(type='text')", ["2: raw Input type=text"]),
+        ("import fasthtml\nfasthtml.components.Select()", ["2: raw Select"]),
+        ("import fasthtml.common\nother.common.Select()", []),
         # Exempt types, and a type literal beside a spread, are readable and allowed.
         ('from fasthtml.common import Input\nInput(type="checkbox")', []),
         ('from fasthtml.common import Input\nInput(type="hidden", **attrs)', []),
