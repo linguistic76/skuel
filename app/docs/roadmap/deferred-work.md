@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # Deferred Work
@@ -238,6 +238,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Explore Sidebar Entity Graph — the Reading Pages' Centred View
 
 [Explore Sidebar Entity Graph — the Reading Pages' Centred View](explore-sidebar-entity-graph.md) — The Explore sidebar's entity mode (a graph centred on the Ku or PathStep a page shows) and the lateral graph's `?types=` knowledge-dependency view are complete on both sides and reached by no page; staged 2026-10-10, waiting on the Ku and PathStep reading pages adopting the sidebar.
+
+## Askesis "Search chats" — a Field With No Behaviour
+
+[Askesis "Search chats" — a Field With No Behaviour](askesis-search-chats.md) — The Askesis sidebar's "Search chats" field has no name, no handler and no results, beside a history pane with nothing in it (Askesis does not persist its conversations); registered 2026-10-17, waiting on the Askesis review.
 
 ## Review Schedule
 

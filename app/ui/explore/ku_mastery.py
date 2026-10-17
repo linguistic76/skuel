@@ -16,11 +16,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Button, Div, Form, Input, Label, P, Section, Span, Textarea
+from fasthtml.common import Button, Div, Form, Input, Label, P, Section, Span
 
 from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
-from ui.components import Icon
+from ui.components import Icon, TextArea
 from ui.dual_track_card import gap_card, render_checkin_trend
 
 if TYPE_CHECKING:
@@ -95,16 +95,12 @@ def render_ku_mastery_section(
                         Span(" (optional)", cls="font-normal text-muted-foreground/70"),
                         cls="block text-xs font-medium text-muted-foreground mb-1.5",
                     ),
-                    Textarea(
+                    TextArea(
                         rows=2,
                         name="reflection",
                         placeholder="A sentence or two of context…",
-                        cls=(
-                            "w-full rounded-lg border border-border bg-card px-3.5 py-2.5 "
-                            "text-sm leading-relaxed placeholder:text-muted-foreground/70 "
-                            "focus:outline-hidden resize-none"
-                        ),
-                        **{"x-model": "note"},
+                        cls="resize-none",
+                        x_model="note",
                     ),
                     cls="block mt-4",
                 ),

@@ -24,6 +24,7 @@ SKUEL uses a **two-layer CSS architecture**:
 from ui.components import Button, ButtonT
 Button("Save", cls=ButtonT.primary)
 Button("Save", cls=ButtonT.primary, size="sm")   # size kwarg controls geometry
+Button("More filters", cls=ButtonT.ghost, size="field")  # beside fields: h-11 md:h-10
 Button("Save", cls=(ButtonT.primary, "w-full mt-4"))           # tuple to compose with extra classes
 
 # ✅ SKUEL form wrappers
@@ -34,6 +35,8 @@ LabelInput("Email", name="email", type="email")
 Select(*options, name="model", compact=True, full_width=False)
 # ❌ A raw fasthtml Input/Select (test_form_fields_use_components.py fails on it)
 #    or a cls that restates height/padding/text size/border/background
+# ✅ Textareas are TextArea (rows= for height); only the chat composers are raw,
+#    borderless inside a box that carries COMPOSER_FOCUS_RING
 
 # ⚠️ Avoid raw Tailwind when a component exists
 Button("Save", cls="bg-blue-600 text-white px-4 py-2 rounded")  # Use Button(cls=ButtonT.primary)

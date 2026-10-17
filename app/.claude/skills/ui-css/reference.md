@@ -20,7 +20,7 @@ Button("Destructive", cls=ButtonT.destructive)
 Button("Link", cls=ButtonT.link)
 
 # Geometry (size=) — controls height/padding. Never mix size tokens in cls= tuple.
-Button("Small", cls=ButtonT.primary, size="sm")    # xs, sm, md (default), lg, xl
+Button("Small", cls=ButtonT.primary, size="sm")    # xs, sm, md (default), lg, xl, field
 Button("Large", cls=ButtonT.primary, size="lg")
 
 # Composing extra Tailwind classes with style variant

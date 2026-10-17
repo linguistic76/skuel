@@ -10,16 +10,64 @@ Extracted here so route handlers only handle auth, service calls, and delegation
 
 from typing import Any
 
-from fasthtml.common import Div, Form, Input, Label, P, Strong
+from fasthtml.common import FT, Div, Form, Input, Label, Option, P, Strong, Template
 
 from core.models.enums.entity_enums import REVIEWABLE_ENTRY_STATUSES, EntityStatus
+from core.models.enums.learning_enums import FeedbackCategory
 from ui.activities._shared import safe_id
-from ui.components import Button, ButtonT, Card, CardBody
+from ui.components import Button, ButtonT, Card, CardBody, Icon, Select
+from ui.components import Input as FieldInput
 from ui.forms import Textarea
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.format_date import format_date
 
 _REVIEWABLE_VALUES = frozenset(status.value for status in REVIEWABLE_ENTRY_STATUSES)
+
+# The index placeholder in the feedback-point template row; ``revisionForm``
+# (static/js/skuel.js) replaces it with the row's index when it adds the row.
+FEEDBACK_POINT_INDEX = "__INDEX__"
+
+
+def _feedback_point_template_row() -> FT:
+    """The feedback-point row ``revisionForm`` copies: a category, the gap, a remove button.
+
+    An added row posts ``fp_category_{i}`` and ``fp_detail_{i}`` — the names the
+    revision route reads for every ``i`` below ``fp_count``.
+    """
+    index = FEEDBACK_POINT_INDEX
+    return Div(
+        Div(
+            Select(
+                *[
+                    Option(category.get_label(), value=category.value)
+                    for category in FeedbackCategory
+                ],
+                name=f"fp_category_{index}",
+                aria_label="Feedback category",
+            ),
+            cls="w-full sm:w-36 shrink-0",
+        ),
+        Div(
+            FieldInput(
+                type="text",
+                name=f"fp_detail_{index}",
+                placeholder="Specific feedback...",
+                aria_label="Specific feedback",
+                required=True,
+            ),
+            cls="flex-1 min-w-0",
+        ),
+        Button(
+            Icon("x", size=16),
+            type="button",
+            size="field",
+            cls="shrink-0 text-destructive hover:bg-accent hover:text-destructive/80",
+            aria_label="Remove feedback point",
+            **{"x-on:click": "$el.closest('[data-fp-row]').remove()"},
+        ),
+        cls="flex flex-wrap gap-2 mb-2 items-start",
+        data_fp_row=index,
+    )
 
 
 def render_feedback_submission_form(submission_uid: str, result_id: str) -> Any:
@@ -63,8 +111,9 @@ def render_feedback_submission_form(submission_uid: str, result_id: str) -> Any:
 def render_revision_request_form(submission_uid: str, result_id: str) -> Any:
     """The one revision request form — the review page and the per-student panel.
 
-    Posts ``instructions`` (required), the feedback points (the
-    ``revisionForm`` Alpine rows, ``fp_count``) and an optional
+    Posts ``instructions`` (required), the feedback points (rows
+    ``revisionForm`` clones from the template row, ``fp_count`` = rows added,
+    removed ones included) and an optional
     ``revision_rationale``: the route files a RevisedExercise beside the
     report, on the exercise the gated detail names. Offered only where the
     teacher may request a revision (``render_review_actions``).
@@ -78,6 +127,9 @@ def render_revision_request_form(submission_uid: str, result_id: str) -> Any:
                 cls="text-xs text-muted-foreground mb-2",
             ),
             Div(id=f"fp-rows-{dom}", **{"x-ref": "fpRows"}),
+            # "+ Add feedback point" appends a copy of this row; template content
+            # is not part of the form, so the placeholder row never posts.
+            Template(_feedback_point_template_row(), **{"x-ref": "fpRowTemplate"}),
             Div(
                 Button(
                     "+ Add feedback point",
@@ -92,7 +144,7 @@ def render_revision_request_form(submission_uid: str, result_id: str) -> Any:
                 type="hidden",
                 name="fp_count",
                 value="0",
-                **{"x-bind:value": "points.length"},
+                **{"x-bind:value": "added"},
             ),
             cls="mb-3",
             **{"x-data": "revisionForm()"},
@@ -111,7 +163,7 @@ def render_revision_request_form(submission_uid: str, result_id: str) -> Any:
                 name="revision_rationale",
                 id=f"revision_rationale_{dom}",
                 placeholder="Why is this revision needed?",
-                cls="h-16",
+                rows=3,
             ),
             cls="mb-3",
         ),
@@ -132,7 +184,7 @@ def render_revision_request_form(submission_uid: str, result_id: str) -> Any:
                         name="instructions",
                         id=f"revision_instructions_{dom}",
                         placeholder="What should the student do differently?",
-                        cls="h-24",
+                        rows=4,
                         required=True,
                     ),
                     cls="mb-3",

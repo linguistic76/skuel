@@ -353,7 +353,7 @@ def _render_filter_panel(
             Icon("sliders-horizontal", size=16, cls="inline-block"),
             Span("More filters", x_text="moreFilters ? 'Fewer filters' : 'More filters'"),
             type="button",
-            size="sm",
+            size="field",
             cls=(ButtonT.ghost, "more-filters-toggle gap-2 shrink-0"),
             style="display:none",
             x_show="isDesktop",

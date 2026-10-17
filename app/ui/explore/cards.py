@@ -9,14 +9,15 @@ No async, no service calls — receives pre-fetched data.
 import json
 from typing import Any
 
-from fasthtml.common import FT, Button, Div, Form, NotStr, Option, P, Span
+from fasthtml.common import FT, Div, Form, NotStr, Option, P, Span
 from fasthtml.common import A as Anchor
+from fasthtml.common import Button as HtmlButton
 from fasthtml.common import Input as FTInput
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import LearningLevel
 from core.models.search.filter_enums import SearchSortOrder
-from ui.components import Input, Select
+from ui.components import Button, Input, Select
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 
@@ -154,7 +155,7 @@ def render_explore_card(
     )
 
 
-def render_load_more(next_offset: int) -> Button:
+def render_load_more(next_offset: int) -> FT:
     """Sentinel "Load more" button — last child of the card grid.
 
     Replaces itself (outerHTML swap) with the next page of bare cards plus a
@@ -163,7 +164,7 @@ def render_load_more(next_offset: int) -> Button:
     ``hx_vals`` (filter-triggered requests carry no offset input, so any
     filter change naturally resets to page one).
     """
-    return Button(
+    return HtmlButton(
         "Load more",
         type="button",
         hx_get="/api/explore/search",
@@ -333,7 +334,7 @@ def render_explore_search_panel(
     tag_chips += [_tag_chip(tag, active_tag, in_overflow=True) for tag in overflow_tags]
     if overflow_tags:
         tag_chips.append(
-            Button(
+            HtmlButton(
                 type="button",
                 cls=(
                     "cursor-pointer text-xs px-2 py-0.5 rounded-full border border-dashed "
@@ -393,10 +394,10 @@ def render_explore_search_panel(
     more_filters_toggle = Button(
         "More filters",
         type="button",
+        size="field",
         cls=(
-            "text-sm px-2 py-1.5 rounded-md border border-dashed border-border "
-            "text-muted-foreground hover:border-foreground hover:text-foreground "
-            "transition-colors cursor-pointer shrink-0"
+            "border border-dashed border-border text-muted-foreground "
+            "hover:border-foreground hover:text-foreground cursor-pointer shrink-0"
         ),
         **{
             "x-on:click": "moreFilters = !moreFilters",

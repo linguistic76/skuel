@@ -20,8 +20,11 @@ by rule — none of them is a text field. The type must be readable from the cal
 an ``Input(**attrs)`` whose type lives in the dict is reported, and the fix is a
 literal ``type=`` at the call or the component, never an allowlist entry.
 
-Raw ``Textarea`` is out of scope (unruled); field markup built inside HTML or JS
-strings is invisible to an AST walk.
+Raw ``Textarea`` is out of scope: every plain textarea is ``TextArea`` and the
+only raw ones are the three chat composers (Askesis, the journal follow-up, the
+journal landing) — borderless by design inside a box that carries the border
+and ``COMPOSER_FOCUS_RING``; their pins live in ``test_form_field_sites.py``.
+Field markup built inside HTML or JS strings is invisible to an AST walk.
 """
 
 import ast

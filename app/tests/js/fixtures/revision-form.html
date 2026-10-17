@@ -1,0 +1,24 @@
+<div class="rounded-lg border bg-card text-card-foreground shadow-xs bg-background shadow-xs">
+  <div class="p-6 pt-0">
+    <p class="text-sm text-muted-foreground mb-3">Ask the student to revise — they get revised instructions to answer.</p>
+<form enctype="multipart/form-data" hx-post="/api/teaching/review/ue_abc12345/revision" hx-swap="innerHTML" hx-target="#revision-result">      <div class="mb-3">
+<label for="revision_instructions_ue_abc12345" class="text-sm font-medium mb-1 block">Revision instructions</label><textarea name="instructions" placeholder="What should the student do differently?" rows="4" required id="revision_instructions_ue_abc12345" class="flex min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full"></textarea>      </div>
+      <div x-data="revisionForm()" class="mb-3">
+<label class="text-sm font-medium mb-1 block">Feedback points</label>        <p class="text-xs text-muted-foreground mb-2">Categorize the specific gaps in the student's work.</p>
+        <div x-ref="fpRows" id="fp-rows-ue_abc12345"></div>
+<template x-ref="fpRowTemplate">          <div data-fp-row="__INDEX__" class="flex flex-wrap gap-2 mb-2 items-start">
+            <div class="w-full sm:w-36 shrink-0">
+<select name="fp_category___INDEX__" aria-label="Feedback category" class="flex border border-input bg-background ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-11 md:h-10 rounded-md px-3 py-2 text-sm w-full"><option value="accuracy">Accuracy</option><option value="completeness">Completeness</option><option value="depth">Depth</option><option value="clarity">Clarity</option><option value="application">Application</option><option value="methodology">Methodology</option></select>            </div>
+            <div class="flex-1 min-w-0">
+              <input type="text" name="fp_detail___INDEX__" placeholder="Specific feedback..." aria-label="Specific feedback" required class="flex border border-input bg-background ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground h-11 md:h-10 rounded-md px-3 py-2 text-sm w-full">
+            </div>
+<button type="button" aria-label="Remove feedback point" x-on:click="$el.closest('[data-fp-row]').remove()" class="inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-11 md:h-10 px-4 rounded-md text-sm shrink-0 text-destructive hover:bg-accent hover:text-destructive/80"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>          </div>
+</template>        <div class="mb-2">
+<button type="button" @click="addPoint()" class="inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-8 px-3 text-sm rounded-md hover:bg-accent hover:text-accent-foreground">+ Add feedback point</button>        </div>
+        <input type="hidden" name="fp_count" value="0" x-bind:value="added">
+      </div>
+      <div class="mb-3">
+<label for="revision_rationale_ue_abc12345" class="text-sm font-medium mb-1 block">Revision rationale</label>        <p class="text-xs text-muted-foreground mb-1">Optional: explain why this revision is needed.</p>
+<textarea name="revision_rationale" placeholder="Why is this revision needed?" rows="3" id="revision_rationale_ue_abc12345" class="flex min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full"></textarea>      </div>
+<button type="submit" class="inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 rounded-md text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80">Request Revision</button></form>  </div>
+</div>

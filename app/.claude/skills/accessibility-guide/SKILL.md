@@ -139,7 +139,7 @@ Does this element perform an action (same page)?
 
 In FT, the Tailwind utilities are `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`, the ones `Button` and `Input` render.
 
-**SKUEL components:** `Button`, `Input` and the other `ui.components` form controls ship with those focus-visible ring classes.
+**SKUEL components:** `Button`, `Input` and the other `ui.components` form controls ship with those focus-visible ring classes. A chat composer's raw, borderless textarea removes its outline, so its bordered box carries `COMPOSER_FOCUS_RING` (`has-[textarea:focus-visible]:ring-2 …`) — the ring shows on the box while the textarea has focus, and not when focus is on the box's own buttons, which ring themselves.
 
 ### 6. Touch Target Size (WCAG 2.5.5)
 
@@ -151,6 +151,7 @@ In FT, the Tailwind utilities are `focus-visible:ring-2 focus-visible:ring-ring 
 | Sidebar nav items (desktop rows and the section nav) | `min-h-[44px]` | 44px minimum height |
 | Form inputs (`Input`, `Select`) | `h-11 md:h-10` | 44px on phones, 40px from `md` up (desktop density) |
 | Compact chat-chrome fields (`Input` / `Select` with `compact=True`) | `h-11 md:h-8` | 44px on phones, 32px from `md` up |
+| Buttons beside fields (`Button(size="field")`) | `h-11 md:h-10` | 44px on phones, 40px from `md` up |
 
 **SKUEL Convention:** Outer interactive element gets `size-11` (44px); inner decorative element (e.g., avatar circle) stays `size-8` (32px). The touch target is the outer element.
 
