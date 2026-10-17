@@ -1930,9 +1930,15 @@
          * @returns {Object} Alpine.js component
          *
          * @example
-         * <div x-data="relationshipGraph('task_abc', 'tasks', 2)" x-init="init()">
+         * <div x-data="relationshipGraph('task_abc', 'tasks', 2)">
+         *   <select x-on:change="changeDepth($event.target.value)">...</select>
          *   <div id="network-task_abc"></div>
+         *   <p x-show="error" x-text="error"></p>
          * </div>
+         *
+         * Alpine calls init() itself — an x-init="init()" beside it loads the
+         * graph twice. Every control that calls changeDepth/loadGraph sits
+         * inside the x-data element, or Alpine never binds it.
          */
         Alpine.data('relationshipGraph', function(entity_uid, entity_type, initial_depth) {
             return {
@@ -2007,6 +2013,14 @@
                 changeDepth: function(newDepth) {
                     this.depth = parseInt(newDepth);
                     this.loadGraph(this.depth);
+                },
+
+                // Alpine calls destroy() when the x-data element leaves the page.
+                destroy: function() {
+                    if (this.network) {
+                        this.network.destroy();
+                        this.network = null;
+                    }
                 }
             };
         });
@@ -2240,10 +2254,6 @@
                 activeTag: initialTag || '',
                 moreFilters: false,  // "More filters" disclosure (learning-level facet)
 
-                init: function() {
-                    // reactive state — query tracked via x-model, activeTag via hidden input
-                },
-
                 setTag: function(tag) {
                     var self = this;
                     if (self.activeTag === tag) {
@@ -2276,7 +2286,7 @@
          * @param {string} entity_type - 'ku' or 'ps' (ignored when mode='hub')
          *
          * @example
-         * <div x-data="exploreGraph('entity', 'ku_abc', 'ku')" x-init="init()">
+         * <div x-data="exploreGraph('entity', 'ku_abc', 'ku')">
          *   <div id="explore-graph-container"></div>
          * </div>
          */
@@ -2304,13 +2314,28 @@
                 init: function() {
                     this.loadGraph();
 
-                    // Escape key closes expanded view
+                    // Escape key closes expanded view. Kept on the component so
+                    // destroy() can remove it.
                     var self = this;
-                    document.addEventListener('keydown', function(e) {
+                    this._onKeydown = function(e) {
                         if (e.key === 'Escape' && self.expanded) {
                             self.collapseGraph();
                         }
-                    });
+                    };
+                    document.addEventListener('keydown', this._onKeydown);
+                },
+
+                // Alpine calls destroy() when the x-data element leaves the page:
+                // the listener and the overlay live on document, outside it.
+                destroy: function() {
+                    document.removeEventListener('keydown', this._onKeydown);
+                    if (this.expanded) {
+                        this.collapseGraph();
+                    }
+                    if (this.network) {
+                        this.network.destroy();
+                        this.network = null;
+                    }
                 },
 
                 getApiUrl: function() {

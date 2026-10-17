@@ -1,0 +1,23 @@
+<div class="rounded-lg border bg-card text-card-foreground shadow-xs">
+  <div x-data="relationshipGraph('task_abc', 'tasks', 2)" x-on:relationships-changed.window="loadGraph(depth)" class="p-6 pt-0">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold">Relationship Graph</h3>
+<select name="graph_depth" aria-label="Graph depth" x-on:change="changeDepth($event.target.value)" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-auto"><option value="1">Depth 1</option><option value="2" selected>Depth 2</option><option value="3">Depth 3</option></select>    </div>
+    <div id="network-task_abc" class="w-full h-96 border border-border rounded-sm"></div>
+    <p role="alert" x-show="error" x-text="error" x-cloak class="text-sm text-destructive mt-2"></p>
+    <div class="flex flex-wrap items-center gap-y-1 mt-4 pt-4 border-t border-border">
+      <div class="text-sm mr-4">
+        <div class="w-3 h-3 rounded-full bg-error inline-block"></div>
+ Blocks      </div>
+      <div class="text-sm mr-4">
+        <div class="w-3 h-3 rounded-full bg-warning inline-block"></div>
+ Prerequisites      </div>
+      <div class="text-sm mr-4">
+        <div class="w-3 h-3 rounded-full bg-info inline-block"></div>
+ Alternatives      </div>
+      <div class="text-sm">
+        <div class="w-3 h-3 rounded-full bg-success inline-block"></div>
+ Complementary      </div>
+    </div>
+  </div>
+</div>

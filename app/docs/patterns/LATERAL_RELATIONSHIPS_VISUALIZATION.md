@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-10-16'
+updated: '2026-10-17'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -219,64 +219,45 @@ Depth 2: [Root Blocker 1] [Root Blocker 2]
 
 **Purpose:** Interactive Vis.js force-directed graph
 
-**HTMX Endpoint:**
-```python
-"hx-get": f"/api/{entity_type}/{entity_uid}/lateral/graph?depth=2"
-```
+**Data:** `GET /api/{entity_type}/{entity_uid}/lateral/graph?depth=N` — fetched by the
+component with `SKUEL.getJson`, not by HTMX. The route reads `depth` strictly: missing is 2,
+unreadable or below 1 is a 400, above 3 is 3 (`GraphDepth.DEFAULT`).
 
-**Alpine Component:** `static/js/skuel.js` (line 1796)
-```javascript
-Alpine.data('relationshipGraph', function(entity_uid, entity_type, initial_depth) {
-    return {
-        depth: initial_depth || 1,
-        network: null,
+**Markup:** the `x-data="relationshipGraph(uid, entity_type, depth)"` sits on the card body,
+so one scope holds the depth select, the canvas (`id="network-{uid}"`) and the error line
+(`x-text="error"`). It also listens for `relationships-changed.window` and reloads.
 
-        init() {
-            // Fetch graph data via HTMX
-            // Initialize Vis.js Network
-            // Set up physics simulation
-            // Attach event handlers
-        },
-
-        changeDepth(newDepth) {
-            // Re-fetch graph with new depth
-            // Update visualization
-        },
-
-        handleNodeClick(nodeId) {
-            // Navigate to entity detail page
-            window.location.href = `/${entity_type}/${nodeId}`;
-        }
-    }
-});
-```
+**Alpine Component:** `relationshipGraph` in `static/js/skuel.js`
+- `init()` — called by Alpine (no `x-init`), loads the graph at the initial depth
+- `loadGraph(depth)` — fetches, styles edges by confidence, renders a `vis.Network`; sets
+  `error` on failure
+- `changeDepth(n)` — bound to the select; sets `depth` and reloads
+- `destroy()` — called by Alpine when the card leaves the page; destroys the network
+- Click on a node navigates to its `node.url` (resolved server-side by `entity_detail_href`);
+  the center and url-less nodes are not links
 
 **Graph Features:**
-- **Physics:** Force-directed layout (Barnes-Hut simulation)
+- **Physics:** Force-directed layout (`forceAtlas2Based`, the `relationship` profile in
+  `SKUEL.graph.PROFILES`)
 - **Interactions:**
   - Drag nodes: Reposition entities
   - Zoom: Mouse wheel or pinch gesture
   - Pan: Drag canvas background
   - Click node: Navigate to detail page
 - **Visual Design:**
-  - Color-coded edges:
-    - Red: BLOCKS (dependency blocking)
-    - Orange: PREREQUISITES (knowledge requirements)
-    - Blue: ALTERNATIVES (mutually exclusive)
-    - Green: COMPLEMENTARY (synergistic pairing)
-    - Purple: SIBLING (same parent)
-    - Gray: RELATED_TO (general association)
+  - Color-coded edges (`RelationshipColor.for_type`, `core/utils/palette.py`):
+    - Red: BLOCKS
+    - Orange: PREREQUISITE_FOR
+    - Blue: ALTERNATIVE_TO
+    - Green: COMPLEMENTARY_TO
+    - Purple: SIBLING
+    - Gray: RELATED_TO, and every other type
   - Node labels: Entity titles
-  - Edge labels: Relationship metadata
+  - Edge labels: the relationship type, lower-cased (`prerequisite for`)
 
-**Depth Control:**
-```html
-<select x-model="depth" @change="changeDepth($event.target.value)">
-    <option value="1">1 Level</option>
-    <option value="2">2 Levels</option>
-    <option value="3">3 Levels</option>
-</select>
-```
+**Depth Control:** a `Select` (`aria-label="Graph depth"`) whose options run
+`GraphDepth.DIRECT`..`GraphDepth.DEFAULT` (1–3, the route's cap), the initial depth selected,
+`x-on:change="changeDepth($event.target.value)"`.
 
 ---
 

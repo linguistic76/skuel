@@ -91,7 +91,7 @@ def ExploreGraphView(
         mode: 'hub' for learning universe, 'entity' for entity-centered.
         entity_uid: UID of the current entity (entity mode only).
         entity_type: 'ku' or 'ps' (entity mode only).
-        standalone: If True, emits x-data/x-init on outer Div. If False,
+        standalone: If True, emits the x-data on the outer Div. If False,
             expects a parent element to provide the Alpine scope.
     """
     alpine_args = f"'{mode}', '{entity_uid}', '{entity_type}'"
@@ -165,7 +165,6 @@ def ExploreGraphView(
     wrapper_attrs: dict[str, str] = {"cls": "px-2 pt-2"}
     if standalone:
         wrapper_attrs["x_data"] = f"exploreGraph({alpine_args})"
-        wrapper_attrs["x_init"] = "init()"
 
     return Div(
         graph_wrapper,

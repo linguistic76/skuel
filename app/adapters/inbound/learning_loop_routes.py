@@ -173,8 +173,9 @@ def create_learning_loop_detail_routes(
     def explore_ku_detail(request: Request, uid: str) -> Any:
         """Ku reading page — shell loads immediately, content arrives via HTMX.
 
-        ku-reading.js must be loaded in the shell before the fragment arrives
-        so the Alpine factory is registered before htmx:load fires Alpine.initTree().
+        ku-reading.js must be loaded in the shell, before Alpine's deferred
+        bundle starts, so its factory is registered when Alpine's
+        MutationObserver initialises the swapped-in fragment.
         """
         content = Div(
             Script(src="/static/js/ku-reading.js"),
@@ -363,8 +364,9 @@ def create_learning_loop_detail_routes(
     def explore_ps_detail(request: Request, uid: str) -> Any:
         """PathStep detail page — reading-first, no sidebar.
 
-        Shell loads ps-detail.js (Alpine factory) immediately so the
-        factory is registered before the HTMX fragment fires Alpine.initTree().
+        Shell loads ps-detail.js (Alpine factory) immediately, before Alpine's
+        deferred bundle starts, so the factory is registered when Alpine's
+        MutationObserver initialises the swapped-in fragment.
         """
         content = Div(
             Script(src="/static/js/ps-detail.js"),

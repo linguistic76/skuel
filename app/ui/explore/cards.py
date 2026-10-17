@@ -489,5 +489,4 @@ def render_explore_search_panel(
         ),
         cls="p-4 mb-5 border border-border rounded-xl bg-background flex flex-col gap-3",
         x_data=f"exploreSearch({json.dumps(active_tag)})",
-        x_init="init()",
     )

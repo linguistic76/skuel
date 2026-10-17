@@ -11,7 +11,7 @@ allowed-tools:
 version: 1.0.0
 library: vis-network
 library_version: 9.1.9
-last_updated: 2026-09-29
+last_updated: 2026-10-17
 ---
 
 # Vis.js Network - Interactive Graph Visualization
@@ -106,25 +106,27 @@ from ui.patterns.relationships import RelationshipGraphView
 RelationshipGraphView(entity_uid=task.uid, entity_type="tasks", depth=2)
 ```
 
-It renders a card with a depth select (1–3), the canvas
-(`Div(id=f"network-{uid}", cls="w-full h-96 …")`), and a color legend.
+It renders a card with a depth select (1–3, the route's cap; the initial depth is the selected
+option), the canvas (`Div(id=f"network-{uid}", cls="w-full h-96 …")`), an error line
+(`x-text="error"`, shown when the graph fails to load), and a color legend. The `x-data`
+sits on the card body, so one scope holds the select, the canvas and the error; Alpine calls
+the component's `init()` (one fetch per mount) and its `destroy()` when the card leaves the
+page (the network is torn down).
 `RelationshipGraphView` is **the** graph for a detail page; use it (directly or through
 `EntityRelationshipsSection`) rather than building a second one.
 
-⚠ **Two live defects in it, measured with the vendored Alpine in jsdom:** it fetches the
-graph **twice** on load, because it sets `x-init="init()"` on a component Alpine already
-inits; and its depth select sits **outside** the `x-data` element, so Alpine never binds the
-select's `x-on:change` and changing the depth does nothing. Both are logged. The fix belongs
-**in** `RelationshipGraphView` (`ui/patterns/relationships/relationship_graph.py`), so every
-`EntityRelationshipsSection` consumer gets it: put the `x-data` on an element that contains
-the select as well as the canvas, and drop the `x-init`. A page that hand-builds its own
-graph markup to dodge the defects leaves them in place everywhere else.
+A change to the graph's behaviour belongs **in** `RelationshipGraphView`
+(`ui/patterns/relationships/relationship_graph.py`), so every `EntityRelationshipsSection`
+consumer gets it. `tests/js/graph-components.test.js` mounts its rendered markup with the
+vendored Alpine (one fetch per mount, the depth select refetches, the error shows, removal
+destroys the network); `tests/unit/ui/test_graph_alpine_markup.py` keeps that fixture equal to
+what the Python renders.
 
 ### The Component Contract
 
-What `relationshipGraph` requires of its markup. This is the checklist for fixing
-`RelationshipGraphView`, or for a genuinely new graph surface; it is not a second way to
-draw the detail-page graph:
+What `relationshipGraph` requires of its markup — `RelationshipGraphView` meets it. This is
+the checklist for changing that component, or for a genuinely new graph surface; it is not a
+second way to draw the detail-page graph:
 
 1. The canvas has `id="network-{entity_uid}"`. `renderNetwork` does
    `document.getElementById`, not `$refs`.
@@ -133,6 +135,7 @@ draw the detail-page graph:
    `loadGraph(this.depth)`.
 4. Every control that calls `changeDepth` / `loadGraph` sits inside the `x-data` element.
 5. The `x-data` element listens for `relationships-changed.window` to reload.
+6. An element with `x-text="error"` (and `x-show="error"`) inside the scope shows a failed load.
 
 Markup that satisfies it (measured: one fetch on load; a depth change refetches with
 `?depth=3`):
@@ -148,6 +151,7 @@ Div(
         **{"x-on:change": "changeDepth($event.target.value)"},
     ),
     Div(id=f"network-{uid}", cls="w-full h-96 border border-border rounded-sm"),
+    P(role="alert", x_show="error", x_text="error", x_cloak=True),
     **{
         "x-data": f"relationshipGraph('{uid}', 'tasks', 2)",
         "x-on:relationships-changed.window": "loadGraph(depth)",
@@ -201,10 +205,10 @@ What is the user's goal?
 └─ Deep exploration → depth 3 (the select's maximum)
 ```
 
-**Nothing enforces a maximum.** The UI offers 1–3, but the route accepts any `int` and the
-backend interpolates it into `*1..{depth}`, so `?depth=20` runs a 20-hop traversal. Don't
-build a surface that sends a larger depth, and don't describe the route as capped. The
-missing clamp is logged.
+**The route caps it at 3.** `GET .../lateral/graph` reads `depth` strictly
+(`parse_int_param_strict`): missing is 2, unreadable or below 1 is a 400, above 3 is 3
+(`GraphDepth.DEFAULT`). The select's options are built from the same range, so a surface
+cannot offer a depth the route does not draw.
 
 ---
 

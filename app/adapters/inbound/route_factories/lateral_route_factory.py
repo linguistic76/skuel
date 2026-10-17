@@ -842,9 +842,9 @@ class LateralRouteFactory:
 
             Args:
                 uid: Center entity UID
-                depth: Graph traversal depth (query; 1-3 recommended, default 2;
-                    one that does not read, or is below 1, is a 400; one above
-                    10 is 10)
+                depth: Graph traversal depth (query; default 2; one that does
+                    not read, or is below 1, is a 400; one above 3 is 3 — the
+                    range RelationshipGraphView's depth select offers)
                 types: Comma-separated relationship types to include (optional;
                     any RelationshipName value, not just the 6 lateral types)
 
@@ -857,7 +857,7 @@ class LateralRouteFactory:
                 "depth",
                 GraphDepth.DIRECT,
                 default=GraphDepth.NEIGHBORHOOD,
-                cap=GraphDepth.MAXIMUM,
+                cap=GraphDepth.DEFAULT,
             )
             if depth_read.is_error:
                 return Result.fail(depth_read)

@@ -277,8 +277,8 @@ def create_explore_ui_routes(
         """Explore reading surface — shell renders immediately, plan loads via HTMX.
 
         exploreReading.js is loaded here (in the full-page shell, before Alpine's
-        deferred bundle fires alpine:init) so the factory is registered before
-        htmx:load calls Alpine.initTree() on the swapped fragment.
+        deferred bundle fires alpine:init) so the factory is registered when
+        Alpine's MutationObserver initialises the swapped-in fragment.
         """
         content = Div(
             # No defer — must execute before Alpine's deferred bundle fires alpine:init

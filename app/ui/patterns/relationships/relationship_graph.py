@@ -29,10 +29,12 @@ Color Scheme:
 - ALTERNATIVE_TO → Blue (#3B82F6)
 - COMPLEMENTARY_TO → Green (#10B981)
 - RELATED_TO → Gray (#6B7280)
+- SIBLING → Purple (#8B5CF6)
 """
 
-from fasthtml.common import H3, Div, Option
+from fasthtml.common import H3, Div, Option, P
 
+from core.constants import GraphDepth
 from core.models.type_hints import EntityUID
 from ui.components import Card, CardBody
 from ui.forms import Select
@@ -48,38 +50,40 @@ def RelationshipGraphView(
     Args:
         entity_uid: Center entity UID
         entity_type: Entity type (tasks, goals, etc.)
-        depth: Initial graph depth (1-3 recommended)
+        depth: Initial graph depth (1-3, the route's cap)
 
     Returns:
         Div containing interactive Vis.js graph
     """
+    depth_options = [
+        Option(f"Depth {level}", value=str(level), selected=(level == depth))
+        for level in range(GraphDepth.DIRECT, GraphDepth.DEFAULT + 1)
+    ]
     return Card(
         CardBody(
             # Header with depth control
             Div(
                 H3("Relationship Graph", cls="text-lg font-bold"),
                 Select(
-                    Option("Depth 1", value="1"),
-                    Option("Depth 2", value="2", selected=(depth == 2)),
-                    Option("Depth 3", value="3"),
+                    *depth_options,
                     name="graph_depth",
                     full_width=False,
+                    aria_label="Graph depth",
                     **{"x-on:change": "changeDepth($event.target.value)"},
                 ),
                 cls="flex items-center justify-between mb-4",
             ),
             # Canvas container
             Div(
-                Div(
-                    id=f"network-{entity_uid}",
-                    cls="w-full h-96 border border-border rounded-sm",
-                ),
-                **{
-                    "x-data": f"relationshipGraph('{entity_uid}', '{entity_type}', {depth})",
-                    "x-init": "init()",
-                    # Reload the network whenever an add/delete fires relationships-changed.
-                    "x-on:relationships-changed.window": "loadGraph(depth)",
-                },
+                id=f"network-{entity_uid}",
+                cls="w-full h-96 border border-border rounded-sm",
+            ),
+            P(
+                cls="text-sm text-destructive mt-2",
+                role="alert",
+                x_show="error",
+                x_text="error",
+                x_cloak=True,
             ),
             # Legend
             Div(
@@ -105,6 +109,13 @@ def RelationshipGraphView(
                 ),
                 cls="flex flex-wrap items-center gap-y-1 mt-4 pt-4 border-t border-border",
             ),
+            # One scope holds the select, the canvas and the error, so Alpine
+            # binds every directive above; Alpine calls the component's init().
+            **{
+                "x-data": f"relationshipGraph('{entity_uid}', '{entity_type}', {depth})",
+                # Reload the network whenever an add/delete fires relationships-changed.
+                "x-on:relationships-changed.window": "loadGraph(depth)",
+            },
         ),
     )
 
