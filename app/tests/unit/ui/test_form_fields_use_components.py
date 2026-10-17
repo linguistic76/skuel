@@ -128,11 +128,19 @@ class _ScopeScan:
             for local, kind, star in _import_kinds(node):
                 self._bind(_Binding(local, kind, star), chain)
             return
-        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            for target in targets:
-                if isinstance(target, ast.Name):
-                    self._bind(_Binding(target.id, value=node.value, chain=chain), chain)
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                self._bind_target(target, node.value, chain)
+        elif isinstance(node, (ast.AnnAssign, ast.NamedExpr)) and node.value is not None:
+            self._bind_target(node.target, node.value, chain)
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            elements: list[ast.expr | None] = (
+                list(node.iter.elts)
+                if isinstance(node.iter, (ast.Tuple, ast.List, ast.Set))
+                else []
+            )
+            for element in elements or [None]:
+                self._bind_target(node.target, element, chain)
         if isinstance(node, ast.Call):
             self.calls.append((node, chain))
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -158,6 +166,29 @@ class _ScopeScan:
             self._visit_all(parts, inner)
         else:
             self._visit_all(list(ast.iter_child_nodes(node)), chain)
+
+    def _bind_target(
+        self, target: ast.expr, value: ast.expr | None, chain: tuple[ast.AST, ...]
+    ) -> None:
+        """Bind every name in an assignment target, pairing unpacked names with their values.
+
+        ``Input, other = fh.Input, x`` binds ``Input`` to ``fh.Input``; an unpacking
+        whose values cannot be paired binds its names to nothing raw.
+        """
+        if isinstance(target, ast.Name):
+            self._bind(_Binding(target.id, value=value, chain=chain), chain)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            values: list[ast.expr | None] = [None] * len(target.elts)
+            if (
+                isinstance(value, (ast.Tuple, ast.List))
+                and len(value.elts) == len(target.elts)
+                and not any(isinstance(e, ast.Starred) for e in (*value.elts, *target.elts))
+            ):
+                values = list(value.elts)
+            for element, element_value in zip(target.elts, values, strict=True):
+                self._bind_target(element, element_value, chain)
+        elif isinstance(target, ast.Starred):
+            self._bind_target(target.value, None, chain)
 
     def _bind(self, binding: _Binding, chain: tuple[ast.AST, ...]) -> None:
         """Record a binding in the scope that owns its name."""
@@ -328,6 +359,17 @@ def test_no_raw_text_field_or_select_outside_the_components() -> None:
         ("from fasthtml.common import Select\nPick: Any = Select\nPick()", ["3: raw Select"]),
         ("import fasthtml\nfh = fasthtml.common\nfh.Select()", ["3: raw Select"]),
         ("from ui.components import Select\nPick = Select\nPick()", []),
+        (
+            "import fasthtml.common as fh\nInput, other = fh.Input, value\nInput()",
+            ["3: raw Input type=text (default)"],
+        ),
+        (
+            "import fasthtml.common as fh\n[a, [b, Pick]] = [1, [2, fh.Select]]\nPick()",
+            ["3: raw Select"],
+        ),
+        ("import fasthtml.common as fh\nfor Pick in (fh.Select,):\n    Pick()", ["3: raw Select"]),
+        ("import fasthtml.common as fh\nif (Pick := fh.Select):\n    Pick()", ["3: raw Select"]),
+        ("from ui.components import Input\nInput, other = make()\nInput()", []),
         (
             "from fasthtml.common import Input\nInput = Input\nInput()",
             ["3: raw Input type=text (default)"],
