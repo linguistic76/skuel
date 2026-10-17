@@ -22,6 +22,9 @@ _BTN_SIZES: dict[str, str] = {
     "md": "h-9 px-4 py-2 rounded-md text-sm",
     "lg": "h-11 px-8 rounded-md",
     "xl": "h-12 px-10 text-base rounded-md",
+    # A button standing in a row of fields takes the field heights: 44px on
+    # phones, 40px from ``md`` (``ui.components.form``'s field size).
+    "field": "h-11 md:h-10 px-4 rounded-md text-sm",
 }
 
 
@@ -66,8 +69,9 @@ def Button(
         *c: Button content (text, icons, etc.)
         cls: Style variant — a ButtonT value or tuple. Controls colour, border, and
              hover appearance. Does NOT set height or padding.
-        size: Geometry — "xs", "sm", "md" (default), "lg", or "xl". Applied before
-              cls so there is no Tailwind class conflict with style variants.
+        size: Geometry — "xs", "sm", "md" (default), "lg", "xl", or "field" (the
+              field heights, for a button beside an input or select). Applied
+              before cls so there is no Tailwind class conflict with style variants.
         **kwargs: Any HTML attribute (hx_*, x_*, data_*, aria_*, etc.) passes through.
     """
     size_cls = _BTN_SIZES.get(size, _BTN_SIZES["md"])

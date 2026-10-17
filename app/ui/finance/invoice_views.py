@@ -18,11 +18,10 @@ from fasthtml.common import (
     Script,
     Span,
     Template,
-    Textarea,
 )
 from fasthtml.common import Input as FTInput
 
-from ui.components import Input, Select
+from ui.components import Input, Select, TextArea
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
@@ -313,12 +312,7 @@ class InvoiceViews:
                 # Notes
                 Div(
                     Label("Notes", cls="block text-sm font-medium text-muted-foreground mb-1"),
-                    Textarea(
-                        name="notes",
-                        placeholder="Optional notes...",
-                        rows=2,
-                        cls="w-full px-3 py-2 border border-border rounded-md text-sm",
-                    ),
+                    TextArea(name="notes", placeholder="Optional notes...", rows=2),
                     cls="mb-4",
                 ),
                 # Submit button

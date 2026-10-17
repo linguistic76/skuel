@@ -148,8 +148,9 @@ def ButtonLink(
     """A-element styled as a SKUEL button.
 
     Pass a ButtonT style variant as cls (e.g. ``cls=ButtonT.ghost``) and
-    use size= for geometry (``"xs"``, ``"sm"``, ``"md"``, ``"lg"``, ``"xl"``).
-    Tuple cls is accepted for backward compatibility during the M4 migration.
+    use size= for geometry (``"xs"``, ``"sm"``, ``"md"``, ``"lg"``, ``"xl"``,
+    ``"field"``) — the same sizes as ``Button``. A tuple cls composes a variant
+    with extra style classes.
     """
     size_cls = _BTN_SIZES.get(size, _BTN_SIZES["md"])
     return A(*c, href=href, cls=_cls(_BTN_BASE, size_cls, cls), **kwargs)

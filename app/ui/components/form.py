@@ -16,6 +16,7 @@ __all__ = [
     "Radio",
     "Range",
     "Select",
+    "COMPOSER_FOCUS_RING",
     "Switch",
     "TextArea",
 ]
@@ -46,6 +47,13 @@ _TEXTAREA_BASE = (
     "ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden "
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 "
     "disabled:cursor-not-allowed disabled:opacity-50"
+)
+
+# A chat composer is a raw, borderless textarea inside its own bordered box; the
+# box carries the focus ring while the textarea has keyboard focus.
+COMPOSER_FOCUS_RING = (
+    "ring-offset-background has-[textarea:focus-visible]:ring-2 "
+    "has-[textarea:focus-visible]:ring-ring has-[textarea:focus-visible]:ring-offset-2"
 )
 
 _LABEL_BASE = (

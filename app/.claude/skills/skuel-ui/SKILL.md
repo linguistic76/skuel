@@ -25,7 +25,7 @@ allowed-tools: Read, Grep, Glob
 **Why:** FrankenUI shipped UIkit JS that directly conflicted with Alpine.js (two competing DOM state machines). ADR-071 replaced MonsterUI with SKUEL-owned components so the interactivity model is coherent: Alpine.js + HTMX, nothing else.
 
 **Current state (ADR-071 complete — M1–M11 all done):** Import everything from `ui.components`:
-- `Button`, `ButtonT` — style via `cls=ButtonT.primary`, geometry via `size="sm"` kwarg
+- `Button`, `ButtonT` — style via `cls=ButtonT.primary`, geometry via `size="sm"` kwarg (`size="field"` beside an input or select: 44px on phones, 40px from `md`)
 - `Alert`, `AlertT`, `Loading`, `Progress`
 - `Icon` (Lucide, server-rendered inline SVG — no lucide runtime), full form set, table set, `Divider`, `Accordion`, layout helpers
 - Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`)

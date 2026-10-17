@@ -107,7 +107,7 @@ Primary action button. Pass style via `cls=ButtonT.X` (not `variant=`).
   - `ButtonT.secondary` - Gray background with border
   - `ButtonT.ghost` - Transparent with hover
   - `ButtonT.destructive` - Red for destructive actions
-- `size` - Geometry as a string: `"xs"` / `"sm"` / `"md"` (default) / `"lg"` / `"xl"`. Style (`cls`) and geometry (`size`) are separate kwargs and never collide.
+- `size` - Geometry as a string: `"xs"` / `"sm"` / `"md"` (default) / `"lg"` / `"xl"` / `"field"`. `"field"` is the field heights (`h-11 md:h-10` — 44px on phones, 40px from `md`) for a button beside an `Input` or `Select`. Style (`cls`) and geometry (`size`) are separate kwargs and never collide.
 - `**kwargs` - Additional attributes (type, disabled, hx_post, etc.)
 
 **Examples:**
@@ -135,7 +135,7 @@ Button-styled link for navigation. Lives in `ui/primitives.py`. Pure Tailwind �
 - `*c` - Link label
 - `href: str` - URL destination
 - `cls: ButtonT | str | tuple` - Button style variant (colour/border/hover). Use `ButtonT.*` style tokens.
-- `size: str` - Geometry: `"xs"`, `"sm"`, `"md"` (default), `"lg"`, `"xl"`
+- `size: str` - Geometry: `"xs"`, `"sm"`, `"md"` (default), `"lg"`, `"xl"`, `"field"`
 - `**kwargs` - Additional attributes (target, rel, download, x_show, etc.)
 
 **Variant/Size Convention:**
@@ -312,7 +312,9 @@ With `help_text` or `error_text` the field is wrapped in a `Div` with the hint.
 ### TextArea(*c, cls="", full_width=True, help_text=None, error_text=None, **kwargs)
 
 Multi-line text input (`min-h-[80px]`); same parameters as `Input` without `compact`.
-`ui.forms` also exports it as `Textarea`.
+`ui.forms` also exports it as `Textarea`. Height comes from `rows=`; `cls` is layout only.
+The chat composers are the one raw `Textarea` shape — borderless inside a box that carries
+`COMPOSER_FOCUS_RING` (exported by `ui.components`).
 
 ### Select(*options, cls="", full_width=True, help_text=None, error_text=None, compact=False, **kwargs)
 

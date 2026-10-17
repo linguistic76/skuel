@@ -22,14 +22,13 @@ from fasthtml.common import (
     NotStr,
     P,
     Span,
-    Textarea,
     Ul,
 )
 
 from core.utils.report_periods import UnknownReportPeriodError, resolve_report_period
 from core.utils.timestamp_helpers import instant_of, now_utc
 from core.utils.zone_context import current_zone
-from ui.components import Button, ButtonT, Card, CardBody
+from ui.components import Button, ButtonT, Card, CardBody, TextArea
 from ui.feedback import Badge, BadgeT, Progress, ProgressT
 from ui.layout import Size
 from ui.learning_loop.turn_in_label import TurnInNote
@@ -532,12 +531,11 @@ def render_activity_report_detail(
                     ),
                     cls="flex items-center mb-2",
                 ),
-                Textarea(
+                TextArea(
                     existing_text,
                     name="annotation_text",
                     rows="4",
                     placeholder="Write your notes here...",
-                    cls="w-full p-2 border border-border rounded-md text-sm bg-background",
                 ),
                 cls="mb-3",
             ),

@@ -386,7 +386,11 @@ SKUEL uses Python enums for type-safe component variants:
 geometry via the **`size=`** string kwarg. Its style members are `default`, `primary`,
 `secondary`, `ghost`, `destructive`, `link` (no `error`/`success`/`warning`/`accent`/`outline`);
 it also carries the size constants `xs`/`sm`/`lg`/`xl`, but prefer `size=` to composing them
-into `cls`.
+into `cls`. A button that stands in a row of fields takes `size="field"` — the field heights,
+44px on phones and 40px from `md` (`h-11 md:h-10`): the Explore and `/search` "More filters"
+toggles, Today's "Add task", the remove button of a feedback point. As with the fields, a
+caller's `cls` carries style only (colour, border, hover, `gap-*`, `shrink-0`) — never a
+second height, padding or text size.
 
 ```python
 # Primary action — cls=, not variant=
@@ -399,9 +403,12 @@ Button("Back", cls=ButtonT.secondary)
 # Destructive (was ButtonT.error)
 Button("Delete", cls=ButtonT.destructive)
 
-# With size (string: "xs" | "sm" | "md" | "lg" | "xl")
+# With size (string: "xs" | "sm" | "md" | "lg" | "xl" | "field")
 Button("Small", cls=ButtonT.primary, size="sm")
 Button("Large", cls=ButtonT.primary, size="lg")
+
+# Beside a field: the field heights (44px on phones, 40px from md)
+Button("More filters", cls=(ButtonT.ghost, "shrink-0"), size="field")
 
 # Bordered/outline style is the default variant
 Button("Outline", cls=ButtonT.default)
@@ -566,7 +573,20 @@ one. `tests/unit/ui/test_form_fields_use_components.py` fails on a raw `fasthtml
 `Input` / `Select` outside `ui/components/` — by name, by `*`, or as `fh.Input`.
 A raw `Input` of type `hidden`, `checkbox`, `radio` or `file` is exempt; its type
 must be a literal at the call (`Input(type="hidden", **attrs)`), never inside a
-spread dict. Raw `Textarea` is not guarded.
+spread dict.
+
+**Textareas are `TextArea`** (`min-h-[80px]`, the field look); `rows=` sets the height, and
+`cls` is layout only (`mt-1`, `resize-y`). The one raw `Textarea` shape is the chat composer
+(Askesis, the journal follow-up, the journal landing): a borderless textarea inside its own
+bordered box, which carries `COMPOSER_FOCUS_RING` from `ui.components` so keyboard focus is
+visible on the box. The guard does not scan textareas; the sites are pinned one by one in
+`tests/unit/ui/test_form_field_sites.py`.
+
+**A repeated row is a server `<template>`.** When a script adds rows (invoice line items, a
+teacher's feedback points), the server renders one row of the components inside a
+`<template>` with an index placeholder, and the script copies it and fills the index — the
+row's classes and options (e.g. the `FeedbackCategory` values) are never re-typed in JS.
+Template content is not part of the form, so the placeholder row never posts.
 
 ---
 

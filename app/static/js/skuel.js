@@ -2725,36 +2725,20 @@
         });
 
         // ====================================================================
-        // REVISION FORM — Dynamic feedback point rows for teacher review panel
+        // REVISION FORM — feedback point rows for the teacher review panel.
+        // The server renders one row in <template x-ref="fpRowTemplate"> (the
+        // field components, the FeedbackCategory options); addPoint() appends a
+        // copy with its __INDEX__ placeholder replaced by the next index.
+        // `added` is fp_count: rows added, removed ones included, so indices
+        // never repeat and the route skips the gaps.
         // ====================================================================
         Alpine.data('revisionForm', function() {
             return {
-                points: [],
-                categories: [
-                    { value: 'accuracy', label: 'Accuracy' },
-                    { value: 'completeness', label: 'Completeness' },
-                    { value: 'depth', label: 'Depth' },
-                    { value: 'clarity', label: 'Clarity' },
-                    { value: 'application', label: 'Application' },
-                    { value: 'methodology', label: 'Methodology' }
-                ],
+                added: 0,
                 addPoint: function() {
-                    var idx = this.points.length;
-                    this.points.push({ category: 'accuracy', detail: '' });
-                    var row = document.createElement('div');
-                    row.className = 'flex gap-2 mb-2 items-start';
-                    row.setAttribute('data-fp-idx', idx);
-                    row.innerHTML =
-                        '<select name="fp_category_' + idx + '" class="text-sm border rounded-sm px-2 py-1 w-36">' +
-                        this.categories.map(function(c) {
-                            return '<option value="' + c.value + '">' + c.label + '</option>';
-                        }).join('') +
-                        '</select>' +
-                        '<input type="text" name="fp_detail_' + idx + '" placeholder="Specific feedback..." ' +
-                        'class="text-sm border rounded-sm px-2 py-1 flex-1" required />' +
-                        '<button type="button" class="text-xs text-destructive hover:text-destructive/80 px-1" ' +
-                        'onclick="this.parentElement.remove()">✕</button>';
-                    this.$refs.fpRows.appendChild(row);
+                    var html = this.$refs.fpRowTemplate.innerHTML.replaceAll('__INDEX__', String(this.added));
+                    this.$refs.fpRows.insertAdjacentHTML('beforeend', html);
+                    this.added++;
                 }
             };
         });

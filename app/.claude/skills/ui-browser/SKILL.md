@@ -268,7 +268,7 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 | `alpineModal` | Dialog behaviour for the `AlpineModal` wrapper (mounted by it): focus in, Tab trap, focus restore | `modalShown`, `modalOpener` |
 | `insightFiltersDebounced(filters)` | Insight filter form, navigates on apply | `filters`, `loading` |
 | `exploreSearch(tag)` | Explore sidebar tag/text search | `query`, `activeTag`, `moreFilters` |
-| `revisionForm` | Revision feedback-point form | `points`, `categories` |
+| `revisionForm` | Revision feedback-point form: `addPoint()` copies the server `<template x-ref="fpRowTemplate">` row into `fpRows` | `added` (= `fp_count`) |
 | `batchTranscribe` | Admin batch transcription console | job/progress state |
 | `userFolderTranscribe` | User vault `je_in`→`je_out` transcription | job/progress state |
 | `submit(feedback, aiDisabled)` | Submit page: the feedback answer, the class select, the collapsed Share with, the uploader | `feedback`, `teacherGroup`, `shareOpen`, `file`, `sent` |

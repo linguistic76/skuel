@@ -17,7 +17,8 @@ from collections.abc import Callable
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
-from fasthtml.common import H1, H2, A, Button, Div, Form, Header, Main, P, Section, Span
+from fasthtml.common import H1, H2, A, Div, Form, Header, Main, P, Section, Span
+from fasthtml.common import Button as HtmlButton
 from fasthtml.common import Input as FTInput
 
 from core.models.event.calendar_models import CalendarItemType
@@ -25,7 +26,7 @@ from ui.activities._shared import ActivityList
 from ui.activities.events_views import EventCard
 from ui.activities.tasks_views import TaskCard
 from ui.calendar.components import DAY_KINDS, _event_chip, calendar_nav_cluster, create_kind_legend
-from ui.components import Icon, Input
+from ui.components import Button, Icon, Input
 from ui.patterns.empty_state import EmptyState
 from ui.today.orchestrator import moment_is_on_day
 
@@ -148,11 +149,8 @@ def _quick_add(view_date: date) -> FT:
             Icon("plus", size=15),
             "Add task",
             type="submit",
-            cls=(
-                "inline-flex items-center gap-1.5 h-11 md:h-10 px-4 rounded-md shrink-0 "
-                "bg-foreground text-background text-sm font-semibold "
-                "hover:opacity-90 focus:outline-hidden focus:shadow-focus"
-            ),
+            size="field",
+            cls="gap-1.5 shrink-0 bg-foreground text-background font-semibold hover:opacity-90",
         ),
         hx_post="/today/tasks/quick-add",
         hx_swap="none",
@@ -212,8 +210,8 @@ def _defer_form(task: Task, view_date: date, *, source: str) -> FT:
         FTInput(type="hidden", name="view_date", value=view_date.isoformat()),
         FTInput(type="hidden", name="source", value=source),
         Span("Defer", cls="text-11 text-muted-foreground/70"),
-        Button("1d", type="submit", name="span", value="1d", cls=button_cls),
-        Button("1w", type="submit", name="span", value="1w", cls=button_cls),
+        HtmlButton("1d", type="submit", name="span", value="1d", cls=button_cls),
+        HtmlButton("1w", type="submit", name="span", value="1w", cls=button_cls),
         # The route's refusals are actionable text in a 400 body ("would pass the
         # deadline", "no longer on this day's lens"), which HTMX never swaps. Show
         # it beside the buttons instead of letting the click look inert.

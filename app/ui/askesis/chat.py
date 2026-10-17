@@ -13,7 +13,7 @@ from fasthtml.common import Button, Div, Form, Option, P, Span, Template, Textar
 from fasthtml.common import Input as FTInput
 
 from ui.canon import CanonSourcesBlock
-from ui.components import Icon, Input, Select
+from ui.components import COMPOSER_FOCUS_RING, Icon, Input, Select
 
 if TYPE_CHECKING:
     from core.services.canon import CanonSource
@@ -593,10 +593,13 @@ def _composer_form(
         # Hidden fields carry the active scope with every submit (bound to root state).
         FTInput(type="hidden", name="nous", **nous_attrs),
         FTInput(type="hidden", name="nous_subtopic", **{":value": "selectedNousSubtopic"}),
+        # Raw by design: the composer is borderless inside the form's box, which
+        # carries the border and the focus ring.
         Textarea(
             # Server-rendered prefill for the handoff question (empty otherwise).
             initial_question,
             placeholder="Ask about your learning…",
+            aria_label="Ask about your learning",
             name="message",
             rows=1,
             cls="w-full border-none outline-hidden bg-transparent resize-none text-15 leading-[1.6] text-foreground placeholder:text-muted-foreground",
@@ -620,7 +623,10 @@ def _composer_form(
             ),
             cls="flex items-end justify-between gap-2 mt-2",
         ),
-        cls="border border-border rounded-[25px] px-[18px] pt-[9px] pb-[9px] bg-background shadow-md",
+        cls=(
+            "border border-border rounded-[25px] px-[18px] pt-[9px] pb-[9px] bg-background "
+            f"shadow-md {COMPOSER_FOCUS_RING}"
+        ),
         hx_post="/askesis/api/submit",
         hx_target="#thread-messages",
         hx_swap="beforeend",

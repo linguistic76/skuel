@@ -15,6 +15,7 @@ from ui.components.card import Card, CardBody, CardFooter, CardHeader, CardTitle
 from ui.components.divider import Divider, DividerLine, DividerSplit, DividerT
 from ui.components.feedback import Alert, AlertT, Loading, Progress
 from ui.components.form import (
+    COMPOSER_FOCUS_RING,
     Checkbox,
     Input,
     Label,
@@ -78,6 +79,7 @@ __all__ = [
     "Select",
     "Switch",
     "TextArea",
+    "COMPOSER_FOCUS_RING",
     # Icon
     "Icon",
     # Layout

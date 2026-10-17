@@ -12,13 +12,22 @@ from fasthtml.common import (
     Option,
     P,
     Span,
-    Textarea,
 )
+from fasthtml.common import Textarea as FTTextarea
 
 from core.services.chat import DEFAULT_CHAT_MODEL
 from ui.canon import CanonSourcesBlock
+from ui.components import (
+    COMPOSER_FOCUS_RING,
+    ButtonT,
+    Card,
+    CardBody,
+    CardHeader,
+    CardTitle,
+    Select,
+    TextArea,
+)
 from ui.components import Button as StyledButton
-from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle, Select
 
 
 def ModelControl(model: str, model_options: list[tuple[str, str]] | None) -> Any:
@@ -291,11 +300,14 @@ def _Composer(
         # the DNWF door (no picker); a visible <select> on the typed discussion.
         *((ModelControl(model, model_options),) if not model_options else ()),
         Div(
-            Textarea(
+            # Raw by design: the composer is borderless inside its own box, which
+            # carries the border and the focus ring.
+            FTTextarea(
                 placeholder="Follow up on this response…",
                 name="user_reply",
                 rows="3",
                 required=True,
+                aria_label="Follow up on this response",
                 cls=(
                     "w-full border-none outline-hidden bg-transparent resize-none"
                     " text-15 leading-[1.6] text-foreground"
@@ -376,7 +388,10 @@ def _Composer(
                 ),
                 cls="flex items-center justify-between gap-3 mt-2",
             ),
-            cls=("border border-border rounded-[25px] px-[18px] pt-3 pb-3 bg-background shadow-xs"),
+            cls=(
+                "border border-border rounded-[25px] px-[18px] pt-3 pb-3 bg-background shadow-xs "
+                f"{COMPOSER_FOCUS_RING}"
+            ),
         ),
         id="journal-composer",
         hx_post="/journals/follow-up",
@@ -901,16 +916,12 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
         Div(
             P(title or "Note", cls="text-xl font-bold text-foreground mb-4"),
             Form(
-                Textarea(
+                TextArea(
                     content,
                     name="content",
                     placeholder="Write your note for this period…",
                     rows="18",
-                    cls=(
-                        "w-full border border-border rounded-[16px] px-[18px] py-4"
-                        " bg-background text-15 leading-[1.7] text-foreground"
-                        " resize-y outline-hidden focus:border-foreground/30"
-                    ),
+                    cls="resize-y",
                 ),
                 Div(
                     P("", id="note-save-status", cls="text-13 text-green-600"),
@@ -1077,11 +1088,11 @@ def _ReviewGate(
         *hidden_inputs,
         Div(
             Label("Review notes", cls="text-sm font-medium"),
-            Textarea(
+            TextArea(
                 name="review_notes",
                 placeholder=review_placeholder,
                 rows="4",
-                cls="w-full mt-1 text-sm resize-y",
+                cls="mt-1 resize-y",
             ),
             cls="mb-4",
         ),

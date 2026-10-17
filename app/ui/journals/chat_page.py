@@ -768,16 +768,20 @@ def _landing_text_form(
 ) -> Any:
     from fasthtml.common import Form, Textarea
 
+    from ui.components import COMPOSER_FOCUS_RING
     from ui.journals import ModelControl
 
     return Div(
         Form(
             Div(
+                # Raw by design: the composer is borderless inside its own box, which
+                # carries the border and the focus ring.
                 Textarea(
                     name="raw_entry",
                     placeholder="What's on your mind?",
                     rows="5",
                     required=True,
+                    aria_label="What's on your mind?",
                     cls=(
                         "w-full border-none outline-hidden bg-transparent resize-none"
                         " text-15 leading-[1.6] text-foreground"
@@ -803,7 +807,7 @@ def _landing_text_form(
                 _landing_source_panel(shelf_books) if is_founder else None,
                 cls=(
                     "border border-border rounded-[20px] px-[18px] pt-4 pb-3"
-                    " bg-background shadow-xs"
+                    f" bg-background shadow-xs {COMPOSER_FOCUS_RING}"
                 ),
             ),
             P(
