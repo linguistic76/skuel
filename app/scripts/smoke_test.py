@@ -120,6 +120,7 @@ _REGISTRY_COMPONENTS = (
     "bulkInsightManager",
     "relationshipGraph('uid', 'tasks', 1)",
     "domainFilter",
+    "alpineModal",
     "insightDetailModal('i1')",
     "insightFiltersDebounced({})",
     "offlineIndicator",

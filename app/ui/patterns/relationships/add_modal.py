@@ -140,7 +140,7 @@ def AddRelationshipModal(entity_uid: str, entity_type: str) -> Div:
     )
 
     modal = AlpineModal(
-        H3("Add relationship", cls="text-lg font-bold mb-4"),
+        H3("Add relationship", id=f"add-rel-title-{entity_uid}", cls="text-lg font-bold mb-4"),
         LabelSelect(
             *[Option(label, value=value) for value, _seg, label in _LATERAL_FORMS],
             label="Relationship type",
@@ -166,6 +166,7 @@ def AddRelationshipModal(entity_uid: str, entity_type: str) -> Div:
         ),
         show="open",
         close="open = false",
+        title_id=f"add-rel-title-{entity_uid}",
         max_width="max-w-lg",
         # The alternatives sub-form carries five fields — tall enough to exceed
         # a phone's visual viewport once the on-screen keyboard opens. Without

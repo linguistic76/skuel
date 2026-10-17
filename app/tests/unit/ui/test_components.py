@@ -7,6 +7,7 @@ not as exact string equality, so minor whitespace differences don't break tests.
 
 from __future__ import annotations
 
+import pytest
 from fasthtml.common import Div, to_xml
 
 from ui.components._util import _cls
@@ -319,9 +320,22 @@ class TestAlert:
     def test_renders_without_error(self) -> None:
         assert Alert("message") is not None
 
-    def test_role_alert(self) -> None:
-        xml = to_xml(Alert("x"))
-        assert 'role="alert"' in xml
+    @pytest.mark.parametrize(
+        ("variant", "role"),
+        [
+            (AlertT.error, "alert"),
+            (AlertT.warning, "alert"),
+            (AlertT.info, "status"),
+            (AlertT.success, "status"),
+        ],
+    )
+    def test_role_follows_the_variant(self, variant: AlertT, role: str) -> None:
+        xml = to_xml(Alert("x", variant=variant))
+        assert f'role="{role}"' in xml
+        assert "aria-live" not in xml
+
+    def test_default_info_variant_is_a_status(self) -> None:
+        assert 'role="status"' in to_xml(Alert("x"))
 
     def test_default_info_variant(self) -> None:
         xml = to_xml(Alert("x"))

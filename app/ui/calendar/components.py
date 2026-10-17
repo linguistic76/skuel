@@ -1091,7 +1091,7 @@ def create_item_details_modal(item: CalendarItem) -> Div:
             )
         if occurrence_day is not None:
             habit_lines.append(habit_day_state_line(occurrence_done))
-        habit_info = Div(*habit_lines, cls="bg-success/10 p-4 rounded-lg mb-4")
+        habit_info = Div(*habit_lines, cls="bg-success/5 p-4 rounded-lg mb-4")
 
     # Tags
     tags_section = None
@@ -1167,13 +1167,14 @@ def create_item_details_modal(item: CalendarItem) -> Div:
                 Div(type_dot, type_pill, cls="flex items-center gap-2.5"),
                 Button(
                     Icon("x", cls="w-5 h-5"),
+                    aria_label="Close",
                     cls=(ButtonT.ghost, "text-muted-foreground hover:text-foreground"),
                     size="sm",
                     **{"x-on:click": close_expr},  # fasthtml dynamic-attr splat
                 ),
                 cls="flex justify-between items-start gap-3 mb-3",
             ),
-            H2(item.title, cls="text-2xl font-bold leading-tight mb-4"),
+            H2(item.title, id="item-details-title", cls="text-2xl font-bold leading-tight mb-4"),
             # Schedule
             Div(
                 P(
@@ -1192,6 +1193,7 @@ def create_item_details_modal(item: CalendarItem) -> Div:
             Div(*action_buttons, cls="flex pt-4 border-t border-border"),
             show="open",
             close=close_expr,
+            title_id="item-details-title",
             max_width="max-w-2xl",
             scrollable=True,
         ),

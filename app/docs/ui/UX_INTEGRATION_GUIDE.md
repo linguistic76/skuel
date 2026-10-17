@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-29
+updated: 2026-10-17
 ---
 
 # UX Improvements Integration Guide
@@ -188,9 +188,10 @@ Div(
 
 ### Use the shared AlpineModal wrapper
 
-Do not hand-roll the backdrop, transition and click-out on every modal — use
-`AlpineModal` from `ui/patterns/modal.py`. State stays yours; the wrapper owns
-the chrome.
+Do not hand-roll the backdrop, transition, click-out or dialog behaviour on
+every modal — use `AlpineModal` from `ui/patterns/modal.py`. State stays yours;
+the wrapper owns the chrome and the dialog semantics. Give your heading an id
+and pass it as `title_id`.
 
 ```python
 from ui.patterns.modal import AlpineModal
@@ -198,10 +199,11 @@ from ui.patterns.modal import AlpineModal
 Div(
     Button("Open", **{"@click": "isOpen = true"}),
     AlpineModal(
-        # Modal content
+        H3("Details", id="details-title"),
         Button("Close", **{"@click": "isOpen = false"}),
         show="isOpen",
         close="isOpen = false",
+        title_id="details-title",
     ),
     **{"x-data": "{ isOpen: false }"},
 )
@@ -213,25 +215,26 @@ worked example in `skuel.js`.
 
 ### Focus trapping
 
-`AlpineModal` does **not** trap focus, and the tree ships no focus-trap
-utility: no modal wires one, and a capability nothing calls is deleted, not
-kept for a hypothetical caller. A modal that must trap focus —
-keeping Tab inside the dialog, restoring focus on close, closing on Escape —
-adds that behaviour in the change that needs it, as an Alpine component
-registered in `static/js/skuel.js` (UI state belongs to Alpine), with these
-constraints, each a way a trap goes wrong against this component:
+`AlpineModal` traps focus. The wrapper mounts the shared `alpineModal`
+component (`static/js/skuel.js`) beside the caller's state, and it keeps Tab
+inside the dialog, restores focus on close and lets Escape close it. Four
+constraints shaped it, and any change to it keeps them:
 
-1. **Resolve the element by `id`.** `AlpineModal` accepts `id` but emits no
-   `x-ref`, so there is no `$refs` entry.
-2. **Activate after the modal is visible.** `x-show` has not revealed the
-   subtree on the same tick (`$nextTick`), and a trap over a hidden subtree
-   finds nothing focusable.
-3. **Route every dismissal through one path.** `AlpineModal` uses its `close`
-   expression for click-out, so `close="isOpen = false"` would hide the modal
-   without releasing the trap — leaving it intercepting Tab against an
-   invisible element.
-4. **Escape closes the modal.** A trap that releases itself on Escape and
-   leaves the modal open is the opposite of the checklist above.
+1. **The dialog is found from the component root**, not by `$refs` —
+   `AlpineModal` emits no `x-ref`, and a caller may pass its own `id`.
+2. **Focus moves only once the modal is displayed.** Alpine reveals `x-show`
+   a frame after the state flips, and a browser ignores `focus()` on a hidden
+   element; the component waits for the wrapper to be displayed.
+3. **Every dismissal runs one path.** Click-out and Escape both run the
+   caller's `close` expression, and the component watches the `show`
+   expression itself (`x-effect`), so however the modal closes, focus returns.
+4. **Escape closes the modal**, handled on the dialog, where focus stays while
+   it is open, so no window listener runs while the modal is shut. A control inside that
+   uses Escape itself — the entity picker's list — stops the event only while
+   it is using it.
+
+Pinned by `tests/js/alpine-modal.test.js` (vendored Alpine, jsdom) and
+`tests/unit/ui/test_alpine_modal_markup.py`.
 
 ---
 
@@ -465,7 +468,8 @@ Always use the shared wrapper, with the state declared on the parent:
 from ui.patterns.modal import AlpineModal
 
 Div(
-    AlpineModal(*content, show="isOpen", close="isOpen = false"),
+    AlpineModal(H3(title, id="my-title"), *content, show="isOpen",
+                close="isOpen = false", title_id="my-title"),
     **{"x-data": "{ isOpen: false }"},
 )
 ```

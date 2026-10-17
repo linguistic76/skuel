@@ -294,7 +294,7 @@ def _readiness_banner(report: KnowledgeHealthReport) -> Any:
     ready = report["gds_ready"]
     badge_text = "GDS-ready" if ready else "Building density"
     badge_cls = (
-        "bg-success/15 text-success" if ready else "bg-warning/15 text-warning"
+        "bg-green-100 text-green-800" if ready else "bg-yellow-100 text-yellow-800"
     ) + " text-sm font-medium px-3 py-1 rounded-full"
     bar_cls = ("bg-success" if ready else "bg-warning") + " h-3 rounded-full"
 

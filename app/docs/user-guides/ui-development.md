@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-04
+updated: 2026-10-17
 ---
 
 # UI Development Guide
@@ -330,27 +330,23 @@ P("Very long text that overflows...", cls="line-clamp-2")
 
 ### Modals (Alpine.js + Tailwind)
 
-Prefer the canonical **`AlpineModal`** helper in `ui/patterns/modal.py` (pure Tailwind +
-Alpine, built to avoid the old UIkit conflict). Drop to a raw `Div` only for one-off shapes:
+Use the canonical **`AlpineModal`** helper in `ui/patterns/modal.py` (pure Tailwind +
+Alpine, built to avoid the old UIkit conflict). Don't hand-roll a `fixed inset-0` overlay:
+the wrapper is what gives a modal its dialog role, focus handling and Escape.
 
 ```python
-# Alpine.js modal — plain Div with Tailwind + x-show (when AlpineModal doesn't fit)
-Div(
+AlpineModal(
+    H3("Delete Task?", id="delete-task-title", cls="font-bold text-lg"),
+    P("This action cannot be undone.", cls="py-4"),
     Div(
-        H3("Delete Task?", cls="font-bold text-lg"),
-        P("This action cannot be undone.", cls="py-4"),
-        Div(
-            Button("Cancel", cls=ButtonT.ghost, **{"@click": "showModal = false"}),
-            Button("Delete", cls=ButtonT.destructive, hx_delete="/api/tasks/123"),
-            cls="flex justify-end gap-2",
-        ),
-        cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
-        **{"@click.stop": ""},
+        Button("Cancel", cls=ButtonT.ghost, **{"@click": "showModal = false"}),
+        Button("Delete", cls=ButtonT.destructive, hx_delete="/api/tasks/123"),
+        cls="flex justify-end gap-2",
     ),
-    cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
-    **{"@click": "showModal = false"},
-    x_show="showModal",
-    x_cloak=True,
+    show="showModal",
+    close="showModal = false",
+    title_id="delete-task-title",
+    max_width="max-w-lg",
 )
 ```
 
@@ -793,9 +789,10 @@ One-off state that lives and dies with a single element does not need a register
 <!-- alpine-registry:end -->
 
 **Modals are not in this table.** Use the `AlpineModal` FastHTML wrapper
-(`ui/patterns/modal.py`) — it renders the backdrop, transitions and click-out
-for you and takes plain Alpine expressions. The modal's *state* is whatever
-component wraps it, often an inline `{ isOpen: false }`.
+(`ui/patterns/modal.py`) — it renders the backdrop, transitions, click-out and
+the dialog behaviour (through `alpineModal`, Tier 2) and takes plain Alpine
+expressions. The modal's *state* is whatever component wraps it, often an
+inline `{ isOpen: false }`.
 
 **Button loading state is not in this table either.** It is HTMX-native: point
 `hx_indicator` at an element carrying the `htmx-indicator` class. Reach for
@@ -809,7 +806,7 @@ from ui.patterns.modal import AlpineModal
 Div(
     Button("Delete…", **{"@click": "isOpen = true"}),
     AlpineModal(
-        H3("Delete?"),
+        H3("Delete?", id="delete-item-title"),
         P("This cannot be undone."),
         Div(
             Button("Cancel", cls=ButtonT.ghost, **{"@click": "isOpen = false"}),
@@ -818,15 +815,18 @@ Div(
         ),
         show="isOpen",
         close="isOpen = false",
+        title_id="delete-item-title",
         max_width="max-w-lg",
     ),
     **{"x-data": "{ isOpen: false }"},
 )
 ```
 
-`AlpineModal` owns the backdrop, the `x-transition`, the `x-cloak` and the
-click-out-to-close — pass `show`/`close` as Alpine expressions and it wires the
-rest. When the modal needs behaviour beyond a boolean (lazy-loading its body,
+`AlpineModal` owns the backdrop, the `x-transition`, the `x-cloak`, the
+click-out-to-close and the dialog behaviour — `role="dialog"` + `aria-modal`
+named by `title_id` (the id of your heading), focus moved in, trapped and
+returned to the opener, Escape running `close`. Pass `show`/`close` as Alpine
+expressions and it wires the rest. When the modal needs behaviour beyond a boolean (lazy-loading its body,
 for instance), back it with a registry component and pass `close="close()"`;
 `insightDetailModal(uid)` is the worked example in `skuel.js`.
 
@@ -843,6 +843,7 @@ These are purpose-built for specific features. Check `skuel.js` for their full A
 | `relationshipGraph` | Vis.js lateral relationship graphs |
 | `exploreGraph`, `exploreSearch` | Explore sidebar — graph + tag/text search |
 | `entityPicker` | Searchable cross-domain UID picker (pairs with `EntityPicker`) |
+| `alpineModal` | Dialog behaviour mounted by the `AlpineModal` wrapper — never written by hand |
 | `bulkInsightManager`, `insightDetailModal`, `insightFiltersDebounced` | Insight cards |
 | `revisionForm` | Revision feedback points |
 | `submit`, `batchTranscribe`, `userFolderTranscribe` | Submission + transcription surfaces |
@@ -850,13 +851,13 @@ These are purpose-built for specific features. Check `skuel.js` for their full A
 
 <!-- alpine-registry:end -->
 
-Tier 1 and Tier 2 together are the complete **shared** registry — the 22
-components in `skuel.js`. Both tables are machine-checked by
+Tier 1 and Tier 2 together are the complete **shared** registry — every
+component `skuel.js` registers. Both tables are machine-checked by
 `tests/unit/docs/test_alpine_docs_registry.py`; a component deleted from
 `skuel.js` fails the build until these rows follow.
 
-Four more components live in page-local bundles rather than `skuel.js`, loaded
-only by their own routes, for 26 in total. They are enumerated once — in
+More components live in page-local bundles rather than `skuel.js`, loaded
+only by their own routes. They are enumerated once — in
 [ALPINE_JS_ARCHITECTURE.md § Available Components](../architecture/ALPINE_JS_ARCHITECTURE.md#available-components),
 which is machine-checked — so this guide does not repeat the list. Add to
 `skuel.js` when more than one page needs the component; otherwise keep it

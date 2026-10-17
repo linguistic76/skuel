@@ -290,13 +290,18 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
         # Close button
         Button(
             "✕",
+            aria_label="Close",
             cls=(ButtonT.ghost, "rounded-full absolute right-2 top-2"),
             size="sm",
             **{"x-on:click": "close()"},  # fasthtml dynamic-attr splat
         ),
         # Modal header
         Div(
-            H3(insight.title, cls="text-2xl font-bold text-foreground"),
+            H3(
+                insight.title,
+                id=f"insight-{insight.uid}-title",
+                cls="text-2xl font-bold text-foreground",
+            ),
             Div(
                 Badge(
                     insight.impact.value.upper(),
@@ -374,6 +379,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
         ),
         show="isOpen",
         close="close()",
+        title_id=f"insight-{insight.uid}-title",
         max_width="max-w-2xl",
         scrollable=True,
     )

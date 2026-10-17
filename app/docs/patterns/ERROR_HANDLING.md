@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-10-11
+updated: 2026-10-17
 category: patterns
 related_skills:
 - result-pattern
@@ -228,7 +228,7 @@ beside it is the one-line form for a form field or a small HTMX fragment.
 
 **Components:** `render_error_banner()`, `render_inline_error()` from `ui/patterns/error_banner.py`; `EmptyState` from `ui/patterns/empty_state.py`.
 
-**Pattern:** Full-page errors use `render_error_banner()`. HTMX fragment errors use `render_inline_error()` (compact, with `role="alert"` + `aria-live="polite"` for WCAG). Empty data states use `EmptyState()`.
+**Pattern:** Full-page errors use `render_error_banner()`. HTMX fragment errors use `render_inline_error()` (compact, with `role="alert"` for WCAG). Empty data states use `EmptyState()`.
 
 **Activity dashboards and detail pages are factory-generated** (`adapters/inbound/activity_ui_factory.py`): fetch + Result propagation and the not-found path (`render_error_banner()` inside the generated fragment) are centralized in `create_activity_ui_routes()` — routes never hand-roll them. (The former `ui_helpers.py` shared-helper module in `adapters/inbound/` was deleted 2026-08 once the factory left it with zero consumers.)
 

@@ -325,13 +325,13 @@ Div(
 
 ### Modal — AlpineModal
 
-Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop, click-outside-to-close, transitions, and `x-cloak`.
+Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop, click-outside-to-close, `x-cloak`, transitions, and the dialog behaviour (`role="dialog"` + `aria-modal`, named by `title_id`; focus moved in, trapped and restored; Escape closes). The open state stays in your `x-data`; the wrapper mounts the shared `alpineModal` component beside it.
 
 ```python
 from ui.patterns.modal import AlpineModal
 
 AlpineModal(
-    H3("Confirm Action", cls="font-bold text-lg"),
+    H3("Confirm Action", id="confirm-title", cls="font-bold text-lg"),
     P("Are you sure?"),
     Div(
         Button("Cancel", cls=ButtonT.ghost, **{"@click": "open = false"}),
@@ -340,12 +340,13 @@ AlpineModal(
     ),
     show="open",              # Alpine.js expression for visibility
     close="open = false",     # Alpine.js expression to close
+    title_id="confirm-title", # id of the heading that names the dialog
     max_width="max-w-lg",     # Tailwind max-width class
     scrollable=False,         # Set True for tall content (max-h-[80vh])
 )
 ```
 
-Adopted in: calendar components, sharing modal, insight card modal.
+Adopted in: calendar (item details, not found), teaching new group, gradebook share panel, insight card, add relationship.
 
 ### Collapsible Section
 

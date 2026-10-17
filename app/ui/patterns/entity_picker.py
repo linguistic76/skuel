@@ -170,6 +170,6 @@ def EntityPicker(
         **{
             "x-data": "entityPicker",
             "x-on:click.outside": "open = false",
-            "x-on:keydown.escape": "open = false",
+            "x-on:keydown.escape": "if (open) { open = false; $event.stopPropagation() }",
         },
     )

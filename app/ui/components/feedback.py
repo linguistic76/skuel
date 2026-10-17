@@ -22,6 +22,15 @@ _ALERT_CLASSES: dict[str, str] = {
     "error": "bg-red-50 border-red-200 text-red-800",
 }
 
+# An error or warning interrupts (role="alert", implicitly assertive); an info or
+# success message waits its turn (role="status", implicitly polite).
+_ALERT_ROLES: dict[str, str] = {
+    "info": "status",
+    "success": "status",
+    "warning": "alert",
+    "error": "alert",
+}
+
 # CSS-only spinner — no DaisyUI dependency.
 _LOADING_BASE = (
     "inline-block animate-spin rounded-full border-2 border-current border-t-transparent"
@@ -40,6 +49,9 @@ def Alert(
 ) -> Any:  # boundary: fasthtml-elements
     """Semantic alert box with icon-and-text layout.
 
+    The live-region role follows the variant: an error or warning is
+    ``role="alert"``, an info or success message ``role="status"``.
+
     Args:
         *c: Alert content (text, icons, etc.)
         variant: Visual style — info, success, warning, or error.
@@ -50,7 +62,7 @@ def Alert(
     return Div(
         *c,
         cls=_cls("flex items-start gap-3 rounded-lg border p-4 text-sm", color_cls, cls),
-        role="alert",
+        role=_ALERT_ROLES.get(str(variant), "status"),
         **kwargs,
     )
 

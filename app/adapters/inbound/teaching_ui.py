@@ -129,7 +129,7 @@ def _new_group_modal() -> Any:
     )
 
     form = Form(
-        H3("New Group", cls="text-xl font-bold mb-4"),
+        H3("New Group", id="new-group-title", cls="text-xl font-bold mb-4"),
         Div(id="new-group-status", cls="text-sm text-destructive mb-2"),
         LabelInput(
             "Name",
@@ -172,7 +172,9 @@ def _new_group_modal() -> Any:
         cls="space-y-4",
     )
 
-    return AlpineModal(form, show="open", close="open = false", max_width="max-w-lg")
+    return AlpineModal(
+        form, show="open", close="open = false", title_id="new-group-title", max_width="max-w-lg"
+    )
 
 
 # ============================================================================

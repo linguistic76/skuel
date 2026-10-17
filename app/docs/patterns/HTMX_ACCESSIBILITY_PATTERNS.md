@@ -1,6 +1,6 @@
 ---
 title: HTMX Accessibility Patterns
-updated: '2026-09-21'
+updated: '2026-10-17'
 category: patterns
 related_skills:
 - accessibility-guide
@@ -143,16 +143,17 @@ document.getElementById('live-region').textContent;
 Use direct ARIA attributes for static content (not HTMX-triggered):
 
 ```python
-# Error messages that appear dynamically
-Div(
-    P("Something went wrong"),
-    **{"aria-live": "polite"},
-)
-
-# Critical alerts (immediate)
+# Errors and critical alerts — role="alert" is implicitly assertive; never add an
+# aria-live beside a role, it contradicts the role's own politeness
 Div(
     P("Session expired"),
-    **{"aria-live": "assertive", "role": "alert"},
+    role="alert",
+)
+
+# Non-critical status that appears dynamically — role="status" is implicitly polite
+Div(
+    P("Saved"),
+    role="status",
 )
 
 # Busy states
@@ -229,4 +230,4 @@ document.getElementById('live-region').textContent;
 
 - **JavaScript:** `/static/js/skuel.js` — HTMX event handlers + `window.SKUEL.announce()`
 - **Live Region:** `/ui/layouts/base_page.py` — `#live-region` aria live region
-- **Error Banners:** `/ui/patterns/error_banner.py` — Static `aria-live` usage example
+- **Error Banners:** `/ui/patterns/error_banner.py` — `role="alert"` banners (the role comes from `Alert`, which follows the variant)
