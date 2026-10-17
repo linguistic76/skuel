@@ -36,10 +36,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span
+from fasthtml.common import Button, Div, Form, Option, P, Span
+from fasthtml.common import Input as FTInput
 
 from core.models.user_entry.audience import GROUP_PREFIX, PUBLIC, USER_PREFIX
-from ui.components import Icon
+from ui.components import Checkbox, Icon, Input, Select
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.share_panel import AudienceCheckbox
 from ui.layout import Size
@@ -162,11 +163,8 @@ def _feedback_question(*, has_exercise: bool, teacher_groups: Sequence[tuple[str
                 Option("All my teachers", value=ALL_MY_TEACHERS),
                 *[Option(name, value=uid) for uid, name in teacher_groups],
                 name="teacher_group",
-                cls=(
-                    "w-full px-3 py-2 border border-border rounded-[9px] bg-card text-sm "
-                    "text-foreground"
-                ),
-                **{"x-model": "teacherGroup"},
+                aria_label="Which class?",
+                x_model="teacherGroup",
             ),
             cls="mt-3",
             **{"x-show": f"feedback === '{FEEDBACK_TEACHER}'"},
@@ -213,17 +211,13 @@ def _share_question(targets: ShareTargets | None, *, portfolio_mode: str) -> FT:
     if not rows:
         rows.append(P(_NOBODY_TO_SHARE_WITH, cls="text-sm text-muted-foreground mb-4"))
 
-    portfolio_attrs: dict[str, object] = {
-        "type": "checkbox",
-        "name": "audience",
-        "value": PUBLIC,
-        "id": "share-public",
-        "cls": "h-4 w-4 rounded-sm border-input",
-    }
-    if portfolio_mode != "active":
-        portfolio_attrs["disabled"] = True
     portfolio_row = Div(
-        Input(**portfolio_attrs),
+        Checkbox(
+            name="audience",
+            value=PUBLIC,
+            id="share-public",
+            disabled=portfolio_mode != "active",
+        ),
         Span(
             Span("Portfolio", cls="text-sm ml-2"),
             Span(" — appears on your public profile", cls="text-sm text-muted-foreground"),
@@ -295,10 +289,10 @@ def render_upload_form(
         # who responds — responder (teacher/LLM/nobody) and audience are
         # orthogonal axes.
         hidden_fields.append(
-            Input(type="hidden", name="fulfills_exercise_uid", value=selected_exercise_uid)
+            FTInput(type="hidden", name="fulfills_exercise_uid", value=selected_exercise_uid)
         )
     if from_ps:
-        hidden_fields.append(Input(type="hidden", name="about_path_step_uid", value=from_ps))
+        hidden_fields.append(FTInput(type="hidden", name="about_path_step_uid", value=from_ps))
 
     exercise_note: FT | None = None
     if has_exercise:
@@ -319,10 +313,7 @@ def render_upload_form(
                 if has_exercise and exercise_title
                 else "Leave empty to use the file name"
             ),
-            cls=(
-                "w-full px-3 py-2 border border-border rounded-[9px] bg-card text-sm "
-                "text-foreground placeholder:text-slate-400"
-            ),
+            aria_label="Title",
         ),
         cls="mb-6",
     )
@@ -407,13 +398,13 @@ def render_upload_form(
                 # Alpine feedback state; the share checkboxes add their own
                 # ``audience`` values. Disabled when no teacher is asked, so
                 # the field is absent rather than empty.
-                Input(type="hidden", name="pipeline", **{"x-bind:value": "pipeline"}),
-                Input(
+                FTInput(type="hidden", name="pipeline", **{"x-bind:value": "pipeline"}),
+                FTInput(
                     type="hidden",
                     name="audience",
                     **{"x-bind:value": "feedbackAudience", "x-bind:disabled": "!feedbackAudience"},
                 ),
-                Input(
+                FTInput(
                     type="file",
                     name="file",
                     accept="audio/*,text/*,.pdf,application/pdf,image/*,video/*",

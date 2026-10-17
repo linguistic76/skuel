@@ -115,7 +115,7 @@ class AdminUIComponents:
                     ],
                     name="role",
                     full_width=False,
-                    **{"aria-label": "Role"},
+                    aria_label="Role",
                 ),
                 Button(
                     "Save role",

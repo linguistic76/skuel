@@ -161,7 +161,7 @@ def render_batch_transcription_panel(
                         type="checkbox",
                         id="skip-existing",
                         full_width=False,
-                        **{"x-model": "skipExisting"},
+                        x_model="skipExisting",
                     ),
                     Span("Skip files already transcribed", cls="ml-2"),
                     cls="flex items-center mb-3",

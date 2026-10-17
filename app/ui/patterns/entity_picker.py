@@ -98,7 +98,6 @@ def EntityPicker(
     placeholder = f"Search for a {_TARGET_TYPE_LABELS[target_type]}..."
 
     hidden_attrs: dict[str, Any] = {
-        "type": "hidden",
         "name": name,
         "value": value or "",
         "x-ref": "hidden",
@@ -116,16 +115,16 @@ def EntityPicker(
         hx_trigger="focus once, keyup changed delay:200ms",
         hx_target=f"#{results_id}",
         hx_vals="js:{q: this.value}",
-        **{
-            "x-ref": "search",
+        x_ref="search",
+        aria_autocomplete="list",
+        aria_controls=results_id,
+        aria_expanded="false",
+        role="combobox",
+        **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             "x-on:focus": "onFocus()",
             "x-on:keydown": "onKeydown($event)",
             "x-on:input": "onInput()",
-            "aria-autocomplete": "list",
-            "aria-controls": results_id,
-            "aria-expanded": "false",
             ":aria-expanded": "open ? 'true' : 'false'",
-            "role": "combobox",
         },
     )
 
@@ -162,7 +161,7 @@ def EntityPicker(
     )
 
     return Div(
-        FTInput(**hidden_attrs),
+        FTInput(type="hidden", **hidden_attrs),
         search_input,
         clear_button,
         results_panel,

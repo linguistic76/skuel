@@ -13,14 +13,14 @@ from fasthtml.common import (
     Button,
     Div,
     Form,
-    Input,
     Label,
     Option,
-    Select,
     Span,
     Textarea,
 )
+from fasthtml.common import Input as FTInput
 
+from ui.components import Input, Select
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
@@ -97,7 +97,7 @@ class InvoiceViews:
                     Option("All Types", value=""),
                     Option("Outgoing (To Clients)", value="outgoing"),
                     Option("Incoming (From Vendors)", value="incoming"),
-                    cls="mt-1 block w-full rounded-md border-border bg-background px-3 py-2 text-sm",
+                    cls="mt-1",
                     name="type",
                     hx_get="/finance/invoices",
                     hx_target="#invoice-list",
@@ -116,7 +116,7 @@ class InvoiceViews:
                     Option("Pending", value="pending"),
                     Option("Paid", value="paid"),
                     Option("Overdue", value="overdue"),
-                    cls="mt-1 block w-full rounded-md border-border bg-background px-3 py-2 text-sm",
+                    cls="mt-1",
                     name="status",
                     hx_get="/finance/invoices",
                     hx_target="#invoice-list",
@@ -227,7 +227,7 @@ class InvoiceViews:
                     Label("Type", cls="block text-sm font-medium text-muted-foreground mb-1"),
                     Div(
                         Label(
-                            Input(
+                            FTInput(
                                 type="radio",
                                 name="invoice_type",
                                 value="outgoing",
@@ -238,7 +238,7 @@ class InvoiceViews:
                             cls="flex items-center text-sm",
                         ),
                         Label(
-                            Input(
+                            FTInput(
                                 type="radio",
                                 name="invoice_type",
                                 value="incoming",
@@ -262,7 +262,6 @@ class InvoiceViews:
                         name="counterparty",
                         placeholder="Enter name...",
                         required=True,
-                        cls="w-full px-3 py-2 border border-border rounded-md text-sm",
                     ),
                     cls="mb-4",
                 ),
@@ -277,7 +276,6 @@ class InvoiceViews:
                             type="date",
                             name="invoice_date",
                             required=True,
-                            cls="w-full px-3 py-2 border border-border rounded-md text-sm",
                         ),
                         cls="flex-1",
                     ),
@@ -288,7 +286,6 @@ class InvoiceViews:
                         Input(
                             type="date",
                             name="due_date",
-                            cls="w-full px-3 py-2 border border-border rounded-md text-sm",
                         ),
                         cls="flex-1",
                     ),
@@ -378,7 +375,6 @@ class InvoiceViews:
                     name=f"items[{index}][description]",
                     placeholder="Description",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-6",
             ),
@@ -390,7 +386,6 @@ class InvoiceViews:
                     step="0.01",
                     min="0.01",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-2",
             ),
@@ -402,7 +397,6 @@ class InvoiceViews:
                     step="0.01",
                     min="0",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-3",
             ),
