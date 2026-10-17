@@ -16,6 +16,7 @@ from fasthtml.common import H2, A, Div, P, Span
 
 from core.ports.query_types import OrganizerResult
 from ui.components import ButtonT, Icon
+from ui.feedback import Badge, BadgeT
 from ui.patterns.skeleton import SkeletonList
 from ui.primitives import ButtonLink
 
@@ -44,12 +45,7 @@ def HubCard(card: HubCardData) -> A:
     ]
 
     if card.badge is not None and card.badge != 0:
-        title_row_items.append(
-            Span(
-                str(card.badge),
-                cls="ml-auto text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full",
-            )
-        )
+        title_row_items.append(Badge(str(card.badge), variant=BadgeT.primary, cls="ml-auto"))
 
     return A(
         Div(

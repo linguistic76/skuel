@@ -8,10 +8,12 @@
   its 15% tint is 4.09:1). A pill uses the Badge palette instead.
 - An error banner is ``role="alert"`` alone: an ``aria-live="polite"`` beside it
   contradicts the role's implicit assertive politeness.
-- ``Input`` and ``Select`` are 44px on phones and 40px from ``md`` up.
+- ``Input`` and ``Select`` are 44px on phones and 40px from ``md`` up, and so is
+  the Today quick-add row, whose title field is a raw ``Input``.
 """
 
 import re
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -19,6 +21,7 @@ from fasthtml.common import Option, to_xml
 
 from ui.components import Input, Select
 from ui.patterns.error_banner import render_error_banner, render_inline_error
+from ui.today.page import _quick_add
 
 APP_ROOT = Path(__file__).resolve().parents[3]
 INPUT_CSS = (APP_ROOT / "static" / "css" / "input.css").read_text()
@@ -123,6 +126,20 @@ def test_an_inline_error_is_an_alert_without_a_politeness_override() -> None:
 )
 def test_form_controls_are_44px_on_phones_and_40px_from_md(control: object) -> None:
     classes = re.search(r'class="([^"]*)"', to_xml(control))
+    assert classes
+    tokens = classes.group(1).split()
+    assert "h-11" in tokens and "md:h-10" in tokens
+    assert "h-10" not in tokens
+
+
+@pytest.mark.parametrize("tag", ["input", "button"])
+def test_today_quick_add_row_is_44px_on_phones_and_40px_from_md(tag: str) -> None:
+    """The quick-add title field is a raw ``Input``, outside the component's
+    heights; its button matches it so the row stays aligned."""
+    xml = to_xml(_quick_add(date(2026, 10, 17)))
+    controls = [el for el in re.findall(rf"<{tag}\b[^>]*>", xml) if 'type="hidden"' not in el]
+    assert len(controls) == 1
+    classes = re.search(r'class="([^"]*)"', controls[0])
     assert classes
     tokens = classes.group(1).split()
     assert "h-11" in tokens and "md:h-10" in tokens

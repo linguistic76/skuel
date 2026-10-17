@@ -12,6 +12,8 @@ from fasthtml.common import A, Div, P, Span
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.report.entry_report import EntryReport
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.patterns.format_date import format_date
 
 
@@ -35,13 +37,7 @@ def render_report_item(report: EntryReport) -> Div:
 
     badge: Any = ""
     if is_ai:
-        badge = Span(
-            "AI",
-            cls=(
-                "ml-2 px-1.5 py-0.5 text-10 font-semibold rounded-sm "
-                "bg-blue-100 text-blue-800 uppercase tracking-wide"
-            ),
-        )
+        badge = Badge("AI", variant=BadgeT.info, size=Size.xs, cls="ml-2 uppercase tracking-wide")
 
     download_link: Any = ""
     if report.report_file_path and report.uid:

@@ -6,7 +6,9 @@
  * Pins what a stub Alpine cannot see: one graph fetch per mount, a depth
  * select that the component actually binds, an error the markup shows, and a
  * teardown that leaves no network, listener or overlay behind when the
- * component is removed from the page.
+ * component is removed from the page; and the expanded overlay's focus: in on
+ * its close button, Tab kept inside, back on the expand button once x-show
+ * has revealed it.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fixture, loadAlpine, settle } from './helpers/load-alpine.js';
@@ -73,6 +75,27 @@ afterEach(async () => {
   await settle();
   vi.restoreAllMocks();
 });
+
+/** x-show reveals one animation frame after the state flips. */
+function frames(n = 3) {
+  return new Promise((resolve) => {
+    function step(left) {
+      if (left === 0) return resolve();
+      requestAnimationFrame(() => step(left - 1));
+    }
+    step(n);
+  });
+}
+
+function tab(target, opts = {}) {
+  const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true, ...opts });
+  target.dispatchEvent(event);
+  return event;
+}
+
+function displayed(el) {
+  return el.style.display !== 'none';
+}
 
 async function mount(name) {
   document.body.insertAdjacentHTML('beforeend', fixture(name));
@@ -141,6 +164,65 @@ describe('exploreGraph (ExploreGraphView, standalone)', () => {
     await settle();
 
     expect(document.getElementById('explore-graph-overlay')).toBeNull();
+  });
+
+  it('moves focus to the close button when the overlay opens', async () => {
+    const wrapper = await mount('explore-graph.html');
+    const expand = wrapper.querySelector('[aria-label="Expand graph view"]');
+    expand.focus();
+    expand.click();
+    await settle();
+
+    const overlay = document.getElementById('explore-graph-overlay');
+    expect(document.activeElement).toBe(overlay.querySelector('[aria-label="Close expanded graph"]'));
+  });
+
+  it('keeps Tab and Shift+Tab inside the overlay', async () => {
+    const wrapper = await mount('explore-graph.html');
+    wrapper.querySelector('[aria-label="Expand graph view"]').click();
+    await settle();
+    const overlay = document.getElementById('explore-graph-overlay');
+    const close = overlay.querySelector('[aria-label="Close expanded graph"]');
+    // A second focusable, standing in for the canvas frame Vis.js makes
+    // focusable (tabIndex 0) in a browser.
+    const frame = document.createElement('div');
+    frame.tabIndex = 0;
+    close.parentElement.appendChild(frame);
+
+    frame.focus();
+    expect(tab(frame).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(close);
+
+    expect(tab(close, { shiftKey: true }).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(frame);
+
+    // A Tab between two inner controls is left to the browser.
+    close.focus();
+    expect(tab(close).defaultPrevented).toBe(false);
+  });
+
+  it.each([
+    ['Escape', () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))],
+    ['the close button', () => document.querySelector('[aria-label="Close expanded graph"]').click()],
+  ])('%s returns focus to the expand button once it is displayed', async (_name, close) => {
+    const wrapper = await mount('explore-graph.html');
+    const expand = wrapper.querySelector('[aria-label="Expand graph view"]');
+    expand.click();
+    await frames();
+    expect(displayed(expand)).toBe(false);
+    // jsdom lets a hidden element take focus; a browser does not. Record
+    // whether the button was displayed when focus arrived.
+    let displayedOnFocus = null;
+    expand.addEventListener('focus', () => {
+      if (displayedOnFocus === null) displayedOnFocus = displayed(expand);
+    });
+
+    close();
+    await frames();
+
+    expect(document.getElementById('explore-graph-overlay')).toBeNull();
+    expect(document.activeElement).toBe(expand);
+    expect(displayedOnFocus).toBe(true);
   });
 
   it('leaves no network, listener or overlay behind when removed', async () => {

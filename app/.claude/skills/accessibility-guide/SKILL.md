@@ -259,7 +259,9 @@ with `aria-modal="true"` and `aria-labelledby` naming your heading (`title_id`, 
 Its `alpineModal` component (`static/js/skuel.js`) moves focus to the first control when it
 opens, cycles Tab and Shift+Tab inside it, and returns focus to the opener when it closes;
 Escape and a backdrop click run your `close` expression. Don't add a second Escape
-listener, a `$refs.trigger.focus()` or a `role` of your own:
+listener, a `$refs.trigger.focus()` or a `role` of your own. A dialog that has to be built
+in JavaScript (the Explore graph's expanded overlay) uses the same Tab trap,
+`window.SKUEL.trapTab(event, dialog)`, rather than a second one:
 
 ```python
 # ❌ BAD: duplicates what the wrapper does, and a window listener fires on every Escape

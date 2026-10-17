@@ -867,7 +867,7 @@ ButtonLink("Submit →", href="/submissions/submit", cls=ButtonT.primary, size="
 
 ### Don't Use Raw `Span()` for Status Badges
 
-All status/category pill badges must use `Badge()`, `StatusBadge()`, or `PriorityBadge()` from `ui/feedback` — not raw `Span()` with hand-rolled Tailwind color classes. This ensures consistent sizing (`inline-flex items-center rounded-full border font-medium`), spacing, and color semantics. No hand-rolled `Span()` badges remain — all use `Badge()`/`StatusBadge()`/`PriorityBadge()` (including finance health tier, explore type pills, teaching status).
+All status/category pill badges must use `Badge()`, `StatusBadge()`, or `PriorityBadge()` from `ui/feedback` — not raw `Span()` with hand-rolled Tailwind color classes. This ensures consistent sizing (`inline-flex items-center rounded-full border font-medium`), spacing, and color semantics. No hand-rolled `Span()` status or count pill remains — all use `Badge()`/`StatusBadge()`/`PriorityBadge()` (including finance health tier and invoice status, explore type pills, teaching status, the knowledge-health readiness pill, the perception-gap pills). One coloured tag is still hand-rolled: the Explore reading plan's capability label (`ui/explore/reading_plan.py`), a square-cornered monospace tag — a shape `Badge` does not render. `tests/unit/ui/test_status_pills_are_badges.py` pins each converted pill to `Badge()`.
 
 ```python
 # BAD: Hand-rolled badge with duplicated CSS

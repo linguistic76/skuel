@@ -844,7 +844,7 @@ SectionHeader(
 
 **Location:** `/ui/patterns/modal.py`
 
-**Adoption status:** Six call sites (calendar ×2, teaching, gradebook sharing, insights, lateral relationships). No hand-rolled Python modals remain — all use `AlpineModal()` (the Explore graph's expanded overlay is built in `skuel.js` and sets its own dialog role). Never hand-roll modals with raw `Div()` + `fixed inset-0` + manual onclick handlers.
+**Adoption status:** Six call sites (calendar ×2, teaching, gradebook sharing, insights, lateral relationships). No hand-rolled Python modals remain — all use `AlpineModal()` (the Explore graph's expanded overlay is built in `skuel.js`; it sets its own dialog role and traps focus with the same `SKUEL.trapTab`). Never hand-roll modals with raw `Div()` + `fixed inset-0` + manual onclick handlers.
 
 Standardized Alpine.js-controlled modal dialog with backdrop overlay, click-outside-to-close, transitions and `x-cloak`. The box is `role="dialog"` with `aria-modal="true"`, named by the caller's heading; the shared `alpineModal` component moves focus to the first control on open, keeps Tab inside the dialog and returns focus to the opener on close; Escape runs `close`.
 

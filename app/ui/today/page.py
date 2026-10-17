@@ -142,7 +142,7 @@ def _quick_add(view_date: date) -> FT:
             maxlength="200",
             aria_label="New task title",
             cls=(
-                "flex-1 min-w-0 h-10 px-3 rounded-md border border-border bg-card "
+                "flex-1 min-w-0 h-11 md:h-10 px-3 rounded-md border border-border bg-card "
                 "text-sm text-foreground placeholder:text-muted-foreground "
                 "focus:outline-hidden focus:shadow-focus"
             ),
@@ -152,7 +152,7 @@ def _quick_add(view_date: date) -> FT:
             "Add task",
             type="submit",
             cls=(
-                "inline-flex items-center gap-1.5 h-10 px-4 rounded-md shrink-0 "
+                "inline-flex items-center gap-1.5 h-11 md:h-10 px-4 rounded-md shrink-0 "
                 "bg-foreground text-background text-sm font-semibold "
                 "hover:opacity-90 focus:outline-hidden focus:shadow-focus"
             ),

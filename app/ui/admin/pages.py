@@ -18,7 +18,9 @@ from ui.admin.views import (
     AdminUIComponents,
 )
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
+from ui.feedback import Badge, BadgeT
 from ui.journals.components import render_batch_transcription_panel
+from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
@@ -292,10 +294,11 @@ def _readiness_banner(report: KnowledgeHealthReport) -> Any:
     """The headline GDS-readiness score, badge, and progress bar (ADR-080)."""
     score_pct = round(report["gds_readiness_score"] * 100)
     ready = report["gds_ready"]
-    badge_text = "GDS-ready" if ready else "Building density"
-    badge_cls = (
-        "bg-green-100 text-green-800" if ready else "bg-yellow-100 text-yellow-800"
-    ) + " text-sm font-medium px-3 py-1 rounded-full"
+    badge = Badge(
+        "GDS-ready" if ready else "Building density",
+        variant=BadgeT.success if ready else BadgeT.warning,
+        size=Size.lg,
+    )
     bar_cls = ("bg-success" if ready else "bg-warning") + " h-3 rounded-full"
 
     return Card(
@@ -305,7 +308,7 @@ def _readiness_banner(report: KnowledgeHealthReport) -> Any:
                     Span("GDS-Readiness Score", cls="text-sm text-muted-foreground uppercase"),
                     Div(
                         Span(f"{score_pct}%", cls="text-4xl font-bold text-foreground"),
-                        Span(badge_text, cls=badge_cls),
+                        badge,
                         cls="flex items-center gap-3 mt-1",
                     ),
                     cls="flex-1",
