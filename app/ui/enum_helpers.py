@@ -38,7 +38,7 @@ from core.models.enums import (
 )
 from core.models.enums.goal_enums import HabitEssentiality
 from core.models.enums.user_enums import UserRole
-from ui.feedback import Badge, BadgeT
+from ui.feedback import FALLBACK_BADGE_CLS, Badge, BadgeT
 
 
 def _enum_method[E: Enum](
@@ -62,9 +62,7 @@ def _enum_method[E: Enum](
 
 def get_status_badge_class(status: str) -> str:
     """Get Tailwind badge class for any entity status string."""
-    return _enum_method(
-        status, EntityStatus, "get_badge_class", "bg-muted text-muted-foreground border-border"
-    )
+    return _enum_method(status, EntityStatus, "get_badge_class", FALLBACK_BADGE_CLS)
 
 
 def get_status_text_class(status: str) -> str:
@@ -105,7 +103,7 @@ def get_essentiality_badge_class(essentiality: str) -> str:
         essentiality,
         HabitEssentiality,
         "get_badge_class",
-        "bg-muted text-muted-foreground border-border",
+        FALLBACK_BADGE_CLS,
     )
 
 

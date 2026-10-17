@@ -59,6 +59,10 @@ _BADGE_COLORS: dict[str, str] = {
     "outline": "bg-transparent text-foreground border-border",
 }
 
+# A badge for a value no enum knows: faded text on muted is foreground at an
+# opacity — muted-foreground is below AA (4.34:1) on light muted.
+FALLBACK_BADGE_CLS = "bg-muted text-foreground/70 border-border"
+
 
 class ProgressT(StrEnum):
     """Progress variant types — mapped to Tailwind colors."""
@@ -223,7 +227,7 @@ def StatusBadge(status: str | None, cls: str = "", **kwargs: Any) -> Any:
         entity_status = EntityStatus(status_lower)
         badge_cls = entity_status.get_badge_class()
     except ValueError:
-        badge_cls = _BADGE_COLORS[BadgeT.neutral]
+        badge_cls = FALLBACK_BADGE_CLS
 
     return Badge(display_text, variant=None, cls=f"{badge_cls} {cls}".strip(), **kwargs)
 

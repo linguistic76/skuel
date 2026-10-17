@@ -143,6 +143,7 @@ _SURFACE_PAIRS = [
     ("muted-foreground", 1.0, "card"),
     ("foreground", 0.8, "card"),
     ("foreground", 1.0, "muted"),
+    ("foreground", 0.7, "muted"),
     ("foreground", 0.6, "muted"),
 ]
 
