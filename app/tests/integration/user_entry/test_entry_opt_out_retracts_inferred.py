@@ -236,3 +236,63 @@ class TestOptingOutRetractsInferredLinks:
         props = await _entry(neo4j_driver, uid)
         assert props.get("grounding_rejected_ku_uids") is None
         assert props.get("grounded_text_hash") is not None
+
+
+@pytest.mark.integration
+class TestAPassThatReadTheNoteBeforeItOptedOut:
+    """A grounding pass reads its rows up front; the note may opt out before the pass
+    writes. Its writes re-check, under the entry's lock, the state they were read for."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("opts_out", [True, False], ids=["opted-out", "control-still-grounded"])
+    async def test_its_links_and_stamp_land_only_on_a_note_that_still_grounds(
+        self, clean_neo4j, neo4j_driver, user_entry_service, seed_user, grounding, opts_out: bool
+    ):
+        owner = await seed_user(f"user_optout_{uuid4().hex[:6]}")
+        uid, _inferred, _named = await _grounded_note(
+            neo4j_driver, user_entry_service, grounding, owner, Pipeline.KNOWLEDGE
+        )
+        late = await _seed_ku(neo4j_driver, f"ku.it.late-{uuid4().hex[:6]}")
+        read_hash = str((await _entry(neo4j_driver, uid))["embedding_text_hash"])
+
+        if opts_out:
+            await _sync(user_entry_service, owner, uid, Pipeline.KNOWLEDGE, private=True)
+
+        wrote = await grounding.write_applies_knowledge(uid, late, 0.8)
+        stamped = await grounding.stamp_grounded(uid, read_hash, 2)
+        assert wrote.is_ok and stamped.is_ok
+
+        props = await _entry(neo4j_driver, uid)
+        if opts_out:
+            assert wrote.value is False
+            assert late not in await _links(neo4j_driver, uid)
+            assert "grounded_text_hash" not in props
+        else:
+            assert wrote.value is True
+            assert (await _links(neo4j_driver, uid))[late] is True
+            assert props.get("grounded_text_hash") == read_hash
+            assert props.get("grounding_version") == 2
+
+    @pytest.mark.asyncio
+    async def test_its_stamp_after_the_note_opts_back_in_leaves_it_pending(
+        self, clean_neo4j, neo4j_driver, user_entry_service, seed_user, grounding
+    ):
+        """Out and back in before the pass stamps: the note grounds again, but its
+        vector is gone until the worker stores it, so the old pass's stamp is not
+        for the text it holds."""
+        owner = await seed_user(f"user_optout_{uuid4().hex[:6]}")
+        uid, _inferred, _named = await _grounded_note(
+            neo4j_driver, user_entry_service, grounding, owner, Pipeline.EXTRACT_ACTIVITIES
+        )
+        read_hash = str((await _entry(neo4j_driver, uid))["embedding_text_hash"])
+        await _sync(user_entry_service, owner, uid, Pipeline.EXTRACT_ACTIVITIES, private=True)
+        await _sync(user_entry_service, owner, uid, Pipeline.EXTRACT_ACTIVITIES)
+
+        stamped = await grounding.stamp_grounded(uid, read_hash, 2)
+        assert stamped.is_ok
+        assert "grounded_text_hash" not in await _entry(neo4j_driver, uid)
+
+        await _embed(neo4j_driver, uid)
+        pending = await grounding.get_pending_entries(user_uid=owner)
+        assert pending.is_ok, pending.expect_error()
+        assert uid in {row["uid"] for row in pending.value}
