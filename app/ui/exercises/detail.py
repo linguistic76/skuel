@@ -40,7 +40,7 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
 
     # ── Description ───────────────────────────────────────────────────
     description_section = (
-        P(exercise.description, cls="text-base-content/70 mb-6") if exercise.description else Div()
+        P(exercise.description, cls="text-muted-foreground mb-6") if exercise.description else Div()
     )
 
     # ── Form fields preview ───────────────────────────────────────────
@@ -60,18 +60,18 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
             field_rows.append(
                 Div(
                     Div(
-                        Span(label_text, cls="text-sm font-medium text-base-content"),
+                        Span(label_text, cls="text-sm font-medium text-foreground"),
                         Span(" *", cls="text-error text-sm") if required else Span(),
                         cls="flex items-baseline gap-0.5",
                     ),
-                    Span(type_hint, cls="text-xs text-base-content/50 mt-0.5"),
-                    cls="py-3 border-b border-base-200 last:border-0",
+                    Span(type_hint, cls="text-xs text-foreground/60 mt-0.5"),
+                    cls="py-3 border-b border-border last:border-0",
                 )
             )
 
         form_fields_section = Div(
             H4("What You'll Submit", cls="text-base font-semibold mb-3"),
-            Div(*field_rows, cls="bg-base-200/40 rounded-lg px-4 mb-6"),
+            Div(*field_rows, cls="bg-muted/40 rounded-lg px-4 mb-6"),
         )
 
     # ── Instructions (transparency) ────────────────────────────────────
@@ -84,11 +84,11 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
             H4("Feedback Instructions", cls="text-base font-semibold mb-2"),
             P(
                 "These are the exact instructions sent to the AI when generating your feedback.",
-                cls="text-xs text-base-content/50 mb-3",
+                cls="text-xs text-muted-foreground mb-3",
             ),
             FTPre(
                 FTCode(exercise.instructions, cls="text-xs leading-relaxed"),
-                cls="bg-base-200/60 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap mb-6",
+                cls="bg-muted/60 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap mb-6",
             ),
         )
 

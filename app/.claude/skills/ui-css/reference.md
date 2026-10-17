@@ -305,14 +305,7 @@ Status tokens, kept from DaisyUI so its class strings compile. They are theme-aw
 | `text-warning` / `bg-warning` | `#b45309` (amber-700) | `#f59e0b` (amber-500) |
 | `text-info` / `bg-info` | `#2563eb` (blue-600) | `#60a5fa` (blue-400) |
 
-Fixed compat surface tokens — concrete hex, the same in dark mode:
-
-| Token | Value |
-|-------|-------|
-| `bg-base-200` / `bg-base-300` | `#f3f4f6` / `#e5e7eb` |
-| `text-base-content` | `#1f2937` |
-
-There is no `base-100` token, so `bg-base-100` compiles to nothing.
+There are no DaisyUI `base-*` surface tokens: a subtle surface is `bg-muted`, a titled panel `bg-card`, a divider `border-border`, body text `text-foreground`. Faded text on `bg-muted` is `text-foreground/60`–`/80`, not `text-muted-foreground` (4.34:1 on light `muted`, below AA); on `bg-card` / `bg-background` `text-muted-foreground` is AA in both themes. The light status tokens are AA on `background`, not on `muted` (`text-error` is 4.41:1 there) — put status text on a card.
 
 **Key rule:** prefer the theme-aware tokens (`bg-background`, `text-muted-foreground`) over the Tailwind palette (`bg-white`, `bg-blue-600`). Reach for a status color (`text-error`, `bg-success/10`) only for status. Status text on a tint of its own colour (`bg-success/15 text-success`) fails AA — a status pill uses the `Badge` palette (`bg-green-100 text-green-800`).
 

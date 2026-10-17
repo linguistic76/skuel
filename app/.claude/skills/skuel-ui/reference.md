@@ -706,8 +706,8 @@ Use SKUEL semantic tokens, not the raw Tailwind palette:
 "bg-background"             # Page / card surface
 "bg-muted"                  # Subtle surface (hover states, active items)
 "border-border"             # Borders, dividers
-# text-error / bg-success / bg-base-200 / text-base-content also compile, as fixed hex that
-# stays the same in dark mode (ADR-071 compat); there is no bg-base-100 — see ui-css
+# text-error / bg-success / text-warning / text-info: the status tokens, theme-aware too;
+# there are no base-* tokens (bg-base-200, text-base-content compile to nothing) — see ui-css
 
 # ❌ Tailwind palette (breaks theming)
 "text-gray-900"  "bg-white"  "text-gray-600"

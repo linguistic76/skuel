@@ -72,10 +72,6 @@
   --color-warning: var(--status-warning);
   --color-info: var(--status-info);
 
-  /* Base surface tokens — concrete light values, unchanged in dark mode. */
-  --color-base-200: #f3f4f6; /* subtle surface (gray-100) */
-  --color-base-300: #e5e7eb; /* borders / dividers (gray-200) */
-  --color-base-content: #1f2937; /* body text (gray-800) */
 
   /* Soft 2px ring matching hsl(var(--ring) / 0.2) — used as focus ring. */
   --shadow-focus: 0 0 0 2px hsl(var(--ring) / 0.2);

@@ -153,9 +153,9 @@ def _pairing_code_fragment(issued: PairingCodeIssued) -> Div:
                 f"Valid until {_fmt(issued.expires_at)}, single-use. "
                 "Shown once — it is stored hashed and cannot be recovered. "
                 "Run `skuel-vault-agent enroll` on your machine and paste it.",
-                cls="text-sm text-base-content/70",
+                cls="text-sm text-muted-foreground",
             ),
-            cls="bg-base-200 border border-base-300 rounded-lg p-5 mb-4",
+            cls="bg-card border border-border rounded-lg p-5 mb-4",
         ),
         _pairing_button("Generate a new code"),
     )
@@ -182,25 +182,27 @@ def _device_row(device: Device) -> Div:
             P(device.name, cls="font-semibold"),
             P(
                 f"Enrolled {_fmt(device.enrolled_at)} · last seen {_fmt(device.last_seen_at)}",
-                cls="text-xs text-base-content/60",
+                cls="text-xs text-muted-foreground",
             ),
         ),
         action,
-        cls="flex items-center justify-between gap-4 py-3 border-b border-base-300 last:border-b-0",
+        cls="flex items-center justify-between gap-4 py-3 border-b border-border last:border-b-0",
     )
 
 
 def _devices_list(devices: list[Device]) -> Div:
     """The device table fragment — swap target for revocation."""
     if not devices:
-        body: tuple[Any, ...] = (P("No devices enrolled yet.", cls="text-sm text-base-content/70"),)
+        body: tuple[Any, ...] = (
+            P("No devices enrolled yet.", cls="text-sm text-muted-foreground"),
+        )
     else:
         body = tuple(_device_row(device) for device in devices)
     return Div(
         H3("Enrolled devices", cls="text-base font-semibold mb-2"),
         *body,
         id="devices-list",
-        cls="bg-base-200 border border-base-300 rounded-lg p-5",
+        cls="bg-card border border-border rounded-lg p-5",
     )
 
 
@@ -357,7 +359,7 @@ def create_device_routes(
                 "Pair a device by generating a one-time code and running "
                 "`skuel-vault-agent enroll` on that machine. Revoking a device "
                 "immediately closes its live connection.",
-                cls="text-base-content/70 mb-6",
+                cls="text-muted-foreground mb-6",
             ),
             Div(_pairing_button(), id="pairing-code-area", cls="mb-6"),
             devices_area,

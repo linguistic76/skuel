@@ -1,6 +1,6 @@
 ---
 title: HTMX Version Standardization Guide
-updated: 2026-09-17
+updated: 2026-10-17
 status: current
 category: guides
 tags:
@@ -77,8 +77,7 @@ from ui.layouts.base_page import build_head
 def my_page(content, title="My Page"):
     return Html(
         build_head(title),  # Canonical head with correct versions
-        Body(content, cls="bg-base-200"),
-        **{"data-theme": "light"},
+        Body(content, cls="bg-background"),
     )
 ```
 
