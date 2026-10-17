@@ -285,82 +285,69 @@ Badge("5", variant=BadgeT.primary, size=Size.sm)
 
 ## Input
 
-**Location:** `/ui/forms/components.py`
+**Location:** `/ui/components/form.py` (re-exported by `ui.components` and `ui.forms`)
 
-Form input components with consistent styling.
+The form fields. Each renders the native element with the shared field look and
+size — 44px on phones, 40px from `md` up — and passes every other keyword
+(`name`, `type`, `value`, `required`, HTMX / Alpine / ARIA attributes) through to
+the element. A caller's `cls` carries layout only (margin, `flex-1`, `min-w-0`, a
+`max-w-*` cap, an icon inset such as `pl-9`); see UI_COMPONENT_PATTERNS § Input
+Sizing. `tests/unit/ui/test_form_fields_use_components.py` fails on a raw
+`fasthtml` `Input` / `Select` outside `ui/components/`.
 
-### Input(name, type, placeholder, value, required, error, **kwargs)
+### Input(cls="", full_width=True, help_text=None, error_text=None, compact=False, **kwargs)
 
-Styled text input field.
-
-**Parameters:**
-- `name: str` - Input name attribute
-- `type: str` - Input type (default: "text")
-- `placeholder: str` - Placeholder text
-- `value: str` - Default value
-- `required: bool` - Whether field is required (default: False)
-- `error: str | None` - Error message to display
-- `**kwargs` - Additional attributes
-
-### TextArea(name, placeholder, value, rows, required, error, **kwargs)
-
-Multi-line text input.
+Styled text input (any text-like `type`: text, search, email, number, date, …).
 
 **Parameters:**
-- `name: str` - Input name
-- `placeholder: str` - Placeholder text
-- `value: str` - Default value
-- `rows: int` - Number of rows (default: 4)
-- `required: bool` - Required field (default: False)
-- `error: str | None` - Error message
-- `**kwargs` - Additional attributes
+- `cls: str` - Layout classes appended after the field's own
+- `full_width: bool` - `w-full` (default) or `w-auto`
+- `help_text: str | None` - Hint below the field, wired with `aria-describedby`
+- `error_text: str | None` - Error below the field (`role="alert"`), sets `aria-invalid`
+- `compact: bool` - Dense chat-chrome size: 44px on phones, 32px with 13px text from `md`
+- `**kwargs` - Attributes for the `<input>`
 
-### Select(name, options, value, required, **kwargs)
+With `help_text` or `error_text` the field is wrapped in a `Div` with the hint.
 
-Dropdown select input.
+### TextArea(*c, cls="", full_width=True, help_text=None, error_text=None, **kwargs)
 
-**Parameters:**
-- `name: str` - Select name
-- `options: list[tuple[str, str]]` - List of (value, label) pairs
-- `value: str` - Selected value
-- `required: bool` - Required field (default: False)
-- `**kwargs` - Additional attributes
+Multi-line text input (`min-h-[80px]`); same parameters as `Input` without `compact`.
+`ui.forms` also exports it as `Textarea`.
+
+### Select(*options, cls="", full_width=True, help_text=None, error_text=None, compact=False, **kwargs)
+
+Native `<select>` (kept native so HTMX serializes it); `options` are `Option` elements.
+Same parameters as `Input`.
 
 **Examples:**
 ```python
-from ui.forms import Input, Textarea, Select
+from fasthtml.common import Option
+
+from ui.components import Input, Select, TextArea
 
 # Text input
-Input(
-    name="title",
-    placeholder="Enter task title",
-    required=True,
-)
+Input(name="title", placeholder="Enter task title", required=True)
 
-# With error
-Input(
-    name="email",
-    type="email",
-    error="Invalid email format",
-)
+# With an error
+Input(name="email", type="email", error_text="Invalid email format")
+
+# Search with a leading icon
+Input(name="q", type="search", cls="pl-9")
 
 # Text area
-TextArea(
-    name="description",
-    placeholder="Enter description",
-    rows=6,
+TextArea(name="description", placeholder="Enter description", rows=6)
+
+# Select dropdown, sized to its content
+Select(
+    Option("Low Priority", value="low"),
+    Option("Medium Priority", value="medium", selected=True),
+    Option("High Priority", value="high"),
+    name="priority",
+    full_width=False,
 )
 
-# Select dropdown
-Select(
-    name="priority",
-    options=[
-        ("low", "Low Priority"),
-        ("medium", "Medium Priority"),
-        ("high", "High Priority"),
-    ],
-    value="medium",
-)
+# A chat-toolbar picker
+Select(*model_options, name="model", aria_label="Model", compact=True, full_width=False)
 ```
 
 ---
@@ -1137,7 +1124,7 @@ All 6 domain filter configs are centralised in `FILTER_CONFIGS: dict[str, Filter
 
 **Live category options (2026-06-10):** `with_user_categories(config, categories)` rebuilds the Category dropdown from the user's distinct category values (`service.search.list_user_categories`). Goals/Habits/Principles wire it via `ActivityUIConfig.list_categories` — the content route replaces the static enum options with "All" + live values, drops the dropdown at 0-1 categories, and falls back to the static config if the fetch fails.
 
-**Note:** Uses SKUEL's `Select` from `ui.components`. Both `Select` and `LabelSelect` render native `<select>` elements with Tailwind styling (`_SELECT_BASE`). (Historically MonsterUI's `MLabelSelect` wrapped the control in a `<uk-select>` web component that hid the native element from HTMX `FormData`, silently dropping values on submission — fixed in #345/#349; forms fully migrated to pure Tailwind in #443, MonsterUI removed per ADR-071.)
+**Note:** Uses SKUEL's `Select` from `ui.components`. Both `Select` and `LabelSelect` render native `<select>` elements with Tailwind styling (`_FIELD_LOOK` + `_FIELD_SIZE`, or `_FIELD_SIZE_COMPACT` with `compact=True`). (Historically MonsterUI's `MLabelSelect` wrapped the control in a `<uk-select>` web component that hid the native element from HTMX `FormData`, silently dropping values on submission — fixed in #345/#349; forms fully migrated to pure Tailwind in #443, MonsterUI removed per ADR-071.)
 
 ### Tasks Views (Active)
 
