@@ -170,3 +170,18 @@ def test_a_field_has_the_component_size_and_keeps_its_wiring(
     assert "h-11" in classes and md_height in classes
     for expected in carried:
         assert expected in classes or expected in tag, expected
+
+
+def test_an_added_invoice_line_item_is_the_component_row() -> None:
+    """The "+ Add Line Item" button clones a template of the component row from a live script."""
+    xml = to_xml(InvoiceViews._render_create_form())
+    assert "&lt;script" not in xml
+    assert re.search(r"<script>\s*let lineItemCount", xml)
+    template = re.search(r'<template id="line-item-template">(.*?)</template>', xml, re.DOTALL)
+    assert template
+    fields = re.findall(r"<input\b[^>]*>", template.group(1))
+    assert len(fields) == 3
+    for tag in fields:
+        assert "items[__INDEX__]" in tag
+        assert {"h-11", "md:h-10"} <= set(_classes(tag))
+    assert 'aria-label="Remove line item"' in template.group(1)

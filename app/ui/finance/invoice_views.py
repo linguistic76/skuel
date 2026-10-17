@@ -15,7 +15,9 @@ from fasthtml.common import (
     Form,
     Label,
     Option,
+    Script,
     Span,
+    Template,
     Textarea,
 )
 from fasthtml.common import Input as FTInput
@@ -329,45 +331,28 @@ class InvoiceViews:
                 method="POST",
                 cls="space-y-2",
             ),
-            # JavaScript for dynamic line items
-            Div(
-                """
-                <script>
+            # "+ Add Line Item" appends a copy of the template row, its __INDEX__
+            # placeholder replaced by the next index — the same component markup
+            # as the first row.
+            Template(
+                InvoiceViews._render_line_item_row("__INDEX__", removable=True),
+                id="line-item-template",
+            ),
+            Script("""
                 let lineItemCount = 1;
-
                 function addLineItem() {
-                    const container = document.getElementById('line-items-container');
-                    const newItem = document.createElement('div');
-                    newItem.className = 'grid grid-cols-12 gap-2 items-end';
-                    newItem.innerHTML = `
-                        <div class="col-span-6">
-                            <input type="text" name="items[${lineItemCount}][description]" placeholder="Description" required
-                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
-                        </div>
-                        <div class="col-span-2">
-                            <input type="number" name="items[${lineItemCount}][quantity]" placeholder="Qty" step="0.01" min="0.01" required
-                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
-                        </div>
-                        <div class="col-span-3">
-                            <input type="number" name="items[${lineItemCount}][unit_price]" placeholder="Unit $" step="0.01" min="0" required
-                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
-                        </div>
-                        <div class="col-span-1">
-                            <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-sm">X</button>
-                        </div>
-                    `;
-                    container.appendChild(newItem);
+                    const template = document.getElementById('line-item-template');
+                    const row = template.innerHTML.replaceAll('__INDEX__', String(lineItemCount));
+                    document.getElementById('line-items-container').insertAdjacentHTML('beforeend', row);
                     lineItemCount++;
                 }
-                </script>
-                """,
-            ),
+            """),
             cls="bg-muted p-6 rounded-lg border border-border",
         )
 
     @staticmethod
-    def _render_line_item_row(index: int) -> Div:
-        """Render a single line item row."""
+    def _render_line_item_row(index: int | str, *, removable: bool = False) -> Div:
+        """Render one line item row; an added row (``removable``) carries a remove button."""
         return Div(
             Div(
                 Input(
@@ -401,12 +386,19 @@ class InvoiceViews:
                 cls="col-span-3",
             ),
             Div(
-                Span(
-                    "", cls="text-muted-foreground"
-                ),  # Placeholder for delete button (first item can't be deleted)
+                Button(
+                    "X",
+                    type="button",
+                    aria_label="Remove line item",
+                    onclick="this.closest('[data-line-item]').remove()",
+                    cls="h-11 md:h-10 text-sm text-destructive hover:text-destructive/80",
+                )
+                if removable
+                else Span("", cls="text-muted-foreground"),  # the first row stays
                 cls="col-span-1",
             ),
             cls="grid grid-cols-12 gap-2 items-end",
+            data_line_item=True,
         )
 
 
