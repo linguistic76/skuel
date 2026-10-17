@@ -719,13 +719,17 @@ class EntryGroundingBackendOperations(Protocol):
 
         True iff this call created the link — an explicit reference the user
         already authored is never restamped as inferred, and the caller publishes
-        the substance event only on True. A draft KU, or a pair the owner
-        removed, links nothing (False).
+        the substance event only on True. A draft KU, a pair the owner
+        removed, or an entry that no longer grounds links nothing (False).
         """
         ...
 
     async def stamp_grounded(self, entry_uid: str, text_hash: str, version: int) -> Result[None]:
-        """Mark the entry's grounding pass complete for its current embedding text."""
+        """Mark the entry's grounding pass complete for its current embedding text.
+
+        A no-op when the entry no longer grounds or its embedding text changed
+        since the pass read it.
+        """
         ...
 
     async def remove_grounded_edge(

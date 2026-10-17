@@ -30,7 +30,10 @@ Eager write, no confirm gate:
     ``ui/user_entry/knowledge_notes.py``, on the knowledge-notes page and on a
     periodic note's page); removals are recorded on the
     entry (``grounding_rejected_ku_uids``) as threshold-calibration data and
-    are never re-inferred.
+    are never re-inferred. A note that opts out — turns ``private: true``, or
+    leaves the grounded pipelines — loses every inferred edge on the re-sync
+    that says so (``UserEntryBackend.upsert``), recorded the same way, and its
+    ``grounded_text_hash`` is cleared; the links its owner named stay.
 
 Substance + idempotency:
     Each genuinely NEW edge publishes ``KnowledgeReflectedInEntry`` — the

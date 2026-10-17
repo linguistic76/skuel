@@ -399,7 +399,11 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
     Kus only, run after a personal-vault sync. Existing edges never re-publish, and a
     pair the owner removed (`grounding_rejected_ku_uids`) is refused under the
     entry's write-lock, so it is never re-made; removals via the grounding remove
-    route are calibration data for the threshold.
+    route are calibration data for the threshold. A note that opts out — the
+    re-sync that turns it `private: true` or moves it off the grounded pipelines
+    (`UserEntryBackend.upsert`) — loses every inferred edge, each recorded in
+    `grounding_rejected_ku_uids` the same way, so opting back in never re-links or
+    re-credits the pair; the links its owner named stay
   - **Credited once per entry and knowledge, whichever writer came first.** Both
     writers take the entry's write-lock before deciding whether the edge is new,
     so of two racing on one pair exactly one creates it and publishes. A removal

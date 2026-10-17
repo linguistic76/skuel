@@ -122,8 +122,11 @@ class EntryGroundingBackend:
         of deadlocking, and exactly one of them creates the edge.
 
         A pair the owner removed (``grounding_rejected_ku_uids``, written by the
-        remove door and by an unnamed ``@ku``) is refused under that lock, so a pass that
-        read the entry before the removal cannot re-make it.
+        remove door, by an unnamed ``@ku`` and by the re-sync that opts the note
+        out of grounding) is refused under that lock, so a pass that read the
+        entry before the removal cannot re-make it. So is an entry that no longer
+        grounds (``private``, or off ``Pipeline.knowledge_grounded``): a pass
+        that read it before it opted out links nothing.
         """
         published, published_params = build_publication_clause("k")
         result = await self._executor.execute_query(
@@ -133,6 +136,8 @@ class EntryGroundingBackend:
             REMOVE e.`_sg_lock`
             WITH e
             WHERE NOT $ku_uid IN coalesce(e.grounding_rejected_ku_uids, [])
+              AND e.pipeline IN $pipelines
+              AND coalesce(e.private, false) = false
             MATCH (k:Ku {{uid: $ku_uid}}) WHERE NOT k:Content AND {published}
             MERGE (e)-[r:APPLIES_KNOWLEDGE]->(k)
             ON CREATE SET r.inferred = true,
@@ -148,6 +153,7 @@ class EntryGroundingBackend:
                 "ku_uid": ku_uid,
                 "confidence": confidence,
                 "lock_token": uuid4().hex,
+                "pipelines": [pipeline.value for pipeline in Pipeline.knowledge_grounded()],
                 **published_params,
             },
         )
@@ -155,8 +161,8 @@ class EntryGroundingBackend:
             return Result.fail(result)
         rows = result.value or []
         if not rows:
-            # The entry or the Ku is gone, the Ku is a draft, or the owner
-            # removed the pair.
+            # The entry or the Ku is gone, the Ku is a draft, the owner
+            # removed the pair, or the entry no longer grounds.
             return Result.ok(False)
         return Result.ok(bool(rows[0].get("created")))
 
@@ -165,16 +171,35 @@ class EntryGroundingBackend:
 
         ``grounded_at`` is provenance only — freshness comparisons use the
         hash pair (see module docstring).
+
+        The stamp lands only on the entry the pass read: under the entry's
+        write-lock, it must still ground (not ``private``, on
+        ``Pipeline.knowledge_grounded``) and still store the embedding text
+        ``text_hash`` names. A note that opted out meanwhile — its hash cleared,
+        its vector removed — keeps no stamp from a pass over its old vector, so
+        once it opts back in it is pending again.
         """
         result = await self._executor.execute_query(
             """
             MATCH (e:UserEntry {uid: $entry_uid}) WHERE NOT e:Content
+            SET e.`_sg_lock` = $lock_token
+            REMOVE e.`_sg_lock`
+            WITH e
+            WHERE e.pipeline IN $pipelines
+              AND coalesce(e.private, false) = false
+              AND coalesce(e.embedding_text_hash, '') = $text_hash
             SET e.grounded_at = datetime(),
                 e.grounded_text_hash = $text_hash,
                 e.grounding_version = $version
             RETURN e.uid AS uid
             """,
-            {"entry_uid": entry_uid, "text_hash": text_hash, "version": version},
+            {
+                "entry_uid": entry_uid,
+                "text_hash": text_hash,
+                "version": version,
+                "lock_token": uuid4().hex,
+                "pipelines": [pipeline.value for pipeline in Pipeline.knowledge_grounded()],
+            },
         )
         if result.is_error:
             return Result.fail(result)

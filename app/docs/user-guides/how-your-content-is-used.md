@@ -13,7 +13,7 @@ This guide explains what happens to everything you put into SKUEL: your tasks an
 - Everything you create in SKUEL is **private to you by default**.
 - You control what you share with teachers or peers — nothing is shared without your action. A synced vault note is a draft and always stays private; setting `status: submitted` files a frozen copy of it for the note's `audience:` (your teachers, when it names no one).
 - When you use an AI feature, the relevant content is sent to an external AI service for that request only. It is not retained by the AI service or used to train AI models.
-- When SKUEL's AI features are on, syncing your vault sends the text of your knowledge notes and activity notes (periodic notes included) to the AI service, so SKUEL can link each note to the lessons it engages. Mark a note `private: true` and it is not sent for that.
+- When SKUEL's AI features are on, syncing your vault sends the text of your knowledge notes and activity notes (periodic notes included) to the AI service, so SKUEL can link each note to the lessons it engages. Mark a note `private: true` and it is not sent for that, and the lessons SKUEL linked it to on its own are unlinked on the next sync.
 - Your audio is transcribed by a third-party service (Deepgram). The audio is not stored by SKUEL after transcription.
 - SKUEL's own team cannot read your private content through the application.
 
@@ -66,7 +66,7 @@ When SKUEL's AI features are on (see [Intelligence tier](intelligence-tier.md)),
 - **Its title and text, to make its embedding** — the numeric fingerprint SKUEL uses to find related notes and lessons. A knowledge note's text is also sent in sections, for the journal companion to search. The text is sent again only when the note changes.
 - **Its title, its first 1,500 characters and the titles of up to eight lessons it most resembles**, after the sync, so the AI model can judge which of those lessons the note really engages. The lessons it judges you engaged appear as links under the note, each one removable.
 
-**`private: true` in a note's frontmatter keeps it out of both** — it is not embedded, not sent to judge lessons, and an embedding made before you marked it is removed on the next sync. Other entries from your vault — a plain note, an exercise response — are neither embedded nor sent to judge lessons.
+**`private: true` in a note's frontmatter keeps it out of both** — it is not embedded, not sent to judge lessons, and an embedding made before you marked it is removed on the next sync, together with the lesson links SKUEL inferred from it. A lesson you linked yourself with `@ku()` stays linked. A lesson unlinked this way is not linked to that note again if you later remove `private: true`; the note is otherwise judged afresh. A note you move to a pipeline other than `knowledge` or `extract_activities` is treated the same way. Other entries from your vault — a plain note, an exercise response — are neither embedded nor sent to judge lessons.
 
 An activity note that is not a periodic note is also sent, without its task lines, so the AI model can recognize the activities in it — `private: true` does not stop this. A periodic note is never sent for that: its tasks come only from its own checkbox lines and `@context()` markers.
 
