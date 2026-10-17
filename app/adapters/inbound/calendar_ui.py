@@ -336,7 +336,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         )
         return Div(
             AlpineModal(
-                H2("Error", cls="text-xl font-bold text-error mb-2"),
+                H2("Error", id="item-details-title", cls="text-xl font-bold text-error mb-2"),
                 P("Calendar item not found", cls="text-muted-foreground"),
                 Button(
                     "Close",
@@ -347,6 +347,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                 ),
                 show="open",
                 close=close_expr,
+                title_id="item-details-title",
                 max_width="max-w-md",
             ),
             x_data="{ open: true }",

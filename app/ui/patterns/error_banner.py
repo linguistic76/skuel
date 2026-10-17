@@ -16,7 +16,7 @@ Usage:
         )
 
 WCAG Compliance:
-    - role="alert" for screen reader announcements
+    - role="alert" for an error or warning, role="status" for info (set by Alert)
     - Semantic color coding (error=red, warning=yellow, info=blue)
     - Clear, actionable messages
 """
@@ -103,12 +103,12 @@ def render_error_banner(
             )
         )
 
+    # Alert sets the live-region role from the severity — role="alert" for an
+    # error or warning, which is already assertive; no aria-live on top.
     return Alert(
         *content,
         variant=_SEVERITY_TO_ALERTT.get(severity, AlertT.error),
         cls="mb-4 shadow-lg",
-        # role="alert" is already set by MAlert internally
-        **{"aria-live": "polite"},  # WCAG: Announce dynamically added errors
     )
 
 
@@ -141,7 +141,6 @@ def render_inline_error(message: str) -> FT:
         message,
         cls="text-error text-sm mt-1",
         role="alert",
-        **{"aria-live": "polite"},
     )
 
 

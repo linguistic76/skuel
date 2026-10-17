@@ -110,46 +110,37 @@ Input(type="search", name="q", placeholder="Search...", aria_label="Search")
 
 **Purpose:** Announce the dialog, handle Escape, move focus in and back out
 
-`AlpineModal` gives the overlay: backdrop, click-outside-to-close, `x-cloak`, transition.
-The dialog semantics, Escape and focus handling are the caller's. See SKILL.md
-Mistake 5 for the measured pattern:
+`AlpineModal` does all of it. The caller gives the heading an id and passes it as
+`title_id`; the open state stays in the caller's scope:
 
 ```python
 Div(
-    Button("Delete", x_ref="trigger", **{"@click": "open = true; $nextTick(() => $refs.cancel.focus())"}),
+    Button("Delete", **{"@click": "open = true"}),
     AlpineModal(
+        H2("Delete this task?", id="del-title"),
+        P("This cannot be undone."),
         Div(
-            H2("Delete this task?", id="del-title"),
-            P("This cannot be undone.", id="del-body"),
-            Div(
-                Button("Cancel", x_ref="cancel", cls=ButtonT.ghost,
-                       **{"@click": "open = false; $refs.trigger.focus()"}),
-                # the delete door answers JSON: remove the card, don't swap the answer in
-                Button("Delete", cls=ButtonT.destructive, hx_post=delete_url,
-                       hx_target=card_selector, hx_swap="delete", **{"@click": "open = false"}),
-                cls="flex gap-2 justify-end mt-4",
-            ),
-            role="dialog",
-            aria_labelledby="del-title",
-            aria_describedby="del-body",
+            Button("Cancel", cls=ButtonT.ghost, **{"@click": "open = false"}),
+            # the delete door answers JSON: remove the card, don't swap the answer in
+            Button("Delete", cls=ButtonT.destructive, hx_post=delete_url,
+                   hx_target=card_selector, hx_swap="delete", **{"@click": "open = false"}),
+            cls="flex gap-2 justify-end mt-4",
         ),
         show="open",
-        close="open = false; $refs.trigger.focus()",
+        close="open = false",
+        title_id="del-title",
     ),
     x_data="{ open: false }",
-    **{"@keydown.escape.window": "if (open) { open = false; $refs.trigger.focus() }"},
 )
 ```
 
 **What it gives:**
-- **role="dialog" + aria-labelledby/describedby:** announced as a named dialog
-- **Escape** closes it, and only while it is open (the window listener is guarded by `open`)
-- **Focus** moves to Cancel on open and back to the trigger on close
-
-**What it does not give:** a focus trap. Tab can still reach the page behind the backdrop,
-which is why the pattern leaves out `aria-modal="true"`: that attribute promises an inert
-background. SKUEL vendors no Alpine focus plugin, so a real modal means writing the
-Tab/Shift+Tab containment (or marking the background `inert`) and then adding `aria-modal`.
+- **role="dialog" + aria-modal + aria-labelledby:** announced as a named modal dialog
+- **Focus** moves to the first control once the dialog is displayed (Alpine reveals
+  `x-show` a frame late; a hidden element cannot take focus), and back to the opener on close
+- **Tab / Shift+Tab** cycle among the dialog's visible controls; the page behind is out of reach
+- **Escape** and a backdrop click run the `close` expression; Escape is handled on the dialog,
+  so no window listener is needed
 
 ### Pattern 4: Skip Links for Keyboard Users
 
@@ -183,7 +174,9 @@ seconds later.
 
 For errors shown in the page, use the real banner. `render_error_banner(message)`
 (`ui/patterns/error_banner.py`) renders `role="alert"`, so it is announced when it is
-inserted; don't hand-roll another.
+inserted; don't hand-roll another. Its role comes from `Alert`, which follows the variant:
+an error or warning is `role="alert"`, an info or success message `role="status"`. Never put
+an `aria-live` beside a `role` — it contradicts the role's own politeness.
 
 **ARIA Live Regions:**
 

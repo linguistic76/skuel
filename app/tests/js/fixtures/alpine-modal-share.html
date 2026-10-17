@@ -1,0 +1,14 @@
+<div x-data="{ shareOpen: false }" class="mb-4">
+<button type="button" @click="shareOpen = true" class="border border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex items-center"><svg class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg><span class="ml-1">Share</span></button>  <div x-show="shareOpen" x-cloak x-data="alpineModal" x-effect="modalToggled(!!(shareOpen))" id="share-panel">
+    <div x-transition="" x-on:click="shareOpen = false" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="share-panel-title" @click.stop="" x-on:keydown.escape.stop="shareOpen = false" x-on:keydown.tab="modalTrapTab($event)" class="bg-background rounded-lg shadow-lg w-full max-w-lg p-6 relative max-h-[80vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 id="share-panel-title" class="text-lg font-semibold">Share this entry</h3>
+<button type="button" aria-label="Close" @click="shareOpen = false" class="text-muted-foreground hover:text-foreground"><svg class="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>        </div>
+        <div hx-get="/gradebook/ue_1/share-panel" hx-trigger="intersect once" hx-swap="innerHTML" id="share-panel-body">
+          <p class="text-sm text-muted-foreground">Loading…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

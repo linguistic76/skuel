@@ -83,7 +83,7 @@ def ShareButton(entry_uid: str, *, open: bool = False, preselect: str | None = N
         ),
         AlpineModal(
             Div(
-                H3("Share this entry", cls="text-lg font-semibold"),
+                H3("Share this entry", id="share-panel-title", cls="text-lg font-semibold"),
                 Button(
                     Icon("x", cls="size-4"),
                     type="button",
@@ -96,6 +96,7 @@ def ShareButton(entry_uid: str, *, open: bool = False, preselect: str | None = N
             body,
             show="shareOpen",
             close="shareOpen = false",
+            title_id="share-panel-title",
             max_width="max-w-lg",
             scrollable=True,
             id="share-panel",

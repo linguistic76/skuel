@@ -114,12 +114,12 @@ Alert("Error message", variant=AlertT.error)
 ### Modals
 
 ```python
-# AlpineModal — backdrop, click-outside-to-close, x-cloak and transitions in one place
+# AlpineModal — backdrop, transitions and dialog semantics (role, focus, Escape) in one place
 from ui.components import Button, ButtonT
 from ui.patterns.modal import AlpineModal
 
 AlpineModal(
-    H3("Modal Title", cls="font-bold text-lg"),
+    H3("Modal Title", id="confirm-title", cls="font-bold text-lg"),
     P("Modal content here", cls="py-4"),
     Div(
         Button("Cancel", cls=ButtonT.ghost, **{"@click": "showModal = false"}),
@@ -128,6 +128,7 @@ AlpineModal(
     ),
     show="showModal",
     close="showModal = false",
+    title_id="confirm-title",
     max_width="max-w-lg",
 )
 ```
@@ -295,20 +296,25 @@ Theme-aware tokens: each is `hsl(var(--x))` in `input.css` `@theme inline`, and 
 | `bg-destructive` / `text-destructive` | Danger / delete |
 | `bg-accent` / `bg-secondary` | Hover and secondary surfaces |
 
-Fixed compat tokens: concrete hex, kept so pre-ADR-071 class strings compile. They do **not** change in dark mode:
+Status tokens, kept from DaisyUI so its class strings compile. They are theme-aware — `--status-*` on `:root` and `.dark` — and each is AA (4.5:1) as text on its theme's background:
+
+| Token | Light | Dark |
+|-------|-------|------|
+| `text-error` / `bg-error` | `#dc2626` (red-600) | `#f87171` (red-400) |
+| `text-success` / `bg-success` | `#15803d` (green-700) | `#22c55e` (green-500) |
+| `text-warning` / `bg-warning` | `#b45309` (amber-700) | `#f59e0b` (amber-500) |
+| `text-info` / `bg-info` | `#2563eb` (blue-600) | `#60a5fa` (blue-400) |
+
+Fixed compat surface tokens — concrete hex, the same in dark mode:
 
 | Token | Value |
 |-------|-------|
-| `text-error` / `bg-error` | `#dc2626` |
-| `text-success` / `bg-success` | `#16a34a` |
-| `text-warning` / `bg-warning` | `#d97706` |
-| `text-info` / `bg-info` | `#2563eb` |
 | `bg-base-200` / `bg-base-300` | `#f3f4f6` / `#e5e7eb` |
 | `text-base-content` | `#1f2937` |
 
 There is no `base-100` token, so `bg-base-100` compiles to nothing.
 
-**Key rule:** prefer the theme-aware tokens (`bg-background`, `text-muted-foreground`) over the Tailwind palette (`bg-white`, `bg-blue-600`). Reach for a status color (`text-error`, `bg-success/10`) only for status, and know that it stays the same in dark mode.
+**Key rule:** prefer the theme-aware tokens (`bg-background`, `text-muted-foreground`) over the Tailwind palette (`bg-white`, `bg-blue-600`). Reach for a status color (`text-error`, `bg-success/10`) only for status. Status text on a tint of its own colour (`bg-success/15 text-success`) fails AA — a status pill uses the `Badge` palette (`bg-green-100 text-green-800`).
 
 ### States & Interactions
 

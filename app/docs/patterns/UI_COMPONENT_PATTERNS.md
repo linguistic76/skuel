@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-16'
+updated: '2026-10-17'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -620,14 +620,14 @@ Container(
 
 ## Modal Pattern — AlpineModal
 
-Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes the backdrop overlay, click-outside-to-close, transitions and `x-cloak`. It adds no dialog semantics: no `role="dialog"` / `aria-modal`, no Escape handler, no focus move, restore or trap — a caller that needs them adds them.
+Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes the backdrop overlay, click-outside-to-close, transitions, `x-cloak` and the dialog behaviour: the box is `role="dialog"` with `aria-modal="true"` and `aria-labelledby` naming the caller's heading (`title_id`); the shared `alpineModal` component (`static/js/skuel.js`) moves focus to the first control once the dialog is displayed, keeps Tab and Shift+Tab inside it and returns focus to the opener on close; Escape and a backdrop click run `close`. Callers add none of it.
 
 ```python
 from ui.patterns.modal import AlpineModal
 
 # Simple modal controlled by Alpine.js boolean
 AlpineModal(
-    H3("Confirm Delete"),
+    H3("Confirm Delete", id="confirm-delete-title"),
     P("Are you sure you want to delete this item?"),
     Div(
         Button("Cancel", cls=ButtonT.ghost,
@@ -639,14 +639,17 @@ AlpineModal(
     ),
     show="showConfirm",
     close="showConfirm = false",
+    title_id="confirm-delete-title",
     max_width="max-w-lg",
 )
 
 # Scrollable modal with custom id
 AlpineModal(
+    H2(detail.title, id="detail-modal-title"),
     *detail_content,
     show="isOpen",
     close="close()",
+    title_id="detail-modal-title",
     max_width="max-w-2xl",
     scrollable=True,
     id="detail-modal",
@@ -661,11 +664,12 @@ Button("Delete",
 **Parameters:**
 - `show` — Alpine.js expression for visibility (e.g. `"isOpen"`, `"shareModal"`)
 - `close` — Alpine.js expression to close (e.g. `"close()"`, `"shareModal = false"`)
+- `title_id` — id of the heading inside the modal that names the dialog; unique on the page (build it from the uid when the modal repeats)
 - `max_width` — Tailwind max-width class (default: `"max-w-md"`)
 - `scrollable` — Whether content scrolls at 80vh (default: `False`)
 - `id` — Optional DOM id
 
-**Adopted in:** calendar components, sharing modal, insight card modal.
+**Adopted in:** calendar (item details, not found), teaching new group, gradebook share panel, insight card, add relationship.
 
 ---
 
@@ -914,7 +918,7 @@ StatsGrid([
 
 ### Don't Hand-Roll Modals
 
-All Alpine.js-controlled modals must use `AlpineModal()` from `ui/patterns/modal.py` — not raw `Div()` with manual backdrop, `fixed inset-0`, and onclick handlers. `AlpineModal` standardizes backdrop overlay, click-outside-to-close, `x-cloak`, and transitions (no dialog role, Escape or focus handling — see § Modal).
+All Alpine.js-controlled modals must use `AlpineModal()` from `ui/patterns/modal.py` — not raw `Div()` with manual backdrop, `fixed inset-0`, and onclick handlers. `AlpineModal` standardizes backdrop overlay, click-outside-to-close, `x-cloak`, transitions and the dialog role, Escape and focus handling (see § Modal).
 
 ```python
 # BAD: Hand-rolled modal with manual DOM removal
@@ -929,9 +933,11 @@ Div(
 
 # GOOD: AlpineModal with Alpine.js state
 AlpineModal(
+    H3("Details", id="details-title"),
     *content,
     show="isOpen",
     close="isOpen = false",
+    title_id="details-title",
     max_width="max-w-md",
 )
 ```
@@ -940,15 +946,15 @@ AlpineModal(
 
 ```python
 Div(
-    AlpineModal(*content, show="open",
+    AlpineModal(H2(title, id="my-modal-title"), *content, show="open",
         close="open = false; $nextTick(() => document.getElementById('my-modal')?.remove())",
-        max_width="max-w-2xl", scrollable=True),
+        title_id="my-modal-title", max_width="max-w-2xl", scrollable=True),
     x_data="{ open: true }",
     id="my-modal",
 )
 ```
 
-**Adoption status:** Used across ~5 files (calendar, sharing, insights). No hand-rolled modals remain.
+**Adoption status:** Six call sites (calendar ×2, teaching, gradebook sharing, insights, lateral relationships). No hand-rolled Python modals remain.
 
 ### Don't Hand-Roll Raw Utility Classes on Wrappers
 
@@ -1398,7 +1404,7 @@ All live in `/ui/patterns/` or `/ui/feedback.py`.
 | `ButtonLink` | Action CTAs | ~45 files. **Never use raw `A()` for action links.** `ButtonT.primary` for CTAs, `ButtonT.ghost` for navigation. |
 | `StatusBadge` / `Badge` / `PriorityBadge` | All badges | From `ui/feedback`. **Never raw `Span()` with hand-rolled Tailwind.** `StatusBadge` for `EntityStatus` values, `Badge` for category/type pills, `PriorityBadge` for priorities. |
 | `render_error_banner` / `render_inline_error` | Accessible error states | Adopted across 25+ route files. |
-| `AlpineModal` | Standardized Alpine.js modal wrapper | ~5 files. **Never hand-roll modals with raw `Div()` + `fixed inset-0` + onclick handlers.** Provides backdrop, transitions, click-outside-to-close. |
+| `AlpineModal` | Standardized Alpine.js modal dialog | 6 call sites. **Never hand-roll modals with raw `Div()` + `fixed inset-0` + onclick handlers.** Provides backdrop, transitions, click-outside-to-close, dialog role, focus handling and Escape. |
 
 ---
 

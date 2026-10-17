@@ -213,7 +213,7 @@ the form, the JSON API, the vault — enforces the same rule. There is no separa
 | Component | Use case | Output |
 |-----------|----------|--------|
 | `render_error_banner()` | Full-page errors, dashboard failures | Alert box with icon, optional technical details |
-| `render_inline_error()` | HTMX fragments, form fields, compact spaces | Small `P` with `role="alert"` + `aria-live="polite"` |
+| `render_inline_error()` | HTMX fragments, form fields, compact spaces | Small `P` with `role="alert"` |
 
 **Import:** `from ui.patterns.error_banner import render_error_banner, render_inline_error`
 
@@ -245,8 +245,8 @@ render_error_banner("Some data may be incomplete", severity="warning")
 
 **Styling:**
 - `render_error_banner()`: SKUEL `Alert` from `ui.components` (red background, error icon), severity variants via `AlertT`
-- `render_inline_error()`: `text-error text-sm` with `role="alert"` + `aria-live="polite"`
-- `role="alert"` is set automatically by `Alert` in render_error_banner (do NOT pass it as a kwarg — causes duplicate kwarg TypeError)
+- `render_inline_error()`: `text-error text-sm` with `role="alert"`
+- The role is set automatically by `Alert` in render_error_banner — `role="alert"` for `error` / `warning`, `role="status"` for `info` (do NOT pass `role` as a kwarg — causes duplicate kwarg TypeError, and never add `aria-live` beside it)
 
 ---
 

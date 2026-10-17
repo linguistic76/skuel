@@ -115,8 +115,8 @@ Does this element perform an action (same page)?
 
 **SKUEL Semantic Color Tokens** (defined in `static/css/input.css` — Tailwind v4 CSS-first config):
 - `text-foreground` / `text-muted-foreground` on `bg-background` — the theme-aware body pair, redefined for `.dark`
-- `text-error` / `text-success` / `text-warning` / `text-info` — fixed hex (red-600, green-600, amber-600, blue-600) that doesn't change in dark mode. On white, measured: `text-error` 4.83:1 and `text-info` 5.17:1 pass AA for body text; `text-success` 3.30:1 and `text-warning` 3.19:1 pass only the 3:1 large-text / UI-component threshold. Use those two for icons, borders, and bold 14pt+ labels, not body text
-- A status color on its own fill (`text-error` on `bg-error`) has no contrast at all; pair a status text color with a tint (`bg-error/10`) or with white
+- `text-error` / `text-success` / `text-warning` / `text-info` — theme-aware (`--status-*` on `:root` and `.dark`), each AA for body text on its theme's background. Light: red-600 4.83:1, green-700 5.02:1, amber-700 5.02:1, blue-600 5.17:1 on white; dark: red-400 7.23:1, green-500 8.77:1, amber-500 9.31:1, blue-400 7.86:1 on `#020817`. Pinned by `tests/unit/ui/test_a11y_semantics.py`
+- A status color on its own fill (`text-error` on `bg-error`) has no contrast at all, and the light tokens fail AA on a tint of themselves (`bg-success/15 text-success` is 4.09:1) — a status pill uses the `Badge` palette (`bg-green-100 text-green-800`); the test fails a class string that pairs them
 
 **Testing:** Use browser DevTools (Lighthouse Accessibility audit) or WebAIM Contrast Checker.
 
@@ -149,7 +149,7 @@ In FT, the Tailwind utilities are `focus-visible:ring-2 focus-visible:ring-ring 
 |---------|---------------|------|
 | Navbar icon buttons (Askesis, Shared, notifications, avatar, sign out) | `size-11` | 44px |
 | Sidebar nav items (desktop rows and the section nav) | `min-h-[44px]` | 44px minimum height |
-| Form inputs (`Input`, `Select`) | `h-10` | **40px tall** (full width), below the 44px convention; add `min-h-11` where a form is used on touch |
+| Form inputs (`Input`, `Select`) | `h-11 md:h-10` | 44px on phones, 40px from `md` up (desktop density) |
 
 **SKUEL Convention:** Outer interactive element gets `size-11` (44px); inner decorative element (e.g., avatar circle) stays `size-8` (32px). The touch target is the outer element.
 
@@ -252,36 +252,42 @@ P("Secondary text", cls="text-gray-300")
 P("Secondary text", cls="text-muted-foreground")
 ```
 
-### Mistake 5: Assuming AlpineModal Makes a Dialog
+### Mistake 5: Hand-Rolling What AlpineModal Already Does
 
-`AlpineModal` (`ui/patterns/modal.py`) renders the backdrop, click-outside-to-close,
-`x-cloak` and a transition, and nothing else. It sets no `role="dialog"` or `aria-modal`,
-doesn't close on Escape, and doesn't move, trap or restore focus. SKUEL doesn't vendor
-Alpine's focus plugin, so `x-trap` isn't available either. The caller adds the rest:
+`AlpineModal` (`ui/patterns/modal.py`) is a full modal dialog: the box is `role="dialog"`
+with `aria-modal="true"` and `aria-labelledby` naming your heading (`title_id`, required).
+Its `alpineModal` component (`static/js/skuel.js`) moves focus to the first control when it
+opens, cycles Tab and Shift+Tab inside it, and returns focus to the opener when it closes;
+Escape and a backdrop click run your `close` expression. Don't add a second Escape
+listener, a `$refs.trigger.focus()` or a `role` of your own:
 
 ```python
+# ❌ BAD: duplicates what the wrapper does, and a window listener fires on every Escape
 Div(
-    Button("Delete", x_ref="trigger", **{"@click": "open = true; $nextTick(() => $refs.cancel.focus())"}),
+    Button("Delete", x_ref="trigger", **{"@click": "open = true"}),
+    AlpineModal(H2("Delete this task?"), ..., show="open", close="open = false; $refs.trigger.focus()",
+                title_id="del-title"),
+    **{"@keydown.escape.window": "open = false"},
+)
+
+# ✅ GOOD: the heading carries the id the dialog is named by; the wrapper does the rest
+Div(
+    Button("Delete", **{"@click": "open = true"}),
     AlpineModal(
-        Div(
-            H2("Delete this task?", id="del-title"),
-            Button("Cancel", x_ref="cancel", **{"@click": "open = false; $refs.trigger.focus()"}),
-            role="dialog", aria_labelledby="del-title",
-        ),
+        H2("Delete this task?", id="del-title"),
+        Button("Cancel", **{"@click": "open = false"}),
         show="open",
-        close="open = false; $refs.trigger.focus()",
+        close="open = false",
+        title_id="del-title",
     ),
     x_data="{ open: false }",
-    # guarded: a window listener fires on every Escape, open or not
-    **{"@keydown.escape.window": "if (open) { open = false; $refs.trigger.focus() }"},
 )
 ```
 
-Measured with the vendored Alpine 3.14.8: opening focuses Cancel; Escape closes the dialog
-and returns focus to the trigger; with the dialog closed, Escape leaves focus where it was.
-Tab can still leave the dialog, so the pattern **omits `aria-modal="true"`**. That attribute
-tells assistive technology the rest of the page is inert, and here it isn't. Add
-`aria-modal` together with a real focus trap or an `inert` background, never before.
+`title_id` must be unique on the page — a modal rendered once per card builds it from the
+uid (`f"insight-{uid}-title"`). A control inside the dialog that uses Escape itself (the
+entity picker's list) stops the event only while it is using it, so one Escape closes the
+list and the next closes the dialog. Pinned by `tests/js/alpine-modal.test.js`.
 
 ### Mistake 6: Hand-Rolling a Live Region SKUEL Already Has
 

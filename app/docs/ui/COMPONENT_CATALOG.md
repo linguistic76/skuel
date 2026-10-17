@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-04
+updated: 2026-10-17
 ---
 
 # SKUEL UI Component Catalog
@@ -61,7 +61,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 | `ui.primitives` | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` |
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
-| `ui.patterns.modal` | `AlpineModal` — standardized Alpine.js modal wrapper (backdrop, transitions, close-on-backdrop) |
+| `ui.patterns.modal` | `AlpineModal` — standardized Alpine.js modal dialog (backdrop, transitions, close-on-backdrop, dialog role, focus handling, Escape) |
 | `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
 | `ui.enum_helpers` | `get_submission_status_badge_class`, `get_status_badge_class`, `get_priority_badge_class`, ... |
 | `ui.data` | `Table`, `TableFromDicts`, `TableFromLists`, `TableT`, `Divider`, `DividerSplit`, `DividerT` |
@@ -773,7 +773,7 @@ render_error_banner(
 
 ### render_inline_error(message)
 
-Compact inline error with WCAG accessibility (`role="alert"`, `aria-live="polite"`).
+Compact inline error with WCAG accessibility (`role="alert"`).
 
 **Parameters:**
 - `message: str` - Error message
@@ -844,16 +844,17 @@ SectionHeader(
 
 **Location:** `/ui/patterns/modal.py`
 
-**Adoption status:** Used across ~5 files (calendar, sharing, insights). No hand-rolled modals remain — all use `AlpineModal()`. Never hand-roll modals with raw `Div()` + `fixed inset-0` + manual onclick handlers.
+**Adoption status:** Six call sites (calendar ×2, teaching, gradebook sharing, insights, lateral relationships). No hand-rolled Python modals remain — all use `AlpineModal()` (the Explore graph's expanded overlay is built in `skuel.js` and sets its own dialog role). Never hand-roll modals with raw `Div()` + `fixed inset-0` + manual onclick handlers.
 
-Standardized Alpine.js-controlled modal with backdrop overlay, click-outside-to-close, transitions, and `x-cloak`.
+Standardized Alpine.js-controlled modal dialog with backdrop overlay, click-outside-to-close, transitions and `x-cloak`. The box is `role="dialog"` with `aria-modal="true"`, named by the caller's heading; the shared `alpineModal` component moves focus to the first control on open, keeps Tab inside the dialog and returns focus to the opener on close; Escape runs `close`.
 
-### AlpineModal(*content, show, close, max_width, scrollable, id)
+### AlpineModal(*content, show, close, title_id, max_width, scrollable, id)
 
 **Parameters:**
 - `*content: Any` - Modal body content (header, form, buttons, etc.)
 - `show: str` - Alpine.js expression for visibility (e.g., `"isOpen"`, `"shareModal"`)
 - `close: str` - Alpine.js expression to close (e.g., `"close()"`, `"shareModal = false"`)
+- `title_id: str` - DOM id of the heading inside `content` that names the dialog (`aria-labelledby`); unique on the page
 - `max_width: str` - Tailwind max-width class (default: `"max-w-md"`)
 - `scrollable: bool` - Whether content scrolls when exceeding viewport height (default: `False`)
 - `id: str | None` - Optional DOM id for the modal container
@@ -865,18 +866,21 @@ from ui.components import Button, ButtonT
 
 # Simple modal with Alpine.js state
 AlpineModal(
-    H3("Edit Item"),
+    H3("Edit Item", id="edit-item-title"),
     some_form,
     show="isOpen",
     close="isOpen = false",
+    title_id="edit-item-title",
 )
 
 # HTMX-inserted modal (auto-open pattern for server-rendered fragments)
 Div(
     AlpineModal(
+        H2(title, id="my-modal-title"),
         *content,
         show="open",
         close="open = false; $nextTick(() => document.getElementById('my-modal')?.remove())",
+        title_id="my-modal-title",
         max_width="max-w-2xl",
         scrollable=True,
     ),
@@ -1442,7 +1446,7 @@ Quick alphabetical index:
 - **Input / Select / Textarea** - `ui.forms`
 - **LabelInput / LabelTextArea / LabelSelect / LabelCheckbox** - `ui.forms`
 - **Loading** - `ui.feedback` (CSS-only spinner — no variant param; use `size=Size.sm/md/lg`)
-- **AlpineModal** - `/ui/patterns/modal.py` — standardized Alpine.js modal wrapper (backdrop, transitions, accessibility)
+- **AlpineModal** - `/ui/patterns/modal.py` — standardized Alpine.js modal dialog (backdrop, transitions, dialog role, focus handling, Escape)
 - **Progress / ProgressT / RadialProgress** - `ui.feedback`
 - **Size** - `ui.layout`
 - **Table / TableFromDicts / TableFromLists / TableT** - `ui.data`

@@ -112,7 +112,7 @@ render_error_banner(
 )
 ```
 
-**Important:** Do NOT pass `role="alert"` to `Alert()` — SKUEL's `Alert` already sets `role="alert"` internally, and duplicating it causes a `TypeError: got multiple values for keyword argument 'role'`.
+**Important:** Do NOT pass `role` to `Alert()` — SKUEL's `Alert` sets it from the variant (`role="alert"` for error and warning, `role="status"` for info and success), and duplicating it causes a `TypeError: got multiple values for keyword argument 'role'`.
 
 ### 4. Pure Computation Helpers
 

@@ -265,6 +265,7 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 | `domainFilter` | Client-side list sort + filter presets | `sortBy`, `filterPreset`, `showAll` |
 | `bulkInsightManager` | Multi-select + bulk actions on insight cards | `selectedUids`, `selectAllChecked` |
 | `insightDetailModal(uid)` | Insight detail modal | `isOpen`, `loading` |
+| `alpineModal` | Dialog behaviour for the `AlpineModal` wrapper (mounted by it): focus in, Tab trap, focus restore | `modalShown`, `modalOpener` |
 | `insightFiltersDebounced(filters)` | Insight filter form, navigates on apply | `filters`, `loading` |
 | `exploreSearch(tag)` | Explore sidebar tag/text search | `query`, `activeTag`, `moreFilters` |
 | `revisionForm` | Revision feedback-point form | `points`, `categories` |

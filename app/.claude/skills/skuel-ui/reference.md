@@ -185,9 +185,9 @@ Progress(value=88, variant=ProgressT.success)  # success/warning/error/primary/.
 ### AlpineModal Usage Rules
 
 - **Never hand-roll** modals with raw `Div()` + `fixed inset-0` + manual onclick handlers — always use `AlpineModal()`.
-- Standardizes backdrop, click-outside-to-close, `x-cloak`, and transitions.
-- For **HTMX-inserted modals** (server returns HTML fragment), use the auto-open pattern: `Div(AlpineModal(..., show="open", close="open = false; $nextTick(() => ...)"), x_data="{ open: true }", id="...")`.
-- Adopted across ~5 files (calendar, sharing, insights).
+- Standardizes backdrop, click-outside-to-close, `x-cloak`, transitions, and the dialog behaviour (`role="dialog"` + `aria-modal`, named by `title_id`; focus moved in, trapped and restored; Escape closes). Pass the heading's id as `title_id` — unique on the page.
+- For **HTMX-inserted modals** (server returns HTML fragment), use the auto-open pattern: `Div(AlpineModal(..., show="open", close="open = false; $nextTick(() => ...)", title_id="..."), x_data="{ open: true }", id="...")`.
+- Six call sites (calendar ×2, teaching, gradebook sharing, insights, lateral relationships).
 
 ### Typed Page Contexts
 
@@ -607,7 +607,7 @@ async def task_create_submit(request: Request) -> FT | RedirectResponse:
 
 ### Modal Forms — AlpineModal
 
-Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop, click-outside-to-close, transitions, and `x-cloak`.
+Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop, click-outside-to-close, `x-cloak`, transitions, and the dialog behaviour (`role="dialog"` + `aria-modal`, named by `title_id`; focus moved in, trapped and restored; Escape closes).
 
 A modal the page already holds is driven by a flag in an enclosing `x-data`:
 
@@ -618,11 +618,12 @@ from ui.patterns.modal import AlpineModal
 Div(
     Button("Share", cls=ButtonT.primary, **{"@click": "showShare = true"}),
     AlpineModal(
-        H3("Share", cls="font-bold text-lg"),
+        H3("Share", id="share-title", cls="font-bold text-lg"),
         share_form,
         Button("Cancel", cls=ButtonT.ghost, **{"@click": "showShare = false"}),
         show="showShare",
         close="showShare = false",
+        title_id="share-title",
         max_width="max-w-lg",
     ),
     x_data="{ showShare: false }",
@@ -634,9 +635,9 @@ arrival. Its flag lives in the fragment, because nothing outside it can hold one
 
 ```python
 Div(
-    AlpineModal(*content, show="open",
+    AlpineModal(H2(title, id="my-modal-title"), *content, show="open",
                 close="open = false; $nextTick(() => document.getElementById('my-modal')?.remove())",
-                max_width="max-w-2xl", scrollable=True),
+                title_id="my-modal-title", max_width="max-w-2xl", scrollable=True),
     x_data="{ open: true }",
     id="my-modal",
 )

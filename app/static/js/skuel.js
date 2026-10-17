@@ -1338,8 +1338,11 @@
                             event.preventDefault();
                             this._pick(items[this.highlight]);
                         }
-                    } else if (event.key === 'Escape') {
+                    } else if (event.key === 'Escape' && this.open) {
+                        // Escape closes the list first; only a closed picker
+                        // lets it reach an enclosing dialog.
                         this.open = false;
+                        event.stopPropagation();
                     }
                 },
 
@@ -2065,6 +2068,115 @@
                 // Toggle show all
                 toggleShowAll: function() {
                     this.showAll = !this.showAll;
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
+        // Modal Dialog Behaviour (AlpineModal)
+        // ---------------------------------------------------------------------
+        /**
+         * Dialog behaviour for AlpineModal (ui/patterns/modal.py): focus moves
+         * into the dialog when it opens, Tab and Shift+Tab cycle inside it, and
+         * focus returns to the element that had it when the dialog closes.
+         * Escape and the backdrop close it through the caller's own `close`
+         * expression, bound in the markup.
+         *
+         * Mounted on the modal wrapper, inside the caller's scope, which owns
+         * the open state. Every member is prefixed `modal` so it cannot shadow
+         * a caller's `open()` / `close()` / `isOpen`.
+         *
+         * @example
+         * <div x-show="open" x-data="alpineModal" x-effect="modalToggled(!!(open))">
+         *   <div x-on:click="open = false">
+         *     <div role="dialog" aria-modal="true" aria-labelledby="t" tabindex="-1"
+         *          x-on:keydown.escape.stop="open = false"
+         *          x-on:keydown.tab="modalTrapTab($event)">...</div>
+         *   </div>
+         * </div>
+         */
+        Alpine.data('alpineModal', function() {
+            var FOCUSABLE = 'a[href], button:not([disabled]), '
+                + 'input:not([disabled]):not([type="hidden"]), select:not([disabled]), '
+                + 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+            function isShown(el, stop) {
+                for (var node = el; node && node !== stop; node = node.parentElement) {
+                    if (node.hidden || getComputedStyle(node).display === 'none') return false;
+                }
+                return true;
+            }
+
+            return {
+                modalShown: false,
+                modalOpener: null,
+
+                modalDialog: function() {
+                    return this.$root.querySelector('[role="dialog"]');
+                },
+
+                modalFocusables: function(dialog) {
+                    return Array.prototype.filter.call(
+                        dialog.querySelectorAll(FOCUSABLE),
+                        function(el) { return isShown(el, dialog); }
+                    );
+                },
+
+                modalToggled: function(shown) {
+                    if (shown === this.modalShown) return;
+                    this.modalShown = shown;
+                    if (shown) {
+                        var active = document.activeElement;
+                        this.modalOpener = active && active !== document.body ? active : null;
+                        this.modalFocusWhenVisible(10);
+                    } else {
+                        var opener = this.modalOpener;
+                        this.modalOpener = null;
+                        if (opener && opener.isConnected) opener.focus();
+                    }
+                },
+
+                // x-show reveals one frame after the state flips (Alpine
+                // defers the reveal), and a hidden element cannot take focus —
+                // wait until the wrapper is displayed.
+                modalFocusWhenVisible: function(tries) {
+                    var self = this;
+                    var root = this.$root;
+                    if (!this.modalShown) return;
+                    if (getComputedStyle(root).display !== 'none') {
+                        var dialog = this.modalDialog();
+                        if (!dialog || dialog.contains(document.activeElement)) return;
+                        var items = this.modalFocusables(dialog);
+                        (items[0] || dialog).focus();
+                        return;
+                    }
+                    if (tries <= 0) return;
+                    var next = document.visibilityState === 'visible'
+                        ? window.requestAnimationFrame : window.setTimeout;
+                    next(function() { self.modalFocusWhenVisible(tries - 1); });
+                },
+
+                modalTrapTab: function(event) {
+                    var dialog = event.currentTarget;
+                    var items = this.modalFocusables(dialog);
+                    var active = document.activeElement;
+                    if (items.length === 0) {
+                        event.preventDefault();
+                        dialog.focus();
+                        return;
+                    }
+                    var first = items[0];
+                    var last = items[items.length - 1];
+                    var inside = dialog.contains(active);
+                    if (event.shiftKey) {
+                        if (!inside || active === first || active === dialog) {
+                            event.preventDefault();
+                            last.focus();
+                        }
+                    } else if (!inside || active === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
                 }
             };
         });

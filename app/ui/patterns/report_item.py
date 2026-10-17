@@ -39,7 +39,7 @@ def render_report_item(report: EntryReport) -> Div:
             "AI",
             cls=(
                 "ml-2 px-1.5 py-0.5 text-10 font-semibold rounded-sm "
-                "bg-info/10 text-info uppercase tracking-wide"
+                "bg-blue-100 text-blue-800 uppercase tracking-wide"
             ),
         )
 
