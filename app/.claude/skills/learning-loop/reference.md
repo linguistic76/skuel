@@ -792,7 +792,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission (the Submit page)** | `/submissions/submit` | GET | Student |
 | **Submission (turn-in API)** | `/api/user-entries/upload` | POST | Student — the exercise turn-in door; `create_entry()` is the one convergence point (ADR-054) |
 | **Submission (API)** | `/api/user-entries` (list GET / create POST), `/api/user-entries/get?uid=`, `/api/user-entries/form`, `/api/user-entries/process`, `/api/user-entries/delete` | GET/POST | Student (owner) |
-| **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) — exercise + reports render on the page |
+| **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) — exercise + reports render on the page; an entry on a grounded pipeline shows its knowledge chips (`EntryKnowledgeChips`, owner only) |
 | **Shared** | `/profile/shared` (+ `/profile/shared/list-fragment`) | GET | Any user — *Shared with you* (what the share links name the viewer for) + *Your wall* (what they shared, with Stop sharing) |
 | **Share / Stop sharing** | `/api/user-entries/{uid}/share`, `/api/user-entries/{uid}/unshare`, `/gradebook/{uid}/share-panel` | POST / POST / GET | Owner — the Share panel (`group:` / `user:` values) and the wall's × — `?preselect=reviewers` on the panel load (the GradeBook nudge) checks the groups the entry was submitted to for feedback |
 | **GradeBook** | `/gradebook` | GET | Student |

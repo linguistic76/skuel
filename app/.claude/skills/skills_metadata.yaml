@@ -562,7 +562,7 @@ skills:
 
   - name: learning-loop
     description: SKUEL's Learning Loop — the development lens for PathStep, Exercise, UserEntry, Report, RevisedExercise, Interaction; every feature must strengthen a loop phase
-    last_reviewed: "2026-10-16"
+    last_reviewed: "2026-10-17"
     foundation: [curriculum-domains, activity-domains]
     dependencies: [curriculum-domains, activity-domains]
     library_package: null  # SKUEL pattern, not external library
@@ -602,7 +602,7 @@ skills:
 
   - name: journals
     description: "Implementation guide for Journals domain — STANDARD/FOUNDER tiers, DNWF stages, JournalService, instruction_loader, EnrichmentMode distinction"
-    last_reviewed: "2026-10-16"
+    last_reviewed: "2026-10-17"
     foundation: [python, learning-loop]
     dependencies: [user-context-intelligence]
     library_package: null  # SKUEL domain, not external library

@@ -3,12 +3,17 @@ Knowledge Chips
 ===============
 
 An entry's knowledge links (``APPLIES_KNOWLEDGE`` to a published Ku or
-PathStep), shown as chips. Two surfaces render the same chip:
+PathStep), shown as chips. Three pages render the same chip, each to the
+entry's owner only:
 
 - ``/submissions/knowledge`` — every ``pipeline: knowledge`` entry with its
   chips (``render_knowledge_notes_list``);
-- ``/journals/{uid}`` — an EXTRACT_ACTIVITIES note's chips under its editor
-  (``EntryKnowledgeChips``).
+- ``/journals/{uid}`` — a periodic note on a grounded pipeline
+  (``Pipeline.grounds_knowledge``), its chips under the editor
+  (``EntryKnowledgeChips``);
+- ``/gradebook/{uid}`` — the owner's page for any entry on a grounded
+  pipeline, its chips under the submission card (``EntryKnowledgeChips``). A
+  recipient's card never shows them.
 
 Chip anatomy: the title links to the reading page (``/explore/ku/{uid}`` or
 ``/explore/ps/{uid}``). A chip the grounding pass inferred shows the edge
@@ -89,11 +94,17 @@ def KnowledgeLinkChip(entry_uid: str, chip: KnowledgeChip) -> Any:
     )
 
 
-def EntryKnowledgeChips(entry_uid: str, chips: list[KnowledgeChip] | None) -> Any:
-    """The knowledge an entry is linked to, under its editor.
+def EntryKnowledgeChips(
+    entry_uid: str,
+    chips: list[KnowledgeChip] | None,
+    cls: str = "max-w-[760px] mx-auto w-full px-6 pb-8",
+) -> Any:
+    """The knowledge an entry is linked to, as a titled row of chips.
 
     ``chips`` is None when the read failed — said as such, never shown as an
-    entry linked to nothing. An entry with no links renders nothing.
+    entry linked to nothing. An entry with no links renders nothing. ``cls``
+    places the section on its page; the default sits it under the periodic
+    note's editor column.
     """
     if chips is None:
         body: Any = P(
@@ -111,7 +122,7 @@ def EntryKnowledgeChips(entry_uid: str, chips: list[KnowledgeChip] | None) -> An
         P("Knowledge in this note", cls="text-sm font-semibold text-foreground mb-2"),
         body,
         id="entry-knowledge-chips",
-        cls="max-w-[760px] mx-auto w-full px-6 pb-8",
+        cls=cls,
     )
 
 

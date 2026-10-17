@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import (
         AnnotationResult,
         ExchangeThread,
+        KnowledgeChip,
         KnowledgeEntryGroundingRow,
         OrganizerResult,
         ReviewStanding,
@@ -146,6 +147,12 @@ class UserEntryOrchestrator:
     ) -> Result[list[KnowledgeEntryGroundingRow]]:
         """Knowledge-pipeline entries + their knowledge chips (newest first)."""
         return await self._entries.list_knowledge_entries_with_grounding(user_uid, limit)
+
+    async def list_entry_knowledge_chips(
+        self, entry_uid: str, user_uid: UserUID
+    ) -> Result[list[KnowledgeChip]]:
+        """The knowledge an entry the user owns is linked to, as chips."""
+        return await self._entries.list_entry_knowledge_chips(entry_uid, user_uid)
 
     async def get_entry_organized_children(self, uid: str) -> Result[list[OrganizerResult]]:
         """Ordered ORGANIZES children of an entry — the emergent-MOC map.
