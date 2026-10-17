@@ -239,19 +239,24 @@ class TestCurriculumAnchorReads:
         assert [item["target_uid"] for item in blocking.json()["blocking"]] == [KU_B]
         assert chain.status_code == 200, chain.text
 
-    async def test_a_curriculum_graph_reaches_the_task_it_blocks(self, neo4j_driver) -> None:
-        """Ku B blocks the stranger's task; a graph centred on Ku B reaches it.
+    async def test_a_curriculum_graph_withholds_the_strangers_task_it_blocks(
+        self, neo4j_driver
+    ) -> None:
+        """Ku B blocks the stranger's task; a graph centred on Ku B does not draw it.
 
-        The traversal is not audience-filtered (its scope is on record in
-        RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage); this pins the
-        current reach so a change to it is a decision, not a side effect.
+        Every node on the traversal is one the caller may see
+        (RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage); the member's own
+        task, which Ku B also blocks, comes back.
         """
         async with _client(neo4j_driver) as client:
             await client.get(f"/sign-in/{MEMBER}")
             response = await client.get(f"/api/ku/{KU_B}/lateral/graph?depth=1")
 
         assert response.status_code == 200, response.text
-        assert PRIVATE_TASK in {node["id"] for node in response.json()["nodes"]}
+        node_ids = {node["id"] for node in response.json()["nodes"]}
+        assert PRIVATE_TASK not in node_ids
+        assert MEMBER_TASK in node_ids
+        _assert_nothing_of_the_stranger(response)
 
 
 @pytest.mark.integration

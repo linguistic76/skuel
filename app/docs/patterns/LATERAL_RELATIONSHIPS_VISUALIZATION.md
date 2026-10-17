@@ -271,33 +271,37 @@ so one scope holds the depth select, the canvas (`id="network-{uid}"`) and the e
 
 **Cypher Query:**
 ```cypher
-// LateralRelationshipBackend.get_blocking_chain — the anchor binds :Entity (SKILL.md § 0)
+// LateralRelationshipBackend.get_blocking_chain — the anchor binds :Entity (SKILL.md § 0);
+// {on_path} / {blocked_seen} are build_path_audience_clause fragments
 MATCH path = (blocker)-[:BLOCKS*1..10]->(entity:Entity {uid: $uid})
-WITH blocker, path, length(path) as depth
+WHERE {on_path}
+WITH entity, blocker, path, length(path) as depth
 RETURN blocker.uid as uid, blocker.title as title, blocker.status as status,
        labels(blocker)[0] as entity_type, depth,
-       COUNT { (blocker)-[:BLOCKS]->() } as blocks_count
+       COUNT { (blocker)-[:BLOCKS]->(blocked) WHERE blocked = entity OR {blocked_seen} }
+           as blocks_count
 ```
 
-**Return Format:**
+Every node on a chain past the anchor is one the caller may see — their own entity or
+published shared content — so a chain through another user's entity, a `User` node or a
+draft is withheld whole, and `blocks_count` counts only visible blocked nodes
+([RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md#ownership-coverage)).
+
+**Return Format** (`BlockingChainResult`):
 ```python
 {
-    "uid": "task_abc",
-    "entity_type": "tasks",
-    "chain": [
-        {
-            "depth": 1,
-            "entities": [
-                {"uid": "task_def", "title": "Setup env", "reason": "Need env first"}
-            ]
-        },
-        {
-            "depth": 2,
-            "entities": [
-                {"uid": "task_ghi", "title": "Install Python"}
-            ]
-        }
-    ]
+    "root_uid": "task_abc",
+    "total_blockers": 2,
+    "chain_depth": 2,
+    "levels": [  # deepest first
+        {"depth": 2, "entities": [{"uid": "task_ghi", "title": "Install Python",
+                                   "entity_type": "Task", "status": "active",
+                                   "blocks_count": 1}]},
+        {"depth": 1, "entities": [{"uid": "task_def", "title": "Setup env",
+                                   "entity_type": "Task", "status": "active",
+                                   "blocks_count": 1}]},
+    ],
+    "critical_path": ["task_ghi", "task_def", "task_abc"],
 }
 ```
 
@@ -307,7 +311,7 @@ RETURN blocker.uid as uid, blocker.title as title, blocker.status as status,
 
 **Purpose:** Side-by-side comparison of alternatives
 
-**Cypher:** `LateralRelationshipBackend.get_alternatives_comparison` (`adapters/persistence/neo4j/backends/collab_backends.py`) — an undirected `ALTERNATIVE_TO` match, unordered.
+**Cypher:** `LateralRelationshipBackend.get_alternatives_comparison` (`adapters/persistence/neo4j/backends/collab_backends.py`) — an undirected `ALTERNATIVE_TO` match, unordered, each alternative passing `build_path_audience_clause` (the caller's own entity or published shared content).
 
 **Return:** a flat `list[AlternativeComparisonItem]` (`core/ports/query_types.py`) — one row per alternative, no `current` wrapper and no computed `differences` block. `comparison_data` carries the three comparison criteria (`timeframe` / `difficulty` / `resources`), each present only when the edge sets it; `metadata` carries `tradeoffs` + `comparison_criteria`.
 
@@ -323,8 +327,10 @@ RETURN blocker.uid as uid, blocker.title as title, blocker.status as status,
 **Cypher Query:**
 ```cypher
 // LateralRelationshipBackend.get_relationship_graph — the type filter is interpolated
-// from validated RelationshipName values; the center binds :Entity (SKILL.md § 0)
+// from validated RelationshipName values; the center binds :Entity (SKILL.md § 0);
+// {on_path} = build_path_audience_clause("nodes(path)[1..]")
 MATCH path = (center:Entity {uid: $uid})-[r:{type_filter}*1..{depth}]-(related)
+WHERE {on_path}
 WITH center, r, related, length(path) as depth_level
 RETURN DISTINCT center.uid as center_uid, related.uid as related_uid, related.title as related_title,
        [rel in r | {type: type(rel), from: startNode(rel).uid, to: endNode(rel).uid}] as relationships,

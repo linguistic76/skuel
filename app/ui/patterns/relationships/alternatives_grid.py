@@ -104,7 +104,7 @@ def render_alternatives_fragment(alternatives: list[dict[str, Any]]) -> Div:
     # Status row
     status_cells = [Td("Status", cls="font-semibold")]
     for alt in alternatives:
-        status = alt.get("status", "unknown")
+        status = alt.get("status") or "unknown"
         if status == "completed":
             status_variant = BadgeT.success
         elif status in {"active", "in_progress"}:

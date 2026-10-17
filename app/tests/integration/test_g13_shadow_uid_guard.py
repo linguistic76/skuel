@@ -157,7 +157,7 @@ class TestLateralWriterAndReads:
 
         rows = await backend.get_relationships(KU_WITH_BODY, rel, "outgoing")
         assert [row["related_uid"] for row in rows.value] == [KU_PLAIN]
-        graph = await backend.get_relationship_graph(KU_WITH_BODY, rel, 1)
+        graph = await backend.get_relationship_graph(KU_WITH_BODY, rel, 1, None)
         assert [row["related_uid"] for row in graph.value] == [KU_PLAIN]
 
         # The delete reaches the one edge and reports the one it deleted.

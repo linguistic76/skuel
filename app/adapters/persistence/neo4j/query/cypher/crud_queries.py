@@ -297,6 +297,35 @@ def build_far_node_clause(far_alias: str, anchor_owners: str) -> tuple[str, dict
     )
 
 
+def build_path_audience_clause(path_nodes: str) -> tuple[str, dict[str, str]]:
+    """Build the WHERE fragment that keeps a traversal path only when the caller may see all of it.
+
+    A multi-hop read returns every node on its path — the graph names its
+    intermediates as edge endpoints — so the far-node predicate applies to EACH one,
+    with the caller (``$user_uid``) as the anchor's owner: the caller's own entity
+    through any ownership spelling, or published shared content. A ``:User`` node is
+    no entity and never passes, the caller's own included; another user's entity
+    fails the owner arm, so any path that runs through one is withheld whole. A share
+    link is not ownership, as in ``build_far_node_clause``.
+
+    ``path_nodes`` lists the nodes to test and leaves the anchor out — the route
+    admitted it, and a draft the caller named still comes back. With a null
+    ``$user_uid`` the caller owns nothing, so only published shared content passes.
+
+    Args:
+        path_nodes: a Cypher list expression over the path's non-anchor nodes, e.g.
+            ``nodes(path)[1..]``.
+
+    Returns:
+        ``(fragment, params)`` — a WHERE fragment plus the parameters it introduces;
+        the caller binds ``$user_uid``.
+
+    See: /docs/decisions/ADR-085-ownership-read-enforcement-contract.md § 4
+    """
+    far, params = build_far_node_clause("path_node", "[$user_uid]")
+    return f"all(path_node IN {path_nodes} WHERE path_node:Entity AND {far})", params
+
+
 # The labels whose edges are link edges: a user's activity, joined by the link doors to
 # the user's other entities and to shared curriculum. The feedback loop, groups and
 # sharing join two users by design and are read under their own audience rules

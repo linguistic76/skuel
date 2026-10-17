@@ -170,7 +170,7 @@ load shows only in the console. Read the console first.
 | 404 on `.../lateral/graph` for your own entity | domain not in `_LATERAL_DOMAINS` (no route), or, on an Activity domain, the uid is wrong | add the entry; check the uid |
 | 404 on someone else's entity (Activity domains) | the ownership check working (not-found, never forbidden) | expected |
 | 400 `Invalid relationship type` | a `?types=` value that isn't a `RelationshipName` value | pass enum values, comma-separated |
-| Graph shows only the center dot | no lateral edges of the requested types within `depth` (a missing or non-curriculum uid on `ku`/`ps`/`lp` is a 404, not this) | expected |
+| Graph shows only the center dot | no lateral edges of the requested types within `depth` reach anything the caller may see — their own entities or published curriculum (a missing or non-curriculum uid on `ku`/`ps`/`lp` is a 404, not this) | expected |
 | Red "Failed to load graph" line under the canvas | the request failed — `relationshipGraph` sets `error` and the card shows it | read the response status in the network tab |
 
 ### Graph Is Slow
@@ -187,6 +187,7 @@ load shows only in the console. Read the console first.
 
 - `tests/unit/test_lateral_graph_queries.py`: service graph and ownership gate (`TestOwnershipGate`)
 - `tests/integration/routes/test_lateral_route_ownership.py`: foreign entity → 404, owner → 200, curriculum → 200; `depth` above 3 is 3, below 1 or unreadable is a 400 (`TestGraphDepthBounds`)
+- `tests/integration/routes/test_lateral_traversal_audience.py`: no `User` node and nothing of a stranger's on any path — the `?types=VIEWED,OWNS,APPLIES_KNOWLEDGE` probes, an Activity center through a shared Ku, an intermediate withheld with its path; the caller's own entities and published curriculum come back; no user reaches published curriculum only
 - `tests/js/graph-components.test.js`: `relationshipGraph` and `exploreGraph` mounted by the vendored Alpine on the rendered markup — one fetch per mount, the depth select refetches, the error shows, removal leaves no network, listener or overlay
 - `tests/unit/ui/test_graph_alpine_markup.py`: no `x-init` beside a graph or Explore `x-data`; the depth select inside the scope; the JS fixtures equal the rendered markup
 - `tests/integration/routes/test_curriculum_lateral_authoring_retired.py`: no curriculum lateral write is registered (404/405, graph unchanged); the vault's Edge YAML writes the edges; an Activity write still lands

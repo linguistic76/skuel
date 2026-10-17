@@ -27,7 +27,8 @@ relationshipGraph (Alpine) + SKUEL.graph helpers             (static/js/skuel.js
 APOC out of every domain query.
 
 ```cypher
-MATCH path = (center {uid: $uid})-[r:{type_filter}*1..{depth}]-(related)
+MATCH path = (center:Entity {uid: $uid})-[r:{type_filter}*1..{depth}]-(related)
+WHERE {on_path}  // build_path_audience_clause("nodes(path)[1..]")
 WITH center, r, related, length(path) as depth_level
 RETURN DISTINCT
     center.uid as center_uid, center.title as center_title,
@@ -41,6 +42,11 @@ RETURN DISTINCT
 ```
 
 - The match is **undirected** (`-[…]-`), so the graph shows both sides of every edge.
+- **Every node on a path past the center is one the caller may see** (`$user_uid`): their
+  own entity, or published shared content. A `User` node never passes, nor does another
+  user's entity or a draft, and a path through one is dropped whole — its intermediates
+  would otherwise reach the client as edge `from` / `to` uids. This holds whatever
+  `type_filter` names.
 - `type_filter` and `depth` are interpolated into the pattern. A variable-length bound
   cannot be a parameter. `type_filter` is built from `RelationshipName` values only, and
   `depth` is 1–3: the route refuses below 1 and caps above 3.
@@ -58,16 +64,16 @@ async def get_relationship_graph(
 ) -> Result[RelationshipGraphData]:
 ```
 
-- **The center is gated** by `_verify_entity_access`, and only the center: the traversal
-  itself is not owner-filtered. With a verifier (the six Activity domains) it checks
-  ownership, given a `user_uid`; a foreign or missing center is a 404, never a 403.
+- **The center is gated** by `_verify_entity_access`; what it reaches is filtered in
+  Layer 1, with `user_uid` passed down. With a verifier (the six Activity domains) the gate
+  checks ownership, given a `user_uid`; a foreign or missing center is a 404, never a 403.
 - On `ku` / `ps` / `lp` there is no verifier (`domain_service=None`), so the center must be
   a Ku, PathStep or LearningPath by `entity_type`. A missing uid, or another user's private
   entity, is the same 404 — the route never draws a private entity's neighbourhood and
   never says whether the uid exists. A draft curriculum center still answers.
 - With no related rows it returns the center node alone (`label` = the uid, `type` /
-  `status` `"unknown"`): a real entity with no edges of the requested types, so the canvas
-  shows one dot.
+  `status` `"unknown"`): a real entity with no edges of the requested types that reach
+  anything the caller may see, so the canvas shows one dot.
 - Edges are colored per type with `RelationshipColor.for_type` (`core/utils/palette.py`).
 
 ### Layer 3: Routes (`LateralRouteFactory`)
