@@ -116,30 +116,39 @@ The overlay exists because the sidebar is `overflow:hidden` inside a transformed
 the sidebar network can't grow past it; `expandGraph` builds a second network at the
 `exploreExpanded` profile.
 
-⚠ `render_explore_sidebar_page` mounts the component with `x_init="init()"` on top of the
-component's own `init()`, so it loads twice. That's the same defect as `RelationshipGraphView`,
-and it's logged.
+Every mount — `render_explore_sidebar_page`'s wrapping `Div`, and `ExploreGraphView` standalone
+on `/explore/graph` — carries no `x-init`, so Alpine runs the component's own init once (one
+fetch, one Escape listener). `destroy()` removes the Escape listener, closes an open overlay and destroys the
+network, since the listener and the overlay live on `document`, outside the component.
 
 ---
 
 ## Depth Control
 
 The graph grows fast with depth, so the UI offers 1–3 and defaults to 2. The markup below is
-the shape `RelationshipGraphView` needs. Its select currently sits outside the component
-(SKILL.md, Example 2), and the fix goes in that component, not in a copy of it.
+the shape `RelationshipGraphView` renders (trimmed); change that component, not a copy of it.
 
 ```python
-Div(
-    Select(
-        Option("Depth 1", value="1"),
-        Option("Depth 2", value="2", selected=True),
-        Option("Depth 3", value="3"),
-        name="graph_depth",
-        full_width=False,
-        **{"x-on:change": "changeDepth($event.target.value)"},
+CardBody(
+    Div(
+        H3("Relationship Graph", cls="text-lg font-bold"),
+        Select(
+            *[
+                Option(f"Depth {level}", value=str(level), selected=(level == depth))
+                for level in range(GraphDepth.DIRECT, GraphDepth.DEFAULT + 1)
+            ],
+            name="graph_depth",
+            full_width=False,
+            aria_label="Graph depth",
+            **{"x-on:change": "changeDepth($event.target.value)"},
+        ),
     ),
-    Div(id=f"network-{uid}", cls="w-full h-96"),
-    **{"x-data": f"relationshipGraph('{uid}', 'tasks', 2)"},
+    Div(id=f"network-{uid}", cls="w-full h-96 border border-border rounded-sm"),
+    P(role="alert", x_show="error", x_text="error", x_cloak=True),
+    **{
+        "x-data": f"relationshipGraph('{uid}', 'tasks', {depth})",
+        "x-on:relationships-changed.window": "loadGraph(depth)",
+    },
 )
 ```
 
@@ -147,10 +156,9 @@ The component's `changeDepth` method sets `depth` and reloads.
 The select must sit **inside** the component's root element; Alpine doesn't bind a directive
 outside any component tree.
 
-**The server does not cap depth.** `get_graph(..., depth: int = 2, ...)` accepts any integer,
-and the backend interpolates it into `*1..{depth}`. "1–3" is a UI convention and a docstring
-recommendation, not an enforced limit. A clamp belongs in the route (validation → 400)
-before anything sends larger values.
+**The route caps depth at 3.** `get_graph` reads `?depth=` with `parse_int_param_strict`
+(missing → 2, unreadable or below 1 → 400, above 3 → 3, `GraphDepth.DEFAULT`) before the
+backend interpolates it into `*1..{depth}`, so only 1–3 ever reaches the Cypher.
 
 ---
 

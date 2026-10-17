@@ -174,7 +174,6 @@ def render_explore_sidebar_page(
                     graph,
                     sign_in_prompt,
                     x_data=f"exploreGraph({alpine_args})",
-                    x_init="init()",
                 ),
             )
         )
@@ -255,7 +254,6 @@ def render_explore_sidebar_page(
                     saved_section,
                     completed_section,
                     x_data=f"exploreGraph({alpine_args})",
-                    x_init="init()",
                 ),
             )
         )

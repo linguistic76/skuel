@@ -26,11 +26,13 @@ failing the ``_foreign`` cases.
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from starlette.responses import Response
 
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 from core.models.relationship_names import RelationshipName
@@ -400,6 +402,47 @@ class TestRouteThreadsTheVerifier:
         await _graph(handlers, "ps")(request=_make_request(INTRUDER), uid="ps.math.algebra")
 
         assert lateral.get_relationship_graph.await_args.kwargs["domain_service"] is None
+
+
+GraphHandler = Callable[..., Awaitable[Response]]
+
+
+class TestGraphDepthBounds:
+    """``depth`` becomes a variable-length bound in the Cypher, so the route
+    reads it strictly: 1 to 3, the range the graph's depth select offers."""
+
+    @pytest.fixture
+    def graph_spy(self, owner_only_service: Any) -> tuple[MagicMock, GraphHandler]:
+        lateral = MagicMock()
+        lateral.get_relationship_graph = AsyncMock(
+            return_value=Result.ok({"nodes": [], "edges": []})
+        )
+        return lateral, _graph(_register(lateral, owner_only_service, "goals"), "goals")
+
+    @pytest.mark.parametrize(
+        ("sent", "read"), [(None, 2), ("1", 1), ("3", 3), ("4", 3), ("1000000", 3)]
+    )
+    async def test_depth_above_the_cap_is_the_cap(
+        self, graph_spy: tuple[MagicMock, GraphHandler], sent: str | None, read: int
+    ) -> None:
+        lateral, handler = graph_spy
+        query = {} if sent is None else {"depth": sent}
+
+        response = await handler(request=_make_request(OWNER, query), uid=OWNED_UID)
+
+        assert response.status_code == 200
+        assert lateral.get_relationship_graph.await_args.args[1] == read
+
+    @pytest.mark.parametrize("sent", ["0", "-1", "x", "2.5"])
+    async def test_depth_below_one_or_unreadable_is_a_400(
+        self, graph_spy: tuple[MagicMock, GraphHandler], sent: str
+    ) -> None:
+        lateral, handler = graph_spy
+
+        response = await handler(request=_make_request(OWNER, {"depth": sent}), uid=OWNED_UID)
+
+        assert response.status_code == 400
+        lateral.get_relationship_graph.assert_not_awaited()
 
 
 # ============================================================================

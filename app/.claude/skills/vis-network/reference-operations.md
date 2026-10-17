@@ -64,7 +64,9 @@ Div(Div(id=f"network-{uid}"), **{"x-data": f"relationshipGraph('{uid}', 'tasks',
 Div(Div(id=f"network-{uid}"), **{"x-data": f"relationshipGraph('{uid}', 'tasks', 2)"})
 ```
 
-`RelationshipGraphView` and the Explore sidebar still carry this defect (logged); don't copy it.
+`relationshipGraph`, `exploreGraph` and `exploreSearch` all mount this way;
+`tests/unit/ui/test_graph_alpine_markup.py` fails on an `x-init` beside one of their `x-data`
+roots.
 
 ### 2. Looking the Canvas Up by `x-ref`
 
@@ -82,10 +84,11 @@ inside it is never bound, so changing it does nothing and no error appears.
 `node.type` is a Neo4j label. Use `node.url`, resolved by the route with
 `entity_detail_href`.
 
-### 5. Relying on the Server to Cap Depth
+### 5. Offering a Depth the Route Does Not Draw
 
-Nothing clamps `depth` on `GET .../lateral/graph`. Keep every surface at 1–3, and add a route
-validator (→ 400) before exposing a larger value.
+`GET .../lateral/graph` caps `depth` at 3 (`GraphDepth.DEFAULT`): `?depth=5` draws a 3-hop
+graph without saying so. Build a depth control from `range(GraphDepth.DIRECT,
+GraphDepth.DEFAULT + 1)`, as `RelationshipGraphView` does, rather than hard-coding options.
 
 ### 6. Hand-Rolling a Per-Domain Lateral Service
 
@@ -167,11 +170,12 @@ load shows only in the console. Read the console first.
 | 404 on `.../lateral/graph` for your own entity | domain not in `_LATERAL_DOMAINS` (no route), or, on an Activity domain, the uid is wrong | add the entry; check the uid |
 | 404 on someone else's entity (Activity domains) | the ownership check working (not-found, never forbidden) | expected |
 | 400 `Invalid relationship type` | a `?types=` value that isn't a `RelationshipName` value | pass enum values, comma-separated |
-| Graph shows only the center dot | no lateral edges within `depth` — or, on `ku`/`ps`/`lp`, a uid that doesn't exist (no existence check there; the center's label is then the uid itself) | check the uid; otherwise expected |
+| Graph shows only the center dot | no lateral edges of the requested types within `depth` (a missing or non-curriculum uid on `ku`/`ps`/`lp` is a 404, not this) | expected |
+| Red "Failed to load graph" line under the canvas | the request failed — `relationshipGraph` sets `error` and the card shows it | read the response status in the network tab |
 
 ### Graph Is Slow
 
-- Keep depth at 2; depth 3 is the UI's maximum for a reason, and nothing server-side stops more.
+- Keep depth at 2; 3 is the route's cap and the select's maximum.
 - A very large neighborhood (hundreds of nodes) calls for `barnesHut` in a new profile, not
   for editing `relationship` in place.
 - Check the traversal with `PROFILE` on the Cypher in `LateralRelationshipBackend`; the
@@ -182,5 +186,7 @@ load shows only in the console. Read the console first.
 ## Tests
 
 - `tests/unit/test_lateral_graph_queries.py`: service graph and ownership gate (`TestOwnershipGate`)
-- `tests/integration/routes/test_lateral_route_ownership.py`: foreign entity → 404, owner → 200, curriculum → 200
+- `tests/integration/routes/test_lateral_route_ownership.py`: foreign entity → 404, owner → 200, curriculum → 200; `depth` above 3 is 3, below 1 or unreadable is a 400 (`TestGraphDepthBounds`)
+- `tests/js/graph-components.test.js`: `relationshipGraph` and `exploreGraph` mounted by the vendored Alpine on the rendered markup — one fetch per mount, the depth select refetches, the error shows, removal leaves no network, listener or overlay
+- `tests/unit/ui/test_graph_alpine_markup.py`: no `x-init` beside a graph or Explore `x-data`; the depth select inside the scope; the JS fixtures equal the rendered markup
 - `tests/integration/routes/test_curriculum_lateral_authoring_retired.py`: no curriculum lateral write is registered (404/405, graph unchanged); the vault's Edge YAML writes the edges; an Activity write still lands

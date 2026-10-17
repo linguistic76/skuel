@@ -42,8 +42,8 @@ RETURN DISTINCT
 
 - The match is **undirected** (`-[…]-`), so the graph shows both sides of every edge.
 - `type_filter` and `depth` are interpolated into the pattern. A variable-length bound
-  cannot be a parameter. `type_filter` is built from `RelationshipName` values only, but
-  `depth` is whatever `int` the route received; nothing clamps it.
+  cannot be a parameter. `type_filter` is built from `RelationshipName` values only, and
+  `depth` is 1–3: the route refuses below 1 and caps above 3.
 
 ### Layer 2: Service (`LateralRelationshipService.get_relationship_graph`)
 
