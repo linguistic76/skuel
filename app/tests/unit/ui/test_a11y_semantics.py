@@ -8,18 +8,22 @@
   its 15% tint is 4.09:1). A pill uses the Badge palette instead.
 - An error banner is ``role="alert"`` alone: an ``aria-live="polite"`` beside it
   contradicts the role's implicit assertive politeness.
-- ``Input`` and ``Select`` are 44px on phones and 40px from ``md`` up, and so is
-  the Today quick-add row, whose title field is a raw ``Input``.
+- ``Input`` and ``Select`` are 44px on phones and 40px from ``md`` up; with
+  ``compact=True`` (dense chat chrome) 44px on phones and 32px from ``md``. Each
+  renders one utility per property per breakpoint — two would be decided by
+  their order in ``output.css``, not by the component — and ``full_width``
+  picks exactly one width. The Today quick-add row matches the field height.
 """
 
 import re
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 
 import pytest
 from fasthtml.common import Option, to_xml
 
-from ui.components import Input, Select
+from ui.components import Input, Select, TextArea
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.today.page import _quick_add
 
@@ -132,10 +136,75 @@ def test_form_controls_are_44px_on_phones_and_40px_from_md(control: object) -> N
     assert "h-10" not in tokens
 
 
+_PROPERTY_PREFIXES = {
+    "height": ("h-",),
+    "width": ("w-",),
+    "padding-x": ("px-", "pl-", "pr-", "p-"),
+    "padding-y": ("py-", "pt-", "pb-", "p-"),
+    "radius": ("rounded",),
+    "font-size": ("text-sm", "text-xs", "text-13", "text-base", "text-lg"),
+    "display": ("flex", "block", "inline-flex", "inline-block", "grid"),
+}
+
+
+def _tokens(control: object) -> list[str]:
+    classes = re.search(r'class="([^"]*)"', to_xml(control))
+    assert classes
+    return classes.group(1).split()
+
+
+def _conflicts(tokens: list[str]) -> list[str]:
+    """Two utilities for one property at one breakpoint (variants like ``focus-visible:`` skipped)."""
+    found: list[str] = []
+    for breakpoint in ("", "md:"):
+        plain = [
+            token.removeprefix(breakpoint)
+            for token in tokens
+            if token.startswith(breakpoint) and ":" not in token.removeprefix(breakpoint)
+        ]
+        for prop, prefixes in _PROPERTY_PREFIXES.items():
+            hits = [token for token in plain if token.startswith(prefixes)]
+            if len(hits) > 1:
+                found.append(f"{breakpoint}{prop}: {hits}")
+    return found
+
+
+@pytest.mark.parametrize("full_width", [True, False])
+@pytest.mark.parametrize("make", [Input, Select], ids=["Input", "Select"])
+def test_compact_controls_are_44px_on_phones_and_32px_from_md(
+    make: Callable[..., object], full_width: bool
+) -> None:
+    tokens = _tokens(make(name="model", compact=True, full_width=full_width))
+    assert "h-11" in tokens and "md:h-8" in tokens
+    assert "md:h-10" not in tokens
+    assert "text-13" in tokens
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("full_width", [True, False])
+@pytest.mark.parametrize("make", [Input, Select, TextArea], ids=["Input", "Select", "TextArea"])
+def test_a_field_renders_one_utility_per_property(
+    make: Callable[..., object], full_width: bool, compact: bool
+) -> None:
+    kwargs: dict[str, object] = {"name": "f", "full_width": full_width}
+    if compact and make is not TextArea:
+        kwargs["compact"] = True
+    tokens = _tokens(make(**kwargs))
+    assert _conflicts(tokens) == []
+    assert ("w-full" in tokens) is full_width
+    assert ("w-auto" in tokens) is not full_width
+
+
+def test_the_conflict_check_sees_a_restated_property() -> None:
+    assert _conflicts(["h-11", "md:h-10", "h-10"]) == ["height: ['h-11', 'h-10']"]
+    assert _conflicts(["px-3", "pl-9"]) == ["padding-x: ['px-3', 'pl-9']"]
+    assert _conflicts(["w-full", "md:w-auto", "focus-visible:ring-2"]) == []
+
+
 @pytest.mark.parametrize("tag", ["input", "button"])
 def test_today_quick_add_row_is_44px_on_phones_and_40px_from_md(tag: str) -> None:
-    """The quick-add title field is a raw ``Input``, outside the component's
-    heights; its button matches it so the row stays aligned."""
+    """The quick-add title field is the component ``Input``; its button matches
+    the field's heights so the row stays aligned."""
     xml = to_xml(_quick_add(date(2026, 10, 17)))
     controls = [el for el in re.findall(rf"<{tag}\b[^>]*>", xml) if 'type="hidden"' not in el]
     assert len(controls) == 1

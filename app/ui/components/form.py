@@ -20,25 +20,31 @@ __all__ = [
     "TextArea",
 ]
 
-_INPUT_BASE = (
-    "flex h-11 md:h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm "
-    "ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium "
-    "placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 "
-    "focus-visible:ring-ring focus-visible:ring-offset-2 "
-    "disabled:cursor-not-allowed disabled:opacity-50"
+# Size and look are separate so one keyword can swap the size: a caller's ``cls``
+# carries layout only (margin, flex, width caps), never a second height, padding,
+# text size, border or background — two utilities for one property are decided by
+# their order in output.css, not by the caller. Width is the ``full_width`` flag.
+_FIELD_SIZE = "h-11 md:h-10 rounded-md px-3 py-2 text-sm"
+
+# Dense chat chrome (model and scope pickers, the chat-history search and rename
+# fields): 44px on phones like every field, 32px with 13px text from ``md`` up.
+_FIELD_SIZE_COMPACT = "h-11 md:h-8 rounded-lg px-2.5 py-1 text-13"
+
+_FIELD_LOOK = (
+    "flex border border-input bg-background ring-offset-background "
+    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring "
+    "focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+)
+
+_INPUT_LOOK = (
+    f"{_FIELD_LOOK} file:border-0 file:bg-transparent file:text-sm file:font-medium "
+    "placeholder:text-muted-foreground"
 )
 
 _TEXTAREA_BASE = (
-    "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm "
+    "flex min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm "
     "ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden "
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 "
-    "disabled:cursor-not-allowed disabled:opacity-50"
-)
-
-_SELECT_BASE = (
-    "flex h-11 md:h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm "
-    "ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 "
-    "focus-visible:ring-ring focus-visible:ring-offset-2 "
     "disabled:cursor-not-allowed disabled:opacity-50"
 )
 
@@ -74,6 +80,17 @@ def _aria_attrs(
     return extra, elements
 
 
+def _field_cls(look: str, size: str, *, full_width: bool, error_text: str | None, cls: str) -> str:
+    """One field's class list: look, size, exactly one width, then the caller's layout."""
+    return _cls(
+        look,
+        size,
+        "w-full" if full_width else "w-auto",
+        "border-destructive" if error_text else "",
+        cls,
+    )
+
+
 def Label(*c: Any, cls: str = "", **kwargs: Any) -> Any:  # boundary: fasthtml-elements
     """Styled form label."""
     return fh.Label(*c, cls=_cls(_LABEL_BASE, cls), **kwargs)
@@ -84,22 +101,26 @@ def Input(
     full_width: bool = True,
     help_text: str | None = None,
     error_text: str | None = None,
+    compact: bool = False,
     **kwargs: Any,
 ) -> Any:
-    """Styled text input. Wraps in a Div when help_text or error_text is present."""
-    cls_parts = [_INPUT_BASE]
-    if not full_width:
-        cls_parts.append("w-auto")
-    if error_text:
-        cls_parts.append("border-destructive")
-    if cls:
-        cls_parts.append(cls)
+    """Styled text input. Wraps in a Div when help_text or error_text is present.
+
+    ``compact`` is the dense chat-chrome size (44px on phones, 32px from ``md``).
+    """
+    field_cls = _field_cls(
+        _INPUT_LOOK,
+        _FIELD_SIZE_COMPACT if compact else _FIELD_SIZE,
+        full_width=full_width,
+        error_text=error_text,
+        cls=cls,
+    )
 
     field_name = str(kwargs.get("name", kwargs.get("id", "input")))
     aria_extra, trailing = _aria_attrs(field_name, help_text, error_text)
     kwargs.update(aria_extra)
 
-    element = fh.Input(cls=" ".join(cls_parts), **kwargs)
+    element = fh.Input(cls=field_cls, **kwargs)
     if not trailing:
         return element
     return Div(element, *trailing, cls="w-full" if full_width else "")
@@ -114,19 +135,15 @@ def TextArea(
     **kwargs: Any,
 ) -> Any:
     """Styled textarea. Wraps in a Div when help_text or error_text is present."""
-    cls_parts = [_TEXTAREA_BASE]
-    if not full_width:
-        cls_parts.append("w-auto")
-    if error_text:
-        cls_parts.append("border-destructive")
-    if cls:
-        cls_parts.append(cls)
+    field_cls = _field_cls(
+        _TEXTAREA_BASE, "", full_width=full_width, error_text=error_text, cls=cls
+    )
 
     field_name = str(kwargs.get("name", kwargs.get("id", "textarea")))
     aria_extra, trailing = _aria_attrs(field_name, help_text, error_text)
     kwargs.update(aria_extra)
 
-    element = fh.Textarea(*c, cls=" ".join(cls_parts), **kwargs)
+    element = fh.Textarea(*c, cls=field_cls, **kwargs)
     if not trailing:
         return element
     return Div(element, *trailing, cls="w-full" if full_width else "")
@@ -138,22 +155,26 @@ def Select(
     full_width: bool = True,
     help_text: str | None = None,
     error_text: str | None = None,
+    compact: bool = False,
     **kwargs: Any,
 ) -> Any:
-    """Native <select> with Tailwind styling. Keeps the native element for HTMX form serialization."""
-    cls_parts = [_SELECT_BASE]
-    if not full_width:
-        cls_parts.append("w-auto")
-    if error_text:
-        cls_parts.append("border-destructive")
-    if cls:
-        cls_parts.append(cls)
+    """Native <select> with Tailwind styling. Keeps the native element for HTMX form serialization.
+
+    ``compact`` is the dense chat-chrome size (44px on phones, 32px from ``md``).
+    """
+    field_cls = _field_cls(
+        _FIELD_LOOK,
+        _FIELD_SIZE_COMPACT if compact else _FIELD_SIZE,
+        full_width=full_width,
+        error_text=error_text,
+        cls=cls,
+    )
 
     field_name = str(kwargs.get("name", kwargs.get("id", "select")))
     aria_extra, trailing = _aria_attrs(field_name, help_text, error_text)
     kwargs.update(aria_extra)
 
-    element = fh.Select(*options, cls=" ".join(cls_parts), **kwargs)
+    element = fh.Select(*options, cls=field_cls, **kwargs)
     if not trailing:
         return element
     return Div(element, *trailing, cls="w-full" if full_width else "")

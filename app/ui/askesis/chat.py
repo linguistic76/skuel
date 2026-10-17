@@ -9,10 +9,11 @@ Alpine: { sidebarOpen } on shell root; { sourcesOpen } per AI message.
 import json
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span, Template, Textarea
+from fasthtml.common import Button, Div, Form, Option, P, Span, Template, Textarea
+from fasthtml.common import Input as FTInput
 
 from ui.canon import CanonSourcesBlock
-from ui.components import Icon
+from ui.components import Icon, Input, Select
 
 if TYPE_CHECKING:
     from core.services.canon import CanonSource
@@ -226,13 +227,19 @@ def _sb_new_chat_btn() -> Any:
 def _sb_search_field() -> Any:
     return Div(
         Div(
-            Icon("search", size=15, cls="text-muted-foreground shrink-0"),
+            Icon(
+                "search",
+                size=15,
+                cls="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none",
+            ),
             Input(
                 type="search",
                 placeholder="Search chats",
-                cls="flex-1 bg-transparent border-none outline-hidden text-13 text-foreground placeholder:text-muted-foreground",
+                aria_label="Search chats",
+                compact=True,
+                cls="pl-9",
             ),
-            cls="flex items-center gap-2 h-[38px] rounded-[9px] px-3 bg-slate-100",
+            cls="relative",
         ),
         cls="px-3 pb-4",
     )
@@ -423,10 +430,9 @@ def _model_select(model_options: list[tuple[str, str]]) -> Any:
     return Select(
         *[Option(label, value=value) for value, label in model_options],
         aria_label="Model",
-        cls=(
-            "text-13 text-muted-foreground bg-transparent border border-border"
-            " rounded-[8px] px-2 py-1 outline-hidden cursor-pointer"
-        ),
+        compact=True,
+        full_width=False,
+        cls="cursor-pointer",
         **{"x-model": "selectedModel"},
     )
 
@@ -482,10 +488,9 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
     return Select(
         *options,
         aria_label="Scope answer to a NOUS topic",
-        cls=(
-            "text-13 text-muted-foreground bg-transparent border border-border"
-            " rounded-[18px] px-2.5 py-1.5 outline-hidden cursor-pointer max-w-[160px]"
-        ),
+        compact=True,
+        full_width=False,
+        cls="cursor-pointer max-w-[160px]",
         **{"x-model": "selectedNous"},
     )
 
@@ -523,11 +528,9 @@ def _nous_subtopic_scope_select(nous_subtopic_map: dict[str, list[str]]) -> Any:
             **{"x-for": "sub in (nousSubtopicMap[selectedNous] || [])", ":key": "sub"},
         ),
         aria_label="Scope answer to a NOUS sub-topic",
-        cls=(
-            "text-13 text-muted-foreground bg-transparent border border-border"
-            " rounded-[18px] px-2.5 py-1.5 outline-hidden cursor-pointer max-w-[160px]"
-            " disabled:opacity-60 disabled:cursor-not-allowed"
-        ),
+        compact=True,
+        full_width=False,
+        cls="cursor-pointer max-w-[160px]",
         **{"x-model": "selectedNousSubtopic", ":disabled": "!selectedNous"},
     )
 
@@ -583,13 +586,13 @@ def _composer_form(
         )
 
     return Form(
-        Input(type="hidden", name="mode", **{":value": "responseMode"}),
+        FTInput(type="hidden", name="mode", **{":value": "responseMode"}),
         # The per-conversation model choice rides every submit (bound to root state);
         # switching the top-bar picker changes only the NEXT turn.
-        Input(type="hidden", name="model", **{":value": "selectedModel"}),
+        FTInput(type="hidden", name="model", **{":value": "selectedModel"}),
         # Hidden fields carry the active scope with every submit (bound to root state).
-        Input(type="hidden", name="nous", **nous_attrs),
-        Input(type="hidden", name="nous_subtopic", **{":value": "selectedNousSubtopic"}),
+        FTInput(type="hidden", name="nous", **nous_attrs),
+        FTInput(type="hidden", name="nous_subtopic", **{":value": "selectedNousSubtopic"}),
         Textarea(
             # Server-rendered prefill for the handoff question (empty otherwise).
             initial_question,
@@ -608,14 +611,14 @@ def _composer_form(
                 _kb_pill(),
                 _nous_scope_select(nous_topics),
                 _nous_subtopic_scope_select(nous_subtopic_map),
-                cls="flex items-center gap-2",
+                cls="flex flex-wrap items-center gap-2 min-w-0",
             ),
             Div(
                 _circle_btn("mic", "Dictate"),
                 _send_btn(),
-                cls="flex items-center gap-2",
+                cls="flex items-center gap-2 shrink-0",
             ),
-            cls="flex items-center justify-between mt-2",
+            cls="flex items-end justify-between gap-2 mt-2",
         ),
         cls="border border-border rounded-[25px] px-[18px] pt-[9px] pb-[9px] bg-background shadow-md",
         hx_post="/askesis/api/submit",

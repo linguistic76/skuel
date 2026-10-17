@@ -17,14 +17,15 @@ from collections.abc import Callable
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
-from fasthtml.common import H1, H2, A, Button, Div, Form, Header, Input, Main, P, Section, Span
+from fasthtml.common import H1, H2, A, Button, Div, Form, Header, Main, P, Section, Span
+from fasthtml.common import Input as FTInput
 
 from core.models.event.calendar_models import CalendarItemType
 from ui.activities._shared import ActivityList
 from ui.activities.events_views import EventCard
 from ui.activities.tasks_views import TaskCard
 from ui.calendar.components import DAY_KINDS, _event_chip, calendar_nav_cluster, create_kind_legend
-from ui.components import Icon
+from ui.components import Icon, Input
 from ui.patterns.empty_state import EmptyState
 from ui.today.orchestrator import moment_is_on_day
 
@@ -132,7 +133,7 @@ def _quick_add(view_date: date) -> FT:
     anchors creation to the day the lens is pointed at, not a second server clock.
     """
     return Form(
-        Input(type="hidden", name="view_date", value=view_date.isoformat()),
+        FTInput(type="hidden", name="view_date", value=view_date.isoformat()),
         Input(
             type="text",
             name="title",
@@ -141,11 +142,7 @@ def _quick_add(view_date: date) -> FT:
             autocomplete="off",
             maxlength="200",
             aria_label="New task title",
-            cls=(
-                "flex-1 min-w-0 h-11 md:h-10 px-3 rounded-md border border-border bg-card "
-                "text-sm text-foreground placeholder:text-muted-foreground "
-                "focus:outline-hidden focus:shadow-focus"
-            ),
+            cls="flex-1 min-w-0",
         ),
         Button(
             Icon("plus", size=15),
@@ -212,8 +209,8 @@ def _defer_form(task: Task, view_date: date, *, source: str) -> FT:
         "text-muted-foreground hover:bg-accent focus:outline-hidden focus:shadow-focus"
     )
     return Form(
-        Input(type="hidden", name="view_date", value=view_date.isoformat()),
-        Input(type="hidden", name="source", value=source),
+        FTInput(type="hidden", name="view_date", value=view_date.isoformat()),
+        FTInput(type="hidden", name="source", value=source),
         Span("Defer", cls="text-11 text-muted-foreground/70"),
         Button("1d", type="submit", name="span", value="1d", cls=button_cls),
         Button("1w", type="submit", name="span", value="1w", cls=button_cls),

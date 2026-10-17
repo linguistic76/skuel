@@ -9,12 +9,14 @@ No async, no service calls — receives pre-fetched data.
 import json
 from typing import Any
 
-from fasthtml.common import FT, Button, Div, Form, Input, NotStr, Option, P, Select, Span
+from fasthtml.common import FT, Button, Div, Form, NotStr, Option, P, Span
 from fasthtml.common import A as Anchor
+from fasthtml.common import Input as FTInput
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import LearningLevel
 from core.models.search.filter_enums import SearchSortOrder
+from ui.components import Input, Select
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 
@@ -222,13 +224,6 @@ LIBRARY_SORT_VALUES = frozenset(value for value, _ in LIBRARY_SORT_CHOICES)
 # first <option>). Must be one of LIBRARY_SORT_CHOICES.
 LIBRARY_DEFAULT_SORT = SearchSortOrder.CREATED_DESC.value
 
-# Shared select styling for the library facet bar (search box keeps its own,
-# fuller styling in Row 1).
-DROPDOWN_CLS = (
-    "text-sm border border-border rounded-md px-2 py-1.5 bg-background "
-    "text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
-)
-
 # Every named control in the library facet bar. Used to build the NOUS
 # dropdown's hx-include: HTMX auto-serializes the triggering control, so NOUS
 # carries every OTHER filter EXCEPT its stale dependent (nous_subtopic), which a
@@ -245,7 +240,7 @@ def _explore_hx_include(*exclude: str) -> str:
 NOUS_SUBTOPIC_COLUMN_ID = "explore-nous-subtopic-column"
 
 
-def render_explore_subtopic_inner(subtopics: list[str], *, nous_selected: bool = True) -> Select:
+def render_explore_subtopic_inner(subtopics: list[str], *, nous_selected: bool = True) -> FT:
     """Inner sub-topic ``<select>`` for the library cascade (HTMX-swapped fragment).
 
     Mirrors the /search cascade contract (ui.search.components.render_nous_subtopic_inner)
@@ -267,7 +262,8 @@ def render_explore_subtopic_inner(subtopics: list[str], *, nous_selected: bool =
     return Select(
         *options,
         name="nous_subtopic",
-        cls=DROPDOWN_CLS,
+        full_width=False,
+        cls="cursor-pointer",
         disabled=not nous_selected or not subtopics,
         hx_get="/api/explore/search",
         hx_target="#explore-grid",
@@ -357,7 +353,8 @@ def render_explore_search_panel(
     nous_select = Select(
         *nous_options,
         name="nous",
-        cls=DROPDOWN_CLS,
+        full_width=False,
+        cls="cursor-pointer",
         hx_get="/api/explore/search",
         hx_target="#explore-grid",
         hx_trigger="change",
@@ -384,7 +381,8 @@ def render_explore_search_panel(
     learning_level_select = Select(
         *learning_level_options,
         name="learning_level",
-        cls=DROPDOWN_CLS,
+        full_width=False,
+        cls="cursor-pointer",
         hx_get="/api/explore/search",
         hx_target="#explore-grid",
         hx_trigger="change",
@@ -419,9 +417,8 @@ def render_explore_search_panel(
                     type="search",
                     placeholder="Search knowledge units and path steps...",
                     autocomplete="off",
-                    cls="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg "
-                    "bg-background focus:outline-hidden focus:ring-1 focus:ring-primary "
-                    "focus:border-primary",
+                    aria_label="Search knowledge units and path steps",
+                    cls="pl-9",
                     x_model="query",
                     x_ref="searchInput",
                     hx_get="/api/explore/search",
@@ -436,7 +433,8 @@ def render_explore_search_panel(
                 Select(
                     *type_options,
                     name="type",
-                    cls=DROPDOWN_CLS,
+                    full_width=False,
+                    cls="cursor-pointer",
                     hx_get="/api/explore/search",
                     hx_target="#explore-grid",
                     hx_trigger="change",
@@ -447,7 +445,8 @@ def render_explore_search_panel(
                 Select(
                     *sort_options,
                     name="sort",
-                    cls=DROPDOWN_CLS,
+                    full_width=False,
+                    cls="cursor-pointer",
                     hx_get="/api/explore/search",
                     hx_target="#explore-grid",
                     hx_trigger="change",
@@ -483,7 +482,7 @@ def render_explore_search_panel(
             if tag_chips
             else None,
             # Hidden input for active tag
-            Input(name="tag", type="hidden", **{"x-bind:value": "activeTag"}),
+            FTInput(name="tag", type="hidden", **{"x-bind:value": "activeTag"}),
             cls="flex flex-col gap-3",
             id="explore-search-form",
         ),

@@ -30,6 +30,11 @@ Button("Save", cls=(ButtonT.primary, "w-full mt-4"))           # tuple to compos
 from ui.components import LabelInput
 LabelInput("Email", name="email", type="email")
 
+# ✅ Fields own their size — cls is layout only; compact=True is the one size variant
+Select(*options, name="model", compact=True, full_width=False)
+# ❌ A raw fasthtml Input/Select (test_form_fields_use_components.py fails on it)
+#    or a cls that restates height/padding/text size/border/background
+
 # ⚠️ Avoid raw Tailwind when a component exists
 Button("Save", cls="bg-blue-600 text-white px-4 py-2 rounded")  # Use Button(cls=ButtonT.primary)
 ```

@@ -11,7 +11,6 @@ from fasthtml.common import (
     Label,
     Option,
     P,
-    Select,
     Span,
     Textarea,
 )
@@ -19,7 +18,7 @@ from fasthtml.common import (
 from core.services.chat import DEFAULT_CHAT_MODEL
 from ui.canon import CanonSourcesBlock
 from ui.components import Button as StyledButton
-from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
+from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle, Select
 
 
 def ModelControl(model: str, model_options: list[tuple[str, str]] | None) -> Any:
@@ -43,10 +42,9 @@ def ModelControl(model: str, model_options: list[tuple[str, str]] | None) -> Any
         ],
         name="model",
         aria_label="Model",
-        cls=(
-            "text-13 text-muted-foreground bg-transparent border border-border"
-            " rounded-[8px] px-2 py-1 outline-hidden cursor-pointer"
-        ),
+        compact=True,
+        full_width=False,
+        cls="cursor-pointer",
     )
 
 

@@ -69,7 +69,7 @@ def RelationshipGraphView(
                     name="graph_depth",
                     full_width=False,
                     aria_label="Graph depth",
-                    **{"x-on:change": "changeDepth($event.target.value)"},
+                    **{"x-on:change": "changeDepth($event.target.value)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 ),
                 cls="flex items-center justify-between mb-4",
             ),

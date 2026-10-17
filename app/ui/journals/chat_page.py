@@ -14,7 +14,8 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Button, Div, Form, Input, P, Span
+from fasthtml.common import A, Button, Div, Form, P, Span
+from fasthtml.common import Input as FTInput
 
 from core.utils.period_keys import (
     monthly_period_start,
@@ -24,7 +25,7 @@ from core.utils.period_keys import (
 )
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
-from ui.components import Icon
+from ui.components import Icon, Input
 from ui.journals.period_links import (
     PERIOD_ICONS,
     PERIOD_KINDS,
@@ -597,13 +598,14 @@ def DiscussionRow(session: ConversationSession) -> Any:
         ),
         Form(
             Input(
+                type="text",
                 name="title",
                 value=title,
-                cls=(
-                    "flex-1 min-w-0 text-13 px-2 py-1 rounded-sm border border-border"
-                    " bg-background outline-hidden focus:border-foreground/40"
-                ),
-                **{"x-ref": "titleInput", "@keydown.escape": "editing = false"},
+                aria_label="Discussion title",
+                compact=True,
+                cls="flex-1 min-w-0",
+                x_ref="titleInput",
+                **{"@keydown.escape": "editing = false"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
             hx_post=f"/journals/discussion/{sid}/rename",
             hx_target="closest [data-discussion-row]",
@@ -701,11 +703,11 @@ def _landing_source_panel(shelf_books: list[dict[str, str]]) -> Any:
     checked-none = no canon, checked-some = scoped, checked-all = whole shelf
     (C3). Rendered only for FOUNDERs (the canon/vault dials' entitlement).
     """
-    from fasthtml.common import Details, Input, Label, Summary
+    from fasthtml.common import Details, Label, Summary
 
     book_rows = [
         Label(
-            Input(
+            FTInput(
                 type="checkbox",
                 name="canon_book_uids",
                 value=book["resource_uid"],
@@ -744,7 +746,7 @@ def _landing_source_panel(shelf_books: list[dict[str, str]]) -> Any:
         Div(
             canon_section,
             Label(
-                Input(
+                FTInput(
                     type="checkbox",
                     name="summon_vault",
                     value="true",

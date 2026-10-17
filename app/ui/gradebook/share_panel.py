@@ -25,10 +25,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from fasthtml.common import H3, A, Button, Div, Form, Input, Label, P, Span
+from fasthtml.common import H3, A, Button, Div, Form, Label, P, Span
 
 from core.models.user_entry.audience import GROUP_PREFIX, USER_PREFIX
-from ui.components import ButtonT, Icon
+from ui.components import ButtonT, Checkbox, Icon
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
@@ -114,20 +114,14 @@ def AudienceCheckbox(
     An already-shared target is checked and disabled; a preselected one checked.
     """
     checkbox_id = f"share-{value.replace(':', '-')}"
-    attrs: dict[str, object] = {
-        "type": "checkbox",
-        "name": "audience",
-        "value": value,
-        "id": checkbox_id,
-        "cls": "h-4 w-4 rounded-sm border-input",
-    }
-    if shared:
-        attrs["checked"] = True
-        attrs["disabled"] = True
-    elif preselected:
-        attrs["checked"] = True
     return Div(
-        Input(**attrs),
+        Checkbox(
+            name="audience",
+            value=value,
+            id=checkbox_id,
+            checked=shared or preselected,
+            disabled=shared,
+        ),
         Label(
             label,
             Span(f" @{hint}", cls="text-muted-foreground") if hint else "",

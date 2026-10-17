@@ -546,11 +546,27 @@ LabelTextArea("Description", name="description", rows="4", placeholder="Enter de
 
 ### Input Sizing
 
-`Input` has no `size=` parameter — adjust geometry with Tailwind classes via `cls=`:
+`Input` and `Select` own their geometry: 44px on phones, 40px from `md` up. One
+keyword swaps it — `compact=True`, the dense chat-chrome size (44px on phones,
+32px with 13px text from `md`) used by the Askesis and Journals pickers and the
+chat-history fields. Width is `full_width` (default `True`; `False` sizes the
+field to its content). A caller's `cls` carries layout only — margin, `flex-1`,
+`min-w-0`, a `max-w-*` cap, an icon inset like `pl-9` — never a second height,
+padding, text size, border or background: two utilities for one property are
+decided by their order in `output.css`, not by the caller.
 
 ```python
-Input(cls="h-8 text-sm")  # Smaller input
+Input(name="q", type="search", cls="pl-9")                     # room for a leading icon
+Select(*options, name="model", compact=True, full_width=False)  # a chat-toolbar picker
 ```
+
+**The fields are the components.** Every visible text, search, number or date
+`Input` and every `Select` in `ui/` and `adapters/inbound/` is the `ui.components`
+one. `tests/unit/ui/test_form_fields_use_components.py` fails on a raw `fasthtml`
+`Input` / `Select` outside `ui/components/` — by name, by `*`, or as `fh.Input`.
+A raw `Input` of type `hidden`, `checkbox`, `radio` or `file` is exempt; its type
+must be a literal at the call (`Input(type="hidden", **attrs)`), never inside a
+spread dict. Raw `Textarea` is not guarded.
 
 ---
 

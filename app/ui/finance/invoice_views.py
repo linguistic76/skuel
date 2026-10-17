@@ -13,14 +13,16 @@ from fasthtml.common import (
     Button,
     Div,
     Form,
-    Input,
     Label,
     Option,
-    Select,
+    Script,
     Span,
+    Template,
     Textarea,
 )
+from fasthtml.common import Input as FTInput
 
+from ui.components import Input, Select
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
@@ -97,7 +99,7 @@ class InvoiceViews:
                     Option("All Types", value=""),
                     Option("Outgoing (To Clients)", value="outgoing"),
                     Option("Incoming (From Vendors)", value="incoming"),
-                    cls="mt-1 block w-full rounded-md border-border bg-background px-3 py-2 text-sm",
+                    cls="mt-1",
                     name="type",
                     hx_get="/finance/invoices",
                     hx_target="#invoice-list",
@@ -116,7 +118,7 @@ class InvoiceViews:
                     Option("Pending", value="pending"),
                     Option("Paid", value="paid"),
                     Option("Overdue", value="overdue"),
-                    cls="mt-1 block w-full rounded-md border-border bg-background px-3 py-2 text-sm",
+                    cls="mt-1",
                     name="status",
                     hx_get="/finance/invoices",
                     hx_target="#invoice-list",
@@ -227,7 +229,7 @@ class InvoiceViews:
                     Label("Type", cls="block text-sm font-medium text-muted-foreground mb-1"),
                     Div(
                         Label(
-                            Input(
+                            FTInput(
                                 type="radio",
                                 name="invoice_type",
                                 value="outgoing",
@@ -238,7 +240,7 @@ class InvoiceViews:
                             cls="flex items-center text-sm",
                         ),
                         Label(
-                            Input(
+                            FTInput(
                                 type="radio",
                                 name="invoice_type",
                                 value="incoming",
@@ -262,7 +264,6 @@ class InvoiceViews:
                         name="counterparty",
                         placeholder="Enter name...",
                         required=True,
-                        cls="w-full px-3 py-2 border border-border rounded-md text-sm",
                     ),
                     cls="mb-4",
                 ),
@@ -277,7 +278,6 @@ class InvoiceViews:
                             type="date",
                             name="invoice_date",
                             required=True,
-                            cls="w-full px-3 py-2 border border-border rounded-md text-sm",
                         ),
                         cls="flex-1",
                     ),
@@ -288,7 +288,6 @@ class InvoiceViews:
                         Input(
                             type="date",
                             name="due_date",
-                            cls="w-full px-3 py-2 border border-border rounded-md text-sm",
                         ),
                         cls="flex-1",
                     ),
@@ -332,45 +331,28 @@ class InvoiceViews:
                 method="POST",
                 cls="space-y-2",
             ),
-            # JavaScript for dynamic line items
-            Div(
-                """
-                <script>
+            # "+ Add Line Item" appends a copy of the template row, its __INDEX__
+            # placeholder replaced by the next index — the same component markup
+            # as the first row.
+            Template(
+                InvoiceViews._render_line_item_row("__INDEX__", removable=True),
+                id="line-item-template",
+            ),
+            Script("""
                 let lineItemCount = 1;
-
                 function addLineItem() {
-                    const container = document.getElementById('line-items-container');
-                    const newItem = document.createElement('div');
-                    newItem.className = 'grid grid-cols-12 gap-2 items-end';
-                    newItem.innerHTML = `
-                        <div class="col-span-6">
-                            <input type="text" name="items[${lineItemCount}][description]" placeholder="Description" required
-                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
-                        </div>
-                        <div class="col-span-2">
-                            <input type="number" name="items[${lineItemCount}][quantity]" placeholder="Qty" step="0.01" min="0.01" required
-                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
-                        </div>
-                        <div class="col-span-3">
-                            <input type="number" name="items[${lineItemCount}][unit_price]" placeholder="Unit $" step="0.01" min="0" required
-                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
-                        </div>
-                        <div class="col-span-1">
-                            <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-sm">X</button>
-                        </div>
-                    `;
-                    container.appendChild(newItem);
+                    const template = document.getElementById('line-item-template');
+                    const row = template.innerHTML.replaceAll('__INDEX__', String(lineItemCount));
+                    document.getElementById('line-items-container').insertAdjacentHTML('beforeend', row);
                     lineItemCount++;
                 }
-                </script>
-                """,
-            ),
+            """),
             cls="bg-muted p-6 rounded-lg border border-border",
         )
 
     @staticmethod
-    def _render_line_item_row(index: int) -> Div:
-        """Render a single line item row."""
+    def _render_line_item_row(index: int | str, *, removable: bool = False) -> Div:
+        """Render one line item row; an added row (``removable``) carries a remove button."""
         return Div(
             Div(
                 Input(
@@ -378,7 +360,6 @@ class InvoiceViews:
                     name=f"items[{index}][description]",
                     placeholder="Description",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-6",
             ),
@@ -390,7 +371,6 @@ class InvoiceViews:
                     step="0.01",
                     min="0.01",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-2",
             ),
@@ -402,17 +382,23 @@ class InvoiceViews:
                     step="0.01",
                     min="0",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-3",
             ),
             Div(
-                Span(
-                    "", cls="text-muted-foreground"
-                ),  # Placeholder for delete button (first item can't be deleted)
+                Button(
+                    "X",
+                    type="button",
+                    aria_label="Remove line item",
+                    onclick="this.closest('[data-line-item]').remove()",
+                    cls="h-11 md:h-10 text-sm text-destructive hover:text-destructive/80",
+                )
+                if removable
+                else Span("", cls="text-muted-foreground"),  # the first row stays
                 cls="col-span-1",
             ),
             cls="grid grid-cols-12 gap-2 items-end",
+            data_line_item=True,
         )
 
 
