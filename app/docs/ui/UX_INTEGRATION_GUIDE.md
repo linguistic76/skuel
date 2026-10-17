@@ -233,8 +233,16 @@ constraints shaped it, and any change to it keeps them:
    uses Escape itself — the entity picker's list — stops the event only while
    it is using it.
 
-Pinned by `tests/js/alpine-modal.test.js` (vendored Alpine, jsdom) and
-`tests/unit/ui/test_alpine_modal_markup.py`.
+The Tab trap and the wait-for-reveal are `window.SKUEL.trapTab(event, dialog)`
+and `window.SKUEL.whenDisplayed(el, tries, run, wanted)` in `skuel.js`, shared
+with the one dialog built in JavaScript rather than by `AlpineModal` — the
+Explore graph's expanded overlay (`exploreGraph.expandGraph`). It moves focus to
+its close button when it opens, keeps Tab inside, and on close returns focus to
+the expand button once `x-show` has revealed it.
+
+Pinned by `tests/js/alpine-modal.test.js` (vendored Alpine, jsdom),
+`tests/unit/ui/test_alpine_modal_markup.py`, and for the overlay
+`tests/js/graph-components.test.js`.
 
 ---
 

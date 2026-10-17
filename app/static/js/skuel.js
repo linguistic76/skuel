@@ -223,6 +223,91 @@
         }
     });
 
+    // -------------------------------------------------------------------------
+    // Dialog focus helpers — shared by AlpineModal (`alpineModal`) and the
+    // Explore graph's expanded overlay (`exploreGraph`), so a modal surface
+    // has one Tab trap and one wait-for-reveal.
+    // -------------------------------------------------------------------------
+    var FOCUSABLE = 'a[href], button:not([disabled]), '
+        + 'input:not([disabled]):not([type="hidden"]), select:not([disabled]), '
+        + 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    function isShownWithin(el, stop) {
+        for (var node = el; node && node !== stop; node = node.parentElement) {
+            if (node.hidden || getComputedStyle(node).display === 'none') return false;
+        }
+        return true;
+    }
+
+    /**
+     * The focusable elements inside a container that are displayed, in
+     * document order.
+     *
+     * @param {Element} container
+     * @returns {Element[]}
+     */
+    window.SKUEL.focusables = function(container) {
+        return Array.prototype.filter.call(
+            container.querySelectorAll(FOCUSABLE),
+            function(el) { return isShownWithin(el, container); }
+        );
+    };
+
+    /**
+     * Keep Tab and Shift+Tab inside a modal container: from the last control
+     * Tab wraps to the first, from the first Shift+Tab wraps to the last, and
+     * focus outside the container is pulled back in. With no focusable control
+     * the container itself holds focus (give it tabindex="-1"). Call it from
+     * the container's keydown handler for the Tab key.
+     *
+     * @param {KeyboardEvent} event - the Tab keydown
+     * @param {Element} container - the dialog element
+     */
+    window.SKUEL.trapTab = function(event, container) {
+        var items = window.SKUEL.focusables(container);
+        var active = document.activeElement;
+        if (items.length === 0) {
+            event.preventDefault();
+            container.focus();
+            return;
+        }
+        var first = items[0];
+        var last = items[items.length - 1];
+        var inside = container.contains(active);
+        if (event.shiftKey) {
+            if (!inside || active === first || active === container) {
+                event.preventDefault();
+                last.focus();
+            }
+        } else if (!inside || active === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    };
+
+    /**
+     * Run `run` once `el` is displayed. An x-show reveal lands one frame after
+     * its state flips, and a hidden element cannot take focus, so a focus move
+     * onto something x-show is revealing waits here. Gives up after `tries`
+     * frames, or as soon as `wanted()` (when given) answers false.
+     *
+     * @param {Element} el
+     * @param {number} tries
+     * @param {Function} run
+     * @param {Function} [wanted]
+     */
+    window.SKUEL.whenDisplayed = function(el, tries, run, wanted) {
+        if (wanted && !wanted()) return;
+        if (getComputedStyle(el).display !== 'none') {
+            run();
+            return;
+        }
+        if (tries <= 0) return;
+        var next = document.visibilityState === 'visible'
+            ? window.requestAnimationFrame : window.setTimeout;
+        next(function() { window.SKUEL.whenDisplayed(el, tries - 1, run, wanted); });
+    };
+
     /**
      * Live Region Announcer - Task 10: HTMX + Screen Reader Integration
      * Announces dynamic content changes to screen readers via ARIA live regions.
@@ -2096,30 +2181,12 @@
          * </div>
          */
         Alpine.data('alpineModal', function() {
-            var FOCUSABLE = 'a[href], button:not([disabled]), '
-                + 'input:not([disabled]):not([type="hidden"]), select:not([disabled]), '
-                + 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-            function isShown(el, stop) {
-                for (var node = el; node && node !== stop; node = node.parentElement) {
-                    if (node.hidden || getComputedStyle(node).display === 'none') return false;
-                }
-                return true;
-            }
-
             return {
                 modalShown: false,
                 modalOpener: null,
 
                 modalDialog: function() {
                     return this.$root.querySelector('[role="dialog"]');
-                },
-
-                modalFocusables: function(dialog) {
-                    return Array.prototype.filter.call(
-                        dialog.querySelectorAll(FOCUSABLE),
-                        function(el) { return isShown(el, dialog); }
-                    );
                 },
 
                 modalToggled: function(shown) {
@@ -2136,47 +2203,19 @@
                     }
                 },
 
-                // x-show reveals one frame after the state flips (Alpine
-                // defers the reveal), and a hidden element cannot take focus —
-                // wait until the wrapper is displayed.
+                // The wrapper is x-show'n: focus moves in once it is displayed.
                 modalFocusWhenVisible: function(tries) {
                     var self = this;
-                    var root = this.$root;
-                    if (!this.modalShown) return;
-                    if (getComputedStyle(root).display !== 'none') {
-                        var dialog = this.modalDialog();
+                    window.SKUEL.whenDisplayed(this.$root, tries, function() {
+                        var dialog = self.modalDialog();
                         if (!dialog || dialog.contains(document.activeElement)) return;
-                        var items = this.modalFocusables(dialog);
+                        var items = window.SKUEL.focusables(dialog);
                         (items[0] || dialog).focus();
-                        return;
-                    }
-                    if (tries <= 0) return;
-                    var next = document.visibilityState === 'visible'
-                        ? window.requestAnimationFrame : window.setTimeout;
-                    next(function() { self.modalFocusWhenVisible(tries - 1); });
+                    }, function() { return self.modalShown; });
                 },
 
                 modalTrapTab: function(event) {
-                    var dialog = event.currentTarget;
-                    var items = this.modalFocusables(dialog);
-                    var active = document.activeElement;
-                    if (items.length === 0) {
-                        event.preventDefault();
-                        dialog.focus();
-                        return;
-                    }
-                    var first = items[0];
-                    var last = items[items.length - 1];
-                    var inside = dialog.contains(active);
-                    if (event.shiftKey) {
-                        if (!inside || active === first || active === dialog) {
-                            event.preventDefault();
-                            last.focus();
-                        }
-                    } else if (!inside || active === last) {
-                        event.preventDefault();
-                        first.focus();
-                    }
+                    window.SKUEL.trapTab(event, event.currentTarget);
                 }
             };
         });
@@ -2392,6 +2431,9 @@
         /**
          * Interactive graph for the Explore sidebar. Shows entity relationships
          * with filter tabs (Learning/Saved/All) and full-screen overlay expansion.
+         * The overlay is a modal dialog: focus moves to its close button, Tab
+         * stays inside it (SKUEL.trapTab), and Escape, the backdrop or the close
+         * button return focus to the `expandButton` ref.
          *
          * @param {string} mode - 'hub' (learning universe) or 'entity' (entity-centered)
          * @param {string} entity_uid - Entity UID (ignored when mode='hub')
@@ -2400,6 +2442,7 @@
          * @example
          * <div x-data="exploreGraph('entity', 'ku_abc', 'ku')">
          *   <div id="explore-graph-container"></div>
+         *   <button x-ref="expandButton" x-show="!expanded" @click="expandGraph()">...</button>
          * </div>
          */
         Alpine.data('exploreGraph', function(mode, entity_uid, entity_type) {
@@ -2598,9 +2641,13 @@
                     var overlay = document.createElement('div');
                     overlay.id = 'explore-graph-overlay';
                     overlay.className = 'fixed inset-0 z-9999';
+                    overlay.tabIndex = -1;
                     overlay.setAttribute('role', 'dialog');
                     overlay.setAttribute('aria-modal', 'true');
                     overlay.setAttribute('aria-label', 'Expanded relationship graph');
+                    overlay.addEventListener('keydown', function(e) {
+                        if (e.key === 'Tab') window.SKUEL.trapTab(e, overlay);
+                    });
 
                     // Backdrop
                     var backdrop = document.createElement('div');
@@ -2642,6 +2689,9 @@
                     if (built) {
                         this._expandedNetwork = built.network;
                     }
+
+                    // The overlay is built visible, so focus moves in at once.
+                    closeBtn.focus();
                 },
 
                 collapseGraph: function() {
@@ -2654,8 +2704,16 @@
                         this._overlay.remove();
                         this._overlay = null;
                     }
-                    // Resize sidebar graph back
+                    // Focus returns to the expand button, which x-show
+                    // reveals a frame after `expanded` flips.
                     var self = this;
+                    var expandButton = this.$refs.expandButton;
+                    if (expandButton) {
+                        window.SKUEL.whenDisplayed(expandButton, 10, function() {
+                            expandButton.focus();
+                        }, function() { return !self.expanded && expandButton.isConnected; });
+                    }
+                    // Resize sidebar graph back
                     setTimeout(function() {
                         if (self.network) {
                             self.network.redraw();

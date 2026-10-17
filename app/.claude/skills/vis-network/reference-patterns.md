@@ -109,7 +109,7 @@ in `ui/explore/graph.py`, driven by `exploreGraph(mode, entity_uid, entity_type)
 | **Data** | `/api/{domain}/{uid}/lateral/graph?depth=` | hub: `GET /api/explore/graph`; entity: `/api/{ku,ps}/{uid}/lateral/graph?depth=2` |
 | **Modes** | entity-centered | hub (the "You" node + studying Kus + in-progress PSes) or entity |
 | **Where** | detail pages | the `/explore/library` sidebar (hub mode; its one caller passes no entity), `/explore/graph` |
-| **Extras** | depth select | filter tabs (`setFilter('all' / 'learning' / 'saved')` dim non-matching nodes to 0.15 opacity); `expandGraph()` opens a full-screen overlay on `document.body` with a second network (Escape or the backdrop closes it) |
+| **Extras** | depth select | filter tabs (`setFilter('all' / 'learning' / 'saved')` dim non-matching nodes to 0.15 opacity); `expandGraph()` opens a full-screen overlay on `document.body` with a second network — a modal dialog: focus moves to its close button and Tab stays inside (`SKUEL.trapTab`); Escape, the backdrop or the close button closes it and focus returns to the expand button |
 | **Click** | `node.url` | `node.url` in entity mode, else `/explore/{ku,ps}/{id}` |
 
 The overlay exists because the sidebar is `overflow:hidden` inside a transformed column, so

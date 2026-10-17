@@ -23,6 +23,7 @@ from fasthtml.common import (
 
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
+from ui.feedback import Badge, BadgeT
 from ui.finance.types import InvoiceRow, InvoiceStats
 from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -145,13 +146,13 @@ class InvoiceViews:
                 id="invoice-list",
             )
 
-        status_colors = {
-            "draft": "bg-muted text-foreground/80",
-            "sent": "bg-blue-100 text-blue-800",
-            "pending": "bg-yellow-100 text-yellow-800",
-            "paid": "bg-green-100 text-green-800",
-            "overdue": "bg-red-100 text-red-800",
-            "cancelled": "bg-secondary text-muted-foreground",
+        status_variants = {
+            "draft": BadgeT.neutral,
+            "sent": BadgeT.info,
+            "pending": BadgeT.warning,
+            "paid": BadgeT.success,
+            "overdue": BadgeT.error,
+            "cancelled": BadgeT.secondary,
         }
 
         from ui.components.table import Th
@@ -172,7 +173,7 @@ class InvoiceViews:
 
         body_data = []
         for inv in invoices:
-            status_class = status_colors.get(inv.status, "bg-muted text-foreground/80")
+            status_variant = status_variants.get(inv.status, BadgeT.neutral)
             type_icon = "📤" if inv.invoice_type == "outgoing" else "📥"
 
             body_data.append(
@@ -185,10 +186,7 @@ class InvoiceViews:
                     "Counterparty": inv.counterparty,
                     "Amount": f"${inv.total:,.2f}",
                     "Due Date": inv.due_date or "N/A",
-                    "Status": Span(
-                        inv.status.upper(),
-                        cls=f"px-2 py-1 rounded-full text-xs font-medium {status_class}",
-                    ),
+                    "Status": Badge(inv.status.upper(), variant=status_variant),
                     "Actions": Div(
                         A(
                             "View",

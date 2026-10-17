@@ -127,15 +127,16 @@ def ExploreGraphView(
         x_cloak=True,
     )
 
-    # Expand button (visible in sidebar mode)
+    # Expand button (visible in sidebar mode). Collapsing the overlay returns
+    # focus to it through the `expandButton` ref. 44px on phones, 28px from md.
     expand_btn = Button(
         Icon("maximize-2", size=14),
         type="button",
-        cls="absolute top-2 right-2 w-7 h-7 flex items-center justify-center"
+        cls="absolute top-2 right-2 w-11 h-11 md:w-7 md:h-7 flex items-center justify-center"
         " rounded-md bg-background/80 border border-border hover:bg-accent"
         " transition-colors cursor-pointer z-10",
         aria_label="Expand graph view",
-        **{"@click": "expandGraph()", "x-show": "!expanded"},
+        **{"@click": "expandGraph()", "x-show": "!expanded", "x-ref": "expandButton"},
     )
 
     # Empty state — shown when graph has no nodes

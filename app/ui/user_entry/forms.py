@@ -40,7 +40,9 @@ from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span
 
 from core.models.user_entry.audience import GROUP_PREFIX, PUBLIC, USER_PREFIX
 from ui.components import Icon
+from ui.feedback import Badge, BadgeT
 from ui.gradebook.share_panel import AudienceCheckbox
+from ui.layout import Size
 from ui.primitives import (
     SelectableOptionRow,
     SelectedFileCard,
@@ -102,12 +104,11 @@ def _feedback_option(
         click_handler=f"selectFeedback('{key}')",
         disabled=disabled,
         title_extra=(
-            Span(
+            Badge(
                 "Needs an exercise",
-                cls=(
-                    "text-10 font-bold uppercase tracking-wider "
-                    "text-amber-800 bg-amber-100 px-[7px] py-[2px] rounded-full"
-                ),
+                variant=BadgeT.warning,
+                size=Size.xs,
+                cls="uppercase tracking-wider",
             )
             if disabled
             else None
@@ -227,12 +228,11 @@ def _share_question(targets: ShareTargets | None, *, portfolio_mode: str) -> FT:
             Span("Portfolio", cls="text-sm ml-2"),
             Span(" — appears on your public profile", cls="text-sm text-muted-foreground"),
         ),
-        Span(
+        Badge(
             "Coming soon",
-            cls=(
-                "ml-2 text-10 font-bold uppercase tracking-wider "
-                "text-amber-800 bg-amber-100 px-[7px] py-[2px] rounded-full"
-            ),
+            variant=BadgeT.warning,
+            size=Size.xs,
+            cls="ml-2 uppercase tracking-wider",
         )
         if portfolio_mode != "active"
         else "",

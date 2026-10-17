@@ -20,19 +20,21 @@ from fasthtml.common import H4, Div, Form, Li, Option, P, Span, Ul
 from core.constants import DualTrackCheckin
 from core.models.shared.dual_track import DualTrackResult
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
+from ui.feedback import Badge, BadgeT
 from ui.forms import LabelSelect, LabelTextArea
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from enum import StrEnum
 
-# gap_direction -> (label, tailwind color classes). Public so other surfaces can
+# gap_direction -> (label, badge variant). Public so other surfaces can
 # reuse the same vocabulary for the perception gap.
-DIRECTION_BADGE: dict[str, tuple[str, str]] = {
-    "aligned": ("In sync", "bg-green-100 text-green-800"),
-    "user_higher": ("You rate yourself higher than the data", "bg-amber-100 text-amber-800"),
-    "system_higher": ("You're doing better than you think", "bg-blue-100 text-blue-800"),
+DIRECTION_BADGE: dict[str, tuple[str, BadgeT]] = {
+    "aligned": ("In sync", BadgeT.success),
+    "user_higher": ("You rate yourself higher than the data", BadgeT.warning),
+    "system_higher": ("You're doing better than you think", BadgeT.info),
 }
+_UNKNOWN_DIRECTION: tuple[str, BadgeT] = ("—", BadgeT.neutral)
 
 
 def humanize(value: str) -> str:
@@ -64,14 +66,12 @@ def bullet_list(heading: str, items: tuple[str, ...]) -> Any:
 
 def gap_card(label: str, result: DualTrackResult[Any]) -> Any:
     """One perception-gap card for a single dimension."""
-    badge_label, badge_cls = DIRECTION_BADGE.get(
-        result.gap_direction, ("—", "bg-base-200 text-base-content/70")
-    )
+    badge_label, badge_variant = DIRECTION_BADGE.get(result.gap_direction, _UNKNOWN_DIRECTION)
 
     return Card(
         CardHeader(
             CardTitle(label),
-            Span(badge_label, cls=f"text-xs px-2 py-1 rounded-full {badge_cls}"),
+            Badge(badge_label, variant=badge_variant),
             cls="flex items-center justify-between",
         ),
         CardBody(
@@ -117,15 +117,13 @@ def render_checkin_trend(checkins: tuple[dict[str, Any], ...] | list[dict[str, A
     rows: list[Any] = []
     for snap in recent:
         direction = str(snap.get("gap_direction", ""))
-        badge_label, badge_cls = DIRECTION_BADGE.get(
-            direction, ("—", "bg-base-200 text-base-content/70")
-        )
+        badge_label, badge_variant = DIRECTION_BADGE.get(direction, _UNKNOWN_DIRECTION)
         gap = snap.get("perception_gap")
         gap_str = f"{gap:.0%}" if isinstance(gap, int | float) else "—"
         rows.append(
             Li(
                 Span(str(snap.get("assessed_date", "")), cls="text-muted-foreground"),
-                Span(badge_label, cls=f"ml-2 text-xs px-2 py-0.5 rounded-full {badge_cls}"),
+                Badge(badge_label, variant=badge_variant, cls="ml-2"),
                 Span(f" · {gap_str} gap", cls="ml-2 text-xs text-muted-foreground"),
                 cls="text-sm",
             )
