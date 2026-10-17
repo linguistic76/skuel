@@ -32,64 +32,84 @@ def _is_fasthtml(module: str | None) -> bool:
     return module is not None and (module == "fasthtml" or module.startswith("fasthtml."))
 
 
-def _bindings(tree: ast.Module) -> tuple[list[tuple[int, str, str | None]], set[str]]:
-    """Every import that binds a name, in line order, plus the fasthtml module aliases.
+MODULE = "module"
+_SCOPE_NODES = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 
-    Each binding is ``(line, local name, guarded fasthtml name or None)`` — None
-    when the name comes from anywhere else, so a later ``from ui.components
-    import Input`` shadows an earlier raw import. A ``*`` from fasthtml binds
-    both guarded names.
+
+def _import_kinds(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str | None]]:
+    """``(local name, kind)`` for each name an import binds.
+
+    The kind is the guarded fasthtml name (``Input`` / ``Select``), ``MODULE`` for
+    a fasthtml module (``import fasthtml.common`` binds its root, ``fasthtml``), or
+    None for a name from anywhere else — which shadows a raw one. A ``*`` from
+    fasthtml binds both guarded names.
     """
-    bindings: list[tuple[int, str, str | None]] = []
-    module_aliases: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            raw = _is_fasthtml(node.module)
-            for alias in node.names:
-                if alias.name == "*":
-                    if raw:
-                        bindings.extend((node.lineno, name, name) for name in GUARDED)
-                    continue
-                local = alias.asname or alias.name
-                if raw and alias.name in GUARDED:
-                    bindings.append((node.lineno, local, alias.name))
-                elif raw and alias.name in ("common", "components"):
-                    module_aliases.add(local)
-                else:
-                    bindings.append((node.lineno, local, None))
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if _is_fasthtml(alias.name):
-                    # ``import fasthtml.common`` binds the root name ``fasthtml``.
-                    module_aliases.add(alias.asname or alias.name.split(".")[0])
-    bindings.sort(key=lambda binding: binding[0])
-    return bindings, module_aliases
+    if isinstance(node, ast.Import):
+        return [
+            (alias.asname or alias.name.split(".")[0], MODULE if _is_fasthtml(alias.name) else None)
+            for alias in node.names
+        ]
+    raw = _is_fasthtml(node.module)
+    kinds: list[tuple[str, str | None]] = []
+    for alias in node.names:
+        if alias.name == "*":
+            if raw:
+                kinds.extend((name, name) for name in GUARDED)
+            continue
+        local = alias.asname or alias.name
+        if raw and alias.name in GUARDED:
+            kinds.append((local, alias.name))
+        elif raw and alias.name in ("common", "components"):
+            kinds.append((local, MODULE))
+        else:
+            kinds.append((local, None))
+    return kinds
 
 
-def _dotted(expr: ast.expr) -> str | None:
-    """``a.b.c`` for a chain of names and attributes, None for anything else."""
-    if isinstance(expr, ast.Name):
-        return expr.id
-    if isinstance(expr, ast.Attribute):
-        head = _dotted(expr.value)
-        return f"{head}.{expr.attr}" if head else None
-    return None
+class _ScopeScan:
+    """Each scope's imports, and each call with the chain of scopes around it."""
+
+    def __init__(self, tree: ast.Module) -> None:
+        self.imports: dict[int, list[tuple[int, str, str | None]]] = {}
+        self.calls: list[tuple[ast.Call, tuple[ast.AST, ...]]] = []
+        self._visit(tree, (tree,))
+
+    def _visit(self, node: ast.AST, chain: tuple[ast.AST, ...]) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.Import, ast.ImportFrom)):
+                self.imports.setdefault(id(chain[-1]), []).extend(
+                    (child.lineno, local, kind) for local, kind in _import_kinds(child)
+                )
+            elif isinstance(child, ast.Call):
+                self.calls.append((child, chain))
+            self._visit(child, (*chain, child) if isinstance(child, _SCOPE_NODES) else chain)
+
+    def kind(self, name: str, line: int, chain: tuple[ast.AST, ...]) -> str | None:
+        """What ``name`` holds at ``line``, resolved through the lexical scopes.
+
+        The innermost scope binding the name wins; an enclosing class body is
+        skipped, as Python skips it. In the call's own scope the last import at or
+        before the line counts; an enclosing scope's binding is its last one, the
+        value a call made later at run time sees.
+        """
+        for depth, scope in enumerate(reversed(chain)):
+            if depth and isinstance(scope, ast.ClassDef):
+                continue
+            hits = [b for b in self.imports.get(id(scope), []) if b[1] == name]
+            if not hits:
+                continue
+            if depth == 0:
+                before = [b for b in hits if b[0] <= line]
+                return (before or hits)[-1][2]
+            return hits[-1][2]
+        return None
 
 
-def _is_module_chain(expr: ast.expr, module_aliases: set[str]) -> bool:
-    """Whether ``expr`` names a fasthtml module (``fh``, ``fasthtml.common``, ...)."""
-    dotted = _dotted(expr)
-    return dotted is not None and any(
-        dotted == alias or dotted.startswith(f"{alias}.") for alias in module_aliases
-    )
-
-
-def _raw_name_at(bindings: list[tuple[int, str, str | None]], name: str, line: int) -> str | None:
-    """The guarded fasthtml name ``name`` holds at ``line`` (the last import before it)."""
-    matching = [binding for binding in bindings if binding[1] == name]
-    before = [binding for binding in matching if binding[0] <= line]
-    chosen = before[-1] if before else (matching[-1] if matching else None)
-    return chosen[2] if chosen else None
+def _root_name(expr: ast.expr) -> str | None:
+    """The name at the root of an attribute chain (``fasthtml`` in ``fasthtml.common``)."""
+    while isinstance(expr, ast.Attribute):
+        expr = expr.value
+    return expr.id if isinstance(expr, ast.Name) else None
 
 
 def _input_type(call: ast.Call) -> str | None:
@@ -108,22 +128,18 @@ def _input_type(call: ast.Call) -> str | None:
 
 def raw_field_calls(source: str) -> list[str]:
     """``line: what`` for every raw fasthtml text-field ``Input`` / ``Select`` call in ``source``."""
-    tree = ast.parse(source)
-    bindings, module_aliases = _bindings(tree)
+    scan = _ScopeScan(ast.parse(source))
     found: list[str] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
+    for node, chain in scan.calls:
         func = node.func
         raw: str | None = None
         if isinstance(func, ast.Name):
-            raw = _raw_name_at(bindings, func.id, node.lineno)
-        elif (
-            isinstance(func, ast.Attribute)
-            and func.attr in GUARDED
-            and _is_module_chain(func.value, module_aliases)
-        ):
-            raw = func.attr
+            kind = scan.kind(func.id, node.lineno, chain)
+            raw = kind if kind in GUARDED else None
+        elif isinstance(func, ast.Attribute) and func.attr in GUARDED:
+            root = _root_name(func.value)
+            if root and scan.kind(root, node.lineno, chain) == MODULE:
+                raw = func.attr
         if raw is None:
             continue
         if raw == "Select":
@@ -190,6 +206,26 @@ def test_no_raw_text_field_or_select_outside_the_components() -> None:
         ("import fasthtml.common\nfasthtml.common.Input(type='text')", ["2: raw Input type=text"]),
         ("import fasthtml\nfasthtml.components.Select()", ["2: raw Select"]),
         ("import fasthtml.common\nother.common.Select()", []),
+        # Bindings resolve through lexical scopes, not file-wide line order.
+        (
+            "from fasthtml.common import Input\ndef f():\n    from ui.components import Input\n"
+            "    Input()\nInput(type='text')",
+            ["5: raw Input type=text"],
+        ),
+        (
+            "from ui.components import Input\ndef f():\n    from fasthtml.common import Input\n"
+            "    Input(type='date')\ndef g():\n    Input()",
+            ["4: raw Input type=date"],
+        ),
+        (
+            "def f():\n    Input()\nfrom fasthtml.common import Input",
+            ["2: raw Input type=text (default)"],
+        ),
+        (
+            "import fasthtml.common as fh\nclass C:\n    from ui import components as fh\n    def m(self):\n"
+            "        fh.Select()",
+            ["5: raw Select"],
+        ),
         # Exempt types, and a type literal beside a spread, are readable and allowed.
         ('from fasthtml.common import Input\nInput(type="checkbox")', []),
         ('from fasthtml.common import Input\nInput(type="hidden", **attrs)', []),
