@@ -10,7 +10,7 @@ Two-book design: one Firefly instance, two users (one personal, one SKUEL
 business), each with its own Personal Access Token. Every method takes a
 `book: FireflyBook` argument that picks which PAT to use.
 
-See: /docs/decisions/ADR-051-firefly-iii-finance-integration.md
+See: /docs/decisions/ADR-052-firefly-iii-finance-integration.md
 """
 
 from __future__ import annotations

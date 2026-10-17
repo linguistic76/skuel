@@ -91,21 +91,31 @@ services:
     restart: unless-stopped
 
   # --------------------------------------------------------------------------
-  # Firefly III — Personal Finance Manager (replaces SKUEL expense/budget/reporting)
+  # Firefly III — accounting ledger (expenses, budgets, reporting)
   # --------------------------------------------------------------------------
-  # ADR-051: SKUEL delegates expense tracking, budgeting, and reporting to
-  # Firefly III (AGPL-v3 Laravel app) and keeps only the local invoice module.
+  # ADR-052: SKUEL delegates accounting to Firefly III (AGPL-v3 Laravel app).
+  # Its one planned SKUEL write is the revenue sync (ChargeKeep payment →
+  # a deposit in the skuel book). Invoicing is ChargeKeep's (ADR-062), not
+  # Firefly's and not SKUEL's.
   #
   # UI: http://localhost:8081
   # API: http://firefly:8080 (inside skuel-network)
   #
   # Two user accounts live on this single instance — one for Mike's personal
   # finances, one for SKUEL business finances — each with its own Personal
-  # Access Token. SKUEL picks the PAT by context via FIREFLY_PAT_PERSONAL /
-  # FIREFLY_PAT_SKUEL in .env.
+  # Access Token. SKUEL's client reads FIREFLY_PAT_SKUEL / FIREFLY_PAT_PERSONAL
+  # through get_credential() (the configured credential backend, .env
+  # fallback); the revenue sync needs only the skuel-book PAT. Everything in
+  # ${...} below is Compose interpolation from the environment, and the
+  # secrets live in the keychain — start these through scripts/dev/with-secrets.
+  #
+  # Images are pinned by tag AND digest and bumped by hand — Renovate leaves
+  # the app compose images manual (renovate.json). A Firefly bump runs Laravel
+  # migrations on start: docs/domains/finance.md
+  # § Pinned images and upgrading Firefly.
   # --------------------------------------------------------------------------
   firefly-db:
-    image: mariadb:11
+    image: mariadb:11.8.6@sha256:f5644a292224cdf4b6514aca38b3b4436f0b0443d54170a472cd14261f31402d
     container_name: skuel-firefly-db
     profiles: ["finance"]
     environment:
@@ -126,7 +136,7 @@ services:
       - skuel-network
 
   firefly:
-    image: fireflyiii/core:latest
+    image: fireflyiii/core:version-6.5.9@sha256:fe4ecec4c2ba2b2978a32b3defaf270407f9fddf0e789a18648121ab84bb68d2
     container_name: skuel-firefly
     profiles: ["finance"]
     ports:
@@ -149,12 +159,9 @@ services:
     depends_on:
       firefly-db:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+    # No healthcheck here: the image ships its own (curl → $HEALTHCHECK_PATH,
+    # /healthcheck), which firefly-importer's service_healthy waits on. An
+    # override must use curl or php — the image has no wget.
     restart: unless-stopped
     networks:
       - skuel-network
