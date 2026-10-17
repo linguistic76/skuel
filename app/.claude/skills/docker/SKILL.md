@@ -50,10 +50,10 @@ There are no commented-out "future services" anywhere — Redis/Ollama/nginx blo
 
 ```bash
 docker compose --profile monitoring up -d              # + Prometheus + Grafana
-docker compose --profile finance up -d firefly firefly-db   # Firefly III (web UI :8081)
+./scripts/dev/with-secrets docker compose --profile finance up -d firefly firefly-db   # Firefly III (web UI :8081)
 ```
 
-Firefly requires `FIREFLY_APP_KEY` in `.env` with the `base64:` prefix — generate via `printf "base64:%s\n" "$(head -c 32 /dev/urandom | base64)"`. Keep `.env` comments on their own lines (compose absorbs inline `#` into values); after editing `.env`, use `up -d` (not `restart`) so the container is recreated with the new env.
+Firefly needs `FIREFLY_APP_KEY` (the `base64:` prefix — generate via `printf "base64:%s\n" "$(head -c 32 /dev/urandom | base64)"`), and it lives in the OS keychain, not `.env`. Compose interpolates `${FIREFLY_APP_KEY}` from the environment, so start or recreate Firefly through `scripts/dev/with-secrets` — a bare `docker compose` only warns and recreates Firefly with a blank key. Its images are pinned by tag + digest and bumped by hand: `/docs/domains/finance.md § Pinned images and upgrading Firefly`.
 
 ---
 

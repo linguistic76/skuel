@@ -99,13 +99,13 @@ CREDENTIAL_CATALOG: dict[str, CredentialSpec] = {
         description="Deepgram API key — voice journal transcription",
         required=False,
     ),
-    # --- Firefly III finance sidecar (ADR-051) ---
+    # --- Firefly III finance sidecar (ADR-052) ---
     "FIREFLY_APP_KEY": CredentialSpec(
         description="Firefly III APP_KEY (base64:... format, 32 bytes)",
         required=False,
     ),
     "FIREFLY_DB_PASSWORD": CredentialSpec(
-        description="Firefly III Postgres password",
+        description="Firefly III MariaDB password",
         required=False,
     ),
     "FIREFLY_PAT_PERSONAL": CredentialSpec(

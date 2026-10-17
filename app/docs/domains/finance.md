@@ -1,7 +1,7 @@
 ---
 title: Finance Domain
 created: 2025-12-04
-updated: 2026-09-21
+updated: 2026-10-17
 status: current
 category: domains
 tags: [finance, firefly, chargekeep, billing, invoicing, admin-only, adr-052, adr-062]
@@ -93,16 +93,51 @@ with the default `docker compose up`:
 ```bash
 # First-time setup — generate the Laravel app key
 printf "base64:%s\n" "$(head -c 32 /dev/urandom | base64)"
-# Paste into FIREFLY_APP_KEY in .env (no inline comments — Compose treats everything
-# after = as the value).
+# Add FIREFLY_APP_KEY=<key> to ~/.config/skuel/secrets.env, then move it into the keychain
+# (and its index, which with-secrets reads): uv run python scripts/migrate_secrets_to_keychain.py
+# The key must never change once Firefly holds data.
 
-# Bring up the Firefly stack
-docker compose --profile finance up -d firefly-db firefly
+# Bring up the Firefly stack — with-secrets exports the keychain credentials, because
+# Compose interpolates ${FIREFLY_APP_KEY} from the environment and cannot read a keychain
+./scripts/dev/with-secrets docker compose --profile finance up -d firefly-db firefly
 
 # Create users + PATs in the Firefly web UI
 open http://localhost:8081
 # For each user: Profile → OAuth → Personal Access Tokens → Create New Token → copy once
 ```
+
+⚠ A bare `docker compose --profile finance up` (no `with-secrets`) only warns that
+`FIREFLY_APP_KEY` is unset and recreates Firefly with a **blank** key. A container that is
+merely restarted (reboot, `restart: unless-stopped`) keeps the env it was created with, so
+the trap fires only on a recreate — an image bump or any change to the service's config.
+
+### Pinned images and upgrading Firefly
+
+`app/docker-compose.yml` pins both images by tag **and** digest, bumped by hand — Renovate
+leaves the app compose images manual (`renovate.json`):
+
+| Service | Pin | Version |
+|---|---|---|
+| `firefly` | `fireflyiii/core:version-6.5.9@sha256:fe4ecec4…` | Firefly III v6.5.9 |
+| `firefly-db` | `mariadb:11.8.6@sha256:f5644a29…` | MariaDB 11.8.6 |
+
+The digest is part of the pin because a version tag is not immutable: Docker Hub's
+`mariadb:11.8.6` was rebuilt after this build was pulled and now names another digest.
+`firefly-importer` is optional, not running, and still floats on `:latest`.
+
+To bump: pick a `version-X.Y.Z` tag from Firefly's releases
+(<https://github.com/firefly-iii/firefly-iii/releases> — skip the `develop-*` pre-releases),
+read its upgrade notes, copy the tag's digest from Docker Hub, then recreate with
+`with-secrets` as above. Firefly runs its Laravel migrations on start, and upgrades are
+forward-only — dump the database first:
+
+```bash
+./scripts/dev/with-secrets sh -c 'docker exec skuel-firefly-db mariadb-dump -ufirefly -p"$FIREFLY_DB_PASSWORD" firefly' > firefly-$(date +%F).sql
+```
+
+The image ships its own healthcheck (`curl` → `$HEALTHCHECK_PATH`, `/healthcheck`), and the
+compose file does not override it. An override must use `curl` or `php` — the image has no
+`wget`.
 
 ### Hexagonal seam
 
