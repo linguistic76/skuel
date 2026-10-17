@@ -76,7 +76,7 @@ from ui.patterns.hub import HubSection, MocCard, hub_cards_from_organizers
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 from ui.user_entry.forms import render_upload_form
-from ui.user_entry.knowledge_notes import render_knowledge_notes_list
+from ui.user_entry.knowledge_notes import EntryKnowledgeChips, render_knowledge_notes_list
 from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:
@@ -767,6 +767,8 @@ def create_user_entry_ui_routes(
         carries the Share button (``?share=1`` opens its panel — the exchange
         thread's per-version Share link and the GradeBook nudge, R2; the
         nudge adds ``preselect=reviewers``, forwarded to the panel load).
+        An entry on a grounded pipeline (``Pipeline.grounds_knowledge``) shows
+        its knowledge links as chips on the owner's page only.
         """
         user_uid = require_authenticated_user(request)
 
@@ -906,6 +908,18 @@ def create_user_entry_ui_routes(
             else _render_entry_responses(responses)
         )
 
+        # Knowledge chips — the entry's links to published curriculum, for an
+        # entry the grounding pass reads (knowledge and activity notes). A
+        # failed read is said, never shown as an entry linked to nothing.
+        knowledge_chips: Any = None  # boundary: fasthtml-elements
+        if entry.pipeline.grounds_knowledge():
+            chips_result = await orchestrator.list_entry_knowledge_chips(uid, user_uid)
+            if chips_result.is_error:
+                logger.error("Knowledge chips failed for %s: %s", uid, chips_result.expect_error())
+            knowledge_chips = EntryKnowledgeChips(
+                uid, None if chips_result.is_error else chips_result.value, cls="mt-6"
+            )
+
         # Map of Content — ORGANIZES children drawn by the vault MOC ingestion
         # (moc: true body links). Renders for ANY owned entry with edges; most
         # entries have none and get no section. A failed fetch must not
@@ -942,6 +956,7 @@ def create_user_entry_ui_routes(
             PageHeader(entry.title or "Submission Details", subtitle=f"UID: {uid}"),
             share_button,
             detail_card,
+            knowledge_chips,
             map_section,
             respond_button,
             ai_feedback_button,

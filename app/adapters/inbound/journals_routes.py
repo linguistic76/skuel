@@ -28,7 +28,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed, rate_limited
 from adapters.inbound.route_factories import parse_bool_param_strict, refuse_malformed
-from core.models.enums.pipeline import Pipeline, ProcessingMode
+from core.models.enums.pipeline import ProcessingMode
 from core.services.chat import DEFAULT_CHAT_MODEL
 from core.services.conversation import (
     build_source_selection,
@@ -1125,9 +1125,9 @@ def create_journals_routes(
         The page is the note's editor with its period navigator (mini month +
         period rail) beside it, wrapped in the Tasks+ sidebar page like the
         activity domains, the calendar views and Today — the sidebar's Journal
-        row is lit. An EXTRACT_ACTIVITIES note shows its knowledge links as
-        chips under the editor (``EntryKnowledgeChips``) — a graph read, in
-        both tiers.
+        row is lit. A note on a grounded pipeline (``Pipeline.grounds_knowledge``)
+        shows its knowledge links as chips under the editor
+        (``EntryKnowledgeChips``) — a graph read, in both tiers.
         """
         from adapters.inbound.result_helpers import require_found
         from core.utils.result_simplified import ErrorCategory
@@ -1161,7 +1161,7 @@ def create_journals_routes(
             content=entry.content or "",
         )
         knowledge_chips: Any = None  # boundary: fasthtml-elements
-        if entry.pipeline == Pipeline.EXTRACT_ACTIVITIES:
+        if entry.pipeline.grounds_knowledge():
             chips_result = await user_entry_service.list_entry_knowledge_chips(entry.uid, user_uid)
             if chips_result.is_error:
                 logger.error(

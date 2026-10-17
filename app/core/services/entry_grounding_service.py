@@ -27,8 +27,10 @@ Eager write, no confirm gate:
     ``(entry)-[:APPLIES_KNOWLEDGE {inferred: true, confidence, grounded_at}]->(ku)``.
     The user is editor, not approver: edges are visible and one-click
     removable (``POST /api/user-entries/grounding/remove``; the chips live in
-    ``ui/user_entry/knowledge_notes.py``, on the knowledge-notes page and on a
-    periodic note's page); removals are recorded on the
+    ``ui/user_entry/knowledge_notes.py``, shown to the owner on three pages:
+    the knowledge-notes list ``/submissions/knowledge``, a periodic note's
+    ``/journals/{uid}`` and the entry's ``/gradebook/{uid}``, the last two for
+    an entry on a grounded pipeline); removals are recorded on the
     entry (``grounding_rejected_ku_uids``) as threshold-calibration data and
     are never re-inferred. A note that opts out — turns ``private: true``, or
     leaves the grounded pipelines — loses every inferred edge on the re-sync
