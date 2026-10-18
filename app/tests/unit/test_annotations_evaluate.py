@@ -1,4 +1,4 @@
-"""Every annotation in the first-party trees evaluates.
+"""No annotation in the first-party trees raises over the names it resolves.
 
 Python 3.14 defers annotations (PEP 649), so ``def f() -> Div | None`` imports
 cleanly and raises only when something reads it: ``inspect.signature(...,
@@ -15,8 +15,13 @@ the module's namespace, and fails on any that raises. A name the namespace
 does not hold (a ``TYPE_CHECKING``-only import, a type parameter, a name local
 to an enclosing function) stands as a placeholder that subscripts, takes
 attributes and joins a union with anything that can itself join one: deferring
-those names is what PEP 649 is for, so only a name that resolves can make an
-evaluation fail.
+those names is what PEP 649 is for, and a reader of one asks for
+``annotationlib.Format.FORWARDREF`` (``inspect.signature(...,
+annotation_format=...)``), which answers it as a forward reference. So only a
+name that resolves can make an evaluation fail. Over resolved names, ``Div |
+None`` raises under ``Format.VALUE`` (what ``get_type_hints`` and ``eval_str``
+use) and comes back from ``FORWARDREF`` as a ``ForwardRef`` that never resolves
+to a type.
 
 FastHTML elements are annotated ``FT``.
 """
@@ -183,7 +188,7 @@ def _failures(path: Path) -> list[str]:
     return _failures_in(source, vars(module), str(path.relative_to(APP)))
 
 
-def test_every_stored_annotation_evaluates() -> None:
+def test_no_stored_annotation_raises_over_resolved_names() -> None:
     failures = [failure for path in _sources() for failure in _failures(path)]
     assert not failures, "annotations that raise when read:\n" + "\n".join(failures)
 
