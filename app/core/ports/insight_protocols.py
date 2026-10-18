@@ -17,12 +17,12 @@ The ``Any`` policy ranks "use a specific type" above "permanent boundary", so
 the two consumer files** (61 in ``insight_store.py``, 28 in
 ``user_context_builder.py``). The reason is structural, not incidental — these
 dicts are *records*, not property dicts. A record's values are Cypher-alias
-results, and four of these ten methods ``RETURN i``: a whole ``:Insight``
+results, and four of these eleven methods ``RETURN i``: a whole ``:Insight``
 **node**, which ``InsightStore`` re-reads as ``dict(record["i"])``.
 ``Neo4jValue`` cannot describe a node (``dict()`` rejects it), and naming the
 driver's ``Node`` class inside ``core/ports`` would be worse than ``Any``.
 
-The remaining six methods are flat projections and *could* carry TypedDicts —
+The remaining seven methods are flat projections and *could* carry TypedDicts —
 but a TypedDict return with no ``processor`` is an unchecked claim (SoC arc
 PR 6, Codex round 3): a renamed Cypher alias would still type-check and read as
 zero. Half-typing the port would advertise a shape nothing enforces. Each
@@ -37,6 +37,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+from core.models.insight.persisted_insight import InsightField
 from core.utils.result_simplified import Result
 
 
@@ -45,7 +46,7 @@ class InsightBackendOperations(Protocol):
     """Backend operations consumed by InsightStore.
 
     Signatures are lifted from ``InsightBackend`` itself, not from a wider
-    protocol — the ISP slice is exactly the ten methods the store calls.
+    protocol — the ISP slice is exactly the eleven methods the store calls.
     """
 
     # ── CRUD ──────────────────────────────────────────────────────────────
@@ -120,10 +121,16 @@ class InsightBackendOperations(Protocol):
         """Get aggregate statistics about a user's insights."""
         ...
 
-    async def get_insight_counts_by_domain(
-        self, user_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: {domain, count} per row
-        """Get counts of active insights grouped by domain."""
+    async def count_active_insights_by(
+        self, user_uid: str, field: InsightField
+    ) -> Result[list[dict[str, Any]]]:  # boundary: {value, count} per row
+        """Count a user's whole active set, one row per value of ``field`` (no row cap)."""
+        ...
+
+    async def dismiss_active_insights_matching(
+        self, user_uid: str, field: InsightField, value: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: one record, {dismissed_count}
+        """Dismiss every active insight of a user whose ``field`` equals ``value``, in one write."""
         ...
 
 

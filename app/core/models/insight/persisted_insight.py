@@ -117,6 +117,18 @@ class InsightImpact(StrEnum):
         return scores.get(self, 0)
 
 
+class InsightField(StrEnum):
+    """An insight property that a learner's active set is counted by or matched on.
+
+    Each value is the stored property's name; the backend maps the member to its
+    property itself, so no caller's string reaches the query.
+    """
+
+    IMPACT = "impact"
+    DOMAIN = "domain"
+    INSIGHT_TYPE = "insight_type"
+
+
 @dataclass(frozen=True)
 class PersistedInsight:
     """

@@ -6,40 +6,40 @@ A palette value that moves moves a colour a learner sees, so each serialized
 string is pinned here.
 """
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
-from core.models.insight.persisted_insight import InsightImpact, InsightType
+from core.models.insight.persisted_insight import InsightField
 from core.ports.query_types import ChartJsConfig
 from core.services.insight.insight_store import InsightStore
 from core.utils.palette import rgba
 from core.utils.result_simplified import Result
 
-
-def _insight(impact: InsightImpact, domain: str, insight_type: InsightType) -> SimpleNamespace:
-    return SimpleNamespace(impact=impact, domain=domain, insight_type=insight_type)
-
-
-INSIGHTS = [
-    _insight(InsightImpact.CRITICAL, "habits", InsightType.STREAK_PATTERN),
-    _insight(InsightImpact.HIGH, "tasks", InsightType.KNOWLEDGE_GAP),
-    _insight(InsightImpact.LOW, "habits", InsightType.STREAK_PATTERN),
-]
+# The backend's grouped-count rows, one list per field.
+COUNT_ROWS: dict[InsightField, list[dict[str, object]]] = {
+    InsightField.IMPACT: [{"value": v, "count": 1} for v in ("critical", "high", "low")],
+    InsightField.DOMAIN: [{"value": "habits", "count": 2}, {"value": "tasks", "count": 1}],
+    InsightField.INSIGHT_TYPE: [
+        {"value": "streak_pattern", "count": 2},
+        {"value": "knowledge_gap", "count": 1},
+    ],
+}
 
 
 @pytest.fixture
 def store() -> InsightStore:
-    store = InsightStore(backend=MagicMock())
+    backend = MagicMock()
 
-    async def active(**_kwargs: object) -> Result[list[SimpleNamespace]]:
-        return Result.ok(INSIGHTS)
+    async def count_by(_user_uid: str, field: InsightField) -> Result[list[dict[str, object]]]:
+        return Result.ok(COUNT_ROWS[field])
+
+    backend.count_active_insights_by = count_by
+    store = InsightStore(backend=backend)
 
     async def stats(_user_uid: str) -> Result[dict[str, float]]:
         return Result.ok({"action_rate": 0.25})
 
-    store.get_active_insights = active  # type: ignore[method-assign,assignment]
     store.get_insight_stats = stats  # type: ignore[method-assign,assignment]
     return store
 
