@@ -5,7 +5,7 @@ Prints one row per label: how many uids fit the grammar, how many have a
 character outside ``[a-z0-9._-]``, and how many are in the charset but in
 neither shape (``core/utils/uid_grammar.py``). Below the table, every uid that
 does not fit is grouped by the ``UID_EXEMPTIONS`` entry naming its shape — with
-the PR that migrates it — or listed as UNREGISTERED with a sample. Nodes with no
+what retires that entry — or listed as UNREGISTERED with a sample. Nodes with no
 uid are counted by label. Nothing is written.
 
 A node is counted under its labels other than ``Entity`` (``Task``,

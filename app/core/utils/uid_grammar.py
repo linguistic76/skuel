@@ -21,8 +21,8 @@ file name gives — and takes no exemption. ``generated_uid`` builds a generated
 uid and refuses one outside the grammar. ``slugify`` folds text to the segment
 alphabet.
 
-``UID_EXEMPTIONS`` names each shape live code still mints outside the grammar,
-the functions that mint it, and the uid-arc PR that migrates it; the census
+``UID_EXEMPTIONS`` names each shape live code mints outside the grammar, the
+functions that mint it, and what retires the entry (``retired_by``); the census
 (``./dev uid-census``) reports each live uid against them, and
 ``tests/unit/utils/test_uid_grammar.py`` fails when an exemption's writer no
 longer mints its shape.
@@ -119,13 +119,13 @@ def slugify(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Shapes live code still mints outside the grammar
+# Shapes live code mints outside the grammar
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class UidExemption:
-    """A shape live code mints outside the grammar, until the PR that migrates it.
+    """A shape live code mints outside the grammar, and what retires it.
 
     ``writers`` are ``module:qualname`` paths of the functions that mint the
     shape. ``retired_by`` names what deletes the entry.

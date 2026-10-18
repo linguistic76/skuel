@@ -88,7 +88,7 @@ class TestEdgeValidation:
         assert "retired colon spelling" in str(result.expect_error())
 
     def test_sanctioned_machine_uid_endpoint_accepted(self):
-        """Periodic UserEntry uids still carry colons (``uid_grammar.PERIODIC_NOTE_EXEMPTION``)
+        """Periodic UserEntry uids carry colons (``uid_grammar.PERIODIC_NOTE_EXEMPTION``)
         — they are real graph identities, so an edge may target one (Codex P2 #1055)."""
         data = {
             "from": "ku.mind.attention",

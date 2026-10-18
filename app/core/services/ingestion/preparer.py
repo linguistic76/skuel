@@ -41,9 +41,9 @@ logger = get_logger("skuel.ingestion.preparer")
 def is_sanctioned_machine_uid(uid: str) -> bool:
     """True for a periodic UserEntry uid (``ue:daily:{user}:{date}`` and the other kinds).
 
-    The periodic-note shape is still minted with colons
-    (``uid_grammar.PERIODIC_NOTE_EXEMPTION``), so a reference to one names a real
-    node and is legitimate input, not a retired authoring alias.
+    The periodic-note shape carries colons (``uid_grammar.PERIODIC_NOTE_EXEMPTION``),
+    so a reference to one names a real node and is legitimate input, not a retired
+    authoring alias.
     """
     return PERIODIC_NOTE_EXEMPTION.matches(uid)
 

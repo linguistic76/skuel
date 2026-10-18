@@ -8,9 +8,8 @@ Mints the generated uids of SKUEL's entities, in the uid grammar's generated sha
 - Hierarchy lives in graph relationships, never in uids.
 - Curriculum is never generated: a Ku, PathStep or LearningPath uid is authored in
   the content vault (``ku.{ns}.{slug}``), and no caller passes a curriculum prefix.
-- ``generate_uid(prefix, name)`` still mints the named shape
-  ``{prefix}_{slug}_{8 hex}`` — a ``uid_grammar.UID_EXEMPTIONS`` entry
-  (``named_generated``) until the uid arc migrates it.
+- ``generate_uid(prefix, name)`` mints the named shape ``{prefix}_{slug}_{8 hex}``,
+  outside the grammar — the ``uid_grammar.UID_EXEMPTIONS`` entry ``named_generated``.
 
 Examples:
 - task_a1b2c3d4                 (generate_random_uid / generate_uid without a name)
