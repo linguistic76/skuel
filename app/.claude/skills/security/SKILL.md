@@ -213,6 +213,10 @@ Form(csrf_hidden_input(), ..., method="POST", action="/login/submit")
 
 **See:** `/docs/security/COOKIES_AND_CSRF.md` — teaching-focused deep dive on both cookies, the double-submit pattern, and the forward security posture.
 
+### Values in Alpine / htmx Expressions (XSS)
+
+An Alpine attribute (`x-data`, `@click`, `:class` …) is JavaScript that Alpine runs as statements, and FastHTML's HTML escaping does nothing for a quote inside a JS string. A value hand-quoted into one — `f"toggle('{uid}')"` — ends its string at the first quote it carries and runs the rest. A query parameter reaches one directly; so does a uid authored in a vault file (ingestion checks only its prefix). Every data value enters through `ui.alpine.js_literal` / `alpine_call` (JSON — a JS literal); `tests/unit/ui/test_alpine_expression_census.py` fails on any other value written into an expression attribute (`x-*`, `@…`, `:…`, `hx-vals`, `hx-trigger`, `hx-on…`, `on<event>`) under `ui/` and `adapters/` until it is encoded or listed with the reason it cannot carry a quote. JavaScript passed in through a helper's parameter is outside that census — encode where the text is written.
+
 ### Path Traversal Protection
 
 File access is constrained by one live mechanism (the old advisory
@@ -258,6 +262,7 @@ When adding a new route, verify:
 | No lambdas | SKUEL012 | Use named functions (prevents injection via closable scope) |
 | No `print()` in production | SKUEL015 | Use `logger.*()` — print can leak to stdout |
 | No `eval()`/`exec()` | — | Never execute dynamic code |
+| No hand-quoted value in an Alpine/htmx expression | census test | `js_literal` / `alpine_call` from `ui.alpine`; see § Values in Alpine / htmx Expressions |
 | No hardcoded secrets | — | All secret reads go through `get_credential(KEY, fallback_to_env=True)` from `core/config/credential_store` — never raw `os.getenv("FOO_API_KEY")`. Backend (OS keychain, or the read-only process environment when headless) is selected by `SKUEL_CREDENTIAL_BACKEND`. Tier-gated services fail-fast at boot when a required credential is missing (commit `fed4287f`). |
 | No APOC in domain services | SKUEL001 | APOC scoped to `apoc.meta.*` only |
 

@@ -373,7 +373,7 @@ skills:
 
   - name: security
     description: Security posture, route checklist, and code review security checks
-    last_reviewed: "2026-10-16"
+    last_reviewed: "2026-10-18"
     foundation: []
     dependencies: [python]
     library_package: null  # Cross-cutting concern, not a single library
