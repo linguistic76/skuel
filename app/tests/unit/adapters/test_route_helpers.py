@@ -5,6 +5,7 @@ malformed, or outside the domain bounds, is a validation error; only a cap clamp
 """
 
 from datetime import date
+from enum import StrEnum
 
 import pytest
 
@@ -13,6 +14,7 @@ from adapters.inbound.route_factories.route_helpers import (
     parse_bool_param_strict,
     parse_csv_query_param,
     parse_date_param_strict,
+    parse_enum_param_strict,
     parse_float_param_strict,
     parse_int_param_strict,
     parse_pagination_params,
@@ -122,6 +124,26 @@ class TestParseDateParamStrict:
     @pytest.mark.parametrize("bad", ["not-a-date", "2026-13-01"])
     def test_malformed_is_refused_even_with_a_default(self, bad: str) -> None:
         _refused(parse_date_param_strict(bad, "d", default=None), "d")
+
+
+class _Shade(StrEnum):
+    LIGHT = "light"
+    DARK = "dark"
+
+
+class TestParseEnumParamStrict:
+    def test_reads_a_member_by_its_value(self) -> None:
+        assert parse_enum_param_strict("dark", "shade", _Shade).value is _Shade.DARK
+
+    @pytest.mark.parametrize("missing", [None, "", "  "])
+    def test_missing_or_blank_is_no_choice(self, missing: object) -> None:
+        assert parse_enum_param_strict(missing, "shade", _Shade).value is None
+
+    @pytest.mark.parametrize("bad", ["DARK", "dim", "LIGHT "])
+    def test_a_word_outside_the_vocabulary_is_refused(self, bad: str) -> None:
+        result = parse_enum_param_strict(bad, "shade", _Shade)
+        _refused(result, "shade")
+        assert result.expect_error().message == "shade must be one of: light, dark"
 
 
 class TestParsePagination:

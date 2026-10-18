@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-10-17
+updated: '2026-10-18'
 category: patterns
 related_skills:
 - result-pattern
@@ -209,7 +209,7 @@ beside it is the one-line form for a form field or a small HTMX fragment.
 
 **Implementation Status:**
 - ✅ All 6 Activity Domains — one implementation, the factory above
-- ✅ Insights — Uses `filter_insights()` helper with error-first check on `get_active_insights()`
+- ✅ Insights — error-first check on the page, its count and the active total; a failed read renders the banner
 - ✅ Teaching — `render_error_banner()` for all queue/exercise/student/class error states (2026-03-18)
 - ✅ Study — HTMX fragments preserve target `id` with `render_inline_error()`; replaced silent fallbacks (2026-03-19)
 - ✅ KU — Error banner on Ku list failure vs empty state for no data (2026-03-18)

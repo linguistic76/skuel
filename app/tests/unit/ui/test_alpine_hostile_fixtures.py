@@ -19,6 +19,7 @@ import pytest
 from fasthtml.common import Div, to_xml
 
 from core.models.group.group import Group
+from core.models.insight.persisted_insight import ActiveInsightFilter
 from ui.groups.hub import GroupsHub
 from ui.insights.components import InsightsFilters, render_filter_form
 
@@ -27,20 +28,15 @@ HOSTILE: list[str] = json.loads((FIXTURES / "hostile-values.json").read_text())
 
 
 def _insight_filters() -> str:
-    """One filter form per hostile value, the value in every request-derived field."""
+    """One filter form per hostile value, the value in the search box — the one
+    free-text field; domain, impact and type reach the form only as vocabulary
+    members."""
     return to_xml(
         Div(
             *(
                 Div(
                     render_filter_form(
-                        InsightsFilters(
-                            domain=value,
-                            impact=value,
-                            search=value,
-                            insight_type=value,
-                            action_status=value,
-                            offset=0,
-                        )
+                        InsightsFilters(match=ActiveInsightFilter(search=value), offset=0)
                     ),
                     data_case=str(index),
                 )

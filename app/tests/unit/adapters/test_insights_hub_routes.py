@@ -155,7 +155,7 @@ def _make_harness(
 
     store = MagicMock()
     store.get_active_insights = AsyncMock(return_value=Result.ok([]))
-    store.filter_insights = MagicMock(return_value=[])
+    store.count_active_insights = AsyncMock(return_value=Result.ok(0))
 
     user_service = MagicMock()
     user_service.get_rich_unified_context = AsyncMock(

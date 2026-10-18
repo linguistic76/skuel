@@ -54,7 +54,9 @@ What each part does:
 ## Pattern 2: A Chart Section Gated on Data
 
 From `ui/insights/components.py`. The page decides whether there is enough data to
-chart, so the cards never render just to show an error:
+chart, so the cards never render just to show an error. The charts draw the learner's
+whole active set, so `/insights` passes the active total (`count_active_insights`), never
+the length of a filtered page:
 
 ```python
 def render_charts_section(insight_count: int) -> FT | None:
@@ -65,10 +67,10 @@ def render_charts_section(insight_count: int) -> FT | None:
     return Div(
         H3("Visual Analytics", cls="text-xl font-bold mb-4"),
         Div(
-            _chart_card("/api/insights/charts/impact-distribution", "doughnut"),
-            _chart_card("/api/insights/charts/domain-distribution", "bar"),
-            _chart_card("/api/insights/charts/type-distribution", "doughnut"),
-            _chart_card("/api/insights/charts/action-rate", "doughnut"),
+            _chart_card("/api/insights/charts/impact-distribution"),
+            _chart_card("/api/insights/charts/domain-distribution"),
+            _chart_card("/api/insights/charts/type-distribution"),
+            _chart_card("/api/insights/charts/action-rate"),
             cls="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6",
         ),
         cls="mb-8",

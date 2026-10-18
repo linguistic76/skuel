@@ -42,7 +42,7 @@ async function mount(name) {
 }
 
 describe('insight filter form (render_filter_form)', () => {
-  it('holds every request-derived value as data, running none of it', async () => {
+  it('holds the search value as data, running none of it', async () => {
     const root = await mount('insight-filters-hostile.html');
     expect(window.__pwned).toBeUndefined();
     const cases = root.querySelectorAll('[data-case]');
@@ -53,10 +53,9 @@ describe('insight filter form (render_filter_form)', () => {
       const form = wrapper.querySelector('[x-data]');
       expect(Alpine.$data(form).filters).toEqual({
         search: value,
-        domain: value,
-        impact: value,
-        type: value,
-        status: value,
+        domain: '',
+        impact: '',
+        type: '',
       });
     });
     expect(warnings).toEqual([]);

@@ -15,7 +15,6 @@ from core.utils.logging import get_logger
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.insights.insight_card import InsightCard
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
@@ -101,7 +100,6 @@ def create_insights_history_routes(
                         f'<option value="dismissed" {"selected" if params.history_type == "dismissed" else ""}>Dismissed Only</option>'
                         f'<option value="actioned" {"selected" if params.history_type == "actioned" else ""}>Actioned Only</option>'
                     ),
-                    size=Size.sm,
                     full_width=False,
                     onchange="window.location.href='/insights/history?type=' + this.value",
                 ),

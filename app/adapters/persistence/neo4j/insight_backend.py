@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.insight.persisted_insight import InsightField
+from core.models.insight.persisted_insight import ActiveInsightFilter, InsightField
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -25,10 +25,34 @@ if TYPE_CHECKING:
 
 
 # An active insight: neither dismissed nor actioned, and not past its expiry.
-# Every read of a learner's active set, and the bulk dismiss over it, uses this one rule.
+# This backend's reads of a learner's active set — the page, its count, the stats and
+# the chart counts — and the bulk dismiss over it use this one rule.
 _ACTIVE_INSIGHT = """i.dismissed = false
           AND i.actioned = false
           AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())"""
+
+# A learner's active insights that an ActiveInsightFilter selects. Each filter is a
+# parameter, off when null, so the page and its count share one statement shape.
+_ACTIVE_INSIGHT_MATCHING = f"""MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
+        WHERE {_ACTIVE_INSIGHT}
+          AND ($domain IS NULL OR i.domain = $domain)
+          AND ($impact IS NULL OR i.impact = $impact)
+          AND ($insight_type IS NULL OR i.insight_type = $insight_type)
+          AND ($search IS NULL
+               OR toLower(i.title) CONTAINS toLower($search)
+               OR toLower(coalesce(i.description, '')) CONTAINS toLower($search))"""
+
+
+def _matching_params(user_uid: str, match: ActiveInsightFilter) -> dict[str, str | None]:
+    """The parameters of ``_ACTIVE_INSIGHT_MATCHING`` — a blank search is no filter."""
+    return {
+        "user_uid": user_uid,
+        "domain": match.domain.value if match.domain else None,
+        "impact": match.impact.value if match.impact else None,
+        "insight_type": match.insight_type.value if match.insight_type else None,
+        "search": match.search or None,
+    }
+
 
 # The stored property behind each field — the whitelist that keeps a caller's
 # value out of the query text.
@@ -114,16 +138,17 @@ class InsightBackend:
     async def get_active_insights(
         self,
         user_uid: str,
-        domain: str | None,
+        match: ActiveInsightFilter,
         limit: int,
+        offset: int,
     ) -> Result[list[dict[str, Any]]]:
-        """Get active (non-dismissed, non-actioned, non-expired) insights for a user."""
-        domain_filter = "AND i.domain = $domain" if domain else ""
+        """One page of a user's active insights that ``match`` selects.
 
+        Ordered by impact, then confidence, then newest first; the uid breaks the
+        last tie, so consecutive pages neither repeat nor skip an insight.
+        """
         query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
-        WHERE {_ACTIVE_INSIGHT}
-          {domain_filter}
+        {_ACTIVE_INSIGHT_MATCHING}
         RETURN i
         ORDER BY
             CASE i.impact
@@ -133,15 +158,32 @@ class InsightBackend:
                 ELSE 1
             END DESC,
             i.confidence DESC,
-            datetime(i.created_at) DESC
+            datetime(i.created_at) DESC,
+            i.uid
+        SKIP $offset
         LIMIT $limit
         """
-
-        params: dict[str, Any] = {"user_uid": user_uid, "limit": limit}
-        if domain:
-            params["domain"] = domain
-
+        params: dict[str, str | int | None] = {
+            **_matching_params(user_uid, match),
+            "offset": offset,
+            "limit": limit,
+        }
         return await self._executor.execute_query(query, params)
+
+    async def count_active_insights(
+        self, user_uid: str, match: ActiveInsightFilter
+    ) -> Result[list[dict[str, Any]]]:
+        """Count every active insight of a user that ``match`` selects — no row cap.
+
+        One row always: an ungrouped count answers zero when nothing matches.
+        """
+        return await self._executor.execute_query(
+            f"""
+            {_ACTIVE_INSIGHT_MATCHING}
+            RETURN count(i) AS total
+            """,
+            _matching_params(user_uid, match),
+        )
 
     async def get_insights_for_entity(
         self,
@@ -243,7 +285,11 @@ class InsightBackend:
         return await self._executor.execute_query(query, {"user_uid": user_uid, "limit": limit})
 
     async def get_insight_stats(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get statistics about a user's insights."""
+        """Get statistics about a user's insights.
+
+        The total, dismissed and actioned counts and the domains are all-time; the
+        active, critical and high counts are of the active set.
+        """
         return await self._executor.execute_query(
             f"""
             MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
@@ -253,8 +299,10 @@ class InsightBackend:
                       THEN 1 END) as active_insights,
                 count(CASE WHEN i.dismissed = true THEN 1 END) as dismissed_insights,
                 count(CASE WHEN i.actioned = true THEN 1 END) as actioned_insights,
-                count(CASE WHEN i.impact = 'critical' THEN 1 END) as critical_insights,
-                count(CASE WHEN i.impact = 'high' THEN 1 END) as high_insights,
+                count(CASE WHEN {_ACTIVE_INSIGHT} AND i.impact = 'critical'
+                      THEN 1 END) as critical_insights,
+                count(CASE WHEN {_ACTIVE_INSIGHT} AND i.impact = 'high'
+                      THEN 1 END) as high_insights,
                 collect(DISTINCT i.domain) as domains
             """,
             {"user_uid": user_uid},

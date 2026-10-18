@@ -129,6 +129,36 @@ class InsightField(StrEnum):
     INSIGHT_TYPE = "insight_type"
 
 
+class InsightDomain(StrEnum):
+    """The domain word an insight is stored under — the vocabulary its writers speak.
+
+    ``PersistedInsight.domain`` stays a ``str`` (a stored insight is read back as
+    written); ``tests/unit/services/test_insight_domain_vocabulary.py`` holds every
+    writer's literal to these members.
+    """
+
+    TASKS = "tasks"
+    GOALS = "goals"
+    HABITS = "habits"
+    EVENTS = "events"
+    CHOICES = "choices"
+    PRINCIPLES = "principles"
+    USER_ENTRY = "user_entry"
+
+
+@dataclass(frozen=True)
+class ActiveInsightFilter:
+    """Which of a learner's active insights a read selects; an unset field selects all.
+
+    ``search`` matches a case-insensitive substring of the title or description.
+    """
+
+    domain: InsightDomain | None = None
+    impact: InsightImpact | None = None
+    insight_type: InsightType | None = None
+    search: str = ""
+
+
 @dataclass(frozen=True)
 class PersistedInsight:
     """
@@ -155,7 +185,7 @@ class PersistedInsight:
         uid: Unique identifier (format: insight.{type}.{timestamp})
         user_uid: Owner of this insight
         insight_type: Category of insight
-        domain: Source domain (e.g., "habits", "choices", "ku")
+        domain: Source domain — an ``InsightDomain`` value (e.g., "habits", "choices")
         title: Short summary for display
         description: Detailed explanation
         confidence: How confident we are (0.0-1.0)

@@ -584,18 +584,49 @@ result = await insight_store.smart_dismiss(
 # → {"dismissed_count": 5, "filter": {"type": "impact", "value": "low"}}
 ```
 
-### In-Memory Filtering
+### Reading the Active Set
+
+An active insight is neither dismissed nor actioned and not past its expiry — one rule,
+`_ACTIVE_INSIGHT` in `insight_backend.py`, shared by that backend's active-set reads (the page,
+its count, the stats, the chart counts) and by the smart dismiss. A read selects from that
+whole set in Cypher; nothing is filtered after a page is fetched.
 
 ```python
-# Static method — filter pre-fetched insights without a DB round-trip
-filtered = InsightStore.filter_insights(
-    insights,
-    impact="high",
-    insight_type="difficulty_pattern",
-    action_status="unactioned",
-    search="meditation",
+match = ActiveInsightFilter(
+    domain=InsightDomain.HABITS,       # InsightDomain | None
+    impact=InsightImpact.HIGH,         # InsightImpact | None
+    insight_type=InsightType.DIFFICULTY_PATTERN,
+    search="meditation",               # case-insensitive, title or description
 )
+page = await insight_store.get_active_insights(user_uid, match, limit=10, offset=10)
+total = await insight_store.count_active_insights(user_uid, match)  # no row cap
 ```
+
+An unset field selects every value. The page is ordered by impact (critical first), then
+confidence, then newest first, with the uid breaking the last tie, so `offset` pages neither
+repeat nor skip an insight.
+
+**The doors.** `/insights`, `/insights/load-more` and `GET /api/insights/active` take the same
+query parameters — `domain`, `impact`, `type`, `search` — read by
+`parse_active_insight_filter` (`insights_api.py`). A blank value is no filter; a domain,
+impact or type outside `InsightDomain` / `InsightImpact` / `InsightType` is a **400**, and so
+is an `offset` below 0 or above `QueryLimit.MAXIMUM` (`parse_active_insight_offset`); the API's
+`limit` is capped at `QueryLimit.BULK`.
+`/insights` shows the first ten matches and says how many there are; load-more returns
+exactly the next ten (`offset`). `/api/insights/active` answers the page (`insights`), the
+whole matching total (`count`), and the `limit`, `offset` and `filters` it used. The page
+lists only active insights, so it has no acted-on filter: actioned and dismissed insights are
+`/insights/history`.
+
+**The domain vocabulary.** `PersistedInsight.domain` is a `str`; `InsightDomain` names the
+seven words the writers store (`tasks`, `goals`, `habits`, `events`, `choices`, `principles`,
+`user_entry`). `tests/unit/services/test_insight_domain_vocabulary.py` holds every writer's
+`domain=` to it.
+
+**Stats.** `get_insight_stats` answers all-time `total_insights`, `dismissed_insights`,
+`actioned_insights`, `action_rate` and `domains` (every domain the learner has had an insight
+in — the `/insights/stats` heading says so), and `active_insights`, `critical_insights` and
+`high_insights` over the active set only.
 
 ### Chart Data (Chart.js Configs)
 

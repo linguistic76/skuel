@@ -8,7 +8,7 @@ principle-alignment insight writer.
 Usage:
     from core.services.insight import InsightStore
 
-    store = InsightStore(driver)
+    store = InsightStore(backend)
     await store.create_insight(insight)
     insights = await store.get_active_insights(user_uid)
 """

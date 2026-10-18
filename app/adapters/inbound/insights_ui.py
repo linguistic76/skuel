@@ -12,14 +12,20 @@ See: /docs/roadmap/askesis-intelligence-doors.md
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
 
 from fasthtml.common import Div, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import parse_int_param_strict, refuse_malformed
+from adapters.inbound.insights_api import (
+    parse_active_insight_filter,
+    parse_active_insight_offset,
+)
+from adapters.inbound.route_factories import refuse_malformed
 from core.models.enums import EntityType, HubQuestion
+from core.models.insight.persisted_insight import ActiveInsightFilter
 from core.services.user.rich_context import rich_entity_titles
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -57,8 +63,6 @@ if TYPE_CHECKING:
 
     from fasthtml.common import FT
 
-    from core.models.insight.persisted_insight import PersistedInsight
-    from core.services.insight import InsightStore
     from core.services.ku_service import KuService
     from core.services.user.intelligence import (
         UserContextIntelligence,
@@ -81,51 +85,37 @@ def _names_a_ku(domain: str) -> bool:
 
 
 def _parse_insights_filters(request: Request) -> Result[InsightsFilters]:
-    """Extract insights filter parameters from request query params — a validation
-    error when ``offset`` does not read or is negative."""
-    offset = parse_int_param_strict(request.query_params.get("offset"), "offset", 0, default=0)
+    """The page's filters and offset from its query params — a validation error
+    when ``offset`` does not read or is outside 0..``QueryLimit.MAXIMUM``, or a
+    domain / impact / type is outside its vocabulary."""
+    match = parse_active_insight_filter(request.query_params)
+    if match.is_error:
+        return Result.fail(match)
+    offset = parse_active_insight_offset(request.query_params)
     if offset.is_error:
         return Result.fail(offset)
-
-    return Result.ok(
-        InsightsFilters(
-            domain=request.query_params.get("domain"),
-            impact=request.query_params.get("impact"),
-            search=request.query_params.get("search", ""),
-            insight_type=request.query_params.get("type"),
-            action_status=request.query_params.get("status"),
-            offset=offset.value,
-        )
-    )
+    return Result.ok(InsightsFilters(match=match.value, offset=offset.value))
 
 
-def _apply_insight_filters(
-    insight_store: InsightStore, insights: list[PersistedInsight], filters: InsightsFilters
-) -> list[PersistedInsight]:
-    """Apply in-memory filters via InsightStore.filter_insights (staticmethod on the injected store)."""
-    return insight_store.filter_insights(
-        insights,
-        impact=filters.impact,
-        insight_type=filters.insight_type,
-        action_status=filters.action_status,
-        search=filters.search or None,
-    )
+def _load_more_query(filters: InsightsFilters, offset: int) -> str:
+    """The load-more query for the page starting at ``offset``, carrying the filters."""
+    match = filters.match
+    chosen = {
+        "domain": match.domain or "",
+        "impact": match.impact or "",
+        "type": match.insight_type or "",
+        "search": match.search,
+    }
+    params = {"offset": str(offset)} | {name: value for name, value in chosen.items() if value}
+    return urlencode(params)
 
 
-def _build_filter_query_string(filters: InsightsFilters) -> str:
-    """Build URL query string from insight filters."""
-    params = []
-    if filters.domain:
-        params.append(f"domain={filters.domain}")
-    if filters.impact:
-        params.append(f"impact={filters.impact}")
-    if filters.search:
-        params.append(f"search={filters.search}")
-    if filters.insight_type:
-        params.append(f"type={filters.insight_type}")
-    if filters.action_status:
-        params.append(f"status={filters.action_status}")
-    return "&".join(params)
+def _subtitle(matching: int, active_total: int, *, filtered: bool) -> str:
+    """The page's count line: every match, never the length of the first page."""
+    noun = "insight" if active_total == 1 else "insights"
+    if filtered:
+        return f"{matching} of {active_total} active {noun} match your filters"
+    return f"{active_total} active {noun} from your behavior patterns"
 
 
 # ============================================================================
@@ -309,18 +299,20 @@ def create_insights_ui_routes(
         # Progressive loading - load 10 initially for fast page load
         page_size = 10
         result = await insight_store.get_active_insights(
-            user_uid=user_uid,
-            domain=filters.domain,
-            limit=page_size,
+            user_uid, filters.match, limit=page_size, offset=0
         )
+        # The subtitle counts every match; the charts show the whole active set,
+        # so they are gated on its size, not on the filtered matches.
+        matching = await insight_store.count_active_insights(user_uid, filters.match)
+        filtered = filters.match != ActiveInsightFilter()
+        active_total = await insight_store.count_active_insights(user_uid) if filtered else matching
 
-        insights_load_error = False
-        if result.is_error:
-            logger.error(f"Failed to retrieve insights: {result.error}")
+        load_error = next((r for r in (result, matching, active_total) if r.is_error), None)
+        if load_error is not None:
+            logger.error(f"Failed to retrieve insights: {load_error.error}")
             insights = []
-            insights_load_error = True
         else:
-            insights = _apply_insight_filters(insight_store, result.value, filters)
+            insights = result.value
 
         # Build filter form
         filter_form = render_filter_form(filters)
@@ -333,12 +325,7 @@ def create_insights_ui_routes(
 
         # Build insight cards with load-more trigger
         if insights:
-            filter_query = _build_filter_query_string(filters)
-            load_more_url = (
-                f"/insights/load-more?offset={page_size}&{filter_query}"
-                if filter_query
-                else f"/insights/load-more?offset={page_size}"
-            )
+            load_more_query = _load_more_query(filters, page_size)
 
             insight_card_items = [
                 render_insight_card_with_checkbox(insight) for insight in insights
@@ -353,7 +340,7 @@ def create_insights_ui_routes(
                 ),
                 Div(
                     id="load-more-trigger",
-                    hx_get=load_more_url,
+                    hx_get=f"/insights/load-more?{load_more_query}",
                     hx_trigger="revealed",
                     hx_swap="outerHTML",
                     hx_indicator="#loading-indicator",
@@ -367,10 +354,16 @@ def create_insights_ui_routes(
                     cls="htmx-indicator",
                 ),
             )
-        elif insights_load_error:
+        elif load_error is not None:
             insight_cards = render_error_banner(
                 "Unable to load insights. Please try again later.",
-                str(result.error),
+                str(load_error.error),
+            )
+        elif filtered and active_total.value:
+            insight_cards = EmptyState(
+                title="No Matching Insights",
+                description="None of your active insights match these filters.",
+                icon="🔍",
             )
         else:
             insight_cards = EmptyState(
@@ -381,14 +374,19 @@ def create_insights_ui_routes(
             )
 
         # Charts visualization section
-        charts_section = render_charts_section(len(insights))
+        charts_section = render_charts_section(0 if load_error else active_total.value)
+        subtitle = (
+            "Insights could not be counted"
+            if load_error
+            else _subtitle(matching.value, active_total.value, filtered=filtered)
+        )
 
         # Build page content
         content = Div(
             personal_header_placeholder(),
             PageHeader(
                 title="💡 Insights",
-                subtitle=f"{len(insights)} active insight{'s' if len(insights) != 1 else ''} from your behavior patterns",
+                subtitle=subtitle,
             ),
             Div(
                 ButtonLink(
@@ -446,7 +444,7 @@ def create_insights_ui_routes(
                 ]
             ),
             Div(
-                SectionHeader("Domains", cls="mt-8"),
+                SectionHeader("Domains you've had insights in", cls="mt-8"),
                 P(
                     ", ".join(stats.get("domains", [])) or "None",
                     cls="text-muted-foreground",
@@ -515,28 +513,18 @@ def create_insights_ui_routes(
         page_size = 10
 
         result = await insight_store.get_active_insights(
-            user_uid=user_uid,
-            domain=filters.domain,
-            limit=page_size + filters.offset,
+            user_uid, filters.match, limit=page_size, offset=filters.offset
         )
 
         if result.is_error:
             logger.error(f"Failed to retrieve insights: {result.error}")
             return render_error_banner("Failed to load more insights", str(result.error))
 
-        all_insights = _apply_insight_filters(insight_store, result.value, filters)
-        new_insights = all_insights[filters.offset : filters.offset + page_size]
-
+        new_insights = result.value
         if not new_insights:
             return EmptyState("No more insights to load", id="load-more-trigger", cls="py-4")
 
-        filter_query = _build_filter_query_string(filters)
-        next_offset = filters.offset + page_size
-        next_url = (
-            f"/insights/load-more?offset={next_offset}&{filter_query}"
-            if filter_query
-            else f"/insights/load-more?offset={next_offset}"
-        )
+        next_query = _load_more_query(filters, filters.offset + page_size)
 
         loaded_card_items = [render_insight_card_with_checkbox(insight) for insight in new_insights]
 
@@ -544,7 +532,7 @@ def create_insights_ui_routes(
             *loaded_card_items,
             Div(
                 id="load-more-trigger",
-                hx_get=next_url,
+                hx_get=f"/insights/load-more?{next_query}",
                 hx_trigger="revealed",
                 hx_swap="outerHTML",
                 hx_indicator="#loading-indicator",

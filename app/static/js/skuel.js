@@ -2310,11 +2310,11 @@
          * - Cancels in-flight requests when new filter changes arrive
          * - Shows loading indicator during filter application
          *
-         * @param {Object} initialFilters - Initial filter values {search, domain, impact, type, status}
+         * @param {Object} initialFilters - Initial filter values {search, domain, impact, type}
          * @returns {Object} Alpine.js component
          *
          * @example
-         * <div x-data="insightFiltersDebounced({search: '', domain: '', impact: '', type: '', status: 'all'})">
+         * <div x-data="insightFiltersDebounced({search: '', domain: '', impact: '', type: ''})">
          *   <input x-model="filters.search" @input.debounce.300ms="applyFilters()">
          *   <select x-model="filters.domain" @change="applyFilters()">
          * </div>
@@ -2325,8 +2325,7 @@
                     search: '',
                     domain: '',
                     impact: '',
-                    type: '',
-                    status: 'all'
+                    type: ''
                 },
                 loading: false,
 
@@ -2344,9 +2343,6 @@
                     if (self.filters.domain) params.push('domain=' + encodeURIComponent(self.filters.domain));
                     if (self.filters.impact) params.push('impact=' + encodeURIComponent(self.filters.impact));
                     if (self.filters.type) params.push('type=' + encodeURIComponent(self.filters.type));
-                    if (self.filters.status && self.filters.status !== 'all') {
-                        params.push('status=' + encodeURIComponent(self.filters.status));
-                    }
 
                     var queryString = params.length > 0 ? '?' + params.join('&') : '';
                     window.location.href = '/insights' + queryString;
@@ -2360,8 +2356,7 @@
                         search: '',
                         domain: '',
                         impact: '',
-                        type: '',
-                        status: 'all'
+                        type: ''
                     };
                     window.location.href = '/insights';
                 }

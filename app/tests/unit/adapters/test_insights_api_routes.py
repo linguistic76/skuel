@@ -19,6 +19,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.insights_api import create_insights_api_routes
+from core.models.insight.persisted_insight import ActiveInsightFilter, InsightDomain
 from core.utils.result_simplified import Result
 
 _USER_UID = "user_owner"
@@ -49,6 +50,7 @@ def _make_harness(
     store.bulk_mark_actioned = AsyncMock(return_value=Result.ok({"actioned": 2}))
     store.smart_dismiss = AsyncMock(return_value=Result.ok({"dismissed": 1}))
     store.get_active_insights = AsyncMock(return_value=Result.ok([]))
+    store.count_active_insights = AsyncMock(return_value=Result.ok(0))
     store.get_insight_stats = AsyncMock(return_value=Result.ok({"total": 0}))
     # The store's read is owner-scoped (ADR-085 G6): a foreign uid is a
     # NotFound from the store itself — the route no longer compares owners.
@@ -248,7 +250,9 @@ class TestActiveInsights:
         assert response.status_code == 200
         payload = response.json()
         assert payload["count"] == 0
-        assert payload["domain_filter"] == "tasks"
+        assert payload["filters"]["domain"] == "tasks"
+        match = ActiveInsightFilter(domain=InsightDomain.TASKS)
         harness.store.get_active_insights.assert_awaited_once_with(
-            user_uid=_USER_UID, domain="tasks", limit=10
+            _USER_UID, match, limit=10, offset=0
         )
+        harness.store.count_active_insights.assert_awaited_once_with(_USER_UID, match)

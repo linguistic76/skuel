@@ -1,18 +1,32 @@
 """Insights dashboard UI components — filter form, bulk actions, charts, card wrappers."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 
-from fasthtml.common import FT, H3, Canvas, Div, NotStr, Span
+from fasthtml.common import FT, H3, Canvas, Div, NotStr, Option, Span
 
+from core.models.insight.persisted_insight import (
+    ActiveInsightFilter,
+    InsightDomain,
+    InsightImpact,
+    InsightType,
+)
 from ui.alpine import alpine_call
 from ui.components import Button, ButtonT
 from ui.forms import Input, Label, LabelInput, LabelSelect
 from ui.insights.insight_card import InsightCard
-from ui.layout import Size
+
+# The impact select lists the most severe first, as the page orders them.
+_IMPACT_ORDER = (
+    InsightImpact.CRITICAL,
+    InsightImpact.HIGH,
+    InsightImpact.MEDIUM,
+    InsightImpact.LOW,
+)
 
 
-@dataclass
+@dataclass(frozen=True)
 class InsightsFilters:
     """Filter-state contract between the insights routes and UI components.
 
@@ -20,16 +34,21 @@ class InsightsFilters:
     form renders from it.
     """
 
-    domain: str | None
-    impact: str | None
-    search: str
-    insight_type: str | None
-    action_status: str | None
+    match: ActiveInsightFilter
     offset: int
+
+
+def _options(all_label: str, members: tuple[StrEnum, ...]) -> tuple[FT, ...]:
+    """A select's options: "all" (blank — no filter), then one per vocabulary member."""
+    return (
+        Option(all_label, value=""),
+        *(Option(member.value.replace("_", " ").title(), value=member.value) for member in members),
+    )
 
 
 def render_filter_form(filters: InsightsFilters) -> Any:
     """Build advanced filter form with Alpine.js data binding."""
+    match = filters.match
     return Div(
         # Row 1: Search + Domain
         Div(
@@ -39,82 +58,46 @@ def render_filter_form(filters: InsightsFilters) -> Any:
                 lbl_cls="text-xs",
                 type="text",
                 placeholder="Search insights...",
-                size=Size.sm,
+                id="insight-filter-search",
                 cls="space-y-2 flex-1",
                 **{"x-model": "filters.search"},
                 **{"@input.debounce.300ms": "applyFilters()"},
             ),
             # Domain filter
             LabelSelect(
-                NotStr(
-                    '<option value="">All Domains</option>'
-                    '<option value="tasks">Tasks</option>'
-                    '<option value="goals">Goals</option>'
-                    '<option value="habits">Habits</option>'
-                    '<option value="events">Events</option>'
-                    '<option value="choices">Choices</option>'
-                    '<option value="principles">Principles</option>'
-                ),
+                *_options("All Domains", tuple(InsightDomain)),
                 label="Domain",
                 lbl_cls="text-xs",
-                size=Size.sm,
+                id="insight-filter-domain",
                 full_width=False,
                 **{"x-model": "filters.domain"},
                 **{"@change": "applyFilters()"},
             ),
-            cls="flex gap-3",
+            cls="flex flex-wrap gap-3",
         ),
-        # Row 2: Impact + Type + Status
+        # Row 2: Impact + Type
         Div(
             # Impact filter
             LabelSelect(
-                NotStr(
-                    '<option value="">All Impact</option>'
-                    '<option value="critical">Critical</option>'
-                    '<option value="high">High</option>'
-                    '<option value="medium">Medium</option>'
-                    '<option value="low">Low</option>'
-                ),
+                *_options("All Impact", _IMPACT_ORDER),
                 label="Impact",
                 lbl_cls="text-xs",
-                size=Size.sm,
+                id="insight-filter-impact",
                 full_width=False,
                 **{"x-model": "filters.impact"},
                 **{"@change": "applyFilters()"},
             ),
             # Insight type filter
             LabelSelect(
-                NotStr(
-                    '<option value="">All Types</option>'
-                    '<option value="difficulty_pattern">Difficulty Pattern</option>'
-                    '<option value="completion_streak">Completion Streak</option>'
-                    '<option value="habit_synergy">Habit Synergy</option>'
-                    '<option value="goal_alignment">Goal Alignment</option>'
-                    '<option value="principle_violation">Principle Violation</option>'
-                    '<option value="learning_opportunity">Learning Opportunity</option>'
-                ),
+                *_options("All Types", tuple(InsightType)),
                 label="Type",
                 lbl_cls="text-xs",
-                size=Size.sm,
+                id="insight-filter-type",
                 full_width=False,
                 **{"x-model": "filters.type"},
                 **{"@change": "applyFilters()"},
             ),
-            # Action status filter
-            LabelSelect(
-                NotStr(
-                    '<option value="all">All</option>'
-                    '<option value="unactioned">Not Acted On</option>'
-                    '<option value="actioned">Acted On</option>'
-                ),
-                label="Status",
-                lbl_cls="text-xs",
-                size=Size.sm,
-                full_width=False,
-                **{"x-model": "filters.status"},
-                **{"@change": "applyFilters()"},
-            ),
-            cls="flex gap-3 mt-3",
+            cls="flex flex-wrap gap-3 mt-3",
         ),
         # Action buttons with loading indicator
         Div(
@@ -137,11 +120,10 @@ def render_filter_form(filters: InsightsFilters) -> Any:
         x_data=alpine_call(
             "insightFiltersDebounced",
             {
-                "search": filters.search,
-                "domain": filters.domain or "",
-                "impact": filters.impact or "",
-                "type": filters.insight_type or "",
-                "status": filters.action_status or "all",
+                "search": match.search,
+                "domain": match.domain or "",
+                "impact": match.impact or "",
+                "type": match.insight_type or "",
             },
         ),
     )
