@@ -228,7 +228,7 @@ def _chart_card(data_url: str) -> FT:
             **{"x-show": "error"},
         ),
         **{
-            "x-data": f"chartVis('{data_url}')",
+            "x-data": alpine_call("chartVis", data_url),
             "class": "bg-background p-4 rounded-lg shadow-sm",
         },
     )

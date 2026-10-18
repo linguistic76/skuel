@@ -58,10 +58,10 @@ gate.
 
 ```python
 # ❌ Alpine already calls init(); this calls it a second time (two fetches, measured)
-Div(Div(id=f"network-{uid}"), **{"x-data": f"relationshipGraph('{uid}', 'tasks', 2)", "x-init": "init()"})
+Div(Div(id=f"network-{uid}"), **{"x-data": alpine_call("relationshipGraph", uid, "tasks", 2), "x-init": "init()"})
 
 # ✅ let Alpine call it
-Div(Div(id=f"network-{uid}"), **{"x-data": f"relationshipGraph('{uid}', 'tasks', 2)"})
+Div(Div(id=f"network-{uid}"), **{"x-data": alpine_call("relationshipGraph", uid, "tasks", 2)})
 ```
 
 `relationshipGraph`, `exploreGraph` and `exploreSearch` all mount this way;

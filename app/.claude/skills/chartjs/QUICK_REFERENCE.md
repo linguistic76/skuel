@@ -15,7 +15,7 @@ def _chart_card(data_url: str) -> FT:
         Div("Loading chart...", cls="text-center text-muted-foreground py-8", **{"x-show": "loading"}),
         Div(Span("Error: ", cls="font-bold"), Span(**{"x-text": "error"}),
             cls="text-error text-center py-8", **{"x-show": "error"}),
-        **{"x-data": f"chartVis('{data_url}')",
+        **{"x-data": alpine_call("chartVis", data_url),
            "class": "bg-background p-4 rounded-lg shadow-sm"},
     )
 ```

@@ -153,7 +153,7 @@ Div(
     Div(id=f"network-{uid}", cls="w-full h-96 border border-border rounded-sm"),
     P(role="alert", x_show="error", x_text="error", x_cloak=True),
     **{
-        "x-data": f"relationshipGraph('{uid}', 'tasks', 2)",
+        "x-data": alpine_call("relationshipGraph", uid, "tasks", 2),  # ui.alpine
         "x-on:relationships-changed.window": "loadGraph(depth)",
     },
 )

@@ -55,7 +55,7 @@ def _insight_charts() -> FT:
 
 
 def test_insight_charts_pass_only_their_config_url() -> None:
-    assert _chart_mounts(_insight_charts()) == [f"chartVis('{url}')" for url in INSIGHT_CHART_URLS]
+    assert _chart_mounts(_insight_charts()) == [f'chartVis("{url}")' for url in INSIGHT_CHART_URLS]
 
 
 def test_alignment_radar_passes_only_its_config_url() -> None:

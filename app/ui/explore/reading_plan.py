@@ -32,6 +32,7 @@ from fasthtml.common import (
     Ul,
 )
 
+from ui.alpine import alpine_call
 from ui.components import Icon
 from ui.patterns.keyboard_hints import keyboard_hint, keyboard_hints_bar
 
@@ -308,9 +309,9 @@ def _hero_actions(uid: str, minutes: int) -> FT:
                 "focus:outline-hidden focus-visible:ring-2"
             ),
             **{
-                "@click": f"toggleSave('{uid}')",
-                ":aria-label": f"isSaved('{uid}') ? 'Saved' : 'Save for later'",
-                ":class": f"isSaved('{uid}') ? 'text-primary fill-current' : 'text-muted-foreground'",
+                "@click": alpine_call("toggleSave", uid),
+                ":aria-label": f"{alpine_call('isSaved', uid)} ? 'Saved' : 'Save for later'",
+                ":class": f"{alpine_call('isSaved', uid)} ? 'text-primary fill-current' : 'text-muted-foreground'",
             },
         ),
         cls="flex flex-wrap items-center gap-3.5 mt-5",

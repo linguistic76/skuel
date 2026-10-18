@@ -131,7 +131,7 @@ skills:
 
   - name: vis-network
     description: Expert guide to Vis.js Network for interactive graph visualization in SKUEL. Use when visualizing lateral relationships, building force-directed graphs, creating relationship network diagrams, or when the user mentions vis.js, graph visualization, relationship networks, interactive graphs, or lateral relationships.
-    last_reviewed: "2026-10-17"
+    last_reviewed: "2026-10-18"
     foundation: []
     dependencies: []
     library_package: null  # Self-hosted vendor library
@@ -214,7 +214,7 @@ skills:
 
   - name: accessibility-guide
     description: Expert guide for building accessible web applications following WCAG standards
-    last_reviewed: "2026-10-17"
+    last_reviewed: "2026-10-18"
     foundation: [ui-browser, ui-css]
     dependencies: [ui-browser, ui-css]
     library_package: null  # SKUEL pattern, not external library

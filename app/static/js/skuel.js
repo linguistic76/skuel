@@ -1624,8 +1624,9 @@
                         this.expanded.delete(uid);
                     } else {
                         this.expanded.add(uid);
-                        // Trigger HTMX lazy load via custom event
-                        document.body.dispatchEvent(new CustomEvent('expand-' + uid));
+                        // Trigger the HTMX lazy load on this node's children container
+                        var children = document.getElementById('children-' + uid);
+                        if (children) children.dispatchEvent(new CustomEvent('expand'));
                     }
                 },
 

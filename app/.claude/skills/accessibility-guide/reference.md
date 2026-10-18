@@ -265,7 +265,7 @@ with roving tabindex:
 
 ```python
 def _tab_button(group: Group) -> FT:
-    cond = f"activeTab === '{group.uid}'"
+    cond = f"activeTab === {js_literal(group.uid)}"  # ui.alpine — a uid is data
     return Button(
         group.name,
         role="tab",
@@ -275,7 +275,7 @@ def _tab_button(group: Group) -> FT:
         **{
             ":aria-selected": cond,
             ":tabindex": f"{cond} ? 0 : -1",      # only the active tab is in the tab order
-            "@click": f"activeTab = '{group.uid}'",
+            "@click": f"activeTab = {js_literal(group.uid)}",
         },
     )
 
@@ -286,7 +286,7 @@ def _tab_panel(group: Group) -> FT:
         id=f"groups-panel-{group.uid}",
         aria_labelledby=f"groups-tab-{group.uid}",
         tabindex="0",
-        **{"x-show": f"activeTab === '{group.uid}'"},
+        **{"x-show": f"activeTab === {js_literal(group.uid)}"},
     )
 
 # The tablist moves activation AND focus with the arrow keys, Home and End

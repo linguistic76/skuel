@@ -21,6 +21,7 @@ from typing import Any
 
 from fasthtml.common import H3, Div, Form
 
+from ui.alpine import js_literal
 from ui.components import Button, ButtonT
 from ui.forms.field_builder import build_field_from_schema
 
@@ -80,22 +81,28 @@ def render_inline_exercise_form(
     )
 
 
+# The error text goes into innerHTML, so its markup characters are escaped first.
+_ESCAPE_HTML = "((t) => String(t).replace(/[&<>\"']/g, (c) => '&#' + c.charCodeAt(0) + ';'))"
+
+
 def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
     """Generate Alpine.js submit handler that posts JSON to the form API."""
     # Build form_data object from named fields
     field_extractions = ", ".join(
-        f"'{name}': $el.querySelector('[name={name}]')?.value || ''" for name in field_names
+        f"{js_literal(name)}: $el.querySelector('[name=' + CSS.escape({js_literal(name)}) + ']')?.value || ''"
+        for name in field_names
     )
 
+    feedback_id = js_literal(f"form-feedback-{exercise_uid}")
     return (
         f"if (submitting) return; "
         f"submitting = true; "
-        f"document.getElementById('form-feedback-{exercise_uid}').innerHTML = ''; "
+        f"document.getElementById({feedback_id}).innerHTML = ''; "
         f"let formData = {{{field_extractions}}}; "
         f"let res = await fetch('/api/user-entries/form', {{"
         f"method: 'POST', "
         f"headers: {{'Content-Type': 'application/json'}}, "
-        f"body: JSON.stringify({{exercise_uid: '{exercise_uid}', form_data: formData}})"
+        f"body: JSON.stringify({{exercise_uid: {js_literal(exercise_uid)}, form_data: formData}})"
         f"}}); "
         f"submitting = false; "
         f"if (res.ok) {{ "
@@ -108,9 +115,9 @@ def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
         f"+ '</div>'; "
         f"}} else {{ "
         f"let err = await res.json(); "
-        f"document.getElementById('form-feedback-{exercise_uid}').innerHTML = "
+        f"document.getElementById({feedback_id}).innerHTML = "
         f"'<div class=\"p-4 rounded-lg bg-red-50 text-red-800 border border-red-200 flex items-center justify-between\">' "
-        f"+ '<span>' + (err.error || 'Submission failed') + '</span>' "
+        f"+ '<span>' + {_ESCAPE_HTML}(err.error || 'Submission failed') + '</span>' "
         f'+ \'<button onclick="this.parentElement.remove()" class="ml-2 font-bold">&times;</button>\' '
         f"+ '</div>'; "
         f"}}"

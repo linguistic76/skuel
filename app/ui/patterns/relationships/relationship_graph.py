@@ -36,6 +36,7 @@ from fasthtml.common import H3, Div, Option, P
 
 from core.constants import GraphDepth
 from core.models.type_hints import EntityUID
+from ui.alpine import alpine_call
 from ui.components import Card, CardBody
 from ui.forms import Select
 
@@ -112,7 +113,7 @@ def RelationshipGraphView(
             # One scope holds the select, the canvas and the error, so Alpine
             # binds every directive above; Alpine calls the component's init().
             **{
-                "x-data": f"relationshipGraph('{entity_uid}', '{entity_type}', {depth})",
+                "x-data": alpine_call("relationshipGraph", entity_uid, entity_type, depth),
                 # Reload the network whenever an add/delete fires relationships-changed.
                 "x-on:relationships-changed.window": "loadGraph(depth)",
             },
