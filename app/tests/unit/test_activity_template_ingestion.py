@@ -59,7 +59,7 @@ _EXPECTED_PREFIXES: dict[EntityType, str] = {
     EntityType.PRINCIPLE_TEMPLATE: "pt",
 }
 
-_FILE = Path("tt_daily-practice-log_tmpl.md")
+_FILE = Path("daily-practice-log.md")
 
 
 # ============================================================================
@@ -158,7 +158,7 @@ def test_generated_uid_uses_prefix() -> None:
         _FILE,
         INGESTION_TEST_OWNER,
     )
-    assert prepared["uid"] == "tt.tt_daily-practice-log_tmpl"
+    assert prepared["uid"] == "tt.daily-practice-log"
     assert prepared["entity_type"] == "task_template"
 
 

@@ -10,13 +10,17 @@ than what the content vault can (ADR-070 Decision 11):
   knowledge notes). An Edge file, a Group file and every curriculum type belong
   to the content vault and are refused — reported as ignored-with-reason, never
   half-written.
-- **Whose identity it has.** A uid-less personal Activity or life-path file has its
-  own uid (``task_{slug}_{suffix}``, the API's form) — derived from its owner and
-  path, so the first sync and any re-sync agree whether or not a tracker row
-  landed — and keeps it through its tracker row, so a rename keeps the entity and
-  two users with the same filename hold two entities. The content vault keeps
-  ``{prefix}.{file stem}``. ``user_entry`` has its own path-keyed identity
-  (``UnifiedIngestionService._resolve_prior_user_entry_uid``).
+- **Whose identity it has.** A personal file never authors a ``uid:`` line — uids
+  share one namespace across every user and the curriculum, so two learners
+  writing ``uid: task.morning-run`` would collide; a file that has one is refused,
+  and the reason tells its author to remove the line. A personal Activity or
+  life-path file has its own uid (``task_{slug}_{suffix}``, the API's form) —
+  derived from its owner and path, so the first sync and any re-sync agree whether
+  or not a tracker row landed — and keeps it through its tracker row, so a rename
+  keeps the entity and two users with the same filename hold two entities. An
+  authored ``{prefix}.{ns}.{slug}`` belongs to the content vault, which also keeps
+  ``{prefix}.{file stem}`` for a file without one. ``user_entry`` has its own
+  path-keyed identity (``UnifiedIngestionService._resolve_prior_user_entry_uid``).
 - **What it may link.** A personal file's frontmatter targets are its owner's or
   unowned published content — the link-edge guard's rule (``partition_link_edges``), applied
   before the node lands so no foreign uid reaches a property either. A refused
@@ -40,7 +44,7 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.services.mixins.link_edge_guard import LinkEdge, partition_link_edges
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.result_simplified import Result
-from core.utils.uid_generator import UIDGenerator
+from core.utils.uid_grammar import slugify
 
 from .config import ENTITY_CONFIGS
 from .detector import detect_entity_type, is_edge_type, read_document
@@ -75,8 +79,9 @@ def personal_vault_refusal(
     """Why a personal vault refuses this file, or ``None`` when it ingests it.
 
     ``entity_type`` is ``None`` for an Edge file. ``data`` is the file's parsed
-    frontmatter — read only to name a typeless ``moc: true`` map, which the
-    detector types as a PathStep, so its author learns how to keep it personal.
+    frontmatter — read for a ``uid:`` line, which no personal file may author, and
+    to name a typeless ``moc: true`` map, which the detector types as a PathStep, so
+    its author learns how to keep it personal.
     """
     if entity_type is None:
         return (
@@ -84,6 +89,11 @@ def personal_vault_refusal(
             "entities with a 'connections:' line in a file's frontmatter"
         )
     if entity_type in PERSONAL_VAULT_TYPES:
+        if "uid" in data:
+            return (
+                "a personal file never sets its own uid — remove the 'uid:' line; its "
+                "identity comes from you and the file's place in your vault"
+            )
         return None
     if entity_type is NonKuDomain.GROUP:
         return "Group files are synced from the content vault only"
@@ -141,8 +151,8 @@ def uid_in_use_reason(uid: str) -> str:
     One sentence for every vault and every case — it never says whose node it is.
     """
     return (
-        f"uid '{uid}' is already in use by an entity this vault does not own — give the "
-        "file its own 'uid:', or remove the line"
+        f"uid '{uid}' is already in use by an entity this vault does not own — author a "
+        "different 'uid:' (a content-vault file), or remove the line"
     )
 
 
@@ -222,6 +232,7 @@ def personal_file_uid(
     derived from its owner and canonical path: ``{prefix}_{slug}_{8 hex}``. Derived,
     not random, so a sync whose tracker stamp was lost derives the same uid next time
     instead of creating a second entity, and two owners never derive the same one.
+    A stem with no ASCII letter or digit derives ``{prefix}_{8 hex}``.
     """
     config = ENTITY_CONFIGS[entity_type]
     if (
@@ -231,7 +242,8 @@ def personal_file_uid(
     ):
         return tracked.uid
     digest = hashlib.sha256(f"{owner_uid}\0{file_path.resolve()}".encode()).hexdigest()[:8]
-    return f"{config.uid_prefix}_{UIDGenerator.slugify(file_path.stem)}_{digest}"
+    slug = slugify(file_path.stem)
+    return f"{config.uid_prefix}_{slug}_{digest}" if slug else f"{config.uid_prefix}_{digest}"
 
 
 # ---------------------------------------------------------------------------

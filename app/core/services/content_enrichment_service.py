@@ -38,6 +38,14 @@ if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
 
 
+def instruction_set_uid(name: str) -> str:
+    """The uid an instruction set named ``name`` takes when none is given.
+
+    One of ``uid_grammar.UID_EXEMPTIONS`` (``instruction_set``).
+    """
+    return f"instructions:{name.lower().replace(' ', '-')}"
+
+
 class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
     """
     Transcript processor service - transforms raw transcripts into formatted documents.
@@ -378,7 +386,7 @@ Preserve the author's voice and authenticity while improving readability.
             Result containing created instruction set
         """
         if not uid:
-            uid = f"instructions:{name.lower().replace(' ', '-')}"
+            uid = instruction_set_uid(name)
 
         result = await self.backend.create_exercise_instruction_set(  # type: ignore[attr-defined]
             uid=uid, name=name, instructions=content

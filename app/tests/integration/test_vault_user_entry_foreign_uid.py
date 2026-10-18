@@ -1,9 +1,9 @@
 """A vault note that names another user's entry is refused like any vault file (ADR-070 Decision 11).
 
-The UserEntry door writes through ``UserEntryBackend.upsert``, whose owner gate
-refuses a uid another user owns. The Activity doors report that refusal as a
-content fault — ignored, with the reason — in words that never say whose node it
-is; a note naming a taken uid must read the same, not as a sync error.
+A personal note authors no ``uid:`` at all, so a note naming another user's entry
+is refused by the vault policy before any write — ignored, with a reason that
+tells its author to remove the line and never says whose node the uid names; it
+must read as a content fault, not as a sync error.
 
 Drives the production loop over a temp vault (``_vault_rig``).
 """
@@ -43,7 +43,7 @@ async def test_a_note_naming_another_users_entry_is_ignored_with_reason(rig: Rig
     stats = result.value
     assert stats.errors == [], stats.errors
     (ignored,) = [line for line in stats.ignored if "mine.md" in line]
-    assert "ue.taken" in ignored and "already in use" in ignored, ignored
+    assert "remove the 'uid:' line" in ignored, ignored
     assert OTHER not in ignored
     async with rig.driver.session() as session:
         rows = await (

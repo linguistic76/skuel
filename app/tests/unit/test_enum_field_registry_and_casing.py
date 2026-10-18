@@ -117,7 +117,7 @@ class TestEnumMembershipGateAtTheDoor:
     in every vault; casing-only problems were already fixed by the preparer.
     """
 
-    _FILE = Path("event_sample.md")
+    _FILE = Path("event-sample.md")
 
     def _prepared_event(self, **fields: object) -> dict[str, object]:
         data: dict[str, object] = {"title": "Sample event", **fields}
@@ -169,7 +169,7 @@ class TestEnumMembershipGateAtTheDoor:
     def test_exercise_scope_keeps_its_door_policy_message(self) -> None:
         # 'personal' IS vocabulary — the gate admits it; the ingestion-door
         # policy (scope must be curriculum) still rejects with its own message.
-        file_path = Path("exercise_sample.md")
+        file_path = Path("exercise-sample.md")
         prepared = prepare_entity_data(
             EntityType.EXERCISE,
             {"title": "S", "instructions": "Do.", "scope": "personal"},
@@ -185,7 +185,7 @@ class TestEnumMembershipGateAtTheDoor:
         # A non-member scope is a vocabulary fault, not door policy — the
         # gate fires first, so the "app-created only" claim (true only of
         # real scopes) never fires on a non-word.
-        file_path = Path("exercise_sample.md")
+        file_path = Path("exercise-sample.md")
         prepared = prepare_entity_data(
             EntityType.EXERCISE,
             {"title": "S", "instructions": "Do.", "scope": "banana"},
@@ -207,7 +207,7 @@ class TestEnumMembershipGateAtTheDoor:
         # ``EVENT.valid_statuses()``, so on Event the file is admitted by
         # THIS gate and then refused by the status-legality gate below —
         # which would make this test assert the wrong door.
-        file_path = Path("choice_sample.md")
+        file_path = Path("choice-sample.md")
         prepared = prepare_entity_data(
             EntityType.CHOICE,
             {"title": "C", "status": "pending"},

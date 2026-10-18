@@ -1,6 +1,6 @@
 ---
 title: "ADR-013: KU UID Flat Identity Design"
-updated: 2026-10-16
+updated: 2026-10-18
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum]
@@ -13,6 +13,8 @@ related_skills: [neo4j-cypher-patterns, curriculum-domains, learning-loop]
 **Status:** Implemented (Universal Hierarchical Pattern - 2026-01-30). **Amended 2026-10-16:**
 one Ku uid form, authored `ku.{ns}.{slug}`; the generated `ku_{slug}_{random}` form below is
 retired, and the never-sniff rule stays — see [§ Amendment (2026-10-16)](#amendment-2026-10-16-one-ku-uid-form).
+**Amended 2026-10-18:** one grammar for every node uid — `:` is in no node uid, the charset is
+`[a-z0-9._-]`, enforced at ingestion — see [§ Amendment (2026-10-18)](#amendment-2026-10-18-one-uid-grammar).
 
 **Date:** 2025-12-03 (Decision) | 2026-01-30 (Implementation)
 
@@ -299,7 +301,8 @@ Current CLAUDE.md documents `ku:` (colon notation) but implementation uses `ku.`
 As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of authored UIDs**
 (not "the canonical format" — there is no single canonical spelling; see the Addendum):
 - Colon notation (`ku:filename`) is REJECTED — the auto-convert input alias was deleted 2026-08-14
-- Ingestion's filename-fallback UID is dot form (`ku.{file-stem}`)
+- Ingestion's filename-fallback UID is dot form (`ku.{file-stem}`), taken only when the stem is
+  one grammar segment (amendment 2026-10-18)
 - The generated underscore form (`ku_{slug}_{random}`) is retired (amendment 2026-10-16)
 - Separator law: `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar
 
@@ -315,6 +318,7 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of aut
 | 2026-01-30 | Claude | Updated with underscore format & ORGANIZES | 2.1 |
 | 2026-08-14 | Mike + Claude | Separator grammar ratified (dot = authored provenance, hierarchy in edges); fixed stale citations, "canonical dot format" claim, and the "backward compatibility" framing of the authored form | 2.2 |
 | 2026-10-16 | Mike + Claude | Amendment: one Ku uid form, authored `ku.{ns}.{slug}`; the generated `ku_{slug}_{random}` form is retired with its minter, and an `@ku()` reference in another spelling links nothing and is reported. The never-sniff rule stays (ADR-091 S8) | 3.0 |
+| 2026-10-18 | Mike + Claude | Amendment: one uid grammar for every node uid — `[a-z0-9._-]`, authored `{prefix}.{slug}` / `{prefix}.{ns}.{slug}`, generated `{prefix}_{opaque}`, no `:` in any node uid (reverses the 2026-08-14 colon row); enforced at ingestion for every type, UserEntry included; `slugify` folds to ASCII; shapes still minted outside it are named exemptions until the uid arc migrates them | 4.0 |
 
 ---
 
@@ -405,3 +409,44 @@ rule, reaffirmed 2026-07-03).
   `entity_type` or an edge, never from a uid's spelling, and a uid's middle segment stays a
   human grouping hint, never machine meaning (SKUEL034).
 - **Flat identity stands.** Hierarchy is still `ORGANIZES` edges, never the uid.
+
+## Amendment (2026-10-18): one uid grammar
+
+**Ruled by Mike, 2026-10-18** (from the #1594 residual: `validate_uid_format` checked only the
+prefix, so an authored uid could carry a quote into an Alpine expression).
+
+- **One grammar for every node uid.** A uid is lowercase ASCII from `[a-z0-9._-]`, in one of two
+  shapes:
+  - **authored** — `{prefix}.{slug}` or `{prefix}.{ns}.{slug}`, written in the content vault. The
+    namespace is optional: Kus and PathSteps come in families and carry one
+    (`ku.mindfulness.attention`); Resources, LearningPaths and the content vault's activities are
+    flat lists and do not (`resource.tao-te-ching`). Either way it stays a human hint, never read.
+  - **generated** — `{prefix}_{opaque}`, minted by code (`task_a1b2c3d4`).
+
+  A prefix is a lowercase word; a segment is lowercase words joined by single hyphens; an opaque
+  part is lowercase letters and digits. No segment holds a `_` or `:`, so no generated uid fits
+  inside another uid, and composites like `hc.user_admin.habit_…` or `group_default_user_admin`
+  are outside the shapes. The rule lives in one module, `core/utils/uid_grammar.py`,
+  which `validate_uid_format` and `UIDGenerator` both use.
+- **`:` is in no node uid.** This reverses the 2026-08-14 colon row, which kept colons for
+  internal machine ids (periodic notes, chunk ids). The `edge:` tracker sentinel stays: it is a
+  tracker row's key, not a node's uid.
+- **Enforced at ingestion, for every type.** A file's `uid:` line, and the `{prefix}.{stem}` its
+  name gives when it has none, are read against the authored shape — `user_entry` included
+  (`list.goals` reached the graph because UserEntry skipped the check). A file name outside the
+  grammar gives no uid: the file is refused with a rename or `uid:` remedy. A personal-vault file
+  authors no `uid:` at all (ADR-070 Decision 11, amended the same day).
+- **`slugify` folds to ASCII** (`café` → `cafe`). No live uid and no vault file name held a
+  non-ASCII character on the day, so no derived uid moved.
+- **Shapes still minted outside the grammar are named, not hidden.** `uid_grammar.UID_EXEMPTIONS`
+  lists each one with the functions that mint it and what retires it, and a unit test fails
+  once a writer stops minting its shape. The uid arc migrates them in order: chunk ids
+  (`{parent}:chunk:{n}`, and `:Content` nodes sharing their entity's uid) → periodic notes
+  (`ue:{kind}:{user}:{key}`) → the remaining generated shapes (`{prefix}_{slug}_{8 hex}`,
+  habit completions, insights, the default group, bare-UUID SearchEvents, transcriptions,
+  instruction sets); each becomes `{prefix}_{hash(parts)}` where the old id was derived, so a
+  re-ingest still lands on the same node. Invoices leave with the local invoice module
+  (ADR-052 Phase 5). `./dev uid-census` reads every live uid against the grammar, per label.
+- **Every generated uid moves to one shape.** Today `{prefix}_{8 hex}`, `{prefix}_{12 hex}` and
+  `{prefix}_{slug}_{8 hex}` are all minted; the arc's last migration renames all of them, the
+  two that already fit included.

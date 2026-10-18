@@ -241,6 +241,12 @@ case "$1" in
     uv run python scripts/generate_embeddings_batch.py "${@:2}"
     ;;
 
+  uid-census)
+    # Status to stderr so the table on stdout can be redirected clean.
+    echo -e "${GREEN}Reading every node uid against the uid grammar (read-only)...${NC}" >&2
+    uv run python scripts/uid_census.py "${@:2}"
+    ;;
+
   telemetry-retention)
     echo -e "${GREEN}Pruning unbounded-growth telemetry (ADR-080 Horizon 0)...${NC}" >&2
     uv run python scripts/telemetry_retention.py "${@:2}"
@@ -457,6 +463,7 @@ case "$1" in
     echo "  ./dev eval-chunk-retrieval - hit@k eval of /search chunk retrieval (FULL tier; --json)"
     echo "  ./dev eval-askesis-draw - Askesis chunk-draw arms: intent filter vs thin-draw (FULL tier; --json)"
     echo "  ./dev eval-intent-classification - Askesis intent classification: labelled set × aggregation arms (FULL tier; --json)"
+    echo "  ./dev uid-census - Read every node uid against the uid grammar, per label (read-only)"
     echo "  ./dev telemetry-retention - Prune unbounded-growth telemetry (ADR-080 H0; --dry-run | --days N)"
     echo "  ./dev reconcile-learning-progress - Derived step MASTERED edges + uninitialized enrollment recounts (--dry-run)"
   echo "  ./dev reconcile-goal-tallies - Recompute TASK_BASED goals whose stored tally disagrees with their contributions (--dry-run)"

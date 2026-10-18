@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-10-16
+updated: 2026-10-18
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -156,7 +156,7 @@ The `type` value is case-insensitive. Aliases resolve to the canonical type duri
 
 **Retired type values are rejected with a clear error:** `expense` / `finance` (ADR-052 — finance is a Firefly III sidecar, not vault-ingestible) and the pre-ADR-054 UserEntry spellings (`exercise_submission`, `je_input`, `je_output`).
 
-**UID format:** `prefix.slug` or `prefix.namespace.slug`, authored in dot form directly — what you write is what Neo4j stores (e.g. `ku.attention.buzzing`). The former colon spelling (`ku:attention:buzzing`) was retired 2026-08-14 and its input alias deleted — a colon-spelled UID fails prefix validation loudly. **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `ps.` for PathSteps, `ku.` for Kus, `ex.` for Exercises). A mismatched prefix is rejected during ingestion.
+**UID format:** `prefix.slug` or `prefix.namespace.slug`, authored in dot form directly — what you write is what Neo4j stores (e.g. `ku.attention.buzzing`). Lowercase letters, digits and hyphens only, with dots between segments (`[a-z0-9._-]`, ADR-013 § Amendment 2026-10-18): a colon-spelled (`ku:attention:buzzing`), uppercase or spaced UID fails validation loudly. **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `ps.` for PathSteps, `ku.` for Kus, `ex.` for Exercises, `ue.` for UserEntries). A mismatched prefix is rejected during ingestion. A personal-vault file authors no `uid:` at all (ADR-070 Decision 11).
 
 **What happens during ingestion:** The `type` field determines which Neo4j labels the node gets (e.g., `type: Task` creates a node with `:Entity:Task` labels) and sets the `entity_type` property on the node (e.g., `entity_type: "task"`). The `type` field itself is not stored — it is translated into labels and properties.
 

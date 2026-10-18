@@ -33,6 +33,14 @@ from core.utils.timestamp_helpers import day_of, parse_stamp, today_in
 from core.utils.zone_context import current_zone
 
 
+def habit_completion_uid(user_uid: str, habit_uid: str, at: datetime) -> str:
+    """The uid of one completion of ``habit_uid`` by ``user_uid`` at ``at`` (whole seconds).
+
+    One of ``uid_grammar.UID_EXEMPTIONS`` (``habit_completion``).
+    """
+    return f"hc.{user_uid}.{habit_uid}.{int(at.timestamp())}"
+
+
 class HabitsCompletionService:
     """
     Completion tracking service for habits.
@@ -132,7 +140,7 @@ class HabitsCompletionService:
         new_streak, last_completed, best_candidate = streak_result.value
 
         # Create completion record
-        completion_uid = f"hc.{user_uid}.{habit_uid}.{int(now.timestamp())}"
+        completion_uid = habit_completion_uid(user_uid, habit_uid, now)
         completion_dto = HabitCompletionDTO(
             uid=completion_uid,
             habit_uid=habit_uid,
@@ -264,7 +272,7 @@ class HabitsCompletionService:
         is_new_record = best_candidate > habit.best_streak
 
         # Create completion record
-        completion_uid = f"hc.{user_uid}.{habit_uid}.{int(completed_at.timestamp())}"
+        completion_uid = habit_completion_uid(user_uid, habit_uid, completed_at)
         now = datetime.now()
 
         completion_dto = HabitCompletionDTO(

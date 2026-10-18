@@ -12,8 +12,9 @@ Mirrors the test_ingestion_chunking.py fixture pattern.
 """
 
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import gettempdir
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -66,9 +67,9 @@ def example():
 @pytest.mark.asyncio
 async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
     """Stale chunks (older chunking_version) are replaced, not duplicated."""
-    with NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write(_FIXTURE_BODY)
-        temp_path = Path(f.name)
+    # A stem in the uid grammar: with no uid: line, the file name gives the uid.
+    temp_path = Path(gettempdir()) / f"probe-{uuid4().hex[:8]}.md"
+    temp_path.write_text(_FIXTURE_BODY)
 
     try:
         chunking_service = EntityChunkingService()
@@ -151,9 +152,9 @@ async def test_regenerate_chunks_replaces_stale_chunks(neo4j_driver):
 @pytest.mark.asyncio
 async def test_regenerate_chunks_skips_already_current_when_force_false(neo4j_driver):
     """A parent whose chunks already match CHUNKING_ALGORITHM_VERSION is skipped."""
-    with NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write(_FIXTURE_BODY)
-        temp_path = Path(f.name)
+    # A stem in the uid grammar: with no uid: line, the file name gives the uid.
+    temp_path = Path(gettempdir()) / f"probe-{uuid4().hex[:8]}.md"
+    temp_path.write_text(_FIXTURE_BODY)
 
     try:
         chunking_service = EntityChunkingService()

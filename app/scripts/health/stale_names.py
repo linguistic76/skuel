@@ -670,7 +670,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
         # Decision 9's two amendment paragraphs (L304, L306) and their changelog rows
-        # (L525, L526) — the decision names what it retired. The ADR-091 supersession
+        # (L532, L533) — the decision names what it retired. The ADR-091 supersession
         # notes sit above them.
         (303, "/api/ingest/vault"): Allow(_adr070),
         (303, "/api/ingest/domain"): Allow(_adr070),
@@ -692,19 +692,19 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (305, "ingest_nous"): Allow(_adr070),
         (305, "generate_kus_from_moc"): Allow(_adr070),
         (305, "hierarchy_parser"): Allow(_adr070),
-        (524, "/api/ingest/vault"): Allow(_adr070),
-        (524, "/api/ingest/domain"): Allow(_adr070),
-        (524, "ingest_vault"): Allow(_adr070),
-        (525, "/api/ingest/file"): Allow(_adr070),
-        (525, "/api/ingest/bundle"): Allow(_adr070),
-        (525, "ingest_bundle"): Allow(_adr070),
-        (525, "BundleStats"): Allow(_adr070),
-        (525, "find_entity_file"): Allow(_adr070),
-        (525, "_validate_ingestion_path"): Allow(_adr070),
-        (525, "SKUEL_INGESTION_ALLOWED_PATHS"): Allow(_adr070),
-        (525, "ingest_nous"): Allow(_adr070),
-        (525, "generate_kus_from_moc"): Allow(_adr070),
-        (525, "hierarchy_parser"): Allow(_adr070),
+        (531, "/api/ingest/vault"): Allow(_adr070),
+        (531, "/api/ingest/domain"): Allow(_adr070),
+        (531, "ingest_vault"): Allow(_adr070),
+        (532, "/api/ingest/file"): Allow(_adr070),
+        (532, "/api/ingest/bundle"): Allow(_adr070),
+        (532, "ingest_bundle"): Allow(_adr070),
+        (532, "BundleStats"): Allow(_adr070),
+        (532, "find_entity_file"): Allow(_adr070),
+        (532, "_validate_ingestion_path"): Allow(_adr070),
+        (532, "SKUEL_INGESTION_ALLOWED_PATHS"): Allow(_adr070),
+        (532, "ingest_nous"): Allow(_adr070),
+        (532, "generate_kus_from_moc"): Allow(_adr070),
+        (532, "hierarchy_parser"): Allow(_adr070),
     },
     "docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md": {
         (125, "Pipeline.JOURNAL"): Allow(_adr073),

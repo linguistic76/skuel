@@ -9,8 +9,9 @@ Implementation (January 2026) - Automatic Chunking
 """
 
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import gettempdir
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -72,9 +73,9 @@ def greet(name):
 Python is easy to learn and powerful.
 """
 
-    with NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write(ku_content)
-        temp_path = Path(f.name)
+    # A stem in the uid grammar: with no uid: line, the file name gives the uid.
+    temp_path = Path(gettempdir()) / f"probe-{uuid4().hex[:8]}.md"
+    temp_path.write_text(ku_content)
 
     try:
         # Given: UnifiedIngestionService with chunking enabled AND a content adapter
@@ -287,9 +288,9 @@ domain: tech
 Just a short piece of content.
 """
 
-    with NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write(ku_content)
-        temp_path = Path(f.name)
+    # A stem in the uid grammar: with no uid: line, the file name gives the uid.
+    temp_path = Path(gettempdir()) / f"probe-{uuid4().hex[:8]}.md"
+    temp_path.write_text(ku_content)
 
     try:
         # Given: UnifiedIngestionService WITHOUT chunking service (None)
@@ -334,9 +335,9 @@ status: active
 This is a task description.
 """
 
-    with NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write(task_content)
-        temp_path = Path(f.name)
+    # A stem in the uid grammar: with no uid: line, the file name gives the uid.
+    temp_path = Path(gettempdir()) / f"probe-{uuid4().hex[:8]}.md"
+    temp_path.write_text(task_content)
 
     try:
         # Given: UnifiedIngestionService with chunking enabled
@@ -376,9 +377,9 @@ domain: tech
 Python is a programming language.
 """
 
-    with NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write(ku_content)
-        temp_path = Path(f.name)
+    # A stem in the uid grammar: with no uid: line, the file name gives the uid.
+    temp_path = Path(gettempdir()) / f"probe-{uuid4().hex[:8]}.md"
+    temp_path.write_text(ku_content)
 
     try:
         # Given: UnifiedIngestionService with chunking enabled

@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import SearchEventBackendOperations
 
 
+def search_event_uid() -> str:
+    """A fresh :SearchEvent uid — a bare UUID, one of ``uid_grammar.UID_EXEMPTIONS``."""
+    return str(uuid4())
+
+
 class SearchEventRecorder:
     """Persists search.executed events as :SearchEvent nodes."""
 
@@ -38,7 +43,7 @@ class SearchEventRecorder:
     async def handle_search_executed(self, event: SearchExecuted) -> None:
         """Record one :SearchEvent node for a search.executed event. Never raises."""
         props = SearchEventProps(
-            uid=str(uuid4()),
+            uid=search_event_uid(),
             query_text=event.query_text,
             query_normalized=event.query_text.lower().strip(),
             user_uid=event.user_uid,

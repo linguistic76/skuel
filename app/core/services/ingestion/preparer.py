@@ -29,6 +29,7 @@ from core.models.templates.offset_helpers import (
 from core.models.type_hints import TypeConverter, UserUID
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import local_day_bounds
+from core.utils.uid_grammar import PERIODIC_NOTE_EXEMPTION, authored_uid_problem, slugify
 from core.utils.zone_context import current_zone
 
 from .config import ENTITY_CONFIGS
@@ -38,14 +39,13 @@ logger = get_logger("skuel.ingestion.preparer")
 
 
 def is_sanctioned_machine_uid(uid: str) -> bool:
-    """True for the colon-bearing INTERNAL machine-identifier families.
+    """True for a periodic UserEntry uid (``ue:daily:{user}:{date}`` and the other kinds).
 
-    The separator grammar's colon row (CURRICULUM_GROUPING_PATTERNS): periodic
-    UserEntry uids (``ue:daily:{user}:{date}`` and weekly/monthly) keep colons
-    by design — they are real graph identities with no dot spelling, so a
-    reference to one is legitimate input, not a retired authoring alias.
+    The periodic-note shape is still minted with colons
+    (``uid_grammar.PERIODIC_NOTE_EXEMPTION``), so a reference to one names a real
+    node and is legitimate input, not a retired authoring alias.
     """
-    return uid.startswith("ue:")
+    return PERIODIC_NOTE_EXEMPTION.matches(uid)
 
 
 def _reject_colon_relationship_targets(
@@ -59,8 +59,8 @@ def _reject_colon_relationship_targets(
     ``connections.requires``, ``organizes``, …) must author the stored dot
     form — a colon target survives field validation but the edge MERGE
     matches nothing, so the link would vanish silently instead of failing.
-    Sanctioned machine identifiers (``ue:…``) are exempt: their colon form
-    IS the stored uid (see ``is_sanctioned_machine_uid``).
+    A periodic-note uid (``ue:…``) is exempt: its colon form IS the stored uid
+    (see ``is_sanctioned_machine_uid``).
     """
     if not relationship_config:
         return
@@ -85,9 +85,7 @@ def _reject_colon_relationship_targets(
 
 def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     """
-    Generate UID from entity type and file path.
-
-    Pattern: {uid_prefix}.{file_stem}
+    The uid a file without a ``uid:`` line takes from its name: ``{uid_prefix}.{file_stem}``.
 
     Uses uid_prefix from ENTITY_CONFIGS (e.g., "ku" for CURRICULUM, not "curriculum").
     This preserves stable UID formats regardless of enum value changes.
@@ -98,12 +96,28 @@ def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
 
     Returns:
         Generated UID (e.g., "machine-learning.md" → "ku.machine-learning")
-    """
-    from core.services.ingestion.config import ENTITY_CONFIGS
 
+    Raises:
+        ValueError: when the name does not make a uid in the grammar's authored
+            shape (``uid_grammar.authored_uid_problem``) — a content fault the
+            author fixes by renaming the file or authoring a ``uid:`` line. A
+            ``user_entry`` file is not checked: its door gives it its uid
+            (periodic, tracked or minted — ``build_user_entry_request``), so the
+            value returned for it here is never written.
+    """
     config = ENTITY_CONFIGS.get(entity_type)
     prefix = config.uid_prefix if config else entity_type.value
-    return f"{prefix}.{file_path.stem}"
+    uid = f"{prefix}.{file_path.stem}"
+    if entity_type is EntityType.USER_ENTRY:
+        return uid
+    problem = authored_uid_problem(uid, prefix)
+    if problem is not None:
+        raise ValueError(
+            f"the file name gives no valid uid: {problem} — rename the file "
+            f"(e.g. '{slugify(file_path.stem) or 'my-note'}{file_path.suffix}') or author a "
+            f"'uid:' line (e.g. 'uid: {prefix}.{slugify(file_path.stem) or 'my-note'}')"
+        )
+    return uid
 
 
 def canonicalize_template_offsets(

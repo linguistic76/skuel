@@ -94,7 +94,7 @@ def test_descriptor_body_becomes_content() -> None:
 
 
 def test_uid_prefix_enforced() -> None:
-    bad = dict(_DESCRIPTOR, uid="res:atlas-of-the-heart")
+    bad = dict(_DESCRIPTOR, uid="res.atlas-of-the-heart")
     result = validate_uid_format(EntityType.RESOURCE, bad, _FILE)
     assert result.is_error
     assert "resource." in str(result.expect_error().message)

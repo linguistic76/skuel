@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-10-16
+updated: 2026-10-18
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -384,6 +384,13 @@ targets linked across users; a Group file's `owner_uid` beat the vault owner; a 
    stamp was lost derives the same uid, and two owners never share one — and keeps it through
    its tracker row (re-sync, rename, retry), the path-keyed identity `user_entry` notes already
    had. The content vault keeps `{prefix}.{file stem}`.
+   **A personal file never authors a `uid:` line** (ruled with Mike, 2026-10-18): its identity is
+   always derived from its owner and path. Uids share one namespace across every user and the
+   curriculum — two learners writing `uid: task.morning-run` would collide — so the authored
+   `{prefix}.{ns}.{slug}` belongs to the content vault only. A personal file with a `uid:` line,
+   of any personal type, is refused as ignored-with-reason by all three doors and the preview,
+   telling its author to remove the line (`personal_vault_refusal`). On the day of the ruling no
+   personal file carried one.
 4. **Links.** A personal file's frontmatter targets are its owner's or unowned published
    content (a Ku marked `publication_state: draft` is refused, NB-2f) — the link-edge guard's rule (`partition_link_edges`), applied before the node lands; a refused
    target is warned exactly as a missing one is.
@@ -525,4 +532,5 @@ targets linked across users; a Group file's `owner_uid` beat the vault owner; a 
 | 2026-09-22 | Mike + Claude Code | **Decision 9 AMENDED again — one ingestion system.** `POST /api/ingest/file` (+ the dashboard card that had 403'd since 2026-04-19) and `POST /api/ingest/bundle` (+ `ingest_bundle`, `BundleStats`, `find_entity_file`; no manifest ever existed) deleted with the HTTP path allowlist (`_validate_ingestion_path`, `SKUEL_INGESTION_ALLOWED_PATHS`) and the nous generator pair (`ingest_nous.py`, `generate_kus_from_moc.py`, `hierarchy_parser.py`). Ruling 2's entry points restated as the three doors built; Resolved Design Question 1 restated as built (one trigger). | 1.2 |
 | 2026-09-22 | Mike + Claude Code | **No scoped re-ingest — the open conditional closed.** The 2026-09-21 and 2026-09-22 amendments and Resolved Design Question 1 each ended by hedging that "a scoped re-ingest, if ever wanted, is a `--path` option on `scripts/vault_bridge_sync.py`". Ruled: a forced re-ingest of one *unchanged* file is not a want. All three now state the built behaviour — a changed file is re-ingested by the next sync, the whole vault by `--force` — and no `--path` option is registered as staged work. | 1.3 |
 | 2026-10-02 | Mike + Claude Code | **Decision 11 — a personal vault writes only its owner's graph.** Type allowlist per vault kind; the node upsert never changes a node's owner (content vault included); per-file identity for uid-less personal Activity / life-path files; personal frontmatter targets admitted by the link-edge guard; content Edge files bound to `:Entity` ends and never `OWNS`; Group owner = the vault's; overlapping vault roots refused at boot. Decision 8's "single-tenant today" restated. |
+| 2026-10-18 | Mike + Claude Code | **Decision 11 amended — a personal file never authors a `uid:` line.** Its identity is always derived from owner + path; a file with one is refused with a reason telling its author to remove the line. Authored dot uids belong to the content vault (ADR-013 § Amendment 2026-10-18). |
 | 2026-10-12 | Mike + Claude Code | **Decision 10's in-app exception superseded by ADR-091** (S4, N3): exercises are authored only in the content vault, and the prerequisite-approval vault write goes. Implementation pending; both stay live until ADR-091's change removes them. |

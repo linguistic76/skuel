@@ -37,6 +37,7 @@ from core.services.ps_engagement._spawn_orchestrator import copied_text_caps
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_grammar import authored_uid_problem, slugify
 
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
@@ -63,10 +64,13 @@ def validate_uid_format(
     file_path: Path,
 ) -> Result[None]:
     """
-    Validate that an explicit UID starts with the correct prefix for its entity type.
+    Validate an explicit ``uid:`` against the uid grammar's authored shape.
 
-    If no explicit uid is declared (auto-generated from filename), validation is skipped.
-    Dot form only — the colon input alias was deleted 2026-08-14.
+    The uid must be lowercase ``[a-z0-9._-]`` in the shape ``{prefix}.{slug}`` or
+    ``{prefix}.{ns}.{slug}``, with the prefix of its entity type
+    (``uid_grammar.authored_uid_problem``). Every type is checked, ``user_entry``
+    included. A file with no ``uid:`` passes here; the uid its file name gives is
+    checked where it is made (``preparer.generate_uid``).
 
     Args:
         entity_type: EntityType | NonKuDomain enum value
@@ -74,7 +78,7 @@ def validate_uid_format(
         file_path: Source file path (for error context)
 
     Returns:
-        Result[None] - Ok if valid or no explicit uid, Fail if prefix mismatch
+        Result[None] - Ok if valid or no explicit uid, Fail naming the broken rule
     """
     raw_uid = data.get("uid")
     if raw_uid is None:
@@ -88,27 +92,19 @@ def validate_uid_format(
     if not config:
         return Result.ok(None)
 
-    expected_prefix = config.uid_prefix
-
-    # UID must start with "{prefix}." (e.g., "ku.", "ps.", "ex.") — dot form
-    # only. The colon input alias was deleted 2026-08-14 (One Path Forward):
-    # a colon-spelled uid fails here loudly instead of being rewritten.
-    if not raw_uid.startswith(f"{expected_prefix}."):
-        return Result.fail(
-            Errors.validation(
-                f"UID '{raw_uid}' does not start with expected prefix '{expected_prefix}.' "
-                f"for entity type '{entity_type.value}'",
-                field="uid",
-                user_message=(
-                    f"File {file_path.name}: UID '{raw_uid}' must start with "
-                    f"'{expected_prefix}.' for {entity_type.value} entities "
-                    f"(dot form; colon authoring retired 2026-08-14). "
-                    f"Example: '{expected_prefix}.{file_path.stem}'"
-                ),
-            )
+    problem = authored_uid_problem(raw_uid, config.uid_prefix)
+    if problem is None:
+        return Result.ok(None)
+    return Result.fail(
+        Errors.validation(
+            f"{problem} ({entity_type.value})",
+            field="uid",
+            user_message=(
+                f"File {file_path.name}: {problem}. "
+                f"Example: '{config.uid_prefix}.{slugify(file_path.stem) or 'my-note'}'"
+            ),
         )
-
-    return Result.ok(None)
+    )
 
 
 def validate_required_fields(
@@ -891,11 +887,10 @@ def validate_edge_data(data: dict[str, Any]) -> Result[None]:
     """
     errors: list[str] = []
 
-    # Required fields. Colon-spelled endpoints are rejected here (the input
-    # alias was deleted 2026-08-14): a colon endpoint would reach the edge
-    # writer and report a confusing "not found" instead of naming the
-    # authoring mistake. Sanctioned machine identifiers (``ue:…`` periodic
-    # entries) are exempt — their colon form IS the stored uid.
+    # Required fields. Colon-spelled endpoints are rejected here: a colon
+    # endpoint would reach the edge writer and report a confusing "not found"
+    # instead of naming the authoring mistake. A periodic-note uid (``ue:…``)
+    # is exempt — its colon form IS the stored uid (``is_sanctioned_machine_uid``).
     for endpoint_field in ("from", "to"):
         endpoint = data.get(endpoint_field)
         if not endpoint:

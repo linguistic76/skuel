@@ -29,6 +29,7 @@ from core.models.enums.pipeline import JeUse, Pipeline
 from core.models.type_hints import UserUID
 from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.submitted_copy import SubmittedCopy, submission_fingerprint
+from core.models.user_entry.user_entry import periodic_note_uid
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.ports.user_entry_protocols import UPSERT_UID_TAKEN
 from core.utils.logging import get_logger
@@ -316,35 +317,15 @@ def build_user_entry_request(
         ingestion_metadata["moc"] = True
 
     # Derive a deterministic UID for periodic notes so vault-synced files land
-    # on the same UID that the calendar routes use:
-    # ue:{entry_kind}:{user_uid}:{period_key}.  This makes the SKUEL journal
-    # page show Obsidian content rather than a blank placeholder.  Falls back
-    # to the explicit `uid:` field, or None (random mint) for non-periodic
-    # entries.  The `date:` field is parsed by PyYAML as datetime.date, so
-    # .isoformat() normalises it to the string the routes expect.
-    uid_override: str | None = data.get("uid")
-    if uid_override:
-        # Authored uids pass through verbatim (authored = stored; the colon
-        # input alias was deleted 2026-08-14). The prefix is opaque
-        # provenance, never type information (ADR-013 never-sniff), so any
-        # authored DOT/underscore prefix is accepted — but the retired colon
-        # spelling is rejected loudly: forwarding it would upsert a NEW node
-        # under the colon identity, silently splitting a note previously
-        # stored in dot form (Codex P1 #1054). The DERIVED periodic uids
-        # below keep their colon form (``ue:daily:{user}:{date}``) by design
-        # — internal machine identifiers are BUILT here, never authored; a
-        # periodic note needs no ``uid:`` line at all.
-        uid_override = str(uid_override)
-        if ":" in uid_override:
-            return Result.fail(
-                Errors.validation(
-                    f"Authored uid '{uid_override}' uses the retired colon "
-                    f"spelling — author the stored dot form "
-                    f"('{uid_override.replace(':', '.')}'), or remove the "
-                    f"uid line (periodic notes derive their identity)",
-                    field="uid",
-                )
-            )
+    # on the same UID that the calendar routes use (``periodic_note_uid``). This
+    # makes the SKUEL journal page show Obsidian content rather than a blank
+    # placeholder. Falls back to the explicit `uid:` field — already read
+    # against the uid grammar by the ingestion door (``validate_uid_format``) —
+    # or None (random mint) for non-periodic entries. The `date:` field is
+    # parsed by PyYAML as datetime.date, so .isoformat() normalises it to the
+    # string the routes expect.
+    raw_uid = data.get("uid")
+    uid_override: str | None = str(raw_uid) if raw_uid else None
     if not uid_override:
         entry_kind = metadata.get("entry_kind") if isinstance(metadata, dict) else None
         if entry_kind == "daily":
@@ -355,11 +336,11 @@ def build_user_entry_request(
                     if isinstance(raw_date, (date, datetime))
                     else str(raw_date)
                 )
-                uid_override = f"ue:daily:{user_uid}:{date_str}"
+                uid_override = periodic_note_uid("daily", user_uid, date_str)
         elif entry_kind == "weekly":
             week_of = data.get("week_of")
             if week_of is not None:
-                uid_override = f"ue:weekly:{user_uid}:{week_of}"
+                uid_override = periodic_note_uid("weekly", user_uid, str(week_of))
         elif entry_kind == "monthly":
             month_of = data.get("month_of")
             if month_of is not None:
@@ -368,11 +349,11 @@ def build_user_entry_request(
                     if isinstance(month_of, (date, datetime))
                     else str(month_of)
                 )
-                uid_override = f"ue:monthly:{user_uid}:{month_str}"
+                uid_override = periodic_note_uid("monthly", user_uid, month_str)
         elif entry_kind == "quarterly":
             quarter_of = data.get("quarter_of")
             if quarter_of is not None:
-                uid_override = f"ue:quarterly:{user_uid}:{quarter_of}"
+                uid_override = periodic_note_uid("quarterly", user_uid, str(quarter_of))
         elif entry_kind == "yearly":
             year_of = data.get("year_of")
             if year_of is not None:
@@ -383,7 +364,7 @@ def build_user_entry_request(
                     if isinstance(year_of, (date, datetime))
                     else str(year_of).strip()
                 )
-                uid_override = f"ue:yearly:{user_uid}:{year_str}"
+                uid_override = periodic_note_uid("yearly", user_uid, year_str)
 
     # Path-keyed identity for uid-less vault notes (contract:
     # docs/roadmap/done/uidless-vault-entry-identity-upsert.md). When the file

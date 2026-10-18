@@ -16,8 +16,9 @@ draining the queue via `_process_chunk_batch()` directly.
 """
 
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import gettempdir
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -84,9 +85,9 @@ Without this stage the worker never sees the events.
 Ingestion publishes ChunkEmbeddingRequested and the worker drains the queue.
 """
 
-    with NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write(ku_content)
-        temp_path = Path(f.name)
+    # A stem in the uid grammar: with no uid: line, the file name gives the uid.
+    temp_path = Path(gettempdir()) / f"probe-{uuid4().hex[:8]}.md"
+    temp_path.write_text(ku_content)
 
     try:
         event_bus = InMemoryEventBus()
