@@ -38,8 +38,9 @@ class ChartDataset:
     tension: float = 0.1  # Line smoothing
 ```
 
-Those seven keys are exactly `ChartJsDataset`'s declared set. A hand-built literal may
-omit any of them (`total=False`) but may not add one without declaring it first.
+`ChartJsDataset` declares those seven plus the radar's `pointBackgroundColor` and
+`pointBorderColor`. A hand-built literal may omit any of them (`total=False`) but may
+not add one without declaring it first.
 
 ---
 
@@ -178,7 +179,9 @@ The aggregation service labels slices with raw enum values (`priority.value`,
 `get_impact_distribution_chart` has four fixed labels (Critical, High, Medium, Low,
 which is the insight-impact scale, not `Priority`) and its legend at the bottom.
 `get_type_distribution_chart` has one slice per insight type, sorted by count, with
-its legend on the right. Both hard-code `rgba(..., 0.8)` fills.
+its legend on the right. Both fill at `ChartColor.FILL_ALPHA` (0.8): impact from
+`ChartColor.IMPACT_*`, type from the `ChartColor.CATEGORIES` list, which Chart.js
+repeats past its sixth colour.
 
 ### Half doughnut: gauge (`InsightStore.get_action_rate_chart`)
 
@@ -205,8 +208,9 @@ its legend on the right. Both hard-code `rgba(..., 0.8)` fills.
 
 ## Radar: Life-Path Alignment
 
-Built inline in `/api/lifepath/alignment/chart`. The route returns a `JSONResponse`
-typed `-> Any`, which is why it can carry keys `ChartJsDataset` doesn't declare:
+Built by `_alignment_radar_config` in `adapters/inbound/lifepath_ui.py` and served by
+`/api/lifepath/alignment/chart` as `Result[ChartJsConfig]`, from `SemanticColor.PRIMARY`
+at `ChartColor.AREA_ALPHA` for the fill and full alpha for the line and points:
 
 ```python
 {
@@ -230,10 +234,9 @@ typed `-> Any`, which is why it can carry keys `ChartJsDataset` doesn't declare:
 }
 ```
 
-Without a designation, or when the alignment read fails, the route returns the same
-frame with zeros, so the radar still draws. A typed version would declare
-`pointBackgroundColor` / `pointBorderColor` on `ChartJsDataset` and return
-`Result[ChartJsConfig]`.
+Without a designation the alignment carries no dimensions, and the radar draws its
+frame at zero. A failed alignment read is an error status, which the
+card shows in its error slot.
 
 ---
 

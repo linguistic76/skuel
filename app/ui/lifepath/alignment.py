@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import H3, Canvas, Div, P, Span
+from fasthtml.common import FT, H3, Canvas, Div, P, Span
 
 from core.models.type_hints import UserUID
 from ui.components import ButtonT, Card
@@ -90,7 +90,7 @@ def render_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
     )
 
 
-def _alignment_radar() -> Div:
+def _alignment_radar() -> FT:
     """Radar chart of the 5 alignment dimensions (chartVis Alpine component)."""
     return Div(
         Canvas(
@@ -113,5 +113,5 @@ def _alignment_radar() -> Div:
             **{"x-show": "error"},
         ),
         cls="mb-6",
-        **{"x-data": "chartVis('/api/lifepath/alignment/chart', 'radar')"},
+        **{"x-data": "chartVis('/api/lifepath/alignment/chart')"},
     )

@@ -51,7 +51,7 @@ Date Added: January 2026 (Type Safety Improvements)
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, Required, TypedDict
 
 # EntityDTO is a runtime import (not TYPE_CHECKING) so reflection on
 # SharedWithMeItem — typing.get_type_hints() and PEP 649 lazy evaluation —
@@ -2935,8 +2935,9 @@ class KnowledgePrerequisitesResult(TypedDict, total=False):
 # VISUALIZATION RESULT TYPES
 # ============================================================================
 # Return shapes for the Chart.js / Frappe-Gantt payloads produced by
-# VisualizationService (5 formatters), VisualizationAggregationService (6) and
-# InsightStore's 4 hand-built chart configs.
+# VisualizationService (5 formatters), VisualizationAggregationService (6),
+# InsightStore's 4 hand-built chart configs and the life-path alignment radar
+# (adapters/inbound/lifepath_ui.py).
 #
 # NOT the whole vendor surface — Vis.js *Network* is a separate family with its
 # own wire type in this same file: see RelationshipGraphData above, produced by
@@ -2957,12 +2958,7 @@ class ChartJsDataset(TypedDict, total=False):
 
     Named nowhere outside this module — it is reached only through
     ChartJsConfig["data"]["datasets"], which is what makes it the checker for
-    every dataset key ``core/`` puts on the wire.
-
-    It is NOT exhaustive of the wire itself: adapters/inbound/lifepath_ui.py
-    hand-builds a radar config for the same ``chartVis`` component, typed
-    ``-> Any``, whose dataset carries pointBackgroundColor / pointBorderColor —
-    neither declared here. Add them if that route is ever brought under this type.
+    every dataset key a chart route puts on the wire.
     """
 
     label: str
@@ -2972,6 +2968,8 @@ class ChartJsDataset(TypedDict, total=False):
     borderWidth: int
     fill: bool
     tension: float
+    pointBackgroundColor: str | list[str]
+    pointBorderColor: str | list[str]
 
 
 class ChartJsData(TypedDict, total=False):
@@ -2982,9 +2980,13 @@ class ChartJsData(TypedDict, total=False):
 
 
 class ChartJsConfig(TypedDict, total=False):
-    """Return shape for Chart.js chart methods (format_*_chart, get_*_chart_data)."""
+    """Return shape for Chart.js chart methods (format_*_chart, get_*_chart_data).
 
-    type: str
+    ``type`` is required: ``chartVis`` takes nothing but the URL, so the
+    config's own type is the only thing that names the chart kind.
+    """
+
+    type: Required[str]
     data: ChartJsData
     options: dict[str, Any]  # boundary: consumed by the Chart.js library
 

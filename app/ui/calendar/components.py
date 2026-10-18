@@ -29,9 +29,9 @@ from collections.abc import Iterable
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from itertools import islice
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from fasthtml.common import H1, H2, A, Div, Form, P, Span
+from fasthtml.common import FT, H1, H2, A, Div, Form, P, Span
 from fasthtml.common import Button as HtmlButton
 
 from core.models.enums.habit_enums import CompletionStatus
@@ -50,9 +50,6 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
 from ui.primitives import ButtonLink
-
-if TYPE_CHECKING:
-    from fasthtml.common import FT
 
 # Legend vocabulary — four kinds grouped by Activity-domain pair (periodic-notes
 # arc R1/R2/E1): Tasks+Events dominate the grid; Goals+Habits are milestones +
@@ -133,7 +130,7 @@ def view_has_legend(view: CalendarView) -> bool:
     return len(VIEW_SPECS[view].members) > 1
 
 
-def create_calendar_legend(view: CalendarView) -> Div | None:
+def create_calendar_legend(view: CalendarView) -> FT | None:
     """Kind swatches doubling as filter controls, grouped by Activity pair.
 
     Rendered for the views that show more than one kind (the week). Two groups

@@ -233,18 +233,21 @@ def render_charts_section(insight_count: int) -> FT | None:
     return Div(
         H3("Visual Analytics", cls="text-xl font-bold mb-4"),
         Div(
-            _chart_card("/api/insights/charts/impact-distribution", "doughnut"),
-            _chart_card("/api/insights/charts/domain-distribution", "bar"),
-            _chart_card("/api/insights/charts/type-distribution", "doughnut"),
-            _chart_card("/api/insights/charts/action-rate", "doughnut"),
+            _chart_card("/api/insights/charts/impact-distribution"),
+            _chart_card("/api/insights/charts/domain-distribution"),
+            _chart_card("/api/insights/charts/type-distribution"),
+            _chart_card("/api/insights/charts/action-rate"),
             cls="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6",
         ),
         cls="mb-8",
     )
 
 
-def _chart_card(data_url: str, chart_type: str) -> FT:
-    """Chart card — canvas + loading/error states for the chartVis component."""
+def _chart_card(data_url: str) -> FT:
+    """Chart card — canvas + loading/error states for the chartVis component.
+
+    ``data_url`` answers the whole Chart.js config, its chart type included.
+    """
     return Div(
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
         Div(
@@ -259,7 +262,7 @@ def _chart_card(data_url: str, chart_type: str) -> FT:
             **{"x-show": "error"},
         ),
         **{
-            "x-data": f"chartVis('{data_url}', '{chart_type}')",
+            "x-data": f"chartVis('{data_url}')",
             "class": "bg-background p-4 rounded-lg shadow-sm",
         },
     )

@@ -17,8 +17,8 @@ Every Chart.js chart SKUEL draws today:
 
 | Page | Card | Endpoint | Config built by |
 |------|------|----------|-----------------|
-| `/insights` (charts section) | `_chart_card(url, type)` — `ui/insights/components.py` | `/api/insights/charts/{impact-distribution,domain-distribution,type-distribution,action-rate}` — `adapters/inbound/insights_api.py` | `InsightStore.get_*_chart` — hand-built `ChartJsConfig` literals |
-| `/lifepath/alignment` | `_alignment_radar()` — `ui/lifepath/alignment.py` | `/api/lifepath/alignment/chart` — `adapters/inbound/lifepath_ui.py` | inline in the route (a `JSONResponse`, typed `-> Any`) |
+| `/insights` (charts section) | `_chart_card(url)` — `ui/insights/components.py` | `/api/insights/charts/{impact-distribution,domain-distribution,type-distribution,action-rate}` — `adapters/inbound/insights_api.py` | `InsightStore.get_*_chart` — hand-built `ChartJsConfig` literals |
+| `/lifepath/alignment` | `_alignment_radar()` — `ui/lifepath/alignment.py` | `/api/lifepath/alignment/chart` — `adapters/inbound/lifepath_ui.py` | `_alignment_radar_config` in the route module, served as `Result[ChartJsConfig]` |
 | none | — | `/api/visualizations/{completion,priority-distribution,streaks,status-distribution}` — `adapters/inbound/visualization_api.py` | `VisualizationAggregationService` → `VisualizationService` formatters |
 
 - The insights section renders only when the page's insight list holds at least 3
@@ -36,18 +36,19 @@ Every Chart.js chart SKUEL draws today:
 
 ```
 page route ── BasePage/SidebarPage(extra_scripts=[chart.umd.js])
-   └─ card: Div(x-data="chartVis(url, type)") ⊃ Canvas(x-ref="canvas") + loading + error
+   └─ card: Div(x-data="chartVis(url)") ⊃ Canvas(x-ref="canvas") + loading + error
          └─ chartVis.init → SKUEL.getJson(url) → destroy old chart → new Chart(ctx, config)
                                    │
 route ── @boundary_handler → Result[ChartJsConfig] → JSON body (the config itself, unwrapped)
 ```
 
-**`chartVis(dataUrl, chartType)`** is registered in `static/js/skuel.js` (inside the
-`alpine:init` listener). State: `chart`, `loading`, `error`. Methods: `loadChart(url,
-type)`, `refresh(newUrl)`, `destroy()`.
+**`chartVis(dataUrl)`** is registered in `static/js/skuel.js` (inside the
+`alpine:init` listener). State: `chart`, `loading`, `error`. Methods: `loadChart(url)`,
+`refresh(newUrl)`, `destroy()`.
 
-- **The payload's `"type"` decides the chart.** `loadChart(url, type)` never reads
-  `type`, so the second argument only documents intent. The live cards pass it anyway.
+- **The payload's `"type"` decides the chart.** The route answers the whole Chart.js
+  config, so the card passes only its URL. `ChartJsConfig` declares `type` as
+  `Required`, so a config without one is a mypy error.
 - **Errors surface in the card.** `SKUEL.getJson` rejects on any non-2xx status. The
   message comes from the error payload's `message` (the boundary's client-safe
   `user_message`), or `Request failed (<status>)`. A page that forgot to load
@@ -97,6 +98,8 @@ class ChartJsDataset(TypedDict, total=False):
     borderWidth: int
     fill: bool
     tension: float
+    pointBackgroundColor: str | list[str]
+    pointBorderColor: str | list[str]
 
 
 class ChartJsData(TypedDict, total=False):
@@ -105,7 +108,7 @@ class ChartJsData(TypedDict, total=False):
 
 
 class ChartJsConfig(TypedDict, total=False):
-    type: str
+    type: Required[str]
     data: ChartJsData
     options: dict[str, Any]  # boundary: consumed by the Chart.js library
 ```
@@ -115,9 +118,9 @@ class ChartJsConfig(TypedDict, total=False):
   test notices. A literal returned as `Result[ChartJsConfig]` is checked: mypy reports
   `typeddict-unknown-key` for a misspelled dataset key, measured through
   `Result.ok({...})`.
-- **Dataset keys outside the declared set are mypy errors.** A radar's
-  `pointBackgroundColor` is one. Declare the key on `ChartJsDataset` before you emit
-  it. (The lifepath radar emits it today only because its route is untyped.)
+- **Dataset keys outside the declared set are mypy errors.** Declare a new key on
+  `ChartJsDataset` before you emit it, as the radar's `pointBackgroundColor` and
+  `pointBorderColor` are.
 - **`options` is free-form** (`dict[str, Any]`), so nothing checks option names.
   Check them against the Chart.js v4 docs.
 - **JSON only.** The config crosses the wire as JSON, so function-valued options
@@ -151,7 +154,7 @@ from operator import itemgetter
 
 from core.models.type_hints import UserUID
 from core.ports.query_types import ChartJsConfig
-from core.utils.palette import SemanticColor
+from core.utils.palette import ChartColor, SemanticColor, rgba
 from core.utils.result_simplified import Result
 
 
@@ -174,7 +177,7 @@ async def get_domain_distribution_chart(self, user_uid: UserUID) -> Result[Chart
                     {
                         "label": "Active Insights",
                         "data": [count for _, count in ranked],
-                        "backgroundColor": SemanticColor.PRIMARY,
+                        "backgroundColor": rgba(SemanticColor.PRIMARY, ChartColor.FILL_ALPHA),
                     }
                 ],
             },
@@ -207,7 +210,7 @@ would let any user chart another user's data (an IDOR).
 ### 3. Render the card
 
 ```python
-def _chart_card(data_url: str, chart_type: str) -> FT:
+def _chart_card(data_url: str) -> FT:
     """Chart card — canvas + loading/error states for the chartVis component."""
     return Div(
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
@@ -223,7 +226,7 @@ def _chart_card(data_url: str, chart_type: str) -> FT:
             **{"x-show": "error"},
         ),
         **{
-            "x-data": f"chartVis('{data_url}', '{chart_type}')",
+            "x-data": f"chartVis('{data_url}')",
             "class": "bg-background p-4 rounded-lg shadow-sm",
         },
     )
@@ -244,7 +247,7 @@ No data looks different per builder, so decide which one your chart gets:
 | `format_completion_chart` | a chart with no points (the lengths match) |
 | `VisualizationAggregationService` priority, status, streak | `Errors.not_found` for "no active tasks/habits" → 404 → the error slot |
 | `VisualizationAggregationService` completion | a line at 0%. It always passes 7, 10 or 13 periods |
-| `InsightStore.get_*_chart`, the lifepath radar | no emptiness check: domain and type draw an empty chart, impact and the radar draw zeros, and action rate draws a full "Not Actioned" ring |
+| `InsightStore.get_*_chart`, the lifepath radar | no emptiness check: domain and type draw an empty chart, impact and the radar draw zeros, and action rate draws a full "Not Actioned" ring. A failed read is an error status → the error slot |
 
 Insights settles it at the page: `render_charts_section` hides every card below 3
 insights. A new chart should do the same, or deliberately accept the error slot.
@@ -254,7 +257,7 @@ insights. A new chart should do the same, or deliberately accept the error slot.
 `core/utils/palette.py` holds the chart palette:
 
 ```python
-from core.utils.palette import SemanticColor
+from core.utils.palette import ChartColor, SemanticColor, rgba
 
 SemanticColor.PRIMARY   # "#3B82F6"
 SemanticColor.SUCCESS   # "#10B981"
@@ -263,12 +266,24 @@ SemanticColor.DANGER    # "#EF4444"
 SemanticColor.INFO      # "#6366F1"
 SemanticColor.NEUTRAL   # "#6B7280"
 SemanticColor.ALL       # the six, for cycling (format_distribution_chart uses it)
+
+ChartColor.IMPACT_CRITICAL, .IMPACT_HIGH, .IMPACT_MEDIUM, .IMPACT_LOW  # the impact doughnut
+ChartColor.ACTIONED, .NOT_ACTIONED   # the action-rate gauge
+ChartColor.CATEGORIES                # one colour per category (the type doughnut)
+ChartColor.POINT_BORDER              # "#fff", the radar's point outline
+ChartColor.FILL_ALPHA, .MUTED_ALPHA, .AREA_ALPHA   # 0.8, 0.3, 0.2
+
+rgba(SemanticColor.PRIMARY, ChartColor.FILL_ALPHA)   # "rgba(59, 130, 246, 0.8)"
 ```
 
+`SemanticColor` serves the `VisualizationService` formatters; `ChartColor` holds the
+Tailwind shades the `/insights` charts and the radar draw with, through `rgba()`.
 For slices keyed by a domain enum, use the enum's own color: `Priority.get_color()`,
-`EntityStatus.get_color()`. The `VisualizationService` formatters use `SemanticColor`;
-the four `InsightStore` configs and the lifepath radar still hard-code `rgba(...)`
-strings. New configs take the palette.
+`EntityStatus.get_color()`.
+
+Chart.js draws on a canvas, so the theme's CSS tokens do not reach it. The series
+colours read in both themes, but Chart.js's own text and grid defaults are tuned for a
+light background — nothing in SKUEL overrides them for dark mode yet.
 
 ## Anti-Patterns
 

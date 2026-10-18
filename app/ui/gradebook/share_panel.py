@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from fasthtml.common import H3, A, Button, Div, Form, Label, P, Span
+from fasthtml.common import FT, H3, A, Button, Div, Form, Label, P, Span
 
 from core.models.user_entry.audience import GROUP_PREFIX, USER_PREFIX
 from ui.components import ButtonT, Checkbox, Icon
@@ -34,8 +34,6 @@ from ui.layout import Size
 from ui.patterns.modal import AlpineModal
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from core.ports.query_types import ShareCandidates
     from core.services.user_entry.audience_resolver import ShareOutcome
 
@@ -133,7 +131,7 @@ def AudienceCheckbox(
     )
 
 
-def _group(title: str, rows: list[Div]) -> Div | str:
+def _group(title: str, rows: list[FT]) -> FT | str:
     if not rows:
         return ""
     return Div(

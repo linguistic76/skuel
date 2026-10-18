@@ -16,7 +16,7 @@ From `ui/insights/components.py`:
 from fasthtml.common import FT, Canvas, Div, Span
 
 
-def _chart_card(data_url: str, chart_type: str) -> FT:
+def _chart_card(data_url: str) -> FT:
     """Chart card — canvas + loading/error states for the chartVis component."""
     return Div(
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
@@ -32,7 +32,7 @@ def _chart_card(data_url: str, chart_type: str) -> FT:
             **{"x-show": "error"},
         ),
         **{
-            "x-data": f"chartVis('{data_url}', '{chart_type}')",
+            "x-data": f"chartVis('{data_url}')",
             "class": "bg-background p-4 rounded-lg shadow-sm",
         },
     )
@@ -40,8 +40,8 @@ def _chart_card(data_url: str, chart_type: str) -> FT:
 
 What each part does:
 
-- `x-data="chartVis(url, type)"`: the component fetches `url` at init. The payload's
-  `"type"` picks the chart; the second argument is never read.
+- `x-data="chartVis(url)"`: the component fetches `url` at init. The payload is the
+  whole Chart.js config, so its own `"type"` picks the chart.
 - `Canvas(x-ref="canvas")`: the component draws into `this.$refs.canvas` and fails
   with `Canvas element not found` without it.
 - The `x-show="loading"` and `x-show="error"` siblings: the component's two other
@@ -177,7 +177,7 @@ def completion_chart_card() -> FT:
         ),
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
         # ... loading / error slots as in Pattern 1 ...
-        **{"x-data": f"chartVis('{base}week', 'line')"},
+        **{"x-data": f"chartVis('{base}week')"},
     )
 ```
 

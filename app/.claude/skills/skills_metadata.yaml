@@ -117,7 +117,7 @@ skills:
 
   - name: chartjs
     description: Chart.js data visualization in SKUEL
-    last_reviewed: "2026-10-17"
+    last_reviewed: "2026-10-18"
     foundation: []
     dependencies: []
     library_package: null  # Vendored static file
@@ -191,7 +191,7 @@ skills:
 
   - name: ui-browser
     description: SKUEL browser interactivity — HTMX for server communication + Alpine.js for client-side state
-    last_reviewed: "2026-10-17"
+    last_reviewed: "2026-10-18"
     foundation: [fasthtml]
     dependencies: [fasthtml]
     library_package: null  # Vendored static files

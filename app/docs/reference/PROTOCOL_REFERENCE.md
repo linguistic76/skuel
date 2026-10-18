@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-10-16
+updated: 2026-10-18
 status: current
 category: reference
 tags: [protocol, reference]
@@ -548,7 +548,7 @@ Routes access it as `lifepath_service.get_alignment(user_uid)`. The facade build
 
 ### Vendor-Payload Pattern: VisualizationOperations
 
-The protocol is **async-only, 8 methods**. The sync `format_*` formatters live on
+The protocol is **async-only**: four Chart.js reads and two Gantt reads. The sync `format_*` formatters live on
 `VisualizationService` and are deliberately *not* protocol members — the protocol's own
 docstring says so ("Pure formatting lives in VisualizationService and is not part of this
 protocol"), and calling one through the protocol is a MyPy `attr-defined` error.
@@ -564,6 +564,7 @@ class VisualizationOperations(Protocol):
     async def get_completion_chart_data(self, user_uid: UserUID, period: str) -> Result[ChartJsConfig]: ...
     async def get_streak_chart_data(self, user_uid: UserUID) -> Result[ChartJsConfig]: ...
     async def get_tasks_gantt_data(self, user_uid: UserUID, project: str | None = None) -> Result[GanttConfig]: ...
+    # ... and the priority, status and goal-Gantt reads (core/ports/service_protocols.py)
 ```
 
 ### Usage in Route Files

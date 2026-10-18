@@ -6,24 +6,30 @@ UI routes for LifePath domain. All HTML construction delegated to ui/lifepath/.
 
 UI Routes:
 - GET /lifepath - Main dashboard
+- GET /lifepath/content - HTMX fragment: dashboard body
 - GET /lifepath/vision - Vision capture page
 - POST /lifepath/vision - Process vision capture
 - POST /lifepath/designate - Designate an LP as life path
 - GET /lifepath/alignment - Alignment dashboard
+- GET /lifepath/alignment/content - HTMX fragment: alignment dashboard body
 - GET /api/lifepath/alignment/chart - Chart.js radar config (5 dimensions)
 """
 
 from typing import Any
 
 from fasthtml.common import FT, Div
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
 from core.config.settings import get_settings
+from core.ports.query_types import AlignmentDimensions, ChartJsConfig
 from core.utils.logging import get_logger
+from core.utils.palette import ChartColor, SemanticColor, rgba
+from core.utils.result_simplified import Errors, Result
 from ui.components import ButtonT
 from ui.lifepath import (
     lifepath_sidebar_page,
@@ -201,47 +207,59 @@ def create_lifepath_ui_routes(
         return Div(render_alignment_dashboard(status, user_uid), id="lifepath-alignment-content")
 
     @rt("/api/lifepath/alignment/chart")
-    async def alignment_radar_chart(request: Request) -> Any:
+    @boundary_handler(success_status=200)
+    async def alignment_radar_chart(request: Request) -> Result[ChartJsConfig]:
         """Chart.js radar config for the 5 alignment dimensions.
 
         Fetched by the chartVis Alpine component on the /lifepath/alignment
-        dashboard. Zeroed data on error/no designation so the chart still
-        renders a frame.
+        dashboard. Without a designation the alignment carries no dimensions and
+        the radar draws an empty frame; a failed alignment read is an error
+        response, which the card shows.
         """
         user_uid = require_authenticated_user(request)
+        if not lifepath_service:
+            return Result.fail(
+                Errors.system("LifePath service unavailable", operation="alignment_radar_chart")
+            )
+        alignment_result = await lifepath_service.get_alignment(user_uid)
+        if alignment_result.is_error:
+            return Result.fail(alignment_result)
+        return Result.ok(_alignment_radar_config(alignment_result.value.get("dimensions")))
 
-        dimensions: dict[str, float] = {}
-        if lifepath_service:
-            alignment_result = await lifepath_service.get_alignment(user_uid)
-            if alignment_result.is_ok:
-                dimensions = alignment_result.value.get("dimensions") or {}
+    logger.info("LifePath UI routes registered")
 
-        labels = ["Knowledge", "Activity", "Goals", "Principles", "Momentum"]
-        keys = ["knowledge", "activity", "goal", "principle", "momentum"]
-        data = [float(dimensions.get(key, 0.0)) for key in keys]
 
-        return JSONResponse(
-            {
-                "type": "radar",
-                "data": {
-                    "labels": labels,
-                    "datasets": [
-                        {
-                            "label": "Your Alignment",
-                            "data": data,
-                            "backgroundColor": "rgba(59, 130, 246, 0.2)",
-                            "borderColor": "rgba(59, 130, 246, 1)",
-                            "borderWidth": 2,
-                            "pointBackgroundColor": "rgba(59, 130, 246, 1)",
-                            "pointBorderColor": "#fff",
-                        }
-                    ],
-                },
-                "options": {
-                    "scales": {"r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2}}},
-                    "plugins": {"legend": {"display": False}},
-                },
-            }
-        )
-
-    logger.info("LifePath UI routes registered (6 routes)")
+def _alignment_radar_config(dimensions: AlignmentDimensions | None) -> ChartJsConfig:
+    """The radar's Chart.js config: one axis from 0 to 1 per alignment dimension."""
+    scores = (
+        [
+            dimensions["knowledge"],
+            dimensions["activity"],
+            dimensions["goal"],
+            dimensions["principle"],
+            dimensions["momentum"],
+        ]
+        if dimensions
+        else [0.0] * 5
+    )
+    return {
+        "type": "radar",
+        "data": {
+            "labels": ["Knowledge", "Activity", "Goals", "Principles", "Momentum"],
+            "datasets": [
+                {
+                    "label": "Your Alignment",
+                    "data": [float(score) for score in scores],
+                    "backgroundColor": rgba(SemanticColor.PRIMARY, ChartColor.AREA_ALPHA),
+                    "borderColor": rgba(SemanticColor.PRIMARY, 1),
+                    "borderWidth": 2,
+                    "pointBackgroundColor": rgba(SemanticColor.PRIMARY, 1),
+                    "pointBorderColor": ChartColor.POINT_BORDER,
+                }
+            ],
+        },
+        "options": {
+            "scales": {"r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2}}},
+            "plugins": {"legend": {"display": False}},
+        },
+    }
