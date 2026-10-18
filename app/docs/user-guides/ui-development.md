@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # UI Development Guide
@@ -783,7 +783,7 @@ One-off state that lives and dies with a single element does not need a register
 | `searchFilters` | `x-data="searchFilters()"` | Search input + filter dropdowns with debounced HTMX requests. |
 | `domainFilter` | `x-data="domainFilter()"` | Client-side sort + filter presets over an already-rendered list. `sortBy`, `filterPreset`, `matchesFilter(...)`, `toggleShowAll()`. |
 | `formValidator` | `x-data="formValidator()"` | Client-side validation with per-field error display. Validates on blur and submit. |
-| `chartVis` | `x-data="chartVis('/api/x.json', 'bar')"` | Chart.js chart from a JSON endpoint. Models the load explicitly: `loading`, `error`, `chart`. |
+| `chartVis` | `x-data="chartVis('/api/x.json')"` | Chart.js chart from a JSON endpoint; the response is the whole config, its `type` included. Models the load explicitly: `loading`, `error`, `chart`. |
 | `toastManager` | `x-data="toastManager"` | Toast notification stack. Triggered by `X-Toast-Message`/`X-Toast-Type` HTMX response headers or a `$dispatch('toast', { message, type })` event. Methods: `show(message, type, duration)`, `dismiss(id)`, auto-dismiss. |
 
 <!-- alpine-registry:end -->

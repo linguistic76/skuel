@@ -20,13 +20,10 @@ Keep class names and ``name=`` attributes in sync with both.
 
 import json
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from fasthtml.common import H3, H4, Div, Option, P, Span, Template
+from fasthtml.common import FT, H3, H4, Div, Option, P, Span, Template
 from fasthtml.common import Button as HtmlButton
-
-if TYPE_CHECKING:
-    from fasthtml.common import FT
 
 from core.models.enums import (
     ContentType,
@@ -650,7 +647,7 @@ def _render_sort_select() -> Any:
     return _filter_select("sort_order", sort_options)
 
 
-def _render_tags_filter(all_tags: list[str]) -> Div | None:
+def _render_tags_filter(all_tags: list[str]) -> FT | None:
     """Tags facet select for the advanced (More filters) section.
 
     Vocabulary is DERIVED from the graph (SearchRouter.list_tags — distinct

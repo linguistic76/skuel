@@ -37,6 +37,7 @@ from core.ports.query_types import ChartJsConfig
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import deserialize_json_fields
+from core.utils.palette import ChartColor, SemanticColor, rgba
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -774,10 +775,13 @@ class InsightStore:
                                 impact_counts["low"],
                             ],
                             "backgroundColor": [
-                                "rgba(220, 38, 38, 0.8)",
-                                "rgba(234, 88, 12, 0.8)",
-                                "rgba(250, 204, 21, 0.8)",
-                                "rgba(34, 197, 94, 0.8)",
+                                rgba(colour, ChartColor.FILL_ALPHA)
+                                for colour in (
+                                    ChartColor.IMPACT_CRITICAL,
+                                    ChartColor.IMPACT_HIGH,
+                                    ChartColor.IMPACT_MEDIUM,
+                                    ChartColor.IMPACT_LOW,
+                                )
                             ],
                         }
                     ],
@@ -827,7 +831,7 @@ class InsightStore:
                         {
                             "label": "Active Insights",
                             "data": [count for _, count in sorted_domains],
-                            "backgroundColor": "rgba(59, 130, 246, 0.8)",
+                            "backgroundColor": rgba(SemanticColor.PRIMARY, ChartColor.FILL_ALPHA),
                         }
                     ],
                 },
@@ -879,12 +883,8 @@ class InsightStore:
                             "label": "Insights by Type",
                             "data": [count for _, count in sorted_types],
                             "backgroundColor": [
-                                "rgba(99, 102, 241, 0.8)",
-                                "rgba(139, 92, 246, 0.8)",
-                                "rgba(168, 85, 247, 0.8)",
-                                "rgba(236, 72, 153, 0.8)",
-                                "rgba(244, 63, 94, 0.8)",
-                                "rgba(59, 130, 246, 0.8)",
+                                rgba(colour, ChartColor.FILL_ALPHA)
+                                for colour in ChartColor.CATEGORIES
                             ],
                         }
                     ],
@@ -928,8 +928,8 @@ class InsightStore:
                             "label": "Action Rate",
                             "data": [action_rate, remaining_rate],
                             "backgroundColor": [
-                                "rgba(34, 197, 94, 0.8)",
-                                "rgba(156, 163, 175, 0.3)",
+                                rgba(ChartColor.ACTIONED, ChartColor.FILL_ALPHA),
+                                rgba(ChartColor.NOT_ACTIONED, ChartColor.MUTED_ALPHA),
                             ],
                         }
                     ],

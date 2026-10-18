@@ -9,18 +9,18 @@
 ### Chart card — the shape every live chart uses
 
 ```python
-def _chart_card(data_url: str, chart_type: str) -> FT:
+def _chart_card(data_url: str) -> FT:
     return Div(
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
         Div("Loading chart...", cls="text-center text-muted-foreground py-8", **{"x-show": "loading"}),
         Div(Span("Error: ", cls="font-bold"), Span(**{"x-text": "error"}),
             cls="text-error text-center py-8", **{"x-show": "error"}),
-        **{"x-data": f"chartVis('{data_url}', '{chart_type}')",
+        **{"x-data": f"chartVis('{data_url}')",
            "class": "bg-background p-4 rounded-lg shadow-sm"},
     )
 ```
 
-**When to use**: Every chart. `chartVis(dataUrl, chartType)` (the Alpine component in `static/js/skuel.js`) fetches the JSON config and renders into `x-ref="canvas"`. Never write an inline `new Chart(...)` script. Live copies: `ui/insights/components.py::_chart_card`, `ui/lifepath/alignment.py::_alignment_radar`. Both are page-local; there is no shared chart component.
+**When to use**: Every chart. `chartVis(dataUrl)` (the Alpine component in `static/js/skuel.js`) fetches the JSON config and renders into `x-ref="canvas"`; the config's own `type` picks the chart kind. Never write an inline `new Chart(...)` script. Live copies: `ui/insights/components.py::_chart_card`, `ui/lifepath/alignment.py::_alignment_radar`. Both are page-local; there is no shared chart component.
 
 ### Loading Chart.js on a page
 
@@ -44,7 +44,7 @@ async def get_completion_chart(request: Request) -> Result[ChartJsConfig]:
     return await vis_service.get_completion_chart_data(user_uid=user_uid, period=period)
 ```
 
-**When to use**: New chart-data endpoints. `boundary_handler()` serializes the config itself as the JSON body, and `chartVis` passes it straight to `new Chart(ctx, config)`. The user always comes from the session, never from a query parameter. `/api/lifepath/alignment/chart` returns a hand-built `JSONResponse` typed `-> Any`; don't copy that shape.
+**When to use**: New chart-data endpoints. `boundary_handler()` serializes the config itself as the JSON body, and `chartVis` passes it straight to `new Chart(ctx, config)`. The user always comes from the session, never from a query parameter. Every live chart route has this shape, `/api/lifepath/alignment/chart` included.
 
 ### Formatting data → config (`VisualizationService`)
 
@@ -65,7 +65,8 @@ return Result.ok(
         "data": {
             "labels": ["Actioned", "Not Actioned"],
             "datasets": [{"label": "Action Rate", "data": [rate, 100 - rate],
-                          "backgroundColor": [SemanticColor.SUCCESS, SemanticColor.NEUTRAL]}],
+                          "backgroundColor": [rgba(ChartColor.ACTIONED, ChartColor.FILL_ALPHA),
+                                              rgba(ChartColor.NOT_ACTIONED, ChartColor.MUTED_ALPHA)]}],
         },
         "options": {"responsive": True, "circumference": 180, "rotation": -90},
     }
@@ -88,7 +89,7 @@ return Result.ok(
 | `VisualizationService` | `core/services/visualization_service.py` | Pure formatter: Chart.js + Frappe Gantt |
 | `VisualizationAggregationService` | `core/services/analytics/visualization_aggregation_service.py` | Fetches domain data and delegates formatting; wired in `services_bootstrap/compose.py` behind `VisualizationOperations` |
 | `InsightStore.get_*_chart` | `core/services/insight/insight_store.py` | Four hand-built configs for `/insights` |
-| `SemanticColor` palette | `core/utils/palette.py` | PRIMARY/SUCCESS/WARNING/DANGER/INFO/NEUTRAL + `.ALL` cycle |
+| `SemanticColor` / `ChartColor` palettes, `rgba()` | `core/utils/palette.py` | `SemanticColor` PRIMARY/SUCCESS/WARNING/DANGER/INFO/NEUTRAL + `.ALL` (the formatters); `ChartColor` the insight charts' and radar's shades + alphas; `rgba(hex, alpha)` spells one for Chart.js |
 | Wire-shape pins | `tests/unit/services/test_visualization_wire_shape.py` | Formatter output keys |
 
 **Live endpoints:** `/api/insights/charts/{impact,domain,type}-distribution` and `/api/insights/charts/action-rate` (`adapters/inbound/insights_api.py`, drawn on `/insights`) · `/api/lifepath/alignment/chart` (radar, `adapters/inbound/lifepath_ui.py`, drawn on `/lifepath/alignment`) · `/api/visualizations/{completion,priority-distribution,streaks,status-distribution}` (`adapters/inbound/visualization_api.py`; no page draws them).
@@ -102,7 +103,6 @@ return Result.ok(
 | Problem | Solution |
 |---------|----------|
 | `Chart is not defined` in the card's error slot | Pass `extra_scripts=["/static/vendor/chart.js/chart.umd.js"]` on the shell page. `chartjs_headers()` doesn't reach BasePage, and fragments carry no `<head>` |
-| Changing the second `chartVis` argument changes nothing | `loadChart` never reads it; the payload's `"type"` decides |
 | Canvas-reuse error on re-render | `chartVis` destroys before recreating, and Alpine calls its `destroy()` when the card leaves the DOM. Don't hand-roll a second `new Chart` on the same canvas |
 | Chart missing after an HTMX swap | Alpine initializes a swapped-in `x-data` tree by itself (measured, Alpine 3.14.8 + htmx 1.9.10). Look at the fragment's markup and the page's scripts, not at init wiring |
 | `Alpine.data` component "not defined" | Registrations run in the `alpine:init` listener: in `skuel.js` if shared, in a page-local bundle if one surface needs it |
@@ -111,7 +111,7 @@ return Result.ok(
 | `create_chart_view()` / `ui.goals.visualization` in old notes | Deleted. Use the `_chart_card` shape above |
 | snake_case dataset keys | Chart.js expects camelCase (`backgroundColor`). `ChartJsDataset` declares the camelCase names, and the `ChartDataset` dataclass mirrors them with `# noqa: N815` |
 | No data shows an error, a blank chart, or zeros | It depends on the builder: the distribution/streak formatters return 400, the aggregation service returns 404 for "no active tasks/habits", the completion formatter and the insight configs draw empty or zero charts. Hide the chart at the page (insights needs 3 insights) or pick the state deliberately. See SKILL.md step 4 |
-| Hardcoded hex/rgba colors | `SemanticColor` for charts (`RelationshipColor` is the Vis.js edge palette), both in `core/utils/palette.py` |
+| Hardcoded hex/rgba colors | `SemanticColor` or `ChartColor` through `rgba()` for charts (`RelationshipColor` is the Vis.js edge palette), all in `core/utils/palette.py` |
 
 ---
 

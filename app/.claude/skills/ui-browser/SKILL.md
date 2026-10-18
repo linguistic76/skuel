@@ -253,7 +253,7 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 | `searchFilters()` | Search filter bar — two mutually exclusive scope facets (Type / Nous), subtopic faucet, Ask href | `entityType`, `nousTopic`, `showAdvanced` |
 | `calendarLegend` | Calendar legend type filters (toggle hide/show + hover spotlight, localStorage) | `hidden`, `spotlight` |
 | `collapsible(initial)` | Expand/collapse | `expanded` |
-| `chartVis(url, type)` | Chart.js | `chart`, `loading`, `error` |
+| `chartVis(url)` | Chart.js | `chart`, `loading`, `error` |
 | `collapsibleSidebar(key, defaultCollapsed)` | Sidebar collapse + localStorage | reads `Alpine.store(key)` |
 | `relationshipGraph(uid, type)` | Vis.js lateral relationships | `network`, `loading` |
 | `exploreGraph(mode, uid, type)` | Explore sidebar Vis.js graph | `network`, `filter`, `expanded` |

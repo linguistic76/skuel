@@ -2,7 +2,7 @@
 related_skills:
 - chartjs
 - ui-browser
-updated: 2026-09-29
+updated: 2026-10-18
 ---
 # Alpine.js Architecture
 ## Related Skills
@@ -207,7 +207,7 @@ boolean, one method.
 **Methods:**
 - `toggle()` - Toggle expanded state
 
-### chartVis(dataUrl, chartType)
+### chartVis(dataUrl)
 
 Fetches JSON and renders a Chart.js chart. The reference pattern for a component
 that **owns an async load**: it models the request's three outcomes explicitly
@@ -219,10 +219,9 @@ rather than leaving the template to guess.
 - `error`: string | null - Failure message, rendered in place of the chart
 
 **Methods:**
-- `init()` - Kicks off `loadChart(dataUrl, chartType || 'line')`
-- `loadChart(url, type)` - Fetch, destroy any prior chart, render into `x-ref="canvas"`. The
-  fetched JSON is the whole Chart.js config, so its own `type` picks the chart kind; the
-  `type` argument is not read
+- `init()` - Kicks off `loadChart(dataUrl)`
+- `loadChart(url)` - Fetch, destroy any prior chart, render into `x-ref="canvas"`. The
+  fetched JSON is the whole Chart.js config, so its own `type` picks the chart kind
 - `refresh(newUrl)` - Re-run `loadChart` against `newUrl`, or the original `dataUrl`
 - `destroy()` - Tear down the Chart.js instance; Alpine calls it when the element is removed
 

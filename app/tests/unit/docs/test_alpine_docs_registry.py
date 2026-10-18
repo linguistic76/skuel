@@ -120,7 +120,7 @@ PAGE_LOCAL_INVENTORY = ALPINE_ARCHITECTURE
 # x-data="name(...)", x_data="name(...)", "x-data": "name(...)".
 #
 # The `[rRbBuUfF]{0,2}` allows a Python string prefix before the quote. FastHTML
-# docs interpolate constructor args, so `**{"x-data": f"chartVis('{url}', 'bar')"}`
+# docs interpolate constructor args, so `**{"x-data": f"chartVis('{url}')"}`
 # is the COMMON first-party form — 8 sites across the chartjs and vis-network
 # skills. Requiring a bare quote missed every one of them, so a rename of
 # chartVis or relationshipGraph would have left those examples stale and green.

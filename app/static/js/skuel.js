@@ -1259,19 +1259,19 @@
         // ---------------------------------------------------------------------
         // Chart.js Visualization Component
         // ---------------------------------------------------------------------
-        // Renders Chart.js charts from API data
-        Alpine.data('chartVis', function(dataUrl, chartType) {
+        // Renders a Chart.js chart from a JSON route. The route answers the whole
+        // Chart.js config, so the config's own `type` picks the chart kind.
+        Alpine.data('chartVis', function(dataUrl) {
             return {
                 chart: null,
                 loading: true,
                 error: null,
 
                 init: function() {
-                    var self = this;
-                    this.loadChart(dataUrl, chartType || 'line');
+                    this.loadChart(dataUrl);
                 },
 
-                loadChart: function(url, type) {
+                loadChart: function(url) {
                     var self = this;
                     this.loading = true;
                     this.error = null;
@@ -1301,7 +1301,7 @@
                 },
 
                 refresh: function(newUrl) {
-                    this.loadChart(newUrl || dataUrl, chartType || 'line');
+                    this.loadChart(newUrl || dataUrl);
                 },
 
                 destroy: function() {

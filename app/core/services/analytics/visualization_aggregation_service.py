@@ -14,8 +14,7 @@ Separation of concerns:
 """
 
 from datetime import date, timedelta
-from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
 from core.models.type_hints import UserUID
@@ -24,6 +23,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+
+if TYPE_CHECKING:
+    from core.models.task.task import Task
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.tasks_service import TasksService
+    from core.services.visualization_service import VisualizationService
 
 logger = get_logger(__name__)
 
@@ -38,10 +44,10 @@ class VisualizationAggregationService:
 
     def __init__(
         self,
-        tasks_service: Any,
-        habits_service: Any,
-        goals_service: Any,
-        visualization_service: Any,
+        tasks_service: TasksService,
+        habits_service: HabitsService,
+        goals_service: GoalsService,
+        visualization_service: VisualizationService,
     ) -> None:
         self.tasks_service = tasks_service
         self.habits_service = habits_service
@@ -86,7 +92,7 @@ class VisualizationAggregationService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         tasks = result.value or []
         completed: list[int] = []
@@ -128,12 +134,11 @@ class VisualizationAggregationService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         for task in result.value or []:
-            priority = getattr(task, "priority", None)
-            if priority:
-                key = priority.value if isinstance(priority, Enum) else str(priority)
+            if task.priority:
+                key = str(task.priority)
                 distribution[key] = distribution.get(key, 0) + 1
 
         if not distribution:
@@ -160,9 +165,9 @@ class VisualizationAggregationService:
 
         streaks: list[dict[str, Any]] = [
             {
-                "name": getattr(h, "title", "Habit"),
-                "current": getattr(h, "current_streak", 0) or 0,
-                "best": getattr(h, "best_streak", 0) or 0,
+                "name": h.title,
+                "current": h.current_streak or 0,
+                "best": h.best_streak or 0,
             }
             for h in (result.value or [])
         ]
@@ -191,13 +196,11 @@ class VisualizationAggregationService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         for task in result.value or []:
-            status = getattr(task, "status", None)
-            if status:
-                key = status.value if isinstance(status, Enum) else str(status)
-                distribution[key] = distribution.get(key, 0) + 1
+            key = str(task.status)
+            distribution[key] = distribution.get(key, 0) + 1
 
         if not distribution:
             return Result.fail(Errors.not_found("Chart data", "task-status", reason="no tasks"))
@@ -228,7 +231,7 @@ class VisualizationAggregationService:
 
         tasks = result.value or []
         if project:
-            tasks = [t for t in tasks if getattr(t, "project", None) == project]
+            tasks = [t for t in tasks if t.project == project]
 
         # Only emit dependencies that point at a task actually in the chart — a
         # prerequisite outside the date window (or filtered out by `project`) would
@@ -265,7 +268,7 @@ class VisualizationAggregationService:
         # get_tasks_for_goal returns full Task models, which format_goal_gantt needs.
         # It traverses the CONTRIBUTES_TO_GOAL edge, so a task linked at any door —
         # vault-ingested ones included — is on the chart.
-        tasks: list[Any] = []
+        tasks: list[Task] = []
         tasks_result = await self.tasks_service.get_tasks_for_goal(goal_uid, user_uid)
         if tasks_result.is_ok:
             tasks = list(tasks_result.value or [])
@@ -276,25 +279,16 @@ class VisualizationAggregationService:
     # Task Date Helpers
     # =========================================================================
 
-    def _task_due_on(self, task: Any, d: date) -> bool:
+    def _task_due_on(self, task: Task, d: date) -> bool:
         """Return True if the task's due_date or scheduled_date falls on d."""
-        due = getattr(task, "due_date", None)
-        scheduled = getattr(task, "scheduled_date", None)
-        return (due == d) or (scheduled == d)
+        return d in (task.due_date, task.scheduled_date)
 
-    def _task_in_range(self, task: Any, start: date, end: date) -> bool:
+    def _task_in_range(self, task: Task, start: date, end: date) -> bool:
         """Return True if the task's due_date or scheduled_date falls within [start, end]."""
-        due = getattr(task, "due_date", None)
-        scheduled = getattr(task, "scheduled_date", None)
-        if due and start <= due <= end:
-            return True
-        return bool(scheduled and start <= scheduled <= end)
+        return any(
+            day is not None and start <= day <= end for day in (task.due_date, task.scheduled_date)
+        )
 
-    def _is_completed(self, task: Any) -> bool:
+    def _is_completed(self, task: Task) -> bool:
         """Return True if the task status is COMPLETED."""
-        status = getattr(task, "status", None)
-        if status is None:
-            return False
-        if isinstance(status, Enum):
-            return status == EntityStatus.COMPLETED
-        return str(status).lower() in ("done", "completed")
+        return task.status == EntityStatus.COMPLETED

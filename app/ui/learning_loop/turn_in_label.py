@@ -11,15 +11,10 @@ PathStep page and the recipient card.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from fasthtml.common import Span
+from fasthtml.common import FT, Span
 
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-
-if TYPE_CHECKING:
-    from fasthtml.common import FT
 
 VERSION_SEPARATOR = " · "
 
@@ -42,7 +37,7 @@ def TurnInBadge(exercise_title: str | None, revision: int | None, *, cls: str = 
     return Badge(label, variant=BadgeT.outline, size=Size.sm, cls=cls)
 
 
-def TurnInNote(exercise_title: str | None, revision: int | None, *, cls: str = "") -> Span | str:
+def TurnInNote(exercise_title: str | None, revision: int | None, *, cls: str = "") -> FT | str:
     """The label as a muted inline note ("for The Gentle Return · v3"), or nothing."""
     label = turn_in_label(exercise_title, revision)
     if label is None:

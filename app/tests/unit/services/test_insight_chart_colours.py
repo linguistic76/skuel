@@ -1,0 +1,101 @@
+"""The /insights chart configs' colours, pinned to the exact strings Chart.js draws.
+
+``InsightStore``'s four chart configs take their colours from
+``core/utils/palette.py`` (``ChartColor``, ``SemanticColor``) through ``rgba()``.
+A palette value that moves moves a colour a learner sees, so each serialized
+string is pinned here.
+"""
+
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import pytest
+
+from core.models.insight.persisted_insight import InsightImpact, InsightType
+from core.ports.query_types import ChartJsConfig
+from core.services.insight.insight_store import InsightStore
+from core.utils.palette import rgba
+from core.utils.result_simplified import Result
+
+
+def _insight(impact: InsightImpact, domain: str, insight_type: InsightType) -> SimpleNamespace:
+    return SimpleNamespace(impact=impact, domain=domain, insight_type=insight_type)
+
+
+INSIGHTS = [
+    _insight(InsightImpact.CRITICAL, "habits", InsightType.STREAK_PATTERN),
+    _insight(InsightImpact.HIGH, "tasks", InsightType.KNOWLEDGE_GAP),
+    _insight(InsightImpact.LOW, "habits", InsightType.STREAK_PATTERN),
+]
+
+
+@pytest.fixture
+def store() -> InsightStore:
+    store = InsightStore(backend=MagicMock())
+
+    async def active(**_kwargs: object) -> Result[list[SimpleNamespace]]:
+        return Result.ok(INSIGHTS)
+
+    async def stats(_user_uid: str) -> Result[dict[str, float]]:
+        return Result.ok({"action_rate": 0.25})
+
+    store.get_active_insights = active  # type: ignore[method-assign,assignment]
+    store.get_insight_stats = stats  # type: ignore[method-assign,assignment]
+    return store
+
+
+def _background(config: ChartJsConfig | None) -> object:
+    assert config is not None
+    return config["data"]["datasets"][0]["backgroundColor"]
+
+
+async def test_impact_doughnut_colours(store: InsightStore) -> None:
+    config = (await store.get_impact_distribution_chart("user_x")).value
+    assert _background(config) == [
+        "rgba(220, 38, 38, 0.8)",
+        "rgba(234, 88, 12, 0.8)",
+        "rgba(250, 204, 21, 0.8)",
+        "rgba(34, 197, 94, 0.8)",
+    ]
+
+
+async def test_domain_bar_colour(store: InsightStore) -> None:
+    config = (await store.get_domain_distribution_chart("user_x")).value
+    assert _background(config) == "rgba(59, 130, 246, 0.8)"
+
+
+async def test_type_doughnut_colours(store: InsightStore) -> None:
+    config = (await store.get_type_distribution_chart("user_x")).value
+    assert _background(config) == [
+        "rgba(99, 102, 241, 0.8)",
+        "rgba(139, 92, 246, 0.8)",
+        "rgba(168, 85, 247, 0.8)",
+        "rgba(236, 72, 153, 0.8)",
+        "rgba(244, 63, 94, 0.8)",
+        "rgba(59, 130, 246, 0.8)",
+    ]
+
+
+async def test_action_rate_gauge_colours(store: InsightStore) -> None:
+    config = (await store.get_action_rate_chart("user_x")).value
+    assert _background(config) == ["rgba(34, 197, 94, 0.8)", "rgba(156, 163, 175, 0.3)"]
+
+
+@pytest.mark.parametrize(
+    ("hex_colour", "alpha", "expected"),
+    [
+        ("#3B82F6", 0.8, "rgba(59, 130, 246, 0.8)"),
+        ("#3b82f6", 1, "rgba(59, 130, 246, 1)"),
+        ("#9CA3AF", 0.3, "rgba(156, 163, 175, 0.3)"),
+    ],
+)
+def test_rgba_spells_a_hex_colour_with_an_alpha(
+    hex_colour: str, alpha: float, expected: str
+) -> None:
+    assert rgba(hex_colour, alpha) == expected
+
+
+@pytest.mark.parametrize("bad", ["3B82F6", "#3B82F", "#3B82F6FF", "#GGGGGG"])
+def test_rgba_refuses_anything_but_six_digit_hex(bad: str) -> None:
+    with pytest.raises(ValueError, match="six-digit"):
+        rgba(bad, 0.5)
