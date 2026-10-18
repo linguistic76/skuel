@@ -228,7 +228,7 @@ skills:
 
   - name: skuel-ui
     description: SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
-    last_reviewed: "2026-10-17"
+    last_reviewed: "2026-10-18"
     foundation: [fasthtml, ui-css, ui-browser, pydantic]
     dependencies: [fasthtml, ui-css, ui-browser, pydantic]
     library_package: null  # SKUEL pattern, not external library

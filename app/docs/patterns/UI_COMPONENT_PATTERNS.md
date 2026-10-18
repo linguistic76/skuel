@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-10-17'
+updated: '2026-10-18'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -44,7 +44,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 - `/ui/layouts/page_types.py` - Page type definitions (STANDARD vs CUSTOM)
 - `/ui/layouts/navbar.py`, `/ui/layouts/nav_config.py` - The global chrome (navbar + bottom nav) and its one spec
 - `/ui/tokens.py` - Spacing, container, and styling tokens
-- `/core/utils/palette.py` - Centralized hex color constants (`SemanticColor`, `RelationshipColor`, `FrequencyColor`, `StrengthColor`, `CalendarFallback`) — core and UI both import them from here
+- `/core/utils/palette.py` - Centralized hex color constants (`SemanticColor`, `ChartColor`, `RelationshipColor`, `FrequencyColor`, `StrengthColor`, `CalendarFallback`) and `rgba(hex, alpha)` for Chart.js configs — core and UI both import them from here
 - `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers; `ButtonLink` in `ui/primitives.py` (also pure Tailwind)
 - `/ui/forms/` — pure Tailwind wrappers; the former `buttons.py` + `cards.py` wrappers were deleted in PR E — `Button`/`ButtonT`/`Card*` now live in `ui.components`
 - `/ui/data.py` — pure Tailwind wrappers
