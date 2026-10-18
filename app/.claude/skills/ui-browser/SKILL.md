@@ -329,16 +329,21 @@ The split is by **library**, not by punctuation: HTMX defines a colon-free doubl
 - **Reducible attrs (plain-hyphen + HTMX `hx-on::`) → use the underscore kwarg.** No splat, no suppression. (e.g. `Button("Back", hx_get="/tasks", hx_target="body")`, *not* `**{"hx-get": …}`; `Form(..., hx_on__after_request=expr)`, *not* `**{"hx-on::after-request": expr}`.)
 - **Irreducible Alpine attrs (colon / at / dot) → keep the splat + a surgical ignore:** `**{"x-on:click": expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat`.
 
-⚠️ **Escape DYNAMIC values interpolated into an Alpine/JS expression with `json.dumps()`.** An Alpine handler attribute is *JS source*, so a runtime value spliced into it can break out of its string literal (or inject). Use `json.dumps()` — it emits a properly-escaped JS string literal, and FastHTML's attribute escaping handles the surrounding quotes:
+⚠️ **Write every data value into an Alpine/htmx expression with `ui.alpine.js_literal` / `alpine_call`.** An Alpine attribute is *JS source* that Alpine evaluates as statements, so a value hand-quoted into it ends its string at its first quote and the rest runs — a query parameter or a uid authored in a vault file is enough. `js_literal` writes the value as JSON (a JS literal), `alpine_call(name, *args)` spells a call with literal arguments, and FastHTML's attribute escaping handles the JSON's quotes:
 
   ```python
-  # ✅ tag="it's"  →  setTag("it&#39;s")  (browser-decodes to valid setTag("it's"))
-  **{"x-on:click": f"setTag({json.dumps(tag)})"}
+  from ui.alpine import alpine_call, js_literal
+
+  # ✅ tag="it's"  →  setTag("it's"), escaped for the attribute, decoded by the browser
+  **{"x-on:click": alpine_call("setTag", tag)}
+  **{":class": f"{alpine_call('isSaved', uid)} ? 'text-primary' : ''"}
+  x_data=alpine_call("insightFiltersDebounced", {"search": search, "status": status})
+  **{"@click": f"activeTab = {js_literal(uid)}"}
   # ❌  setTag('it's')  — the apostrophe ends the JS string; the click throws / injects
   **{"x-on:click": f"setTag('{tag}')"}
   ```
 
-  Only **dynamic** values need this — static literals you control (e.g. `f"filterPreset = '{preset}'"` where `preset` is a hardcoded `"all"`/`"overdue"`) are safe as-is.
+  `tests/unit/ui/test_alpine_expression_census.py` fails on any other value interpolated into an expression attribute (`x-*`, `@…`, `:…`, `hx-vals`, `hx-trigger`, `hx-on…`, `on<event>`) under `ui/` and `adapters/` until it is encoded or listed in its census with the reason it cannot carry a quote — an enum value, a number, JavaScript written in the code. The census does not see JavaScript handed in through a helper's parameter (`SelectableOptionRow(selected_expr=…)`): encode the value where that text is written.
 
 ⚠️ **A colon/`@` Alpine directive written as an underscore-kwarg renders DEAD, silently.** `x_on_click="open()"` → `x-on-click="open()"`, which Alpine never binds — no error, the click just does nothing. Always use the splat form for colon/`@`/dot attrs. Detect regressions: `grep -rn "x_on_\|x_bind_" ui/ adapters/inbound/`.
 

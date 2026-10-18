@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-10-11'
+updated: '2026-10-18'
 category: patterns
 related_skills:
 - skuel-ui
@@ -84,7 +84,7 @@ TreeView and AccordionHierarchy support HTMX-based lazy loading:
 
 **Flow:**
 1. User clicks expand icon
-2. Alpine.js dispatches custom event `expand-{uid}`
+2. Alpine.js dispatches the custom event `expand` on the node's `#children-{uid}` container
 3. HTMX listens for event, fetches `/api/goals/{uid}/children`
 4. Server returns `TreeNodeList` HTML
 5. HTMX swaps into `#children-{uid}` container
@@ -534,12 +534,12 @@ Components are mobile-friendly:
    ```
 3. **Ensure `hx-trigger` matches Alpine event**:
    ```html
-   <div hx-trigger="expand-{uid} from:body">  <!-- ✅ Correct -->
+   <div id="children-{uid}" hx-trigger="expand">  <!-- ✅ Correct -->
    <div hx-trigger="click">  <!-- ❌ Wrong trigger -->
    ```
 4. **Check Alpine dispatches event**:
    ```javascript
-   document.body.dispatchEvent(new CustomEvent('expand-' + uid));  // ✅
+   document.getElementById('children-' + uid).dispatchEvent(new CustomEvent('expand'));  // ✅
    ```
 
 ### Drag-drop not working

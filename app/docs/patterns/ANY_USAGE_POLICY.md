@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-18
 ---
 
 # Any Usage Policy
@@ -204,7 +204,7 @@ A fifth, narrower case — an **`arg-type` ignore**, not an `Any` annotation. Mo
 Button("Close", **{"x-on:click": close_expr})  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
 ```
 
-**Escape DYNAMIC values with `json.dumps()`.** An Alpine handler attribute is JS source — a runtime value spliced into it can break out of its string literal (or inject). Use `**{"x-on:click": f"setTag({json.dumps(tag)})"}`, never `f"setTag('{tag}')"` (a tag like `it's` ends the JS string → the click throws). `json.dumps` emits a properly-escaped JS string literal, and FastHTML's attribute escaping handles the surrounding quotes. Static literals you control (e.g. a hardcoded `'all'`/`'overdue'` preset) are exempt.
+**Write data values with `ui.alpine.js_literal` / `alpine_call`.** An Alpine handler attribute is JS source — a runtime value spliced into it can break out of its string literal (or inject). Use `**{"x-on:click": alpine_call("setTag", tag)}`, never `f"setTag('{tag}')"` (a tag like `it's` ends the JS string → the click throws, or the rest runs). `js_literal` emits JSON, a properly-escaped JS literal, and FastHTML's attribute escaping handles the surrounding quotes. `tests/unit/ui/test_alpine_expression_census.py` lists every other interpolated value with the reason it cannot carry a quote (an enum value, a number, JavaScript written in the code).
 
 **A colon / `@` Alpine attr written as an underscore-kwarg renders DEAD, silently.** `x_on_click="open()"` → `x-on-click="open()"`, which Alpine never binds — no error, the click just does nothing. Always splat colon / `@` / dot attrs. Detect regressions: `grep -rn "x_on_\|x_bind_" ui/ adapters/inbound/`.
 

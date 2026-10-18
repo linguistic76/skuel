@@ -1,5 +1,6 @@
 """LifePath vision capture and recommendations pages."""
 
+import json
 from typing import Any
 
 from fasthtml.common import H3, Div, Form, P
@@ -93,7 +94,7 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
                 method="post",
                 action="/lifepath/designate",
                 hx_post="/lifepath/designate",
-                hx_vals=f'{{"life_path_uid": "{rec.get("lp_uid", "")}"}}',
+                hx_vals=json.dumps({"life_path_uid": rec.get("lp_uid", "")}),
             ),
             cls="mb-4",
         )

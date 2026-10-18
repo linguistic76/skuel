@@ -18,6 +18,7 @@ Usage:
 from fasthtml.common import Span
 
 from core.models.type_hints import EntityUID
+from ui.alpine import js_literal
 from ui.components import Button, ButtonT
 
 
@@ -69,7 +70,7 @@ def PinButton(
     else:
         # Pin action (POST)
         htmx_attrs["hx_post"] = "/api/user/pins"
-        htmx_attrs["hx_vals"] = f'{{"entity_uid": "{entity_uid}"}}'
+        htmx_attrs["hx_vals"] = js_literal({"entity_uid": entity_uid})
 
     button_variant = ButtonT.primary if is_pinned else ButtonT.ghost
 

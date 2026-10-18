@@ -16,6 +16,7 @@ from typing import Any
 
 from fasthtml.common import H3, Div, Form, P, Small, Span
 
+from ui.alpine import js_literal
 from ui.components import Button, ButtonT
 from ui.forms.components import Checkbox, Input, Label
 from ui.forms.field_builder import build_field_from_schema
@@ -108,6 +109,10 @@ def render_inline_form_template(
     )
 
 
+# The error text goes into innerHTML, so its markup characters are escaped first.
+_ESCAPE_HTML = "((t) => String(t).replace(/[&<>\"']/g, (c) => '&#' + c.charCodeAt(0) + ';'))"
+
+
 def _submit_handler(form_template_uid: str, field_specs: list[dict[str, Any]]) -> str:
     """Generate Alpine.js submit handler that posts JSON to the form submission API."""
     # Build form_data object from named fields (checkboxes use .checked, others use .value)
@@ -115,15 +120,20 @@ def _submit_handler(form_template_uid: str, field_specs: list[dict[str, Any]]) -
     for spec in field_specs:
         name = spec["name"]
         if spec["type"] == "checkbox":
-            extractions.append(f"'{name}': $el.querySelector('[name={name}]')?.checked || false")
+            extractions.append(
+                f"{js_literal(name)}: $el.querySelector('[name=' + CSS.escape({js_literal(name)}) + ']')?.checked || false"
+            )
         else:
-            extractions.append(f"'{name}': $el.querySelector('[name={name}]')?.value || ''")
+            extractions.append(
+                f"{js_literal(name)}: $el.querySelector('[name=' + CSS.escape({js_literal(name)}) + ']')?.value || ''"
+            )
     field_extractions = ", ".join(extractions)
 
+    feedback_id = js_literal(f"form-feedback-{form_template_uid}")
     return (
         f"if (submitting) return; "
         f"submitting = true; "
-        f"document.getElementById('form-feedback-{form_template_uid}').innerHTML = ''; "
+        f"document.getElementById({feedback_id}).innerHTML = ''; "
         f"let formData = {{{field_extractions}}}; "
         f"let shareAdmin = $el.querySelector('[name=share_with_admin]')?.checked || false; "
         f"let recipientRaw = $el.querySelector('[name=recipient_uids]')?.value || ''; "
@@ -131,7 +141,7 @@ def _submit_handler(form_template_uid: str, field_specs: list[dict[str, Any]]) -
         f"let res = await fetch('/api/form-submissions/submit', {{"
         f"method: 'POST', "
         f"headers: {{'Content-Type': 'application/json'}}, "
-        f"body: JSON.stringify({{form_template_uid: '{form_template_uid}', form_data: formData, share_with_admin: shareAdmin, recipient_uids: recipientUids}})"
+        f"body: JSON.stringify({{form_template_uid: {js_literal(form_template_uid)}, form_data: formData, share_with_admin: shareAdmin, recipient_uids: recipientUids}})"
         f"}}); "
         f"submitting = false; "
         f"if (res.ok) {{ "
@@ -145,9 +155,9 @@ def _submit_handler(form_template_uid: str, field_specs: list[dict[str, Any]]) -
         f"+ '</div>'; "
         f"}} else {{ "
         f"let err = await res.json(); "
-        f"document.getElementById('form-feedback-{form_template_uid}').innerHTML = "
+        f"document.getElementById({feedback_id}).innerHTML = "
         f"'<div class=\"p-4 rounded-lg bg-red-50 text-red-800 border border-red-200 flex items-center justify-between\">' "
-        f"+ '<span>' + (err.error || 'Submission failed') + '</span>' "
+        f"+ '<span>' + {_ESCAPE_HTML}(err.error || 'Submission failed') + '</span>' "
         f'+ \'<button onclick="this.parentElement.remove()" class="ml-2 font-bold">&times;</button>\' '
         f"+ '</div>'; "
         f"}}"

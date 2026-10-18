@@ -10,6 +10,7 @@ you* reader narrowed to that group).
 from fasthtml.common import Button, Div
 
 from core.models.group.group import Group
+from ui.alpine import js_literal
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.hub import HubBlockData, HubDomainBlock
 
@@ -47,7 +48,7 @@ _FOCUS_ACTIVE_TAB = "$nextTick(() => document.getElementById('groups-tab-' + act
 
 def _tab_button(group: Group) -> Button:
     uid = group.uid
-    cond = f"activeTab === '{uid}'"
+    cond = f"activeTab === {js_literal(uid)}"
     return Button(
         group.name,
         role="tab",
@@ -59,7 +60,7 @@ def _tab_button(group: Group) -> Button:
             ":aria-selected": cond,
             ":tabindex": f"{cond} ? 0 : -1",
             ":style": f"{cond} ? '{_ACTIVE_STYLE}' : '{_INACTIVE_STYLE}'",
-            "@click": f"activeTab = '{uid}'",
+            "@click": f"activeTab = {js_literal(uid)}",
         },
     )
 
@@ -71,7 +72,7 @@ def _tab_panel(group: Group) -> Div:
         id=f"groups-panel-{group.uid}",
         aria_labelledby=f"groups-tab-{group.uid}",
         tabindex="0",
-        **{"x-show": f"activeTab === '{group.uid}'"},
+        **{"x-show": f"activeTab === {js_literal(group.uid)}"},
     )
 
 
@@ -98,8 +99,6 @@ def GroupsHub(groups: list[Group], active_group_uid: str | None) -> Div:
         )
 
     active = active_group_uid if any(g.uid == active_group_uid for g in groups) else groups[0].uid
-    tabs_js = "[" + ", ".join(f"'{g.uid}'" for g in groups) + "]"
-
     return Div(
         Div(
             Div(
@@ -122,7 +121,7 @@ def GroupsHub(groups: list[Group], active_group_uid: str | None) -> Div:
             ),
             *[_tab_panel(g) for g in groups],
             **{
-                "x-data": f"{{ activeTab: '{active}', tabs: {tabs_js} }}",
+                "x-data": js_literal({"activeTab": active, "tabs": [g.uid for g in groups]}),
                 "x-cloak": True,
             },
         ),

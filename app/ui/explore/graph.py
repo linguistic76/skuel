@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from fasthtml.common import Button, Div, NotStr, Span
 
+from ui.alpine import alpine_call
 from ui.components import Icon
 
 if TYPE_CHECKING:
@@ -94,8 +95,6 @@ def ExploreGraphView(
         standalone: If True, emits the x-data on the outer Div. If False,
             expects a parent element to provide the Alpine scope.
     """
-    alpine_args = f"'{mode}', '{entity_uid}', '{entity_type}'"
-
     # Single graph container — SVG skeleton is rendered here; JS removes it before
     # vis.Network paints (see renderNetwork() in skuel.js). CSS repositions when expanded.
     graph_container = Div(
@@ -165,7 +164,7 @@ def ExploreGraphView(
 
     wrapper_attrs: dict[str, str] = {"cls": "px-2 pt-2"}
     if standalone:
-        wrapper_attrs["x_data"] = f"exploreGraph({alpine_args})"
+        wrapper_attrs["x_data"] = alpine_call("exploreGraph", mode, entity_uid, entity_type)
 
     return Div(
         graph_wrapper,

@@ -1,0 +1,9 @@
+[
+  "x'});window.__pwned=document.cookie||'ran';({a:'",
+  "\\'});window.__pwned='backslash';({a:'",
+  "</script><script>window.__pwned='tag'</script>",
+  "line1\n');window.__pwned='newline';('",
+  "a\u2028');window.__pwned='separator';('",
+  "\"});window.__pwned='double';({a:\"",
+  "`${window.__pwned='template'}`"
+]

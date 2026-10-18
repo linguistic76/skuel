@@ -27,6 +27,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+from ui.alpine import js_literal
 from ui.components import Button, ButtonT, Icon
 from ui.forms import LabelInput, LabelTextArea
 from ui.layouts.base_page import BasePage
@@ -517,7 +518,7 @@ def create_teaching_ui_routes(
             active_page="teaching",
             item_renderer=alpine_section_renderer("section"),
             mobile_item_renderer=alpine_mobile_section_renderer("section"),
-            alpine_state=f"{{ section: '{default_section}' }}",
+            alpine_state=js_literal({"section": default_section}),
             title_prefix=back_arrow,
             extra_mobile_sections=[mobile_back],
         )

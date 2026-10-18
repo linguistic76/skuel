@@ -5,6 +5,7 @@ from typing import Any
 
 from fasthtml.common import FT, H3, Canvas, Div, NotStr, Span
 
+from ui.alpine import alpine_call
 from ui.components import Button, ButtonT
 from ui.forms import Input, Label, LabelInput, LabelSelect
 from ui.insights.insight_card import InsightCard
@@ -133,9 +134,16 @@ def render_filter_form(filters: InsightsFilters) -> Any:
             cls="flex gap-2 mt-3 items-center",
         ),
         cls="mb-6 p-4 bg-muted rounded-lg",
-        **{
-            "x-data": f"insightFiltersDebounced({{search: '{filters.search}', domain: '{filters.domain or ''}', impact: '{filters.impact or ''}', type: '{filters.insight_type or ''}', status: '{filters.action_status or 'all'}'}})"
-        },
+        x_data=alpine_call(
+            "insightFiltersDebounced",
+            {
+                "search": filters.search,
+                "domain": filters.domain or "",
+                "impact": filters.impact or "",
+                "type": filters.insight_type or "",
+                "status": filters.action_status or "all",
+            },
+        ),
     )
 
 
@@ -211,8 +219,8 @@ def render_insight_card_with_checkbox(insight: Any) -> Any:
                 name="insight-checkbox",
                 value=insight.uid,
                 cls="checkbox checkbox-primary",
-                **{"@change": f"toggleSelection('{insight.uid}')"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
-                **{":checked": f"isSelected('{insight.uid}')"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                **{"@change": alpine_call("toggleSelection", insight.uid)},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                **{":checked": alpine_call("isSelected", insight.uid)},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
             cls="mr-3 shrink-0 mt-1",
         ),
@@ -262,7 +270,7 @@ def _chart_card(data_url: str) -> FT:
             **{"x-show": "error"},
         ),
         **{
-            "x-data": f"chartVis('{data_url}')",
+            "x-data": alpine_call("chartVis", data_url),
             "class": "bg-background p-4 rounded-lg shadow-sm",
         },
     )

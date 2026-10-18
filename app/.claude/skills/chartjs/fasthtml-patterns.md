@@ -32,7 +32,7 @@ def _chart_card(data_url: str) -> FT:
             **{"x-show": "error"},
         ),
         **{
-            "x-data": f"chartVis('{data_url}')",
+            "x-data": alpine_call("chartVis", data_url),  # ui.alpine
             "class": "bg-background p-4 rounded-lg shadow-sm",
         },
     )
@@ -173,11 +173,11 @@ def completion_chart_card() -> FT:
             Option("Quarter", value="quarter"),
             aria_label="Completion period",
             full_width=False,
-            **{"x-on:change": f"refresh('{base}' + $event.target.value)"},
+            **{"x-on:change": f"refresh({js_literal(base)} + $event.target.value)"},
         ),
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
         # ... loading / error slots as in Pattern 1 ...
-        **{"x-data": f"chartVis('{base}week')"},
+        **{"x-data": alpine_call("chartVis", f"{base}week")},
     )
 ```
 

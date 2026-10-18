@@ -1,22 +1,22 @@
 <div class="mb-8">
   <h3 class="text-xl font-bold mb-4">Visual Analytics</h3>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-    <div x-data="chartVis('/api/insights/charts/impact-distribution')" class="bg-background p-4 rounded-lg shadow-sm">
+    <div x-data='chartVis("/api/insights/charts/impact-distribution")' class="bg-background p-4 rounded-lg shadow-sm">
 <canvas x-ref="canvas" width="400" height="300" class="max-w-full"></canvas>      <div x-show="loading" class="text-center text-muted-foreground py-8">Loading chart...</div>
       <div x-show="error" class="text-error text-center py-8">
 <span class="font-bold">Error: </span><span x-text="error"></span>      </div>
     </div>
-    <div x-data="chartVis('/api/insights/charts/domain-distribution')" class="bg-background p-4 rounded-lg shadow-sm">
+    <div x-data='chartVis("/api/insights/charts/domain-distribution")' class="bg-background p-4 rounded-lg shadow-sm">
 <canvas x-ref="canvas" width="400" height="300" class="max-w-full"></canvas>      <div x-show="loading" class="text-center text-muted-foreground py-8">Loading chart...</div>
       <div x-show="error" class="text-error text-center py-8">
 <span class="font-bold">Error: </span><span x-text="error"></span>      </div>
     </div>
-    <div x-data="chartVis('/api/insights/charts/type-distribution')" class="bg-background p-4 rounded-lg shadow-sm">
+    <div x-data='chartVis("/api/insights/charts/type-distribution")' class="bg-background p-4 rounded-lg shadow-sm">
 <canvas x-ref="canvas" width="400" height="300" class="max-w-full"></canvas>      <div x-show="loading" class="text-center text-muted-foreground py-8">Loading chart...</div>
       <div x-show="error" class="text-error text-center py-8">
 <span class="font-bold">Error: </span><span x-text="error"></span>      </div>
     </div>
-    <div x-data="chartVis('/api/insights/charts/action-rate')" class="bg-background p-4 rounded-lg shadow-sm">
+    <div x-data='chartVis("/api/insights/charts/action-rate")' class="bg-background p-4 rounded-lg shadow-sm">
 <canvas x-ref="canvas" width="400" height="300" class="max-w-full"></canvas>      <div x-show="loading" class="text-center text-muted-foreground py-8">Loading chart...</div>
       <div x-show="error" class="text-error text-center py-8">
 <span class="font-bold">Error: </span><span x-text="error"></span>      </div>

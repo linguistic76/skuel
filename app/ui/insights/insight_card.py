@@ -12,6 +12,7 @@ from typing import Any
 from fasthtml.common import H3, Div, Form, Li, P, Span, Strong, Ul
 
 from core.models.insight.persisted_insight import InsightImpact, PersistedInsight
+from ui.alpine import alpine_call
 from ui.components import Button, ButtonT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.patterns.card_generator import CardGenerator
@@ -188,7 +189,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
     return Div(
         card,
         InsightDetailModal(insight),
-        x_data=f"insightDetailModal('{insight.uid}')",
+        x_data=alpine_call("insightDetailModal", insight.uid),
     )
 
 

@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Div, Li, P, Span, Ul
 
 from core.models.enums.entity_enums import EntityType
+from ui.alpine import alpine_call
 from ui.components import ButtonT
 from ui.explore.graph import ExploreGraphView
 from ui.patterns.sidebar import SidebarPage
@@ -152,13 +153,14 @@ def render_explore_sidebar_page(
     # Determine graph mode
     is_entity_mode = bool(current_uid and current_entity_type)
     graph_mode = "entity" if is_entity_mode else "hub"
-    alpine_args = f"'{graph_mode}', '{current_uid}', '{current_entity_type}'"
+    entity_uid = current_uid if is_entity_mode else ""
+    entity_type = current_entity_type if is_entity_mode else ""
 
     # Graph hero — always shown, standalone=False so parent Li owns the scope
     graph = ExploreGraphView(
         mode=graph_mode,
-        entity_uid=current_uid if is_entity_mode else "",
-        entity_type=current_entity_type if is_entity_mode else "",
+        entity_uid=entity_uid,
+        entity_type=entity_type,
         standalone=False,
     )
 
@@ -173,7 +175,7 @@ def render_explore_sidebar_page(
                 Div(
                     graph,
                     sign_in_prompt,
-                    x_data=f"exploreGraph({alpine_args})",
+                    x_data=alpine_call("exploreGraph", graph_mode, entity_uid, entity_type),
                 ),
             )
         )
@@ -253,7 +255,7 @@ def render_explore_sidebar_page(
                     learning_section,
                     saved_section,
                     completed_section,
-                    x_data=f"exploreGraph({alpine_args})",
+                    x_data=alpine_call("exploreGraph", graph_mode, entity_uid, entity_type),
                 ),
             )
         )

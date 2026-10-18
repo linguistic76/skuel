@@ -29,6 +29,7 @@ from typing import Any, NotRequired, TypedDict
 
 from fasthtml.common import FT, A, Div, Input, Span
 
+from ui.alpine import alpine_call, js_literal
 from ui.components import Button, ButtonT
 from ui.patterns.skeleton import SkeletonLines
 
@@ -79,7 +80,7 @@ def TreeView(
     Returns:
         Tree view container with Alpine.js initialization
     """
-    alpine_config = {
+    alpine_config: dict[str, str | bool] = {
         "entityType": entity_type,
         "childrenEndpoint": children_endpoint,
         "moveEndpoint": move_endpoint or "",
@@ -87,11 +88,6 @@ def TreeView(
         "keyboardNav": keyboard_nav,
         "draggable": draggable,
     }
-
-    # Convert Python dict to JavaScript object literal
-    config_str = (
-        str(alpine_config).replace("True", "true").replace("False", "false").replace("'", '"')
-    )
 
     if roots is None:
         # Replaced by HTMX; parent_depth=-1 so root nodes render at depth 0
@@ -112,7 +108,7 @@ def TreeView(
         cls=f"tree-container focus:outline-hidden {cls}".strip(),
         tabindex="0",  # Make focusable for keyboard nav
         **{
-            "x-data": f"hierarchyTree({config_str})",
+            "x-data": alpine_call("hierarchyTree", alpine_config),
             "x-on:keydown": "handleKeydown" if keyboard_nav else None,
         },
         **kwargs,
@@ -167,10 +163,14 @@ def _render_tree_node(
     expand_icon_element = None
     if has_children:
         expand_icon_element = Button(
-            Span("▶", **{"x-show": f"!isExpanded('{uid}')", "x-cloak": True}),  # Right chevron
-            Span("▼", **{"x-show": f"isExpanded('{uid}')", "x-cloak": True}),  # Down chevron
+            Span(
+                "▶", **{"x-show": f"!{alpine_call('isExpanded', uid)}", "x-cloak": True}
+            ),  # Right chevron
+            Span(
+                "▼", **{"x-show": alpine_call("isExpanded", uid), "x-cloak": True}
+            ),  # Down chevron
             **{  # fasthtml dynamic-attr splat
-                "x-on:click.stop": f"toggleExpand('{uid}')",
+                "x-on:click.stop": alpine_call("toggleExpand", uid),
             },
             cls=(ButtonT.ghost, "p-0 min-h-0 h-6 w-6 text-muted-foreground hover:text-foreground"),
             size="xs",
@@ -200,7 +200,7 @@ def _render_tree_node(
             type="checkbox",
             **{
                 "x-model": "selected",
-                ":value": f"'{uid}'",
+                ":value": js_literal(uid),
             },
             cls="checkbox checkbox-primary checkbox-sm cursor-pointer mr-2",
         )
@@ -208,7 +208,7 @@ def _render_tree_node(
     # Title (inline editable when the tree is; a link when the row has a page)
     title_element = Span(
         A(title, href=href, cls="text-primary hover:underline") if href else title,
-        **({"x-on:dblclick": f"startEdit('{uid}')"} if editable else {}),
+        **({"x-on:dblclick": alpine_call("startEdit", uid)} if editable else {}),
         cls=(
             "grow text-sm cursor-text hover:bg-muted px-1 rounded-sm node-title"
             if editable
@@ -232,9 +232,9 @@ def _render_tree_node(
     if draggable:
         drag_attrs = {
             "draggable": "true",
-            "x-on:dragstart": f"handleDragStart($event, '{uid}')",
+            "x-on:dragstart": f"handleDragStart($event, {js_literal(uid)})",
             "x-on:dragover.prevent": "handleDragOver",
-            "x-on:drop": f"handleDrop($event, '{uid}')",
+            "x-on:drop": f"handleDrop($event, {js_literal(uid)})",
         }
 
     # Build content row elements
@@ -257,10 +257,12 @@ def _render_tree_node(
     # Children container (lazy loaded via HTMX)
     children_container = Div(
         **{
-            "x-show": f"isExpanded('{uid}')",
+            "x-show": alpine_call("isExpanded", uid),
             "x-cloak": True,
             "hx-get": f"{children_endpoint.replace('{uid}', uid)}?parent_depth={depth}",
-            "hx-trigger": f"expand-{uid} from:body",  # Triggered by Alpine
+            # hierarchyTree dispatches "expand" on this container itself; the uid
+            # stays out of the trigger, where htmx would read "[...]" as a filter.
+            "hx-trigger": "expand",
             "hx-target": "this",
             "hx-swap": "innerHTML",
         },
