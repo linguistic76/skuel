@@ -158,6 +158,20 @@ class TestBulkActions:
         assert response.status_code == 200
         harness.store.smart_dismiss.assert_awaited_once_with(_USER_UID, "impact", "low")
 
+    def test_smart_dismiss_refuses_an_unknown_filter_type(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            "/api/insights/bulk/smart-dismiss",
+            {"filter_type": "insight_type", "filter_value": "knowledge_gap"},
+        )
+
+        assert response.status_code == 400
+        harness.store.smart_dismiss.assert_not_awaited()
+
 
 class TestDetailsOwnership:
     def test_foreign_insight_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:

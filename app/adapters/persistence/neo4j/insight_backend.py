@@ -5,7 +5,7 @@ Insight Backend
 Backend for insight graph node CRUD operations.
 Does NOT extend UniversalNeo4jBackend — takes a Neo4jQueryExecutor directly.
 
-Migrates 10 execute_query calls from InsightStore.
+Every Cypher statement InsightStore runs lives here.
 
 Protocol: core/ports/insight_protocols.py (InsightBackendOperations) — InsightStore
 types its handle against that port, never against this class (SKUEL023 / ADR-044).
@@ -17,10 +17,26 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.insight.persisted_insight import InsightField
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+
+# An active insight: neither dismissed nor actioned, and not past its expiry.
+# Every read of a learner's active set, and the bulk dismiss over it, uses this one rule.
+_ACTIVE_INSIGHT = """i.dismissed = false
+          AND i.actioned = false
+          AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())"""
+
+# The stored property behind each field — the whitelist that keeps a caller's
+# value out of the query text.
+_FIELD_PROPERTY: dict[InsightField, str] = {
+    InsightField.IMPACT: "impact",
+    InsightField.DOMAIN: "domain",
+    InsightField.INSIGHT_TYPE: "insight_type",
+}
 
 
 class InsightBackend:
@@ -106,9 +122,7 @@ class InsightBackend:
 
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
-        WHERE i.dismissed = false
-          AND i.actioned = false
-          AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())
+        WHERE {_ACTIVE_INSIGHT}
           {domain_filter}
         RETURN i
         ORDER BY
@@ -231,12 +245,11 @@ class InsightBackend:
     async def get_insight_stats(self, user_uid: str) -> Result[list[dict[str, Any]]]:
         """Get statistics about a user's insights."""
         return await self._executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:HAS_INSIGHT]->(i:Insight)
+            f"""
+            MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
             RETURN
                 count(i) as total_insights,
-                count(CASE WHEN i.dismissed = false AND i.actioned = false
-                           AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())
+                count(CASE WHEN {_ACTIVE_INSIGHT}
                       THEN 1 END) as active_insights,
                 count(CASE WHEN i.dismissed = true THEN 1 END) as dismissed_insights,
                 count(CASE WHEN i.actioned = true THEN 1 END) as actioned_insights,
@@ -247,16 +260,42 @@ class InsightBackend:
             {"user_uid": user_uid},
         )
 
-    async def get_insight_counts_by_domain(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get count of active insights grouped by domain."""
+    async def count_active_insights_by(
+        self, user_uid: str, field: InsightField
+    ) -> Result[list[dict[str, Any]]]:
+        """Count a user's whole active set, one row per value of ``field``.
+
+        A grouped count has no row cap, so a learner's figures are never cut
+        short by a page.
+        """
+        prop = _FIELD_PROPERTY[field]
         return await self._executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:HAS_INSIGHT]->(i:Insight)
-            WHERE i.dismissed = false
-              AND i.actioned = false
-              AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())
-            RETURN i.domain as domain, count(i) as count
-            ORDER BY count DESC
+            f"""
+            MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
+            WHERE {_ACTIVE_INSIGHT}
+            RETURN i.{prop} AS value, count(i) AS count
             """,
             {"user_uid": user_uid},
+        )
+
+    async def dismiss_active_insights_matching(
+        self, user_uid: str, field: InsightField, value: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Dismiss every active insight of a user whose ``field`` equals ``value``.
+
+        One statement: every match is dismissed or none is, and the count
+        returned is the number dismissed (one row, zero when nothing matched).
+        """
+        prop = _FIELD_PROPERTY[field]
+        return await self._executor.execute_query(
+            f"""
+            MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
+            WHERE {_ACTIVE_INSIGHT}
+              AND i.{prop} = $value
+            SET i.dismissed = true,
+                i.dismissed_at = datetime(),
+                i.dismissed_notes = ''
+            RETURN count(i) AS dismissed_count
+            """,
+            {"user_uid": user_uid, "value": value},
         )

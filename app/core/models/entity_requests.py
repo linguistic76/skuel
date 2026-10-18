@@ -10,7 +10,7 @@ Pydantic models shared across all entity types:
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -154,10 +154,13 @@ class DeactivateUserRequest(BaseModel):
     reason: str = Field(default="", description="Reason recorded with the deactivation")
 
 
+SmartDismissFilter = Literal["impact", "domain", "type"]
+
+
 class SmartDismissRequest(BaseModel):
     """Request to smart-dismiss insights matching a filter."""
 
-    filter_type: str = Field(..., description="Filter type: impact, domain, or type")
+    filter_type: SmartDismissFilter = Field(..., description="Filter type: impact, domain, or type")
     filter_value: str = Field(..., description="Filter value to match")
 
 

@@ -147,26 +147,28 @@ Each returns `Result[ChartJsConfig]`. `format_distribution_chart` and
 `format_completion_chart` fails only when its three lists differ in length. Three empty
 lists pass and produce a chart with no points.
 
-Otherwise build the literal, as `InsightStore` does:
+Otherwise build the literal, as `InsightStore` does. Count the whole set in the graph —
+a grouped Cypher `count()` on the backend, never a count over a page of rows:
 
 ```python
-from operator import itemgetter
-
+from core.models.insight.persisted_insight import InsightField
 from core.models.type_hints import UserUID
 from core.ports.query_types import ChartJsConfig
 from core.utils.palette import ChartColor, SemanticColor, rgba
 from core.utils.result_simplified import Result
 
 
+def _by_count_then_name(item: tuple[str, int]) -> tuple[int, str]:
+    name, count = item
+    return (-count, name)
+
+
 async def get_domain_distribution_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
-    result = await self.get_active_insights(user_uid=user_uid, limit=200)
+    result = await self.count_active_insights_by(user_uid, InsightField.DOMAIN)
     if result.is_error:
         return Result.fail(result)
 
-    counts: dict[str, int] = {}
-    for insight in result.value:
-        counts[insight.domain] = counts.get(insight.domain, 0) + 1
-    ranked = sorted(counts.items(), key=itemgetter(1), reverse=True)
+    ranked = sorted(result.value.items(), key=_by_count_then_name)  # largest first, a tie by name
 
     return Result.ok(
         {

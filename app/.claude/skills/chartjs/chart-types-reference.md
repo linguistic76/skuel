@@ -99,7 +99,7 @@ same colors (`borderWidth: 2`) and the legend at the top.
 {
     "type": "bar",
     "data": {
-        "labels": ["Tasks", "Habits"],              # domain.title(), sorted by count desc
+        "labels": ["Tasks", "Habits"],              # domain.title(), by count desc, a tie by name
         "datasets": [{"label": "Active Insights", "data": [5, 2],
                       "backgroundColor": "rgba(59, 130, 246, 0.8)"}],
     },
@@ -178,8 +178,9 @@ The aggregation service labels slices with raw enum values (`priority.value`,
 
 `get_impact_distribution_chart` has four fixed labels (Critical, High, Medium, Low,
 which is the insight-impact scale, not `Priority`) and its legend at the bottom.
-`get_type_distribution_chart` has one slice per insight type, sorted by count, with
-its legend on the right. Both fill at `ChartColor.FILL_ALPHA` (0.8): impact from
+`get_type_distribution_chart` has one slice per insight type, sorted by count (a tie by
+name), with its legend on the right. All three count the learner's whole active set
+through one grouped count (`InsightStore.count_active_insights_by`). Both fill at `ChartColor.FILL_ALPHA` (0.8): impact from
 `ChartColor.IMPACT_*`, type from the `ChartColor.CATEGORIES` list, which Chart.js
 repeats past its sixth colour.
 

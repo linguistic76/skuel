@@ -1,6 +1,6 @@
 ---
 title: Insight Action Tracking Pattern
-updated: '2026-10-17'
+updated: '2026-10-18'
 category: patterns
 related_skills:
 - chartjs
@@ -574,13 +574,14 @@ result = await insight_store.bulk_dismiss(uids=["uid1", "uid2"], user_uid="user_
 # Bulk mark actioned
 result = await insight_store.bulk_mark_actioned(uids=["uid1"], user_uid="user_mike")
 
-# Smart dismiss — dismiss all matching a filter criterion
+# Smart dismiss — dismiss every active insight matching a filter, in one write
+# (every match or, on an error, none)
 result = await insight_store.smart_dismiss(
     user_uid="user_mike",
-    filter_type="impact",   # "impact", "domain", or "type"
+    filter_type="impact",   # "impact", "domain", or "type" — anything else is a 400 at the route
     filter_value="low",
 )
-# → {"success_count": 5, "total_matching": 5, "failed_uids": [], "filter": {...}}
+# → {"dismissed_count": 5, "filter": {"type": "impact", "value": "low"}}
 ```
 
 ### In-Memory Filtering

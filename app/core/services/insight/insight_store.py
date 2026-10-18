@@ -29,7 +29,10 @@ Usage:
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.entity_requests import SmartDismissFilter
 from core.models.insight.persisted_insight import (
+    InsightField,
+    InsightImpact,
     PersistedInsight,
 )
 from core.models.type_hints import EntityUID, UserUID
@@ -46,6 +49,27 @@ if TYPE_CHECKING:
 
 # Fields stored as JSON strings in Neo4j (dicts/lists that Neo4j can't store natively)
 _INSIGHT_JSON_FIELDS = ("related_entities", "recommended_actions", "supporting_data")
+
+# The field each smart-dismiss filter matches on ("type" is the insight's type).
+_SMART_DISMISS_FIELD: dict[SmartDismissFilter, InsightField] = {
+    "impact": InsightField.IMPACT,
+    "domain": InsightField.DOMAIN,
+    "type": InsightField.INSIGHT_TYPE,
+}
+
+# The impact chart's fixed slices, most severe first.
+_IMPACT_ORDER = (
+    InsightImpact.CRITICAL,
+    InsightImpact.HIGH,
+    InsightImpact.MEDIUM,
+    InsightImpact.LOW,
+)
+
+
+def _by_count_then_name(item: tuple[str, int]) -> tuple[int, str]:
+    """Sort key: the largest count first, a tie in name order."""
+    name, count = item
+    return (-count, name)
 
 
 def _insight_from_node(node: Any) -> PersistedInsight:  # boundary: neo4j Node or property dict
@@ -676,9 +700,12 @@ class InsightStore:
         )
 
     async def smart_dismiss(
-        self, user_uid: UserUID, filter_type: str, filter_value: str
+        self, user_uid: UserUID, filter_type: SmartDismissFilter, filter_value: str
     ) -> Result[dict[str, Any]]:
-        """Dismiss all active insights matching a filter criterion.
+        """Dismiss every active insight matching a filter criterion.
+
+        The whole matching set is dismissed in one write — every match or, on
+        an error, none.
 
         Args:
             user_uid: User who owns the insights
@@ -686,47 +713,32 @@ class InsightStore:
             filter_value: Value to match against
 
         Returns:
-            Result with success_count, total_matching, failed_uids, and filter info
+            Result with dismissed_count and the filter applied
         """
-        if filter_type not in ("impact", "domain", "type"):
-            return Result.fail(Errors.validation(f"Invalid filter_type: {filter_type}"))
-
-        result = await self.get_active_insights(user_uid=user_uid, limit=200)
+        try:
+            result = await self.backend.dismiss_active_insights_matching(
+                user_uid, _SMART_DISMISS_FIELD[filter_type], filter_value
+            )
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Error smart-dismissing insights: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to dismiss insights: {e}",
+                    operation="smart_dismiss",
+                )
+            )
         if result.is_error:
+            self.logger.error(f"Error smart-dismissing insights: {result.error}")
             return Result.fail(result)
 
-        insights = result.value
-
-        if filter_type == "impact":
-            matching = [i for i in insights if i.impact.value == filter_value]
-        elif filter_type == "domain":
-            matching = [i for i in insights if i.domain == filter_value]
-        else:  # type
-            matching = [i for i in insights if i.insight_type.value == filter_value]
-
-        success_count = 0
-        failed_uids = []
-
-        for insight in matching:
-            dismiss_result = await self.dismiss_insight(insight.uid, user_uid)
-            if dismiss_result.is_error:
-                self.logger.error(
-                    f"Failed to dismiss insight {insight.uid}: {dismiss_result.error}"
-                )
-                failed_uids.append(insight.uid)
-            else:
-                success_count += 1
-
+        dismissed_count = int(result.value[0]["dismissed_count"])
         self.logger.info(
-            f"Smart dismissed {success_count}/{len(matching)} "
-            f"{filter_type}={filter_value} insights for {user_uid}"
+            f"Smart dismissed {dismissed_count} {filter_type}={filter_value} "
+            f"insights for {user_uid}"
         )
-
         return Result.ok(
             {
-                "success_count": success_count,
-                "total_matching": len(matching),
-                "failed_uids": failed_uids,
+                "dismissed_count": dismissed_count,
                 "filter": {
                     "type": filter_type,
                     "value": filter_value,
@@ -741,8 +753,8 @@ class InsightStore:
     async def get_impact_distribution_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
         """Build Chart.js doughnut config for impact distribution.
 
-        Counts active insights per impact level and returns a complete
-        Chart.js configuration dict.
+        Counts the whole active set per impact level — every level a slice, in
+        severity order, zero included.
 
         Args:
             user_uid: User identifier
@@ -750,15 +762,11 @@ class InsightStore:
         Returns:
             Result with Chart.js doughnut config
         """
-        result = await self.get_active_insights(user_uid=user_uid, limit=200)
+        result = await self.count_active_insights_by(user_uid, InsightField.IMPACT)
         if result.is_error:
             return Result.fail(result)
 
-        insights = result.value
-
-        impact_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-        for insight in insights:
-            impact_counts[insight.impact.value] += 1
+        impact_counts = result.value
 
         return Result.ok(
             {
@@ -768,12 +776,7 @@ class InsightStore:
                     "datasets": [
                         {
                             "label": "Insights by Impact",
-                            "data": [
-                                impact_counts["critical"],
-                                impact_counts["high"],
-                                impact_counts["medium"],
-                                impact_counts["low"],
-                            ],
+                            "data": [impact_counts.get(impact, 0) for impact in _IMPACT_ORDER],
                             "backgroundColor": [
                                 rgba(colour, ChartColor.FILL_ALPHA)
                                 for colour in (
@@ -799,7 +802,8 @@ class InsightStore:
     async def get_domain_distribution_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
         """Build Chart.js bar config for insights by domain.
 
-        Counts active insights per domain, sorted by count descending.
+        Counts the whole active set per domain, the largest first, a tie in
+        name order.
 
         Args:
             user_uid: User identifier
@@ -807,20 +811,11 @@ class InsightStore:
         Returns:
             Result with Chart.js bar config
         """
-        from operator import itemgetter
-
-        result = await self.get_active_insights(user_uid=user_uid, limit=200)
+        result = await self.count_active_insights_by(user_uid, InsightField.DOMAIN)
         if result.is_error:
             return Result.fail(result)
 
-        insights = result.value
-
-        domain_counts: dict[str, int] = {}
-        for insight in insights:
-            domain = insight.domain
-            domain_counts[domain] = domain_counts.get(domain, 0) + 1
-
-        sorted_domains = sorted(domain_counts.items(), key=itemgetter(1), reverse=True)
+        sorted_domains = sorted(result.value.items(), key=_by_count_then_name)
 
         return Result.ok(
             {
@@ -849,7 +844,8 @@ class InsightStore:
     async def get_type_distribution_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
         """Build Chart.js doughnut config for insight type distribution.
 
-        Counts active insights per type, sorted by count descending.
+        Counts the whole active set per type, the largest first, a tie in name
+        order.
 
         Args:
             user_uid: User identifier
@@ -857,20 +853,11 @@ class InsightStore:
         Returns:
             Result with Chart.js doughnut config
         """
-        from operator import itemgetter
-
-        result = await self.get_active_insights(user_uid=user_uid, limit=200)
+        result = await self.count_active_insights_by(user_uid, InsightField.INSIGHT_TYPE)
         if result.is_error:
             return Result.fail(result)
 
-        insights = result.value
-
-        type_counts: dict[str, int] = {}
-        for insight in insights:
-            insight_type = insight.insight_type.value
-            type_counts[insight_type] = type_counts.get(insight_type, 0) + 1
-
-        sorted_types = sorted(type_counts.items(), key=itemgetter(1), reverse=True)
+        sorted_types = sorted(result.value.items(), key=_by_count_then_name)
         labels = [t.replace("_", " ").title() for t, _ in sorted_types]
 
         return Result.ok(
@@ -946,52 +933,34 @@ class InsightStore:
             }
         )
 
-    async def get_insight_counts_by_domain(
-        self,
-        user_uid: UserUID,
+    async def count_active_insights_by(
+        self, user_uid: UserUID, field: InsightField
     ) -> Result[dict[str, int]]:
-        """
-        Get count of active insights grouped by domain.
+        """Count a user's whole active set by one insight field.
 
-        Used for Profile Hub integration to show insight badges on domain cards.
+        Backend: ``InsightBackend.count_active_insights_by`` — a grouped count,
+        so no page caps it.
 
         Args:
             user_uid: User identifier
+            field: The property to group by — impact, domain or insight type
 
         Returns:
-            Result with dict mapping domain -> count (e.g., {"habits": 3, "tasks": 5})
-
-        Example:
-            counts = await store.get_insight_counts_by_domain("user_mike")
-            # {"habits": 3, "tasks": 5, "goals": 1}
+            Result with a dict mapping each value present to its count
+            (e.g. ``{"habits": 3, "tasks": 5}`` by domain)
         """
         try:
-            result = await self.backend.get_insight_counts_by_domain(user_uid)
-
-            if result.is_error:
-                self.logger.error(f"Error getting insight counts by domain: {result.error}")
-                return Result.fail(
-                    Errors.database(
-                        message=f"Failed to get insight counts by domain: {result.error}",
-                        operation="get_insight_counts_by_domain",
-                    )
-                )
-
-            # Build domain -> count dict
-            domain_counts: dict[str, int] = {}
-            for record in result.value:
-                domain = record["domain"]
-                count = record["count"]
-                domain_counts[domain] = count
-
-            self.logger.debug(f"Retrieved insight counts for user {user_uid}: {domain_counts}")
-            return Result.ok(domain_counts)
-
+            result = await self.backend.count_active_insights_by(user_uid, field)
         except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Error getting insight counts by domain: {e}", exc_info=True)
+            self.logger.error(f"Error counting active insights by {field}: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
-                    message=f"Failed to get insight counts by domain: {e}",
-                    operation="get_insight_counts_by_domain",
+                    message=f"Failed to count active insights: {e}",
+                    operation="count_active_insights_by",
                 )
             )
+        if result.is_error:
+            self.logger.error(f"Error counting active insights by {field}: {result.error}")
+            return Result.fail(result)
+
+        return Result.ok({record["value"]: int(record["count"]) for record in result.value})
