@@ -19,6 +19,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body, read_json_body
 from adapters.inbound.route_factories import parse_enum_param_strict, parse_int_param_strict
+from core.constants import QueryLimit
 from core.models.entity_requests import SmartDismissRequest
 from core.models.insight.persisted_insight import (
     ActiveInsightFilter,
@@ -33,6 +34,15 @@ from core.utils.result_simplified import Result
 from ui.insights.insight_card import DismissedInsightMessage
 
 logger = get_logger("skuel.routes.insights.api")
+
+
+def parse_active_insight_offset(params: Mapping[str, str]) -> Result[int]:
+    """The ``offset`` query parameter: matches to skip before a page of active insights.
+
+    Missing or blank is 0; below 0 or above ``QueryLimit.MAXIMUM`` — the whole-set
+    read cap, far inside the 64-bit integer Neo4j carries — is a validation error.
+    """
+    return parse_int_param_strict(params.get("offset"), "offset", 0, QueryLimit.MAXIMUM, default=0)
 
 
 def parse_active_insight_filter(
@@ -219,8 +229,9 @@ def create_insights_api_routes(
             domain / impact / type / search: the filters the ``/insights`` page
                 takes — blank is no filter, a value outside its vocabulary a 400
             limit: page size (default 50; one that does not read, or is below 1,
-                is a 400)
-            offset: matches to skip (default 0; below 0 is a 400)
+                is a 400; above ``QueryLimit.BULK`` is that cap)
+            offset: matches to skip (default 0; below 0 or above
+                ``QueryLimit.MAXIMUM`` is a 400)
 
         Returns:
             Result with the page (``insights``), the whole matching total
@@ -232,10 +243,12 @@ def create_insights_api_routes(
         match = parse_active_insight_filter(params)
         if match.is_error:
             return Result.fail(match)
-        limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=50)
+        limit = parse_int_param_strict(
+            params.get("limit"), "limit", 1, default=50, cap=QueryLimit.BULK
+        )
         if limit.is_error:
             return Result.fail(limit)
-        offset = parse_int_param_strict(params.get("offset"), "offset", 0, default=0)
+        offset = parse_active_insight_offset(params)
         if offset.is_error:
             return Result.fail(offset)
 

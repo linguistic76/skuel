@@ -19,8 +19,11 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.insights_api import parse_active_insight_filter
-from adapters.inbound.route_factories import parse_int_param_strict, refuse_malformed
+from adapters.inbound.insights_api import (
+    parse_active_insight_filter,
+    parse_active_insight_offset,
+)
+from adapters.inbound.route_factories import refuse_malformed
 from core.models.enums import EntityType, HubQuestion
 from core.models.insight.persisted_insight import ActiveInsightFilter
 from core.services.user.rich_context import rich_entity_titles
@@ -83,12 +86,12 @@ def _names_a_ku(domain: str) -> bool:
 
 def _parse_insights_filters(request: Request) -> Result[InsightsFilters]:
     """The page's filters and offset from its query params — a validation error
-    when ``offset`` does not read or is negative, or a domain / impact / type is
-    outside its vocabulary."""
+    when ``offset`` does not read or is outside 0..``QueryLimit.MAXIMUM``, or a
+    domain / impact / type is outside its vocabulary."""
     match = parse_active_insight_filter(request.query_params)
     if match.is_error:
         return Result.fail(match)
-    offset = parse_int_param_strict(request.query_params.get("offset"), "offset", 0, default=0)
+    offset = parse_active_insight_offset(request.query_params)
     if offset.is_error:
         return Result.fail(offset)
     return Result.ok(InsightsFilters(match=match.value, offset=offset.value))

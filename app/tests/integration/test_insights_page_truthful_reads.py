@@ -35,6 +35,7 @@ from adapters.inbound.insights_api import create_insights_api_routes
 from adapters.inbound.insights_ui import create_insights_ui_routes
 from adapters.persistence.neo4j.insight_backend import InsightBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.constants import QueryLimit
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.services.insight.insight_store import InsightStore
 
@@ -319,6 +320,9 @@ class TestThePageAndLoadMore:
             {"type": "completion_streak"},
             {"domain": "knowledge"},
             {"offset": "-1"},
+            {"offset": "10001"},
+            # Past Neo4j's 64-bit integer: refused at the door, never sent to the driver.
+            {"offset": "9223372036854775808"},
         ],
     )
     async def test_a_value_outside_its_vocabulary_is_a_400(
@@ -347,8 +351,14 @@ class TestTheActiveApi:
             (await handler(_request("/api/insights/active", impact="low", limit="5"))).body
         )
 
+        huge = json.loads(
+            (await handler(_request("/api/insights/active", limit="9223372036854775808"))).body
+        )
+
         assert whole["count"] == 30
         assert whole["limit"] == 5
+        assert huge["limit"] == QueryLimit.BULK
+        assert len(huge["insights"]) == 30
         assert [i["uid"] for i in whole["insights"]] == _matching()[:5]
         expected_low = _matching(impact=InsightImpact.LOW)
         assert low["count"] == len(expected_low)

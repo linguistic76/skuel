@@ -609,7 +609,9 @@ repeat nor skip an insight.
 **The doors.** `/insights`, `/insights/load-more` and `GET /api/insights/active` take the same
 query parameters — `domain`, `impact`, `type`, `search` — read by
 `parse_active_insight_filter` (`insights_api.py`). A blank value is no filter; a domain,
-impact or type outside `InsightDomain` / `InsightImpact` / `InsightType` is a **400**.
+impact or type outside `InsightDomain` / `InsightImpact` / `InsightType` is a **400**, and so
+is an `offset` below 0 or above `QueryLimit.MAXIMUM` (`parse_active_insight_offset`); the API's
+`limit` is capped at `QueryLimit.BULK`.
 `/insights` shows the first ten matches and says how many there are; load-more returns
 exactly the next ten (`offset`). `/api/insights/active` answers the page (`insights`), the
 whole matching total (`count`), and the `limit`, `offset` and `filters` it used. The page
