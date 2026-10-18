@@ -26,6 +26,7 @@ from adapters.persistence.neo4j.insight_backend import InsightBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit import Habit
+from core.models.insight.persisted_insight import ActiveInsightFilter
 from core.models.type_hints import Neo4jProperties
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
@@ -55,7 +56,7 @@ class TestTimestampFieldCoercionResidual:
             )
         backend = InsightBackend(Neo4jQueryExecutor(neo4j_driver))
 
-        result = await backend.get_active_insights("user_insight", None, 10)
+        result = await backend.get_active_insights("user_insight", ActiveInsightFilter(), 10, 0)
         assert result.is_ok, f"get_active_insights failed: {result}"
         ids = {cast("Neo4jProperties", row["i"])["insight_id"] for row in result.value}
         assert "ins_active" in ids  # excluded under string-vs-datetime

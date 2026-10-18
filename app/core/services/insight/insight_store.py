@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.entity_requests import SmartDismissFilter
 from core.models.insight.persisted_insight import (
+    ActiveInsightFilter,
     InsightField,
     InsightImpact,
     PersistedInsight,
@@ -242,22 +243,30 @@ class InsightStore:
     async def get_active_insights(
         self,
         user_uid: UserUID,
-        domain: str | None = None,
+        match: ActiveInsightFilter | None = None,
+        *,
         limit: int = 50,
+        offset: int = 0,
     ) -> Result[list[PersistedInsight]]:
         """
-        Get active (non-dismissed, non-actioned, non-expired) insights for a user.
+        One page of a user's active (non-dismissed, non-actioned, non-expired)
+        insights that ``match`` selects — every active insight when it is omitted.
 
         Args:
             user_uid: User identifier
-            domain: Optional filter by domain (e.g., "habits", "choices")
-            limit: Maximum insights to return
+            match: Domain / impact / type / search to select by
+            limit: Page size
+            offset: Matches to skip before the page
 
         Returns:
-            Result with list of active insights, sorted by priority
+            Result with the page, highest impact first
+
+        Backend: InsightBackend.get_active_insights
         """
         try:
-            result = await self.backend.get_active_insights(user_uid, domain, limit)
+            result = await self.backend.get_active_insights(
+                user_uid, match or ActiveInsightFilter(), limit, offset
+            )
 
             if result.is_error:
                 self.logger.error(f"Error getting active insights: {result.error}")
@@ -287,6 +296,46 @@ class InsightStore:
                 Errors.database(
                     message=f"Failed to get active insights: {e}",
                     operation="get_active_insights",
+                )
+            )
+
+    async def count_active_insights(
+        self, user_uid: UserUID, match: ActiveInsightFilter | None = None
+    ) -> Result[int]:
+        """
+        How many of a user's active insights ``match`` selects — the whole set,
+        never cut short by a page.
+
+        Backend: InsightBackend.count_active_insights
+        """
+        try:
+            result = await self.backend.count_active_insights(
+                user_uid, match or ActiveInsightFilter()
+            )
+            if result.is_error:
+                self.logger.error(f"Error counting active insights: {result.error}")
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to count active insights: {result.error}",
+                        operation="count_active_insights",
+                    )
+                )
+            return Result.ok(int(result.value[0]["total"]))
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error counting active insights: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to count active insights: {e}",
+                    operation="count_active_insights",
+                )
+            )
+        except (ValueError, KeyError, TypeError, IndexError) as e:
+            self.logger.error(f"Data conversion error counting active insights: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to count active insights: {e}",
+                    operation="count_active_insights",
                 )
             )
 
@@ -528,6 +577,9 @@ class InsightStore:
         """
         Get statistics about a user's insights.
 
+        ``total``, ``dismissed``, ``actioned``, ``action_rate`` and ``domains`` are
+        all-time; ``active``, ``critical`` and ``high`` count the active set.
+
         Args:
             user_uid: User identifier
 
@@ -586,50 +638,6 @@ class InsightStore:
                     operation="get_insight_stats",
                 )
             )
-
-    # ========================================
-    # In-Memory Filtering
-    # ========================================
-
-    @staticmethod
-    def filter_insights(
-        insights: list[PersistedInsight],
-        *,
-        impact: str | None = None,
-        insight_type: str | None = None,
-        action_status: str | None = None,
-        search: str | None = None,
-    ) -> list[PersistedInsight]:
-        """Apply in-memory filters to a list of insights.
-
-        Used for client-side filtering when all insights are already fetched.
-
-        Args:
-            insights: List of insights to filter
-            impact: Filter by impact level value (e.g. "high")
-            insight_type: Filter by insight type value (e.g. "difficulty_pattern")
-            action_status: "actioned" or "unactioned"
-            search: Case-insensitive text search in title and description
-
-        Returns:
-            Filtered list of insights
-        """
-        if impact:
-            insights = [i for i in insights if i.impact.value == impact]
-        if insight_type:
-            insights = [i for i in insights if i.insight_type.value == insight_type]
-        if action_status == "unactioned":
-            insights = [i for i in insights if not i.actioned]
-        elif action_status == "actioned":
-            insights = [i for i in insights if i.actioned]
-        if search:
-            search_lower = search.lower()
-            insights = [
-                i
-                for i in insights
-                if search_lower in i.title.lower() or search_lower in (i.description or "").lower()
-            ]
-        return insights
 
     # ========================================
     # Bulk Operations

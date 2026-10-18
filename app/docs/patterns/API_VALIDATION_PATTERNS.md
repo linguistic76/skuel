@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-10-15
+updated: '2026-10-18'
 category: patterns
 related_skills:
 - pydantic
@@ -56,7 +56,8 @@ parameter carries (a form field, a JSON body's key), which reads the same way.
 
 **Pattern:** the readers in `route_helpers.py` — `parse_int_param_strict`,
 `parse_float_param_strict`, `parse_bool_param_strict`, `parse_date_param_strict`,
-`parse_pagination_params` — each return a `Result`, so a route composes them with
+`parse_enum_param_strict` (a `StrEnum` member by its value: blank is `None`, any other
+word a 400 naming the values that read), `parse_pagination_params` — each return a `Result`, so a route composes them with
 `@boundary_handler()` by returning the failure onward. No reader answers a default for
 a malformed value. A form the learner types into answers with its banner (200) instead
 of a status — `/search/results` (`SearchRequest.from_form_params`, which also drops an

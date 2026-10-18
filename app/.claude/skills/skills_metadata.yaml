@@ -102,7 +102,7 @@ skills:
 
   - name: ui-css
     description: SKUEL CSS layer — Tailwind + ui.components (SKUEL-owned pure-Tailwind layer, ADR-071)
-    last_reviewed: "2026-10-17"
+    last_reviewed: "2026-10-18"
     foundation: []
     dependencies: []
     library_package: null  # CDN/static, not PyPI package

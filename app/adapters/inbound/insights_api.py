@@ -1,11 +1,11 @@
 """Insights API Routes - Event-Driven Insights Management
 ===========================================================
 
-API routes for managing event-driven insights (dismiss, mark as actioned).
-
-(January 2026): Insight lifecycle management.
+API routes for event-driven insights: the active-set and stats reads, the
+chart data, and the lifecycle writes (dismiss, mark as actioned, snooze).
 """
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import FT
@@ -18,8 +18,14 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body, read_json_body
-from adapters.inbound.route_factories import parse_int_param_strict
+from adapters.inbound.route_factories import parse_enum_param_strict, parse_int_param_strict
 from core.models.entity_requests import SmartDismissRequest
+from core.models.insight.persisted_insight import (
+    ActiveInsightFilter,
+    InsightDomain,
+    InsightImpact,
+    InsightType,
+)
 from core.models.insight_request import BulkInsightUidsRequest, SnoozeInsightRequest
 from core.ports.query_types import ChartJsConfig
 from core.utils.logging import get_logger
@@ -27,6 +33,33 @@ from core.utils.result_simplified import Result
 from ui.insights.insight_card import DismissedInsightMessage
 
 logger = get_logger("skuel.routes.insights.api")
+
+
+def parse_active_insight_filter(
+    params: Mapping[str, str],
+) -> Result[ActiveInsightFilter]:
+    """The ``domain`` / ``impact`` / ``type`` / ``search`` query parameters as a filter.
+
+    A blank value is no filter; a domain, impact or type outside its vocabulary
+    is a validation error (a 400). Search is free text.
+    """
+    domain = parse_enum_param_strict(params.get("domain"), "domain", InsightDomain)
+    if domain.is_error:
+        return Result.fail(domain)
+    impact = parse_enum_param_strict(params.get("impact"), "impact", InsightImpact)
+    if impact.is_error:
+        return Result.fail(impact)
+    insight_type = parse_enum_param_strict(params.get("type"), "type", InsightType)
+    if insight_type.is_error:
+        return Result.fail(insight_type)
+    return Result.ok(
+        ActiveInsightFilter(
+            domain=domain.value,
+            impact=impact.value,
+            insight_type=insight_type.value,
+            search=str(params.get("search") or "").strip(),
+        )
+    )
 
 
 def create_insights_api_routes(
@@ -40,9 +73,6 @@ def create_insights_api_routes(
         app: FastHTML app instance
         rt: Route decorator
         insight_store: InsightStore service for managing insights
-
-    Returns:
-        List of route handler functions
     """
 
     # NOTE: the bulk routes MUST be registered before the /{uid}/ routes —
@@ -182,48 +212,56 @@ def create_insights_api_routes(
 
     @rt("/api/insights/active")
     @boundary_handler(success_status=200)
-    async def get_active_insights(
-        request: Request,
-        domain: str | None = None,
-    ) -> Result[dict[str, Any]]:
-        """Get active insights for the current user (JSON API).
-
-        Args:
-            request: HTTP request with authentication
-            domain: Optional domain filter
+    async def get_active_insights(request: Request) -> Result[dict[str, Any]]:
+        """Get one page of the current user's active insights (JSON API).
 
         Query Parameters:
-            limit: Maximum number of insights to return (default 50; one that
-                does not read, or is below 1, is a 400)
+            domain / impact / type / search: the filters the ``/insights`` page
+                takes — blank is no filter, a value outside its vocabulary a 400
+            limit: page size (default 50; one that does not read, or is below 1,
+                is a 400)
+            offset: matches to skip (default 0; below 0 is a 400)
 
         Returns:
-            Result with list of active insights or error
+            Result with the page (``insights``), the whole matching total
+            (``count``), and the ``limit`` / ``offset`` / ``filters`` it used
         """
         user_uid = require_authenticated_user(request)
+        params = request.query_params
 
-        limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=50)
+        match = parse_active_insight_filter(params)
+        if match.is_error:
+            return Result.fail(match)
+        limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=50)
         if limit.is_error:
             return Result.fail(limit)
-        result = await insight_store.get_active_insights(
-            user_uid=user_uid,
-            domain=domain,
-            limit=limit.value,
+        offset = parse_int_param_strict(params.get("offset"), "offset", 0, default=0)
+        if offset.is_error:
+            return Result.fail(offset)
+
+        page = await insight_store.get_active_insights(
+            user_uid, match.value, limit=limit.value, offset=offset.value
         )
-
-        if result.is_error:
-            logger.error(f"Failed to retrieve active insights: {result.error}")
-            return Result.fail(result)
-
-        insights = result.value
-
-        # Convert to dictionaries for JSON response
-        insights_data = [insight.to_dict() for insight in insights]
+        if page.is_error:
+            logger.error(f"Failed to retrieve active insights: {page.error}")
+            return Result.fail(page)
+        total = await insight_store.count_active_insights(user_uid, match.value)
+        if total.is_error:
+            logger.error(f"Failed to count active insights: {total.error}")
+            return Result.fail(total)
 
         return Result.ok(
             {
-                "insights": insights_data,
-                "count": len(insights_data),
-                "domain_filter": domain,
+                "insights": [insight.to_dict() for insight in page.value],
+                "count": total.value,
+                "limit": limit.value,
+                "offset": offset.value,
+                "filters": {
+                    "domain": match.value.domain,
+                    "impact": match.value.impact,
+                    "type": match.value.insight_type,
+                    "search": match.value.search,
+                },
             }
         )
 

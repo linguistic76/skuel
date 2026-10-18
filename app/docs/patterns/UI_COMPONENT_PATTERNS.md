@@ -1259,7 +1259,7 @@ Domains outside the Activity pattern use the same principle — service methods 
 **Finance** (`FinanceService`): 4 typed context methods (`get_dashboard_context`, `get_budgets_context`, `get_reports_context`, `get_analytics_context`) return domain-specific `TypedDict`s (`FinanceDashboardContext`, etc.). Defined in `core/services/finance_service.py`.
 
 
-**Insights** (`insights_ui.py`): Module-level `filter_insights()` and `build_filter_query_string()` helpers DRY the filtering logic shared between `insights_dashboard` and `load_more_insights` routes.
+**Insights** (`insights_ui.py`): `insights_dashboard` and `load_more_insights` parse their filters through one reader (`parse_active_insight_filter`, shared with `GET /api/insights/active`) and pass them to `InsightStore.get_active_insights`, which filters and pages in Cypher; `_load_more_query()` carries the filters to the next page.
 
 **Pattern:** Routes should only do: authenticate → parse → call service → handle error → render. Data assembly, computation, and reshaping belong in service methods. Entity filtering/sorting lives in `core/utils/entity_filters.py`, not in UI view files. Cross-domain connection fetching lives below the boundary in `ConnectionFetchBackend` (behind the `ConnectionFetchOperations` port), not in route files — what it reads is the registry's page views (ADR-090 §2).
 

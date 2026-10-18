@@ -9,6 +9,8 @@ with persistence fields for Neo4j storage.
 """
 
 from core.models.insight.persisted_insight import (
+    ActiveInsightFilter,
+    InsightDomain,
     InsightField,
     InsightImpact,
     InsightType,
@@ -16,6 +18,8 @@ from core.models.insight.persisted_insight import (
 )
 
 __all__ = [
+    "ActiveInsightFilter",
+    "InsightDomain",
     "InsightField",
     "InsightImpact",
     "InsightType",

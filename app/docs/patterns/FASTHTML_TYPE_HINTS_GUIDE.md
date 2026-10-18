@@ -1,6 +1,6 @@
 ---
 title: FastHTML Type Hints Pattern Guide
-updated: 2026-10-12
+updated: '2026-10-18'
 category: patterns
 related_skills:
 - ui-browser
@@ -91,12 +91,11 @@ request (`data |= dict(conn.query_params)`), so `await request.json()` hands bac
 # adapters/inbound/insights_api.py
 @rt("/api/insights/active")
 @boundary_handler(success_status=200)
-async def get_active_insights(
-    request: Request,
-    domain: str | None = None,
-) -> Result[dict[str, Any]]:
+async def get_active_insights(request: Request) -> Result[dict[str, Any]]:
     user_uid = require_authenticated_user(request)
-    limit = parse_int_param_strict(request.query_params.get("limit"), "limit", 1, default=50)
+    params = request.query_params
+    ...
+    limit = parse_int_param_strict(params.get("limit"), "limit", 1, default=50)
     if limit.is_error:
         return Result.fail(limit)
     ...

@@ -17,12 +17,12 @@ The ``Any`` policy ranks "use a specific type" above "permanent boundary", so
 the two consumer files** (61 in ``insight_store.py``, 28 in
 ``user_context_builder.py``). The reason is structural, not incidental — these
 dicts are *records*, not property dicts. A record's values are Cypher-alias
-results, and four of these eleven methods ``RETURN i``: a whole ``:Insight``
+results, and four of these twelve methods ``RETURN i``: a whole ``:Insight``
 **node**, which ``InsightStore`` re-reads as ``dict(record["i"])``.
 ``Neo4jValue`` cannot describe a node (``dict()`` rejects it), and naming the
 driver's ``Node`` class inside ``core/ports`` would be worse than ``Any``.
 
-The remaining seven methods are flat projections and *could* carry TypedDicts —
+The remaining eight methods are flat projections and *could* carry TypedDicts —
 but a TypedDict return with no ``processor`` is an unchecked claim (SoC arc
 PR 6, Codex round 3): a renamed Cypher alias would still type-check and read as
 zero. Half-typing the port would advertise a shape nothing enforces. Each
@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from core.models.insight.persisted_insight import InsightField
+from core.models.insight.persisted_insight import ActiveInsightFilter, InsightField
 from core.utils.result_simplified import Result
 
 
@@ -67,10 +67,17 @@ class InsightBackendOperations(Protocol):
     async def get_active_insights(
         self,
         user_uid: str,
-        domain: str | None,
+        match: ActiveInsightFilter,
         limit: int,
+        offset: int,
     ) -> Result[list[dict[str, Any]]]:  # boundary: {i} — whole :Insight node per row
-        """Get active (non-dismissed, non-actioned, non-expired) insights for a user."""
+        """One page of a user's active insights that ``match`` selects, highest impact first."""
+        ...
+
+    async def count_active_insights(
+        self, user_uid: str, match: ActiveInsightFilter
+    ) -> Result[list[dict[str, Any]]]:  # boundary: one record, {total}
+        """Count every active insight of a user that ``match`` selects (no row cap)."""
         ...
 
     async def get_insights_for_entity(

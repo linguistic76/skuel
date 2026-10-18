@@ -35,7 +35,7 @@ import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
 from typing import TYPE_CHECKING, Any, cast, overload
 
 from fasthtml.common import FT, FtResponse
@@ -450,6 +450,28 @@ def parse_bool_param_strict(value: object, field: str, *, default: bool) -> Resu
     )
 
 
+def parse_enum_param_strict[E: StrEnum](
+    value: object, field: str, enum_cls: type[E]
+) -> Result[E | None]:
+    """Read a parameter that names one member of ``enum_cls`` by its value.
+
+    Missing or blank is ``None`` (no choice made); any other text that is not a
+    member's value is a validation error naming the values that read.
+    """
+    if _is_blank(value):
+        return Result.ok(None)
+    try:
+        return Result.ok(enum_cls(str(value)))
+    except ValueError:
+        return Result.fail(
+            Errors.validation(
+                f"{field} must be one of: {', '.join(member.value for member in enum_cls)}",
+                field=field,
+                value=str(value),
+            )
+        )
+
+
 @overload
 def parse_date_param_strict(value: object, field: str) -> Result[date]: ...
 @overload
@@ -544,6 +566,7 @@ __all__ = [
     "parse_bool_param_strict",
     "parse_csv_query_param",
     "parse_date_param_strict",
+    "parse_enum_param_strict",
     "parse_float_param_strict",
     "parse_int_param_strict",
     "parse_pagination_params",

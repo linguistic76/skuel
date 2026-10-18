@@ -337,7 +337,7 @@ The split is by **library**, not by punctuation: HTMX defines a colon-free doubl
   # ✅ tag="it's"  →  setTag("it's"), escaped for the attribute, decoded by the browser
   **{"x-on:click": alpine_call("setTag", tag)}
   **{":class": f"{alpine_call('isSaved', uid)} ? 'text-primary' : ''"}
-  x_data=alpine_call("insightFiltersDebounced", {"search": search, "status": status})
+  x_data=alpine_call("insightFiltersDebounced", {"search": search, "domain": domain})
   **{"@click": f"activeTab = {js_literal(uid)}"}
   # ❌  setTag('it's')  — the apostrophe ends the JS string; the click throws / injects
   **{"x-on:click": f"setTag('{tag}')"}
