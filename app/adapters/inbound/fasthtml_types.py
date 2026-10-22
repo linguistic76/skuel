@@ -75,7 +75,7 @@ class FastHTMLApp(Protocol):
         exc_class_or_status_code: type[Exception] | int,
         handler: Callable[[Request, Exception], Response],
     ) -> None:
-        """Register a Starlette exception handler (see boundary.install_malformed_json_guard).
+        """Register a Starlette exception handler (see boundary.install_malformed_body_guard).
 
         Starlette also accepts async handlers; this captures the sync form
         SKUEL actually registers.

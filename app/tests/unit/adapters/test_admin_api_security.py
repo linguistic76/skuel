@@ -185,8 +185,8 @@ class TestHardDeleteGuards:
         # text/plain so the malformed body reaches the route's own guard —
         # FastHTML pre-parses application/json bodies during param extraction,
         # where malformed JSON is handled by the app-wide 400 chokepoint
-        # instead (install_malformed_json_guard, wired in bootstrap; pinned by
-        # test_malformed_json_guard.py), never by handler code.
+        # instead (install_malformed_body_guard, wired in bootstrap; pinned by
+        # test_malformed_body_guard.py), never by handler code.
         client, service = _make_client(monkeypatch)
 
         token = mint_token()

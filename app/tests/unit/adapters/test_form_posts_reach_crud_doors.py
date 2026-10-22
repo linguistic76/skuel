@@ -22,10 +22,7 @@ from starlette.testclient import TestClient
 
 import adapters.inbound.route_factories.crud_route_factory as crud_module
 import adapters.inbound.route_factories.route_helpers as helpers_module
-from adapters.inbound.boundary import (
-    install_malformed_json_guard,
-    install_malformed_multipart_guard,
-)
+from adapters.inbound.boundary import install_malformed_body_guard
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.groups_routes import GROUPS_CONFIG
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -68,8 +65,7 @@ def _make_harness(monkeypatch: pytest.MonkeyPatch, config: DomainRouteConfig) ->
     primary.delete_for_user = AsyncMock(return_value=Result.ok(True))
 
     register_domain_routes(app, rt, services, config)
-    install_malformed_json_guard(app)
-    install_malformed_multipart_guard(app)
+    install_malformed_body_guard(app)
     return _Harness(client=TestClient(app, raise_server_exceptions=False), services=services)
 
 
@@ -117,7 +113,7 @@ class TestCrudDoorBodies:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """The body fails inside FastHTML's parameter extraction, BEFORE the handler
-        and its ``boundary_handler`` run — so the app-level multipart guard is what
+        and its ``boundary_handler`` run — so the app-level body chokepoint is what
         answers, and it answers here, at a CRUD door, not only on a bare route."""
         harness = _make_harness(monkeypatch, GROUPS_CONFIG)
         token = mint_token()
@@ -140,9 +136,9 @@ class TestCrudDoorBodies:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """FastHTML skips a multipart body shorter than its boundary could frame, so
-        this one is first read inside the handler — by ``parse_form_body``, which
-        answers the same validation 400 rather than letting the parser's error
-        reach ``boundary_handler``'s 500."""
+        this one is first read inside the handler — by ``parse_form_body``, where
+        Starlette's reader refuses it with the same 400 ``boundary_handler``
+        re-raises, and the app-level chokepoint answers it in the same shape."""
         harness = _make_harness(monkeypatch, GROUPS_CONFIG)
         token = mint_token()
         harness.client.cookies.set(CSRF_COOKIE_NAME, token)

@@ -18,18 +18,16 @@ import time
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
 from inspect import iscoroutinefunction
-from json import JSONDecodeError
 from types import MappingProxyType
 from typing import Any, ParamSpec
 
 from fasthtml.common import FT, Div, to_xml
 from pydantic_core import to_jsonable_python
-from python_multipart.exceptions import MultipartParseError
 from starlette.exceptions import HTTPException
-from starlette.responses import HTMLResponse, JSONResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request
-from adapters.inbound.form_helpers import media_type_of
+from adapters.inbound.form_helpers import FORM_MEDIA_TYPES, media_type_of
 from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
@@ -284,57 +282,40 @@ def ui_boundary_handler(
     return decorator
 
 
-def malformed_json_handler(request: Request, exc: Exception) -> Response:
-    """Map a body-parse ``JSONDecodeError`` to a 400 validation response.
+#: Body media types FastHTML parses before a handler runs — a request that sent one
+#: of these is a body-sending client, and its refusal answers in the API's shape.
+_PARSED_BODY_MEDIA_TYPES = FORM_MEDIA_TYPES | {"application/json"}
 
-    FastHTML pre-parses ``application/json`` bodies during parameter
-    extraction, BEFORE any handler runs — so a route's own malformed-body
-    guard never executes and the raw ``JSONDecodeError`` would surface as a
-    500. This is the single chokepoint that converts it to the same
-    ``Errors.validation`` shape every API boundary emits.
 
-    Only requests that declared a JSON content type are converted; a
-    ``JSONDecodeError`` escaping a handler on any other request is a genuine
-    server bug and is re-raised to keep its 500.
+def malformed_body_handler(request: Request, exc: Exception) -> Response:
+    """Answer the framework's 400 for a body it could not read as a validation 400.
 
-    Register via ``install_malformed_json_guard(app)`` (wired once at
-    bootstrap in ``_create_web_app``).
+    FastHTML pre-parses the body during parameter extraction, BEFORE any handler
+    runs, and refuses one it cannot read with ``HTTPException(400)`` — malformed
+    JSON, a JSON array or scalar, a multipart body without a boundary or that the
+    parser cannot frame, a required field that is absent. Starlette's form reader
+    raises the same 400 when a handler reads such a body later. ``boundary_handler``
+    re-raises every ``HTTPException`` by design, so this is the single chokepoint
+    that gives those refusals the ``Errors.validation`` shape every API boundary
+    emits, carrying the framework's own (client-safe) detail as the message.
+
+    Registered by status code, so it is handed only 400s: the auth guards' 401 and
+    403 never reach it. A 400 on a request that sent no body FastHTML parses (a
+    page load missing a query parameter) keeps Starlette's plain-text rendering.
+
+    Register via ``install_malformed_body_guard(app)`` (wired once at bootstrap in
+    ``_create_web_app``).
     """
-    content_type = request.headers.get("content-type", "")
-    if not content_type.lower().startswith("application/json"):
-        raise exc
-    return result_to_response(Result.fail(Errors.validation("Malformed JSON in request body")))
+    if not isinstance(exc, HTTPException):
+        raise exc  # a status-keyed handler is only handed HTTPExceptions
+    if media_type_of(request) not in _PARSED_BODY_MEDIA_TYPES:
+        return PlainTextResponse(exc.detail, status_code=exc.status_code, headers=exc.headers)
+    return result_to_response(Result.fail(Errors.validation(exc.detail)))
 
 
-def install_malformed_json_guard(app: FastHTMLApp) -> None:
-    """Register the malformed-JSON → 400 handler on a FastHTML/Starlette app."""
-    app.add_exception_handler(JSONDecodeError, malformed_json_handler)
-
-
-def malformed_multipart_handler(request: Request, exc: Exception) -> Response:
-    """Map a body-parse ``MultipartParseError`` to a 400 validation response.
-
-    The multipart twin of :func:`malformed_json_handler`: FastHTML pre-parses a
-    ``multipart/form-data`` body during parameter extraction too, and a payload
-    the parser cannot read raises there — before any handler, so no route-level
-    reader (``parse_body``, ``parse_form_body``) ever sees it. Starlette converts
-    its own ``MultiPartException`` (a missing closing boundary) to a 400 on the
-    way; the parser's ``MultipartParseError`` (a body that is not multipart at
-    all) escapes as a 500 without this chokepoint.
-
-    Only requests that declared a multipart content type are converted; the
-    error escaping on any other request is a genuine server bug and keeps its 500.
-    """
-    if media_type_of(request) != "multipart/form-data":
-        raise exc
-    return result_to_response(
-        Result.fail(Errors.validation("Malformed multipart form data in request body"))
-    )
-
-
-def install_malformed_multipart_guard(app: FastHTMLApp) -> None:
-    """Register the malformed-multipart → 400 handler on a FastHTML/Starlette app."""
-    app.add_exception_handler(MultipartParseError, malformed_multipart_handler)
+def install_malformed_body_guard(app: FastHTMLApp) -> None:
+    """Register the framework-400 → validation-400 handler on a FastHTML/Starlette app."""
+    app.add_exception_handler(400, malformed_body_handler)
 
 
 def status_for_error(error: ErrorContext) -> int:

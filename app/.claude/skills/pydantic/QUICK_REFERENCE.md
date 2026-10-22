@@ -113,7 +113,7 @@ def to_intent(self) -> TaskUpdateIntent:
 
 - **Query params (GET)** → 400 (strict `route_helpers` parsers return `Errors.validation` Results).
 - **JSON bodies via `parse_json_body`** → `Errors.validation` Result → 400 through `boundary_handler`.
-- **Malformed bodies** (unparseable JSON, a multipart body the parser cannot read) fail in FastHTML's parameter extraction, before any handler — `install_malformed_json_guard` and `install_malformed_multipart_guard` (wired in bootstrap's `_create_web_app`) turn each into a 400.
+- **Malformed bodies** (unparseable JSON, a JSON array or scalar, a multipart body the parser cannot read, an absent required field) fail in FastHTML's parameter extraction, before any handler, as a plain-text `HTTPException(400)` — `install_malformed_body_guard` (wired in bootstrap's `_create_web_app`) answers each in the `Errors.validation` 400 shape.
 
 ⚠ **Never declare the model as a handler parameter (`body: SomeRequest`).** FastHTML binds it during parameter extraction, *before* the handler and its `@boundary_handler` wrapper run, and passes each incoming *string* value through the annotation (or its `str2int` / `str2date` / `str2bool` for those types) before the model sees it: `Literal(...)` raises `TypeError` on any value sent, `Priority("bad")` and `int("abc")` a plain `ValueError`, and a Pydantic rejection escapes the same way — each a 500. Read the body through `parse_body` / `parse_json_body` / `parse_form_body`, where Pydantic does all the validation and every rejection is a 400.
 

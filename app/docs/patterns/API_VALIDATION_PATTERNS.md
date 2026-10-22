@@ -134,15 +134,20 @@ Pydantic sees it. A `Literal` field raises on any value sent; an enum / `int` / 
 `date` / `dict` field raises on a bad one; a Pydantic constraint failure escapes the same
 way. None of those reaches a route-level guard, so each answers **500**.
 
-Two failures happen in parameter extraction whatever the route does, because FastHTML
-pre-parses a JSON or multipart body there: a malformed (unparseable) JSON body and a
-multipart body the parser cannot read. `install_malformed_json_guard` and
-`install_malformed_multipart_guard`, wired once in bootstrap's `_create_web_app`, turn
-each into a validation **400**.
-
----
-
-### JSON Bodies: Pydantic Request Models---
+Some failures happen in parameter extraction whatever the route does, because FastHTML
+pre-parses the body there and refuses one it cannot read with its own
+`HTTPException(400)`: a malformed JSON body, a JSON array or scalar (it must be an
+object), a multipart body with no boundary or one the parser cannot frame, and a
+required handler parameter that is absent. Starlette's form reader raises the same 400
+when a handler reads such a body later. Both render as plain text, and
+`@boundary_handler` re-raises every `HTTPException` (the auth guards' 401/403 depend on
+it), so `install_malformed_body_guard`, wired once in bootstrap's `_create_web_app`,
+answers each in the `Errors.validation` **400** shape, carrying the framework's detail as
+its message. It is registered for status 400 alone and converts only a request that sent
+a body FastHTML parses (`application/json`, url-encoded, multipart); a page load missing a
+query parameter keeps the plain-text 400. FastHTML matches `application/json` exactly, so
+`application/json; charset=utf-8` skips the pre-parse and the route's own reader refuses
+it in the same shape.
 
 ### JSON Bodies: Pydantic Request Models
 

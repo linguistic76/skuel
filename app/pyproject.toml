@@ -10,7 +10,7 @@ requires-python = ">=3.14,<4.0"
 
 dependencies = [
     # Web Framework
-    "python-fasthtml>=0.14.12",
+    "python-fasthtml>=0.14.14",
     "uvicorn>=0.54.0",
     # Database — pinned for operational stability.
     # The driver version is DECOUPLED from the server version: the server runs the
