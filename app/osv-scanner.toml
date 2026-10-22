@@ -14,11 +14,11 @@
 #
 # ── braces (JS, build-time only). @tailwindcss/cli → @parcel/watcher 2.5.1 →
 #    micromatch 4.0.8 → braces ^3.0.3; 3.0.3 is the LATEST release and the
-#    advisory covers "through 3.0.3" — no fixed release exists (re-checked
-#    2026-10-22). braces expands the glob patterns of Tailwind's own @source
-#    lines in static/css/input.css inside the CSS build; no user input reaches
-#    it, and the production image has no Node — it serves the tracked,
-#    pre-compiled static/css/output.css. The way out: @parcel/watcher 2.6.0
+#    advisory covers "through 3.0.3" — no fixed release exists. braces
+#    expands the glob patterns of Tailwind's own @source lines in
+#    static/css/input.css inside the CSS build; no user input reaches it, and
+#    the production image has no Node — it serves the tracked, pre-compiled
+#    static/css/output.css. The way out: @parcel/watcher 2.6.0
 #    drops micromatch for picomatch, but @tailwindcss/cli 4.3.3 (latest) pins
 #    @parcel/watcher to exactly 2.5.1 — an `overrides` contradicting that pin
 #    is rejected (ADR-067 § 6). Re-check: `npm view @tailwindcss/cli
