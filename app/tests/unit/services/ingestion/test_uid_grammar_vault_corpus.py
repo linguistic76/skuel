@@ -26,7 +26,7 @@ from core.services.ingestion.detector import is_non_entity_note
 from core.services.ingestion.parser import parse_markdown
 from core.services.ingestion.user_entry_ingestion import build_user_entry_request
 from core.services.vault.vault_descriptor import VaultKind
-from core.utils.uid_grammar import UidVerdict, classify, exemption_for
+from core.utils.uid_grammar import UidVerdict, classify, exemptions_for
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 _VAULTS = {
@@ -74,7 +74,7 @@ def test_every_vault_file_takes_a_uid_in_the_grammar(kind: VaultKind) -> None:
         parsed += 1
         uid = _user_entry_uid(path) if entity_type is EntityType.USER_ENTRY else ""
         uid = uid or str(entity_data["uid"])
-        if classify(uid) is not UidVerdict.FITS and exemption_for(uid) is None:
+        if classify(uid) is not UidVerdict.FITS and not exemptions_for(uid):
             outside.append(f"{path.relative_to(root)}: {uid}")
 
     assert uid_faults == [], "\n".join(uid_faults)

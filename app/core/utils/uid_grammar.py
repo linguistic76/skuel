@@ -224,9 +224,14 @@ UID_EXEMPTIONS: Final[tuple[UidExemption, ...]] = (
 )
 
 
-def exemption_for(uid: str) -> UidExemption | None:
-    """The exemption whose shape ``uid`` has, or ``None``."""
-    return next((exemption for exemption in UID_EXEMPTIONS if exemption.matches(uid)), None)
+def exemptions_for(uid: str) -> tuple[UidExemption, ...]:
+    """Every exemption whose shape ``uid`` has — empty when none does.
+
+    Two writers can mint one string (``user_foo_12345678`` is a username's uid and
+    a named generated one), and a shape alone cannot say which wrote it, so every
+    match is returned rather than the first.
+    """
+    return tuple(exemption for exemption in UID_EXEMPTIONS if exemption.matches(uid))
 
 
 __all__ = [
@@ -239,7 +244,7 @@ __all__ = [
     "UidVerdict",
     "authored_uid_problem",
     "classify",
-    "exemption_for",
+    "exemptions_for",
     "generated_uid",
     "slugify",
 ]

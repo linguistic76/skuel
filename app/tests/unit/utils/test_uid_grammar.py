@@ -23,7 +23,7 @@ from core.utils.uid_grammar import (
     UidVerdict,
     authored_uid_problem,
     classify,
-    exemption_for,
+    exemptions_for,
     generated_uid,
     slugify,
 )
@@ -305,9 +305,15 @@ def test_each_writer_still_mints_its_exempt_shape(
     assert classify(uid) is not UidVerdict.FITS, (
         f"{writer} mints {uid!r}, which fits the grammar — exemption '{exemption.name}' is stale"
     )
-    assert exemption_for(uid) is exemption
+    assert exemption in exemptions_for(uid)
 
 
 def test_no_exemption_admits_a_uid_that_fits() -> None:
     for uid in ("ku.a.b", "resource.x", "task_a1b2c3d4", "user_admin"):
-        assert exemption_for(uid) is None, uid
+        assert exemptions_for(uid) == (), uid
+
+
+def test_a_shape_two_writers_mint_names_both() -> None:
+    """``user_foo_12345678`` is a username's uid and a named generated one alike."""
+    names = [exemption.name for exemption in exemptions_for("user_foo_12345678")]
+    assert names == ["named_generated", "user_from_username"]

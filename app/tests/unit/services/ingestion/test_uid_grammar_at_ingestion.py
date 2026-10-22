@@ -30,7 +30,7 @@ from core.services.ingestion.vault_policy import (
 from core.services.user_entry.audience_resolver import ShareOutcome
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.result_simplified import Result
-from core.utils.uid_grammar import UidVerdict, classify, exemption_for
+from core.utils.uid_grammar import UidVerdict, classify, exemptions_for
 from tests.helpers.ingestion_owner import INGESTION_TEST_OWNER
 
 
@@ -204,5 +204,4 @@ class TestPersonalFileUid:
         """An ASCII stem derives the uid it derived before the ASCII fold."""
         uid = personal_file_uid(EntityType.TASK, Path("/vault/plan-it.md"), "user_a", None)
         assert uid.startswith("task_plan-it_")
-        exemption = exemption_for(uid)
-        assert exemption is not None and exemption.name == "named_generated"
+        assert [exemption.name for exemption in exemptions_for(uid)] == ["named_generated"]

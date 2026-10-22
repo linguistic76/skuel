@@ -31,7 +31,7 @@ from core.utils.uid_grammar import (
     UID_EXEMPTIONS,
     UidVerdict,
     classify,
-    exemption_for,
+    exemptions_for,
 )
 
 _UNREGISTERED = "UNREGISTERED"
@@ -79,8 +79,9 @@ def take_census(rows: Iterable[tuple[Iterable[str], str]]) -> Census:
             tally.outside += 1
         else:
             tally.shape += 1
-        exemption = exemption_for(uid)
-        key = (label, exemption.name if exemption else _UNREGISTERED)
+        # A shape two writers mint is counted under both names, joined.
+        names = "+".join(exemption.name for exemption in exemptions_for(uid))
+        key = (label, names or _UNREGISTERED)
         census.by_exemption[key] += 1
         census.samples.setdefault(key, uid)
     return census
@@ -107,7 +108,11 @@ def render(census: Census, uidless: dict[str, int]) -> str:
     if not census.by_exemption:
         lines.append("  (none)")
     for (label, name), count in sorted(census.by_exemption.items()):
-        where = retired_by.get(name, "no exemption names this shape")
+        where = (
+            "; ".join(retired_by[part] for part in name.split("+"))
+            if name != _UNREGISTERED
+            else "no exemption names this shape"
+        )
         sample = census.samples[(label, name)]
         lines.append(f"  {label:<24} {name:<18} {count:>6}  ({where}) e.g. {sample}")
 

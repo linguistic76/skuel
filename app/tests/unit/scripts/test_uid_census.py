@@ -36,6 +36,14 @@ def test_each_uid_lands_in_one_verdict_per_label() -> None:
     assert census.by_exemption[("Group", "UNREGISTERED")] == 1
 
 
+def test_a_shape_two_exemptions_share_is_counted_under_both_names() -> None:
+    census = take_census([(["User"], "user_foo_12345678")])
+    assert census.by_exemption == {("User", "named_generated+user_from_username"): 1}
+    text = render(census, {})
+    assert "remaining generated shapes" in text and "username rule" in text
+    assert "no exemption names this shape" not in text
+
+
 def test_render_names_the_migrating_pr_and_flags_the_unregistered() -> None:
     text = render(
         take_census([(["UserEntry"], "ue:daily:user_a:2026-10-18"), (["Ku"], "ku.Bad")]),
