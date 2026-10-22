@@ -57,6 +57,11 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def transcription_uid() -> str:
+    """A fresh Transcription uid — one of ``uid_grammar.UID_EXEMPTIONS`` (``transcription``)."""
+    return f"transcription:{uuid.uuid4()}"
+
+
 class TranscriptionService(EntityTimestampMixin):
     """
     Simplified transcription service.
@@ -116,7 +121,7 @@ class TranscriptionService(EntityTimestampMixin):
 
         # Create transcription model
         transcription = Transcription(
-            uid=f"transcription:{uuid.uuid4()}",
+            uid=transcription_uid(),
             audio_file_path=request.audio_file_path,
             original_filename=request.original_filename,
             status=TranscriptionStatus.PENDING,

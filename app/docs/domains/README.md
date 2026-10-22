@@ -1,7 +1,7 @@
 ---
 title: Domain Documentation
 created: 2025-12-04
-updated: 2026-10-10
+updated: 2026-10-18
 status: current
 category: domains
 tags: [domains, reference, architecture]
@@ -31,7 +31,7 @@ Each entity type is a peer — behavioral traits (not category membership) deter
 | [MOC](moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
 | [LifePath](lifepath.md) | "Am I living my life path?" |
 
-**UID formats are NOT listed here.** [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md) carries the authoritative per-type table; a second copy here rotted into colon-spelled prefixes that no generator has ever minted, with two entity types claiming the same one. The rule that outlives any copy: a colon is reserved for internal machine identifiers and is **never an authored** entity UID — the machine-minted periodic UserEntry uids (`ue:daily:…` and their weekly/monthly/quarterly/yearly siblings) are real graph identities and the sanctioned exception, which `is_sanctioned_machine_uid()` enumerates. And entity kind is read from the label / `entity_type` / an edge — never sniffed from the UID's spelling (ADR-013, SKUEL034).
+**UID formats are NOT listed here.** [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md) carries the authoritative per-type table; a second copy here rotted into colon-spelled prefixes that no generator has ever minted, with two entity types claiming the same one. The rule that outlives any copy: every node uid is `[a-z0-9._-]` in the authored or generated shape (`core/utils/uid_grammar.py`, ADR-013 § Amendment 2026-10-18) — the shapes still minted outside it, like the periodic UserEntry uids (`ue:daily:…` and their weekly/monthly/quarterly/yearly siblings), are named in `uid_grammar.UID_EXEMPTIONS` until migrated. And entity kind is read from the label / `entity_type` / an edge — never sniffed from the UID's spelling (ADR-013, SKUEL034).
 
 **MOC Architecture:** MOC is NOT a separate entity — it IS a KU with ORGANIZES relationships. A KU "is" a MOC when it has outgoing ORGANIZES relationships (emergent identity).
 

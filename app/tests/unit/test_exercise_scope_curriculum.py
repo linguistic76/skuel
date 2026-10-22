@@ -59,7 +59,7 @@ def test_an_exercise_without_instructions_is_not_valid() -> None:
 # 2. INGESTION BOUNDARY
 # ============================================================================
 
-_FILE = Path("exercise_sample.md")
+_FILE = Path("exercise-sample.md")
 _TEACHER = "user_teacher"
 
 

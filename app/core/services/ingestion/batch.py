@@ -345,26 +345,21 @@ def parse_file_sync(
             return (None, None, error.to_dict())
 
         # Stage 4: Pre-preparation validation (same contract as the single-file
-        # door — ingest_file validates UID prefix then required fields).
-        # USER_ENTRY is exempt, mirroring ingest_file (its USER_ENTRY branch
-        # returns before validate_uid_format): an authored UserEntry uid is an
-        # opaque deterministic join key (e.g. ``moc:worldview``), never type
-        # information (ADR-013 never-sniff) — the entity kind is whatever
-        # ``type:`` says, and the service normalizes/persists the uid.
-        if entity_type != EntityType.USER_ENTRY:
-            uid_result = validate_uid_format(entity_type, data, file_path)
-            if uid_result.is_error:
-                err = uid_result.expect_error()
-                error = create_error(
-                    file_path=file_path,
-                    error=err.display_message,
-                    stage="validation",
-                    error_type="validation",
-                    entity_type=entity_type_str,
-                    field="uid",
-                    suggestion=f"Use the UID prefix for {entity_type_str} entities (see error).",
-                )
-                return (None, None, error.to_dict())
+        # door — ingest_file validates the uid grammar then required fields, for
+        # every type, ``user_entry`` included).
+        uid_result = validate_uid_format(entity_type, data, file_path)
+        if uid_result.is_error:
+            err = uid_result.expect_error()
+            error = create_error(
+                file_path=file_path,
+                error=err.display_message,
+                stage="validation",
+                error_type="validation",
+                entity_type=entity_type_str,
+                field="uid",
+                suggestion=f"Use a {entity_type_str} uid in the uid grammar (see error).",
+            )
+            return (None, None, error.to_dict())
 
         validation_result = validate_required_fields(entity_type, data, file_path)
         if validation_result.is_error:

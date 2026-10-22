@@ -16,10 +16,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import gettempdir
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 
@@ -110,9 +111,9 @@ def example():
 @pytest.mark.asyncio
 async def test_regenerate_route_replaces_stale_chunks(neo4j_driver):
     """POST /api/chunks/regenerate returns 200 + stats and replaces stale chunks."""
-    with NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write(_FIXTURE_BODY)
-        temp_path = Path(f.name)
+    # A stem in the uid grammar: with no uid: line, the file name gives the uid.
+    temp_path = Path(gettempdir()) / f"probe-{uuid4().hex[:8]}.md"
+    temp_path.write_text(_FIXTURE_BODY)
 
     try:
         chunking_service = EntityChunkingService()

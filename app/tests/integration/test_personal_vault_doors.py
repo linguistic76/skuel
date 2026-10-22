@@ -11,10 +11,11 @@ The rules:
 1. A personal vault ingests the six Activity types, ``life_path`` and
    ``user_entry``; an Edge file, a Group file and every curriculum type are
    refused there, reported as ignored-with-reason.
-2. The upsert never changes a node's owner — a file whose uid names another
-   user's node is refused, in the content vault too.
-3. A uid-less personal Activity file has its own identity: two users with the
-   same filename get two entities, and a rename keeps the entity.
+2. The upsert never changes a node's owner — a content-vault file whose uid
+   names another user's node is refused. A personal file authors no ``uid:`` at
+   all: a file with one is refused, telling its author to remove the line.
+3. A personal Activity file has its own identity: two users with the same
+   filename get two entities, and a rename keeps the entity.
 4. A personal Activity file's frontmatter targets are the vault owner's or
    unowned published content — a Ku marked ``publication_state: draft`` draws no
    edge and is warned about in the words a missing target is.
@@ -41,10 +42,12 @@ from neo4j import AsyncDriver
 from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 from core.ports.vault_bridge_protocol import VaultBridgePort
 from core.services.ingestion.config import build_sync_allowlist
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
+from core.services.ingestion.vault_policy import personal_file_uid
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler
 from core.utils.result_simplified import Result
@@ -82,6 +85,26 @@ def _write(path: Path, text: str) -> Path:
 
 def _md(type_: str, title: str, extra: str = "") -> str:
     return f"---\ntype: {type_}\ntitle: {title}\n{extra}---\n\nbody of {title}\n"
+
+
+def _personal(env: VaultEnv, who: str, name: str, entity_type: EntityType) -> tuple[Path, str]:
+    """A personal file's path and the uid it derives (a personal file authors none)."""
+    root = {"alice": env["alice"], "bob": env["bob"]}[who]
+    path = root / "knowledge" / name
+    return path, personal_file_uid(entity_type, path, _ACTING[who], None)
+
+
+async def _seed_owned_task(driver: AsyncDriver, uid: str, owner: UserUID, title: str) -> None:
+    """A task ``owner`` holds under an authored-shape uid, as the content vault writes one."""
+    async with driver.session() as session:
+        await session.run(
+            "MATCH (u:User {uid: $owner}) "
+            "CREATE (u)-[:OWNS]->(:Entity:Task {uid: $uid, user_uid: $owner, title: $title, "
+            "entity_type: 'task', status: 'active'})",
+            uid=uid,
+            owner=owner,
+            title=title,
+        )
 
 
 @pytest_asyncio.fixture
@@ -291,19 +314,21 @@ def _assert_never_names_owner(reason: str) -> None:
 async def test_personal_vault_refuses_edge_files(env, door) -> None:
     """An Edge file in a personal vault writes nothing — not even between its owner's nodes."""
     d = env["driver"]
-    _write(
-        env["bob"] / "knowledge" / "bsecret.md", _md("task", "Bob secret", "uid: task.bsecret\n")
-    )
-    _write(env["bob"] / "knowledge" / "bgoal.md", _md("goal", "Bob goal", "uid: goal.bgoal\n"))
+    bsecret_path, bsecret = _personal(env, "bob", "bsecret.md", EntityType.TASK)
+    bgoal_path, bgoal = _personal(env, "bob", "bgoal.md", EntityType.GOAL)
+    _write(bsecret_path, _md("task", "Bob secret"))
+    _write(bgoal_path, _md("goal", "Bob goal"))
     await _sync(env, "bob", "directory")
-    _write(env["alice"] / "knowledge" / "atask.md", _md("task", "Alice task", "uid: task.atask\n"))
-    _write(env["alice"] / "knowledge" / "agoal.md", _md("goal", "Alice goal", "uid: goal.agoal\n"))
+    atask_path, atask = _personal(env, "alice", "atask.md", EntityType.TASK)
+    agoal_path, agoal = _personal(env, "alice", "agoal.md", EntityType.GOAL)
+    _write(atask_path, _md("task", "Alice task"))
+    _write(agoal_path, _md("goal", "Alice goal"))
     edges = {
-        "edge_a_to_b": ("task.atask", "task.bsecret", "DEPENDS_ON"),
-        "edge_b_to_b": ("task.bsecret", "goal.bgoal", "CONTRIBUTES_TO_GOAL"),
-        "edge_owns": (str(ALICE), "task.bsecret", "OWNS"),
-        "edge_shares": (str(ALICE), "goal.bgoal", "SHARES_WITH"),
-        "edge_own_pair": ("task.atask", "goal.agoal", "CONTRIBUTES_TO_GOAL"),
+        "edge_a_to_b": (atask, bsecret, "DEPENDS_ON"),
+        "edge_b_to_b": (bsecret, bgoal, "CONTRIBUTES_TO_GOAL"),
+        "edge_owns": (str(ALICE), bsecret, "OWNS"),
+        "edge_shares": (str(ALICE), bgoal, "SHARES_WITH"),
+        "edge_own_pair": (atask, agoal, "CONTRIBUTES_TO_GOAL"),
     }
     for name, (f, t, rel) in edges.items():
         _write(
@@ -317,10 +342,10 @@ async def test_personal_vault_refuses_edge_files(env, door) -> None:
         assert await _edge_types(d, f, t) == [], name
         assert f"{name}.yaml" in outcome.refused, (name, outcome.refused)
         _assert_never_names_owner(outcome.refused[f"{name}.yaml"])
-    assert (await _node(d, "task.bsecret"))["owners"] == [str(BOB)]
+    assert (await _node(d, bsecret))["owners"] == [str(BOB)]
     # Positive control: the same sync ingested Alice's own Activity files.
-    assert (await _node(d, "task.atask"))["owners"] == [str(ALICE)]
-    assert (await _node(d, "goal.agoal"))["owners"] == [str(ALICE)]
+    assert (await _node(d, atask))["owners"] == [str(ALICE)]
+    assert (await _node(d, agoal))["owners"] == [str(ALICE)]
 
 
 @pytest.mark.parametrize("door", DOORS)
@@ -426,32 +451,58 @@ async def test_an_online_event_file_needs_a_meeting_url(env, door, missing) -> N
 
 
 @pytest.mark.parametrize("door", DOORS)
-async def test_named_uid_never_reowns_another_users_node(env, door) -> None:
+async def test_a_personal_file_naming_another_users_uid_is_refused(env, door) -> None:
+    """A personal file authors no ``uid:`` — naming Bob's node is refused before any write."""
     d = env["driver"]
+    secret_path, secret_uid = _personal(env, "bob", "secret.md", EntityType.TASK)
     _write(
-        env["bob"] / "knowledge" / "secret.md",
-        "---\ntype: task\nuid: task.secret\ntitle: Bob secret\ndescription: bob only\n---\n\nb\n",
+        secret_path,
+        "---\ntype: task\ntitle: Bob secret\ndescription: bob only\n---\n\nb\n",
     )
     await _sync(env, "bob", "directory")
-    _write(env["alice"] / "knowledge" / "mine.md", _md("task", "Hijacked", "uid: task.secret\n"))
-    _write(env["alice"] / "knowledge" / "ok.md", _md("task", "Alice own", "uid: task.alice-own\n"))
+    _write(env["alice"] / "knowledge" / "mine.md", _md("task", "Hijacked", f"uid: {secret_uid}\n"))
+    ok_path, ok_uid = _personal(env, "alice", "ok.md", EntityType.TASK)
+    _write(ok_path, _md("task", "Alice own"))
 
     outcome = await _sync(env, "alice", door)
 
-    secret = await _node(d, "task.secret")
+    secret = await _node(d, secret_uid)
     assert secret["user_uid"] == str(BOB) and secret["owners"] == [str(BOB)]
     assert secret["title"] == "Bob secret"
     assert "mine.md" in outcome.refused, outcome.refused
+    assert "remove the 'uid:' line" in outcome.refused["mine.md"]
     _assert_never_names_owner(outcome.refused["mine.md"])
-    assert (await _node(d, "task.alice-own"))["owners"] == [str(ALICE)]
+    assert (await _node(d, ok_uid))["owners"] == [str(ALICE)]
+
+
+@pytest.mark.parametrize("door", DOORS)
+async def test_a_personal_file_never_authors_a_uid(env, door) -> None:
+    """Any ``uid:`` line in a personal file is refused, the remedy named; the rest syncs."""
+    d = env["driver"]
+    _write(
+        env["alice"] / "knowledge" / "run.md", _md("task", "Morning run", "uid: task.morning-run\n")
+    )
+    _write(
+        env["alice"] / "knowledge" / "note.md",
+        "---\ntype: user_entry\npipeline: knowledge\nuid: ue.my-note\ntitle: Note\n---\n\nx\n",
+    )
+    keep_path, keep_uid = _personal(env, "alice", "keep.md", EntityType.TASK)
+    _write(keep_path, _md("task", "Kept"))
+
+    outcome = await _sync(env, "alice", door)
+
+    for name in ("run.md", "note.md"):
+        assert "remove the 'uid:' line" in outcome.refused.get(name, ""), (name, outcome.refused)
+    assert await _uids_titled(d, "Morning run") == []
+    assert await _q(d, "MATCH (n {uid: 'ue.my-note'}) RETURN n.uid AS uid") == []
+    assert (await _node(d, keep_uid))["owners"] == [str(ALICE)]
 
 
 @pytest.mark.parametrize("door", DOORS)
 async def test_content_vault_file_never_reowns_a_users_node(env, door) -> None:
     """The content vault's owner is an account like any other."""
     d = env["driver"]
-    _write(env["bob"] / "knowledge" / "secret.md", _md("task", "Bob secret", "uid: task.secret\n"))
-    await _sync(env, "bob", "directory")
+    await _seed_owned_task(d, "task.secret", BOB, "Bob secret")
     _write(env["content"] / "stray.md", _md("task", "Admin overwrite", "uid: task.secret\n"))
     _write(env["content"] / "own.md", _md("task", "Admin own", "uid: task.admin-own\n"))
 
@@ -527,26 +578,28 @@ async def test_a_lost_tracker_row_never_mints_a_second_entity(env, door) -> None
 async def test_every_file_naming_a_foreign_uid_is_refused(env, door) -> None:
     """Two files that name the same node someone else owns are both refused, every sync."""
     d = env["driver"]
-    _write(env["bob"] / "knowledge" / "secret.md", _md("task", "Bob secret", "uid: task.secret\n"))
+    secret_path, secret = _personal(env, "bob", "secret.md", EntityType.TASK)
+    _write(secret_path, _md("task", "Bob secret"))
     await _sync(env, "bob", "directory")
-    _write(env["alice"] / "knowledge" / "one.md", _md("task", "One", "uid: task.secret\n"))
-    _write(env["alice"] / "knowledge" / "two.md", _md("task", "Two", "uid: task.secret\n"))
+    _write(env["alice"] / "knowledge" / "one.md", _md("task", "One", f"uid: {secret}\n"))
+    _write(env["alice"] / "knowledge" / "two.md", _md("task", "Two", f"uid: {secret}\n"))
 
     first = await _sync(env, "alice", door)
     second = await _sync(env, "alice", door)
 
     for outcome in (first, second):
         assert {"one.md", "two.md"} <= set(outcome.refused), outcome.refused
-    assert (await _node(d, "task.secret"))["title"] == "Bob secret"
+    assert (await _node(d, secret))["title"] == "Bob secret"
 
 
 @pytest.mark.parametrize("door", ("directory", "reconciler"))
 async def test_deleting_a_refused_file_never_deletes_the_node_it_failed_to_take(env, door) -> None:
     d = env["driver"]
-    _write(env["bob"] / "knowledge" / "secret.md", _md("task", "Bob secret", "uid: task.secret\n"))
+    secret_path, secret = _personal(env, "bob", "secret.md", EntityType.TASK)
+    _write(secret_path, _md("task", "Bob secret"))
     await _sync(env, "bob", "directory")
     taker = _write(
-        env["alice"] / "knowledge" / "taker.md", _md("task", "Taker", "uid: task.secret\n")
+        env["alice"] / "knowledge" / "taker.md", _md("task", "Taker", f"uid: {secret}\n")
     )
     keeper = _write(env["alice"] / "knowledge" / "keeper.md", _md("task", "Keeper"))
     await _sync(env, "alice", door)
@@ -554,7 +607,7 @@ async def test_deleting_a_refused_file_never_deletes_the_node_it_failed_to_take(
 
     await _sync(env, "alice", door)
 
-    assert (await _node(d, "task.secret"))["owners"] == [str(BOB)]
+    assert (await _node(d, secret))["owners"] == [str(BOB)]
     assert keeper.exists() and len(await _uids_titled(d, "Keeper")) == 1
 
 
@@ -600,43 +653,45 @@ async def test_frontmatter_targets_link_only_the_owners_or_shared_content(env, d
     d = env["driver"]
     _write(env["content"] / "atom.md", "---\ntype: ku\nuid: ku.nb2c.atom\ntitle: Atom\n---\n\nx\n")
     await _sync(env, "content", "directory")
-    _write(env["bob"] / "knowledge" / "secret.md", _md("task", "Bob secret", "uid: task.secret\n"))
-    _write(env["bob"] / "knowledge" / "bgoal.md", _md("goal", "Bob goal", "uid: goal.bgoal\n"))
+    secret_path, secret = _personal(env, "bob", "secret.md", EntityType.TASK)
+    bgoal_path, bgoal = _personal(env, "bob", "bgoal.md", EntityType.GOAL)
+    _write(secret_path, _md("task", "Bob secret"))
+    _write(bgoal_path, _md("goal", "Bob goal"))
     await _sync(env, "bob", "directory")
-    _write(env["alice"] / "knowledge" / "agoal.md", _md("goal", "Alice goal", "uid: goal.agoal\n"))
+    agoal_path, agoal = _personal(env, "alice", "agoal.md", EntityType.GOAL)
+    atask_path, atask = _personal(env, "alice", "atask.md", EntityType.TASK)
+    other_path, other = _personal(env, "alice", "other.md", EntityType.TASK)
+    _write(agoal_path, _md("goal", "Alice goal"))
     _write(
-        env["alice"] / "knowledge" / "atask.md",
-        "---\ntype: task\nuid: task.atask\ntitle: Alice task\n"
-        "connections:\n  contributes_to_goal: [goal.bgoal, goal.agoal]\n"
-        "  depends_on: [task.secret]\n  applies_knowledge: [ku.nb2c.atom]\n"
+        atask_path,
+        "---\ntype: task\ntitle: Alice task\n"
+        f"connections:\n  contributes_to_goal: [{bgoal}, {agoal}]\n"
+        f"  depends_on: [{secret}]\n  applies_knowledge: [ku.nb2c.atom]\n"
         "---\n\nbody\n",
     )
     _write(
-        env["alice"] / "knowledge" / "other.md",
-        "---\ntype: task\nuid: task.other\ntitle: Other\n"
-        "connections:\n  contributes_to_goal: [goal.bgoal]\n---\n\nbody\n",
+        other_path,
+        f"---\ntype: task\ntitle: Other\nconnections:\n  contributes_to_goal: [{bgoal}]\n---\n\nbody\n",
     )
 
     outcome = await _sync(env, "alice", door)
 
-    assert await _edge_types(d, "task.atask", "goal.bgoal") == []
-    assert await _edge_types(d, "task.atask", "task.secret") == []
-    assert await _edge_types(d, "task.other", "goal.bgoal") == []
+    assert await _edge_types(d, atask, bgoal) == []
+    assert await _edge_types(d, atask, secret) == []
+    assert await _edge_types(d, other, bgoal) == []
     # Positive controls: the owner's own goal and shared content still link.
-    assert await _edge_types(d, "task.atask", "goal.agoal") == ["CONTRIBUTES_TO_GOAL"]
-    assert await _edge_types(d, "task.atask", "ku.nb2c.atom") == ["APPLIES_KNOWLEDGE"]
+    assert await _edge_types(d, atask, agoal) == ["CONTRIBUTES_TO_GOAL"]
+    assert await _edge_types(d, atask, "ku.nb2c.atom") == ["APPLIES_KNOWLEDGE"]
     # A task's goals are edges only: no node property names a goal, the refused one included.
     keys = await _q(
         d,
-        "MATCH (t:Task) WHERE t.uid IN ['task.atask', 'task.other'] "
+        "MATCH (t:Task) WHERE t.uid IN $uids "
         "RETURN t.uid AS uid, [k IN keys(t) WHERE k IN "
         "['fulfills_goal_uid', 'contributes_to_goal_uid', 'contributes_to_goal_uids']] "
         "AS goal_keys ORDER BY uid",
+        uids=[atask, other],
     )
-    assert keys == [
-        {"uid": "task.atask", "goal_keys": []},
-        {"uid": "task.other", "goal_keys": []},
-    ]
+    assert keys == [{"uid": uid, "goal_keys": []} for uid in sorted([atask, other])]
     # A refused target reads exactly like a missing one.
     for warning in outcome.warnings:
         _assert_never_names_owner(warning)
@@ -654,27 +709,28 @@ async def test_a_draft_target_draws_no_edge_and_reads_like_a_missing_one(env, do
     assert (await _q(d, "MATCH (k:Ku {uid: 'ku.nb2f.draft'}) RETURN k.publication_state AS s")) == [
         {"s": "draft"}
     ]
+    a_path, a_uid = _personal(env, "alice", "a.md", EntityType.TASK)
+    b_path, b_uid = _personal(env, "alice", "b.md", EntityType.TASK)
     _write(
-        env["alice"] / "knowledge" / "a.md",
-        "---\ntype: task\nuid: task.a\ntitle: A\n"
+        a_path,
+        "---\ntype: task\ntitle: A\n"
         "connections:\n  applies_knowledge: [ku.nb2f.draft, ku.nb2f.atom]\n---\n\nx\n",
     )
     _write(
-        env["alice"] / "knowledge" / "b.md",
-        "---\ntype: task\nuid: task.b\ntitle: B\n"
-        "connections:\n  applies_knowledge: [ku.nb2f.nowhere]\n---\n\nx\n",
+        b_path,
+        "---\ntype: task\ntitle: B\nconnections:\n  applies_knowledge: [ku.nb2f.nowhere]\n---\n\nx\n",
     )
 
     outcome = await _sync(env, "alice", door)
 
-    assert await _edge_types(d, "task.a", "ku.nb2f.draft") == []
+    assert await _edge_types(d, a_uid, "ku.nb2f.draft") == []
     # Positive control: a published Ku in the same list still links.
-    assert await _edge_types(d, "task.a", "ku.nb2f.atom") == ["APPLIES_KNOWLEDGE"]
+    assert await _edge_types(d, a_uid, "ku.nb2f.atom") == ["APPLIES_KNOWLEDGE"]
     draft = [w for w in outcome.warnings if "ku.nb2f.draft" in w]
     missing = [w for w in outcome.warnings if "ku.nb2f.nowhere" in w]
     assert len(draft) == 1 and len(missing) == 1, outcome.warnings
-    assert draft[0].replace("task.a", "X").replace("ku.nb2f.draft", "Y") == missing[0].replace(
-        "task.b", "X"
+    assert draft[0].replace(a_uid, "X").replace("ku.nb2f.draft", "Y") == missing[0].replace(
+        b_uid, "X"
     ).replace("ku.nb2f.nowhere", "Y")
 
 
@@ -692,16 +748,17 @@ async def test_a_source_path_step_names_only_a_path_step(env) -> None:
     d = env["driver"]
     _write(env["content"] / "step.md", _md("path_step", "A real step", "uid: ps.nb2c.step\n"))
     await _sync(env, "content", "directory")
-    _write(env["bob"] / "knowledge" / "secret.md", _md("task", "Bob secret", "uid: task.secret\n"))
+    secret_path, secret = _personal(env, "bob", "secret.md", EntityType.TASK)
+    _write(secret_path, _md("task", "Bob secret"))
     await _sync(env, "bob", "directory")
     _write(
         env["alice"] / "knowledge" / "a.md",
-        _md("task", "Points at bob", "uid: task.a\nsource_path_step_uid: task.secret\n"),
+        _md("task", "Points at bob", f"source_path_step_uid: {secret}\n"),
     )
     await _sync(env, "alice", "reconciler")
 
     fetch = ConnectionFetchBackend(Neo4jQueryExecutor(d))
-    assert await fetch.fetch_source_pathstep("task.secret", ALICE) is None
+    assert await fetch.fetch_source_pathstep(secret, ALICE) is None
     assert await fetch.fetch_source_pathstep("task.nowhere", ALICE) is None
     # Positive control: a real PathStep still resolves.
     assert await fetch.fetch_source_pathstep("ps.nb2c.step", ALICE) == {
@@ -712,25 +769,28 @@ async def test_a_source_path_step_names_only_a_path_step(env) -> None:
 
 async def test_refused_target_reads_like_a_missing_one(env) -> None:
     """The warning for another user's goal is the warning for a goal that does not exist."""
-    _write(env["bob"] / "knowledge" / "bgoal.md", _md("goal", "Bob goal", "uid: goal.bgoal\n"))
+    bgoal_path, bgoal = _personal(env, "bob", "bgoal.md", EntityType.GOAL)
+    _write(bgoal_path, _md("goal", "Bob goal"))
     await _sync(env, "bob", "directory")
+    a_path, a_uid = _personal(env, "alice", "a.md", EntityType.TASK)
+    b_path, b_uid = _personal(env, "alice", "b.md", EntityType.TASK)
     _write(
-        env["alice"] / "knowledge" / "a.md",
-        "---\ntype: task\nuid: task.a\ntitle: A\nconnections:\n  contributes_to_goal: [goal.bgoal]\n---\n\nx\n",
+        a_path,
+        f"---\ntype: task\ntitle: A\nconnections:\n  contributes_to_goal: [{bgoal}]\n---\n\nx\n",
     )
     _write(
-        env["alice"] / "knowledge" / "b.md",
-        "---\ntype: task\nuid: task.b\ntitle: B\nconnections:\n  contributes_to_goal: [goal.nowhere]\n---\n\nx\n",
+        b_path,
+        "---\ntype: task\ntitle: B\nconnections:\n  contributes_to_goal: [goal_nowhere]\n---\n\nx\n",
     )
 
     outcome = await _sync(env, "alice", "reconciler")
 
-    foreign = [w for w in outcome.warnings if "goal.bgoal" in w]
-    missing = [w for w in outcome.warnings if "goal.nowhere" in w]
+    foreign = [w for w in outcome.warnings if bgoal in w]
+    missing = [w for w in outcome.warnings if "goal_nowhere" in w]
     assert len(foreign) == 1 and len(missing) == 1, outcome.warnings
-    assert foreign[0].replace("task.a", "X").replace("goal.bgoal", "Y") == missing[0].replace(
-        "task.b", "X"
-    ).replace("goal.nowhere", "Y")
+    assert foreign[0].replace(a_uid, "X").replace(bgoal, "Y") == missing[0].replace(
+        b_uid, "X"
+    ).replace("goal_nowhere", "Y")
 
 
 # ---------------------------------------------------------------------------
@@ -741,7 +801,8 @@ async def test_refused_target_reads_like_a_missing_one(env) -> None:
 @pytest.mark.parametrize("door", DOORS)
 async def test_content_edge_files_never_write_access_edges(env, door) -> None:
     d = env["driver"]
-    _write(env["bob"] / "knowledge" / "bgoal.md", _md("goal", "Bob goal", "uid: goal.bgoal\n"))
+    bgoal_path, bgoal = _personal(env, "bob", "bgoal.md", EntityType.GOAL)
+    _write(bgoal_path, _md("goal", "Bob goal"))
     await _sync(env, "bob", "directory")
     async with d.session() as session:
         await session.run(
@@ -765,9 +826,9 @@ async def test_content_edge_files_never_write_access_edges(env, door) -> None:
             f"type: Edge\nfrom: ku.nb2c.a\nto: ku.nb2c.b\nrelationship: {rel}\n",
         )
     access = {
-        "acc_owns_user": (str(ADMIN), "goal.bgoal", "OWNS"),
+        "acc_owns_user": (str(ADMIN), bgoal, "OWNS"),
         "acc_owns_entities": ("ku.nb2c.a", "ku.nb2c.b", "OWNS"),
-        "acc_shares": (str(ADMIN), "goal.bgoal", "SHARES_WITH"),
+        "acc_shares": (str(ADMIN), bgoal, "SHARES_WITH"),
         "acc_member": (str(BOB), "group.nb2c-class", "MEMBER_OF"),
         "acc_group_share": ("ku.nb2c.a", "group.nb2c-class", "SHARED_WITH_GROUP"),
         "acc_submit": ("ku.nb2c.a", "group.nb2c-class", "SUBMITTED_TO_GROUP"),
@@ -791,7 +852,7 @@ async def test_content_edge_files_never_write_access_edges(env, door) -> None:
             name,
             reported,
         )
-    assert (await _node(d, "goal.bgoal"))["owners"] == [str(BOB)]
+    assert (await _node(d, bgoal))["owners"] == [str(BOB)]
     # Positive control: every live lateral type the content vault authors is written.
     assert await _edge_types(d, "ku.nb2c.a", "ku.nb2c.b") == sorted(lateral)
 

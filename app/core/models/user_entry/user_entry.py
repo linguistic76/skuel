@@ -87,6 +87,16 @@ PERIODIC_NOTE_KINDS: frozenset[str] = frozenset(
 )
 
 
+def periodic_note_uid(entry_kind: str, user_uid: str, period_key: str) -> str:
+    """The deterministic uid of ``user_uid``'s periodic note for one period.
+
+    ``ue:{kind}:{user_uid}:{period_key}`` — ``user_uid`` makes it unique across
+    users who share a calendar period; the calendar routes and the vault door
+    both land on it. One of ``uid_grammar.UID_EXEMPTIONS`` (``periodic_note``).
+    """
+    return f"ue:{entry_kind}:{user_uid}:{period_key}"
+
+
 @dataclass(frozen=True, kw_only=True)
 class UserEntry(UserOwnedEntity):
     """

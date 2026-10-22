@@ -60,7 +60,7 @@ from core.models.interaction.interaction import Interaction
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.models.user_entry.submitted_copy import SubmittedCopy
-from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS, UserEntry
+from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS, UserEntry, periodic_note_uid
 from core.models.user_entry.user_entry_dto import UserEntryDTO
 from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
@@ -577,7 +577,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         """
         if entry_kind not in PERIODIC_NOTE_KINDS:
             return Result.fail(Errors.validation(f"Unknown periodic-note kind: {entry_kind}"))
-        uid = f"ue:{entry_kind}:{user_uid}:{period_key}"
+        uid = periodic_note_uid(entry_kind, user_uid, period_key)
         existing = await self.get_entry(uid, user_uid)
         if existing.is_error:
             return Result.fail(existing)

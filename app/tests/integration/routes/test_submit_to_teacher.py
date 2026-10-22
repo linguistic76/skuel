@@ -272,7 +272,8 @@ async def world(
         patch.setattr(teaching_api, "_REPORTS_DIR", reports_dir)
         try:
             exercises = {
-                key: f"ex.{MARK}.{key}"
+                # A uid segment joins words with hyphens (the uid grammar).
+                key: f"ex.{MARK}.{key.replace('_', '-')}"
                 for key in ("named", "reported", "demoted", "classroom", "classroom_reported")
             }
             await sync_vault_exercises(

@@ -1111,6 +1111,12 @@ class UnifiedIngestionService:
         if refusal is not None:
             return Result.fail(Errors.validation(refusal, field="type"))
 
+        # An authored uid fits the uid grammar, for every type (UserEntry included)
+        # — before any door, so both write paths below are behind it.
+        uid_result = validate_uid_format(entity_type, data, file_path)
+        if uid_result.is_error:
+            return Result.fail(uid_result)
+
         # UserEntry has its own creation pipeline (audience resolution,
         # Interaction audit, TRANSFORMS edges, compensation delete) that the
         # bulk engine cannot replicate. Route through UserEntryService so
@@ -1171,11 +1177,6 @@ class UnifiedIngestionService:
                     preserve_entity_body=True,
                 )
             return ue_result
-
-        # Validate UID format before preparation (early fail-fast)
-        uid_result = validate_uid_format(entity_type, data, file_path)
-        if uid_result.is_error:
-            return Result.fail(uid_result)
 
         # Validate required fields before preparation (early fail-fast)
         validation_result = validate_required_fields(entity_type, data, file_path)

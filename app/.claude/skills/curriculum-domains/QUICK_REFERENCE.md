@@ -110,7 +110,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 | PS | `ps.{namespace}.{slug}` | `ps.core.meditation-basics` |
 | LP | `lp.{namespace}.{slug}` | `lp.core.intro-mindfulness` |
 
-Dots join authored curriculum segments; a colon never appears in an authored curriculum uid — it is reserved for machine-minted identifiers, and the one entity family that carries it is the periodic UserEntry (`ue:daily:{user_uid}:{date}`, `ensure_periodic_note()`), which is a valid `ORGANIZES` target (CLAUDE.md § Curriculum Grouping Patterns, Separator grammar). **KU** is an atomic knowledge unit — lightweight, extends Entity directly. Hierarchy is in `ORGANIZES` relationships, not UIDs.
+Dots join authored curriculum segments; every node uid is `[a-z0-9._-]` and no node uid has a colon (`core/utils/uid_grammar.py`). The periodic UserEntry (`ue:daily:{user_uid}:{date}`, `ensure_periodic_note()`) still carries colons — a named `UID_EXEMPTIONS` entry until the uid arc migrates it — and is a valid `ORGANIZES` target (CLAUDE.md § Curriculum Grouping Patterns, UID grammar). **KU** is an atomic knowledge unit — lightweight, extends Entity directly. Hierarchy is in `ORGANIZES` relationships, not UIDs.
 
 ## Key Relationships
 

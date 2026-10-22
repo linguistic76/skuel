@@ -23,7 +23,7 @@
 | **LP (LearningPath)** | `lp.{namespace}.{slug}` authored | Path | Organisational structure — sequences PathSteps | `LpService` |
 | **Exercise** | `ex.{ns}.{slug}` authored (content vault only, ADR-091 S4) | Instruction | Applied knowledge — instruction template anchored below PathStep | `ExerciseService` |
 
-Authored UIDs are stored verbatim in dot form; the colon spelling is retired and a colon-spelled entity uid fails ingestion's prefix check. Both Ku spellings are sanctioned — never infer an entity's kind from its UID string (ADR-013, SKUEL034); read the label, `entity_type` or an edge.
+Authored UIDs are stored verbatim in dot form, `{prefix}.{slug}` or `{prefix}.{ns}.{slug}` from `[a-z0-9._-]`; a uid outside the grammar — a colon-spelled one included — fails ingestion's uid check (`core/utils/uid_grammar.py`). A Ku has one spelling, `ku.{ns}.{slug}` (ADR-013 amendment 2026-10-16) — never infer an entity's kind from its UID string (ADR-013, SKUEL034); read the label, `entity_type` or an edge.
 
 Exercise is **subordinate** to PathStep, not a peer structural pattern. `EntityType.EXERCISE.is_applied_knowledge()` → `True`; `EntityType.EXERCISE.is_curriculum_structure()` → `False`.
 

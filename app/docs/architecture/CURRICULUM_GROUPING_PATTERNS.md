@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-10-16
+updated: 2026-10-18
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -88,17 +88,18 @@ Consequences:
   authored curriculum UIDs; the flat form activates only for API-created entities. Both forms
   stay sanctioned; see the never-sniff rule below.
 
-### Separator Grammar (ratified 2026-08-14)
+### Separator Grammar (ratified 2026-08-14, amended 2026-10-18)
 
-One character, one job. This is the whole separator law — anything a doc or code comment says
-beyond this table is historical:
+One character, one job, and one charset for every node uid: lowercase ASCII `[a-z0-9._-]`
+(`core/utils/uid_grammar.py`; ADR-013 § Amendment 2026-10-18). This is the whole separator
+law — anything a doc or code comment says beyond this table is historical:
 
 | Character | Role |
 |-----------|------|
-| `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `UIDGenerator.slugify()` emits it, and folds input underscores into it (`active_listening` → `active-listening`). Author hyphens. |
-| `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{grouping-label}.{slug}`. (The `:` colon authoring spelling was retired 2026-08-14 and its input alias deleted — a colon-spelled entity uid is rejected loudly. The DSL's `@link(type:uid)` argument colon is tag syntax, not a UID spelling — the id after it is the entity's stored uid, verbatim.) |
-| `_` underscore | Segment separator of **generated** UIDs (`{prefix}_{slug}_{random}`, `{prefix}_{random}`), and the conventional filename type-prefix (`ku_attention.md`). |
-| `:` colon | **Internal machine identifier, never an entity UID** (ratified 2026-08-14): periodic UserEntry UIDs (`ue:daily:{user}:{date}` — the calendar routes' join contract), the `edge:` tracker-row sentinel (`ingestion_write_backend.py`), and `transcription:`/`invoice:` mints. The disjoint spelling is what makes these collision-proof against entity UIDs — do NOT unify them into underscore form (`ue_daily_…` would masquerade as a generated entity uid while carrying parsed segments, and the `edge:` sentinel's exclusion query depends on distinctness). |
+| `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `uid_grammar.slugify()` emits it, and folds input underscores into it (`active_listening` → `active-listening`) and accents to ASCII (`café` → `cafe`). Author hyphens. |
+| `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{slug}` or `{prefix}.{ns}.{slug}` (the grouping label is optional — Kus and PathSteps carry one, Resources and LearningPaths do not). Ingestion refuses a `uid:` line outside this shape for every type, `user_entry` included, and a file with none takes `{prefix}.{stem}` only when its stem is one segment. |
+| `_` underscore | Separator of **generated** UIDs: `{prefix}_{opaque}` (`task_a1b2c3d4`). Also the conventional filename type-prefix (`ku_attention.md`) — which, for that reason, gives no uid to a file without a `uid:` line. |
+| `:` colon | **In no node uid** (amended 2026-10-18 — the colon row that kept periodic-note and chunk ids is reversed). The shapes still minted with one (`ue:daily:{user}:{date}`, `{parent}:chunk:{n}`, `transcription:`, `instructions:`, `invoice:`) are named exemptions in `uid_grammar.UID_EXEMPTIONS` until the uid arc migrates them. The `edge:` tracker-row sentinel (`ingestion_tracker.py`) keeps it: it is a tracker key, not a node uid. |
 | *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
 
 Two clarifications the grammar hangs on:

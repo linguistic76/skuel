@@ -108,7 +108,7 @@ CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding) YIELD no
 | Status literals like `'pending'`/`'on_track'` | Not `EntityStatus` values — bind `$statuses` from the enum (SKUEL014) |
 | APOC anywhere above the persistence boundary | SKUEL001 (unsuppressable) matches the whole `apoc.*` namespace in `core/`, `adapters/inbound/`, `ui/`; the server allowlist is `apoc.meta.*`, and no product code calls even that |
 | Inline Cypher in a service | SKUEL021 — Cypher lives in `adapters/persistence/neo4j/` backends |
-| A colon-spelled entity uid (`ps:x:y`) | Not a UID spelling — authored = stored in dot form (`ps.x.y`); ingestion rejects the colon form. Colons mark internal machine ids only (`ue:daily:…`) |
+| A colon-spelled entity uid (`ps:x:y`) | Not a UID spelling — authored = stored in dot form (`ps.x.y`); ingestion rejects the colon form. No node uid has a colon (`core/utils/uid_grammar.py`); the still-minted `ue:daily:…` and chunk ids are named exemptions until migrated |
 | Cartesian product from stacked OPTIONAL MATCH | `collect(DISTINCT ...)` per branch before the next MATCH |
 | `backend.update({"status": ...})` | ADR-087 — a status-bearing write goes through `update_with_status_guard(uid, updates, guard)`; the verdict comes from the prior the statement returns |
 | A label or edge name Neo4j silently matches zero rows on | SKUEL030 / CYP011 — every label / edge in persistence Cypher is a `NeoLabel` / `RelationshipName` member |
