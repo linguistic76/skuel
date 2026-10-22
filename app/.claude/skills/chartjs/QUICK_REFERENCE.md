@@ -81,7 +81,7 @@ return Result.ok(
 
 | Piece | Location | Notes |
 |-------|----------|-------|
-| Vendored Chart.js **v4.5.1** | `static/vendor/chart.js/chart.umd.js` | UMD global `Chart` |
+| Vendored Chart.js **v4.6.1** | `static/vendor/chart.js/chart.umd.js` | UMD global `Chart`; held to `package-lock.json` by `tests/js/vendored-chartjs.test.js` — a bump is `npm run vendor:copy` + a `CACHE_VERSION` bump |
 | Date adapter (time scales) | `static/vendor/chart.js/chartjs-adapter-date-fns.3.min.js` | Loaded only by `chartjs_headers()`; no live chart uses it |
 | `chartjs_headers()` | `ui/theme.py` | fast_app `hdrs=` in `scripts/dev/bootstrap.py`; never reaches a BasePage page |
 | `chartVis` Alpine component | `static/js/skuel.js` (`Alpine.data('chartVis', …)`) | `SKUEL.getJson` → destroy old → `new Chart`; `refresh(newUrl)`, `destroy()` |
