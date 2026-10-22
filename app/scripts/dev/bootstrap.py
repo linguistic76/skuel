@@ -27,8 +27,7 @@ from starlette.middleware import Middleware
 
 from adapters.inbound.auth.context_middleware import AuthContextMiddleware
 from adapters.inbound.boundary import (
-    install_malformed_json_guard,
-    install_malformed_multipart_guard,
+    install_malformed_body_guard,
 )
 from adapters.inbound.csrf import CSRFMiddleware
 from adapters.inbound.middleware import (
@@ -509,11 +508,10 @@ def _create_web_app(
 
     logger.info("✅ Session support configured (FastHTML built-in)")
 
-    # Malformed application/json and multipart/form-data bodies fail inside
-    # FastHTML's parameter extraction — before any route guard runs — so without
-    # these chokepoints they surface as 500s instead of a validation 400.
-    install_malformed_json_guard(app)
-    install_malformed_multipart_guard(app)
+    # FastHTML refuses a body it cannot read inside parameter extraction — before
+    # any route guard runs — with a plain-text 400; this chokepoint gives that
+    # refusal the API's validation shape.
+    install_malformed_body_guard(app)
 
     # Auth context — enforces the graph session per request (revoked sessions
     # force re-login) and mirrors session auth flags into a ContextVar so page

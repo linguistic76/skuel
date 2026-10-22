@@ -272,13 +272,13 @@ async def library_exercises(request: Request):
 
 ## Exception Handlers
 
-SKUEL installs two exception handlers, both on the parameter-extraction seam (FastHTML
-parses a JSON or multipart body BEFORE the handler and before any route guard runs):
+SKUEL installs one exception handler, on the parameter-extraction seam (FastHTML parses
+the body BEFORE the handler and before any route guard runs, and refuses one it cannot
+read with a plain-text `HTTPException(400)`):
 
 ```python
 # adapters/inbound/boundary.py — called from bootstrap
-install_malformed_json_guard(app)          # JSONDecodeError → 400
-install_malformed_multipart_guard(app)     # MultipartParseError → 400
+install_malformed_body_guard(app)   # status 400 on a JSON/form body → Errors.validation 400
 ```
 
 No `exception_handlers=` is passed to `fast_app()`. After that seam the two route kinds
