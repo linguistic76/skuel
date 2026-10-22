@@ -1,6 +1,6 @@
 ---
 title: "ADR-013: KU UID Flat Identity Design"
-updated: 2026-10-18
+updated: 2026-10-22
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum]
@@ -446,7 +446,9 @@ prefix, so an authored uid could carry a quote into an Alpine expression).
   habit completions, insights, the default group, bare-UUID SearchEvents, transcriptions,
   instruction sets); each becomes `{prefix}_{hash(parts)}` where the old id was derived, so a
   re-ingest still lands on the same node. Invoices leave with the local invoice module
-  (ADR-052 Phase 5). `./dev uid-census` reads every live uid against the grammar, per label.
+  (ADR-052 Phase 5). A user uid is `user_{username}` and registration admits any username, so
+  `create_user` can mint outside the grammar (`user_Jane-Doe`); a username rule at registration
+  or a generated user uid is unruled. `./dev uid-census` reads every live uid against the grammar, per label.
 - **Every generated uid moves to one shape.** Today `{prefix}_{8 hex}`, `{prefix}_{12 hex}` and
   `{prefix}_{slug}_{8 hex}` are all minted; the arc's last migration renames all of them, the
   two that already fit included.

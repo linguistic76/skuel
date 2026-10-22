@@ -256,6 +256,12 @@ def _invoice_factory() -> str:
     ).uid
 
 
+def _user_from_username() -> str:
+    from core.models.user.user import create_user
+
+    return create_user("Jane-Doe", "jane@example.com").uid
+
+
 # writer path → a call of that writer
 _DRIVERS: dict[str, Callable[[], str]] = {
     "core.models.ps_content.content_chunks:ContentChunk.chunk_id": _chunk,
@@ -270,6 +276,7 @@ _DRIVERS: dict[str, Callable[[], str]] = {
     "core.services.content_enrichment_service:instruction_set_uid": _instruction_set,
     "core.models.finance.invoice:invoice_create_request_to_dto": _invoice_from_request,
     "core.models.finance.invoice:create_invoice": _invoice_factory,
+    "core.models.user.user:create_user": _user_from_username,
 }
 
 _WRITERS = [(exemption, writer) for exemption in UID_EXEMPTIONS for writer in exemption.writers]

@@ -213,6 +213,14 @@ UID_EXEMPTIONS: Final[tuple[UidExemption, ...]] = (
         ),
         retired_by="the local invoice module's deletion (ADR-052 Phase 5; invoicing is ChargeKeep)",
     ),
+    UidExemption(
+        name="user_from_username",
+        # ``user_{username}`` fits whenever the username is lowercase letters and
+        # digits; registration admits any username, so this names the rest.
+        pattern=re.compile(r"user_(?=.*[^a-z0-9]).+"),
+        writers=("core.models.user.user:create_user",),
+        retired_by="a username rule at registration, or a generated user uid (unruled)",
+    ),
 )
 
 
