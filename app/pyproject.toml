@@ -49,7 +49,7 @@ dependencies = [
     # Security Dependencies
     "cryptography>=50.0.2",
     # Vault-agent WS client (ADR-075 B3) — direct dep, not a transitive ride on
-    # deepgram/fastmcp; agent/skuel_vault_agent.py + its unit tests import it.
+    # deepgram/uvicorn; agent/skuel_vault_agent.py + its unit tests import it.
     "websockets>=17.3",
     "python-slugify>=8.0.4",
     "bcrypt>=5.0.0",
@@ -105,7 +105,6 @@ dev = [
     "pytest-mock>=3.17.0",
     "ruff>=0.17.2",
     "testcontainers>=4.15.0",
-    "mcp-neo4j-cypher>=0.6.0",
     "types-requests>=2.33.0.20261006",
     "types-markdown>=3.10.2.20261007",
     # CommonMark parser backing scripts/health/dead_doc_links.py's fenced-code pass.
