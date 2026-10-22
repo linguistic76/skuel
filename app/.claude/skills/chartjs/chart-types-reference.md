@@ -3,7 +3,7 @@
 The chart types SKUEL emits, and the exact configs that emit them. Each config below
 is copied from a live builder: a `VisualizationService` formatter, an `InsightStore`
 method, or the lifepath radar route. Options not shown are Chart.js v4 defaults
-(vendored build: v4.5.1).
+(vendored build: v4.6.1).
 
 ## Overview
 

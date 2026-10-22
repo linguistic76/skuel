@@ -320,4 +320,4 @@ light background — nothing in SKUEL overrides them for dark mode yet.
 - `/core/services/visualization_service.py` — `VisualizationService` (Chart.js + Frappe Gantt formatters)
 - `/core/services/analytics/visualization_aggregation_service.py` — fetch + aggregate for `/api/visualizations/*`
 - `/core/services/insight/insight_store.py` — the four insight chart configs
-- Chart.js v4 docs: https://www.chartjs.org/docs/latest/ (vendored build: v4.5.1)
+- Chart.js v4 docs: https://www.chartjs.org/docs/latest/ (vendored build: v4.6.1)

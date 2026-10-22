@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: '2026-10-18'
+updated: '2026-10-22'
 category: patterns
 related_skills:
 - pydantic
@@ -393,7 +393,7 @@ same run.
 {
   "category": "validation",
   "code": "VALIDATION_FIELD_BODY",
-  "message": "2 validation errors for TaskUpdateRequest\ntitle\n  String should have at most 200 characters [type=string_too_long, input_value='xxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxx', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_long\nactual_minutes\n  Input should be greater than or equal to 0 [type=greater_than_equal, input_value=-1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/greater_than_equal",
+  "message": "2 validation errors for TaskUpdateRequest\ntitle\n  String should have at most 200 characters [type=string_too_long, input_value='xxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxx', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/string_too_long\nactual_minutes\n  Input should be greater than or equal to 0 [type=greater_than_equal, input_value=-1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.14/v/greater_than_equal",
   "severity": "low",
   "timestamp": "2026-01-15T10:30:00+00:00"
 }

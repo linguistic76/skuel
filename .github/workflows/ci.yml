@@ -204,6 +204,10 @@ jobs:
               # py-gated job skips.
               - 'app/static/js/**'
               - 'app/tests/js/**'
+              # tests/js/vendored-chartjs.test.js holds the vendored Chart.js
+              # copy to the version package-lock.json locks — a re-copy or a
+              # hand-replaced file alone must still run it.
+              - 'app/static/vendor/**'
               - 'app/package.json'
               - 'app/package-lock.json'
               - 'app/.nvmrc'
