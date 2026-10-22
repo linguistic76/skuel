@@ -94,7 +94,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "pytest-timeout>=2.4.0",
     # Code Quality with Enhanced Type Checking
-    "black>=26.5.1",
+    "black>=26.10.1",
     "isort>=8.0.1",
     "flake8>=7.3.0",
     "mypy>=2.3.0",
