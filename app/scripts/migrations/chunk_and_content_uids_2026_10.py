@@ -22,7 +22,8 @@ rename cannot account for:
 - an old uid whose prefix is not its parent's uid, or whose index is not the
   ``sequence`` on its parent edge;
 - a uid in neither the old shape nor the one ``chunk_uid`` mints for it;
-- two chunks the rename would give one uid, or a new uid another chunk holds;
+- two chunks the rename would give one uid, or a new uid any node in the graph
+  already holds;
 - a :Content node held by no entity or by more than one, or whose uid is not
   its entity's;
 - an entity holding more than one :Content node — the uid-less MERGE would
@@ -145,6 +146,8 @@ REMOVE c.uid
 RETURN count(c) AS cleared
 """
 
+_ALL_UIDS = "MATCH (n) WHERE n.uid IS NOT NULL RETURN n.uid AS uid"
+
 _SHARED_UIDS = """
 MATCH (n) WHERE n.uid IS NOT NULL
 WITH n.uid AS uid, count(n) AS holders WHERE holders > 1
@@ -180,7 +183,6 @@ class Plan:
 def plan_chunks(label: ChunkLabel, rows: list[Row], plan: Plan) -> None:
     """Add one store's renames to ``plan``; anything unaccounted for is a stop."""
     renames: list[Rename] = []
-    held = {str(row["uid"]) for row in rows if row["uid"] is not None}
     for row in rows:
         uid = row["uid"]
         if row["embedded"]:
@@ -210,15 +212,23 @@ def plan_chunks(label: ChunkLabel, rows: list[Row], plan: Plan) -> None:
         renames.append(
             Rename(old=uid, new=chunk_uid(label.store, parent_uid, index), parent=parent_uid)
         )
-    new_uids = Counter(rename.new for rename in renames)
-    for new_uid, count in new_uids.items():
+    plan.renames[label.label] = renames
+
+
+def plan_collisions(plan: Plan, held: set[str]) -> None:
+    """Stop on a new uid two renames share, or one a node in the graph already holds.
+
+    ``held`` is every uid in the graph, of any label — a uid names one node, so a
+    new chunk uid must be free graph-wide, not only among its own label.
+    """
+    renames = [rename for label_renames in plan.renames.values() for rename in label_renames]
+    for new_uid, count in sorted(Counter(rename.new for rename in renames).items()):
         if count > 1:
-            plan.stops.append(f"{count} {label.label} chunks would all become {new_uid}")
+            plan.stops.append(f"{count} chunks would all become {new_uid}")
     moving = {rename.old for rename in renames}
     for rename in renames:
         if rename.new in held and rename.new not in moving:
-            plan.stops.append(f"{label.label} {rename.new} is already held by another chunk")
-    plan.renames[label.label] = renames
+            plan.stops.append(f"{rename.new} (for {rename.old}) is already held by a node")
 
 
 def plan_content(rows: list[Row], plan: Plan) -> None:
@@ -255,10 +265,11 @@ async def _fetch(
 
 
 async def census(driver: AsyncDriver) -> Plan:
-    """Read every chunk and every :Content node, and plan the rename."""
+    """Read every chunk, every :Content node and every uid, and plan the rename."""
     plan = Plan()
     for label in CHUNK_LABELS:
         plan_chunks(label, await _fetch(driver, label.rows_query), plan)
+    plan_collisions(plan, {str(row["uid"]) for row in await _fetch(driver, _ALL_UIDS)})
     plan_content(await _fetch(driver, _CONTENT_ROWS), plan)
     return plan
 

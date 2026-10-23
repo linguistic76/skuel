@@ -39,9 +39,12 @@ def _row(uid: str | None, parent: str | None, sequence: int | None, embedded: bo
     return {"uid": uid, "parents": parents, "embedded": embedded}
 
 
-def _plan(label: Any, rows: list[Any]) -> Any:
+def _plan(label: Any, rows: list[Any], elsewhere: frozenset[str] = frozenset()) -> Any:
+    """Plan ``rows``; the graph's uids are theirs plus ``elsewhere`` (other nodes)."""
     plan = migration.Plan()
     migration.plan_chunks(label, rows, plan)
+    held = {row["uid"] for row in rows if row["uid"] is not None} | elsewhere
+    migration.plan_collisions(plan, held)
     return plan
 
 
@@ -105,6 +108,21 @@ def test_a_new_uid_another_chunk_holds_is_a_stop() -> None:
     taken = chunk_uid(ChunkStore.CONTENT, "ps.a.b", 0)
     plan = _plan(CONTENT, [_row("ps.a.b:chunk:0", "ps.a.b", 0), _row(taken, "ps.a.z", 9)])
     assert any("already held" in stop for stop in plan.stops)
+
+
+def test_a_new_uid_a_node_of_another_label_holds_is_a_stop() -> None:
+    """A uid names one node graph-wide, so a non-chunk holder blocks the rename too."""
+    taken = chunk_uid(ChunkStore.CONTENT, "ps.a.b", 0)
+    plan = _plan(CONTENT, [_row("ps.a.b:chunk:0", "ps.a.b", 0)], elsewhere=frozenset({taken}))
+    assert plan.stops == [f"{taken} (for ps.a.b:chunk:0) is already held by a node"]
+
+
+def test_two_labels_minting_one_new_uid_is_a_stop() -> None:
+    plan = migration.Plan()
+    same = migration.Rename(old="x:chunk:0", new="chunk_00", parent="x")
+    plan.renames = {"ContentChunk": [same], "ReferenceChunk": [same]}
+    migration.plan_collisions(plan, set())
+    assert plan.stops == ["2 chunks would all become chunk_00"]
 
 
 def test_content_uids_are_cleared_only_where_they_are_their_entitys() -> None:
