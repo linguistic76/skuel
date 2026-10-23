@@ -5,20 +5,17 @@ becomes a ``TaskCreateRequest(status=COMPLETED, completion_date=✅date)``, and 
 entity door persists whatever status it is handed. That entity never passes through
 ``update_task`` / ``update_goal`` / ``update_event``, which is where the transition
 events are published — so every completion subscriber (goal progress, PS engagement
-auto-complete, duration calibration, productivity analytics, context invalidation)
-was silently skipped for it. The create door announced ``TaskCreated`` /
-``GoalCreated`` / ``CalendarEventCreated`` and nothing else.
+auto-complete, duration calibration, context invalidation) was silently skipped for
+it. The create door announced ``TaskCreated`` / ``GoalCreated`` /
+``CalendarEventCreated`` and nothing else.
 
 A create has NO prior status, so a created-completed entity is unambiguously a
 transition INTO completed, and no prior-status machinery is needed. The gate is the entity's own status, which is why a non-completed create must
 stay silent — that is the half a "does it publish?" assertion cannot see.
 
 ``occurred_at`` carries the entity's OWN completion stamp (CLAUDE.md's sanctioned
-carry-forward), so a backfilled historical completion reports the day it happened.
-That is what makes ``ProductivityAnalytics.last_completion_at`` order-sensitive for
-the first time, and the monotone-max half of the fix is pinned in
-``tests/integration/test_productivity_stamp_monotone.py`` — a Python-side assertion
-here could not see it, because the ordering lives in the Cypher.
+carry-forward), so a backfilled historical completion reports the day it happened —
+which is why anything a subscriber keeps from it must be order-insensitive.
 
 Habit and Choice are deliberately absent: neither has an entity-completion event
 (``HabitCompleted`` is a logged daily OCCURRENCE, ``ChoiceMade`` is the DRAFT→ACTIVE

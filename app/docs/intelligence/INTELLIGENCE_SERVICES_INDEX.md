@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-10-13
+updated: 2026-10-23
 category: intelligence
 status: current
 related_skills:
@@ -26,7 +26,7 @@ The app functions fully without any LLM dependencies - AI services enhance but a
 - **Shared Knowledge:** 1 (ActivityKnowledgeIntelligenceService — serves all 6 activity domains)
 - **Curriculum Domains:** 3 (KU, PS, LP)
 - **Corpus Analytics:** 1 (KnowledgeHealthService — whole-subgraph structural gauge, ADR-080 Horizon 1)
-- **Cross-Domain Analytics:** 1 (CrossDomainAnalyticsService — event-driven, wired every tier; `analytics_api.py` endpoints for learning-velocity / productivity / habit-consistency / dashboard)
+- **Cross-Domain Analytics:** 1 (CrossDomainAnalyticsService — every figure derived from the graph at read, no event subscriptions, every tier; `analytics_api.py` endpoints for learning-velocity / productivity / habit-consistency / dashboard)
 - **Meta Intelligence:** 1 (UserContext - central intelligence hub)
 - **Cross-Cutting:** 1 (Askesis - life context synthesis)
 - **Specialized Graph:** 1 (ZPDService - curriculum ZPD graph analytics — FULL tier only)

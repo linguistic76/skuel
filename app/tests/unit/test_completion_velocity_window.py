@@ -1,31 +1,25 @@
 """``completion_velocity`` is a rate over a fixed trailing window, beside a derived total.
 
-It used to be the lifetime completion count divided by the span between the
-user's first-ever completion and their most recent one. That is not a rate: the
-denominator can only grow, so the number could only decay, and it degenerated at
-both edges. Before the completion stamps were both written, a first completion
-left ``last_completion_at`` null and velocity read **0.0** — no rate until you
-complete twice. After (#1134), ``first == last`` makes ``days_active or 1``
-report **7.0 tasks/week** extrapolated from a zero-length window. Both numbers
-are symptoms of the denominator, not of the stamps.
+A rate needs a constant divisor. Divided instead by the span between the user's
+first-ever completion and their most recent one, the number could only decay as
+the span grew, and it would degenerate at both edges: a single completion makes
+the span zero, which reads either as no rate at all or — with ``days_active or
+1`` — as a full week's rate extrapolated from no elapsed time.
 
-``tasks_completed`` beside the rate used to be a **stored** figure the event
-handlers maintained, and it drifted from the graph through every door that
-publishes no task event — so the payload could contradict itself (a window count
-larger than the "total"). Both counts are now derived from one graph read; the
-stored field and its reconciliation instrument are gone.
+Every figure in the payload is derived from the user's tasks on one read: the
+total, the window inside it, and the first and last completion days. Nothing is
+stored that could drift from the graph, so the payload cannot contradict itself.
 
-These tests pin the redesign at the service seam: what the window is, that the
-divisor is a constant, that the total is the derived count and never a property
-read off the node, and that the stored stamps no longer reach the arithmetic.
-The window's *edges* and the derivation are Cypher and are proven against the
-container in ``tests/integration/test_completion_velocity_window.py``.
+These tests pin the service seam: what the window is, that the divisor is a
+constant, that the counts and days are the backend's derived row passed through,
+and that the span between the days never reaches the arithmetic. The window's
+*edges* and the derivation are Cypher and are proven against the container in
+``tests/integration/test_completion_velocity_window.py``.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
-from typing import Any
+from datetime import date, timedelta
 
 import pytest
 
@@ -47,13 +41,15 @@ class _FakeBackend:
         *,
         completed_in_window: int,
         tasks_completed: int | None = None,
-        analytics: dict[str, Any] | None = None,
+        first: date | None = None,
+        last: date | None = None,
     ) -> None:
         self._completed_in_window = completed_in_window
         # Both counts come from one traversal, so the window is a subset of the
         # total; a test that does not care about the total gets a consistent one.
         self._tasks_completed = completed_in_window if tasks_completed is None else tasks_completed
-        self._analytics = analytics
+        self._first = first
+        self._last = last
         self.window_start: str | None = None
         self.window_end: str | None = None
 
@@ -65,17 +61,13 @@ class _FakeBackend:
         return Result.ok(
             [
                 {
-                    "analytics": self._analytics,
                     "tasks_completed": self._tasks_completed,
                     "completed_in_window": self._completed_in_window,
+                    "first_completed_on": self._first,
+                    "last_completed_on": self._last,
                 }
             ]
         )
-
-
-def _stamps(*, first: datetime, last: datetime) -> dict[str, Any]:
-    """A ProductivityAnalytics node — it carries the two stamps and nothing else."""
-    return {"first_completion_at": first, "last_completion_at": last}
 
 
 def _service(backend: _FakeBackend) -> CrossDomainAnalyticsService:
@@ -91,14 +83,15 @@ def _service(backend: _FakeBackend) -> CrossDomainAnalyticsService:
 async def test_a_steady_completion_rate_reports_that_rate():
     """12 completions in a 30-day window is 2.8 tasks/week, and nothing else.
 
-    The derived total (400) and the two-year span on the stamps are deliberately
-    extreme: under the old arithmetic they *were* the metric, so if either still
-    reached it this assertion could not pass.
+    The derived total (400) and the two-year span between the completion days
+    are deliberately extreme: were either a divisor, this assertion could not
+    pass.
     """
     backend = _FakeBackend(
         completed_in_window=12,
         tasks_completed=400,
-        analytics=_stamps(first=datetime(2024, 1, 1), last=datetime(2026, 1, 1)),
+        first=date(2024, 1, 1),
+        last=date(2026, 1, 1),
     )
 
     result = await _service(backend).get_productivity_metrics(USER)
@@ -115,16 +108,16 @@ async def test_a_steady_completion_rate_reports_that_rate():
 async def test_completions_all_older_than_the_window_report_zero_not_a_lifetime_figure():
     """0.0 is the honest reading of "nothing completed this month".
 
-    This is the case the redesign is *for*. The user has 85 completed tasks
-    across a real span, so the old arithmetic served a plausible non-zero number
-    forever — a rate for work that stopped. A fixed window reports what is true
-    now, and the cumulative figures survive untouched beside it rather than
-    being erased.
+    The user has 85 completed tasks across a real span, so a span-based rate
+    would serve a plausible non-zero number forever — a rate for work that
+    stopped. A fixed window reports what is true now, and the cumulative figures
+    stand beside it.
     """
     backend = _FakeBackend(
         completed_in_window=0,
         tasks_completed=85,
-        analytics=_stamps(first=datetime(2026, 1, 5), last=datetime(2026, 6, 11)),
+        first=date(2026, 1, 5),
+        last=date(2026, 6, 11),
     )
 
     result = await _service(backend).get_productivity_metrics(USER)
@@ -132,25 +125,22 @@ async def test_completions_all_older_than_the_window_report_zero_not_a_lifetime_
     assert result.is_ok
     assert result.value["completion_velocity"] == 0.0
     assert result.value["tasks_completed_in_window"] == 0
-    # Not erased — the lifetime record is still served, it just is not the rate.
     assert result.value["tasks_completed"] == 85
-    assert result.value["first_completion_at"] == datetime(2026, 1, 5)
-    assert result.value["last_completion_at"] == datetime(2026, 6, 11)
+    assert result.value["first_completion_at"] == date(2026, 1, 5)
+    assert result.value["last_completion_at"] == date(2026, 6, 11)
 
 
 @pytest.mark.asyncio
 async def test_a_single_completion_today_reports_one_task_per_window_not_zero_and_not_seven():
     """One completion is 1/30-days ≈ 0.23 tasks/week — the measured rate.
 
-    Both historical readings were wrong in opposite directions and for the same
-    reason. 0.0 said "no rate until you complete twice"; 7.0 extrapolated a full
-    week from a window of zero elapsed days. 0.23 claims nothing beyond what
-    happened: one task inside a thirty-day window. It is low, and it is supposed
-    to be — a first completion is not evidence of a weekly rate, and the window
-    is what stops the metric from pretending otherwise.
+    A span-based rate would be wrong here in one of two opposite directions:
+    0.0 ("no rate until you complete twice") or 7.0 (a full week extrapolated
+    from a span of zero days). 0.23 claims nothing beyond what happened: one
+    task inside a thirty-day window.
     """
-    today = datetime.now()
-    backend = _FakeBackend(completed_in_window=1, analytics=_stamps(first=today, last=today))
+    today = today_in(current_zone())
+    backend = _FakeBackend(completed_in_window=1, first=today, last=today)
 
     result = await _service(backend).get_productivity_metrics(USER)
 
@@ -158,40 +148,46 @@ async def test_a_single_completion_today_reports_one_task_per_window_not_zero_an
     velocity = result.value["completion_velocity"]
     assert velocity == pytest.approx(round(1 / (30 / 7), 2))
     assert velocity == pytest.approx(0.23)
-    assert velocity != 0.0, "the pre-#1134 degenerate reading"
-    assert velocity != 7.0, "the post-#1134 degenerate reading"
+    assert velocity != 0.0, "the no-span degenerate reading"
+    assert velocity != 7.0, "the one-day-span degenerate reading"
 
 
 # ============================================================================
-# THE TOTAL IS DERIVED
+# THE DERIVED FIGURES PASS THROUGH
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_the_total_is_the_derived_count_never_a_property_read_off_the_node():
-    """The live-graph shape the derivation replaced: stored 9, actual 85.
-
-    A node written before the count was derived still carries a legacy
-    ``tasks_completed`` property until the backfill drops it. The service must
-    serve the count the backend derived from the graph and never fall back to
-    the property — otherwise the migration window would report the stale tally
-    under the new meaning, which is exactly the drift the derivation ends.
-    """
-    legacy_node = {
-        "tasks_completed": 9,
-        "first_completion_at": datetime(2026, 1, 5),
-        "last_completion_at": datetime(2026, 8, 22),
-    }
-    backend = _FakeBackend(completed_in_window=30, tasks_completed=85, analytics=legacy_node)
+async def test_the_first_and_last_completion_days_are_the_derived_days():
+    """The payload's ``first_completion_at`` / ``last_completion_at`` are the
+    backend's derived days, unchanged — calendar dates, as ``completion_date`` is."""
+    backend = _FakeBackend(
+        completed_in_window=30,
+        tasks_completed=85,
+        first=date(2026, 1, 5),
+        last=date(2026, 8, 22),
+    )
 
     result = await _service(backend).get_productivity_metrics(USER)
 
     assert result.is_ok
-    assert result.value["tasks_completed"] == 85, "derived from the graph, not the node"
-    assert result.value["tasks_completed_in_window"] == 30
-    assert result.value["first_completion_at"] == datetime(2026, 1, 5), (
-        "stamps still come from the node"
-    )
+    assert result.value["tasks_completed"] == 85
+    assert result.value["first_completion_at"] == date(2026, 1, 5)
+    assert result.value["last_completion_at"] == date(2026, 8, 22)
+
+
+@pytest.mark.asyncio
+async def test_a_user_with_completions_but_no_stamped_day_reports_no_days():
+    """Completed tasks that carry no ``completion_date`` are in the total and
+    name no day, so both days are ``None`` beside a real count."""
+    backend = _FakeBackend(completed_in_window=0, tasks_completed=3)
+
+    result = await _service(backend).get_productivity_metrics(USER)
+
+    assert result.is_ok
+    assert result.value["tasks_completed"] == 3
+    assert result.value["first_completion_at"] is None
+    assert result.value["last_completion_at"] is None
 
 
 # ============================================================================
@@ -214,13 +210,12 @@ async def test_the_query_is_bound_to_the_trailing_window_not_to_stored_history()
 async def test_the_window_is_bounded_at_today_so_a_future_stamp_cannot_inflate_it():
     """A trailing window ends where the present does.
 
-    Without an upper bound a future-stamped task counts in *every* window
+    Without an upper bound a future-stamped task would count in *every* window
     between now and its date: a velocity inflated permanently and silently,
-    because nothing about the number looks wrong. The assertion is the reader's
-    own guarantee, not a writer's — a trailing window ends where the present
-    does whatever the doors promise, and a stamp already in the graph is
-    contained by this bound alone. Both ends come from the window class so they
-    cannot drift from the constant divisor between them.
+    because nothing about the number looks wrong. The bound is the reader's own
+    guarantee, not a writer's — a stamp already in the graph is contained by it
+    alone. Both ends come from the window class so they cannot drift from the
+    constant divisor between them.
     """
     backend = _FakeBackend(completed_in_window=3)
 
@@ -259,31 +254,8 @@ def test_a_completion_exactly_days_old_falls_outside_the_window():
 
 
 # ============================================================================
-# ABSENT / EMPTY READS
+# EMPTY READS
 # ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_completions_with_no_analytics_node_still_report_real_counts():
-    """The vault ``- [x]`` door writes no node, and neither count needs one.
-
-    The old read required the node with a mandatory MATCH, so this user got a
-    flat 0.0 velocity and a "total" of 0 beside six real completions — the
-    payload contradicting itself. Both counts are derived from the graph now,
-    so an absent node costs only the stamps, which are honestly ``None``: no
-    event ever recorded a completion moment for this user, and the backfill
-    script is what fills history.
-    """
-    backend = _FakeBackend(completed_in_window=6, tasks_completed=6, analytics=None)
-
-    result = await _service(backend).get_productivity_metrics(USER)
-
-    assert result.is_ok
-    assert result.value["completion_velocity"] == pytest.approx(round(6 / (30 / 7), 2))
-    assert result.value["tasks_completed"] == 6
-    assert result.value["tasks_completed_in_window"] <= result.value["tasks_completed"]
-    assert result.value["first_completion_at"] is None
-    assert result.value["last_completion_at"] is None
 
 
 @pytest.mark.asyncio
@@ -304,3 +276,5 @@ async def test_a_read_that_returns_nothing_at_all_reports_zeros():
     assert result.value["completion_velocity"] == 0.0
     assert result.value["tasks_completed"] == 0
     assert result.value["tasks_completed_in_window"] == 0
+    assert result.value["first_completion_at"] is None
+    assert result.value["last_completion_at"] is None

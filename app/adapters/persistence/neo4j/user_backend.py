@@ -707,6 +707,11 @@ class UserBackend(Neo4jSessionRunner):
             Result[bool]: True when this call created the enrollment, False
             when the user was already enrolled (the edge's fields are
             refreshed either way)
+
+        A repeat enroll in a path the learner has completed refreshes the
+        commitment fields and keeps the enrollment ``completed``: the
+        completion is the progress recount's verdict, and the list card offers
+        Enroll on every path.
         """
         # Not _merge_user_edge: the publisher of LearningPathStarted needs to
         # know whether THIS call created the enrollment (a repeat enroll is not
@@ -725,7 +730,7 @@ class UserBackend(Neo4jSessionRunner):
                 r.target_completion = $target_completion,
                 r.weekly_time_commitment = $weekly_time_commitment,
                 r.motivation_note = $motivation_note,
-                r.status = $active
+                r.status = CASE WHEN r.status = $completed THEN r.status ELSE $active END
             WITH r, r.transition AS newly_enrolled
             REMOVE r.transition
             RETURN newly_enrolled
@@ -737,6 +742,7 @@ class UserBackend(Neo4jSessionRunner):
                 "weekly_time_commitment": weekly_time_commitment,
                 "motivation_note": motivation_note,
                 "active": EnrollmentStatus.ACTIVE.value,
+                "completed": EnrollmentStatus.COMPLETED.value,
             },
         )
         if record is None:

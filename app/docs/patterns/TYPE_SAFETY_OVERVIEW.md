@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-30
+updated: 2026-10-23
 ---
 
 # Type Safety Architecture Overview
@@ -152,7 +152,7 @@ instead of `dict[str, Any]` for parameters.
 to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_service_interface.py`):
 - Domain model returns: `Result[UserEntry]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
 - Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`
-- Existing dataclasses: `Result[LearningVelocityMetrics]`, `Result[SpendingPatternAnalysis]`
+- Existing dataclasses: `Result[LearningVelocityMetrics]`
 - Output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
   teacher review (`ReviewQueueItem`, `TeacherDashboardStats`, `GroupMemberProgress`),
   review queue (`ReviewRequestResult`, `PendingReviewItem`), intelligence results

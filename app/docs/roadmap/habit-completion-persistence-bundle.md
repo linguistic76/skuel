@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-10-12
+updated: 2026-10-23
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -148,7 +148,7 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    semantics** (name it at build time; a new `core/events` module must be imported in
    `core/events/__init__.py`): the user-context cache must invalidate, linked-goal progress that
    `GoalsProgressService.handle_habit_completed` advanced must recompute, and once the shared
-   writer emits `HabitCompleted` its analytics / timing-learning subscribers must be told the
+   writer emits `HabitCompleted` its timing-learning and telemetry subscribers must be told the
    completion is gone, or every one of them keeps the removed completion. Two node writes are not
    the whole inverse. Found by Codex on #1172, not on #915.
 
@@ -186,9 +186,8 @@ publisher of `HabitCompleted` (`habits_progress_service.py:298` — the only `Ha
 left in the tree since the `core/events/habit_events.py` usage-example fiction, which cited a
 `log_completion` that never existed, was deleted 2026-08-28). `record_completion` publishes
 `HabitStreakMilestone` only, so the two
-node-writing doors (`/api/habits/track`, calendar) reach none of the four wired subscribers —
+node-writing doors (`/api/habits/track`, calendar) reach none of the three wired subscribers —
 `GoalsProgressService.handle_habit_completed` (goal progress),
-`CrossDomainAnalyticsService.handle_habit_completed`,
 `HabitEventHandlerService.handle_habit_completed`, and `MetricsEventHandler._on_habit_completed`
 (the Prometheus `entities_completed{entity_type="habit"}` counter — completion telemetry is blind
 to them too) — nor the user-context cache invalidation keyed on it. The same holds for `HabitStreakBroken`: `_calculate_new_streak` resets the streak after a
@@ -200,9 +199,8 @@ a consolidation
 hazard: the shared committed writer must carry the canonical `HabitCompleted` and
 `HabitStreakBroken` and the contextual side effects with it, or the merge silently disconnects
 goal progress and streak recovery from every completion. **With explicit completion-time
-semantics:** `BaseEvent.occurred_at` defaults to `datetime.now()`, and two subscribers read it
-directly — `CrossDomainAnalyticsService.handle_habit_completed` persists it,
-`HabitEventHandlerService.handle_habit_completed` learns the completion hour from it — so a
+semantics:** `BaseEvent.occurred_at` defaults to `datetime.now()`, and a subscriber reads it
+directly — `HabitEventHandlerService.handle_habit_completed` learns the completion hour from it — so a
 canonical event published as-is stamps a backfilled or future occurrence as completed *now* and
 trains scheduling on the request hour (and setting `occurred_at` to the date-only midnight trains
 an artificial hour instead). The shared writer's event carries the occurrence's own
@@ -212,9 +210,8 @@ feeds it into `learned_on_time_rate`, so an unknown-time completion left on the 
 counted as known-on-time and inflates the EMA and its sample count — defined, not defaulted.
 And a **future-dated** completion (legitimate by the 2026-08-23 ruling — see the *Habit Streak
 Counters* row) is stored but must not feed behaviour that has not happened yet into downstream
-state: published as-is, `CrossDomainAnalyticsService.handle_habit_completed` would pass the
-future timestamp into `_upsert_counter_analytics` (a permanently future `first_completion_at`)
-and the handler would learn its hour and on-time sample. Its side effects are deferred or
+state: published as-is, `HabitEventHandlerService.handle_habit_completed` would learn its hour
+and on-time sample. Its side effects are deferred or
 excluded until its occurrence day arrives — the same decision as that row's `current_streak`
 semantics, taken once.
 

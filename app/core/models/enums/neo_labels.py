@@ -149,15 +149,14 @@ class NeoLabel(StrEnum):
     MIGRATION_RECORD = "MigrationRecord"
 
     # =========================================================================
-    # Intelligence Snapshots (non-Entity aggregate nodes)
+    # Intelligence Records (non-Entity nodes)
     # =========================================================================
-    # "Analytics aggregate, they don't create" holds for DOMAIN data — these are
-    # counters/snapshots keyed by user_uid, not domain entities.
+    # What intelligence produced at a moment — an insight, an assessment
+    # snapshot, a badge earned — which the graph cannot re-derive later. A
+    # figure the graph can answer when asked is never stored here: "Analytics
+    # aggregate, they don't create" (tests/unit/test_no_per_user_analytics_nodes.py).
     INSIGHT = "Insight"  # Persisted intelligence output (ABOUT_ENTITY → subject)
     ZPD_HISTORY = "ZPDHistory"  # Periodic ZPD assessment snapshots
-    LEARNING_VELOCITY = "LearningVelocity"  # Per-user learning-rate counters
-    PRODUCTIVITY_ANALYTICS = "ProductivityAnalytics"  # Per-user task-completion counters
-    HABIT_ANALYTICS = "HabitAnalytics"  # Per-user habit-completion counters
     ACHIEVEMENT = "Achievement"  # Badge nodes unlocked by habit streaks
 
     # =========================================================================

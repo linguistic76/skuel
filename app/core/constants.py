@@ -593,12 +593,12 @@ class CompletionVelocityWindow:
 
     ``completion_velocity`` is a **rate over a fixed recent window**, not a
     lifetime average. It answers "how fast is this user completing tasks *now*",
-    which is the only question a velocity figure is ever asked. The number it
-    replaced divided the lifetime completion count by the span from the user's
-    first-ever completion to their most recent one — a denominator that can only
-    grow, so the metric could only decay, and that degenerated at both edges: a
-    span of zero (one completion, or several on one day) read as either 0.0 or a
-    full week's rate extrapolated from no elapsed time at all.
+    which is the only question a velocity figure is ever asked. Divided instead
+    by the span from the user's first-ever completion to their most recent one,
+    the denominator could only grow, so the metric could only decay, and it would
+    degenerate at both edges: a span of zero (one completion, or several on one
+    day) reads as either 0.0 or a full week's rate extrapolated from no elapsed
+    time at all.
 
     **The window is inclusive of today and exactly :attr:`DAYS` calendar days
     long**, so :attr:`WEEKS` is an exact divisor rather than an approximation.
@@ -660,14 +660,13 @@ class HabitConsistencyWindow:
     Same shape, same reasoning, and the same repair as
     :class:`CompletionVelocityWindow`. ``consistency_score`` is a **rate over a
     fixed recent window**, not a lifetime average: it answers "how consistently
-    is this user keeping their habits *now*". The number it replaced divided the
-    lifetime completion tally by the span between the user's first-ever habit
-    completion and their most recent one, and degenerated at three edges — a
-    single completion left ``last_completion_at`` unwritten (the tally upsert
-    only stamps it ``ON MATCH``) and read **0.0**; several completions on one
-    day extrapolated a full week's rate from a zero-length span; and a user who
-    stopped kept a plausible non-zero score forever, because a denominator that
-    can only grow makes a metric that can only decay.
+    is this user keeping their habits *now*". Divided instead by the span between
+    the user's first-ever habit completion and their most recent one, it would
+    degenerate at three edges: a single completion is a span of zero, which reads
+    as no rate at all; several completions on one day extrapolate a full week's
+    rate from a zero-length span; and a user who stopped keeps a plausible
+    non-zero score forever, because a denominator that can only grow makes a
+    metric that can only decay.
 
     **The window is inclusive of today and exactly :attr:`DAYS` calendar days
     long**, so :attr:`WEEKS` is an exact divisor rather than an approximation.

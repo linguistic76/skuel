@@ -10,7 +10,7 @@ Protocols:
 - CalendarServiceOperations — Calendar aggregation
 - VisualizationOperations — Chart.js + Gantt aggregation + formatting
 - SystemServiceOperations — Health checks and monitoring
-- CrossDomainAnalyticsOperations — Event-driven analytics
+- CrossDomainAnalyticsOperations — Per-user analytics, derived at read
 - LifePathOperations — Vision-to-action bridge
 - GraphAuthOperations — Graph-native authentication
 - GoalTaskGeneratorOperations — Goal→Task generation
@@ -269,7 +269,7 @@ class SystemServiceOperations(Protocol):
 
 @runtime_checkable
 class CrossDomainAnalyticsOperations(Protocol):
-    """Event-driven cross-domain analytics operations.
+    """Per-user cross-domain analytics, each figure derived from the graph when asked for.
 
     Route consumer: analytics_api.py (via services.cross_domain_analytics)
     Implementation: CrossDomainAnalyticsService
@@ -295,6 +295,14 @@ class CrossDomainAnalyticsOperations(Protocol):
         user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """Get habit consistency analytics. Returns Result[dict]."""
+        ...
+
+    async def get_combined_dashboard(
+        self,
+        user_uid: UserUID,
+        days_back: int = 30,
+    ) -> Result[dict[str, Any]]:
+        """Get the combined analytics dashboard. Returns Result[dict]."""
         ...
 
 

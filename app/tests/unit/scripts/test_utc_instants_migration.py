@@ -230,8 +230,6 @@ def _matrix(rule: object) -> dict[object, object]:
             {VC.STR_NAIVE_US, VC.STR_NAIVE_S},
             {VC.NATIVE_US, VC.NATIVE_MS, VC.NATIVE_S},
         ),
-        # A whole-second native is the backfill's UTC midnight or a completion's local one.
-        ("PRODUCTIVITY_STAMP", {VC.NATIVE_US}, set()),
         ("INSIGHT_EXPIRY", set(), set()),
     ],
 )
@@ -521,7 +519,7 @@ def test_a_json_stamp_moves_only_at_the_path_it_was_classified_at() -> None:
         laptop_now=LAPTOP_NOW,
         graph_uri="bolt://x",
     )
-    row = {"element": "e1", "prop": "metadata", "text": text, "uid": "goal.x", "user_uid": None}
+    row = {"element": "e1", "prop": "metadata", "text": text, "uid": "goal.x"}
     migration._json_census(census, row, ("Entity", "Goal"), "(:Goal)", "")
     assert not census.stops
     [json_row] = census.json_rows
@@ -572,7 +570,6 @@ def test_an_unreadable_stamp_nested_at_a_read_path_stops() -> None:
         "prop": "progress_history",
         "text": text,
         "uid": "goal.x",
-        "user_uid": None,
     }
     migration._json_census(census, row, ("Entity", "Goal"), "(:Goal)", "")
     assert [s.value.cls for s in census.stops] == [VC.STR_UNRECOGNIZED]
@@ -598,7 +595,7 @@ def test_mikes_two_rulings_settle_their_rows_as_true_utc() -> None:
         "(:EntryReport)",
         "updated_at",
         migration.classify_native("ZONED DATETIME", "2026-08-01T17:10:51.959Z", "Z", 959_000_000),
-        migration._node_key(("Entity", "EntryReport"), "(:EntryReport)", "er_e7ca22a9", None),
+        migration._node_key(("Entity", "EntryReport"), "(:EntryReport)", "er_e7ca22a9"),
     )
     membership = migration.Stamp(
         "rel",

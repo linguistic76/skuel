@@ -1716,7 +1716,6 @@ async def compose_services(
             learning_services=learning_services,
             user_entry_exercise_linker=user_entry_exercise_linker,
             notification_service=notification_service,
-            advanced=advanced,
             analytics_service=analytics_service,
             user_entry_backend=user_entry_backend,
             insight_store=insight_store,

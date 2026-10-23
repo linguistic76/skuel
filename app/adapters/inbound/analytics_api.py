@@ -2,21 +2,14 @@
 Analytics API Routes
 ================================
 
-Event-driven analytics API for querying live metrics.
-
-
-- Exposes analytics data from CrossDomainAnalyticsService
-- Real-time metrics via Neo4j + in-memory caching
-- Event-driven updates (no polling needed)
+The signed-in user's cross-domain analytics, from CrossDomainAnalyticsService —
+every figure derived from the graph on the request that asks for it.
 
 Endpoints:
 - GET /api/analytics/learning-velocity
 - GET /api/analytics/productivity
 - GET /api/analytics/habit-consistency
 - GET /api/analytics/dashboard (combined metrics)
-
-Version: 1.0.0
-Date: 2025-11-06
 """
 
 from datetime import datetime
@@ -49,10 +42,9 @@ def register_analytics_routes(app, services):
     @boundary_handler()
     async def learning_velocity(request):
         """
-        Get learning velocity metrics for user.
+        Get learning velocity metrics for the signed-in user.
 
         Query params:
-            user_uid: User identifier (required)
             days_back: Number of days to analyze (default: 30)
 
         Returns:
@@ -98,16 +90,13 @@ def register_analytics_routes(app, services):
     @boundary_handler()
     async def productivity_metrics(request):
         """
-        Get productivity analytics from task completions.
-
-        Query params:
-            user_uid: User identifier (required)
+        Get the signed-in user's productivity analytics from task completions.
 
         Returns:
-            ProductivityAnalytics with:
+            The productivity figures:
             - tasks_completed (tasks currently in COMPLETED)
-            - first_completion_at
-            - last_completion_at
+            - first_completion_at (ISO date of the earliest completion day)
+            - last_completion_at (ISO date of the latest completion day)
             - velocity_window_days / tasks_completed_in_window
             - completion_velocity (tasks per week over that trailing window)
 
@@ -115,17 +104,11 @@ def register_analytics_routes(app, services):
         lifetime average, so the window and its numerator are served alongside
         it: a bare tasks/week figure cannot be interpreted without them.
 
-        ``tasks_completed`` and ``tasks_completed_in_window`` are both derived
-        from the graph on one read — the tasks the user currently owns in
-        COMPLETED, and the subset stamped inside the window — so the window is
-        a subset of the total by construction. Only the two stamps come from
-        the analytics node, so a user with no stamped completion yet has real
-        counts and ``null`` stamps until ``./dev backfill-productivity-stamps``
-        runs (that script's docstring enumerates how a stamp goes missing). A
-        stamp lost *after* one exists is a different case and not repairable
-        there: the counts stay current while ``last_completion_at`` goes stale
-        (``docs/roadmap/ingest-transition-obligation-durability.md``). See
-        ``CrossDomainAnalyticsService.get_productivity_metrics``.
+        Every figure is derived from the tasks the user currently owns in
+        COMPLETED, on one read — so the window is a subset of the total by
+        construction, and a task deleted or reopened leaves the total and both
+        days. A completed task with no ``completion_date`` is in the total and
+        on no day. See ``CrossDomainAnalyticsService.get_productivity_metrics``.
         """
         user_uid = require_authenticated_user(request)
 
@@ -160,16 +143,13 @@ def register_analytics_routes(app, services):
     @boundary_handler()
     async def habit_consistency_metrics(request):
         """
-        Get habit consistency analytics.
-
-        Query params:
-            user_uid: User identifier (required)
+        Get the signed-in user's habit consistency analytics.
 
         Returns:
-            HabitAnalytics with:
-            - total_completions (cumulative, event-maintained)
-            - first_completion_at
-            - last_completion_at
+            The habit figures:
+            - total_completions (every completion record the user owns)
+            - first_completion_at (ISO instant of the earliest completion)
+            - last_completion_at (ISO instant of the latest completion)
             - consistency_window_days / completions_in_window
             - consistency_score (completions per week over that trailing window)
 
@@ -177,12 +157,8 @@ def register_analytics_routes(app, services):
         lifetime average, so the window and its numerator are served alongside
         it: a bare completions/week figure cannot be interpreted without them.
 
-        ``total_completions`` is the event-maintained cumulative count while
-        ``completions_in_window`` is counted live from the completion records,
-        so the second exceeding the first means the tally missed completions —
-        the bulk-logging door (``HabitCompletionBulk``) publishes an event no
-        analytics handler subscribes to. The score is unaffected; only the
-        cumulative figures are behind. See
+        Every figure is derived from the user's completion records on one read,
+        so the window is a subset of the total by construction. See
         ``CrossDomainAnalyticsService.get_habit_consistency``.
         """
         user_uid = require_authenticated_user(request)

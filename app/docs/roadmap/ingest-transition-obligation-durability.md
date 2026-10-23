@@ -1,6 +1,6 @@
 ---
 title: "Ingest Transition Obligation Durability"
-updated: 2026-10-06
+updated: 2026-10-23
 status: "open — design needed"
 trigger: "a report of a vault-completed entity whose cascade did not run, OR a task completed in the app whose TRIGGERS_ON_COMPLETION dependents were never scheduled, OR a second writer of ingest-time status transitions"
 check: "no instrumentation today; the loss is silent by construction — count ERROR logs from `_publish_completions` / the reopen-clear / `TaskEventHandlerService.handle_dependent_scheduling`, or add a counter, before deciding it is worth an outbox"
@@ -25,8 +25,8 @@ and the MOC pass can raise — skips the publish.
 
 **Nothing retries it, and nothing can.** On the next sync the upsert reads the prior as `completed`,
 classification correctly reports a repeat, and the event is never published. The cascade — goal
-progress, PS engagement auto-complete, productivity analytics, context invalidation — is lost
-permanently for that entity, with no signal beyond an ERROR log at the time.
+progress, PS engagement auto-complete, context invalidation — is lost permanently for that entity,
+with no signal beyond an ERROR log at the time.
 
 The same applies to the stamp-clear: a failed `clear_completion_stamps` strands the completion
 stamp on a non-completed entity. A later sync retries it only while the file still declares the
@@ -34,12 +34,10 @@ stamp — that shape re-writes it on every ingest, so the clear is re-derived ea
 file has since dropped the line, the prior is non-completed, the payload carries no stamp, and
 there is nothing left for classification to see.
 
-**The analytics half is not repairable offline either**, which is worth knowing before reaching for
-the backfill script. `./dev backfill-productivity-stamps` fills only NULL stamps — it never moves
-one that exists (`coalesce`, deliberate: the handler's value is the real moment, the script's is a
-day-grained reconstruction). So a user who already had both stamps and then lost an announcement
-keeps a stale `last_completion_at`, and nothing today fixes it. A user left without a stamp at all
-is the one case the script does repair.
+**The analytics figures are outside the loss.** `GET /api/analytics/productivity` derives every
+figure — the counts and the first and last completion day — from the tasks' own `status` and
+`completion_date` on the read that serves it, and keeps nothing an announcement would have to
+update. A lost `TaskCompleted` leaves them exactly as right as the graph is.
 
 The reopen event is the mirror obligation (`_publish_reopens`, `TaskReopened` for a task the file
 takes out of `completed`) and shares the window, but not the permanence: its one subscriber is

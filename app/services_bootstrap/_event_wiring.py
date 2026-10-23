@@ -15,7 +15,6 @@ def _wire_event_subscribers(
     learning_services: dict[str, Any],
     user_entry_exercise_linker: Any,
     notification_service: Any,
-    advanced: dict[str, Any],
     analytics_service: Any,
     user_entry_backend: Any,
     insight_store: Any,
@@ -459,29 +458,6 @@ def _wire_event_subscribers(
     logger.info(
         "✅ LearningRecommendationEngine subscribed to LearningPathCompleted & KnowledgeMastered "
         "(intelligent next-step recommendations)"
-    )
-
-    # Multi-domain analytics → Track activity across all domains
-    cross_domain_analytics_service = advanced["cross_domain_analytics"]
-    # Stamps the completion moment only. ProductivityAnalytics holds no count —
-    # tasks_completed is derived at read — so there is nothing for it to hear
-    # about on a reopen, and TaskReopened has no analytics subscriber.
-    event_bus.subscribe(TaskCompleted, cross_domain_analytics_service.handle_task_completed)
-    event_bus.subscribe(HabitCompleted, cross_domain_analytics_service.handle_habit_completed)
-    event_bus.subscribe(
-        CalendarEventCompleted, cross_domain_analytics_service.handle_event_completed
-    )
-    event_bus.subscribe(GoalCreated, cross_domain_analytics_service.handle_goal_created)
-    event_bus.subscribe(KnowledgeMastered, cross_domain_analytics_service.handle_knowledge_mastered)
-    event_bus.subscribe(LearningPathCompleted, cross_domain_analytics_service.handle_path_completed)
-    # NOTE: JournalCreated subscription REMOVED (February 2026)
-    # Journal merged into Reports — cross_domain_analytics needs update in
-    # to subscribe to SubmissionCreated and filter for entity_type="journal"
-    # NOTE: ExpenseCreated/ExpensePaid subscriptions REMOVED (ADR-052 Phase 5) —
-    # native expense module demolished.
-    logger.info(
-        "✅ CrossDomainAnalyticsService subscribed to 7 event types "
-        "(Tasks completed + reopened, Habits, Events, Goals, Knowledge, Paths)"
     )
 
     # Milestone achievements → Automatic report generation

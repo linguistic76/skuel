@@ -3693,15 +3693,14 @@ class SelCategoryRow(TypedDict):
 class ProductivityAnalyticsRow(TypedDict):
     """Return shape for get_productivity_analytics() — always exactly one row.
 
-    ``analytics`` is the user's ``ProductivityAnalytics`` node as a plain
-    property map — it carries only the two completion stamps
-    (``first_completion_at`` / ``last_completion_at``) — or ``None`` when the
-    user has no node. Both counts are derived from the graph on the same read
-    and stand on their own: ``tasks_completed`` is every task the user
-    currently owns in ``completed``; ``completed_in_window`` is the subset
-    whose ``completion_date`` falls inside the inclusive window the read was
-    bound to — the numerator of ``completion_velocity``. Same traversal, so
-    the window is a subset of the total by construction.
+    Every figure is derived from the tasks the user currently owns in
+    ``completed``, on one traversal: ``tasks_completed`` is all of them;
+    ``completed_in_window`` the subset whose ``completion_date`` falls inside
+    the inclusive window the read was bound to — the numerator of
+    ``completion_velocity``; ``first_completed_on`` / ``last_completed_on`` the
+    earliest and latest completion day up to the window's end (``None`` when no
+    completed task carries a day). The window is a subset of the total by
+    construction.
 
     The count key is deliberately NOT the habit sibling's
     ``completions_in_window`` (:class:`HabitAnalyticsRow`): the two rows name
@@ -3712,25 +3711,43 @@ class ProductivityAnalyticsRow(TypedDict):
     raises at the boundary instead of reaching the rate as a missing key.
     """
 
-    analytics: Neo4jProperties | None
     tasks_completed: int
     completed_in_window: int
+    first_completed_on: date | None
+    last_completed_on: date | None
 
 
 class HabitAnalyticsRow(TypedDict):
     """Return shape for get_habit_analytics() — always exactly one row.
 
-    ``analytics`` is the user's ``HabitAnalytics`` node as a plain property map
-    (the ``total_completions`` tally plus its two stamps) or ``None`` when the
-    user has no node; ``completions_in_window`` is counted from the user's
-    ``:HabitCompletion`` records inside the inclusive window — the numerator of
-    ``consistency_score`` — and stands on its own. Unlike its productivity
-    sibling the tally stays stored: a habit has no "currently completed" set
-    to derive a total from.
+    Every figure is derived from the user's ``:HabitCompletion`` records, on one
+    traversal: ``total_completions`` is all of them; ``completions_in_window``
+    the subset completed inside the inclusive window — the numerator of
+    ``consistency_score``; ``first_completed_at`` / ``last_completed_at`` the
+    earliest and latest ``completed_at`` up to the window's end, as aware
+    instants (``None`` when no record carries one).
     """
 
-    analytics: Neo4jProperties | None
+    total_completions: int
     completions_in_window: int
+    first_completed_at: datetime | None
+    last_completed_at: datetime | None
+
+
+class LearningVelocityRow(TypedDict):
+    """Return shape for get_learning_velocity_metrics() — one row for a known user.
+
+    ``total_kus`` and ``recent_kus`` count the user's MASTERED edges to Kus — all
+    of them, and those mastered since the read's start — so ``total - recent`` is
+    never negative. ``total_hours`` sums ``time_to_mastery_hours`` over the recent
+    ones (``None`` when none carries it). ``paths_completed`` counts the user's
+    ``ENROLLED_IN`` edges in ``completed``.
+    """
+
+    total_kus: int
+    recent_kus: int
+    total_hours: float | None
+    paths_completed: int
 
 
 class PrereqMasteryResult(TypedDict, total=False):

@@ -67,15 +67,15 @@ class TaskCompleted(BaseEvent):
     published) but not a transition, so neither this event nor a fresh stamp
     follows — which is why no subscriber carries a repeat gate: counting and appending subscribers (the duration EMA, the
     overdue and alignment insight appends, the Prometheus ``entities_completed{task}``
-    counter, the productivity completion moment) count each genuine completion once,
-    and recompute-shaped ones (PS engagement auto-complete, dependent
-    scheduling, context invalidation) converge on their own.
+    counter) count each genuine completion once, and recompute-shaped ones (PS
+    engagement auto-complete, dependent scheduling, context invalidation)
+    converge on their own.
 
     A task completed away from the app carries its own ``completion_date`` as
     ``occurred_at`` — the born-completed create door and the vault door both —
-    which is why the stamps a subscriber keeps must be order-insensitive: a vault
-    sync hands historical completions to the graph in file order, not
-    chronological order.
+    which is why anything a subscriber keeps from ``occurred_at`` must be
+    order-insensitive: a vault sync hands historical completions to the graph in
+    file order, not chronological order.
     """
 
     task_uid: str
@@ -119,8 +119,8 @@ class TaskReopened(BaseEvent):
 
     Not subscribers (docs/roadmap/done/reopen-vault-surface.md):
 
-    - ``ProductivityAnalytics`` — ``tasks_completed`` is derived at read from the
-      tasks currently in ``completed``, so a reopen lowers it with no one listening.
+    - Productivity analytics — every figure is derived at read from the tasks
+      currently in ``completed``, so a reopen leaves them with no one listening.
     - Goal progress — it hears the same move through ``GoalContributionsChanged``.
     - The vault write-back (un-checking the Obsidian line and stripping its ``✅``
       date, ADR-070 Resolved Design Question 2, amended). Its trigger is the

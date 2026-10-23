@@ -21,6 +21,7 @@ original traceback, not a Result failure.
 """
 
 import dataclasses
+import functools
 from typing import NoReturn
 
 import pytest
@@ -41,9 +42,8 @@ from services_bootstrap.compose import compose_services
 # are hand-derived from _event_wiring.py (+ the FULL-tier ZPD snapshot
 # subscriptions in _intelligence_hub.py) and empirically cross-checked against
 # a real compose run. Exact equality is deliberate: several events carry
-# multiple handlers (TaskCompleted has 6 — context invalidation, goal
-# progress, PS auto-complete, cross-domain analytics, dependent scheduling,
-# task intelligence), and
+# multiple handlers (TaskCompleted has 4 — context invalidation, PS
+# auto-complete, dependent scheduling, task intelligence), and
 # a zero-handler check would miss dropping one of them. Adding a subscription
 # is a wiring-contract change — update the table here alongside it.
 
@@ -130,7 +130,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
     counts: dict[type, int] = {
         # Tasks
         TaskCreated: 1,
-        TaskCompleted: 5,  # invalidate + PS auto-complete + x-domain + dependents + intelligence
+        TaskCompleted: 4,  # invalidate + PS auto-complete + dependents + intelligence
         TaskReopened: 1,  # invalidate — the vault door's reopen publishes no TaskUpdated
         TaskUpdated: 1,
         TaskDeleted: 1,
@@ -138,7 +138,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         TasksBulkCompleted: 1,
         # Goals
         GoalContributionsChanged: 1,  # goal progress — the contribution tally's one trigger
-        GoalCreated: 2,
+        GoalCreated: 1,
         GoalUpdated: 1,
         GoalAchieved: 4,  # invalidate + event handler + PS auto-complete + analytics report
         GoalAbandoned: 2,
@@ -147,7 +147,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         # Habits
         HabitCreated: 1,
         HabitUpdated: 1,
-        HabitCompleted: 4,  # invalidate + goal progress + x-domain + intelligence
+        HabitCompleted: 3,  # invalidate + goal progress + intelligence
         HabitCompletionBulk: 1,
         HabitMissed: 2,
         HabitStreakBroken: 2,
@@ -169,7 +169,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         # Calendar events
         CalendarEventCreated: 2,
         CalendarEventUpdated: 1,
-        CalendarEventCompleted: 5,  # invalidate + auto-complete + practice + x-domain + intelligence
+        CalendarEventCompleted: 4,  # invalidate + auto-complete + practice + intelligence
         CalendarEventDeleted: 1,
         CalendarEventRescheduled: 2,
         # UserEntry lifecycle + learning loop
@@ -188,9 +188,9 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         EntryShared: 1,  # the recipient's bell — a new person share (Submit & Share arc R10)
         # Curriculum / learning
         KnowledgeCreated: 1,
-        KnowledgeMastered: 6,  # invalidate + LP/PS-mastery/PS-progress chains + recs + x-domain
+        KnowledgeMastered: 5,  # invalidate + LP/PS-mastery/PS-progress chains + recs
         LearningPathStarted: 2,  # invalidate + LP progress init on enrollment
-        LearningPathCompleted: 4,  # invalidate + recommendations + x-domain + analytics report
+        LearningPathCompleted: 3,  # invalidate + recommendations + analytics report
         LearningPathProgressUpdated: 1,
         PathStepCompleted: 2,  # invalidate + PS→LP progress chain
         PathStepEnrolled: 1,
@@ -514,6 +514,34 @@ def _assert_subscriptions_wired(event_bus: InMemoryEventBus, *, full_tier: bool)
     )
 
 
+def _handler_owner(handler: object) -> object:
+    """The object a subscribed handler is bound to, through any ``functools.partial``."""
+    while isinstance(handler, functools.partial):
+        handler = handler.func
+    return getattr(handler, "__self__", None)
+
+
+def _assert_analytics_hears_no_event(services: Services, event_bus: InMemoryEventBus) -> None:
+    """Analytics aggregate, they don't create: no event reaches the cross-domain analytics.
+
+    Its figures are read from the graph when asked for, so it has nothing to hear —
+    a handler bound to it is a writer of per-user analytics state, which is the shape
+    this service exists without.
+    """
+    analytics = services.cross_domain_analytics
+    assert analytics is not None
+    subscribed = [
+        (event_type.__name__, handler)
+        for event_type in event_bus.get_all_event_types()
+        for handler in (
+            *event_bus._handlers.get(event_type, []),
+            *event_bus._async_handlers.get(event_type, []),
+        )
+        if _handler_owner(handler) is analytics
+    ]
+    assert not subscribed, f"CrossDomainAnalyticsService is subscribed to: {subscribed}"
+
+
 def _assert_ingestion_bus_wiring(
     services: Services, event_bus: InMemoryEventBus, *, embeddings_enabled: bool
 ) -> None:
@@ -558,6 +586,7 @@ class TestComposeServicesExecution:
         assert not services.intelligence_tier.ai_enabled
         _assert_container_complete(services, NONE_OK_CORE_TIER)
         _assert_subscriptions_wired(event_bus, full_tier=False)
+        _assert_analytics_hears_no_event(services, event_bus)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_CORE
         _assert_ingestion_bus_wiring(services, event_bus, embeddings_enabled=False)
 
@@ -579,6 +608,7 @@ class TestComposeServicesExecution:
         assert services.intelligence_tier.ai_enabled
         _assert_container_complete(services, NONE_OK_BOTH_TIERS)
         _assert_subscriptions_wired(event_bus, full_tier=True)
+        _assert_analytics_hears_no_event(services, event_bus)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_FULL
         _assert_ingestion_bus_wiring(services, event_bus, embeddings_enabled=True)
 
@@ -603,6 +633,7 @@ class TestComposeServicesExecution:
         assert services.batch_transcription is None
         _assert_container_complete(services, NONE_OK_FULL_NO_TRANSCRIPTION)
         _assert_subscriptions_wired(event_bus, full_tier=True)
+        _assert_analytics_hears_no_event(services, event_bus)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_FULL
 
 

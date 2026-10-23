@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import (
         HabitAnalyticsRow,
         JournalEntryRow,
+        LearningVelocityRow,
         ProductivityAnalyticsRow,
         SelCategoryRow,
         UserKnowledgeChannelRow,
@@ -39,70 +40,50 @@ class CrossDomainBackendOperations(Protocol):
     """
 
     # ================================================================
-    # ANALYTICS — Event-driven analytics node CRUD
+    # ANALYTICS — per-user figures, derived from the source facts at read
     # ================================================================
-
-    async def upsert_learning_velocity(
-        self, user_uid: str, mastery_score: float, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]: ...
-
-    async def increment_paths_completed(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
-
-    async def stamp_productivity_completion(
-        self, user_uid: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Record a genuine task-completion moment on the user's ProductivityAnalytics node.
-
-        The node holds only ``first_completion_at`` (written once, never moved)
-        and ``last_completion_at`` (advanced to every moment). No count lives
-        there — ``tasks_completed`` is derived at read by
-        :meth:`get_productivity_analytics` — so a reopen or a repeat complete,
-        neither of which is a completion moment, must not call this at all.
-        """
-        ...
-
-    async def upsert_habit_analytics(
-        self, user_uid: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]: ...
-
-    async def upsert_event_analytics(
-        self, user_uid: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_learning_velocity_metrics(
         self, user_uid: str, start_date: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[LearningVelocityRow]]:
+        """The user's mastery counts since ``start_date`` and their completed paths.
+
+        One row for a known user, none for an unknown one. ``total_kus`` and
+        ``recent_kus`` count the same MASTERED edges, so ``total - recent`` is
+        never negative; ``paths_completed`` counts the user's enrollments in
+        ``completed``.
+        """
+        ...
 
     async def get_productivity_analytics(
         self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[ProductivityAnalyticsRow]]:
-        """The user's completion stamps plus both task-completion counts, in one row.
+        """The user's task-completion figures, derived from their tasks in one row.
 
         ``window_start`` and ``window_end`` are inclusive ISO ``YYYY-MM-DD``
         date bounds. The row carries ``tasks_completed`` — every task the user
-        currently owns in ``completed`` — and ``completed_in_window``, the
-        subset inside the window and the numerator of ``completion_velocity``;
-        both derived from one traversal, so the window is a subset of the
-        total by construction. A trailing window ends where the present does,
-        so a future-stamped completion is outside it rather than counted in
-        every window until its date arrives. Always exactly one row —
-        ``analytics`` (the two stamps) is ``None`` when the user has no node,
-        and the counts stand on their own.
+        currently owns in ``completed`` — ``completed_in_window``, the subset
+        inside the window and the numerator of ``completion_velocity``, and the
+        earliest and latest completion day up to the window's end; all derived
+        from one traversal, so the window is a subset of the total by
+        construction. A trailing window ends where the present does, so a
+        future-stamped completion is outside it rather than counted in every
+        window until its date arrives. Always exactly one row.
         """
         ...
 
     async def get_habit_analytics(
         self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[HabitAnalyticsRow]]:
-        """The stored HabitAnalytics node plus the trailing-window completion count.
+        """The user's habit-completion figures, derived from their completion records in one row.
 
         ``window_start`` and ``window_end`` are inclusive ISO ``YYYY-MM-DD``
-        date bounds; the row carries ``completions_in_window``, the numerator of
-        ``consistency_score``. A trailing window ends where the present does, so
-        a future-stamped completion is outside it rather than counted in every
-        window until its date arrives. Always exactly one row — ``analytics`` is
-        ``None`` when the user has no node, and the derived count stands on its
-        own (the bulk-logging door writes completion records but no node).
+        date bounds; the row carries ``total_completions`` (every record),
+        ``completions_in_window`` (the numerator of ``consistency_score``) and
+        the earliest and latest moment up to the window's end. A trailing window
+        ends where the present does, so a future-stamped completion is outside
+        it rather than counted in every window until its date arrives. Always
+        exactly one row.
         """
         ...
 
