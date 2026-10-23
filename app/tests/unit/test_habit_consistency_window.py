@@ -1,29 +1,30 @@
-"""``consistency_score`` is a rate over a fixed trailing window.
+"""``consistency_score`` is a rate over a fixed trailing window, beside a derived record.
 
-It used to be the cumulative ``HabitAnalytics.total_completions`` divided by the
-span between the user's first-ever habit completion and their most recent one.
-That is not a rate, and it degenerated at three edges at once:
+A rate needs a constant divisor. Divided instead by the span between the user's
+first-ever habit completion and their most recent one, the score would
+degenerate at three edges at once:
 
-1. **One completion ever.** The tally upsert writes ``last_completion_at`` only
-   ``ON MATCH``, so a user's first completion leaves it null — no span, no
-   score, a flat **0.0** until they complete a second time.
+1. **One completion ever.** The span is zero, so the score is either nothing at
+   all or — with ``days_active or 1`` — a week's rate invented from no time.
 2. **Several completions on one day.** ``days_active or 1`` turns a zero-length
    span into one day, and one day is a seventh of a week, so four completions
-   in an afternoon read as **28 per week**.
-3. **Stopping.** The denominator can only grow, so a user who kept a habit for a
-   year and then stopped keeps a plausible non-zero score forever, decaying
-   slowly instead of reporting the truth.
+   in an afternoon would read as **28 per week**.
+3. **Stopping.** The denominator only grows, so a user who kept a habit for a
+   year and then stopped would keep a plausible non-zero score forever,
+   decaying slowly instead of reporting the truth.
 
-These tests pin the redesign at the service seam: what the window is, that the
-divisor is a constant, and that neither the stored tally nor the stored stamps
-reach the arithmetic. The window's *edges* are a Cypher predicate and are proven
-against the container in ``tests/integration/test_habit_consistency_window.py``.
+Every figure in the payload is derived from the user's completion records on one
+read: the cumulative total, the window inside it, and the first and last
+completion moments. These tests pin the service seam: what the window is, that
+the divisor is a constant, that the record is the backend's derived row passed
+through, and that the span between the moments never reaches the arithmetic.
+The window's *edges* and the derivation are Cypher and are proven against the
+container in ``tests/integration/test_habit_consistency_window.py``.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
-from typing import Any
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -44,10 +45,18 @@ class _FakeBackend:
         self,
         *,
         completions_in_window: int,
-        analytics: dict[str, Any] | None = None,
+        total_completions: int | None = None,
+        first: datetime | None = None,
+        last: datetime | None = None,
     ) -> None:
         self._completions_in_window = completions_in_window
-        self._analytics = analytics
+        # Both counts come from the same records, so the window is a subset of
+        # the total; a test that does not care about the total gets a consistent one.
+        self._total_completions = (
+            completions_in_window if total_completions is None else total_completions
+        )
+        self._first = first
+        self._last = last
         self.window_start: str | None = None
         self.window_end: str | None = None
 
@@ -57,19 +66,15 @@ class _FakeBackend:
         self.window_start = window_start
         self.window_end = window_end
         return Result.ok(
-            [{"analytics": self._analytics, "completions_in_window": self._completions_in_window}]
+            [
+                {
+                    "total_completions": self._total_completions,
+                    "completions_in_window": self._completions_in_window,
+                    "first_completed_at": self._first,
+                    "last_completed_at": self._last,
+                }
+            ]
         )
-
-
-def _stored(
-    total_completions: int, *, first: datetime | None, last: datetime | None
-) -> dict[str, Any]:
-    """A HabitAnalytics node with real cumulative figures on it."""
-    return {
-        "total_completions": total_completions,
-        "first_completion_at": first,
-        "last_completion_at": last,
-    }
 
 
 def _service(backend: _FakeBackend) -> CrossDomainAnalyticsService:
@@ -85,13 +90,14 @@ def _service(backend: _FakeBackend) -> CrossDomainAnalyticsService:
 async def test_a_steady_completion_rate_reports_that_rate():
     """12 completions in a 30-day window is 2.8 per week, and nothing else.
 
-    The stored tally (400) and the two-year span are deliberately extreme: under
-    the old arithmetic that pair *was* the metric, so if either still reached it
-    this assertion could not pass.
+    The derived total (400) and the two-year span between the moments are
+    deliberately extreme: were either a divisor, this assertion could not pass.
     """
     backend = _FakeBackend(
         completions_in_window=12,
-        analytics=_stored(400, first=datetime(2024, 1, 1), last=datetime(2026, 1, 1)),
+        total_completions=400,
+        first=datetime(2024, 1, 1, tzinfo=UTC),
+        last=datetime(2026, 1, 1, tzinfo=UTC),
     )
 
     result = await _service(backend).get_habit_consistency(USER)
@@ -100,26 +106,25 @@ async def test_a_steady_completion_rate_reports_that_rate():
     assert result.value["consistency_score"] == pytest.approx(round(12 / (30 / 7), 2))
     assert result.value["consistency_score"] == pytest.approx(2.8)
     assert result.value["completions_in_window"] == 12
+    assert result.value["total_completions"] == 400
     assert result.value["consistency_window_days"] == HabitConsistencyWindow.DAYS
 
 
 # ============================================================================
-# THE THREE DEGENERATE READINGS THIS REPLACES
+# THE THREE DEGENERATE READINGS A SPAN-BASED SCORE WOULD GIVE
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_a_first_ever_completion_reports_a_rate_instead_of_the_unwritten_stamp_zero():
+async def test_a_first_ever_completion_reports_a_rate_not_a_degenerate_span():
     """One completion is 1/30-days ≈ 0.23 per week — the measured rate.
 
-    This is degenerate edge 1. ``upsert_habit_analytics`` stamps
-    ``last_completion_at`` only ``ON MATCH``, so after a user's very first
-    completion the node carries a ``first`` and no ``last``. The old score
-    required both and read 0.0: "no consistency until you do it twice". The
-    stamp is left null here on purpose — the window does not consult it.
+    Degenerate edge 1: the first and last moments are the same instant, a span
+    of zero. The window does not consult the span, so the score is what the
+    window counted.
     """
-    today = datetime.now()
-    backend = _FakeBackend(completions_in_window=1, analytics=_stored(1, first=today, last=None))
+    now = datetime.now(UTC)
+    backend = _FakeBackend(completions_in_window=1, first=now, last=now)
 
     result = await _service(backend).get_habit_consistency(USER)
 
@@ -127,24 +132,21 @@ async def test_a_first_ever_completion_reports_a_rate_instead_of_the_unwritten_s
     score = result.value["consistency_score"]
     assert score == pytest.approx(round(1 / (30 / 7), 2))
     assert score == pytest.approx(0.23)
-    assert score != 0.0, "the unwritten-stamp degenerate reading"
-    assert result.value["last_completion_at"] is None, "still reported, just not consulted"
+    assert score != 0.0, "the no-span degenerate reading"
+    assert score != 7.0, "the one-day-span degenerate reading"
 
 
 @pytest.mark.asyncio
 async def test_completions_all_on_one_day_are_not_extrapolated_to_a_weekly_rate():
     """Degenerate edge 2: four completions in an afternoon are 0.93/week, not 28.
 
-    ``days_active or 1`` turned a zero-length span into a single day and then
-    divided by a seventh of a week, inventing a rate from no elapsed time at
+    ``days_active or 1`` would turn a zero-length span into a single day and
+    then divide by a seventh of a week, inventing a rate from no elapsed time at
     all. A fixed denominator cannot do that: four completions inside thirty days
     is four completions inside thirty days, whichever day they landed on.
     """
-    same_day = datetime(2026, 8, 23, 14, 0)
-    backend = _FakeBackend(
-        completions_in_window=4,
-        analytics=_stored(4, first=same_day, last=same_day),
-    )
+    same_day = datetime(2026, 8, 23, 14, 0, tzinfo=UTC)
+    backend = _FakeBackend(completions_in_window=4, first=same_day, last=same_day)
 
     result = await _service(backend).get_habit_consistency(USER)
 
@@ -157,16 +159,17 @@ async def test_completions_all_on_one_day_are_not_extrapolated_to_a_weekly_rate(
 
 @pytest.mark.asyncio
 async def test_a_habit_that_stopped_reports_zero_not_a_decaying_lifetime_average():
-    """Degenerate edge 3, and the case the redesign is for.
+    """Degenerate edge 3: 365 completions across a real year, none of them this month.
 
-    365 completions across a real year, none of them this month. The old
-    arithmetic served a confident ~7/week that only ever crept downwards — a
-    rate for a habit that had already stopped. The cumulative record survives
-    beside the 0.0 rather than being erased.
+    A span-based score would serve a confident ~7/week that only ever crept
+    downwards — a rate for a habit that had already stopped. The cumulative
+    record stands beside the 0.0.
     """
     backend = _FakeBackend(
         completions_in_window=0,
-        analytics=_stored(365, first=datetime(2025, 1, 5), last=datetime(2026, 1, 5)),
+        total_completions=365,
+        first=datetime(2025, 1, 5, 9, 0, tzinfo=UTC),
+        last=datetime(2026, 1, 5, 9, 0, tzinfo=UTC),
     )
 
     result = await _service(backend).get_habit_consistency(USER)
@@ -174,10 +177,9 @@ async def test_a_habit_that_stopped_reports_zero_not_a_decaying_lifetime_average
     assert result.is_ok
     assert result.value["consistency_score"] == 0.0
     assert result.value["completions_in_window"] == 0
-    # Not erased — the cumulative record is still served, it just is not the rate.
     assert result.value["total_completions"] == 365
-    assert result.value["first_completion_at"] == datetime(2025, 1, 5)
-    assert result.value["last_completion_at"] == datetime(2026, 1, 5)
+    assert result.value["first_completion_at"] == datetime(2025, 1, 5, 9, 0, tzinfo=UTC)
+    assert result.value["last_completion_at"] == datetime(2026, 1, 5, 9, 0, tzinfo=UTC)
 
 
 # ============================================================================
@@ -245,31 +247,8 @@ def test_a_completion_exactly_days_old_falls_outside_the_window():
 
 
 # ============================================================================
-# ABSENT / EMPTY READS
+# EMPTY READS
 # ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_bulk_logged_completions_with_no_analytics_node_still_report_a_real_score():
-    """``HabitCompletionBulk`` has no analytics subscriber, and the count does not need one.
-
-    The old read required the node with a mandatory MATCH, so a user who logged
-    every completion through the bulk door got a flat 0.0 for a habit they were
-    actually keeping. Counting ``:HabitCompletion`` records instead costs only
-    the cumulative figures, which stay behind because their writer never saw
-    those completions — reported honestly as 0 rather than back-filled.
-    """
-    backend = _FakeBackend(completions_in_window=6, analytics=None)
-
-    result = await _service(backend).get_habit_consistency(USER)
-
-    assert result.is_ok
-    assert result.value["consistency_score"] == pytest.approx(round(6 / (30 / 7), 2))
-    assert result.value["total_completions"] == 0
-    assert result.value["first_completion_at"] is None
-    assert result.value["last_completion_at"] is None
-    # The tally's blindness to the bulk door, made visible rather than hidden.
-    assert result.value["completions_in_window"] > result.value["total_completions"]
 
 
 @pytest.mark.asyncio
@@ -290,3 +269,5 @@ async def test_a_read_that_returns_nothing_at_all_reports_zeros():
     assert result.value["consistency_score"] == 0.0
     assert result.value["total_completions"] == 0
     assert result.value["completions_in_window"] == 0
+    assert result.value["first_completion_at"] is None
+    assert result.value["last_completion_at"] is None

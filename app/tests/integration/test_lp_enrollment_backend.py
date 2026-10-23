@@ -119,6 +119,38 @@ async def test_complete_learning_path_updates_enrollment(neo4j_driver, enrollmen
     assert await _count_enrollments(neo4j_driver, status="completed") == 1
 
 
+async def test_a_repeat_enroll_keeps_a_completed_enrollment_completed(
+    neo4j_driver, enrollment_graph
+):
+    """Enrolling again in a finished path refreshes the edge; it does not undo the finish.
+
+    The pathways list card offers Enroll on every path, including one already
+    completed, so this is reachable from the UI. The commitment fields are what
+    a repeat enroll is for; the completion stays where the learner earned it.
+    """
+    backend = UserBackend(neo4j_driver)
+    assert (await backend.enroll_in_learning_path(_USER_UID, _LP_UID)).is_ok
+    assert (await backend.complete_learning_path(_USER_UID, _LP_UID)).is_ok
+
+    again = await backend.enroll_in_learning_path(
+        _USER_UID, _LP_UID, weekly_time_commitment=120, motivation_note="once more"
+    )
+
+    assert again.is_ok and again.value is False
+    assert await _count_enrollments(neo4j_driver, status="completed") == 1
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            """
+            MATCH (:User {uid: $user_uid})-[r:ENROLLED_IN]->(:LearningPath {uid: $lp_uid})
+            RETURN r.weekly_time_commitment AS minutes, r.motivation_note AS note
+            """,
+            user_uid=_USER_UID,
+            lp_uid=_LP_UID,
+        )
+        record = await result.single()
+    assert (record["minutes"], record["note"]) == (120, "once more"), "the refresh still lands"
+
+
 async def test_enrollment_lifecycle_visible_to_readers(neo4j_driver, enrollment_graph):
     """Readers stay aligned with the writer across the enrollment lifecycle.
 

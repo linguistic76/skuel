@@ -418,7 +418,6 @@ GROUP_CREATED = Rule(
     "group created: laptop string, or the enrollment handler's aware native",
     {**_NAIVE_WRITER, **_AWARE_NATIVE},
 )
-PRODUCTIVITY_STAMP = Rule("completion stamp (laptop native)", {**_LAPTOP_NATIVE})
 INSIGHT_EXPIRY = Rule(
     "insight expiry: naive or aware parameter, indistinguishable", {}, stamped_now=False
 )
@@ -543,11 +542,6 @@ def _build_rules() -> dict[tuple[str, str], Rule]:
             "last_choice_informed_date",
         ],
         LAPTOP_NATIVE_OR_MIDNIGHT,
-    )
-    put(
-        [_node(NeoLabel.PRODUCTIVITY_ANALYTICS)],
-        ["first_completion_at", "last_completion_at"],
-        PRODUCTIVITY_STAMP,
     )
 
     # --- relationships ------------------------------------------------------
@@ -707,7 +701,7 @@ MATCH (n) WHERE NOT n:{_RECORD}
 UNWIND keys(n) AS prop
 WITH n, prop, n[prop] AS v
 WHERE {_TEMPORAL_OR_STAMP_STRING}
-RETURN elementId(n) AS element, labels(n) AS labels, n.uid AS uid, n.user_uid AS user_uid,
+RETURN elementId(n) AS element, labels(n) AS labels, n.uid AS uid,
        prop, {_VALUE_COLUMNS}
 """
 
@@ -819,16 +813,11 @@ def _owner_of(labels: Iterable[str], prop: str) -> tuple[str | None, str]:
     return None, f"labels {sorted(candidates)} give more than one rule"
 
 
-def _node_key(
-    labels: Iterable[str], owner: str, uid: str | None, user_uid: str | None
-) -> NodeKey | None:
+def _node_key(labels: Iterable[str], owner: str, uid: str | None) -> NodeKey | None:
     label = owner[2:-1]
     if uid:
         match_label = NeoLabel.ENTITY.value if NeoLabel.ENTITY.value in labels else label
         return {"match_label": match_label, "owner_label": label, "key_prop": "uid", "key": uid}
-    if label == NeoLabel.PRODUCTIVITY_ANALYTICS.value and user_uid:
-        # Its writer MERGEs on user_uid; it carries no uid.
-        return {"match_label": label, "owner_label": label, "key_prop": "user_uid", "key": user_uid}
     return None
 
 
@@ -1014,7 +1003,7 @@ async def run_census(
             )
         if NeoLabel.GROUP.value in labels and prop == "created_at" and row["uid"]:
             group_created[str(row["uid"])] = text
-        key = _node_key(labels, owner, row["uid"], row["user_uid"]) if owner else None
+        key = _node_key(labels, owner, row["uid"]) if owner else None
         stamp = Stamp(
             "node", str(row["element"]), owner or _node("|".join(labels)), prop, value, key, labels
         )
@@ -1116,7 +1105,7 @@ def _json_census(
         return
     prop = str(row["prop"])
     json_rule = JSON_RULES.get((owner, prop)) if owner else None
-    key = _node_key(labels, owner, row["uid"], row["user_uid"]) if owner else None
+    key = _node_key(labels, owner, row["uid"]) if owner else None
     moved: list[JsonChange] = []
     for path, stamp_text in nested:
         value = classify_stamp_string(stamp_text)

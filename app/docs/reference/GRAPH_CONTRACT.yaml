@@ -30,7 +30,7 @@ meta:
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
     relationships: {total: 168, with_contract: 90}
-    labels: {total: 60, with_contract: 16}
+    labels: {total: 57, with_contract: 16}
   legacy_label_config_aliases: []
 
 relationships:
@@ -1203,12 +1203,6 @@ labels:
   Insight:
     contract: null
   ZPDHistory:
-    contract: null
-  LearningVelocity:
-    contract: null
-  ProductivityAnalytics:
-    contract: null
-  HabitAnalytics:
     contract: null
   Achievement:
     contract: null

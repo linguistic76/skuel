@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-10-16
+updated: 2026-10-23
 status: current
 category: domains
 tags:
@@ -297,17 +297,17 @@ that merely counts completions must read the per-row `TaskCompleted`, or it doub
 bulk call.
 
 
-**`tasks_completed` is derived at read, not stored.** `GET /api/analytics/productivity` counts
-the user's tasks currently in `completed` on the same traversal that counts the velocity window,
-so the window is a subset of the total by construction and the total *falls* when a completed
-task is deleted or reopened — which a tally maintained from completion events cannot do. The
-`ProductivityAnalytics` node holds only `first_completion_at` / `last_completion_at`.
+**Productivity figures are derived at read, not stored.** `GET /api/analytics/productivity` reads
+the user's tasks currently in `completed` on one traversal: the total, the velocity window inside
+it, and the first and last completion day (the earliest and latest `completion_date`). The window
+is a subset of the total by construction, and a completed task deleted or reopened leaves every
+figure — which a tally maintained from completion events cannot do. No analytics node exists.
 
 **`TaskReopened` is the mirror**, published on a transition OUT of completed by both doors that
 can make one: `update_task` (Today's Undo posts the prior status through that chokepoint) and the
 vault ingest door — each from the prior status its own write returned (ADR-087). Its subscriber
 is context invalidation (the vault door publishes no `TaskUpdated`). Productivity does not
-subscribe — a derived count falls on its own. Goal progress does not subscribe either: a status
+subscribe — its derived figures follow on their own. Goal progress does not subscribe either: a status
 write that moves a task between the goal tally's classes (done, not done, out) publishes
 `GoalContributionsChanged`, the tally's one trigger, which lowers progress and un-achieves a goal
 that falls below 100% (`docs/domains/goals.md` § The contribution tally).

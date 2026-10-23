@@ -27,10 +27,12 @@ class LpType(StrEnum):
 class EnrollmentStatus(StrEnum):
     """Lifecycle of a learner's ``(User)-[:ENROLLED_IN]->(LearningPath)`` edge (``r.status``).
 
-    Written by ``UserBackend.enroll_in_learning_path`` (ACTIVE), by
+    Written by ``UserBackend.enroll_in_learning_path`` (ACTIVE — on a new
+    enrollment, or a repeat one not yet completed), by
     ``UserBackend.complete_learning_path`` and — on the progress chain — by
-    ``_LpProgressMixin.record_enrollment_progress`` (COMPLETED). A missing
-    status reads as ACTIVE (``coalesce(r.status, 'active')``) on every reader.
+    ``_LpProgressMixin.record_enrollment_progress`` (COMPLETED). COMPLETED is
+    never written back to ACTIVE. A missing status reads as ACTIVE
+    (``coalesce(r.status, 'active')``) on every reader.
     """
 
     ACTIVE = "active"

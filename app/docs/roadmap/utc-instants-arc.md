@@ -1,6 +1,6 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-10-16
+updated: 2026-10-23
 status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a and 6b merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
@@ -108,7 +108,7 @@ drift: re-verify by symbol.
 |---|---|---|---|
 | `L-str` — offset-less string holding the laptop's PDT wall clock | 1,098 | The mapper's `isoformat()` of a naive `datetime.now()` or default factory, across 57 properties: `created_at`/`updated_at` on Task, UserEntry, Choice, Event, Goal, Habit, Principle, Ku, PathStep, Exercise, Resource, Interaction, User, FormSubmission, ActivityReport, HabitCompletion, the `*Template.updated_at`, OWNS and the lateral edges; `ActivityReport.period_*`/`data_cutoff`, `Choice.completed_at`, `UserEntry.processing_completed_at`, `OWNS.last_accessed`, `ENROLLED_IN.target_completion`, `User.feedback_updated_at` | shift: America/Vancouver → UTC |
 | `+07` — offset-less string written at UTC+7 | 6 | `User.created_at` ×3 and `User.updated_at` ×3, 2026-02-01..06 | shift: +07:00 → UTC |
-| `L-nat` — native `Z` holding the laptop's wall clock | 125 | Cypher `datetime($now)` with `now = datetime.now().isoformat()`: EntryReport 3, Insight 20, Ku/PathStep `last_applied_date`/`last_reflected_date` 48, Notification 4, ProductivityAnalytics 2, RevisedExercise 2, SearchEvent 41, SHARES_WITH 1, SUBMITTED_TO_GROUP 2, UserEntry.updated_at 2 | shift: America/Vancouver → UTC |
+| `L-nat` — native `Z` holding the laptop's wall clock | 125 | Cypher `datetime($now)` with `now = datetime.now().isoformat()`: EntryReport 3, Insight 20, Ku/PathStep `last_applied_date`/`last_reflected_date` 48, Notification 4, ProductivityAnalytics 2 (a node deleted since, 2026-10-22: its figures are derived at read), RevisedExercise 2, SearchEvent 41, SHARES_WITH 1, SUBMITTED_TO_GROUP 2, UserEntry.updated_at 2 | shift: America/Vancouver → UTC |
 | `UTC-naive` — offset-less string holding UTC | 20 | 10 OWNS edges × `created_at`/`last_accessed`, from a 2026-07 backfill's `toString(localdatetime())` (millisecond precision) | leave |
 | True UTC, native | 5,410 | Cypher `datetime()` (millisecond precision: bulk upsert's `updated_at`, content and chunk stamps, embedding stamps, IngestionMetadata…) and aware Python params (microseconds: AuthEvent, Session, ConversationSession/Turn, VIEWED, IN_PROGRESS, Group and MEMBER_OF from the enrollment handler); 990 chunk `embedding_updated_at` carry zone id `UTC` (driver carry-forward) | leave |
 | True UTC, string | 11 | Server `toString(datetime())` `…Z` (ingest `created_at` on Ku, PathStep and the six templates) and aware `+00:00` (`User.last_active_at`) | leave |
@@ -302,8 +302,8 @@ outside the values: an immutable manifest, one transaction, and a durable applie
    The script computes that wall clock explicitly (`datetime.now(ZoneInfo("America/Vancouver"))`):
    it runs pinned itself.
 3. **The census writes an immutable manifest** — one row per property value to shift: a durable key (a node's
-   `uid`, or for a node without one the property its writer MERGEs on — `ProductivityAnalytics` has
-   only `user_uid`; a relationship's start `uid`, type and end `uid` — never an element id, which
+   `uid` — the one uid-less node the census keyed, `ProductivityAnalytics` by its `user_uid`, was
+   deleted 2026-10-22 and that key with it; a relationship's start `uid`, type and end `uid` — never an element id, which
    Neo4j guarantees only within one transaction), property or JSON path, the value's shape, old value, new
    value, rule — and prints
    per-rule counts with samples (old → new) for Mike's OK. With the app stopped, the manifest is the
@@ -328,7 +328,8 @@ outside the values: an immutable manifest, one transaction, and a durable applie
 5. **`--verify`, in the deploy sitting right after `--confirm`:** every manifest row at its new value
    and the applied record in state `applied` — plus the **classification check**: the 31 nodes whose naive
    `created_at` and server `embedding_updated_at` were written together read 7.00 h apart before and
-   about 0 h after. (Rows the app rewrites later are expected; `--verify` is not an arc-close check.)
+   about 0 h after. (Rows the app rewrites later are expected — as are manifest rows 309–310, the
+   deleted `ProductivityAnalytics` stamps; `--verify` is not an arc-close check.)
 6. **`--revert`** applies the same manifest new → old by compare-and-set and sets the record's state
    to `reverted`, in one transaction. It serves the deploy sitting: once the app has written
    on the PR 4 code, the fix goes forward — or the Aura snapshot is restored together with the
@@ -1320,7 +1321,9 @@ Choice completion clocks in `_STAMP_SPECS`, `BaseEvent.occurred_at`, `now_local(
 `timestamp_helpers` (an instant writer through `EntityTimestampMixin`), hand-built
 `datetime.now().isoformat()` Cypher parameters, duration timers (`time.monotonic()` where only
 elapsed time matters); any `datetime.combine` and `datetime.min`/`max` left without a zone;
-`strptime` without one.
+`strptime` without one. (The per-user analytics nodes' writers, which passed a naive
+`occurred_at` into `datetime($occurred_at)`, are not in this scope: they were deleted with the
+nodes on 2026-10-22, and the habit analytics they kept are now read from `HabitCompletion.completed_at`.)
 
 **Acceptance:** `uv run ruff check --select DTZ core adapters ui` and the AST check for uncalled
 `datetime.now` / `date.today` references read 0 (exempting the zone-reading lines in

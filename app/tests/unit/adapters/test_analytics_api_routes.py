@@ -11,6 +11,7 @@ Harness mirrors ``test_choices_api_routes.py``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -155,6 +156,36 @@ class TestProductivity:
         assert payload["velocity_window_days"] == 30
         assert payload["tasks_completed_in_window"] == 5
         assert payload["completion_velocity"] == 1.17
+
+
+class TestCompletionDaysAndMoments:
+    def test_task_days_serialize_as_iso_dates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A task's completion is a calendar day, so the payload carries a bare date."""
+        harness = _make_harness(monkeypatch)
+        payload = harness.analytics.get_productivity_metrics.return_value.value
+        payload["first_completion_at"] = date(2026, 7, 6)
+        payload["last_completion_at"] = date(2026, 9, 18)
+
+        response = harness.client.get("/api/analytics/productivity")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert (body["first_completion_at"], body["last_completion_at"]) == (
+            "2026-07-06",
+            "2026-09-18",
+        )
+
+    def test_habit_moments_serialize_as_iso_instants(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A habit completion record carries an instant, so the payload carries one too."""
+        harness = _make_harness(monkeypatch)
+        payload = harness.analytics.get_habit_consistency.return_value.value
+        payload["first_completion_at"] = datetime(2026, 9, 4, 7, 0, tzinfo=UTC)
+        payload["last_completion_at"] = datetime(2026, 9, 4, 7, 0, tzinfo=UTC)
+
+        response = harness.client.get("/api/analytics/habit-consistency")
+
+        assert response.status_code == 200
+        assert response.json()["first_completion_at"] == "2026-09-04T07:00:00+00:00"
 
 
 class TestDashboard:

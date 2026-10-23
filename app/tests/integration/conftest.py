@@ -255,18 +255,10 @@ async def ensure_test_users(neo4j_driver):
         "user_intent_pipeline",
         "user_cascade",
         "user_other",
-        # Cross-domain analytics flow: the event handlers hang their analytics
-        # nodes off this user.
-        "user_analytics_test",
-        # ProductivityAnalytics stamp backfill: the pass scans (:User) nodes and
-        # reads (:User)-[:OWNS]->(:Task) completion history, so each stamp
-        # shape needs a real owner.
-        "user_stampfill_vault",
-        "user_stampfill_legacy",
-        "user_stampfill_first_only",
-        "user_stampfill_last_only",
-        "user_stampfill_idle",
-        "user_stampfill_native",
+        # paths_completed counts (:User)-[:ENROLLED_IN {status: completed}]->
+        # edges the real enroll door and progress recount write.
+        "user_paths_completed",
+        "user_paths_other",
         # completion_velocity's trailing window counts (:User)-[:OWNS]->(:Task)
         # rows by completion_date, so each window shape needs a real owner.
         "user_velocity_window",

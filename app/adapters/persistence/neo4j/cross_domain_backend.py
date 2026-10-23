@@ -5,10 +5,9 @@ Cross-Domain Backend
 Read-only backend for cross-domain analytics, queries, and graph intelligence.
 Does NOT extend UniversalNeo4jBackend — takes a Neo4jQueryExecutor directly.
 
-Three services migrate here:
-- CrossDomainAnalyticsService (12 execute_query calls → 12 methods)
-- CrossDomainQueryService (8 execute_query calls → 8 methods)
-- GraphIntelligenceService (7 execute_query calls → 7 methods)
+Shared by CrossDomainAnalyticsService, CrossDomainQueryService and
+GraphIntelligenceService. Every analytics figure here is derived from the source
+facts on the read that serves it; the backend writes nothing.
 
 See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 """
@@ -18,6 +17,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j._backend_helpers import to_native_datetime
 from adapters.persistence.neo4j.query import build_domain_context_with_paths
 from adapters.persistence.neo4j.query.cypher import (
     CURRICULUM_COMPOSITION_EDGES,
@@ -30,15 +30,18 @@ from adapters.persistence.neo4j.query.cypher.habit_fragments import (
     build_habit_window_completion_stamps,
 )
 from core.models.enums import EntityStatus, EntityType
+from core.models.enums.curriculum_enums import EnrollmentStatus
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import (
     HabitAnalyticsRow,
     JournalEntryRow,
+    LearningVelocityRow,
     ProductivityAnalyticsRow,
     SelCategoryRow,
     UserKnowledgeChannelRow,
 )
+from core.utils.neo4j_temporal import convert_neo4j_date
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import stored_day_bounds
 from core.utils.zone_context import current_zone
@@ -288,17 +291,15 @@ def _to_productivity_analytics_rows(
     Same contract as the projectors above: nothing statically links a Cypher
     alias to a TypedDict key, so a renamed RETURN would type-check while the
     rate read the missing key as 0 — a confident zero velocity, never an error.
-
-    ``analytics`` arrives from ``AsyncResult.data()`` already flattened to the
-    node's property map (or ``None`` for a user with no node); copying it into
-    a plain ``dict`` makes the declared ``Neo4jProperties | None`` what the
-    caller actually holds rather than a driver type wearing that annotation.
+    The two days arrive as Neo4j ``Date`` values (or null) and leave as the
+    Python ``date`` a task's ``completion_date`` is.
     """
     return [
         {
-            "analytics": None if row["analytics"] is None else dict(row["analytics"]),
             "tasks_completed": int(row["tasks_completed"]),
             "completed_in_window": int(row["completed_in_window"]),
+            "first_completed_on": convert_neo4j_date(row["first_completed_on"]),
+            "last_completed_on": convert_neo4j_date(row["last_completed_on"]),
         }
         for row in records
     ]
@@ -313,12 +314,30 @@ def _to_habit_analytics_rows(
     *different* row type. The two reads name their numerators differently
     (``completed_in_window`` vs ``completions_in_window``), and a shared
     ``dict[str, Any]`` let a caller read the wrong one as a silent 0; two
-    TypedDicts make that a type error.
+    TypedDicts make that a type error. The two moments arrive as Neo4j
+    ``DateTime`` values (or null) and leave as aware Python ``datetime``s.
     """
     return [
         {
-            "analytics": None if row["analytics"] is None else dict(row["analytics"]),
+            "total_completions": int(row["total_completions"]),
             "completions_in_window": int(row["completions_in_window"]),
+            "first_completed_at": to_native_datetime(row["first_completed_at"]),
+            "last_completed_at": to_native_datetime(row["last_completed_at"]),
+        }
+        for row in records
+    ]
+
+
+def _to_learning_velocity_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[LearningVelocityRow]:
+    """Project raw rows onto LearningVelocityRow (KeyError on alias drift)."""
+    return [
+        {
+            "total_kus": int(row["total_kus"]),
+            "recent_kus": int(row["recent_kus"]),
+            "total_hours": None if row["total_hours"] is None else float(row["total_hours"]),
+            "paths_completed": int(row["paths_completed"]),
         }
         for row in records
     ]
@@ -410,272 +429,89 @@ class CrossDomainBackend:
     # ANALYTICS — CrossDomainAnalyticsService methods
     # ====================================================================
 
-    # NOTE: upsert_financial_analytics removed (ADR-052 Phase 5) — native expense
-    # module demolished; no FinancialAnalytics / SPENT_IN_CATEGORY nodes are built.
-
-    async def upsert_learning_velocity(
-        self, user_uid: str, mastery_score: float, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Upsert LearningVelocity node for knowledge mastery tracking."""
-        return await self.executor.execute_query(
-            """
-            MERGE (velocity:LearningVelocity {user_uid: $user_uid})
-            ON CREATE SET
-                velocity.kus_mastered = 1,
-                velocity.total_mastery_score = $mastery_score,
-                velocity.first_mastery_at = datetime($occurred_at)
-            ON MATCH SET
-                velocity.kus_mastered = velocity.kus_mastered + 1,
-                velocity.total_mastery_score = velocity.total_mastery_score + $mastery_score,
-                velocity.last_mastery_at = datetime($occurred_at)
-            """,
-            {
-                "user_uid": user_uid,
-                "mastery_score": mastery_score,
-                "occurred_at": occurred_at,
-            },
-        )
-
-    async def increment_paths_completed(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Increment paths_completed counter on LearningVelocity node."""
-        return await self.executor.execute_query(
-            """
-            MERGE (velocity:LearningVelocity {user_uid: $user_uid})
-            SET velocity.paths_completed = coalesce(velocity.paths_completed, 0) + 1
-            """,
-            {"user_uid": user_uid},
-        )
-
-    async def _upsert_counter_analytics(
-        self,
-        label: str,
-        counter: str,
-        first_prop: str,
-        last_prop: str,
-        user_uid: str,
-        occurred_at: str,
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Upsert a per-user counter-analytics node (init-to-1 / increment).
-
-        THE shared body of the habit/event analytics upserts — they differ only
-        in node label and property names, all of which are backend-internal
-        literals (injection-safe).
-
-        A running tally is the *correct* shape for both remaining callers: a
-        habit completed fifty times genuinely has fifty completions, and there
-        is no "currently completed" set to count. Tasks left this helper
-        precisely because they do have one, and a task can be reopened: their
-        count is derived at read (:meth:`get_productivity_analytics`) and the
-        node keeps only the two stamps (:meth:`stamp_productivity_completion`).
-
-        ``last_prop`` is a MONOTONE max, not an assignment: completions no longer
-        arrive in chronological order. A born-completed event carries its authored
-        ``completed_at`` as the event's ``occurred_at``, so ingesting a March
-        completion after an April one must not move "most recent" backward. The
-        ``IS NULL`` arm matters — ``ON CREATE`` never writes ``last_prop``, so the
-        second completion is always comparing against null.
-        """
-        return await self.executor.execute_query(
-            f"""
-            MERGE (analytics:{label} {{user_uid: $user_uid}})
-            ON CREATE SET
-                analytics.{counter} = 1,
-                analytics.{first_prop} = datetime($occurred_at)
-            ON MATCH SET
-                analytics.{counter} = analytics.{counter} + 1,
-                analytics.{last_prop} = CASE
-                    WHEN analytics.{last_prop} IS NULL
-                      OR analytics.{last_prop} < datetime($occurred_at)
-                    THEN datetime($occurred_at)
-                    ELSE analytics.{last_prop}
-                END
-            """,
-            {"user_uid": user_uid, "occurred_at": occurred_at},
-        )
-
-    async def stamp_productivity_completion(
-        self, user_uid: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Record a genuine task-completion moment on the user's ProductivityAnalytics node.
-
-        The node holds exactly two figures — ``first_completion_at`` and
-        ``last_completion_at`` — and this is their only writer. ``first`` is
-        written once and never moved (``coalesce``); ``last`` advances to the
-        LATEST completion moment, whatever order the moments arrive in.
-        Idempotent per moment: re-running with the same ``occurred_at`` lands on
-        the same state.
-
-        ``last`` is a monotone max rather than an assignment because completion
-        moments are no longer chronological: the doors that ingest a completion
-        authored elsewhere — the born-completed create door and the vault bulk
-        upsert — publish ``TaskCompleted`` with the task's own
-        ``completion_date`` as ``occurred_at``, so a sync that ingests a March
-        ``✅`` line after an April one would otherwise move "when did this user
-        most recently complete something" backward.
-
-        Nothing else lives on the node. ``tasks_completed`` is **derived at
-        read** (:meth:`get_productivity_analytics`) from the tasks the user
-        currently owns in ``completed``, so there is no count to maintain here
-        and nothing for a reopen or a repeat complete to touch: neither is a
-        completion moment, and neither reaches this method — the handler gates
-        them (``CrossDomainAnalyticsService.handle_task_completed``).
-        """
-        return await self.executor.execute_query(
-            """
-            MERGE (analytics:ProductivityAnalytics {user_uid: $user_uid})
-            SET analytics.first_completion_at = coalesce(
-                    analytics.first_completion_at, datetime($occurred_at)
-                ),
-                analytics.last_completion_at = CASE
-                    WHEN analytics.last_completion_at IS NULL
-                      OR analytics.last_completion_at < datetime($occurred_at)
-                    THEN datetime($occurred_at)
-                    ELSE analytics.last_completion_at
-                END
-            """,
-            {"user_uid": user_uid, "occurred_at": occurred_at},
-        )
-
-    async def upsert_habit_analytics(
-        self, user_uid: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Upsert HabitAnalytics node for habit completion tracking."""
-        return await self._upsert_counter_analytics(
-            "HabitAnalytics",
-            "total_completions",
-            "first_completion_at",
-            "last_completion_at",
-            user_uid,
-            occurred_at,
-        )
-
-    async def upsert_event_analytics(
-        self, user_uid: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Upsert EventAnalytics node for event attendance tracking."""
-        return await self._upsert_counter_analytics(
-            "EventAnalytics",
-            "events_attended",
-            "first_attendance_at",
-            "last_attendance_at",
-            user_uid,
-            occurred_at,
-        )
-
     async def get_learning_velocity_metrics(
         self, user_uid: str, start_date: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Get LearningVelocity node with recent masteries.
+    ) -> Result[list[LearningVelocityRow]]:
+        """The user's mastery counts since ``start_date`` and their completed paths, in one row.
 
-        The LearningVelocity node itself is live (upserted by
-        `upsert_learning_velocity`); only its `<-[:HAS_VELOCITY]-(:MasteryRecord)`
-        satellites were writer-less. Recent masteries now come from the user's
-        own MASTERED edges — the live record of the same event.
-
-        The "when was this mastered" stamp is coalesced across the four MASTERED
-        writers, which disagree on its name. Creation stamps come first
-        (`mastered_at` / `achieved_at`) — all ON CREATE for the same event, and
-        exactly one writer creates any given edge, so coalesce picks the only
-        non-null rather than hiding a newer one.
+        Masteries come from the user's own MASTERED edges. The "when was this
+        mastered" stamp is coalesced across the four MASTERED writers, which
+        disagree on its name. Creation stamps come first (`mastered_at` /
+        `achieved_at`) — all ON CREATE for the same event, and exactly one writer
+        creates any given edge, so coalesce picks the only non-null rather than
+        hiding a newer one. `last_practiced` is the deliberate LAST fallback, and
+        it is required: `UserBackend.record_knowledge_mastery` — the writer
+        behind the pathways progress route — stamps no creation timestamp at all,
+        only `last_practiced`; without this arm its edges would read as undated
+        and drop out of every velocity window. Ordering it last keeps it from
+        overriding a real creation stamp on the writers that set both. The stamp
+        is read through `datetime()` because the writer decides its storage type.
 
         Scoped to `:Ku`: a PathStep carries a MASTERED edge too (derived by
         `PsMasteryService` when its last Ku is mastered), and counting it here
         would double every completed step into `kus_mastered_per_week`.
 
-        `last_practiced` is the deliberate LAST fallback, and it is required:
-        `UserBackend.record_knowledge_mastery` — the writer behind the pathways
-        progress route — stamps NO creation timestamp at all, only
-        `last_practiced`. Without this arm its edges read as undated and drop
-        out of every velocity window (Codex P2 on #737). Ordering it last keeps
-        it from overriding a real creation stamp on the writers that set both.
+        **`total_kus` and `recent_kus` count the same edges**, so the service's
+        `previous = total - recent` can never go negative.
 
         `time_to_mastery_hours` is written by just one writer; sum() ignores the
         nulls from the others.
 
-        **`total_kus` is counted here rather than read off the node.** The
-        node's `velocity.kus_mastered` is an EVENT-driven counter — only
-        `upsert_learning_velocity`, behind the `KnowledgeMastered` handler,
-        increments it — while `recent_kus` counts MASTERED edges from all four
-        writers. Mixing the two let the service compute
-        `previous = total - recent` as a NEGATIVE number whenever a mastery
-        landed through a non-event path such as the pathways progress route
-        (Codex P2 on #737). Both totals now come from the same source, so the
-        subtraction is well-founded by construction. `paths_completed` still
-        comes off the node — it has its own counter and no edge equivalent.
+        **`paths_completed` is the user's enrollments in `completed`** — the
+        status the progress recount writes onto the `ENROLLED_IN` edge in the
+        same statement that records the last Ku mastered
+        (`_LpProgressMixin.record_enrollment_progress`).
 
-        **Anchored on the User; the velocity node is OPTIONAL.** Requiring
-        `MATCH (velocity:LearningVelocity ...)` meant a user whose masteries all
-        came through non-event writers — no `KnowledgeMastered` event, so no
-        node was ever upserted — produced zero rows and reported `no_data`
-        despite having live MASTERED edges (Codex P2 on #737). That is the same
-        mandatory-match trap as the totals bug above, one clause higher up: the
-        edges are now the primary source, so the node must not gate them.
-        Callers must treat `velocity` as nullable.
+        Anchored on the User, every other match OPTIONAL: a valid user always
+        yields exactly one row, and an unknown one none.
         """
-        return await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})
-            OPTIONAL MATCH (velocity:LearningVelocity {user_uid: $user_uid})
+        return await self.executor.execute(
+            query=f"""
+            MATCH (u:User {{uid: $user_uid}})
             OPTIONAL MATCH (u)-[m:MASTERED]->(:Entity:Ku)
-            WITH velocity, m,
-                 coalesce(m.mastered_at, m.achieved_at, m.last_practiced)
+            WITH u, m,
+                 datetime(coalesce(m.mastered_at, m.achieved_at, m.last_practiced))
                      AS mastered_when
-            WITH velocity,
+            WITH u,
                  count(m) AS total_kus,
                  count(CASE WHEN mastered_when >= datetime($start_date) THEN 1 END)
                      AS recent_kus,
                  sum(CASE WHEN mastered_when >= datetime($start_date)
                           THEN m.time_to_mastery_hours END) AS total_hours
-            RETURN velocity, total_kus, recent_kus, total_hours
+            RETURN total_kus, recent_kus, total_hours,
+                   COUNT {{
+                       (u)-[enrollment:{RelationshipName.ENROLLED_IN.value}]->(:LearningPath)
+                       WHERE enrollment.status = $completed
+                   }} AS paths_completed
             """,
-            {"user_uid": user_uid, "start_date": start_date},
+            params={
+                "user_uid": user_uid,
+                "start_date": start_date,
+                "completed": EnrollmentStatus.COMPLETED.value,
+            },
+            processor=_to_learning_velocity_rows,
+            operation="get_learning_velocity_metrics",
         )
-
-    # NOTE: get_spending_by_category removed (ADR-052 Phase 5) — native expense
-    # module demolished; no FinancialAnalytics nodes to read.
-
-    # NOTE: get_journal_analytics removed (SKUEL030 tranche 3) — it read a
-    # JournalAnalytics node whose upsert writer went away with ADR-054's
-    # journal/submissions consolidation, unlike its three sibling analytics
-    # nodes (Learning/Productivity/Habit), which each still have one. It had
-    # matched zero rows ever since, so `get_mood_analysis` and the
-    # /api/analytics/mood-analysis endpoint it backed returned placeholder
-    # constants for every user; both went with it.
-
-    # NOTE: get_financial_goal_with_expenses removed (ADR-052 Phase 5) — native
-    # expense module demolished; no Expense nodes link to goals.
 
     async def get_productivity_analytics(
         self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[ProductivityAnalyticsRow]]:
-        """The user's completion stamps plus both task-completion counts, in one row.
+        """The user's task-completion figures, derived from their tasks in one row.
 
-        Three things in one row because they are read together and only
-        together: ``analytics`` carries the two completion stamps the
-        ``TaskCompleted`` handler maintains (``first_completion_at`` /
-        ``last_completion_at``), ``tasks_completed`` is every task the user
-        currently owns in ``completed``, and ``completed_in_window`` is the
-        subset of those whose completion stamp falls inside the window — the
-        numerator of ``completion_velocity``
-        (``CrossDomainAnalyticsService.get_productivity_metrics``).
+        Four figures from one traversal of the tasks the user currently owns in
+        ``completed``: ``tasks_completed`` (all of them), ``completed_in_window``
+        (those whose completion day falls inside the window — the numerator of
+        ``completion_velocity``, ``CrossDomainAnalyticsService.get_productivity_metrics``),
+        and ``first_completed_on`` / ``last_completed_on`` (the earliest and
+        latest completion day). One traversal, so the window is a subset of the
+        total by construction and the days belong to tasks the total counts. A
+        task deleted or reopened leaves every figure on the next read, with no
+        one having to hear about it.
 
-        **Both counts are derived from the same traversal, so the window is a
-        subset of the total by construction.** The total used to be a stored
-        figure the event handlers maintained, and a tally maintained from
-        completion events can only count up, while the graph it claimed to
-        describe also *loses* completions — a completed task deleted, or
-        reopened — so the stored number and the live window count could
-        contradict each other on one read (stored 9, actual 85 on the live
-        graph, 2026-08-23). Counting both here removes the stored field, its
-        reconciliation instrument, and the contradiction in one move. A reopen
-        lowers the total without anyone having to hear about it.
-
-        **Neither count depends on the node existing.** Every match here is
-        OPTIONAL and the aggregation always yields exactly one row, so a user
-        with no ``:ProductivityAnalytics`` node still gets real counts instead
-        of the confident 0.0 a mandatory MATCH produced; only the stamps are
-        absent for them, and honestly so.
+        **No figure depends on anything but the tasks.** Every match is OPTIONAL
+        and the aggregation always yields exactly one row, so a user whose
+        completions came through a door that announces nothing still gets real
+        figures, and a user with no tasks gets zeros and null days.
 
         ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
         window is inclusive of both (``CompletionVelocityWindow.start_date`` /
@@ -685,26 +521,27 @@ class CrossDomainBackend:
         refuse a future ``completion_date``, so no new row carries one — but a
         trailing window ends where the present does regardless of what the
         writers promise, and any such stamp already in the graph is contained
-        here rather than upstream. Window membership is the task's
-        canonical completion stamp and nothing else: ``Task.completion_date``,
-        written at the six update chokepoints
-        (``core/services/completion_stamp.py``) and frozen for history by
-        ``scripts/backfill_activity_completion_stamps.py``. A completed task
-        carrying no stamp is in the total (it *is* completed) but **excluded
-        from the window** rather than assumed recent — the same judgement
+        here rather than upstream. The same end bounds the two days: a stamp
+        after it is not a completion that has happened yet.
+
+        Every figure but the total reads the task's canonical completion stamp
+        and nothing else: ``Task.completion_date``, written at the six update
+        chokepoints (``core/services/completion_stamp.py``). A completed task
+        carrying no stamp is in the total (it *is* completed) but **in no window
+        and on no day** rather than assumed recent — the same judgement
         ``get_recent_activities`` makes, for the same reason: an absent row is
         honest, an invented date is not.
 
         ``date(left(toString(...), 10))`` normalises the stamp before comparing,
-        the same shape ``_EVENT_IMPACT_BATCH_QUERY`` uses. The stamp is an ISO date **string** on every row of the live graph
-        (the mapper ``isoformat()``s the ``date`` the stamp helper produces) —
-        but the writer, not this reader, decides the storage type. A bare
-        ``toString()`` comparison survives that for the *lower* bound, where
-        zero-padded ISO orders correctly, and quietly fails for the upper one: a
-        datetime-typed stamp stringifies with a time component, which sorts
-        *after* the bare end date and drops a row that belongs inside. Truncating
-        to the calendar day on both sides removes the asymmetry and matches what
-        the window actually means.
+        the same shape ``_EVENT_IMPACT_BATCH_QUERY`` uses. The stamp is an ISO
+        date **string** on every row of the live graph (the mapper
+        ``isoformat()``s the ``date`` the stamp helper produces) — but the
+        writer, not this reader, decides the storage type. A bare ``toString()``
+        comparison survives that for the *lower* bound, where zero-padded ISO
+        orders correctly, and quietly fails for the upper one: a datetime-typed
+        stamp stringifies with a time component, which sorts *after* the bare end
+        date and drops a row that belongs inside. Truncating to the calendar day
+        on both sides removes the asymmetry and matches what the window means.
 
         Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), the
         same traversal every other per-user analytic in this backend uses, not
@@ -712,15 +549,17 @@ class CrossDomainBackend:
         """
         return await self.executor.execute(
             query=f"""
-            OPTIONAL MATCH (analytics:ProductivityAnalytics {{user_uid: $user_uid}})
             OPTIONAL MATCH (u:User {{uid: $user_uid}})
             OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(t:Task {{status: $completed_status}})
-            WITH analytics, t, date(left(toString(t.completion_date), 10)) AS completed_on
-            RETURN analytics,
-                   count(t) AS tasks_completed,
+            WITH t, date(left(toString(t.completion_date), 10)) AS completed_on
+            WITH t, completed_on,
+                 CASE WHEN completed_on <= date($window_end) THEN completed_on END AS completed_by_now
+            RETURN count(t) AS tasks_completed,
                    count(CASE WHEN completed_on >= date($window_start)
                                AND completed_on <= date($window_end) THEN 1 END)
-                       AS completed_in_window
+                       AS completed_in_window,
+                   min(completed_by_now) AS first_completed_on,
+                   max(completed_by_now) AS last_completed_on
             """,
             params={
                 "user_uid": user_uid,
@@ -735,24 +574,20 @@ class CrossDomainBackend:
     async def get_habit_analytics(
         self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[HabitAnalyticsRow]]:
-        """The stored HabitAnalytics node plus the trailing-window completion count.
+        """The user's habit-completion figures, derived from their completion records in one row.
 
-        Two things in one row because they are read together and only together:
-        ``analytics`` carries the running figures the ``HabitCompleted`` handler
-        maintains (``total_completions`` and the two completion stamps), and
-        ``completions_in_window`` is counted live from the graph — the numerator
-        of ``consistency_score``
-        (``CrossDomainAnalyticsService.get_habit_consistency``).
+        Four figures from one traversal of the user's ``:HabitCompletion``
+        records: ``total_completions`` (all of them), ``completions_in_window``
+        (those completed inside the window — the numerator of
+        ``consistency_score``, ``CrossDomainAnalyticsService.get_habit_consistency``),
+        and ``first_completed_at`` / ``last_completed_at`` (the earliest and
+        latest moment). One traversal, so the window is a subset of the total by
+        construction. Every completion door writes a record — the bulk door
+        included — so every completion it writes reaches every figure.
 
-        **The count is derived, so it does not depend on the node existing.**
-        Every match here is OPTIONAL and the aggregation always yields exactly
-        one row, so a user whose completions arrived through a door that writes
-        no analytics node still gets a real consistency score instead of the
-        confident 0.0 a mandatory MATCH produced. That is not hypothetical for
-        habits: ``HabitCompletionBulk`` — the multi-day bulk logging door — has
-        no analytics subscriber at all, so its completions exist as
-        ``:HabitCompletion`` nodes the tally has never seen. Counting the nodes
-        rather than reading the tally is what brings them into the metric.
+        **No figure depends on anything but the records.** Every match is
+        OPTIONAL and the aggregation always yields exactly one row, so a user
+        with no records gets zeros and null moments.
 
         ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
         window is inclusive of both (``HabitConsistencyWindow.start_date`` /
@@ -766,11 +601,13 @@ class CrossDomainBackend:
         calendar's day-scoped complete door bounds ``on_date`` to genuine
         occurrence days without bounding it at today, so a future-stamped record
         is reachable — and a lower-bound-only predicate would count it in every
-        window from now until its date arrived.
+        window from now until its date arrived. The same end bounds the two
+        moments: a record after it has not happened yet. A record with no
+        ``completed_at`` is in the total and names no moment.
 
-        ``datetime()`` reads the stamp before comparing, because the writer
-        decides the storage type, not this reader. ``completed_at`` is an ISO
-        datetime **string** on every live row (the mapper ``isoformat()``s the
+        ``datetime()`` reads the stamp before comparing or ordering, because the
+        writer decides the storage type, not this reader. ``completed_at`` is an
+        ISO datetime **string** on every live row (the mapper ``isoformat()``s the
         ``datetime`` the DTO carries), but a temporally-typed value has to keep
         comparing correctly rather than silently matching nothing — which would
         read as "this user was less consistent", never as an error. The bounds
@@ -778,18 +615,23 @@ class CrossDomainBackend:
         keeps the two operands the same temporal type.
 
         Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), so one
-        user's completions cannot reach another's score.
+        user's completions cannot reach another's figures.
         """
         start_bound, end_bound = stored_day_bounds(
             date.fromisoformat(window_start), date.fromisoformat(window_end), current_zone()
         )
         return await self.executor.execute(
             query=f"""
-            OPTIONAL MATCH (analytics:HabitAnalytics {{user_uid: $user_uid}})
             OPTIONAL MATCH (u:User {{uid: $user_uid}})
             OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(hc:HabitCompletion)
-            WHERE {build_completion_in_window_predicate("hc", "start_bound", "end_bound")}
-            RETURN analytics, count(hc) AS completions_in_window
+            WITH hc,
+                 CASE WHEN datetime(hc.completed_at) < datetime($end_bound)
+                      THEN datetime(hc.completed_at) END AS completed_by_now
+            RETURN count(hc) AS total_completions,
+                   count(CASE WHEN {build_completion_in_window_predicate("hc", "start_bound", "end_bound")}
+                              THEN 1 END) AS completions_in_window,
+                   min(completed_by_now) AS first_completed_at,
+                   max(completed_by_now) AS last_completed_at
             """,
             params={
                 "user_uid": user_uid,
